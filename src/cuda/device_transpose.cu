@@ -250,14 +250,14 @@ __global__ void transpose_batch_kernel(
 /// @param[in] lda
 ///     Leading dimension of A. lda >= n.
 ///
-/// @param[in] stream
-///     CUDA stream to execute in.
+/// @param[in] queue
+///     BLAS++ queue to execute in.
 ///
 template <typename scalar_t>
 void transpose(
     int64_t n,
     scalar_t* A, int64_t lda,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
     if (n <= 1)
         return;
@@ -279,7 +279,7 @@ void transpose(
     }
     dim3 threads( ib, ib );
 
-    transpose_kernel<<< blocks, threads, 0, stream >>>
+    transpose_kernel<<< blocks, threads, 0, queue.stream() >>>
         (n, A, lda);
 
     slate_cuda_call(cudaGetLastError());
@@ -303,15 +303,15 @@ void transpose(
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.
 ///
-/// @param[in] stream
-///     CUDA stream to execute in.
+/// @param[in] queue
+///     BLAS++ queue to execute in.
 ///
 template <typename scalar_t>
 void transpose_batch(
     int64_t n,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
     if (batch_count < 0 || n <= 1)
         return;
@@ -334,7 +334,7 @@ void transpose_batch(
     }
     dim3 threads( ib, ib );
 
-    transpose_batch_kernel<<< blocks, threads, 0, stream >>>
+    transpose_batch_kernel<<< blocks, threads, 0, queue.stream() >>>
         (n, Aarray, lda);
 
     slate_cuda_call(cudaGetLastError());
@@ -365,15 +365,15 @@ void transpose_batch(
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.
 ///
-/// @param[in] stream
-///     CUDA stream to execute in.
+/// @param[in] queue
+///     BLAS++ queue to execute in.
 ///
 template <typename scalar_t, int NX>
 void transpose(
     int64_t m, int64_t n,
     scalar_t* dA,  int64_t lda,
     scalar_t* dAT, int64_t ldat,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
     if ((m <= 0) || (n <= 0))
         return;
@@ -387,7 +387,7 @@ void transpose(
 
     dim3 grid( 1, mt, nt );
     dim3 threads( NX, NY );
-    transpose_kernel<scalar_t, NX><<< grid, threads, 0, stream >>>
+    transpose_kernel<scalar_t, NX><<< grid, threads, 0, queue.stream() >>>
         ( m, n, dA, lda, dAT, ldat );
 
     slate_cuda_call(cudaGetLastError());
@@ -422,8 +422,8 @@ void transpose(
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.
 ///
-/// @param[in] stream
-///     CUDA stream to execute in.
+/// @param[in] queue
+///     BLAS++ queue to execute in.
 ///
 template <typename scalar_t, int NX>
 void transpose_batch(
@@ -431,7 +431,7 @@ void transpose_batch(
     scalar_t **dA_array,  int64_t lda,
     scalar_t **dAT_array, int64_t ldat,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
     if ((m <= 0) || (n <= 0))
         return;
@@ -446,7 +446,7 @@ void transpose_batch(
 
     dim3 grid( uint(batch_count), mt, nt );
     dim3 threads( NX, NY, 1 );
-    transpose_batch_kernel<scalar_t, NX><<< grid, threads, 0, stream >>>
+    transpose_batch_kernel<scalar_t, NX><<< grid, threads, 0, queue.stream() >>>
         ( m, n, dA_array, lda, dAT_array, ldat );
 
     slate_cuda_call(cudaGetLastError());
@@ -458,25 +458,25 @@ template
 void transpose(
     int64_t n,
     float* A, int64_t lda,
-    cudaStream_t stream);
+    blas::Queue& queue);
 
 template
 void transpose(
     int64_t n,
     double* A, int64_t lda,
-    cudaStream_t stream);
+    blas::Queue& queue);
 
 template
 void transpose(
     int64_t n,
     cuFloatComplex* A, int64_t lda,
-    cudaStream_t stream);
+    blas::Queue& queue);
 
 template
 void transpose(
     int64_t n,
     cuDoubleComplex* A, int64_t lda,
-    cudaStream_t stream);
+    blas::Queue& queue);
 
 // ----------------------------------------
 template
@@ -484,28 +484,28 @@ void transpose_batch(
     int64_t n,
     float** Aarray, int64_t lda,
     int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue& queue);
 
 template
 void transpose_batch(
     int64_t n,
     double** Aarray, int64_t lda,
     int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue& queue);
 
 template
 void transpose_batch(
     int64_t n,
     cuFloatComplex** Aarray, int64_t lda,
     int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue& queue);
 
 template
 void transpose_batch(
     int64_t n,
     cuDoubleComplex** Aarray, int64_t lda,
     int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue& queue);
 
 
 // ----------------------------------------
@@ -514,13 +514,13 @@ void transpose(
     int64_t m, int64_t n,
     float* dA,  int64_t lda,
     float* dAT, int64_t ldat,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
     transpose<float,32>(
         m, n,
         dA,  lda,
         dAT, ldat,
-        stream);
+        queue);
 }
 
 template<>
@@ -528,13 +528,13 @@ void transpose(
     int64_t m, int64_t n,
     double* dA,  int64_t lda,
     double* dAT, int64_t ldat,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
     transpose<double,32>(
         m, n,
         dA,  lda,
         dAT, ldat,
-        stream);
+        queue);
 }
 
 template<>
@@ -542,13 +542,13 @@ void transpose(
     int64_t m, int64_t n,
     cuFloatComplex* dA,  int64_t lda,
     cuFloatComplex* dAT, int64_t ldat,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
     transpose<cuFloatComplex,32>(
         m, n,
         dA,  lda,
         dAT, ldat,
-        stream);
+        queue);
 }
 
 template<>
@@ -556,13 +556,13 @@ void transpose(
     int64_t m, int64_t n,
     cuDoubleComplex* dA,  int64_t lda,
     cuDoubleComplex* dAT, int64_t ldat,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
     transpose<cuDoubleComplex,16>(
         m, n,
         dA,  lda,
         dAT, ldat,
-        stream);
+        queue);
 }
 
 // ----------------------------------------
@@ -572,14 +572,14 @@ void transpose_batch(
     float **dA_array,  int64_t lda,
     float **dAT_array, int64_t ldat,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
     transpose_batch<float,32>(
         m, n,
         dA_array,  lda,
         dAT_array, ldat,
         batch_count,
-        stream);
+        queue);
 }
 
 template<>
@@ -588,14 +588,14 @@ void transpose_batch(
     double **dA_array,  int64_t lda,
     double **dAT_array, int64_t ldat,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
     transpose_batch<double,32>(
         m, n,
         dA_array,  lda,
         dAT_array, ldat,
         batch_count,
-        stream);
+        queue);
 }
 
 template<>
@@ -604,14 +604,14 @@ void transpose_batch(
     cuFloatComplex **dA_array,  int64_t lda,
     cuFloatComplex **dAT_array, int64_t ldat,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
     transpose_batch<cuFloatComplex,32>(
         m, n,
         dA_array,  lda,
         dAT_array, ldat,
         batch_count,
-        stream);
+        queue);
 }
 
 template<>
@@ -620,14 +620,14 @@ void transpose_batch(
     cuDoubleComplex **dA_array,  int64_t lda,
     cuDoubleComplex **dAT_array, int64_t ldat,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
     transpose_batch<cuDoubleComplex,16>(
         m, n,
         dA_array,  lda,
         dAT_array, ldat,
         batch_count,
-        stream);
+        queue);
 }
 
 } // namespace device

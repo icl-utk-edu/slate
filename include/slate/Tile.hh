@@ -696,7 +696,7 @@ void Tile<scalar_t>::layoutConvert(
         else {
             blas::set_device(device_);
             // todo: replace queue.stream() with queue only
-            device::transpose(mb(), data(), stride(), queue.stream());
+            device::transpose(mb(), data(), stride(), queue);
             if (! async)
                 queue.sync();
         }
@@ -732,7 +732,7 @@ void Tile<scalar_t>::layoutConvert(
                 device::transpose(
                     layout() == Layout::ColMajor ? mb_ : nb_,
                     layout() == Layout::ColMajor ? nb_ : mb_,
-                    src_data, src_stride, data_, stride_, queue.stream());
+                    src_data, src_stride, data_, stride_, queue);
                 if (! async)
                     queue.sync();
             }
@@ -755,7 +755,7 @@ void Tile<scalar_t>::layoutConvert(
                 device::transpose(
                     layout() == Layout::ColMajor ? mb_ : nb_,
                     layout() == Layout::ColMajor ? nb_ : mb_,
-                    data_, stride_, work_data, work_stride, queue.stream());
+                    data_, stride_, work_data, work_stride, queue);
                 // todo: fix BLAS++ to avoid casting
                 blas::device_memcpy<scalar_t>(
                     data_, work_data, size(),

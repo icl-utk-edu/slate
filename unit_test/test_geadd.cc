@@ -35,8 +35,6 @@ void test_geadd_dev()
     int ldb = lda;
     double alpha = 0.5;
     double beta  = 0.3;
-    double neg_one = -1.0;
-    int ione = 1;
     int64_t idist = 1;
     int64_t iseed[4] = { 0, 1, 2, 3 };
 
@@ -64,13 +62,13 @@ void test_geadd_dev()
     dAdata = blas::device_malloc<double>(lda * n);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
-    A.copyData(&dA, queue.stream());
+    A.copyData(&dA, queue);
 
     double* dBdata;
     dBdata = blas::device_malloc<double>(ldb * n);
     test_assert(dBdata != nullptr);
     slate::Tile<double> dB(m, n, dBdata, ldb, 0, slate::TileKind::UserOwned);
-    B.copyData(&dB, queue.stream());
+    B.copyData(&dB, queue);
 
     const int batch_count = 1;
     double* Aarray[batch_count];
@@ -103,7 +101,7 @@ void test_geadd_dev()
                         batch_count,
                         blas::MemcpyKind::DeviceToHost,
                         queue);
-    dB.copyData(&B, queue.stream());
+    dB.copyData(&B, queue);
 
     // compute on CPU to check the results
     for( int j = 0; j < n; ++j ) {

@@ -33,8 +33,6 @@ void test_gecopy_dev()
     int n = 30;
     int lda = roundup(m, 8);
     int ldb = lda;
-    double alpha = 0.5;
-    double beta  = 0.3;
     int64_t idist = 1;
     int64_t iseed[4] = { 0, 1, 2, 3 };
 

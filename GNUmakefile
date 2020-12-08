@@ -597,6 +597,9 @@ unit_src = \
         unit_test/test_lq.cc \
         unit_test/test_norm.cc \
         unit_test/test_qr.cc \
+        unit_test/test_geadd.cc \
+        unit_test/test_gecopy.cc \
+        unit_test/test_geset.cc \
 
 # unit test framework
 unit_test_obj = \

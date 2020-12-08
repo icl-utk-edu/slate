@@ -35,8 +35,6 @@ void test_geset_dev()
     int ldb = lda;
     double diag_value = 0.5;
     double offdiag_value  = 0.3;
-    double neg_one = -1.0;
-    int ione = 1;
 
     double* Adata = new double[ lda * n ];
     slate::Tile<double> A(m, n, Adata, lda, -1, slate::TileKind::UserOwned);
@@ -74,7 +72,7 @@ void test_geset_dev()
                         batch_count,
                         blas::MemcpyKind::DeviceToHost,
                         queue);
-    dA.copyData(&A, queue.stream());
+    dA.copyData(&A, queue);
 
     // compute on CPU to check the results
     for( int j = 0; j < n; ++j ) {

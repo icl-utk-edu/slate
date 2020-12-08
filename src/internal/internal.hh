@@ -11,9 +11,6 @@
 
 #include "slate/types.hh"
 
-#include "slate/internal/cuda.hh"
-#include "slate/internal/cublas.hh"
-
 #ifdef SLATE_WITH_MKL
     #include <mkl_cblas.h>
 #else
@@ -28,31 +25,6 @@
 #include "slate/TriangularBandMatrix.hh"
 #include "slate/BandMatrix.hh"
 #include "internal/internal_batch.hh"
-
-//------------------------------------------------------------------------------
-#define THROW_IF(cond, error) \
-    if (cond) \
-        throw TrueConditionException( \
-            #cond, error, __FILE__, __func__, __LINE__);
-
-#define THROW_IF_NOT(cond, error) \
-    if (! (cond)) \
-        throw FalseConditionException( \
-            #cond, error, __FILE__, __func__, __LINE__);
-
-#define MPI_CALL(call) \
-{ \
-    int retval = (call); \
-    if (retval != MPI_SUCCESS) \
-        throw MpiException(#call, retval, __FILE__, __func__, __LINE__); \
-}
-
-#define CUDA_CALL(call) \
-{ \
-    cudaError_t error = (call); \
-    if (error != cudaSuccess) \
-        throw CudaException(#call, error, __FILE__, __func__, __LINE__); \
-}
 
 namespace slate {
 
@@ -72,28 +44,6 @@ namespace internal {
 ///   internal::specialization::gemm.
 namespace specialization {
     // here just for documentation
-}
-
-//------------------------------------------------------------------------------
-inline CBLAS_TRANSPOSE cblas_trans_const(Op op)
-{
-    switch (op) {
-        case Op::NoTrans:   return CblasNoTrans;
-        case Op::Trans:     return CblasTrans;
-        case Op::ConjTrans: return CblasConjTrans;
-        default: assert( false );
-    }
-}
-
-//------------------------------------------------------------------------------
-inline cublasOperation_t cublas_op_const(Op op)
-{
-    switch (op) {
-        case Op::NoTrans:   return CUBLAS_OP_N;
-        case Op::Trans:     return CUBLAS_OP_T;
-        case Op::ConjTrans: return CUBLAS_OP_C;
-        default: assert(false);
-    }
 }
 
 //------------------------------------------------------------------------------

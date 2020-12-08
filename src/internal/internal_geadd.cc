@@ -241,7 +241,7 @@ void geadd(internal::TargetType<Target::Devices>,
             // TODO: Use the A.queue()
             //blas::Queue* queue = A.queue(device, batch_arrays_index);
 
-            blas::device_memcpy<scalar_t*>((void*)a_array_dev, (void*)a_array_host,
+            blas::device_memcpy<scalar_t*>(a_array_dev, a_array_host,
                                 batch_count*2,
                                 blas::MemcpyKind::HostToDevice,
                                 queue);

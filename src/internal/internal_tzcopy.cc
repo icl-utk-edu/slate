@@ -327,12 +327,12 @@ void copy(internal::TargetType<Target::Devices>,
             blas::Queue* queue = A.queue(device, batch_arrays_index);
             blas::set_device(device);
 
-            blas::device_memcpy<src_scalar_t*>((void*)a_array_dev, (void*)a_array_host,
+            blas::device_memcpy<src_scalar_t*>(a_array_dev, a_array_host,
                                 batch_count,
                                 blas::MemcpyKind::HostToDevice,
                                 *queue);
 
-            blas::device_memcpy<dst_scalar_t*>((void*)b_array_dev, (void*)b_array_host,
+            blas::device_memcpy<dst_scalar_t*>(b_array_dev, b_array_host,
                                 batch_count,
                                 blas::MemcpyKind::HostToDevice,
                                 *queue);

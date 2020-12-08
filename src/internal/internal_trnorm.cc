@@ -528,7 +528,7 @@ void norm(
                 //blas::Queue* queue = A.queue(device, batch_arrays_index);
                 blas::Queue queue(device, batch_arrays_index);
 
-                blas::device_memcpy<scalar_t*>((void*)a_dev_array, (void*)a_host_array,
+                blas::device_memcpy<scalar_t*>(a_dev_array, a_host_array,
                                     batch_count,
                                     blas::MemcpyKind::HostToDevice,
                                     queue);
@@ -560,7 +560,7 @@ void norm(
 
                 vals_dev_array = vals_dev_arrays[device];
 
-                blas::device_memcpy<real_t>((void*)vals_host_array, (void*)vals_dev_array,
+                blas::device_memcpy<real_t>(vals_host_array, vals_dev_array,
                                     batch_count*ldv,
                                     blas::MemcpyKind::DeviceToHost,
                                     queue);

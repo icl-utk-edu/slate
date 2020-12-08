@@ -26,6 +26,17 @@
 namespace slate {
 namespace internal {
 
+//------------------------------------------------------------------------------
+inline CBLAS_TRANSPOSE cblas_trans_const(Op op)
+{
+    switch (op) {
+        case Op::NoTrans:   return CblasNoTrans;
+        case Op::Trans:     return CblasTrans;
+        case Op::ConjTrans: return CblasConjTrans;
+        default: assert( false );
+    }
+}
+
 #ifdef SLATE_WITH_MKL
 //------------------------------------------------------------------------------
 inline void cblas_gemm_batch(
@@ -135,6 +146,17 @@ inline void cblas_gemm_batch(
                       group_count, group_size);
 }
 #endif // SLATE_WITH_MKL
+
+//------------------------------------------------------------------------------
+inline cublasOperation_t cublas_op_const(Op op)
+{
+    switch (op) {
+        case Op::NoTrans:   return CUBLAS_OP_N;
+        case Op::Trans:     return CUBLAS_OP_T;
+        case Op::ConjTrans: return CUBLAS_OP_C;
+        default: assert(false);
+    }
+}
 
 //------------------------------------------------------------------------------
 inline cublasStatus_t cublasGemmBatched(

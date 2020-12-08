@@ -8,8 +8,6 @@
 
 #include "slate/enums.hh"
 
-#include <blas.hh>
-
 namespace slate {
 
 /// @namespace slate::device

@@ -418,7 +418,7 @@ void permuteRows(
                             int64_t i1 = i;
                             int64_t i2 = pivot[i].elementOffset();
                             int64_t idx2 = pivot[i].tileIndex();
-                            slate_cuda_call(cudaSetDevice(device));
+                            blas::set_device(device); // todo: do we need it?
                             cublasSwap(A.compute_queue(device)->handle(),
                                        A.tileNb(j),
                                        &A(0, j, device).at(i1, 0), 1,
@@ -452,9 +452,7 @@ void permuteRows(
         }
 
         for (int device : dev_set) {
-            slate_cuda_call(cudaSetDevice(device));
-            slate_cuda_call(
-                cudaStreamSynchronize(A.compute_queue(device)->stream()));
+            A.compute_queue(device)->sync();
         }
     }
 }

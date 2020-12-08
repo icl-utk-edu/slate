@@ -1014,7 +1014,7 @@ void test_device_convert_layout(int m, int n)
     blas::Queue queue(device, batch_arrays_index);
 
     Adata_dev = blas::device_malloc<scalar_t>(Adata.size());
-    blas::device_memcpy<scalar_t>((void*)Adata_dev, (void*)Adata.data(),
+    blas::device_memcpy<scalar_t>(Adata_dev, Adata.data(),
                         Adata.size(),
                         blas::MemcpyKind::HostToDevice,
                         queue);
@@ -1033,14 +1033,14 @@ void test_device_convert_layout(int m, int n)
     }
     scalar_t** Aarray_dev;
     Aarray_dev = blas::device_malloc<scalar_t*>(Aarray.size());
-    blas::device_memcpy<scalar_t*>((void*)Aarray_dev, (void*)Aarray.data(),
+    blas::device_memcpy<scalar_t*>(Aarray_dev, Aarray.data(),
                         Aarray.size(),
                         blas::MemcpyKind::HostToDevice,
                         queue);
 
     scalar_t** Aarray_dev_ext;
     Aarray_dev_ext = blas::device_malloc<scalar_t*>(Aarray_ext.size());
-    blas::device_memcpy<scalar_t*>((void*)Aarray_dev_ext, (void*)Aarray_ext.data(),
+    blas::device_memcpy<scalar_t*>(Aarray_dev_ext, Aarray_ext.data(),
                         Aarray_ext.size(),
                         blas::MemcpyKind::HostToDevice,
                         queue);
@@ -1079,8 +1079,8 @@ void test_device_convert_layout(int m, int n)
     }
     if (verbose)
         printf( "\n" );
-    blas::device_memcpy<scalar_t>((void*)Adata.data(),
-                        (m == n ? (void*)Adata_dev : (void*)Adata_dev_ext),
+    blas::device_memcpy<scalar_t>(Adata.data(),
+                        (m == n ? Adata_dev : Adata_dev_ext),
                         Adata.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);
@@ -1135,8 +1135,8 @@ void test_device_convert_layout(int m, int n)
     }
     if (verbose)
         printf( "\n" );
-    blas::device_memcpy<scalar_t>((void*)Adata.data(),
-                        (m == n ? (void*)Adata_dev : (void*)Adata_dev_ext),
+    blas::device_memcpy<scalar_t>(Adata.data(),
+                        (m == n ? Adata_dev : Adata_dev_ext),
                         Adata.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);

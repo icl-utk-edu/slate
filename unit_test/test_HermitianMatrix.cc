@@ -283,7 +283,7 @@ void test_HermitianMatrix_fromDevices()
                                ntiles_local2, ntiles_dev, n_dev);
         assert(ntiles_local == ntiles_local2);
 
-        // cudaMalloc returns null if len = 0, so make it at least 1.
+        // blas::device_malloc returns null if len = 0, so make it at least 1.
         int64_t len = std::max(lda * n_dev, 1);
         Aarray[dev] = blas::device_malloc<double>(len);
         assert(Aarray[dev] != nullptr);

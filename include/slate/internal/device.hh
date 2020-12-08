@@ -6,26 +6,9 @@
 #ifndef SLATE_DEVICE_HH
 #define SLATE_DEVICE_HH
 
-#include "slate/internal/cuda.hh"
 #include "slate/enums.hh"
 
 #include <blas.hh>
-
-//------------------------------------------------------------------------------
-// Extend BLAS real_type to cover cuComplex
-namespace blas {
-
-template<>
-struct real_type_traits<cuFloatComplex> {
-    using real_t = float;
-};
-
-template<>
-struct real_type_traits<cuDoubleComplex> {
-    using real_t = double;
-};
-
-} // namespace blas
 
 namespace slate {
 

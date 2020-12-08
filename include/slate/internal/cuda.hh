@@ -11,6 +11,8 @@
 
 #include "slate/Exception.hh"
 
+#include "blas.hh"
+
 #if (!defined(SLATE_NO_CUDA)) || defined(__NVCC__)
     #include <cuda_runtime.h>
     #include <cuComplex.h>
@@ -118,5 +120,21 @@ public:
     } while(0)
 
 } // namespace slate
+
+//------------------------------------------------------------------------------
+// Extend BLAS real_type to cover cuComplex
+namespace blas {
+
+template<>
+struct real_type_traits<cuFloatComplex> {
+    using real_t = float;
+};
+
+template<>
+struct real_type_traits<cuDoubleComplex> {
+    using real_t = double;
+};
+
+} // namespace blas
 
 #endif // SLATE_CUDA_HH

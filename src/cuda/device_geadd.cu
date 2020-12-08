@@ -3,11 +3,12 @@
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
+#include "slate/internal/cuda.hh"
 #include "slate/internal/device.hh"
+
 #include "device_util.cuh"
 
 #include <cstdio>
-#include <cuComplex.h>
 
 namespace slate {
 namespace device {

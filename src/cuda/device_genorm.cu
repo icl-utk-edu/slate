@@ -9,6 +9,8 @@
 #include <cstdio>
 #include <cuComplex.h>
 
+//#include "../blaspp/include/blas/device.hh"
+
 namespace slate {
 namespace device {
 
@@ -23,7 +25,6 @@ namespace device {
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
-///     m <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
@@ -48,24 +49,33 @@ __global__ void genormMaxKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    const int idx = threadIdx.x;
-    scalar_t const* row = &tile[idx];
-
-    // Each thread finds max of one row.
-    // This does coalesced reads of one column at a time in parallel.
-    real_t max = abs(row[0]);
-    for (int64_t j = 1; j < n; ++j)
-        max = max_nan(max, abs(row[j*lda]));
 
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
     real_t* row_max = (real_t*) dynamic_data;
-    row_max[idx] = max;
-    __syncthreads();
+    int chunk;
+    if (threadIdx.x < blockDim.x) {
+        row_max[threadIdx.x] = 0;
+    }
+
+    // This does coalesced reads of one column at a time in parallel.
+    for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
+        chunk = idx % blockDim.x;
+        scalar_t const* row = &tile[idx];
+        real_t max = 0;
+
+        // Each thread finds max of one row.
+        for (int64_t j = 0; j < n; ++j)
+            max = max_nan(max, abs(row[j*lda]));
+
+        // Save partial results in shared memory.
+        row_max[chunk] = max_nan(max, row_max[chunk]);
+    }
 
     // Reduction to find max of tile.
-    max_nan_reduce(blockDim.x, idx, row_max);
-    if (idx == 0) {
+    __syncthreads();
+    max_nan_reduce(blockDim.x, threadIdx.x, row_max);
+    if (threadIdx.x == 0) {
         tiles_maxima[blockIdx.x] = row_max[0];
     }
 }
@@ -86,7 +96,6 @@ const int one_ib1 = 33;
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
-///     n <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] tiles
 ///     Array of tiles of dimension gridDim.x,
@@ -147,7 +156,6 @@ __global__ void genormOneKernel(
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
 ///     Also the number of threads per block, hence,
-///     m <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
@@ -175,16 +183,19 @@ __global__ void genormInfKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    const int idx = threadIdx.x;
-    scalar_t const* row = &tile[idx];
+    int idx = threadIdx.x;
 
-    // Each thread sums one row.
-    // This does coalesced reads of one column at a time in parallel.
-    real_t sum = abs(row[0]);
-    for (int64_t j = 1; j < n; ++j)
-        sum += abs(row[j*lda]);
+    for (idx = threadIdx.x; idx < m; idx += blockDim.x) {
+        scalar_t const* row = &tile[idx];
 
-    tiles_sums[blockIdx.x*ldv + idx] = sum;
+        // Each thread sums one row.
+        // This does coalesced reads of one column at a time in parallel.
+        real_t sum = abs(row[0]);
+        for (int64_t j = 1; j < n; ++j)
+            sum += abs(row[j*lda]);
+
+        tiles_sums[blockIdx.x*ldv + idx] = sum;
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -200,7 +211,6 @@ __global__ void genormInfKernel(
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///     Also the number of threads per block, hence,
-///     n <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] tiles
 ///     Array of tiles of dimension blockDim.x,
@@ -225,32 +235,47 @@ __global__ void genormFroKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    const int idx = threadIdx.x;
-    scalar_t const* row = &tile[idx];
-
-    // Each thread finds sum-of-squares of one row.
-    // This does coalesced reads of one column at a time in parallel.
-    real_t scale = abs(row[0]);
-    real_t sumsq = 1;
-    for (int64_t j = 1; j < n; ++j) {
-        add_sumsq(scale, sumsq, abs(row[j*lda]));
-    }
+    int chunk;
 
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
     real_t* row_scale = (real_t*) &dynamic_data[0];
-    real_t* row_sumsq = &row_scale[m];
-    row_scale[idx] = scale;
-    row_sumsq[idx] = sumsq;
-    __syncthreads();
+    real_t* row_sumsq = &row_scale[blockDim.x];
+
+    real_t tile_scale = row_scale[0];
+    real_t tile_sumsq = row_sumsq[0];
+
+    // Each thread finds sum-of-squares of one row.
+    // This does coalesced reads of one column at a time in parallel.
+    for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
+        real_t scale = 0;
+        real_t sumsq = 1;
+        chunk = idx % blockDim.x;
+        scalar_t const* row = &tile[idx];
+
+        for (int64_t j = 0; j < n; ++j) {
+            add_sumsq(scale, sumsq, abs(row[j*lda]));
+        }
+
+        if (idx < blockDim.x) {
+            row_scale[chunk] = 0;
+            row_sumsq[chunk] = 1;
+        }
+
+        // Save partial results in shared memory.
+        add_sumsq(row_scale[chunk], row_sumsq[chunk], scale, sumsq);
+        __syncthreads();
+    }
 
     // Reduction to find sum-of-squares of tile.
     // todo: parallel reduction.
-    if (idx == 0) {
-        real_t tile_scale = row_scale[0];
-        real_t tile_sumsq = row_sumsq[0];
-        for (int64_t i = 1; i < m; ++i)
-            add_sumsq(tile_scale, tile_sumsq, row_scale[i], row_sumsq[i]);
+    if (threadIdx.x == 0)
+    {
+        tile_scale = row_scale[0];
+        tile_sumsq = row_sumsq[0];
+        for (int64_t chunk = 1; chunk < blockDim.x && chunk < m; ++chunk) {
+            add_sumsq(tile_scale, tile_sumsq, row_scale[chunk], row_sumsq[chunk]);
+        }
 
         tiles_values[blockIdx.x*2 + 0] = tile_scale;
         tiles_values[blockIdx.x*2 + 1] = tile_sumsq;
@@ -307,7 +332,6 @@ __global__ void geColNormsMaxKernel(
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 0.
-///     Currently, n <= 1024 due to CUDA implementation.
 ///
 /// @param[in] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
@@ -352,9 +376,10 @@ void genorm(
     int64_t m, int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
     using real_t = blas::real_type<scalar_t>;
+    int64_t nb = 512;
 
     // quick return
     if (batch_count == 0)
@@ -366,13 +391,11 @@ void genorm(
         // max norm
         if (norm == lapack::Norm::Max) {
             if (m == 0 || n == 0) {
-                cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count, stream);
+                blas::device_memset(values, 0, batch_count, queue);
             }
             else {
-                assert(m <= 1024);
                 assert(ldv == 1);
-                // Max 1024 threads * 8 bytes = 8 KiB shared memory in double [complex].
-                genormMaxKernel<<<batch_count, m, sizeof(real_t) * m, stream>>>
+                genormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, queue.stream()>>>
                     (m, n, Aarray, lda, values);
             }
         }
@@ -380,11 +403,11 @@ void genorm(
         // one norm
         else if (norm == lapack::Norm::One) {
             if (m == 0 || n == 0) {
-                cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, stream);
+                blas::device_memset(values, 0, batch_count * n, queue);
             }
             else {
                 assert(ldv >= n);
-                genormOneKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, stream>>>
+                genormOneKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, queue.stream()>>>
                     (m, n, Aarray, lda, values, ldv);
             }
         }
@@ -392,12 +415,11 @@ void genorm(
         // inf norm
         else if (norm == lapack::Norm::Inf) {
             if (m == 0 || n == 0) {
-                cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * m, stream);
+                blas::device_memset(values, 0, batch_count * m, queue);
             }
             else {
-                assert(m <= 1024);
                 assert(ldv >= m);
-                genormInfKernel<<<batch_count, m, 0, stream>>>
+                genormInfKernel<<<batch_count, nb, 0, queue.stream()>>>
                     (m, n, Aarray, lda, values, ldv);
             }
         }
@@ -405,13 +427,12 @@ void genorm(
         // Frobenius norm
         else if (norm == lapack::Norm::Fro) {
             if (m == 0 || n == 0) {
-                cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * 2, stream);
+                blas::device_memset(values, 0, batch_count * 2, queue);
             }
             else {
-                assert(m <= 1024);
                 assert(ldv == 2);
-                // Max 1024 threads * 16 bytes = 16 KiB shared memory in double [complex].
-                genormFroKernel<<<batch_count, m, sizeof(real_t) * m * 2, stream>>>
+
+                genormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
                     (m, n, Aarray, lda, values);
             }
         }
@@ -421,11 +442,11 @@ void genorm(
         if (norm == Norm::Max) {
 
             if (m == 0 || n == 0) {
-                cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, stream);
+                blas::device_memset(values, 0, batch_count * n, queue);
             }
             else {
                 assert(ldv >= n);
-                geColNormsMaxKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, stream>>>
+                geColNormsMaxKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, queue.stream()>>>
                     (m, n, Aarray, lda, values, ldv);
             }
         }
@@ -437,7 +458,8 @@ void genorm(
         slate_not_implemented("The norm scope isn't yet supported.");
     }
 
-    slate_cuda_call(cudaGetLastError());
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
 
 //------------------------------------------------------------------------------
@@ -448,7 +470,7 @@ void genorm(
     int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void genorm(
@@ -456,7 +478,7 @@ void genorm(
     int64_t m, int64_t n,
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void genorm(
@@ -464,7 +486,7 @@ void genorm(
     int64_t m, int64_t n,
     cuFloatComplex const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void genorm(
@@ -472,7 +494,7 @@ void genorm(
     int64_t m, int64_t n,
     cuDoubleComplex const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 } // namespace device
 } // namespace slate

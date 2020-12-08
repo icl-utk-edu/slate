@@ -92,7 +92,7 @@ void geadd(
     int64_t m, int64_t n,
     scalar_t alpha, scalar_t** Aarray, int64_t lda,
     scalar_t beta, scalar_t** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
     // quick return
     if (batch_count == 0)
@@ -101,12 +101,13 @@ void geadd(
     // Max threads/block=1024 for current CUDA compute capability (<=7.5)
     int64_t nthreads = std::min((int64_t)1024 , m);
 
-    geaddKernel<<<batch_count, nthreads, 0, stream>>>(
+    geaddKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         m, n,
         alpha, Aarray, lda,
         beta, Barray, ldb);
 
-    slate_cuda_call(cudaGetLastError());
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
 
 //------------------------------------------------------------------------------
@@ -116,28 +117,28 @@ void geadd(
     int64_t m, int64_t n,
     float alpha, float** Aarray, int64_t lda,
     float beta, float** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 template
 void geadd(
     int64_t m, int64_t n,
     double alpha, double** Aarray, int64_t lda,
     double beta, double** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 template
 void geadd(
     int64_t m, int64_t n,
     cuFloatComplex alpha, cuFloatComplex** Aarray, int64_t lda,
     cuFloatComplex beta, cuFloatComplex** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 template
 void geadd(
     int64_t m, int64_t n,
     cuDoubleComplex alpha, cuDoubleComplex** Aarray, int64_t lda,
     cuDoubleComplex beta, cuDoubleComplex** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 } // namespace device
 } // namespace slate

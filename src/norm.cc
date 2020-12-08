@@ -53,8 +53,10 @@ norm(slate::internal::TargetType<target>,
         real_t global_max;
 
         // TODO: Allocate batch arrays here, not in internal.
-        if (target == Target::Devices)
+        if (target == Target::Devices) {
+            A.allocateBatchArrays();
             A.reserveDeviceWorkspace();
+        }
 
         #pragma omp parallel
         #pragma omp master
@@ -95,8 +97,10 @@ norm(slate::internal::TargetType<target>,
 
         std::vector<real_t> local_sums(A.n());
 
-        if (target == Target::Devices)
+        if (target == Target::Devices) {
+            A.allocateBatchArrays();
             A.reserveDeviceWorkspace();
+        }
 
         #pragma omp parallel
         #pragma omp master
@@ -126,8 +130,10 @@ norm(slate::internal::TargetType<target>,
 
         std::vector<real_t> local_sums(A.m());
 
-        if (target == Target::Devices)
+        if (target == Target::Devices) {
+            A.allocateBatchArrays();
             A.reserveDeviceWorkspace();
+        }
 
         #pragma omp parallel
         #pragma omp master
@@ -159,8 +165,10 @@ norm(slate::internal::TargetType<target>,
         real_t local_sumsq;
         real_t global_sumsq;
 
-        if (target == Target::Devices)
+        if (target == Target::Devices) {
+            A.allocateBatchArrays();
             A.reserveDeviceWorkspace();
+        }
 
         #pragma omp parallel
         #pragma omp master

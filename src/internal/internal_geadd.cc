@@ -20,13 +20,13 @@ void geadd(
     int64_t m, int64_t n,
     std::complex<float> alpha, std::complex<float>** Aarray, int64_t lda,
     std::complex<float> beta, std::complex<float>** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA)
     geadd(m, n,
           make_cuFloatComplex(alpha.real(), alpha.imag()), (cuFloatComplex**) Aarray, lda,
           make_cuFloatComplex(beta.real(), beta.imag()), (cuFloatComplex**) Barray, ldb,
-          batch_count, stream);
+          batch_count, queue);
 #endif
 }
 
@@ -35,13 +35,13 @@ void geadd(
     int64_t m, int64_t n,
     std::complex<double> alpha, std::complex<double>** Aarray, int64_t lda,
     std::complex<double> beta, std::complex<double>** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA)
     geadd(m, n,
           make_cuDoubleComplex(alpha.real(), alpha.imag()) , (cuDoubleComplex**) Aarray, lda,
           make_cuDoubleComplex(beta.real(), beta.imag()), (cuDoubleComplex**) Barray, ldb,
-          batch_count, stream);
+          batch_count, queue);
 #endif
 }
 
@@ -52,7 +52,7 @@ void geadd(
     int64_t m, int64_t n,
     double alpha, double** Aarray, int64_t lda,
     double beta, double** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 }
 
@@ -61,7 +61,7 @@ void geadd(
     int64_t m, int64_t n,
     float alpha, float** Aarray, int64_t lda,
     float beta, float** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 }
 #endif // not SLATE_WITH_CUDA
@@ -235,29 +235,29 @@ void geadd(internal::TargetType<Target::Devices>,
             scalar_t** a_array_dev = B.array_device(device);
             scalar_t** b_array_dev = a_array_dev + batch_size;
 
-            slate_cuda_call(cudaSetDevice(device));
+            blas::set_device(device);
+            const int batch_arrays_index = 0;
+            blas::Queue queue(device, batch_arrays_index);
+            // TODO: Use the A.queue()
+            //blas::Queue* queue = A.queue(device, batch_arrays_index);
 
-            cudaStream_t stream = B.compute_stream(device);
-            // cublasHandle_t cublas_handle = B.cublas_handle(device);
-
-            slate_cuda_call(
-                cudaMemcpyAsync(a_array_dev, a_array_host,
-                                sizeof(scalar_t*)*batch_count*2,
-                                cudaMemcpyHostToDevice,
-                                stream));
+            blas::device_memcpy<scalar_t*>((void*)a_array_dev, (void*)a_array_host,
+                                batch_count*2,
+                                blas::MemcpyKind::HostToDevice,
+                                queue);
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
                     device::geadd(mb[q], nb[q],
                                   alpha, a_array_dev, lda[q],
-                                  beta, b_array_dev, ldb[q],
-                                  group_count[q], stream);
+                                  beta,  b_array_dev, ldb[q],
+                                  group_count[q], queue);
                     a_array_dev += group_count[q];
                     b_array_dev += group_count[q];
                 }
             }
 
-            slate_cuda_call(cudaStreamSynchronize(stream));
+            queue.sync();
 
             for (int64_t i = 0; i < B.mt(); ++i) {
                 for (int64_t j = 0; j < B.nt(); ++j) {

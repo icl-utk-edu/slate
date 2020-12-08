@@ -28,11 +28,11 @@ void trnorm(
     std::complex<float> const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     trnorm(in_norm, uplo, diag, m, n, (cuFloatComplex**) Aarray, lda,
-           values, ldv, batch_count, stream);
+           values, ldv, batch_count, queue);
 #endif
 }
 
@@ -43,11 +43,11 @@ void trnorm(
     std::complex<double> const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     trnorm(in_norm, uplo, diag, m, n, (cuDoubleComplex**) Aarray, lda,
-           values, ldv, batch_count, stream);
+           values, ldv, batch_count, queue);
 #endif
 }
 
@@ -60,7 +60,7 @@ void trnorm(
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
 }
 
@@ -71,7 +71,7 @@ void trnorm(
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
 }
 #endif // not SLATE_NO_CUDA
@@ -416,21 +416,15 @@ void norm(
     }
 
     for (int device = 0; device < A.num_devices(); ++device) {
-        slate_cuda_call(
-            cudaSetDevice(device));
+        blas::set_device(device);
 
         int64_t num_tiles = A.getMaxDeviceTiles(device);
 
         a_host_arrays[device].resize(num_tiles);
         vals_host_arrays[device].resize(num_tiles*ldv);
 
-        slate_cuda_call(
-            cudaMalloc((void**)&a_dev_arrays[device],
-                       sizeof(scalar_t*)*num_tiles));
-
-        slate_cuda_call(
-            cudaMalloc((void**)&vals_dev_arrays[device],
-                       sizeof(real_t)*num_tiles*ldv));
+        a_dev_arrays[device] = blas::device_malloc<scalar_t*>(num_tiles);
+        vals_dev_arrays[device] = blas::device_malloc<real_t>(num_tiles*ldv);
     }
 
     // Define index ranges for quadrants of matrix.
@@ -527,15 +521,17 @@ void norm(
             {
                 trace::Block trace_block("slate::device::trnorm");
 
-                slate_cuda_call(
-                    cudaSetDevice(device));
+                blas::set_device(device);
 
-                cudaStream_t stream = A.compute_stream(device);
-                slate_cuda_call(
-                    cudaMemcpyAsync(a_dev_array, a_host_array,
-                                    sizeof(scalar_t*)*batch_count,
-                                    cudaMemcpyHostToDevice,
-                                    stream));
+                const int batch_arrays_index = 0;
+                // TODO: Use the A.queue()
+                //blas::Queue* queue = A.queue(device, batch_arrays_index);
+                blas::Queue queue(device, batch_arrays_index);
+
+                blas::device_memcpy<scalar_t*>((void*)a_dev_array, (void*)a_host_array,
+                                    batch_count,
+                                    blas::MemcpyKind::HostToDevice,
+                                    queue);
 
                 // off-diagonal blocks
                 for (int q = 0; q < 4; ++q) {
@@ -544,7 +540,7 @@ void norm(
                                        mb[q], nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
-                                       group_count[q], stream);
+                                       group_count[q], queue);
                         a_dev_array += group_count[q];
                         vals_dev_array += group_count[q] * ldv;
                     }
@@ -556,7 +552,7 @@ void norm(
                                        mb[q], nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
-                                       group_count[q], stream);
+                                       group_count[q], queue);
                         a_dev_array += group_count[q];
                         vals_dev_array += group_count[q] * ldv;
                     }
@@ -564,14 +560,12 @@ void norm(
 
                 vals_dev_array = vals_dev_arrays[device];
 
-                slate_cuda_call(
-                    cudaMemcpyAsync(vals_host_array, vals_dev_array,
-                                    sizeof(real_t)*batch_count*ldv,
-                                    cudaMemcpyDeviceToHost,
-                                    stream));
+                blas::device_memcpy<real_t>((void*)vals_host_array, (void*)vals_dev_array,
+                                    batch_count*ldv,
+                                    blas::MemcpyKind::DeviceToHost,
+                                    queue);
 
-                slate_cuda_call(
-                    cudaStreamSynchronize(stream));
+                queue.sync();
             }
 
             // Reduction over tiles to device result.
@@ -593,12 +587,9 @@ void norm(
     #pragma omp taskwait
 
     for (int device = 0; device < A.num_devices(); ++device) {
-        slate_cuda_call(
-            cudaSetDevice(device));
-        slate_cuda_call(
-            cudaFree((void*)a_dev_arrays[device]));
-        slate_cuda_call(
-            cudaFree((void*)vals_dev_arrays[device]));
+        blas::set_device(device);
+        blas::device_free(a_dev_arrays[device]);
+        blas::device_free(vals_dev_arrays[device]);
     }
 
     // Reduction over devices to local result.

@@ -153,30 +153,37 @@ void test_genorm_dev(Norm norm)
     }
 
     double eps = std::numeric_limits<double>::epsilon();
-    int m = 20;
-    int n = 30;
+    int m = 3000;
+    int n = 3000;
     int lda = roundup(m, 8);
     double* Adata = new double[ lda * n ];
     slate::Tile<double> A(m, n, Adata, lda, -1, slate::TileKind::UserOwned);
-    setup_data(A);
+    //setup_data(A);
+    int64_t idist = 1;
+    int64_t iseed[4] = { 1, 0, 2, 3 };
+    lapack::larnv( idist, iseed, lda * n, A.data() );
 
-    cudaStream_t stream;
-    test_assert(cudaStreamCreate(&stream) == cudaSuccess);
+    int device_idx;
+    blas::get_device(&device_idx);
+    const int batch_arrays_index = 0;
+    blas::Queue queue(device_idx, batch_arrays_index);
 
     double* dAdata;
-    test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
+    dAdata = blas::device_malloc<double>(lda * n);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
-    A.copyData(&dA, stream);
+    A.copyData(&dA, queue.stream());
 
     const int batch_count = 1;
     double* Aarray[batch_count];
     double** dAarray;
-    test_assert(cudaMalloc((void**)&dAarray, sizeof(double*) * batch_count) == cudaSuccess);
+    dAarray = blas::device_malloc<double*>(batch_count);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    test_assert(cudaMemcpy(dAarray, Aarray, sizeof(double*) * batch_count,
-                           cudaMemcpyHostToDevice ) == cudaSuccess);
+    blas::device_memcpy<double*>((void*)dAarray, (void*)Aarray,
+                        batch_count,
+                        blas::MemcpyKind::HostToDevice,
+                        queue);
 
     std::vector<double> values;
     size_t ldv = 1;
@@ -191,14 +198,16 @@ void test_genorm_dev(Norm norm)
     values.resize( ldv * batch_count );
 
     double* dvalues;
-    test_assert(cudaMalloc((void**)&dvalues, sizeof(double) * ldv * batch_count) == cudaSuccess);
+    dvalues = blas::device_malloc<double>(ldv * batch_count);
     test_assert(dvalues != nullptr);
 
     slate::device::genorm( norm, slate::NormScope::Matrix, m, n, dAarray, lda,
-                           dvalues, ldv, batch_count, stream );
-    slate_cuda_call( cudaStreamSynchronize( stream ) );
-    test_assert(cudaMemcpy( &values[0], dvalues, sizeof(double) * values.size(),
-                            cudaMemcpyDeviceToHost ) == cudaSuccess );
+                           dvalues, ldv, batch_count, queue );
+    queue.sync();
+    blas::device_memcpy<double>((void*)&values[0], (void*)dvalues,
+                        values.size(),
+                        blas::MemcpyKind::DeviceToHost,
+                        queue);
 
     // check column & row sum results
     if (norm == lapack::Norm::One) {
@@ -247,9 +256,9 @@ void test_genorm_dev(Norm norm)
                 result, result_ref, error );
     }
 
-    cudaFree( dAdata );
-    cudaFree( dAarray );
-    cudaFree( dvalues );
+    blas::device_free(dAdata);
+    blas::device_free(dAarray);
+    blas::device_free(dvalues);
     delete[] Adata;
 
     test_assert( error < 3*eps );
@@ -369,30 +378,34 @@ void test_synorm_dev(Norm norm, Uplo uplo)
     }
 
     double eps = std::numeric_limits<double>::epsilon();
-    int n = 30;
+    int n = 3000;
     int lda = roundup(n, 8);
     double* Adata = new double[ lda * n ];
     slate::Tile<double> A(n, n, Adata, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
     A.uplo( uplo );
 
-    cudaStream_t stream;
-    test_assert(cudaStreamCreate(&stream) == cudaSuccess);
+    int device_idx;
+    blas::get_device(&device_idx);
+    const int batch_arrays_index = 0;
+    blas::Queue queue(device_idx, batch_arrays_index);
 
     double* dAdata;
-    test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
+    dAdata = blas::device_malloc<double>(lda * n);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(n, n, dAdata, lda, 0, slate::TileKind::UserOwned);
-    A.copyData(&dA, stream);
+    A.copyData(&dA, queue.stream());
 
     const int batch_count = 1;
     double* Aarray[batch_count];
     double** dAarray;
-    test_assert(cudaMalloc((void**)&dAarray, sizeof(double*) * batch_count) == cudaSuccess);
+    dAarray = blas::device_malloc<double*>(batch_count);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    test_assert(cudaMemcpy(dAarray, Aarray, sizeof(double*) * batch_count,
-                           cudaMemcpyHostToDevice ) == cudaSuccess);
+    blas::device_memcpy<double*>((void*)dAarray, (void*)Aarray,
+                        batch_count,
+                        blas::MemcpyKind::HostToDevice,
+                        queue);
 
     std::vector<double> values;
     size_t ldv = 1;
@@ -405,14 +418,16 @@ void test_synorm_dev(Norm norm, Uplo uplo)
     values.resize( ldv * batch_count );
 
     double* dvalues;
-    test_assert(cudaMalloc((void**)&dvalues, sizeof(double) * ldv * batch_count) == cudaSuccess);
+    dvalues = blas::device_malloc<double>(ldv * batch_count);
     test_assert(dvalues != nullptr);
 
     slate::device::synorm( norm, uplo, n, dAarray, lda,
-                           dvalues, ldv, batch_count, stream );
-    slate_cuda_call( cudaStreamSynchronize( stream ) );
-    test_assert(cudaMemcpy( &values[0], dvalues, sizeof(double) * values.size(),
-                            cudaMemcpyDeviceToHost ) == cudaSuccess );
+                           dvalues, ldv, batch_count, queue );
+    queue.sync();
+    blas::device_memcpy<double>((void*)&values[0], (void*)dvalues,
+                        values.size(),
+                        blas::MemcpyKind::DeviceToHost,
+                        queue);
 
     // check column & row sum results
     if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
@@ -424,7 +439,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
                 else
                     sum += std::abs( A( std::min(i,j), std::max(i,j) ) );  // i <= j
             }
-            test_assert( std::abs( values[j] - sum ) / (sqrt(n)*sum) < 3*eps );
+            test_assert( std::abs( values[j] - sum ) / (sqrt(n)*sum) < 10*eps );
         }
     }
 
@@ -455,9 +470,9 @@ void test_synorm_dev(Norm norm, Uplo uplo)
                 result, result_ref, error );
     }
 
-    cudaFree( dAdata );
-    cudaFree( dAarray );
-    cudaFree( dvalues );
+    blas::device_free(dAdata);
+    blas::device_free(dAarray);
+    blas::device_free(dvalues);
     delete[] Adata;
 
     test_assert( error < 3*eps );
@@ -538,37 +553,43 @@ void test_synorm_offdiag_dev(Norm norm)
     slate::Tile<double> A(m, n, Adata, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
 
-    cudaStream_t stream;
-    test_assert(cudaStreamCreate(&stream) == cudaSuccess);
+    int device_idx;
+    blas::get_device(&device_idx);
+    const int batch_arrays_index = 0;
+    blas::Queue queue(device_idx, batch_arrays_index);
 
     double* dAdata;
-    test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
+    dAdata = blas::device_malloc<double>(lda * n);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
-    A.copyData(&dA, stream);
+    A.copyData(&dA, queue.stream());
 
     const int batch_count = 1;
     double* Aarray[batch_count];
     double** dAarray;
-    test_assert(cudaMalloc((void**)&dAarray, sizeof(double*) * batch_count) == cudaSuccess);
+    dAarray = blas::device_malloc<double*>(batch_count);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    test_assert(cudaMemcpy(dAarray, Aarray, sizeof(double*) * batch_count,
-                           cudaMemcpyHostToDevice ) == cudaSuccess);
+    blas::device_memcpy<double*>((void*)dAarray, (void*)Aarray,
+                        batch_count,
+                        blas::MemcpyKind::HostToDevice,
+                        queue);
 
     int ldv = n + m;
     std::vector<double> values( ldv );
 
     double* dvalues;
-    test_assert(cudaMalloc((void**)&dvalues, sizeof(double) * ldv * batch_count) == cudaSuccess);
+    dvalues = blas::device_malloc<double>(ldv * batch_count);
     test_assert(dvalues != nullptr);
 
     slate::device::synormOffdiag( norm, m, n, dAarray, lda,
                                   dvalues, ldv,
-                                  batch_count, stream );
-    slate_cuda_call( cudaStreamSynchronize( stream ) );
-    test_assert(cudaMemcpy( &values[0], dvalues, sizeof(double) * values.size(),
-                            cudaMemcpyDeviceToHost ) == cudaSuccess );
+                                  batch_count, queue );
+    queue.sync();
+    blas::device_memcpy<double>((void*)&values[0], (void*)dvalues,
+                        values.size(),
+                        blas::MemcpyKind::DeviceToHost,
+                        queue);
 
     // check column & row sum results
     if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
@@ -588,9 +609,9 @@ void test_synorm_offdiag_dev(Norm norm)
         }
     }
 
-    cudaFree( dAdata );
-    cudaFree( dAarray );
-    cudaFree( dvalues );
+    blas::device_free(dAdata);
+    blas::device_free(dAarray);
+    blas::device_free(dvalues);
     delete[] Adata;
 }
 
@@ -778,24 +799,28 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
     setup_data(A);
     A.uplo( uplo );
 
-    cudaStream_t stream;
-    test_assert(cudaStreamCreate(&stream) == cudaSuccess);
+    int device_idx;
+    blas::get_device(&device_idx);
+    const int batch_arrays_index = 0;
+    blas::Queue queue(device_idx, batch_arrays_index);
 
     double* dAdata;
-    test_assert(cudaMalloc((void**)&dAdata, sizeof(double) * lda * n) == cudaSuccess);
+    dAdata = blas::device_malloc<double>(lda * n);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
-    A.copyData(&dA, stream);
+    A.copyData(&dA, queue.stream());
     dA.uplo( uplo );
 
     const int batch_count = 1;
     double* Aarray[batch_count];
     double** dAarray;
-    test_assert(cudaMalloc((void**)&dAarray, sizeof(double*) * batch_count) == cudaSuccess);
+    dAarray = blas::device_malloc<double*>(batch_count);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    test_assert(cudaMemcpy(dAarray, Aarray, sizeof(double*) * batch_count,
-                           cudaMemcpyHostToDevice ) == cudaSuccess);
+    blas::device_memcpy<double*>((void*)dAarray, (void*)Aarray,
+                        batch_count,
+                        blas::MemcpyKind::HostToDevice,
+                        queue);
 
     std::vector<double> values;
     size_t ldv = 1;
@@ -810,14 +835,16 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
     values.resize( ldv * batch_count );
 
     double* dvalues;
-    test_assert(cudaMalloc((void**)&dvalues, sizeof(double) * ldv * batch_count) == cudaSuccess);
+    dvalues = blas::device_malloc<double>(ldv * batch_count);
     test_assert(dvalues != nullptr);
 
     slate::device::trnorm( norm, uplo, diag, m, n, dAarray, lda,
-                           dvalues, ldv, batch_count, stream );
-    slate_cuda_call( cudaStreamSynchronize( stream ) );
-    test_assert(cudaMemcpy( &values[0], dvalues, sizeof(double) * values.size(),
-                            cudaMemcpyDeviceToHost ) == cudaSuccess );
+                           dvalues, ldv, batch_count, queue );
+    queue.sync();
+    blas::device_memcpy<double>((void*)&values[0], (void*)dvalues,
+                        values.size(),
+                        blas::MemcpyKind::DeviceToHost,
+                        queue);
 
     // check column & row sum results
     if (norm == lapack::Norm::One) {
@@ -894,9 +921,9 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
                 result, result_ref, error );
     }
 
-    cudaFree( dAdata );
-    cudaFree( dAarray );
-    cudaFree( dvalues );
+    blas::device_free(dAdata);
+    blas::device_free(dAarray);
+    blas::device_free(dvalues);
     delete[] Adata;
 
     test_assert( error < 3*eps );
@@ -973,11 +1000,11 @@ void run_tests()
         run_test(
             test_genorm_dev_max, "genorm_dev( max )");
         run_test(
-            test_genorm_dev_one, "genorm_dev( one )");
-        run_test(
             test_genorm_dev_inf, "genorm_dev( inf )");
         run_test(
             test_genorm_dev_fro, "genorm_dev( fro )");
+        run_test(
+            test_genorm_dev_one, "genorm_dev( one )");
 
         //-------------------- synorm
         run_test(
@@ -1107,7 +1134,7 @@ int main(int argc, char** argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
-    cudaGetDeviceCount(&num_devices);
+    num_devices = blas::get_device_count();
 
     verbose = 0;
     for (int i = 1; i < argc; ++i)

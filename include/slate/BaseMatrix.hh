@@ -519,7 +519,7 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    /// @return blas queue object
+    /// @return BLAS++ queue object
     blas::Queue* queue(int device, int64_t index=0)
     {
         assert(index >= 0);

@@ -16,8 +16,6 @@
 #include <algorithm>
 #include <utility>
 
-#include "slate/internal/cuda.hh"
-#include "slate/internal/cublas.hh"
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
 

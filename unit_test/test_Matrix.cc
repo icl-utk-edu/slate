@@ -1755,7 +1755,6 @@ void test_Matrix_tileLayoutConvert()
 //     clearWorkspace
 //     clearBatchArrays
 //     [abc]_array_{host, device}
-//     cublas_handle
 //     compute_stream
 //     comm_stream
 //

@@ -15,8 +15,6 @@
     #include <cublas_v2.h>
 #else
 
-#include "slate/internal/cuda.hh"
-
 #include <complex>
 
 typedef void* cublasHandle_t;

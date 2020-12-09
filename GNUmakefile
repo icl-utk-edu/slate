@@ -337,8 +337,8 @@ ifeq ($(cuda),1)
     LIBS += -lcublas -lcudart
 else
     FLAGS += -DSLATE_NO_CUDA
-    libslate_src += src/stubs/cuda_stubs.cc
-    libslate_src += src/stubs/cublas_stubs.cc
+#    libslate_src += src/stubs/cuda_stubs.cc
+#    libslate_src += src/stubs/cublas_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -355,7 +355,6 @@ endif
 # types and classes
 libslate_src += \
         src/aux/Debug.cc \
-        src/aux/Exception.cc \
         src/core/Memory.cc \
         src/aux/Trace.cc \
         src/core/types.cc \
@@ -376,7 +375,6 @@ libslate_src += \
         src/internal/internal_geadd.cc \
         src/internal/internal_gemm.cc \
         src/internal/internal_gemmA.cc \
-        src/internal/internal_gemm_split.cc \
         src/internal/internal_genorm.cc \
         src/internal/internal_gebr.cc \
         src/internal/internal_geqrf.cc \

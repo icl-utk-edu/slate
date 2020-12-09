@@ -53,9 +53,10 @@ inline slate::Target slate_lapack_set_target()
         return target;
     }
     // todo: should the device be set to cude automatically
-    int cudadevcount;
-    if (cudaGetDeviceCount(&cudadevcount)==cudaSuccess && cudadevcount>0)
+    int devcount = blas::get_device_count();
+    if (devcount > 0)
         target = slate::Target::Devices;
+
     return target;
 }
 

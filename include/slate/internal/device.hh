@@ -8,7 +8,26 @@
 
 #include "slate/enums.hh"
 
-#include <blas.hh>
+#ifndef SLATE_NO_CUDA
+    #include <cuComplex.h>
+
+//------------------------------------------------------------------------------
+// Extend BLAS real_type to cover cuComplex
+namespace blas {
+
+template<>
+struct real_type_traits<cuFloatComplex> {
+    using real_t = float;
+};
+
+template<>
+struct real_type_traits<cuDoubleComplex> {
+    using real_t = double;
+};
+
+} // namespace blas
+
+#endif // #ifndef SLATE_NO_CUDA
 
 namespace slate {
 

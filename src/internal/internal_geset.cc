@@ -221,7 +221,7 @@ void set(internal::TargetType<Target::Devices>,
             const int batch_arrays_index = 0;
             blas::Queue* queue = A.queue(device, batch_arrays_index);
 
-            blas::device_memcpy<scalar_t*>((void*)a_array_dev, (void*)a_array_host,
+            blas::device_memcpy<scalar_t*>(a_array_dev, a_array_host,
                                 batch_count,
                                 blas::MemcpyKind::HostToDevice,
                                 *queue);

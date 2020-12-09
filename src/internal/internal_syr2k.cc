@@ -455,7 +455,7 @@ void syr2k(internal::TargetType<Target::Devices>,
     }
     else {
         // off-diagonal tiles by batch gemm on device
-        // diagonal tiles by cublas syr2k on device
+        // diagonal tiles by BLAS++ syr2k on device
         for (int device = 0; device < C.num_devices(); ++device) {
             #pragma omp task shared(A, B, C, err) priority(priority)
             {

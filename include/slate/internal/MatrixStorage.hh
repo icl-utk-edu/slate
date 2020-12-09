@@ -21,29 +21,11 @@
 #include <utility>
 #include <vector>
 
-#include "slate/internal/cuda.hh"
-#include "slate/internal/cublas.hh"
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
 #include "slate/internal/LockGuard.hh"
 
 namespace slate {
-
-//------------------------------------------------------------------------------
-/// Type-safe wrapper for cudaMalloc. Throws errors.
-template<typename value_type>
-void slateCudaMalloc(value_type** ptr, size_t nelements)
-{
-    slate_cuda_call(
-        cudaMalloc((void**) ptr, nelements * sizeof(value_type)));
-}
-
-template<typename value_type>
-void slateCudaMallocHost(value_type** ptr, size_t nelements)
-{
-    slate_cuda_call(
-        cudaMallocHost((void**) ptr, nelements * sizeof(value_type)));
-}
 
 //------------------------------------------------------------------------------
 /// A tile state in the MOSI coherency protocol
@@ -720,19 +702,15 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
                 blas::Queue* queue = new blas::Queue(device, batch_size);
                 queue_.at(i)[device] = queue;
 
-                slate_cuda_call(cudaSetDevice(device));
+                blas::set_device(device);
 
-                // Free host arrays.
-                slate_cuda_call(cudaFreeHost(array_host[device]));
+                blas::device_free_pinned(array_host[device]);
+                array_host[device] = 
+                    blas::device_malloc_pinned<scalar_t*>(batch_size*3);
 
-                // Free device arrays.
-                slate_cuda_call(cudaFree(array_dev[device]));
-
-                // Allocate host arrays.
-                slateCudaMallocHost(&array_host[device], batch_size*3);
-
-                // Allocate device arrays.
-                slateCudaMalloc(&array_dev[device], batch_size*3);
+                blas::device_free(array_dev[device]);
+                array_dev[device] = 
+                    blas::device_malloc<scalar_t*>(batch_size*3);
             }
         }
 
@@ -758,13 +736,10 @@ void MatrixStorage<scalar_t>::clearBatchArrays()
             delete queue_.at(i)[device];
             queue_.at(i)[device] = nullptr;
 
-            slate_cuda_call(cudaSetDevice(device));
+            blas::set_device(device);
 
-            // Free host arrays.
-            slate_cuda_call(cudaFreeHost(array_host[device]));
-
-            // Free device arrays.
-            slate_cuda_call(cudaFree(array_dev[device]));
+            blas::device_free_pinned(array_host[device]);
+            blas::device_free(array_dev[device]);
 
             array_host[device] = nullptr;
 

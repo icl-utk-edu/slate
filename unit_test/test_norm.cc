@@ -180,7 +180,7 @@ void test_genorm_dev(Norm norm)
     dAarray = blas::device_malloc<double*>(batch_count);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    blas::device_memcpy<double*>((void*)dAarray, (void*)Aarray,
+    blas::device_memcpy<double*>(dAarray, Aarray,
                         batch_count,
                         blas::MemcpyKind::HostToDevice,
                         queue);
@@ -204,7 +204,7 @@ void test_genorm_dev(Norm norm)
     slate::device::genorm( norm, slate::NormScope::Matrix, m, n, dAarray, lda,
                            dvalues, ldv, batch_count, queue );
     queue.sync();
-    blas::device_memcpy<double>((void*)&values[0], (void*)dvalues,
+    blas::device_memcpy<double>(&values[0], dvalues,
                         values.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);
@@ -402,7 +402,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
     dAarray = blas::device_malloc<double*>(batch_count);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    blas::device_memcpy<double*>((void*)dAarray, (void*)Aarray,
+    blas::device_memcpy<double*>(dAarray, Aarray,
                         batch_count,
                         blas::MemcpyKind::HostToDevice,
                         queue);
@@ -424,7 +424,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
     slate::device::synorm( norm, uplo, n, dAarray, lda,
                            dvalues, ldv, batch_count, queue );
     queue.sync();
-    blas::device_memcpy<double>((void*)&values[0], (void*)dvalues,
+    blas::device_memcpy<double>(&values[0], dvalues,
                         values.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);
@@ -570,7 +570,7 @@ void test_synorm_offdiag_dev(Norm norm)
     dAarray = blas::device_malloc<double*>(batch_count);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    blas::device_memcpy<double*>((void*)dAarray, (void*)Aarray,
+    blas::device_memcpy<double*>(dAarray, Aarray,
                         batch_count,
                         blas::MemcpyKind::HostToDevice,
                         queue);
@@ -586,7 +586,7 @@ void test_synorm_offdiag_dev(Norm norm)
                                   dvalues, ldv,
                                   batch_count, queue );
     queue.sync();
-    blas::device_memcpy<double>((void*)&values[0], (void*)dvalues,
+    blas::device_memcpy<double>(&values[0], dvalues,
                         values.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);
@@ -817,7 +817,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
     dAarray = blas::device_malloc<double*>(batch_count);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    blas::device_memcpy<double*>((void*)dAarray, (void*)Aarray,
+    blas::device_memcpy<double*>(dAarray, Aarray,
                         batch_count,
                         blas::MemcpyKind::HostToDevice,
                         queue);
@@ -841,7 +841,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
     slate::device::trnorm( norm, uplo, diag, m, n, dAarray, lda,
                            dvalues, ldv, batch_count, queue );
     queue.sync();
-    blas::device_memcpy<double>((void*)&values[0], (void*)dvalues,
+    blas::device_memcpy<double>(&values[0], dvalues,
                         values.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);

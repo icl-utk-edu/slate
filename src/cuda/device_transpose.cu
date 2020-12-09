@@ -3,7 +3,7 @@
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
-#include "slate/internal/cuda.hh"
+#include "slate/Exception.hh"
 #include "slate/internal/device.hh"
 
 #include "device_util.cuh"
@@ -283,7 +283,8 @@ void transpose(
     transpose_kernel<<< blocks, threads, 0, queue.stream() >>>
         (n, A, lda);
 
-    slate_cuda_call(cudaGetLastError());
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
 
 //------------------------------------------------------------------------------
@@ -338,7 +339,8 @@ void transpose_batch(
     transpose_batch_kernel<<< blocks, threads, 0, queue.stream() >>>
         (n, Aarray, lda);
 
-    slate_cuda_call(cudaGetLastError());
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
 
 //------------------------------------------------------------------------------
@@ -391,7 +393,8 @@ void transpose(
     transpose_kernel<scalar_t, NX><<< grid, threads, 0, queue.stream() >>>
         ( m, n, dA, lda, dAT, ldat );
 
-    slate_cuda_call(cudaGetLastError());
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
 
 //------------------------------------------------------------------------------
@@ -450,7 +453,8 @@ void transpose_batch(
     transpose_batch_kernel<scalar_t, NX><<< grid, threads, 0, queue.stream() >>>
         ( m, n, dA_array, lda, dAT_array, ldat );
 
-    slate_cuda_call(cudaGetLastError());
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
 
 //------------------------------------------------------------------------------

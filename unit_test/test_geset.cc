@@ -58,7 +58,7 @@ void test_geset_dev()
     dAarray = blas::device_malloc<double*>(batch_count);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
-    blas::device_memcpy<double*>((void*)dAarray, (void*)Aarray,
+    blas::device_memcpy<double*>(dAarray, Aarray,
                         batch_count,
                         blas::MemcpyKind::HostToDevice,
                         queue);
@@ -68,7 +68,7 @@ void test_geset_dev()
                           batch_count, queue );
 
     queue.sync();
-    blas::device_memcpy<double*>((void*)Aarray, (void*)dAarray,
+    blas::device_memcpy<double*>(Aarray, dAarray,
                         batch_count,
                         blas::MemcpyKind::DeviceToHost,
                         queue);

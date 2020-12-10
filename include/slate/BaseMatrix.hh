@@ -493,6 +493,9 @@ public:
     void tileRecv(int64_t i, int64_t j, int dst_rank,
                   Layout layout, int tag = 0);
 
+    void tileIrecv(int64_t i, int64_t j, int dst_rank,
+                  Layout layout, int tag, MPI_Request* request);
+
     template <Target target = Target::Host>
     void tileBcast(int64_t i, int64_t j, BaseMatrix const& B,
                    Layout layout, int tag = 0, int64_t life_factor = 1);
@@ -1830,6 +1833,65 @@ void BaseMatrix<scalar_t>::tileRecv(
                 tileGetForReading(i, j, tileDevice(i, j), LayoutConvert::None);
             }
         }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Receive tile {i, j} of op(A) to the given MPI rank using immediate mode..
+/// Tile is allocated as workspace with life = 1 if it doesn't yet exist,
+/// or 1 is added to life if it does exist.
+/// Source rank must call tileSend().
+/// Data received must be in 'layout' (ColMajor/RowMajor) major.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] src_rank
+///     Source MPI rank. If src_rank == mpiRank, this is a no-op.
+///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the received data.
+///     WARNING: must match the layout of the tile in the sender MPI rank.
+///
+/// @param[in] tag
+///     MPI tag
+///
+///
+/// @param[out] request
+///     MPI request object
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileIrecv(
+    int64_t i, int64_t j, int src_rank, Layout layout, int tag, MPI_Request* request)
+{
+    if (src_rank != mpiRank()) {
+        if (! tileIsLocal(i, j)) {
+            // Create tile to receive data, with life span.
+            // If tile already exists, add to its life span.
+            LockGuard guard(storage_->getTilesMapLock());
+            auto iter = storage_->find(globalIndex(i, j, HostNum));
+
+            int64_t life = 1;
+            if (iter == storage_->end())
+                tileInsertWorkspace(i, j, HostNum, layout);
+            else
+                life += tileLife(i, j);
+            tileLife(i, j, life);
+        }
+        else {
+            tileAcquire(i, j, layout);
+        }
+
+        // Receive data.
+        at(i, j).irecv(src_rank, mpiComm(), layout, tag, request);
+
+        tileLayout(i, j, layout);
+        tileModified(i, j, HostNum, true);
+    } else {
+        *request = MPI_REQUEST_NULL;
     }
 }
 

@@ -414,7 +414,8 @@ void gerbt(Matrix<scalar_t> A11,
            Matrix<scalar_t> V2);
 
 template<typename scalar_t>
-void gerbt(bool transposed,
+void gerbt(Side side,
+           Op trans,
            Matrix<scalar_t> B1,
            Matrix<scalar_t> B2,
            Matrix<scalar_t> U1,

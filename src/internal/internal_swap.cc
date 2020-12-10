@@ -316,46 +316,6 @@ void permuteRows(
 }
 
 //------------------------------------------------------------------------------
-// Precision-independent wrappers.
-inline cublasStatus_t cublasSwap(
-    cublasHandle_t handle,
-    int n,
-    float* x, int incx,
-    float* y, int incy)
-{
-    return cublasSswap(handle, n, x, incx, y, incy);
-}
-
-inline cublasStatus_t cublasSwap(
-    cublasHandle_t handle,
-    int n,
-    double* x, int incx,
-    double* y, int incy)
-{
-    return cublasDswap(handle, n, x, incx, y, incy);
-}
-
-inline cublasStatus_t cublasSwap(
-    cublasHandle_t handle,
-    int n,
-    std::complex<float> *x, int incx,
-    std::complex<float> *y, int incy)
-{
-    return cublasCswap(handle, n, (cuComplex*) x, incx,
-                                  (cuComplex*) y, incy);
-}
-
-inline cublasStatus_t cublasSwap(
-    cublasHandle_t handle,
-    int n,
-    std::complex<double> *x, int incx,
-    std::complex<double> *y, int incy)
-{
-    return cublasZswap(handle, n, (cuDoubleComplex*) x, incx,
-                                  (cuDoubleComplex*) y, incy);
-}
-
-//------------------------------------------------------------------------------
 /// Permutes rows of a general matrix according to the pivot vector.
 /// GPU device implementation.
 /// todo: Restructure similarly to Hermitian permute
@@ -418,11 +378,11 @@ void permuteRows(
                             int64_t i1 = i;
                             int64_t i2 = pivot[i].elementOffset();
                             int64_t idx2 = pivot[i].tileIndex();
-                            blas::set_device(device); // todo: do we need it?
-                            cublasSwap(A.compute_queue(device)->handle(),
-                                       A.tileNb(j),
-                                       &A(0, j, device).at(i1, 0), 1,
-                                       &A(idx2, j, device).at(i2, 0), 1);
+                            blas::swap(
+                                A.tileNb(j),
+                                &A(0,    j, device).at(i1, 0), 1,
+                                &A(idx2, j, device).at(i2, 0), 1,
+                                *(A.compute_queue(device)));
                         }
                     }
                     // I am not the root.

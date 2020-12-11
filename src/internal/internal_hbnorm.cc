@@ -177,8 +177,8 @@ void norm(
                 }
             }
             else { // Uplo::Upper
-                int64_t i_begin = max(j - kdt, 0);
-                for (int64_t i = i_begin; i < j && i < A.mt(); ++i) {  // strictly upper
+                int64_t i_start = max(j - kdt, 0);
+                for (int64_t i = i_start; i < j && i < A.mt(); ++i) {  // strictly upper
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, tiles_maxima) priority(priority)
                         {
@@ -236,12 +236,12 @@ void norm(
                 }
             }
             else { // Uplo::Upper
-                int64_t i_begin = max(j - kdt, 0);
+                int64_t i_start = max(j - kdt, 0);
                 int64_t i_end   = min(j + kdt + 1, A.mt());
                 // todo: Assuming a fixed tile size
-                int64_t ii = i_begin * A.tileMb(0);
+                int64_t ii = i_start * A.tileMb(0);
                 for (int64_t i = 0; i < j && i < i_end; ++i) {  // strictly upper
-                    if (i >= i_begin) {
+                    if (i >= i_start) {
                         if (A.tileIsLocal(i, j)) {
                             #pragma omp task shared(A, tiles_sums) priority(priority)
                             {
@@ -262,15 +262,44 @@ void norm(
         #pragma omp taskwait
 
         // Sum tile results into local results.
-        // Right now it goes over the partial sums of the entire matrix,
-        // with all the non-local sums being zero.
-        // todo: Eventually this needs to be done like in the device code,
-        // by summing up local contributions only.
+        // Summing up local contributions only.
         std::fill_n(values, A.n(), 0.0);
-        for (int64_t i = 0; i < A.mt(); ++i)
-            #pragma omp taskloop shared(A, tiles_sums, values) priority(priority)
-            for (int64_t jj = 0; jj < A.n(); ++jj)
-                values[jj] += tiles_sums[A.n()*i + jj];
+        int64_t nb0 = A.tileNb(0);
+        int64_t mb0 = A.tileMb(0);
+        // off-diagonal blocks
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            for (int64_t i = 0; i < A.mt(); ++i) {
+                int64_t nb = A.tileNb(j);
+                int64_t mb = A.tileMb(i);
+                if (A.tileIsLocal(i, j) &&
+                    ( (  lower && i > j) ||
+                      (! lower && i < j) ))
+                {
+                    // col sums
+                    blas::axpy(
+                        nb, 1.0,
+                        &tiles_sums[A.n()*i + j*nb0 ], 1,
+                        &values[j*nb0], 1);
+                    // row sums
+                    blas::axpy(
+                        mb, 1.0,
+                        &tiles_sums[A.m()*j + i*nb0 ], 1,
+                        &values[i*mb0], 1);
+                }
+            }
+        }
+
+        // diagonal blocks
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            int64_t nb = A.tileNb(j);
+            if (A.tileIsLocal(j, j) ) {
+                // col sums
+                blas::axpy(
+                    nb, 1.0,
+                    &tiles_sums[A.n()*j + j*nb0 ], 1,
+                    &values[j*nb0], 1);
+            }
+        }
     }
     //---------
     // Frobenius norm
@@ -313,8 +342,8 @@ void norm(
                 }
             }
             else { // Uplo::Upper
-                int64_t i_begin = max(j - kdt, 0);
-                for (int64_t i = i_begin; i < j && i < A.mt(); ++i) {  // strictly upper
+                int64_t i_start = max(j - kdt, 0);
+                for (int64_t i = i_start; i < j && i < A.mt(); ++i) {  // strictly upper
                     if (A.tileIsLocal(i, j)) {
                         #pragma omp task shared(A, values) priority(priority)
                         {
@@ -356,7 +385,6 @@ void norm(
 /// GPU device implementation.
 /// @ingroup norm_internal
 ///
-#if 1
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::Devices>,
@@ -364,16 +392,8 @@ void norm(
     blas::real_type<scalar_t>* values,
     int priority)
 {
-    throw Exception("target=Devices not yet implemented");
-}
-#else
-template <typename scalar_t>
-void norm(
-    internal::TargetType<Target::Devices>,
-    Norm in_norm, NormScope scope, HermitianBandMatrix<scalar_t>& A,
-    blas::real_type<scalar_t>* values,
-    int priority)
-{
+    using blas::max;
+    using blas::min;
     using real_t = blas::real_type<scalar_t>;
 
     // norms assumes column major
@@ -386,6 +406,10 @@ void norm(
     }
 
     bool lower = (A.uploLogical() == Uplo::Lower);
+    int64_t kd = A.bandwidth();
+
+    // todo: initially, assume fixed size, square tiles for simplicity
+    int64_t kdt = ceildiv( kd, A.tileNb(0) );
 
     assert(A.num_devices() > 0);
 
@@ -412,21 +436,15 @@ void norm(
     }
 
     for (int device = 0; device < A.num_devices(); ++device) {
-        slate_cuda_call(
-            cudaSetDevice(device));
+        blas::set_device(device);
 
         int64_t num_tiles = A.getMaxDeviceTiles(device);
 
         a_host_arrays[device].resize(num_tiles);
         vals_host_arrays[device].resize(num_tiles*ldv);
 
-        slate_cuda_call(
-            cudaMalloc((void**)&a_dev_arrays[device],
-                       sizeof(scalar_t*)*num_tiles));
-
-        slate_cuda_call(
-            cudaMalloc((void**)&vals_dev_arrays[device],
-                       sizeof(real_t)*num_tiles*ldv));
+        a_dev_arrays[device] = blas::device_malloc<scalar_t*>(num_tiles);
+        vals_dev_arrays[device] = blas::device_malloc<real_t>(num_tiles*ldv);
     }
 
     // Define index ranges for quadrants of matrix.
@@ -451,6 +469,8 @@ void norm(
         { 0,                          std::min(A.mt(), A.nt())-1 },
         { std::min(A.mt(), A.nt())-1, std::min(A.mt(), A.nt())   }
     };
+    int64_t i_start = 0;
+    int64_t i_end   = 0;
 
     for (int device = 0; device < A.num_devices(); ++device) {
         #pragma omp task shared(A, devices_values, vals_host_arrays) \
@@ -458,8 +478,16 @@ void norm(
         {
             std::set<ij_tuple> A_tiles_set;
 
-            for (int64_t i = 0; i < A.mt(); ++i) {
-                for (int64_t j = 0; j < A.nt(); ++j) {
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                if (lower) {
+                    i_start = j;
+                    i_end = min(j + kdt+ 1, A.mt());
+                }
+                else {
+                    i_start = max(j - kdt, 0);
+                    i_end = min(j+1, A.mt());
+                }
+                for (int64_t i = i_start; i < i_end; ++i) {
                     if (A.tileIsLocal(i, j) &&
                         device == A.tileDevice(i, j) &&
                         ( (  lower && i >= j) ||
@@ -475,6 +503,8 @@ void norm(
             scalar_t** a_host_array = a_host_arrays[device].data();
             scalar_t** a_dev_array = a_dev_arrays[device];
 
+
+
             int64_t batch_count = 0;
             int64_t mb[6], nb[6], lda[6], group_count[6];
             // off-diagonal blocks
@@ -483,8 +513,18 @@ void norm(
                 lda[q] = 0;
                 mb[q] = A.tileMb(irange[q][0]);
                 nb[q] = A.tileNb(jrange[q][0]);
-                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                    if (lower) {
+                        i_start = j+1;
+                        i_end = min(j + kdt + 1, A.mt());
+                    }
+                    else {
+                        i_start = max(j - kdt, 0);
+                        i_end = min(j, A.mt());
+                    }
+                    i_start = std::max( irange[q][0], i_start );
+                    i_end   = std::min( irange[q][1], i_end );
+                    for (int64_t i = i_start; i < i_end; ++i) {
                         if (A.tileIsLocal(i, j) &&
                             device == A.tileDevice(i, j) &&
                             ( (  lower && i > j) ||
@@ -523,15 +563,17 @@ void norm(
             {
                 trace::Block trace_block("slate::device::henorm");
 
-                slate_cuda_call(
-                    cudaSetDevice(device));
+                blas::set_device(device);
 
-                cudaStream_t stream = A.compute_stream(device);
-                slate_cuda_call(
-                    cudaMemcpyAsync(a_dev_array, a_host_array,
-                                    sizeof(scalar_t*)*batch_count,
-                                    cudaMemcpyHostToDevice,
-                                    stream));
+                const int batch_arrays_index = 0;
+                // TODO: Use the A.queue()
+                blas::Queue* queue = A.queue(device, batch_arrays_index);
+                //blas::Queue queue(device, batch_arrays_index);
+
+                blas::device_memcpy<scalar_t*>(a_dev_array, a_host_array,
+                                    batch_count,
+                                    blas::MemcpyKind::HostToDevice,
+                                    *queue);
 
                 // off-diagonal blocks (same as synorm)
                 for (int q = 0; q < 4; ++q) {
@@ -541,14 +583,14 @@ void norm(
                                                   mb[q], nb[q],
                                                   a_dev_array, lda[q],
                                                   vals_dev_array, ldv,
-                                                  group_count[q], stream);
+                                                  group_count[q], *queue);
                         }
                         else {
                             device::genorm(in_norm, NormScope::Matrix,
                                            mb[q], nb[q],
                                            a_dev_array, lda[q],
                                            vals_dev_array, ldv,
-                                           group_count[q], stream);
+                                           group_count[q], *queue);
                         }
                         a_dev_array += group_count[q];
                         vals_dev_array += group_count[q] * ldv;
@@ -561,7 +603,7 @@ void norm(
                                        nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
-                                       group_count[q], stream);
+                                       group_count[q], *queue);
                         a_dev_array += group_count[q];
                         vals_dev_array += group_count[q] * ldv;
                     }
@@ -569,14 +611,12 @@ void norm(
 
                 vals_dev_array = vals_dev_arrays[device];
 
-                slate_cuda_call(
-                    cudaMemcpyAsync(vals_host_array, vals_dev_array,
-                                    sizeof(real_t)*batch_count*ldv,
-                                    cudaMemcpyDeviceToHost,
-                                    stream));
+                blas::device_memcpy<real_t>(vals_host_array, vals_dev_array,
+                                    batch_count*ldv,
+                                    blas::MemcpyKind::DeviceToHost,
+                                    *queue);
 
-                slate_cuda_call(
-                    cudaStreamSynchronize(stream));
+                queue->sync();
             }
 
             // Reduction over tiles to device result.
@@ -604,12 +644,9 @@ void norm(
     #pragma omp taskwait
 
     for (int device = 0; device < A.num_devices(); ++device) {
-        slate_cuda_call(
-            cudaSetDevice(device));
-        slate_cuda_call(
-            cudaFree((void*)a_dev_arrays[device]));
-        slate_cuda_call(
-            cudaFree((void*)vals_dev_arrays[device]));
+        blas::set_device(device);
+        blas::device_free(a_dev_arrays[device]);
+        blas::device_free(vals_dev_arrays[device]);
     }
 
     // Reduction over devices to local result.
@@ -628,8 +665,18 @@ void norm(
             for (int q = 0; q < 4; ++q) {
                 int64_t mb = A.tileMb(irange[q][0]);
                 int64_t nb = A.tileNb(jrange[q][0]);
-                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                    if (lower) {
+                        i_start = j+1;
+                        i_end = min(j + kdt + 1, A.mt());
+                    }
+                    else {
+                        i_start = max(j - kdt, 0);
+                        i_end = min(j, A.mt());
+                    }
+                    i_start = std::max( irange[q][0], i_start );
+                    i_end   = std::min( irange[q][1], i_end );
+                    for (int64_t i = i_start; i < i_end; ++i) {
                         if (A.tileIsLocal(i, j) &&
                             device == A.tileDevice(i, j) &&
                             ( (  lower && i > j) ||
@@ -677,7 +724,6 @@ void norm(
         }
     }
 }
-#endif
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 // ----------------------------------------

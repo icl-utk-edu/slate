@@ -95,20 +95,20 @@ template <Target target=Target::HostTask,
           typename src_scalar_t, typename dst_scalar_t>
 void copy(Matrix<src_scalar_t>&& A,
           Matrix<dst_scalar_t>&& B,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask,
           typename src_scalar_t, typename dst_scalar_t>
 void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           BaseTrapezoidMatrix<dst_scalar_t>&& B,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 //-----------------------------------------
 // set()
 template <Target target=Target::HostTask, typename scalar_t>
 void set(scalar_t alpha, scalar_t beta,
          Matrix<scalar_t>&& A,
-         int priority=0);
+         int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void copytb2bd(TriangularBandMatrix<scalar_t>& A,
@@ -314,7 +314,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void permuteRows(
     Direction direction,
     Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority=0, int tag=0);
+    Layout layout, int priority=0, int tag=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void permuteRowsCols(
@@ -326,8 +326,8 @@ void permuteRowsCols(
 // Other BLAS-like
 template <Target target=Target::HostTask, typename scalar_t>
 void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
-           scalar_t beta, Matrix<scalar_t>&& B,
-           int priority=0);
+           scalar_t beta,  Matrix<scalar_t>&& B,
+           int priority=0, int queue_index=0);
 
 //------------------------------------------------------------------------------
 // Band reduction
@@ -372,32 +372,32 @@ void hebr3(std::vector<scalar_t>& v,
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, NormScope scope, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, NormScope scope, HermitianMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, NormScope scope, SymmetricMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, NormScope scope, TrapezoidMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, NormScope scope, BandMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, NormScope scope, HermitianBandMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 //------------------------------------------------------------------------------
 // Factorizations

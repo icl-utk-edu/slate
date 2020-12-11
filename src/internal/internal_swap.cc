@@ -197,7 +197,7 @@ void permuteRows(
     internal::TargetType<Target::HostTask>,
     Direction direction,
     Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag)
+    Layout layout, int priority, int tag, int queue_index)
 {
     // todo: for performance optimization, merge with the loops below,
     // at least with lookahead, probably selectively
@@ -275,11 +275,11 @@ void permuteRows(
     internal::TargetType<Target::HostNest>,
     Direction direction,
     Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag)
+    Layout layout, int priority, int tag, int queue_index)
 {
     // forward to HostTask
     permuteRows(internal::TargetType<Target::HostTask>(),
-                direction, A, pivot, layout, priority, tag);
+                direction, A, pivot, layout, priority, tag, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -288,11 +288,11 @@ void permuteRows(
     internal::TargetType<Target::HostBatch>,
     Direction direction,
     Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag)
+    Layout layout, int priority, int tag, int queue_index)
 {
     // forward to HostTask
     permuteRows(internal::TargetType<Target::HostTask>(),
-                direction, A, pivot, layout, priority, tag);
+                direction, A, pivot, layout, priority, tag, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -309,10 +309,10 @@ template <Target target, typename scalar_t>
 void permuteRows(
     Direction direction,
     Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag)
+    Layout layout, int priority, int tag, int queue_index)
 {
     permuteRows(internal::TargetType<target>(), direction, A, pivot,
-                layout, priority, tag);
+                layout, priority, tag, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -329,7 +329,7 @@ void permuteRows(
     internal::TargetType<Target::Devices>,
     Direction direction,
     Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag)
+    Layout layout, int priority, int tag, int queue_index)
 {
     // GPU uses RowMajor
     assert(layout == Layout::RowMajor);
@@ -382,7 +382,7 @@ void permuteRows(
                                 A.tileNb(j),
                                 &A(0,    j, device).at(i1, 0), 1,
                                 &A(idx2, j, device).at(i2, 0), 1,
-                                *(A.compute_queue(device)));
+                                *(A.compute_queue(device, queue_index)));
                         }
                     }
                     // I am not the root.
@@ -393,7 +393,7 @@ void permuteRows(
                             A(pivot[i].tileIndex(), j, device),
                             pivot[i].elementOffset(),
                             A.tileRank(0, j), A.mpiComm(),
-                            *(A.compute_queue(device)), tag);
+                            *(A.compute_queue(device, queue_index)), tag);
                     }
                 }
                 // I don't own the pivot.
@@ -405,14 +405,14 @@ void permuteRows(
                             0,  A.tileNb(j), device,
                             A(0, j, device), i,
                             pivot_rank, A.mpiComm(),
-                            *(A.compute_queue(device)), tag);
+                            *(A.compute_queue(device, queue_index)), tag);
                     }
                 }
             }
         }
 
         for (int device : dev_set) {
-            A.compute_queue(device)->sync();
+            A.compute_queue(device, queue_index)->sync();
         }
     }
 }
@@ -633,50 +633,50 @@ template
 void permuteRows<Target::HostTask, float>(
     Direction direction,
     Matrix<float>&& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 template
 void permuteRows<Target::HostNest, float>(
     Direction direction,
     Matrix<float>&& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 template
 void permuteRows<Target::HostBatch, float>(
     Direction direction,
     Matrix<float>&& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 template
 void permuteRows<Target::Devices, float>(
     Direction direction,
     Matrix<float>&& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 // ----------------------------------------
 template
 void permuteRows<Target::HostTask, double>(
     Direction direction,
     Matrix<double>&& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 template
 void permuteRows<Target::HostNest, double>(
     Direction direction,
     Matrix<double>&& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 template
 void permuteRows<Target::HostBatch, double>(
     Direction direction,
     Matrix<double>&& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 template
 void permuteRows<Target::Devices, double>(
     Direction direction,
     Matrix<double>&& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 // ----------------------------------------
 template
@@ -684,28 +684,28 @@ void permuteRows< Target::HostTask, std::complex<float> >(
     Direction direction,
     Matrix< std::complex<float> >&& A,
     std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 template
 void permuteRows< Target::HostNest, std::complex<float> >(
     Direction direction,
     Matrix< std::complex<float> >&& A,
     std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 template
 void permuteRows< Target::HostBatch, std::complex<float> >(
     Direction direction,
     Matrix< std::complex<float> >&& A,
     std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 template
 void permuteRows< Target::Devices, std::complex<float> >(
     Direction direction,
     Matrix< std::complex<float> >&& A,
     std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 // ----------------------------------------
 template
@@ -713,28 +713,28 @@ void permuteRows< Target::HostTask, std::complex<double> >(
     Direction direction,
     Matrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 template
 void permuteRows< Target::HostNest, std::complex<double> >(
     Direction direction,
     Matrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 template
 void permuteRows< Target::HostBatch, std::complex<double> >(
     Direction direction,
     Matrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 template
 void permuteRows< Target::Devices, std::complex<double> >(
     Direction direction,
     Matrix< std::complex<double> >&& A,
     std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag);
+    Layout layout, int priority, int tag, int queue_index);
 
 //------------------------------------------------------------------------------
 // Explicit instantiations for HermitianMatrix.

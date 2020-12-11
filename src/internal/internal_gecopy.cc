@@ -126,11 +126,11 @@ namespace internal {
 template <Target target, typename src_scalar_t, typename dst_scalar_t>
 void copy(Matrix<src_scalar_t>&& A,
           Matrix<dst_scalar_t>&& B,
-          int priority)
+          int priority, int queue_index)
 {
     copy(internal::TargetType<target>(),
          A, B,
-         priority);
+         priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -144,7 +144,7 @@ template <typename src_scalar_t, typename dst_scalar_t>
 void copy(internal::TargetType<Target::HostTask>,
           Matrix<src_scalar_t>& A,
           Matrix<dst_scalar_t>& B,
-          int priority)
+          int priority, int queue_index)
 {
     // trace::Block trace_block("copy");
 
@@ -183,7 +183,7 @@ template <typename src_scalar_t, typename dst_scalar_t>
 void copy(internal::TargetType<Target::Devices>,
           Matrix<src_scalar_t>& A,
           Matrix<dst_scalar_t>& B,
-          int priority)
+          int priority, int queue_index)
 {
     using ij_tuple = typename BaseMatrix<src_scalar_t>::ij_tuple;
     int64_t irange[4][2] = {
@@ -247,9 +247,7 @@ void copy(internal::TargetType<Target::Devices>,
             src_scalar_t** a_array_dev = A.array_device(device);
             dst_scalar_t** b_array_dev = B.array_device(device);
 
-            blas::set_device(device);
-            const int batch_arrays_index = 0;
-            blas::Queue* queue = A.queue(device, batch_arrays_index);
+            blas::Queue* queue = A.compute_queue(device, queue_index);
 
             blas::device_memcpy<src_scalar_t*>(a_array_dev, a_array_host,
                                 batch_count,
@@ -300,85 +298,85 @@ void copy(internal::TargetType<Target::Devices>,
 template
 void copy<Target::HostTask, float, float>(
     Matrix<float>&& A, Matrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy<Target::HostTask, float, double>(
     Matrix<float>&& A, Matrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy<Target::Devices, float, float>(
     Matrix<float>&& A, Matrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy<Target::Devices, float, double>(
     Matrix<float>&& A, Matrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void copy<Target::HostTask, double, double>(
     Matrix<double>&& A, Matrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy<Target::HostTask, double, float>(
     Matrix<double>&& A, Matrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy<Target::Devices, double, double>(
     Matrix<double>&& A, Matrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy<Target::Devices, double, float>(
     Matrix<double>&& A, Matrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void copy< Target::HostTask, std::complex<float>, std::complex<float> >(
     Matrix< std::complex<float> >&& A, Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy< Target::HostTask, std::complex<float>, std::complex<double> >(
     Matrix< std::complex<float> >&& A, Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy< Target::Devices, std::complex<float>, std::complex<float>  >(
     Matrix< std::complex<float> >&& A, Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy< Target::Devices, std::complex<float>, std::complex<double>  >(
     Matrix< std::complex<float> >&& A, Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void copy< Target::HostTask, std::complex<double>, std::complex<double> >(
     Matrix< std::complex<double> >&& A, Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy< Target::HostTask, std::complex<double>, std::complex<float> >(
     Matrix< std::complex<double> >&& A, Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy< Target::Devices, std::complex<double>, std::complex<double> >(
     Matrix< std::complex<double> >&& A, Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy< Target::Devices, std::complex<double>, std::complex<float> >(
     Matrix< std::complex<double> >&& A, Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 } // namespace internal
 } // namespace slate

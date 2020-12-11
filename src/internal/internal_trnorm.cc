@@ -95,11 +95,11 @@ template <Target target, typename scalar_t>
 void norm(
     Norm in_norm, NormScope scope, TrapezoidMatrix<scalar_t>&& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority,  int queue_index)
 {
     norm(internal::TargetType<target>(),
          in_norm, scope, A, values,
-         priority);
+         priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -112,7 +112,7 @@ void norm(
     internal::TargetType<Target::HostTask>,
     Norm in_norm, NormScope scope, TrapezoidMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority,  int queue_index)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -121,7 +121,7 @@ void norm(
     const Layout layout = Layout::ColMajor;
 
     if (scope != NormScope::Matrix) {
-        slate_error("Not implemented yet");
+        slate_not_implemented("The NormScope isn't yet supported.");
     }
 
     // i, j are tile row, tile col indices; ii, jj are row, col indices.
@@ -364,9 +364,9 @@ void norm(
     internal::TargetType<Target::HostNest>,
     Norm in_norm, NormScope scope, TrapezoidMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority,  int queue_index)
 {
-    throw Exception("HostNested not yet implemented");
+    slate_not_implemented("Target::HostNest isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
@@ -379,7 +379,7 @@ void norm(
     internal::TargetType<Target::Devices>,
     Norm in_norm, NormScope scope, TrapezoidMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority,  int queue_index)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -521,17 +521,12 @@ void norm(
             {
                 trace::Block trace_block("slate::device::trnorm");
 
-                blas::set_device(device);
-
-                const int batch_arrays_index = 0;
-                // TODO: Use the A.queue()
-                //blas::Queue* queue = A.queue(device, batch_arrays_index);
-                blas::Queue queue(device, batch_arrays_index);
+                blas::Queue* queue = A.compute_queue(device, queue_index);
 
                 blas::device_memcpy<scalar_t*>(a_dev_array, a_host_array,
                                     batch_count,
                                     blas::MemcpyKind::HostToDevice,
-                                    queue);
+                                    *queue);
 
                 // off-diagonal blocks
                 for (int q = 0; q < 4; ++q) {
@@ -540,7 +535,7 @@ void norm(
                                        mb[q], nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
-                                       group_count[q], queue);
+                                       group_count[q], *queue);
                         a_dev_array += group_count[q];
                         vals_dev_array += group_count[q] * ldv;
                     }
@@ -552,7 +547,7 @@ void norm(
                                        mb[q], nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
-                                       group_count[q], queue);
+                                       group_count[q], *queue);
                         a_dev_array += group_count[q];
                         vals_dev_array += group_count[q] * ldv;
                     }
@@ -563,9 +558,9 @@ void norm(
                 blas::device_memcpy<real_t>(vals_host_array, vals_dev_array,
                                     batch_count*ldv,
                                     blas::MemcpyKind::DeviceToHost,
-                                    queue);
+                                    *queue);
 
-                queue.sync();
+                queue->sync();
             }
 
             // Reduction over tiles to device result.
@@ -698,76 +693,76 @@ template
 void norm<Target::HostTask, float>(
     Norm in_norm, NormScope scope, TrapezoidMatrix<float>&& A,
     float* values,
-    int priority);
+    int priority,  int queue_index);
 
 template
 void norm<Target::HostNest, float>(
     Norm in_norm, NormScope scope, TrapezoidMatrix<float>&& A,
     float* values,
-    int priority);
+    int priority,  int queue_index);
 
 template
 void norm<Target::Devices, float>(
     Norm in_norm, NormScope scope, TrapezoidMatrix<float>&& A,
     float* values,
-    int priority);
+    int priority,  int queue_index);
 
 // ----------------------------------------
 template
 void norm<Target::HostTask, double>(
     Norm in_norm, NormScope scope, TrapezoidMatrix<double>&& A,
     double* values,
-    int priority);
+    int priority,  int queue_index);
 
 template
 void norm<Target::HostNest, double>(
     Norm in_norm, NormScope scope, TrapezoidMatrix<double>&& A,
     double* values,
-    int priority);
+    int priority,  int queue_index);
 
 template
 void norm<Target::Devices, double>(
     Norm in_norm, NormScope scope, TrapezoidMatrix<double>&& A,
     double* values,
-    int priority);
+    int priority,  int queue_index);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<float> >(
     Norm in_norm, NormScope scope, TrapezoidMatrix< std::complex<float> >&& A,
     float* values,
-    int priority);
+    int priority,  int queue_index);
 
 template
 void norm< Target::HostNest, std::complex<float> >(
     Norm in_norm, NormScope scope, TrapezoidMatrix< std::complex<float> >&& A,
     float* values,
-    int priority);
+    int priority,  int queue_index);
 
 template
 void norm< Target::Devices, std::complex<float> >(
     Norm in_norm, NormScope scope, TrapezoidMatrix< std::complex<float> >&& A,
     float* values,
-    int priority);
+    int priority,  int queue_index);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<double> >(
     Norm in_norm, NormScope scope, TrapezoidMatrix< std::complex<double> >&& A,
     double* values,
-    int priority);
+    int priority,  int queue_index);
 
 template
 void norm< Target::HostNest, std::complex<double> >(
     Norm in_norm, NormScope scope, TrapezoidMatrix< std::complex<double> >&& A,
     double* values,
-    int priority);
+    int priority,  int queue_index);
 
 template
 void norm< Target::Devices, std::complex<double> >(
     Norm in_norm, NormScope scope, TrapezoidMatrix< std::complex<double> >&& A,
     double* values,
-    int priority);
+    int priority,  int queue_index);
 
 } // namespace internal
 } // namespace slate

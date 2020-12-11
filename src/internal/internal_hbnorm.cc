@@ -97,11 +97,11 @@ template <Target target, typename scalar_t>
 void norm(
     Norm in_norm, NormScope scope, HermitianBandMatrix<scalar_t>&& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
     norm(internal::TargetType<target>(),
          in_norm, scope, A, values,
-         priority);
+         priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -114,7 +114,7 @@ void norm(
     internal::TargetType<Target::HostTask>,
     Norm in_norm, NormScope scope, HermitianBandMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
     using blas::max;
     using blas::min;
@@ -125,7 +125,7 @@ void norm(
     const Layout layout = Layout::ColMajor;
 
     if (scope != NormScope::Matrix) {
-        slate_error("Not implemented yet");
+        slate_not_implemented("The NormScope isn't yet supported.");
     }
 
     bool lower = (A.uploLogical() == Uplo::Lower);
@@ -375,9 +375,9 @@ void norm(
     internal::TargetType<Target::HostNest>,
     Norm in_norm, NormScope scope, HermitianBandMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
-    throw Exception("HostNested not yet implemented");
+    slate_not_implemented("Target::HostNest isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
@@ -390,7 +390,7 @@ void norm(
     internal::TargetType<Target::Devices>,
     Norm in_norm, NormScope scope, HermitianBandMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
     using blas::max;
     using blas::min;
@@ -402,7 +402,7 @@ void norm(
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
     if (scope != NormScope::Matrix) {
-        slate_error("Not implemented yet");
+        slate_not_implemented("The NormScope isn't yet supported.");
     }
 
     bool lower = (A.uploLogical() == Uplo::Lower);
@@ -563,12 +563,7 @@ void norm(
             {
                 trace::Block trace_block("slate::device::henorm");
 
-                blas::set_device(device);
-
-                const int batch_arrays_index = 0;
-                // TODO: Use the A.queue()
-                blas::Queue* queue = A.queue(device, batch_arrays_index);
-                //blas::Queue queue(device, batch_arrays_index);
+                blas::Queue* queue = A.compute_queue(device, queue_index);
 
                 blas::device_memcpy<scalar_t*>(a_dev_array, a_host_array,
                                     batch_count,
@@ -731,76 +726,76 @@ template
 void norm<Target::HostTask, float>(
     Norm in_norm, NormScope scope, HermitianBandMatrix<float>&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::HostNest, float>(
     Norm in_norm, NormScope scope, HermitianBandMatrix<float>&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::Devices, float>(
     Norm in_norm, NormScope scope, HermitianBandMatrix<float>&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void norm<Target::HostTask, double>(
     Norm in_norm, NormScope scope, HermitianBandMatrix<double>&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::HostNest, double>(
     Norm in_norm, NormScope scope, HermitianBandMatrix<double>&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::Devices, double>(
     Norm in_norm, NormScope scope, HermitianBandMatrix<double>&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<float> >(
     Norm in_norm, NormScope scope, HermitianBandMatrix< std::complex<float> >&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::HostNest, std::complex<float> >(
     Norm in_norm, NormScope scope, HermitianBandMatrix< std::complex<float> >&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::Devices, std::complex<float> >(
     Norm in_norm, NormScope scope, HermitianBandMatrix< std::complex<float> >&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<double> >(
     Norm in_norm, NormScope scope, HermitianBandMatrix< std::complex<double> >&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::HostNest, std::complex<double> >(
     Norm in_norm, NormScope scope, HermitianBandMatrix< std::complex<double> >&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::Devices, std::complex<double> >(
     Norm in_norm, NormScope scope, HermitianBandMatrix< std::complex<double> >&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 } // namespace internal
 } // namespace slate

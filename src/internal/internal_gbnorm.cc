@@ -33,11 +33,11 @@ template <Target target, typename scalar_t>
 void norm(
     Norm in_norm, NormScope scope, BandMatrix<scalar_t>&& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
     norm(internal::TargetType<target>(),
          in_norm, scope, A, values,
-         priority);
+         priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -50,7 +50,7 @@ void norm(
     internal::TargetType<Target::HostTask>,
     Norm in_norm, NormScope scope, BandMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
     using blas::max;
     using blas::min;
@@ -61,7 +61,7 @@ void norm(
     const Layout layout = Layout::ColMajor;
 
     if (scope != NormScope::Matrix) {
-        slate_error("Not implemented yet");
+        slate_not_implemented("The NormScope isn't yet supported.");
     }
 
     int64_t kl = A.lowerBandwidth();
@@ -220,13 +220,13 @@ void norm(
     internal::TargetType<Target::HostNest>,
     Norm in_norm, NormScope scope, BandMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
     using blas::max;
     using blas::min;
     using real_t = blas::real_type<scalar_t>;
     if (in_norm != Norm::Max)
-        throw Exception("HostNest has only max norm implemented");
+        slate_not_implemented("The NormScope isn't yet supported.");
 
     // norms assume column major
     // todo: relax this assumption, a few cases need to be adjusted only
@@ -280,7 +280,7 @@ void norm(
     internal::TargetType<Target::Devices>,
     Norm in_norm, NormScope scope, BandMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
     using blas::max;
     using blas::min;
@@ -544,76 +544,76 @@ template
 void norm<Target::HostTask, float>(
     Norm in_norm, NormScope scope, BandMatrix<float>&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::HostNest, float>(
     Norm in_norm, NormScope scope, BandMatrix<float>&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::Devices, float>(
     Norm in_norm, NormScope scope, BandMatrix<float>&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void norm<Target::HostTask, double>(
     Norm in_norm, NormScope scope, BandMatrix<double>&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::HostNest, double>(
     Norm in_norm, NormScope scope, BandMatrix<double>&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::Devices, double>(
     Norm in_norm, NormScope scope, BandMatrix<double>&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<float> >(
     Norm in_norm, NormScope scope, BandMatrix< std::complex<float> >&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::HostNest, std::complex<float> >(
     Norm in_norm, NormScope scope, BandMatrix< std::complex<float> >&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::Devices, std::complex<float> >(
     Norm in_norm, NormScope scope, BandMatrix< std::complex<float> >&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<double> >(
     Norm in_norm, NormScope scope, BandMatrix< std::complex<double> >&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::HostNest, std::complex<double> >(
     Norm in_norm, NormScope scope, BandMatrix< std::complex<double> >&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::Devices, std::complex<double> >(
     Norm in_norm, NormScope scope, BandMatrix< std::complex<double> >&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 } // namespace internal
 } // namespace slate

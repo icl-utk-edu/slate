@@ -478,7 +478,7 @@ private:
     static int host_num_;
     static int num_devices_;
 
-    std::vector< std::vector< blas::Queue* > >    comm_queues_;
+    std::vector< blas::Queue* > comm_queues_;
     std::vector< std::vector< blas::Queue* > > compute_queues_;
 
     int64_t batch_array_size_;
@@ -599,10 +599,9 @@ MatrixStorage<scalar_t>::~MatrixStorage()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::initCudaStreams()
 {
-    comm_queues_   .resize(1);
-    compute_queues_.resize(1);
+    comm_queues_.resize(num_devices_);
 
-    comm_queues_   .at(0).resize(num_devices_, nullptr);
+    compute_queues_.resize(1);
     compute_queues_.at(0).resize(num_devices_, nullptr);
 
     array_host_.resize(1);
@@ -615,9 +614,7 @@ void MatrixStorage<scalar_t>::initCudaStreams()
     queue_.at(0).resize(num_devices_, nullptr);
 
     for (int device = 0; device < num_devices_; ++device) {
-        blas::set_device(device);
-
-        comm_queues_   .at(0)[device] = new blas::Queue(device, 0);
+        comm_queues_[device] = new blas::Queue(device, 0);
         compute_queues_.at(0)[device] = new blas::Queue(device, 0);
     }
 }
@@ -630,12 +627,9 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::destroyCudaStreams()
 {
     for (int device = 0; device < num_devices_; ++device) {
-        blas::set_device(device);
+        delete comm_queues_[device];
 
-        delete    comm_queues_.at(0)[device];
         delete compute_queues_.at(0)[device];
-
-           comm_queues_.at(0)[device] = nullptr;
         compute_queues_.at(0)[device] = nullptr;
     }
 }

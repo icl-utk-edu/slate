@@ -78,10 +78,12 @@ namespace internal {
 /// @ingroup set_internal
 ///
 template <Target target, typename scalar_t>
-void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>&& A, int priority)
+void set(
+    scalar_t alpha, scalar_t beta, Matrix<scalar_t>&& A,
+    int priority, int queue_index)
 {
     set(internal::TargetType<target>(),
-        alpha, beta, A, priority);
+        alpha, beta, A, priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -92,7 +94,8 @@ void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>&& A, int priority)
 ///
 template <typename scalar_t>
 void set(internal::TargetType<Target::HostTask>,
-         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A, int priority)
+    scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
+    int priority, int queue_index)
 {
     // trace::Block trace_block("set");
 
@@ -117,17 +120,19 @@ void set(internal::TargetType<Target::HostTask>,
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void set(internal::TargetType<Target::HostNest>,
-         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A, int priority)
+         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
+         int priority, int queue_index)
 {
-    throw Exception("HostNest not yet implemented");
+    slate_not_implemented("Target::HostNest isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void set(internal::TargetType<Target::HostBatch>,
-         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A, int priority)
+         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
+         int priority, int queue_index)
 {
-    throw Exception("HostBatch not yet implemented");
+    slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
@@ -138,7 +143,8 @@ void set(internal::TargetType<Target::HostBatch>,
 ///
 template <typename scalar_t>
 void set(internal::TargetType<Target::Devices>,
-         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A, int priority)
+         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
+         int priority, int queue_index)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
@@ -217,9 +223,7 @@ void set(internal::TargetType<Target::Devices>,
 
             scalar_t** a_array_dev = A.array_device(device);
 
-            blas::set_device(device);
-            const int batch_arrays_index = 0;
-            blas::Queue* queue = A.queue(device, batch_arrays_index);
+            blas::Queue* queue = A.compute_queue(device, queue_index);
 
             blas::device_memcpy<scalar_t*>(a_array_dev, a_array_host,
                                 batch_count,
@@ -255,78 +259,78 @@ void set(internal::TargetType<Target::Devices>,
 // ----------------------------------------
 template
 void set<Target::HostTask, float>(
-    float alpha, float beta, Matrix<float>&& A, int priority);
+    float alpha, float beta, Matrix<float>&& A, int priority, int queue_index);
 
 template
 void set<Target::HostNest, float>(
-    float alpha, float beta, Matrix<float>&& A, int priority);
+    float alpha, float beta, Matrix<float>&& A, int priority, int queue_index);
 
 template
 void set<Target::HostBatch, float>(
-    float alpha, float beta, Matrix<float>&& A, int priority);
+    float alpha, float beta, Matrix<float>&& A, int priority, int queue_index);
 
 template
 void set<Target::Devices, float>(
-    float alpha, float beta, Matrix<float>&& A, int priority);
+    float alpha, float beta, Matrix<float>&& A, int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set<Target::HostTask, double>(
-    double alpha, double beta, Matrix<double>&& A, int priority);
+    double alpha, double beta, Matrix<double>&& A, int priority, int queue_index);
 
 template
 void set<Target::HostNest, double>(
-    double alpha, double beta, Matrix<double>&& A, int priority);
+    double alpha, double beta, Matrix<double>&& A, int priority, int queue_index);
 
 template
 void set<Target::HostBatch, double>(
-    double alpha, double beta, Matrix<double>&& A, int priority);
+    double alpha, double beta, Matrix<double>&& A, int priority, int queue_index);
 
 template
 void set<Target::Devices, double>(
-    double alpha, double beta, Matrix<double>&& A, int priority);
+    double alpha, double beta, Matrix<double>&& A, int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    Matrix< std::complex<float> >&& A, int priority);
+    Matrix< std::complex<float> >&& A, int priority, int queue_index);
 
 template
 void set< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    Matrix< std::complex<float> >&& A, int priority);
+    Matrix< std::complex<float> >&& A, int priority, int queue_index);
 
 template
 void set< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    Matrix< std::complex<float> >&& A, int priority);
+    Matrix< std::complex<float> >&& A, int priority, int queue_index);
 
 template
 void set< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    Matrix< std::complex<float> >&& A, int priority);
+    Matrix< std::complex<float> >&& A, int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    Matrix< std::complex<double> >&& A, int priority);
+    Matrix< std::complex<double> >&& A, int priority, int queue_index);
 
 template
 void set< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    Matrix< std::complex<double> >&& A, int priority);
+    Matrix< std::complex<double> >&& A, int priority, int queue_index);
 
 template
 void set< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    Matrix< std::complex<double> >&& A, int priority);
+    Matrix< std::complex<double> >&& A, int priority, int queue_index);
 
 template
 void set< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    Matrix< std::complex<double> >&& A, int priority);
+    Matrix< std::complex<double> >&& A, int priority, int queue_index);
 
 } // namespace internal
 } // namespace slate

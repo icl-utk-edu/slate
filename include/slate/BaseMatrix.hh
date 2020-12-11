@@ -549,10 +549,9 @@ public:
 
     //--------------------------------------------------------------------------
     /// @return BLAS++ queues
-    blas::Queue* comm_queue(int device, int queue_index=0)
+    blas::Queue* comm_queue(int device)
     {
-        assert(queue_index >= 0);
-        return storage_->comm_queues_.at(queue_index).at(device);
+        return storage_->comm_queues_.at(device);
     }
     blas::Queue* compute_queue(int device, int queue_index=0)
     {

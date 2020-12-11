@@ -79,12 +79,12 @@ namespace internal {
 template <Target target, typename scalar_t>
 void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
            scalar_t beta, Matrix<scalar_t>&& B,
-           int priority)
+           int priority, int queue_index)
 {
     geadd(internal::TargetType<target>(),
           alpha, A,
           beta,  B,
-          priority);
+          priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -99,7 +99,7 @@ template <typename scalar_t>
 void geadd(internal::TargetType<Target::HostTask>,
            scalar_t alpha, Matrix<scalar_t>& A,
            scalar_t beta, Matrix<scalar_t>& B,
-           int priority)
+           int priority, int queue_index)
 {
     // trace::Block trace_block("geadd");
 
@@ -132,9 +132,9 @@ template <typename scalar_t>
 void geadd(internal::TargetType<Target::HostNest>,
            scalar_t alpha, Matrix<scalar_t>& A,
            scalar_t beta, Matrix<scalar_t>& B,
-           int priority)
+           int priority, int queue_index)
 {
-    throw Exception("HostNest not yet implemented");
+    slate_not_implemented("Target::HostNest isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
@@ -143,9 +143,9 @@ template <typename scalar_t>
 void geadd(internal::TargetType<Target::HostBatch>,
            scalar_t alpha, Matrix<scalar_t>& A,
            scalar_t beta, Matrix<scalar_t>& B,
-           int priority)
+           int priority, int queue_index)
 {
-    throw Exception("HostBatch not yet implemented");
+    slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
@@ -160,7 +160,7 @@ template <typename scalar_t>
 void geadd(internal::TargetType<Target::Devices>,
            scalar_t alpha, Matrix<scalar_t>& A,
            scalar_t beta, Matrix<scalar_t>& B,
-           int priority)
+           int priority, int queue_index)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
@@ -235,29 +235,25 @@ void geadd(internal::TargetType<Target::Devices>,
             scalar_t** a_array_dev = B.array_device(device);
             scalar_t** b_array_dev = a_array_dev + batch_size;
 
-            blas::set_device(device);
-            const int batch_arrays_index = 0;
-            blas::Queue queue(device, batch_arrays_index);
-            // TODO: Use the A.queue()
-            //blas::Queue* queue = A.queue(device, batch_arrays_index);
+            blas::Queue* queue = A.queue(device, queue_index);
 
             blas::device_memcpy<scalar_t*>(a_array_dev, a_array_host,
                                 batch_count*2,
                                 blas::MemcpyKind::HostToDevice,
-                                queue);
+                                *queue);
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
                     device::geadd(mb[q], nb[q],
                                   alpha, a_array_dev, lda[q],
                                   beta,  b_array_dev, ldb[q],
-                                  group_count[q], queue);
+                                  group_count[q], *queue);
                     a_array_dev += group_count[q];
                     b_array_dev += group_count[q];
                 }
             }
 
-            queue.sync();
+            queue->sync();
 
             for (int64_t i = 0; i < B.mt(); ++i) {
                 for (int64_t j = 0; j < B.nt(); ++j) {
@@ -283,100 +279,100 @@ template
 void geadd<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
     float beta, Matrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
     float beta, Matrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
     float beta, Matrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
     float beta, Matrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void geadd<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
     double beta, Matrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
     double beta, Matrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
     double beta, Matrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
     double beta, Matrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void geadd< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void geadd< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta, Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta, Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta, Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta, Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 } // namespace internal
 } // namespace slate

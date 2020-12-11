@@ -54,7 +54,6 @@ norm(slate::internal::TargetType<target>,
 
         // TODO: Allocate batch arrays here, not in internal.
         if (target == Target::Devices) {
-            A.allocateBatchArrays();
             A.reserveDeviceWorkspace();
         }
 
@@ -98,7 +97,6 @@ norm(slate::internal::TargetType<target>,
         std::vector<real_t> local_sums(A.n());
 
         if (target == Target::Devices) {
-            A.allocateBatchArrays();
             A.reserveDeviceWorkspace();
         }
 
@@ -131,7 +129,6 @@ norm(slate::internal::TargetType<target>,
         std::vector<real_t> local_sums(A.m());
 
         if (target == Target::Devices) {
-            A.allocateBatchArrays();
             A.reserveDeviceWorkspace();
         }
 
@@ -166,7 +163,6 @@ norm(slate::internal::TargetType<target>,
         real_t global_sumsq;
 
         if (target == Target::Devices) {
-            A.allocateBatchArrays();
             A.reserveDeviceWorkspace();
         }
 

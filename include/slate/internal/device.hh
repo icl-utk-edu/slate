@@ -13,6 +13,7 @@
 
 //------------------------------------------------------------------------------
 // Extend BLAS real_type to cover cuComplex
+// todo: should we move it to BLAS++ or have a version for rocBLAS
 namespace blas {
 
 template<>

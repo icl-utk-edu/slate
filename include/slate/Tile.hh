@@ -751,12 +751,12 @@ void Tile<scalar_t>::layoutConvert(
             }
             else {
                 blas::set_device(device_);
-                // todo: replace queue.stream() with queue only
+
                 device::transpose(
                     layout() == Layout::ColMajor ? mb_ : nb_,
                     layout() == Layout::ColMajor ? nb_ : mb_,
                     data_, stride_, work_data, work_stride, queue);
-                // todo: fix BLAS++ to avoid casting
+
                 blas::device_memcpy<scalar_t>(
                     data_, work_data, size(),
                     blas::MemcpyKind::DeviceToDevice, queue);

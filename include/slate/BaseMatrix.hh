@@ -478,7 +478,7 @@ public:
     }
 
     /// Removes all temporary host and device workspace tiles from matrix.
-    /// WARNING: if force=true, this clears the entire parent matrix,
+    /// WARNING: currently, this clears the entire parent matrix,
     /// not just a sub-matrix.
     ///
     /// @param[in] force
@@ -518,12 +518,6 @@ public:
         return storage_->batchSize();
     }
 
-    /// @return currently number of allocated compute queues
-    int64_t numQueues()
-    {
-        return storage_->numQueues();
-    }
-
     //--------------------------------------------------------------------------
     /// @return batch arrays for the A, B, or C matrices,
     /// on host, to send to device
@@ -546,7 +540,7 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    /// @return BLAS++ communicate queues
+    /// @return BLAS++ communication queues
     ///
     /// @param[in] device
     ///     Tile's device ID.
@@ -567,7 +561,8 @@ public:
     ///
     blas::Queue* compute_queue(int device, int queue_index=0)
     {
-        assert((queue_index >= 0) && (queue_index < storage_->numQueues()));
+        assert((queue_index >= 0) &&
+               (queue_index < int(storage_->compute_queues_.size())));
         return storage_->compute_queues_.at(queue_index).at(device);
     }
 

@@ -325,12 +325,6 @@ public:
         return batch_size_;
     }
 
-    /// @return currently number of allocated compute queues
-    int64_t numQueues() const
-    {
-        return num_queues_;
-    }
-
     //--------------------------------------------------------------------------
     // workspace
     void reserveHostWorkspace(int64_t num_tiles);
@@ -484,9 +478,8 @@ private:
     static int num_devices_;
 
     int64_t batch_size_;
-    int64_t num_queues_;
 
-    // batch blas++ communicate queue object
+    // batch blas++ communication queue object
     std::vector< blas::Queue* > comm_queues_;
     // batch blas++ compute queue object
     std::vector< std::vector< blas::Queue* > > compute_queues_;
@@ -618,9 +611,6 @@ void MatrixStorage<scalar_t>::initQueues()
 
     array_dev_.resize(1);
     array_dev_.at(0).resize(num_devices_, nullptr);
-
-    batch_size_ = 0; // Devices tiles distribution has not been computed yet
-    num_queues_ = 1; // Only one set of compute_queues has been allocated so far
 }
 
 //------------------------------------------------------------------------------
@@ -633,7 +623,8 @@ void MatrixStorage<scalar_t>::destroyQueues()
     for (int device = 0; device < num_devices_; ++device)
         delete comm_queues_[device];
 
-    for (int queue = 0; queue < num_queues_; ++queue) {
+    const int num_queues = int(compute_queues_.size());
+    for (int queue = 0; queue < num_queues; ++queue) {
         for (int device = 0; device < num_devices_; ++device) {
             delete compute_queues_.at(queue)[device];
             compute_queues_.at(queue)[device] = nullptr;
@@ -711,27 +702,20 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
 }
 
 //------------------------------------------------------------------------------
-/// Frees CUDA batch arrays that were allocated by allocateBatchArrays().
+/// Frees device batch arrays that were allocated by allocateBatchArrays().
 ///
-// todo: rename destroyBatchArrays? freeBatchArrays?
-//
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::clearBatchArrays()
 {
-    for (std::size_t i = 0; i < array_host_.size(); ++i) {
-        std::vector< scalar_t** >& array_host = array_host_.at(i);
-        std::vector< scalar_t** >& array_dev  = array_dev_.at(i);
+    assert(array_host_.size() == array_dev_.size());
 
-        assert(int(array_host.size()) == num_devices_);
+    const int num_arrays = int(array_host_.size());
+    for (int array = 0; array < num_arrays; ++array) {
         for (int device = 0; device < num_devices_; ++device) {
-            blas::set_device(device);
-
-            blas::device_free_pinned(array_host[device]);
-            blas::device_free(array_dev[device]);
-
-            array_host[device] = nullptr;
-
-            array_dev[device] = nullptr;
+            blas::device_free_pinned(array_host_.at(array)[device]);
+            blas::device_free(       array_dev_ .at(array)[device]);
+            array_host_.at(array)[device] = nullptr;
+            array_dev_ .at(array)[device] = nullptr;
         }
     }
     batch_size_ = 0;
@@ -774,8 +758,7 @@ void MatrixStorage<scalar_t>::reserveDeviceWorkspace(
         }
     }
     
-    batch_size_ = num_tiles;
-    num_queues_ = num_queues;
+    // batch_size_ = num_tiles; // todo
 }
 
 //------------------------------------------------------------------------------

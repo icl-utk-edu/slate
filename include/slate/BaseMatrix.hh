@@ -477,17 +477,17 @@ public:
         storage_->clear();
     }
 
-    void releaseWorkspace()
-    {
-        storage_->releaseWorkspace();
-    }
-
     /// Removes all temporary host and device workspace tiles from matrix.
-    /// WARNING: currently this clears the entire parent matrix,
+    /// WARNING: if force=true, this clears the entire parent matrix,
     /// not just a sub-matrix.
-    void clearWorkspace()
+    ///
+    /// @param[in] force
+    ///     If false, do not clear OnHold nor Modified tiles.
+    ///     Otherwise, clear all tiles.
+    ///
+    void clearWorkspace(bool force=true)
     {
-        storage_->clearWorkspace();
+        storage_->clearWorkspace(force);
     }
 
     /// Allocates batch arrays.
@@ -513,17 +513,15 @@ public:
     }
 
     /// @return currently allocated batch array size
-    int64_t batchArraySize()
+    int64_t batchSize()
     {
-        return storage_->batchArraySize();
+        return storage_->batchSize();
     }
 
-    //--------------------------------------------------------------------------
-    /// @return BLAS++ queue object
-    blas::Queue* queue(int device, int64_t index=0)
+    /// @return currently number of allocated compute queues
+    int64_t numQueues()
     {
-        assert(index >= 0);
-        return(storage_->queue_.at(index).at(device));
+        return storage_->numQueues();
     }
 
     //--------------------------------------------------------------------------
@@ -548,14 +546,28 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    /// @return BLAS++ queues
+    /// @return BLAS++ communicate queues
+    ///
+    /// @param[in] device
+    ///     Tile's device ID.
+    ///
     blas::Queue* comm_queue(int device)
     {
         return storage_->comm_queues_.at(device);
     }
+
+    //--------------------------------------------------------------------------
+    /// @return BLAS++ compute queues
+    ///
+    /// @param[in] device
+    ///     Tile's device ID
+    ///
+    /// @param[in] queue_index
+    ///     The index of a specific set of queues
+    ///
     blas::Queue* compute_queue(int device, int queue_index=0)
     {
-        assert(queue_index >= 0);
+        assert((queue_index >= 0) && (queue_index < storage_->numQueues()));
         return storage_->compute_queues_.at(queue_index).at(device);
     }
 

@@ -44,13 +44,18 @@ void gemm(slate::internal::TargetType<target>,
     std::vector<uint8_t> bcast_vector(A.nt());
     std::vector<uint8_t> gemm_vector(A.nt());
     std::vector<uint8_t> c_vector(1);
+
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
     uint8_t* c     =     c_vector.data();
 
+    const int priority_one    = 1;
+    const int queue_index_one = 1;
+
     if (target == Target::Devices) {
-        C.allocateBatchArrays();
-        C.reserveDeviceWorkspace();
+        // C.allocateBatchArrays();
+        const int num_queues = 2; // Number of kernels without lookahead
+        C.reserveDeviceWorkspace(num_queues);
     }
 
     #pragma omp parallel
@@ -115,7 +120,6 @@ void gemm(slate::internal::TargetType<target>,
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
-
             // send next block col of A and block row of B
             if (k+lookahead < A.nt()) {
                 #pragma omp task depend(in:gemm[k-1]) \
@@ -149,14 +153,13 @@ void gemm(slate::internal::TargetType<target>,
                     alpha,         A.sub(0, A.mt()-1, k, k),
                                    B.sub(k, k, 0, B.nt()-1),
                     scalar_t(1.0), std::move(C),
-                    layout);
+                    layout, priority_one, queue_index_one);
             }
         }
         #pragma omp taskwait
         C.tileUpdateAllOrigin();
     }
-
-    C.releaseWorkspace();
+    C.clearWorkspace();
 }
 
 } // namespace specialization

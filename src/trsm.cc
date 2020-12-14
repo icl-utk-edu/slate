@@ -27,8 +27,7 @@ void trsm(slate::internal::TargetType<target>,
           int64_t lookahead)
 {
     if (target == Target::Devices) {
-        const int64_t batch_size_zero = 0;
-        const int64_t num_arrays_two = 2; // Number of kernels without lookahead
+        // const int64_t batch_size_zero = 0;
         // Allocate batch arrays = number of kernels without
         // lookahead + lookahead
         // number of kernels without lookahead = 2
@@ -41,8 +40,11 @@ void trsm(slate::internal::TargetType<target>,
         // and the batch_arrays_index starts from
         // the number of kernels without lookahead, and then incremented by 1
         // for every execution for the internal::gemm with lookahead
-        B.allocateBatchArrays(batch_size_zero, num_arrays_two);
-        B.reserveDeviceWorkspace();
+        // B.allocateBatchArrays(batch_size_zero, num_arrays_two);
+
+        const int64_t num_arrays_two = 2; // Number of kernels without lookahead
+        const int queue_size = num_arrays_two;// + lookahead;
+        B.reserveDeviceWorkspace(queue_size);
     }
 
     // OpenMP needs pointer types, but vectors are exception safe
@@ -59,7 +61,7 @@ void trsm(slate::internal::TargetType<target>,
             B.tileUpdateAllOrigin();
         }
     }
-    B.releaseWorkspace();
+    B.clearWorkspace();
 }
 
 } // namespace specialization

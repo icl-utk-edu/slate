@@ -93,7 +93,7 @@ public:
     int64_t getMaxDeviceTiles(int device);
     void allocateBatchArrays(int64_t batch_size=0, int64_t num_arrays=1);
     void reserveHostWorkspace();
-    void reserveDeviceWorkspace();
+    void reserveDeviceWorkspace(int num_queues=1);
     void gather(scalar_t* A, int64_t lda);
     Uplo uplo_logical() const { return this->uploLogical(); }  ///< @deprecated
     void insertLocalTiles(Target origin=Target::Host);
@@ -619,12 +619,12 @@ void BaseTrapezoidMatrix<scalar_t>::reserveHostWorkspace()
 //------------------------------------------------------------------------------
 /// Reserve space for temporary workspace tiles on all GPU devices.
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::reserveDeviceWorkspace()
+void BaseTrapezoidMatrix<scalar_t>::reserveDeviceWorkspace(int num_queues)
 {
     int64_t num_tiles = 0;
     for (int device = 0; device < this->num_devices_; ++device)
         num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
-    this->storage_->reserveDeviceWorkspace(num_tiles);
+    this->storage_->reserveDeviceWorkspace(num_tiles, num_queues);
 }
 
 //------------------------------------------------------------------------------

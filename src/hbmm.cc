@@ -80,7 +80,7 @@ void hbmm(slate::internal::TargetType<target>,
     int64_t kdt = ceildiv( kd, A.tileNb(0) );
 
     if (target == Target::Devices) {
-        C.allocateBatchArrays();
+        // C.allocateBatchArrays();
         C.reserveDeviceWorkspace();
     }
 
@@ -411,7 +411,7 @@ void hbmm(slate::internal::TargetType<target>,
     }
 
     C.tileUpdateAllOrigin();
-    C.releaseWorkspace();
+    C.clearWorkspace();
 }
 
 } // namespace specialization

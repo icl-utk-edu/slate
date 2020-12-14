@@ -123,7 +123,7 @@ void potrf(slate::internal::TargetType<target>,
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
     A.tileUpdateAllOrigin();
-    A.releaseWorkspace();
+    A.clearWorkspace();
 }
 
 //------------------------------------------------------------------------------
@@ -188,13 +188,13 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
-    const int priority_zero = 0;
+    const int priority_zero   = 0;
     const int life_factor_one = 1;
-    const int batch_arrays_index_one = 1;
-    const int64_t batch_size_zero = 0;
-    const int64_t num_arrays_two  = 2; // Number of kernels without lookahead
-    bool is_shared = lookahead > 0;
+    const int queue_index_one = 1;
+    const int num_queues      = 2; // Number of kernels without lookahead
+    const bool is_shared      = lookahead > 0; // Do tileGetAndHold in the bcast
 
+    // const int64_t batch_size_zero = 0;
     // Allocate batch arrays = number of kernels without lookahead + lookahead
     // number of kernels without lookahead = 2 (internal::gemm & internal::trsm)
     // whereas internal::herk will be executed as many as lookaheads, thus
@@ -202,8 +202,10 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     // and the batch_arrays_index starts from
     // the number of kernels without lookahead, and then incremented by 1
     // for every execution for the internal::herk
-    A.allocateBatchArrays(batch_size_zero, (num_arrays_two + lookahead));
-    A.reserveDeviceWorkspace();
+    // A.allocateBatchArrays(batch_size_zero, (num_queues + lookahead));
+
+    const int queue_size = num_queues + lookahead;
+    A.reserveDeviceWorkspace(queue_size);
 
     #pragma omp parallel
     #pragma omp master
@@ -228,7 +230,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                         Side::Right,
                         scalar_t(1.0), conjTranspose(Tkk),
                                        A.sub(k+1, A_nt-1, k, k),
-                        layout, priority_zero, batch_arrays_index_one);
+                        layout, priority_zero, queue_index_one);
                 }
 
                 BcastListTag bcast_list_A;
@@ -303,12 +305,10 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 }
             }
         }
-
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
-
-    A.releaseWorkspace();
+    A.clearWorkspace();
 }
 
 } // namespace specialization

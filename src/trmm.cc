@@ -27,7 +27,7 @@ void trmm(slate::internal::TargetType<target>,
           int64_t lookahead)
 {
     if (target == Target::Devices) {
-        B.allocateBatchArrays();
+        // B.allocateBatchArrays();
         B.reserveDeviceWorkspace();
     }
 

@@ -224,7 +224,7 @@ void trtri(slate::internal::TargetType<target>,
         A.tileUpdateAllOrigin();
     }
 
-    A.releaseWorkspace();
+    A.clearWorkspace();
 }
 
 } // namespace specialization

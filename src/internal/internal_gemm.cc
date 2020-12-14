@@ -485,10 +485,6 @@ void gemm(internal::TargetType<Target::Devices>,
                 }
             }
 
-            a_array_host_00.resize(batch_count_00);
-            b_array_host_00.resize(batch_count_00);
-            c_array_host_00.resize(batch_count_00);
-
             std::vector<scalar_t*> a_array_host_10(batch_size);
             std::vector<scalar_t*> b_array_host_10(batch_size);
             std::vector<scalar_t*> c_array_host_10(batch_size);
@@ -521,10 +517,6 @@ void gemm(internal::TargetType<Target::Devices>,
                     }
                 }
             }
-
-            a_array_host_10.resize(batch_count_10);
-            b_array_host_10.resize(batch_count_10);
-            c_array_host_10.resize(batch_count_10);
 
             std::vector<scalar_t*> a_array_host_01(batch_size);
             std::vector<scalar_t*> b_array_host_01(batch_size);
@@ -559,10 +551,6 @@ void gemm(internal::TargetType<Target::Devices>,
                 }
             }
 
-            a_array_host_01.resize(batch_count_01);
-            b_array_host_01.resize(batch_count_01);
-            c_array_host_01.resize(batch_count_01);
-
             std::vector<scalar_t*> a_array_host_11(batch_size);
             std::vector<scalar_t*> b_array_host_11(batch_size);
             std::vector<scalar_t*> c_array_host_11(batch_size);
@@ -595,10 +583,6 @@ void gemm(internal::TargetType<Target::Devices>,
                 }
             }
 
-            a_array_host_11.resize(batch_count_11);
-            b_array_host_11.resize(batch_count_11);
-            c_array_host_11.resize(batch_count_11);
-
             if (C.op() != Op::NoTrans) {
                 // swap A <=> B; swap m <=> n
                 swap(opA, opB);
@@ -625,15 +609,16 @@ void gemm(internal::TargetType<Target::Devices>,
                 std::vector<scalar_t> beta_(1, beta);
                 std::vector<int64_t> k(1, kb);
 
+                blas::Queue* queue = C.compute_queue(device, queue_index);
+
                 if (batch_count_00 > 0) {
                     std::vector<int64_t> m(1, mb00);
                     std::vector<int64_t> n(1, nb00);
                     std::vector<int64_t> ldda(1, lda00);
                     std::vector<int64_t> lddb(1, ldb00);
                     std::vector<int64_t> lddc(1, ldc00);
-                    std::vector<int64_t> info(batch_count_00);
 
-                    blas::Queue* queue = C.queue(device, queue_index);
+                    std::vector<int64_t> info(batch_count_00);
                     blas::batch::gemm(
                         layout, transA, transB,
                         m, n, k,
@@ -643,14 +628,13 @@ void gemm(internal::TargetType<Target::Devices>,
                         batch_count_00, info, *queue);
                 }
                 if (batch_count_10 > 0) {
-                    std::vector<int64_t> m(1, mb10);
-                    std::vector<int64_t> n(1, nb10);
+                    std::vector<int64_t>    m(1,  mb10);
+                    std::vector<int64_t>    n(1,  nb10);
                     std::vector<int64_t> ldda(1, lda10);
                     std::vector<int64_t> lddb(1, ldb10);
                     std::vector<int64_t> lddc(1, ldc10);
-                    std::vector<int64_t> info(batch_count_10);
 
-                    blas::Queue* queue = C.queue(device, queue_index);
+                    std::vector<int64_t> info(batch_count_10);
                     blas::batch::gemm(
                         layout, transA, transB,
                         m, n, k,
@@ -660,14 +644,13 @@ void gemm(internal::TargetType<Target::Devices>,
                         batch_count_10, info, *queue);
                 }
                 if (batch_count_01 > 0) {
-                    std::vector<int64_t> m(1, mb01);
-                    std::vector<int64_t> n(1, nb01);
+                    std::vector<int64_t>    m(1,  mb01);
+                    std::vector<int64_t>    n(1,  nb01);
                     std::vector<int64_t> ldda(1, lda01);
                     std::vector<int64_t> lddb(1, ldb01);
                     std::vector<int64_t> lddc(1, ldc01);
-                    std::vector<int64_t> info(batch_count_01);
 
-                    blas::Queue* queue = C.queue(device, queue_index);
+                    std::vector<int64_t> info(batch_count_01);
                     blas::batch::gemm(
                         layout, transA, transB,
                         m, n, k,
@@ -677,14 +660,13 @@ void gemm(internal::TargetType<Target::Devices>,
                         batch_count_01, info, *queue);
                 }
                 if (batch_count_11 > 0) {
-                    std::vector<int64_t> m(1, mb11);
-                    std::vector<int64_t> n(1, nb11);
+                    std::vector<int64_t>    m(1,   mb11);
+                    std::vector<int64_t>    n(1,   nb11);
                     std::vector<int64_t> ldda(1, lda11);
                     std::vector<int64_t> lddb(1, ldb11);
                     std::vector<int64_t> lddc(1, ldc11);
-                    std::vector<int64_t> info(batch_count_11);
 
-                    blas::Queue* queue = C.queue(device, queue_index);
+                    std::vector<int64_t> info(batch_count_11);
                     blas::batch::gemm(
                         layout, transA, transB,
                         m, n, k,
@@ -693,11 +675,8 @@ void gemm(internal::TargetType<Target::Devices>,
                         beta_,  c_array_host_11, lddc,
                         batch_count_11, info, *queue);
                 }
-                
-                if (batch_count_00 > 0 || batch_count_01 > 0 ||
-                    batch_count_10 > 0 || batch_count_11 > 0) {
-                    C.queue(device, queue_index)->sync();
-                }
+
+                queue->sync();
             }
 
             for (int64_t i = 0; i < C.mt(); ++i) {
@@ -719,7 +698,7 @@ void gemm(internal::TargetType<Target::Devices>,
     #pragma omp taskwait
 
     if (err)
-        throw std::exception();
+        slate_error(std::to_string(err));
 }
 
 //------------------------------------------------------------------------------

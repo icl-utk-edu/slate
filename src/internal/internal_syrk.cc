@@ -374,7 +374,7 @@ void syrk(internal::TargetType<Target::Devices>,
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
                 C.tileGetForWriting(0, 0, device, LayoutConvert(layout));
 
-                blas::Queue* queue = C.queue(device, queue_index);
+                blas::Queue* queue = C.compute_queue(device, queue_index);
 
                 auto A00 = A(0, 0, device);
                 auto C00 = C(0, 0, device);
@@ -483,10 +483,6 @@ void syrk(internal::TargetType<Target::Devices>,
                         }
                     }
 
-                    a_array_host_gemm_0.resize(batch_count_gemm_0);
-                    b_array_host_gemm_0.resize(batch_count_gemm_0);
-                    c_array_host_gemm_0.resize(batch_count_gemm_0);
-
                     std::vector<scalar_t*> a_array_host_gemm_1(batch_size_gemm);
                     std::vector<scalar_t*> b_array_host_gemm_1(batch_size_gemm);
                     std::vector<scalar_t*> c_array_host_gemm_1(batch_size_gemm);
@@ -519,10 +515,6 @@ void syrk(internal::TargetType<Target::Devices>,
                         }
                     }
 
-                    a_array_host_gemm_1.resize(batch_count_gemm_1);
-                    b_array_host_gemm_1.resize(batch_count_gemm_1);
-                    c_array_host_gemm_1.resize(batch_count_gemm_1);
-
                     if (C.op() != Op::NoTrans) {
                         // swap A <=> B; swap m <=> n
                         swap(opA, opB);
@@ -540,6 +532,8 @@ void syrk(internal::TargetType<Target::Devices>,
                     std::vector<scalar_t> alpha_(1, scalar_t(alpha));
                     std::vector<scalar_t> beta_(1, scalar_t(beta));
 
+                    blas::Queue* queue = C.compute_queue(device, queue_index);
+
                     {
                         trace::Block trace_block("blas::batch::gemm");
 
@@ -552,8 +546,6 @@ void syrk(internal::TargetType<Target::Devices>,
                             std::vector<int64_t> lddb(1, ldb_gemm_0);
                             std::vector<int64_t> lddc(1, ldc_gemm_0);
                             std::vector<int64_t> info(batch_count_gemm_0);
-
-                            blas::Queue* queue = C.queue(device, queue_index);
                             blas::batch::gemm(
                                 layout, transA, transB,
                                 m, n, k,
@@ -570,8 +562,6 @@ void syrk(internal::TargetType<Target::Devices>,
                             std::vector<int64_t> lddb(1, ldb_gemm_1);
                             std::vector<int64_t> lddc(1, ldc_gemm_1);
                             std::vector<int64_t> info(batch_count_gemm_1);
-
-                            blas::Queue* queue = C.queue(device, queue_index);
                             blas::batch::gemm(
                                 layout, transA, transB,
                                 m, n, k,
@@ -623,9 +613,6 @@ void syrk(internal::TargetType<Target::Devices>,
                         }
                     }
 
-                    a_array_host_syrk_0.resize(batch_count_syrk_0);
-                    c_array_host_syrk_0.resize(batch_count_syrk_0);
-
                     std::vector<scalar_t*> a_array_host_syrk_1(batch_size_syrk);
                     std::vector<scalar_t*> c_array_host_syrk_1(batch_size_syrk);
 
@@ -651,9 +638,6 @@ void syrk(internal::TargetType<Target::Devices>,
                         }
                     }
 
-                    a_array_host_syrk_1.resize(batch_count_syrk_1);
-                    c_array_host_syrk_1.resize(batch_count_syrk_1);
-
                     {
                         trace::Block trace_block("blas::batch::syrk");
 
@@ -664,8 +648,6 @@ void syrk(internal::TargetType<Target::Devices>,
                             std::vector<int64_t> ldda(1, lda_syrk_0);
                             std::vector<int64_t> lddc(1, ldc_syrk_0);
                             std::vector<int64_t> info(batch_count_syrk_0);
-
-                            blas::Queue* queue = C.queue(device, queue_index);
                             blas::batch::syrk(
                                 layout, uplo, transA,
                                 n, k,
@@ -679,8 +661,6 @@ void syrk(internal::TargetType<Target::Devices>,
                             std::vector<int64_t> ldda(1, lda_syrk_1);
                             std::vector<int64_t> lddc(1, ldc_syrk_1);
                             std::vector<int64_t> info(batch_count_syrk_1);
-
-                            blas::Queue* queue = C.queue(device, queue_index);
                             blas::batch::syrk(
                                 layout, uplo, transA,
                                 n, k,
@@ -690,10 +670,7 @@ void syrk(internal::TargetType<Target::Devices>,
                         }
                     }
 
-                    if (batch_count_gemm_0 > 0 || batch_count_gemm_1 > 0 ||
-                        batch_count_syrk_0 > 0 || batch_count_syrk_1 > 0) {
-                        C.queue(device, queue_index)->sync();
-                    }
+                    queue->sync();
 
                     // both off-diagonal batch gemm and diagonal syrk are done
                     for (int64_t j = 0; j < C.nt(); ++j) {

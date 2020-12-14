@@ -388,7 +388,7 @@ void he2hb(slate::internal::TargetType<target>,
         A.tileUpdateAllOrigin();
     }
 
-    A.releaseWorkspace();
+    A.clearWorkspace();
 }
 
 } // namespace specialization

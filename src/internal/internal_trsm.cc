@@ -195,7 +195,6 @@ void trsm(internal::TargetType<Target::Devices>,
             int64_t batch_size = B_tiles_set.size();
 
             if (batch_size > 0) {
-
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
                 B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
 
@@ -280,12 +279,6 @@ void trsm(internal::TargetType<Target::Devices>,
                     }
                 }
 
-                a_array_host_0.resize(batch_count_0);
-                b_array_host_0.resize(batch_count_0);
-
-                a_array_host_1.resize(batch_count_1);
-                b_array_host_1.resize(batch_count_1);
-
                 if (B.op() != Op::NoTrans) {
                     swap(mb0, nb0);
                     swap(mb1, nb1);
@@ -294,20 +287,21 @@ void trsm(internal::TargetType<Target::Devices>,
                 {
                     trace::Block trace_block("blas::batch::trsm");
 
-                    std::vector<Side>     side_(1, sideA);
-                    std::vector<Uplo>     uplo_(1, uploA);
-                    std::vector<Op>       trans_(1, opA);
-                    std::vector<Diag>     diag_(1, diagA);
+                    std::vector<Side>      side_(1, sideA);
+                    std::vector<Uplo>      uplo_(1, uploA);
+                    std::vector<Op>       trans_(1, opA  );
+                    std::vector<Diag>      diag_(1, diagA);
                     std::vector<scalar_t> alpha_(1, alpha);
 
-                    if (batch_count_0 > 0) {
-                        std::vector<int64_t> m(1, mb0);
-                        std::vector<int64_t> n(1, nb0);
-                        std::vector<int64_t> lda(1, lda0);
-                        std::vector<int64_t> ldb(1, ldb0);
-                        std::vector<int64_t> info(batch_count_0);
+                    blas::Queue* queue = B.compute_queue(device, queue_index);
 
-                        blas::Queue* queue = B.queue(device, queue_index);
+                    if (batch_count_0 > 0) {
+                        std::vector<int64_t>    m(1,  mb0);
+                        std::vector<int64_t>    n(1,  nb0);
+                        std::vector<int64_t>  lda(1, lda0);
+                        std::vector<int64_t>  ldb(1, ldb0);
+
+                        std::vector<int64_t> info(batch_count_0);
                         blas::batch::trsm(
                             layout, side_, uplo_, trans_, diag_,
                             m, n,
@@ -315,15 +309,13 @@ void trsm(internal::TargetType<Target::Devices>,
                                     b_array_host_0, ldb,
                             batch_count_0, info, *queue);
                     }
-
                     if (batch_count_1 > 0) {
-                        std::vector<int64_t> m(1, mb1);
-                        std::vector<int64_t> n(1, nb1);
+                        std::vector<int64_t>   m(1,  mb1);
+                        std::vector<int64_t>   n(1,  nb1);
                         std::vector<int64_t> lda(1, lda1);
                         std::vector<int64_t> ldb(1, ldb1);
-                        std::vector<int64_t> info(batch_count_1);
 
-                        blas::Queue* queue = B.queue(device, queue_index);
+                        std::vector<int64_t> info(batch_count_1);
                         blas::batch::trsm(
                             layout, side_, uplo_, trans_, diag_,
                             m, n,
@@ -332,9 +324,7 @@ void trsm(internal::TargetType<Target::Devices>,
                             batch_count_1, info, *queue);
                     }
 
-                    if (batch_count_0 > 0 || batch_count_1 > 0) {
-                        B.queue(device, queue_index)->sync();
-                    }
+                    queue->sync();
                 }
 
                 A.tileRelease(0, 0, device);

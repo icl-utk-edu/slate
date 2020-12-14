@@ -52,7 +52,6 @@ norm(slate::internal::TargetType<target>,
         real_t local_max;
         real_t global_max;
 
-        // TODO: Allocate batch arrays here, not in internal.
         if (target == Target::Devices) {
             A.reserveDeviceWorkspace();
         }
@@ -149,7 +148,7 @@ norm(slate::internal::TargetType<target>,
                               MPI_SUM, A.mpiComm()));
         }
 
-        A.releaseWorkspace();
+        A.clearWorkspace();
 
         return lapack::lange(Norm::Max, 1, A.m(), global_sums.data(), 1);
     }
@@ -188,7 +187,7 @@ norm(slate::internal::TargetType<target>,
         return sqrt(global_sumsq);
     }
     else {
-        throw std::exception();  // todo: invalid norm
+        slate_error("invalid norm.");
     }
 }
 

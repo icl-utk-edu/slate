@@ -117,7 +117,7 @@ void trtrm(slate::internal::TargetType<target>,
         A.tileUpdateAllOrigin();
     }
 
-    A.releaseWorkspace();
+    A.clearWorkspace();
 }
 
 } // namespace specialization

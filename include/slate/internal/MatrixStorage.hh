@@ -650,7 +650,7 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
     assert(num_arrays >  0);
     assert(array_host_.size() == array_dev_.size());
 
-    const int num_arrays_ = int64_t(array_host_.size());
+    int num_arrays_ = int(array_host_.size());
 
     bool is_resized = false;
     int64_t i_begin = 0;
@@ -695,7 +695,7 @@ void MatrixStorage<scalar_t>::clearBatchArrays()
 {
     assert(array_host_.size() == array_dev_.size());
 
-    const int num_arrays = int(array_host_.size());
+    int num_arrays = int(array_host_.size());
     for (int array = 0; array < num_arrays; ++array) {
         for (int device = 0; device < num_devices_; ++device) {
             blas::set_device(device);

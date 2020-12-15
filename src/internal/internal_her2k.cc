@@ -699,7 +699,8 @@ void her2k(internal::TargetType<Target::Devices>,
 
                     if (C.op() != Op::NoTrans) {
                         // swap A <=> B; swap m <=> n
-                        swap(a_array_host_gemm_0, a_array_host_gemm_0);
+                        swap(a_array_host_gemm_0, b_array_host_gemm_0);
+                        swap(a_array_host_gemm_1, b_array_host_gemm_1);
                         swap(lda_gemm_0, ldb_gemm_0);
                         swap(lda_gemm_1, ldb_gemm_1);
                     }

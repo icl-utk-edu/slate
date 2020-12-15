@@ -463,6 +463,7 @@ public:
 
     void getRanks(std::set<int>* bcast_set) const;
     void getLocalDevices(std::set<int>* dev_set) const;
+    int64_t getMaxDeviceTiles(int device);
     int64_t numLocalTiles() const;
     MPI_Comm  mpiComm()  const { return mpi_comm_; }
     int       mpiRank()  const { return mpi_rank_; }
@@ -499,7 +500,7 @@ public:
     /// @param[in] num_arrays
     ///     On exit, size of batch arrays vector >= num_arrays >= 1.
     ///
-    void allocateBatchArrays(int64_t batch_size, int64_t num_arrays)
+    void allocateBatchArrays(int64_t batch_size=0, int64_t num_arrays=1)
     {
         storage_->allocateBatchArrays(batch_size, num_arrays);
     }
@@ -3327,6 +3328,9 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
         // but not a concurrent read and write.
         LockGuard guard(storage_->getTilesMapLock());
 
+        // Request 1 set of batch arrays
+        allocateBatchArrays(std::max(int64_t(0), getMaxDeviceTiles(device)));
+
         // map key tuple: m, n, extended, stride, work_stride
         using mnss_tuple = std::tuple<int64_t, int64_t, bool, int64_t, int64_t>;
         // map value tuple: data and extended data buffers
@@ -3400,17 +3404,8 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
                 std::max(batch_count, int64_t(bucket->second.first.size()));
         }
 
-        int64_t num_arrays =
-            (storage_->array_host_.size() <= 0) ? 1 : storage_->array_host_.size();
-
-        // todo: shouldn't we allocate for the current device only?
-        allocateBatchArrays(batch_count, num_arrays);
-
         blas::Queue* queue = comm_queue(device);
-        // todo: we shouldn't set it here because device is already set in BLAS++
         blas::set_device(device);
-
-        // todo: should we've compute queues of size batch counts.
 
         // for each bucket
         for (auto bucket  = tilesBuckets.begin();
@@ -3714,6 +3709,24 @@ void BaseMatrix<scalar_t>::getLocalDevices(std::set<int>* dev_set) const
         for (int64_t j = 0; j < nt(); ++j)
             if (tileIsLocal(i, j))
                 dev_set->insert(tileDevice(i, j));
+}
+
+//------------------------------------------------------------------------------
+/// Returns number of local tiles of the matrix on this rank and given device.
+//
+/// @param[in] device
+///     GPU device id.
+//
+template <typename scalar_t>
+int64_t BaseMatrix<scalar_t>::getMaxDeviceTiles(int device)
+{
+    int64_t num_tiles = 0;
+    for (int64_t j = 0; j < nt(); ++j)
+        for (int64_t i = 0; i < mt(); ++i)
+            if (tileIsLocal(i, j) && tileDevice(i, j) == device)
+                ++num_tiles;
+
+    return num_tiles;
 }
 
 //------------------------------------------------------------------------------

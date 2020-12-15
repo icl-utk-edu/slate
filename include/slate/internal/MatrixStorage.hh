@@ -647,56 +647,42 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
     int64_t batch_size, int64_t num_arrays)
 {
     assert(batch_size >= 0);
-    assert(num_arrays >= 1);
+    assert(num_arrays >  0);
+    assert(array_host_.size() == array_dev_.size());
+
+    const int num_arrays_ = int64_t(array_host_.size());
 
     bool is_resized = false;
     int64_t i_begin = 0;
 
-    if (int64_t(array_host_.size()) < num_arrays) {
-        i_begin = array_host_.size();
+    if (num_arrays_ < num_arrays) {
+        i_begin = num_arrays_;
 
         array_host_.resize(num_arrays);
-        array_dev_.resize(num_arrays);
-
-        for (int64_t i = i_begin; i < num_arrays; ++i) {
-            std::vector< scalar_t** >& array_host = array_host_.at(i);
-            std::vector< scalar_t** >& array_dev  = array_dev_.at(i);
-            array_host.resize(num_devices_, nullptr);
-            array_dev.resize(num_devices_, nullptr);
+        array_dev_ .resize(num_arrays);
+        for (int64_t array = i_begin; array < num_arrays; ++array) {
+            array_host_.at(array).resize(num_devices_, nullptr);
+            array_dev_ .at(array).resize(num_devices_, nullptr);
         }
+
         is_resized = true;
     }
 
     if ((batch_size_ < batch_size) || is_resized) {
-
-        if (batch_size_ < batch_size) {
+        if (batch_size_ < batch_size)
             i_begin = 0;
-        }
-        else {
+        else
             batch_size = batch_size_;
-        }
 
-        assert(int(array_host_.size()) >= num_arrays);
-
-        for (std::size_t i = i_begin; i < array_host_.size(); ++i) {
-            std::vector< scalar_t** >& array_host = array_host_.at(i);
-            std::vector< scalar_t** >& array_dev  = array_dev_.at(i);
-
-            assert(int(array_host.size()) == num_devices_);
-
+        for (int array = i_begin; array < num_arrays_; ++array) {
             for (int device = 0; device < num_devices_; ++device) { 
                 blas::set_device(device);
-
-                blas::device_free_pinned(array_host[device]);
-                array_host[device] = 
-                    blas::device_malloc_pinned<scalar_t*>(batch_size*3);
-
-                blas::device_free(array_dev[device]);
-                array_dev[device] = 
-                    blas::device_malloc<scalar_t*>(batch_size*3);
+                blas::device_free_pinned(array_host_.at(array)[device]);
+                blas::device_free       (array_dev_ .at(array)[device]);
+                array_host_.at(array)[device] = blas::device_malloc_pinned<scalar_t*>(batch_size*3);
+                array_dev_ .at(array)[device] = blas::device_malloc<scalar_t*>(batch_size*3);
             }
         }
-
         batch_size_ = batch_size;
     }
 }
@@ -712,6 +698,7 @@ void MatrixStorage<scalar_t>::clearBatchArrays()
     const int num_arrays = int(array_host_.size());
     for (int array = 0; array < num_arrays; ++array) {
         for (int device = 0; device < num_devices_; ++device) {
+            blas::set_device(device);
             blas::device_free_pinned(array_host_.at(array)[device]);
             blas::device_free(       array_dev_ .at(array)[device]);
             array_host_.at(array)[device] = nullptr;

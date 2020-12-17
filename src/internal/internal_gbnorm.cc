@@ -80,9 +80,9 @@ void norm(
         // Find max of each tile, append to tiles_maxima.
         std::vector<real_t> tiles_maxima;
         for (int64_t j = 0; j < A.nt(); ++j) {
-            int64_t i_begin = max(j - kut, 0);
+            int64_t i_start = max(j - kut, 0);
             int64_t i_end   = min(j + klt + 1, A.mt());
-            for (int64_t i = i_begin; i < i_end; ++i) {
+            for (int64_t i = i_start; i < i_end; ++i) {
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, tiles_maxima) priority(priority)
                     {
@@ -115,9 +115,9 @@ void norm(
         std::vector<real_t> tiles_sums(A.n()*A.mt(), 0.0);
         int64_t jj = 0;
         for (int64_t j = 0; j < A.nt(); ++j) {
-            int64_t i_begin = max(j - kut, 0);
+            int64_t i_start = max(j - kut, 0);
             int64_t i_end   = min(j + klt + 1, A.mt());
-            for (int64_t i = i_begin; i < i_end; ++i) {
+            for (int64_t i = i_start; i < i_end; ++i) {
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, tiles_sums) priority(priority)
                     {
@@ -151,9 +151,9 @@ void norm(
         std::vector<real_t> tiles_sums(A.m()*A.nt(), 0.0);
         int64_t ii = 0;
         for (int64_t i = 0; i < A.mt(); ++i) {
-            int64_t j_begin = max(i - klt, 0);
+            int64_t j_start = max(i - klt, 0);
             int64_t j_end   = min(i + kut + 1, A.nt());
-            for (int64_t j = j_begin; j < j_end; ++j) {
+            for (int64_t j = j_start; j < j_end; ++j) {
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, tiles_sums) priority(priority)
                     {
@@ -187,9 +187,9 @@ void norm(
         values[0] = 0;  // scale
         values[1] = 1;  // sumsq
         for (int64_t j = 0; j < A.nt(); ++j) {
-            int64_t i_begin = max(j - kut, 0);
+            int64_t i_start = max(j - kut, 0);
             int64_t i_end   = min(j + klt + 1, A.mt());
-            for (int64_t i = i_begin; i < i_end; ++i) {
+            for (int64_t i = i_start; i < i_end; ++i) {
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, values) priority(priority)
                     {
@@ -198,12 +198,13 @@ void norm(
                         genorm(in_norm, NormScope::Matrix, A(i, j), tile_values);
                         #pragma omp critical
                         {
-                            add_sumsq(values[0], values[1],
+                            combine_sumsq(values[0], values[1],
                                       tile_values[0], tile_values[1]);
                         }
                     }
                 }
             }
+printf("\n devices_values[2*device + 0] %e devices_values[2*device + 1] %e \n", values[0], values[1]);
         }
     }
 }
@@ -246,9 +247,9 @@ void norm(
     // can't collapse loops due to dependencies
     #pragma omp parallel for schedule(dynamic, 1)
     for (int64_t j = 0; j < A_nt; ++j) {
-        int64_t i_begin = max(j - kut, 0);
+        int64_t i_start = max(j - kut, 0);
         int64_t i_end   = min(j + klt + 1, A_mt);
-        for (int64_t i = i_begin; i < i_end; ++i) {
+        for (int64_t i = i_start; i < i_end; ++i) {
             if (A.tileIsLocal(i, j)) {
                 A.tileGetForReading(i, j, LayoutConvert(layout));
                 real_t tile_max;
@@ -274,7 +275,7 @@ void norm(
 /// TODO
 /// @ingroup norm_internal
 ///
-#if 1
+#if 0
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::Devices>,
@@ -292,7 +293,13 @@ void norm(
     blas::real_type<scalar_t>* values,
     int priority)
 {
+    using blas::max;
+    using blas::min;
     using real_t = blas::real_type<scalar_t>;
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+
+    // todo: relax this assumption, a few cases need to be adjusted only
+    const Layout layout = Layout::ColMajor;
 
     assert(A.num_devices() > 0);
 
@@ -302,10 +309,17 @@ void norm(
     std::vector<scalar_t**> a_dev_arrays(A.num_devices());
     std::vector<real_t*> vals_dev_arrays(A.num_devices());
 
+    int64_t kl = A.lowerBandwidth();
+    int64_t ku = A.upperBandwidth();
+
+    // todo: initially, assume fixed size, square tiles for simplicity
+    int64_t klt = ceildiv( kl, A.tileNb(0) );
+    int64_t kut = ceildiv( ku, A.tileNb(0) );
+
     // devices_values used for max and Frobenius norms.
     std::vector<real_t> devices_values;
 
-    int64_t ldv;
+    int64_t ldv = 0;
     if (in_norm == Norm::Max) {
         ldv = 1;
         devices_values.resize(A.num_devices());
@@ -323,21 +337,15 @@ void norm(
 
     for (int device = 0; device < A.num_devices(); ++device) {
 
-        slate_cuda_call(
-            cudaSetDevice(device));
+        blas::set_device(device);
 
         int64_t num_tiles = A.getMaxDeviceTiles(device);
 
         a_host_arrays[device].resize(num_tiles);
         vals_host_arrays[device].resize(num_tiles*ldv);
 
-        slate_cuda_call(
-            cudaMalloc((void**)&a_dev_arrays[device],
-                       sizeof(scalar_t*)*num_tiles));
-
-        slate_cuda_call(
-            cudaMalloc((void**)&vals_dev_arrays[device],
-                       sizeof(real_t)*num_tiles*ldv));
+        a_dev_arrays[device] = blas::device_malloc<scalar_t*>(num_tiles);
+        vals_dev_arrays[device] = blas::device_malloc<real_t>(num_tiles*ldv);
     }
 
     // Define index ranges for quadrants of matrix.
@@ -354,15 +362,24 @@ void norm(
         { A.nt()-1, A.nt()   },
         { A.nt()-1, A.nt()   }
     };
+    int64_t i_start = 0;
+    int64_t i_end   = 0;
 
     for (int device = 0; device < A.num_devices(); ++device) {
         #pragma omp task shared(A, devices_values, vals_host_arrays) \
                          priority(priority)
         {
-            for (int64_t i = 0; i < A.mt(); ++i)
-                for (int64_t j = 0; j < A.nt(); ++j)
+            std::set<ij_tuple> A_tiles_set;
+
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                i_start = max(j - kut, 0);
+                i_end   = min(j + klt + 1, A.mt());
+                for (int64_t i = i_start; i < i_end; ++i) {
                     if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j))
-                        A.tileCopyToDevice(i, j, device);
+                        A_tiles_set.insert({i, j});
+                }
+            }
+            A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
 
             // Setup batched arguments.
             scalar_t** a_host_array = a_host_arrays[device].data();
@@ -375,8 +392,14 @@ void norm(
                 lda[q] = 0;
                 mb[q] = A.tileMb(irange[q][0]);
                 nb[q] = A.tileNb(jrange[q][0]);
-                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                    i_start = max(j - kut, 0);
+                    i_end   = min(j + klt + 1, A.mt());
+
+                    i_start = std::max( irange[q][0], i_start );
+                    i_end   = std::min( irange[q][1], i_end );
+
+                    for (int64_t i = i_start; i < i_end; ++i) {
                         if (A.tileIsLocal(i, j) &&
                             device == A.tileDevice(i, j))
                         {
@@ -396,38 +419,35 @@ void norm(
             {
                 trace::Block trace_block("slate::device::genorm");
 
-                slate_cuda_call(
-                    cudaSetDevice(device));
+                const int batch_arrays_index = 0;
+                // TODO: Use the A.queue()
+                //blas::Queue* queue = A.queue(device, batch_arrays_index);
+                blas::Queue queue(device, batch_arrays_index);
 
-                cudaStream_t stream = A.compute_stream(device);
-                slate_cuda_call(
-                    cudaMemcpyAsync(a_dev_array, a_host_array,
-                                    sizeof(scalar_t*)*batch_count,
-                                    cudaMemcpyHostToDevice,
-                                    stream));
+                blas::device_memcpy<scalar_t*>(a_dev_array, a_host_array,
+                                    batch_count,
+                                    blas::MemcpyKind::HostToDevice,
+                                    queue);
 
                 for (int q = 0; q < 4; ++q) {
                     if (group_count[q] > 0) {
-                        device::genorm(in_norm,
+                        device::genorm(in_norm, NormScope::Matrix,
                                        mb[q], nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
-                                       group_count[q], stream);
+                                       group_count[q], queue);
                         a_dev_array += group_count[q];
                         vals_dev_array += group_count[q] * ldv;
                     }
                 }
 
                 vals_dev_array = vals_dev_arrays[device];
+                blas::device_memcpy<real_t>(vals_host_array, vals_dev_array,
+                                    batch_count*ldv,
+                                    blas::MemcpyKind::DeviceToHost,
+                                    queue);
 
-                slate_cuda_call(
-                    cudaMemcpyAsync(vals_host_array, vals_dev_array,
-                                    sizeof(real_t)*batch_count*ldv,
-                                    cudaMemcpyDeviceToHost,
-                                    stream));
-
-                slate_cuda_call(
-                    cudaStreamSynchronize(stream));
+                queue.sync();
             }
 
             // Reduction over tiles to device result.
@@ -437,7 +457,7 @@ void norm(
             }
             else if (in_norm == Norm::Fro) {
                 for (int64_t k = 0; k < batch_count; ++k) {
-                    add_sumsq(devices_values[2*device + 0],
+                    combine_sumsq(devices_values[2*device + 0],
                               devices_values[2*device + 1],
                               vals_host_array[2*k + 0],
                               vals_host_array[2*k + 1]);
@@ -449,12 +469,9 @@ void norm(
     #pragma omp taskwait
 
     for (int device = 0; device < A.num_devices(); ++device) {
-        slate_cuda_call(
-            cudaSetDevice(device));
-        slate_cuda_call(
-            cudaFree((void*)a_dev_arrays[device]));
-        slate_cuda_call(
-            cudaFree((void*)vals_dev_arrays[device]));
+        blas::set_device(device);
+        blas::device_free(a_dev_arrays[device]);
+        blas::device_free(vals_dev_arrays[device]);
     }
 
     // Reduction over devices to local result.
@@ -464,16 +481,18 @@ void norm(
                                 devices_values.data(), 1);
     }
     else if (in_norm == Norm::One) {
-
         for (int device = 0; device < A.num_devices(); ++device) {
-
             real_t* vals_host_array = vals_host_arrays[device].data();
-
             int64_t batch_count = 0;
             for (int q = 0; q < 4; ++q) {
                 int64_t nb = A.tileNb(jrange[q][0]);
-                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                    i_start = max(j - kut, 0);
+                    i_end   = min(j + klt + 1, A.mt());
+
+                    i_start = std::max( irange[q][0], i_start );
+                    i_end   = std::min( irange[q][1], i_end );
+                    for (int64_t i = i_start; i < i_end; ++i) {
                         if (A.tileIsLocal(i, j) &&
                             device == A.tileDevice(i, j))
                         {
@@ -497,8 +516,13 @@ void norm(
             int64_t batch_count = 0;
             for (int q = 0; q < 4; ++q) {
                 int64_t mb = A.tileMb(irange[q][0]);
-                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                    i_start = max(j - kut, 0);
+                    i_end   = min(j + klt + 1, A.mt());
+
+                    i_start = std::max( irange[q][0], i_start );
+                    i_end   = std::min( irange[q][1], i_end );
+                    for (int64_t i = i_start; i < i_end; ++i) {
                         if (A.tileIsLocal(i, j) &&
                             device == A.tileDevice(i, j))
                         {
@@ -517,7 +541,7 @@ void norm(
         values[0] = 0;
         values[1] = 1;
         for (int device = 0; device < A.num_devices(); ++device) {
-            add_sumsq(values[0], values[1],
+            combine_sumsq(values[0], values[1],
                       devices_values[2*device + 0],
                       devices_values[2*device + 1]);
         }

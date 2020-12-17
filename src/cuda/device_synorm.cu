@@ -215,7 +215,7 @@ __global__ void synormFroKernel(
             row_scale[chunk] = 0;
             row_sumsq[chunk] = 1;
         }
-        add_sumsq(row_scale[chunk], row_sumsq[chunk], scale, sumsq);
+        combine_sumsq(row_scale[chunk], row_sumsq[chunk], scale, sumsq);
         __syncthreads();
     }
 
@@ -225,7 +225,7 @@ __global__ void synormFroKernel(
         real_t tile_scale = row_scale[0];
         real_t tile_sumsq = row_sumsq[0];
         for (int64_t chunk = 1; chunk < blockDim.x && chunk < n; ++chunk)
-            add_sumsq(tile_scale, tile_sumsq, row_scale[chunk], row_sumsq[chunk]);
+            combine_sumsq(tile_scale, tile_sumsq, row_scale[chunk], row_sumsq[chunk]);
 
         tiles_values[blockIdx.x*2 + 0] = tile_scale;
         tiles_values[blockIdx.x*2 + 1] = tile_sumsq;

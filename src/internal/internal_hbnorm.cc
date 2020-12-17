@@ -316,7 +316,7 @@ void norm(
                 henorm(in_norm, A(j, j), tile_values);
                 #pragma omp critical
                 {
-                    add_sumsq(values[0], values[1],
+                    combine_sumsq(values[0], values[1],
                               tile_values[0], tile_values[1]);
                 }
             }
@@ -334,7 +334,7 @@ void norm(
                             tile_values[1] *= 2;
                             #pragma omp critical
                             {
-                                add_sumsq(values[0], values[1],
+                                combine_sumsq(values[0], values[1],
                                           tile_values[0], tile_values[1]);
                             }
                         }
@@ -354,7 +354,7 @@ void norm(
                             tile_values[1] *= 2;
                             #pragma omp critical
                             {
-                                add_sumsq(values[0], values[1],
+                                combine_sumsq(values[0], values[1],
                                           tile_values[0], tile_values[1]);
                             }
                         }
@@ -630,7 +630,7 @@ void norm(
                     // double for symmetric entries in off-diagonal blocks
                     real_t mult = (q < 4 ? 2.0 : 1.0);
                     for (int64_t k = 0; k < group_count[q]; ++k) {
-                        add_sumsq(devices_values[2*device + 0],
+                        combine_sumsq(devices_values[2*device + 0],
                                   devices_values[2*device + 1],
                                   vals_host_array[2*batch_count + 0],
                                   vals_host_array[2*batch_count + 1] * mult);
@@ -718,7 +718,7 @@ void norm(
         values[0] = 0;
         values[1] = 1;
         for (int device = 0; device < A.num_devices(); ++device) {
-            add_sumsq(values[0], values[1],
+            combine_sumsq(values[0], values[1],
                       devices_values[2*device + 0],
                       devices_values[2*device + 1]);
         }

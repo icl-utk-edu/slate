@@ -262,7 +262,7 @@ void norm(
                             genorm(in_norm, scope, A(i, j), tile_values);
                             #pragma omp critical
                             {
-                                add_sumsq(values[0], values[1],
+                                combine_sumsq(values[0], values[1],
                                           tile_values[0], tile_values[1]);
                             }
                         }
@@ -586,7 +586,7 @@ void norm(
                 }
                 else if (in_norm == Norm::Fro) {
                     for (int64_t k = 0; k < batch_count; ++k) {
-                        add_sumsq(devices_values[2*device + 0],
+                        combine_sumsq(devices_values[2*device + 0],
                                   devices_values[2*device + 1],
                                   vals_host_array[2*k + 0],
                                   vals_host_array[2*k + 1]);
@@ -666,7 +666,7 @@ void norm(
             values[0] = 0;
             values[1] = 1;
             for (int device = 0; device < A.num_devices(); ++device) {
-                add_sumsq(values[0], values[1],
+                combine_sumsq(values[0], values[1],
                           devices_values[2*device + 0],
                           devices_values[2*device + 1]);
             }

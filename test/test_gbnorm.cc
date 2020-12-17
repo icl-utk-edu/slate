@@ -55,10 +55,6 @@ void test_gbnorm_work(Params& params, bool run)
         printf("skipping: currently only origin=scalapack is supported\n");
         return;
     }
-    if (target == slate::Target::Devices) {
-        printf("skipping: currently target=devices is not supported\n");
-        return;
-    }
 
     // local values
     const int izero = 0, ione = 1;
@@ -170,7 +166,6 @@ void test_gbnorm_work(Params& params, bool run)
         }
 
         if (verbose && mpi_rank == 0) {
-            printf("norm %15.8e, ref %15.8e, ref - norm %5.2f, error %9.2e\n",
                    A_norm, A_norm_ref, A_norm_ref - A_norm, error);
         }
 

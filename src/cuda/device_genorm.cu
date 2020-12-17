@@ -247,10 +247,10 @@ __global__ void genormFroKernel(
     // Each thread finds sum-of-squares of one row.
     // This does coalesced reads of one column at a time in parallel.
     for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
+        scalar_t const* row = &tile[idx];
         real_t scale = 0;
         real_t sumsq = 1;
         chunk = idx % blockDim.x;
-        scalar_t const* row = &tile[idx];
 
         for (int64_t j = 0; j < n; ++j) {
             add_sumsq(scale, sumsq, abs(row[j*lda]));
@@ -262,18 +262,17 @@ __global__ void genormFroKernel(
         }
 
         // Save partial results in shared memory.
-        add_sumsq(row_scale[chunk], row_sumsq[chunk], scale, sumsq);
+        combine_sumsq(row_scale[chunk], row_sumsq[chunk], scale, sumsq);
         __syncthreads();
     }
 
     // Reduction to find sum-of-squares of tile.
     // todo: parallel reduction.
-    if (threadIdx.x == 0)
-    {
+    if (threadIdx.x == 0) {
         tile_scale = row_scale[0];
         tile_sumsq = row_sumsq[0];
         for (int64_t chunk = 1; chunk < blockDim.x && chunk < m; ++chunk) {
-            add_sumsq(tile_scale, tile_sumsq, row_scale[chunk], row_sumsq[chunk]);
+            combine_sumsq(tile_scale, tile_sumsq, row_scale[chunk], row_sumsq[chunk]);
         }
 
         tiles_values[blockIdx.x*2 + 0] = tile_scale;

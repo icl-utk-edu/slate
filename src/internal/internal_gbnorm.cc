@@ -275,17 +275,6 @@ void norm(
 /// TODO
 /// @ingroup norm_internal
 ///
-#if 0
-template <typename scalar_t>
-void norm(
-    internal::TargetType<Target::Devices>,
-    Norm in_norm, NormScope scope, BandMatrix<scalar_t>& A,
-    blas::real_type<scalar_t>* values,
-    int priority)
-{
-    throw Exception("target=Devices not yet implemented");
-}
-#else
 template <typename scalar_t>
 void norm(
     internal::TargetType<Target::Devices>,
@@ -547,7 +536,6 @@ void norm(
         }
     }
 }
-#endif
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.

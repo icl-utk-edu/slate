@@ -294,6 +294,7 @@ void trsm(internal::TargetType<Target::Devices>,
                     std::vector<scalar_t> alpha_(1, alpha);
 
                     blas::Queue* queue = B.compute_queue(device, queue_index);
+                    assert(queue != nullptr);
 
                     if (batch_count_0 > 0) {
                         std::vector<int64_t>    m(1,  mb0);

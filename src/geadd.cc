@@ -42,7 +42,7 @@ void geadd(slate::internal::TargetType<target>,
         B.tileUpdateAllOrigin();
     }
 
-    B.clearWorkspace();
+    B.releaseWorkspace();
 }
 
 } // namespace specialization

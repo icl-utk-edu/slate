@@ -49,13 +49,14 @@ void gemm(slate::internal::TargetType<target>,
     uint8_t* gemm  =  gemm_vector.data();
     uint8_t* c     =     c_vector.data();
 
-    const int priority_one    = 1;
-    const int queue_index_one = 1;
+    int priority_one    = 1;
+    int queue_index_one = 1;
 
     if (target == Target::Devices) {
-        // C.allocateBatchArrays();
-        const int num_queues = 2; // Number of kernels without lookahead
-        C.reserveDeviceWorkspace(num_queues);
+        int batch_size_zero = 0;
+        int num_queues_two  = 2; // Number of kernels without lookahead
+        C.allocateBatchArrays(batch_size_zero, num_queues_two);
+        C.reserveDeviceWorkspace();
     }
 
     #pragma omp parallel
@@ -159,7 +160,7 @@ void gemm(slate::internal::TargetType<target>,
         #pragma omp taskwait
         C.tileUpdateAllOrigin();
     }
-    C.clearWorkspace();
+    C.releaseWorkspace();
 }
 
 } // namespace specialization

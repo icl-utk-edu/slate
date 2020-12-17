@@ -610,6 +610,7 @@ void gemm(internal::TargetType<Target::Devices>,
                 std::vector<int64_t> k(1, kb);
 
                 blas::Queue* queue = C.compute_queue(device, queue_index);
+                assert(queue != nullptr);
 
                 if (batch_count_00 > 0) {
                     std::vector<int64_t> m(1, mb00);

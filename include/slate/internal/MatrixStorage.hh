@@ -328,9 +328,10 @@ public:
     //--------------------------------------------------------------------------
     // workspace
     void reserveHostWorkspace(int64_t num_tiles);
-    void reserveDeviceWorkspace(int64_t num_tiles, int num_queues);
+    void reserveDeviceWorkspace(int64_t num_tiles);
     void ensureDeviceWorkspace(int device, int64_t num_tiles);
-    void clearWorkspace(bool force);
+    void clearWorkspace();
+    void releaseWorkspace();
 
     scalar_t* allocWorkspaceBuffer(int device);
     void      releaseWorkspaceBuffer(scalar_t* data, int device);
@@ -590,7 +591,8 @@ MatrixStorage<scalar_t>::~MatrixStorage()
 }
 
 //------------------------------------------------------------------------------
-/// Initializes CUDA streams and cuBLAS handles on each device.
+/// Initializes BLAS++ compute and communcation queues on each device.
+/// It also initializes the host and device batch arrays
 /// Called in constructor.
 ///
 template <typename scalar_t>
@@ -600,21 +602,20 @@ void MatrixStorage<scalar_t>::initQueues()
     compute_queues_.resize(1);
 
     compute_queues_.at(0).resize(num_devices_, nullptr);
-
     for (int device = 0; device < num_devices_; ++device) {
-        comm_queues_[device] = new blas::Queue(device, 0);
+        comm_queues_         [device] = new blas::Queue(device, 0);
         compute_queues_.at(0)[device] = new blas::Queue(device, 0);
     }
 
     array_host_.resize(1);
-    array_host_.at(0).resize(num_devices_, nullptr);
+    array_dev_ .resize(1);
 
-    array_dev_.resize(1);
-    array_dev_.at(0).resize(num_devices_, nullptr);
+    array_host_.at(0).resize(num_devices_, nullptr);
+    array_dev_ .at(0).resize(num_devices_, nullptr);
 }
 
 //------------------------------------------------------------------------------
-/// Destroys CUDA streams and cuBLAS handles on each device.
+/// Destroys BLAS++ compute and communcation queues on each device.
 /// As this is called in the destructor, it should NOT throw exceptions.
 ///
 template <typename scalar_t>
@@ -623,24 +624,25 @@ void MatrixStorage<scalar_t>::destroyQueues()
     for (int device = 0; device < num_devices_; ++device)
         delete comm_queues_[device];
 
-    const int num_queues = int(compute_queues_.size());
+    int num_queues = int(compute_queues_.size());
     for (int queue = 0; queue < num_queues; ++queue) {
         for (int device = 0; device < num_devices_; ++device) {
             delete compute_queues_.at(queue)[device];
-            compute_queues_.at(queue)[device] = nullptr;
+                   compute_queues_.at(queue)[device] = nullptr;
         }
     }
 }
 
 //------------------------------------------------------------------------------
-/// Allocates CUDA batch arrays.
+/// Allocates device batch arrays and BLAS++ queues.
 /// If arrays are already allocated, frees and reallocates the arrays only if
 /// batch_size is larger than the existing size.
 ///
 /// @param[in] batch_size
-///     On exit, size of each batch array >= batch_size >= 0.
+///     On exit, size of batch arrays >= batch_size >= 0.
 ///
-// todo: rename resizeBatchArrays?
+/// @param[in] num_arrays
+///     On exit, size of batch arrays vector >= num_arrays >= 1.
 ///
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::allocateBatchArrays(
@@ -648,7 +650,8 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
 {
     assert(batch_size >= 0);
     assert(num_arrays >  0);
-    assert(array_host_.size() == array_dev_.size());
+    assert(array_host_.size() ==      array_dev_.size());
+    assert(array_host_.size() == compute_queues_.size());
 
     int num_arrays_ = int(array_host_.size());
 
@@ -658,11 +661,14 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
     if (num_arrays_ < num_arrays) {
         i_begin = num_arrays_;
 
-        array_host_.resize(num_arrays);
-        array_dev_ .resize(num_arrays);
+        array_host_    .resize(num_arrays);
+        array_dev_     .resize(num_arrays);
+        compute_queues_.resize(num_arrays);
+
         for (int64_t array = i_begin; array < num_arrays; ++array) {
-            array_host_.at(array).resize(num_devices_, nullptr);
-            array_dev_ .at(array).resize(num_devices_, nullptr);
+            array_host_    .at(array).resize(num_devices_, nullptr);
+            array_dev_     .at(array).resize(num_devices_, nullptr);
+            compute_queues_.at(array).resize(num_devices_, nullptr);
         }
 
         is_resized = true;
@@ -674,13 +680,18 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
         else
             batch_size = batch_size_;
 
-        for (int array = i_begin; array < num_arrays_; ++array) {
-            for (int device = 0; device < num_devices_; ++device) { 
+        for (int array = i_begin; array < num_arrays; ++array) {
+            for (int device = 0; device < num_devices_; ++device) {
                 blas::set_device(device);
+
                 blas::device_free_pinned(array_host_.at(array)[device]);
                 blas::device_free       (array_dev_ .at(array)[device]);
+
                 array_host_.at(array)[device] = blas::device_malloc_pinned<scalar_t*>(batch_size*3);
                 array_dev_ .at(array)[device] = blas::device_malloc<scalar_t*>(batch_size*3);
+
+                delete compute_queues_.at(array)[device];
+                       compute_queues_.at(array)[device] = new blas::Queue(device, batch_size);
             }
         }
         batch_size_ = batch_size;
@@ -719,33 +730,10 @@ void MatrixStorage<scalar_t>::reserveHostWorkspace(int64_t num_tiles)
 //------------------------------------------------------------------------------
 /// Reserves num_tiles on each device in allocator.
 template <typename scalar_t>
-void MatrixStorage<scalar_t>::reserveDeviceWorkspace(
-    int64_t num_tiles, int num_queues)
+void MatrixStorage<scalar_t>::reserveDeviceWorkspace(int64_t num_tiles)
 {
     for (int device = 0; device < num_devices_; ++device)
         memory_.addDeviceBlocks(device, num_tiles);
-
-    assert(num_queues > 0);
-
-    if (num_queues > 1) {
-        compute_queues_.resize(num_queues);
-        for (int queue = 0; queue < num_queues; ++queue) {
-            compute_queues_.at(queue).resize(num_devices_, nullptr);
-            for (int device = 0; device < num_devices_; ++device) {
-                delete compute_queues_.at(queue)[device];
-                compute_queues_.at(queue)[device] = new
-                                                blas::Queue(device, num_tiles);
-            }
-        }
-    }
-    else {
-        for (int device = 0; device < num_devices_; ++device) {
-            delete compute_queues_.at(0)[device];
-            compute_queues_.at(0)[device] = new blas::Queue(device, num_tiles);
-        }
-    }
-    
-    // batch_size_ = num_tiles; // todo
 }
 
 //------------------------------------------------------------------------------
@@ -771,30 +759,20 @@ void MatrixStorage<scalar_t>::freeTileMemory(Tile<scalar_t>* tile)
 }
 
 //------------------------------------------------------------------------------
-/// Clears all host and device workspace tiles.
-///
-/// @param[in] force
-///     If false, do not clear OnHold nor Modified tiles.
-///     Otherwise, clear all tiles
-///
+ /// Clears all host and device workspace tiles.
 template <typename scalar_t>
-void MatrixStorage<scalar_t>::clearWorkspace(bool force)
+void MatrixStorage<scalar_t>::clearWorkspace()
 {
     LockGuard guard(getTilesMapLock());
     // incremented below
     for (auto iter = begin(); iter != end();) {
         auto& tile_node = *(iter->second);
-        for (int device = host_num_; device < num_devices_; ++device) {
-            if (tile_node.existsOn(device) &&
-                tile_node[device].tile()->workspace()) {
-                if (! force) {
-                    if (tile_node[device].stateOn(MOSI::OnHold) ||
-                        tile_node[device].stateOn(MOSI::Modified)) {
-                        continue;
-                    }
-                }
-                freeTileMemory(tile_node[device].tile());
-                tile_node.eraseOn(device);
+        for (int d = host_num_; d < num_devices_; ++d) {
+            if (tile_node.existsOn(d) &&
+                tile_node[d].tile()->workspace())
+            {
+                freeTileMemory(tile_node[d].tile());
+                tile_node.eraseOn(d);
             }
         }
         if (tile_node.empty())
@@ -811,6 +789,44 @@ void MatrixStorage<scalar_t>::clearWorkspace(bool force)
         memory_.clearHostBlocks();
     }
 
+    for (int device = 0; device < num_devices_; ++device) {
+        if (memory_.allocated(device) == 0) {
+            memory_.clearDeviceBlocks(device);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Clears all host and device workspace tiles that are not OnHold nor Modified.
+template <typename scalar_t>
+void MatrixStorage<scalar_t>::releaseWorkspace()
+{
+    LockGuard guard(getTilesMapLock());
+    // incremented below
+    for (auto iter = begin(); iter != end();) {
+        auto& tile_node = *(iter->second);
+        for (int d = host_num_; d < num_devices_; ++d) {
+            if (tile_node.existsOn(d) &&
+                tile_node[d].tile()->workspace() &&
+                ! (tile_node[d].stateOn(MOSI::OnHold) ||
+                   tile_node[d].stateOn(MOSI::Modified))) {
+                freeTileMemory(tile_node[d].tile());
+                tile_node.eraseOn(d);
+            }
+        }
+        if (tile_node.empty())
+            // Since we can't increment the iterator after deleting the
+            // element, use post-fix iter++ to increment it but
+            // erase the current value.
+            erase((iter++)->first);
+        else
+            ++iter;
+    }
+    // Free host & device memory only if there are no unallocated blocks
+    // from non-workspace (SlateOwned) tiles.
+    if (memory_.allocated(host_num_) == 0) {
+        memory_.clearHostBlocks();
+    }
     for (int device = 0; device < num_devices_; ++device) {
         if (memory_.allocated(device) == 0) {
             memory_.clearDeviceBlocks(device);

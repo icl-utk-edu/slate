@@ -198,7 +198,7 @@ void gbtrf(slate::internal::TargetType<target>,
     // introduce fill in the lower triangle. Instead, pivoting is done
     // during the solve (gbtrs).
 
-    A.clearWorkspace();
+    A.releaseWorkspace();
 
 }
 

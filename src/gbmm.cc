@@ -60,7 +60,7 @@ void gbmm(slate::internal::TargetType<target>,
     int64_t kut = ceildiv(ku, A.tileNb(0));
 
     if (target == Target::Devices) {
-        // C.allocateBatchArrays();
+        C.allocateBatchArrays();
         C.reserveDeviceWorkspace();
     }
 

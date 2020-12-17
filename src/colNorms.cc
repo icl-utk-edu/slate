@@ -107,7 +107,7 @@ void colNorms(slate::internal::TargetType<target>,
     }
 
     // todo: is this correct here?
-    A.clearWorkspace();
+    A.releaseWorkspace();
 }
 
 } // namespace specialization

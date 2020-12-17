@@ -120,7 +120,7 @@ void pbtrf(slate::internal::TargetType<target>,
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
     A.tileUpdateAllOrigin();
-    A.clearWorkspace();
+    A.releaseWorkspace();
 
     // Debug::printTilesMaps(A);
 }

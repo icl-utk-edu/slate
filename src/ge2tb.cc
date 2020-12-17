@@ -71,7 +71,7 @@ void ge2tb(slate::internal::TargetType<target>,
         // is going to be used, but W with size of whole A is being allocated
         // thus limiting the matrix size that can be processed
         // For now, allocate workspace tiles 1-by-1.
-        W.reserveDeviceWorkspace();
+        // W.reserveDeviceWorkspace();
     }
 
     // Workspace for transposed panels needs one column of tiles.
@@ -350,7 +350,7 @@ void ge2tb(slate::internal::TargetType<target>,
         A.tileUpdateAllOrigin();
     }
 
-    A.clearWorkspace();
+    A.releaseWorkspace();
 }
 
 } // namespace specialization

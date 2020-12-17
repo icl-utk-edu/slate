@@ -93,7 +93,7 @@ public:
     int64_t getMaxDeviceTiles(int device);
     void allocateBatchArrays(int64_t batch_size=0, int64_t num_arrays=1);
     void reserveHostWorkspace();
-    void reserveDeviceWorkspace(int num_queues=1);
+    void reserveDeviceWorkspace();
     void gather(scalar_t* A, int64_t lda);
     Uplo uplo_logical() const { return this->uploLogical(); }  ///< @deprecated
     void insertLocalTiles(Target origin=Target::Host);
@@ -590,12 +590,15 @@ int64_t BaseTrapezoidMatrix<scalar_t>::getMaxDeviceTiles(int device)
 }
 
 //------------------------------------------------------------------------------
-/// Allocates batch arrays for all devices.
-/// This overrides BaseMatrix::allocateBatchArrays.
+/// Allocates device batch arrays and BLAS++ queues.
+/// Matrix classes override this with versions that can also allocate based
+/// on the number of local tiles.
 ///
 /// @param[in] batch_size
 ///     On exit, size of batch arrays >= batch_size >= 0.
-///     If batch_size = 0 (default), uses batch_size = getMaxDeviceTiles.
+///
+/// @param[in] num_arrays
+///     On exit, size of batch arrays vector >= num_arrays >= 1.
 ///
 template <typename scalar_t>
 void BaseTrapezoidMatrix<scalar_t>::allocateBatchArrays(
@@ -619,12 +622,12 @@ void BaseTrapezoidMatrix<scalar_t>::reserveHostWorkspace()
 //------------------------------------------------------------------------------
 /// Reserve space for temporary workspace tiles on all GPU devices.
 template <typename scalar_t>
-void BaseTrapezoidMatrix<scalar_t>::reserveDeviceWorkspace(int num_queues)
+void BaseTrapezoidMatrix<scalar_t>::reserveDeviceWorkspace()
 {
     int64_t num_tiles = 0;
     for (int device = 0; device < this->num_devices_; ++device)
         num_tiles = std::max(num_tiles, getMaxDeviceTiles(device));
-    this->storage_->reserveDeviceWorkspace(num_tiles, num_queues);
+    this->storage_->reserveDeviceWorkspace(num_tiles);
 }
 
 //------------------------------------------------------------------------------

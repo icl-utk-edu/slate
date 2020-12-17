@@ -37,7 +37,7 @@ void set(slate::internal::TargetType<target>,
         A.tileUpdateAllOrigin();
     }
 
-    A.clearWorkspace();
+    A.releaseWorkspace();
 }
 
 } // namespace specialization

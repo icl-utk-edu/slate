@@ -61,7 +61,7 @@ void geqrf(slate::internal::TargetType<target>,
         // but W with size of whole A is being allocated
         // thus limiting the matrix size that can be processed
         // For now, allocate workspace tiles 1-by-1.
-        W.reserveDeviceWorkspace();
+        // W.reserveDeviceWorkspace();
     }
 
     // QR tracks dependencies by block-column.
@@ -213,7 +213,7 @@ void geqrf(slate::internal::TargetType<target>,
         A.tileUpdateAllOrigin();
     }
 
-    A.clearWorkspace();
+    A.releaseWorkspace();
 }
 
 } // namespace specialization

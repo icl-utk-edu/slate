@@ -1605,7 +1605,7 @@ void test_Matrix_MOSI()
         }
     }
 
-    A.clearWorkspace();
+    A.releaseWorkspace();
 
     A.tileGetAllForReading(A.hostNum(), slate::LayoutConvert::RowMajor);
 
@@ -1735,7 +1735,7 @@ void test_Matrix_tileLayoutConvert()
             }
         }
     }
-    A.clearWorkspace();
+    A.releaseWorkspace();
 }
 
 //==============================================================================

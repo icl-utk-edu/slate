@@ -69,7 +69,7 @@ void symm(slate::internal::TargetType<target>,
     uint8_t* gemm  =  gemm_vector.data();
 
     if (target == Target::Devices) {
-        // C.allocateBatchArrays();
+        C.allocateBatchArrays();
         C.reserveDeviceWorkspace();
     }
 
@@ -346,7 +346,7 @@ void symm(slate::internal::TargetType<target>,
         C.tileUpdateAllOrigin();
     }
 
-    C.clearWorkspace();
+    C.releaseWorkspace();
 }
 
 } // namespace specialization

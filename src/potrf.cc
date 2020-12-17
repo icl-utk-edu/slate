@@ -188,13 +188,13 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
-    const int priority_zero   = 0;
-    const int life_factor_one = 1;
-    const int queue_index_one = 1;
-    const int num_queues      = 2; // Number of kernels without lookahead
-    const bool is_shared      = lookahead > 0; // Do tileGetAndHold in the bcast
+    int priority_zero       = 0;
+    int batch_size_zero     = 0;
+    int life_factor_one     = 1;
+    int queue_index_one     = 1;
+    bool is_shared          = lookahead > 0; // Do tileGetAndHold in the bcast
+    int num_queues          = 2 + lookahead; // Number of kernels with lookahead
 
-    // const int64_t batch_size_zero = 0;
     // Allocate batch arrays = number of kernels without lookahead + lookahead
     // number of kernels without lookahead = 2 (internal::gemm & internal::trsm)
     // whereas internal::herk will be executed as many as lookaheads, thus
@@ -202,10 +202,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     // and the batch_arrays_index starts from
     // the number of kernels without lookahead, and then incremented by 1
     // for every execution for the internal::herk
-    // A.allocateBatchArrays(batch_size_zero, (num_queues + lookahead));
-
-    const int queue_size = num_queues + lookahead;
-    A.reserveDeviceWorkspace(queue_size);
+    A.allocateBatchArrays(batch_size_zero, num_queues);
+    A.reserveDeviceWorkspace();
 
     #pragma omp parallel
     #pragma omp master
@@ -308,7 +306,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
-    A.clearWorkspace();
+    A.releaseWorkspace();
 }
 
 } // namespace specialization

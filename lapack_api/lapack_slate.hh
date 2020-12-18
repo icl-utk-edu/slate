@@ -53,7 +53,16 @@ inline slate::Target slate_lapack_set_target()
         return target;
     }
     // todo: should the device be set to cude automatically
-    int devcount = blas::get_device_count();
+
+    int devcount;
+    try {
+        devcount = blas::get_device_count();
+    }
+    catch (std::exception const& e) {
+        // Ignore BLAS++ error if no GPU device is found.
+        // todo: should we have a better solution?
+        devcount = 0;
+    }
     if (devcount > 0)
         target = slate::Target::Devices;
 

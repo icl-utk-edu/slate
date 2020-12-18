@@ -33,7 +33,14 @@ public:
     static struct StaticConstructor {
         StaticConstructor()
         {
-            num_devices_ = blas::get_device_count();
+            try {
+                num_devices_ = blas::get_device_count();
+            }
+            catch (std::exception const& e) {
+                // Ignore BLAS++ error if no GPU device is found.
+                // todo: should we have a better solution?
+                num_devices_ = 0;
+            }
             if (num_devices_ < 1) {
                 num_devices_ = 0;
             }

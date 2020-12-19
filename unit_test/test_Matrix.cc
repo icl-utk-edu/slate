@@ -1647,10 +1647,6 @@ void test_Matrix_MOSI()
 /// Test tileLayoutConvert.
 void test_Matrix_tileLayoutConvert()
 {
-    if (num_devices == 0) {
-        test_skip("remainder of test requires num_devices > 0");
-    }
-
     int lda = roundup(m, nb);
     std::vector<double> Ad( lda*n );
 
@@ -1684,6 +1680,10 @@ void test_Matrix_tileLayoutConvert()
                 test_Tile_compare_layout(A(i, j), B(i, j), false);
             }
         }
+    }
+
+    if (num_devices == 0) {
+        test_skip("remainder of test requires num_devices > 0");
     }
 
     #pragma omp parallel

@@ -392,7 +392,7 @@ set( install_configdir "${CMAKE_INSTALL_LIBDIR}/slate" )
 
 # Install library and add to <package>Targets.cmake
 install(
-    TARGETS slate
+    TARGETS slate slate_lapack_api
     EXPORT slateTargets
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"

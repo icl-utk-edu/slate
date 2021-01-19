@@ -26,7 +26,7 @@ namespace specialization {
 template <Target target, typename scalar_t>
 void getrf_nopiv(slate::internal::TargetType<target>,
            Matrix<scalar_t>& A,
-           int64_t ib, int max_panel_threads, int64_t lookahead)
+           int64_t ib, int64_t lookahead)
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
@@ -54,6 +54,7 @@ void getrf_nopiv(slate::internal::TargetType<target>,
     uint8_t* column = column_vector.data();
     uint8_t* diag = diag_vector.data();
     uint8_t mpi_bandwidth;
+    SLATE_UNUSED(mpi_bandwidth); // Only used by OpenMP
 
     #pragma omp parallel
     #pragma omp master
@@ -82,6 +83,7 @@ void getrf_nopiv(slate::internal::TargetType<target>,
 
             #pragma omp task depend(inout:column[k]) \
                              depend(in:diag[k]) \
+                             depend(inout:mpi_bandwidth) \
                              priority(priority_one)
             {
                 auto Akk = A.sub(k, k, k, k);
@@ -92,21 +94,17 @@ void getrf_nopiv(slate::internal::TargetType<target>,
                     scalar_t(1.0), std::move(Tkk),
                                    A.sub(k+1, A_mt-1, k, k),
                     priority_one, layout, 0);
-            }
 
-            #pragma omp task depend(inout:column[k]) \
-                             depend(inout:mpi_bandwidth) \
-                             priority(priority_one)
-            {
-                BcastListTag bcast_list_A;
+
+                BcastListTag bcast_list;
                 // bcast the tiles of the panel to the right hand side
                 for (int64_t i = k+1; i < A_mt; ++i) {
                     // send A(i, k) across row A(i, k+1:nt-1)
                     const int64_t tag = i;
-                    bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}, tag});
+                    bcast_list.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}, tag});
                 }
                 A.template listBcastMT<target>(
-                  bcast_list_A, layout, life_factor_one, is_shared);
+                  bcast_list, layout, life_factor_one, is_shared);
             }
             // update lookahead column(s), high priority
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
@@ -146,6 +144,7 @@ void getrf_nopiv(slate::internal::TargetType<target>,
             if (k+1+lookahead < A_nt) {
                 #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[k+1+lookahead]) \
+                                 depend(inout:mpi_bandwidth) \
                                  depend(inout:column[A_nt-1])
                 {
                     auto Akk = A.sub(k, k, k, k);
@@ -158,23 +157,18 @@ void getrf_nopiv(slate::internal::TargetType<target>,
                         Side::Left,
                         scalar_t(1.0), std::move(Tkk),
                                        A.sub(k, k, k+1+lookahead, A_nt-1),
-                    priority_zero, layout, 1);
-                }
-
-                #pragma omp task depend(inout:column[k+1+lookahead]) \
-                                 depend(inout:column[A_nt-1]) \
-                                 depend(inout:mpi_bandwidth)
-                {
+                        priority_zero, layout, 1);
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
-                    BcastListTag bcast_list_A;
+                    BcastListTag bcast_list;
                     for (int64_t j = k+1+lookahead; j < A_nt; ++j) {
                         // send A(k, j) across column A(k+1:mt-1, j)
                         // tag must be distinct from sending left panel
                         const int64_t tag = j + A_mt;
-                        bcast_list_A.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}, tag});
+                        bcast_list.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)},
+                                              tag});
                     }
                     A.template listBcastMT<target>(
-                        bcast_list_A, layout);
+                        bcast_list, layout);
                 }
 
                 #pragma omp task depend(in:column[k]) \
@@ -193,7 +187,6 @@ void getrf_nopiv(slate::internal::TargetType<target>,
                 #pragma omp task depend(inout:diag[k])
                 {
                     if (A.tileIsLocal(k, k) && k+1 < A_nt) {
-                        // release hold on the diagonal tile, since it's not managed by panelRelease
                         std::set<int> dev_set;
                         A.sub(k+1, A_mt-1, k, k).getLocalDevices(&dev_set);
                         A.sub(k, k, k+1, A_nt-1).getLocalDevices(&dev_set);
@@ -204,19 +197,21 @@ void getrf_nopiv(slate::internal::TargetType<target>,
                         }
                     }
                 }
-                #pragma omp task depend(inout:column[k])
-                {
-                    const int64_t A_nt = A.nt();
-                    for (int64_t i = k+1; i < A_nt; ++i) {
-                        if (A.tileIsLocal(i, k)) {
-                            A.tileUpdateOrigin(i, k);
+                if (is_shared) {
+                    #pragma omp task depend(inout:column[k])
+                    {
+                        const int64_t A_nt = A.nt();
+                        for (int64_t i = k+1; i < A_nt; ++i) {
+                            if (A.tileIsLocal(i, k)) {
+                                A.tileUpdateOrigin(i, k);
 
-                            std::set<int> dev_set;
-                            A.sub(i, i, k+1, A_mt-1).getLocalDevices(&dev_set);
+                                std::set<int> dev_set;
+                                A.sub(i, i, k+1, A_mt-1).getLocalDevices(&dev_set);
 
-                            for (auto device : dev_set) {
-                                A.tileUnsetHold(i, k, device);
-                                A.tileRelease(i, k, device);
+                                for (auto device : dev_set) {
+                                    A.tileUnsetHold(i, k, device);
+                                    A.tileRelease(i, k, device);
+                                }
                             }
                         }
                     }
@@ -259,18 +254,8 @@ void getrf_nopiv(Matrix<scalar_t>& A,
         ib = 16;
     }
 
-    int64_t max_panel_threads;
-    try {
-        max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
-        assert(max_panel_threads >= 1 && max_panel_threads <= omp_get_max_threads());
-    }
-    catch (std::out_of_range&) {
-        max_panel_threads = std::max(omp_get_max_threads()/2, 1);
-    }
-
     internal::specialization::getrf_nopiv(internal::TargetType<target>(),
-                                    A,
-                                    ib, max_panel_threads, lookahead);
+                                          A, ib, lookahead);
 }
 
 //------------------------------------------------------------------------------

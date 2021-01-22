@@ -53,6 +53,8 @@ void getrf_nopiv(slate::internal::TargetType<target>,
     std::vector< uint8_t > diag_vector(A_nt);
     uint8_t* column = column_vector.data();
     uint8_t* diag = diag_vector.data();
+    // Running two listBcastMT's simultaneously can hang due to task ordering
+    // This dependency avoids that
     uint8_t mpi_bandwidth;
     SLATE_UNUSED(mpi_bandwidth); // Only used by OpenMP
 
@@ -200,13 +202,12 @@ void getrf_nopiv(slate::internal::TargetType<target>,
                 if (is_shared) {
                     #pragma omp task depend(inout:column[k])
                     {
-                        const int64_t A_nt = A.nt();
-                        for (int64_t i = k+1; i < A_nt; ++i) {
+                        for (int64_t i = k+1; i < A_mt; ++i) {
                             if (A.tileIsLocal(i, k)) {
                                 A.tileUpdateOrigin(i, k);
 
                                 std::set<int> dev_set;
-                                A.sub(i, i, k+1, A_mt-1).getLocalDevices(&dev_set);
+                                A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
 
                                 for (auto device : dev_set) {
                                     A.tileUnsetHold(i, k, device);

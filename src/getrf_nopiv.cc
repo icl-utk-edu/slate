@@ -55,8 +55,8 @@ void getrf_nopiv(slate::internal::TargetType<target>,
     uint8_t* diag = diag_vector.data();
     // Running two listBcastMT's simultaneously can hang due to task ordering
     // This dependency avoids that
-    uint8_t mpi_bandwidth;
-    SLATE_UNUSED(mpi_bandwidth); // Only used by OpenMP
+    uint8_t listBcastMT_token;
+    SLATE_UNUSED(listBcastMT_token); // Only used by OpenMP
 
     #pragma omp parallel
     #pragma omp master
@@ -85,7 +85,7 @@ void getrf_nopiv(slate::internal::TargetType<target>,
 
             #pragma omp task depend(inout:column[k]) \
                              depend(in:diag[k]) \
-                             depend(inout:mpi_bandwidth) \
+                             depend(inout:listBcastMT_token) \
                              priority(priority_one)
             {
                 auto Akk = A.sub(k, k, k, k);
@@ -146,7 +146,7 @@ void getrf_nopiv(slate::internal::TargetType<target>,
             if (k+1+lookahead < A_nt) {
                 #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[k+1+lookahead]) \
-                                 depend(inout:mpi_bandwidth) \
+                                 depend(inout:listBcastMT_token) \
                                  depend(inout:column[A_nt-1])
                 {
                     auto Akk = A.sub(k, k, k, k);

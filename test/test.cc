@@ -293,8 +293,7 @@ Params::Params():
     // SLATE options
     nb        ("nb",      5,    ParamType::List, 50,      0, 1000000, "nb"),
     ib        ("ib",      4,    ParamType::List, 16,      0, 1000000, "ib"),
-    p         ("p",       4,    ParamType::List, 1,       0, 1000000, "p"),
-    q         ("q",       4,    ParamType::List, 1,       0, 1000000, "q"),
+    grid      ("grid",    6,    ParamType::List, "1x1",   0, 1000000, "p x q dimensions"),
     lookahead ("lookahead", 2,  ParamType::List, 1,       0, 1000000, "(la) number of lookahead panels"),
     panel_threads("panel-threads",
                           2,    ParamType::List, 1,       0, 1000000, "(pt) max number of threads used in panel"),
@@ -351,6 +350,9 @@ Params::Params():
     repeat();
     verbose();
     cache();
+
+    //  change names of grid elements
+    grid.names("p","q");
 
     // routine's parameters are marked by the test routine; see main
 }
@@ -517,8 +519,8 @@ int run(int argc, char** argv)
             if (p*q == mpi_size)
                 break;
         }
-        params.p() = p;
-        params.q() = q;
+//        params.p() = p;
+//        params.q() = q;
 
         // parse parameters up to routine name.
         try {
@@ -530,7 +532,7 @@ int run(int argc, char** argv)
             throw;
         }
 
-        slate_assert(params.p() * params.q() == mpi_size);
+//        slate_assert(params.p() * params.q() == mpi_size);
 
         slate::trace::Trace::pixels_per_second(params.trace_scale());
 

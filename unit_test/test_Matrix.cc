@@ -948,7 +948,7 @@ void test_Matrix_insertLocalTiles_dev()
 }
 
 //------------------------------------------------------------------------------
-/// Test allocateBatchArrays, clearBatchArrays, batchSize.
+/// Test allocateBatchArrays, clearBatchArrays, batchArraySize.
 ///
 void test_Matrix_allocateBatchArrays()
 {
@@ -966,7 +966,7 @@ void test_Matrix_allocateBatchArrays()
         m, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
     // initially, batch arrays are null
-    test_assert( A.batchSize() == 0 );
+    test_assert( A.batchArraySize() == 0 );
     for (int device = 0; device < num_devices; ++device) {
         test_assert( A.array_host(device) == nullptr );
         test_assert( A.array_device(device) == nullptr );
@@ -974,7 +974,7 @@ void test_Matrix_allocateBatchArrays()
 
     // allocate size 10
     A.allocateBatchArrays( 10 );
-    test_assert( A.batchSize() == 10 );
+    test_assert( A.batchArraySize() == 10 );
     for (int device = 0; device < num_devices; ++device) {
         test_assert( A.array_host(device) != nullptr );
         test_assert( A.array_device(device) != nullptr );
@@ -982,11 +982,11 @@ void test_Matrix_allocateBatchArrays()
 
     // increase to size 20
     A.allocateBatchArrays( 20 );
-    test_assert( A.batchSize() == 20 );
+    test_assert( A.batchArraySize() == 20 );
 
     // requesting 15 should leave it at 20
     A.allocateBatchArrays( 15 );
-    test_assert( A.batchSize() == 20 );
+    test_assert( A.batchArraySize() == 20 );
 
     int num = 0;
     for (int device = 0; device < num_devices; ++device) {
@@ -995,11 +995,11 @@ void test_Matrix_allocateBatchArrays()
 
     // request enough for local tiles
     A.allocateBatchArrays();
-    test_assert( A.batchSize() == blas::max( num, 20 ) );
+    test_assert( A.batchArraySize() == blas::max( num, 20 ) );
 
     // clear should free arrays
     A.clearBatchArrays();
-    test_assert( A.batchSize() == 0 );
+    test_assert( A.batchArraySize() == 0 );
     for (int device = 0; device < num_devices; ++device) {
         test_assert( A.array_host(device) == nullptr );
         test_assert( A.array_device(device) == nullptr );

@@ -667,12 +667,13 @@ int64_t Matrix<scalar_t>::getMaxDeviceTiles(int device)
 }
 
 //------------------------------------------------------------------------------
-/// Allocates device batch arrays and BLAS++ queues.
-/// Matrix classes override this with versions that can also allocate based
-/// on the number of local tiles.
+/// Allocates batch arrays and BLAS++ queues for all devices.
+/// This overrides BaseMatrix::allocateBatchArrays
+/// to use the number of local tiles in a general matrix.
 ///
 /// @param[in] batch_size
 ///     On exit, size of batch arrays >= batch_size >= 0.
+///     If batch_size = 0 (default), uses batch_size = getMaxDeviceTiles.
 ///
 /// @param[in] num_arrays
 ///     On exit, size of batch arrays vector >= num_arrays >= 1.

@@ -490,7 +490,7 @@ public:
         storage_->clearWorkspace();
     }
 
-    /// Allocates device batch arrays and BLAS++ queues.
+    /// Allocates batch arrays and BLAS++ queues for all devices.
     /// Matrix classes override this with versions that can also allocate based
     /// on the number of local tiles.
     ///
@@ -500,7 +500,7 @@ public:
     /// @param[in] num_arrays
     ///     On exit, size of batch arrays vector >= num_arrays >= 1.
     ///
-    void allocateBatchArrays(int64_t batch_size=0, int64_t num_arrays=1)
+    void allocateBatchArrays(int64_t batch_size, int64_t num_arrays)
     {
         storage_->allocateBatchArrays(batch_size, num_arrays);
     }
@@ -514,9 +514,9 @@ public:
     }
 
     /// @return currently allocated batch array size
-    int64_t batchSize()
+    int64_t batchArraySize()
     {
-        return storage_->batchSize();
+        return storage_->batchArraySize();
     }
 
     //--------------------------------------------------------------------------
@@ -2352,55 +2352,52 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             dst_tile->layoutConvert(*queue, async);
         }
         else if (copy_first) {
-            int64_t work_stride = src_tile->stride();
-
-            Tile<scalar_t> work_tile(
-                src_tile->mb(), src_tile->nb(),
-                work_data, work_stride, work_device, TileKind::Workspace,
-                src_tile->layout());
-
             blas::Queue* queue = comm_queue(work_device);
 
+            int64_t work_stride = src_tile->stride();
+
+            Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
+                                     work_stride, work_device,
+                                     TileKind::Workspace, src_tile->layout());
             src_tile->copyData(&work_tile, *queue, async);
 
             if (dst_tile->isContiguous())
-                dst_tile->stride(
-                    src_tile->layout() == Layout::ColMajor ? src_tile->nb()
-                                                           : src_tile->mb());
-            int64_t phys_mb =
-                    src_tile->layout() == Layout::ColMajor ? src_tile->mb()
-                                                           : src_tile->nb();
-            int64_t phys_nb =
-                    src_tile->layout() == Layout::ColMajor ? src_tile->nb()
-                                                           : src_tile->mb();
-            device::transpose(
-                phys_mb, phys_nb, work_data,      work_stride,
-                                   dst_data, dst_tile->stride(), *queue);
-
+                dst_tile->stride( src_tile->layout() == Layout::ColMajor ?
+                                  src_tile->nb() :
+                                  src_tile->mb());
+            int64_t phys_mb = src_tile->layout() == Layout::ColMajor ?
+                              src_tile->mb() :
+                              src_tile->nb();
+            int64_t phys_nb = src_tile->layout() == Layout::ColMajor ?
+                              src_tile->nb() :
+                              src_tile->mb();
+            device::transpose(phys_mb, phys_nb,
+                              work_data, work_stride,
+                              dst_data, dst_tile->stride(),
+                              *queue);
             if (! async)
                 queue->sync();
         }
         else {
             blas::Queue* queue = comm_queue(work_device);
 
-            int64_t work_stride =
-                    src_tile->layout() == Layout::ColMajor ? src_tile->nb()
-                                                           : src_tile->mb();
-            int64_t phys_mb =
-                    src_tile->layout() == Layout::ColMajor ? src_tile->mb()
-                                                           : src_tile->nb();
-            int64_t phys_nb =
-                    src_tile->layout() == Layout::ColMajor ? src_tile->nb()
-                                                           : src_tile->mb();
+            int64_t work_stride = src_tile->layout() == Layout::ColMajor ?
+                                  src_tile->nb() :
+                                  src_tile->mb();
+            int64_t phys_mb = src_tile->layout() == Layout::ColMajor ?
+                              src_tile->mb() :
+                              src_tile->nb();
+            int64_t phys_nb = src_tile->layout() == Layout::ColMajor ?
+                              src_tile->nb() :
+                              src_tile->mb();
 
-            device::transpose(
-                phys_mb, phys_nb, src_data, src_tile->stride(),
-                                 work_data,      work_stride, *queue);
-            Tile<scalar_t> work_tile(
-                src_tile->mb(), src_tile->nb(),
-                work_data, work_stride, work_device, TileKind::Workspace,
-                target_layout);
-
+            device::transpose(phys_mb, phys_nb,
+                              src_data, src_tile->stride(),
+                              work_data, work_stride,
+                              *queue);
+            Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
+                                     work_stride, work_device,
+                                     TileKind::Workspace, target_layout);
             if (dst_tile->isContiguous())
                 dst_tile->stride(work_stride);
 
@@ -3331,8 +3328,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
         // map key tuple: m, n, extended, stride, work_stride
         using mnss_tuple = std::tuple<int64_t, int64_t, bool, int64_t, int64_t>;
         // map value tuple: data and extended data buffers
-        using data_tuple =
-            std::pair<std::vector<scalar_t*>, std::vector<scalar_t*>>;
+        using data_tuple = std::pair<std::vector<scalar_t*>, std::vector<scalar_t*>>;
 
         using BatchedTilesBuckets = std::map< mnss_tuple, data_tuple >;
 
@@ -3427,34 +3423,37 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
             // if (batch_count == 1) {
             //     tileLayoutConvert(i, j, device, layout);
             // }
+            // else
 
             blas::device_memcpy<scalar_t*>(
                 array_dev, bucket->second.first.data(),
                 batch_count, blas::MemcpyKind::HostToDevice, *queue);
 
-            if (mb == nb) { // in-place transpose
-                device::transpose_batch(
-                    nb, array_dev, stride, batch_count, *queue);
+            if (mb == nb) {
+                // in-place transpose
+                device::transpose_batch(nb,
+                                        array_dev, stride,
+                                        batch_count, *queue);
             }
-            else { // rectangular tiles: out-of-place transpose
+            else {
+                // rectangular tiles: out-of-place transpose
                 blas::device_memcpy<scalar_t*>(
                     work_array_dev, bucket->second.second.data(),
                     batch_count, blas::MemcpyKind::HostToDevice, *queue);
 
-                device::transpose_batch(
-                    layout == Layout::ColMajor ? nb : mb,
-                    layout == Layout::ColMajor ? mb : nb,
-                         array_dev,      stride,
-                    work_array_dev, work_stride, batch_count, *queue);
+                device::transpose_batch(layout == Layout::ColMajor ? nb : mb,
+                                        layout == Layout::ColMajor ? mb : nb,
+                                        array_dev, stride,
+                                        work_array_dev, work_stride,
+                                        batch_count, *queue);
 
                 if (! extended) {
                     // copy back to data buffer
-                    device::gecopy(
-                        layout == Layout::ColMajor ? mb : nb,
-                        layout == Layout::ColMajor ? nb : mb,
-                        work_array_dev, work_stride,
-                             array_dev, work_stride,
-                        batch_count, *queue);
+                    device::gecopy(layout == Layout::ColMajor ? mb : nb,
+                                   layout == Layout::ColMajor ? nb : mb,
+                                   work_array_dev, work_stride,
+                                   array_dev, work_stride,
+                                   batch_count, *queue);
                 }
             }
 
@@ -3474,6 +3473,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
 
         if (reset) {
             for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+                // #pragma omp task
                 {
                     int64_t i = std::get<0>(*iter);
                     int64_t j = std::get<1>(*iter);

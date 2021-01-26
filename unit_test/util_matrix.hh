@@ -56,7 +56,7 @@ void verify_tile_lapack(
         test_assert(tile.uplo()   == blas::Uplo::General);
         test_assert(tile.origin() == true);
         test_assert(tile.device() == host_num);
-        test_assert(tile.size()   == ib * jb);
+        test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
 
         // A(i, j) and A.at(i, j) should return identical tiles
@@ -117,7 +117,7 @@ void verify_tile_lapack(
             test_assert(tile.uplo() == blas::Uplo::General);
         test_assert(tile.origin() == true);
         test_assert(tile.device() == host_num);
-        test_assert(tile.size()   == ib * jb);
+        test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
 
         // A(i, j) and A.at(i, j) should return identical tiles
@@ -223,7 +223,7 @@ void verify_tile_scalapack(
         test_assert(tile.uplo()   == blas::Uplo::General);
         test_assert(tile.origin() == true);
         test_assert(tile.device() == host_num);
-        test_assert(tile.size()   == ib * jb);
+        test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
 
         // A(i, j) and A.at(i, j) should return identical tiles
@@ -284,7 +284,7 @@ void verify_tile_scalapack(
             test_assert(tile.uplo() == blas::Uplo::General);
         test_assert(tile.origin() == true);
         test_assert(tile.device() == host_num);
-        test_assert(tile.size()   == ib * jb);
+        test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
 
         // A(i, j) and A.at(i, j) should return identical tiles
@@ -343,7 +343,7 @@ void verify_tile_device(
         test_assert(tile.uplo()   == blas::Uplo::General);
         test_assert(tile.origin() == true);
         test_assert(tile.device() == dev);
-        test_assert(tile.size()   == ib * jb);
+        test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
 
         // A(i, j) and A.at(i, j) should return identical tiles
@@ -409,7 +409,7 @@ void verify_tile_device(
             test_assert(tile.uplo() == blas::Uplo::General);
         test_assert(tile.origin() == true);
         test_assert(tile.device() == dev);
-        test_assert(tile.size()   == ib * jb);
+        test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
 
         // A(i, j) and A.at(i, j) should return identical tiles

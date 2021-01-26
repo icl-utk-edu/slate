@@ -131,16 +131,17 @@ public:
 
     Tile();
 
-    Tile(
-        int64_t mb, int64_t nb, scalar_t* A, int64_t lda, int device,
-        TileKind kind, Layout layout=Layout::ColMajor);
+    Tile(int64_t mb, int64_t nb,
+         scalar_t* A, int64_t lda, int device, TileKind kind, Layout layout=Layout::ColMajor);
 
     // defaults okay (tile doesn't own data, doesn't allocate/deallocate data)
     // 1. destructor
     // 2. copy & move constructors
     // 3. copy & move assignment
-    void copyData(
-        Tile<scalar_t>* dst_tile, blas::Queue& queue, bool async = false) const;
+
+    void copyData(Tile<scalar_t>* dst_tile, blas::Queue& queue,
+                  bool async = false) const;
+
     /// copies this tile's data to dst_tile data, both assumed on host
     void copyData(Tile<scalar_t>* dst_tile) const;
 
@@ -220,7 +221,7 @@ public:
     size_t bytes() const { return sizeof(scalar_t) * size(); }
 
     /// Returns number of elements; but NOT consecutive if stride != mb_.
-    int64_t size()  const { return mb_ * nb_; }
+    size_t size()  const { return (size_t) mb_ * nb_; }
 
     /// Returns whether op(A) is logically Lower, Upper, or General storage.
     Uplo uplo() const { return uploLogical(); }
@@ -297,12 +298,8 @@ public:
             return user_stride_;
     }
 
-    /// Convert layout on CPU of this tile
-    /// If work_data is not provided, then it assumes no workspace is needed.
     void layoutConvert(scalar_t* work_data = nullptr);
 
-    /// Convert layout on GPU of this tile.
-    /// BLAS++ queue must be provided because conversion happens on device
     void layoutConvert(
         scalar_t* work_data, blas::Queue& queue, bool async = false);
 
@@ -667,25 +664,31 @@ void Tile<scalar_t>::layoutReset()
 template <typename scalar_t>
 void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
 {
-    slate_assert(isTransposable());
     slate_assert(device_ == HostNum);
+    slate_assert(isTransposable());
 
     trace::Block trace_block("slate::convertLayout");
- 
-    if (mb() == nb()) { // square tile (in-place conversion)
-            transpose(nb(), data_, stride_);
+
+    if (mb() == nb()) {
+        // square tile, in-place conversion
+        transpose(nb(), data_, stride_);
     }
-    else { // rectangular tile (out-of-place conversion)
-        if (extended()) { // if tile made is convertible
+    else {
+        // rectangular tile, out-of-place conversion
+        if (extended()) {
+            // if tile made Convertible
             scalar_t* src_data;
             int64_t src_stride = 0;
-            if (user_data_ == data_) { // need to convert into ext_data_
+
+            if (user_data_ == data_) {
+                // need to convert into ext_data_
                 data_      = ext_data_;
                 src_data   = user_data_;
                 src_stride = user_stride_;
                 stride_    = user_layout_ == Layout::RowMajor ? mb_ : nb_;
             }
-            else if (ext_data_ == data_) { // need to convert into user_data_
+            else if (ext_data_ == data_) {
+                // need to convert into user_data_
                 data_      = user_data_;
                 src_data   = ext_data_;
                 src_stride = stride_;
@@ -695,22 +698,23 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
                 assert(0);
             }
 
-            transpose(
-                layout() == Layout::ColMajor ? mb_ : nb_,
-                layout() == Layout::ColMajor ? nb_ : mb_,
-                src_data, src_stride, data_, stride_);
+            transpose(layout() == Layout::ColMajor ? mb_ : nb_,
+                      layout() == Layout::ColMajor ? nb_ : mb_,
+                      src_data, src_stride,
+                      data_, stride_);
         }
-        else { // tile already convertible
+        else {
+            // tile already Convertible
             slate_assert(isContiguous());
-            slate_assert(work_data != nullptr); // need a workspace buffer
+            // need a workspace buffer
+            slate_assert(work_data != nullptr);
 
             int64_t work_stride = layout() == Layout::ColMajor ? nb() : mb();
 
-            transpose(
-                layout() == Layout::ColMajor ? mb_ : nb_,
-                layout() == Layout::ColMajor ? nb_ : mb_,
-                data_, stride_, work_data, work_stride);
-
+            transpose(layout() == Layout::ColMajor ? mb_ : nb_,
+                      layout() == Layout::ColMajor ? nb_ : mb_,
+                      data_, stride_,
+                      work_data, work_stride);
             std::memcpy(data_, work_data, bytes());
 
             stride_ = work_stride;
@@ -718,6 +722,7 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
     }
     layout(layout() == Layout::RowMajor ? Layout::ColMajor : Layout::RowMajor);
 }
+
 
 //------------------------------------------------------------------------------
 /// Convert layout (Column / Row major) of this tile (device GPU implementation).
@@ -754,7 +759,7 @@ void Tile<scalar_t>::layoutConvert(
     slate_assert(device_ != HostNum);
 
     trace::Block trace_block("slate::convertLayout");
- 
+
     if (mb() == nb()) { // square tile (in-place conversion)
         blas::set_device(device_);
         device::transpose(mb(), data(), stride(), queue);
@@ -865,9 +870,8 @@ void Tile<scalar_t>::copyData(
     slate_assert(mb_ == dst_tile->mb_);
     slate_assert(nb_ == dst_tile->nb_);
 
-    // silence a compiler warning;
-    int device = HostNum;
-    blas::MemcpyKind memcpy_kind = blas::MemcpyKind::Default;
+    int device;
+    blas::MemcpyKind memcpy_kind;
 
     // figure out copy direction and device
     if (this->device_ >= 0 && dst_tile->device() == HostNum) {
@@ -896,6 +900,9 @@ void Tile<scalar_t>::copyData(
             assert(0);
     }
     else {
+        // silence compiler warnings
+        device = HostNum;
+        memcpy_kind = blas::MemcpyKind::HostToHost;
         slate_error("illegal combination of source and destination devices");
     }
 
@@ -908,7 +915,8 @@ void Tile<scalar_t>::copyData(
     blas::set_device(device);
 
     // If no stride on both sides.
-    if (this->isContiguous() && dst_tile->isContiguous()) {
+    if (this->isContiguous() &&
+        dst_tile->isContiguous()) {
 
         // Use simple copy.
         trace::Block trace_block("blas::device_memcpy");
@@ -922,9 +930,10 @@ void Tile<scalar_t>::copyData(
     else {
         // Otherwise, use 2D copy.
         trace::Block trace_block("blas::device_memcpy_2d");
+
         blas::device_memcpy_2d<scalar_t>(
             dst_tile->data_, dst_tile->stride_,
-                        data_,           stride_,
+            data_, stride_,
             (this->layout() == Layout::ColMajor ? mb_ : nb_),
             (this->layout() == Layout::ColMajor ? nb_ : mb_),
             memcpy_kind, queue);
@@ -932,7 +941,6 @@ void Tile<scalar_t>::copyData(
         if (! async)
             queue.sync();
     }
-
     dst_tile->layout(this->layout());
 }
 

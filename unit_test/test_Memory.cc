@@ -153,10 +153,9 @@ void test_alloc_device()
             // Touch memory to verify it is valid.
             blas::Queue queue(dev, batch_arrays_index);
             blas::set_device(dev);
-            blas::device_memcpy<double>(dx[i], hx,
-                                nb * nb,
-                                blas::MemcpyKind::HostToDevice,
-                                queue);
+            blas::device_memcpy<double>(dx[i], hx, nb * nb,
+                                        blas::MemcpyKind::HostToDevice,
+                                        queue);
         }
 
         // Free some.

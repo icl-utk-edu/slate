@@ -480,9 +480,9 @@ private:
 
     int64_t batch_array_size_;
 
-    // batch blas++ communication queue object
+    // BLAS++ communication queues
     std::vector< blas::Queue* > comm_queues_;
-    // batch blas++ compute queue object
+    // BLAS++ compute queues
     std::vector< std::vector< blas::Queue* > > compute_queues_;
 
     // host pointers arrays for batch GEMM
@@ -593,7 +593,7 @@ MatrixStorage<scalar_t>::~MatrixStorage()
 
 //------------------------------------------------------------------------------
 /// Initializes BLAS++ compute and communcation queues on each device.
-/// It also initializes the host and device batch arrays
+/// Also initializes the host and device batch arrays.
 /// Called in constructor.
 ///
 template <typename scalar_t>
@@ -640,10 +640,12 @@ void MatrixStorage<scalar_t>::destroyQueues()
 /// batch_size is larger than the existing size.
 ///
 /// @param[in] batch_size
-///     On exit, size of each batch array >= batch_size >= 0.
+///     Allocate batch arrays as needed so that
+///     size of each batch array >= batch_size >= 0.
 ///
 /// @param[in] num_arrays
-///     On exit, size of batch arrays vector >= num_arrays >= 1.
+///     Allocate batch arrays as needed so that
+///     number of batch arrays per device >= num_arrays >= 1.
 ///
 // todo: rename resizeBatchArrays?
 ///

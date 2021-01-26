@@ -303,8 +303,7 @@ public:
     void layoutConvert(
         scalar_t* work_data, blas::Queue& queue, bool async = false);
 
-    /// Convert layout on GPU of this tile (assuming no workspace is needed).
-    /// BLAS++ queue must be provided because conversion happens on device
+    /// Overload with work_data = nullptr.
     void layoutConvert(blas::Queue& queue, bool async = false)
     {
         assert(mb() == nb() || extended());
@@ -656,7 +655,6 @@ void Tile<scalar_t>::layoutReset()
 ///       accordingly.
 ///
 /// Tile must be transposable already, should call makeTransposable() if not.
-/// A BLAS++ queue should be provided if tile instance is on a device.
 ///
 /// @param[in] work_data
 ///     Pointer to a workspace buffer, needed for out-of-place transpose.
@@ -744,7 +742,7 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
 ///
 /// @param[in] async
 ///     If false, don't synchronize the device queues (asynchronous mode),
-///    otherwise synchronize at every device operation 
+///    otherwise synchronize at every device operation
 ///
 template <typename scalar_t>
 void Tile<scalar_t>::layoutConvert(
@@ -859,7 +857,7 @@ void Tile<scalar_t>::copyData(Tile<scalar_t>* dst_tile) const
 ///
 /// @param[in] async
 ///     If false, don't synchronize the device queues (asynchronous mode),
-///    otherwise synchronize at every device operation 
+///     otherwise synchronize at every device operation
 ///
 // todo: need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>

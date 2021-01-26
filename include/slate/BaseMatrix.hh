@@ -495,10 +495,12 @@ public:
     /// on the number of local tiles.
     ///
     /// @param[in] batch_size
-    ///     On exit, size of batch arrays >= batch_size >= 0.
+    ///     Allocate batch arrays as needed so that
+    ///     size of each batch array >= batch_size >= 0.
     ///
     /// @param[in] num_arrays
-    ///     On exit, size of batch arrays vector >= num_arrays >= 1.
+    ///     Allocate batch arrays as needed so that
+    ///     number of batch arrays per device >= num_arrays >= 1.
     ///
     void allocateBatchArrays(int64_t batch_size, int64_t num_arrays)
     {

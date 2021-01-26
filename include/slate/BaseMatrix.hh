@@ -3401,12 +3401,6 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
                 std::max(batch_count, int64_t(bucket->second.first.size()));
         }
 
-        // int64_t num_arrays =
-        //    (storage_->array_host_.size() <= 0) ? 1 : storage_->array_host_.size();
-
-        // todo: shouldn't we allocate for the current device only?
-        // allocateBatchArrays(batch_count, num_arrays);
-
         blas::Queue* queue = comm_queue(device);
         blas::set_device(device);
 

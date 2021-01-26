@@ -337,8 +337,6 @@ ifeq ($(cuda),1)
     LIBS += -lcublas -lcudart
 else
     FLAGS += -DSLATE_NO_CUDA
-#    libslate_src += src/stubs/cuda_stubs.cc
-#    libslate_src += src/stubs/cublas_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------

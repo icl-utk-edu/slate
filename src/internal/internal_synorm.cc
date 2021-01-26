@@ -628,10 +628,11 @@ void norm(internal::TargetType<Target::Devices>,
                     // double for symmetric entries in off-diagonal blocks
                     real_t mult = (q < 4 ? 2.0 : 1.0);
                     for (int64_t k = 0; k < group_count[q]; ++k) {
-                        combine_sumsq(devices_values[2*device + 0],
-                                  devices_values[2*device + 1],
-                                  vals_host_array[2*batch_count + 0],
-                                  vals_host_array[2*batch_count + 1] * mult);
+                        combine_sumsq(
+                            devices_values[2*device + 0],
+                            devices_values[2*device + 1],
+                            vals_host_array[2*batch_count + 0],
+                            vals_host_array[2*batch_count + 1] * mult);
                         ++batch_count;
                     }
                 }

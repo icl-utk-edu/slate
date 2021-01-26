@@ -2361,10 +2361,11 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
                                      TileKind::Workspace, src_tile->layout());
             src_tile->copyData(&work_tile, *queue, async);
 
-            if (dst_tile->isContiguous())
+            if (dst_tile->isContiguous()) {
                 dst_tile->stride( src_tile->layout() == Layout::ColMajor ?
                                   src_tile->nb() :
                                   src_tile->mb());
+            }
             int64_t phys_mb = src_tile->layout() == Layout::ColMajor ?
                               src_tile->mb() :
                               src_tile->nb();

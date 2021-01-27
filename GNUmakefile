@@ -54,6 +54,9 @@
 # and sm_XX is a CUDA architecture (e.g., sm_30; see nvcc -h).
 # kepler and maxwell are no longer supported in CUDA 11.
 # cuda_arch="pascal" by default.
+#
+# hip=1          for HIP (default if $(HIPCC) compiler is found).
+# HIPCC=hipcc by default.
 
 -include make.inc
 
@@ -112,14 +115,26 @@ c_api           ?= 0
 fortran_api     ?= 0
 
 NVCC            ?= nvcc
+HIPDIR          ?= /opt/rocm
+HIPCC           ?= $(HIPDIR)/bin/hipcc
 
 # If nvcc exists, set cuda = 1 by default.
 have_cuda := $(shell which $(NVCC))
 ifneq ($(have_cuda),)
     cuda ?= 1
     cuda_arch ?= pascal
+    NVCC = $(NVCC)
 else ifeq ($(strip $(cuda)),1)
     $(error ERROR: cuda = $(cuda), but NVCC = ${NVCC} not found)
+endif
+
+# If hipcc exists, set hip = 1 by default.
+have_hip  := $(shell which $(HIPCC))
+ifneq ($(have_hip),)
+    hip ?= 1
+     -include make.gen.hipSLATE
+else ifeq ($(strip $(hip)),1)
+    $(error ERROR: hip = $(hip), but HIPCC = ${HIPCC} not found)
 endif
 
 # Strip whitespace from variables, in case make.inc had trailing spaces.
@@ -133,6 +148,7 @@ openmp          := $(strip $(openmp))
 static          := $(strip $(static))
 cuda_arch       := $(strip $(cuda_arch))
 cuda            := $(strip $(cuda))
+hip             := $(strip $(hip))
 prefix          := $(strip $(prefix))
 c_api           := $(strip $(c_api))
 fortran_api     := $(strip $(fortran_api))
@@ -140,8 +156,9 @@ fortran_api     := $(strip $(fortran_api))
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX blas blas_int blas_threaded openmp static
 
-CXXFLAGS  += -O3 -std=c++17 -Wall -pedantic -MMD
-NVCCFLAGS += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
+CXXFLAGS   += -O3 -std=c++17 -Wall -pedantic -MMD
+NVCCFLAGS  += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
+HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
 
 force: ;
 
@@ -168,10 +185,11 @@ endif
 #-------------------------------------------------------------------------------
 # if shared
 ifneq ($(static),1)
-    CXXFLAGS += -fPIC
-    LDFLAGS  += -fPIC
-    FCFLAGS  += -fPIC
+    CXXFLAGS   += -fPIC
+    LDFLAGS    += -fPIC
+    FCFLAGS    += -fPIC
     NVCCFLAGS += --compiler-options '-fPIC'
+    HIPCCFLAGS += -fPIC
     lib_ext = so
 else
     lib_ext = a
@@ -337,8 +355,21 @@ ifeq ($(cuda),1)
     LIBS += -lcublas -lcudart
 else
     FLAGS += -DSLATE_NO_CUDA
-#    libslate_src += src/stubs/cuda_stubs.cc
-#    libslate_src += src/stubs/cublas_stubs.cc
+    #libslate_src += src/stubs/cuda_stubs.cc
+    #libslate_src += src/stubs/cublas_stubs.cc
+endif
+
+ifeq ($(hip),1)
+    # AMD architectures that hipcc supports
+    sms = gfx803 gfx900 gfx906 gfx908
+    FLAGS += -D__HIP_PLATFORM_HCC__
+    CXXFLAGS += -D__HIP_PLATFORM_HCC__
+    HIPCCFLAGS += -I$(HIPDIR)/include/ -D__HIP_PLATFORM_HCC__
+    LIB += -L$(HIPDIR)/lib -lhipblas
+else
+    FLAGS += -DSLATE_NO_HIP
+    libslate_src += src/stubs/hip_stubs.cc
+    libslate_src += src/stubs/hipblas_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -422,6 +453,20 @@ ifeq ($(cuda),1)
             src/cuda/device_transpose.cu \
             src/cuda/device_trnorm.cu \
             src/cuda/device_tzcopy.cu \
+
+endif
+
+ifeq ($(hip),1)
+    libslate_src += \
+            src/hip/device_geadd.hip.cc \
+            src/hip/device_gecopy.hip.cc \
+            src/hip/device_genorm.hip.cc \
+            src/hip/device_geset.hip.cc \
+            src/hip/device_henorm.hip.cc \
+            src/hip/device_synorm.hip.cc \
+            src/hip/device_transpose.hip.cc \
+            src/hip/device_trnorm.hip.cc \
+            src/hip/device_tzcopy.hip.cc \
 
 endif
 
@@ -562,7 +607,7 @@ tester_src += \
         test/matrix_params.cc \
 
 
-# Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
+# Compile fixes for ScaLAPACK routines if Fortran ompiler $(FC) exists.
 ifneq ($(have_fortran),)
     tester_src += \
         test/pslange.f \
@@ -581,7 +626,27 @@ ifneq ($(have_fortran),)
 endif
 
 # unit testers
-unit_src = \
+ifeq ($(hip),1)
+    unit_src = \
+        unit_test_hip/test_BandMatrix.cc \
+        unit_test_hip/test_HermitianMatrix.cc \
+        unit_test_hip/test_LockGuard.cc \
+        unit_test_hip/test_Matrix.cc \
+        unit_test_hip/test_Memory.cc \
+        unit_test_hip/test_SymmetricMatrix.cc \
+        unit_test_hip/test_Tile.cc \
+        unit_test_hip/test_Tile_kernels.cc \
+        unit_test_hip/test_TrapezoidMatrix.cc \
+        unit_test_hip/test_TriangularMatrix.cc \
+        unit_test_hip/test_lq.cc \
+        unit_test_hip/test_norm.cc \
+        unit_test_hip/test_qr.cc \
+
+    # unit test framework
+    unit_test_obj = \
+            unit_test_hip/unit_test.o
+else
+    unit_src = \
         unit_test/test_BandMatrix.cc \
         unit_test/test_HermitianMatrix.cc \
         unit_test/test_LockGuard.cc \
@@ -595,13 +660,11 @@ unit_src = \
         unit_test/test_lq.cc \
         unit_test/test_norm.cc \
         unit_test/test_qr.cc \
-        unit_test/test_geadd.cc \
-        unit_test/test_gecopy.cc \
-        unit_test/test_geset.cc \
 
-# unit test framework
-unit_test_obj = \
-        unit_test/unit_test.o
+    # unit test framework
+    unit_test_obj = \
+            unit_test/unit_test.o
+endif
 
 libslate_obj = $(addsuffix .o, $(basename $(libslate_src)))
 tester_obj   = $(addsuffix .o, $(basename $(tester_src)))
@@ -639,8 +702,9 @@ FLAGS += -I./lapackpp/include
 FLAGS += -I./include
 FLAGS += -I./src
 
-CXXFLAGS  += $(FLAGS)
-NVCCFLAGS += $(FLAGS)
+CXXFLAGS   += $(FLAGS)
+NVCCFLAGS  += $(FLAGS)
+HIPCCFLAGS += $(FLAGS)
 
 # libraries to create libslate.so
 LDFLAGS  += -L./blaspp/lib
@@ -656,13 +720,13 @@ TEST_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 TEST_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
 TEST_LDFLAGS += -Wl,-rpath,$(abspath ./blaspp/lib)
 TEST_LDFLAGS += -Wl,-rpath,$(abspath ./lapackpp/lib)
-TEST_LIBS    += -lslate -ltestsweeper $(scalapack)
+TEST_LIBS    += -lslate -L$(HIPDIR)/lib -lrocblas -lamdhip64 -ltestsweeper $(scalapack)
 
 UNIT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 UNIT_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
 UNIT_LDFLAGS += -Wl,-rpath,$(abspath ./blaspp/lib)
 UNIT_LDFLAGS += -Wl,-rpath,$(abspath ./lapackpp/lib)
-UNIT_LIBS    += -lslate -ltestsweeper
+UNIT_LIBS    += -lslate -L$(HIPDIR)/lib -lrocblas -lamdhip64 -ltestsweeper
 
 #-------------------------------------------------------------------------------
 # Rules
@@ -970,9 +1034,14 @@ distclean: clean
 	rm -f include/slate/c_api/matrix.h
 	rm -f include/slate/c_api/util.hh
 	rm -f src/fortran/slate_module.f90
+	rm -rf src/hip 
+	rm -rf unit_test_hip
 	cd testsweeper && $(MAKE) distclean
 	cd blaspp      && $(MAKE) distclean
 	cd lapackpp    && $(MAKE) distclean
+
+%.hip.o: %.hip.cc
+	$(HIPCC) $(HIPCCFLAGS) -c $< -o $@
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -985,6 +1054,7 @@ distclean: clean
 
 %.o: %.cu
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
+
 
 # preprocess source
 # test/%.i depend on testsweeper; for simplicity just add it here.
@@ -1072,6 +1142,14 @@ echo:
 	@echo "nwords        = $(nwords)"
 	@echo "nwords_1      = $(nwords_1)"
 	@echo "nv_compute_last = $(nv_compute_last)"
+	@echo
+	@echo "---------- HIP options"
+	@echo "hip           = '$(hip)'"
+	@echo "hip_arch      = '$(hip_arch)'"
+	@echo "HIPCC         = $(HIPCC)"
+	@echo "HIPCCFLAGS    = $(HIPCCFLAGS)"
+	@echo "have_hip      = ${have_hip}"
+	@echo "hip_arch      = $(hip_arch)"
 	@echo
 	@echo "---------- Fortran compiler"
 	@echo "FC            = $(FC)"

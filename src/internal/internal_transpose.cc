@@ -29,6 +29,9 @@ void transpose(
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     transpose(n, (cuFloatComplex*) A, lda, queue);
 #endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    transpose(n, (hipFloatComplex*) A, lda, queue);
+#endif
 }
 
 template <>
@@ -39,6 +42,9 @@ void transpose(
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     transpose(n, (cuDoubleComplex*) A, lda, queue);
+#endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    transpose(n, (hipDoubleComplex*) A, lda, queue);
 #endif
 }
 
@@ -53,6 +59,9 @@ void transpose_batch(
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     transpose_batch(n, (cuFloatComplex**) Aarray, lda, batch_count, queue);
 #endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    transpose_batch(n, (hipFloatComplex**) Aarray, lda, batch_count, queue);
+#endif
 }
 
 template <>
@@ -64,6 +73,9 @@ void transpose_batch(
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     transpose_batch(n, (cuDoubleComplex**) Aarray, lda, batch_count, queue);
+#endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    transpose_batch(n, (hipDoubleComplex**) Aarray, lda, batch_count, queue);
 #endif
 }
 
@@ -78,6 +90,9 @@ void transpose(
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     transpose(m, n, (cuFloatComplex*) A, lda, (cuFloatComplex*) AT, ldat, queue);
 #endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    transpose(m, n, (hipFloatComplex*) A, lda, (hipFloatComplex*) AT, ldat, queue);
+#endif
 }
 
 template <>
@@ -89,6 +104,9 @@ void transpose(
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     transpose(m, n, (cuDoubleComplex*) A, lda, (cuDoubleComplex*) AT, ldat, queue);
+#endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    transpose(m, n, (hipDoubleComplex*) A, lda, (hipDoubleComplex*) AT, ldat, queue);
 #endif
 }
 
@@ -104,6 +122,9 @@ void transpose_batch(
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     transpose_batch(m, n, (cuFloatComplex**) Aarray, lda, (cuFloatComplex**) ATarray, ldat, batch_count, queue);
 #endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    transpose_batch(m, n, (hipFloatComplex**) Aarray, lda, (hipFloatComplex**) ATarray, ldat, batch_count, queue);
+#endif
 }
 
 template <>
@@ -117,11 +138,14 @@ void transpose_batch(
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     transpose_batch(m, n, (cuDoubleComplex**) Aarray, lda, (cuDoubleComplex**) ATarray, ldat, batch_count, queue);
 #endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    transpose_batch(m, n, (hipDoubleComplex**) Aarray, lda, (hipDoubleComplex**) ATarray, ldat, batch_count, queue);
+#endif
 }
 
 
 //------------------------------------------------------------------------------
-#if defined(SLATE_NO_CUDA)
+#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
 // Specializations to allow compilation without CUDA.
 template <>
 void transpose(

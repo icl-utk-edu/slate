@@ -30,6 +30,27 @@ struct real_type_traits<cuDoubleComplex> {
 
 #endif // #ifndef SLATE_NO_CUDA
 
+/*
+*/
+#ifndef SLATE_NO_HIP
+    #include <hip/hip_complex.h>
+
+namespace blas {
+
+template<>
+struct real_type_traits<hipFloatComplex> {
+    using real_t = float;
+};
+
+template<>
+struct real_type_traits<hipDoubleComplex> {
+    using real_t = double;
+};
+
+} // namespace blas
+
+#endif // #ifndef SLATE_NO_CUDA
+
 namespace slate {
 
 /// @namespace slate::device

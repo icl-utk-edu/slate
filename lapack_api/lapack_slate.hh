@@ -65,7 +65,6 @@ inline slate::Target slate_lapack_set_target()
     }
     if (devcount > 0)
         target = slate::Target::Devices;
-
     return target;
 }
 

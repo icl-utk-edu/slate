@@ -135,7 +135,7 @@ void syrk(slate::internal::TargetType<target>,
         C.tileUpdateAllOrigin();
     }
 
-    C.releaseWorkspace();
+    C.clearWorkspace();
 }
 
 } // namespace specialization

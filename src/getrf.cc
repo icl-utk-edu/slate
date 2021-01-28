@@ -44,7 +44,7 @@ void getrf(slate::internal::TargetType<target>,
         target_layout = Layout::RowMajor;
 
     if (target == Target::Devices) {
-        A.allocateBatchArrays(); // needed to do layout conversion
+        A.allocateBatchArrays();
         A.reserveDeviceWorkspace();
     }
 

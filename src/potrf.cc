@@ -123,7 +123,7 @@ void potrf(slate::internal::TargetType<target>,
     // Debug::checkTilesLives(A);
     // Debug::printTilesLives(A);
     A.tileUpdateAllOrigin();
-    A.clearWorkspace();
+    A.releaseWorkspace();
 }
 
 //------------------------------------------------------------------------------
@@ -188,12 +188,12 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
-    int priority_zero       = 0;
-    int batch_size_zero     = 0;
-    int life_factor_one     = 1;
-    int queue_index_one     = 1;
-    bool is_shared          = lookahead > 0; // Do tileGetAndHold in the bcast
-    int num_queues          = 2 + lookahead; // Number of kernels with lookahead
+    const int priority_zero = 0;
+    const int life_factor_one = 1;
+    const int queue_1 = 1;
+    const int64_t batch_size_zero = 0;
+    const int num_queues = 2 + lookahead;  // Number of kernels with lookahead
+    const bool is_shared = lookahead > 0;  // Do tileGetAndHold in the bcast
 
     // Allocate batch arrays = number of kernels without lookahead + lookahead
     // number of kernels without lookahead = 2 (internal::gemm & internal::trsm)
@@ -228,7 +228,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                         Side::Right,
                         scalar_t(1.0), conjTranspose(Tkk),
                                        A.sub(k+1, A_nt-1, k, k),
-                        layout, priority_zero, queue_index_one);
+                        layout, priority_zero, queue_1);
                 }
 
                 BcastListTag bcast_list_A;
@@ -303,9 +303,11 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 }
             }
         }
+
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
+
     A.releaseWorkspace();
 }
 

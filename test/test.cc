@@ -532,7 +532,7 @@ int run(int argc, char** argv)
             throw;
         }
 
-//        slate_assert(params.p() * params.q() == mpi_size);
+        slate_assert(params.grid.m() * params.grid.n() == mpi_size);
 
         slate::trace::Trace::pixels_per_second(params.trace_scale());
 

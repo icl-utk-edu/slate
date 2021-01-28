@@ -193,30 +193,28 @@ void trsm(internal::TargetType<Target::Devices>,
             }
 
             int64_t batch_size = B_tiles_set.size();
-
             if (batch_size > 0) {
+
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
                 B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
 
                 std::vector<scalar_t*> a_array_host_0(batch_size);
                 std::vector<scalar_t*> b_array_host_0(batch_size);
 
-                int64_t batch_count_0 = 0;
-
-                int64_t lda0 = 0;
-                int64_t ldb0 = 0;
-
-                int64_t mb0 = B.tileMb(0);
-                int64_t nb0 = B.tileNb(0);
-
                 std::vector<scalar_t*> a_array_host_1(batch_size);
                 std::vector<scalar_t*> b_array_host_1(batch_size);
 
+
+                int64_t batch_count_0 = 0;
                 int64_t batch_count_1 = 0;
 
+                int64_t lda0 = 0;
+                int64_t ldb0 = 0;
                 int64_t lda1 = 0;
                 int64_t ldb1 = 0;
 
+                int64_t mb0 = B.tileMb(0);
+                int64_t nb0 = B.tileNb(0);
                 int64_t mb1 = B.tileMb(B.mt()-1);
                 int64_t nb1 = B.tileNb(B.nt()-1);
 
@@ -310,6 +308,7 @@ void trsm(internal::TargetType<Target::Devices>,
                                     b_array_host_0, ldb,
                             batch_count_0, info, *queue);
                     }
+
                     if (batch_count_1 > 0) {
                         std::vector<int64_t>   m(1,  mb1);
                         std::vector<int64_t>   n(1,  nb1);
@@ -335,6 +334,7 @@ void trsm(internal::TargetType<Target::Devices>,
             }
         }
     }
+
     #pragma omp taskwait
 }
 

@@ -28,8 +28,8 @@ namespace internal {
 /// @ingroup her2k_internal
 ///
 template <Target target, typename scalar_t>
-void her2k(scalar_t alpha,                           Matrix<scalar_t>&& A,
-                                                     Matrix<scalar_t>&& B,
+void her2k(scalar_t alpha,                  Matrix<scalar_t>&& A,
+                                            Matrix<scalar_t>&& B,
            blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
            Layout layout, int priority, int64_t queue_index)
 {
@@ -56,11 +56,13 @@ void her2k(scalar_t alpha,                           Matrix<scalar_t>&& A,
 ///
 template <typename scalar_t>
 void her2k(internal::TargetType<Target::HostTask>,
-           scalar_t alpha,                          Matrix<scalar_t>& A,
-                                                    Matrix<scalar_t>& B,
+           scalar_t alpha,                 Matrix<scalar_t>& A,
+                                           Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
            Layout layout, int priority, int64_t queue_index)
 {
+    using blas::conj;
+
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::her2k()
     //       to take layout param
@@ -68,8 +70,7 @@ void her2k(internal::TargetType<Target::HostTask>,
     //       by watching 'layout' and 'C(i, j).layout()'
     assert(layout == Layout::ColMajor);
 
-    using blas::conj;
-
+    scalar_t beta_ = beta;
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
         for (int64_t i = j; i < C.mt(); ++i) { // lower
@@ -86,7 +87,6 @@ void her2k(internal::TargetType<Target::HostTask>,
                                   beta,  C(j, j));
                             // todo: should tileRelease()?
                             A.tileTick(j, 0);
-                            // todo: why the second tick?
                             B.tileTick(j, 0);
                         }
                         catch (std::exception& e) {
@@ -105,12 +105,12 @@ void her2k(internal::TargetType<Target::HostTask>,
                             C.tileGetForWriting(i, j, LayoutConvert(layout));
                             auto Aj0 = A(j, 0);
                             auto Bj0 = B(j, 0);
-                            gemm(alpha,          A(i, 0),
-                                                 conjTranspose(Bj0),
-                                 scalar_t(beta), C(i, j));
-                            gemm(conj(alpha),    B(i, 0),
-                                                 conjTranspose(Aj0),
-                                 scalar_t(1.0),  C(i, j));
+                            gemm(alpha, A(i, 0),
+                                        conjTranspose(Bj0),
+                                 beta_, C(i, j));
+                            gemm(conj(alpha),   B(i, 0),
+                                                conjTranspose(Aj0),
+                                 scalar_t(1.0), C(i, j));
                             // todo: should tileRelease()?
                             A.tileTick(i, 0);
                             A.tileTick(j, 0);
@@ -125,6 +125,7 @@ void her2k(internal::TargetType<Target::HostTask>,
             }
         }
     }
+
     #pragma omp taskwait
 
     if (err)
@@ -139,11 +140,13 @@ void her2k(internal::TargetType<Target::HostTask>,
 ///
 template <typename scalar_t>
 void her2k(internal::TargetType<Target::HostNest>,
-           scalar_t alpha,                          Matrix<scalar_t>& A,
-                                                    Matrix<scalar_t>& B,
+           scalar_t alpha,                 Matrix<scalar_t>& A,
+                                           Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
            Layout layout, int priority, int64_t queue_index)
 {
+    using blas::conj;
+
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::her2k()
     //       to take layout param
@@ -151,8 +154,7 @@ void her2k(internal::TargetType<Target::HostNest>,
     //       by watching 'layout' and 'C(i, j).layout()'
     assert(layout == Layout::ColMajor);
 
-    using blas::conj;
-
+    scalar_t beta_ = beta;
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
@@ -176,9 +178,13 @@ void her2k(internal::TargetType<Target::HostNest>,
         }
     }
 
+    int64_t C_mt = C.mt();
+    int64_t C_nt = C.nt();
+
+    //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1)
-    for (int64_t j = 0; j < C.nt(); ++j) {
-        for (int64_t i = 0; i < C.mt(); ++i) {  // full
+    for (int64_t j = 0; j < C_nt; ++j) {
+        for (int64_t i = 0; i < C_mt; ++i) {  // full
             if (i >= j+1) {                     // strictly lower
                 if (C.tileIsLocal(i, j)) {
                     try {
@@ -187,9 +193,9 @@ void her2k(internal::TargetType<Target::HostNest>,
                         C.tileGetForWriting(i, j, LayoutConvert(layout));
                         auto Aj0 = A(j, 0);
                         auto Bj0 = B(j, 0);
-                        gemm(alpha,          A(i, 0),
-                                             conjTranspose(Bj0),
-                             scalar_t(beta), C(i, j));
+                        gemm(alpha, A(i, 0),
+                                    conjTranspose(Bj0),
+                             beta_, C(i, j));
                         gemm(conj(alpha),   B(i, 0),
                                             conjTranspose(Aj0),
                              scalar_t(1.0), C(i, j));
@@ -206,6 +212,7 @@ void her2k(internal::TargetType<Target::HostNest>,
             }
         }
     }
+
     #pragma omp taskwait
 
     if (err)
@@ -220,19 +227,19 @@ void her2k(internal::TargetType<Target::HostNest>,
 ///
 template <typename scalar_t>
 void her2k(internal::TargetType<Target::HostBatch>,
-           scalar_t alpha,                          Matrix<scalar_t>& A,
-                                                    Matrix<scalar_t>& B,
+           scalar_t alpha,                 Matrix<scalar_t>& A,
+                                           Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
            Layout layout, int priority, int64_t queue_index)
 {
+    using blas::conj;
+
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::her2k() to
     //       take layout param
     // todo: optimize for the number of layout conversions,
     //       by watching 'layout' and 'C(i, j).layout()'
     assert(layout == Layout::ColMajor);
-
-    using blas::conj;
 
     // diagonal tiles by her2k on host
     int err = 0;
@@ -264,7 +271,6 @@ void her2k(internal::TargetType<Target::HostBatch>,
     for (int64_t j = 0; j < C.nt(); ++j) {
         for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
             if (C.tileIsLocal(i, j)) {
-                // todo: omp task?
                 A.tileGetForReading(i, 0, LayoutConvert(layout));
                 B.tileGetForReading(j, 0, LayoutConvert(layout));
                 C.tileGetForWriting(i, j, LayoutConvert(layout));
@@ -285,7 +291,6 @@ void her2k(internal::TargetType<Target::HostBatch>,
             }
             else
                 throw std::exception();
-
             alpha = conj(alpha);
         }
 
@@ -318,27 +323,25 @@ void her2k(internal::TargetType<Target::HostBatch>,
         for (int64_t j = 0; j < C.nt(); ++j) {
             for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
                 if (C.tileIsLocal(i, j)) {
-                    m_array[index] = C(i, j).mb();
-                    n_array[index] = C(i, j).nb();
-                    k_array[index] = A(i, 0).nb();  // should be all same
+                    m_array[ index ] = C(i, j).mb();
+                    n_array[ index ] = C(i, j).nb();
+                    k_array[ index ] = A(i, 0).nb();  // should be all same
 
-                    assert(A(i, 0).mb() == m_array[index]);
-                    assert(A(j, 0).mb() == n_array[index]);
-                    assert(A(j, 0).nb() == k_array[index]);
+                    assert(A(i, 0).mb() == m_array[ index ]);
+                    assert(A(j, 0).mb() == n_array[ index ]);
+                    assert(A(j, 0).nb() == k_array[ index ]);
 
-                    ai_array[index] = A(i, 0).data();
-                    aj_array[index] = A(j, 0).data();
-                    bi_array[index] = B(i, 0).data();
-                    bj_array[index] = B(j, 0).data();
+                    ai_array[ index ] = A(i, 0).data();
+                    aj_array[ index ] = A(j, 0).data();
+                    bi_array[ index ] = B(i, 0).data();
+                    bj_array[ index ] = B(j, 0).data();
+                    c_array[ index ] = C(i, j).data();
 
-                    c_array[index] = C(i, j).data();
-
-                    ldai_array[index] = A(i, 0).stride();
-                    ldaj_array[index] = A(j, 0).stride();
-                    ldbi_array[index] = B(i, 0).stride();
-                    ldbj_array[index] = B(j, 0).stride();
-
-                    ldc_array[index] = C(i, j).stride();
+                    ldai_array[ index ] = A(i, 0).stride();
+                    ldaj_array[ index ] = A(j, 0).stride();
+                    ldbi_array[ index ] = B(i, 0).stride();
+                    ldbj_array[ index ] = B(j, 0).stride();
+                    ldc_array[ index ] = C(i, j).stride();
 
                     ++index;
                 }
@@ -358,7 +361,6 @@ void her2k(internal::TargetType<Target::HostBatch>,
 
         {
             trace::Block trace_block("cblas_gemm_batch");
-
             #ifdef SLATE_WITH_MKL
                 // mkl_set_num_threads_local(...);
                 cblas_gemm_batch(CblasColMajor,
@@ -405,6 +407,7 @@ void her2k(internal::TargetType<Target::HostBatch>,
             }
         }
     }
+
     #pragma omp taskwait
 
     if (err)
@@ -419,8 +422,8 @@ void her2k(internal::TargetType<Target::HostBatch>,
 ///
 template <typename scalar_t>
 void her2k(internal::TargetType<Target::Devices>,
-           scalar_t alpha,                          Matrix<scalar_t>& A,
-                                                    Matrix<scalar_t>& B,
+           scalar_t alpha,                 Matrix<scalar_t>& A,
+                                           Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
            Layout layout, int priority, int64_t queue_index)
 {
@@ -485,70 +488,62 @@ void her2k(internal::TargetType<Target::Devices>,
                         }
                         else
                             throw std::exception();
-
                         alpha = conj(alpha);
                     }
 
                     Op opB = (opA == Op::NoTrans ? Op::ConjTrans : Op::NoTrans);
 
                     std::set<ij_tuple> A_tiles_gemm, B_tiles_gemm, C_tiles_gemm;
-                    std::set<ij_tuple> A_tiles_her2k, B_tiles_her2k,
-                                       C_tiles_her2k;
+                    std::set<ij_tuple> A_tiles_her2k, B_tiles_her2k, C_tiles_her2k;
                     for (int64_t j = 0; j < C.nt(); ++j) {
                         for (int64_t i = j; i < C.mt(); ++i) {
-                            if (C.tileIsLocal(i, j)) {
-                                if (device == C.tileDevice(i, j)) {
-                                    if (i == j) {
-                                        A_tiles_her2k.insert({j, 0});
-                                        B_tiles_her2k.insert({j, 0});
-                                        C_tiles_her2k.insert({i, j});
-                                    }
-                                    else {
-                                        A_tiles_gemm.insert({i, 0});
-                                        A_tiles_gemm.insert({j, 0});
-                                        B_tiles_gemm.insert({i, 0});
-                                        B_tiles_gemm.insert({j, 0});
-                                        C_tiles_gemm.insert({i, j});
-                                    }
+                            if (C.tileIsLocal(i, j)
+                                && device == C.tileDevice(i, j)) {
+                                if (i == j) {
+                                    A_tiles_her2k.insert({j, 0});
+                                    B_tiles_her2k.insert({j, 0});
+                                    C_tiles_her2k.insert({i, j});
+                                }
+                                else {
+                                    A_tiles_gemm.insert({i, 0});
+                                    A_tiles_gemm.insert({j, 0});
+                                    B_tiles_gemm.insert({i, 0});
+                                    B_tiles_gemm.insert({j, 0});
+                                    C_tiles_gemm.insert({i, j});
                                 }
                             }
                         }
                     }
-
                     #pragma omp task default(shared)
                     {
-                        A.tileGetForReading(
-                            A_tiles_gemm, device, LayoutConvert(layout));
+                        A.tileGetForReading(A_tiles_gemm, device, LayoutConvert(layout));
                     }
                     #pragma omp task default(shared)
                     {
-                        B.tileGetForReading(
-                            B_tiles_gemm, device, LayoutConvert(layout));
+                        B.tileGetForReading(B_tiles_gemm, device, LayoutConvert(layout));
                     }
                     #pragma omp task default(shared)
                     {
-                        C.tileGetForWriting(
-                            C_tiles_gemm, device, LayoutConvert(layout));
+                        C.tileGetForWriting(C_tiles_gemm, device, LayoutConvert(layout));
                     }
                     #pragma omp taskwait
 
                     int64_t batch_size_gemm = C_tiles_gemm.size();
 
+                    //----------------------------------------
+                    // A * B^T
                     std::vector<scalar_t*> a_array_host_gemm_0(batch_size_gemm);
                     std::vector<scalar_t*> b_array_host_gemm_0(batch_size_gemm);
                     std::vector<scalar_t*> c_array_host_gemm_0(batch_size_gemm);
-
                     int64_t batch_count_gemm_0 = 0;
-                    int64_t lda_gemm_0 = 0;
-                    int64_t ldb_gemm_0 = 0;
-                    int64_t ldc_gemm_0 = 0;
-
-                    int64_t mb_gemm_0 = C.tileMb(0);
-                    int64_t nb_gemm_0 = C.tileNb(0);
-
-                    int64_t kb  = A.tileNb(0);
-
+                    int64_t lda00 = 0;
+                    int64_t ldb00 = 0;
+                    int64_t ldc00 = 0;
+                    int64_t mb00 = C.tileMb(0);
+                    int64_t nb00 = C.tileNb(0);
+                    int64_t kb   = A.tileNb(0);
                     for (int64_t j = 0; j < C.nt()-1; ++j) {
+                        // strictly lower
                         for (int64_t i = j+1; i < C.mt()-1; ++i) {
                             if (C.tileIsLocal(i, j)) {
                                 if (device == C.tileDevice(i, j)) {
@@ -558,9 +553,9 @@ void her2k(internal::TargetType<Target::Devices>,
                                         = B(j, 0, device).data();
                                     c_array_host_gemm_0[batch_count_gemm_0]
                                         = C(i, j, device).data();
-                                    lda_gemm_0 = A(i, 0, device).stride();
-                                    ldb_gemm_0 = B(j, 0, device).stride();
-                                    ldc_gemm_0 = C(i, j, device).stride();
+                                    lda00 = A(i, 0, device).stride();
+                                    ldb00 = B(j, 0, device).stride();
+                                    ldc00 = C(i, j, device).stride();
                                     ++batch_count_gemm_0;
                                 }
                             }
@@ -570,15 +565,13 @@ void her2k(internal::TargetType<Target::Devices>,
                     std::vector<scalar_t*> a_array_host_gemm_1(batch_size_gemm);
                     std::vector<scalar_t*> b_array_host_gemm_1(batch_size_gemm);
                     std::vector<scalar_t*> c_array_host_gemm_1(batch_size_gemm);
-
                     int64_t batch_count_gemm_1 = 0;
-                    int64_t lda_gemm_1 = 0;
-                    int64_t ldb_gemm_1 = 0;
-                    int64_t ldc_gemm_1 = 0;
-
-                    int64_t mb_gemm_1 = C.tileMb(C.mt()-1);
-                    int64_t nb_gemm_1 = C.tileNb(0);
-
+                    int64_t lda10 = 0;
+                    int64_t ldb10 = 0;
+                    int64_t ldc10 = 0;
+                    int64_t mb10 = C.tileMb(C.mt()-1);
+                    int64_t nb10 = C.tileNb(0);
+                    // same kb as above
                     {
                         int64_t i = C.mt()-1;
                         for (int64_t j = 0; j < C.nt()-1; ++j) {
@@ -590,9 +583,9 @@ void her2k(internal::TargetType<Target::Devices>,
                                         = B(j, 0, device).data();
                                     c_array_host_gemm_1[batch_count_gemm_1]
                                         = C(i, j, device).data();
-                                    lda_gemm_1 = A(i, 0, device).stride();
-                                    ldb_gemm_1 = B(j, 0, device).stride();
-                                    ldc_gemm_1 = C(i, j, device).stride();
+                                    lda10 = A(i, 0, device).stride();
+                                    ldb10 = B(j, 0, device).stride();
+                                    ldc10 = C(i, j, device).stride();
                                     ++batch_count_gemm_1;
                                 }
                             }
@@ -604,10 +597,10 @@ void her2k(internal::TargetType<Target::Devices>,
                         swap(opA, opB);
                         swap(a_array_host_gemm_0, b_array_host_gemm_0);
                         swap(a_array_host_gemm_1, b_array_host_gemm_1);
-                        swap(lda_gemm_0, ldb_gemm_0);
-                        swap(lda_gemm_1, ldb_gemm_1);
-                        swap(mb_gemm_0, nb_gemm_0);
-                        swap(mb_gemm_1, nb_gemm_1);
+                        swap(lda00, ldb00);
+                        swap(lda10, ldb10);
+                        swap(mb00, nb00);
+                        swap(mb10, nb10);
                     }
 
                     std::vector<Op> transA(1, opA);
@@ -623,11 +616,11 @@ void her2k(internal::TargetType<Target::Devices>,
                         std::vector<scalar_t> beta_(1, scalar_t(beta));
 
                         if (batch_count_gemm_0 > 0) {
-                            std::vector<int64_t> m(1, mb_gemm_0);
-                            std::vector<int64_t> n(1, nb_gemm_0);
-                            std::vector<int64_t> ldda(1, lda_gemm_0);
-                            std::vector<int64_t> lddb(1, ldb_gemm_0);
-                            std::vector<int64_t> lddc(1, ldc_gemm_0);
+                            std::vector<int64_t> m(1, mb00);
+                            std::vector<int64_t> n(1, nb00);
+                            std::vector<int64_t> ldda(1, lda00);
+                            std::vector<int64_t> lddb(1, ldb00);
+                            std::vector<int64_t> lddc(1, ldc00);
                             std::vector<int64_t> info(batch_count_gemm_0);
                             blas::batch::gemm(
                                 layout, transA, transB,
@@ -639,11 +632,11 @@ void her2k(internal::TargetType<Target::Devices>,
                         }
 
                         if (batch_count_gemm_1 > 0) {
-                            std::vector<int64_t> m(1, mb_gemm_1);
-                            std::vector<int64_t> n(1, nb_gemm_1);
-                            std::vector<int64_t> ldda(1, lda_gemm_1);
-                            std::vector<int64_t> lddb(1, ldb_gemm_1);
-                            std::vector<int64_t> lddc(1, ldc_gemm_1);
+                            std::vector<int64_t> m(1, mb10);
+                            std::vector<int64_t> n(1, nb10);
+                            std::vector<int64_t> ldda(1, lda10);
+                            std::vector<int64_t> lddb(1, ldb10);
+                            std::vector<int64_t> lddc(1, ldc10);
                             std::vector<int64_t> info(batch_count_gemm_1);
                             blas::batch::gemm(
                                 layout, transA, transB,
@@ -655,15 +648,12 @@ void her2k(internal::TargetType<Target::Devices>,
                         }
                     }
 
-                    // queue->sync(); // todo: why first sync
-
                     //----------------------------------------
                     // B * A^T
                     // ai => bi, bj => aj, set beta = 1
-
                     batch_count_gemm_0 = 0;
-
                     for (int64_t j = 0; j < C.nt()-1; ++j) {
+                        // strictly lower
                         for (int64_t i = j+1; i < C.mt()-1; ++i) {
                             if (C.tileIsLocal(i, j)) {
                                 if (device == C.tileDevice(i, j)) {
@@ -671,8 +661,8 @@ void her2k(internal::TargetType<Target::Devices>,
                                         = A(j, 0, device).data();
                                     b_array_host_gemm_0[batch_count_gemm_0]
                                         = B(i, 0, device).data();
-                                    lda_gemm_0 = A(j, 0, device).stride();
-                                    ldb_gemm_0 = B(i, 0, device).stride();
+                                    lda00 = A(j, 0, device).stride();
+                                    ldb00 = B(i, 0, device).stride();
                                     ++batch_count_gemm_0;
                                 }
                             }
@@ -689,8 +679,8 @@ void her2k(internal::TargetType<Target::Devices>,
                                         = A(j, 0, device).data();
                                     b_array_host_gemm_1[batch_count_gemm_1]
                                         = B(i, 0, device).data();
-                                    lda_gemm_1 = A(j, 0, device).stride();
-                                    ldb_gemm_1 = B(i, 0, device).stride();
+                                    lda10 = A(j, 0, device).stride();
+                                    ldb10 = B(i, 0, device).stride();
                                     ++batch_count_gemm_1;
                                 }
                             }
@@ -699,10 +689,13 @@ void her2k(internal::TargetType<Target::Devices>,
 
                     if (C.op() != Op::NoTrans) {
                         // swap A <=> B; swap m <=> n
+                        //swap(opA, opB);  // already done above
                         swap(a_array_host_gemm_0, b_array_host_gemm_0);
                         swap(a_array_host_gemm_1, b_array_host_gemm_1);
-                        swap(lda_gemm_0, ldb_gemm_0);
-                        swap(lda_gemm_1, ldb_gemm_1);
+                        swap(lda00, ldb00);
+                        swap(lda10, ldb10);
+                        //swap(mb00, nb00);  // already done above
+                        //swap(mb10, nb10);  // already done above
                     }
 
                     {
@@ -712,11 +705,11 @@ void her2k(internal::TargetType<Target::Devices>,
                         std::vector<scalar_t> beta_(1, scalar_t(1));
 
                         if (batch_count_gemm_0 > 0) {
-                            std::vector<int64_t> m(1, mb_gemm_0);
-                            std::vector<int64_t> n(1, nb_gemm_0);
-                            std::vector<int64_t> ldda(1, lda_gemm_0);
-                            std::vector<int64_t> lddb(1, ldb_gemm_0);
-                            std::vector<int64_t> lddc(1, ldc_gemm_0);
+                            std::vector<int64_t> m(1, mb00);
+                            std::vector<int64_t> n(1, nb00);
+                            std::vector<int64_t> ldda(1, lda00);
+                            std::vector<int64_t> lddb(1, ldb00);
+                            std::vector<int64_t> lddc(1, ldc00);
                             std::vector<int64_t> info(batch_count_gemm_0);
                             blas::batch::gemm(
                                 layout, transA, transB,
@@ -728,11 +721,11 @@ void her2k(internal::TargetType<Target::Devices>,
                         }
 
                         if (batch_count_gemm_1 > 0) {
-                            std::vector<int64_t> m(1, mb_gemm_1);
-                            std::vector<int64_t> n(1, nb_gemm_1);
-                            std::vector<int64_t> ldda(1, lda_gemm_1);
-                            std::vector<int64_t> lddb(1, ldb_gemm_1);
-                            std::vector<int64_t> lddc(1, ldc_gemm_1);
+                            std::vector<int64_t> m(1, mb10);
+                            std::vector<int64_t> n(1, nb10);
+                            std::vector<int64_t> ldda(1, lda10);
+                            std::vector<int64_t> lddb(1, ldb10);
+                            std::vector<int64_t> lddc(1, ldc10);
                             std::vector<int64_t> info(batch_count_gemm_1);
                             blas::batch::gemm(
                                 layout, transA, transB,
@@ -744,22 +737,17 @@ void her2k(internal::TargetType<Target::Devices>,
                         }
                     }
 
-                    // queue->sync(); // todo: why second sync
-
                     #pragma omp task default(shared)
                     {
-                        A.tileGetForReading(
-                            A_tiles_her2k, device, LayoutConvert(layout));
+                        A.tileGetForReading(A_tiles_her2k, device, LayoutConvert(layout));
                     }
                     #pragma omp task default(shared)
                     {
-                        B.tileGetForReading(
-                            B_tiles_her2k, device, LayoutConvert(layout));
+                        B.tileGetForReading(B_tiles_her2k, device, LayoutConvert(layout));
                     }
                     #pragma omp task default(shared)
                     {
-                        C.tileGetForWriting(
-                            C_tiles_her2k, device, LayoutConvert(layout));
+                        C.tileGetForWriting(C_tiles_her2k, device, LayoutConvert(layout));
                     }
                     #pragma omp taskwait
 
@@ -877,7 +865,6 @@ void her2k(internal::TargetType<Target::Devices>,
                                     B.tileRelease(i, 0, device);
                                     B.tileRelease(j, 0, device);
                                     // decrement life for remote tiles
-                                    // todo: should tileRelease()?
                                     A.tileTick(i, 0);
                                     A.tileTick(j, 0);
                                     B.tileTick(i, 0);
@@ -893,6 +880,7 @@ void her2k(internal::TargetType<Target::Devices>,
             }
         }
     }
+
     #pragma omp taskwait
 
     if (err)
@@ -904,116 +892,116 @@ void her2k(internal::TargetType<Target::Devices>,
 // ----------------------------------------
 template
 void her2k<Target::HostTask, float>(
-    float alpha,          Matrix<float>&& A,
-                          Matrix<float>&& B,
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     Layout layout, int priority, int64_t queue_index);
 
 template
 void her2k<Target::HostNest, float>(
-    float alpha,          Matrix<float>&& A,
-                          Matrix<float>&& B,
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     Layout layout, int priority, int64_t queue_index);
 
 template
 void her2k<Target::HostBatch, float>(
-    float alpha,          Matrix<float>&& A,
-                          Matrix<float>&& B,
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     Layout layout, int priority, int64_t queue_index);
 
 template
 void her2k<Target::Devices, float>(
-    float alpha,          Matrix<float>&& A,
-                          Matrix<float>&& B,
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     Layout layout, int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
 void her2k<Target::HostTask, double>(
-    double alpha,          Matrix<double>&& A,
-                           Matrix<double>&& B,
+    double alpha, Matrix<double>&& A,
+                  Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     Layout layout, int priority, int64_t queue_index);
 
 template
 void her2k<Target::HostNest, double>(
-    double alpha,          Matrix<double>&& A,
-                           Matrix<double>&& B,
+    double alpha, Matrix<double>&& A,
+                  Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     Layout layout, int priority, int64_t queue_index);
 
 template
 void her2k<Target::HostBatch, double>(
-    double alpha,          Matrix<double>&& A,
-                           Matrix<double>&& B,
+    double alpha, Matrix<double>&& A,
+                  Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     Layout layout, int priority, int64_t queue_index);
 
 template
 void her2k<Target::Devices, double>(
-    double alpha,          Matrix<double>&& A,
-                           Matrix<double>&& B,
+    double alpha, Matrix<double>&& A,
+                  Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     Layout layout, int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
 void her2k< Target::HostTask, std::complex<float> >(
-    std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
-                                        Matrix< std::complex<float> >&& B,
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
     float beta,                HermitianMatrix< std::complex<float> >&& C,
     Layout layout, int priority, int64_t queue_index);
 
 template
 void her2k< Target::HostNest, std::complex<float> >(
-    std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
-                                        Matrix< std::complex<float> >&& B,
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
     float beta,                HermitianMatrix< std::complex<float> >&& C,
     Layout layout, int priority, int64_t queue_index);
 
 template
 void her2k< Target::HostBatch, std::complex<float> >(
-    std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
-                                        Matrix< std::complex<float> >&& B,
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
     float beta,                HermitianMatrix< std::complex<float> >&& C,
     Layout layout, int priority, int64_t queue_index);
 
 template
 void her2k< Target::Devices, std::complex<float> >(
-    std::complex<float> alpha,          Matrix< std::complex<float> >&& A,
-                                        Matrix< std::complex<float> >&& B,
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
     float beta,                HermitianMatrix< std::complex<float> >&& C,
     Layout layout, int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
 void her2k< Target::HostTask, std::complex<double> >(
-    std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
-                                         Matrix< std::complex<double> >&& B,
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
     double beta,                HermitianMatrix< std::complex<double> >&& C,
     Layout layout, int priority, int64_t queue_index);
 
 template
 void her2k< Target::HostNest, std::complex<double> >(
-    std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
-                                         Matrix< std::complex<double> >&& B,
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
     double beta,                HermitianMatrix< std::complex<double> >&& C,
     Layout layout, int priority, int64_t queue_index);
 
 template
 void her2k< Target::HostBatch, std::complex<double> >(
-    std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
-                                         Matrix< std::complex<double> >&& B,
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
     double beta,                HermitianMatrix< std::complex<double> >&& C,
     Layout layout, int priority, int64_t queue_index);
 
 template
 void her2k< Target::Devices, std::complex<double> >(
-    std::complex<double> alpha,          Matrix< std::complex<double> >&& A,
-                                         Matrix< std::complex<double> >&& B,
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
     double beta,                HermitianMatrix< std::complex<double> >&& C,
     Layout layout, int priority, int64_t queue_index);
 

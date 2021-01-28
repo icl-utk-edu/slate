@@ -368,8 +368,7 @@ void gemm(internal::TargetType<Target::Devices>,
           scalar_t alpha, Matrix< scalar_t >& A,
                           Matrix< scalar_t >& B,
           scalar_t beta,  Matrix< scalar_t >& C,
-          Layout layout, int priority,
-          int64_t queue_index)
+          Layout layout, int priority, int64_t queue_index)
 {
     using blas::conj;
     using std::swap;
@@ -435,7 +434,6 @@ void gemm(internal::TargetType<Target::Devices>,
                     }
                 }
             }
-
             #pragma omp task default(shared)
             {
                 A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
@@ -451,21 +449,17 @@ void gemm(internal::TargetType<Target::Devices>,
             #pragma omp taskwait
 
             int64_t batch_size = C_tiles_set.size();
-
             std::vector<scalar_t*> a_array_host_00(batch_size);
             std::vector<scalar_t*> b_array_host_00(batch_size);
             std::vector<scalar_t*> c_array_host_00(batch_size);
 
             int64_t batch_count_00 = 0;
-
             int64_t lda00 = 0;
             int64_t ldb00 = 0;
             int64_t ldc00 = 0;
-
             int64_t mb00 = C.tileMb(0);
             int64_t nb00 = C.tileNb(0);
             int64_t kb   = A.tileNb(0);
-
             for (int64_t i = 0; i < C.mt()-1; ++i) {
                 for (int64_t j = 0; j < C.nt()-1; ++j) {
                     if (C.tileIsLocal(i, j)) {
@@ -490,14 +484,12 @@ void gemm(internal::TargetType<Target::Devices>,
             std::vector<scalar_t*> c_array_host_10(batch_size);
 
             int64_t batch_count_10 = 0;
-
             int64_t lda10 = 0;
             int64_t ldb10 = 0;
             int64_t ldc10 = 0;
-
             int64_t mb10 = C.tileMb(C.mt()-1);
             int64_t nb10 = C.tileNb(0);
-
+            // same kb as above
             {
                 int64_t i = C.mt()-1;
                 for (int64_t j = 0; j < C.nt()-1; ++j) {
@@ -523,14 +515,12 @@ void gemm(internal::TargetType<Target::Devices>,
             std::vector<scalar_t*> c_array_host_01(batch_size);
 
             int64_t batch_count_01 = 0;
-
             int64_t lda01 = 0;
             int64_t ldb01 = 0;
             int64_t ldc01 = 0;
-
             int64_t mb01 = C.tileMb(0);
             int64_t nb01 = C.tileNb(C.nt()-1);
-
+            // same kb as above
             {
                 int64_t j = C.nt()-1;
                 for (int64_t i = 0; i < C.mt()-1; ++i) {
@@ -556,14 +546,12 @@ void gemm(internal::TargetType<Target::Devices>,
             std::vector<scalar_t*> c_array_host_11(batch_size);
 
             int64_t batch_count_11 = 0;
-
             int64_t lda11 = 0;
             int64_t ldb11 = 0;
             int64_t ldc11 = 0;
-
             int64_t mb11 = C.tileMb(C.mt()-1);
             int64_t nb11 = C.tileNb(C.nt()-1);
-
+            // same kb as above
             {
                 int i = C.mt()-1;
                 int j = C.nt()-1;
@@ -628,6 +616,7 @@ void gemm(internal::TargetType<Target::Devices>,
                         beta_,  c_array_host_00, lddc,
                         batch_count_00, info, *queue);
                 }
+
                 if (batch_count_10 > 0) {
                     std::vector<int64_t>    m(1,  mb10);
                     std::vector<int64_t>    n(1,  nb10);
@@ -644,6 +633,7 @@ void gemm(internal::TargetType<Target::Devices>,
                         beta_,  c_array_host_10, lddc,
                         batch_count_10, info, *queue);
                 }
+
                 if (batch_count_01 > 0) {
                     std::vector<int64_t>    m(1,  mb01);
                     std::vector<int64_t>    n(1,  nb01);
@@ -660,6 +650,7 @@ void gemm(internal::TargetType<Target::Devices>,
                         beta_,  c_array_host_01, lddc,
                         batch_count_01, info, *queue);
                 }
+
                 if (batch_count_11 > 0) {
                     std::vector<int64_t>    m(1,   mb11);
                     std::vector<int64_t>    n(1,   nb11);
@@ -696,6 +687,7 @@ void gemm(internal::TargetType<Target::Devices>,
             }
         }
     }
+
     #pragma omp taskwait
 
     if (err)

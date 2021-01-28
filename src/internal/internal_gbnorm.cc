@@ -80,9 +80,9 @@ void norm(
         // Find max of each tile, append to tiles_maxima.
         std::vector<real_t> tiles_maxima;
         for (int64_t j = 0; j < A.nt(); ++j) {
-            int64_t i_start = max(j - kut, 0);
+            int64_t i_begin = max(j - kut, 0);
             int64_t i_end   = min(j + klt + 1, A.mt());
-            for (int64_t i = i_start; i < i_end; ++i) {
+            for (int64_t i = i_begin; i < i_end; ++i) {
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, tiles_maxima) priority(priority)
                     {
@@ -115,9 +115,9 @@ void norm(
         std::vector<real_t> tiles_sums(A.n()*A.mt(), 0.0);
         int64_t jj = 0;
         for (int64_t j = 0; j < A.nt(); ++j) {
-            int64_t i_start = max(j - kut, 0);
+            int64_t i_begin = max(j - kut, 0);
             int64_t i_end   = min(j + klt + 1, A.mt());
-            for (int64_t i = i_start; i < i_end; ++i) {
+            for (int64_t i = i_begin; i < i_end; ++i) {
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, tiles_sums) priority(priority)
                     {
@@ -151,9 +151,9 @@ void norm(
         std::vector<real_t> tiles_sums(A.m()*A.nt(), 0.0);
         int64_t ii = 0;
         for (int64_t i = 0; i < A.mt(); ++i) {
-            int64_t j_start = max(i - klt, 0);
+            int64_t j_begin = max(i - klt, 0);
             int64_t j_end   = min(i + kut + 1, A.nt());
-            for (int64_t j = j_start; j < j_end; ++j) {
+            for (int64_t j = j_begin; j < j_end; ++j) {
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, tiles_sums) priority(priority)
                     {
@@ -187,9 +187,9 @@ void norm(
         values[0] = 0;  // scale
         values[1] = 1;  // sumsq
         for (int64_t j = 0; j < A.nt(); ++j) {
-            int64_t i_start = max(j - kut, 0);
+            int64_t i_begin = max(j - kut, 0);
             int64_t i_end   = min(j + klt + 1, A.mt());
-            for (int64_t i = i_start; i < i_end; ++i) {
+            for (int64_t i = i_begin; i < i_end; ++i) {
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, values) priority(priority)
                     {
@@ -204,7 +204,6 @@ void norm(
                     }
                 }
             }
-printf("\n devices_values[2*device + 0] %e devices_values[2*device + 1] %e \n", values[0], values[1]);
         }
     }
 }
@@ -247,9 +246,9 @@ void norm(
     // can't collapse loops due to dependencies
     #pragma omp parallel for schedule(dynamic, 1)
     for (int64_t j = 0; j < A_nt; ++j) {
-        int64_t i_start = max(j - kut, 0);
+        int64_t i_begin = max(j - kut, 0);
         int64_t i_end   = min(j + klt + 1, A_mt);
-        for (int64_t i = i_start; i < i_end; ++i) {
+        for (int64_t i = i_begin; i < i_end; ++i) {
             if (A.tileIsLocal(i, j)) {
                 A.tileGetForReading(i, j, LayoutConvert(layout));
                 real_t tile_max;
@@ -351,7 +350,7 @@ void norm(
         { A.nt()-1, A.nt()   },
         { A.nt()-1, A.nt()   }
     };
-    int64_t i_start = 0;
+    int64_t i_begin = 0;
     int64_t i_end   = 0;
 
     for (int device = 0; device < A.num_devices(); ++device) {
@@ -361,9 +360,9 @@ void norm(
             std::set<ij_tuple> A_tiles_set;
 
             for (int64_t j = 0; j < A.nt(); ++j) {
-                i_start = max(j - kut, 0);
+                i_begin = max(j - kut, 0);
                 i_end   = min(j + klt + 1, A.mt());
-                for (int64_t i = i_start; i < i_end; ++i) {
+                for (int64_t i = i_begin; i < i_end; ++i) {
                     if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j))
                         A_tiles_set.insert({i, j});
                 }
@@ -382,13 +381,13 @@ void norm(
                 mb[q] = A.tileMb(irange[q][0]);
                 nb[q] = A.tileNb(jrange[q][0]);
                 for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                    i_start = max(j - kut, 0);
+                    i_begin = max(j - kut, 0);
                     i_end   = min(j + klt + 1, A.mt());
 
-                    i_start = std::max( irange[q][0], i_start );
+                    i_begin = std::max( irange[q][0], i_begin );
                     i_end   = std::min( irange[q][1], i_end );
 
-                    for (int64_t i = i_start; i < i_end; ++i) {
+                    for (int64_t i = i_begin; i < i_end; ++i) {
                         if (A.tileIsLocal(i, j) &&
                             device == A.tileDevice(i, j))
                         {
@@ -473,12 +472,12 @@ void norm(
             for (int q = 0; q < 4; ++q) {
                 int64_t nb = A.tileNb(jrange[q][0]);
                 for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                    i_start = max(j - kut, 0);
+                    i_begin = max(j - kut, 0);
                     i_end   = min(j + klt + 1, A.mt());
 
-                    i_start = std::max( irange[q][0], i_start );
+                    i_begin = std::max( irange[q][0], i_begin );
                     i_end   = std::min( irange[q][1], i_end );
-                    for (int64_t i = i_start; i < i_end; ++i) {
+                    for (int64_t i = i_begin; i < i_end; ++i) {
                         if (A.tileIsLocal(i, j) &&
                             device == A.tileDevice(i, j))
                         {
@@ -503,12 +502,12 @@ void norm(
             for (int q = 0; q < 4; ++q) {
                 int64_t mb = A.tileMb(irange[q][0]);
                 for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                    i_start = max(j - kut, 0);
+                    i_begin = max(j - kut, 0);
                     i_end   = min(j + klt + 1, A.mt());
 
-                    i_start = std::max( irange[q][0], i_start );
+                    i_begin = std::max( irange[q][0], i_begin );
                     i_end   = std::min( irange[q][1], i_end );
-                    for (int64_t i = i_start; i < i_end; ++i) {
+                    for (int64_t i = i_begin; i < i_end; ++i) {
                         if (A.tileIsLocal(i, j) &&
                             device == A.tileDevice(i, j))
                         {

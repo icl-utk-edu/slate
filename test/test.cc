@@ -352,7 +352,7 @@ Params::Params():
     cache();
 
     //  change names of grid elements
-    grid.names("p","q");
+    grid.names("p", "q");
 
     // routine's parameters are marked by the test routine; see main
 }
@@ -519,8 +519,8 @@ int run(int argc, char** argv)
             if (p*q == mpi_size)
                 break;
         }
-//        params.p() = p;
-//        params.q() = q;
+        testsweeper::int3_t grid = { p, q, 1 };
+        params.grid.set_default( grid );
 
         // parse parameters up to routine name.
         try {

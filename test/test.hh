@@ -112,8 +112,7 @@ public:
     // SLATE options
     testsweeper::ParamInt    nb;
     testsweeper::ParamInt    ib;
-    testsweeper::ParamInt    p;
-    testsweeper::ParamInt    q;
+    testsweeper::ParamInt3   grid;  // p x q
     testsweeper::ParamInt    lookahead;
     testsweeper::ParamInt    panel_threads;
     testsweeper::ParamInt    align;

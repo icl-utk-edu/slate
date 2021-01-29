@@ -33,8 +33,8 @@ void test_genorm_work(Params& params, bool run)
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     int64_t nb = params.nb();
-    int64_t p = params.p();
-    int64_t q = params.q();
+    int64_t p = params.grid.m();
+    int64_t q = params.grid.n();
     bool ref_only = params.ref() == 'o';
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;

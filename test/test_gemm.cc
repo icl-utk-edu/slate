@@ -35,8 +35,8 @@ void test_gemm_work(Params& params, bool run)
     int64_t n = params.dim.n();
     int64_t k = params.dim.k();
     int64_t nb = params.nb();
-    int64_t p = params.p();
-    int64_t q = params.q();
+    int64_t p = params.grid.m();
+    int64_t q = params.grid.n();
     int64_t lookahead = params.lookahead();
     bool ref_only = params.ref() == 'o';
     slate::Norm norm = params.norm();

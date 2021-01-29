@@ -29,8 +29,8 @@ void test_tb2bd_work(
     int64_t n = params.dim.n();
     int64_t nb = params.nb();
     int64_t ku = nb;  // upper band; for now use ku == nb.
-    int64_t p = params.p();
-    int64_t q = params.q();
+    int64_t p = params.grid.m();
+    int64_t q = params.grid.n();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();

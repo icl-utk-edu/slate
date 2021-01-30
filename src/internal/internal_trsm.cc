@@ -175,19 +175,19 @@ void trsm(internal::TargetType<Target::Devices>,
             std::set<ij_tuple> B_tiles_set;
             if (side == Side::Right) {
                 for (int64_t i = 0; i < B.mt(); ++i) {
-                    if (B.tileIsLocal(i, 0)) {
-                        if (device == B.tileDevice(i, 0)) {
-                            B_tiles_set.insert({i, 0});
-                        }
+                    if (B.tileIsLocal(i, 0)
+                        && device == B.tileDevice(i, 0))
+                    {
+                        B_tiles_set.insert({i, 0});
                     }
                 }
             }
             else {
                 for (int64_t j = 0; j < B.nt(); ++j) {
-                    if (B.tileIsLocal(0, j)) {
-                        if (device == B.tileDevice(0, j)) {
-                            B_tiles_set.insert({0, j});
-                        }
+                    if (B.tileIsLocal(0, j)
+                        && device == B.tileDevice(0, j))
+                    {
+                        B_tiles_set.insert({0, j});
                     }
                 }
             }
@@ -198,15 +198,16 @@ void trsm(internal::TargetType<Target::Devices>,
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
                 B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
 
-                std::vector<scalar_t*> a_array_host_0(batch_size);
-                std::vector<scalar_t*> b_array_host_0(batch_size);
+                // interior col or row
+                std::vector<scalar_t*> a_array0;
+                std::vector<scalar_t*> b_array0;
+                a_array0.reserve( batch_size );
+                b_array0.reserve( batch_size );
 
-                std::vector<scalar_t*> a_array_host_1(batch_size);
-                std::vector<scalar_t*> b_array_host_1(batch_size);
-
-
-                int64_t batch_count_0 = 0;
-                int64_t batch_count_1 = 0;
+                // bottom-right tile
+                // todo: replace batch trsm with plain trsm
+                std::vector<scalar_t*> a_array1;
+                std::vector<scalar_t*> b_array1;
 
                 int64_t lda0 = 0;
                 int64_t ldb0 = 0;
@@ -220,59 +221,47 @@ void trsm(internal::TargetType<Target::Devices>,
 
                 if (side == Side::Right) {
                     for (int64_t i = 0; i < B.mt()-1; ++i) {
-                        if (B.tileIsLocal(i, 0)) {
-                            if (device == B.tileDevice(i, 0)) {
-                                a_array_host_0[batch_count_0]
-                                    = A(0, 0, device).data();
-                                b_array_host_0[batch_count_0]
-                                    = B(i, 0, device).data();
-                                lda0 = A(0, 0, device).stride();
-                                ldb0 = B(i, 0, device).stride();
-                                ++batch_count_0;
-                            }
+                        if (B.tileIsLocal(i, 0)
+                            && device == B.tileDevice(i, 0))
+                        {
+                            a_array0.push_back( A(0, 0, device).data() );
+                            b_array0.push_back( B(i, 0, device).data() );
+                            lda0 = A(0, 0, device).stride();
+                            ldb0 = B(i, 0, device).stride();
                         }
                     }
                     {
                         int64_t i = B.mt()-1;
-                        if (B.tileIsLocal(i, 0)) {
-                            if (device == B.tileDevice(i, 0)) {
-                                a_array_host_1[batch_count_1]
-                                    = A(0, 0, device).data();
-                                b_array_host_1[batch_count_1]
-                                    = B(i, 0, device).data();
-                                lda1 = A(0, 0, device).stride();
-                                ldb1 = B(i, 0, device).stride();
-                                ++batch_count_1;
-                            }
+                        if (B.tileIsLocal(i, 0)
+                            && device == B.tileDevice(i, 0))
+                        {
+                            a_array1.push_back( A(0, 0, device).data() );
+                            b_array1.push_back( B(i, 0, device).data() );
+                            lda1 = A(0, 0, device).stride();
+                            ldb1 = B(i, 0, device).stride();
                         }
                     }
                 }
                 else {
                     for (int64_t j = 0; j < B.nt()-1; ++j) {
-                        if (B.tileIsLocal(0, j)) {
-                            if (device == B.tileDevice(0, j)) {
-                                a_array_host_0[batch_count_0]
-                                    = A(0, 0, device).data();
-                                b_array_host_0[batch_count_0]
-                                    = B(0, j, device).data();
-                                lda0 = A(0, 0, device).stride();
-                                ldb0 = B(0, j, device).stride();
-                                ++batch_count_0;
-                            }
+                        if (B.tileIsLocal(0, j)
+                            && device == B.tileDevice(0, j))
+                        {
+                            a_array0.push_back( A(0, 0, device).data() );
+                            b_array0.push_back( B(0, j, device).data() );
+                            lda0 = A(0, 0, device).stride();
+                            ldb0 = B(0, j, device).stride();
                         }
                     }
                     {
                         int64_t j = B.nt()-1;
-                        if (B.tileIsLocal(0, j)) {
-                            if (device == B.tileDevice(0, j)) {
-                                a_array_host_1[batch_count_1]
-                                    = A(0, 0, device).data();
-                                b_array_host_1[batch_count_1]
-                                    = B(0, j, device).data();
-                                lda1 = A(0, 0, device).stride();
-                                ldb1 = B(0, j, device).stride();
-                                ++batch_count_1;
-                            }
+                        if (B.tileIsLocal(0, j)
+                            && device == B.tileDevice(0, j))
+                        {
+                            a_array1.push_back( A(0, 0, device).data() );
+                            b_array1.push_back( B(0, j, device).data() );
+                            lda1 = A(0, 0, device).stride();
+                            ldb1 = B(0, j, device).stride();
                         }
                     }
                 }
@@ -287,41 +276,38 @@ void trsm(internal::TargetType<Target::Devices>,
 
                     std::vector<Side>      side_(1, sideA);
                     std::vector<Uplo>      uplo_(1, uploA);
-                    std::vector<Op>       trans_(1, opA  );
+                    std::vector<Op>         opA_(1, opA  );
                     std::vector<Diag>      diag_(1, diagA);
                     std::vector<scalar_t> alpha_(1, alpha);
+                    std::vector<int64_t>    info(1);
 
                     blas::Queue* queue = B.compute_queue(device, queue_index);
                     assert(queue != nullptr);
 
-                    if (batch_count_0 > 0) {
+                    if (a_array0.size() > 0) {
                         std::vector<int64_t>    m(1,  mb0);
                         std::vector<int64_t>    n(1,  nb0);
                         std::vector<int64_t>  lda(1, lda0);
                         std::vector<int64_t>  ldb(1, ldb0);
-
-                        std::vector<int64_t> info(batch_count_0);
                         blas::batch::trsm(
-                            layout, side_, uplo_, trans_, diag_,
+                            layout, side_, uplo_, opA_, diag_,
                             m, n,
-                            alpha_, a_array_host_0, lda,
-                                    b_array_host_0, ldb,
-                            batch_count_0, info, *queue);
+                            alpha_, a_array0, lda,
+                                    b_array0, ldb,
+                            a_array0.size(), info, *queue);
                     }
 
-                    if (batch_count_1 > 0) {
+                    if (a_array1.size() > 0) {
                         std::vector<int64_t>   m(1,  mb1);
                         std::vector<int64_t>   n(1,  nb1);
                         std::vector<int64_t> lda(1, lda1);
                         std::vector<int64_t> ldb(1, ldb1);
-
-                        std::vector<int64_t> info(batch_count_1);
                         blas::batch::trsm(
-                            layout, side_, uplo_, trans_, diag_,
+                            layout, side_, uplo_, opA_, diag_,
                             m, n,
-                            alpha_, a_array_host_1, lda,
-                                    b_array_host_1, ldb,
-                            batch_count_1, info, *queue);
+                            alpha_, a_array1, lda,
+                                    b_array1, ldb,
+                            a_array1.size(), info, *queue);
                     }
 
                     queue->sync();

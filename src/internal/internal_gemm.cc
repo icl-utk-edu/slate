@@ -449,11 +449,15 @@ void gemm(internal::TargetType<Target::Devices>,
             #pragma omp taskwait
 
             int64_t batch_size = C_tiles_set.size();
-            std::vector<scalar_t*> a_array_host_00(batch_size);
-            std::vector<scalar_t*> b_array_host_00(batch_size);
-            std::vector<scalar_t*> c_array_host_00(batch_size);
 
-            int64_t batch_count_00 = 0;
+            // interior, excluding bottom row and right column
+            std::vector<scalar_t*> a_array00;
+            std::vector<scalar_t*> b_array00;
+            std::vector<scalar_t*> c_array00;
+            a_array00.reserve( batch_size );
+            b_array00.reserve( batch_size );
+            c_array00.reserve( batch_size );
+
             int64_t lda00 = 0;
             int64_t ldb00 = 0;
             int64_t ldc00 = 0;
@@ -464,26 +468,25 @@ void gemm(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < C.nt()-1; ++j) {
                     if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
-                            a_array_host_00[batch_count_00] 
-                                = A(i, 0, device).data();
-                            b_array_host_00[batch_count_00] 
-                                = B(0, j, device).data();
-                            c_array_host_00[batch_count_00] 
-                                = C(i, j, device).data();
+                            a_array00.push_back( A(i, 0, device).data() );
+                            b_array00.push_back( B(0, j, device).data() );
+                            c_array00.push_back( C(i, j, device).data() );
                             lda00 = A(i, 0, device).stride();
                             ldb00 = B(0, j, device).stride();
                             ldc00 = C(i, j, device).stride();
-                            ++batch_count_00;
                         }
                     }
                 }
             }
 
-            std::vector<scalar_t*> a_array_host_10(batch_size);
-            std::vector<scalar_t*> b_array_host_10(batch_size);
-            std::vector<scalar_t*> c_array_host_10(batch_size);
+            // bottom row
+            std::vector<scalar_t*> a_array10;
+            std::vector<scalar_t*> b_array10;
+            std::vector<scalar_t*> c_array10;
+            a_array10.reserve( batch_size );
+            b_array10.reserve( batch_size );
+            c_array10.reserve( batch_size );
 
-            int64_t batch_count_10 = 0;
             int64_t lda10 = 0;
             int64_t ldb10 = 0;
             int64_t ldc10 = 0;
@@ -495,26 +498,25 @@ void gemm(internal::TargetType<Target::Devices>,
                 for (int64_t j = 0; j < C.nt()-1; ++j) {
                     if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
-                            a_array_host_10[batch_count_10]
-                                = A(i, 0, device).data();
-                            b_array_host_10[batch_count_10]
-                                = B(0, j, device).data();
-                            c_array_host_10[batch_count_10]
-                                = C(i, j, device).data();
+                            a_array10.push_back( A(i, 0, device).data() );
+                            b_array10.push_back( B(0, j, device).data() );
+                            c_array10.push_back( C(i, j, device).data() );
                             lda10 = A(i, 0, device).stride();
                             ldb10 = B(0, j, device).stride();
                             ldc10 = C(i, j, device).stride();
-                            ++batch_count_10;
                         }
                     }
                 }
             }
 
-            std::vector<scalar_t*> a_array_host_01(batch_size);
-            std::vector<scalar_t*> b_array_host_01(batch_size);
-            std::vector<scalar_t*> c_array_host_01(batch_size);
+            // right column
+            std::vector<scalar_t*> a_array01;
+            std::vector<scalar_t*> b_array01;
+            std::vector<scalar_t*> c_array01;
+            a_array01.reserve( batch_size );
+            b_array01.reserve( batch_size );
+            c_array01.reserve( batch_size );
 
-            int64_t batch_count_01 = 0;
             int64_t lda01 = 0;
             int64_t ldb01 = 0;
             int64_t ldc01 = 0;
@@ -526,26 +528,22 @@ void gemm(internal::TargetType<Target::Devices>,
                 for (int64_t i = 0; i < C.mt()-1; ++i) {
                     if (C.tileIsLocal(i, j)) {
                         if (device == C.tileDevice(i, j)) {
-                            a_array_host_01[batch_count_01]
-                                = A(i, 0, device).data();
-                            b_array_host_01[batch_count_01]
-                                = B(0, j, device).data();
-                            c_array_host_01[batch_count_01]
-                                = C(i, j, device).data();
+                            a_array01.push_back( A(i, 0, device).data() );
+                            b_array01.push_back( B(0, j, device).data() );
+                            c_array01.push_back( C(i, j, device).data() );
                             lda01 = A(i, 0, device).stride();
                             ldb01 = B(0, j, device).stride();
                             ldc01 = C(i, j, device).stride();
-                            ++batch_count_01;
                         }
                     }
                 }
             }
 
-            std::vector<scalar_t*> a_array_host_11(batch_size);
-            std::vector<scalar_t*> b_array_host_11(batch_size);
-            std::vector<scalar_t*> c_array_host_11(batch_size);
+            // bottom-right corner
+            std::vector<scalar_t*> a_array11;
+            std::vector<scalar_t*> b_array11;
+            std::vector<scalar_t*> c_array11;
 
-            int64_t batch_count_11 = 0;
             int64_t lda11 = 0;
             int64_t ldb11 = 0;
             int64_t ldc11 = 0;
@@ -557,16 +555,12 @@ void gemm(internal::TargetType<Target::Devices>,
                 int j = C.nt()-1;
                 if (C.tileIsLocal(i, j)) {
                     if (device == C.tileDevice(i, j)) {
-                        a_array_host_11[batch_count_11]
-                            = A(i, 0, device).data();
-                        b_array_host_11[batch_count_11]
-                            = B(0, j, device).data();
-                        c_array_host_11[batch_count_11]
-                            = C(i, j, device).data();
+                        a_array11.push_back( A(i, 0, device).data() );
+                        b_array11.push_back( B(0, j, device).data() );
+                        c_array11.push_back( C(i, j, device).data() );
                         lda11 = A(i, 0, device).stride();
                         ldb11 = B(0, j, device).stride();
                         ldc11 = C(i, j, device).stride();
-                        ++batch_count_11;
                     }
                 }
             }
@@ -574,10 +568,10 @@ void gemm(internal::TargetType<Target::Devices>,
             if (C.op() != Op::NoTrans) {
                 // swap A <=> B; swap m <=> n
                 swap(opA, opB);
-                swap(a_array_host_00, b_array_host_00);
-                swap(a_array_host_10, b_array_host_10);
-                swap(a_array_host_01, b_array_host_01);
-                swap(a_array_host_11, b_array_host_11);
+                swap(a_array00, b_array00);
+                swap(a_array10, b_array10);
+                swap(a_array01, b_array01);
+                swap(a_array11, b_array11);
                 swap(lda00, ldb00);
                 swap(lda10, ldb10);
                 swap(lda01, ldb01);
@@ -591,81 +585,78 @@ void gemm(internal::TargetType<Target::Devices>,
             {
                 trace::Block trace_block("blas::batch::gemm");
 
-                std::vector<Op> transA(1, opA);
-                std::vector<Op> transB(1, opB);
+                std::vector<Op> opA_(1, opA);
+                std::vector<Op> opB_(1, opB);
                 std::vector<scalar_t> alpha_(1, alpha);
                 std::vector<scalar_t> beta_(1, beta);
                 std::vector<int64_t> k(1, kb);
+                std::vector<int64_t> info(1);
 
                 blas::Queue* queue = C.compute_queue(device, queue_index);
                 assert(queue != nullptr);
 
-                if (batch_count_00 > 0) {
-                    std::vector<int64_t> m(1, mb00);
-                    std::vector<int64_t> n(1, nb00);
+                if (c_array00.size() > 0) {
+                    std::vector<int64_t>    m(1,  mb00);
+                    std::vector<int64_t>    n(1,  nb00);
                     std::vector<int64_t> ldda(1, lda00);
                     std::vector<int64_t> lddb(1, ldb00);
                     std::vector<int64_t> lddc(1, ldc00);
-
-                    std::vector<int64_t> info(batch_count_00);
                     blas::batch::gemm(
-                        layout, transA, transB,
+                        layout, opA_, opB_,
                         m, n, k,
-                        alpha_, a_array_host_00, ldda,
-                                b_array_host_00, lddb,
-                        beta_,  c_array_host_00, lddc,
-                        batch_count_00, info, *queue);
+                        alpha_, a_array00, ldda,
+                                b_array00, lddb,
+                        beta_,  c_array00, lddc,
+                        c_array00.size(), info, *queue);
+                    assert(info[0] == 0);
                 }
 
-                if (batch_count_10 > 0) {
+                if (c_array10.size() > 0) {
                     std::vector<int64_t>    m(1,  mb10);
                     std::vector<int64_t>    n(1,  nb10);
                     std::vector<int64_t> ldda(1, lda10);
                     std::vector<int64_t> lddb(1, ldb10);
                     std::vector<int64_t> lddc(1, ldc10);
-
-                    std::vector<int64_t> info(batch_count_10);
                     blas::batch::gemm(
-                        layout, transA, transB,
+                        layout, opA_, opB_,
                         m, n, k,
-                        alpha_, a_array_host_10, ldda,
-                                b_array_host_10, lddb,
-                        beta_,  c_array_host_10, lddc,
-                        batch_count_10, info, *queue);
+                        alpha_, a_array10, ldda,
+                                b_array10, lddb,
+                        beta_,  c_array10, lddc,
+                        c_array10.size(), info, *queue);
+                    assert(info[0] == 0);
                 }
 
-                if (batch_count_01 > 0) {
+                if (c_array01.size() > 0) {
                     std::vector<int64_t>    m(1,  mb01);
                     std::vector<int64_t>    n(1,  nb01);
                     std::vector<int64_t> ldda(1, lda01);
                     std::vector<int64_t> lddb(1, ldb01);
                     std::vector<int64_t> lddc(1, ldc01);
-
-                    std::vector<int64_t> info(batch_count_01);
                     blas::batch::gemm(
-                        layout, transA, transB,
+                        layout, opA_, opB_,
                         m, n, k,
-                        alpha_, a_array_host_01, ldda,
-                                b_array_host_01, lddb,
-                        beta_,  c_array_host_01, lddc,
-                        batch_count_01, info, *queue);
+                        alpha_, a_array01, ldda,
+                                b_array01, lddb,
+                        beta_,  c_array01, lddc,
+                        c_array01.size(), info, *queue);
+                    assert(info[0] == 0);
                 }
 
-                if (batch_count_11 > 0) {
-                    std::vector<int64_t>    m(1,   mb11);
-                    std::vector<int64_t>    n(1,   nb11);
+                if (c_array11.size() > 0) {
+                    std::vector<int64_t>    m(1,  mb11);
+                    std::vector<int64_t>    n(1,  nb11);
                     std::vector<int64_t> ldda(1, lda11);
                     std::vector<int64_t> lddb(1, ldb11);
                     std::vector<int64_t> lddc(1, ldc11);
-
-                    std::vector<int64_t> info(batch_count_11);
                     blas::batch::gemm(
-                        layout, transA, transB,
+                        layout, opA_, opB_,
                         m, n, k,
-                        alpha_, a_array_host_11, ldda,
-                                b_array_host_11, lddb,
-                        beta_,  c_array_host_11, lddc,
-                        batch_count_11, info, *queue);
+                        alpha_, a_array11, ldda,
+                                b_array11, lddb,
+                        beta_,  c_array11, lddc,
+                        c_array11.size(), info, *queue);
+                    assert(info[0] == 0);
                 }
 
                 queue->sync();

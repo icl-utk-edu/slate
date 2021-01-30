@@ -372,6 +372,7 @@ void herk(internal::TargetType<Target::Devices>,
 {
     int err = 0;
     using std::swap;
+    using real_t = blas::real_type<scalar_t>;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
     assert(C.num_devices() > 0);
@@ -381,7 +382,7 @@ void herk(internal::TargetType<Target::Devices>,
         if (C.tileIsLocal(0, 0)) {
             #pragma omp task shared(A, C, err) priority(priority)
             {
-                auto device = C.tileDevice(0, 0);
+                int device = C.tileDevice(0, 0);
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
                 C.tileGetForWriting(0, 0, device, LayoutConvert(layout));
 
@@ -430,7 +431,7 @@ void herk(internal::TargetType<Target::Devices>,
                     std::set<ij_tuple> A_tiles_gemm, C_tiles_gemm;
                     std::set<ij_tuple> A_tiles_herk, C_tiles_herk;
                     for (int64_t j = 0; j < C.nt(); ++j) {
-                        for (int64_t i = j; i < C.mt(); ++i) {
+                        for (int64_t i = j; i < C.mt(); ++i) {  // lower
                             if (C.tileIsLocal(i, j)
                                 && device == C.tileDevice(i, j)) {
                                 if (i == j) {
@@ -456,11 +457,15 @@ void herk(internal::TargetType<Target::Devices>,
                     #pragma omp taskwait
 
                     int64_t batch_size_gemm = C_tiles_gemm.size();
-                    std::vector<scalar_t*> a_array_host_gemm_0(batch_size_gemm);
-                    std::vector<scalar_t*> b_array_host_gemm_0(batch_size_gemm);
-                    std::vector<scalar_t*> c_array_host_gemm_0(batch_size_gemm);
 
-                    int64_t batch_count_gemm_0 = 0;
+                    // interior
+                    std::vector<scalar_t*> a_array_gemm00;
+                    std::vector<scalar_t*> b_array_gemm00;
+                    std::vector<scalar_t*> c_array_gemm00;
+                    a_array_gemm00.reserve( batch_size_gemm );
+                    b_array_gemm00.reserve( batch_size_gemm );
+                    c_array_gemm00.reserve( batch_size_gemm );
+
                     int64_t lda00 = 0;
                     int64_t ldb00 = 0;
                     int64_t ldc00 = 0;
@@ -472,26 +477,25 @@ void herk(internal::TargetType<Target::Devices>,
                         for (int64_t i = j+1; i < C.mt()-1; ++i) {
                             if (C.tileIsLocal(i, j)) {
                                 if (device == C.tileDevice(i, j)) {
-                                    a_array_host_gemm_0[batch_count_gemm_0]
-                                        = A(i, 0, device).data();
-                                    b_array_host_gemm_0[batch_count_gemm_0]
-                                        = A(j, 0, device).data();
-                                    c_array_host_gemm_0[batch_count_gemm_0]
-                                        = C(i, j, device).data();
+                                    a_array_gemm00.push_back( A(i, 0, device).data() );
+                                    b_array_gemm00.push_back( A(j, 0, device).data() );
+                                    c_array_gemm00.push_back( C(i, j, device).data() );
                                     lda00 = A(i, 0, device).stride();
                                     ldb00 = A(j, 0, device).stride();
                                     ldc00 = C(i, j, device).stride();
-                                    ++batch_count_gemm_0;
                                 }
                             }
                         }
                     }
 
-                    std::vector<scalar_t*> a_array_host_gemm_1(batch_size_gemm);
-                    std::vector<scalar_t*> b_array_host_gemm_1(batch_size_gemm);
-                    std::vector<scalar_t*> c_array_host_gemm_1(batch_size_gemm);
+                    // bottom row
+                    std::vector<scalar_t*> a_array_gemm10;
+                    std::vector<scalar_t*> b_array_gemm10;
+                    std::vector<scalar_t*> c_array_gemm10;
+                    a_array_gemm10.reserve( batch_size_gemm );
+                    b_array_gemm10.reserve( batch_size_gemm );
+                    c_array_gemm10.reserve( batch_size_gemm );
 
-                    int64_t batch_count_gemm_1 = 0;
                     int64_t lda10 = 0;
                     int64_t ldb10 = 0;
                     int64_t ldc10 = 0;
@@ -503,16 +507,12 @@ void herk(internal::TargetType<Target::Devices>,
                         for (int64_t j = 0; j < C.nt()-1; ++j) {
                             if (C.tileIsLocal(i, j)) {
                                 if (device == C.tileDevice(i, j)) {
-                                    a_array_host_gemm_1[batch_count_gemm_1]
-                                        = A(i, 0, device).data();
-                                    b_array_host_gemm_1[batch_count_gemm_1]
-                                        = A(j, 0, device).data();
-                                    c_array_host_gemm_1[batch_count_gemm_1]
-                                        = C(i, j, device).data();
+                                    a_array_gemm10.push_back( A(i, 0, device).data() );
+                                    b_array_gemm10.push_back( A(j, 0, device).data() );
+                                    c_array_gemm10.push_back( C(i, j, device).data() );
                                     lda10 = A(i, 0, device).stride();
                                     ldb10 = A(j, 0, device).stride();
                                     ldc10 = C(i, j, device).stride();
-                                    ++batch_count_gemm_1;
                                 }
                             }
                         }
@@ -521,57 +521,55 @@ void herk(internal::TargetType<Target::Devices>,
                     if (C.op() != Op::NoTrans) {
                         // swap A <=> B; swap m <=> n
                         swap(opA, opB);
-                        swap(a_array_host_gemm_0, b_array_host_gemm_0);
-                        swap(a_array_host_gemm_1, b_array_host_gemm_1);
+                        swap(a_array_gemm00, b_array_gemm00);
+                        swap(a_array_gemm10, b_array_gemm10);
                         swap(lda00, ldb00);
                         swap(lda10, ldb10);
                         swap(mb00, nb00);
                         swap(mb10, nb10);
                     }
 
-                    std::vector<Op> transA(1, opA);
+                    std::vector<Op> opA_(1, opA);
+                    std::vector<Op> opB_(1, opB);
                     std::vector<int64_t> k(1,  kb);
+                    std::vector<int64_t> info(1);
 
                     blas::Queue* queue = C.compute_queue(device, queue_index);
 
                     {
                         trace::Block trace_block("blas::batch::gemm");
 
-                        std::vector<Op> transB(1, opB);
-
                         std::vector<scalar_t> alpha_(1, scalar_t(alpha));
-                        std::vector<scalar_t> beta_ (1,  scalar_t(beta));
+                        std::vector<scalar_t> beta_ (1, scalar_t(beta));
 
-                        if (batch_count_gemm_0 > 0) {
+                        if (c_array_gemm00.size() > 0) {
                             std::vector<int64_t>    m(1,  mb00);
                             std::vector<int64_t>    n(1,  nb00);
                             std::vector<int64_t> ldda(1, lda00);
                             std::vector<int64_t> lddb(1, ldb00);
                             std::vector<int64_t> lddc(1, ldc00);
-                            std::vector<int64_t> info(batch_count_gemm_0);
                             blas::batch::gemm(
-                                layout, transA, transB,
+                                layout, opA_, opB_,
                                 m, n, k,
-                                alpha_, a_array_host_gemm_0, ldda,
-                                        b_array_host_gemm_0, lddb,
-                                beta_,  c_array_host_gemm_0, lddc,
-                                batch_count_gemm_0, info, *queue);
+                                alpha_, a_array_gemm00, ldda,
+                                        b_array_gemm00, lddb,
+                                beta_,  c_array_gemm00, lddc,
+                                c_array_gemm00.size(), info, *queue);
                         }
 
-                        if (batch_count_gemm_1 > 0) {
+                        if (c_array_gemm10.size() > 0) {
                             std::vector<int64_t>    m(1,  mb10);
                             std::vector<int64_t>    n(1,  nb10);
                             std::vector<int64_t> ldda(1, lda10);
                             std::vector<int64_t> lddb(1, ldb10);
                             std::vector<int64_t> lddc(1, ldc10);
-                            std::vector<int64_t> info(batch_count_gemm_1);
                             blas::batch::gemm(
-                                layout, transA, transB,
+                                layout, opA_, opB_,
                                 m, n, k,
-                                alpha_, a_array_host_gemm_1, ldda,
-                                        b_array_host_gemm_1, lddb,
-                                beta_,  c_array_host_gemm_1, lddc,
-                                batch_count_gemm_1, info, *queue);
+                                alpha_, a_array_gemm10, ldda,
+                                        b_array_gemm10, lddb,
+                                beta_,  c_array_gemm10, lddc,
+                                c_array_gemm10.size(), info, *queue);
                         }
                     }
 
@@ -586,52 +584,44 @@ void herk(internal::TargetType<Target::Devices>,
                     #pragma omp taskwait
 
                     int64_t batch_size_herk = C_tiles_herk.size();
-                    std::vector<scalar_t*> a_array_host_herk_0(batch_size_herk);
-                    std::vector<scalar_t*> c_array_host_herk_0(batch_size_herk);
 
-                    int64_t batch_count_herk_0 = 0;
+                    // diagonal
+                    std::vector<scalar_t*> a_array_herk0;
+                    std::vector<scalar_t*> c_array_herk0;
+                    a_array_herk0.reserve( batch_size_herk );
+                    c_array_herk0.reserve( batch_size_herk );
+
                     int64_t lda_herk_0 = 0;
                     int64_t ldc_herk_0 = 0;
                     int64_t nb_herk_0 = C.tileNb(0);
                     for (int64_t j = 0; j < C.nt()-1; ++j) {
-                        for (int64_t i = j; i < C.mt()-1; ++i) {
-                            if (C.tileIsLocal(i, j)) {
-                                if (device == C.tileDevice(i, j)) {
-                                    if (i == j) {
-                                        a_array_host_herk_0[batch_count_herk_0]
-                                            = A(j, 0, device).data();
-                                        c_array_host_herk_0[batch_count_herk_0]
-                                            = C(j, j, device).data();
-                                        lda_herk_0 = A(j, 0, device).stride();
-                                        ldc_herk_0 = C(j, j, device).stride();
-                                        ++batch_count_herk_0;
-                                    }
-                                }
-                            }
+                        if (C.tileIsLocal(j, j)
+                            && device == C.tileDevice(j, j))
+                        {
+                            a_array_herk0.push_back( A(j, 0, device).data() );
+                            c_array_herk0.push_back( C(j, j, device).data() );
+                            lda_herk_0 = A(j, 0, device).stride();
+                            ldc_herk_0 = C(j, j, device).stride();
                         }
                     }
 
-                    std::vector<scalar_t*> a_array_host_herk_1(batch_size_herk);
-                    std::vector<scalar_t*> c_array_host_herk_1(batch_size_herk);
+                    // bottom-right corner
+                    // todo: replace batch herk with plain herk
+                    std::vector<scalar_t*> a_array_herk1;
+                    std::vector<scalar_t*> c_array_herk1;
 
-                    int64_t batch_count_herk_1 = 0;
                     int64_t lda_herk_1 = 0;
                     int64_t ldc_herk_1 = 0;
-
                     int64_t nb_herk_1 = C.tileNb(C.nt()-1);
-
                     {
                         int i = C.mt()-1;
                         int j = C.nt()-1;
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
-                                a_array_host_herk_1[batch_count_herk_1]
-                                    = A(j, 0, device).data();
-                                c_array_host_herk_1[batch_count_herk_1]
-                                    = C(j, j, device).data();
+                                a_array_herk1.push_back( A(j, 0, device).data() );
+                                c_array_herk1.push_back( C(j, j, device).data() );
                                 lda_herk_1 = A(j, 0, device).stride();
                                 ldc_herk_1 = C(j, j, device).stride();
-                                ++batch_count_herk_1;
                             }
                         }
                     }
@@ -640,36 +630,31 @@ void herk(internal::TargetType<Target::Devices>,
                         trace::Block trace_block("blas::batch::herk");
 
                         std::vector<Uplo> uplo(1, C.uploPhysical());
+                        std::vector<real_t> alpha_(1, alpha);
+                        std::vector<real_t> beta_ (1, beta);
 
-                        std::vector<blas::real_type<scalar_t>> alpha_(1, alpha);
-                        std::vector<blas::real_type<scalar_t>> beta_ (1,  beta);
-
-                        if (batch_count_herk_0 > 0) {
+                        if (c_array_herk0.size() > 0) {
                             std::vector<int64_t>    n(1,  nb_herk_0);
                             std::vector<int64_t> ldda(1, lda_herk_0);
                             std::vector<int64_t> lddc(1, ldc_herk_0);
-
-                            std::vector<int64_t> info(batch_count_herk_0);
                             blas::batch::herk(
-                                layout, uplo, transA,
+                                layout, uplo, opA_,
                                 n, k,
-                                alpha_, a_array_host_herk_0, ldda,
-                                beta_,  c_array_host_herk_0, lddc,
-                                batch_count_herk_0, info, *queue);
+                                alpha_, a_array_herk0, ldda,
+                                beta_,  c_array_herk0, lddc,
+                                c_array_herk0.size(), info, *queue);
                         }
 
-                        if (batch_count_herk_1 > 0) {
+                        if (c_array_herk1.size() > 0) {
                             std::vector<int64_t>    n(1,  nb_herk_1);
                             std::vector<int64_t> ldda(1, lda_herk_1);
                             std::vector<int64_t> lddc(1, ldc_herk_1);
-
-                            std::vector<int64_t> info(batch_count_herk_1);
                             blas::batch::herk(
-                                layout, uplo, transA,
+                                layout, uplo, opA_,
                                 n, k,
-                                alpha_, a_array_host_herk_1, ldda,
-                                beta_,  c_array_host_herk_1, lddc,
-                                batch_count_herk_1, info, *queue);
+                                alpha_, a_array_herk1, ldda,
+                                beta_,  c_array_herk1, lddc,
+                                c_array_herk1.size(), info, *queue);
                         }
                     }
 
@@ -677,7 +662,7 @@ void herk(internal::TargetType<Target::Devices>,
 
                     // both off-diagonal batch gemm and diagonal herks are done
                     for (int64_t j = 0; j < C.nt(); ++j) {
-                        for (int64_t i = j; i < C.mt(); ++i) {
+                        for (int64_t i = j; i < C.mt(); ++i) {  // lower
                             if (C.tileIsLocal(i, j)) {
                                 if (device == C.tileDevice(i, j)) {
                                     // erase tmp local and remote device tiles;

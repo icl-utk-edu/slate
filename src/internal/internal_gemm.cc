@@ -590,7 +590,8 @@ void gemm(internal::TargetType<Target::Devices>,
                 std::vector<scalar_t> alpha_(1, alpha);
                 std::vector<scalar_t> beta_(1, beta);
                 std::vector<int64_t> k(1, kb);
-                std::vector<int64_t> info(1);
+                // info size 0 disables slow checks in batched BLAS++.
+                std::vector<int64_t> info;
 
                 blas::Queue* queue = C.compute_queue(device, queue_index);
                 assert(queue != nullptr);
@@ -608,7 +609,6 @@ void gemm(internal::TargetType<Target::Devices>,
                                 b_array00, lddb,
                         beta_,  c_array00, lddc,
                         c_array00.size(), info, *queue);
-                    assert(info[0] == 0);
                 }
 
                 if (c_array10.size() > 0) {
@@ -624,7 +624,6 @@ void gemm(internal::TargetType<Target::Devices>,
                                 b_array10, lddb,
                         beta_,  c_array10, lddc,
                         c_array10.size(), info, *queue);
-                    assert(info[0] == 0);
                 }
 
                 if (c_array01.size() > 0) {
@@ -640,7 +639,6 @@ void gemm(internal::TargetType<Target::Devices>,
                                 b_array01, lddb,
                         beta_,  c_array01, lddc,
                         c_array01.size(), info, *queue);
-                    assert(info[0] == 0);
                 }
 
                 if (c_array11.size() > 0) {
@@ -656,7 +654,6 @@ void gemm(internal::TargetType<Target::Devices>,
                                 b_array11, lddb,
                         beta_,  c_array11, lddc,
                         c_array11.size(), info, *queue);
-                    assert(info[0] == 0);
                 }
 
                 queue->sync();

@@ -591,9 +591,9 @@ void syr2k(internal::TargetType<Target::Devices>,
                     std::vector<Op> opA_(1, opA);
                     std::vector<Op> opB_(1, opB);
                     std::vector<int64_t> k(1, kb);
-                    std::vector<int64_t> info(1);
                     std::vector<scalar_t> alpha_(1, alpha);
                     std::vector<scalar_t> beta_(1, beta);
+                    std::vector<int64_t> info;
 
                     blas::Queue* queue = C.compute_queue(device, queue_index);
 

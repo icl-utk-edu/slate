@@ -526,7 +526,7 @@ void syrk(internal::TargetType<Target::Devices>,
                     std::vector<int64_t> k(1, kb);
                     std::vector<scalar_t> alpha_(1, scalar_t(alpha));
                     std::vector<scalar_t> beta_ (1, scalar_t(beta));
-                    std::vector<int64_t> info(1);
+                    std::vector<int64_t> info;
 
                     blas::Queue* queue = C.compute_queue(device, queue_index);
 

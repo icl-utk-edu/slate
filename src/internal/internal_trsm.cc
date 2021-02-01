@@ -279,7 +279,7 @@ void trsm(internal::TargetType<Target::Devices>,
                     std::vector<Op>         opA_(1, opA  );
                     std::vector<Diag>      diag_(1, diagA);
                     std::vector<scalar_t> alpha_(1, alpha);
-                    std::vector<int64_t>    info(1);
+                    std::vector<int64_t> info;
 
                     blas::Queue* queue = B.compute_queue(device, queue_index);
                     assert(queue != nullptr);

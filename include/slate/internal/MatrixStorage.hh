@@ -622,12 +622,12 @@ void MatrixStorage<scalar_t>::initQueues()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::destroyQueues()
 {
-    for (int device = 0; device < num_devices_; ++device)
-        delete comm_queues_[device];
-
     int num_queues = int(compute_queues_.size());
-    for (int queue = 0; queue < num_queues; ++queue) {
-        for (int device = 0; device < num_devices_; ++device) {
+    for (int device = 0; device < num_devices_; ++device) {
+        delete comm_queues_[device];
+               comm_queues_[device] = nullptr;
+
+        for (int queue = 0; queue < num_queues; ++queue) {
             delete compute_queues_.at(queue)[device];
                    compute_queues_.at(queue)[device] = nullptr;
         }
@@ -679,9 +679,11 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
     if ((batch_array_size_ < batch_size) || is_resized) {
 
         if (batch_array_size_ < batch_size) {
+            // Grow all batch arrays, not just new ones.
             i_begin = 0;
         }
         else {
+            // Make new batch arrays match old batch arrays.
             batch_size = batch_array_size_;
         }
 

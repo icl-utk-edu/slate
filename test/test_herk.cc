@@ -28,8 +28,8 @@ void test_herk_work(Params& params, bool run)
     slate::Op transA = params.trans();
     int64_t n = params.dim.n();
     int64_t k = params.dim.k();
-    real_t alpha = params.alpha();
-    real_t beta = params.beta();
+    real_t alpha = params.alpha.get<real_t>();
+    real_t beta = params.beta.get<real_t>();
     int64_t p = params.grid.m();
     int64_t q = params.grid.n();
     int64_t nb = params.nb();

@@ -103,8 +103,8 @@ public:
     testsweeper::ParamDouble vu;
     testsweeper::ParamInt    il;
     testsweeper::ParamInt    iu;
-    testsweeper::ParamDouble alpha;
-    testsweeper::ParamDouble beta;
+    testsweeper::ParamComplex alpha;
+    testsweeper::ParamComplex beta;
     testsweeper::ParamInt    incx;
     testsweeper::ParamInt    incy;
     testsweeper::ParamInt    itype;

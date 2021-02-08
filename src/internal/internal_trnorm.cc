@@ -34,6 +34,10 @@ void trnorm(
     trnorm(in_norm, uplo, diag, m, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    trnorm(in_norm, uplo, diag, m, n, (hipFloatComplex**) Aarray, lda,
+           values, ldv, batch_count, queue);
+#endif
 }
 
 template <>
@@ -49,10 +53,14 @@ void trnorm(
     trnorm(in_norm, uplo, diag, m, n, (cuDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    trnorm(in_norm, uplo, diag, m, n, (hipDoubleComplex**) Aarray, lda,
+           values, ldv, batch_count, queue);
+#endif
 }
 
-#if defined(SLATE_NO_CUDA)
-// Specializations to allow compilation without CUDA.
+#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+// Specializations to allow compilation without CUDA or HIP.
 template <>
 void trnorm(
     Norm in_norm, Uplo uplo, Diag diag,

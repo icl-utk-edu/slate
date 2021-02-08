@@ -35,6 +35,10 @@ void synorm(
     synorm(in_norm, uplo, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    synorm(in_norm, uplo, n, (hipFloatComplex**) Aarray, lda,
+           values, ldv, batch_count, queue);
+#endif
 }
 
 template <>
@@ -48,6 +52,10 @@ void synorm(
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     synorm(in_norm, uplo, n, (cuDoubleComplex**) Aarray, lda,
+           values, ldv, batch_count, queue);
+#endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    synorm(in_norm, uplo, n, (hipDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
 }
@@ -65,6 +73,10 @@ void synormOffdiag(
     synormOffdiag(in_norm, m, n, (cuFloatComplex**) Aarray, lda,
                   values, ldv, batch_count, queue);
 #endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    synormOffdiag(in_norm, m, n, (hipFloatComplex**) Aarray, lda,
+                  values, ldv, batch_count, queue);
+#endif
 }
 
 template <>
@@ -80,10 +92,14 @@ void synormOffdiag(
     synormOffdiag(in_norm, m, n, (cuDoubleComplex**) Aarray, lda,
                   values, ldv, batch_count, queue);
 #endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    synormOffdiag(in_norm, m, n, (hipDoubleComplex**) Aarray, lda,
+                  values, ldv, batch_count, queue);
+#endif
 }
 
-#if defined(SLATE_NO_CUDA)
-// Specializations to allow compilation without CUDA.
+#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+// Specializations to allow compilation without CUDA or HIP.
 template <>
 void synorm(
     Norm in_norm, Uplo uplo,

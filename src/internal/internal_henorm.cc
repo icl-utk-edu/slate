@@ -36,6 +36,10 @@ void henorm(
     henorm(in_norm, uplo, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    henorm(in_norm, uplo, n, (hipFloatComplex**) Aarray, lda,
+           values, ldv, batch_count, queue);
+#endif
 }
 
 template <>
@@ -51,9 +55,13 @@ void henorm(
     henorm(in_norm, uplo, n, (cuDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    henorm(in_norm, uplo, n, (hipDoubleComplex**) Aarray, lda,
+           values, ldv, batch_count, queue);
+#endif
 }
 
-#if defined(SLATE_NO_CUDA)
+#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
 // Specializations to allow compilation without CUDA.
 template <>
 void henorm(

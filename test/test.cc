@@ -470,17 +470,9 @@ int run(int argc, char** argv)
             args += ", MPI size " + std::to_string(mpi_size);
             args += ", OpenMP threads " + std::to_string(omp_get_max_threads());
 
-            int num_devices = 0;
-            try {
-                num_devices = blas::get_device_count();
-                if (num_devices > 0)
-                    args += ", GPU devices available " + std::to_string(num_devices);
-            }
-            catch (std::exception const& e) {
-                // Ignore BLAS++ error if no GPU device is found.
-                // todo: should we have a better solution?
-                num_devices = 0;
-            }
+            int num_devices = blas::get_device_count();
+            if (num_devices > 0)
+                args += ", GPU devices available " + std::to_string(num_devices);
             args += "\n";
 
             printf("%s", args.c_str());

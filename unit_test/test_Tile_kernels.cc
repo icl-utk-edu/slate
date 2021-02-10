@@ -1426,14 +1426,7 @@ int main(int argc, char** argv)
     MPI_Comm_rank(mpi_comm, &mpi_rank);
     MPI_Comm_size(mpi_comm, &mpi_size);
 
-    try {
-        num_devices = blas::get_device_count();
-    }
-    catch (std::exception const& e) {
-        // Ignore BLAS++ error if no GPU device is found.
-        // todo: should we have a better solution?
-        num_devices = 0;
-    }
+    num_devices = blas::get_device_count();
     host_num = slate::HostNum;
 
     int err = unit_test_main(mpi_comm);  // which calls run_tests()

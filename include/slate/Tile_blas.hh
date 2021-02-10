@@ -748,6 +748,10 @@ void scale(
 {
     trace::Block trace_block("blas::scale");
 
+    using blas::conj;
+    if (A.op() == Op::ConjTrans)
+        alpha = conj(alpha);
+
     int64_t col_inc = A.colIncrement();
     int64_t row_inc = A.rowIncrement();
     scalar_t* A00 = &A.at(0, 0);

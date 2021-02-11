@@ -59,7 +59,7 @@ namespace slate {
 /// Internal function, called from generate_matrix().
 ///
 /// @ingroup generate_matrix
-template< typename scalar_t >
+template <typename scalar_t>
 void generate_sigma(
     MatrixParams& params,
     TestMatrixDist dist, bool rand_sign,
@@ -201,7 +201,7 @@ void generate_sigma(
 /// Internal function, called from generate_matrix().
 ///
 /// @ingroup generate_matrix
-//template< typename scalar_t >
+//template <typename scalar_t>
 //void generate_correlation_factor( slate::Matrix<scalar_t>& A )
 //{
 //    //const scalar_t eps = std::numeric_limits<scalar_t>::epsilon();
@@ -258,7 +258,7 @@ void generate_sigma(
 /// Internal function, called from generate_matrix().
 ///
 /// @ingroup generate_matrix
-template< typename scalar_t >
+template <typename scalar_t>
 void generate_svd(
     MatrixParams& params,
     TestMatrixDist dist,
@@ -408,7 +408,7 @@ void generate_svd(
 /// Internal function, called from generate_matrix().
 ///
 /// @ingroup generate_matrix
-template< typename scalar_t >
+template <typename scalar_t>
 void generate_heev(
     MatrixParams& params,
     TestMatrixDist dist, bool rand_sign,
@@ -515,7 +515,7 @@ void generate_heev(
 /// Internal function, called from generate_matrix().
 ///
 /// @ingroup generate_matrix
-template< typename scalar_t >
+template <typename scalar_t>
 void generate_geev(
     MatrixParams& params,
     TestMatrixDist dist,
@@ -535,7 +535,7 @@ void generate_geev(
 /// Internal function, called from generate_matrix().
 ///
 /// @ingroup generate_matrix
-template< typename scalar_t >
+template <typename scalar_t>
 void generate_geevx(
     MatrixParams& params,
     TestMatrixDist dist,
@@ -748,7 +748,7 @@ void generate_matrix_usage()
 ///     with an application to condition estimators, 1980.
 ///
 /// @ingroup generate_matrix
-template< typename scalar_t >
+template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
     slate::Matrix<scalar_t>& A,
@@ -1117,7 +1117,7 @@ void generate_matrix(
 /// @see generate_matrix()
 /// @ingroup generate_matrix
 ///
-template< typename scalar_t >
+template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
     slate::Matrix<scalar_t>& A )

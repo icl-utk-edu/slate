@@ -57,14 +57,14 @@ enum class TestMatrixDist {
 };
 
 // -----------------------------------------------------------------------------
-template< typename scalar_t >
+template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
     slate::Matrix< scalar_t >& A,
     std::vector< blas::real_type<scalar_t> >& sigma );
 
 // Overload without sigma.
-template< typename scalar_t >
+template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
     slate::Matrix< scalar_t >& A );

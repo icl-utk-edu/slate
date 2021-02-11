@@ -65,7 +65,7 @@ void potrf(slate::internal::TargetType<target>,
                     internal::trsm<Target::HostTask>(
                         Side::Right,
                         scalar_t(1.0), conjTranspose(Tkk),
-                        A.sub(k+1, A_nt-1, k, k), layout, 1);
+                        A.sub(k+1, A_nt-1, k, k), 1);
                 }
 
                 BcastListTag bcast_list_A;
@@ -86,7 +86,7 @@ void potrf(slate::internal::TargetType<target>,
                     // A(j, j) -= A(j, k) * A(j, k)^H
                     internal::herk<Target::HostTask>(
                         real_t(-1.0), A.sub(j, j, k, k),
-                        real_t( 1.0), A.sub(j, j), layout, 1);
+                        real_t( 1.0), A.sub(j, j), 1);
 
                     // A(j+1:nt-1, j) -= A(j+1:nt-1, k) * A(j, k)^H
                     if (j+1 <= A_nt-1) {
@@ -228,7 +228,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                         Side::Right,
                         scalar_t(1.0), conjTranspose(Tkk),
                                        A.sub(k+1, A_nt-1, k, k),
-                        layout, priority_zero, queue_1);
+                        priority_zero, layout, queue_1);
                 }
 
                 BcastListTag bcast_list_A;

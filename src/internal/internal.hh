@@ -165,21 +165,19 @@ void hemm(Side side,
 template <Target target=Target::HostTask, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
-          Layout layout=Layout::ColMajor, int priority=0,
-          int64_t queue_index=0);
+          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor);
 
 // forward real-symmetric matrices to herk;
 // disabled for complex
 template <Target target=Target::HostTask, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>&& C,
-          Layout layout=Layout::ColMajor, int priority=0,
-          int64_t queue_index=0,
+          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     herk<target>(alpha, std::move(A),
                  beta, HermitianMatrix<scalar_t>(C),
-                 layout, priority, queue_index);
+                 priority, queue_index, layout);
 }
 
 //-----------------------------------------
@@ -188,8 +186,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void her2k(scalar_t alpha,                 Matrix<scalar_t>&& A,
                                            Matrix<scalar_t>&& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>&& C,
-           Layout layout=Layout::ColMajor, int priority=0,
-           int64_t queue_index=0);
+           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor);
 
 // forward real-symmetric matrices to her2k;
 // disabled for complex
@@ -197,13 +194,12 @@ template <Target target=Target::HostTask, typename scalar_t>
 void her2k(scalar_t alpha,                  Matrix<scalar_t>&& A,
                                             Matrix<scalar_t>&& B,
            blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>&& C,
-           Layout layout=Layout::ColMajor, int priority=0,
-           int64_t queue_index=0,
+           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     her2k<target>(alpha, std::move(A),
                   beta, HermitianMatrix<scalar_t>(C),
-                  layout, priority, queue_index);
+                  priority, queue_index, layout);
 }
 
 //-----------------------------------------
@@ -234,21 +230,19 @@ void symm(Side side,
 template <Target target=Target::HostTask, typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
-          Layout layout=Layout::ColMajor, int priority=0,
-          int64_t queue_index=0);
+          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor);
 
 // forward real-Hermitian matrices to syrk;
 // disabled for complex
 template <Target target=Target::HostTask, typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
           scalar_t beta,  HermitianMatrix<scalar_t>&& C,
-          Layout layout=Layout::ColMajor, int priority=0,
-          int64_t queue_index=0,
+          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     syrk<target>(alpha, std::move(A),
                  beta, SymmetricMatrix<scalar_t>(C),
-                 layout, priority, queue_index);
+                 priority, queue_index, layout);
 }
 
 //-----------------------------------------
@@ -257,8 +251,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void syr2k(scalar_t alpha, Matrix<scalar_t>&& A,
                            Matrix<scalar_t>&& B,
            scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
-           Layout layout=Layout::ColMajor, int priority=0,
-           int64_t queue_index=0);
+           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor);
 
 // forward real-Hermitian matrices to syr2k;
 // disabled for complex
@@ -266,13 +259,12 @@ template <Target target=Target::HostTask, typename scalar_t>
 void syr2k(scalar_t alpha, Matrix<scalar_t>&& A,
                            Matrix<scalar_t>&& B,
            scalar_t beta,  HermitianMatrix<scalar_t>&& C,
-           Layout layout=Layout::ColMajor, int priority=0,
-           int64_t queue_index=0,
+           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     syr2k<target>(alpha, std::move(A), std::move(B),
                   beta, SymmetricMatrix<scalar_t>(C),
-                  layout, priority, queue_index);
+                  priority, queue_index, layout);
 }
 
 //-----------------------------------------
@@ -289,7 +281,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void trsm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
-          Layout layout=Layout::ColMajor, int priority=0,
+          int priority=0, Layout layout=Layout::ColMajor,
           int64_t queue_index=0);
 
 //-----------------------------------------

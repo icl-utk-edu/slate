@@ -31,7 +31,7 @@ template <Target target, typename scalar_t>
 void her2k(scalar_t alpha,                  Matrix<scalar_t>&& A,
                                             Matrix<scalar_t>&& B,
            blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
-           Layout layout, int priority, int64_t queue_index)
+           int priority, int queue_index, Layout layout)
 {
     if (! ((C.uplo() == Uplo::Lower)
            &&
@@ -45,7 +45,7 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>&& A,
           alpha, A,
                  B,
           beta,  C,
-          layout, priority, queue_index);
+          priority, queue_index, layout);
 }
 
 //------------------------------------------------------------------------------
@@ -59,7 +59,7 @@ void her2k(internal::TargetType<Target::HostTask>,
            scalar_t alpha,                 Matrix<scalar_t>& A,
                                            Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
-           Layout layout, int priority, int64_t queue_index)
+           int priority, int queue_index, Layout layout)
 {
     using blas::conj;
 
@@ -143,7 +143,7 @@ void her2k(internal::TargetType<Target::HostNest>,
            scalar_t alpha,                 Matrix<scalar_t>& A,
                                            Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
-           Layout layout, int priority, int64_t queue_index)
+           int priority, int queue_index, Layout layout)
 {
     using blas::conj;
 
@@ -230,7 +230,7 @@ void her2k(internal::TargetType<Target::HostBatch>,
            scalar_t alpha,                 Matrix<scalar_t>& A,
                                            Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
-           Layout layout, int priority, int64_t queue_index)
+           int priority, int queue_index, Layout layout)
 {
     using blas::conj;
 
@@ -425,7 +425,7 @@ void her2k(internal::TargetType<Target::Devices>,
            scalar_t alpha,                 Matrix<scalar_t>& A,
                                            Matrix<scalar_t>& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
-           Layout layout, int priority, int64_t queue_index)
+           int priority, int queue_index, Layout layout)
 {
     using std::swap;
     using blas::conj;
@@ -895,28 +895,28 @@ void her2k<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void her2k<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void her2k<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void her2k<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 // ----------------------------------------
 template
@@ -924,28 +924,28 @@ void her2k<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void her2k<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void her2k<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void her2k<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 // ----------------------------------------
 template
@@ -953,28 +953,28 @@ void her2k< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     float beta,                HermitianMatrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void her2k< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     float beta,                HermitianMatrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void her2k< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     float beta,                HermitianMatrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void her2k< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     float beta,                HermitianMatrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 // ----------------------------------------
 template
@@ -982,28 +982,28 @@ void her2k< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     double beta,                HermitianMatrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void her2k< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     double beta,                HermitianMatrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void her2k< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     double beta,                HermitianMatrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void her2k< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     double beta,                HermitianMatrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 } // namespace internal
 } // namespace slate

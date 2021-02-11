@@ -86,7 +86,7 @@ void getrf_nopiv(slate::internal::TargetType<target>,
                     Side::Right,
                     scalar_t(1.0), std::move(Tkk),
                                    A.sub(k+1, A_mt-1, k, k),
-                    host_layout, priority_one);
+                    priority_one);
 
                 BcastList bcast_list_A;
                 // bcast the tiles of the panel to the right hand side
@@ -115,8 +115,7 @@ void getrf_nopiv(slate::internal::TargetType<target>,
                     internal::trsm<Target::HostTask>(
                         Side::Left,
                         scalar_t(1.0), std::move(Tkk),
-                                       A.sub(k, k, j, j),
-                        host_layout, priority_one);
+                                       A.sub(k, k, j, j), priority_one);
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor

@@ -29,7 +29,7 @@ namespace internal {
 template <Target target, typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
-          Layout layout, int priority, int64_t queue_index)
+          int priority, int queue_index, Layout layout)
 {
     if (! ((C.uplo() == Uplo::Lower)
            &&
@@ -40,7 +40,7 @@ void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
     syrk(internal::TargetType<target>(),
          alpha, A,
          beta,  C,
-         layout, priority, queue_index);
+         priority, queue_index, layout);
 }
 
 //------------------------------------------------------------------------------
@@ -53,7 +53,7 @@ template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostTask>,
           scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          Layout layout, int priority, int64_t queue_index)
+          int priority, int queue_index, Layout layout)
 {
     // CPU assumes column major
     // todo: relax this assumption, by updating Tile_blas.hh::syrk()
@@ -124,7 +124,7 @@ template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostNest>,
           scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          Layout layout, int priority, int64_t queue_index)
+          int priority, int queue_index, Layout layout)
 {
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::syrk()
@@ -200,7 +200,7 @@ template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostBatch>,
           scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          Layout layout, int priority, int64_t queue_index)
+          int priority, int queue_index, Layout layout)
 {
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::syrk()
@@ -362,7 +362,7 @@ template <typename scalar_t>
 void syrk(internal::TargetType<Target::Devices>,
           scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          Layout layout, int priority, int64_t queue_index)
+          int priority, int queue_index, Layout layout)
 {
     int err = 0;
     using std::swap;
@@ -703,100 +703,100 @@ template
 void syrk<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void syrk<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void syrk<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void syrk<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 // ----------------------------------------
 template
 void syrk<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void syrk<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void syrk<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void syrk<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 // ----------------------------------------
 template
 void syrk< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void syrk< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void syrk< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void syrk< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 // ----------------------------------------
 template
 void syrk< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void syrk< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void syrk< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 template
 void syrk< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    int priority, int queue_index, Layout layout);
 
 } // namespace internal
 } // namespace slate

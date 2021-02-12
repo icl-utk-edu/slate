@@ -183,7 +183,7 @@ void test_syr2k_work(Params& params, bool run)
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
-    double gflop = blas::Gflop< scalar_t >::syr2k(n, n);
+    double gflop = blas::Gflop<scalar_t>::syr2k(n, k);
     params.time() = time_tst;
     params.gflops() = gflop / time_tst;
 

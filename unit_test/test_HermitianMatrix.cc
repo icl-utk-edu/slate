@@ -283,9 +283,9 @@ void test_HermitianMatrix_fromDevices()
                                ntiles_local2, ntiles_dev, n_dev);
         assert(ntiles_local == ntiles_local2);
 
-        // cudaMalloc returns null if len = 0, so make it at least 1.
-        size_t len = std::max(sizeof(double) * lda * n_dev, size_t(1));
-        slate_cuda_call( cudaMalloc((void**)&Aarray[dev], len) );
+        // blas::device_malloc returns null if len = 0, so make it at least 1.
+        int64_t len = std::max(lda * n_dev, 1);
+        Aarray[dev] = blas::device_malloc<double>(len);
         assert(Aarray[dev] != nullptr);
     }
 
@@ -322,7 +322,7 @@ void test_HermitianMatrix_fromDevices()
     }
 
     for (int dev = 0; dev < num_devices; ++dev) {
-        cudaFree(Aarray[dev]);
+        blas::device_free(Aarray[dev]);
     }
     delete[] Aarray;
 
@@ -1194,7 +1194,7 @@ int main(int argc, char** argv)
     MPI_Comm_rank(mpi_comm, &mpi_rank);
     MPI_Comm_size(mpi_comm, &mpi_size);
 
-    cudaGetDeviceCount(&num_devices);
+    num_devices = blas::get_device_count();
     host_num = slate::HostNum;
 
     // globals

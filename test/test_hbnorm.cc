@@ -53,10 +53,6 @@ void test_hbnorm_work(Params& params, bool run)
         printf("skipping: currently only origin=scalapack is supported\n");
         return;
     }
-    if (target == slate::Target::Devices) {
-        printf("skipping: currently target=devices is not supported\n");
-        return;
-    }
 
     // local values
     const int izero = 0, ione = 1;

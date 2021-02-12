@@ -192,14 +192,14 @@ std::map<std::string, Color> function_color_ = {
     {"blas::scale", Color::Goldenrod},
 
     {"cblas_gemm_batch",  Color::DarkGreen},
-    {"cublasGemmBatched", Color::PaleGreen},
+    {"blas::batch::gemm", Color::PaleGreen},
 
-    {"cudaMalloc",        Color::HotPink},
-    {"cudaMallocHost",    Color::DeepPink},
-    {"cudaMemcpy2DAsync", Color::LightGray},
-    {"cudaMemcpyAsync",   Color::LightGray},
-    {"cudaFree",          Color::LightSalmon},
-    {"cudaFreeHost",      Color::Salmon},
+    {"blas::device_malloc",        Color::HotPink},
+    {"blas::device_malloc_pinned", Color::DeepPink},
+    {"blas::device_memcpy",        Color::LightGray},
+    {"blas::device_memcpy2D",      Color::LightGray},
+    {"blas::device_free",          Color::LightSalmon},
+    {"blas::device_free_pinned",   Color::Salmon},
 
     {"internal::gebr1",  Color::Moccasin},
     {"internal::gebr2",  Color::LightBlue},

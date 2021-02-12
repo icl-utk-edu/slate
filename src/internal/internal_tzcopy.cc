@@ -21,14 +21,14 @@ void tzcopy(
     int64_t m, int64_t n,
     std::complex<float>** Aarray, int64_t lda,
     std::complex<float>** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
-           batch_count, stream);
+           batch_count, queue);
 #endif
 }
 
@@ -38,14 +38,14 @@ void tzcopy(
     int64_t m, int64_t n,
     std::complex<float>** Aarray, int64_t lda,
     std::complex<double>** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
-           batch_count, stream);
+           batch_count, queue);
 #endif
 }
 
@@ -55,14 +55,14 @@ void tzcopy(
     int64_t m, int64_t n,
     std::complex<double>** Aarray, int64_t lda,
     std::complex<double>** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
-           batch_count, stream);
+           batch_count, queue);
 #endif
 }
 
@@ -72,14 +72,14 @@ void tzcopy(
     int64_t m, int64_t n,
     std::complex<double>** Aarray, int64_t lda,
     std::complex<float>** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
-           batch_count, stream);
+           batch_count, queue);
 #endif
 }
 
@@ -92,7 +92,7 @@ void tzcopy(
     int64_t m, int64_t n,
     double** Aarray, int64_t lda,
     double** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 }
 
@@ -102,7 +102,7 @@ void tzcopy(
     int64_t m, int64_t n,
     double** Aarray, int64_t lda,
     float** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 }
 
@@ -112,7 +112,7 @@ void tzcopy(
     int64_t m, int64_t n,
     float** Aarray, int64_t lda,
     float** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 }
 template <>
@@ -121,7 +121,7 @@ void tzcopy(
     int64_t m, int64_t n,
     float** Aarray, int64_t lda,
     double** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 }
 #endif // not SLATE_NO_CUDA
@@ -138,11 +138,11 @@ namespace internal {
 template <Target target, typename src_scalar_t, typename dst_scalar_t>
 void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           BaseTrapezoidMatrix<dst_scalar_t>&& B,
-          int priority)
+          int priority, int queue_index)
 {
     copy(internal::TargetType<target>(),
          A, B,
-         priority);
+         priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -156,7 +156,7 @@ template <typename src_scalar_t, typename dst_scalar_t>
 void copy(internal::TargetType<Target::HostTask>,
           BaseTrapezoidMatrix<src_scalar_t>& A,
           BaseTrapezoidMatrix<dst_scalar_t>& B,
-          int priority)
+          int priority, int queue_index)
 {
     // trace::Block trace_block("copy");
 
@@ -218,7 +218,7 @@ template <typename src_scalar_t, typename dst_scalar_t>
 void copy(internal::TargetType<Target::Devices>,
           BaseTrapezoidMatrix<src_scalar_t>& A,
           BaseTrapezoidMatrix<dst_scalar_t>& B,
-          int priority)
+          int priority, int queue_index)
 {
     using ij_tuple = typename BaseMatrix<src_scalar_t>::ij_tuple;
     slate_error_if(A.uplo() != B.uplo());
@@ -323,29 +323,24 @@ void copy(internal::TargetType<Target::Devices>,
             src_scalar_t** a_array_dev = A.array_device(device);
             dst_scalar_t** b_array_dev = B.array_device(device);
 
-            slate_cuda_call(cudaSetDevice(device));
+            blas::Queue* queue = A.compute_queue(device, queue_index);
 
-            cudaStream_t stream = B.compute_stream(device);
-            // cublasHandle_t cublas_handle = B.cublas_handle(device);
+            blas::device_memcpy<src_scalar_t*>(a_array_dev, a_array_host,
+                                batch_count,
+                                blas::MemcpyKind::HostToDevice,
+                                *queue);
 
-            slate_cuda_call(
-                cudaMemcpyAsync(a_array_dev, a_array_host,
-                                sizeof(src_scalar_t*)*batch_count,
-                                cudaMemcpyHostToDevice,
-                                stream));
-
-            slate_cuda_call(
-                cudaMemcpyAsync(b_array_dev, b_array_host,
-                                sizeof(dst_scalar_t*)*batch_count,
-                                cudaMemcpyHostToDevice,
-                                stream));
+            blas::device_memcpy<dst_scalar_t*>(b_array_dev, b_array_host,
+                                batch_count,
+                                blas::MemcpyKind::HostToDevice,
+                                *queue);
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
                     device::gecopy(mb[q], nb[q],
                                    a_array_dev, lda[q],
                                    b_array_dev, ldb[q],
-                                   group_count[q], stream);
+                                   group_count[q], *queue);
                     a_array_dev += group_count[q];
                     b_array_dev += group_count[q];
                 }
@@ -356,13 +351,13 @@ void copy(internal::TargetType<Target::Devices>,
                                    mb[q], nb[q],
                                    a_array_dev, lda[q],
                                    b_array_dev, ldb[q],
-                                   group_count[q], stream);
+                                   group_count[q], *queue);
                     a_array_dev += group_count[q];
                     b_array_dev += group_count[q];
                 }
             }
 
-            slate_cuda_call(cudaStreamSynchronize(stream));
+            queue->sync();
 
             for (int64_t i = 0; i < B.mt(); ++i) {
                 for (int64_t j = 0; j < B.nt(); ++j) {
@@ -392,100 +387,100 @@ template
 void copy<Target::HostTask, float, float>(
     BaseTrapezoidMatrix<float>&& A,
     BaseTrapezoidMatrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy<Target::HostTask, float, double>(
     BaseTrapezoidMatrix<float>&& A,
     BaseTrapezoidMatrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy<Target::Devices, float, float>(
     BaseTrapezoidMatrix<float>&& A,
     BaseTrapezoidMatrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy<Target::Devices, float, double>(
     BaseTrapezoidMatrix<float>&& A,
     BaseTrapezoidMatrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void copy<Target::HostTask, double, double>(
     BaseTrapezoidMatrix<double>&& A,
     BaseTrapezoidMatrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy<Target::HostTask, double, float>(
     BaseTrapezoidMatrix<double>&& A,
     BaseTrapezoidMatrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy<Target::Devices, double, double>(
     BaseTrapezoidMatrix<double>&& A,
     BaseTrapezoidMatrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy<Target::Devices, double, float>(
     BaseTrapezoidMatrix<double>&& A,
     BaseTrapezoidMatrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void copy< Target::HostTask, std::complex<float>, std::complex<float> >(
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     BaseTrapezoidMatrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy< Target::HostTask, std::complex<float>, std::complex<double> >(
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     BaseTrapezoidMatrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy< Target::Devices, std::complex<float>, std::complex<float>  >(
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     BaseTrapezoidMatrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy< Target::Devices, std::complex<float>, std::complex<double>  >(
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     BaseTrapezoidMatrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void copy< Target::HostTask, std::complex<double>, std::complex<double> >(
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     BaseTrapezoidMatrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy< Target::HostTask, std::complex<double>, std::complex<float> >(
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     BaseTrapezoidMatrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy< Target::Devices, std::complex<double>, std::complex<double> >(
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     BaseTrapezoidMatrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void copy< Target::Devices, std::complex<double>, std::complex<float> >(
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     BaseTrapezoidMatrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 } // namespace internal
 } // namespace slate

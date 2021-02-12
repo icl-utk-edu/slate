@@ -190,10 +190,10 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 
     const int priority_zero = 0;
     const int life_factor_one = 1;
-    const int batch_arrays_index_one = 1;
+    const int queue_1 = 1;
     const int64_t batch_size_zero = 0;
-    const int64_t num_arrays_two  = 2; // Number of kernels without lookahead
-    bool is_shared = lookahead > 0;
+    const int num_queues = 2 + lookahead;  // Number of kernels with lookahead
+    const bool is_shared = lookahead > 0;  // Do tileGetAndHold in the bcast
 
     // Allocate batch arrays = number of kernels without lookahead + lookahead
     // number of kernels without lookahead = 2 (internal::gemm & internal::trsm)
@@ -202,7 +202,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     // and the batch_arrays_index starts from
     // the number of kernels without lookahead, and then incremented by 1
     // for every execution for the internal::herk
-    A.allocateBatchArrays(batch_size_zero, (num_arrays_two + lookahead));
+    A.allocateBatchArrays(batch_size_zero, num_queues);
     A.reserveDeviceWorkspace();
 
     #pragma omp parallel
@@ -228,7 +228,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                         Side::Right,
                         scalar_t(1.0), conjTranspose(Tkk),
                                        A.sub(k+1, A_nt-1, k, k),
-                        priority_zero, layout, batch_arrays_index_one);
+                        priority_zero, layout, queue_1);
                 }
 
                 BcastListTag bcast_list_A;

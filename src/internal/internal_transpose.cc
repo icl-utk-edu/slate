@@ -24,10 +24,10 @@ template <>
 void transpose(
     int64_t n,
     std::complex<float>* A, int64_t lda,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
-    transpose(n, (cuFloatComplex*) A, lda, stream);
+    transpose(n, (cuFloatComplex*) A, lda, queue);
 #endif
 }
 
@@ -35,10 +35,10 @@ template <>
 void transpose(
     int64_t n,
     std::complex<double>* A, int64_t lda,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
-    transpose(n, (cuDoubleComplex*) A, lda, stream);
+    transpose(n, (cuDoubleComplex*) A, lda, queue);
 #endif
 }
 
@@ -48,10 +48,10 @@ void transpose_batch(
     int64_t n,
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
-    transpose_batch(n, (cuFloatComplex**) Aarray, lda, batch_count, stream);
+    transpose_batch(n, (cuFloatComplex**) Aarray, lda, batch_count, queue);
 #endif
 }
 
@@ -60,10 +60,10 @@ void transpose_batch(
     int64_t n,
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
-    transpose_batch(n, (cuDoubleComplex**) Aarray, lda, batch_count, stream);
+    transpose_batch(n, (cuDoubleComplex**) Aarray, lda, batch_count, queue);
 #endif
 }
 
@@ -73,10 +73,10 @@ void transpose(
     int64_t m, int64_t n,
     std::complex<float>* A, int64_t lda,
     std::complex<float>* AT, int64_t ldat,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
-    transpose(m, n, (cuFloatComplex*) A, lda, (cuFloatComplex*) AT, ldat, stream);
+    transpose(m, n, (cuFloatComplex*) A, lda, (cuFloatComplex*) AT, ldat, queue);
 #endif
 }
 
@@ -85,10 +85,10 @@ void transpose(
     int64_t m, int64_t n,
     std::complex<double>* A, int64_t lda,
     std::complex<double>* AT, int64_t ldat,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
-    transpose(m, n, (cuDoubleComplex*) A, lda, (cuDoubleComplex*) AT, ldat, stream);
+    transpose(m, n, (cuDoubleComplex*) A, lda, (cuDoubleComplex*) AT, ldat, queue);
 #endif
 }
 
@@ -99,10 +99,10 @@ void transpose_batch(
     std::complex<float>** Aarray, int64_t lda,
     std::complex<float>** ATarray, int64_t ldat,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
-    transpose_batch(m, n, (cuFloatComplex**) Aarray, lda, (cuFloatComplex**) ATarray, ldat, batch_count, stream);
+    transpose_batch(m, n, (cuFloatComplex**) Aarray, lda, (cuFloatComplex**) ATarray, ldat, batch_count, queue);
 #endif
 }
 
@@ -112,10 +112,10 @@ void transpose_batch(
     std::complex<double>** Aarray, int64_t lda,
     std::complex<double>** ATarray, int64_t ldat,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
-    transpose_batch(m, n, (cuDoubleComplex**) Aarray, lda, (cuDoubleComplex**) ATarray, ldat, batch_count, stream);
+    transpose_batch(m, n, (cuDoubleComplex**) Aarray, lda, (cuDoubleComplex**) ATarray, ldat, batch_count, queue);
 #endif
 }
 
@@ -127,7 +127,7 @@ template <>
 void transpose(
     int64_t n,
     float* A, int64_t lda,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 }
 
@@ -135,7 +135,7 @@ template <>
 void transpose(
     int64_t n,
     double* A, int64_t lda,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 }
 
@@ -145,7 +145,7 @@ void transpose_batch(
     int64_t n,
     float** Aarray, int64_t lda,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 }
 
@@ -154,7 +154,7 @@ void transpose_batch(
     int64_t n,
     double** Aarray, int64_t lda,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 }
 
@@ -164,7 +164,7 @@ void transpose(
     int64_t m, int64_t n,
     float* A, int64_t lda,
     float* AT, int64_t ldat,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 }
 
@@ -173,7 +173,7 @@ void transpose(
     int64_t m, int64_t n,
     double* A, int64_t lda,
     double* AT, int64_t ldat,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 }
 
@@ -184,7 +184,7 @@ void transpose_batch(
     float** Aarray, int64_t lda,
     float** ATarray, int64_t ldat,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 }
 
@@ -194,7 +194,7 @@ void transpose_batch(
     double** Aarray, int64_t lda,
     double** ATarray, int64_t ldat,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue& queue)
 {
 }
 #endif // not SLATE_NO_CUDA

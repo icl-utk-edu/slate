@@ -20,13 +20,13 @@ void geadd(
     int64_t m, int64_t n,
     std::complex<float> alpha, std::complex<float>** Aarray, int64_t lda,
     std::complex<float> beta, std::complex<float>** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA)
     geadd(m, n,
           make_cuFloatComplex(alpha.real(), alpha.imag()), (cuFloatComplex**) Aarray, lda,
           make_cuFloatComplex(beta.real(), beta.imag()), (cuFloatComplex**) Barray, ldb,
-          batch_count, stream);
+          batch_count, queue);
 #endif
 }
 
@@ -35,13 +35,13 @@ void geadd(
     int64_t m, int64_t n,
     std::complex<double> alpha, std::complex<double>** Aarray, int64_t lda,
     std::complex<double> beta, std::complex<double>** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA)
     geadd(m, n,
           make_cuDoubleComplex(alpha.real(), alpha.imag()) , (cuDoubleComplex**) Aarray, lda,
           make_cuDoubleComplex(beta.real(), beta.imag()), (cuDoubleComplex**) Barray, ldb,
-          batch_count, stream);
+          batch_count, queue);
 #endif
 }
 
@@ -52,7 +52,7 @@ void geadd(
     int64_t m, int64_t n,
     double alpha, double** Aarray, int64_t lda,
     double beta, double** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 }
 
@@ -61,7 +61,7 @@ void geadd(
     int64_t m, int64_t n,
     float alpha, float** Aarray, int64_t lda,
     float beta, float** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 }
 #endif // not SLATE_WITH_CUDA
@@ -79,12 +79,12 @@ namespace internal {
 template <Target target, typename scalar_t>
 void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
            scalar_t beta, Matrix<scalar_t>&& B,
-           int priority)
+           int priority, int queue_index)
 {
     geadd(internal::TargetType<target>(),
           alpha, A,
           beta,  B,
-          priority);
+          priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -99,7 +99,7 @@ template <typename scalar_t>
 void geadd(internal::TargetType<Target::HostTask>,
            scalar_t alpha, Matrix<scalar_t>& A,
            scalar_t beta, Matrix<scalar_t>& B,
-           int priority)
+           int priority, int queue_index)
 {
     // trace::Block trace_block("geadd");
 
@@ -132,9 +132,9 @@ template <typename scalar_t>
 void geadd(internal::TargetType<Target::HostNest>,
            scalar_t alpha, Matrix<scalar_t>& A,
            scalar_t beta, Matrix<scalar_t>& B,
-           int priority)
+           int priority, int queue_index)
 {
-    throw Exception("HostNest not yet implemented");
+    slate_not_implemented("Target::HostNest isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
@@ -143,9 +143,9 @@ template <typename scalar_t>
 void geadd(internal::TargetType<Target::HostBatch>,
            scalar_t alpha, Matrix<scalar_t>& A,
            scalar_t beta, Matrix<scalar_t>& B,
-           int priority)
+           int priority, int queue_index)
 {
-    throw Exception("HostBatch not yet implemented");
+    slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
@@ -160,7 +160,7 @@ template <typename scalar_t>
 void geadd(internal::TargetType<Target::Devices>,
            scalar_t alpha, Matrix<scalar_t>& A,
            scalar_t beta, Matrix<scalar_t>& B,
-           int priority)
+           int priority, int queue_index)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
@@ -235,29 +235,25 @@ void geadd(internal::TargetType<Target::Devices>,
             scalar_t** a_array_dev = B.array_device(device);
             scalar_t** b_array_dev = a_array_dev + batch_size;
 
-            slate_cuda_call(cudaSetDevice(device));
+            blas::Queue* queue = A.compute_queue(device, queue_index);
 
-            cudaStream_t stream = B.compute_stream(device);
-            // cublasHandle_t cublas_handle = B.cublas_handle(device);
-
-            slate_cuda_call(
-                cudaMemcpyAsync(a_array_dev, a_array_host,
-                                sizeof(scalar_t*)*batch_count*2,
-                                cudaMemcpyHostToDevice,
-                                stream));
+            blas::device_memcpy<scalar_t*>(a_array_dev, a_array_host,
+                                batch_count*2,
+                                blas::MemcpyKind::HostToDevice,
+                                *queue);
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
                     device::geadd(mb[q], nb[q],
                                   alpha, a_array_dev, lda[q],
-                                  beta, b_array_dev, ldb[q],
-                                  group_count[q], stream);
+                                  beta,  b_array_dev, ldb[q],
+                                  group_count[q], *queue);
                     a_array_dev += group_count[q];
                     b_array_dev += group_count[q];
                 }
             }
 
-            slate_cuda_call(cudaStreamSynchronize(stream));
+            queue->sync();
 
             for (int64_t i = 0; i < B.mt(); ++i) {
                 for (int64_t j = 0; j < B.nt(); ++j) {
@@ -283,100 +279,100 @@ template
 void geadd<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
     float beta, Matrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
     float beta, Matrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
     float beta, Matrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
     float beta, Matrix<float>&& B,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void geadd<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
     double beta, Matrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
     double beta, Matrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
     double beta, Matrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
     double beta, Matrix<double>&& B,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void geadd< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float>  beta, Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void geadd< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta, Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta, Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta, Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 template
 void geadd< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta, Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int queue_index);
 
 } // namespace internal
 } // namespace slate

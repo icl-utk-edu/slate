@@ -4,8 +4,8 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/internal/device.hh"
-#include "internal/internal_batch.hh"
 #include "internal/internal.hh"
+#include "internal/internal_batch.hh"
 #include "slate/internal/util.hh"
 #include "slate/HermitianMatrix.hh"
 #include "internal/Tile_lapack.hh"
@@ -30,11 +30,11 @@ void henorm(
     std::complex<float> const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     henorm(in_norm, uplo, n, (cuFloatComplex**) Aarray, lda,
-           values, ldv, batch_count, stream);
+           values, ldv, batch_count, queue);
 #endif
 }
 
@@ -45,11 +45,11 @@ void henorm(
     std::complex<double> const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
 #if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     henorm(in_norm, uplo, n, (cuDoubleComplex**) Aarray, lda,
-           values, ldv, batch_count, stream);
+           values, ldv, batch_count, queue);
 #endif
 }
 
@@ -62,7 +62,7 @@ void henorm(
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
 }
 
@@ -73,7 +73,7 @@ void henorm(
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
 }
 #endif // not SLATE_NO_CUDA
@@ -97,11 +97,11 @@ template <Target target, typename scalar_t>
 void norm(
     Norm in_norm, NormScope scope, HermitianMatrix<scalar_t>&& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
     norm(internal::TargetType<target>(),
          in_norm, scope, A, values,
-         priority);
+         priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -114,7 +114,7 @@ void norm(
     internal::TargetType<Target::HostTask>,
     Norm in_norm, NormScope scope, HermitianMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -123,7 +123,7 @@ void norm(
     const Layout layout = Layout::ColMajor;
 
     if (scope != NormScope::Matrix) {
-        slate_error("Not implemented yet");
+        slate_not_implemented("The NormScope isn't yet supported.");
     }
 
     bool lower = (A.uploLogical() == Uplo::Lower);
@@ -299,7 +299,7 @@ void norm(
                 henorm(in_norm, A(j, j), tile_values);
                 #pragma omp critical
                 {
-                    add_sumsq(values[0], values[1],
+                    combine_sumsq(values[0], values[1],
                               tile_values[0], tile_values[1]);
                 }
             }
@@ -316,7 +316,7 @@ void norm(
                             tile_values[1] *= 2;
                             #pragma omp critical
                             {
-                                add_sumsq(values[0], values[1],
+                                combine_sumsq(values[0], values[1],
                                           tile_values[0], tile_values[1]);
                             }
                         }
@@ -335,7 +335,7 @@ void norm(
                             tile_values[1] *= 2;
                             #pragma omp critical
                             {
-                                add_sumsq(values[0], values[1],
+                                combine_sumsq(values[0], values[1],
                                           tile_values[0], tile_values[1]);
                             }
                         }
@@ -356,9 +356,9 @@ void norm(
     internal::TargetType<Target::HostNest>,
     Norm in_norm, NormScope scope, HermitianMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
-    throw Exception("HostNested not yet implemented");
+    slate_not_implemented("Target::HostNest isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
@@ -371,7 +371,7 @@ void norm(
     internal::TargetType<Target::Devices>,
     Norm in_norm, NormScope scope, HermitianMatrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -381,7 +381,7 @@ void norm(
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
     if (scope != NormScope::Matrix) {
-        slate_error("Not implemented yet");
+        slate_not_implemented("The NormScope isn't yet supported.");
     }
 
     bool lower = (A.uploLogical() == Uplo::Lower);
@@ -411,21 +411,15 @@ void norm(
     }
 
     for (int device = 0; device < A.num_devices(); ++device) {
-        slate_cuda_call(
-            cudaSetDevice(device));
+        blas::set_device(device);
 
         int64_t num_tiles = A.getMaxDeviceTiles(device);
 
         a_host_arrays[device].resize(num_tiles);
         vals_host_arrays[device].resize(num_tiles*ldv);
 
-        slate_cuda_call(
-            cudaMalloc((void**)&a_dev_arrays[device],
-                       sizeof(scalar_t*)*num_tiles));
-
-        slate_cuda_call(
-            cudaMalloc((void**)&vals_dev_arrays[device],
-                       sizeof(real_t)*num_tiles*ldv));
+        a_dev_arrays[device] = blas::device_malloc<scalar_t*>(num_tiles);
+        vals_dev_arrays[device] = blas::device_malloc<real_t>(num_tiles*ldv);
     }
 
     // Define index ranges for quadrants of matrix.
@@ -522,15 +516,12 @@ void norm(
             {
                 trace::Block trace_block("slate::device::henorm");
 
-                slate_cuda_call(
-                    cudaSetDevice(device));
+                blas::Queue* queue = A.compute_queue(device, queue_index);
 
-                cudaStream_t stream = A.compute_stream(device);
-                slate_cuda_call(
-                    cudaMemcpyAsync(a_dev_array, a_host_array,
-                                    sizeof(scalar_t*)*batch_count,
-                                    cudaMemcpyHostToDevice,
-                                    stream));
+                blas::device_memcpy<scalar_t*>(a_dev_array, a_host_array,
+                                    batch_count,
+                                    blas::MemcpyKind::HostToDevice,
+                                    *queue);
 
                 // off-diagonal blocks (same as synorm)
                 for (int q = 0; q < 4; ++q) {
@@ -540,14 +531,14 @@ void norm(
                                                   mb[q], nb[q],
                                                   a_dev_array, lda[q],
                                                   vals_dev_array, ldv,
-                                                  group_count[q], stream);
+                                                  group_count[q], *queue);
                         }
                         else {
                             device::genorm(in_norm, NormScope::Matrix,
                                            mb[q], nb[q],
                                            a_dev_array, lda[q],
                                            vals_dev_array, ldv,
-                                           group_count[q], stream);
+                                           group_count[q], *queue);
                         }
                         a_dev_array += group_count[q];
                         vals_dev_array += group_count[q] * ldv;
@@ -560,7 +551,7 @@ void norm(
                                        nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
-                                       group_count[q], stream);
+                                       group_count[q], *queue);
                         a_dev_array += group_count[q];
                         vals_dev_array += group_count[q] * ldv;
                     }
@@ -568,14 +559,13 @@ void norm(
 
                 vals_dev_array = vals_dev_arrays[device];
 
-                slate_cuda_call(
-                    cudaMemcpyAsync(vals_host_array, vals_dev_array,
-                                    sizeof(real_t)*batch_count*ldv,
-                                    cudaMemcpyDeviceToHost,
-                                    stream));
+                blas::device_memcpy<real_t>(
+                    vals_host_array, vals_dev_array,
+                    batch_count*ldv,
+                    blas::MemcpyKind::DeviceToHost,
+                    *queue);
 
-                slate_cuda_call(
-                    cudaStreamSynchronize(stream));
+                queue->sync();
             }
 
             // Reduction over tiles to device result.
@@ -589,10 +579,11 @@ void norm(
                     // double for symmetric entries in off-diagonal blocks
                     real_t mult = (q < 4 ? 2.0 : 1.0);
                     for (int64_t k = 0; k < group_count[q]; ++k) {
-                        add_sumsq(devices_values[2*device + 0],
-                                  devices_values[2*device + 1],
-                                  vals_host_array[2*batch_count + 0],
-                                  vals_host_array[2*batch_count + 1] * mult);
+                        combine_sumsq(
+                            devices_values[2*device + 0],
+                            devices_values[2*device + 1],
+                            vals_host_array[2*batch_count + 0],
+                            vals_host_array[2*batch_count + 1] * mult);
                         ++batch_count;
                     }
                 }
@@ -603,12 +594,9 @@ void norm(
     #pragma omp taskwait
 
     for (int device = 0; device < A.num_devices(); ++device) {
-        slate_cuda_call(
-            cudaSetDevice(device));
-        slate_cuda_call(
-            cudaFree((void*)a_dev_arrays[device]));
-        slate_cuda_call(
-            cudaFree((void*)vals_dev_arrays[device]));
+        blas::set_device(device);
+        blas::device_free(a_dev_arrays[device]);
+        blas::device_free(vals_dev_arrays[device]);
     }
 
     // Reduction over devices to local result.
@@ -670,7 +658,7 @@ void norm(
         values[0] = 0;
         values[1] = 1;
         for (int device = 0; device < A.num_devices(); ++device) {
-            add_sumsq(values[0], values[1],
+            combine_sumsq(values[0], values[1],
                       devices_values[2*device + 0],
                       devices_values[2*device + 1]);
         }
@@ -684,76 +672,76 @@ template
 void norm<Target::HostTask, float>(
     Norm in_norm, NormScope scope, HermitianMatrix<float>&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::HostNest, float>(
     Norm in_norm, NormScope scope, HermitianMatrix<float>&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::Devices, float>(
     Norm in_norm, NormScope scope, HermitianMatrix<float>&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void norm<Target::HostTask, double>(
     Norm in_norm, NormScope scope, HermitianMatrix<double>&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::HostNest, double>(
     Norm in_norm, NormScope scope, HermitianMatrix<double>&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::Devices, double>(
     Norm in_norm, NormScope scope, HermitianMatrix<double>&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<float> >(
     Norm in_norm, NormScope scope, HermitianMatrix< std::complex<float> >&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::HostNest, std::complex<float> >(
     Norm in_norm, NormScope scope, HermitianMatrix< std::complex<float> >&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::Devices, std::complex<float> >(
     Norm in_norm, NormScope scope, HermitianMatrix< std::complex<float> >&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<double> >(
     Norm in_norm, NormScope scope, HermitianMatrix< std::complex<double> >&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::HostNest, std::complex<double> >(
     Norm in_norm, NormScope scope, HermitianMatrix< std::complex<double> >&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::Devices, std::complex<double> >(
     Norm in_norm, NormScope scope, HermitianMatrix< std::complex<double> >&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 } // namespace internal
 } // namespace slate

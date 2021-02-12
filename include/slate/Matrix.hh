@@ -15,8 +15,6 @@
 #include <algorithm>
 #include <utility>
 
-#include "slate/internal/cuda.hh"
-#include "slate/internal/cublas.hh"
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
 
@@ -669,12 +667,18 @@ int64_t Matrix<scalar_t>::getMaxDeviceTiles(int device)
 }
 
 //------------------------------------------------------------------------------
-/// Allocates batch arrays for all devices.
-/// This overrides BaseMatrix::allocateBatchArrays.
+/// Allocates batch arrays and BLAS++ queues for all devices.
+/// This overrides BaseMatrix::allocateBatchArrays
+/// to use the number of local tiles in a general matrix.
 ///
 /// @param[in] batch_size
-///     On exit, size of batch arrays >= batch_size >= 0.
+///     Allocate batch arrays as needed so that
+///     size of each batch array >= batch_size >= 0.
 ///     If batch_size = 0 (default), uses batch_size = getMaxDeviceTiles.
+///
+/// @param[in] num_arrays
+///     Allocate batch arrays as needed so that
+///     number of batch arrays per device >= num_arrays >= 1.
 ///
 template <typename scalar_t>
 void Matrix<scalar_t>::allocateBatchArrays(

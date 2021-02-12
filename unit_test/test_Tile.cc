@@ -656,23 +656,25 @@ void test_copyData(int align_host, int align_dev)
     setup_data(B);
     clear_data(B);
 
-    cudaStream_t stream;
-    test_assert(cudaStreamCreate(&stream) == cudaSuccess);
+    int device_idx;
+    blas::get_device(&device_idx);
+    const int batch_arrays_index = 0;
+    blas::Queue queue(device_idx, batch_arrays_index);
 
     double* Adata_dev;
     double* Bdata_dev;
-    test_assert(cudaMalloc((void**) &Adata_dev, sizeof(double)*ldda*n) == cudaSuccess);
+    Adata_dev = blas::device_malloc<double>(ldda * n);
     test_assert(Adata_dev != nullptr);
-    test_assert(cudaMalloc((void**) &Bdata_dev, sizeof(double)*ldda*n) == cudaSuccess);
+    Bdata_dev = blas::device_malloc<double>(ldda * n);
     test_assert(Bdata_dev != nullptr);
 
     slate::Tile<double> dA(m, n, Adata_dev, ldda, 0, slate::TileKind::UserOwned);
     slate::Tile<double> dB(m, n, Bdata_dev, ldda, 0, slate::TileKind::UserOwned);
 
     // copy H2D->D2D->D2H, then verify
-    A.copyData(&dA, stream);
-    dA.copyData(&dB, stream);
-    dB.copyData(&B, stream);
+    A.copyData(&dA,  queue);
+    dA.copyData(&dB, queue);
+    dB.copyData(&B,  queue);
     verify_data(B, mpi_rank);
 
     // copy host to host, then verify
@@ -680,9 +682,8 @@ void test_copyData(int align_host, int align_dev)
     A.copyData(&B);
     verify_data(B, mpi_rank);
 
-    test_assert(cudaFree(Adata_dev) == cudaSuccess);
-    test_assert(cudaFree(Bdata_dev) == cudaSuccess);
-    test_assert(cudaStreamDestroy(stream) == cudaSuccess);
+    blas::device_free(Adata_dev);
+    blas::device_free(Bdata_dev);
 
     delete[] dataA;
     delete[] dataB;
@@ -796,7 +797,7 @@ int main(int argc, char** argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
-    cudaGetDeviceCount(&num_devices);
+    num_devices = blas::get_device_count();
 
     int err = unit_test_main(MPI_COMM_WORLD);  // which calls run_tests()
 

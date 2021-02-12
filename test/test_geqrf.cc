@@ -102,7 +102,7 @@ void test_geqrf_work(Params& params, bool run)
         A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
-    slate::generate_matrix( params.matrix, A);
+    slate::generate_matrix(params.matrix, A);
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy SLATE result back from GPU or CPU tiles.
         copy(A, &A_tst[0], descA_tst);

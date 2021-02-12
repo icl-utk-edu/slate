@@ -182,7 +182,7 @@ void test_posv_work(Params& params, bool run)
         }
     }
 
-    slate::generate_matrix( params.matrix, B);
+    slate::generate_matrix(params.matrixB, B);
     if (origin != slate::Origin::ScaLAPACK) {
         copy(B, &B_tst[0], descB_tst);
     }

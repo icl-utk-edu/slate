@@ -154,8 +154,8 @@ void test_gemm_work(Params& params, bool run)
         C = slate::Matrix<scalar_t>::fromScaLAPACK( m,  n, &C_tst[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
-    slate::generate_matrix( params.matrix, A);
-    slate::generate_matrix( params.matrixB, B);
+    slate::generate_matrix(params.matrix, A);
+    slate::generate_matrix(params.matrixB, B);
 
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy SLATE result back from GPU or CPU tiles.

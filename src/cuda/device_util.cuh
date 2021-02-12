@@ -119,15 +119,15 @@ inline float abs(cuFloatComplex x)
     else {
         a = fabsf(a);
         b = fabsf(b);
-	w = max(a, b);
+        w = max(a, b);
         z = min(a, b);
 	if (z == 0) {
             t = w;
         }
         else {
-	    t = z/w;
-            t = 1.0 + t*t;	    
-	    t = w * sqrt(t);
+            t = z/w;
+            t = 1 + t*t;
+            t = w * sqrtf(t);
         }
         return t;
     }
@@ -152,15 +152,15 @@ inline double abs(cuDoubleComplex x)
     else {
         a = fabs(a);
         b = fabs(b);
-	w = max(a, b);
+        w = max(a, b);
         z = min(a, b);
 	if (z == 0) {
             t = w;
         }
         else {
-	    t = z/w;
-            t = 1.0 + t*t;	    
-	    t = w * sqrt(t);
+            t = z/w;
+            t = 1.0 + t*t;
+            t = w * sqrt(t);
         }
         return t;
     }

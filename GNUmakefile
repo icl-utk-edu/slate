@@ -123,7 +123,6 @@ have_cuda := $(shell which $(NVCC))
 ifneq ($(have_cuda),)
     cuda ?= 1
     cuda_arch ?= pascal
-    NVCC = $(NVCC)
 else ifeq ($(strip $(cuda)),1)
     $(error ERROR: cuda = $(cuda), but NVCC = ${NVCC} not found)
 endif
@@ -158,7 +157,7 @@ export CXX blas blas_int blas_threaded openmp static
 
 CXXFLAGS   += -O3 -std=c++17 -Wall -pedantic -MMD
 NVCCFLAGS  += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
-HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
+HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc --amdgpu-target=gfx908
 
 force: ;
 

@@ -49,7 +49,7 @@ struct real_type_traits<hipDoubleComplex> {
 
 } // namespace blas
 
-#endif // #ifndef SLATE_NO_CUDA
+#endif // #ifndef SLATE_NO_HIP
 
 namespace slate {
 

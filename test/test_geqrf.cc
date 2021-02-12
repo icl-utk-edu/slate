@@ -42,6 +42,7 @@ void test_geqrf_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    params.matrix.mark();
 
     // mark non-standard output values
     params.time();
@@ -60,7 +61,6 @@ void test_geqrf_work(Params& params, bool run)
     int ictxt, nprow, npcol, myrow, mycol, info;
     int descA_tst[9], descA_ref[9], descQR_tst[9];
     int iam = 0, nprocs = 1;
-    int iseed = 1;
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
@@ -76,7 +76,6 @@ void test_geqrf_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
-    scalapack_pplrnt(&A_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
     // matrix QR, for checking result
     std::vector<scalar_t> QR_tst(1);
@@ -97,12 +96,18 @@ void test_geqrf_work(Params& params, bool run)
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
-        copy(&A_tst[0], descA_tst, A);
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
         A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
     }
+
+    slate::generate_matrix( params.matrix, A);
+    if (origin != slate::Origin::ScaLAPACK) {
+        // Copy SLATE result back from GPU or CPU tiles.
+        copy(A, &A_tst[0], descA_tst);
+     }
+
     slate::TriangularFactors<scalar_t> T;
 
     if (verbose > 1) {

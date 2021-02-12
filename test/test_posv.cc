@@ -40,6 +40,7 @@ void test_posv_work(Params& params, bool run)
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::Dist dev_dist = params.dev_dist();
+    params.matrixB.mark();
 
     // mark non-standard output values
     params.time();
@@ -105,7 +106,6 @@ void test_posv_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
     std::vector<scalar_t> B_tst(lldB*nlocB);
-    scalapack_pplrnt(&B_tst[0], n, nrhs, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
 
 
     // todo: work-around to initialize BaseMatrix::num_devices_
@@ -161,7 +161,6 @@ void test_posv_work(Params& params, bool run)
         copy(&A_tst[0], descA_tst, A);
 
         B.insertLocalTiles(origin_target);
-        copy(&B_tst[0], descB_tst, B);
 
         if (params.routine == "posvMixed") {
             if (std::is_same<real_t, double>::value) {
@@ -181,6 +180,11 @@ void test_posv_work(Params& params, bool run)
                 X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
             }
         }
+    }
+
+    slate::generate_matrix( params.matrix, B);
+    if (origin != slate::Origin::ScaLAPACK) {
+        copy(B, &B_tst[0], descB_tst);
     }
 
     // if check is required, copy test data and create a descriptor for it

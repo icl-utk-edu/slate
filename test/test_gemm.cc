@@ -46,6 +46,8 @@ void test_gemm_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    params.matrix.mark();
+    params.matrixB.mark();
 
     // mark non-standard output values
     params.time();
@@ -96,7 +98,6 @@ void test_gemm_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
-    scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
     int64_t mlocB = scalapack_numroc(Bm, nb, myrow, izero, nprow);
@@ -105,7 +106,6 @@ void test_gemm_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
     std::vector<scalar_t> B_tst(lldB*nlocB);
-    scalapack_pplrnt(&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
 
     // matrix C, figure out local size, allocate, create descriptor, initialize
     int64_t mlocC = scalapack_numroc(m, nb, myrow, izero, nprow);
@@ -139,11 +139,9 @@ void test_gemm_work(Params& params, bool run)
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(Am, An, nb, nprow, npcol, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
-        copy(&A_tst[0], descA_tst, A);
 
         B = slate::Matrix<scalar_t>(Bm, Bn, nb, nprow, npcol, MPI_COMM_WORLD);
         B.insertLocalTiles(origin_target);
-        copy(&B_tst[0], descB_tst, B);
 
         C = slate::Matrix<scalar_t>(Cm, Cn, nb, nprow, npcol, MPI_COMM_WORLD);
         C.insertLocalTiles(origin_target);
@@ -155,6 +153,15 @@ void test_gemm_work(Params& params, bool run)
         B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
         C = slate::Matrix<scalar_t>::fromScaLAPACK( m,  n, &C_tst[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
     }
+
+    slate::generate_matrix( params.matrix, A);
+    slate::generate_matrix( params.matrixB, B);
+
+    if (origin != slate::Origin::ScaLAPACK) {
+        // Copy SLATE result back from GPU or CPU tiles.
+        copy(A, &A_tst[0], descA_tst);
+        copy(B, &B_tst[0], descB_tst);
+     }
 
     if (transA == slate::Op::Trans)
         A = transpose(A);

@@ -104,13 +104,67 @@ inline double abs(double x)
 __host__ __device__
 inline float abs(cuFloatComplex x)
 {
+#ifdef __NVCC__
     return cuCabsf(x);
+#else    
+    float a = cuCrealf(x);
+    float b = cuCimagf(x);
+    float z, w, t;
+    if (isnan( a )) {
+        return a;
+    }
+    else if (isnan( b )) {
+        return b;
+    }
+    else {
+        a = fabsf(a);
+        b = fabsf(b);
+	w = max(a, b);
+        z = min(a, b);
+	if (z == 0) {
+            t = w;
+        }
+        else {
+	    t = z/w;
+            t = 1.0 + t*t;	    
+	    t = w * sqrt(t);
+        }
+        return t;
+    }
+#endif    
 }
 
 __host__ __device__
 inline double abs(cuDoubleComplex x)
 {
+#ifdef __NVCC__
     return cuCabs(x);
+#else    
+    double a = cuCreal(x);
+    double b = cuCimag(x);
+    double z, w, t;
+    if (isnan( a )) {
+        return a;
+    }
+    else if (isnan( b )) {
+        return b;
+    }
+    else {
+        a = fabs(a);
+        b = fabs(b);
+	w = max(a, b);
+        z = min(a, b);
+	if (z == 0) {
+            t = w;
+        }
+        else {
+	    t = z/w;
+            t = 1.0 + t*t;	    
+	    t = w * sqrt(t);
+        }
+        return t;
+    }
+#endif
 }
 
 //------------------------------------------------------------------------------

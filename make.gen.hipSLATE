@@ -2,8 +2,8 @@
 HIPIFY            ?= $(HIPDIR)/hip/bin/hipify-perl
 
 # input & output directories
-DIRS              := src/cuda unit_test
-ODIRS             := src/hip  unit_test_hip
+DIRS              := src/cuda
+ODIRS             := src/hip
 
 
 # -- Rules --
@@ -25,24 +25,3 @@ src/hip/%.hip.hh: src/cuda/%.cuh
 	@mkdir -p $(dir $@)
 	$(HIPIFY) $< > $@
 	sed -i -e "s/\.cuh/.hip.hh/g" $@
-
-
-unit_test_hip: force \
-    $(patsubst unit_test/%,unit_test_hip/%,$(wildcard unit_test/*.cc)) \
-    $(patsubst unit_test/%,unit_test_hip/%,$(wildcard unit_test/*.hh)) \
-    $(patsubst unit_test/%,unit_test_hip/%,$(wildcard unit_test/*.py))
-
-unit_test_hip/%.cc: unit_test/%.cc
-	@mkdir -p $(dir $@)
-	$(HIPIFY) $< > $@
-	sed -i -e "s/\.cuh/.hip.hh/g" $@
-	sed -i -e "s/CUBLAS/hipBLAS/g" $@
-
-unit_test_hip/%.hh: unit_test/%.hh
-	@mkdir -p $(dir $@)
-	$(HIPIFY) $< > $@
-	sed -i -e "s/\.cuh/.hip.hh/g" $@
-
-unit_test_hip/%.py: unit_test/%.py
-	@mkdir -p $(dir $@)
-	cp $^ $@

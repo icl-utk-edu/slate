@@ -623,45 +623,24 @@ ifneq ($(have_fortran),)
 endif
 
 # unit testers
-ifeq ($(hip),1)
-    unit_src = \
-        unit_test_hip/test_BandMatrix.cc \
-        unit_test_hip/test_HermitianMatrix.cc \
-        unit_test_hip/test_LockGuard.cc \
-        unit_test_hip/test_Matrix.cc \
-        unit_test_hip/test_Memory.cc \
-        unit_test_hip/test_SymmetricMatrix.cc \
-        unit_test_hip/test_Tile.cc \
-        unit_test_hip/test_Tile_kernels.cc \
-        unit_test_hip/test_TrapezoidMatrix.cc \
-        unit_test_hip/test_TriangularMatrix.cc \
-        unit_test_hip/test_lq.cc \
-        unit_test_hip/test_norm.cc \
-        unit_test_hip/test_qr.cc \
+unit_src = \
+    unit_test/test_BandMatrix.cc \
+    unit_test/test_HermitianMatrix.cc \
+    unit_test/test_LockGuard.cc \
+    unit_test/test_Matrix.cc \
+    unit_test/test_Memory.cc \
+    unit_test/test_SymmetricMatrix.cc \
+    unit_test/test_Tile.cc \
+    unit_test/test_Tile_kernels.cc \
+    unit_test/test_TrapezoidMatrix.cc \
+    unit_test/test_TriangularMatrix.cc \
+    unit_test/test_lq.cc \
+    unit_test/test_norm.cc \
+    unit_test/test_qr.cc \
 
-    # unit test framework
-    unit_test_obj = \
-            unit_test_hip/unit_test.o
-else
-    unit_src = \
-        unit_test/test_BandMatrix.cc \
-        unit_test/test_HermitianMatrix.cc \
-        unit_test/test_LockGuard.cc \
-        unit_test/test_Matrix.cc \
-        unit_test/test_Memory.cc \
-        unit_test/test_SymmetricMatrix.cc \
-        unit_test/test_Tile.cc \
-        unit_test/test_Tile_kernels.cc \
-        unit_test/test_TrapezoidMatrix.cc \
-        unit_test/test_TriangularMatrix.cc \
-        unit_test/test_lq.cc \
-        unit_test/test_norm.cc \
-        unit_test/test_qr.cc \
-
-    # unit test framework
-    unit_test_obj = \
-            unit_test/unit_test.o
-endif
+# unit test framework
+unit_test_obj = \
+        unit_test/unit_test.o
 
 libslate_obj = $(addsuffix .o, $(basename $(libslate_src)))
 tester_obj   = $(addsuffix .o, $(basename $(tester_src)))
@@ -1031,8 +1010,7 @@ distclean: clean
 	rm -f include/slate/c_api/matrix.h
 	rm -f include/slate/c_api/util.hh
 	rm -f src/fortran/slate_module.f90
-	rm -rf src/hip 
-	rm -rf unit_test_hip
+	rm -rf src/hip
 	cd testsweeper && $(MAKE) distclean
 	cd blaspp      && $(MAKE) distclean
 	cd lapackpp    && $(MAKE) distclean

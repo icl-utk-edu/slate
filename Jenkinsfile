@@ -6,7 +6,7 @@ pipeline {
         stage('Parallel Build') {
             parallel {
                 //--------------------------------------------------------------
-                stage('Build - Caffeine (gcc 6.4, CUDA, MKL, Intel MPI)') {
+                stage('Build - Caffeine (gcc 6.4, HIP, MKL, Intel MPI)') {
                     agent { node 'caffeine.icl.utk.edu' }
                     steps {
                         sh '''
@@ -18,18 +18,22 @@ pipeline {
 
                         source /home/jenkins/spack_setup
                         sload gcc@6.4.0
-                        sload cuda@10.2.89
                         sload intel-mkl
                         sload intel-mpi
+
+                        # load ROCm/HIP
+                        export PATH=${PATH}:/opt/rocm/bin
+                        export CPATH=${CPATH}:/opt/rocm/include
+                        export LIBRARY_PATH=${LIBRARY_PATH}:/opt/rocm/lib
+                        export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/rocm/lib
 
                         export color=no
 
                         cat > make.inc << END
                         CXX       = mpicxx
                         FC        = mpif90
-                        CXXFLAGS  = -Werror
+                        # CXXFLAGS  = -Werror  # HIP headers have many errors.
                         blas      = mkl
-                        cuda_arch = pascal
                         # openmp=1 by default
 END
 

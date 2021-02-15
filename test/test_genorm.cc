@@ -43,6 +43,7 @@ void test_genorm_work(Params& params, bool run)
     int extended = params.extended();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    params.matrix.mark();
 
     // mark non-standard output values
     params.time();
@@ -76,20 +77,6 @@ void test_genorm_work(Params& params, bool run)
     scalapack_descinit(descA_tst, m, n, nb, nb, izero, izero, ictxt, lldA, &info);
     slate_assert(info == 0);
     std::vector<scalar_t> A_tst(lldA*nlocA);
-    // todo: fix the generation
-    //int iseed = 1;
-    //scalapack_pplrnt(&A_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
-    int64_t iseeds[4] = { myrow, mycol, 2, 3 };
-    //lapack::larnv(2, iseeds, lldA*nlocA, &A_tst[0] );
-    for (int64_t j = 0; j < nlocA; ++j)
-        lapack::larnv(2, iseeds, mlocA, &A_tst[j*lldA]);
-
-    //if (verbose > 1) {
-    //    print_matrix("A_tst", mlocA, nlocA, &A_tst[0], lldA, p, q, MPI_COMM_WORLD);
-    //}
-
-    // todo: work-around to initialize BaseMatrix::num_devices_
-    slate::Matrix<scalar_t> A0(m, n, nb, p, q, MPI_COMM_WORLD);
 
     slate::Matrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
@@ -97,12 +84,16 @@ void test_genorm_work(Params& params, bool run)
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
-        copy(&A_tst[0], descA_tst, A);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layout.
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
                 m, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    }
+
+    slate::generate_matrix(params.matrix, A);
+    if (origin != slate::Origin::ScaLAPACK) {
+        copy(A, &A_tst[0], descA_tst);
     }
 
     std::vector<real_t> values;

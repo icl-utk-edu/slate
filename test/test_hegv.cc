@@ -32,8 +32,8 @@ void test_hegv_work(Params& params, bool run)
     slate::Uplo uplo = params.uplo();
     int64_t itype = params.itype();
     int64_t n = params.dim.n();
-    int64_t p = params.p();
-    int64_t q = params.q();
+    int64_t p = params.grid.m();
+    int64_t q = params.grid.n();
     int64_t nb = params.nb();
     int64_t ib = params.ib();
     int64_t panel_threads = params.panel_threads();
@@ -388,8 +388,8 @@ void test_hegv_work(Params& params, bool run)
             // Perform a local operation to get differences W_vec = W_vec - W_ref
             blas::axpy(W_vec.size(), -1.0, &W_ref_vec[0], 1, &W_vec[0], 1);
             // Relative forward error: || W_ref - W_tst || / || W_ref ||
-            params.error2() = lapack::lange(slate::Norm::One, W_vec.size(), 1, &W_vec[0], 1)
-                / lapack::lange(slate::Norm::One, W_ref_vec.size(), 1, &W_ref_vec[0], 1);
+            params.error2() = lapack::lange(slate::Norm::One, 1, W_vec.size(), &W_vec[0], 1)
+                / lapack::lange(slate::Norm::One, 1, W_ref_vec.size(), &W_ref_vec[0], 1);
             real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
             params.okay() = (params.error2() <= tol);
         }

@@ -29,10 +29,10 @@ void test_her2k_work(Params& params, bool run)
     slate::Op trans = params.trans();
     int64_t n = params.dim.n();
     int64_t k = params.dim.k();
-    scalar_t alpha = params.alpha();
-    real_t beta = params.beta();
-    int64_t p = params.p();
-    int64_t q = params.q();
+    scalar_t alpha = params.alpha.get<scalar_t>();
+    real_t beta = params.beta.get<real_t>();
+    int64_t p = params.grid.m();
+    int64_t q = params.grid.n();
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
     slate::Norm norm = params.norm();
@@ -183,7 +183,7 @@ void test_her2k_work(Params& params, bool run)
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
-    double gflop = blas::Gflop< scalar_t >::her2k(n, n);
+    double gflop = blas::Gflop<scalar_t>::her2k(n, k);
     params.time() = time_tst;
     params.gflops() = gflop / time_tst;
 

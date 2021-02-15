@@ -105,7 +105,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     Side::Left,
                     alph, A.sub(k, k),
                           B.sub(k, k, 0, nt-1),
-                    layout, priority_one, batch_arrays_index_one);
+                    priority_one, layout, batch_arrays_index_one);
 
                 // send A(i=k+1:mt-1, k) to ranks owning block row B(i, :)
                 BcastList bcast_list_A;
@@ -175,7 +175,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     Side::Left,
                     alph, A.sub(k, k),
                           B.sub(k, k, 0, nt-1),
-                    layout, priority_one, batch_arrays_index_one);
+                    priority_one, layout, batch_arrays_index_one);
 
                 // send A(i=0:k-1, k) to ranks owning block row B(i, :)
                 BcastList bcast_list_A;

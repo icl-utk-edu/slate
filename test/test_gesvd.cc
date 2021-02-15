@@ -32,8 +32,8 @@ void test_gesvd_work(Params& params, bool run)
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
 
-    int64_t p = params.p();
-    int64_t q = params.q();
+    int64_t p = params.grid.m();
+    int64_t q = params.grid.n();
     int64_t nb = params.nb();
     int64_t ib = params.ib();
     int64_t panel_threads = params.panel_threads();
@@ -258,8 +258,8 @@ void test_gesvd_work(Params& params, bool run)
         blas::axpy(S_ref.size(), -1.0, &S_ref[0], 1, &S_tst[0], 1);
 
         // Relative forward error: || S_ref - S_tst || / || S_ref ||
-        params.error() = lapack::lange(norm, S_tst.size(), 1, &S_tst[0], 1)
-                       / lapack::lange(norm, S_ref.size(), 1, &S_ref[0], 1);
+        params.error() = lapack::lange(norm, 1, S_tst.size(), &S_tst[0], 1)
+                       / lapack::lange(norm, 1, S_ref.size(), &S_ref[0], 1);
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);

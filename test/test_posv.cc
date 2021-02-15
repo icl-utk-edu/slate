@@ -28,8 +28,8 @@ void test_posv_work(Params& params, bool run)
     slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
     int64_t nrhs = params.nrhs();
-    int64_t p = params.p();
-    int64_t q = params.q();
+    int64_t p = params.grid.m();
+    int64_t q = params.grid.n();
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
     bool ref_only = params.ref() == 'o';

@@ -52,9 +52,9 @@ norm(slate::internal::TargetType<target>,
         real_t local_max;
         real_t global_max;
 
-        if (target == Target::Devices) {
+        // TODO: Allocate batch arrays here, not in internal.
+        if (target == Target::Devices)
             A.reserveDeviceWorkspace();
-        }
 
         #pragma omp parallel
         #pragma omp master

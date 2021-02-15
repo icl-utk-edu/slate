@@ -26,16 +26,17 @@ namespace specialization {
 template <Target target, typename scalar_t>
 void getrf_nopiv(slate::internal::TargetType<target>,
            Matrix<scalar_t>& A,
-           int64_t ib, int max_panel_threads, int64_t lookahead)
+           int64_t ib, int64_t lookahead)
 {
-    // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
+    using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
-    Layout host_layout = Layout::ColMajor;
-    Layout target_layout = Layout::ColMajor;
+    Layout layout = Layout::ColMajor;
 
     if (target == Target::Devices) {
-        A.allocateBatchArrays();
+        // two batch arrays plus one for each lookahead
+        // batch array size will be set as needed
+        A.allocateBatchArrays(0, 2 + lookahead);
         A.reserveDeviceWorkspace();
     }
 
@@ -44,12 +45,18 @@ void getrf_nopiv(slate::internal::TargetType<target>,
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
+    int life_factor_one = 1;
+    bool is_shared = lookahead > 0;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
     std::vector< uint8_t > diag_vector(A_nt);
     uint8_t* column = column_vector.data();
     uint8_t* diag = diag_vector.data();
+    // Running two listBcastMT's simultaneously can hang due to task ordering
+    // This dependency avoids that
+    uint8_t listBcastMT_token;
+    SLATE_UNUSED(listBcastMT_token); // Only used by OpenMP
 
     #pragma omp parallel
     #pragma omp master
@@ -72,55 +79,55 @@ void getrf_nopiv(slate::internal::TargetType<target>,
                 BcastList bcast_list_A;
                 bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
                                                A.sub(k, k, k+1, A_nt-1)}});
-                A.template listBcast(bcast_list_A, host_layout, tag_k);
+                A.template listBcast<target>(
+                    bcast_list_A, layout, tag_k, life_factor_one, true);
             }
 
             #pragma omp task depend(inout:column[k]) \
+                             depend(in:diag[k]) \
+                             depend(inout:listBcastMT_token) \
                              priority(priority_one)
             {
-                int64_t tag_k = k;
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Akk);
 
-                internal::trsm<Target::HostTask>(
+                internal::trsm<target>(
                     Side::Right,
                     scalar_t(1.0), std::move(Tkk),
                                    A.sub(k+1, A_mt-1, k, k),
-                    host_layout, priority_one);
+                    priority_one, layout, 0);
 
-                BcastList bcast_list_A;
+
+                BcastListTag bcast_list;
                 // bcast the tiles of the panel to the right hand side
                 for (int64_t i = k+1; i < A_mt; ++i) {
                     // send A(i, k) across row A(i, k+1:nt-1)
-                    bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
+                    const int64_t tag = i;
+                    bcast_list.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}, tag});
                 }
-                A.template listBcast(bcast_list_A, Layout::ColMajor, tag_k);
-
+                A.template listBcastMT<target>(
+                  bcast_list, layout, life_factor_one, is_shared);
             }
             // update lookahead column(s), high priority
-            // Done on CPU, not target.
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
                 #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[j]) \
                                  priority(priority_one)
                 {
-                    // swap rows in A(k:mt-1, j)
                     int tag_j = j;
-
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
                         TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
 
                     // solve A(k, k) A(k, j) = A(k, j)
-                    internal::trsm<Target::HostTask>(
+                    internal::trsm<target>(
                         Side::Left,
                         scalar_t(1.0), std::move(Tkk),
                                        A.sub(k, k, j, j),
-                        host_layout, priority_one);
+                        priority_one, layout, j-k+1);
 
                     // send A(k, j) across column A(k+1:mt-1, j)
-                    // todo: trsm still operates in ColMajor
-                    A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), Layout::ColMajor, tag_j);
+                    A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), layout, tag_j);
                 }
 
                 #pragma omp task depend(in:column[k]) \
@@ -128,41 +135,42 @@ void getrf_nopiv(slate::internal::TargetType<target>,
                                  priority(priority_one)
                 {
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
-                    internal::gemm<Target::HostTask>(
+                    internal::gemm<target>(
                         scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
                                         A.sub(k, k, j, j),
                         scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
-                        host_layout, priority_one);
+                        layout, priority_one, j-k+1);
                 }
             }
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
                 #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[k+1+lookahead]) \
+                                 depend(inout:listBcastMT_token) \
                                  depend(inout:column[A_nt-1])
                 {
-                    // swap rows in A(k:mt-1, kl+1:nt-1)
-                    int tag_kl1 = k+1+lookahead;
-
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
                         TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
 
                     // solve A(k, k) A(k, kl+1:nt-1) = A(k, kl+1:nt-1)
                     // todo: target
-                    internal::trsm<Target::HostTask>(
+                    internal::trsm<target>(
                         Side::Left,
                         scalar_t(1.0), std::move(Tkk),
-                                       A.sub(k, k, k+1+lookahead, A_nt-1));
-
+                                       A.sub(k, k, k+1+lookahead, A_nt-1),
+                        priority_zero, layout, 1);
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
-                    BcastList bcast_list_A;
+                    BcastListTag bcast_list;
                     for (int64_t j = k+1+lookahead; j < A_nt; ++j) {
                         // send A(k, j) across column A(k+1:mt-1, j)
-                        bcast_list_A.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
+                        // tag must be distinct from sending left panel
+                        const int64_t tag = j + A_mt;
+                        bcast_list.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)},
+                                              tag});
                     }
-                    // todo: trsm still operates in ColMajor
-                    A.template listBcast(bcast_list_A, Layout::ColMajor, tag_kl1);
+                    A.template listBcastMT<target>(
+                        bcast_list, layout);
                 }
 
                 #pragma omp task depend(in:column[k]) \
@@ -174,16 +182,46 @@ void getrf_nopiv(slate::internal::TargetType<target>,
                         scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
                                         A.sub(k, k, k+1+lookahead, A_nt-1),
                         scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
-                        target_layout, priority_zero);
+                        layout, priority_zero, 1);
+                }
+            }
+            if (target == Target::Devices) {
+                #pragma omp task depend(inout:diag[k])
+                {
+                    if (A.tileIsLocal(k, k) && k+1 < A_nt) {
+                        std::set<int> dev_set;
+                        A.sub(k+1, A_mt-1, k, k).getLocalDevices(&dev_set);
+                        A.sub(k, k, k+1, A_nt-1).getLocalDevices(&dev_set);
+
+                        for (auto device : dev_set) {
+                            A.tileUnsetHold(k, k, device);
+                            A.tileRelease(k, k, device);
+                        }
+                    }
+                }
+                if (is_shared) {
+                    #pragma omp task depend(inout:column[k])
+                    {
+                        for (int64_t i = k+1; i < A_mt; ++i) {
+                            if (A.tileIsLocal(i, k)) {
+                                A.tileUpdateOrigin(i, k);
+
+                                std::set<int> dev_set;
+                                A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
+
+                                for (auto device : dev_set) {
+                                    A.tileUnsetHold(i, k, device);
+                                    A.tileRelease(i, k, device);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
-    }
 
-    #pragma omp parallel
-    #pragma omp master
-    {
-        A.tileLayoutReset();
+        #pragma omp taskwait
+        A.tileUpdateAllOrigin();
     }
     A.clearWorkspace();
 }
@@ -217,18 +255,8 @@ void getrf_nopiv(Matrix<scalar_t>& A,
         ib = 16;
     }
 
-    int64_t max_panel_threads;
-    try {
-        max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
-        assert(max_panel_threads >= 1 && max_panel_threads <= omp_get_max_threads());
-    }
-    catch (std::out_of_range&) {
-        max_panel_threads = std::max(omp_get_max_threads()/2, 1);
-    }
-
     internal::specialization::getrf_nopiv(internal::TargetType<target>(),
-                                    A,
-                                    ib, max_panel_threads, lookahead);
+                                          A, ib, lookahead);
 }
 
 //------------------------------------------------------------------------------

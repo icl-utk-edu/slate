@@ -36,13 +36,13 @@ void test_tbsm_work(Params& params, bool run)
     // ref. code to check can't do transB; disable for now.
     //slate::Op transB = params.transB();
     slate::Diag diag = params.diag();
-    scalar_t alpha = params.alpha();
+    scalar_t alpha = params.alpha.get<scalar_t>();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     int64_t kd = params.kd();
     int64_t nb = params.nb();
-    int64_t p = params.p();
-    int64_t q = params.q();
+    int64_t p = params.grid.m();
+    int64_t q = params.grid.n();
     int64_t lookahead = params.lookahead();
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';

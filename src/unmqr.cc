@@ -60,7 +60,7 @@ void unmqr(
         // only one tile-row of matrix W per MPI process is going to be used,
         // but W with size of whole C is being allocated
         // thus limiting the matrix size that can be processed
-        // W.reserveDeviceWorkspace();
+        //W.reserveDeviceWorkspace();
     }
 
     assert(T.size() == 2);

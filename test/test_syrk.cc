@@ -28,10 +28,10 @@ void test_syrk_work(Params& params, bool run)
     slate::Op transA = params.trans();
     int64_t n = params.dim.n();
     int64_t k = params.dim.k();
-    scalar_t alpha = params.alpha();
-    scalar_t beta = params.beta();
-    int64_t p = params.p();
-    int64_t q = params.q();
+    scalar_t alpha = params.alpha.get<scalar_t>();
+    scalar_t beta = params.beta.get<scalar_t>();
+    int64_t p = params.grid.m();
+    int64_t q = params.grid.n();
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
     slate::Norm norm = params.norm();
@@ -160,7 +160,7 @@ void test_syrk_work(Params& params, bool run)
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
-    double gflop = blas::Gflop <scalar_t>::syrk(n, k);
+    double gflop = blas::Gflop<scalar_t>::syrk(n, k);
     params.time() = time_tst;
     params.gflops() = gflop / time_tst;
 

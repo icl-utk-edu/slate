@@ -284,8 +284,8 @@ Params::Params():
     vu        ("vu",      6, 3, ParamType::List, 100,     0, 1000000, "upper bound of eigen/singular values to find; default 100.0"),
     il        ("il",      6,    ParamType::List,  10,     0, 1000000, "1-based index of smallest eigen/singular value to find; default 10"),
     iu        ("iu",      6,    ParamType::List, 100,     0, 1000000, "1-based index of largest  eigen/singular value to find; default 100"),
-    alpha     ("alpha",   8, 3, ParamType::List,  pi,  -inf,     inf, "scalar alpha"),
-    beta      ("beta",    8, 3, ParamType::List,   e,  -inf,     inf, "scalar beta"),
+    alpha     ( "alpha",  4, 2, ParamType::List, "3.141592653589793+1.414213562373095i",   -inf, inf, "alpha value" ),
+    beta      ( "beta",   4, 2, ParamType::List, "2.718281828459045+1.732050807568877i",   -inf, inf, "beta value" ),
     incx      ("incx",    6,    ParamType::List,   1, -1000,    1000, "stride of x vector"),
     incy      ("incy",    6,    ParamType::List,   1, -1000,    1000, "stride of y vector"),
     itype     ("itype",   6,    ParamType::List,   1,     1,       3, "generalized eigenvalue problem type (1:Ax=lBx, 2:ABx=lx 3:BAx=lx)"),
@@ -293,8 +293,7 @@ Params::Params():
     // SLATE options
     nb        ("nb",      5,    ParamType::List, 50,      0, 1000000, "nb"),
     ib        ("ib",      4,    ParamType::List, 16,      0, 1000000, "ib"),
-    p         ("p",       4,    ParamType::List, 1,       0, 1000000, "p"),
-    q         ("q",       4,    ParamType::List, 1,       0, 1000000, "q"),
+    grid      ("grid",    6,    ParamType::List, "1x1",   0, 1000000, "p x q dimensions"),
     lookahead ("lookahead", 2,  ParamType::List, 1,       0, 1000000, "(la) number of lookahead panels"),
     panel_threads("panel-threads",
                           2,    ParamType::List, 1,       0, 1000000, "(pt) max number of threads used in panel"),
@@ -351,6 +350,9 @@ Params::Params():
     repeat();
     verbose();
     cache();
+
+    //  change names of grid elements
+    grid.names("p", "q");
 
     // routine's parameters are marked by the test routine; see main
 }
@@ -470,17 +472,9 @@ int run(int argc, char** argv)
             args += ", MPI size " + std::to_string(mpi_size);
             args += ", OpenMP threads " + std::to_string(omp_get_max_threads());
 
-            int num_devices = 0;
-            try {
-                num_devices = blas::get_device_count();
-                if (num_devices > 0)
-                    args += ", GPU devices available " + std::to_string(num_devices);
-            }
-            catch (std::exception const& e) {
-                // Ignore BLAS++ error if no GPU device is found.
-                // todo: should we have a better solution?
-                num_devices = 0;
-            }
+            int num_devices = blas::get_device_count();
+            if (num_devices > 0)
+                args += ", GPU devices available " + std::to_string(num_devices);
             args += "\n";
 
             printf("%s", args.c_str());
@@ -525,8 +519,8 @@ int run(int argc, char** argv)
             if (p*q == mpi_size)
                 break;
         }
-        params.p() = p;
-        params.q() = q;
+        testsweeper::int3_t grid = { p, q, 1 };
+        params.grid.set_default( grid );
 
         // parse parameters up to routine name.
         try {
@@ -538,7 +532,7 @@ int run(int argc, char** argv)
             throw;
         }
 
-        slate_assert(params.p() * params.q() == mpi_size);
+        slate_assert(params.grid.m() * params.grid.n() == mpi_size);
 
         slate::trace::Trace::pixels_per_second(params.trace_scale());
 

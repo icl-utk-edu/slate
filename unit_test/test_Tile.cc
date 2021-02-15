@@ -797,14 +797,7 @@ int main(int argc, char** argv)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
 
-    try {
-        num_devices = blas::get_device_count();
-    }
-    catch (std::exception const& e) {
-        // Ignore BLAS++ error if no GPU device is found.
-        // todo: should we have a better solution?
-        num_devices = 0;
-    }
+    num_devices = blas::get_device_count();
 
     int err = unit_test_main(MPI_COMM_WORLD);  // which calls run_tests()
 

@@ -54,90 +54,90 @@ std::vector< std::string >
 namespace slate {
 
 // -----------------------------------------------------------------------------
-/// Generates sigma vector of singular or eigenvalues, according to distribution.
+/// Generates Sigma vector of singular or eigenvalues, according to distribution.
 ///
 /// Internal function, called from generate_matrix().
 ///
 /// @ingroup generate_matrix
-template< typename scalar_t >
+template <typename scalar_t>
 void generate_sigma(
     MatrixParams& params,
     TestMatrixDist dist, bool rand_sign,
     blas::real_type<scalar_t> cond,
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
-    Vector< blas::real_type<scalar_t> >& sigma )
+    std::vector< blas::real_type<scalar_t> >& Sigma )
 {
     using real_t = blas::real_type<scalar_t>;
 
 
     // locals
     int64_t minmn = std::min( A.m(), A.n() );
-    assert( minmn == sigma.n );
+    assert( minmn == int64_t(Sigma.size()) );
 
     switch (dist) {
         case TestMatrixDist::arith:
             for (int64_t i = 0; i < minmn; ++i) {
-                sigma[i] = 1 - i / real_t(minmn - 1) * (1 - 1/cond);
+                Sigma[i] = 1 - i / real_t(minmn - 1) * (1 - 1/cond);
             }
             break;
 
         case TestMatrixDist::rarith:
             for (int64_t i = 0; i < minmn; ++i) {
-                sigma[i] = 1 - (minmn - 1 - i) / real_t(minmn - 1) * (1 - 1/cond);
+                Sigma[i] = 1 - (minmn - 1 - i) / real_t(minmn - 1) * (1 - 1/cond);
             }
             break;
 
         case TestMatrixDist::geo:
             for (int64_t i = 0; i < minmn; ++i) {
-                sigma[i] = pow( cond, -i / real_t(minmn - 1) );
+                Sigma[i] = pow( cond, -i / real_t(minmn - 1) );
             }
             break;
 
         case TestMatrixDist::rgeo:
             for (int64_t i = 0; i < minmn; ++i) {
-                sigma[i] = pow( cond, -(minmn - 1 - i) / real_t(minmn - 1) );
+                Sigma[i] = pow( cond, -(minmn - 1 - i) / real_t(minmn - 1) );
             }
             break;
 
         case TestMatrixDist::cluster0:
-            sigma[0] = 1;
+            Sigma[0] = 1;
             for (int64_t i = 1; i < minmn; ++i) {
-                sigma[i] = 1/cond;
+                Sigma[i] = 1/cond;
             }
             break;
 
         case TestMatrixDist::rcluster0:
             for (int64_t i = 0; i < minmn-1; ++i) {
-                sigma[i] = 1/cond;
+                Sigma[i] = 1/cond;
             }
-            sigma[minmn-1] = 1;
+            Sigma[minmn-1] = 1;
             break;
 
         case TestMatrixDist::cluster1:
             for (int64_t i = 0; i < minmn-1; ++i) {
-                sigma[i] = 1;
+                Sigma[i] = 1;
             }
-            sigma[minmn-1] = 1/cond;
+            Sigma[minmn-1] = 1/cond;
             break;
 
         case TestMatrixDist::rcluster1:
-            sigma[0] = 1/cond;
+            Sigma[0] = 1/cond;
             for (int64_t i = 1; i < minmn; ++i) {
-                sigma[i] = 1;
+                Sigma[i] = 1;
             }
             break;
 
         case TestMatrixDist::logrand: {
             real_t range = log( 1/cond );
-            lapack::larnv( idist_rand, params.iseed, sigma.n, sigma(0) );
+            lapack::larnv( idist_rand, params.iseed, Sigma.size(), Sigma.data() );
             for (int64_t i = 0; i < minmn; ++i) {
-                sigma[i] = exp( sigma[i] * range );
+                Sigma[i] = exp( Sigma[i] * range );
             }
             // make cond exact
             if (minmn >= 2) {
-                sigma[0] = 1;
-                sigma[1] = 1/cond;
+                Sigma[0] = 1;
+                Sigma[1] = 1/cond;
             }
             break;
         }
@@ -146,12 +146,12 @@ void generate_sigma(
         case TestMatrixDist::rands:
         case TestMatrixDist::rand: {
             int64_t idist = (int64_t) dist;
-            lapack::larnv( idist, params.iseed, sigma.n, sigma(0) );
+            lapack::larnv( idist, params.iseed, Sigma.size(), Sigma.data() );
             break;
         }
 
         case TestMatrixDist::specified:
-            // user-specified sigma values; don't modify
+            // user-specified Sigma values; don't modify
             sigma_max = 1;
             rand_sign = false;
             break;
@@ -162,19 +162,19 @@ void generate_sigma(
     }
 
     if (sigma_max != 1) {
-        blas::scal( sigma.n, sigma_max, sigma(0), 1 );
+        blas::scal( Sigma.size(), sigma_max, Sigma.data(), 1 );
     }
 
     if (rand_sign) {
         // apply random signs
         for (int64_t i = 0; i < minmn; ++i) {
             if (rand() > RAND_MAX/2) {
-                sigma[i] = -sigma[i];
+                Sigma[i] = -Sigma[i];
             }
         }
     }
 
-    // copy sigma => A
+    // copy Sigma => A
     scalar_t zero = 0.0;
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
     set(zero, zero, A);
@@ -184,7 +184,7 @@ void generate_sigma(
         if (A.tileIsLocal(i, i)) {
             auto T = A(i, i);
             for (int ii = 0; ii < A.tileNb(i); ++ii) {
-                T.at(ii, ii) = sigma[S_index + ii];
+                T.at(ii, ii) = Sigma[S_index + ii];
             }
         }
         S_index += A.tileNb(i);
@@ -201,12 +201,12 @@ void generate_sigma(
 /// Internal function, called from generate_matrix().
 ///
 /// @ingroup generate_matrix
-//template< typename scalar_t >
+//template <typename scalar_t>
 //void generate_correlation_factor( slate::Matrix<scalar_t>& A )
 //{
 //    //const scalar_t eps = std::numeric_limits<scalar_t>::epsilon();
 //
-//    Vector<scalar_t> x( A.n );
+//    std::vector<scalar_t> x( A.n );
 //    for (int64_t j = 0; j < A.n; ++j) {
 //        x[j] = blas::dot( A.m, A(0,j), 1, A(0,j), 1 );
 //    }
@@ -258,7 +258,7 @@ void generate_sigma(
 /// Internal function, called from generate_matrix().
 ///
 /// @ingroup generate_matrix
-template< typename scalar_t >
+template <typename scalar_t>
 void generate_svd(
     MatrixParams& params,
     TestMatrixDist dist,
@@ -266,7 +266,7 @@ void generate_svd(
     blas::real_type<scalar_t> condD,
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
-    Vector< blas::real_type<scalar_t> >& sigma )
+    std::vector< blas::real_type<scalar_t> >& Sigma )
 {
     using real_t = blas::real_type<scalar_t>;
     assert( A.m() >= A.n() );
@@ -282,23 +282,23 @@ void generate_svd(
     slate::TriangularFactors<scalar_t> T;
 
     // ----------
-    generate_sigma( params, dist, false, cond, sigma_max, A, sigma );
+    generate_sigma( params, dist, false, cond, sigma_max, A, Sigma );
 
     // for generate correlation factor, need sum sigma_i^2 = n
     // scaling doesn't change cond
     if (condD != 1) {
-        real_t sum_sq = blas::dot( sigma.n, sigma(0), 1, sigma(0), 1 );
-        real_t scale = sqrt( sigma.n / sum_sq );
-        blas::scal( sigma.n, scale, sigma(0), 1 );
+        real_t sum_sq = blas::dot( Sigma.size(), Sigma.data(), 1, Sigma.data(), 1 );
+        real_t scale = sqrt( Sigma.size() / sum_sq );
+        blas::scal( Sigma.size(), scale, Sigma.data(), 1 );
 
-        // copy sigma to diag(A)
+        // copy Sigma to diag(A)
         int64_t S_index = 0;
         #pragma omp parallel for
         for (int64_t i = 0; i < min_mt_nt; ++i) {
             if (A.tileIsLocal(i, i)) {
                 auto T = A(i, i);
                 for (int ii = 0; ii < A.tileNb(i); ++ii) {
-                    T.at(ii, ii) = sigma[S_index + ii];
+                    T.at(ii, ii) = Sigma[S_index + ii];
                 }
             }
             S_index += A.tileNb(i);
@@ -370,17 +370,17 @@ void generate_svd(
         //generate_correlation_factor( A );
 
         // A = A*D col scaling
-        Vector<real_t> D( n );
+        std::vector<real_t> D( n );
         real_t range = log( condD );
-        lapack::larnv( idist_rand, params.iseed, D.n, D(0) );
-        for (int64_t i = 0; i < D.n; ++i) {
-            D[i] = exp( D[i] * range );
+        lapack::larnv( idist_rand, params.iseed, D.size(), D.data() );
+        for (auto& D_i: D) {
+            D_i = exp( D_i * range );
         }
         // TODO: add argument to return D to caller?
         if (params.verbose) {
             printf( "D = [" );
-            for (int64_t i = 0; i < D.n; ++i) {
-                printf( " %11.8g", D[i] );
+            for (auto& D_i: D) {
+                printf( " %11.8g", D_i );
             }
             printf( " ];\n" );
         }
@@ -408,7 +408,7 @@ void generate_svd(
 /// Internal function, called from generate_matrix().
 ///
 /// @ingroup generate_matrix
-template< typename scalar_t >
+template <typename scalar_t>
 void generate_heev(
     MatrixParams& params,
     TestMatrixDist dist, bool rand_sign,
@@ -416,7 +416,7 @@ void generate_heev(
     blas::real_type<scalar_t> condD,
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
-    Vector< blas::real_type<scalar_t> >& sigma )
+    std::vector< blas::real_type<scalar_t> >& Sigma )
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -430,7 +430,7 @@ void generate_heev(
     slate::TriangularFactors<scalar_t> T;
 
     // ----------
-    generate_sigma( params, dist, rand_sign, cond, sigma_max, A, sigma );
+    generate_sigma( params, dist, rand_sign, cond, sigma_max, A, Sigma );
 
     // random U, m-by-minmn
     int64_t nt = U.nt();
@@ -480,9 +480,9 @@ void generate_heev(
 
     if (condD != 1) {
         // A = D*A*D row & column scaling
-        Vector<real_t> D( n );
+        std::vector<real_t> D( n );
         real_t range = log( condD );
-        lapack::larnv( idist_rand, params.iseed, n, D(0) );
+        lapack::larnv( idist_rand, params.iseed, n, D.data() );
         for (int64_t i = 0; i < n; ++i) {
             D[i] = exp( D[i] * range );
         }
@@ -515,14 +515,14 @@ void generate_heev(
 /// Internal function, called from generate_matrix().
 ///
 /// @ingroup generate_matrix
-template< typename scalar_t >
+template <typename scalar_t>
 void generate_geev(
     MatrixParams& params,
     TestMatrixDist dist,
     blas::real_type<scalar_t> cond,
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
-    Vector< blas::real_type<scalar_t> >& sigma )
+    std::vector< blas::real_type<scalar_t> >& Sigma )
 {
     throw std::exception();  // not implemented
 }
@@ -535,14 +535,14 @@ void generate_geev(
 /// Internal function, called from generate_matrix().
 ///
 /// @ingroup generate_matrix
-template< typename scalar_t >
+template <typename scalar_t>
 void generate_geevx(
     MatrixParams& params,
     TestMatrixDist dist,
     blas::real_type<scalar_t> cond,
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
-    Vector< blas::real_type<scalar_t> >& sigma )
+    std::vector< blas::real_type<scalar_t> >& Sigma )
 {
     throw std::exception();  // not implemented
 }
@@ -583,13 +583,13 @@ void generate_matrix_usage()
     "_logrand        |  log(sigma_i) random uniform on [ log(1/cond), log(1) ]; default\n"
     "_arith          |  sigma_i = 1 - frac{i - 1}{n - 1} (1 - 1/cond); arithmetic: sigma_{i+1} - sigma_i is constant\n"
     "_geo            |  sigma_i = (cond)^{ -(i-1)/(n-1) };             geometric:  sigma_{i+1} / sigma_i is constant\n"
-    "_cluster0       |  sigma = [ 1, 1/cond, ..., 1/cond ];  1  unit value,  n-1 small values\n"
-    "_cluster1       |  sigma = [ 1, ..., 1, 1/cond ];      n-1 unit values,  1  small value\n"
+    "_cluster0       |  Sigma = [ 1, 1/cond, ..., 1/cond ];  1  unit value,  n-1 small values\n"
+    "_cluster1       |  Sigma = [ 1, ..., 1, 1/cond ];      n-1 unit values,  1  small value\n"
     "_rarith         |  _arith,    reversed order\n"
     "_rgeo           |  _geo,      reversed order\n"
     "_rcluster0      |  _cluster0,  reversed order\n"
     "_rcluster1      |  _cluster1, reversed order\n"
-    "_specified      |  user specified sigma on input\n"
+    "_specified      |  user specified Sigma on input\n"
     "                |  \n"
     "_rand           |  sigma_i random uniform on (0, 1)\n"
     "_rands          |  sigma_i random uniform on (-1, 1)\n"
@@ -630,12 +630,12 @@ void generate_matrix_usage()
 ///     Complex array, dimension (lda, n).
 ///     On output, the m-by-n test matrix A in an lda-by-n array.
 ///
-/// @param[in,out] sigma
+/// @param[in,out] Sigma
 ///     Real array, dimension (min(m,n))
 ///     - On input with matrix distribution "_specified",
 ///       contains user-specified singular or eigenvalues.
 ///     - On output, contains singular or eigenvalues, if known,
-///       else set to NaN. sigma is not necesarily sorted.
+///       else set to NaN. Sigma is not necesarily sorted.
 ///
 /// ### Further Details
 ///
@@ -665,7 +665,7 @@ void generate_matrix_usage()
 ///   $K$ is diagonal such that $B = K A_0 K$ has unit diagonal.
 ///
 /// Note using condD changes the singular or eigenvalues of $A$;
-/// on output, sigma contains the singular or eigenvalues of $A_0$, not of $A$.
+/// on output, Sigma contains the singular or eigenvalues of $A_0$, not of $A$.
 ///
 /// Notation used below:
 /// $\Sigma$ is a diagonal matrix with entries $\sigma_i$ for $i = 1, \dots, n$;
@@ -714,7 +714,7 @@ void generate_matrix_usage()
 /// _rgeo           |  _geo,      reversed order
 /// _rcluster0      |  _cluster0,  reversed order
 /// _rcluster1      |  _cluster1, reversed order
-/// _specified      |  user specified sigma on input
+/// _specified      |  user specified Sigma on input
 /// --              |  --
 /// _rand           |  $\sigma_i$ random uniform on (0, 1)
 /// _rands          |  $\sigma_i$ random uniform on (-1, 1)
@@ -748,11 +748,11 @@ void generate_matrix_usage()
 ///     with an application to condition estimators, 1980.
 ///
 /// @ingroup generate_matrix
-template< typename scalar_t >
+template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
     slate::Matrix<scalar_t>& A,
-    Vector< blas::real_type<scalar_t> >& sigma )
+    std::vector< blas::real_type<scalar_t> >& Sigma )
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -785,9 +785,9 @@ void generate_matrix(
     real_t sigma_max = 1;
 
     // ----------
-    // set sigma to unknown (nan)
-    lapack::laset( lapack::MatrixType::General, sigma.n, 1,
-        nan, nan, sigma(0), sigma.n );
+    // set Sigma to unknown (nan)
+    lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
+                   nan, nan, Sigma.data(), Sigma.size() );
 
     // ----- decode matrix type
     auto token = tokens.begin();
@@ -999,14 +999,14 @@ void generate_matrix(
     switch (type) {
         case TestMatrixType::zero:
             set(c_zero, c_zero, A);
-            lapack::laset( lapack::MatrixType::General, sigma.n, 1,
-                d_zero, d_zero, sigma(0), sigma.n );
+            lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
+                d_zero, d_zero, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::identity:
             set(c_zero, c_one, A);
-            lapack::laset( lapack::MatrixType::General, sigma.n, 1,
-                d_one, d_one, sigma(0), sigma.n );
+            lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
+                d_one, d_one, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::jordan: {
@@ -1078,27 +1078,27 @@ void generate_matrix(
         }
 
         case TestMatrixType::diag:
-            generate_sigma( params, dist, false, cond, sigma_max, A, sigma );
+            generate_sigma( params, dist, false, cond, sigma_max, A, Sigma );
             break;
 
         case TestMatrixType::svd:
-            generate_svd( params, dist, cond, condD, sigma_max, A, sigma );
+            generate_svd( params, dist, cond, condD, sigma_max, A, Sigma );
             break;
 
         case TestMatrixType::poev:
-            generate_heev( params, dist, false, cond, condD, sigma_max, A, sigma );
+            generate_heev( params, dist, false, cond, condD, sigma_max, A, Sigma );
             break;
 
         case TestMatrixType::heev:
-            generate_heev( params, dist, true, cond, condD, sigma_max, A, sigma );
+            generate_heev( params, dist, true, cond, condD, sigma_max, A, Sigma );
             break;
 
         case TestMatrixType::geev:
-            generate_geev( params, dist, cond, sigma_max, A, sigma );
+            generate_geev( params, dist, cond, sigma_max, A, Sigma );
             break;
 
         case TestMatrixType::geevx:
-            generate_geevx( params, dist, cond, sigma_max, A, sigma );
+            generate_geevx( params, dist, cond, sigma_max, A, Sigma );
             break;
     }
 
@@ -1113,29 +1113,18 @@ void generate_matrix(
 
 
 // -----------------------------------------------------------------------------
-/// Generates an m-by-n test matrix.
-/// Traditional interface with m, n, lda instead of Matrix object.
-///
+/// Overload without Sigma.
 /// @see generate_matrix()
-///
 /// @ingroup generate_matrix
-template< typename scalar_t >
+///
+template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
-    slate::Matrix<scalar_t>& A,
-    blas::real_type<scalar_t>* sigma_ptr )
+    slate::Matrix<scalar_t>& A )
 {
     using real_t = blas::real_type<scalar_t>;
-
-    int64_t m = A.m();
-    int64_t n = A.n();
-    // vector & matrix wrappers
-    // if sigma is null, create new vector; data is discarded later
-    Vector<real_t> sigma( sigma_ptr, std::min( m, n ) );
-    if (sigma_ptr == nullptr) {
-        sigma = Vector<real_t>( std::min( m, n ) );
-    }
-    generate_matrix( params, A, sigma );
+    std::vector<real_t> dummy;
+    generate_matrix( params, A, dummy );
 }
 
 
@@ -1144,25 +1133,21 @@ void generate_matrix(
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::Matrix<float>& A,
-    float* sigma_ptr );
+    slate::Matrix<float>& A );
 
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::Matrix<double>& A,
-    double* sigma_ptr );
+    slate::Matrix<double>& A );
 
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::Matrix< std::complex<float> >& A,
-    float* sigma_ptr );
+    slate::Matrix< std::complex<float> >& A );
 
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::Matrix< std::complex<double> >& A,
-    double* sigma_ptr );
+    slate::Matrix< std::complex<double> >& A );
 
 } // namespace slate

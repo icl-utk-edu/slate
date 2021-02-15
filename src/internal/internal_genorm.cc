@@ -242,10 +242,10 @@ void norm(
                     for (int64_t j = 0; j < A.nt(); ++j) {
                         int64_t mb = A.tileMb(i);
                         if (A.tileIsLocal(i, j)) {
-                                blas::axpy(
-                                    mb, 1.0,
-                                    &tiles_sums[A.m()*j + ii ], 1,
-                                    &values[ii], 1);
+                            blas::axpy(
+                                mb, 1.0,
+                                &tiles_sums[A.m()*j + ii ], 1,
+                                &values[ii], 1);
                         }
                     }
                     ii += A.tileMb(i);

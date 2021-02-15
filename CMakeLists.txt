@@ -220,12 +220,6 @@ if (CMAKE_CUDA_COMPILER)
         slate PUBLIC "${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}" )
 else()
     message( STATUS "No CUDA support in SLATE" )
-#    target_sources(
-#        slate
-#        PRIVATE
-#        src/stubs/cublas_stubs.cc
-#        src/stubs/cuda_stubs.cc
-#    )
     target_compile_definitions( slate PUBLIC "-DSLATE_NO_CUDA" )
 endif()
 
@@ -392,7 +386,7 @@ set( install_configdir "${CMAKE_INSTALL_LIBDIR}/slate" )
 
 # Install library and add to <package>Targets.cmake
 install(
-    TARGETS slate
+    TARGETS slate slate_lapack_api
     EXPORT slateTargets
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"

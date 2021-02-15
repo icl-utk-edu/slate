@@ -27,8 +27,8 @@ void trsm(slate::internal::TargetType<target>,
           int64_t lookahead)
 {
     if (target == Target::Devices) {
-        int batch_size_zero = 0;
-        int num_arrays_two = 2; // Number of kernels without lookahead
+        const int64_t batch_size_zero = 0;
+        const int64_t num_arrays_two = 2; // Number of kernels without lookahead
         // Allocate batch arrays = number of kernels without
         // lookahead + lookahead
         // number of kernels without lookahead = 2

@@ -117,8 +117,7 @@ group_opt.add_argument( '--dev-dist',  action='store', help='default=%(default)s
 group_opt.add_argument( '--nb',     action='store', help='default=%(default)s', default='64,100' )
 group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', default='5,10,20' )
 group_opt.add_argument( '--np',     action='store', help='number of MPI processes; default=%(default)s', default='1' )
-group_opt.add_argument( '--p',      action='store', help='use p-by-q MPI process grid', default='' )
-group_opt.add_argument( '--q',      action='store', help='use p-by-q MPI process grid', default='' )
+group_opt.add_argument( '--grid',   action='store', help='use p-by-q MPI process grid', default='' )
 group_opt.add_argument( '--repeat', action='store', help='times to repeat each test', default='' )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
@@ -285,13 +284,12 @@ la     = ' --lookahead ' + opts.lookahead if (opts.lookahead) else ''
 ddist  = ' --dev-dist  ' + opts.dev_dist  if (opts.dev_dist)  else ''
 nb     = ' --nb '     + opts.nb     if (opts.nb)     else ''
 nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
-p      = ' --p '      + opts.p      if (opts.p)      else ''
-q      = ' --q '      + opts.q      if (opts.q)      else ''
+grid   = ' --grid '    + opts.grid   if (opts.grid)   else ''
 repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
 
 # general options for all routines
-gen       = origin + target + p + q + check + ref + tol + repeat + nb
-gen_no_nb = origin + target + p + q + check + ref + tol + repeat
+gen       = origin + target + grid + check + ref + tol + repeat + nb
+gen_no_nb = origin + target + grid + check + ref + tol + repeat
 
 # ------------------------------------------------------------------------------
 # filters a comma separated list csv based on items in list values.
@@ -324,7 +322,7 @@ if (opts.blas3):
     cmds += [
     [ 'gbmm',  gen + dtype + la + transA + transB + mnk + ab + kl + ku ],
     [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab ],
-    [ 'gemmA', origin + p + q + check + ref + tol + repeat + nb + dtype + la + transA + transB + mnk + ab + ' --target=t' ],
+    [ 'gemmA', origin + grid + check + ref + tol + repeat + nb + dtype + la + transA + transB + mnk + ab + ' --target=t' ],
 
     [ 'hemm',  gen + dtype         + la + side + uplo     + mn + ab ],
     [ 'hbmm',  gen + dtype         + la + side + uplo     + mn + ab + kd ],
@@ -350,7 +348,7 @@ if (opts.lu):
     [ 'gesv',  gen + dtype + la + n],
     [ 'gesv_nopiv',  gen + dtype + la + n + ' --matrix rand_dominant' + ' --nonuniform_nb y'],
     [ 'getrf', gen + dtype + la + n],  # todo: mn
-    [ 'getrf_nopiv', target + p + q + ref + check + repeat + nb + dtype + la + n + ' --matrix rand_dominant'+ ' --nonuniform_nb y'],
+    [ 'getrf_nopiv', target + grid + ref + check + repeat + nb + dtype + la + n + ' --matrix rand_dominant'+ ' --nonuniform_nb y'],
     [ 'getrs', gen + dtype + la + n + trans],
     [ 'getrs_nopiv', gen + dtype + la + n + trans + ' --matrix rand_dominant' + ' --nonuniform_nb y'],
     [ 'getri', gen + dtype + la + n ],
@@ -482,16 +480,16 @@ if (opts.syev):
     #[ 'unmtr', gen + dtype_real    + la + mn + uplo + side + trans    ],  # real does trans = N, T, C
     #[ 'unmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],  # complex does trans = N, C, not T
     # todo nb, uplo, origin
-    [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_real    + ' --nb 50' + ' --origin s' + side + trans    ],  # real does trans = N, T, C
+    [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_real    + ' --nb 50' + ' --origin s' + side + trans    ],  # real does trans = N, T, C
     # todo: include (side=l and trans=c) as well as (side=r and trans=n)
     # [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + side + trans_nc ],  # complex does trans = N, C, not T
-    [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side l' + ' --trans n' ],
-    [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side r' + ' --trans c' ],
+    [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side l' + ' --trans n' ],
+    [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side r' + ' --trans c' ],
     # todo nb, uplo
     [ 'he2hb', gen_no_nb + ' --nb 50' + dtype + n ],
     # sterf doesn't take origin, target, nb, uplo
-    [ 'sterf', p + q + check + ref + tol + repeat + dtype + n ],
-    [ 'steqr2', p + q + check + ref + tol + repeat + dtype + n ],
+    [ 'sterf', grid + check + ref + tol + repeat + dtype + n ],
+    [ 'steqr2', grid + check + ref + tol + repeat + dtype + n ],
     # todo: hb2st
 
     # Banded
@@ -529,8 +527,8 @@ if (opts.svd):
     [ 'gesvd', gen_no_nb + ' --nb 50' + dtype + la + n + tall ],
     [ 'ge2tb', gen + dtype + n + tall ],
     # tb2bd, bdsqr don't take origin, target
-    [ 'tb2bd', p + q + check + ref + tol + repeat + dtype + n ],
-    [ 'bdsqr', p + q + check + ref + tol + repeat + dtype + n + uplo ],
+    [ 'tb2bd', grid + check + ref + tol + repeat + dtype + n ],
+    [ 'bdsqr', grid + check + ref + tol + repeat + dtype + n + uplo ],
     ]
 
 # norms

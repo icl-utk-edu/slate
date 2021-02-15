@@ -191,7 +191,7 @@ void* Memory::allocHostMemory(size_t size)
 void* Memory::allocDeviceMemory(int device, size_t size)
 {
     blas::set_device(device);
-    double* dev_mem = blas::device_malloc<double>(size);
+    void* dev_mem = blas::device_malloc<char>(size);
     allocated_mem_[device].push(dev_mem);
 
     return dev_mem;

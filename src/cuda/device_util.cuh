@@ -121,7 +121,7 @@ inline float abs(cuFloatComplex x)
         b = fabsf(b);
         w = max(a, b);
         z = min(a, b);
-	if (z == 0) {
+        if (z == 0) {
             t = w;
         }
         else {
@@ -154,7 +154,7 @@ inline double abs(cuDoubleComplex x)
         b = fabs(b);
         w = max(a, b);
         z = min(a, b);
-	if (z == 0) {
+        if (z == 0) {
             t = w;
         }
         else {

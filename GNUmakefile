@@ -187,7 +187,7 @@ ifneq ($(static),1)
     CXXFLAGS   += -fPIC
     LDFLAGS    += -fPIC
     FCFLAGS    += -fPIC
-    NVCCFLAGS += --compiler-options '-fPIC'
+    NVCCFLAGS  += --compiler-options '-fPIC'
     HIPCCFLAGS += -fPIC
     lib_ext = so
 else
@@ -354,8 +354,6 @@ ifeq ($(cuda),1)
     LIBS += -lcublas -lcudart
 else
     FLAGS += -DSLATE_NO_CUDA
-    #libslate_src += src/stubs/cuda_stubs.cc
-    #libslate_src += src/stubs/cublas_stubs.cc
 endif
 
 ifeq ($(hip),1)
@@ -1053,7 +1051,6 @@ distclean: clean
 
 %.o: %.cu
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
-
 
 # preprocess source
 # test/%.i depend on testsweeper; for simplicity just add it here.

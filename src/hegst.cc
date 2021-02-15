@@ -55,8 +55,8 @@ void hegst(slate::internal::TargetType<target>,
     uint8_t* column = column_vector.data();
 
     if (target == Target::Devices) {
-        int64_t batch_size_zero = 0;
-        int64_t num_arrays_two  = 2; // Number of kernels without lookahead
+        const int64_t batch_size_zero = 0;
+        const int64_t num_arrays_two  = 2; // Number of kernels without lookahead
         if (itype == 1) {
             A.allocateBatchArrays(batch_size_zero, num_arrays_two);
         }
@@ -210,7 +210,6 @@ void hegst(slate::internal::TargetType<target>,
             }
         }
     }
-
     A.tileUpdateAllOrigin();
     A.releaseWorkspace();
 }

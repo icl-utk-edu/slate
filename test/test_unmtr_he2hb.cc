@@ -27,8 +27,8 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     slate::Side side = params.side();
     slate::Op trans = params.trans();
     int64_t n = params.dim.n();
-    int64_t p = params.p();
-    int64_t q = params.q();
+    int64_t p = params.grid.m();
+    int64_t q = params.grid.n();
     int64_t nb = params.nb();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';

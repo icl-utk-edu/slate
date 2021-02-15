@@ -661,7 +661,7 @@ void test_TrapezoidMatrix_insertLocalTiles()
 }
 
 //------------------------------------------------------------------------------
-/// Test allocateBatchArrays, clearBatchArrays, batchSize.
+/// Test allocateBatchArrays, clearBatchArrays, batchArraySize.
 ///
 void test_TrapezoidMatrix_allocateBatchArrays()
 {
@@ -684,8 +684,8 @@ void test_TrapezoidMatrix_allocateBatchArrays()
         m, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
     // initially, batch arrays are null
-    test_assert( L.batchSize() == 0 );
-    test_assert( U.batchSize() == 0 );
+    test_assert( L.batchArraySize() == 0 );
+    test_assert( U.batchArraySize() == 0 );
     for (int device = 0; device < num_devices; ++device) {
         test_assert( L.array_host(device) == nullptr );
         test_assert( L.array_device(device) == nullptr );
@@ -698,8 +698,8 @@ void test_TrapezoidMatrix_allocateBatchArrays()
     // allocate size 10
     L.allocateBatchArrays( 10 );
     U.allocateBatchArrays( 10 );
-    test_assert( L.batchSize() == 10 );
-    test_assert( U.batchSize() == 10 );
+    test_assert( L.batchArraySize() == 10 );
+    test_assert( U.batchArraySize() == 10 );
     for (int device = 0; device < num_devices; ++device) {
         test_assert( L.array_host(device) != nullptr );
         test_assert( L.array_device(device) != nullptr );
@@ -711,14 +711,14 @@ void test_TrapezoidMatrix_allocateBatchArrays()
     // increase to size 20
     L.allocateBatchArrays( 20 );
     U.allocateBatchArrays( 20 );
-    test_assert( L.batchSize() == 20 );
-    test_assert( U.batchSize() == 20 );
+    test_assert( L.batchArraySize() == 20 );
+    test_assert( U.batchArraySize() == 20 );
 
     // requesting 15 should leave it at 20
     L.allocateBatchArrays( 15 );
     U.allocateBatchArrays( 15 );
-    test_assert( L.batchSize() == 20 );
-    test_assert( U.batchSize() == 20 );
+    test_assert( L.batchArraySize() == 20 );
+    test_assert( U.batchArraySize() == 20 );
 
     int numL = 0;
     int numU = 0;
@@ -730,14 +730,14 @@ void test_TrapezoidMatrix_allocateBatchArrays()
     // request enough for local tiles
     L.allocateBatchArrays();
     U.allocateBatchArrays();
-    test_assert( L.batchSize() == blas::max( numL, 20 ) );
-    test_assert( U.batchSize() == blas::max( numU, 20 ) );
+    test_assert( L.batchArraySize() == blas::max( numL, 20 ) );
+    test_assert( U.batchArraySize() == blas::max( numU, 20 ) );
 
     // clear should free arrays
     L.clearBatchArrays();
     U.clearBatchArrays();
-    test_assert( L.batchSize() == 0 );
-    test_assert( U.batchSize() == 0 );
+    test_assert( L.batchArraySize() == 0 );
+    test_assert( U.batchArraySize() == 0 );
     for (int device = 0; device < num_devices; ++device) {
         test_assert( L.array_host(device) == nullptr );
         test_assert( L.array_device(device) == nullptr );
@@ -1827,14 +1827,7 @@ int main(int argc, char** argv)
     MPI_Comm_rank(mpi_comm, &mpi_rank);
     MPI_Comm_size(mpi_comm, &mpi_size);
 
-    try {
-        num_devices = blas::get_device_count();
-    }
-    catch (std::exception const& e) {
-        // Ignore BLAS++ error if no GPU device is found.
-        // todo: should we have a better solution?
-        num_devices = 0;
-    }
+    num_devices = blas::get_device_count();
     host_num = slate::HostNum;
 
     // globals

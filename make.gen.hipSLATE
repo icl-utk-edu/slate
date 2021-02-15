@@ -1,25 +1,20 @@
 # tool to 'hipify' it
-#HIPIFY            ?= tools/hipify-perl
-HIPIFY            ?= /opt/rocm/hip/bin/hipify-perl
+HIPIFY            ?= $(HIPDIR)/hip/bin/hipify-perl
 
 # input & output directories
-DIRS              := src/cuda unit_test 
-ODIRS             := src/hip  unit_test_hip 
+DIRS              := src/cuda unit_test
+ODIRS             := src/hip  unit_test_hip
 
 
 # -- Rules --
 all: $(ODIRS)
 
-#clean: FORCE
-#	rm -rf $(wildcard $(ODIRS))
-
-FORCE:
-
-.PHONY: all clean FORCE $(ODIRS)
+.PHONY: $(ODIRS)
 
 # -- Generated --
-src/hip: $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(wildcard src/cuda/*.cu)) \
-$(patsubst src/cuda/%.cuh,src/hip/%.hip.hh,$(wildcard src/cuda/*.cuh)) FORCE
+src/hip: force \
+    $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(wildcard src/cuda/*.cu)) \
+    $(patsubst src/cuda/%.cuh,src/hip/%.hip.hh,$(wildcard src/cuda/*.cuh))
 
 src/hip/%.hip.cc: src/cuda/%.cu
 	@mkdir -p $(dir $@)
@@ -32,9 +27,10 @@ src/hip/%.hip.hh: src/cuda/%.cuh
 	sed -i -e "s/\.cuh/.hip.hh/g" $@
 
 
-unit_test_hip: $(patsubst unit_test/%,unit_test_hip/%,$(wildcard unit_test/*.cc)) \
-$(patsubst unit_test/%,unit_test_hip/%,$(wildcard unit_test/*.hh)) \
-$(patsubst unit_test/%,unit_test_hip/%,$(wildcard unit_test/*.py)) FORCE
+unit_test_hip: force \
+    $(patsubst unit_test/%,unit_test_hip/%,$(wildcard unit_test/*.cc)) \
+    $(patsubst unit_test/%,unit_test_hip/%,$(wildcard unit_test/*.hh)) \
+    $(patsubst unit_test/%,unit_test_hip/%,$(wildcard unit_test/*.py))
 
 unit_test_hip/%.cc: unit_test/%.cc
 	@mkdir -p $(dir $@)

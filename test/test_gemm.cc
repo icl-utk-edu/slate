@@ -152,7 +152,7 @@ void test_gemm_work(Params& params, bool run)
         copy(A, &A_tst[0], descA_tst);
         copy(B, &B_tst[0], descB_tst);
         copy(C, &C_tst[0], descC_tst);
-     }
+    }
 
    // if reference run is required, copy test data and create a descriptor for it
     std::vector<scalar_t> C_ref;

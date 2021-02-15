@@ -106,7 +106,7 @@ void test_geqrf_work(Params& params, bool run)
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy SLATE result back from GPU or CPU tiles.
         copy(A, &A_tst[0], descA_tst);
-     }
+    }
 
     slate::TriangularFactors<scalar_t> T;
 

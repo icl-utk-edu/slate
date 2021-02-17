@@ -131,6 +131,7 @@ endif
 have_hip  := $(shell which $(HIPCC))
 ifneq ($(have_hip),)
     hip ?= 1
+    hip_arch ?= gfx900 gfx906 gfx908
      -include make.gen.hipSLATE
 else ifeq ($(strip $(hip)),1)
     $(error ERROR: hip = $(hip), but HIPCC = ${HIPCC} not found)
@@ -146,6 +147,7 @@ mkl_blacs       := $(strip $(mkl_blacs))
 openmp          := $(strip $(openmp))
 static          := $(strip $(static))
 cuda_arch       := $(strip $(cuda_arch))
+hip_arch        := $(strip $(hip_arch))
 cuda            := $(strip $(cuda))
 hip             := $(strip $(hip))
 prefix          := $(strip $(prefix))
@@ -157,7 +159,7 @@ export CXX blas blas_int blas_threaded openmp static
 
 CXXFLAGS   += -O3 -std=c++17 -Wall -pedantic -MMD
 NVCCFLAGS  += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
-HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc --amdgpu-target=gfx908
+HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
 
 force: ;
 
@@ -357,12 +359,13 @@ else
 endif
 
 ifeq ($(hip),1)
-    # AMD architectures that hipcc supports
-    sms = gfx803 gfx900 gfx906 gfx908
+    gfx = $(sort $(filter gfx%, $(hip_arch)))
+    amdgpu_targets = $(foreach arch, $(gfx),--amdgpu-target=$(arch))
+    HIPCCFLAGS += $(amdgpu_targets)
     FLAGS += -D__HIP_PLATFORM_HCC__
-    CXXFLAGS += -D__HIP_PLATFORM_HCC__
-    HIPCCFLAGS += -I$(HIPDIR)/include/ -D__HIP_PLATFORM_HCC__
     LIB += -L$(HIPDIR)/lib -lhipblas
+    UNIT_LIBS += -L$(HIPDIR)/lib -lrocblas -lamdhip64
+    TEST_LIBS += -L$(HIPDIR)/lib -lrocblas -lamdhip64
 else
     FLAGS += -DSLATE_NO_HIP
     libslate_src += src/stubs/hip_stubs.cc
@@ -696,13 +699,13 @@ TEST_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 TEST_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
 TEST_LDFLAGS += -Wl,-rpath,$(abspath ./blaspp/lib)
 TEST_LDFLAGS += -Wl,-rpath,$(abspath ./lapackpp/lib)
-TEST_LIBS    += -lslate -L$(HIPDIR)/lib -lrocblas -lamdhip64 -ltestsweeper $(scalapack)
+TEST_LIBS    += -lslate -L$(HIPDIR)/lib -ltestsweeper $(scalapack)
 
 UNIT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 UNIT_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
 UNIT_LDFLAGS += -Wl,-rpath,$(abspath ./blaspp/lib)
 UNIT_LDFLAGS += -Wl,-rpath,$(abspath ./lapackpp/lib)
-UNIT_LIBS    += -lslate -L$(HIPDIR)/lib -lrocblas -lamdhip64 -ltestsweeper
+UNIT_LIBS    += -lslate -L$(HIPDIR)/lib -ltestsweeper
 
 #-------------------------------------------------------------------------------
 # Rules
@@ -1119,11 +1122,12 @@ echo:
 	@echo
 	@echo "---------- HIP options"
 	@echo "hip           = '$(hip)'"
-	@echo "hip_arch      = '$(hip_arch)'"
+	@echo "hip_arch      = $(hip_arch)"
+	@echo "gfx           = $(gfx)"
 	@echo "HIPCC         = $(HIPCC)"
 	@echo "HIPCCFLAGS    = $(HIPCCFLAGS)"
+	@echo "amd_targets   = $(amdgpu_targets)"
 	@echo "have_hip      = ${have_hip}"
-	@echo "hip_arch      = $(hip_arch)"
 	@echo
 	@echo "---------- Fortran compiler"
 	@echo "FC            = $(FC)"

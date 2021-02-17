@@ -368,8 +368,6 @@ ifeq ($(hip),1)
     TEST_LIBS += -L$(HIPDIR)/lib -lrocblas -lamdhip64
 else
     FLAGS += -DSLATE_NO_HIP
-    libslate_src += src/stubs/hip_stubs.cc
-    libslate_src += src/stubs/hipblas_stubs.cc
 endif
 
 #-------------------------------------------------------------------------------
@@ -607,7 +605,7 @@ tester_src += \
         test/matrix_params.cc \
 
 
-# Compile fixes for ScaLAPACK routines if Fortran ompiler $(FC) exists.
+# Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
 ifneq ($(have_fortran),)
     tester_src += \
         test/pslange.f \
@@ -640,6 +638,9 @@ unit_src = \
     unit_test/test_lq.cc \
     unit_test/test_norm.cc \
     unit_test/test_qr.cc \
+    unit_test/test_geadd.cc \
+    unit_test/test_gecopy.cc \
+    unit_test/test_geset.cc \
 
 # unit test framework
 unit_test_obj = \

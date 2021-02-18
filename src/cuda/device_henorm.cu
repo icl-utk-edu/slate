@@ -110,6 +110,9 @@ __global__ void henormMaxKernel(
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
     real_t* row_max = (real_t*) dynamic_data;
+    if (threadIdx.x < blockDim.x) {
+        row_max[threadIdx.x] = 0;
+    }
 
     // Each thread finds max of one row.
     // This does coalesced reads of one column at a time in parallel.

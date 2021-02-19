@@ -29,18 +29,23 @@ pipeline {
 
                         export color=no
 
+                        #========================================
                         cat > make.inc << END
                         CXX       = mpicxx
                         FC        = mpif90
                         # CXXFLAGS  = -Werror  # HIP headers have many errors.
                         blas      = mkl
+                        cuda      = 0
                         # openmp=1 by default
 END
+
+                        # HIP headers have many errors; reduce noise.
+                        perl -pi -e 's/-pedantic//' GNUmakefile
 
                         echo "========================================"
                         make distclean
                         echo "========================================"
-                        ls -R
+                        make echo
                         echo "========================================"
                         make -j4
                         echo "========================================"
@@ -76,6 +81,7 @@ END
                         export color=no
                         export OMPI_CXX=${CXX}
 
+                        #========================================
                         cat > make.inc << END
                         CXX       = mpicxx
                         FC        = mpif90
@@ -83,13 +89,14 @@ END
                         blas      = mkl
                         mkl_blacs = openmpi
                         cuda_arch = kepler
+                        hip       = 0
                         # openmp=1 by default
 END
 
                         echo "========================================"
                         make distclean
                         echo "========================================"
-                        ls -R
+                        make echo
                         echo "========================================"
                         make -j4
                         echo "========================================"
@@ -121,9 +128,14 @@ END
 
                         source /home/jenkins/spack_setup
                         sload gcc@6.4.0
-                        sload cuda@10.2.89
                         sload intel-mkl
                         sload intel-mpi
+
+                        # load ROCm/HIP
+                        export PATH=${PATH}:/opt/rocm/bin
+                        export CPATH=${CPATH}:/opt/rocm/include
+                        export LIBRARY_PATH=${LIBRARY_PATH}:/opt/rocm/lib
+                        export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/rocm/lib
 
                         export FI_PROVIDER=tcp
 

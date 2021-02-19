@@ -320,17 +320,26 @@ void generate_svd(
                 auto Tmpij = Tmp(i, j);
                 scalar_t* data = Tmpij.data();
                 int64_t ldt = Tmpij.stride();
-                params.iseed[0] = (rand() + i + j) % 256;
                 //lapack::larnv( idist_randn, params.iseed,
                 //    U.tileMb(i)*U.tileNb(j), Tmpij.data() );
+
+                //Added local seed array for each process to prevent race condition contention of params.seed
+                int64_t iseed[4];
+                iseed[0] = (params.iseed[0] + i) % 4096;
+                iseed[1] = (params.iseed[1] + j) % 4096;
+                iseed[2] =  params.iseed[2];
+                iseed[3] =  params.iseed[3];
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
-                    lapack::larnv(idist_randn, params.iseed, Tmpij.mb(), &data[k*ldt]);
+                    lapack::larnv(idist_randn, iseed, Tmpij.mb(), &data[k*ldt]);
                 }
                 gecopy(Tmp(i, j), U(i, j));
                 Tmp.tileErase(i, j);
             }
         }
     }
+    // Hack to update iseed between matrices.
+    params.iseed[2] = (params.iseed[2] + 1) % 4096;
+
     // we need to make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
     // However, currently we do geqrf here,
@@ -350,14 +359,24 @@ void generate_svd(
                 auto Tmpij = Tmp(i, j);
                 scalar_t* data = Tmpij.data();
                 int64_t ldt = Tmpij.stride();
-                for (int64_t k = 0; k < Tmpij.nb(); ++k) {
-                    lapack::larnv(idist_randn, params.iseed, Tmpij.mb(), &data[k*ldt]);
+
+                //Added local seed array for each process to prevent race condition contention of params.seed
+                int64_t iseed[4];
+                iseed[0] = (params.iseed[0] + i) % 4096;
+                iseed[1] = (params.iseed[1] + j) % 4096;
+                iseed[2] =  params.iseed[2];
+                iseed[3] =  params.iseed[3];
+                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
+                    lapack::larnv(idist_randn, iseed, Tmpij.mb(), &data[k*ldt]);
                 }
                 gecopy(Tmp(i, j), V(i, j));
                 Tmp.tileErase(i, j);
             }
         }
     }
+    // Hack to update iseed between matrices.
+    params.iseed[2] = (params.iseed[2] + 1) % 4096;
+
     slate::geqrf(V, T);
 
     // A = A*V^H
@@ -445,15 +464,24 @@ void generate_heev(
                 auto Tmpij = Tmp(i, j);
                 scalar_t* data = Tmpij.data();
                 int64_t ldt = Tmpij.stride();
-                params.iseed[0] = (rand() + i + j) % 256;
+
+                //Added local seed array for each process to prevent race condition contention of params.seed
+                int64_t iseed[4];
+                iseed[0] = (params.iseed[0] + i) % 4096;
+                iseed[1] = (params.iseed[1] + j) % 4096;
+                iseed[2] =  params.iseed[2];
+                iseed[3] =  params.iseed[3];
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
-                    lapack::larnv(idist_rand, params.iseed, Tmpij.mb(), &data[k*ldt]);
+                    lapack::larnv(idist_rand, iseed, Tmpij.mb(), &data[k*ldt]);
                 }
                 gecopy(Tmp(i, j), U(i, j));
                 Tmp.tileErase(i, j);
             }
         }
     }
+    // Hack to update iseed between matrices.
+    params.iseed[2] = (params.iseed[2] + 1) % 4096;
+
     // we need to make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
     // However, currently we do geqrf here,
@@ -1049,9 +1077,15 @@ void generate_matrix(
                         auto Tmpij = Tmp(i, j);
                         scalar_t* data = Tmpij.data();
                         int64_t ldt = Tmpij.stride();
-                        params.iseed[0] = (rand() + i + j) % 256;
+
+                        //Added local seed array for each process to prevent race condition contention of params.seed
+                        int64_t iseed[4];
+                        iseed[0] = (params.iseed[0] + i) % 4096;
+                        iseed[1] = (params.iseed[1] + j) % 4096;
+                        iseed[2] =  params.iseed[2];
+                        iseed[3] =  params.iseed[3];
                         for (int64_t k = 0; k < Tmpij.nb(); ++k) {
-                            lapack::larnv(idist, params.iseed, Tmpij.mb(), &data[k*ldt]);
+                            lapack::larnv(idist, iseed, Tmpij.mb(), &data[k*ldt]);
                         }
 
                         // Make it diagonally dominant
@@ -1074,6 +1108,8 @@ void generate_matrix(
                     }
                 }
             }
+            // Hack to update iseed between matrices.
+            params.iseed[2] = (params.iseed[2] + 1) % 4096;
             break;
         }
 

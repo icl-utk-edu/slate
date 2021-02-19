@@ -239,7 +239,7 @@ void test_genorm_work(Params& params, bool run)
         if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
             tol = 0;
         else
-            tol = 3*eps;
+            tol = 10*eps;
 
         params.ref_time() = time_ref;
         params.error() = error;
@@ -342,7 +342,7 @@ void test_genorm_work(Params& params, bool run)
                         if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
                             tol = 0;
                         else
-                            tol = 3*eps;
+                            tol = 10*eps;
 
                         if (mpi_rank == 0) {
                             // if peak is nan, expect A_norm to be nan.

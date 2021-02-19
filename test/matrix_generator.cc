@@ -366,7 +366,7 @@ void generate_svd(
                 iseed[1] = (params.iseed[1] + j) % 4096;
                 iseed[2] =  params.iseed[2];
                 iseed[3] =  params.iseed[3];
-                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
+                for (int64_t k = 0; k < Tmpij.nb(); ++k) {
                     lapack::larnv(idist_randn, iseed, Tmpij.mb(), &data[k*ldt]);
                 }
                 gecopy(Tmp(i, j), V(i, j));

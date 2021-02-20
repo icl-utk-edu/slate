@@ -45,6 +45,9 @@ void test_gels_work(Params& params, bool run)
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     bool consistent = true;
+    params.matrix.mark();
+    params.matrixB.mark();
+    params.matrixC.mark();
 
     // mark non-standard output values
     params.error.name("leastsqr\n" "error");
@@ -74,7 +77,6 @@ void test_gels_work(Params& params, bool run)
     // BLACS/MPI variables
     int ictxt, nprow, npcol, myrow, mycol, info;
     int iam = 0, nprocs = 1;
-    int iseed = 1;
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
@@ -92,7 +94,6 @@ void test_gels_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
-    scalapack_pplrnt(&A_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
     // matrix X0, opAn-by-nrhs
     // used if making a consistent equation, B = A*X0
@@ -103,7 +104,6 @@ void test_gels_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldX0 = (int64_t)descX0_tst[8];
     std::vector<scalar_t> X0_tst(lldX0*nlocX0);
-    scalapack_pplrnt(&X0_tst[0], opAn, nrhs, nb, nb, myrow, mycol, nprow, npcol, mlocX0, iseed + 1);
 
     // matrix BX, which stores B (input) and X (output), max(m, n)-by-nrhs
     int64_t mlocBX = scalapack_numroc(maxmn, nb, myrow, izero, nprow);
@@ -113,7 +113,6 @@ void test_gels_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldBX = (int64_t)descBX_tst[8];
     std::vector<scalar_t> BX_tst(lldBX*nlocBX);
-    scalapack_pplrnt(&BX_tst[0], maxmn, nrhs, nb, nb, myrow, mycol, nprow, npcol, mlocBX, iseed + 1);
 
     // workspace for ScaLAPACK
     int64_t lwork;
@@ -125,15 +124,12 @@ void test_gels_work(Params& params, bool run)
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
-        copy(&A_tst[0], descA_tst, A);
 
         X0 = slate::Matrix<scalar_t>(opAn, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
         X0.insertLocalTiles(origin_target);
-        copy(&X0_tst[0], descX0_tst, X0);
 
         BX = slate::Matrix<scalar_t>(maxmn, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
         BX.insertLocalTiles(origin_target);
-        copy(&BX_tst[0], descBX_tst, BX);
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
@@ -143,6 +139,14 @@ void test_gels_work(Params& params, bool run)
     }
     // Create SLATE matrix from the ScaLAPACK layouts
     // slate::TriangularFactors<scalar_t> T;
+    slate::generate_matrix(params.matrix, A);
+    slate::generate_matrix(params.matrixB, BX);
+    slate::generate_matrix(params.matrixC, X0);
+    if (origin != slate::Origin::ScaLAPACK) {
+        copy(A, &A_tst[0], descA_tst);
+        copy(BX, &BX_tst[0], descBX_tst);
+        copy(X0, &X0_tst[0], descX0_tst);
+    }
 
     // In square case, B = X = BX. In rectangular cases, B or X is sub-matrix.
     auto B = BX;

@@ -46,6 +46,9 @@ void test_gemm_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    params.matrix.mark();
+    params.matrixB.mark();
+    params.matrixC.mark();
 
     // mark non-standard output values
     params.time();
@@ -80,7 +83,6 @@ void test_gemm_work(Params& params, bool run)
     int ictxt, nprow, npcol, myrow, mycol, info;
     int descA_tst[9], descB_tst[9], descC_tst[9], descC_ref[9];
     int iam = 0, nprocs = 1;
-    int iseed = 1;
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
@@ -96,7 +98,6 @@ void test_gemm_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
-    scalapack_pplrnt(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
     int64_t mlocB = scalapack_numroc(Bm, nb, myrow, izero, nprow);
@@ -105,7 +106,6 @@ void test_gemm_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
     std::vector<scalar_t> B_tst(lldB*nlocB);
-    scalapack_pplrnt(&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
 
     // matrix C, figure out local size, allocate, create descriptor, initialize
     int64_t mlocC = scalapack_numroc(m, nb, myrow, izero, nprow);
@@ -114,7 +114,6 @@ void test_gemm_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldC = (int64_t)descC_tst[8];
     std::vector<scalar_t> C_tst(lldC*nlocC);
-    scalapack_pplrnt(&C_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mlocC, iseed + 3);
 
     #ifdef PIN_MATRICES
     int cuerror;
@@ -123,15 +122,6 @@ void test_gemm_work(Params& params, bool run)
     cuerror = cudaHostRegister(&C_tst[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
     #endif
 
-    // if reference run is required, copy test data and create a descriptor for it
-    std::vector<scalar_t> C_ref;
-    slate::Matrix<scalar_t> C_ref_slate;
-    if (check || ref) {
-        C_ref = C_tst;
-        scalapack_descinit(descC_ref, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
-        slate_assert(info == 0);
-        C_ref_slate = slate::Matrix<scalar_t>::fromScaLAPACK( m,  n, &C_ref[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
-    }
 
     slate::Matrix<scalar_t> A, B, C;
     if (origin != slate::Origin::ScaLAPACK) {
@@ -139,21 +129,39 @@ void test_gemm_work(Params& params, bool run)
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(Am, An, nb, nprow, npcol, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
-        copy(&A_tst[0], descA_tst, A);
 
         B = slate::Matrix<scalar_t>(Bm, Bn, nb, nprow, npcol, MPI_COMM_WORLD);
         B.insertLocalTiles(origin_target);
-        copy(&B_tst[0], descB_tst, B);
 
         C = slate::Matrix<scalar_t>(Cm, Cn, nb, nprow, npcol, MPI_COMM_WORLD);
         C.insertLocalTiles(origin_target);
-        copy(&C_tst[0], descC_tst, C);
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
         A = slate::Matrix<scalar_t>::fromScaLAPACK(Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
         B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
         C = slate::Matrix<scalar_t>::fromScaLAPACK( m,  n, &C_tst[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
+    }
+
+    slate::generate_matrix(params.matrix, A);
+    slate::generate_matrix(params.matrixB, B);
+    slate::generate_matrix(params.matrixC, C);
+
+    if (origin != slate::Origin::ScaLAPACK) {
+        // Copy SLATE result back from GPU or CPU tiles.
+        copy(A, &A_tst[0], descA_tst);
+        copy(B, &B_tst[0], descB_tst);
+        copy(C, &C_tst[0], descC_tst);
+    }
+
+   // if reference run is required, copy test data and create a descriptor for it
+    std::vector<scalar_t> C_ref;
+    slate::Matrix<scalar_t> C_ref_slate;
+    if (check || ref) {
+        C_ref = C_tst;
+        scalapack_descinit(descC_ref, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
+        slate_assert(info == 0);
+        C_ref_slate = slate::Matrix<scalar_t>::fromScaLAPACK( m,  n, &C_ref[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
     }
 
     if (transA == slate::Op::Trans)

@@ -180,7 +180,7 @@ void test_gbnorm_work(Params& params, bool run)
         if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
             tol = 0;
         else
-            tol = 3*eps;
+            tol = 10*eps;
 
         params.ref_time() = time_ref;
         params.error() = error;

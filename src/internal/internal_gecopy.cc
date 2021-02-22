@@ -22,10 +22,16 @@ void gecopy(
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     gecopy(m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
+           batch_count, queue);
+#endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    gecopy(m, n,
+           (hipFloatComplex**) Aarray, lda,
+           (hipFloatComplex**) Barray, ldb,
            batch_count, queue);
 #endif
 }
@@ -37,10 +43,16 @@ void gecopy(
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     gecopy(m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
+           batch_count, queue);
+#endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    gecopy(m, n,
+           (hipFloatComplex**) Aarray, lda,
+           (hipDoubleComplex**) Barray, ldb,
            batch_count, queue);
 #endif
 }
@@ -52,10 +64,16 @@ void gecopy(
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     gecopy(m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
+           batch_count, queue);
+#endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    gecopy(m, n,
+           (hipDoubleComplex**) Aarray, lda,
+           (hipDoubleComplex**) Barray, ldb,
            batch_count, queue);
 #endif
 }
@@ -67,17 +85,23 @@ void gecopy(
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA)
+#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
     gecopy(m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
            batch_count, queue);
 #endif
+#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+    gecopy(m, n,
+           (hipDoubleComplex**) Aarray, lda,
+           (hipFloatComplex**) Barray, ldb,
+           batch_count, queue);
+#endif
 }
 
 //---------------------------------------------------
-#if defined(SLATE_NO_CUDA)
-// Specializations to allow compilation without CUDA.
+#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+// Specializations to allow compilation without CUDA or HIP.
 template <>
 void gecopy(
     int64_t m, int64_t n,

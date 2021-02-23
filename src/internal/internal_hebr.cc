@@ -10,118 +10,100 @@
 #include "slate/HermitianMatrix.hh"
 #include "internal/Tile_lapack.hh"
 #include "slate/types.hh"
+#include "internal/internal_householder.hh"
 
 namespace slate {
 namespace internal {
 
-// todo: These functions are defined in internal_gebr.cc.
-// It would be better to move the declarations to a header file.
-template <typename scalar_t>
-void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v);
-
-template <typename scalar_t>
-void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A);
-
 //------------------------------------------------------------------------------
-/// Applies a Houselolder reflector $v$ to the Hermitian matrix $A$
-/// from the left. Takes the $tau$ factor from $v[0]$.
+/// Applies a Householder reflector $H = I - \tau v v^H$ to the Hermitian
+/// matrix $A$ on the left and right. Takes the $\tau$ factor from $v[0]$.
 ///
 /// @param[in] in_v
-///     The Householder reflector to apply.
+///     The vector v in the representation of H.
+///     Modified but restored on exit.
 ///
 /// @param[in,out] A
 ///     The n-by-n Hermitian matrix A.
+///
+/// @ingroup heev_computational
 ///
 template <typename scalar_t>
 void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
 {
     using blas::conj;
-    scalar_t one  = 1;
-    scalar_t zero = 0;
 
+    const scalar_t one  = 1.0;
+    const scalar_t zero = 0.0;
+    const scalar_t half = 0.5;
+
+    // todo: seems odd to conj tau here. Maybe gerfg isn't generating tau right?
     // Replace tau with 1.0 in v[0].
     auto v = in_v;
     scalar_t tau = conj(v[0]);
     v[0] = one;
 
-    // w = C * v
+    scalar_t *wi, *vi;
+
+    // w = A v
     // todo: HermitianMatrix::at(i, j) can be extended to support access
     // to the (nonexistent) symmetric part by returning transpose(at(j, i)).
-    // This will allow to remove the if/else condition.
+    // This will allow removing the if/else condition.
     // The first call to gemv() will support both cases.
     std::vector<scalar_t> w(A.n());
-    scalar_t* w_ptr = w.data();
+    wi = w.data();
     for (int64_t i = 0; i < A.nt(); ++i) {
-        scalar_t* v_ptr = v.data();
+        scalar_t* vj = v.data();
         scalar_t beta = zero;
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (i == j) {
-                hemv(one, A(i, j), v_ptr, beta, w_ptr);
+                hemv(one, A(i, j), vj, beta, wi);
             }
             else {
-                if (i > j) {
-                    gemv(one, A(i, j), v_ptr, beta, w_ptr);
-                }
-                else {
-                    gemv(one, conjTranspose(A(j, i)), v_ptr, beta, w_ptr);
-                }
+                auto Aij = i > j
+                         ? A(i, j)
+                         : conjTranspose(A(j, i));
+                gemv(one, Aij, vj, beta, wi);
             }
             beta = one;
-            v_ptr += A.tileNb(j);
+            vj += A.tileNb(j);
         }
-        w_ptr += A.tileMb(i);
+        wi += A.tileMb(i);
     }
 
-    scalar_t alpha =
-        scalar_t(-0.5)*tau*blas::dot(A.n(), w.data(), 1, v.data(), 1);
-    blas::axpy(A.n(), alpha, v.data(), 1, w.data(), 1);
+    // w = A v - 0.5 tau ((A v)^H v) v
+    wi = w.data();
+    vi = v.data();
+    scalar_t alpha = -half * tau * blas::dot(A.n(), wi, 1, vi, 1);
+    blas::axpy(A.n(), alpha, vi, 1, wi, 1);
 
-    // todo: In principle the entire update of C could be done in one pass
-    // instead of three passes.
-
-    // C = C - v * w^H (excluding diagonal tiles)
-    scalar_t* v_ptr = v.data();
+    // A = A - tau v w^H - conj(tau) w v^H, lower triangle
+    vi = v.data();
+    wi = w.data();
     for (int64_t i = 0; i < A.nt(); ++i) {
-        w_ptr = w.data();
+        scalar_t* vj = v.data();
+        scalar_t* wj = w.data();
         for (int64_t j = 0; j < A.nt(); ++j) {
-            if (i > j) {
-                ger(-tau, v_ptr, w_ptr, A(i, j));
+            if (i > j) {  // lower
+                ger(-tau, vi, wj, A(i, j));
+                ger(-conj(tau), wi, vj, A(i, j));
             }
-            w_ptr += A.tileNb(j);
-        }
-        v_ptr += A.tileMb(i);
-    }
-
-    // C = C - w * v^H (excluding diagonal tiles)
-    w_ptr = w.data();
-    for (int64_t i = 0; i < A.nt(); ++i) {
-        v_ptr = v.data();
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if (i > j) {
-                ger(-conj(tau), w_ptr, v_ptr, A(i, j));
+            else if (i == j) {  // diag
+                her2(-tau, vi, wj, A(i, j));
             }
-            v_ptr += A.tileNb(j);
+            vj += A.tileNb(j);
+            wj += A.tileNb(j);
         }
-        w_ptr += A.tileMb(i);
-    }
-
-    // C = C - v * w^H - w * v^H (diagonal tiles)
-    v_ptr = v.data();
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        w_ptr = w.data();
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if (i == j) {
-                her2(-tau, v_ptr, w_ptr, A(i, j));
-            }
-            w_ptr += A.tileNb(j);
-        }
-        v_ptr += A.tileMb(i);
+        vi += A.tileMb(i);
+        wi += A.tileMb(i);
     }
 }
 
 //------------------------------------------------------------------------------
 /// Implements task 1 in the tridiagonal bulge chasing algorithm.
 /// Dispatches to target implementations.
+///
+/// @ingroup heev_computational
 ///
 template <Target target, typename scalar_t>
 void hebr1(HermitianMatrix<scalar_t>&& A,
@@ -133,7 +115,8 @@ void hebr1(HermitianMatrix<scalar_t>&& A,
 }
 
 //------------------------------------------------------------------------------
-/// Implements task 1 in the tridiagonal bulge chasing algorithm.
+/// Implements task 1 in the tridiagonal bulge chasing algorithm,
+/// bringing the first column & row of A to tridiagonal.
 /// (see https://doi.org/10.1145/2063384.2063394
 /// and http://www.icl.utk.edu/publications/swan-013)
 /// Here, the first block starts at $(0, 0)$, not at $(1, 0)$.
@@ -143,6 +126,11 @@ void hebr1(HermitianMatrix<scalar_t>&& A,
 ///
 /// @param[out] v
 ///     The Householder reflector to zero A[2:n-1, 0].
+///
+/// @param[in,out] A
+///     The first block of a sweep.
+///
+/// @ingroup heev_computational
 ///
 template <typename scalar_t>
 void hebr1(internal::TargetType<Target::HostTask>,
@@ -156,12 +144,13 @@ void hebr1(internal::TargetType<Target::HostTask>,
     // Zero A[2:n-1, 0].
     auto A1 = A.slice(1, A.m()-1, 0, 0);
     gerfg(A1, v);
-    scalar_t tmp = v[0];
+
+    // todo: this is silly; we already know it zeros the column.
     v[0] = conj(v[0]);
     gerf(v, A1);
+    v[0] = conj(v[0]);
 
-    // Apply the transformations to A[1:n-1, 1:n-1].
-    v[0] = tmp;
+    // Apply the 2-sided transformation to A[1:n-1, 1:n-1].
     auto A2 = A.slice(1, A.n()-1);
     herf(v, A2);
 }
@@ -169,6 +158,8 @@ void hebr1(internal::TargetType<Target::HostTask>,
 //------------------------------------------------------------------------------
 /// Implements task 2 in the tridiagonal bulge chasing algorithm.
 /// Dispatches to target implementations.
+///
+/// @ingroup heev_computational
 ///
 template <Target target, typename scalar_t>
 void hebr2(std::vector<scalar_t>& v1,
@@ -181,7 +172,9 @@ void hebr2(std::vector<scalar_t>& v1,
 }
 
 //------------------------------------------------------------------------------
-/// Implements task 2 in the tridiagonal bulge chasing algorithm.
+/// Implements task 2 in the tridiagonal bulge chasing algorithm,
+/// updating an off-diagonal block, which creates a bulge, then bringing its
+/// first column back to the original bandwidth.
 ///
 /// @param[in] v1
 ///     The Householder reflector produced by task 1.
@@ -191,6 +184,11 @@ void hebr2(std::vector<scalar_t>& v1,
 ///
 /// @param[out] v2
 ///     The Householder reflector to zero A[1:n-1, 0].
+///
+/// @param[in,out] A
+///     An off-diagonal block in a sweep.
+///
+/// @ingroup heev_computational
 ///
 template <typename scalar_t>
 void hebr2(internal::TargetType<Target::HostTask>,
@@ -210,11 +208,14 @@ void hebr2(internal::TargetType<Target::HostTask>,
     gerfg(A, v2);
     v2[0] = conj(v2[0]);
     gerf(v2, A);
+    v2[0] = conj(v2[0]);
 }
 
 //------------------------------------------------------------------------------
 /// Implements task 3 in the tridiagonal bulge chasing algorithm.
 /// Dispatches to target implementations.
+///
+/// @ingroup heev_computational
 ///
 template <Target target, typename scalar_t>
 void hebr3(std::vector<scalar_t>& v,
@@ -226,13 +227,16 @@ void hebr3(std::vector<scalar_t>& v,
 }
 
 //------------------------------------------------------------------------------
-/// Implements task 3 in the tridiagonal bulge chasing algorithm.
+/// Implements task 3 in the tridiagonal bulge chasing algorithm,
+/// updating a diagonal block with a 2-sided Householder transformation.
 ///
 /// @param[in] v
 ///     The Householder reflector produced by task 2.
 ///
 /// @param[in,out] A
 ///     A diagonal block in a sweep.
+///
+/// @ingroup heev_computational
 ///
 template <typename scalar_t>
 void hebr3(internal::TargetType<Target::HostTask>,
@@ -244,7 +248,6 @@ void hebr3(internal::TargetType<Target::HostTask>,
     trace::Block trace_block("internal::hebr3");
 
     // Apply the reflector from task 2.
-    v[0] = conj( v[0] );
     herf(v, A);
 }
 

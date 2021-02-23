@@ -10,20 +10,23 @@
 #include "slate/Matrix.hh"
 #include "internal/Tile_lapack.hh"
 #include "slate/types.hh"
+#include "internal/internal_householder.hh"
 
 namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// Generates a Householder reflector $v$ using the first column
-/// of the matrix $A$, i.e., a reflector that zeroes $A[1:m-1, 0]$.
-/// Stores $tau$ in $v[0]$.
+/// Generates a Householder reflector $H = I - \tau v v^H$ using the first
+/// column of the matrix $A$, i.e., a reflector that zeroes $A[1:m-1, 0]$.
+/// Stores $\tau$ in $v[0]$.
 ///
 /// @param[in] A
 ///     The m-by-n matrix A.
 ///
 /// @param[out] v
-///     The Householder reflector that zeroes $A[1:m-1, 0]$.
+///     The vector v in the representation of H.
+///
+/// @ingroup svd_computational
 ///
 template <typename scalar_t>
 void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v)
@@ -32,23 +35,22 @@ void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v)
 
     // v <- A[:, 0]
     v.resize(A.m());
-    scalar_t* v_ptr = v.data();
+    scalar_t* vi = v.data();
     for (int64_t i = 0; i < A.mt(); ++i) {
         auto tile = A(i, 0);
-        if (tile.op() == Op::ConjTrans ||
-            tile.op() == Op::Trans) {
+        if (tile.op() == Op::ConjTrans || tile.op() == Op::Trans) {
             int64_t mb = tile.mb();
             scalar_t* t_ptr = tile.data();
             for (int64_t j = 0; j < mb; ++j) {
-                v_ptr[j] = conj( t_ptr[ j * tile.stride() ] );
+                vi[j] = conj( t_ptr[ j * tile.stride() ] );
             }
         }
         else {
             blas::copy(tile.mb(), tile.data(),
                        tile.op() == Op::NoTrans ? 1 : tile.stride(),
-                       v_ptr, 1);
+                       vi, 1);
         }
-        v_ptr += tile.mb();
+        vi += tile.mb();
     }
 
     // Compute the reflector in v.
@@ -59,58 +61,67 @@ void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v)
 }
 
 //------------------------------------------------------------------------------
-/// Applies a Houselolder reflector $v$ to the matrix $A$ from the left.
-/// Takes the $tau$ factor from $v[0]$.
+/// Applies a Houselolder reflector $H = I - \tau v v^H$ to the matrix $A$
+/// from the left. Takes the $\tau$ factor from $v[0]$.
 ///
-/// @param[in] in_v
-///     The Householder reflector to apply.
+/// @param[in] n
+///     Length of vector v.
+///
+/// @param[in] v
+///     The vector v in the representation of H.
+///     Modified but restored on exit.
 ///
 /// @param[in,out] A
 ///     The m-by-n matrix A.
+///
+/// @ingroup svd_computational
 ///
 template <typename scalar_t>
 void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A)
 {
     using blas::conj;
-    scalar_t one  = 1;
-    scalar_t zero = 0;
+
+    const scalar_t one  = 1.0;
+    const scalar_t zero = 0.0;
 
     // Replace tau with 1.0 in v[0].
     auto v = in_v;
     scalar_t tau = v[0];
     v[0] = one;
 
-    // w = C^H * v
+    // w = A^H v
     auto AH = conjTranspose(A);
     std::vector<scalar_t> w(AH.m());
 
-    scalar_t* w_ptr = w.data();
+    scalar_t* wi = w.data();
     for (int64_t i = 0; i < AH.mt(); ++i) {
-        scalar_t* v_ptr = v.data();
+        scalar_t* vj = v.data();
         scalar_t beta = zero;
         for (int64_t j = 0; j < AH.nt(); ++j) {
-            gemv(one, AH(i, j), v_ptr, beta, w_ptr);
+            gemv(one, AH(i, j), vj, beta, wi);
             beta = one;
-            v_ptr += AH.tileNb(j);
+            vj += AH.tileNb(j);
         }
-        w_ptr += AH.tileMb(i);
+        wi += AH.tileMb(i);
     }
 
-    // C = C - v * w^H
-    scalar_t* v_ptr = v.data();
+    // A = A - v w^H
+    scalar_t* vi = v.data();
     for (int64_t i = 0; i < A.mt(); ++i) {
-        w_ptr = w.data();
+        scalar_t* wj = w.data();
         for (int64_t j = 0; j < A.nt(); ++j) {
-            ger(-tau, v_ptr, w_ptr, A(i, j));
-            w_ptr += A.tileNb(j);
+            ger(-tau, vi, wj, A(i, j));
+            wj += A.tileNb(j);
         }
-        v_ptr += A.tileMb(i);
+        vi += A.tileMb(i);
     }
 }
 
 //------------------------------------------------------------------------------
 /// Implements task 1 in the bidiagonal bulge chasing algorithm.
 /// Dispatches to target implementations.
+///
+/// @ingroup svd_computational
 ///
 template <Target target, typename scalar_t>
 void gebr1(Matrix<scalar_t>&& A,
@@ -136,6 +147,8 @@ void gebr1(Matrix<scalar_t>&& A,
 /// @param[out] v2
 ///     The Householder reflector to zero A[2:m-1, 0].
 ///
+/// @ingroup svd_computational
+///
 template <typename scalar_t>
 void gebr1(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A,
@@ -147,13 +160,13 @@ void gebr1(internal::TargetType<Target::HostTask>,
     trace::Block trace_block("internal::gebr1");
 
     // Zero A[0, 1:n-1].
-    // Apply A*Q^H => becomes Q*A^H.
+    // Apply A Q^H => becomes Q A^H.
     auto A1 = conjTranspose(A);
     gerfg(A1, v1);
     gerf(v1, A1);
 
     // Zero A[2:m-1, 0].
-    // Apply Q^H*A => conjugate tau.
+    // Apply Q^H A => conjugate tau.
     auto A2 = A.slice(1, A.m()-1, 0, A.n()-1);
     gerfg(A2, v2);
     v2[0] = conj( v2[0] );
@@ -163,6 +176,8 @@ void gebr1(internal::TargetType<Target::HostTask>,
 //------------------------------------------------------------------------------
 /// Implements task 2 in the bidiagonal bulge chasing algorithm.
 /// Dispatches to target implementations.
+///
+/// @ingroup svd_computational
 ///
 template <Target target, typename scalar_t>
 void gebr2(std::vector<scalar_t> const& v1,
@@ -186,6 +201,8 @@ void gebr2(std::vector<scalar_t> const& v1,
 /// @param[out] v2
 ///     The Householder reflector to zero A[0, 1:n-1].
 ///
+/// @ingroup svd_computational
+///
 template <typename scalar_t>
 void gebr2(internal::TargetType<Target::HostTask>,
            std::vector<scalar_t> const& v1,
@@ -193,14 +210,13 @@ void gebr2(internal::TargetType<Target::HostTask>,
            std::vector<scalar_t>& v2,
            int priority)
 {
-    using blas::conj;
     trace::Block trace_block("internal::gebr2");
 
-    // Apply the second reflector from task 1: Q^H*A.
+    // Apply the second reflector from task 1: Q^H A.
     gerf(v1, A);
 
     // Zero A[0, 1:n-1].
-    // Apply A*Q^H => becomes Q*A^H.
+    // Apply A Q^H => becomes Q A^H.
     auto AH = conjTranspose(A);
     gerfg(AH, v2);
     gerf(v2, AH);
@@ -209,6 +225,8 @@ void gebr2(internal::TargetType<Target::HostTask>,
 //------------------------------------------------------------------------------
 /// Implements task 3 in the bidiagonal bulge chasing algorithm.
 /// Dispatches to target implementations.
+///
+/// @ingroup svd_computational
 ///
 template <Target target, typename scalar_t>
 void gebr3(std::vector<scalar_t> const& v1,
@@ -232,6 +250,8 @@ void gebr3(std::vector<scalar_t> const& v1,
 /// @param[out] v2
 ///     The Householder reflector to zero A[1:m-1, 0].
 ///
+/// @ingroup svd_computational
+///
 template <typename scalar_t>
 void gebr3(internal::TargetType<Target::HostTask>,
            std::vector<scalar_t> const& v1,
@@ -242,12 +262,12 @@ void gebr3(internal::TargetType<Target::HostTask>,
     using blas::conj;
     trace::Block trace_block("internal::gebr3");
 
-    // Apply the reflector from task 2: Q*A.
+    // Apply the reflector from task 2: Q A.
     auto AH = conjTranspose(A);
     gerf(v1, AH);
 
     // Zero A[1:m-1, 0].
-    // Apply Q^H*A => conjugate tau.
+    // Apply Q^H A => conjugate tau.
     gerfg(A, v2);
     v2[0] = conj( v2[0] );
     gerf(v2, A);

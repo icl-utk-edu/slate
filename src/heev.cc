@@ -30,9 +30,6 @@ void heev(lapack::Job jobz,
     int64_t n = A.n();
     bool wantz = (jobz == Job::Vec);
 
-    // MPI_Status status;
-    int mpi_rank;
-
     // Scale matrix to allowable range, if necessary.
     // todo
 
@@ -42,19 +39,26 @@ void heev(lapack::Job jobz,
 
     // Copy band.
     // Currently, gathers band matrix to rank 0.
-    HermitianBandMatrix<scalar_t> Aband(A.uplo(), n, A.tileNb(0), A.tileNb(0),
-                                        1, 1, A.mpiComm());
+    int64_t nb = A.tileNb(0);
+    HermitianBandMatrix<scalar_t> Aband(A.uplo(), n, nb, nb, 1, 1, A.mpiComm());
     Aband.insertLocalTiles();
     Aband.he2hbGather(A);
 
     // Currently, hb2st and sterf are run on a single node.
     W.resize(n);
     std::vector<real_t> E(n - 1);
-    MPI_Comm_rank(A.mpiComm(), &mpi_rank);
+    if (A.mpiRank() == 0) {
+        // Matrix to store Householder vectors.
+        // Could pack into a lower triangular matrix, but we store each
+        // parallelogram in a 2nb-by-nb tile, with nt(nt + 1)/2 tiles.
+        int64_t vm = 2*nb;
+        int64_t nt = A.nt();
+        int64_t vn = nt*(nt + 1)/2*nb;
+        Matrix<scalar_t> V(vm, vn, vm, nb, 1, 1, A.mpiComm());
+        V.insertLocalTiles();
 
-    if (mpi_rank == 0) {
-        // 2. Reduce band to symmetric tri-diagonal.
-        hb2st(Aband, opts);
+        // 2. Reduce band to real symmetric tri-diagonal.
+        hb2st(Aband, V, opts);
 
         // Copy diagonal and super-diagonal to vectors.
         internal::copyhb2st(Aband, W, E);
@@ -69,7 +73,7 @@ void heev(lapack::Job jobz,
         steqr2(jobz, W, E, Z);
     }
     else {
-        if (mpi_rank == 0) {
+        if (A.mpiRank() == 0) {
             // QR iteration
             sterf<real_t>(W, E, opts);
             // Bcast the vectors of the eigenvalues W

@@ -886,6 +886,7 @@ void unmtr_he2hb(
 template <typename scalar_t>
 void hb2st(
     HermitianBandMatrix<scalar_t>& A,
+    Matrix<scalar_t>& V,
     Options const& opts = Options());
 
 //-----------------------------------------

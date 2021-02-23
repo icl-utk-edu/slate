@@ -341,7 +341,7 @@ void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>&& A,
          int priority=0, int queue_index=0);
 
 //------------------------------------------------------------------------------
-// Band reduction
+// Bidiagonal band reduction
 template <Target target, typename scalar_t>
 void gebr1(Matrix<scalar_t>&& A,
            int64_t n1, scalar_t* v1,
@@ -363,14 +363,14 @@ void gebr3(int64_t n1, scalar_t* v1,
 //------------------------------------------------------------------------------
 // Tridiagonal band reduction
 template <Target target, typename scalar_t>
-void hebr1(HermitianMatrix<scalar_t>&& A,
-           int64_t n, scalar_t* v,
+void hebr1(int64_t n, scalar_t* v,
+           HermitianMatrix<scalar_t>&& A,
            int priority=0);
 
 template <Target target, typename scalar_t>
 void hebr2(int64_t n1, scalar_t* v1,
-           Matrix<scalar_t>&& A,
            int64_t n2, scalar_t* v2,
+           Matrix<scalar_t>&& A,
            int priority=0);
 
 template <Target target, typename scalar_t>

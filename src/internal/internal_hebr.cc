@@ -19,7 +19,10 @@ namespace internal {
 /// Applies a Householder reflector $H = I - \tau v v^H$ to the Hermitian
 /// matrix $A$ on the left and right. Takes the $\tau$ factor from $v[0]$.
 ///
-/// @param[in] in_v
+/// @param[in] n
+///     Length of vector v.
+///
+/// @param[in] v
 ///     The vector v in the representation of H.
 ///     Modified but restored on exit.
 ///
@@ -71,6 +74,7 @@ void herf(int64_t n, scalar_t* v, HermitianMatrix<scalar_t>& A)
         wi += A.tileMb(i);
     }
 
+    // todo: should this be switched, v^H w instead of w^H v?
     // w = A v - 0.5 tau ((A v)^H v) v
     scalar_t alpha = -half * tau * blas::dot(A.n(), w, 1, v, 1);
     blas::axpy(A.n(), alpha, v, 1, w, 1);
@@ -101,29 +105,30 @@ void herf(int64_t n, scalar_t* v, HermitianMatrix<scalar_t>& A)
 }
 
 //------------------------------------------------------------------------------
-/// Implements task 1 in the tridiagonal bulge chasing algorithm.
+/// Implements task type 1 in the tridiagonal bulge chasing algorithm.
 /// Dispatches to target implementations.
 ///
 /// @ingroup heev_computational
 ///
 template <Target target, typename scalar_t>
-void hebr1(HermitianMatrix<scalar_t>&& A,
-           int64_t n, scalar_t* v,
+void hebr1(int64_t n, scalar_t* v,
+           HermitianMatrix<scalar_t>&& A,
            int priority)
 {
     hebr1(internal::TargetType<target>(),
-          A, n, v, priority);
+          n, v, A, priority);
 }
 
 //------------------------------------------------------------------------------
-/// Implements task 1 in the tridiagonal bulge chasing algorithm,
+/// Implements task type 1 in the tridiagonal bulge chasing algorithm,
 /// bringing the first column & row of A to tridiagonal.
-/// (see https://doi.org/10.1145/2063384.2063394
-/// and http://www.icl.utk.edu/publications/swan-013)
+/// See https://doi.org/10.1145/2063384.2063394
+/// and http://www.icl.utk.edu/publications/swan-013
 /// Here, the first block starts at $(0, 0)$, not at $(1, 0)$.
+/// todo: as compared to SVD?
 ///
-/// @param[in,out] A
-///     The first block of a sweep.
+/// @param[in] n
+///     Length of vector v.
 ///
 /// @param[out] v
 ///     The Householder reflector to zero A[2:n-1, 0].
@@ -131,12 +136,10 @@ void hebr1(HermitianMatrix<scalar_t>&& A,
 /// @param[in,out] A
 ///     The first block of a sweep.
 ///
-/// @ingroup heev_computational
-///
 template <typename scalar_t>
 void hebr1(internal::TargetType<Target::HostTask>,
-           HermitianMatrix<scalar_t>& A,
            int64_t n, scalar_t* v,
+           HermitianMatrix<scalar_t>& A,
            int priority)
 {
     using blas::conj;
@@ -157,31 +160,34 @@ void hebr1(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
-/// Implements task 2 in the tridiagonal bulge chasing algorithm.
+/// Implements task type 2 in the tridiagonal bulge chasing algorithm.
 /// Dispatches to target implementations.
 ///
 /// @ingroup heev_computational
 ///
 template <Target target, typename scalar_t>
 void hebr2(int64_t n1, scalar_t* v1,
-           Matrix<scalar_t>&& A,
            int64_t n2, scalar_t* v2,
+           Matrix<scalar_t>&& A,
            int priority)
 {
     hebr2(internal::TargetType<target>(),
-          n1, v1, A, n2, v2, priority);
+          n1, v1, n2, v2, A, priority);
 }
 
 //------------------------------------------------------------------------------
-/// Implements task 2 in the tridiagonal bulge chasing algorithm,
+/// Implements task type 2 in the tridiagonal bulge chasing algorithm,
 /// updating an off-diagonal block, which creates a bulge, then bringing its
 /// first column back to the original bandwidth.
 ///
-/// @param[in] v1
-///     The Householder reflector produced by task 1.
+/// @param[in] n1
+///     Length of vector v1.
 ///
-/// @param[in,out] A
-///     An off-diagonal block in a sweep.
+/// @param[in] v1
+///     The Householder reflector produced by task type 1 or 2.
+///
+/// @param[in] n2
+///     Length of vector v2.
 ///
 /// @param[out] v2
 ///     The Householder reflector to zero A[1:n-1, 0].
@@ -189,19 +195,17 @@ void hebr2(int64_t n1, scalar_t* v1,
 /// @param[in,out] A
 ///     An off-diagonal block in a sweep.
 ///
-/// @ingroup heev_computational
-///
 template <typename scalar_t>
 void hebr2(internal::TargetType<Target::HostTask>,
            int64_t n1, scalar_t* v1,
-           Matrix<scalar_t>& A,
            int64_t n2, scalar_t* v2,
+           Matrix<scalar_t>& A,
            int priority)
 {
     using blas::conj;
     trace::Block trace_block("internal::hebr2");
 
-    // Apply the reflector from task 1.
+    // Apply the reflector from task type 1 or 2.
     auto AH = conjTranspose(A);
     gerf(n1, v1, AH);
 
@@ -213,7 +217,7 @@ void hebr2(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
-/// Implements task 3 in the tridiagonal bulge chasing algorithm.
+/// Implements task type 3 in the tridiagonal bulge chasing algorithm.
 /// Dispatches to target implementations.
 ///
 /// @ingroup heev_computational
@@ -228,11 +232,14 @@ void hebr3(int64_t n, scalar_t* v,
 }
 
 //------------------------------------------------------------------------------
-/// Implements task 3 in the tridiagonal bulge chasing algorithm,
+/// Implements task type 3 in the tridiagonal bulge chasing algorithm,
 /// updating a diagonal block with a 2-sided Householder transformation.
 ///
+/// @param[in] n
+///     Length of vector v.
+///
 /// @param[in] v
-///     The Householder reflector produced by task 2.
+///     The Householder reflector produced by task type 2.
 ///
 /// @param[in,out] A
 ///     A diagonal block in a sweep.
@@ -248,7 +255,7 @@ void hebr3(internal::TargetType<Target::HostTask>,
     using blas::conj;
     trace::Block trace_block("internal::hebr3");
 
-    // Apply the reflector from task 2.
+    // Apply the reflector from task type 2.
     herf(n, v, A);
 }
 
@@ -257,55 +264,55 @@ void hebr3(internal::TargetType<Target::HostTask>,
 // ----------------------------------------
 template
 void hebr1<Target::HostTask, float>(
-    HermitianMatrix<float>&& A,
     int64_t n, float* v1,
+    HermitianMatrix<float>&& A,
     int priority);
 
 template
 void hebr1<Target::HostTask, double>(
-    HermitianMatrix<double>&& A,
     int64_t n, double* v1,
+    HermitianMatrix<double>&& A,
     int priority);
 
 template
 void hebr1< Target::HostTask, std::complex<float> >(
-    HermitianMatrix< std::complex<float> >&& A,
     int64_t n, std::complex<float>* v1,
+    HermitianMatrix< std::complex<float> >&& A,
     int priority);
 
 template
 void hebr1< Target::HostTask, std::complex<double> >(
-    HermitianMatrix< std::complex<double> >&& A,
     int64_t n, std::complex<double>* v1,
+    HermitianMatrix< std::complex<double> >&& A,
     int priority);
 
 // ----------------------------------------
 template
 void hebr2<Target::HostTask, float>(
     int64_t n1, float* v1,
-    Matrix<float>&& A,
     int64_t n2, float* v2,
+    Matrix<float>&& A,
     int priority);
 
 template
 void hebr2<Target::HostTask, double>(
     int64_t n1, double* v1,
-    Matrix<double>&& A,
     int64_t n2, double* v2,
+    Matrix<double>&& A,
     int priority);
 
 template
 void hebr2< Target::HostTask, std::complex<float> >(
     int64_t n1, std::complex<float>* v1,
-    Matrix< std::complex<float> >&& A,
     int64_t n2, std::complex<float>* v2,
+    Matrix< std::complex<float> >&& A,
     int priority);
 
 template
 void hebr2< Target::HostTask, std::complex<double> >(
     int64_t n1, std::complex<double>* v1,
-    Matrix< std::complex<double> >&& A,
     int64_t n2, std::complex<double>* v2,
+    Matrix< std::complex<double> >&& A,
     int priority);
 
 // ----------------------------------------

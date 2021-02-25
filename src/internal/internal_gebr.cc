@@ -280,6 +280,32 @@ void gebr3(internal::TargetType<Target::HostTask>,
 // Explicit instantiations.
 // ----------------------------------------
 template
+void gerfg(Matrix<float>& A, int64_t n, float* v);
+
+template
+void gerfg(Matrix<double>& A, int64_t n, double* v);
+
+template
+void gerfg(Matrix<std::complex<float>>& A, int64_t n, std::complex<float>* v);
+
+template
+void gerfg(Matrix<std::complex<double>>& A, int64_t n, std::complex<double>* v);
+
+// ----------------------------------------
+template
+void gerf(int64_t n, float* v, Matrix<float>& A);
+
+template
+void gerf(int64_t n, double* v, Matrix<double>& A);
+
+template
+void gerf(int64_t n, std::complex<float>* v, Matrix<std::complex<float>>& A);
+
+template
+void gerf(int64_t n, std::complex<double>* v, Matrix<std::complex<double>>& A);
+
+// ----------------------------------------
+template
 void gebr1<Target::HostTask, float>(
     Matrix<float>&& A,
     int64_t n1, float* v1,

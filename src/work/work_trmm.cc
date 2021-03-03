@@ -235,7 +235,8 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
         #pragma omp task depend(in:bcast[mt-1]) \
                          depend(out:gemm[mt-1])
         {
-            internal::trmm<Target::HostTask>(
+            //internal::trmm<Target::HostTask>(
+            internal::trmm<target>(
                 Side::Left,
                 alpha, A.sub(mt-1, mt-1),
                        B.sub(mt-1, mt-1, 0, nt-1));

@@ -91,6 +91,96 @@ void trmm(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
+/// Triangular matrix multiply.
+/// Host nested OpenMP implementation.
+/// @ingroup trmm_internal
+///
+template <typename scalar_t>
+void trmm(internal::TargetType<Target::HostNest>,
+          Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
+          int priority)
+{
+    slate_not_implemented("Not available yet");
+}
+
+//------------------------------------------------------------------------------
+/// Triangular matrix multiply.
+/// Host batched implementation.
+/// @ingroup trmm_internal
+///
+template <typename scalar_t>
+void trmm(internal::TargetType<Target::HostBatch>,
+          Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
+          int priority)
+{
+    slate_not_implemented("Not available yet");
+}
+//------------------------------------------------------------------------------
+/// Triangular matrix multiply.
+/// GPU device batched cuBLAS implementation.
+/// @ingroup trmm_internal
+///
+template <typename scalar_t>
+void trmm(internal::TargetType<Target::Devices>,
+          Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
+          int priority)
+{
+    printf("%s %d NOT IMPLEMENTED YET\n", __FILE__, __LINE__);
+    // CPU assumes column major
+    // todo: relax this assumption, by allowing Tile_blas.hh::trmm() to take layout param
+    // todo: optimize for the number of layout conversions,
+    //       by watching 'layout' and 'C(i, j).layout()'
+    const Layout layout = Layout::ColMajor;
+
+    assert(A.mt() == 1);
+
+    // alternatively, if (side == right), (conj)-transpose both A and B,
+    // then assume side == left; see slate::trmm
+    if (side == Side::Right) {
+        assert(B.nt() == 1);
+        for (int64_t i = 0; i < B.mt(); ++i) {
+            if (B.tileIsLocal(i, 0)) {
+                #pragma omp task shared(A, B)
+                {
+                    A.tileGetForReading(0, 0, LayoutConvert(layout));
+                    B.tileGetForWriting(i, 0, LayoutConvert(layout));
+                    trmm(side, A.diag(),
+                         alpha, A(0, 0),
+                                B(i, 0));
+                    // todo: should tileRelease()?
+                    A.tileTick(0, 0);
+                }
+            }
+        }
+    }
+    else {
+        assert(B.mt() == 1);
+        for (int64_t j = 0; j < B.nt(); ++j) {
+            if (B.tileIsLocal(0, j)) {
+                #pragma omp task shared(A, B)
+                {
+                    A.tileGetForReading(0, 0, LayoutConvert(layout));
+                    B.tileGetForWriting(0, j, LayoutConvert(layout));
+                    trmm(side, A.diag(),
+                         alpha, A(0, 0),
+                                B(0, j));
+                    // todo: should tileRelease()?
+                    A.tileTick(0, 0);
+                }
+            }
+        }
+    }
+
+    #pragma omp taskwait
+}
+
+//------------------------------------------------------------------------------
 // Explicit instantiations.
 // ----------------------------------------
 template
@@ -123,6 +213,103 @@ void trmm< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
     int priority);
+
+// ----------------------------------------
+template
+void trmm<Target::HostNest, float>(
+    Side side,
+    float alpha, TriangularMatrix<float>&& A,
+                           Matrix<float>&& B,
+    int priority);
+
+// ----------------------------------------
+template
+void trmm<Target::HostNest, double>(
+    Side side,
+    double alpha, TriangularMatrix<double>&& A,
+                            Matrix<double>&& B,
+    int priority);
+
+// ----------------------------------------
+template
+void trmm< Target::HostNest, std::complex<float> >(
+    Side side,
+    std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
+                                         Matrix< std::complex<float> >&& B,
+    int priority);
+
+// ----------------------------------------
+template
+void trmm< Target::HostNest, std::complex<double> >(
+    Side side,
+    std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
+                                          Matrix< std::complex<double> >&& B,
+    int priority);
+
+// ----------------------------------------
+template
+void trmm<Target::HostBatch, float>(
+    Side side,
+    float alpha, TriangularMatrix<float>&& A,
+                           Matrix<float>&& B,
+    int priority);
+
+// ----------------------------------------
+template
+void trmm<Target::HostBatch, double>(
+    Side side,
+    double alpha, TriangularMatrix<double>&& A,
+                            Matrix<double>&& B,
+    int priority);
+
+// ----------------------------------------
+template
+void trmm< Target::HostBatch, std::complex<float> >(
+    Side side,
+    std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
+                                         Matrix< std::complex<float> >&& B,
+    int priority);
+
+// ----------------------------------------
+template
+void trmm< Target::HostBatch, std::complex<double> >(
+    Side side,
+    std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
+                                          Matrix< std::complex<double> >&& B,
+    int priority);
+
+// ----------------------------------------
+template
+void trmm<Target::Devices, float>(
+    Side side,
+    float alpha, TriangularMatrix<float>&& A,
+                           Matrix<float>&& B,
+    int priority);
+
+// ----------------------------------------
+template
+void trmm<Target::Devices, double>(
+    Side side,
+    double alpha, TriangularMatrix<double>&& A,
+                            Matrix<double>&& B,
+    int priority);
+
+// ----------------------------------------
+template
+void trmm< Target::Devices, std::complex<float> >(
+    Side side,
+    std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
+                                         Matrix< std::complex<float> >&& B,
+    int priority);
+
+// ----------------------------------------
+template
+void trmm< Target::Devices, std::complex<double> >(
+    Side side,
+    std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
+                                          Matrix< std::complex<double> >&& B,
+    int priority);
+
 
 } // namespace internal
 } // namespace slate

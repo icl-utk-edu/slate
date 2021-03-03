@@ -159,14 +159,14 @@ void unmqr(internal::TargetType<target>,
         // W <- C0
         // W <- V0^H W
         internal::copy(std::move(C0), std::move(Wr));
-        internal::trmm<Target::HostTask>(
+        internal::trmm<target>(
                 Side::Left,
                 one, conjTranspose(V0tr),
                      std::move(Wr));
 
         if (trapezoid) {
             // W <- V0b^H C0b + W
-            internal::gemm<Target::HostTask>(
+            internal::gemm<target>(
                     one, conjTranspose(V0b),
                          std::move(C0b),
                     one, std::move(Wr),
@@ -190,7 +190,7 @@ void unmqr(internal::TargetType<target>,
 
         // --------------------
         // 2. W <- op(T0) W; op is already applied to T0tr.
-        internal::trmm<Target::HostTask>(
+        internal::trmm<target>(
                 Side::Left,
                 one, std::move(T0tr),
                      std::move(Wr));
@@ -208,7 +208,7 @@ void unmqr(internal::TargetType<target>,
 
         if (trapezoid) {
             // C0b <- C0b - V0b W
-            internal::gemm<Target::HostTask>(
+            internal::gemm<target>(
                     -one, std::move(V0b),
                           std::move(Wr),
                     one,  std::move(C0b),
@@ -216,13 +216,13 @@ void unmqr(internal::TargetType<target>,
         }
 
         // W <- V0 W
-        internal::trmm<Target::HostTask>(
+        internal::trmm<target>(
                 Side::Left,
                 one, std::move(V0tr),
                      std::move(Wr));
 
         // C0 <- C0 - W
-        internal::geadd<Target::HostTask>(
+        internal::geadd<target>(
                 -one, std::move(Wr),
                 one,  std::move(C0));
 
@@ -333,14 +333,14 @@ void unmqr(internal::TargetType<target>,
         // W <- C0
         // W <- W V0
         internal::copy(std::move(C0), std::move(Wc));
-        internal::trmm<Target::HostTask>(
+        internal::trmm<target>(
                 Side::Right,
                 one, std::move(V0tr),
                      std::move(Wc));
 
         if (trapezoid) {
             // W <- C0b V0b + W
-            internal::gemm<Target::HostTask>(
+            internal::gemm<target>(
                     one, std::move(C0b),
                          std::move(V0b),
                     one, std::move(Wc),
@@ -364,7 +364,7 @@ void unmqr(internal::TargetType<target>,
 
         // --------------------
         // 2. W <- W op(T0); op is already applied to T0tr.
-        internal::trmm<Target::HostTask>(
+        internal::trmm<target>(
                 Side::Right,
                 one, std::move(T0tr),
                      std::move(Wc));
@@ -382,7 +382,7 @@ void unmqr(internal::TargetType<target>,
 
         if (trapezoid) {
             // C0b <- C0b - W V0b^H
-            internal::gemm<Target::HostTask>(
+            internal::gemm<target>(
                     -one, std::move(Wc),
                           conjTranspose(V0b),
                     one,  std::move(C0b),
@@ -390,13 +390,13 @@ void unmqr(internal::TargetType<target>,
         }
 
         // W <- W V0^H
-        internal::trmm<Target::HostTask>(
+        internal::trmm<target>(
                 Side::Right,
                 one, conjTranspose(V0tr),
                      std::move(Wc));
 
         // C0 <- C0 - W
-        internal::geadd<Target::HostTask>(
+        internal::geadd<target>(
                 -one, std::move(Wc),
                 one,  std::move(C0));
 

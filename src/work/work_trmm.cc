@@ -235,7 +235,6 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
         #pragma omp task depend(in:bcast[mt-1]) \
                          depend(out:gemm[mt-1])
         {
-            //internal::trmm<Target::HostTask>(
             internal::trmm<target>(
                 Side::Left,
                 alpha, A.sub(mt-1, mt-1),
@@ -285,7 +284,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     layout);
 
                 // todo: target? needs batch trmm
-                internal::trmm<Target::HostTask>(
+                internal::trmm<target>(
                     Side::Left,
                     alpha, A.sub(k, k),
                            B.sub(k, k, 0, nt-1));

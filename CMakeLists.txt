@@ -46,6 +46,7 @@ option( BUILD_SHARED_LIBS "Build shared libraries" true )
 option( build_tests "Build test suite" "${slate_is_project}" )
 option( color "Use ANSI color output" true )
 option( use_cuda "Use CUDA, if available" true )
+option( use_hip "Use HIP, if available" true )
 option( use_mpi "Use MPI, if available" true )
 option( use_openmp "Use OpenMP, if available" true )
 # todo: option( c_api "Build C API" false )
@@ -89,6 +90,7 @@ BUILD_SHARED_LIBS      = ${BUILD_SHARED_LIBS}
 build_tests            = ${build_tests}
 color                  = ${color}
 use_cuda               = ${use_cuda}
+use_hip                = ${use_hip}
 use_mpi                = ${use_mpi}
 use_openmp             = ${use_openmp}
 c_api                  = ${c_api}
@@ -220,8 +222,137 @@ if (CMAKE_CUDA_COMPILER)
         slate PUBLIC "${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}" )
 else()
     message( STATUS "No CUDA support in SLATE" )
+    #target_sources(
+    #    slate
+    #    PRIVATE
+    #    src/stubs/cublas_stubs.cc
+    #    src/stubs/cuda_stubs.cc
+    #)
     target_compile_definitions( slate PUBLIC "-DSLATE_NO_CUDA" )
 endif()
+
+
+
+#-------------------------------------------------------------------------------
+# HIP support.
+if (NOT use_hip)
+    message( STATUS "User has requested to NOT use HIP" )
+else()
+    if(NOT DEFINED HIPDIR)
+        if(NOT DEFINED ENV{HIPDIR})
+            set(HIPDIR "/opt/rocm/hip" CACHE PATH "Path to which HIP has been installed")
+        else()
+            set(HIPDIR $ENV{HIPDIR} CACHE PATH "Path to which HIP has been installed")
+        endif()
+    endif()
+
+    # Add HIP-specific CMake files
+    set(CMAKE_MODULE_PATH "${HIPDIR}/cmake" ${CMAKE_MODULE_PATH})
+
+    # Now, try and find it
+    find_package(HIP)
+
+    endif()
+if (HIP_FOUND)
+    # NOTE: We assume some features from HIP>=3.5
+    
+    # In their official docs, they have 'hip' and 'HIP' as different packages,
+    #   which both need to be found
+    # https://github.com/ROCm-Developer-Tools/HIP/issues/1029
+    find_package(hip REQUIRED)
+
+    # For ROCm >=3.5, wipe hip-clang specific interface options which are propagated
+    set_target_properties(hip::device PROPERTIES INTERFACE_COMPILE_OPTIONS "-fPIC")
+    set_target_properties(hip::device PROPERTIES INTERFACE_LINK_LIBRARIES "hip::host")
+
+    message( STATUS "Building HIP kernels." )
+
+    # First, get the HIP source's base files (which are CUDA sources, needing to be hipified)
+    file(
+        GLOB libslate_hip_src_cuda
+        CONFIGURE_DEPENDS  # glob at build time
+        src/cuda/*.cu
+        src/cuda/*.cuh
+    )
+
+    # Make the generated source directory
+    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/src/hip")
+    
+    # Now, iterate over CUDA 
+    foreach(src_cu_ ${libslate_hip_src_cuda})
+        # First, generate source in the build folder (since it is generated)
+        STRING(REGEX REPLACE "^.*src/cuda" "${CMAKE_BINARY_DIR}/src/hip" src_hip_ ${src_cu_})
+
+        # Now, replace the file extensions to match HIP ones
+        STRING(REGEX REPLACE ".cu$"  ".hip.cc" src_hip_ ${src_hip_})
+        # Just allow the headers to keep '.cuh' so we don't have to string replace contents of the file
+        #STRING(REGEX REPLACE ".cuh$" ".hip.hh" src_hip_ ${src_hip_})
+
+        # Now, add a rule to automatically generate it
+        add_custom_command(
+            OUTPUT "${src_hip_}"
+            DEPENDS "${src_cu_}"
+            COMMAND "${HIPDIR}/bin/hipify-perl" ${src_cu_} > ${src_hip_}
+        )
+
+        # And, add a rule to compile it (if it is actual code, and not a header)
+        if(${src_hip_} MATCHES ".hip.cc$")
+            # Generate output file
+            STRING(REGEX REPLACE ".cc$" ".o" src_o_ ${src_hip_})
+
+            # Generate definitions list
+            get_target_property(defs_ slate COMPILE_DEFINITIONS)
+            set(defs__ "")
+            foreach(def_ ${defs_})
+                list(APPEND defs__ "-D${def_}")
+            endforeach()
+
+            # Compilation rule
+            # TODO: Figure out how to generically find
+            add_custom_command(
+                OUTPUT "${src_o_}"
+                DEPENDS "${src_hip_}" "${CMAKE_BINARY_DIR}/src/hip/device_util.cuh" # Just keep .cuh, see above
+                COMMAND "${HIPDIR}/bin/hipcc"
+                    ${defs__}
+                    "-I${CMAKE_SOURCE_DIR}/include"
+                    "-I${CMAKE_SOURCE_DIR}/blaspp/include"
+                    "-I${CMAKE_SOURCE_DIR}/lapackpp/include"
+                    "-I${CMAKE_BINARY_DIR}/blaspp/include"
+                    "-I${CMAKE_BINARY_DIR}/lapackpp/include"
+                ${src_hip_} -c -fPIC -o ${src_o_}
+            )
+
+            # Add the .o as a 'source' (even though it is already compiled
+            target_sources(
+                slate
+                PRIVATE
+                ${src_o_}
+            )
+
+        endif()
+    endforeach()
+
+    # CMake 3.17 adds find_package( CUDAToolkit )
+    # with CUDA::cudart and CUDA::cublas targets.
+    # For compatibility with older CMake, for now do search ourselves.
+    #find_library( cudart_lib cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES} )
+    #find_library( cublas_lib cublas ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES} )
+
+    # Some platforms need these to be public libraries.
+    #target_link_libraries( slate PUBLIC "${cudart_lib}" "${cublas_lib}" )
+    #target_include_directories(
+    #    slate PUBLIC "${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}" )
+else()
+    message( STATUS "No HIP support in SLATE" )
+    #target_sources(
+    #    slate
+    #    PRIVATE
+    #    src/stubs/hipblas_stubs.cc
+    #    src/stubs/hip_stubs.cc
+    #)
+    target_compile_definitions( slate PUBLIC "-DSLATE_NO_HIP" )
+endif()
+
 
 # Include directory.
 # During build it's {source}/include; after install it's {prefix}/include.

@@ -42,7 +42,7 @@ void trmm(internal::TargetType<Target::HostTask>,
                                     Matrix<scalar_t>& B,
           int priority)
 {
-    printf("HOST %s %d %s\n", __FILE__, __LINE__, __func__);
+    printf("HOST %s %d %s\n", __FILE__, __LINE__, __func__); // kadir will remove this line
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::trmm() to take layout param
     // todo: optimize for the number of layout conversions,
@@ -132,7 +132,9 @@ void trmm(internal::TargetType<Target::Devices>,
                                     Matrix<scalar_t>& B,
           int priority)
 {
-    printf("DEVICE %s %d %s\n", __FILE__, __LINE__, __func__);
+    int myrank; // kadir will remove this line
+    MPI_Comm_rank(MPI_COMM_WORLD, &myrank); // kadir will remove this line
+    printf("%d DEVICE %s %d %s\n", myrank, __FILE__, __LINE__, __func__); // kadir will remove this line
     int64_t queue_index = 0; // todo kadir: this parameter should come
     // from caller function sincethere might be another queue for gemm
     // 1 does not work

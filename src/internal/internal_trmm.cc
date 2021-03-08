@@ -131,9 +131,9 @@ void trmm(internal::TargetType<Target::Devices>,
                                     Matrix<scalar_t>& B,
           int priority)
 {
-    int myrank; // kadir will remove this line
-    MPI_Comm_rank(MPI_COMM_WORLD, &myrank); // kadir will remove this line
-    printf("%d DEVICE %s %d %s\n", myrank, __FILE__, __LINE__, __func__); // kadir will remove this line
+    //int myrank; // kadir will remove this line
+    //MPI_Comm_rank(MPI_COMM_WORLD, &myrank); // kadir will remove this line
+    //printf("%d DEVICE %s %d %s\n", myrank, __FILE__, __LINE__, __func__); // kadir will remove this line
     int64_t queue_index = 0; // todo kadir: this parameter should come
     // from caller function sincethere might be another queue for gemm
     // 1 does not work

@@ -42,7 +42,6 @@ void trmm(internal::TargetType<Target::HostTask>,
                                     Matrix<scalar_t>& B,
           int priority)
 {
-    printf("HOST %s %d %s\n", __FILE__, __LINE__, __func__); // kadir will remove this line
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::trmm() to take layout param
     // todo: optimize for the number of layout conversions,

@@ -119,7 +119,7 @@ HIPDIR          ?= /opt/rocm
 HIPCC           ?= $(HIPDIR)/bin/hipcc
 
 # If nvcc exists, set cuda = 1 by default.
-have_cuda := $(shell which $(NVCC))
+have_cuda := $(shell which $(NVCC) 2>/dev/null)
 ifneq ($(have_cuda),)
     cuda ?= 1
     cuda_arch ?= pascal

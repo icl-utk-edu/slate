@@ -62,7 +62,6 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                                Matrix<scalar_t> B,
           uint8_t* bcast, uint8_t* gemm, int64_t lookahead)
 {
-    printf("%s %d %s\n", __FILE__, __LINE__, __func__); // kadir will remove this line
     using blas::conj;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
@@ -91,7 +90,6 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     int64_t nt = B.nt();
 
     if (A.uplo() == Uplo::Upper) {
-        printf("Upper %s %d %s\n", __FILE__, __LINE__, __func__); // kadir will remove this line
         // ----------------------------------------
         // Left, Upper/NoTrans or Lower/Trans case
         // Forward sweep
@@ -191,7 +189,6 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
         }
     }
     else {
-        printf("Lower %s %d %s\n", __FILE__, __LINE__, __func__); // kadir will remove this line
         // ----------------------------------------
         // Left, Lower/NoTrans or Upper/Trans case
         // Backward sweep

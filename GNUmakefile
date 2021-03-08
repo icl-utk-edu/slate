@@ -128,7 +128,7 @@ else ifeq ($(strip $(cuda)),1)
 endif
 
 # If hipcc exists, set hip = 1 by default.
-have_hip  := $(shell which $(HIPCC))
+have_hip  := $(shell which $(HIPCC) 2>/dev/null)
 ifneq ($(have_hip),)
     hip ?= 1
     hip_arch ?= gfx900 gfx906 gfx908

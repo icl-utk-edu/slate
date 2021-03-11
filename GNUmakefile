@@ -407,6 +407,7 @@ libslate_src += \
         src/internal/internal_ttqrt.cc \
         src/internal/internal_ttlqt.cc \
         src/internal/internal_tzcopy.cc \
+        src/internal/internal_tzset.cc \
         src/internal/internal_unmqr.cc \
         src/internal/internal_unmlq.cc \
         src/internal/internal_util.cc \

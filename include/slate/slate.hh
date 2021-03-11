@@ -59,6 +59,21 @@ void set(
     set(value, value, A, opts);
 }
 
+template <typename scalar_t>
+void set(
+    scalar_t offdiag_value,
+    scalar_t diag_value,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts = Options());
+
+template <typename scalar_t>
+void set(
+    scalar_t value,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts = Options())
+{
+    set(value, value, A, opts);
+}
 //------------------------------------------------------------------------------
 // Level 3 BLAS and LAPACK auxiliary
 

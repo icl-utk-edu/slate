@@ -287,7 +287,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     alpha,         A.sub(k+1, mt-1, k, k),
                                    B.sub(k, k, 0, nt-1),
                     scalar_t(1.0), B.sub(k+1, mt-1, 0, nt-1),
-                    layout, priority_zero,batch_arrays_index_zero );
+                    layout, priority_zero, batch_arrays_index_zero);
 
                 // todo: target? needs batch trmm
                 internal::trmm<target>(

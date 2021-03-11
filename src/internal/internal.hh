@@ -273,7 +273,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void trmm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
-          int priority=0);
+          int priority=0, int64_t queue_index=0);
 
 //-----------------------------------------
 // trsm()

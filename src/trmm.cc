@@ -27,7 +27,9 @@ void trmm(slate::internal::TargetType<target>,
           int64_t lookahead)
 {
     if (target == Target::Devices) {
-        B.allocateBatchArrays();
+        const int64_t batch_size_zero = 0; // use default batch size
+        const int64_t num_arrays_two = 2; // Number of kernels without lookahead
+        B.allocateBatchArrays(batch_size_zero, num_arrays_two);
         B.reserveDeviceWorkspace();
     }
 

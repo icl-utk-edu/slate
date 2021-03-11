@@ -21,13 +21,13 @@ template <Target target, typename scalar_t>
 void trmm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
-          int priority)
+          int priority, int64_t queue_index)
 {
     trmm(internal::TargetType<target>(),
          side,
          alpha, A,
                 B,
-         priority);
+         priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -40,7 +40,7 @@ void trmm(internal::TargetType<Target::HostTask>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority)
+          int priority, int64_t queue_index)
 {
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::trmm() to take layout param
@@ -100,7 +100,7 @@ void trmm(internal::TargetType<Target::HostNest>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority)
+          int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
@@ -115,7 +115,7 @@ void trmm(internal::TargetType<Target::HostBatch>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority)
+          int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
@@ -129,12 +129,8 @@ void trmm(internal::TargetType<Target::Devices>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority)
+          int priority, int64_t queue_index)
 {
-    int64_t queue_index = 0; // todo kadir: this parameter should come
-    // from caller function sincethere might be another queue for gemm
-    // 1 does not work
-
     // CPU assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -336,7 +332,7 @@ void trmm<Target::HostTask, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -344,7 +340,7 @@ void trmm<Target::HostTask, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -352,7 +348,7 @@ void trmm< Target::HostTask, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -360,7 +356,7 @@ void trmm< Target::HostTask, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -368,7 +364,7 @@ void trmm<Target::HostNest, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -376,7 +372,7 @@ void trmm<Target::HostNest, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -384,7 +380,7 @@ void trmm< Target::HostNest, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -392,7 +388,7 @@ void trmm< Target::HostNest, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -400,7 +396,7 @@ void trmm<Target::HostBatch, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -408,7 +404,7 @@ void trmm<Target::HostBatch, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -416,7 +412,7 @@ void trmm< Target::HostBatch, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -424,7 +420,7 @@ void trmm< Target::HostBatch, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -432,7 +428,7 @@ void trmm<Target::Devices, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -440,7 +436,7 @@ void trmm<Target::Devices, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -448,7 +444,7 @@ void trmm< Target::Devices, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 // ----------------------------------------
 template
@@ -456,7 +452,7 @@ void trmm< Target::Devices, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority);
+    int priority, int64_t queue_index);
 
 
 } // namespace internal

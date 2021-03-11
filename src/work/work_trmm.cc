@@ -89,13 +89,19 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     int64_t mt = B.mt();
     int64_t nt = B.nt();
 
+    const int priority_one  = 1;
+    const int priority_zero = 0;
+
+    const int64_t batch_arrays_index_zero = 0;
+    const int64_t batch_arrays_index_one  = 1;
+
     if (A.uplo() == Uplo::Upper) {
         // ----------------------------------------
         // Left, Upper/NoTrans or Lower/Trans case
         // Forward sweep
 
         // send 1st block col of A and block row of B
-        #pragma omp task depend(out:bcast[0])
+        #pragma omp task depend(out:bcast[0]) priority(1)
         {
             // broadcast A(i, 0) to ranks owning block row B(i, :),
             // for i = 0
@@ -112,7 +118,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
         // send next lookahead block cols of A and block rows of B
         for (int64_t k = 1; k < lookahead+1 && k < mt; ++k) {
             #pragma omp task depend(in:bcast[k-1]) \
-                             depend(out:bcast[k])
+                             depend(out:bcast[k]) priority(1)
             {
                 // broadcast A(i, k) to ranks owning block row B(i, :)
                 BcastList bcast_list_A;
@@ -131,12 +137,12 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
         // multiply alpha A(:, 0) B(0, :), which is:
         // B(0, :) = alpha [ A(0, 0) B(0, :) ]  trmm
         #pragma omp task depend(in:bcast[0]) \
-                         depend(out:gemm[0])
+                         depend(out:gemm[0]) priority(1)
         {
             internal::trmm<target>(
                 Side::Left,
                 alpha, A.sub(0, 0),
-                       B.sub(0, 0, 0, nt-1));
+                       B.sub(0, 0, 0, nt-1), priority_one, batch_arrays_index_one);
         }
         for (int64_t k = 1; k < mt; ++k) {
 
@@ -178,13 +184,13 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     alpha,         A.sub(0, k-1, k, k),
                                    B.sub(k, k, 0, nt-1),
                     scalar_t(1.0), B.sub(0, k-1, 0, nt-1),
-                    layout);
+                    layout, priority_zero, batch_arrays_index_zero);
 
-                // todo: target? needs batch trmm
                 internal::trmm<target>(
                     Side::Left,
                     alpha, A.sub(k, k),
-                           B.sub(k, k, 0, nt-1));
+                           B.sub(k, k, 0, nt-1),
+                    priority_zero, batch_arrays_index_one);
             }
         }
     }
@@ -194,7 +200,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
         // Backward sweep
 
         // send 1st block col of A and block row of B
-        #pragma omp task depend(out:bcast[mt-1])
+        #pragma omp task depend(out:bcast[mt-1]) priority(1)
         {
             // broadcast A(i, 0) to ranks owning block row B(i, :),
             // for i = m-1
@@ -214,7 +220,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
         // send next lookahead block cols of A and block rows of B
         for (int64_t k = mt-2; k >= mt-1-lookahead && k >= 0; --k) {
             #pragma omp task depend(in:bcast[k+1]) \
-                             depend(out:bcast[k])
+                             depend(out:bcast[k]) priority(1)
             {
                 // broadcast A(i, k) to ranks owning block row B(i, :)
                 BcastList bcast_list_A;
@@ -233,12 +239,12 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
         // multiply B = alpha A(:, mt-1) B(mt-1, :), which is:
         // B(mt-1, :) = alpha [ A(mt-1, mt-1) B(mt-1, :) ]  trmm
         #pragma omp task depend(in:bcast[mt-1]) \
-                         depend(out:gemm[mt-1])
+                         depend(out:gemm[mt-1]) priority(1)
         {
             internal::trmm<target>(
                 Side::Left,
                 alpha, A.sub(mt-1, mt-1),
-                       B.sub(mt-1, mt-1, 0, nt-1));
+                       B.sub(mt-1, mt-1, 0, nt-1), priority_one, batch_arrays_index_one);
         }
 
         for (int64_t k = mt-2; k >= 0; --k) {
@@ -281,13 +287,14 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     alpha,         A.sub(k+1, mt-1, k, k),
                                    B.sub(k, k, 0, nt-1),
                     scalar_t(1.0), B.sub(k+1, mt-1, 0, nt-1),
-                    layout);
+                    layout, priority_zero,batch_arrays_index_zero );
 
                 // todo: target? needs batch trmm
                 internal::trmm<target>(
                     Side::Left,
                     alpha, A.sub(k, k),
-                           B.sub(k, k, 0, nt-1));
+                           B.sub(k, k, 0, nt-1),
+                    priority_zero, batch_arrays_index_one);
             }
         }
     } // end Lower/NoTrans

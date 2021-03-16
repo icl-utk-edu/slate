@@ -9,7 +9,7 @@
 #include "slate/enums.hh"
 
 #ifndef SLATE_NO_CUDA
-    #include <cuComplex.h>
+#include <cuComplex.h>
 
 //------------------------------------------------------------------------------
 // Extend BLAS real_type to cover cuComplex
@@ -30,10 +30,8 @@ struct real_type_traits<cuDoubleComplex> {
 
 #endif // #ifndef SLATE_NO_CUDA
 
-/*
-*/
 #ifndef SLATE_NO_HIP
-    #include <hip/hip_complex.h>
+#include <hip/hip_complex.h>
 
 namespace blas {
 

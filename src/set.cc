@@ -68,9 +68,6 @@ void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
 ///
 /// @param[in] opts
 ///         Additional options, as map of name = value pairs. Possible options:
-///         - Option::Lookahead:
-///           Number of blocks to overlap communication and computation.
-///           lookahead >= 0. Default 1.
 ///         - Option::Target:
 ///           Implementation to target. Possible values:
 ///           - HostTask:  OpenMP tasks on CPU host [default].
@@ -135,7 +132,7 @@ void set(
     Options const& opts);
 
 //----------------
-//Added for BaseTrapezoidMatrix.
+// Added for BaseTrapezoidMatrix.
 //----------------
 // specialization namespace differentiates, e.g.,
 // internal::set from internal::specialization::set
@@ -197,9 +194,6 @@ void set(scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
 ///
 /// @param[in] opts
 ///         Additional options, as map of name = value pairs. Possible options:
-///         - Option::Lookahead:
-///           Number of blocks to overlap communication and computation.
-///           lookahead >= 0. Default 1.
 ///         - Option::Target:
 ///           Implementation to target. Possible values:
 ///           - HostTask:  OpenMP tasks on CPU host [default].

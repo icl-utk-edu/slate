@@ -74,6 +74,7 @@ void set(
 {
     set(value, value, A, opts);
 }
+
 //------------------------------------------------------------------------------
 // Level 3 BLAS and LAPACK auxiliary
 

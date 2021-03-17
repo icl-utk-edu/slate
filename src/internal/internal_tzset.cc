@@ -40,7 +40,7 @@ void tzset(
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// General matrix set.
+/// Trapezoid matrix set.
 /// Dispatches to target implementations.
 /// @ingroup set_internal
 ///
@@ -52,7 +52,7 @@ void set(scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>&& A, int p
 }
 
 //------------------------------------------------------------------------------
-/// General matrix set.
+/// Trapezoid matrix set.
 /// TODO handle transpose A case
 /// Host OpenMP task implementation.
 /// @ingroup set_internal
@@ -115,7 +115,7 @@ void set(internal::TargetType<Target::HostBatch>,
 }
 
 //------------------------------------------------------------------------------
-/// General matrix set.
+/// Trapezoid matrix set.
 /// TODO handle transpose A case
 /// GPU device implementation.
 /// @ingroup set_internal
@@ -192,7 +192,7 @@ void set(internal::TargetType<Target::Devices>,
                         }
                     }
                 }
-                else { //upper
+                else { // upper
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         for (int64_t i = irange[q][0]; i < irange[q][1] && i <= j; ++i) {
                             if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
@@ -226,7 +226,7 @@ void set(internal::TargetType<Target::Devices>,
                         }
                     }
                 }
-                else { //upper
+                else { // upper
                     for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
                         for (int64_t i = irange[q-4][0]; i < irange[q-4][1] && i <= j; ++i) {
                             if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {

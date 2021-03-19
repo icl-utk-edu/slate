@@ -59,15 +59,17 @@ namespace slate {
 /// Internal function, called from generate_matrix().
 ///
 /// @ingroup generate_matrix
-template <typename scalar_t>
+///
+template <typename matrix_type>
 void generate_sigma(
     MatrixParams& params,
     TestMatrixDist dist, bool rand_sign,
-    blas::real_type<scalar_t> cond,
-    blas::real_type<scalar_t> sigma_max,
-    slate::Matrix<scalar_t>& A,
-    std::vector< blas::real_type<scalar_t> >& Sigma )
+    blas::real_type<typename matrix_type::value_type> cond,
+    blas::real_type<typename matrix_type::value_type> sigma_max,
+    matrix_type& A,
+    std::vector< blas::real_type<typename matrix_type::value_type> >& Sigma )
 {
+    using scalar_t = typename matrix_type::value_type;
     using real_t = blas::real_type<scalar_t>;
 
 
@@ -191,143 +193,6 @@ void generate_sigma(
     }
 }
 
-// -----------------------------------------------------------------------------
-/// Generates Sigma vector of singular or eigenvalues, according to distribution.
-///
-/// Internal function, called from generate_matrix().
-///
-/// @ingroup generate_matrix
-template <typename scalar_t>
-void generate_sigma(
-    MatrixParams& params,
-    TestMatrixDist dist, bool rand_sign,
-    blas::real_type<scalar_t> cond,
-    blas::real_type<scalar_t> sigma_max,
-    slate::BaseTrapezoidMatrix<scalar_t>& A,
-    std::vector< blas::real_type<scalar_t> >& Sigma )
-{
-    using real_t = blas::real_type<scalar_t>;
-
-
-    // locals
-    int64_t minmn = std::min( A.m(), A.n() );
-    assert( minmn == int64_t(Sigma.size()) );
-
-    switch (dist) {
-        case TestMatrixDist::arith:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = 1 - i / real_t(minmn - 1) * (1 - 1/cond);
-            }
-            break;
-
-        case TestMatrixDist::rarith:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = 1 - (minmn - 1 - i) / real_t(minmn - 1) * (1 - 1/cond);
-            }
-            break;
-
-        case TestMatrixDist::geo:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = pow( cond, -i / real_t(minmn - 1) );
-            }
-            break;
-
-        case TestMatrixDist::rgeo:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = pow( cond, -(minmn - 1 - i) / real_t(minmn - 1) );
-            }
-            break;
-
-        case TestMatrixDist::cluster0:
-            Sigma[0] = 1;
-            for (int64_t i = 1; i < minmn; ++i) {
-                Sigma[i] = 1/cond;
-            }
-            break;
-
-        case TestMatrixDist::rcluster0:
-            for (int64_t i = 0; i < minmn-1; ++i) {
-                Sigma[i] = 1/cond;
-            }
-            Sigma[minmn-1] = 1;
-            break;
-
-        case TestMatrixDist::cluster1:
-            for (int64_t i = 0; i < minmn-1; ++i) {
-                Sigma[i] = 1;
-            }
-            Sigma[minmn-1] = 1/cond;
-            break;
-
-        case TestMatrixDist::rcluster1:
-            Sigma[0] = 1/cond;
-            for (int64_t i = 1; i < minmn; ++i) {
-                Sigma[i] = 1;
-            }
-            break;
-
-        case TestMatrixDist::logrand: {
-            real_t range = log( 1/cond );
-            lapack::larnv( idist_rand, params.iseed, Sigma.size(), Sigma.data() );
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = exp( Sigma[i] * range );
-            }
-            // make cond exact
-            if (minmn >= 2) {
-                Sigma[0] = 1;
-                Sigma[1] = 1/cond;
-            }
-            break;
-        }
-
-        case TestMatrixDist::randn:
-        case TestMatrixDist::rands:
-        case TestMatrixDist::rand: {
-            int64_t idist = (int64_t) dist;
-            lapack::larnv( idist, params.iseed, Sigma.size(), Sigma.data() );
-            break;
-        }
-
-        case TestMatrixDist::specified:
-            // user-specified Sigma values; don't modify
-            sigma_max = 1;
-            rand_sign = false;
-            break;
-
-        case TestMatrixDist::none:
-            assert( false );
-            break;
-    }
-
-    if (sigma_max != 1) {
-        blas::scal( Sigma.size(), sigma_max, Sigma.data(), 1 );
-    }
-
-    if (rand_sign) {
-        // apply random signs
-        for (int64_t i = 0; i < minmn; ++i) {
-            if (rand() > RAND_MAX/2) {
-                Sigma[i] = -Sigma[i];
-            }
-        }
-    }
-
-    // copy Sigma => A
-    scalar_t zero = 0.0;
-    int64_t min_mt_nt = std::min(A.mt(), A.nt());
-    set(zero, zero, A);
-    int64_t S_index = 0;
-    #pragma omp parallel for
-    for (int64_t i = 0; i < min_mt_nt; ++i) {
-        if (A.tileIsLocal(i, i)) {
-            auto T = A(i, i);
-            for (int ii = 0; ii < A.tileNb(i); ++ii) {
-                T.at(ii, ii) = Sigma[S_index + ii];
-            }
-        }
-        S_index += A.tileNb(i);
-    }
-}
 
 // -----------------------------------------------------------------------------
 /// Given matrix A with singular values such that sum(sigma_i^2) = n,
@@ -1175,10 +1040,10 @@ void generate_matrix(
     lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                    nan, nan, Sigma.data(), Sigma.size() );
 
-    real_t cond;
-    real_t condD;
     TestMatrixType type;
     TestMatrixDist dist;
+    real_t cond;
+    real_t condD;
     real_t sigma_max;
     bool dominant;
     decode_matrix<scalar_t>(params, A, type, dist, cond, condD, sigma_max, dominant);

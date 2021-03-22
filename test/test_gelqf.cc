@@ -53,6 +53,13 @@ void test_gelqf_work(Params& params, bool run)
     if (! run)
         return;
 
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target},
+        {slate::Option::MaxPanelThreads, panel_threads},
+        {slate::Option::InnerBlocking, ib}
+    };
+
     // Local values
     const scalar_t zero = 0;
     const scalar_t one = 1;
@@ -141,21 +148,11 @@ void test_gelqf_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::lq_factor(A, T, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target},
-            {slate::Option::MaxPanelThreads, panel_threads},
-            {slate::Option::InnerBlocking, ib}
-        });
+        slate::lq_factor(A, T, opts);
 
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::gelqf(A, T, {
-        //     {slate::Option::Lookahead, lookahead},
-        //     {slate::Option::Target, target},
-        //     {slate::Option::MaxPanelThreads, panel_threads},
-        //     {slate::Option::InnerBlocking, ib}
-        // });
+        // slate::gelqf(A, T, opts);
 
         {
             slate::trace::Block trace_block("MPI_Barrier");

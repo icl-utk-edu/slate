@@ -47,6 +47,11 @@ void test_potri_work(Params& params, bool run)
     if (! run)
         return;
 
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    };
+
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 
@@ -137,25 +142,13 @@ void test_potri_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         // factor then invert; measure time for both
-        slate::chol_factor(A, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
-        slate::chol_inverse_using_factor(A, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
+        slate::chol_factor(A, opts);
+        slate::chol_inverse_using_factor(A, opts);
 
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::potrf(A, {
-        //     {slate::Option::Lookahead, lookahead},
-        //     {slate::Option::Target, target}
-        // });
-        // slate::potri(A, {
-        //     {slate::Option::Lookahead, lookahead},
-        //     {slate::Option::Target, target}
-        // });
+        // slate::potrf(A, opts);
+        // slate::potri(A, opts);
 
         {
             slate::trace::Block trace_block("MPI_Barrier");

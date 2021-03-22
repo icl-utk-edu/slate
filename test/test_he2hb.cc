@@ -48,7 +48,12 @@ void test_he2hb_work(Params& params, bool run)
     if (! run)
         return;
 
-    // Requires a square processing grid.
+    slate::Options const opts =  {
+        {slate::Option::Target, target},
+        {slate::Option::MaxPanelThreads, panel_threads},
+        {slate::Option::InnerBlocking, ib}
+    };
+     // Requires a square processing grid.
     assert(p == q);
     assert(uplo == slate::Uplo::Lower);  // only lower for now.
 
@@ -115,11 +120,7 @@ void test_he2hb_work(Params& params, bool run)
     //==================================================
     // Run SLATE test.
     //==================================================
-    slate::he2hb(A, T, {
-        {slate::Option::Target, target},
-        {slate::Option::MaxPanelThreads, panel_threads},
-        {slate::Option::InnerBlocking, ib}
-    });
+    slate::he2hb(A, T, opts);
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

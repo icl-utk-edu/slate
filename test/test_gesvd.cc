@@ -56,6 +56,12 @@ void test_gesvd_work(Params& params, bool run)
     if (! run)
         return;
 
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target},
+        {slate::Option::MaxPanelThreads, panel_threads},
+        {slate::Option::InnerBlocking, ib}
+    };
     // Local values
     int64_t minmn = std::min(m, n);
     const int izero = 0, ione = 1;
@@ -179,21 +185,11 @@ void test_gesvd_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::svd_vals(A, S_tst, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target},
-            {slate::Option::MaxPanelThreads, panel_threads},
-            {slate::Option::InnerBlocking, ib}
-        });
+        slate::svd_vals(A, S_tst, opts);
 
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::gesvd(A, S_tst, {
-        //     {slate::Option::Lookahead, lookahead},
-        //     {slate::Option::Target, target},
-        //     {slate::Option::MaxPanelThreads, panel_threads},
-        //     {slate::Option::InnerBlocking, ib}
-        // });
+        // slate::gesvd(A, S_tst, opts);
 
         {
             slate::trace::Block trace_block("MPI_Barrier");

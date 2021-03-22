@@ -67,6 +67,11 @@ void test_gbmm_work(Params& params, bool run)
         return;
     }
 
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    };
+
     // Error analysis applies in these norms.
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
@@ -189,17 +194,11 @@ void test_gbmm_work(Params& params, bool run)
     // Run SLATE test.
     // C = alpha A B + beta C.
     //==================================================
-    slate::multiply(alpha, A, B, beta, C, {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
-    });
+    slate::multiply(alpha, A, B, beta, C, opts);
 
     //---------------------
     // Using traditional BLAS/LAPACK name
-    // slate::gbmm(alpha, A, B, beta, C, {
-    // {slate::Option::Lookahead, lookahead},
-    // {slate::Option::Target, target}
-    // });
+    // slate::gbmm(alpha, A, B, beta, C, opts);
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

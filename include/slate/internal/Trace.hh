@@ -12,6 +12,7 @@
 #include <string>
 
 #include <cstring>
+#include <nvToolsExt.h>
 
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
@@ -101,9 +102,9 @@ class Block {
 public:
     Block(const char* name)
         : event_(name)
-    {}
+    { nvtxRangePush(name); }
 
-    ~Block() { Trace::insert(event_); }
+    ~Block() { Trace::insert(event_); nvtxRangePop(); }
 private:
     Event event_;
 };

@@ -350,14 +350,15 @@ void unmqr(
     switch (target) {
         case Target::Host:
         case Target::HostTask:
+        default:
             unmqr<Target::HostTask>(side, op, A, T, C, opts);
             break;
-        case Target::HostNest:
-            unmqr<Target::HostNest>(side, op, A, T, C, opts);
-            break;
-        case Target::HostBatch:
-            unmqr<Target::HostBatch>(side, op, A, T, C, opts);
-            break;
+        //case Target::HostNest:
+            //unmqr<Target::HostNest>(side, op, A, T, C, opts);
+            //break;
+        //case Target::HostBatch:
+            //unmqr<Target::HostBatch>(side, op, A, T, C, opts);
+            //break;
         case Target::Devices:
             unmqr<Target::Devices>(side, op, A, T, C, opts);
             break;

@@ -90,7 +90,7 @@ void unmqr(internal::TargetType<target>,
 
         // Get corresponding row of W to match the local matrix distribution.
         auto Wr = W.sub(first, first, 0, nt-1);
-        Wr.insertLocalTiles();
+        Wr.insertLocalTiles(target);
 
         // V = [ V0  ]  triangular part (nb-by-nb)
         //     [ V0b ]  rectangular part, only if V0 is trapezoid (mb > nb)
@@ -114,8 +114,13 @@ void unmqr(internal::TargetType<target>,
         //     [ C0b ]  non-empty only if V0 is trapezoid
         //     [ C1  ]
         auto C0 = C.sub(first, first, 0, nt-1);
-        // todo: issue omp tasks for copy to host
-        C0.tileGetAllForWriting(C0.hostNum(), LayoutConvert(layout));
+        if (target == Target::Devices) {
+            //C0.tileGetAndHoldAllOnDevices(LayoutConvert(layout));//todo is this OK?
+        }
+        else {
+            // todo: issue omp tasks for copy to host
+            //C0.tileGetAllForWriting(C0.hostNum(), LayoutConvert(layout));
+        }
 
         // Householder vectors are only first min( mb, nb ) columns in lower
         // triangular part of V. If V0 tile is short (mb < nb), slice V to
@@ -158,7 +163,7 @@ void unmqr(internal::TargetType<target>,
 
         // W <- C0
         // W <- V0^H W
-        internal::copy(std::move(C0), std::move(Wr));
+        internal::copy<target>(std::move(C0), std::move(Wr));
         internal::trmm<target>(
                 Side::Left,
                 one, conjTranspose(V0tr),
@@ -265,7 +270,7 @@ void unmqr(internal::TargetType<target>,
 
         // Get corresponding col of W to match the local matrix distribution.
         auto Wc = W.sub(0, mt-1, first, first);
-        Wc.insertLocalTiles();
+        Wc.insertLocalTiles(target);
 
         // V = [ V0  ]  triangular part (nb-by-nb)
         //     [ V0b ]  rectangular part, only if V0 is trapezoid (mb > nb)
@@ -288,8 +293,13 @@ void unmqr(internal::TargetType<target>,
         // C = [ C0  C0b  C1 ]
         // C0b is non-empty only if V0 is trapezoid
         auto C0 = C.sub(0, mt-1, first, first);
-        // todo: issue omp tasks for copy to host
-        C0.tileGetAllForWriting(C0.hostNum(), LayoutConvert(layout));
+        if (target == Target::Devices) {
+            C0.tileGetAndHoldAllOnDevices(LayoutConvert(layout));//todo is this OK?
+        }
+        else {
+            // todo: issue omp tasks for copy to host
+            C0.tileGetAllForWriting(C0.hostNum(), LayoutConvert(layout));
+        }
 
         // Householder vectors are only first min( mb, nb ) columns in lower
         // triangular part of V. If V0 tile is short (mb < nb), slice V to
@@ -332,7 +342,7 @@ void unmqr(internal::TargetType<target>,
 
         // W <- C0
         // W <- W V0
-        internal::copy(std::move(C0), std::move(Wc));
+        internal::copy<target>(std::move(C0), std::move(Wc));
         internal::trmm<target>(
                 Side::Right,
                 one, std::move(V0tr),

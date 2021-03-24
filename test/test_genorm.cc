@@ -52,6 +52,10 @@ void test_genorm_work(Params& params, bool run)
     if (! run)
         return;
 
+    slate::Options const opts =  {
+        {slate::Option::Target, target}
+    };
+
     // local values
     const int izero = 0, ione = 1;
 
@@ -131,20 +135,14 @@ void test_genorm_work(Params& params, bool run)
         //==================================================
 
         if (scope == slate::NormScope::Matrix) {
-            A_norm = slate::norm(norm, A, {
-                {slate::Option::Target, target}
-            });
+            A_norm = slate::norm(norm, A, opts);
         }
         else if (scope == slate::NormScope::Columns) {
-            slate::colNorms(norm, A, values.data(), {
-                {slate::Option::Target, target}
-            });
+            slate::colNorms(norm, A, values.data(), opts);
         }
         else if (scope == slate::NormScope::Rows) {
             slate_error("Not implemented yet");
-            // slate::rowNorms(norm, A, values.data(), {
-            //     {slate::Option::Target, target}
-            // });
+            // slate::rowNorms(norm, A, values.data(), opts);
         }
 
         {
@@ -316,9 +314,7 @@ void test_genorm_work(Params& params, bool run)
                             A.tileGetForWriting(i, j, A.tileDevice(i, j), slate::LayoutConvert::ColMajor);
                         }
 
-                        real_t A_norm = slate::norm(norm, A, {
-                            {slate::Option::Target, target}
-                        });
+                        real_t A_norm = slate::norm(norm, A, opts);
 
                         real_t A_norm_ref = scalapack_plange(
                                                 norm2str(norm),

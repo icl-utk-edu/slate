@@ -24,6 +24,9 @@ void test_gesv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
+    // constants
+    const scalar_t one = 1.0;
+
     // get & mark input values
     slate::Op trans = slate::Op::NoTrans;
     if (params.routine == "getrs" || params.routine == "getrs_nopiv")
@@ -411,16 +414,16 @@ void test_gesv_work(Params& params, bool run)
         // B_ref -= op(Aref)*B_tst
         if (params.routine == "gesvMixed") {
             if (std::is_same<real_t, double>::value)
-                slate::multiply(scalar_t(-1.0), opAref, X, scalar_t(1.0), Bref);
+                slate::multiply(-one, opAref, X, one, Bref);
                 //---------------------
                 // Using traditional BLAS/LAPACK name
-                // slate::gemm(scalar_t(-1.0), opAref, X, scalar_t(1.0), Bref);
+                // slate::gemm(-one, opAref, X, one, Bref);
         }
         else {
-            slate::multiply(scalar_t(-1.0), opAref, B, scalar_t(1.0), Bref);
+            slate::multiply(-one, opAref, B, one, Bref);
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::gemm(scalar_t(-1.0), opAref, B, scalar_t(1.0), Bref);
+            // slate::gemm(-one, opAref, B, one, Bref);
         }
 
         // Norm of residual: || B - AX ||_1

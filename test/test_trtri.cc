@@ -49,6 +49,11 @@ void test_trtri_work(Params& params, bool run)
     if (! run)
         return;
 
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    };
+
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 
@@ -153,10 +158,7 @@ void test_trtri_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         // invert and measure time
-        slate::trtri(A, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
+        slate::trtri(A, opts);
 
         {
             slate::trace::Block trace_block("MPI_Barrier");

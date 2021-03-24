@@ -25,6 +25,9 @@ void test_pbsv_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
     using llong = long long;
 
+    // constants
+    const scalar_t one = 1.0;
+
     slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
     int64_t nrhs = params.nrhs();
@@ -54,6 +57,11 @@ void test_pbsv_work(Params& params, bool run)
         printf("skipping: currently only origin=scalapack is supported\n");
         return;
     }
+
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    };
 
     // Local values
     const int izero = 0, ione = 1;
@@ -165,17 +173,11 @@ void test_pbsv_work(Params& params, bool run)
     if (! ref_only) {
         if (params.routine == "pbtrs") {
             // Factor matrix A.
-            slate::chol_factor(A, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::chol_factor(A, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::pbtrf(A, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::pbtrf(A, opts);
         }
 
         if (trace) slate::trace::Trace::on();
@@ -195,41 +197,23 @@ void test_pbsv_work(Params& params, bool run)
         // pbsv:  Solve AX = B, including factoring A.
         //==================================================
         if (params.routine == "pbtrf") {
-            slate::chol_factor(A, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::chol_factor(A, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::pbtrf(A, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::pbtrf(A, opts);
         }
         else if (params.routine == "pbtrs") {
-            slate::chol_solve_using_factor(A, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::chol_solve_using_factor(A, B, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::pbtrs(A, B, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::pbtrs(A, B, opts);
         }
         else {
-            slate::chol_solve(A, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::chol_solve(A, B, opts);
 
-            // slate::pbsv(A, B, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::pbsv(A, B, opts);
         }
 
         {
@@ -269,17 +253,11 @@ void test_pbsv_work(Params& params, bool run)
 
         if (params.routine == "pbtrf") {
             // Solve AX = B.
-            slate::chol_solve_using_factor(A, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::chol_solve_using_factor(A, B, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::pbtrs(A, B, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::pbtrs(A, B, opts);
         }
 
         // allocate work space
@@ -291,10 +269,10 @@ void test_pbsv_work(Params& params, bool run)
         real_t X_norm = scalapack_plange("1", n, nrhs, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
 
         // B_ref -= Aref*B_tst
-        slate::multiply(scalar_t(-1.0), Aorig, B, scalar_t(1.0), Bref);
+        slate::multiply(-one, Aorig, B, one, Bref);
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::hbmm(blas::Side::Left, scalar_t(-1.0), Aorig, B, scalar_t(1.0), Bref);
+        // slate::hbmm(blas::Side::Left, -one, Aorig, B, one, Bref);
 
         // Norm of residual: || B - AX ||_1
         real_t R_norm = scalapack_plange("1", n, nrhs, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);

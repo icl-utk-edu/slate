@@ -50,6 +50,11 @@ void test_hemm_work(Params& params, bool run)
     if (! run)
         return;
 
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    };
+
     // Error analysis applies in these norms.
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
@@ -159,24 +164,15 @@ void test_hemm_work(Params& params, bool run)
     // C = alpha B A + beta C (right).
     //==================================================
     if (side == slate::Side::Left)
-        slate::multiply(alpha, A, B, beta, C, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
+        slate::multiply(alpha, A, B, beta, C, opts);
     else if (side == slate::Side::Right)
-        slate::multiply(alpha, B, A, beta, C, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
+        slate::multiply(alpha, B, A, beta, C, opts);
     else
         throw slate::Exception("unknown side");
 
     //---------------------
     // Using traditional BLAS/LAPACK name
-    // slate::hemm(side, alpha, A, B, beta, C, {
-    //     {slate::Option::Lookahead, lookahead},
-    //     {slate::Option::Target, target}
-    // });
+    // slate::hemm(side, alpha, A, B, beta, C, opts);
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

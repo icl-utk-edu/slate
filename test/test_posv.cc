@@ -25,6 +25,9 @@ void test_posv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
+    // constants
+    const scalar_t one = 1.0;
+
     // get & mark input values
     slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
@@ -58,6 +61,11 @@ void test_posv_work(Params& params, bool run)
         params.matrix.kind.set_default( "rand_dominant" );
         return;
     }
+
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    };
 
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -224,17 +232,11 @@ void test_posv_work(Params& params, bool run)
     if (! ref_only) {
         if (params.routine == "potrs") {
             // Factor matrix A.
-            slate::chol_factor(A, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::chol_factor(A, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::potrf(A, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::potrf(A, opts);
         }
 
         if (trace) slate::trace::Trace::on();
@@ -254,50 +256,29 @@ void test_posv_work(Params& params, bool run)
         // posv:  Solve AX = B, including factoring A.
         //==================================================
         if (params.routine == "potrf") {
-            slate::chol_factor(A, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::chol_factor(A, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::potrf(A, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::potrf(A, opts);
         }
         else if (params.routine == "potrs") {
-            slate::chol_solve_using_factor(A, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::chol_solve_using_factor(A, B, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::potrs(A, B, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::potrs(A, B, opts);
         }
         else if (params.routine == "posv") {
-            slate::chol_solve(A, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::chol_solve(A, B, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::posv(A, B, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::posv(A, B, opts);
         }
         else if (params.routine == "posvMixed") {
             if (std::is_same<real_t, double>::value) {
-                slate::posvMixed(A, B, X, iters, {
-                    {slate::Option::Lookahead, lookahead},
-                    {slate::Option::Target, target}
-                });
+                slate::posvMixed(A, B, X, iters, opts);
             }
         }
         else {
@@ -333,17 +314,11 @@ void test_posv_work(Params& params, bool run)
 
         if (params.routine == "potrf") {
             // Solve AX = B.
-            slate::chol_solve_using_factor(A, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::chol_solve_using_factor(A, B, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::potrs(A, B, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::potrs(A, B, opts);
         }
 
         // SLATE matrix wrappers for the reference data
@@ -365,18 +340,18 @@ void test_posv_work(Params& params, bool run)
         // B_ref -= Aref*B_tst
         if (params.routine == "posvMixed") {
             if (std::is_same<real_t, double>::value)
-                slate::multiply(scalar_t(-1.0), Aref, X, scalar_t(1.0), Bref);
+                slate::multiply(-one, Aref, X, one, Bref);
 
                 //---------------------
                 // Using traditional BLAS/LAPACK name
-                // slate::hemm(slate::Side::Left, scalar_t(-1.0), Aref, X, scalar_t(1.0), Bref);
+                // slate::hemm(slate::Side::Left, -one, Aref, X, one, Bref);
         }
         else {
-            slate::multiply(scalar_t(-1.0), Aref, B, scalar_t(1.0), Bref);
+            slate::multiply(-one, Aref, B, one, Bref);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::hemm(slate::Side::Left, scalar_t(-1.0), Aref, B, scalar_t(1.0), Bref);
+            // slate::hemm(slate::Side::Left, -one, Aref, B, one, Bref);
         }
 
         // Norm of residual: || B - AX ||_1

@@ -49,6 +49,13 @@ void test_getri_work(Params& params, bool run)
     if (! run)
         return;
 
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target},
+        {slate::Option::MaxPanelThreads, panel_threads},
+        {slate::Option::InnerBlocking, ib}
+    };
+
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 
@@ -153,53 +160,27 @@ void test_getri_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         // factor then invert; measure time for both
-        slate::lu_factor(A, pivots, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target},
-            {slate::Option::MaxPanelThreads, panel_threads},
-            {slate::Option::InnerBlocking, ib}
-        });
+        slate::lu_factor(A, pivots, opts);
 
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::getrf(A, pivots, {
-        //     {slate::Option::Lookahead, lookahead},
-        //     {slate::Option::Target, target},
-        //     {slate::Option::MaxPanelThreads, panel_threads},
-        //     {slate::Option::InnerBlocking, ib}
-        // });
+        // slate::getrf(A, pivots, opts);
 
         if (params.routine == "getri") {
             // call in-place inversion
-            slate::lu_inverse_using_factor(A, pivots, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::lu_inverse_using_factor(A, pivots, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::getri(A, pivots, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::getri(A, pivots, opts);
         }
         else if (params.routine == "getriOOP") {
             // Call the out-of-place version; on exit, C = inv(A), A unchanged
-            slate::lu_inverse_using_factor_out_of_place(A, pivots, C, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target},
-                {slate::Option::MaxPanelThreads, panel_threads},
-                {slate::Option::InnerBlocking, ib}
-            });
+            slate::lu_inverse_using_factor_out_of_place(A, pivots, C, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::getri(A, pivots, C, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target},
-            //     {slate::Option::MaxPanelThreads, panel_threads},
-            //     {slate::Option::InnerBlocking, ib}
-            // });
+            // slate::getri(A, pivots, C, opts);
         }
 
         {

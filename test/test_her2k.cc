@@ -51,6 +51,11 @@ void test_her2k_work(Params& params, bool run)
     if (! run)
         return;
 
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    };
+
     // Error analysis applies in these norms.
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
@@ -162,17 +167,11 @@ void test_her2k_work(Params& params, bool run)
     // Run SLATE test.
     // C = alpha A B^H + conj(alpha) B A^H + beta C.
     //==================================================
-    slate::rank_2k_update(alpha, A, B, beta, C, {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
-    });
+    slate::rank_2k_update(alpha, A, B, beta, C, opts);
 
     //---------------------
     // Using traditional BLAS/LAPACK name
-    // slate::her2k(alpha, A, B, beta, C, {
-    //     {slate::Option::Lookahead, lookahead},
-    //     {slate::Option::Target, target}
-    // });
+    // slate::her2k(alpha, A, B, beta, C, opts);
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

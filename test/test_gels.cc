@@ -63,6 +63,13 @@ void test_gels_work(Params& params, bool run)
     if (! run)
         return;
 
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target},
+        {slate::Option::MaxPanelThreads, panel_threads},
+        {slate::Option::InnerBlocking, ib}
+    };
+
     // A is m-by-n, BX is max(m, n)-by-nrhs.
     // If op == NoTrans, op(A) is m-by-n, X is n-by-nrhs, B is m-by-nrhs
     // otherwise,        op(A) is n-by-m, X is m-by-nrhs, B is n-by-nrhs.
@@ -242,21 +249,11 @@ void test_gels_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::least_squares_solve(opA, BX, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target},
-            {slate::Option::MaxPanelThreads, panel_threads},
-            {slate::Option::InnerBlocking, ib}
-        });
+        slate::least_squares_solve(opA, BX, opts);
 
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::gels(opA, T, BX, {
-        //     {slate::Option::Lookahead, lookahead},
-        //     {slate::Option::Target, target},
-        //     {slate::Option::MaxPanelThreads, panel_threads},
-        //     {slate::Option::InnerBlocking, ib}
-        // });
+        // slate::gels(opA, T, BX, opts);
 
         {
             slate::trace::Block trace_block("MPI_Barrier");

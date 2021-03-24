@@ -7,6 +7,7 @@
 #include "test.hh"
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
+#include "print_matrix.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -36,10 +37,11 @@ void test_posv_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose(); SLATE_UNUSED(verbose);
+    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::Dist dev_dist = params.dev_dist();
+    params.matrix.mark();
     params.matrixB.mark();
 
     // mark non-standard output values
@@ -52,8 +54,10 @@ void test_posv_work(Params& params, bool run)
         params.iters();
     }
 
-    if (! run)
+    if (! run){
+        params.matrix.kind.set_default( "rand_dominant" );
         return;
+    }
 
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -81,7 +85,6 @@ void test_posv_work(Params& params, bool run)
     int descA_tst[9], descA_ref[9];
     int descB_tst[9], descB_ref[9];
     int iam = 0, nprocs = 1;
-    int iseed = 1;
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
@@ -97,7 +100,6 @@ void test_posv_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
-    scalapack_pplghe(&A_tst[0], n, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
     int64_t mlocB = scalapack_numroc(n, nb, myrow, izero, nprow);
@@ -158,7 +160,6 @@ void test_posv_work(Params& params, bool run)
         // Copy local ScaLAPACK data to GPU or CPU tiles.
         slate::Target origin_target = origin2target(origin);
         A.insertLocalTiles(origin_target);
-        copy(&A_tst[0], descA_tst, A);
 
         B.insertLocalTiles(origin_target);
 
@@ -182,9 +183,15 @@ void test_posv_work(Params& params, bool run)
         }
     }
 
+    slate::generate_matrix(params.matrix, A);
     slate::generate_matrix(params.matrixB, B);
     if (origin != slate::Origin::ScaLAPACK) {
+        copy(A, &A_tst[0], descA_tst);
         copy(B, &B_tst[0], descB_tst);
+    }
+    if (verbose >= 2) {
+        print_matrix("A", A);
+        print_matrix("B", B);
     }
 
     // if check is required, copy test data and create a descriptor for it

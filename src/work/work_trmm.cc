@@ -90,10 +90,10 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     int64_t nt = B.nt();
 
     const int priority_0 = 0;
-    const int priority_1  = 1;
+    const int priority_1 = 1;
 
     const int64_t queue_0 = 0;
-    const int64_t queue_1  = 1;
+    const int64_t queue_1 = 1;
 
     if (A.uplo() == Uplo::Upper) {
         // ----------------------------------------

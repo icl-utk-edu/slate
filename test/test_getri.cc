@@ -56,11 +56,6 @@ void test_getri_work(Params& params, bool run)
         {slate::Option::InnerBlocking, ib}
     };
 
-    slate::Options const opts1 =  {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
-    };
-
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
 
@@ -173,11 +168,11 @@ void test_getri_work(Params& params, bool run)
 
         if (params.routine == "getri") {
             // call in-place inversion
-            slate::lu_inverse_using_factor(A, pivots, opts1);
+            slate::lu_inverse_using_factor(A, pivots, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::getri(A, pivots, opts1);
+            // slate::getri(A, pivots, opts);
         }
         else if (params.routine == "getriOOP") {
             // Call the out-of-place version; on exit, C = inv(A), A unchanged

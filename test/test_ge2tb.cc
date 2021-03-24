@@ -52,10 +52,6 @@ void test_ge2tb_work(Params& params, bool run)
         {slate::Option::InnerBlocking, ib}
     };
 
-    slate::Options const opts1 =  {
-        {slate::Option::Target, target}
-    };
-
     // Local values
     const scalar_t zero = 0;
     const scalar_t one = 1;
@@ -184,10 +180,10 @@ void test_ge2tb_work(Params& params, bool run)
 
         // Form UB, where U's representation is in lower part of A and TU.
         slate::qr_multiply_by_q(
-            slate::Side::Left, slate::Op::NoTrans, A, TU, B, opts1);
+            slate::Side::Left, slate::Op::NoTrans, A, TU, B, opts);
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, TU, B, opts1);
+        // slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, TU, B, opts);
 
         if (verbose > 1) {
             print_matrix("UB", B);
@@ -203,11 +199,11 @@ void test_ge2tb_work(Params& params, bool run)
 
         // Note V^H == Q, not Q^H.
         slate::lq_multiply_by_q(
-            slate::Side::Right, slate::Op::NoTrans, Asub, TVsub, Bsub, opts1);
+            slate::Side::Right, slate::Op::NoTrans, Asub, TVsub, Bsub, opts);
         //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::unmlq(slate::Side::Right, slate::Op::NoTrans,
-        //              Asub, TVsub, Bsub, opts1);
+        //              Asub, TVsub, Bsub, opts);
 
         if (verbose > 1) {
             print_matrix("UBV^H", B);

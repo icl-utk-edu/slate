@@ -80,11 +80,6 @@ void test_gbsv_work(Params& params, bool run)
         {slate::Option::InnerBlocking, ib}
     };
 
-    slate::Options const opts1 =  {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
-    };
-
     // Local values
     const int izero = 0, ione = 1;
 
@@ -216,11 +211,11 @@ void test_gbsv_work(Params& params, bool run)
             else if (trans == slate::Op::ConjTrans)
                 opA = conjTranspose(A);
 
-            slate::lu_solve_using_factor(opA, pivots, B, opts1);
+            slate::lu_solve_using_factor(opA, pivots, B, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::gbtrs(opA, pivots, B, opts1
+            // slate::gbtrs(opA, pivots, B, opts);
         }
         else {
             slate::lu_solve(A, B, opts);
@@ -278,11 +273,11 @@ void test_gbsv_work(Params& params, bool run)
 
         if (params.routine == "gbtrf") {
             // Solve AX = B.
-            slate::lu_solve_using_factor(A, pivots, B, opts1);
+            slate::lu_solve_using_factor(A, pivots, B, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::gbtrs(A, pivots, B, opts1);
+            // slate::gbtrs(A, pivots, B, opts);
         }
 
         // allocate work space

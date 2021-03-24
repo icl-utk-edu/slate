@@ -67,13 +67,9 @@ void test_hesv_work(Params& params, bool run)
     }
 
     slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads}
-    };
-
-    slate::Options const opts1 =  {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
     };
 
     //---------------------
@@ -179,18 +175,18 @@ void test_hesv_work(Params& params, bool run)
         // slate::hetrf(A, pivots, T, pivots2, H, opts);
     }
     else if (params.routine == "hetrs") {
-        slate::indefinite_solve_using_factor(A, pivots, T, pivots2, B, opts1);
+        slate::indefinite_solve_using_factor(A, pivots, T, pivots2, B, opts);
 
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::hetrs(A, pivots, T, pivots2, B, opts1);
+        // slate::hetrs(A, pivots, T, pivots2, B, opts);
     }
     else {
-        slate::indefinite_solve(A, B, opts1);
+        slate::indefinite_solve(A, B, opts);
 
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::hesv(A, pivots, T, pivots2, H, B, opts1);
+        // slate::hesv(A, pivots, T, pivots2, H, B, opts);
     }
 
     {
@@ -216,11 +212,11 @@ void test_hesv_work(Params& params, bool run)
     if (check) {
         if (params.routine == "hetrf") {
             // solve
-            slate::indefinite_solve_using_factor(A, pivots, T, pivots2, B, opts1);
+            slate::indefinite_solve_using_factor(A, pivots, T, pivots2, B, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::hetrs(A, pivots, T, pivots2, B, opts1);
+            // slate::hetrs(A, pivots, T, pivots2, B, opts);
         }
 
         // allocate work space

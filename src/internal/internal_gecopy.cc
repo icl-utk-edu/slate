@@ -197,6 +197,26 @@ void copy(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
+template <typename src_scalar_t, typename dst_scalar_t>
+void copy(internal::TargetType<Target::HostNest>,
+          Matrix<src_scalar_t>& A,
+          Matrix<dst_scalar_t>& B,
+          int priority, int queue_index)
+{
+    slate_not_implemented("Target::HostNest isn't yet supported.");
+}
+
+//------------------------------------------------------------------------------
+template <typename src_scalar_t, typename dst_scalar_t>
+void copy(internal::TargetType<Target::HostBatch>,
+          Matrix<src_scalar_t>& A,
+          Matrix<dst_scalar_t>& B,
+          int priority, int queue_index)
+{
+    slate_not_implemented("Target::HostBatch isn't yet supported.");
+}
+
+//------------------------------------------------------------------------------
 /// Copy and precision conversion.
 /// Assumes A & B have same tile layout, dimensions, and distribution.
 /// TODO: Inspect transposition?
@@ -402,5 +422,88 @@ void copy< Target::Devices, std::complex<double>, std::complex<float> >(
     Matrix< std::complex<double> >&& A, Matrix< std::complex<float> >&& B,
     int priority, int queue_index);
 
+// ----------------------------------------
+template
+void copy<Target::HostNest, float, float>(
+    Matrix<float>&& A, Matrix<float>&& B,
+    int priority, int queue_index);
+
+template
+void copy<Target::HostNest, float, double>(
+    Matrix<float>&& A, Matrix<double>&& B,
+    int priority, int queue_index);
+
+template
+void copy<Target::HostBatch, float, float>(
+    Matrix<float>&& A, Matrix<float>&& B,
+    int priority, int queue_index);
+
+template
+void copy<Target::HostBatch, float, double>(
+    Matrix<float>&& A, Matrix<double>&& B,
+    int priority, int queue_index);
+
+// ----------------------------------------
+template
+void copy<Target::HostNest, double, double>(
+    Matrix<double>&& A, Matrix<double>&& B,
+    int priority, int queue_index);
+
+template
+void copy<Target::HostNest, double, float>(
+    Matrix<double>&& A, Matrix<float>&& B,
+    int priority, int queue_index);
+
+template
+void copy<Target::HostBatch, double, double>(
+    Matrix<double>&& A, Matrix<double>&& B,
+    int priority, int queue_index);
+
+template
+void copy<Target::HostBatch, double, float>(
+    Matrix<double>&& A, Matrix<float>&& B,
+    int priority, int queue_index);
+
+// ----------------------------------------
+template
+void copy< Target::HostNest, std::complex<float>, std::complex<float> >(
+    Matrix< std::complex<float> >&& A, Matrix< std::complex<float> >&& B,
+    int priority, int queue_index);
+
+template
+void copy< Target::HostNest, std::complex<float>, std::complex<double> >(
+    Matrix< std::complex<float> >&& A, Matrix< std::complex<double> >&& B,
+    int priority, int queue_index);
+
+template
+void copy< Target::HostBatch, std::complex<float>, std::complex<float>  >(
+    Matrix< std::complex<float> >&& A, Matrix< std::complex<float> >&& B,
+    int priority, int queue_index);
+
+template
+void copy< Target::HostBatch, std::complex<float>, std::complex<double>  >(
+    Matrix< std::complex<float> >&& A, Matrix< std::complex<double> >&& B,
+    int priority, int queue_index);
+
+// ----------------------------------------
+template
+void copy< Target::HostNest, std::complex<double>, std::complex<double> >(
+    Matrix< std::complex<double> >&& A, Matrix< std::complex<double> >&& B,
+    int priority, int queue_index);
+
+template
+void copy< Target::HostNest, std::complex<double>, std::complex<float> >(
+    Matrix< std::complex<double> >&& A, Matrix< std::complex<float> >&& B,
+    int priority, int queue_index);
+
+template
+void copy< Target::HostBatch, std::complex<double>, std::complex<double> >(
+    Matrix< std::complex<double> >&& A, Matrix< std::complex<double> >&& B,
+    int priority, int queue_index);
+
+template
+void copy< Target::HostBatch, std::complex<double>, std::complex<float> >(
+    Matrix< std::complex<double> >&& A, Matrix< std::complex<float> >&& B,
+    int priority, int queue_index);
 } // namespace internal
 } // namespace slate

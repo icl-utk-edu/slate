@@ -89,11 +89,11 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     int64_t mt = B.mt();
     int64_t nt = B.nt();
 
-    const int priority_one  = 1;
-    const int priority_zero = 0;
+    const int priority_0 = 0;
+    const int priority_1  = 1;
 
-    const int64_t batch_arrays_index_zero = 0;
-    const int64_t batch_arrays_index_one  = 1;
+    const int64_t queue_0 = 0;
+    const int64_t queue_1  = 1;
 
     if (A.uplo() == Uplo::Upper) {
         // ----------------------------------------
@@ -142,7 +142,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
             internal::trmm<target>(
                 Side::Left,
                 alpha, A.sub(0, 0),
-                       B.sub(0, 0, 0, nt-1), priority_one, batch_arrays_index_one);
+                       B.sub(0, 0, 0, nt-1), priority_1, queue_1);
         }
         for (int64_t k = 1; k < mt; ++k) {
 
@@ -184,13 +184,13 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     alpha,         A.sub(0, k-1, k, k),
                                    B.sub(k, k, 0, nt-1),
                     scalar_t(1.0), B.sub(0, k-1, 0, nt-1),
-                    layout, priority_zero, batch_arrays_index_zero);
+                    layout, priority_0, queue_0);
 
                 internal::trmm<target>(
                     Side::Left,
                     alpha, A.sub(k, k),
                            B.sub(k, k, 0, nt-1),
-                    priority_zero, batch_arrays_index_one);
+                    priority_0, queue_1);
             }
         }
     }
@@ -244,7 +244,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
             internal::trmm<target>(
                 Side::Left,
                 alpha, A.sub(mt-1, mt-1),
-                       B.sub(mt-1, mt-1, 0, nt-1), priority_one, batch_arrays_index_one);
+                       B.sub(mt-1, mt-1, 0, nt-1), priority_1, queue_1);
         }
 
         for (int64_t k = mt-2; k >= 0; --k) {
@@ -287,14 +287,14 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     alpha,         A.sub(k+1, mt-1, k, k),
                                    B.sub(k, k, 0, nt-1),
                     scalar_t(1.0), B.sub(k+1, mt-1, 0, nt-1),
-                    layout, priority_zero, batch_arrays_index_zero);
+                    layout, priority_0, queue_0);
 
                 // todo: target? needs batch trmm
                 internal::trmm<target>(
                     Side::Left,
                     alpha, A.sub(k, k),
                            B.sub(k, k, 0, nt-1),
-                    priority_zero, batch_arrays_index_one);
+                    priority_0, queue_1);
             }
         }
     } // end Lower/NoTrans

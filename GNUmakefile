@@ -119,7 +119,7 @@ HIPDIR          ?= /opt/rocm
 HIPCC           ?= $(HIPDIR)/bin/hipcc
 
 # If nvcc exists, set cuda = 1 by default.
-have_cuda := $(shell which $(NVCC))
+have_cuda := $(shell which $(NVCC) 2>/dev/null)
 ifneq ($(have_cuda),)
     cuda ?= 1
     cuda_arch ?= pascal
@@ -128,7 +128,7 @@ else ifeq ($(strip $(cuda)),1)
 endif
 
 # If hipcc exists, set hip = 1 by default.
-have_hip  := $(shell which $(HIPCC))
+have_hip  := $(shell which $(HIPCC) 2>/dev/null)
 ifneq ($(have_hip),)
     hip ?= 1
     hip_arch ?= gfx900 gfx906 gfx908
@@ -173,7 +173,7 @@ endif
 
 # Check if Fortran compiler exists.
 # Note that 'make' sets $(FC) to f77 by default.
-have_fortran := $(shell which $(FC))
+have_fortran := $(shell which $(FC) 2>/dev/null)
 ifeq ($(have_fortran),)
     fortran_api = 0
 endif

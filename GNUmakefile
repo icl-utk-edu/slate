@@ -358,14 +358,14 @@ else
     FLAGS += -DSLATE_NO_CUDA
 endif
 
+#-------------------------------------------------------------------------------
+# if HIP
 ifeq ($(hip),1)
     gfx = $(sort $(filter gfx%, $(hip_arch)))
     amdgpu_targets = $(foreach arch, $(gfx),--amdgpu-target=$(arch))
     HIPCCFLAGS += $(amdgpu_targets)
     FLAGS += -D__HIP_PLATFORM_HCC__
-    LIB += -L$(HIPDIR)/lib -lhipblas
-    UNIT_LIBS += -L$(HIPDIR)/lib -lrocblas -lamdhip64
-    TEST_LIBS += -L$(HIPDIR)/lib -lrocblas -lamdhip64
+    LIBS += -L$(HIPDIR)/lib -lrocblas -lamdhip64
 else
     FLAGS += -DSLATE_NO_HIP
 endif
@@ -703,13 +703,13 @@ TEST_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 TEST_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
 TEST_LDFLAGS += -Wl,-rpath,$(abspath ./blaspp/lib)
 TEST_LDFLAGS += -Wl,-rpath,$(abspath ./lapackpp/lib)
-TEST_LIBS    += -lslate -L$(HIPDIR)/lib -ltestsweeper $(scalapack)
+TEST_LIBS    += -lslate -ltestsweeper $(scalapack)
 
 UNIT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 UNIT_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
 UNIT_LDFLAGS += -Wl,-rpath,$(abspath ./blaspp/lib)
 UNIT_LDFLAGS += -Wl,-rpath,$(abspath ./lapackpp/lib)
-UNIT_LIBS    += -lslate -L$(HIPDIR)/lib -ltestsweeper
+UNIT_LIBS    += -lslate -ltestsweeper
 
 #-------------------------------------------------------------------------------
 # Rules

@@ -43,6 +43,10 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     if (! run)
         return;
 
+    slate::Options const opts =  {
+        {slate::Option::Target, target}
+    };
+
     slate_assert(p == q); // Requires a square processing grid.
 
     //==================================================
@@ -119,7 +123,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
 
     // Triangular Factors T
     slate::TriangularFactors<scalar_t> T;
-    slate::he2hb(A, T, {{slate::Option::Target, target}});
+    slate::he2hb(A, T, opts);
 
     if (verbose > 2) {
         print_matrix("A_factored", A);
@@ -154,15 +158,11 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     //==================================================
     if ((side == slate::Side::Left  && trans == slate::Op::NoTrans) ||
         (side == slate::Side::Right && trans != slate::Op::NoTrans)) {
-        slate::unmtr_he2hb(side, trans, A, T, B, {
-            {slate::Option::Target, target}
-        });
+        slate::unmtr_he2hb(side, trans, A, T, B, opts);
     }
     else if ((side == slate::Side::Left  && trans != slate::Op::NoTrans) ||
              (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
-        slate::unmtr_he2hb(side, trans, A, T, A_sym, {
-           {slate::Option::Target, target}
-        });
+        slate::unmtr_he2hb(side, trans, A, T, A_sym, opts);
     }
 
     {
@@ -195,15 +195,13 @@ void test_unmtr_he2hb_work(Params& params, bool run)
                 // QB is already computed, we need (QB)Q^H
                 // (QB)Q^H
                 slate::unmtr_he2hb(slate::Side::Right,
-                                   slate::Op::ConjTrans, A, T, B,
-                                   {{slate::Option::Target, target}});
+                                   slate::Op::ConjTrans, A, T, B, opts);
             }
             else {
                 // BQ^H is already computed, we need QB
                 // (QB)Q^H
                 slate::unmtr_he2hb(slate::Side::Left,
-                                   slate::Op::NoTrans, A, T, B,
-                                   {{slate::Option::Target, target}});
+                                   slate::Op::NoTrans, A, T, B, opts);
             }
 
             // Norm of original matrix: || A ||_1, where A is in A_ref
@@ -245,15 +243,13 @@ void test_unmtr_he2hb_work(Params& params, bool run)
                 // AQ is already computed, we need Q^HA
                 // (Q^HA)Q
                 slate::unmtr_he2hb(slate::Side::Left,
-                                   slate::Op::ConjTrans, A, T, A_sym,
-                                   {{slate::Option::Target, target}});
+                                   slate::Op::ConjTrans, A, T, A_sym, opts);
             }
             else {
                 // Q^HA is already computed, we need (Q^HA)Q
                 // (Q^HA)Q
                 slate::unmtr_he2hb(slate::Side::Right,
-                                   slate::Op::NoTrans, A, T, A_sym,
-                                   {{slate::Option::Target, target}});
+                                   slate::Op::NoTrans, A, T, A_sym, opts);
             }
 
             // Norm of B matrix: || B ||_1

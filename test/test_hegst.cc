@@ -26,6 +26,9 @@ void test_hegst_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
+    // constants
+    const scalar_t one = 1.0;
+
     int64_t itype = params.itype();
     slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
@@ -50,6 +53,11 @@ void test_hegst_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    };
 
     if (origin != slate::Origin::ScaLAPACK) { // todo
         // Copy local ScaLAPACK data to GPU or CPU tiles.
@@ -119,8 +127,7 @@ void test_hegst_work(Params& params, bool run)
     }
 
     // Factorize B
-    slate::potrf(B, {{slate::Option::Lookahead, lookahead},
-                     {slate::Option::Target,    target}});
+    slate::potrf(B, opts);
 
     if (verbose > 2) {
         print_matrix("B_factored", B);
@@ -142,8 +149,7 @@ void test_hegst_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::hegst(itype, A, B, {{slate::Option::Lookahead, lookahead},
-                                   {slate::Option::Target,    target}});
+        slate::hegst(itype, A, B, opts);
         {
             slate::trace::Block trace_block("MPI_Barrier");
             MPI_Barrier(MPI_COMM_WORLD);
@@ -213,7 +219,7 @@ void test_hegst_work(Params& params, bool run)
         if (! ref_only) {
             // Local operation: error = A_ref - A
             blas::axpy(
-                A_ref_data.size(), scalar_t(-1.0),
+                A_ref_data.size(), -one,
                 A_data.data(), 1,
                 A_ref_data.data(), 1);
 

@@ -22,6 +22,9 @@ void test_hesv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
+    // constants
+    const scalar_t one = 1.0;
+
     //---------------------
     // get & mark input values
     slate::Uplo uplo = params.uplo();
@@ -62,6 +65,12 @@ void test_hesv_work(Params& params, bool run)
         printf("skipping: currently only uplo=lower is supported\n");
         return;
     }
+
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target},
+        {slate::Option::MaxPanelThreads, panel_threads}
+    };
 
     //---------------------
     // Local values
@@ -146,17 +155,11 @@ void test_hesv_work(Params& params, bool run)
     }
 
     if (params.routine == "hetrs") {
-        slate::indefinite_factor(A, pivots, T, pivots2, H, {
-            {slate::Option::Target, target},
-            {slate::Option::MaxPanelThreads, panel_threads}
-        });
+        slate::indefinite_factor(A, pivots, T, pivots2, H, opts);
 
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::hetrf(A, pivots, T, pivots2, H, {
-        //     {slate::Option::Target, target},
-        //     {slate::Option::MaxPanelThreads, panel_threads}
-        // });
+        // slate::hetrf(A, pivots, T, pivots2, H, opts);
     }
 
     //==================================================
@@ -165,43 +168,25 @@ void test_hesv_work(Params& params, bool run)
     //==================================================
     double time = testsweeper::get_wtime();
     if (params.routine == "hetrf") {
-        slate::indefinite_factor(A, pivots, T, pivots2, H, {
-            {slate::Option::Target, target},
-            {slate::Option::MaxPanelThreads, panel_threads}
-        });
+        slate::indefinite_factor(A, pivots, T, pivots2, H, opts);
 
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::hetrf(A, pivots, T, pivots2, H, {
-        //     {slate::Option::Target, target},
-        //     {slate::Option::MaxPanelThreads, panel_threads}
-        // });
+        // slate::hetrf(A, pivots, T, pivots2, H, opts);
     }
     else if (params.routine == "hetrs") {
-        slate::indefinite_solve_using_factor(A, pivots, T, pivots2, B, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
+        slate::indefinite_solve_using_factor(A, pivots, T, pivots2, B, opts);
 
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::hetrs(A, pivots, T, pivots2, B, {
-        //     {slate::Option::Lookahead, lookahead},
-        //     {slate::Option::Target, target}
-        // });
+        // slate::hetrs(A, pivots, T, pivots2, B, opts);
     }
     else {
-        slate::indefinite_solve(A, B, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
+        slate::indefinite_solve(A, B, opts);
 
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::hesv(A, pivots, T, pivots2, H, B, {
-        //     {slate::Option::Lookahead, lookahead},
-        //     {slate::Option::Target, target}
-        // });
+        // slate::hesv(A, pivots, T, pivots2, H, B, opts);
     }
 
     {
@@ -227,17 +212,11 @@ void test_hesv_work(Params& params, bool run)
     if (check) {
         if (params.routine == "hetrf") {
             // solve
-            slate::indefinite_solve_using_factor(A, pivots, T, pivots2, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::indefinite_solve_using_factor(A, pivots, T, pivots2, B, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::hetrs(A, pivots, T, pivots2, B, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::hetrs(A, pivots, T, pivots2, B, opts);
         }
 
         // allocate work space
@@ -252,10 +231,10 @@ void test_hesv_work(Params& params, bool run)
         // B_ref -= Aref*B_tst
         scalapack_phemm("Left", "Lower",
                         n, nrhs,
-                        scalar_t(-1.0),
+                        -one,
                         &A_ref[0], ione, ione, descA_ref,
                         &B_tst[0], ione, ione, descB_tst,
-                        scalar_t(1.0),
+                        one,
                         &B_ref[0], ione, ione, descB_ref);
 
         // || B - AX ||_I

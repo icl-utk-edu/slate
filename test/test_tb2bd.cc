@@ -114,6 +114,10 @@ void test_tb2bd_work(
 
     A.ge2tbGather(Afull);
 
+    if (verbose) {
+        print_matrix("Aband", A);
+    }
+
     // int64_t index = 0; // index in Ad storage
     int64_t jj = 0; // col index
     for (int64_t j = 0; j < A.nt(); ++j) {

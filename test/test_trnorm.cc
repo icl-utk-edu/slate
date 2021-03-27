@@ -50,6 +50,10 @@ void test_trnorm_work(Params& params, bool run)
     if (! run)
         return;
 
+    slate::Options const opts =  {
+        {slate::Option::Target, target}
+    };
+
     // local values
     const int izero = 0, ione = 1;
 
@@ -133,9 +137,7 @@ void test_trnorm_work(Params& params, bool run)
     // Run SLATE test.
     // Compute || A ||_norm.
     //==================================================
-    real_t A_norm = slate::norm(norm, A, {
-        {slate::Option::Target, target}
-    });
+    real_t A_norm = slate::norm(norm, A, opts);
 
     {
         slate::trace::Block trace_block("MPI_Barrier");
@@ -198,7 +200,7 @@ void test_trnorm_work(Params& params, bool run)
         if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
             tol = 0;
         else
-            tol = 3*eps;
+            tol = 10*eps;
 
         params.ref_time() = time_ref;
         params.error() = error;
@@ -279,9 +281,7 @@ void test_trnorm_work(Params& params, bool run)
                             A.tileGetForWriting(i, j, A.tileDevice(i, j), slate::LayoutConvert::ColMajor);
                         }
 
-                        real_t A_norm = slate::norm(norm, A, {
-                            {slate::Option::Target, target}
-                        });
+                        real_t A_norm = slate::norm(norm, A, opts);
 
                         real_t A_norm_ref = scalapack_plantr(
                                                 norm2str(norm), uplo2str(A.uplo()), diag2str(diag),
@@ -305,7 +305,7 @@ void test_trnorm_work(Params& params, bool run)
                         if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
                             tol = 0;
                         else
-                            tol = 3*eps;
+                            tol = 10*eps;
 
                         if (mpi_rank == 0) {
                             // if peak is nan, expect A_norm to be nan,

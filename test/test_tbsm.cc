@@ -69,6 +69,11 @@ void test_tbsm_work(Params& params, bool run)
         return;
     }
 
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    };
+
     // Error analysis applies in these norms.
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
@@ -174,24 +179,15 @@ void test_tbsm_work(Params& params, bool run)
     // Solve AX = alpha B (left) or XA = alpha B (right).
     //==================================================
     if (side == slate::Side::Left)
-        slate::triangular_solve(alpha, A, B, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
+        slate::triangular_solve(alpha, A, B, opts);
     else if (side == slate::Side::Right)
-        slate::triangular_solve(alpha, B, A, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
+        slate::triangular_solve(alpha, B, A, opts);
     else
         throw slate::Exception("unknown side");
 
     //---------------------
     // Using traditional BLAS/LAPACK name
-    // slate::tbsm(side, alpha, A, pivots, B, {
-    //     {slate::Option::Lookahead, lookahead},
-    //     {slate::Option::Target, target}
-    // });
+    // slate::tbsm(side, alpha, A, pivots, B, opts);
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

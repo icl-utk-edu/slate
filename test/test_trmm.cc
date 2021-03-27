@@ -53,6 +53,11 @@ void test_trmm_work(Params& params, bool run)
     if (! run)
         return;
 
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    };
+
     // Error analysis applies in these norms.
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
@@ -150,24 +155,15 @@ void test_trmm_work(Params& params, bool run)
     // B = alpha AB (left) or B = alpha BA (right).
     //==================================================
     if (side == slate::Side::Left)
-        slate::triangular_multiply(alpha, A, B, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
+        slate::triangular_multiply(alpha, A, B, opts);
     else if (side == slate::Side::Right)
-        slate::triangular_multiply(alpha, B, A, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
+        slate::triangular_multiply(alpha, B, A, opts);
     else
         throw slate::Exception("unknown side");
 
     //---------------------
     // Using traditional BLAS/LAPACK name
-    // slate::trmm(side, alpha, A, B, {
-    //     {slate::Option::Lookahead, lookahead},
-    //     {slate::Option::Target, target}
-    // });
+    // slate::trmm(side, alpha, A, B, opts);
 
     {
         slate::trace::Block trace_block("MPI_Barrier");

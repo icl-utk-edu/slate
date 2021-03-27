@@ -47,6 +47,7 @@ public:
     // ----- test matrix parameters
     MatrixParams matrix;
     MatrixParams matrixB;
+    MatrixParams matrixC;
 
     // Field members are explicitly public.
     // Order here determines output order.

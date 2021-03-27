@@ -43,6 +43,7 @@ void test_genorm_work(Params& params, bool run)
     int extended = params.extended();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    params.matrix.mark();
 
     // mark non-standard output values
     params.time();
@@ -50,6 +51,10 @@ void test_genorm_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    slate::Options const opts =  {
+        {slate::Option::Target, target}
+    };
 
     // local values
     const int izero = 0, ione = 1;
@@ -76,20 +81,6 @@ void test_genorm_work(Params& params, bool run)
     scalapack_descinit(descA_tst, m, n, nb, nb, izero, izero, ictxt, lldA, &info);
     slate_assert(info == 0);
     std::vector<scalar_t> A_tst(lldA*nlocA);
-    // todo: fix the generation
-    //int iseed = 1;
-    //scalapack_pplrnt(&A_tst[0], m, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed+1);
-    int64_t iseeds[4] = { myrow, mycol, 2, 3 };
-    //lapack::larnv(2, iseeds, lldA*nlocA, &A_tst[0] );
-    for (int64_t j = 0; j < nlocA; ++j)
-        lapack::larnv(2, iseeds, mlocA, &A_tst[j*lldA]);
-
-    //if (verbose > 1) {
-    //    print_matrix("A_tst", mlocA, nlocA, &A_tst[0], lldA, p, q, MPI_COMM_WORLD);
-    //}
-
-    // todo: work-around to initialize BaseMatrix::num_devices_
-    slate::Matrix<scalar_t> A0(m, n, nb, p, q, MPI_COMM_WORLD);
 
     slate::Matrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
@@ -97,12 +88,16 @@ void test_genorm_work(Params& params, bool run)
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
-        copy(&A_tst[0], descA_tst, A);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layout.
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
                 m, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    }
+
+    slate::generate_matrix(params.matrix, A);
+    if (origin != slate::Origin::ScaLAPACK) {
+        copy(A, &A_tst[0], descA_tst);
     }
 
     std::vector<real_t> values;
@@ -140,20 +135,14 @@ void test_genorm_work(Params& params, bool run)
         //==================================================
 
         if (scope == slate::NormScope::Matrix) {
-            A_norm = slate::norm(norm, A, {
-                {slate::Option::Target, target}
-            });
+            A_norm = slate::norm(norm, A, opts);
         }
         else if (scope == slate::NormScope::Columns) {
-            slate::colNorms(norm, A, values.data(), {
-                {slate::Option::Target, target}
-            });
+            slate::colNorms(norm, A, values.data(), opts);
         }
         else if (scope == slate::NormScope::Rows) {
             slate_error("Not implemented yet");
-            // slate::rowNorms(norm, A, values.data(), {
-            //     {slate::Option::Target, target}
-            // });
+            // slate::rowNorms(norm, A, values.data(), opts);
         }
 
         {
@@ -248,7 +237,7 @@ void test_genorm_work(Params& params, bool run)
         if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
             tol = 0;
         else
-            tol = 3*eps;
+            tol = 10*eps;
 
         params.ref_time() = time_ref;
         params.error() = error;
@@ -325,9 +314,7 @@ void test_genorm_work(Params& params, bool run)
                             A.tileGetForWriting(i, j, A.tileDevice(i, j), slate::LayoutConvert::ColMajor);
                         }
 
-                        real_t A_norm = slate::norm(norm, A, {
-                            {slate::Option::Target, target}
-                        });
+                        real_t A_norm = slate::norm(norm, A, opts);
 
                         real_t A_norm_ref = scalapack_plange(
                                                 norm2str(norm),
@@ -351,7 +338,7 @@ void test_genorm_work(Params& params, bool run)
                         if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
                             tol = 0;
                         else
-                            tol = 3*eps;
+                            tol = 10*eps;
 
                         if (mpi_rank == 0) {
                             // if peak is nan, expect A_norm to be nan.

@@ -63,11 +63,22 @@ void generate_matrix(
     slate::Matrix< scalar_t >& A,
     std::vector< blas::real_type<scalar_t> >& sigma );
 
+template <typename scalar_t>
+void generate_matrix(
+    MatrixParams& params,
+    slate::BaseTrapezoidMatrix< scalar_t >& A,
+    std::vector< blas::real_type<scalar_t> >& sigma);
+
 // Overload without sigma.
 template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
     slate::Matrix< scalar_t >& A );
+
+template <typename scalar_t>
+void generate_matrix(
+    MatrixParams& params,
+    slate::BaseTrapezoidMatrix< scalar_t >& A);
 
 void generate_matrix_usage();
 

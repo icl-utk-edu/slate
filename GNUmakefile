@@ -434,6 +434,7 @@ libslate_src += \
         src/internal/internal_ttqrt.cc \
         src/internal/internal_ttlqt.cc \
         src/internal/internal_tzcopy.cc \
+        src/internal/internal_tzset.cc \
         src/internal/internal_unmqr.cc \
         src/internal/internal_unmlq.cc \
         src/internal/internal_util.cc \
@@ -539,6 +540,8 @@ ifneq ($(have_fortran),)
         src/csteqr2.f \
         src/zsteqr2.f \
 
+else
+    $(error ERROR: set FC, currently '$(FC)', to a Fortran compiler (gfortran, ifort, xlf, ftn, ...). We hope to eventually remove this requirement.)
 endif
 
 # C API

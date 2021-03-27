@@ -38,6 +38,7 @@ void test_getri_work(Params& params, bool run)
     int verbose = params.verbose(); SLATE_UNUSED(verbose);
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    params.matrix.mark();
 
     // mark non-standard output values
     params.time();
@@ -47,6 +48,13 @@ void test_getri_work(Params& params, bool run)
 
     if (! run)
         return;
+
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target},
+        {slate::Option::MaxPanelThreads, panel_threads},
+        {slate::Option::InnerBlocking, ib}
+    };
 
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -59,7 +67,6 @@ void test_getri_work(Params& params, bool run)
     int descA_tst[9], descA_ref[9];
     int descC_chk[9];
     int iam = 0, nprocs = 1;
-    int iseed = 1;
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
@@ -75,7 +82,6 @@ void test_getri_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
-    scalapack_pplrnt(&A_tst[0], n, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::Matrix<scalar_t> A0(n, n, nb, p, q, MPI_COMM_WORLD);
@@ -87,11 +93,14 @@ void test_getri_work(Params& params, bool run)
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
-        copy(&A_tst[0], descA_tst, A);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
         A = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    }
+    slate::generate_matrix(params.matrix, A);
+    if (origin != slate::Origin::ScaLAPACK) {
+        copy(A, &A_tst[0], descA_tst);
     }
 
     // Create pivot structure to store pivots after factoring
@@ -151,53 +160,27 @@ void test_getri_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         // factor then invert; measure time for both
-        slate::lu_factor(A, pivots, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target},
-            {slate::Option::MaxPanelThreads, panel_threads},
-            {slate::Option::InnerBlocking, ib}
-        });
+        slate::lu_factor(A, pivots, opts);
 
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::getrf(A, pivots, {
-        //     {slate::Option::Lookahead, lookahead},
-        //     {slate::Option::Target, target},
-        //     {slate::Option::MaxPanelThreads, panel_threads},
-        //     {slate::Option::InnerBlocking, ib}
-        // });
+        // slate::getrf(A, pivots, opts);
 
         if (params.routine == "getri") {
             // call in-place inversion
-            slate::lu_inverse_using_factor(A, pivots, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::lu_inverse_using_factor(A, pivots, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::getri(A, pivots, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::getri(A, pivots, opts);
         }
         else if (params.routine == "getriOOP") {
             // Call the out-of-place version; on exit, C = inv(A), A unchanged
-            slate::lu_inverse_using_factor_out_of_place(A, pivots, C, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target},
-                {slate::Option::MaxPanelThreads, panel_threads},
-                {slate::Option::InnerBlocking, ib}
-            });
+            slate::lu_inverse_using_factor_out_of_place(A, pivots, C, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::getri(A, pivots, C, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target},
-            //     {slate::Option::MaxPanelThreads, panel_threads},
-            //     {slate::Option::InnerBlocking, ib}
-            // });
+            // slate::getri(A, pivots, C, opts);
         }
 
         {

@@ -7,6 +7,7 @@
 #include "test.hh"
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
+#include "print_matrix.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -24,6 +25,9 @@ void test_posv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
+    // constants
+    const scalar_t one = 1.0;
+
     // get & mark input values
     slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
@@ -36,10 +40,12 @@ void test_posv_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose(); SLATE_UNUSED(verbose);
+    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::Dist dev_dist = params.dev_dist();
+    params.matrix.mark();
+    params.matrixB.mark();
 
     // mark non-standard output values
     params.time();
@@ -51,8 +57,15 @@ void test_posv_work(Params& params, bool run)
         params.iters();
     }
 
-    if (! run)
+    if (! run){
+        params.matrix.kind.set_default( "rand_dominant" );
         return;
+    }
+
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    };
 
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -80,7 +93,6 @@ void test_posv_work(Params& params, bool run)
     int descA_tst[9], descA_ref[9];
     int descB_tst[9], descB_ref[9];
     int iam = 0, nprocs = 1;
-    int iseed = 1;
 
     // initialize BLACS and ScaLAPACK
     Cblacs_pinfo(&iam, &nprocs);
@@ -96,7 +108,6 @@ void test_posv_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
-    scalapack_pplghe(&A_tst[0], n, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
     int64_t mlocB = scalapack_numroc(n, nb, myrow, izero, nprow);
@@ -105,7 +116,6 @@ void test_posv_work(Params& params, bool run)
     slate_assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
     std::vector<scalar_t> B_tst(lldB*nlocB);
-    scalapack_pplrnt(&B_tst[0], n, nrhs, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
 
 
     // todo: work-around to initialize BaseMatrix::num_devices_
@@ -157,10 +167,8 @@ void test_posv_work(Params& params, bool run)
         // Copy local ScaLAPACK data to GPU or CPU tiles.
         slate::Target origin_target = origin2target(origin);
         A.insertLocalTiles(origin_target);
-        copy(&A_tst[0], descA_tst, A);
 
         B.insertLocalTiles(origin_target);
-        copy(&B_tst[0], descB_tst, B);
 
         if (params.routine == "posvMixed") {
             if (std::is_same<real_t, double>::value) {
@@ -180,6 +188,17 @@ void test_posv_work(Params& params, bool run)
                 X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
             }
         }
+    }
+
+    slate::generate_matrix(params.matrix, A);
+    slate::generate_matrix(params.matrixB, B);
+    if (origin != slate::Origin::ScaLAPACK) {
+        copy(A, &A_tst[0], descA_tst);
+        copy(B, &B_tst[0], descB_tst);
+    }
+    if (verbose >= 2) {
+        print_matrix("A", A);
+        print_matrix("B", B);
     }
 
     // if check is required, copy test data and create a descriptor for it
@@ -212,17 +231,11 @@ void test_posv_work(Params& params, bool run)
     if (! ref_only) {
         if (params.routine == "potrs") {
             // Factor matrix A.
-            slate::chol_factor(A, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::chol_factor(A, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::potrf(A, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::potrf(A, opts);
         }
 
         if (trace) slate::trace::Trace::on();
@@ -242,50 +255,29 @@ void test_posv_work(Params& params, bool run)
         // posv:  Solve AX = B, including factoring A.
         //==================================================
         if (params.routine == "potrf") {
-            slate::chol_factor(A, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::chol_factor(A, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::potrf(A, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::potrf(A, opts);
         }
         else if (params.routine == "potrs") {
-            slate::chol_solve_using_factor(A, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::chol_solve_using_factor(A, B, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::potrs(A, B, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::potrs(A, B, opts);
         }
         else if (params.routine == "posv") {
-            slate::chol_solve(A, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::chol_solve(A, B, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::posv(A, B, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::posv(A, B, opts);
         }
         else if (params.routine == "posvMixed") {
             if (std::is_same<real_t, double>::value) {
-                slate::posvMixed(A, B, X, iters, {
-                    {slate::Option::Lookahead, lookahead},
-                    {slate::Option::Target, target}
-                });
+                slate::posvMixed(A, B, X, iters, opts);
             }
         }
         else {
@@ -321,17 +313,11 @@ void test_posv_work(Params& params, bool run)
 
         if (params.routine == "potrf") {
             // Solve AX = B.
-            slate::chol_solve_using_factor(A, B, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target}
-            });
+            slate::chol_solve_using_factor(A, B, opts);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::potrs(A, B, {
-            //     {slate::Option::Lookahead, lookahead},
-            //     {slate::Option::Target, target}
-            // });
+            // slate::potrs(A, B, opts);
         }
 
         // SLATE matrix wrappers for the reference data
@@ -353,18 +339,18 @@ void test_posv_work(Params& params, bool run)
         // B_ref -= Aref*B_tst
         if (params.routine == "posvMixed") {
             if (std::is_same<real_t, double>::value)
-                slate::multiply(scalar_t(-1.0), Aref, X, scalar_t(1.0), Bref);
+                slate::multiply(-one, Aref, X, one, Bref);
 
                 //---------------------
                 // Using traditional BLAS/LAPACK name
-                // slate::hemm(slate::Side::Left, scalar_t(-1.0), Aref, X, scalar_t(1.0), Bref);
+                // slate::hemm(slate::Side::Left, -one, Aref, X, one, Bref);
         }
         else {
-            slate::multiply(scalar_t(-1.0), Aref, B, scalar_t(1.0), Bref);
+            slate::multiply(-one, Aref, B, one, Bref);
 
             //---------------------
             // Using traditional BLAS/LAPACK name
-            // slate::hemm(slate::Side::Left, scalar_t(-1.0), Aref, B, scalar_t(1.0), Bref);
+            // slate::hemm(slate::Side::Left, -one, Aref, B, one, Bref);
         }
 
         // Norm of residual: || B - AX ||_1

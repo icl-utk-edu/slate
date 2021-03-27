@@ -113,7 +113,7 @@ void set(scalar_t alpha, scalar_t beta,
 template <Target target=Target::HostTask, typename scalar_t>
 void set(scalar_t alpha, scalar_t beta,
          BaseTrapezoidMatrix<scalar_t>&& A,
-         int priority=0);
+         int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void copytb2bd(TriangularBandMatrix<scalar_t>& A,

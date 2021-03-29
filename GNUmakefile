@@ -366,6 +366,10 @@ ifeq ($(hip),1)
     HIPCCFLAGS += $(amdgpu_targets)
     FLAGS += -D__HIP_PLATFORM_HCC__
     LIBS += -L$(HIPDIR)/lib -lrocblas -lamdhip64
+
+    # ROCm 4.0 has errors in its headers that produce excessive warnings.
+    CXXFLAGS := $(filter-out -pedantic, $(CXXFLAGS))
+    CXXFLAGS += -Wno-unused-result
 else
     FLAGS += -DSLATE_NO_HIP
 endif

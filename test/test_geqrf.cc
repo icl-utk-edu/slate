@@ -105,7 +105,7 @@ void test_geqrf_work(Params& params, bool run)
     // For checks, keep copy of original matrix A.
     slate::Matrix<scalar_t> Aref;
     std::vector<scalar_t> Aref_data;
-    real_t A_norm;
+    real_t A_norm = 0; //initialize to prevent compiler warning
     if (check || ref) {
         // Norm of original matrix: || A ||_1
         A_norm = slate::norm( slate::Norm::One, A, opts );

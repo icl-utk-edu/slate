@@ -8,6 +8,7 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
+#include "grid_utils.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -77,8 +78,8 @@ void test_gelqf_work(Params& params, bool run)
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(m, nb, myrow, 0, nprow);
-    int64_t nlocA = scalapack_numroc(n, nb, mycol, 0, npcol);
+    int64_t mlocA = num_local_rows_cols(m, nb, myrow, nprow);
+    int64_t nlocA = num_local_rows_cols(n, nb, mycol, npcol);
     scalapack_descinit(descA_tst, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
     slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
@@ -90,7 +91,7 @@ void test_gelqf_work(Params& params, bool run)
     slate_assert(info == 0);
 
     // tau vector for ScaLAPACK
-    int64_t ltau = scalapack_numroc(std::min(m, n), nb, mycol, 0, npcol);
+    int64_t ltau = num_local_rows_cols(std::min(m, n), nb, mycol, npcol);
     std::vector<scalar_t> tau(ltau);
 
     // workspace for ScaLAPACK

@@ -11,6 +11,7 @@
 #include "scalapack_copy.hh"
 #include "print_matrix.hh"
 #include "band_utils.hh"
+#include "grid_utils.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -77,8 +78,8 @@ void test_hbnorm_work(Params& params, bool run)
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocA = scalapack_numroc(n, nb, mycol, izero, npcol);
+    int64_t mlocA = num_local_rows_cols(n, nb, myrow, nprow);
+    int64_t nlocA = num_local_rows_cols(n, nb, mycol, npcol);
     int64_t lldA  = std::max(int64_t(1), mlocA);
     scalapack_descinit(descA_tst, n, n, nb, nb, izero, izero, ictxt, lldA, &info);
     slate_assert(info == 0);

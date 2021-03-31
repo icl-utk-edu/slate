@@ -72,8 +72,8 @@ void test_he2hb_work(Params& params, bool run)
     int mycol = whoismycol(mpi_rank, p);
 
     // matrix A, figure out local size, allocate, initialize
-    int64_t mlocal = localRowsCols(n, nb, myrow, p);
-    int64_t nlocal = localRowsCols(n, nb, mycol, q);
+    int64_t mlocal = num_local_rows_cols(n, nb, myrow, p);
+    int64_t nlocal = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA   = mlocal;
     std::vector<scalar_t> A_data(lldA*nlocal);
     int64_t idist = 3; // normal

@@ -80,8 +80,8 @@ void test_hegst_work(Params& params, bool run)
     int mycol = whoismycol(mpi_rank, p);
 
     // Figure out local size, allocate, initialize
-    int64_t mlocal = localRowsCols(n, nb, myrow, p);
-    int64_t nlocal = localRowsCols(n, nb, mycol, q);
+    int64_t mlocal = num_local_rows_cols(n, nb, myrow, p);
+    int64_t nlocal = num_local_rows_cols(n, nb, mycol, q);
     int64_t lld   = mlocal;
     int64_t idist = 3; // normal
     int64_t iseed[4] = { 0, myrow, mycol, 3 };

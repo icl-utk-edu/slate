@@ -12,6 +12,7 @@
 #include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 #include "band_utils.hh"
+#include "grid_utils.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -75,8 +76,8 @@ void test_steqr2_work(
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix Z, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocZ = scalapack_numroc(n, nb, myrow, 0, nprow);
-    int64_t nlocZ = scalapack_numroc(n, nb, mycol, 0, npcol);
+    int64_t mlocZ = num_local_rows_cols(n, nb, myrow, nprow);
+    int64_t nlocZ = num_local_rows_cols(n, nb, mycol, npcol);
     scalapack_descinit(descZ_tst, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
     slate_assert(info == 0);
     int64_t lldZ = (int64_t)descZ_tst[8];

@@ -10,6 +10,7 @@
 #include "scalapack_support_routines.hh"
 #include "internal/internal.hh"
 #include "band_utils.hh"
+#include "grid_utils.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -78,16 +79,16 @@ void test_bdsqr_work(
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix U, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocU = scalapack_numroc(m, nb, myrow, 0, nprow);
-    int64_t nlocU = scalapack_numroc(n, nb, mycol, 0, npcol);
+    int64_t mlocU = num_local_rows_cols(m, nb, myrow, nprow);
+    int64_t nlocU = num_local_rows_cols(n, nb, mycol, npcol);
     scalapack_descinit(descU_tst, m, n, nb, nb, 0, 0, ictxt, mlocU, &info);
     slate_assert(info == 0);
     int64_t lldU = (int64_t)descU_tst[8];
     std::vector<scalar_t> U_tst(1);
 
     // matrix VT, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocVT = scalapack_numroc(min_mn, nb, myrow, 0, nprow);
-    int64_t nlocVT = scalapack_numroc(n, nb, mycol, 0, npcol);
+    int64_t mlocVT = num_local_rows_cols(min_mn, nb, myrow, nprow);
+    int64_t nlocVT = num_local_rows_cols(n, nb, mycol, npcol);
     scalapack_descinit(descVT_tst, n, n, nb, nb, 0, 0, ictxt, mlocVT, &info);
     slate_assert(info == 0);
     int64_t lldVT = (int64_t)descVT_tst[8];

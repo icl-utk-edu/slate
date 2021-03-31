@@ -8,6 +8,7 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
+#include "grid_utils.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -94,8 +95,8 @@ void test_gels_work(Params& params, bool run)
 
     // figure out local size, allocate, create descriptor, initialize
     // matrix A, m-by-n
-    int64_t mlocA = scalapack_numroc(m, nb, myrow, izero, nprow);
-    int64_t nlocA = scalapack_numroc(n, nb, mycol, izero, npcol);
+    int64_t mlocA = num_local_rows_cols(m, nb, myrow, nprow);
+    int64_t nlocA = num_local_rows_cols(n, nb, mycol, npcol);
     int descA_tst[9];
     scalapack_descinit(descA_tst, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
     slate_assert(info == 0);
@@ -104,8 +105,8 @@ void test_gels_work(Params& params, bool run)
 
     // matrix X0, opAn-by-nrhs
     // used if making a consistent equation, B = A*X0
-    int64_t mlocX0 = scalapack_numroc(opAn, nb, myrow, izero, nprow);
-    int64_t nlocX0 = scalapack_numroc(nrhs, nb, mycol, izero, npcol);
+    int64_t mlocX0 = num_local_rows_cols(opAn, nb, myrow, nprow);
+    int64_t nlocX0 = num_local_rows_cols(nrhs, nb, mycol, npcol);
     int descX0_tst[9];
     scalapack_descinit(descX0_tst, opAn, nrhs, nb, nb, izero, izero, ictxt, mlocX0, &info);
     slate_assert(info == 0);
@@ -113,8 +114,8 @@ void test_gels_work(Params& params, bool run)
     std::vector<scalar_t> X0_tst(lldX0*nlocX0);
 
     // matrix BX, which stores B (input) and X (output), max(m, n)-by-nrhs
-    int64_t mlocBX = scalapack_numroc(maxmn, nb, myrow, izero, nprow);
-    int64_t nlocBX = scalapack_numroc(nrhs,  nb, mycol, izero, npcol);
+    int64_t mlocBX = num_local_rows_cols(maxmn, nb, myrow, nprow);
+    int64_t nlocBX = num_local_rows_cols(nrhs,  nb, mycol, npcol);
     int descBX_tst[9];
     scalapack_descinit(descBX_tst, maxmn, nrhs, nb, nb, izero, izero, ictxt, mlocBX, &info);
     slate_assert(info == 0);

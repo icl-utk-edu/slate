@@ -11,6 +11,7 @@
 #include "scalapack_support_routines.hh"
 #include "print_matrix.hh"
 #include "band_utils.hh"
+#include "grid_utils.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -101,8 +102,8 @@ void test_gbmm_work(Params& params, bool run)
     // int mpirank = mycol*nprow + myrow;
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);
-    int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
+    int64_t mlocA = num_local_rows_cols(Am, nb, myrow, nprow);
+    int64_t nlocA = num_local_rows_cols(An, nb, mycol, npcol);
     scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
     slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
@@ -115,8 +116,8 @@ void test_gbmm_work(Params& params, bool run)
     }
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocB = scalapack_numroc(Bm, nb, myrow, izero, nprow);
-    int64_t nlocB = scalapack_numroc(Bn, nb, mycol, izero, npcol);
+    int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, nprow);
+    int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, npcol);
     scalapack_descinit(descB_tst, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
     slate_assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
@@ -124,8 +125,8 @@ void test_gbmm_work(Params& params, bool run)
     scalapack_pplrnt(&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, lldB, iseed + 2);
 
     // matrix C, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocC = scalapack_numroc(m, nb, myrow, izero, nprow);
-    int64_t nlocC = scalapack_numroc(n, nb, mycol, izero, npcol);
+    int64_t mlocC = num_local_rows_cols(m, nb, myrow, nprow);
+    int64_t nlocC = num_local_rows_cols(n, nb, mycol, npcol);
     scalapack_descinit(descC_tst, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
     slate_assert(info == 0);
     int64_t lldC = (int64_t)descC_tst[8];

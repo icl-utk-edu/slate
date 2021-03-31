@@ -12,6 +12,7 @@
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
 #include "print_matrix.hh"
+#include "grid_utils.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -80,8 +81,8 @@ void test_pbsv_work(Params& params, bool run)
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocB = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocB = scalapack_numroc(nrhs, nb, mycol, izero, npcol);
+    int64_t mlocB = num_local_rows_cols(n, nb, myrow, nprow);
+    int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, npcol);
     scalapack_descinit(
       descB_tst, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
     slate_assert(info == 0);

@@ -8,6 +8,7 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
+#include "grid_utils.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -83,8 +84,8 @@ void test_heev_work(Params& params, bool run)
 
     // figure out local size, allocate, create descriptor, initialize
     // matrix A (local input), m-by-n, symmetric matrix
-    int64_t mlocA = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocA = scalapack_numroc(n, nb, mycol, izero, npcol);
+    int64_t mlocA = num_local_rows_cols(n, nb, myrow, nprow);
+    int64_t nlocA = num_local_rows_cols(n, nb, mycol, npcol);
     int descA_tst[9];
     scalapack_descinit(descA_tst, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
     slate_assert(info == 0);
@@ -96,8 +97,8 @@ void test_heev_work(Params& params, bool run)
     std::vector<real_t> W_tst(n);
 
     // matrix Z (local output), Z(n,n), gets orthonormal eigenvectors corresponding to W of the reference scalapack
-    int64_t mlocZ = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocZ = scalapack_numroc(n, nb, mycol, izero, npcol);
+    int64_t mlocZ = num_local_rows_cols(n, nb, myrow, nprow);
+    int64_t nlocZ = num_local_rows_cols(n, nb, mycol, npcol);
     int descZ_tst[9];
     scalapack_descinit(descZ_tst, n, n, nb, nb, izero, izero, ictxt, mlocZ, &info);
     slate_assert(info == 0);
@@ -105,8 +106,8 @@ void test_heev_work(Params& params, bool run)
     std::vector<scalar_t> Z_tst(lldZ * nlocZ, 0);
 
     // matrix Q (local output), Q(n,n), gets orthonormal eigenvectors corresponding to W of slate heev
-    int64_t mlocQ = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocQ = scalapack_numroc(n, nb, mycol, izero, npcol);
+    int64_t mlocQ = num_local_rows_cols(n, nb, myrow, nprow);
+    int64_t nlocQ = num_local_rows_cols(n, nb, mycol, npcol);
     int descQ_tst[9];
     scalapack_descinit(descQ_tst, n, n, nb, nb, izero, izero, ictxt, mlocQ, &info);
     slate_assert(info == 0);

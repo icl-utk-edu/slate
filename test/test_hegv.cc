@@ -8,6 +8,7 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
+#include "grid_utils.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -79,8 +80,8 @@ void test_hegv_work(Params& params, bool run)
 
     // figure out local size, allocate, create descriptor, initialize
     // matrix A (local input/local output), n-by-n, Hermitian
-    int64_t mlocA = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocA = scalapack_numroc(n, nb, mycol, izero, npcol);
+    int64_t mlocA = num_local_rows_cols(n, nb, myrow, nprow);
+    int64_t nlocA = num_local_rows_cols(n, nb, mycol, npcol);
     blas_int descA_tst[9];
     scalapack_descinit(descA_tst, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
     slate_assert(info == 0);
@@ -89,8 +90,8 @@ void test_hegv_work(Params& params, bool run)
     scalapack_pplghe(&A_tst_vec[0], n, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
 
     // matrix B (local input/local output), n-by-n, Hermitian
-    int64_t mlocB = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocB = scalapack_numroc(n, nb, mycol, izero, npcol);
+    int64_t mlocB = num_local_rows_cols(n, nb, myrow, nprow);
+    int64_t nlocB = num_local_rows_cols(n, nb, mycol, npcol);
     blas_int descB_tst[9];
     scalapack_descinit(descB_tst, n, n, nb, nb, izero, izero, ictxt, mlocB, &info);
     slate_assert(info == 0);
@@ -102,8 +103,8 @@ void test_hegv_work(Params& params, bool run)
     std::vector<real_t> W_tst_vec(n);
 
     // matrix Z (local output), n-by-n , gets orthonormal eigenvectors corresponding to W
-    int64_t mlocZ = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocZ = scalapack_numroc(n, nb, mycol, izero, npcol);
+    int64_t mlocZ = num_local_rows_cols(n, nb, myrow, nprow);
+    int64_t nlocZ = num_local_rows_cols(n, nb, mycol, npcol);
     blas_int descZ_tst[9];
     scalapack_descinit(descZ_tst, n, n, nb, nb, izero, izero, ictxt, mlocZ, &info);
     slate_assert(info == 0);

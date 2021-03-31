@@ -7,6 +7,7 @@
 #include "test.hh"
 #include "blas/flops.hh"
 #include "print_matrix.hh"
+#include "grid_utils.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -97,24 +98,24 @@ void test_gemm_work(Params& params, bool run)
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);
-    int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
+    int64_t mlocA = num_local_rows_cols(Am, nb, myrow, nprow);
+    int64_t nlocA = num_local_rows_cols(An, nb, mycol, npcol);
     scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
     slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocB = scalapack_numroc(Bm, nb, myrow, izero, nprow);
-    int64_t nlocB = scalapack_numroc(Bn, nb, mycol, izero, npcol);
+    int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, nprow);
+    int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, npcol);
     scalapack_descinit(descB_tst, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
     slate_assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];
     std::vector<scalar_t> B_tst(lldB*nlocB);
 
     // matrix C, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocC = scalapack_numroc(m, nb, myrow, izero, nprow);
-    int64_t nlocC = scalapack_numroc(n, nb, mycol, izero, npcol);
+    int64_t mlocC = num_local_rows_cols(m, nb, myrow, nprow);
+    int64_t nlocC = num_local_rows_cols(n, nb, mycol, npcol);
     scalapack_descinit(descC_tst, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
     slate_assert(info == 0);
     int64_t lldC = (int64_t)descC_tst[8];

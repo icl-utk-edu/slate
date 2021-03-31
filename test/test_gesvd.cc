@@ -8,6 +8,7 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
+#include "grid_utils.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -87,8 +88,8 @@ void test_gesvd_work(Params& params, bool run)
 
     // figure out local size, allocate, create descriptor, initialize
     // matrix A (local input), m-by-n
-    int64_t mlocA = scalapack_numroc(m, nb, myrow, izero, nprow);
-    int64_t nlocA = scalapack_numroc(n, nb, mycol, izero, npcol);
+    int64_t mlocA = num_local_rows_cols(m, nb, myrow, nprow);
+    int64_t nlocA = num_local_rows_cols(n, nb, mycol, npcol);
     int descA_tst[9];
     scalapack_descinit(descA_tst, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
     slate_assert(info == 0);
@@ -96,8 +97,8 @@ void test_gesvd_work(Params& params, bool run)
     std::vector<scalar_t> A_tst(lldA*nlocA);
 
     // matrix U (local output), U(m, minmn), singular values of A
-    int64_t mlocU = scalapack_numroc(m, nb, myrow, izero, nprow);
-    int64_t nlocU = scalapack_numroc(minmn, nb, mycol, izero, npcol);
+    int64_t mlocU = num_local_rows_cols(m, nb, myrow, nprow);
+    int64_t nlocU = num_local_rows_cols(minmn, nb, mycol, npcol);
     int descU_tst[9];
     scalapack_descinit(descU_tst, m, minmn, nb, nb, izero, izero, ictxt, mlocU, &info);
     slate_assert(info == 0);
@@ -105,8 +106,8 @@ void test_gesvd_work(Params& params, bool run)
     std::vector<scalar_t> U_tst(lldU * nlocU, 0);
 
     // matrix VT (local output), VT(minmn, n)
-    int64_t mlocVT = scalapack_numroc(minmn, nb, myrow, izero, nprow);
-    int64_t nlocVT = scalapack_numroc(n, nb, mycol, izero, npcol);
+    int64_t mlocVT = num_local_rows_cols(minmn, nb, myrow, nprow);
+    int64_t nlocVT = num_local_rows_cols(n, nb, mycol, npcol);
     int descVT_tst[9];
     scalapack_descinit(descVT_tst, minmn, n, nb, nb, izero, izero, ictxt, mlocVT, &info);
     slate_assert(info == 0);

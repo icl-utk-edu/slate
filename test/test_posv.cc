@@ -13,6 +13,7 @@
 #include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 #include "aux/Debug.hh"
+#include "grid_utils.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -102,16 +103,16 @@ void test_posv_work(Params& params, bool run)
     Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocA = scalapack_numroc(n, nb, mycol, izero, npcol);
+    int64_t mlocA = num_local_rows_cols(n, nb, myrow, nprow);
+    int64_t nlocA = num_local_rows_cols(n, nb, mycol, npcol);
     scalapack_descinit(descA_tst, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
     slate_assert(info == 0);
     int64_t lldA = (int64_t)descA_tst[8];
     std::vector<scalar_t> A_tst(lldA*nlocA);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocB = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocB = scalapack_numroc(nrhs, nb, mycol, izero, npcol);
+    int64_t mlocB = num_local_rows_cols(n, nb, myrow, nprow);
+    int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, npcol);
     scalapack_descinit(descB_tst, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
     slate_assert(info == 0);
     int64_t lldB = (int64_t)descB_tst[8];

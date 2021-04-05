@@ -114,13 +114,6 @@ void unmqr(internal::TargetType<target>,
         //     [ C0b ]  non-empty only if V0 is trapezoid
         //     [ C1  ]
         auto C0 = C.sub(first, first, 0, nt-1);
-        if (target == Target::Devices) {
-            //C0.tileGetAndHoldAllOnDevices(LayoutConvert(layout));//todo is this OK?
-        }
-        else {
-            // todo: issue omp tasks for copy to host
-            //C0.tileGetAllForWriting(C0.hostNum(), LayoutConvert(layout));
-        }
 
         // Householder vectors are only first min( mb, nb ) columns in lower
         // triangular part of V. If V0 tile is short (mb < nb), slice V to
@@ -293,13 +286,6 @@ void unmqr(internal::TargetType<target>,
         // C = [ C0  C0b  C1 ]
         // C0b is non-empty only if V0 is trapezoid
         auto C0 = C.sub(0, mt-1, first, first);
-        if (target == Target::Devices) {
-            C0.tileGetAndHoldAllOnDevices(LayoutConvert(layout));//todo is this OK?
-        }
-        else {
-            // todo: issue omp tasks for copy to host
-            C0.tileGetAllForWriting(C0.hostNum(), LayoutConvert(layout));
-        }
 
         // Householder vectors are only first min( mb, nb ) columns in lower
         // triangular part of V. If V0 tile is short (mb < nb), slice V to

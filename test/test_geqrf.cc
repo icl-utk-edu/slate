@@ -17,13 +17,9 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
+#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
-double barrier_get_wtime(MPI_Comm comm)
-{
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(comm);
-        return testsweeper::get_wtime();
-}
+
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
@@ -79,7 +75,7 @@ void test_geqrf_work(Params& params, bool run)
     // matrix A, figure out local size, allocate, initialize
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
-    int64_t lldA  = std::max(int64_t(1), mlocA); // local leading dimension of A
+    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
 
     std::vector<scalar_t> A_data;
     slate::Matrix<scalar_t> A;
@@ -90,7 +86,7 @@ void test_geqrf_work(Params& params, bool run)
     }
     else {
         // create SLATE matrix from the ScaLAPACK layouts
-        A_data.resize( mlocA * nlocA );
+        A_data.resize( lldA * nlocA );
         A = slate::Matrix<scalar_t>::fromScaLAPACK( m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
     }
 
@@ -111,7 +107,7 @@ void test_geqrf_work(Params& params, bool run)
         A_norm = slate::norm( slate::Norm::One, A, opts );
 
         // For simplicity, always use ScaLAPACK format for Aref.
-        Aref_data.resize( mlocA * nlocA );
+        Aref_data.resize( lldA * nlocA );
         Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
             m, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         slate::copy(A, Aref);
@@ -132,13 +128,13 @@ void test_geqrf_work(Params& params, bool run)
         // Using traditional BLAS/LAPACK name
         // slate::geqrf(A, T, opts);
 
-       double time_tst = barrier_get_wtime(MPI_COMM_WORLD) - time;
+        time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         if (trace) slate::trace::Trace::finish();
 
         // compute and save timing/performance
-        params.time() = time_tst;
-        params.gflops() = gflop / time_tst;
+        params.time() = time;
+        params.gflops() = gflop / time;
 
         if (verbose > 1) {
             print_matrix("A_factored", A);
@@ -160,17 +156,13 @@ void test_geqrf_work(Params& params, bool run)
         // R is the upper part of A matrix.
         slate::TrapezoidMatrix<scalar_t> R(slate::Uplo::Upper, slate::Diag::NonUnit, A);
 
-        std::vector<scalar_t> QR_data;
-        slate::Matrix<scalar_t> QR;
-        QR_data = std::vector<scalar_t>(Aref_data.size(), zero);
-        QR = slate::Matrix<scalar_t>::fromScaLAPACK(
+        std::vector<scalar_t> QR_data(Aref_data.size(), zero);
+        slate::Matrix<scalar_t> QR = slate::Matrix<scalar_t>::fromScaLAPACK(
             m, n, &QR_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
         // R1 is the upper part of QR matrix.
         slate::TrapezoidMatrix<scalar_t> R1(slate::Uplo::Upper, slate::Diag::NonUnit, QR);
 
-        // Zero out QR matrix.
-        slate::set(zero, QR); //Already zero when QR_data is initialized above?
         // Copy A's upper trapezoid R to QR's upper trapezoid R1.
         slate::copy(R, R1);
 
@@ -219,7 +211,7 @@ void test_geqrf_work(Params& params, bool run)
 
             // BLACS/MPI variables
             int ictxt, myrow, mycol, info, p_, q_;
-            int Aref_desc[9], QR_desc[9];
+            int Aref_desc[9];
             int iam = 0, nprocs = 1;
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&iam, &nprocs);
@@ -234,16 +226,6 @@ void test_geqrf_work(Params& params, bool run)
             slate_assert(info == 0);
             int64_t lldA = (int64_t)Aref_desc[8];
             std::vector<scalar_t> Aref_data(lldA*nlocA);
-
-            // matrix QR, for checking result
-            std::vector<scalar_t> QR_data(1);
-            scalapack_descinit(QR_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
-
-            // Form QR - A, where A is in Aref.
-            // todo: slate::geadd(-one, Aref, QR);
-            // using axpy assumes Aref_data and QR_data have same lda.
-            blas::axpy(QR_data.size(), -one, &Aref_data[0], 1, &QR_data[0], 1);
 
             // tau vector for ScaLAPACK
             int64_t ltau = num_local_rows_cols(std::min(m, n), nb, mycol, q);
@@ -275,17 +257,17 @@ void test_geqrf_work(Params& params, bool run)
             scalapack_pgeqrf(m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
                             work.data(), lwork, &info_ref);
             slate_assert(info_ref == 0);
-            double time_ref = barrier_get_wtime(MPI_COMM_WORLD) - time;
+            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            params.ref_time() = time_ref;
-            params.ref_gflops() = gflop / time_ref;
+            params.ref_time() = time;
+            params.ref_gflops() = gflop / time;
 
             slate_set_num_blas_threads(saved_num_threads);
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else
             if (mpi_rank == 0)
-               printf( "ScaLAPACK not available\n" );
+                printf( "ScaLAPACK not available\n" );
         #endif
     }
 

@@ -103,7 +103,7 @@ public:
         : event_(name)
     {}
 
-    ~Block() {}
+    ~Block() { Trace::insert(event_); }
 private:
     Event event_;
 };

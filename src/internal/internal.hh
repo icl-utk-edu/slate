@@ -455,7 +455,8 @@ void unmqr(Side side, Op op,
            Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
-           Matrix<scalar_t>&& W);
+           Matrix<scalar_t>&& W,
+           int priority=0, int64_t queue_index=0);
 
 // unmlq()
 template <Target target=Target::HostTask, typename scalar_t>

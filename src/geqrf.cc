@@ -37,6 +37,7 @@ void geqrf(slate::internal::TargetType<target>,
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
+    const int priority_zero = 0;
     const int priority_one = 1;
 
     int64_t A_mt = A.mt();
@@ -53,9 +54,13 @@ void geqrf(slate::internal::TargetType<target>,
     auto W = A.emptyLike();
 
     if (target == Target::Devices) {
-        A.allocateBatchArrays();
+        const int64_t batch_size_zero = 0; // use default batch size
+        const int64_t num_queues = 40 + lookahead; // FIXME use less number of queues
+        //A.allocateBatchArrays();
+        A.allocateBatchArrays(batch_size_zero, num_queues);
         A.reserveDeviceWorkspace();
-        W.allocateBatchArrays();
+        //W.allocateBatchArrays();
+        W.allocateBatchArrays(batch_size_zero, num_queues);
         // todo: this is demanding too much device workspace memory
         // only one tile-row of matrix W per MPI process is going to be used,
         // but W with size of whole A is being allocated
@@ -162,16 +167,19 @@ void geqrf(slate::internal::TargetType<target>,
                                  priority(priority_one)
                 {
                     // Apply local reflectors
-                    internal::unmqr<Target::HostTask>(
+                    internal::unmqr<target>(
+                    //internal::unmqr<Target::HostTask>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
-                                    W.sub(k, A_mt-1, j, j));
+                                    W.sub(k, A_mt-1, j, j), 
+                                    priority_one, (k+1)*A.mt()+j);
+                    std::cout << "LA queue:" << (k+1)*A.mt()+j << std::endl;
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmqr handles the tile broadcasting internally
-                    internal::ttmqr<Target::HostTask>(
+                    if(0)internal::ttmqr<Target::HostTask>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
@@ -179,6 +187,7 @@ void geqrf(slate::internal::TargetType<target>,
                                     j);
                 }
             }
+            #pragma omp taskwait
 
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
@@ -195,7 +204,9 @@ void geqrf(slate::internal::TargetType<target>,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
-                                    W.sub(k, A_mt-1, j, A_nt-1));
+                                    W.sub(k, A_mt-1, j, A_nt-1),
+                                    priority_zero, (k+1)*A.mt()+j);
+                    std::cout << "TMU queue:" << (k+1)*A.mt()+j << std::endl;
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmqr handles the tile broadcasting internally
@@ -214,6 +225,7 @@ void geqrf(slate::internal::TargetType<target>,
     }
 
     A.releaseWorkspace();
+    std::cout << "geqrf finished" << std::endl;
 }
 
 } // namespace specialization

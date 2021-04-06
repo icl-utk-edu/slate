@@ -13,14 +13,12 @@
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
+
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
 #define SLATE_HAVE_SCALAPACK
-//------------------------------------------------------------------------------
-
-
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_geqrf_work(Params& params, bool run)
@@ -224,8 +222,6 @@ void test_geqrf_work(Params& params, bool run)
 
             scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
-            int64_t lldA = (int64_t)Aref_desc[8];
-            std::vector<scalar_t> Aref_data(lldA*nlocA);
 
             // tau vector for ScaLAPACK
             int64_t ltau = num_local_rows_cols(std::min(m, n), nb, mycol, q);
@@ -270,7 +266,6 @@ void test_geqrf_work(Params& params, bool run)
                 printf( "ScaLAPACK not available\n" );
         #endif
     }
-
 }
 // -----------------------------------------------------------------------------
 void test_geqrf(Params& params, bool run)

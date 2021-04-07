@@ -3,60 +3,7 @@
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 #
-# Relies on settings in environment. These can be set by modules or in make.inc.
-# Set compiler by $CXX; usually want CXX=mpicxx.
-# Add include directories to $CPATH or $CXXFLAGS for MPI, CUDA, MKL, etc.
-# Add lib directories to $LIBRARY_PATH or $LDFLAGS for MPI, CUDA, MKL, etc.
-# At runtime, these lib directories need to be in $LD_LIBRARY_PATH,
-# or on MacOS, $DYLD_LIBRARY_PATH, or set as rpaths in $LDFLAGS.
-#
-# Set options on command line or in make.inc file.
-#
-# CXX=mpicxx, mpic++, etc. (mpi*) for MPI using compiler wrapper.
-# FC =mpif90, mpifort, etc.
-# Alternatively:
-#     mpi=1         for MPI (-lmpi).
-#     mpi=spectrum  for IBM Spectrum MPI (-lmpi_ibm).
-#
-# blas=mkl        for Intel MKL. Additional sub-options:
-#     mkl_blacs=openmpi     for Open MPI BLACS in SLATE's testers.
-#     mkl_blacs=intelmpi    for Intel MPI BLACS in SLATE's testers (default).
-# blas=essl       for IBM ESSL.
-# blas=openblas   for OpenBLAS.
-#
-# blas_int=int    for 32-bit int (lp64; default)
-# blas_int=int64  for 64-bit int (ilp64; only with Intel MKL)
-#
-# SLATE handles threading itself, so sequential BLAS is preferred.
-# blas_threaded=0 single threaded BLAS (default)
-# blas_threaded=1 for multi-threaded BLAS (only with IBM ESSL, Intel MKL);
-#
-# Fortran interface to use. Currently applies only to Intel MKL.
-# blas_fortran=ifort        use Intel ifort  conventions (e.g., libmkl_intel_lp64)
-#                           Automatically set if CXX=icpc or on macOS.
-# blas_fortran=gfortran     use GNU gfortran conventions (e.g., libmkl_gf_lp64)
-#
-# openmp=1        for OpenMP (default).
-# static=1        for static library (libslate.a);
-#                 otherwise default is shared library (libslate.so).
-#
-# C/Fortran API:
-#     c_api=1         build C interface.
-#     c_api=0         do not build C interface (default).
-#     fortran_api=1   build Fortran interface;
-#                     if c_api=1 and $(FC) compiler is found.
-#     fortran_api=0   do not build Fortran interface (default).
-#
-# cuda=1          for CUDA (default if $(NVCC) compiler is found).
-# NVCC=nvcc by default.
-# cuda_arch="ARCH" for CUDA architectures, where ARCH is one or more of:
-#     kepler maxwell pascal volta turing ampere sm_XX
-# and sm_XX is a CUDA architecture (e.g., sm_30; see nvcc -h).
-# kepler and maxwell are no longer supported in CUDA 11.
-# cuda_arch="pascal" by default.
-#
-# hip=1          for HIP (default if $(HIPCC) compiler is found).
-# HIPCC=hipcc by default.
+# See INSTALL.md for documentation.
 
 -include make.inc
 
@@ -128,11 +75,11 @@ else ifeq ($(strip $(cuda)),1)
 endif
 
 # If hipcc exists, set hip = 1 by default.
-have_hip  := $(shell which $(HIPCC) 2>/dev/null)
+have_hip := $(shell which $(HIPCC) 2>/dev/null)
 ifneq ($(have_hip),)
     hip ?= 1
     hip_arch ?= gfx900 gfx906 gfx908
-     -include make.gen.hipSLATE
+    -include make.gen.hipSLATE
 else ifeq ($(strip $(hip)),1)
     $(error ERROR: hip = $(hip), but HIPCC = ${HIPCC} not found)
 endif

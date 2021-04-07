@@ -184,7 +184,14 @@ Available targets:
     make distclean - also deletes dependency files (*.d) and
                      cleans BLAS++, LAPACK++, and TestSweeper.
 
-Options
+### Makefile options
+
+Besides the Environment variables and Options listed above, additional
+options include:
+
+    static
+        0                   build shared libraries (libslate.so) (default)
+        1                   build static libraries (libslate.a)
 
     mpi
         The Makefile will detect mpi from the MPI compiler wrapper name
@@ -195,15 +202,27 @@ Options
 
     cuda
     cuda_arch
-        It will compile with CUDA if nvcc is detected. To compile
+        SLATE will compile with CUDA if nvcc is detected. To compile
         without CUDA, set `cuda = 0`. By default, it will compile for
         CUDA architecture Pascal. To use a different architecture, set
         `cuda_arch` to one or more of:
         `kepler maxwell pascal volta turing sm_XY`
         where XY is a valid CUDA architecture (see `nvcc -h | grep sm_`).
 
+    hip
+    hip_arch
+        SLATE will compile with HIP if hipcc is detected. To compile
+        without HIP, set `hip = 0`. By default, it will compile for
+        HIP architectures gfx900 gfx906 gfx908. To use a different architecture,
+        set `hip_arch` to one or more of:
+        `gfx900`  for AMD Radeon Instinct MI25 / Vega 10
+        `gfx906`  for AMD Radeon Instinct MI50 / Vega 20
+        `gfx908`  for AMD Instinct MI100
+        or other valid HIP architecture.
+        See https://llvm.org/docs/AMDGPUUsage.html
+
     openmp
-        It will compile with OpenMP by default. To compile without
+        SLATE will compile with OpenMP by default. To compile without
         OpenMP, set `openmp = 0`.
 
     c_api
@@ -265,7 +284,7 @@ so the user does not have to install them beforehand. If CMake finds already
 installed versions, it will use those instead of compiling new versions.
 
 
-### Options
+### CMake Otions
 
 Besides the Environment variables and Options listed above, additional
 options include:

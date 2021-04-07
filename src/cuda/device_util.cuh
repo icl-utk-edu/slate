@@ -104,9 +104,11 @@ inline double abs(double x)
 __host__ __device__
 inline float abs(cuFloatComplex x)
 {
+    // CUDA has good implementation,
+    // otherwise use our implementation that scales per LAPACK.
 #ifdef __NVCC__
     return cuCabsf(x);
-#else    
+#else
     float a = cuCrealf(x);
     float b = cuCimagf(x);
     float z, w, t;
@@ -131,15 +133,17 @@ inline float abs(cuFloatComplex x)
         }
         return t;
     }
-#endif    
+#endif
 }
 
 __host__ __device__
 inline double abs(cuDoubleComplex x)
 {
+    // CUDA has good implementation,
+    // otherwise use our implementation that scales per LAPACK.
 #ifdef __NVCC__
     return cuCabs(x);
-#else    
+#else
     double a = cuCreal(x);
     double b = cuCimag(x);
     double z, w, t;

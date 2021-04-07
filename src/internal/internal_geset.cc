@@ -22,14 +22,14 @@ void geset(
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     geset(m, n,
           make_cuFloatComplex(alpha.real(), alpha.imag()),
           make_cuFloatComplex(beta.real(), beta.imag()),
           (cuFloatComplex**) Aarray, lda,
           batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     geset(m, n,
           make_hipFloatComplex(alpha.real(), alpha.imag()),
           make_hipFloatComplex(beta.real(), beta.imag()),
@@ -45,16 +45,16 @@ void geset(
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     geset(m, n,
-          make_cuDoubleComplex(alpha.real(), alpha.imag()) ,
+          make_cuDoubleComplex(alpha.real(), alpha.imag()),
           make_cuDoubleComplex(beta.real(), beta.imag()),
           (cuDoubleComplex**) Aarray, lda,
           batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     geset(m, n,
-          make_hipDoubleComplex(alpha.real(), alpha.imag()) ,
+          make_hipDoubleComplex(alpha.real(), alpha.imag()),
           make_hipDoubleComplex(beta.real(), beta.imag()),
           (hipDoubleComplex**) Aarray, lda,
           batch_count, queue);

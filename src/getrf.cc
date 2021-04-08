@@ -43,21 +43,27 @@ void getrf(slate::internal::TargetType<target>,
     if (target == Target::Devices)
         target_layout = Layout::RowMajor;
 
-    if (target == Target::Devices) {
-        A.allocateBatchArrays();
-        A.reserveDeviceWorkspace();
-    }
-
-    const int priority_one = 1;
-    const int priority_zero = 0;
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
     pivots.resize(min_mt_nt);
 
+    const int priority_one = 1;
+    const int priority_zero = 0;
+    int life_factor_one = 1;
+    const int queue_1 = 1;
+    const int64_t batch_size_zero = 0;
+    const int num_queues = 2 + lookahead;
+    bool is_shared = target==Target::Devices && lookahead > 0;
+
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
+
+    if (target == Target::Devices) {
+        A.allocateBatchArrays(batch_size_zero, num_queues);
+        A.reserveDeviceWorkspace();
+    }
 
     #pragma omp parallel
     #pragma omp master
@@ -82,7 +88,8 @@ void getrf(slate::internal::TargetType<target>,
                     // send A(i, k) across row A(i, k+1:nt-1)
                     bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                 }
-                A.template listBcast(bcast_list_A, Layout::ColMajor, tag_k);
+                A.template listBcast<target>(
+                    bcast_list_A, Layout::ColMajor, tag_k, life_factor_one, is_shared);
 
                 // Root broadcasts the pivot to all ranks.
                 // todo: Panel ranks send the pivots to the right.
@@ -102,30 +109,31 @@ void getrf(slate::internal::TargetType<target>,
                 {
                     // swap rows in A(k:mt-1, j)
                     int tag_j = j;
-                    internal::permuteRows<Target::HostTask>(
+                    internal::permuteRows<target>(
                         Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
-                        host_layout, priority_one, tag_j);
+                        target_layout, priority_one, tag_j);
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
                         TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
 
                     // solve A(k, k) A(k, j) = A(k, j)
-                    internal::trsm<Target::HostTask>(
+                    internal::trsm<target>(
                         Side::Left,
                         scalar_t(1.0), std::move(Tkk),
-                                       A.sub(k, k, j, j), priority_one);
+                                       A.sub(k, k, j, j),
+                        priority_one, Layout::ColMajor, j-k+1);
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
                     A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), Layout::ColMajor, tag_j);
 
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
-                    internal::gemm<Target::HostTask>(
+                    internal::gemm<target>(
                         scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
                                         A.sub(k, k, j, j),
                         scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
-                        host_layout, priority_one);
+                        target_layout, priority_one, j-k+1);
                 }
             }
             // pivot to the left, high priority
@@ -161,10 +169,11 @@ void getrf(slate::internal::TargetType<target>,
 
                     // solve A(k, k) A(k, kl+1:nt-1) = A(k, kl+1:nt-1)
                     // todo: target
-                    internal::trsm<Target::HostTask>(
+                    internal::trsm<target>(
                         Side::Left,
                         scalar_t(1.0), std::move(Tkk),
-                                       A.sub(k, k, k+1+lookahead, A_nt-1));
+                                       A.sub(k, k, k+1+lookahead, A_nt-1),
+                        priority_zero, Layout::ColMajor, queue_1);
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastList bcast_list_A;
@@ -173,14 +182,15 @@ void getrf(slate::internal::TargetType<target>,
                         bcast_list_A.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
                     }
                     // todo: trsm still operates in ColMajor
-                    A.template listBcast(bcast_list_A, Layout::ColMajor, tag_kl1);
+                    A.template listBcast<target>(
+                        bcast_list_A, Layout::ColMajor, tag_kl1);
 
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
                         scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
                                         A.sub(k, k, k+1+lookahead, A_nt-1),
                         scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
-                        target_layout, priority_zero);
+                        target_layout, priority_zero, queue_1);
                 }
             }
         }

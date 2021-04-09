@@ -123,5 +123,56 @@ void cubeReducePattern(int size, int rank, int radix,
     cubeBcastPattern(size, rank, radix, send_to, recv_from);
 }
 
+
+// A gatherv implementation that uses tags
+void tagged_gatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
+                    void *recvbuf, const int recvcounts[], const int displs[], MPI_Datatype recvtype,
+                    int root, int tag, MPI_Comm comm) {
+    int size, rank;
+    MPI_Comm_size(comm, &size);
+    MPI_Comm_rank(comm, &rank);
+
+    int request_count = rank == root ? size+1 : 1;
+    std::vector<MPI_Request> requests_vect (request_count);
+    MPI_Request* requests = requests_vect.data();
+
+    if (rank == root) {
+        for (int i = 0; i < size; ++i) {
+            void *recvbuf_i = (void*)(displs[i] + (char*)recvbuf);
+            MPI_Irecv(recvbuf_i, recvcounts[i], recvtype,
+                      i, tag, comm, &requests[i+1]);
+        }
+    }
+
+    MPI_Isend(sendbuf, sendcount, sendtype, root, tag, comm, &requests[0]);
+
+    MPI_Waitall(request_count, requests, MPI_STATUSES_IGNORE);
+}
+
+// A scatterv implementation that uses tags
+void tagged_scatterv(const void *sendbuf, const int sendcounts[], const int displs[], MPI_Datatype sendtype,
+                     void *recvbuf, int recvcount, MPI_Datatype recvtype,
+                     int root, int tag, MPI_Comm comm) {
+    int size, rank;
+    MPI_Comm_size(comm, &size);
+    MPI_Comm_rank(comm, &rank);
+
+    int request_count = rank == root ? size+1 : 1;
+    std::vector<MPI_Request> requests_vect (request_count);
+    MPI_Request* requests = requests_vect.data();
+
+    if (rank == root) {
+        for (int i = 0; i < size; ++i) {
+            void *sendbuf_i = (void*)(displs[i] + (char*)sendbuf);
+            MPI_Isend(sendbuf_i, sendcounts[i], sendtype,
+                      i, tag, comm, &requests[i+1]);
+        }
+    }
+
+    MPI_Irecv(recvbuf, recvcount, recvtype, root, tag, comm, &requests[0]);
+
+    MPI_Waitall(request_count, requests, MPI_STATUSES_IGNORE);
+}
+
 } // namespace internal
 } // namespace slate

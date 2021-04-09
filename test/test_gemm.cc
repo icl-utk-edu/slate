@@ -19,7 +19,7 @@
 #include <utility>
 
 #undef PIN_MATRICES
-
+#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template<typename scalar_t>
 void test_gemm_work(Params& params, bool run)
@@ -82,92 +82,76 @@ void test_gemm_work(Params& params, bool run)
     int64_t Cm = m;
     int64_t Cn = n;
 
-    // local values
+    // constants
     const int izero = 0, ione = 1;
 
-    // BLACS/MPI variables
-    int ictxt, nprow, npcol, myrow, mycol, info;
-    int descA_tst[9], descB_tst[9], descC_tst[9], descC_ref[9];
-    int iam = 0, nprocs = 1;
+    // Local values
+    int myrow, mycol;
+    int mpi_rank;
 
-    // initialize BLACS and ScaLAPACK
-    Cblacs_pinfo(&iam, &nprocs);
-    slate_assert(p*q <= nprocs);
-    Cblacs_get(-1, 0, &ictxt);
-    Cblacs_gridinit(&ictxt, "Col", p, q);
-    Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = num_local_rows_cols(Am, nb, myrow, nprow);
-    int64_t nlocA = num_local_rows_cols(An, nb, mycol, npcol);
-    scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
-    slate_assert(info == 0);
-    int64_t lldA = (int64_t)descA_tst[8];
-    std::vector<scalar_t> A_tst(lldA*nlocA);
+    int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
+    int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
+
+    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
+    std::vector<scalar_t> A_data(lldA*nlocA);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, nprow);
-    int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, npcol);
-    scalapack_descinit(descB_tst, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
-    slate_assert(info == 0);
-    int64_t lldB = (int64_t)descB_tst[8];
-    std::vector<scalar_t> B_tst(lldB*nlocB);
+    int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
+    int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
+
+    int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
+    std::vector<scalar_t> B_data(lldB*nlocB);
 
     // matrix C, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocC = num_local_rows_cols(m, nb, myrow, nprow);
-    int64_t nlocC = num_local_rows_cols(n, nb, mycol, npcol);
-    scalapack_descinit(descC_tst, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
-    slate_assert(info == 0);
-    int64_t lldC = (int64_t)descC_tst[8];
-    std::vector<scalar_t> C_tst(lldC*nlocC);
+    int64_t mlocC = num_local_rows_cols(m, nb, myrow, p);
+    int64_t nlocC = num_local_rows_cols(n, nb, mycol, q);
+
+    int64_t lldC  = blas::max(1, mlocC); // local leading dimension of C
+    std::vector<scalar_t> C_data(lldC*nlocC);
 
     #ifdef PIN_MATRICES
     int cuerror;
-    cuerror = cudaHostRegister(&A_tst[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
-    cuerror = cudaHostRegister(&B_tst[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
-    cuerror = cudaHostRegister(&C_tst[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
+    cuerror = cudaHostRegister(&A_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
+    cuerror = cudaHostRegister(&B_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
+    cuerror = cudaHostRegister(&C_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
     #endif
-
 
     slate::Matrix<scalar_t> A, B, C;
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
         slate::Target origin_target = origin2target(origin);
-        A = slate::Matrix<scalar_t>(Am, An, nb, nprow, npcol, MPI_COMM_WORLD);
+        A = slate::Matrix<scalar_t>(Am, An, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
 
-        B = slate::Matrix<scalar_t>(Bm, Bn, nb, nprow, npcol, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>(Bm, Bn, nb, p, q, MPI_COMM_WORLD);
         B.insertLocalTiles(origin_target);
 
-        C = slate::Matrix<scalar_t>(Cm, Cn, nb, nprow, npcol, MPI_COMM_WORLD);
+        C = slate::Matrix<scalar_t>(Cm, Cn, nb, p, q, MPI_COMM_WORLD);
         C.insertLocalTiles(origin_target);
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
-        A = slate::Matrix<scalar_t>::fromScaLAPACK(Am, An, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-        B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
-        C = slate::Matrix<scalar_t>::fromScaLAPACK( m,  n, &C_tst[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
+        A = slate::Matrix<scalar_t>::fromScaLAPACK(Am, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+        C = slate::Matrix<scalar_t>::fromScaLAPACK( m,  n, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
     }
 
     slate::generate_matrix(params.matrix, A);
     slate::generate_matrix(params.matrixB, B);
     slate::generate_matrix(params.matrixC, C);
 
-    if (origin != slate::Origin::ScaLAPACK) {
-        // Copy SLATE result back from GPU or CPU tiles.
-        copy(A, &A_tst[0], descA_tst);
-        copy(B, &B_tst[0], descB_tst);
-        copy(C, &C_tst[0], descC_tst);
-    }
-
-   // if reference run is required, copy test data and create a descriptor for it
-    std::vector<scalar_t> C_ref;
-    slate::Matrix<scalar_t> C_ref_slate;
+   // if reference run is required, copy test data
+    std::vector<scalar_t> Cref_data;
+    slate::Matrix<scalar_t> Cref;
     if (check || ref) {
-        C_ref = C_tst;
-        scalapack_descinit(descC_ref, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
-        slate_assert(info == 0);
-        C_ref_slate = slate::Matrix<scalar_t>::fromScaLAPACK( m,  n, &C_ref[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
+        // For simplicity, always use ScaLAPACK format for ref matrices.
+        Cref_data.resize( lldC * nlocC );
+        Cref = slate::Matrix<scalar_t>::fromScaLAPACK( m,  n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+        slate::copy(C, Cref);
     }
 
     if (transA == slate::Op::Trans)
@@ -189,7 +173,7 @@ void test_gemm_work(Params& params, bool run)
     if (check || ref) {
         A_norm = slate::norm(norm, A);
         B_norm = slate::norm(norm,B);
-        C_orig_norm = slate::norm(norm, C_ref_slate);
+        C_orig_norm = slate::norm(norm, Cref);
     }
 
     if (verbose >= 2) {
@@ -250,71 +234,107 @@ void test_gemm_work(Params& params, bool run)
     }
 
     if (check || ref) {
+        #ifdef SLATE_HAVE_SCALAPACK
         // comparison with reference routine from ScaLAPACK
 
-        // set MKL num threads appropriately for parallel BLAS
-        int omp_num_threads;
-        #pragma omp parallel
-        { omp_num_threads = omp_get_num_threads(); }
-        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
+            // BLACS/MPI variables
+            int ictxt, p_, q_, myrow_, mycol_, info;
+            int A_desc[9], B_desc[9], C_desc[9], Cref_desc[9];
+            int mpi_rank_ = 0, nprocs = 1;
 
-        //==================================================
-        // Run ScaLAPACK reference routine.
-        //==================================================
-        if (verbose >= 2)
-            print_matrix("Cref", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
+            // initialize BLACS and ScaLAPACK
+            Cblacs_pinfo(&mpi_rank_, &nprocs);
+            assert( mpi_rank == mpi_rank_ );
+            slate_assert(p*q <= nprocs);
+            Cblacs_get(-1, 0, &ictxt);
+            Cblacs_gridinit(&ictxt, "Col", p, q);
+            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
+            assert( p == p_ );
+            assert( q == q_ );
+            assert( myrow == myrow_ );
+            assert( mycol == mycol_ );
 
-        MPI_Barrier(MPI_COMM_WORLD);
-        double time = testsweeper::get_wtime();
+            scalapack_descinit(A_desc, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
+            slate_assert(info == 0);
+            scalapack_descinit(B_desc, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
+            slate_assert(info == 0);
+            scalapack_descinit(C_desc, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
+            slate_assert(info == 0);
 
-        scalapack_pgemm(op2str(transA), op2str(transB), m, n, k, alpha,
-                        &A_tst[0], ione, ione, descA_tst,
-                        &B_tst[0], ione, ione, descB_tst, beta,
-                        &C_ref[0], ione, ione, descC_ref);
+            scalapack_descinit(Cref_desc, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
+            slate_assert(info == 0);
 
-        MPI_Barrier(MPI_COMM_WORLD);
-        double time_ref = testsweeper::get_wtime() - time;
+            if (origin != slate::Origin::ScaLAPACK) {
+                // Copy SLATE result back from GPU or CPU tiles.
+                copy(A, &A_data[0], A_desc);
+                copy(B, &B_data[0], B_desc);
+                copy(C, &C_data[0], C_desc);
+            }
 
-        if (verbose >= 2)
-            print_matrix("Cref2", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
+            // set MKL num threads appropriately for parallel BLAS
+            int omp_num_threads;
+            #pragma omp parallel
+            { omp_num_threads = omp_get_num_threads(); }
+            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-        // Copy SLATE result back from GPU or CPU tiles.
-        if (origin != slate::Origin::ScaLAPACK)
-            copy(C, &C_tst[0], descC_tst);
+            //==================================================
+            // Run ScaLAPACK reference routine.
+            //==================================================
+            if (verbose >= 2)
+                print_matrix("Cref", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
 
-        // get differences C_tst = C_tst - C_ref
-        scalar_t one=1;
-        slate::geadd(-one, C_ref_slate, one, C);
+            MPI_Barrier(MPI_COMM_WORLD);
+            double time = testsweeper::get_wtime();
 
-        if (verbose >= 2)
-            print_matrix("Diff", C);
+            scalapack_pgemm(op2str(transA), op2str(transB), m, n, k, alpha,
+                            &A_data[0], ione, ione, A_desc,
+                            &B_data[0], ione, ione, B_desc, beta,
+                            &Cref_data[0], ione, ione, Cref_desc);
 
-        // norm(C_tst - C_ref)
-        real_t C_diff_norm = slate::norm(norm, C);
+            MPI_Barrier(MPI_COMM_WORLD);
+            double time_ref = testsweeper::get_wtime() - time;
 
-        real_t error = C_diff_norm
-                     / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * B_norm
-                        + 2 * std::abs(beta) * C_orig_norm);
+            if (verbose >= 2)
+                print_matrix("Cref2", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
 
-        params.ref_time() = time_ref;
-        params.ref_gflops() = gflop / time_ref;
-        params.error() = error;
+            // Copy SLATE result back from GPU or CPU tiles.
+            if (origin != slate::Origin::ScaLAPACK)
+                copy(C, &C_data[0], C_desc);
 
-        slate_set_num_blas_threads(saved_num_threads);
+            // get differences C_data = C_data - Cref_data
+            scalar_t one=1;
+            slate::geadd(-one, Cref, one, C);
 
-        // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
-        real_t eps = std::numeric_limits<real_t>::epsilon();
-        params.okay() = (params.error() <= 3*eps);
+            if (verbose >= 2)
+                print_matrix("Diff", C);
+
+            // norm(C_data - Cref_data)
+            real_t C_diff_norm = slate::norm(norm, C);
+
+            real_t error = C_diff_norm
+                        / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * B_norm
+                            + 2 * std::abs(beta) * C_orig_norm);
+
+            params.ref_time() = time_ref;
+            params.ref_gflops() = gflop / time_ref;
+            params.error() = error;
+
+            slate_set_num_blas_threads(saved_num_threads);
+
+            // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
+            real_t eps = std::numeric_limits<real_t>::epsilon();
+            params.okay() = (params.error() <= 3*eps);
+
+            Cblacs_gridexit(ictxt);
+            //Cblacs_exit(1) does not handle re-entering
+        #endif
     }
 
     #ifdef PIN_MATRICES
-    cuerror = cudaHostUnregister(&A_tst[0]);
-    cuerror = cudaHostUnregister(&B_tst[0]);
-    cuerror = cudaHostUnregister(&C_tst[0]);
+    cuerror = cudaHostUnregister(&A_data[0]);
+    cuerror = cudaHostUnregister(&B_data[0]);
+    cuerror = cudaHostUnregister(&C_data[0]);
     #endif
-
-    Cblacs_gridexit(ictxt);
-    //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------

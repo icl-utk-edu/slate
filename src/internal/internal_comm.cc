@@ -128,9 +128,18 @@ void cubeReducePattern(int size, int rank, int radix,
 void tagged_gatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
                     void *recvbuf, const int recvcounts[], const int displs[], MPI_Datatype recvtype,
                     int root, int tag, MPI_Comm comm) {
+    //MPI_Gatherv(sendbuf, sendcount, sendtype, recvbuf, recvcounts, displs, recvtype, root, comm);
+
     int size, rank;
     MPI_Comm_size(comm, &size);
     MPI_Comm_rank(comm, &rank);
+
+    if (rank != root) {
+        if (sendcount != 0) {
+            MPI_Send(sendbuf, sendcount, sendtype, root, tag, comm);
+        }
+        return;
+    }
 
     int request_count = rank == root ? size+1 : 1;
     std::vector<MPI_Request> requests_vect (request_count);
@@ -138,13 +147,21 @@ void tagged_gatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
 
     if (rank == root) {
         for (int i = 0; i < size; ++i) {
-            void *recvbuf_i = (void*)(displs[i] + (char*)recvbuf);
-            MPI_Irecv(recvbuf_i, recvcounts[i], recvtype,
-                      i, tag, comm, &requests[i+1]);
+            if (recvcounts[i] != 0) {
+                void *recvbuf_i = (void*)(displs[i] + (char*)recvbuf);
+                MPI_Irecv(recvbuf_i, recvcounts[i], recvtype,
+                          i, tag, comm, &requests[i+1]);
+            } else {
+                requests[i+1] = MPI_REQUEST_NULL;
+            }
         }
     }
 
-    MPI_Isend(sendbuf, sendcount, sendtype, root, tag, comm, &requests[0]);
+    if (sendcount != 0) {
+        MPI_Isend(sendbuf, sendcount, sendtype, root, tag, comm, &requests[0]);
+    } else {
+        requests[0] = MPI_REQUEST_NULL;
+    }
 
     MPI_Waitall(request_count, requests, MPI_STATUSES_IGNORE);
 }
@@ -153,9 +170,18 @@ void tagged_gatherv(const void *sendbuf, int sendcount, MPI_Datatype sendtype,
 void tagged_scatterv(const void *sendbuf, const int sendcounts[], const int displs[], MPI_Datatype sendtype,
                      void *recvbuf, int recvcount, MPI_Datatype recvtype,
                      int root, int tag, MPI_Comm comm) {
+    //MPI_Scatterv(sendbuf, sendcounts, displs, sendtype, recvbuf, recvcount, recvtype, root, comm);
+
     int size, rank;
     MPI_Comm_size(comm, &size);
     MPI_Comm_rank(comm, &rank);
+
+    if (rank != root) {
+        if (recvcount != 0) {
+            MPI_Recv(recvbuf, recvcount, recvtype, root, tag, comm, MPI_STATUS_IGNORE);
+        }
+        return;
+    }
 
     int request_count = rank == root ? size+1 : 1;
     std::vector<MPI_Request> requests_vect (request_count);
@@ -163,13 +189,21 @@ void tagged_scatterv(const void *sendbuf, const int sendcounts[], const int disp
 
     if (rank == root) {
         for (int i = 0; i < size; ++i) {
-            void *sendbuf_i = (void*)(displs[i] + (char*)sendbuf);
-            MPI_Isend(sendbuf_i, sendcounts[i], sendtype,
-                      i, tag, comm, &requests[i+1]);
+            if (sendcounts[i] != 0) {
+                void *sendbuf_i = (void*)(displs[i] + (char*)sendbuf);
+                MPI_Isend(sendbuf_i, sendcounts[i], sendtype,
+                          i, tag, comm, &requests[i+1]);
+            } else {
+                requests[i+1] = MPI_REQUEST_NULL;
+            }
         }
     }
 
-    MPI_Irecv(recvbuf, recvcount, recvtype, root, tag, comm, &requests[0]);
+    if (recvcount != 0) {
+        MPI_Irecv(recvbuf, recvcount, recvtype, root, tag, comm, &requests[0]);
+    } else {
+        requests[0] = MPI_REQUEST_NULL;
+    }
 
     MPI_Waitall(request_count, requests, MPI_STATUSES_IGNORE);
 }

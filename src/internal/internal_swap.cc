@@ -212,7 +212,6 @@ void permuteRows(
 
 
         MPI_Datatype mpi_scalar = mpi_type<scalar_t>::value;
-        Matrix<scalar_t> RemoteData = A.emptyLike();
 
         // todo: what about parallelizing this? MPI blocking?
         for (int64_t j = 0; j < A.nt(); ++j) {
@@ -272,11 +271,10 @@ void permuteRows(
                 remote_lengths[i] = remote_index[i] - remote_offsets[i];
             }
 
-            RemoteData.tileInsertWorkspace(0, j, RemoteData.hostNum(), Layout::RowMajor);
-            RemoteData.tileModified(0, j);
-
             if (root) {
-                scalar_t* remote_rows = RemoteData(0, j).data();
+                std::vector<scalar_t> remote_rows_vect (remote_offsets[comm_size]*nb);
+                scalar_t* remote_rows = remote_rows_vect.data();
+
                 tagged_gatherv(nullptr, 0, row_type,
                                remote_rows, remote_lengths.data(), remote_offsets.data(), row_type,
                                root_rank, tag, A.mpiComm());
@@ -309,7 +307,7 @@ void permuteRows(
                         blas::swap(
                             A.tileNb(j),
                             &A(0, j).at(i, 0), stride_0j,
-                            &RemoteData(0, j).at(remote_index, 0), 1);
+                            remote_rows + nb*remote_index, 1);
                     }
                 }
 
@@ -317,6 +315,9 @@ void permuteRows(
                                 nullptr, 0, row_type,
                                 root_rank, tag, A.mpiComm());
             } else {
+                std::vector<scalar_t> remote_rows_vect (remote_lengths[A.mpiRank()]*nb);
+                scalar_t* remote_rows = remote_rows_vect.data();
+
                 int64_t remote_start  = remote_offsets[A.mpiRank()];
                 int64_t remote_length = remote_lengths[A.mpiRank()];
 
@@ -333,13 +334,11 @@ void permuteRows(
                             blas::copy(
                                 A.tileNb(j),
                                 &A(tile_index, j).at(tile_offset, 0), stride_idxj,
-                                &RemoteData(0, j).at(remote_index, 0), 1);
+                                remote_rows + nb*remote_index, 1);
                             ++count;
                         }
                     }
                 }
-
-                scalar_t* remote_rows = RemoteData(0, j).data();
 
                 tagged_gatherv(remote_rows, remote_length, row_type,
                                nullptr, nullptr, nullptr, row_type,
@@ -361,7 +360,7 @@ void permuteRows(
                             int64_t stride_idxj = A(tile_index, j).rowIncrement();
                             blas::copy(
                                 A.tileNb(j),
-                                &RemoteData(0, j).at(remote_index, 0), 1,
+                                remote_rows + nb*remote_index, 1,
                                 &A(tile_index, j).at(tile_offset, 0), stride_idxj);
                             ++count;
                         }
@@ -369,7 +368,6 @@ void permuteRows(
                 }
             }
 
-            RemoteData.tileRelease(0, j);
             MPI_Type_free(&row_type);
         }
     }
@@ -448,7 +446,6 @@ void permuteRows(
         trace::Block trace_block("internal::permuteRows");
 
         MPI_Datatype mpi_scalar = mpi_type<scalar_t>::value;
-        Matrix<scalar_t> RemoteData = A.emptyLike();
 
         std::set<int> dev_set;
 
@@ -460,6 +457,7 @@ void permuteRows(
             // todo: relax the assumption of 1-D block cyclic distribution on devices
             int device = A.tileDevice(0, j);
             dev_set.insert(device);
+            blas::set_device(device);
 
             blas::Queue* compute_queue = A.compute_queue(device, queue_index);
 
@@ -516,16 +514,18 @@ void permuteRows(
                 remote_lengths[i] = remote_index[i] - remote_offsets[i];
             }
 
-            RemoteData.tileInsertWorkspace(0, j, RemoteData.hostNum(), Layout::RowMajor);
-            RemoteData.tileModified(0, j);
-
             if (root) {
-                scalar_t* remote_rows = RemoteData(0, j).data();
+                int64_t remote_rows_size = remote_offsets[comm_size]*nb;
+                std::vector<scalar_t> remote_rows_vect (remote_rows_size);
+                scalar_t* remote_rows = remote_rows_vect.data();
+
                 tagged_gatherv(nullptr, 0, row_type,
                                remote_rows, remote_lengths.data(), remote_offsets.data(), row_type,
                                root_rank, tag, A.mpiComm());
 
-                RemoteData.tileGetForWriting(0, j, device, LayoutConvert::RowMajor);
+                scalar_t* remote_rows_dev = blas::device_malloc<scalar_t>(remote_rows_size);
+                blas::device_memcpy<scalar_t>(remote_rows_dev, remote_rows,
+                                              remote_rows_size, *compute_queue);
 
                 for (int64_t i = begin; i != end; i += inc) {
                     int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
@@ -551,21 +551,24 @@ void permuteRows(
                         blas::swap(
                             A.tileNb(j),
                             &A(0, j, device).at(i, 0), 1,
-                            &RemoteData(0, j, device).at(remote_index, 0), 1,
+                            remote_rows_dev + nb*remote_index, 1,
                             *compute_queue);
                     }
                 }
                 compute_queue->sync();
 
-                RemoteData.tileGetForReading(0, j, LayoutConvert::RowMajor);
+                blas::device_memcpy<scalar_t>(remote_rows, remote_rows_dev,
+                                              remote_rows_size, *compute_queue);
+                blas::device_free(remote_rows_dev);
+
                 tagged_scatterv(remote_rows, remote_lengths.data(), remote_offsets.data(), row_type,
                                 nullptr, 0, row_type,
                                 root_rank, tag, A.mpiComm());
-            } else {
+            } else if (remote_lengths[A.mpiRank()] > 0) {
                 int64_t remote_start  = remote_offsets[A.mpiRank()];
                 int64_t remote_length = remote_lengths[A.mpiRank()];
-
-                RemoteData.tileGetForWriting(0, j, device, LayoutConvert::RowMajor);
+                int64_t remote_rows_size = remote_length*nb;
+                scalar_t* remote_rows_dev = blas::device_malloc<scalar_t>(remote_rows_size);
 
                 int64_t count = 0;
                 for (int64_t i = begin; i != end; i += inc) {
@@ -578,18 +581,21 @@ void permuteRows(
                         if (remote_index >= count) {
                             // blas::copy( // no device copy in blaspp
                             blas::swap(
-                                A.tileNb(j),
+                                nb,
                                 &A(tile_index, j, device).at(tile_offset, 0), 1,
-                                &RemoteData(0, j, device).at(remote_index, 0), 1,
+                                remote_rows_dev + nb*remote_index, 1,
                                 *compute_queue);
-                            ++count;
+                            ++count; // only swap the first time
                         }
                     }
                 }
                 compute_queue->sync();
 
-                RemoteData.tileGetForWriting(0, j, RemoteData.hostNum(), LayoutConvert::RowMajor);
-                scalar_t* remote_rows = RemoteData(0, j).data();
+                std::vector<scalar_t> remote_rows_vect (remote_rows_size);
+                scalar_t* remote_rows = remote_rows_vect.data();
+                blas::device_memcpy<scalar_t>(remote_rows, remote_rows_dev,
+                                              remote_rows_size, *compute_queue);
+
 
                 tagged_gatherv(remote_rows, remote_length, row_type,
                                nullptr, nullptr, nullptr, row_type,
@@ -599,12 +605,14 @@ void permuteRows(
                                 remote_rows, remote_length, row_type,
                                 root_rank, tag, A.mpiComm());
 
-                RemoteData.tileGetForWriting(0, j, device, LayoutConvert::RowMajor);
+                blas::device_memcpy<scalar_t>(remote_rows_dev, remote_rows,
+                                              remote_rows_size, *compute_queue);
+
                 count = 0;
                 for (int64_t i = begin; i != end; i += inc) {
                     int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
                     if (pivot_rank == A.mpiRank()) {
-                        auto remote_index = remote_pivot_table[pivot[i]];
+                        auto remote_index = remote_pivot_table[pivot[i]] - remote_start;
                         auto tile_index = pivot[i].tileIndex();
                         auto tile_offset = pivot[i].elementOffset();
 
@@ -612,16 +620,26 @@ void permuteRows(
                             // blas::copy( // no device copy in blaspp
                             blas::swap(
                                 A.tileNb(j),
-                                &RemoteData(0, j, device).at(remote_index, 0), 1,
+                                remote_rows_dev + nb*remote_index, 1,
                                 &A(tile_index, j, device).at(tile_offset, 0), 1,
                                 *compute_queue);
-                            ++count;
+                            ++count; // only swap the first time
                         }
                     }
                 }
+                compute_queue->sync();
+                blas::device_free(remote_rows_dev);
+            } else {
+                // no rows to process but must participate in the collectives
+                tagged_gatherv(nullptr, 0, row_type,
+                               nullptr, nullptr, nullptr, row_type,
+                               root_rank, tag, A.mpiComm());
+
+                tagged_scatterv(nullptr, nullptr, nullptr, row_type,
+                                nullptr, 0, row_type,
+                                root_rank, tag, A.mpiComm());
             }
 
-            RemoteData.tileRelease(0, j);
             MPI_Type_free(&row_type);
         }
 

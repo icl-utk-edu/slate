@@ -121,6 +121,12 @@ for its options, which include:
         Specify the exact BLAS libraries, overriding the built-in search. E.g.,
         cmake -DBLAS_LIBRARIES='-lopenblas' ..
 
+    gpu_backend
+        auto            auto-detect CUDA or HIP/ROCm (default)
+        cuda            build with CUDA support
+        hip             build with HIP/ROCm support
+        none            do not build with GPU backend
+
     color
         Whether to use ANSI colors in output. One of:
         auto            uses color if output is a TTY
@@ -200,19 +206,15 @@ options include:
         mpi = 1             link with `-lmpi`
         mpi = spectrum      link with `-lmpi_ibm`
 
-    cuda
     cuda_arch
-        SLATE will compile with CUDA if nvcc is detected. To compile
-        without CUDA, set `cuda = 0`. By default, it will compile for
+        With the CUDA backend, by default SLATE will compile for
         CUDA architecture Pascal. To use a different architecture, set
         `cuda_arch` to one or more of:
         `kepler maxwell pascal volta turing sm_XY`
         where XY is a valid CUDA architecture (see `nvcc -h | grep sm_`).
 
-    hip
     hip_arch
-        SLATE will compile with HIP if hipcc is detected. To compile
-        without HIP, set `hip = 0`. By default, it will compile for
+        With the HIP backend, by default SLATE will compile for
         HIP architectures gfx900 gfx906 gfx908. To use a different architecture,
         set `hip_arch` to one or more of:
         `gfx900`  for AMD Radeon Instinct MI25 / Vega 10
@@ -289,10 +291,8 @@ installed versions, it will use those instead of compiling new versions.
 Besides the Environment variables and Options listed above, additional
 options include:
 
-    use_cuda
-        Whether to use CUDA, if available. One of:
-        yes (default)
-        no
+    use_cuda [deprecated; use gpu_backend]
+    use_hip  [deprecated; use gpu_backend]
 
     CMAKE_CUDA_ARCHITECTURES
         CUDA architectures, as semi-colon delimited list of 2-digit numbers.

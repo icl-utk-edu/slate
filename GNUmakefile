@@ -7,6 +7,7 @@
 
 -include make.inc
 
+#-------------------------------------------------------------------------------
 # Error for obsolete settings.
 ifneq ($(openmpi),)
     $(error ERROR: Variable `openmpi=$(openmpi)` is obsolete; use `mkl_blacs=openmpi`)
@@ -51,6 +52,25 @@ ifeq ($(ilp64),1)
     blas_int ?= int64
 endif
 
+cuda := $(strip $(cuda))
+ifeq ($(cuda),1)
+    $(warning WARNING: Variable `cuda=$(cuda)` is deprecated; setting `gpu_backend ?= cuda`)
+    gpu_backend ?= cuda
+endif
+
+hip := $(strip $(hip))
+ifeq ($(hip),1)
+    $(warning WARNING: Variable `hip=$(hip)` is deprecated; setting `gpu_backend ?= hip`)
+    gpu_backend ?= hip
+endif
+
+#-------------------------------------------------------------------------------
+# Define functions.
+
+# Get parent directory, stripping trailing /.
+dir_strip = $(patsubst %/,%,$(dir $(1)))
+
+#-------------------------------------------------------------------------------
 # Set defaults
 # Do all ?= before strip!
 prefix          ?= /opt/slate
@@ -62,27 +82,12 @@ c_api           ?= 0
 fortran_api     ?= 0
 
 NVCC            ?= nvcc
-HIPDIR          ?= /opt/rocm
-HIPCC           ?= $(HIPDIR)/bin/hipcc
+HIPCC           ?= hipcc
+HIPIFY          ?= hipify-perl
 
-# If nvcc exists, set cuda = 1 by default.
-have_cuda := $(shell which $(NVCC) 2>/dev/null)
-ifneq ($(have_cuda),)
-    cuda ?= 1
-    cuda_arch ?= pascal
-else ifeq ($(strip $(cuda)),1)
-    $(error ERROR: cuda = $(cuda), but NVCC = ${NVCC} not found)
-endif
-
-# If hipcc exists, set hip = 1 by default.
-have_hip := $(shell which $(HIPCC) 2>/dev/null)
-ifneq ($(have_hip),)
-    hip ?= 1
-    hip_arch ?= gfx900 gfx906 gfx908
-    -include make.gen.hipSLATE
-else ifeq ($(strip $(hip)),1)
-    $(error ERROR: hip = $(hip), but HIPCC = ${HIPCC} not found)
-endif
+gpu_backend     ?= auto
+cuda_arch       ?= pascal
+hip_arch        ?= gfx900 gfx906 gfx908
 
 # Strip whitespace from variables, in case make.inc had trailing spaces.
 mpi             := $(strip $(mpi))
@@ -93,22 +98,51 @@ blas_fortran    := $(strip $(blas_fortran))
 mkl_blacs       := $(strip $(mkl_blacs))
 openmp          := $(strip $(openmp))
 static          := $(strip $(static))
+gpu_backend     := $(strip $(gpu_backend))
 cuda_arch       := $(strip $(cuda_arch))
 hip_arch        := $(strip $(hip_arch))
-cuda            := $(strip $(cuda))
-hip             := $(strip $(hip))
 prefix          := $(strip $(prefix))
 c_api           := $(strip $(c_api))
 fortran_api     := $(strip $(fortran_api))
 
+#-------------------------------------------------------------------------------
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
-export CXX blas blas_int blas_threaded openmp static
+export CXX blas blas_int blas_threaded openmp static gpu_backend
 
 CXXFLAGS   += -O3 -std=c++17 -Wall -pedantic -MMD
 NVCCFLAGS  += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
 HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
 
 force: ;
+
+# Auto-detect CUDA, HIP.
+ifneq ($(filter-out auto cuda hip none, $(gpu_backend)),)
+    $(error ERROR: gpu_backend = $(gpu_backend) is unknown)
+endif
+
+cuda = 0
+ifneq ($(filter auto cuda, $(gpu_backend)),)
+    NVCC_which := $(shell which $(NVCC) 2>/dev/null)
+    ifneq ($(NVCC_which),)
+        cuda = 1
+        CUDA_DIR ?= $(call dir_strip, $(call dir_strip, $(NVCC_which)))
+    else ifeq ($(gpu_backend),cuda)
+        $(error ERROR: gpu_backend = $(gpu_backend), but NVCC = $(NVCC) not found)
+    endif
+endif
+
+hip = 0
+ifneq ($(cuda),1)
+    ifneq ($(filter auto hip, $(gpu_backend)),)
+        HIPCC_which = $(shell which $(HIPCC) 2>/dev/null)
+        ifneq ($(HIPCC_which),)
+            hip = 1
+            ROCM_DIR ?= $(call dir_strip, $(call dir_strip, $(HIPCC_which)))
+        else ifeq ($(gpu_backend),hip)
+            $(error ERROR: gpu_backend = $(gpu_backend), but HIPCC = $(HIPCC) not found)
+        endif
+    endif
+endif
 
 # auto-detect OS
 # $OSTYPE may not be exported from the shell, so echo it
@@ -312,7 +346,7 @@ ifeq ($(hip),1)
     amdgpu_targets = $(foreach arch, $(gfx),--amdgpu-target=$(arch))
     HIPCCFLAGS += $(amdgpu_targets)
     FLAGS += -D__HIP_PLATFORM_HCC__
-    LIBS += -L$(HIPDIR)/lib -lrocblas -lamdhip64
+    LIBS += -L$(ROCM_DIR)/lib -lrocblas -lamdhip64
 
     # ROCm 4.0 has errors in its headers that produce excessive warnings.
     CXXFLAGS := $(filter-out -pedantic, $(CXXFLAGS))
@@ -418,6 +452,11 @@ ifeq ($(hip),1)
             src/hip/device_trnorm.hip.cc \
             src/hip/device_tzcopy.hip.cc \
 
+    hip_src = \
+        $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(wildcard src/cuda/*.cu))
+
+    hip_header = \
+        $(patsubst src/cuda/%.cuh,src/hip/%.hip.hh,$(wildcard src/cuda/*.cuh))
 endif
 
 # driver
@@ -973,8 +1012,20 @@ distclean: clean
 	cd blaspp      && $(MAKE) distclean
 	cd lapackpp    && $(MAKE) distclean
 
-%.hip.o: %.hip.cc
+%.hip.o: %.hip.cc | $(hip_header)
 	$(HIPCC) $(HIPCCFLAGS) -c $< -o $@
+
+# Convert CUDA => HIP code.
+src/hip/%.hip.cc: src/cuda/%.cu | src/hip
+	$(HIPIFY) $< > $@
+	sed -i -e "s/\.cuh/.hip.hh/g" $@
+
+src/hip/%.hip.hh: src/cuda/%.cuh | src/hip
+	$(HIPIFY) $< > $@
+	sed -i -e "s/\.cuh/.hip.hh/g" $@
+
+src/hip:
+	mkdir -p $@
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -1064,8 +1115,9 @@ echo:
 	@echo "cuda          = '$(cuda)'"
 	@echo "cuda_arch     = '$(cuda_arch)'"
 	@echo "NVCC          = $(NVCC)"
+	@echo "NVCC_which    = $(NVCC_which)"
+	@echo "CUDA_DIR      = $(CUDA_DIR)"
 	@echo "NVCCFLAGS     = $(NVCCFLAGS)"
-	@echo "have_cuda     = ${have_cuda}"
 	@echo "cuda_arch     = $(cuda_arch)"
 	@echo "cuda_arch_    = $(cuda_arch_)"
 	@echo "sms           = $(sms)"
@@ -1077,12 +1129,13 @@ echo:
 	@echo
 	@echo "---------- HIP options"
 	@echo "hip           = '$(hip)'"
-	@echo "hip_arch      = $(hip_arch)"
+	@echo "hip_arch      = '$(hip_arch)'"
 	@echo "gfx           = $(gfx)"
 	@echo "HIPCC         = $(HIPCC)"
+	@echo "HIPCC_which   = $(HIPCC_which)"
+	@echo "ROCM_DIR      = $(ROCM_DIR)"
 	@echo "HIPCCFLAGS    = $(HIPCCFLAGS)"
-	@echo "amd_targets   = $(amdgpu_targets)"
-	@echo "have_hip      = ${have_hip}"
+	@echo "amdgpu_targets = $(amdgpu_targets)"
 	@echo
 	@echo "---------- Fortran compiler"
 	@echo "FC            = $(FC)"

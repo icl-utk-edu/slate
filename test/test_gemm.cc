@@ -190,11 +190,7 @@ void test_gemm_work(Params& params, bool run)
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-        double time = testsweeper::get_wtime();
+        double time = barrier_get_wtime(MPI_COMM_WORLD);
 
         //==================================================
         // Run SLATE test.
@@ -214,12 +210,7 @@ void test_gemm_work(Params& params, bool run)
                 alpha, A, B, beta, C, opts);
         }
 
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-
-        double time_tst = testsweeper::get_wtime() - time;
+        time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         if (trace) slate::trace::Trace::finish();
 
@@ -229,8 +220,8 @@ void test_gemm_work(Params& params, bool run)
         }
 
         // compute and save timing/performance
-        params.time() = time_tst;
-        params.gflops() = gflop / time_tst;
+        params.time() = time;
+        params.gflops() = gflop / time;
     }
 
     if (check || ref) {
@@ -283,23 +274,17 @@ void test_gemm_work(Params& params, bool run)
             if (verbose >= 2)
                 print_matrix("Cref", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
 
-            MPI_Barrier(MPI_COMM_WORLD);
-            double time = testsweeper::get_wtime();
+            double time = barrier_get_wtime(MPI_COMM_WORLD);
 
             scalapack_pgemm(op2str(transA), op2str(transB), m, n, k, alpha,
                             &A_data[0], ione, ione, A_desc,
                             &B_data[0], ione, ione, B_desc, beta,
                             &Cref_data[0], ione, ione, Cref_desc);
 
-            MPI_Barrier(MPI_COMM_WORLD);
-            double time_ref = testsweeper::get_wtime() - time;
+            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             if (verbose >= 2)
                 print_matrix("Cref2", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
-
-            // Copy SLATE result back from GPU or CPU tiles.
-            if (origin != slate::Origin::ScaLAPACK)
-                copy(C, &C_data[0], C_desc);
 
             // get differences C_data = C_data - Cref_data
             scalar_t one=1;
@@ -315,8 +300,8 @@ void test_gemm_work(Params& params, bool run)
                         / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * B_norm
                             + 2 * std::abs(beta) * C_orig_norm);
 
-            params.ref_time() = time_ref;
-            params.ref_gflops() = gflop / time_ref;
+            params.ref_time() = time;
+            params.ref_gflops() = gflop / time;
             params.error() = error;
 
             slate_set_num_blas_threads(saved_num_threads);

@@ -180,14 +180,14 @@ void getrf(
         // Loop over ib columns of a stripe.
         for (int64_t j = k; j < k+kb; ++j) {
 
-            if (root) {
+            if (root && thread_rank == 0) {
                 max_value[thread_rank] = tiles[0](j, j);
                 max_index[thread_rank] = 0;
                 max_offset[thread_rank] = j;
             }
             else {
-                max_value[thread_rank] = tiles[0](0, j);
-                max_index[thread_rank] = 0;
+                max_value[thread_rank] = tiles[thread_rank](0, j);
+                max_index[thread_rank] = thread_rank;
                 max_offset[thread_rank] = 0;
             }
 
@@ -239,13 +239,10 @@ void getrf(
                 struct { real_t max; int loc; } max_loc_in, max_loc;
                 max_loc_in.max = cabs1(max_value[0]);
                 max_loc_in.loc = mpi_rank;
-                #pragma omp critical(slate_mpi)
-                {
-                    slate_mpi_call(
-                        MPI_Allreduce(&max_loc_in, &max_loc, 1,
-                                      mpi_type< max_loc_type<real_t> >::value,
-                                      MPI_MAXLOC, mpi_comm));
-                }
+                slate_mpi_call(
+                    MPI_Allreduce(&max_loc_in, &max_loc, 1,
+                                  mpi_type< max_loc_type<real_t> >::value,
+                                  MPI_MAXLOC, mpi_comm));
 
                 // todo: can this Bcast info be merged into the Allreduce?
                 // Broadcast the pivot information.
@@ -254,12 +251,9 @@ void getrf(
                                               max_index[0],
                                               max_value[0],
                                               max_loc.loc);
-                #pragma omp critical(slate_mpi)
-                {
-                    slate_mpi_call(
-                        MPI_Bcast(&pivot[j], sizeof(AuxPivot<scalar_t>),
-                                  MPI_BYTE, max_loc.loc, mpi_comm));
-                }
+                slate_mpi_call(
+                    MPI_Bcast(&pivot[j], sizeof(AuxPivot<scalar_t>),
+                              MPI_BYTE, max_loc.loc, mpi_comm));
 
                 // pivot swap
                 getrf_swap(j, k, kb,
@@ -275,13 +269,10 @@ void getrf(
                                    &top_tile.at(j, j+1), top_tile.stride(),
                                    top_block.data(), 1);
                     }
-                    #pragma omp critical(slate_mpi)
-                    {
-                        slate_mpi_call(
-                            MPI_Bcast(top_block.data(),
-                                      k+kb-j-1, mpi_type<scalar_t>::value,
-                                      mpi_root, mpi_comm));
-                    }
+                    slate_mpi_call(
+                        MPI_Bcast(top_block.data(),
+                                  k+kb-j-1, mpi_type<scalar_t>::value,
+                                  mpi_root, mpi_comm));
                 }
             }
             thread_barrier.wait(thread_size);
@@ -350,7 +341,8 @@ void getrf(
                     }
                 }
             }
-            thread_barrier.wait(thread_size);
+            // Next: either search my tiles or do swaps on trailing matrix
+            //thread_barrier.wait(thread_size);
         }
 
         // If there is a trailing submatrix.
@@ -363,38 +355,27 @@ void getrf(
                                tiles, pivot,
                                mpi_rank, mpi_root, mpi_comm);
                 }
-            }
-            thread_barrier.wait(thread_size);
 
-            //=================
-            // triangular solve
-            if (root && thread_rank == 0) {
-                auto top_tile = tiles[0];
-                blas::trsm(Layout::ColMajor,
-                           Side::Left, Uplo::Lower,
-                           Op::NoTrans, Diag::Unit,
-                           kb, nb-k-kb,
-                           one, &top_tile.at(k, k), top_tile.stride(),
-                                &top_tile.at(k, k+kb), top_tile.stride());
-            }
-            thread_barrier.wait(thread_size);
-
-            // Broadcast the top block for gemm.
-            if (thread_rank == 0) {
                 if (root) {
+                    // triangular solve
                     auto top_tile = tiles[0];
+                    blas::trsm(Layout::ColMajor,
+                               Side::Left, Uplo::Lower,
+                               Op::NoTrans, Diag::Unit,
+                               kb, nb-k-kb,
+                               one, &top_tile.at(k, k), top_tile.stride(),
+                                    &top_tile.at(k, k+kb), top_tile.stride());
+
+                    // Broadcast the top block for gemm.
                     lapack::lacpy(lapack::MatrixType::General,
                                   kb, nb-k-kb,
                                   &top_tile.at(k, k+kb), top_tile.stride(),
                                   top_block.data(), kb);
                 }
-                #pragma omp critical(slate_mpi)
-                {
-                    slate_mpi_call(
-                        MPI_Bcast(top_block.data(),
-                                  kb*(nb-k-kb), mpi_type<scalar_t>::value,
-                                  mpi_root, mpi_comm));
-                }
+                slate_mpi_call(
+                    MPI_Bcast(top_block.data(),
+                              kb*(nb-k-kb), mpi_type<scalar_t>::value,
+                              mpi_root, mpi_comm));
             }
             thread_barrier.wait(thread_size);
 
@@ -432,8 +413,8 @@ void getrf(
 
     //=====================
     // pivoting to the left
-    for (int64_t k = ib; k < diag_len; k += ib) {
-        if (thread_rank == 0) {
+    if (thread_rank == 0) {
+        for (int64_t k = ib; k < diag_len; k += ib) {
             for (int64_t i = k; i < k+ib && i < diag_len; ++i) {
                 getrf_swap(i, 0, k,
                            tiles, pivot,

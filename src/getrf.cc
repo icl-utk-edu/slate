@@ -111,7 +111,7 @@ void getrf(slate::internal::TargetType<target>,
                     int tag_j = j;
                     internal::permuteRows<target>(
                         Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
-                        target_layout, priority_one, tag_j);
+                        target_layout, priority_one, tag_j, j-k+1);
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
@@ -161,7 +161,7 @@ void getrf(slate::internal::TargetType<target>,
                     // todo: target
                     internal::permuteRows<target>(
                         Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
-                        pivots.at(k), target_layout, priority_zero, tag_kl1);
+                        pivots.at(k), target_layout, priority_zero, tag_kl1, queue_1);
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =

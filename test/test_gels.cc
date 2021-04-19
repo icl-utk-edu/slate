@@ -211,11 +211,7 @@ void test_gels_work(Params& params, bool run)
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-        double time = testsweeper::get_wtime();
+        double time = barrier_get_wtime(MPI_COMM_WORLD);
 
         //==================================================
         // Run SLATE test.
@@ -226,17 +222,13 @@ void test_gels_work(Params& params, bool run)
         // Using traditional BLAS/LAPACK name
         // slate::gels(opA, T, BX, opts);
 
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-        double time_tst = testsweeper::get_wtime() - time;
+        time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         if (trace) slate::trace::Trace::finish();
 
         // compute and save timing/performance
-        params.time() = time_tst;
-        params.gflops() = gflop / time_tst;
+        params.time() = time;
+        params.gflops() = gflop / time;
 
         if (verbose > 1) {
             print_matrix( "A2", A );
@@ -459,18 +451,16 @@ void test_gels_work(Params& params, bool run)
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
-            MPI_Barrier(MPI_COMM_WORLD);
-            double time = testsweeper::get_wtime();
+            double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pgels(op2str(trans), m, n, nrhs,
                             &Aref_data[0],  ione, ione, Aref_desc,
                             &BXref_data[0], ione, ione, BXref_desc,
                             work.data(), lwork, &info_ref);
             slate_assert(info_ref == 0);
-            MPI_Barrier(MPI_COMM_WORLD);
-            double time_ref = testsweeper::get_wtime() - time;
+            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            params.ref_time() = time_ref;
-            params.ref_gflops() = gflop / time_ref;
+            params.ref_time() = time;
+            params.ref_gflops() = gflop / time;
 
             slate_set_num_blas_threads(saved_num_threads);
 

@@ -200,7 +200,7 @@ void permuteRows(
     internal::TargetType<Target::HostTask>,
     Direction direction,
     Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag, int queue_index)
+    Layout layout, int priority, int tag_base, int queue_index)
 {
 
     // todo: for performance optimization, merge with the loops below,
@@ -221,6 +221,8 @@ void permuteRows(
         for (int64_t j = 0; j < A.nt(); ++j) {
             int root_rank = A.tileRank(0, j);
             bool root = A.mpiRank() == A.tileRank(0, j);
+
+            int tag = tag_base + j;
 
             // Apply pivots forward (0, ..., k-1) or reverse (k-1, ..., 0)
             int64_t begin, end, inc;
@@ -409,11 +411,11 @@ void permuteRows(
     internal::TargetType<Target::HostNest>,
     Direction direction,
     Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag, int queue_index)
+    Layout layout, int priority, int tag_base, int queue_index)
 {
     // forward to HostTask
     permuteRows(internal::TargetType<Target::HostTask>(),
-                direction, A, pivot, layout, priority, tag, queue_index);
+                direction, A, pivot, layout, priority, tag_base, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -422,11 +424,11 @@ void permuteRows(
     internal::TargetType<Target::HostBatch>,
     Direction direction,
     Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag, int queue_index)
+    Layout layout, int priority, int tag_base, int queue_index)
 {
     // forward to HostTask
     permuteRows(internal::TargetType<Target::HostTask>(),
-                direction, A, pivot, layout, priority, tag, queue_index);
+                direction, A, pivot, layout, priority, tag_base, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -443,10 +445,10 @@ template <Target target, typename scalar_t>
 void permuteRows(
     Direction direction,
     Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag, int queue_index)
+    Layout layout, int priority, int tag_base, int queue_index)
 {
     permuteRows(internal::TargetType<target>(), direction, A, pivot,
-                layout, priority, tag, queue_index);
+                layout, priority, tag_base, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -463,7 +465,7 @@ void permuteRows(
     internal::TargetType<Target::Devices>,
     Direction direction,
     Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority, int tag, int queue_index)
+    Layout layout, int priority, int tag_base, int queue_index)
 {
     // GPU uses RowMajor
     assert(layout == Layout::RowMajor);
@@ -481,225 +483,228 @@ void permuteRows(
 
         MPI_Datatype mpi_scalar = mpi_type<scalar_t>::value;
 
-        std::set<int> dev_set;
+        for (int device = 0; device < A.num_devices(); ++device) {
 
+            #pragma omp task
+            {
+                blas::set_device(device);
+                blas::Queue* compute_queue = A.compute_queue(device, queue_index);
 
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            int root_rank = A.tileRank(0, j);
-            bool root = A.mpiRank() == A.tileRank(0, j);
+                for (int64_t j = 0; j < A.nt(); ++j) {
+                    int root_rank = A.tileRank(0, j);
+                    bool root = A.mpiRank() == A.tileRank(0, j);
+                    int tag = tag_base + j;
 
-            // todo: relax the assumption of 1-D block cyclic distribution on devices
-            int device = A.tileDevice(0, j);
-            dev_set.insert(device);
-            blas::set_device(device);
-
-            blas::Queue* compute_queue = A.compute_queue(device, queue_index);
-
-            // Apply pivots forward (0, ..., k-1) or reverse (k-1, ..., 0)
-            int64_t begin, end, inc;
-            if (direction == Direction::Forward) {
-                begin = 0;
-                end   = pivot.size();
-                inc   = 1;
-            }
-            else {
-                begin = pivot.size() - 1;
-                end   = -1;
-                inc   = -1;
-            }
-
-
-            // process pivots
-            int64_t nb = A.tileNb(j);
-
-            MPI_Datatype row_type;
-            MPI_Type_contiguous(nb, mpi_scalar, &row_type);
-            MPI_Type_commit(&row_type);
-
-
-            if (root) {
-                // row indices are stored in int b/c gather/scatter can't use int64_t's
-                std::vector<int> remote_lengths(comm_size + 1);
-                for (int64_t i = begin; i != end; i += inc) {
-                    auto piv = pivot[i];
-                    auto swap_rank = A.tileRank(piv.tileIndex(), j);
-                    if (root_rank != swap_rank) {
-                        ++remote_lengths[swap_rank];
+                    // todo: relax the assumption of 1-D block cyclic distribution on devices
+                    if (device != A.tileDevice(0, j)) {
+                        continue;
                     }
-                }
-                std::vector<int> remote_index(comm_size);
-                std::vector<int> remote_offsets(comm_size+1);
-                for (int i = 0; i < comm_size; ++i) {
-                    remote_offsets[i+1] += remote_offsets[i] + remote_lengths[i];
-                    remote_index[i] = remote_offsets[i];
-                }
-                std::map<Pivot, int> remote_pivot_table;
-                for (int64_t i = begin; i != end; i += inc) {
-                    auto piv = pivot[i];
-                    auto swap_rank = A.tileRank(piv.tileIndex(), j);
-                    if (root_rank != swap_rank
-                        && remote_pivot_table.find(piv) == remote_pivot_table.end()) {
-                        int index = remote_index[swap_rank];
-                        ++remote_index[swap_rank];
-                        remote_pivot_table.insert({piv, index});
+
+                    // Apply pivots forward (0, ..., k-1) or reverse (k-1, ..., 0)
+                    int64_t begin, end, inc;
+                    if (direction == Direction::Forward) {
+                        begin = 0;
+                        end   = pivot.size();
+                        inc   = 1;
                     }
-                }
-                for (int64_t i = 0; i < comm_size; ++i) {
-                    // trim the lengths to their actual values
-                    remote_lengths[i] = remote_index[i] - remote_offsets[i];
-                }
-
-                int64_t remote_rows_size = remote_offsets[comm_size]*nb;
-                std::vector<scalar_t> remote_rows_vect (remote_rows_size);
-                scalar_t* remote_rows = remote_rows_vect.data();
-
-                std::vector<MPI_Request> requests (comm_size);
-                int request_count = 0;
-                for (int i = 0; i < comm_size; ++i) {
-                    // Assumes remote_lengths[root_rank] == 0
-                    if (remote_lengths[i] != 0) {
-                        scalar_t* row_i = remote_rows + nb*remote_offsets[i];
-                        MPI_Irecv(row_i, remote_lengths[i], row_type,
-                                  i, tag, comm, &requests[request_count]);
-                        request_count++;
+                    else {
+                        begin = pivot.size() - 1;
+                        end   = -1;
+                        inc   = -1;
                     }
-                }
-                MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
 
-                scalar_t* remote_rows_dev = blas::device_malloc<scalar_t>(remote_rows_size);
-                blas::device_memcpy<scalar_t>(remote_rows_dev, remote_rows,
-                                              remote_rows_size, *compute_queue);
 
-                for (int64_t i = begin; i != end; i += inc) {
-                    int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
+                    // process pivots
+                    int64_t nb = A.tileNb(j);
 
-                    if (pivot_rank == root_rank) {
-                        // If pivot not on the diagonal.
-                        if (pivot[i].tileIndex() > 0 ||
-                            pivot[i].elementOffset() > i)
-                        {
-                            // todo: assumes 1-D block cyclic
-                            assert(A(0, j, device).layout() == Layout::RowMajor);
-                            int64_t i1 = i;
-                            int64_t i2 = pivot[i].elementOffset();
-                            int64_t idx2 = pivot[i].tileIndex();
-                            blas::swap(
-                                A.tileNb(j),
-                                &A(0,    j, device).at(i1, 0), 1,
-                                &A(idx2, j, device).at(i2, 0), 1,
-                                *compute_queue);
-                        }
-                    } else {
-                        auto remote_index = remote_pivot_table[pivot[i]];
-                        blas::swap(
-                            A.tileNb(j),
-                            &A(0, j, device).at(i, 0), 1,
-                            remote_rows_dev + nb*remote_index, 1,
-                            *compute_queue);
-                    }
-                }
-                compute_queue->sync();
+                    MPI_Datatype row_type;
+                    MPI_Type_contiguous(nb, mpi_scalar, &row_type);
+                    MPI_Type_commit(&row_type);
 
-                blas::device_memcpy<scalar_t>(remote_rows, remote_rows_dev,
-                                              remote_rows_size, *compute_queue);
-                blas::device_free(remote_rows_dev);
 
-                // reuse requests array from before
-                request_count = 0;
-                for (int i = 0; i < comm_size; ++i) {
-                    // Assumes remote_lengths[root_rank] == 0
-                    if (remote_lengths[i] != 0) {
-                        scalar_t* row_i = remote_rows + nb*remote_offsets[i];
-                        MPI_Isend(row_i, remote_lengths[i], row_type,
-                                  i, tag, comm, &requests[request_count]);
-                        request_count++;
-                    }
-                }
-                MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
-            } else {
-                std::map<Pivot, int> remote_pivot_table;
-                int remote_length = 0;
-                for (int64_t i = begin; i != end; i += inc) {
-                    auto piv = pivot[i];
-                    auto swap_rank = A.tileRank(piv.tileIndex(), j);
-                    if (swap_rank == A.mpiRank()
-                        && remote_pivot_table.find(piv) == remote_pivot_table.end()) {
-
-                        remote_pivot_table.insert({piv, remote_length});
-                        ++remote_length;
-                    }
-                }
-
-                if (remote_length > 0) {
-
-                    int64_t remote_rows_size = remote_length*nb;
-                    scalar_t* remote_rows_dev = blas::device_malloc<scalar_t>(remote_rows_size);
-
-                    int64_t count = 0;
-                    for (int64_t i = begin; i != end; i += inc) {
-                        int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
-                        if (pivot_rank == A.mpiRank()) {
-                            auto remote_index = remote_pivot_table[pivot[i]];
-                            auto tile_index = pivot[i].tileIndex();
-                            auto tile_offset = pivot[i].elementOffset();
-
-                            if (remote_index >= count) {
-                                // blas::copy( // no device copy in blaspp
-                                blas::swap(
-                                    nb,
-                                    &A(tile_index, j, device).at(tile_offset, 0), 1,
-                                    remote_rows_dev + nb*remote_index, 1,
-                                    *compute_queue);
-                                ++count; // only swap the first time
+                    if (root) {
+                        // row indices are stored in int b/c gather/scatter can't use int64_t's
+                        std::vector<int> remote_lengths(comm_size + 1);
+                        for (int64_t i = begin; i != end; i += inc) {
+                            auto piv = pivot[i];
+                            auto swap_rank = A.tileRank(piv.tileIndex(), j);
+                            if (root_rank != swap_rank) {
+                                ++remote_lengths[swap_rank];
                             }
                         }
-                    }
-                    compute_queue->sync();
+                        std::vector<int> remote_index(comm_size);
+                        std::vector<int> remote_offsets(comm_size+1);
+                        for (int i = 0; i < comm_size; ++i) {
+                            remote_offsets[i+1] += remote_offsets[i] + remote_lengths[i];
+                            remote_index[i] = remote_offsets[i];
+                        }
+                        std::map<Pivot, int> remote_pivot_table;
+                        for (int64_t i = begin; i != end; i += inc) {
+                            auto piv = pivot[i];
+                            auto swap_rank = A.tileRank(piv.tileIndex(), j);
+                            if (root_rank != swap_rank
+                                && remote_pivot_table.find(piv) == remote_pivot_table.end()) {
+                                int index = remote_index[swap_rank];
+                                ++remote_index[swap_rank];
+                                remote_pivot_table.insert({piv, index});
+                            }
+                        }
+                        for (int64_t i = 0; i < comm_size; ++i) {
+                            // trim the lengths to their actual values
+                            remote_lengths[i] = remote_index[i] - remote_offsets[i];
+                        }
 
-                    std::vector<scalar_t> remote_rows_vect (remote_rows_size);
-                    scalar_t* remote_rows = remote_rows_vect.data();
-                    blas::device_memcpy<scalar_t>(remote_rows, remote_rows_dev,
-                                                  remote_rows_size, *compute_queue);
+                        int64_t remote_rows_size = remote_offsets[comm_size]*nb;
+                        std::vector<scalar_t> remote_rows_vect (remote_rows_size);
+                        scalar_t* remote_rows = remote_rows_vect.data();
 
+                        std::vector<MPI_Request> requests (comm_size);
+                        int request_count = 0;
+                        for (int i = 0; i < comm_size; ++i) {
+                            // Assumes remote_lengths[root_rank] == 0
+                            if (remote_lengths[i] != 0) {
+                                scalar_t* row_i = remote_rows + nb*remote_offsets[i];
+                                MPI_Irecv(row_i, remote_lengths[i], row_type,
+                                          i, tag, comm, &requests[request_count]);
+                                request_count++;
+                            }
+                        }
+                        MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
 
-                    MPI_Send(remote_rows, remote_length, row_type,
-                             root_rank, tag, comm);
-                    MPI_Recv(remote_rows, remote_length, row_type,
-                             root_rank, tag, comm, MPI_STATUS_IGNORE);
+                        scalar_t* remote_rows_dev = blas::device_malloc<scalar_t>(remote_rows_size);
+                        blas::device_memcpy<scalar_t>(remote_rows_dev, remote_rows,
+                                                      remote_rows_size, *compute_queue);
 
-                    blas::device_memcpy<scalar_t>(remote_rows_dev, remote_rows,
-                                                  remote_rows_size, *compute_queue);
+                        for (int64_t i = begin; i != end; i += inc) {
+                            int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
 
-                    count = 0;
-                    for (int64_t i = begin; i != end; i += inc) {
-                        int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
-                        if (pivot_rank == A.mpiRank()) {
-                            auto remote_index = remote_pivot_table[pivot[i]];
-                            auto tile_index = pivot[i].tileIndex();
-                            auto tile_offset = pivot[i].elementOffset();
-
-                            if (remote_index >= count) {
-                                // blas::copy( // no device copy in blaspp
+                            if (pivot_rank == root_rank) {
+                                // If pivot not on the diagonal.
+                                if (pivot[i].tileIndex() > 0 ||
+                                    pivot[i].elementOffset() > i)
+                                {
+                                    // todo: assumes 1-D block cyclic
+                                    assert(A(0, j, device).layout() == Layout::RowMajor);
+                                    int64_t i1 = i;
+                                    int64_t i2 = pivot[i].elementOffset();
+                                    int64_t idx2 = pivot[i].tileIndex();
+                                    blas::swap(
+                                        A.tileNb(j),
+                                        &A(0,    j, device).at(i1, 0), 1,
+                                        &A(idx2, j, device).at(i2, 0), 1,
+                                        *compute_queue);
+                                }
+                            } else {
+                                auto remote_index = remote_pivot_table[pivot[i]];
                                 blas::swap(
                                     A.tileNb(j),
+                                    &A(0, j, device).at(i, 0), 1,
                                     remote_rows_dev + nb*remote_index, 1,
-                                    &A(tile_index, j, device).at(tile_offset, 0), 1,
                                     *compute_queue);
-                                ++count; // only swap the first time
                             }
                         }
+                        compute_queue->sync();
+
+                        blas::device_memcpy<scalar_t>(remote_rows, remote_rows_dev,
+                                                      remote_rows_size, *compute_queue);
+                        blas::device_free(remote_rows_dev);
+
+                        // reuse requests array from before
+                        request_count = 0;
+                        for (int i = 0; i < comm_size; ++i) {
+                            // Assumes remote_lengths[root_rank] == 0
+                            if (remote_lengths[i] != 0) {
+                                scalar_t* row_i = remote_rows + nb*remote_offsets[i];
+                                MPI_Isend(row_i, remote_lengths[i], row_type,
+                                          i, tag, comm, &requests[request_count]);
+                                request_count++;
+                            }
+                        }
+                        MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
+                    } else {
+                        std::map<Pivot, int> remote_pivot_table;
+                        int remote_length = 0;
+                        for (int64_t i = begin; i != end; i += inc) {
+                            auto piv = pivot[i];
+                            auto swap_rank = A.tileRank(piv.tileIndex(), j);
+                            if (swap_rank == A.mpiRank()
+                                && remote_pivot_table.find(piv) == remote_pivot_table.end()) {
+
+                                remote_pivot_table.insert({piv, remote_length});
+                                ++remote_length;
+                            }
+                        }
+
+                        if (remote_length > 0) {
+
+                            int64_t remote_rows_size = remote_length*nb;
+                            scalar_t* remote_rows_dev = blas::device_malloc<scalar_t>(remote_rows_size);
+
+                            int64_t count = 0;
+                            for (int64_t i = begin; i != end; i += inc) {
+                                int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
+                                if (pivot_rank == A.mpiRank()) {
+                                    auto remote_index = remote_pivot_table[pivot[i]];
+                                    auto tile_index = pivot[i].tileIndex();
+                                    auto tile_offset = pivot[i].elementOffset();
+
+                                    if (remote_index >= count) {
+                                        // blas::copy( // no device copy in blaspp
+                                        blas::swap(
+                                            nb,
+                                            &A(tile_index, j, device).at(tile_offset, 0), 1,
+                                            remote_rows_dev + nb*remote_index, 1,
+                                            *compute_queue);
+                                        ++count; // only swap the first time
+                                    }
+                                }
+                            }
+                            compute_queue->sync();
+
+                            std::vector<scalar_t> remote_rows_vect (remote_rows_size);
+                            scalar_t* remote_rows = remote_rows_vect.data();
+                            blas::device_memcpy<scalar_t>(remote_rows, remote_rows_dev,
+                                                          remote_rows_size, *compute_queue);
+
+
+                            MPI_Send(remote_rows, remote_length, row_type,
+                                     root_rank, tag, comm);
+                            MPI_Recv(remote_rows, remote_length, row_type,
+                                     root_rank, tag, comm, MPI_STATUS_IGNORE);
+
+                            blas::device_memcpy<scalar_t>(remote_rows_dev, remote_rows,
+                                                          remote_rows_size, *compute_queue);
+
+                            count = 0;
+                            for (int64_t i = begin; i != end; i += inc) {
+                                int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
+                                if (pivot_rank == A.mpiRank()) {
+                                    auto remote_index = remote_pivot_table[pivot[i]];
+                                    auto tile_index = pivot[i].tileIndex();
+                                    auto tile_offset = pivot[i].elementOffset();
+
+                                    if (remote_index >= count) {
+                                        // blas::copy( // no device copy in blaspp
+                                        blas::swap(
+                                            A.tileNb(j),
+                                            remote_rows_dev + nb*remote_index, 1,
+                                            &A(tile_index, j, device).at(tile_offset, 0), 1,
+                                            *compute_queue);
+                                        ++count; // only swap the first time
+                                    }
+                                }
+                            }
+                            compute_queue->sync();
+                            blas::device_free(remote_rows_dev);
+                        }
                     }
-                    compute_queue->sync();
-                    blas::device_free(remote_rows_dev);
+
+                    MPI_Type_free(&row_type);
                 }
+                compute_queue->sync();
             }
-
-            MPI_Type_free(&row_type);
         }
-
-        for (int device : dev_set) {
-            A.compute_queue(device, queue_index)->sync();
-        }
+        #pragma omp taskwait
     }
 }
 

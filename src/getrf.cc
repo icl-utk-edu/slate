@@ -193,6 +193,24 @@ void getrf(slate::internal::TargetType<target>,
                         target_layout, priority_zero, queue_1);
                 }
             }
+            if (is_shared) {
+                #pragma omp task depend(inout:column[k])
+                {
+                    for (int64_t i = k+1; i < A_mt; ++i) {
+                        if (A.tileIsLocal(i, k)) {
+                            A.tileUpdateOrigin(i, k);
+
+                            std::set<int> dev_set;
+                            A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
+
+                            for (auto device : dev_set) {
+                                A.tileUnsetHold(i, k, device);
+                                A.tileRelease(i, k, device);
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 

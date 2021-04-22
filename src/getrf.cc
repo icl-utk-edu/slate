@@ -51,6 +51,7 @@ void getrf(slate::internal::TargetType<target>,
     const int priority_one = 1;
     const int priority_zero = 0;
     int life_factor_one = 1;
+    const int queue_0 = 0;
     const int queue_1 = 1;
     const int64_t batch_size_zero = 0;
     const int num_queues = 2 + lookahead;
@@ -80,7 +81,7 @@ void getrf(slate::internal::TargetType<target>,
                 // factor A(k:mt-1, k)
                 internal::getrf<Target::HostTask>(
                     A.sub(k, A_mt-1, k, k), diag_len, ib,
-                    pivots.at(k), max_panel_threads, priority_one);
+                    pivots.at(k), max_panel_threads, priority_one, k);
 
                 BcastList bcast_list_A;
                 int tag_k = k;
@@ -136,20 +137,19 @@ void getrf(slate::internal::TargetType<target>,
                         target_layout, priority_one, j-k+1);
                 }
             }
-            // pivot to the left, high priority
-            // if (k > 0) {
-            //     #pragma omp task depend(in:column[k])
-            //                      depend(inout:column[0])
-            //                      depend(inout:column[k-1])
-            //     {
-            //         // swap rows in A(k:mt-1, 0:k-1)
-            //         int priority_one = 1;
-            //         int tag_km1 = k-1;
-            //         internal::permuteRows<Target::HostTask>(
-            //             Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
-            //             priority_one, tag_km1);
-            //     }
-            // }
+            // pivot to the left
+            if (k > 0) {
+                #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[0]) \
+                                 depend(inout:column[k-1])
+                {
+                    // swap rows in A(k:mt-1, 0:k-1)
+                    int tag_0 = 0;
+                    internal::permuteRows<Target::HostTask>(
+                        Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
+                        host_layout, priority_zero, tag_0, queue_0);
+                }
+            }
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
                 #pragma omp task depend(in:column[k]) \
@@ -212,22 +212,8 @@ void getrf(slate::internal::TargetType<target>,
                 }
             }
         }
-    }
+        #pragma omp taskwait
 
-    // Pivot to the left of the panel.
-    // todo: Blend into the factorization.
-    for (int64_t k = 0; k < min_mt_nt; ++k) {
-        if (k > 0) {
-            // swap rows in A(k:mt-1, 0:k-1)
-            internal::permuteRows<Target::HostTask>(
-                Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
-                host_layout);
-        }
-    }
-
-    #pragma omp parallel
-    #pragma omp master
-    {
         A.tileLayoutReset();
     }
     A.clearWorkspace();

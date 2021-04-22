@@ -18,7 +18,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
+#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_gesvd_work(Params& params, bool run)
@@ -63,87 +63,67 @@ void test_gesvd_work(Params& params, bool run)
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib}
     };
+
+    // Constants
+    const int izero = 0, ione = 1;
+
     // Local values
     int64_t minmn = std::min(m, n);
-    const int izero = 0, ione = 1;
-    // const scalar_t zero = 0, one = 1;
-
-    // BLACS/MPI variables
-    int ictxt, nprow, npcol, myrow, mycol, info;
-    int iam = 0, nprocs = 1;
-
-    // initialize BLACS and ScaLAPACK
-    Cblacs_pinfo(&iam, &nprocs);
-    slate_assert(p*q <= nprocs);
-    Cblacs_get(-1, 0, &ictxt);
-    Cblacs_gridinit(&ictxt, "Col", p, q);
-    Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
+    int myrow, mycol;
+    int mpi_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     // skip unsupported
     if (jobu != lapack::Job::NoVec) {
-        if (iam == 0)
+        if (mpi_rank == 0)
             printf("\nskipping: Only singular values supported (vectors not yet supported)\n");
         return;
     }
 
     // figure out local size, allocate, create descriptor, initialize
     // matrix A (local input), m-by-n
-    int64_t mlocA = num_local_rows_cols(m, nb, myrow, nprow);
-    int64_t nlocA = num_local_rows_cols(n, nb, mycol, npcol);
-    int descA_tst[9];
-    scalapack_descinit(descA_tst, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-    slate_assert(info == 0);
-    int64_t lldA = (int64_t)descA_tst[8];
-    std::vector<scalar_t> A_tst(lldA*nlocA);
+    int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
+    int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
+    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
+    std::vector<scalar_t> A_data(lldA*nlocA);
 
     // matrix U (local output), U(m, minmn), singular values of A
-    int64_t mlocU = num_local_rows_cols(m, nb, myrow, nprow);
-    int64_t nlocU = num_local_rows_cols(minmn, nb, mycol, npcol);
-    int descU_tst[9];
-    scalapack_descinit(descU_tst, m, minmn, nb, nb, izero, izero, ictxt, mlocU, &info);
-    slate_assert(info == 0);
-    int64_t lldU = (int64_t)descU_tst[8];
-    std::vector<scalar_t> U_tst(lldU * nlocU, 0);
+    int64_t mlocU = num_local_rows_cols(m, nb, myrow, p);
+    int64_t nlocU = num_local_rows_cols(minmn, nb, mycol, q);
+    int64_t lldU  = blas::max(1, mlocU); // local leading dimension of U
+    std::vector<scalar_t> U_data(lldU * nlocU, 0);
 
     // matrix VT (local output), VT(minmn, n)
-    int64_t mlocVT = num_local_rows_cols(minmn, nb, myrow, nprow);
-    int64_t nlocVT = num_local_rows_cols(n, nb, mycol, npcol);
-    int descVT_tst[9];
-    scalapack_descinit(descVT_tst, minmn, n, nb, nb, izero, izero, ictxt, mlocVT, &info);
-    slate_assert(info == 0);
-    int64_t lldVT = (int64_t)descVT_tst[8];
-    std::vector<scalar_t> VT_tst(lldVT * nlocVT, 0);
+    int64_t mlocVT = num_local_rows_cols(minmn, nb, myrow, p);
+    int64_t nlocVT = num_local_rows_cols(n, nb, mycol, q);
+    int64_t lldVT  = blas::max(1, mlocVT); // local leading dimension of VT
+    std::vector<scalar_t> VT_data(lldVT * nlocVT, 0);
 
-    // matrix S (global output), S(size), singular values of A
-    std::vector<real_t> S_tst(minmn);
+    // array S (global output), S(size), singular values of A
+    std::vector<real_t> S_data(minmn);
 
     slate::Matrix<scalar_t> A; // (m, n);
     slate::Matrix<scalar_t> U; // (m, minmn);
     slate::Matrix<scalar_t> VT; // (minmn, n);
-    std::vector<real_t> S;
 
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
         slate::Target origin_target = origin2target(origin);
-        A = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
 
-        S = S_tst;
-
-        U = slate::Matrix<scalar_t>(m, minmn, nb, nprow, npcol, MPI_COMM_WORLD);
+        U = slate::Matrix<scalar_t>(m, minmn, nb, p, q, MPI_COMM_WORLD);
         U.insertLocalTiles(origin_target);
-        //copy(&U_tst[0], descU_tst, U); // U is output, so not really needed
 
-        VT = slate::Matrix<scalar_t>(minmn, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        VT = slate::Matrix<scalar_t>(minmn, n, nb, p, q, MPI_COMM_WORLD);
         VT.insertLocalTiles(origin_target);
-        //copy(&VT_tst[0], descVT_tst, VT); // VT is output, so not really needed
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
-        A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_tst[0],  lldA,  nb, nprow, npcol, MPI_COMM_WORLD);
-        S = S_tst;
-        U = slate::Matrix<scalar_t>::fromScaLAPACK(m, minmn, &U_tst[0], lldU, nb, nprow, npcol, MPI_COMM_WORLD);
-        VT = slate::Matrix<scalar_t>::fromScaLAPACK(minmn, n, &VT_tst[0], lldVT, nb, nprow, npcol, MPI_COMM_WORLD);
+        A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_data[0],  lldA,  nb, p, q, MPI_COMM_WORLD);
+        U = slate::Matrix<scalar_t>::fromScaLAPACK(m, minmn, &U_data[0], lldU, nb, p, q, MPI_COMM_WORLD);
+        VT = slate::Matrix<scalar_t>::fromScaLAPACK(minmn, n, &VT_data[0], lldVT, nb, p, q, MPI_COMM_WORLD);
     }
 
     if (verbose >= 1) {
@@ -158,50 +138,45 @@ void test_gesvd_work(Params& params, bool run)
         print_matrix( "VT", VT );
     }
 
-    std::vector<scalar_t> A_ref, U_ref, VT_ref;
-    std::vector<real_t> S_ref;
-    if (check || ref) {
-        A_ref = A_tst;
-        S_ref = S_tst;
-        U_ref = U_tst;
-        VT_ref = VT_tst;
-    }
-
     //params.matrix.kind.set_default("svd");
     //params.matrix.cond.set_default(1.e16);
 
     slate::generate_matrix( params.matrix, A);
-    copy(A, &A_ref[0], descA_tst);
+    if (verbose > 1) {
+        print_matrix( "A0",  A  );
+    }
+
+    std::vector<real_t> Sref_data;
+    slate::Matrix<scalar_t> Aref;
+    if (check || ref) {
+        Sref_data.resize(S_data.size());
+        Aref = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
+        slate::Target origin_target = origin2target(origin);
+        Aref.insertLocalTiles(origin_target);
+        slate::copy(A, Aref);
+    }
 
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-        double time = testsweeper::get_wtime();
+        double time = barrier_get_wtime(MPI_COMM_WORLD);
 
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::svd_vals(A, S_tst, opts);
+        slate::svd_vals(A, S_data, opts);
 
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::gesvd(A, S_tst, opts);
+        // slate::gesvd(A, S_data, opts);
 
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-        double time_tst = testsweeper::get_wtime() - time;
+        time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         if (trace) slate::trace::Trace::finish();
 
         // compute and save timing/performance
-        params.time() = time_tst;
+        params.time() = time;
 
         if (verbose > 1) {
             print_matrix( "A",  A  );
@@ -211,59 +186,92 @@ void test_gesvd_work(Params& params, bool run)
     }
 
     if (check || ref) {
-        // Run reference routine from ScaLAPACK
+        #ifdef SLATE_HAVE_SCALAPACK
+            // Run reference routine from ScaLAPACK
 
-        // set MKL num threads appropriately for parallel BLAS
-        int omp_num_threads = 1;
-        #pragma omp parallel
-        { omp_num_threads = omp_get_num_threads(); }
-        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
+            // BLACS/MPI variables
+            int ictxt, p_, q_, myrow_, mycol_, info;
+            int mpi_rank_ = 0, nprocs = 1;
 
-        // query for workspace size
-        int64_t info_ref = 0;
-        scalar_t dummy_work;
-        real_t dummy_rwork;
-        scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
-                         &A_ref[0],  ione, ione, descA_tst, &S_ref[0],
-                         &U_ref[0],  ione, ione, descU_tst,
-                         &VT_ref[0], ione, ione, descVT_tst,
-                         &dummy_work, -1, &dummy_rwork, &info_ref);
-        slate_assert(info_ref == 0);
-        int64_t lwork  = int64_t( real( dummy_work ) );
-        int64_t lrwork = int64_t( dummy_rwork );
-        std::vector<scalar_t> work(lwork);
-        std::vector<real_t> rwork(lrwork);
+            // initialize BLACS and ScaLAPACK
+            Cblacs_pinfo(&mpi_rank_, &nprocs);
+            slate_assert( mpi_rank == mpi_rank_ );
+            slate_assert(p*q <= nprocs);
+            Cblacs_get(-1, 0, &ictxt);
+            Cblacs_gridinit(&ictxt, "Col", p, q);
+            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
+            assert( p == p_ );
+            assert( q == q_ );
+            assert( myrow == myrow_ );
+            assert( mycol == mycol_ );
 
-        // Run ScaLAPACK reference routine.
-        MPI_Barrier(MPI_COMM_WORLD);
-        double time = testsweeper::get_wtime();
-        scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
-                         &A_ref[0],  ione, ione, descA_tst, &S_ref[0],
-                         &U_ref[0],  ione, ione, descU_tst,
-                         &VT_ref[0], ione, ione, descVT_tst,
-                         &work[0], lwork, &rwork[0], &info_ref);
-        slate_assert(info_ref == 0);
-        MPI_Barrier(MPI_COMM_WORLD);
-        double time_ref = testsweeper::get_wtime() - time;
+            int A_desc[9];
+            scalapack_descinit(A_desc, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            slate_assert(info == 0);
+            std::vector<scalar_t> Aref_data(lldA*nlocA);
+            copy(Aref, &Aref_data[0], A_desc);
 
-        params.ref_time() = time_ref;
+            int U_desc[9];
+            scalapack_descinit(U_desc, m, minmn, nb, nb, izero, izero, ictxt, mlocU, &info);
+            slate_assert(info == 0);
 
-        slate_set_num_blas_threads(saved_num_threads);
+            int VT_desc[9];
+            scalapack_descinit(VT_desc, minmn, n, nb, nb, izero, izero, ictxt, mlocVT, &info);
+            slate_assert(info == 0);
 
-        // Reference Scalapack was run, check reference against test
-        // Perform a local operation to get differences S_tst = S_tst - S_ref
-        blas::axpy(S_ref.size(), -1.0, &S_ref[0], 1, &S_tst[0], 1);
+            // set MKL num threads appropriately for parallel BLAS
+            int omp_num_threads = 1;
+            #pragma omp parallel
+            { omp_num_threads = omp_get_num_threads(); }
+            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-        // Relative forward error: || S_ref - S_tst || / || S_ref ||
-        params.error() = lapack::lange(norm, 1, S_tst.size(), &S_tst[0], 1)
-                       / lapack::lange(norm, 1, S_ref.size(), &S_ref[0], 1);
+            // query for workspace size
+            int64_t info_ref = 0;
+            scalar_t dummy_work;
+            real_t dummy_rwork;
+            scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
+                            &Aref_data[0],  ione, ione, A_desc, &Sref_data[0],
+                            &U_data[0],  ione, ione, U_desc,
+                            &VT_data[0], ione, ione, VT_desc,
+                            &dummy_work, -1, &dummy_rwork, &info_ref);
+            slate_assert(info_ref == 0);
+            int64_t lwork  = int64_t( real( dummy_work ) );
+            int64_t lrwork = int64_t( dummy_rwork );
+            std::vector<scalar_t> work(lwork);
+            std::vector<real_t> rwork(lrwork);
 
-        real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-        params.okay() = (params.error() <= tol);
+            // Run ScaLAPACK reference routine.
+            double time = barrier_get_wtime(MPI_COMM_WORLD);
+            scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
+                            &Aref_data[0],  ione, ione, A_desc, &Sref_data[0],
+                            &U_data[0],  ione, ione, U_desc,
+                            &VT_data[0], ione, ione, VT_desc,
+                            &work[0], lwork, &rwork[0], &info_ref);
+            slate_assert(info_ref == 0);
+            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+
+            params.ref_time() = time;
+
+            slate_set_num_blas_threads(saved_num_threads);
+
+            // Reference Scalapack was run, check reference against test
+            // Perform a local operation to get differences S_data = S_data - Sref_data
+            blas::axpy(Sref_data.size(), -1.0, &Sref_data[0], 1, &S_data[0], 1);
+
+
+            // Relative forward error: || Sref_data - S_data || / || Sref_data ||
+            params.error() = lapack::lange(norm, 1, S_data.size(), &S_data[0], 1)
+                        / lapack::lange(norm, 1, Sref_data.size(), &Sref_data[0], 1);
+
+            real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+            params.okay() = (params.error() <= tol);
+            Cblacs_gridexit(ictxt);
+            //Cblacs_exit(1) does not handle re-entering
+        #else
+            if (mpi_rank == 0)
+                printf( "ScaLAPACK not available\n" );
+        #endif
     }
-
-    Cblacs_gridexit(ictxt);
-    //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------

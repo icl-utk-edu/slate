@@ -17,7 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
+#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_getri_work(Params& params, bool run)
@@ -57,89 +57,73 @@ void test_getri_work(Params& params, bool run)
         {slate::Option::InnerBlocking, ib}
     };
 
-    int mpi_rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-
-    // Local values
+    // Constants
     const int izero = 0, ione = 1;
 
-    // BLACS/MPI variables
-    int ictxt, nprow, npcol, myrow, mycol, info;
-    int descA_tst[9], descA_ref[9];
-    int descC_chk[9];
-    int iam = 0, nprocs = 1;
+    // Local values
+    int myrow, mycol;
+    int mpi_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // initialize BLACS and ScaLAPACK
-    Cblacs_pinfo(&iam, &nprocs);
-    slate_assert(p*q <= nprocs);
-    Cblacs_get(-1, 0, &ictxt);
-    Cblacs_gridinit(&ictxt, "Col", p, q);
-    Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
-
-    // scalapack matrix A_tst, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = num_local_rows_cols(n, nb, myrow, nprow);
-    int64_t nlocA = num_local_rows_cols(n, nb, mycol, npcol);
-    scalapack_descinit(descA_tst, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-    slate_assert(info == 0);
-    int64_t lldA = (int64_t)descA_tst[8];
-    std::vector<scalar_t> A_tst(lldA*nlocA);
+    // scalapack matrix A_data, figure out local size, allocate, create descriptor, initialize
+    int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
+    int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
+    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
+    std::vector<scalar_t> A_data(lldA*nlocA);
 
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::Matrix<scalar_t> A0(n, n, nb, p, q, MPI_COMM_WORLD);
 
-    // Setup SLATE matrix A based on scalapack matrix/data in A_tst
+    // Setup SLATE matrix A based on scalapack matrix/data in A_data
     slate::Matrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
         slate::Target origin_target = origin2target(origin);
-        A = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        A = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
-        A = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+        A = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
     slate::generate_matrix(params.matrix, A);
-    if (origin != slate::Origin::ScaLAPACK) {
-        copy(A, &A_tst[0], descA_tst);
-    }
 
     // Create pivot structure to store pivots after factoring
     slate::Pivots pivots;
 
     // if check (or ref) is required, copy test data and create a descriptor for it
-    std::vector<scalar_t> A_ref;
+    std::vector<scalar_t> Aref_data;
+    slate::Matrix<scalar_t> Aref;
     if (check || ref) {
-        A_ref = A_tst;
-        scalapack_descinit(descA_ref, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-        slate_assert(info == 0);
+        // For simplicity, always use ScaLAPACK format for ref matrices.
+        Aref_data.resize( lldA*nlocA );
+        Aref = slate::Matrix<scalar_t>::fromScaLAPACK( n, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        slate::copy(A, Aref);
     }
 
     // If check is required: record the norm(A original)
     real_t A_norm = 0.0;
     if (check) A_norm = slate::norm(slate::Norm::One, A);
 
-    // initialize C_chk; space to hold A*inv(A); also used for out-of-place algorithm
-    std::vector<scalar_t> C_chk;
-    C_chk = A_tst;
-    scalapack_descinit(descC_chk, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-    slate_assert(info == 0);
+    // initialize Cchk_data; space to hold A*inv(A); also used for out-of-place algorithm
+    std::vector<scalar_t> Cchk_data( lldA*nlocA );
 
     // C will be used as storage for out-of-place algorithm
     slate::Matrix<scalar_t> C;
     // todo: Select correct times to use out-of-place getri, currently always use
     if (params.routine == "getriOOP") {
-        // setup SLATE matrix C based on scalapack matrix/data in C_chk
+        // setup SLATE matrix C based on scalapack matrix/data in Cchk_data
         if (origin != slate::Origin::ScaLAPACK) {
             // Copy local ScaLAPACK data to GPU or CPU tiles.
             slate::Target origin_target = origin2target(origin);
-            C = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
+            C = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
             C.insertLocalTiles(origin_target);
-            copy(&C_chk[0], descC_chk, C);
+            slate::copy( A, C );
         }
         else {
             // Create SLATE matrix from the ScaLAPACK layouts
-            C = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &C_chk[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+            C = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &Cchk_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         }
     }
 
@@ -198,51 +182,83 @@ void test_getri_work(Params& params, bool run)
     }
 
     if (check) {
-        //==================================================
-        // Check  || I - inv(A)*A || / ( || A || * N ) <=  tol * eps
+        #ifdef SLATE_HAVE_SCALAPACK
+            //==================================================
+            // Check  || I - inv(A)*A || / ( || A || * N ) <=  tol * eps
 
-        if (origin != slate::Origin::ScaLAPACK) {
-            // Copy SLATE result back from GPU or CPU tiles.
-            copy(A, &A_tst[0], descA_tst);
-            copy(C, &C_chk[0], descC_chk);
-        }
+            // BLACS/MPI variables
+            int ictxt, p_, q_, myrow_, mycol_, info;
+            int A_desc[9], Aref_desc[9];
+            int Cchk_desc[9];
+            int mpi_rank_ = 0, nprocs = 1;
 
-        // Copy inv(A) from oop vector storage C_chk to expected location A_tst
-        // After this, A_tst contains the inv(A)
-        if (params.routine == "getriOOP") {
-            A_tst = C_chk;
-        }
+            // initialize BLACS and ScaLAPACK
+            Cblacs_pinfo(&mpi_rank_, &nprocs);
+            slate_assert( mpi_rank == mpi_rank_ );
+            slate_assert(p*q <= nprocs);
+            Cblacs_get(-1, 0, &ictxt);
+            Cblacs_gridinit(&ictxt, "Col", p, q);
+            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
+            assert( p == p_ );
+            assert( q == q_ );
+            assert( myrow == myrow_ );
+            assert( mycol == mycol_ );
 
-        // For check make C_chk a identity matrix to check the result of multiplying A and A_inv
-        scalar_t zero = 0.0; scalar_t one = 1.0;
-        scalapack_plaset("All", n, n, zero, one, &C_chk[0], ione, ione, descC_chk);
+            scalapack_descinit(A_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            slate_assert(info == 0);
 
-        // C_chk has been setup as an identity matrix; C_chk = C_chk - inv(A)*A
-        scalar_t alpha = -1.0; scalar_t beta = 1.0;
-        scalapack_pgemm("notrans", "notrans", n, n, n, alpha,
-                        &A_tst[0], ione, ione, descA_tst,
-                        &A_ref[0], ione, ione, descA_ref, beta,
-                        &C_chk[0], ione, ione, descC_chk);
+            scalapack_descinit(Aref_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            slate_assert(info == 0);
 
-        // Norm of C_chk ( = I - inv(A) * A )
-        std::vector<real_t> worklange(n);
-        real_t C_norm = scalapack_plange("One", n, n, &C_chk[0], ione, ione, descC_chk, &worklange[0]);
+            scalapack_descinit(Cchk_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            slate_assert(info == 0);
 
-        real_t A_inv_norm = scalapack_plange("One", n, n, &A_tst[0], ione, ione, descA_tst, &worklange[0]);
+            if (origin != slate::Origin::ScaLAPACK) {
+                // Copy SLATE result back from GPU or CPU tiles.
+                copy(A, &A_data[0], A_desc);
+                copy(C, &Cchk_data[0], Cchk_desc);
+            }
 
-        double residual = C_norm / (A_norm * n * A_inv_norm);
-        params.error() = residual;
+            // Copy inv(A) from oop vector storage Cchk_data to expected location A_data
+            // After this, A_data contains the inv(A)
+            if (params.routine == "getriOOP") {
+                A_data = Cchk_data;
+            }
 
-        real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon();
-        params.okay() = (params.error() <= tol);
+            // For check make Cchk_data a identity matrix to check the result of multiplying A and A_inv
+            scalar_t zero = 0.0; scalar_t one = 1.0;
+            scalapack_plaset("All", n, n, zero, one, &Cchk_data[0], ione, ione, Cchk_desc);
+
+            // Cchk_data has been setup as an identity matrix; C_chk = C_chk - inv(A)*A
+            scalar_t alpha = -1.0; scalar_t beta = 1.0;
+            scalapack_pgemm("notrans", "notrans", n, n, n, alpha,
+                            &A_data[0], ione, ione, A_desc,
+                            &Aref_data[0], ione, ione, Aref_desc, beta,
+                            &Cchk_data[0], ione, ione, Cchk_desc);
+
+            // Norm of Cchk_data ( = I - inv(A) * A )
+            std::vector<real_t> worklange(n);
+            real_t C_norm = scalapack_plange("One", n, n, &Cchk_data[0], ione, ione, Cchk_desc, &worklange[0]);
+
+            real_t A_inv_norm = scalapack_plange("One", n, n, &A_data[0], ione, ione, A_desc, &worklange[0]);
+
+            double residual = C_norm / (A_norm * n * A_inv_norm);
+            params.error() = residual;
+
+            real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon();
+            params.okay() = (params.error() <= tol);
+
+            Cblacs_gridexit(ictxt);
+            //Cblacs_exit(1) does not handle re-entering
+        #else
+            if (mpi_rank == 0)
+                printf( "ScaLAPACK not available\n" );
+        #endif
     }
 
     if (ref) {
         // todo: call to reference getri from ScaLAPACK not implemented
     }
-
-    Cblacs_gridexit(ictxt);
-    //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------

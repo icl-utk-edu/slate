@@ -194,11 +194,7 @@ void test_heev_work(Params& params, bool run)
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-        double time = testsweeper::get_wtime();
+        double time = barrier_get_wtime(MPI_COMM_WORLD);
 
         //==================================================
         // Run SLATE test.
@@ -215,16 +211,12 @@ void test_heev_work(Params& params, bool run)
         // Using traditional BLAS/LAPACK name
         // slate::heev(jobz, A, W_data, Q, opts);
 
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-        double time_tst = testsweeper::get_wtime() - time;
+        time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         if (trace) slate::trace::Trace::finish();
 
         // compute and save timing/performance
-        params.time() = time_tst;
+        params.time() = time;
 
         if (verbose > 1) {
             print_matrix( "A",  A  );
@@ -249,10 +241,10 @@ void test_heev_work(Params& params, bool run)
             Cblacs_get(-1, 0, &ictxt);
             Cblacs_gridinit(&ictxt, "Col", p, q);
             Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            assert( p == p_ );
-            assert( q == q_ );
-            assert( myrow == myrow_ );
-            assert( mycol == mycol_ );
+            slate_assert( p == p_ );
+            slate_assert( q == q_ );
+            slate_assert( myrow == myrow_ );
+            slate_assert( mycol == mycol_ );
 
             int A_desc[9];
             scalapack_descinit(A_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
@@ -293,18 +285,16 @@ void test_heev_work(Params& params, bool run)
                 rwork.resize(lrwork);
             }
             // Run ScaLAPACK reference routine.
-            MPI_Barrier(MPI_COMM_WORLD);
-            double time = testsweeper::get_wtime();
+            double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
                             &Aref_data[0], ione, ione, A_desc,
                             &Wref_data[0],
                             &Zref_data[0], ione, ione, Z_desc,
                             &work[0], lwork, &rwork[0], lrwork, &info_tst);
             slate_assert(info_tst == 0);
-            MPI_Barrier(MPI_COMM_WORLD);
-            double time_ref = testsweeper::get_wtime() - time;
+            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            params.ref_time() = time_ref;
+            params.ref_time() = time;
 
             // Reset omp thread number
             slate_set_num_blas_threads(saved_num_threads);
@@ -339,7 +329,7 @@ void test_heev_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
-         #else
+        #else
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

@@ -19,15 +19,12 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
+#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_posv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
-
-    // constants
-    const scalar_t one = 1.0;
 
     // get & mark input values
     slate::Uplo uplo = params.uplo();
@@ -86,45 +83,32 @@ void test_posv_work(Params& params, bool run)
         }
     }
 
-    // Local values
+    // Constants
+    const scalar_t one = 1.0;
     const int izero = 0, ione = 1;
 
-    // BLACS/MPI variables
-    int ictxt, nprow, npcol, myrow, mycol, info;
-    int descA_tst[9], descA_ref[9];
-    int descB_tst[9], descB_ref[9];
-    int iam = 0, nprocs = 1;
-
-    // initialize BLACS and ScaLAPACK
-    Cblacs_pinfo(&iam, &nprocs);
-    slate_assert(p*q <= nprocs);
-    Cblacs_get(-1, 0, &ictxt);
-    Cblacs_gridinit(&ictxt, "Col", p, q);
-    Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
+    // Local values
+    int myrow, mycol;
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = num_local_rows_cols(n, nb, myrow, nprow);
-    int64_t nlocA = num_local_rows_cols(n, nb, mycol, npcol);
-    scalapack_descinit(descA_tst, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-    slate_assert(info == 0);
-    int64_t lldA = (int64_t)descA_tst[8];
-    std::vector<scalar_t> A_tst(lldA*nlocA);
+    int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
+    int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
+    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
+    std::vector<scalar_t> A_data(lldA*nlocA);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocB = num_local_rows_cols(n, nb, myrow, nprow);
-    int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, npcol);
-    scalapack_descinit(descB_tst, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
-    slate_assert(info == 0);
-    int64_t lldB = (int64_t)descB_tst[8];
-    std::vector<scalar_t> B_tst(lldB*nlocB);
-
+    int64_t mlocB = num_local_rows_cols(n, nb, myrow, p);
+    int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
+    int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
+    std::vector<scalar_t> B_data(lldB*nlocB);
 
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
 
     slate::HermitianMatrix<scalar_t> A;
     slate::Matrix<scalar_t> B, X;
-    std::vector<scalar_t> X_tst;
+    std::vector<scalar_t> X_data;
     if (origin != slate::Origin::ScaLAPACK) {
         if (dev_dist == slate::Dist::Row && target == slate::Target::Devices) {
             // slate_assert(target == slate::Target::Devices);
@@ -136,10 +120,10 @@ void test_posv_work(Params& params, bool run)
                 { return (j + 1)*nb > n ? n%nb : nb; };
 
             std::function<int (std::tuple<int64_t, int64_t> ij)>
-            tileRank = [nprow, npcol](std::tuple<int64_t, int64_t> ij) {
+            tileRank = [p, q](std::tuple<int64_t, int64_t> ij) {
                 int64_t i = std::get<0>(ij);
                 int64_t j = std::get<1>(ij);
-                return int(i%nprow + (j%npcol)*nprow);
+                return int(i%p + (j%q)*p);
             };
 
             int num_devices = 0;
@@ -147,9 +131,9 @@ void test_posv_work(Params& params, bool run)
             slate_assert(num_devices > 0);
 
             std::function<int (std::tuple<int64_t, int64_t> ij)>
-            tileDevice = [nprow, num_devices](std::tuple<int64_t, int64_t> ij) {
+            tileDevice = [p, num_devices](std::tuple<int64_t, int64_t> ij) {
                 int64_t i = std::get<0>(ij);
-                return int(i/nprow)%num_devices;
+                return int(i/p)%num_devices;
             };
 
             A = slate::HermitianMatrix<scalar_t>(
@@ -160,10 +144,10 @@ void test_posv_work(Params& params, bool run)
         else {
             // A
             A = slate::HermitianMatrix<scalar_t>(
-                    uplo, n, nb, nprow, npcol, MPI_COMM_WORLD);
+                    uplo, n, nb, p, q, MPI_COMM_WORLD);
             // B
             B = slate::Matrix<scalar_t>(
-                    n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
+                    n, nrhs, nb, p, q, MPI_COMM_WORLD);
         }
 
         // Copy local ScaLAPACK data to GPU or CPU tiles.
@@ -174,50 +158,53 @@ void test_posv_work(Params& params, bool run)
 
         if (params.routine == "posvMixed") {
             if (std::is_same<real_t, double>::value) {
-                X_tst.resize(lldB*nlocB);
-                X = slate::Matrix<scalar_t>(n, nrhs, nb, nprow, npcol, MPI_COMM_WORLD);
+                X_data.resize(lldB*nlocB);
+                X = slate::Matrix<scalar_t>(n, nrhs, nb, p, q, MPI_COMM_WORLD);
                 X.insertLocalTiles(origin_target);
             }
         }
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
-        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-        B = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         if (params.routine == "posvMixed") {
             if (std::is_same<real_t, double>::value) {
-                X_tst.resize(lldB*nlocB);
-                X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+                X_data.resize(lldB*nlocB);
+                X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
             }
         }
     }
 
     slate::generate_matrix(params.matrix, A);
     slate::generate_matrix(params.matrixB, B);
-    if (origin != slate::Origin::ScaLAPACK) {
-        copy(A, &A_tst[0], descA_tst);
-        copy(B, &B_tst[0], descB_tst);
-    }
     if (verbose >= 2) {
         print_matrix("A", A);
         print_matrix("B", B);
     }
 
     // if check is required, copy test data and create a descriptor for it
-    std::vector<scalar_t> A_ref;
-    std::vector<scalar_t> B_ref;
+    std::vector<scalar_t> Aref_data(lldA*nlocA);
+    std::vector<scalar_t> Bref_data(lldB*nlocB);
     std::vector<scalar_t> B_orig;
+    slate::HermitianMatrix<scalar_t> Aref;
+    slate::Matrix<scalar_t> Bref;
     if (check || ref) {
-        A_ref = A_tst;
-        scalapack_descinit(descA_ref, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-        slate_assert(info == 0);
+        // SLATE matrix wrappers for the reference data
+        Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+            uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
+            n, nrhs, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
 
-        B_ref = B_tst;
-        scalapack_descinit(descB_ref, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
-        slate_assert(info == 0);
+        slate::copy( A, Aref );
+        slate::copy( B, Bref );
+        if (origin != slate::Origin::ScaLAPACK) {
+            A_data = Aref_data;
+            B_data = Bref_data;
+        }
 
         if (check && ref)
-            B_orig = B_tst;
+            B_orig = Bref_data;
     }
 
     int iters = 0;
@@ -243,12 +230,7 @@ void test_posv_work(Params& params, bool run)
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-        double time = testsweeper::get_wtime();
-
+        double time = barrier_get_wtime(MPI_COMM_WORLD);
         //==================================================
         // Run SLATE test.
         // One of:
@@ -286,11 +268,7 @@ void test_posv_work(Params& params, bool run)
             slate_error("Unknown routine!");
         }
 
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-        double time_tst = testsweeper::get_wtime() - time;
+       time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         if (trace) slate::trace::Trace::finish();
 
@@ -299,8 +277,8 @@ void test_posv_work(Params& params, bool run)
         }
 
         // compute and save timing/performance
-        params.time() = time_tst;
-        params.gflops() = gflop / time_tst;
+        params.time() = time;
+        params.gflops() = gflop / time;
     }
 
     if (check) {
@@ -322,12 +300,6 @@ void test_posv_work(Params& params, bool run)
             // slate::potrs(A, B, opts);
         }
 
-        // SLATE matrix wrappers for the reference data
-        auto Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-            uplo, n, &A_ref[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-        auto Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
-            n, nrhs, &B_ref[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
-
         // Norm of original matrix: || A ||_1
         real_t A_norm = slate::norm(slate::Norm::One, Aref);
 
@@ -338,7 +310,7 @@ void test_posv_work(Params& params, bool run)
         else
             X_norm = slate::norm(slate::Norm::One, B);
 
-        // B_ref -= Aref*B_tst
+        // Bref_data -= Aref*B_data
         if (params.routine == "posvMixed") {
             if (std::is_same<real_t, double>::value)
                 slate::multiply(-one, Aref, X, one, Bref);
@@ -365,62 +337,93 @@ void test_posv_work(Params& params, bool run)
     }
 
     if (ref) {
-        // A comparison with a reference routine from ScaLAPACK for timing only
+        #ifdef SLATE_HAVE_SCALAPACK
+            // A comparison with a reference routine from ScaLAPACK for timing only
+            // BLACS/MPI variables
+            int ictxt, p_, q_, myrow_, mycol_, info;
+            int A_desc[9], Aref_desc[9];
+            int B_desc[9], Bref_desc[9];
+            int mpi_rank_ = 0, nprocs = 1;
 
-        // set MKL num threads appropriately for parallel BLAS
-        int omp_num_threads;
-        #pragma omp parallel
-        { omp_num_threads = omp_get_num_threads(); }
-        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
+            // initialize BLACS and ScaLAPACK
+            Cblacs_pinfo(&mpi_rank_, &nprocs);
+            slate_assert( mpi_rank == mpi_rank_ );
+            slate_assert(p*q <= nprocs);
+            Cblacs_get(-1, 0, &ictxt);
+            Cblacs_gridinit(&ictxt, "Col", p, q);
+            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
+            assert( p == p_ );
+            assert( q == q_ );
+            assert( myrow == myrow_ );
+            assert( mycol == mycol_ );
 
-        if (check) {
-            // restore B_ref
-            B_ref = B_orig;
-            scalapack_descinit(descB_ref, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
+            scalapack_descinit(A_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
             slate_assert(info == 0);
-        }
 
-        if (params.routine == "potrs") {
-            // Factor matrix A.
-            scalapack_ppotrf(uplo2str(uplo), n, &A_ref[0], ione, ione, descA_ref, &info);
+            scalapack_descinit(B_desc, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
             slate_assert(info == 0);
-        }
 
-        //==================================================
-        // Run ScaLAPACK reference routine.
-        //==================================================
-        MPI_Barrier(MPI_COMM_WORLD);
-        double time = testsweeper::get_wtime();
-        if (params.routine == "potrf") {
-            scalapack_ppotrf(uplo2str(uplo), n, &A_ref[0], ione, ione, descA_ref, &info);
-        }
-        else if (params.routine == "potrs") {
-            scalapack_ppotrs(uplo2str(uplo), n, nrhs, &A_ref[0], ione, ione, descA_ref, &B_ref[0], ione, ione, descB_ref, &info);
-        }
-        else {
-            scalapack_pposv(uplo2str(uplo), n, nrhs, &A_ref[0], ione, ione, descA_ref, &B_ref[0], ione, ione, descB_ref, &info);
-        }
-        slate_assert(info == 0);
-        MPI_Barrier(MPI_COMM_WORLD);
-        double time_ref = testsweeper::get_wtime() - time;
+            scalapack_descinit(Aref_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            slate_assert(info == 0);
 
-        params.ref_time() = time_ref;
-        params.ref_gflops() = gflop / time_ref;
+            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
+            slate_assert(info == 0);
 
-        slate_set_num_blas_threads(saved_num_threads);
+            // set MKL num threads appropriately for parallel BLAS
+            int omp_num_threads;
+            #pragma omp parallel
+            { omp_num_threads = omp_get_num_threads(); }
+            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-        if (verbose > 2) {
-            if (origin == slate::Origin::ScaLAPACK) {
-                slate::Debug::diffLapackMatrices<scalar_t>(n, n, &A_tst[0], lldA, &A_ref[0], lldA, nb, nb);
-                if (params.routine != "potrf") {
-                    slate::Debug::diffLapackMatrices<scalar_t>(n, nrhs, &B_tst[0], lldB, &B_ref[0], lldB, nb, nb);
+            if (check) {
+                // restore Bref_data
+                Bref_data = B_orig;
+                //scalapack_descinit(Bref_desc, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
+                //slate_assert(info == 0);
+            }
+
+            if (params.routine == "potrs") {
+                // Factor matrix A.
+                scalapack_ppotrf(uplo2str(uplo), n, &Aref_data[0], ione, ione, Aref_desc, &info);
+                slate_assert(info == 0);
+            }
+
+            //==================================================
+            // Run ScaLAPACK reference routine.
+            //==================================================
+            double time = barrier_get_wtime(MPI_COMM_WORLD);
+            if (params.routine == "potrf") {
+                scalapack_ppotrf(uplo2str(uplo), n, &Aref_data[0], ione, ione, Aref_desc, &info);
+            }
+            else if (params.routine == "potrs") {
+                scalapack_ppotrs(uplo2str(uplo), n, nrhs, &Aref_data[0], ione, ione, Aref_desc, &Bref_data[0], ione, ione, Bref_desc, &info);
+            }
+            else {
+                scalapack_pposv(uplo2str(uplo), n, nrhs, &Aref_data[0], ione, ione, Aref_desc, &Bref_data[0], ione, ione, Bref_desc, &info);
+            }
+            slate_assert(info == 0);
+            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+
+            params.ref_time() = time;
+            params.ref_gflops() = gflop / time;
+
+            slate_set_num_blas_threads(saved_num_threads);
+
+            if (verbose > 2) {
+                if (origin == slate::Origin::ScaLAPACK) {
+                    slate::Debug::diffLapackMatrices<scalar_t>(n, n, &A_data[0], lldA, &Aref_data[0], lldA, nb, nb);
+                    if (params.routine != "potrf") {
+                        slate::Debug::diffLapackMatrices<scalar_t>(n, nrhs, &B_data[0], lldB, &Bref_data[0], lldB, nb, nb);
+                    }
                 }
             }
-        }
+            Cblacs_gridexit(ictxt);
+            //Cblacs_exit(1) does not handle re-entering
+        #else
+            if (mpi_rank == 0)
+                printf( "ScaLAPACK not available\n" );
+        #endif
     }
-
-    Cblacs_gridexit(ictxt);
-    //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------

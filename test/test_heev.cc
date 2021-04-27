@@ -44,7 +44,6 @@ void test_heev_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
-    slate::Norm norm = params.norm();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -75,10 +74,6 @@ void test_heev_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-#if 0
-    bool wantz = (jobz == slate::Job::Vec);
-#endif
-
     // figure out local size, allocate, create descriptor, initialize
     // matrix A (local input), m-by-n, symmetric matrix
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
@@ -91,99 +86,56 @@ void test_heev_work(Params& params, bool run)
     std::vector<real_t> W_data(n);
 
 
-    // matrix Z (local output), Z(n,n), gets orthonormal eigenvectors corresponding to W of the reference scalapack
+    // matrix Z (local output), Z(n,n), gets orthonormal eigenvectors
+    // corresponding to W of the reference scalapack
     int64_t mlocZ = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocZ = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldZ  = blas::max(1, mlocZ); // local leading dimension of Z
-#if 0
     std::vector<scalar_t> Z_data(lldZ * nlocZ, 0);
-#endif
 
-#if 0
-    // matrix Q (local output), Q(n,n), gets orthonormal eigenvectors corresponding to W of slate heev
-    int64_t mlocQ = num_local_rows_cols(n, nb, myrow, p);
-    int64_t nlocQ = num_local_rows_cols(n, nb, mycol, q);
-    int64_t lldQ  = blas::max(1, mlocQ); // local leading dimension of Q
-    std::vector<scalar_t> Q_data(lldQ * nlocQ, 0);
-#endif
 
     // Initialize SLATE data structures
     slate::HermitianMatrix<scalar_t> A;
     std::vector<real_t> W(n);
-#if 0
-    //Don't need Z
-    slate::Matrix<scalar_t> Z;
-#endif
-#if 0
-    //Don't need Q
-    slate::Matrix<scalar_t> Q;
-#endif
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
         slate::Target origin_target = origin2target(origin);
         A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
-
-#if 0
-        Z = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
-        Z.insertLocalTiles(origin_target);
-#endif
-
-#if 0
-        if (wantz) {
-            Q = slate::Matrix<scalar_t>(
-                n, n, nb, p, q, MPI_COMM_WORLD);
-            Q.insertLocalTiles(origin2target(origin));
-        }
-#endif
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
-        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-#if 0
-        Z = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &Z_data[0], lldZ, nb, p, q, MPI_COMM_WORLD);
-#endif
-#if 0
-        if (wantz) {
-            Q_data.resize(lldQ*nlocQ);
-            Q = slate::Matrix<scalar_t>::fromScaLAPACK(
-                n, n, &Q_data[0], lldQ, nb, p, q, MPI_COMM_WORLD);
-        }
-#endif
+        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_data[0],
+                                                            lldA, nb, p, q,
+                                                            MPI_COMM_WORLD);
     }
 
     //lapack::TestMatrixType type = lapack::TestMatrixType::heev;
     //params.matrix.kind.set_default("heev");
     //params.matrix.cond.set_default(1e4);
-//    slate::generate_matrix( params.matrix, A)
 
-#if 0
-    slate::generate_matrix( params.matrix, Z);
-    A = slate::HermitianMatrix<scalar_t>(
-               uplo, Z );
-#endif
     slate::generate_matrix( params.matrix, A);
 
+    // Z is currently used for ScaLAPACK heev call and can also be used
+    // for SLATE heev call when slate::eig_vals takes Z
+    auto Z = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &Z_data[0], lldZ,
+                                                    nb, p, q, MPI_COMM_WORLD);
+
     if (verbose >= 1) {
-        printf( "%% A   %6lld-by-%6lld\n", llong(   A.m() ), llong(   A.n() ) );
-#if 0
-        printf( "%% Z   %6lld-by-%6lld\n", llong(   Z.m() ), llong(   Z.n() ) );
-#endif
+        printf( "%% A   %6lld-by-%6lld\n", llong( A.m() ), llong( A.n() ) );
+
+        printf( "%% Z   %6lld-by-%6lld\n", llong( Z.m() ), llong( Z.n() ) );
     }
 
     if (verbose > 1) {
         print_matrix( "A",  A  );
     }
 
-    std::vector<scalar_t> Aref_data, Zref_data;
+    std::vector<scalar_t> Aref_data;
     std::vector<real_t> Wref_data;
     slate::HermitianMatrix<scalar_t> Aref;
     if (check || ref) {
         Aref_data.resize( A_data.size() );
-#if 0
-        Zref_data.resize( Z_data.size(), 0 );
-#endif
-        Zref_data.resize( lldZ * nlocZ, 0 );
         Wref_data.resize( W_data.size() );
         Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         slate::copy( A, Aref );
@@ -209,7 +161,7 @@ void test_heev_work(Params& params, bool run)
 
         //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::heev(jobz, A, W_data, Q, opts);
+        // slate::heev(jobz, A, W_data, Z, opts);
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -220,9 +172,7 @@ void test_heev_work(Params& params, bool run)
 
         if (verbose > 1) {
             print_matrix( "A",  A  );
-#if 0
-            print_matrix( "Z",  Z  );
-#endif
+            print_matrix( "Z",  Z  ); //Relevant when slate::eig_vals takes Z
         }
     }
 
@@ -254,11 +204,6 @@ void test_heev_work(Params& params, bool run)
             scalapack_descinit(Z_desc, n, n, nb, nb, izero, izero, ictxt, mlocZ, &info);
             slate_assert(info == 0);
 
-#if 0
-            int Q_desc[9];
-            scalapack_descinit(Q_desc, n, n, nb, nb, izero, izero, ictxt, mlocQ, &info);
-            slate_assert(info == 0);
-#endif
              // set num threads appropriately for parallel BLAS if possible
             int omp_num_threads = 1;
             #pragma omp parallel
@@ -273,7 +218,7 @@ void test_heev_work(Params& params, bool run)
             scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
                             &Aref_data[0], ione, ione, A_desc,
                             &Wref_data[0], // global output
-                            &Zref_data[0], // local output
+                            &Z_data[0], // local output
                             ione, ione, Z_desc,
                             &work[0], -1, &rwork[0], -1, &info_tst);
             slate_assert(info_tst == 0);
@@ -289,7 +234,7 @@ void test_heev_work(Params& params, bool run)
             scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
                             &Aref_data[0], ione, ione, A_desc,
                             &Wref_data[0],
-                            &Zref_data[0], ione, ione, Z_desc,
+                            &Z_data[0], ione, ione, Z_desc,
                             &work[0], lwork, &rwork[0], lrwork, &info_tst);
             slate_assert(info_tst == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
@@ -303,28 +248,22 @@ void test_heev_work(Params& params, bool run)
             // Perform a local operation to get differences W_data = W_data - Wref_data
             blas::axpy(Wref_data.size(), -1.0, &Wref_data[0], 1, &W_data[0], 1);
 
-            real_t reduced_error;
             real_t local_error;
             // Relative forward error: || Wref_data - W_data || / || Wref_data ||
-            local_error = lapack::lange(norm, 1, W_data.size(), &W_data[0], 1)
-                        / lapack::lange(norm, 1, Wref_data.size(), &Wref_data[0], 1);
+            local_error = blas::asum(n, &W_data[0], 1)
+                        / blas::asum(n, &Wref_data[0], 1);
 
             real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
 
             if (local_error > tol) {
                 printf("\nOn MPI Rank = %d, the eigenvalues are suspicious, the error is  %e \n",
-                    A.mpiRank(), params.error());
+                    A.mpiRank(), local_error);
                 //for (int64_t i = 0; i < n; i++) {
                 //    printf("\n %f", W_data[i]);
                 //}
             }
 
-            slate_mpi_call(
-                MPI_Allreduce( &local_error, &reduced_error,
-                            1, slate::mpi_type<real_t>::value,
-                            MPI_MAX, A.mpiComm()));
-
-            params.error() = reduced_error;
+            params.error() = local_error;
             params.okay() = (params.error() <= tol);
 
             Cblacs_gridexit(ictxt);

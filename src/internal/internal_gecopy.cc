@@ -287,7 +287,7 @@ void copy(internal::TargetType<Target::Devices>,
             }
 
             // Usually the output matrix (B) provides all the batch arrays.
-            // Here we are using A, because of the differen types.
+            // Here we are using A, because of the different types.
             src_scalar_t** a_array_dev = A.array_device(device, queue_index);
             dst_scalar_t** b_array_dev = B.array_device(device, queue_index);
 

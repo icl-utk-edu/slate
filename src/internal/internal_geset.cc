@@ -194,7 +194,7 @@ void set(internal::TargetType<Target::Devices>,
             }
             A.tileGetForWriting(A_tiles_set, device, LayoutConvert(layout));
 
-            scalar_t** a_array_host = A.array_host(device);
+            scalar_t** a_array_host = A.array_host(device, queue_index);
 
             int64_t batch_count = 0;
             int64_t mb[8], nb[8], lda[8], group_count[8];
@@ -235,7 +235,7 @@ void set(internal::TargetType<Target::Devices>,
                 }
             }
 
-            scalar_t** a_array_dev = A.array_device(device);
+            scalar_t** a_array_dev = A.array_device(device, queue_index);
 
             blas::Queue* queue = A.compute_queue(device, queue_index);
 

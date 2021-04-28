@@ -218,7 +218,7 @@ void geadd(internal::TargetType<Target::Devices>,
             #pragma omp taskwait
 
             int64_t batch_size = A_tiles_set.size();
-            scalar_t** a_array_host = B.array_host(device);
+            scalar_t** a_array_host = B.array_host(device, queue_index);
             scalar_t** b_array_host = a_array_host + batch_size;
 
             int64_t batch_count = 0;
@@ -244,7 +244,7 @@ void geadd(internal::TargetType<Target::Devices>,
             }
             slate_assert(batch_count == batch_size);
 
-            scalar_t** a_array_dev = B.array_device(device);
+            scalar_t** a_array_dev = B.array_device(device, queue_index);
             scalar_t** b_array_dev = a_array_dev + batch_size;
 
             blas::Queue* queue = A.compute_queue(device, queue_index);

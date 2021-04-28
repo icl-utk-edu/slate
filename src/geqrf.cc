@@ -55,11 +55,9 @@ void geqrf(slate::internal::TargetType<target>,
 
     if (target == Target::Devices) {
         const int64_t batch_size_zero = 0; // use default batch size
-        const int64_t num_queues = 40 + lookahead; // FIXME use less number of queues
-        //A.allocateBatchArrays();
+        const int64_t num_queues = 3 + lookahead;
         A.allocateBatchArrays(batch_size_zero, num_queues);
         A.reserveDeviceWorkspace();
-        //W.allocateBatchArrays();
         W.allocateBatchArrays(batch_size_zero, num_queues);
         // todo: this is demanding too much device workspace memory
         // only one tile-row of matrix W per MPI process is going to be used,
@@ -173,7 +171,7 @@ void geqrf(slate::internal::TargetType<target>,
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, j), 
-                                    priority_one, (k+1)*A.mt()+j);
+                                    priority_one, j-k+1);
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmqr handles the tile broadcasting internally
@@ -202,7 +200,7 @@ void geqrf(slate::internal::TargetType<target>,
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, A_nt-1),
-                                    priority_zero, (k+1)*A.mt()+j);
+                                    priority_zero, j-k+1);
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmqr handles the tile broadcasting internally

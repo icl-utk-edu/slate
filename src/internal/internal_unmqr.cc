@@ -47,13 +47,6 @@ void unmqr(internal::TargetType<target>,
            Matrix<scalar_t>& W,
            int priority=0, int64_t queue_index=0)
 {
-
-    if (target == slate::Target::Devices){
-        std::cout << "Device queue:" << queue_index << std::endl;
-    }
-    if (target == slate::Target::HostTask){
-        std::cout << "Host queue:" << queue_index << std::endl;
-    }
     const scalar_t one = 1;
 
     int64_t mt = C.mt();

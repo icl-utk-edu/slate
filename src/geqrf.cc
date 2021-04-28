@@ -168,18 +168,16 @@ void geqrf(slate::internal::TargetType<target>,
                 {
                     // Apply local reflectors
                     internal::unmqr<target>(
-                    //internal::unmqr<Target::HostTask>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, j), 
                                     priority_one, (k+1)*A.mt()+j);
-                    std::cout << "LA queue:" << (k+1)*A.mt()+j << std::endl;
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmqr handles the tile broadcasting internally
-                    if(0)internal::ttmqr<Target::HostTask>(
+                    internal::ttmqr<Target::HostTask>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
@@ -187,7 +185,6 @@ void geqrf(slate::internal::TargetType<target>,
                                     j);
                 }
             }
-            #pragma omp taskwait
 
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
@@ -206,7 +203,6 @@ void geqrf(slate::internal::TargetType<target>,
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, A_nt-1),
                                     priority_zero, (k+1)*A.mt()+j);
-                    std::cout << "TMU queue:" << (k+1)*A.mt()+j << std::endl;
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmqr handles the tile broadcasting internally
@@ -225,7 +221,6 @@ void geqrf(slate::internal::TargetType<target>,
     }
 
     A.releaseWorkspace();
-    std::cout << "geqrf finished" << std::endl;
 }
 
 } // namespace specialization

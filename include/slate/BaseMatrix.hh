@@ -612,7 +612,6 @@ protected:
 
     /// shared storage of tiles and buffers
     std::shared_ptr< MatrixStorage<scalar_t> > storage_;
-
     // ----- consider where to put these, here or in MatrixStorage
     static int host_num_;
     static int num_devices_;
@@ -2498,7 +2497,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
                                    bool async)
 {
     // todo: need to acquire read access to the TilesMap
-    // LockGuard guard(storage_->tiles_.get_lock());
+    // LockGuard guard2(storage_->getTilesMapLock());
 
     TileInstance<scalar_t>* src_tile_instance = nullptr;
     Layout target_layout = Layout::ColMajor; // default value to silence compiler warning

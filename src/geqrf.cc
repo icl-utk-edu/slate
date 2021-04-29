@@ -31,6 +31,7 @@ void geqrf(slate::internal::TargetType<target>,
            int64_t ib, int max_panel_threads, int64_t lookahead)
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
+    using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
     using blas::real;
 
@@ -39,6 +40,8 @@ void geqrf(slate::internal::TargetType<target>,
 
     const int priority_zero = 0;
     const int priority_one = 1;
+    const int life_factor_one = 1;
+    const bool is_shared = lookahead > 0;  // Do tileGetAndHold in the bcast
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
@@ -141,7 +144,7 @@ void geqrf(slate::internal::TargetType<target>,
                         for (int64_t row : first_indices) {
                             bcast_list_T.push_back({row, k, {Tlocal.sub(row, row, k+1, A_nt-1)}});
                         }
-                        Tlocal.template listBcast(bcast_list_T, layout);
+                        Tlocal.template listBcast(bcast_list_T, layout, k, life_factor_one, is_shared);
                     }
 
                     // bcast Treduce across row for trailing matrix update
@@ -153,6 +156,22 @@ void geqrf(slate::internal::TargetType<target>,
                         }
                         Treduce.template listBcast(bcast_list_T, layout);
                     }
+
+                    BcastListTag bcast_list_A;
+                    for (int64_t i = k; i < A_nt; ++i) {
+                        // send A(i, k) across row A(i, k+1:nt-1) and
+                        //                down col A(i:mt-1, i) with msg tag i
+                        bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1),
+                                A.sub(i, A_mt-1, i, i)},
+                                i});
+                    }
+
+                    // "is_shared" is to request copying the tiles to the devices,
+                    // and set them on-hold, which avoids releasing them by
+                    // internal functions
+                    // (avoiding possible race condition)
+                    A.template listBcastMT<Target::Devices>(
+                            bcast_list_A, layout, life_factor_one, is_shared);
                 }
             }
 

@@ -16,6 +16,42 @@ namespace internal {
 namespace specialization {
 
 //------------------------------------------------------------------------------
+/// An auxiliary routine to release the panel tiles that are broadcasted. Since
+/// the broadcasted tiles are flagged to be hold on the devices memories to be
+/// accessed by multiple internal kernels while preventing the tileRelease call
+/// in these routine to release them before the others finish accessing
+/// them. Note: this function update the tiles origin to make sure that
+/// the origin memory is up-to-date and the coherency is kept consistent
+/// across multiple address spaces.
+/// @param[in] A
+///     The matrix $A$, which is a sub of the input matrix $A$.
+///
+/// @param[in] k
+///     Current column k of the input matrix $A$.
+///
+/// @ingroup geqrf_specialization
+///
+template <typename scalar_t>
+void geqrfReleasePanel(Matrix<scalar_t> A, int64_t k)
+{
+    int64_t A_mt = A.mt();
+    int64_t A_nt = A.nt();
+    for (int64_t i = k; i < A_nt; ++i) {
+        if (A.tileIsLocal(i, k)) {
+            A.tileUpdateOrigin(i, k);
+
+            std::set<int> dev_set;
+            A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
+            A.sub(i, A_mt-1, i, i).getLocalDevices(&dev_set);
+
+            for (auto device : dev_set) {
+                A.tileUnsetHold(i, k, device);
+                A.tileRelease(i, k, device);
+            }
+        }
+    }
+}
+//------------------------------------------------------------------------------
 /// Distributed parallel QR factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
@@ -229,6 +265,19 @@ void geqrf(slate::internal::TargetType<target>,
                                     std::move(Tr_panel),
                                     std::move(A_trail_j),
                                     j);
+                }
+            }
+            // update the status of the on-hold tiles held by the invocation of
+            // the tileBcast routine, and then release them to free up memory
+            // the origin must be updated with the latest modified copy.
+            // for memory consistency
+            // TODO: find better solution to handle tile release, and
+            //       investigate the correctness of the task dependency
+            if (lookahead > 0 && k >= lookahead) {
+                #pragma omp task depend(in:block[k]) \
+                                 depend(inout:block[k+1])
+                {
+                    geqrfReleasePanel(A, k - lookahead);
                 }
             }
         }

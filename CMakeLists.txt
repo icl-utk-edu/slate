@@ -195,7 +195,7 @@ target_link_libraries( slate_lapack_api PUBLIC slate )
 
 #-------------------------------------------------------------------------------
 # CUDA support.
-set( cuda_found false )
+set( slate_use_cuda false )  # output in slateConfig.cmake.in
 if (gpu_backend MATCHES "^(auto|cuda)$")
     include( CheckLanguage )
     check_language( CUDA )
@@ -205,6 +205,7 @@ if (gpu_backend MATCHES "^(auto|cuda)$")
 endif()
 if (CMAKE_CUDA_COMPILER)
     enable_language( CUDA )
+    set( slate_use_cuda true )
 
     if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.18)
         # CUDA architectures required in CMake 3.18
@@ -252,7 +253,7 @@ endif()
 
 #-------------------------------------------------------------------------------
 # HIP/ROCm support.
-set( hip_found false )
+set( slate_use_hip false )  # output in slateConfig.cmake.in
 if (NOT CMAKE_CUDA_COMPILER
     AND gpu_backend MATCHES "^(auto|hip)$")
 
@@ -270,6 +271,7 @@ if (HIP_FOUND)
     # which both need to be found
     # https://github.com/ROCm-Developer-Tools/HIP/issues/1029
     find_package( hip REQUIRED )
+    set( slate_use_hip true )
 
     # For ROCm >= 3.5, wipe hip-clang specific interface options which are propagated
     set_target_properties( hip::device PROPERTIES INTERFACE_COMPILE_OPTIONS "-fPIC" )
@@ -367,6 +369,7 @@ target_include_directories(
 )
 
 # OpenMP support.
+set( slate_use_openmp false )  # output in slateConfig.cmake.in
 if (NOT use_openmp)
     message( STATUS "User has requested to NOT use OpenMP" )
 else()
@@ -374,6 +377,7 @@ else()
 endif()
 if (OpenMP_CXX_FOUND)
     target_link_libraries( slate PUBLIC "OpenMP::OpenMP_CXX" )
+    set( slate_use_openmp true )
 else()
     message( STATUS "No OpenMP support in SLATE" )
     target_sources(
@@ -385,6 +389,7 @@ endif()
 
 # MPI support.
 # CXX means MPI C API being usable from C++, not the MPI-2 C++ API.
+set( slate_use_mpi false )  # output in slateConfig.cmake.in
 if (NOT use_mpi)
     message( STATUS "User has requested to NOT use MPI" )
 else()
@@ -393,6 +398,7 @@ else()
 endif()
 if (MPI_FOUND)
     target_link_libraries( slate PUBLIC MPI::MPI_CXX )
+    set( slate_use_mpi true )
 
     # Remove Open MPI flags that are incompatible with nvcc (-fexceptions).
     get_target_property( mpi_cxx_defines MPI::MPI_CXX INTERFACE_COMPILE_OPTIONS )

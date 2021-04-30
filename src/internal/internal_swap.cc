@@ -490,18 +490,14 @@ void permuteRows(
                 blas::set_device(device);
                 blas::Queue* compute_queue = A.compute_queue(device, queue_index);
 
+                // this is likely an over estimation
                 int64_t max_nb = A.tileNb(0);
-                int64_t max_mb = A.tileMb(0);
                 for (int64_t j = 1; j < A.nt(); ++j) {
                     max_nb = std::max(max_nb, A.tileNb(j));
                 }
-                for (int64_t i = 1; i < A.mt(); ++i) {
-                    max_mb = std::max(max_mb, A.tileMb(i));
-                }
 
-                // This likely over allocates, especially if the tiles are non-uniform
-                // However, it significantly reduces the complexity of computing the size
-                scalar_t* remote_rows_dev = blas::device_malloc<scalar_t>(max_mb*max_nb);
+                scalar_t* remote_rows_dev
+                            = A.allocWorkspaceBuffer(device, A.tileMb(0)*max_nb);
 
 
                 // Apply pivots forward (0, ..., k-1) or reverse (k-1, ..., 0)
@@ -710,7 +706,7 @@ void permuteRows(
                     MPI_Type_free(&row_type);
                 }
                 compute_queue->sync();
-                blas::device_free(remote_rows_dev);
+                A.freeWorkspaceBuffer(device, remote_rows_dev);
             }
         }
         #pragma omp taskwait

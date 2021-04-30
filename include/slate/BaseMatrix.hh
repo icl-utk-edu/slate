@@ -222,6 +222,9 @@ public:
         return tileInsertWorkspace(i, j, host_num_, layout_);
     }
 
+    scalar_t* allocWorkspaceBuffer(int device, int64_t size);
+    void freeWorkspaceBuffer(int device, scalar_t* buffer);
+
     //--------------------------------------------------------------------------
     // MOSI
 private:
@@ -1300,6 +1303,17 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsertWorkspace(
     auto index = globalIndex(i, j, device);
     auto& tile_instance = storage_->tileInsert(index, TileKind::Workspace, layout);
     return tile_instance.tile();
+}
+
+template<typename scalar_t>
+scalar_t* BaseMatrix<scalar_t>::allocWorkspaceBuffer(int device, int64_t size) {
+    assert(size <= storage_->tileMb(0)*storage_->tileNb(0));
+    return storage_->allocWorkspaceBuffer(device);
+}
+
+template<typename scalar_t>
+void BaseMatrix<scalar_t>::freeWorkspaceBuffer(int device, scalar_t* buffer) {
+    storage_->releaseWorkspaceBuffer(buffer, device);
 }
 
 //------------------------------------------------------------------------------

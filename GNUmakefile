@@ -144,6 +144,11 @@ ifneq ($(cuda),1)
     endif
 endif
 
+# Default LD=ld won't work; use CXX. Can override in make.inc or environment.
+ifeq ($(origin LD),default)
+    LD = $(CXX)
+endif
+
 # auto-detect OS
 # $OSTYPE may not be exported from the shell, so echo it
 ostype := $(shell echo $${OSTYPE})
@@ -829,7 +834,7 @@ $(libslate_a): $(libslate_obj)
 
 $(libslate_so): $(libslate_obj)
 	mkdir -p lib
-	$(CXX) $(LDFLAGS) \
+	$(LD) $(LDFLAGS) \
 		$(libslate_obj) \
 		$(LIBS) \
 		-shared $(install_name) -o $@
@@ -865,7 +870,7 @@ test/clean:
 	rm -f $(tester) $(tester_obj)
 
 $(tester): $(tester_obj) $(libslate) $(testsweeper)
-	$(CXX) $(TEST_LDFLAGS) $(LDFLAGS) $(tester_obj) \
+	$(LD) $(TEST_LDFLAGS) $(LDFLAGS) $(tester_obj) \
 		$(TEST_LIBS) $(LIBS) \
 		-o $@
 
@@ -884,7 +889,7 @@ unit_test/clean:
 	rm -f $(unit_test) $(unit_obj) $(unit_test_obj)
 
 $(unit_test): %: %.o $(unit_test_obj) $(libslate)
-	$(CXX) $(UNIT_LDFLAGS) $(LDFLAGS) $< \
+	$(LD) $(UNIT_LDFLAGS) $(LDFLAGS) $< \
 		$(unit_test_obj) $(UNIT_LIBS) $(LIBS)  \
 		-o $@
 
@@ -934,7 +939,7 @@ $(scalapack_api_a): $(scalapack_api_obj) $(libslate)
 	ranlib $@
 
 $(scalapack_api_so): $(scalapack_api_obj) $(libslate)
-	$(CXX) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $(scalapack_api_obj) \
+	$(LD) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $(scalapack_api_obj) \
 		$(SCALAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
@@ -986,7 +991,7 @@ $(lapack_api_a): $(lapack_api_obj) $(libslate)
 	ranlib $@
 
 $(lapack_api_so): $(lapack_api_obj) $(libslate)
-	$(CXX) $(LAPACK_API_LDFLAGS) $(LDFLAGS) $(lapack_api_obj) \
+	$(LD) $(LAPACK_API_LDFLAGS) $(LDFLAGS) $(lapack_api_obj) \
 		$(LAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
@@ -1143,6 +1148,7 @@ echo:
 	@echo "have_fortran  = $(have_fortran)"
 	@echo
 	@echo "---------- Link flags"
+	@echo "LD            = $(LD)"
 	@echo "LDFLAGS       = $(LDFLAGS)"
 	@echo "LIBS          = $(LIBS)"
 	@echo

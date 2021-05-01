@@ -1,4 +1,4 @@
-# Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+# Copyright (c) 2017-2021, University of Tennessee. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -13,8 +13,9 @@ Requires Python >= 3.7.
 
 Usage:
 
-    #!/usr/bin/env python
+    #!/usr/bin/env python3
     import release
+    release.copyright()
     release.make( 'project', 'version.h', 'version.c' )
 
 'project' is the name of the project, used for the tar filename.
@@ -97,6 +98,35 @@ def file_sub( filename, search, replace, **kwargs ):
 # end
 
 #-------------------------------------------------------------------------------
+def copyright():
+    '''
+    Update copyright in all files.
+    '''
+    today = datetime.date.today()
+    year  = today.year
+
+    files = myrun( 'git ls-tree -r master --name-only',
+                   stdout=PIPE, text=True ).rstrip().split( '\n' )
+    print( '\n>> Updating copyright in:', end=' ' )
+    for file in files:
+        print( file, end=', ' )
+        file_sub( file,
+                  r'Copyright \(c\) (\d+)(-\d+)?, University of Tennessee',
+                  r'Copyright (c) \1-%04d, University of Tennessee' % (year) )
+    # end
+    print()
+
+    myrun( 'git diff' )
+    print( '>> Commit changes [yn]? ', end='' )
+    response = input()
+    if (response != 'y'):
+        print( '>> Release aborted. Please revert changes as desired.' )
+        exit(1)
+
+    myrun( ['git', 'commit', '-m', 'copyright '+ str(year), '.'] )
+# end
+
+#-------------------------------------------------------------------------------
 def make( project, version_h, version_c ):
     '''
     Makes project release.
@@ -121,6 +151,13 @@ def make( project, version_h, version_c ):
     print( '\n>> Tag '+ tag +', Version '+ version )
 
     #--------------------
+    # Check change log
+    txt = open( 'CHANGELOG.md' ).read()
+    if (not re.search( tag, txt )):
+        print( '>> Add', tag, 'to CHANGELOG.md. Release aborted.' )
+        exit(1)
+
+    #--------------------
     # Update version in version_h.
     # TODO update in CMakeLists.txt?
     print( '\n>> Updating version in:', version_h )
@@ -138,20 +175,10 @@ def make( project, version_h, version_c ):
               r'VERSION \d\d\d\d.\d\d.\d\d',
               r'VERSION %s' % (tag), count=1 )
 
-    # Update copyright in all files.
-    files = myrun( 'git ls-tree -r master --name-only',
-                   stdout=PIPE, text=True ).rstrip().split( '\n' )
-    files.remove( 'blaspp' )
-    files.remove( 'lapackpp' )
-    files.remove( 'testsweeper' )
-    print( '\n>> Updating copyright in:', end=' ' )
-    for file in files:
-        print( file, end=', ' )
-        file_sub( file,
-                  r'Copyright \(c\) (\d+)(-\d+)?, University of Tennessee',
-                  r'Copyright (c) \1-%04d, University of Tennessee' % (year) )
-    # end
-    print()
+    print( '\n>> Updating version in: doxyfile.conf' )
+    file_sub( 'docs/doxygen/doxyfile.conf',
+              r'(PROJECT_NUMBER *=) *"\d+\.\d+\.\d+"',
+              r'\1 "%s"' % (tag), count=1 )
 
     myrun( 'git diff' )
     myrun( 'git diff --staged' )

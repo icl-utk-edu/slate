@@ -612,7 +612,7 @@ protected:
 
     /// shared storage of tiles and buffers
     std::shared_ptr< MatrixStorage<scalar_t> > storage_;
-    
+
     // ----- consider where to put these, here or in MatrixStorage
     static int host_num_;
     static int num_devices_;

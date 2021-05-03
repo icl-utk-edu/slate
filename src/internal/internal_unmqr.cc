@@ -152,11 +152,6 @@ void unmqr(internal::TargetType<target>,
         if (op != Op::NoTrans) {
             T0tr = conjTranspose(T0tr);
         }
-        // Prevent trmm releasing T
-        if (target == Target::Devices) {
-            // todo: release the hold later
-            T0tr.tileGetAndHoldAllOnDevices(LayoutConvert::None);
-        }
 
         // --------------------
         // 1. W = V^H C

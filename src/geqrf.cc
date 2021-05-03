@@ -51,6 +51,7 @@ void geqrfReleasePanel(Matrix<scalar_t> A, int64_t k)
         }
     }
 }
+
 //------------------------------------------------------------------------------
 /// Distributed parallel QR factorization.
 /// Generic implementation for any target.
@@ -193,21 +194,30 @@ void geqrf(slate::internal::TargetType<target>,
                         Treduce.template listBcast(bcast_list_T, layout);
                     }
 
-                    BcastListTag bcast_list_A;
-                    for (int64_t i = k; i < A_nt; ++i) {
-                        // send A(i, k) across row A(i, k+1:nt-1) and
-                        //                down col A(i:mt-1, i) with msg tag i
-                        bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1),
-                                A.sub(i, A_mt-1, i, i)},
-                                i});
-                    }
+                    if (target == Target::Devices) {
+                        BcastListTag bcast_list_A;
+                        for (int64_t i = k; i < A_nt; ++i) {
+                            // send A(i, k) across row A(i, k:nt-1) and
+                            //                down col A(i:mt-1, i) with msg tag i
+                            bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1), 
+                                                           A.sub(i, A_mt-1, i, i)}, i});
+                        }
 
-                    // "is_shared" is to request copying the tiles to the devices,
-                    // and set them on-hold, which avoids releasing them by
-                    // internal functions
-                    // (avoiding possible race condition)
-                    A.template listBcastMT<Target::Devices>(
-                            bcast_list_A, layout, life_factor_one, is_shared);
+                        // "is_shared" is to request copying the tiles to the devices,
+                        // and set them on-hold, which avoids releasing them by
+                        // internal functions
+                        // (avoiding possible race condition)
+                        A.template listBcastMT<Target::Devices>(
+                                bcast_list_A, layout, life_factor_one, is_shared);
+                    }
+                }
+                // Prevent trmm's in lookahead and trailing submatrix
+                // from releasing Tl_panel's first triangular tile
+                if (target == Target::Devices) {
+                    if (lookahead > 0) {
+                        auto device = Tl_panel.tileDevice(0, 0);
+                        Tl_panel.tileGetAndHold(0, 0, device, LayoutConvert::None);
+                    }
                 }
             }
 
@@ -267,17 +277,27 @@ void geqrf(slate::internal::TargetType<target>,
                                     j);
                 }
             }
-            // update the status of the on-hold tiles held by the invocation of
-            // the tileBcast routine, and then release them to free up memory
-            // the origin must be updated with the latest modified copy.
-            // for memory consistency
-            // TODO: find better solution to handle tile release, and
-            //       investigate the correctness of the task dependency
-            if (lookahead > 0 && k >= lookahead) {
-                #pragma omp task depend(in:block[k]) \
-                                 depend(inout:block[k+1])
-                {
-                    geqrfReleasePanel(A, k - lookahead);
+            if (target == Target::Devices) {
+                // update the status of the on-hold tiles held by the invocation of
+                // the tileBcast routine, and then release them to free up memory
+                // the origin must be updated with the latest modified copy.
+                // for memory consistency
+                // TODO: find better solution to handle tile release, and
+                //       investigate the correctness of the task dependency
+                if (lookahead > 0 && k >= lookahead) {
+                    #pragma omp task depend(in:block[k]) \
+                        depend(inout:block[k+1])
+                    {
+                        geqrfReleasePanel(A, k - lookahead);
+                    }
+                }
+                if (lookahead > 0) {
+                    #pragma omp task depend(in:block[k]) \
+                        depend(inout:block[k+1])
+                    {
+                        auto device = Tl_panel.tileDevice(0, 0);
+                        Tl_panel.tileUnsetHold(0, 0, device);
+                    }
                 }
             }
         }

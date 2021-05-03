@@ -270,21 +270,6 @@ void test_heev_work(Params& params, bool run)
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
-
-        // todo: shouldn't all ranks have the same error & okay status?
-        // main should check that ranks agree.
-        printf( "rank %d, error %9.2e\n", A.mpiRank(), params.error());
-        if (! params.okay()) {
-            printf("rank %d: eigenvalues are suspicious, error = %9.2e\n",
-                   A.mpiRank(), params.error());
-            if (verbose) {
-                printf("[err, W_ref] = [\n");
-                for (int64_t i = 0; i < n; i++) {
-                    printf("%9.2e,  %9.2e\n", W_tst[i], W_ref[i]);
-                }
-                printf("];\n");
-            }
-        }
     }
 
     Cblacs_gridexit(ictxt);

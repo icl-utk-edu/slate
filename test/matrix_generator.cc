@@ -1379,7 +1379,35 @@ void generate_matrix(
     }
 }
 
+// -----------------------------------------------------------------------------
+/// Generates an m-by-n Hertitian-storage test matrix.
+/// Handles Hermitian matrices.
+/// Diagonal elements of a Hermitian matrix must be real;
+/// their imaginary part must be 0.
+/// @see generate_matrix
+/// @ingroup generate_matrix
+///
+template <typename scalar_t>
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Sigma )
+{
+    slate::BaseTrapezoidMatrix<scalar_t>& TZ = A;
+    generate_matrix( params, TZ, Sigma );
 
+    // Set diagonal to real.
+    #pragma omp parallel for
+    for (int i = 0; i < A.mt(); ++i) {
+        if (A.tileIsLocal( i, i )) {
+            auto T = A( i, i );
+            int64_t mb = T.mb();
+            for (int ii = 0; ii < mb; ++ii) {
+                T.at( ii, ii ) = std::real( T( ii, ii ) );
+            }
+        }
+    }
+}
 // -----------------------------------------------------------------------------
 /// Overload without Sigma.
 /// @see generate_matrix()
@@ -1409,6 +1437,19 @@ void generate_matrix(
     generate_matrix( params, A, dummy );
 }
 
+/// Overload without Sigma.
+/// @see generate_matrix()
+/// @ingroup generate_matrix
+///
+template <typename scalar_t>
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<scalar_t>& A )
+{
+    using real_t = blas::real_type<scalar_t>;
+    std::vector<real_t> dummy;
+    generate_matrix( params, A, dummy );
+}
 // -----------------------------------------------------------------------------
 // explicit instantiations
 template
@@ -1450,6 +1491,26 @@ template
 void generate_matrix(
     MatrixParams& params,
     slate::BaseTrapezoidMatrix< std::complex<double> >& A);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<float>& A);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<double>& A);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix< std::complex<float> >& A);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix< std::complex<double> >& A);
 
 template
 void decode_matrix<float>(

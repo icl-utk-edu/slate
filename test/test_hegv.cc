@@ -357,8 +357,12 @@ void test_hegv_work(Params& params, bool run)
             // query for workspace size
             int64_t info_tst = 0;
             int64_t lwork = -1, lrwork = -1, liwork=-1;
-            std::vector<scalar_t> work(1);
-            std::vector<real_t> rwork(1);
+            // For the query, it should be work(3) and rwork(3), since
+            // work and rwork have dimension max(3,LWORK) and max(3,LRWORK) in
+            // http://www.netlib.org/scalapack/explore-html/db/d5b/pdsygvx_8f_source.html
+            // http://www.netlib.org/scalapack/explore-html/d7/dff/pzhegvx_8f_source.html
+            std::vector<scalar_t> work(3);
+            std::vector<real_t> rwork(3);
             std::vector<int> iwork(1);
             std::vector<int> ifail(n);
             std::vector<int> iclustr(2*p*q);

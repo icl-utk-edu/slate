@@ -1398,11 +1398,11 @@ void generate_matrix(
 
     // Set diagonal to real.
     #pragma omp parallel for
-    for (int i = 0; i < A.mt(); ++i) {
+    for (int64_t i = 0; i < A.mt(); ++i) {
         if (A.tileIsLocal( i, i )) {
             auto T = A( i, i );
             int64_t mb = T.mb();
-            for (int ii = 0; ii < mb; ++ii) {
+            for (int64_t ii = 0; ii < mb; ++ii) {
                 T.at( ii, ii ) = std::real( T( ii, ii ) );
             }
         }

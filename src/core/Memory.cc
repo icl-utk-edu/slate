@@ -178,8 +178,6 @@ void* Memory::allocBlock(int device)
 void* Memory::allocHostMemory(size_t size)
 {
     void* host_mem;
-    //slate_cuda_call(
-    //    cudaMallocHost(&host_mem, size));
     host_mem = malloc(size);
     assert(host_mem != nullptr);
     allocated_mem_[host_num_].push(host_mem);
@@ -192,12 +190,8 @@ void* Memory::allocHostMemory(size_t size)
 ///
 void* Memory::allocDeviceMemory(int device, size_t size)
 {
-    slate_cuda_call(
-        cudaSetDevice(device));
-
-    double* dev_mem;
-    slate_cuda_call(
-        cudaMalloc((void**)&dev_mem, size));
+    blas::set_device(device);
+    void* dev_mem = blas::device_malloc<char>(size);
     allocated_mem_[device].push(dev_mem);
 
     return dev_mem;
@@ -209,8 +203,6 @@ void* Memory::allocDeviceMemory(int device, size_t size)
 void Memory::freeHostMemory(void* host_mem)
 {
     std::free(host_mem);
-    //slate_cuda_call(
-    //    cudaFreeHost(host_mem));
 }
 
 //------------------------------------------------------------------------------
@@ -218,10 +210,8 @@ void Memory::freeHostMemory(void* host_mem)
 ///
 void Memory::freeDeviceMemory(int device, void* dev_mem)
 {
-    slate_cuda_call(
-        cudaSetDevice(device));
-    slate_cuda_call(
-        cudaFree(dev_mem));
+    blas::set_device(device);
+    blas::device_free(dev_mem);
 }
 
 } // namespace slate

@@ -9,8 +9,6 @@
 #ifndef SLATE_ENUMS_HH
 #define SLATE_ENUMS_HH
 
-#include <vector>
-
 #include <blas.hh>
 #include <lapack.hh>
 

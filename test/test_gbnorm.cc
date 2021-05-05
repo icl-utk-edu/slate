@@ -55,10 +55,6 @@ void test_gbnorm_work(Params& params, bool run)
         printf("skipping: currently only origin=scalapack is supported\n");
         return;
     }
-    if (target == slate::Target::Devices) {
-        printf("skipping: currently target=devices is not supported\n");
-        return;
-    }
 
     slate::Options const opts =  {
         {slate::Option::Target, target}

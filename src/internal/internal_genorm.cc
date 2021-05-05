@@ -28,11 +28,15 @@ void genorm(
     std::complex<float> const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA)
+#if ! defined(SLATE_NO_CUDA)
     genorm(in_norm, scope, m, n, (cuFloatComplex**) Aarray, lda,
-           values, ldv, batch_count, stream);
+           values, ldv, batch_count, queue);
+
+#elif ! defined(SLATE_NO_HIP)
+    genorm(in_norm, scope, m, n, (hipFloatComplex**) Aarray, lda,
+           values, ldv, batch_count, queue);
 #endif
 }
 
@@ -43,16 +47,20 @@ void genorm(
     std::complex<double> const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA)
+#if ! defined(SLATE_NO_CUDA)
     genorm(in_norm, scope, m, n, (cuDoubleComplex**) Aarray, lda,
-           values, ldv, batch_count, stream);
+           values, ldv, batch_count, queue);
+
+#elif ! defined(SLATE_NO_HIP)
+    genorm(in_norm, scope, m, n, (hipDoubleComplex**) Aarray, lda,
+           values, ldv, batch_count, queue);
 #endif
 }
 
-#if defined(SLATE_NO_CUDA)
-// Specializations to allow compilation without CUDA.
+#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+// Specializations to allow compilation without CUDA or HIP.
 template <>
 void genorm(
     Norm in_norm, NormScope scope,
@@ -60,7 +68,7 @@ void genorm(
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
 }
 
@@ -71,7 +79,7 @@ void genorm(
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
     int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
 }
 #endif // not SLATE_NO_CUDA
@@ -95,11 +103,11 @@ template <Target target, typename scalar_t>
 void norm(
     Norm in_norm, NormScope scope, Matrix<scalar_t>&& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
     norm(internal::TargetType<target>(),
          in_norm, scope, A, values,
-         priority);
+         priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -112,7 +120,7 @@ void norm(
     internal::TargetType<Target::HostTask>,
     Norm in_norm, NormScope scope, Matrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -234,10 +242,10 @@ void norm(
                     for (int64_t j = 0; j < A.nt(); ++j) {
                         int64_t mb = A.tileMb(i);
                         if (A.tileIsLocal(i, j)) {
-                                blas::axpy(
-                                    mb, 1.0,
-                                    &tiles_sums[A.m()*j + ii ], 1,
-                                    &values[ii], 1);
+                            blas::axpy(
+                                mb, 1.0,
+                                &tiles_sums[A.m()*j + ii ], 1,
+                                &values[ii], 1);
                         }
                     }
                     ii += A.tileMb(i);
@@ -262,7 +270,7 @@ void norm(
                             genorm(in_norm, scope, A(i, j), tile_values);
                             #pragma omp critical
                             {
-                                add_sumsq(values[0], values[1],
+                                combine_sumsq(values[0], values[1],
                                           tile_values[0], tile_values[1]);
                             }
                         }
@@ -309,11 +317,11 @@ void norm(
 
         }
         else {
-            slate_error("Not implemented yet");
+            slate_not_implemented("The NormScope isn't yet supported.");
         }
     }
     else {
-        slate_error("Not implemented yet");
+        slate_not_implemented("The NormScope isn't yet supported.");
     }
 }
 
@@ -328,11 +336,11 @@ void norm(
     internal::TargetType<Target::HostNest>,
     Norm in_norm, NormScope scope, Matrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
     using real_t = blas::real_type<scalar_t>;
     if (in_norm != Norm::Max)
-        throw Exception("HostNest has only max norm implemented");
+        slate_not_implemented("The NormScope isn't yet supported.");
 
     // norms assumes column major
     // todo: relax this assumption, a few cases need to be adjusted only
@@ -403,7 +411,7 @@ void norm(
 
     }
     else {
-        slate_error("Not implemented yet");
+        slate_not_implemented("The NormScope isn't yet supported.");
     }
 
 }
@@ -418,7 +426,7 @@ void norm(
     internal::TargetType<Target::Devices>,
     Norm in_norm, NormScope scope, Matrix<scalar_t>& A,
     blas::real_type<scalar_t>* values,
-    int priority)
+    int priority, int queue_index)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -463,32 +471,25 @@ void norm(
             ldv = A.tileNb(0);
         }
         else {
-            slate_error("Not implemented yet");
+            slate_not_implemented("The NormScope isn't yet supported.");
         }
     }
     else {
-        slate_error("Not implemented yet");
+        slate_not_implemented("The NormScope isn't yet supported.");
     }
 
     // TODO: Why are we doing this?
     // Use the batch arrays in the matrix class.
     for (int device = 0; device < A.num_devices(); ++device) {
 
-        slate_cuda_call(
-            cudaSetDevice(device));
-
+        blas::set_device(device);
         int64_t num_tiles = A.getMaxDeviceTiles(device);
 
         a_host_arrays[device].resize(num_tiles);
         vals_host_arrays[device].resize(num_tiles*ldv);
 
-        slate_cuda_call(
-            cudaMalloc((void**)&a_dev_arrays[device],
-                       sizeof(scalar_t*)*num_tiles));
-
-        slate_cuda_call(
-            cudaMalloc((void**)&vals_dev_arrays[device],
-                       sizeof(real_t)*num_tiles*ldv));
+        a_dev_arrays[device] = blas::device_malloc<scalar_t*>(num_tiles);
+        vals_dev_arrays[device] = blas::device_malloc<real_t>(num_tiles*ldv);
     }
 
     // Define index ranges for quadrants of matrix.
@@ -553,15 +554,12 @@ void norm(
             {
                 trace::Block trace_block("slate::device::genorm");
 
-                slate_cuda_call(
-                    cudaSetDevice(device));
+                blas::Queue* queue = A.compute_queue(device, queue_index);
 
-                cudaStream_t stream = A.compute_stream(device);
-                slate_cuda_call(
-                    cudaMemcpyAsync(a_dev_array, a_host_array,
-                                    sizeof(scalar_t*)*batch_count,
-                                    cudaMemcpyHostToDevice,
-                                    stream));
+                blas::device_memcpy<scalar_t*>(a_dev_array, a_host_array,
+                                    batch_count,
+                                    blas::MemcpyKind::HostToDevice,
+                                    *queue);
 
                 for (int q = 0; q < 4; ++q) {
                     if (group_count[q] > 0) {
@@ -569,7 +567,7 @@ void norm(
                                        mb[q], nb[q],
                                        a_dev_array, lda[q],
                                        vals_dev_array, ldv,
-                                       group_count[q], stream);
+                                       group_count[q], *queue);
                         a_dev_array += group_count[q];
                         vals_dev_array += group_count[q] * ldv;
                     }
@@ -577,14 +575,12 @@ void norm(
 
                 vals_dev_array = vals_dev_arrays[device];
 
-                slate_cuda_call(
-                    cudaMemcpyAsync(vals_host_array, vals_dev_array,
-                                    sizeof(real_t)*batch_count*ldv,
-                                    cudaMemcpyDeviceToHost,
-                                    stream));
+                blas::device_memcpy<real_t>(vals_host_array, vals_dev_array,
+                                    batch_count*ldv,
+                                    blas::MemcpyKind::DeviceToHost,
+                                    *queue);
 
-                slate_cuda_call(
-                    cudaStreamSynchronize(stream));
+                queue->sync();
             }
 
             if (scope == NormScope::Matrix) {
@@ -595,7 +591,7 @@ void norm(
                 }
                 else if (in_norm == Norm::Fro) {
                     for (int64_t k = 0; k < batch_count; ++k) {
-                        add_sumsq(devices_values[2*device + 0],
+                        combine_sumsq(devices_values[2*device + 0],
                                   devices_values[2*device + 1],
                                   vals_host_array[2*k + 0],
                                   vals_host_array[2*k + 1]);
@@ -608,12 +604,9 @@ void norm(
     #pragma omp taskwait
 
     for (int device = 0; device < A.num_devices(); ++device) {
-        slate_cuda_call(
-            cudaSetDevice(device));
-        slate_cuda_call(
-            cudaFree((void*)a_dev_arrays[device]));
-        slate_cuda_call(
-            cudaFree((void*)vals_dev_arrays[device]));
+        blas::set_device(device);
+        blas::device_free(a_dev_arrays[device]);
+        blas::device_free(vals_dev_arrays[device]);
     }
 
     if (scope == NormScope::Matrix) {
@@ -678,7 +671,7 @@ void norm(
             values[0] = 0;
             values[1] = 1;
             for (int device = 0; device < A.num_devices(); ++device) {
-                add_sumsq(values[0], values[1],
+                combine_sumsq(values[0], values[1],
                           devices_values[2*device + 0],
                           devices_values[2*device + 1]);
             }
@@ -714,11 +707,11 @@ void norm(
             }
         }
         else {
-            slate_error("Not implemented yet");
+            slate_not_implemented("The NormScope isn't yet supported.");
         }
     }
     else {
-        slate_error("Not implemented yet");
+        slate_not_implemented("The NormScope isn't yet supported.");
     }
 }
 
@@ -729,76 +722,76 @@ template
 void norm<Target::HostTask, float>(
     Norm in_norm, NormScope scope, Matrix<float>&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::HostNest, float>(
     Norm in_norm, NormScope scope, Matrix<float>&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::Devices, float>(
     Norm in_norm, NormScope scope, Matrix<float>&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void norm<Target::HostTask, double>(
     Norm in_norm, NormScope scope, Matrix<double>&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::HostNest, double>(
     Norm in_norm, NormScope scope, Matrix<double>&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm<Target::Devices, double>(
     Norm in_norm, NormScope scope, Matrix<double>&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<float> >(
     Norm in_norm, NormScope scope, Matrix< std::complex<float> >&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::HostNest, std::complex<float> >(
     Norm in_norm, NormScope scope, Matrix< std::complex<float> >&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::Devices, std::complex<float> >(
     Norm in_norm, NormScope scope, Matrix< std::complex<float> >&& A,
     float* values,
-    int priority);
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void norm< Target::HostTask, std::complex<double> >(
     Norm in_norm, NormScope scope, Matrix< std::complex<double> >&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::HostNest, std::complex<double> >(
     Norm in_norm, NormScope scope, Matrix< std::complex<double> >&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 template
 void norm< Target::Devices, std::complex<double> >(
     Norm in_norm, NormScope scope, Matrix< std::complex<double> >&& A,
     double* values,
-    int priority);
+    int priority, int queue_index);
 
 } // namespace internal
 } // namespace slate

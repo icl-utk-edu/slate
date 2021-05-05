@@ -182,7 +182,7 @@ void test_her2k_work(Params& params, bool run)
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
-    double gflop = blas::Gflop< scalar_t >::her2k(n, n);
+    double gflop = blas::Gflop<scalar_t>::her2k(n, k);
     params.time() = time_tst;
     params.gflops() = gflop / time_tst;
 

@@ -43,7 +43,6 @@ void test_gesvd_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
-    slate::Norm norm = params.norm();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -254,8 +253,8 @@ void test_gesvd_work(Params& params, bool run)
         blas::axpy(S_ref.size(), -1.0, &S_ref[0], 1, &S_tst[0], 1);
 
         // Relative forward error: || S_ref - S_tst || / || S_ref ||
-        params.error() = lapack::lange(norm, 1, S_tst.size(), &S_tst[0], 1)
-                       / lapack::lange(norm, 1, S_ref.size(), &S_ref[0], 1);
+        params.error() = blas::asum(minmn, &S_tst[0], 1)
+                       / blas::asum(minmn, &S_ref[0], 1);
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);

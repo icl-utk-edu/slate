@@ -8,8 +8,8 @@
 
 #include "slate/Matrix.hh"
 #include "slate/BaseTrapezoidMatrix.hh"
-#include "slate/internal/cublas.hh"
 
+#include "blas.hh"
 #include "lapack.hh"
 
 #include "scalapack_wrappers.hh"
@@ -72,13 +72,12 @@ void copyTile(
         {
             // Copy from device tile, if it exists, to ScaLAPACK.
             auto Aij = A(i, j, dev);
-            slate_cuda_call(
-                cudaSetDevice(dev));
-            slate_cublas_call(
-                cublasGetMatrix(
-                    Aij.mb(), Aij.nb(), sizeof(scalar_t),
-                    Aij.data(), Aij.stride(),
-                    &B[ ii_local + jj_local*ldb ], ldb ));
+            blas::Queue queue(dev, 0);
+            blas::device_getmatrix(
+                Aij.mb(), Aij.nb(),
+                Aij.data(), Aij.stride(),
+                &B[ ii_local + jj_local*ldb ], ldb, queue);
+            queue.sync();
         }
         else {
             // todo: what to throw?
@@ -123,13 +122,11 @@ void copyTile(
             // Copy from ScaLAPACK to device tile, if it exists.
             A.tileGetForWriting(i, j, dev, slate::LayoutConvert::ColMajor);
             auto Aij = A(i, j, dev);
-            slate_cuda_call(
-                cudaSetDevice(dev));
-            slate_cublas_call(
-                cublasSetMatrix(
-                    Aij.mb(), Aij.nb(), sizeof(scalar_t),
-                    &B[ ii_local + jj_local*ldb ], ldb,
-                    Aij.data(), Aij.stride() ));
+            blas::Queue queue(dev, 0);
+            blas::device_setmatrix(
+                Aij.mb(), Aij.nb(),
+                &B[ ii_local + jj_local*ldb ], ldb,
+                Aij.data(), Aij.stride(), queue);
         }
         else {
             // todo: what to throw?

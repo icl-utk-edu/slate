@@ -159,7 +159,7 @@ void test_herk_work(Params& params, bool run)
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
-    double gflop = blas::Gflop <scalar_t>::herk(n, k);
+    double gflop = blas::Gflop<scalar_t>::herk(n, k);
     params.time() = time_tst;
     params.gflops() = gflop / time_tst;
 

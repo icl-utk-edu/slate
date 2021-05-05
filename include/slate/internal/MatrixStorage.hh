@@ -11,6 +11,7 @@
 #include "slate/types.hh"
 #include "slate/internal/util.hh"
 
+#include "blas.hh"
 #include "lapack.hh"
 
 #include <algorithm>
@@ -20,29 +21,11 @@
 #include <utility>
 #include <vector>
 
-#include "slate/internal/cuda.hh"
-#include "slate/internal/cublas.hh"
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
 #include "slate/internal/LockGuard.hh"
 
 namespace slate {
-
-//------------------------------------------------------------------------------
-/// Type-safe wrapper for cudaMalloc. Throws errors.
-template<typename value_type>
-void slateCudaMalloc(value_type** ptr, size_t nelements)
-{
-    slate_cuda_call(
-        cudaMalloc((void**) ptr, nelements * sizeof(value_type)));
-}
-
-template<typename value_type>
-void slateCudaMallocHost(value_type** ptr, size_t nelements)
-{
-    slate_cuda_call(
-        cudaMallocHost((void**) ptr, nelements * sizeof(value_type)));
-}
 
 //------------------------------------------------------------------------------
 /// A tile state in the MOSI coherency protocol
@@ -327,8 +310,8 @@ public:
 
 protected:
     // used in constructor and destructor
-    void initCudaStreams();
-    void destroyCudaStreams();
+    void initQueues();
+    void destroyQueues();
 
 public:
     //--------------------------------------------------------------------------
@@ -497,10 +480,10 @@ private:
 
     int64_t batch_array_size_;
 
-    // CUDA streams and cuBLAS handles
-    std::vector<cudaStream_t> compute_streams_;
-    std::vector<cudaStream_t> comm_streams_;
-    std::vector<cublasHandle_t> cublas_handles_;
+    // BLAS++ communication queues
+    std::vector< blas::Queue* > comm_queues_;
+    // BLAS++ compute queues
+    std::vector< std::vector< blas::Queue* > > compute_queues_;
 
     // host pointers arrays for batch GEMM
     std::vector< std::vector< scalar_t** > > array_host_;
@@ -556,14 +539,7 @@ MatrixStorage<scalar_t>::MatrixStorage(
         };
     }
 
-    array_host_.resize(1);
-    array_dev_.resize(1);
-
-    array_host_.at(0).resize(num_devices_, nullptr);
-    array_dev_.at(0).resize(num_devices_, nullptr);
-
-    initCudaStreams();
-
+    initQueues();
     omp_init_nest_lock(&lock_);
 }
 
@@ -592,15 +568,7 @@ MatrixStorage<scalar_t>::MatrixStorage(
     host_num_    = memory_.host_num_;
     num_devices_ = memory_.num_devices_;
 
-    array_host_.resize(1);
-    array_dev_.resize(1);
-
-    // todo: factor out this duplicated code.
-    array_host_.at(0).resize(num_devices_, nullptr);
-    array_dev_.at(0).resize(num_devices_, nullptr);
-
-    initCudaStreams();
-
+    initQueues();
     omp_init_nest_lock(&lock_);
 }
 
@@ -612,7 +580,7 @@ MatrixStorage<scalar_t>::~MatrixStorage()
 {
     try {
         clear();
-        destroyCudaStreams();
+        destroyQueues();
         clearBatchArrays();
         omp_destroy_nest_lock(&lock_);
     }
@@ -624,69 +592,60 @@ MatrixStorage<scalar_t>::~MatrixStorage()
 }
 
 //------------------------------------------------------------------------------
-/// Initializes CUDA streams and cuBLAS handles on each device.
+/// Initializes BLAS++ compute and communcation queues on each device.
+/// Also initializes the host and device batch arrays.
 /// Called in constructor.
 ///
 template <typename scalar_t>
-void MatrixStorage<scalar_t>::initCudaStreams()
+void MatrixStorage<scalar_t>::initQueues()
 {
-    compute_streams_.resize(num_devices_);
-    comm_streams_   .resize(num_devices_);
-    cublas_handles_ .resize(num_devices_);
+    comm_queues_   .resize(num_devices_);
+    compute_queues_.resize(1);
 
+    compute_queues_.at(0).resize(num_devices_, nullptr);
     for (int device = 0; device < num_devices_; ++device) {
-        slate_cuda_call(
-            cudaSetDevice(device));
-        slate_cuda_call(
-            cudaStreamCreate(&compute_streams_[device]));
-        // todo: need to have seperate in/out streams (at least), or multiple streams
-        slate_cuda_call(
-            cudaStreamCreate(&comm_streams_[device]));
-
-        // create cuBLAS handles, associated with compute_streams_
-        slate_cublas_call(
-            cublasCreate(&cublas_handles_[device]));
-
-        slate_cublas_call(
-            cublasSetStream(cublas_handles_[device],
-                                          compute_streams_[device]));
+        comm_queues_         [device] = new blas::Queue(device, 0);
+        compute_queues_.at(0)[device] = new blas::Queue(device, 0);
     }
+
+    array_host_.resize(1);
+    array_dev_ .resize(1);
+
+    array_host_.at(0).resize(num_devices_, nullptr);
+    array_dev_ .at(0).resize(num_devices_, nullptr);
 }
 
 //------------------------------------------------------------------------------
-/// Destroys CUDA streams and cuBLAS handles on each device.
+/// Destroys BLAS++ compute and communcation queues on each device.
 /// As this is called in the destructor, it should NOT throw exceptions.
 ///
 template <typename scalar_t>
-void MatrixStorage<scalar_t>::destroyCudaStreams()
+void MatrixStorage<scalar_t>::destroyQueues()
 {
+    int num_queues = int(compute_queues_.size());
     for (int device = 0; device < num_devices_; ++device) {
-        slate_cuda_call(
-            cudaSetDevice(device));
+        delete comm_queues_[device];
+               comm_queues_[device] = nullptr;
 
-        // destroy cuBLAS handles, associated with compute_streams_
-        slate_cublas_call(
-            cublasDestroy(cublas_handles_[device]));
-        cublas_handles_[device] = nullptr;
-
-        // destroy CUDA streams
-        slate_cuda_call(
-            cudaStreamDestroy(compute_streams_[device]));
-        compute_streams_[device] = nullptr;
-
-        slate_cuda_call(
-            cudaStreamDestroy(comm_streams_[device]));
-        comm_streams_[device] = nullptr;
+        for (int queue = 0; queue < num_queues; ++queue) {
+            delete compute_queues_.at(queue)[device];
+                   compute_queues_.at(queue)[device] = nullptr;
+        }
     }
 }
 
 //------------------------------------------------------------------------------
-/// Allocates CUDA batch arrays.
+/// Allocates batch arrays and BLAS++ queues for all devices.
 /// If arrays are already allocated, frees and reallocates the arrays only if
 /// batch_size is larger than the existing size.
 ///
 /// @param[in] batch_size
-///     On exit, size of each batch array >= batch_size >= 0.
+///     Allocate batch arrays as needed so that
+///     size of each batch array >= batch_size >= 0.
+///
+/// @param[in] num_arrays
+///     Allocate batch arrays as needed so that
+///     number of batch arrays per device >= num_arrays >= 1.
 ///
 // todo: rename resizeBatchArrays?
 ///
@@ -696,25 +655,23 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
 {
     assert(batch_size >= 0);
     assert(num_arrays >= 1);
+    assert(array_host_.size() ==      array_dev_.size());
+    assert(array_host_.size() == compute_queues_.size());
 
     bool is_resized = false;
     int64_t i_begin = 0;
 
     if (int64_t(array_host_.size()) < num_arrays) {
-        // int64_t temp = batch_array_size_;
-        // clearBatchArrays();
-        // batch_array_size_ = temp;
-
         i_begin = array_host_.size();
 
-        array_host_.resize(num_arrays);
-        array_dev_.resize(num_arrays);
+        array_host_    .resize(num_arrays);
+        array_dev_     .resize(num_arrays);
+        compute_queues_.resize(num_arrays);
 
         for (int64_t i = i_begin; i < num_arrays; ++i) {
-            std::vector< scalar_t** >& array_host = array_host_.at(i);
-            std::vector< scalar_t** >& array_dev  = array_dev_.at(i);
-            array_host.resize(num_devices_, nullptr);
-            array_dev.resize(num_devices_, nullptr);
+            array_host_    .at(i).resize(num_devices_, nullptr);
+            array_dev_     .at(i).resize(num_devices_, nullptr);
+            compute_queues_.at(i).resize(num_devices_, nullptr);
         }
         is_resized = true;
     }
@@ -722,34 +679,39 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
     if ((batch_array_size_ < batch_size) || is_resized) {
 
         if (batch_array_size_ < batch_size) {
+            // Grow all batch arrays, not just new ones.
             i_begin = 0;
         }
         else {
+            // Make new batch arrays match old batch arrays.
             batch_size = batch_array_size_;
         }
 
         assert(int(array_host_.size()) >= num_arrays);
 
         for (std::size_t i = i_begin; i < array_host_.size(); ++i) {
-            std::vector< scalar_t** >& array_host = array_host_.at(i);
-            std::vector< scalar_t** >& array_dev  = array_dev_.at(i);
-
-            assert(int(array_host.size()) == num_devices_);
-
             for (int device = 0; device < num_devices_; ++device) {
-                slate_cuda_call(cudaSetDevice(device));
+                blas::set_device(device);
 
                 // Free host arrays.
-                slate_cuda_call(cudaFreeHost(array_host[device]));
+                blas::device_free_pinned(array_host_[i][device]);
 
                 // Free device arrays.
-                slate_cuda_call(cudaFree(array_dev[device]));
+                blas::device_free(array_dev_[i][device]);
 
                 // Allocate host arrays.
-                slateCudaMallocHost(&array_host[device], batch_size*3);
+                array_host_[i][device]
+                    = blas::device_malloc_pinned<scalar_t*>(batch_size*3);
 
                 // Allocate device arrays.
-                slateCudaMalloc(&array_dev[device], batch_size*3);
+                array_dev_[i][device]
+                    = blas::device_malloc<scalar_t*>(batch_size*3);
+
+                // Free queues.
+                delete compute_queues_[i][device];
+
+                // Allocate queues.
+                compute_queues_[i][device] = new blas::Queue(device, batch_size);
             }
         }
 
@@ -758,30 +720,26 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
 }
 
 //------------------------------------------------------------------------------
-/// Frees CUDA batch arrays that were allocated by allocateBatchArrays().
+/// Frees device batch arrays that were allocated by allocateBatchArrays().
 ///
 // todo: rename destroyBatchArrays? freeBatchArrays?
 //
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::clearBatchArrays()
 {
-    for (std::size_t i = 0; i < array_host_.size(); ++i) {
-        std::vector< scalar_t** >& array_host = array_host_.at(i);
-        std::vector< scalar_t** >& array_dev  = array_dev_.at(i);
+    assert(array_host_.size() == array_dev_.size());
 
-        assert(int(array_host.size()) == num_devices_);
+    for (std::size_t i = 0; i < array_host_.size(); ++i) {
         for (int device = 0; device < num_devices_; ++device) {
-            slate_cuda_call(cudaSetDevice(device));
+            blas::set_device(device);
 
             // Free host arrays.
-            slate_cuda_call(cudaFreeHost(array_host[device]));
+            blas::device_free_pinned(array_host_[i][device]);
+            array_host_[i][device] = nullptr;
 
             // Free device arrays.
-            slate_cuda_call(cudaFree(array_dev[device]));
-
-            array_host[device] = nullptr;
-
-            array_dev[device] = nullptr;
+            blas::device_free(array_dev_[i][device]);
+            array_dev_[i][device] = nullptr;
         }
     }
     batch_array_size_ = 0;

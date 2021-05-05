@@ -104,13 +104,71 @@ inline double abs(double x)
 __host__ __device__
 inline float abs(cuFloatComplex x)
 {
+    // CUDA has good implementation,
+    // otherwise use our implementation that scales per LAPACK.
+#ifdef __NVCC__
     return cuCabsf(x);
+#else
+    float a = cuCrealf(x);
+    float b = cuCimagf(x);
+    float z, w, t;
+    if (isnan( a )) {
+        return a;
+    }
+    else if (isnan( b )) {
+        return b;
+    }
+    else {
+        a = fabsf(a);
+        b = fabsf(b);
+        w = max(a, b);
+        z = min(a, b);
+        if (z == 0) {
+            t = w;
+        }
+        else {
+            t = z/w;
+            t = 1 + t*t;
+            t = w * sqrtf(t);
+        }
+        return t;
+    }
+#endif
 }
 
 __host__ __device__
 inline double abs(cuDoubleComplex x)
 {
+    // CUDA has good implementation,
+    // otherwise use our implementation that scales per LAPACK.
+#ifdef __NVCC__
     return cuCabs(x);
+#else
+    double a = cuCreal(x);
+    double b = cuCimag(x);
+    double z, w, t;
+    if (isnan( a )) {
+        return a;
+    }
+    else if (isnan( b )) {
+        return b;
+    }
+    else {
+        a = fabs(a);
+        b = fabs(b);
+        w = max(a, b);
+        z = min(a, b);
+        if (z == 0) {
+            t = w;
+        }
+        else {
+            t = z/w;
+            t = 1.0 + t*t;
+            t = w * sqrt(t);
+        }
+        return t;
+    }
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -175,7 +233,7 @@ inline scalar_t sqr(scalar_t x)
 ///     scale1^2 sumsq1 := scale1^2 sumsq1 + scale2^2 sumsq2.
 template <typename real_t>
 __host__ __device__
-void add_sumsq(
+void combine_sumsq(
     real_t& scale1, real_t& sumsq1,
     real_t  scale2, real_t  sumsq2 )
 {
@@ -203,7 +261,7 @@ void add_sumsq(
         sumsq = 1 + sumsq * sqr(scale / absx);
         scale = absx;
     }
-    else {
+    else if (scale != 0) {
         sumsq = sumsq + sqr(absx / scale);
     }
 }

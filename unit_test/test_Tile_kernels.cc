@@ -582,6 +582,7 @@ void test_trsm()
         // factor to get well-conditioned triangle
         int info = lapack::potrf( A.uploPhysical(), An, Adata.data(), lda );
         assert( info == 0 );
+        SLATE_UNUSED( info );
 
         // setup B such that op(B) is m-by-n
         int Bm = (ib == 0 ? m : n);
@@ -1009,19 +1010,19 @@ void test_device_convert_layout(int m, int n)
 
     // copy batch A to GPU
     scalar_t* Adata_dev;
-    slate_cuda_call(
-        cudaSetDevice(device));
-    slate_cuda_call(
-        cudaMalloc((void**) &Adata_dev, Adata.size() * sizeof(scalar_t)));
-    slate_cuda_call(
-        cudaMemcpy(Adata_dev, Adata.data(), Adata.size() * sizeof(scalar_t),
-                   cudaMemcpyHostToDevice));
+    blas::set_device(device);
+    const int batch_arrays_index = 0;
+    blas::Queue queue(device, batch_arrays_index);
+
+    Adata_dev = blas::device_malloc<scalar_t>(Adata.size());
+    blas::device_memcpy<scalar_t>(Adata_dev, Adata.data(),
+                        Adata.size(),
+                        blas::MemcpyKind::HostToDevice,
+                        queue);
 
     scalar_t* Adata_dev_ext;
-    slate_cuda_call(
-        cudaSetDevice(device));
-    slate_cuda_call(
-        cudaMalloc((void**) &Adata_dev_ext, Adata.size() * sizeof(scalar_t)));
+    blas::set_device(device);
+    Adata_dev_ext = blas::device_malloc<scalar_t>(Adata.size());
 
     std::vector< slate::Tile<scalar_t> > Atiles_dev( batch_count );
     std::vector< scalar_t* > Aarray( batch_count );
@@ -1032,22 +1033,18 @@ void test_device_convert_layout(int m, int n)
         Aarray_ext[k] = &Adata_dev_ext[ k*lda*n ];
     }
     scalar_t** Aarray_dev;
-    slate_cuda_call(
-        cudaMalloc((void**) &Aarray_dev, Aarray.size() * sizeof(scalar_t*)));
-    slate_cuda_call(
-        cudaMemcpy(Aarray_dev, Aarray.data(), Aarray.size() * sizeof(scalar_t*),
-                   cudaMemcpyHostToDevice));
+    Aarray_dev = blas::device_malloc<scalar_t*>(Aarray.size());
+    blas::device_memcpy<scalar_t*>(Aarray_dev, Aarray.data(),
+                        Aarray.size(),
+                        blas::MemcpyKind::HostToDevice,
+                        queue);
 
     scalar_t** Aarray_dev_ext;
-    slate_cuda_call(
-        cudaMalloc((void**) &Aarray_dev_ext, Aarray_ext.size() * sizeof(scalar_t*)));
-    slate_cuda_call(
-        cudaMemcpy(Aarray_dev_ext, Aarray_ext.data(), Aarray_ext.size() * sizeof(scalar_t*),
-                   cudaMemcpyHostToDevice));
-
-    cudaStream_t stream;
-    slate_cuda_call(
-        cudaStreamCreate(&stream));
+    Aarray_dev_ext = blas::device_malloc<scalar_t*>(Aarray_ext.size());
+    blas::device_memcpy<scalar_t*>(Aarray_dev_ext, Aarray_ext.data(),
+                        Aarray_ext.size(),
+                        blas::MemcpyKind::HostToDevice,
+                        queue);
 
     if (verbose > 1) {
         printf("A = [\n");
@@ -1066,17 +1063,15 @@ void test_device_convert_layout(int m, int n)
     //-----------------------------------------
     // Run kernel.
     for (int i = 0; i < repeat; ++i) {
-        slate_cuda_call(
-            cudaStreamSynchronize(stream));
+        queue.sync();
         double time = omp_get_wtime();
 
         if (m == n)
-            slate::device::transpose_batch(n, Aarray_dev, lda, batch_count, stream);
+            slate::device::transpose_batch(n, Aarray_dev, lda, batch_count, queue);
         else
-            slate::device::transpose_batch(m, n, Aarray_dev, lda, Aarray_dev_ext, ldat, batch_count, stream);
+            slate::device::transpose_batch(m, n, Aarray_dev, lda, Aarray_dev_ext, ldat, batch_count, queue);
 
-        slate_cuda_call(
-            cudaStreamSynchronize(stream));
+        queue.sync();
         time = omp_get_wtime() - time;
         if (verbose) {
             printf( "batch_count %d, m %d, n %d, time %.6f, GB/s (read & write) %.4f batch\n",
@@ -1085,31 +1080,31 @@ void test_device_convert_layout(int m, int n)
     }
     if (verbose)
         printf( "\n" );
-    slate_cuda_call(
-        cudaMemcpy(Adata.data(), (m == n ? Adata_dev : Adata_dev_ext), Adata.size() * sizeof(scalar_t),
-                   cudaMemcpyDeviceToHost));
+    blas::device_memcpy<scalar_t>(Adata.data(),
+                        (m == n ? Adata_dev : Adata_dev_ext),
+                        Adata.size(),
+                        blas::MemcpyKind::DeviceToHost,
+                        queue);
 
     //-----------------------------------------
     // Run kernel.
     for (int i = 0; i < repeat; ++i) {
-        slate_cuda_call(
-            cudaStreamSynchronize(stream));
+        queue.sync();
         double time = omp_get_wtime();
 
         if (m == n) {
             for (int k = 0; k < batch_count; ++k) {
-                slate::device::transpose(n, Aarray[k], lda, stream);
+                slate::device::transpose(n, Aarray[k], lda, queue);
             }
         }
         else {
             for (int k = 0; k < batch_count; ++k) {
-                slate::device::transpose(m, n, Aarray[k], lda, Aarray_ext[k], ldat, stream);
+                slate::device::transpose(m, n, Aarray[k], lda, Aarray_ext[k], ldat, queue);
                 // Atiles[k].stride(ldat);
             }
         }
 
-        slate_cuda_call(
-            cudaStreamSynchronize(stream));
+        queue.sync();
         time = omp_get_wtime() - time;
         if (verbose) {
             printf( "batch_count %d, m %d, n %d, time %.6f, GB/s (read & write) %.4f 1-by-1\n",
@@ -1122,19 +1117,17 @@ void test_device_convert_layout(int m, int n)
     //-----------------------------------------
     // Run kernel.
     for (int i = 0; i < repeat; ++i) {
-        slate_cuda_call(
-            cudaStreamSynchronize(stream));
+        queue.sync();
         double time = omp_get_wtime();
 
         for (int k = 0; k < batch_count; ++k) {
             if (m == n)
-                Atiles_dev[k].layoutConvert(stream);
+                Atiles_dev[k].layoutConvert(queue);
             else
-                Atiles_dev[k].layoutConvert(Aarray_ext[k], stream);
+                Atiles_dev[k].layoutConvert(Aarray_ext[k], queue);
         }
 
-        slate_cuda_call(
-            cudaStreamSynchronize(stream));
+        queue.sync();
         time = omp_get_wtime() - time;
         if (verbose) {
             printf( "batch_count %d, m %d, n %d, time %.6f, GB/s (read & write) %.4f 1-by-1\n",
@@ -1143,9 +1136,11 @@ void test_device_convert_layout(int m, int n)
     }
     if (verbose)
         printf( "\n" );
-    slate_cuda_call(
-        cudaMemcpy(Adata.data(), (m == n ? Adata_dev : Adata_dev_ext), Adata.size() * sizeof(scalar_t),
-                   cudaMemcpyDeviceToHost));
+    blas::device_memcpy<scalar_t>(Adata.data(),
+                        (m == n ? Adata_dev : Adata_dev_ext),
+                        Adata.size(),
+                        blas::MemcpyKind::DeviceToHost,
+                        queue);
 
     if (verbose > 1) {
         printf("AT = [\n");
@@ -1187,10 +1182,9 @@ void test_device_convert_layout(int m, int n)
         }
     }
 
-    slate_cuda_call(cudaStreamDestroy(stream));
-    slate_cuda_call(cudaFree(Adata_dev));
-    slate_cuda_call(cudaFree(Adata_dev_ext));
-    slate_cuda_call(cudaFree(Aarray_dev));
+    blas::device_free(Adata_dev);
+    blas::device_free(Adata_dev_ext);
+    blas::device_free(Aarray_dev);
 }
 
 void test_device_convert_layout()
@@ -1433,7 +1427,7 @@ int main(int argc, char** argv)
     MPI_Comm_rank(mpi_comm, &mpi_rank);
     MPI_Comm_size(mpi_comm, &mpi_size);
 
-    cudaGetDeviceCount(&num_devices);
+    num_devices = blas::get_device_count();
     host_num = slate::HostNum;
 
     int err = unit_test_main(mpi_comm);  // which calls run_tests()

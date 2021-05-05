@@ -3,11 +3,12 @@
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
+#include "slate/Exception.hh"
 #include "slate/internal/device.hh"
+
 #include "device_util.cuh"
 
 #include <cstdio>
-#include <cuComplex.h>
 
 namespace slate {
 namespace device {
@@ -100,7 +101,7 @@ void tzcopy(
     int64_t m, int64_t n,
     src_scalar_t** Aarray, int64_t lda,
     dst_scalar_t** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
     // quick return
     if (batch_count == 0)
@@ -109,13 +110,14 @@ void tzcopy(
     // Max threads/block=1024 for current CUDA compute capability (<=7.5)
     int64_t nthreads = std::min((int64_t)1024 , m);
 
-    tzcopyKernel<<<batch_count, nthreads, 0, stream>>>(
+    tzcopyKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
           uplo,
           m, n,
           Aarray, lda,
           Barray, ldb);
 
-    slate_cuda_call(cudaGetLastError());
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
 
 //------------------------------------------------------------------------------
@@ -126,7 +128,7 @@ void tzcopy(
     int64_t m, int64_t n,
     float** Aarray, int64_t lda,
     float** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 template
 void tzcopy(
@@ -134,7 +136,7 @@ void tzcopy(
     int64_t m, int64_t n,
     float** Aarray, int64_t lda,
     double** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 template
 void tzcopy(
@@ -142,7 +144,7 @@ void tzcopy(
     int64_t m, int64_t n,
     double** Aarray, int64_t lda,
     double** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 template
 void tzcopy(
@@ -150,7 +152,7 @@ void tzcopy(
     int64_t m, int64_t n,
     double** Aarray, int64_t lda,
     float** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 template
 void tzcopy(
@@ -158,7 +160,7 @@ void tzcopy(
     int64_t m, int64_t n,
     cuFloatComplex** Aarray, int64_t lda,
     cuFloatComplex** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 template
 void tzcopy(
@@ -166,7 +168,7 @@ void tzcopy(
     int64_t m, int64_t n,
     cuFloatComplex** Aarray, int64_t lda,
     cuDoubleComplex** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 template
 void tzcopy(
@@ -174,7 +176,7 @@ void tzcopy(
     int64_t m, int64_t n,
     cuDoubleComplex** Aarray, int64_t lda,
     cuDoubleComplex** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 template
 void tzcopy(
@@ -182,7 +184,7 @@ void tzcopy(
     int64_t m, int64_t n,
     cuDoubleComplex** Aarray, int64_t lda,
     cuFloatComplex** Barray, int64_t ldb,
-    int64_t batch_count, cudaStream_t stream);
+    int64_t batch_count, blas::Queue &queue);
 
 } // namespace device
 } // namespace slate

@@ -346,11 +346,11 @@ if (opts.blas3):
 if (opts.lu):
     cmds += [
     [ 'gesv',  gen + dtype + la + n],
-    [ 'gesv_nopiv',  gen + dtype + la + n + ' --matrix rand_dominant' + ' --nonuniform_nb y'],
+    [ 'gesv_nopiv',  gen + dtype + la + n + ' --matrix rand_dominant' + ' --nonuniform_nb n'],
     [ 'getrf', gen + dtype + la + n],  # todo: mn
-    [ 'getrf_nopiv', target + grid + ref + check + repeat + nb + dtype + la + n + ' --matrix rand_dominant'+ ' --nonuniform_nb y'],
+    [ 'getrf_nopiv', target + grid + ref + check + repeat + nb + dtype + la + n + ' --matrix rand_dominant'+ ' --nonuniform_nb n'],
     [ 'getrs', gen + dtype + la + n + trans],
-    [ 'getrs_nopiv', gen + dtype + la + n + trans + ' --matrix rand_dominant' + ' --nonuniform_nb y'],
+    [ 'getrs_nopiv', gen + dtype + la + n + trans + ' --matrix rand_dominant' + ' --nonuniform_nb n'],
     [ 'getri', gen + dtype + la + n ],
     [ 'getriOOP', gen + dtype + la + n ],
     #[ 'gecon', gen + dtype + la + n ],

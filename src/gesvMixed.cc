@@ -172,7 +172,7 @@ void gesvMixed( slate::internal::TargetType<target>,
                              X,
             scalar_hi(1.0),  R,
             {{Option::Lookahead, lookahead},
-             {Option::Target, target}});
+             {Option::Target, Target::HostTask}});
 
 
         // Check whether nrhs normwise backward error satisfies the

@@ -174,7 +174,7 @@ void test_trmm_work(Params& params, bool run)
     if (trace) slate::trace::Trace::finish();
 
     // compute and save timing/performance
-    double gflop = blas::Gflop <scalar_t>::trmm(side, m, n);
+    double gflop = blas::Gflop<scalar_t>::trmm(side, m, n);
     params.time() = time_tst;
     params.gflops() = gflop / time_tst;
 

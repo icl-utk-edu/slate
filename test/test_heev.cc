@@ -42,7 +42,6 @@ void test_heev_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
-    slate::Norm norm = params.norm();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -265,28 +264,11 @@ void test_heev_work(Params& params, bool run)
         // Perform a local operation to get differences W_tst = W_tst - W_ref
         blas::axpy(W_ref.size(), -1.0, &W_ref[0], 1, &W_tst[0], 1);
 
-        real_t reduced_error;
-        real_t local_error;
         // Relative forward error: || W_ref - W_tst || / || W_ref ||
-        local_error = lapack::lange(norm, 1, W_tst.size(), &W_tst[0], 1)
-                    / lapack::lange(norm, 1, W_ref.size(), &W_ref[0], 1);
+        params.error() = blas::asum(n, &W_tst[0], 1)
+                       / blas::asum(n, &W_ref[0], 1);
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-
-        if (local_error > tol) {
-            printf("\nOn MPI Rank = %d, the eigenvalues are suspicious, the error is  %e \n",
-                A.mpiRank(), params.error());
-            //for (int64_t i = 0; i < n; i++) {
-            //    printf("\n %f", W_tst[i]);
-            //}
-        }
-
-        slate_mpi_call(
-            MPI_Allreduce( &local_error, &reduced_error,
-                           1, slate::mpi_type<real_t>::value,
-                           MPI_MAX, A.mpiComm()));
-
-        params.error() = reduced_error;
         params.okay() = (params.error() <= tol);
     }
 

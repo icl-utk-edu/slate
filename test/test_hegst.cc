@@ -19,7 +19,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
+#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_hegst_work(Params& params, bool run)
@@ -43,6 +43,8 @@ void test_hegst_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Target target = params.target();
     slate::Origin origin = params.origin();
+    params.matrix.mark();
+    params.matrixB.mark();
 
     params.time();
     params.ref_time();
@@ -51,8 +53,11 @@ void test_hegst_work(Params& params, bool run)
 
     origin = slate::Origin::ScaLAPACK;  // todo: for now
 
-    if (! run)
+    if (! run) {
+        params.matrix.kind.set_default( "rand_dominant" );
+        params.matrixB.kind.set_default( "rand_dominant" );
         return;
+    }
 
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
@@ -65,7 +70,7 @@ void test_hegst_work(Params& params, bool run)
         //                          uplo, n, nb, p, q, MPI_COMM_WORLD);
         // A.insertLocalTiles(origin2target(origin));
         // todo: need ScaLAPACK descriptor for copy.
-        //copy(A_data.data(), descA_tst, A);
+        //copy(A_data.data(), A_desc, A);
         assert(false);
     }
 
@@ -83,44 +88,35 @@ void test_hegst_work(Params& params, bool run)
     int64_t mlocal = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocal = num_local_rows_cols(n, nb, mycol, q);
     int64_t lld   = mlocal;
-    int64_t idist = 3; // normal
-    int64_t iseed[4] = { 0, myrow, mycol, 3 };
 
     // Matrix A
     std::vector<scalar_t> A_data(lld*nlocal);
-    lapack::larnv(idist, iseed, A_data.size(), A_data.data());
     auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
         uplo, n, A_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
+
+    slate::generate_matrix( params.matrix, A );
 
     if (verbose > 1) {
         print_matrix("A", A);
     }
 
-    // Matrix A_ref
-    std::vector<scalar_t> A_ref_data(lld*nlocal);
-    A_ref_data = A_data;
-    auto A_ref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-        uplo, n, A_ref_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
+    // Matrix Aref
+    std::vector<scalar_t> Aref_data(lld*nlocal);
+    auto Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+        uplo, n, Aref_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
 
+    slate::copy( A, Aref );
     if (verbose > 2) {
-        print_matrix("A_ref", A_ref);
+        print_matrix("Aref", Aref);
     }
 
     // Matrix B
     std::vector<scalar_t> B_data(lld*nlocal);
-    lapack::larnv(idist, iseed, B_data.size(), B_data.data());
     auto B = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
         uplo, n, B_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
 
-    // Make B positive-definite
-    for (int64_t i = 0; i < B.mt(); ++i) {
-        if (B.tileIsLocal(i, i)) {
-            auto Bii = B(i, i);
-            for (int64_t ii = 0; ii < std::min(Bii.mb(), Bii.nb()); ++ii) {
-                Bii.at(ii, ii) = std::abs(Bii.at(ii, ii)) + n;
-            }
-        }
-    }
+    slate::generate_matrix( params.matrixB, B );
+
 
     if (verbose > 1) {
         print_matrix("B", B);
@@ -140,26 +136,18 @@ void test_hegst_work(Params& params, bool run)
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-        double time = testsweeper::get_wtime();
+        double time = barrier_get_wtime(MPI_COMM_WORLD);
 
         //==================================================
         // Run SLATE test.
         //==================================================
         slate::hegst(itype, A, B, opts);
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-        double time_tst = testsweeper::get_wtime() - time;
+        time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         if (trace) slate::trace::Trace::finish();
 
         // compute and save timing/performance
-        params.time() = time_tst;
+        params.time() = time;
         //params.gflops() = gflop / time_tst;
 
         if (verbose > 1) {
@@ -168,66 +156,73 @@ void test_hegst_work(Params& params, bool run)
     }
 
     if (check || ref) {
-        real_t A_norm = slate::norm(slate::Norm::One, A_ref);
+        #ifdef SLATE_HAVE_SCALAPACK
+            real_t A_norm = slate::norm(slate::Norm::One, Aref);
 
-        int ictxt;
-        Cblacs_get(-1, 0, &ictxt);
-        Cblacs_gridinit(&ictxt, "Col", p, q);
+            int ictxt;
+            Cblacs_get(-1, 0, &ictxt);
+            Cblacs_gridinit(&ictxt, "Col", p, q);
 
-        const int izero = 0;
-        int descA[9], descB[9], info;
-        scalapack_descinit(
-            descA, n, n, nb, nb, izero, izero, ictxt, mlocal, &info);
-        slate_assert(info == 0);
-        scalapack_descinit(
-            descB, n, n, nb, nb, izero, izero, ictxt, mlocal, &info);
-        slate_assert(info == 0);
-        const int64_t ione = 1;
-        double scale;
+            const int izero = 0;
+            int A_desc[9], B_desc[9], info;
+            scalapack_descinit(
+                A_desc, n, n, nb, nb, izero, izero, ictxt, mlocal, &info);
+            slate_assert(info == 0);
+            scalapack_descinit(
+                B_desc, n, n, nb, nb, izero, izero, ictxt, mlocal, &info);
+            slate_assert(info == 0);
+            const int64_t ione = 1;
+            double scale;
 
-        // set MKL num threads appropriately for parallel BLAS
-        int omp_num_threads;
-        #pragma omp parallel
-        { omp_num_threads = omp_get_num_threads(); }
-        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
+            copy( A, &A_data[0], A_desc );
+            copy( Aref, &Aref_data[0], A_desc );
+            copy( B, &B_data[0], B_desc );
 
-        //==================================================
-        // Run ScaLAPACK reference routine.
-        //==================================================
+            // set MKL num threads appropriately for parallel BLAS
+            int omp_num_threads;
+            #pragma omp parallel
+            { omp_num_threads = omp_get_num_threads(); }
+            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-        slate_mpi_call(MPI_Barrier(MPI_COMM_WORLD));
-        double time = testsweeper::get_wtime();
+            //==================================================
+            // Run ScaLAPACK reference routine.
+            //==================================================
 
-        scalapack_phegst(itype, uplo2str(uplo), n,
-            A_ref_data.data(), ione, ione, descA,
-            B_data.data(),     ione, ione, descB,
-            &scale, &info);
-        slate_assert(info == 0);
+            double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-        slate_mpi_call(MPI_Barrier(MPI_COMM_WORLD));
-        double time_ref = testsweeper::get_wtime() - time;
+            scalapack_phegst(itype, uplo2str(uplo), n,
+                Aref_data.data(), ione, ione, A_desc,
+                B_data.data(),     ione, ione, B_desc,
+                &scale, &info);
+            slate_assert(info == 0);
 
-        params.ref_time() = time_ref;
-        // params.ref_gflops() = gflop / time_ref;
+            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-        if (verbose > 1) {
-            print_matrix("A_ref_hegst", A_ref);
-        }
+            params.ref_time() = time;
+            // params.ref_gflops() = gflop / time_ref;
 
-        slate_set_num_blas_threads(saved_num_threads);
+            if (verbose > 1) {
+                print_matrix("Aref_hegst", Aref);
+            }
 
-        if (! ref_only) {
-            // Local operation: error = A_ref - A
-            blas::axpy(
-                A_ref_data.size(), -one,
-                A_data.data(), 1,
-                A_ref_data.data(), 1);
+            slate_set_num_blas_threads(saved_num_threads);
 
-            params.error() = slate::norm(slate::Norm::One, A_ref) / (n * A_norm);
-            real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
-            params.okay() = (params.error() <= tol);
-        }
-        Cblacs_gridexit(ictxt);
+            if (! ref_only) {
+                // Local operation: error = Aref - A
+                blas::axpy(
+                    Aref_data.size(), -one,
+                    A_data.data(), 1,
+                    Aref_data.data(), 1);
+
+                params.error() = slate::norm(slate::Norm::One, Aref) / (n * A_norm);
+                real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
+                params.okay() = (params.error() <= tol);
+            }
+            Cblacs_gridexit(ictxt);
+        #else
+            if (mpi_rank == 0)
+                printf( "ScaLAPACK not available\n" );
+        #endif
     }
 }
 

@@ -317,8 +317,10 @@ void he2hb(slate::internal::TargetType<target>,
                                 bool trapezoid = (mb < nb);
 
                                 if (trapezoid) {
+                                    auto TVAVT00 = TVAVT0(0, 0);
+                                    int64_t mb1 = TVAVT00.mb();
                                     T0     = T0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
-                                    TVAVT0 = TVAVT0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
+                                    TVAVT0 = TVAVT0.slice(0, mb1-1, 0, mb-1); // first mb-by-mb part
                                 }
 
                                 auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);

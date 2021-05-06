@@ -271,7 +271,7 @@ void hettmqr(internal::TargetType<Target::HostTask>,
                     C.tileGetForWriting(i, j2, LayoutConvert(layout));
 
                     // Multiply [ C(i, j1) C(i, j2) ] * opR(Q).
-                    tpmqrt(Side::Right, opR, std::min(V.tileMb(i), V.tileNb(0)),
+                    tpmqrt(Side::Right, opR, std::min(V.tileMb(j2), V.tileNb(0)),
                            V(j2, 0), T(j2, 0), C(i, j1), C(i, j2));
 
                     // todo: should tileRelease()?

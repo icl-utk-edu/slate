@@ -79,7 +79,7 @@ void test_gesv_work(Params& params, bool run)
         if (ref || origin == slate::Origin::ScaLAPACK) {
             if (mpi_rank == 0) {
                 printf("Unsupported to test nonuniform tile size using scalapack\n");
-                throw std::exception();
+                return;
             }
         }
         params.ref() = 'n';
@@ -388,7 +388,7 @@ void test_gesv_work(Params& params, bool run)
             if ( nonuniform_nb )
             {
                 printf("Unsupported to test nonuniform tile size using scalapack\n");
-                throw std::exception();
+                return;
             }
 
             // BLACS/MPI variables

@@ -36,7 +36,7 @@ void test_hesv_work(Params& params, bool run)
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
     int64_t panel_threads = params.panel_threads();
-    slate::Norm norm = params.norm();
+    slate::Norm norm = slate::Norm::One;
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
     slate::Origin origin = params.origin();

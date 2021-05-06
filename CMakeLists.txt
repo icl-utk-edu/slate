@@ -85,10 +85,13 @@ else()
     message( STATUS "Using CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}" )
 endif()
 
+# GNU Filesystem Conventions
+include( GNUInstallDirs )
+
 # the RPATH to be used when installing, but only if it's not a system directory
-list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir)
+list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}" isSystemDir)
 if ("${isSystemDir}" STREQUAL "-1")
-    list( APPEND CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib" )
+    list( APPEND CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}" )
 endif()
 
 # Provide menu of options. (Why doesn't CMake do this?)
@@ -518,8 +521,6 @@ if (slate_is_project)
 endif()
 
 #-------------------------------------------------------------------------------
-# GNU Filesystem Conventions
-include( GNUInstallDirs )
 set( install_configdir "${CMAKE_INSTALL_LIBDIR}/slate" )
 
 # Install library and add to <package>Targets.cmake

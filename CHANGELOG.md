@@ -1,3 +1,6 @@
+2021.05.01
+  - CMake fix for Spack
+
 2021.05.00
   - HIP/ROCm support
   - Improved performance (BLAS, Cholesky, LU, etc.)

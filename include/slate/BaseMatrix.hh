@@ -455,6 +455,8 @@ public:
 protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set);
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
+                        int radix, int tag, Layout layout);
+    void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
                         int radix, int tag, Layout layout,
                         std::vector<MPI_Request>& send_requests);
 
@@ -1936,9 +1938,7 @@ void BaseMatrix<scalar_t>::listBcastMT(
                 // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
                 // Currently uses radix-D hypercube p2p send.
                 int radix = 4; // bcast_set.size(); // 2;
-                std::vector<MPI_Request> send_requests;
-                tileBcastToSet(i, j, bcast_set, radix, tag, layout, send_requests);
-                MPI_Waitall(send_requests.size(), send_requests.data(), MPI_STATUSES_IGNORE);
+                tileBcastToSet(i, j, bcast_set, radix, tag, layout);
             }
 
             // Copy to devices.
@@ -2106,6 +2106,48 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 ///
 /// @param[in] layout
 ///     Indicates the Layout (ColMajor/RowMajor) of the received data.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileBcastToSet(
+    int64_t i, int64_t j, std::set<int> const& bcast_set,
+    int radix, int tag, Layout layout)
+{
+    std::vector<MPI_Request> requests;
+    requests.reserve(radix);
+
+    tileBcastToSet(i, j, bcast_set, radix, tag, layout, requests);
+    slate_mpi_call(MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE));
+}
+
+//------------------------------------------------------------------------------
+/// [internal]
+/// Broadcast tile {i, j} to all MPI ranks in the bcast_set.
+/// This should be called by all (and only) ranks that are in bcast_set,
+/// as either the root sender or a receiver.
+/// This function implements a custom pattern using sends and receives.
+/// Data received must be in 'layout' (ColMajor/RowMajor) major.
+/// Nonblocking sends are used, with requests appended to the provided vector.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] bcast_set
+///     Set of MPI ranks to broadcast to.
+///
+/// @param[in] radix
+///     Radix of the communication pattern.
+///
+/// @param[in] tag
+///     MPI tag, default 0.
+///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the received data.
+///
+/// @param[inout] send_requests
+///     Vector where requests for this bcast are appended.
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileBcastToSet(

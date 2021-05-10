@@ -22,6 +22,7 @@ void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
     const scalar_t zero = 0;
     set(zero, B);
     for (int64_t i = 0; i < nt; ++i) {
+        int tag_i = i+1;
         if (B.tileIsLocal(i, i)) {
             // diagonal tile
             auto Aii = A(i, i);
@@ -42,14 +43,14 @@ void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
             Bi1i.uplo(slate::Uplo::Upper);
             tzcopy(Ai1i, Bi1i);
             if (! B.tileIsLocal(i, i+1))
-                B.tileSend(i+1, i, B.tileRank(i, i+1));
+                B.tileSend(i+1, i, B.tileRank(i, i+1), tag_i);
         }
         if (i+1 < nt && B.tileIsLocal(i, i+1)) {
+            auto Bi1i = B(i, i+1);
             if (! B.tileIsLocal(i+1, i)) {
                 // Remote copy-transpose B(i+1, i) => B(i, i+1);
-                // assumes square tiles!
-                B.tileRecv(i, i+1, B.tileRank(i+1, i), slate::Layout::ColMajor);
-                deepConjTranspose(B(i, i+1));
+                B.tileRecv(i+1, i, B.tileRank(i+1, i), slate::Layout::ColMajor, tag_i);
+                deepConjTranspose(B(i+1, i), B(i, i+1));
             }
             else {
                 // Local copy-transpose B(i+1, i) => B(i, i+1).

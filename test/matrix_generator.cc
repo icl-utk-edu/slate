@@ -12,6 +12,7 @@
 #include <vector>
 #include <limits>
 #include <complex>
+#include <chrono>
 
 #include <cmath>
 #include <cstdio>
@@ -379,7 +380,7 @@ void generate_svd(
                 //lapack::larnv( idist_randn, params.iseed,
                 //    U.tileMb(i)*U.tileNb(j), Tmpij.data() );
 
-                // Added local seed array for each process to prevent race condition contention of params.seed
+                // Added local seed array for each process to prevent race condition contention of iseed
                 int64_t tile_iseed[4];
                 tile_iseed[0] = (iseed[0] + i) % 4096;
                 tile_iseed[1] = (iseed[1] + j) % 4096;
@@ -416,7 +417,7 @@ void generate_svd(
                 scalar_t* data = Tmpij.data();
                 int64_t ldt = Tmpij.stride();
 
-                // Added local seed array for each process to prevent race condition contention of params.seed
+                // Added local seed array for each process to prevent race condition contention of iseed
                 int64_t tile_iseed[4];
                 tile_iseed[0] = (iseed[0] + i) % 4096;
                 tile_iseed[1] = (iseed[1] + j) % 4096;
@@ -524,7 +525,7 @@ void generate_heev(
                 scalar_t* data = Tmpij.data();
                 int64_t ldt = Tmpij.stride();
 
-                // Added local seed array for each process to prevent race condition contention of params.seed
+                // Added local seed array for each process to prevent race condition contention of iseed
                 int64_t tile_iseed[4];
                 tile_iseed[0] = (iseed[0] + i) % 4096;
                 tile_iseed[1] = (iseed[1] + j) % 4096;
@@ -982,6 +983,20 @@ void decode_matrix(
     }
 }
 
+int64_t generate_seed(MPI_Comm comm) {
+    int64_t seed;
+    // use the time in milliseconds as the seed
+    seed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+    // spread seeds measured close together
+    seed *= 1571;
+    // Correct seed range
+    seed %= 4096;
+    // ensure seeds are uniform across MPI ranks
+    slate_mpi_call(MPI_Bcast(&seed, 1, MPI_INT64_T, 0, comm));
+
+    return seed;
+}
+
 // -----------------------------------------------------------------------------
 /// Generates an m-by-n test matrix.
 /// Similar to LAPACK's libtmg functionality, but a level 3 BLAS implementation.
@@ -1148,7 +1163,10 @@ void generate_matrix(
     bool dominant;
     decode_matrix<scalar_t>(params, A, type, dist, cond, condD, sigma_max, dominant);
 
-    int64_t iseed[] = {params.seed(), params.iseed[1], params.iseed[2], params.iseed[3]};
+    int64_t iseed[] = {params.seed(), 108, 97, 115};
+    if (iseed[0] == -1) {
+        iseed[0] = generate_seed(A.mpiComm());
+    }
 
     int64_t n = A.n();
     int64_t nt = A.nt();
@@ -1453,7 +1471,7 @@ void generate_matrix(
                         auto Aij = A(i, j);
                         scalar_t* data = Aij.data();
                         int64_t lda = Aij.stride();
-                        // Added local seed array for each process to prevent race condition contention of params.seed
+                        // Added local seed array for each process to prevent race condition contention of iseed
                         int64_t tile_iseed[4];
                         tile_iseed[0] = (iseed[0] + i) % 4096;
                         tile_iseed[1] = (iseed[1] + j) % 4096;
@@ -1562,7 +1580,10 @@ void generate_matrix(
     bool dominant;
     decode_matrix<scalar_t>(params, A, type, dist, cond, condD, sigma_max, dominant);
 
-    int64_t iseed[] = {params.seed(), params.iseed[1], params.iseed[2], params.iseed[3]};
+    int64_t iseed[] = {params.seed(), 108, 97, 115};
+    if (iseed[0] == -1) {
+        iseed[0] = generate_seed(A.mpiComm());
+    }
 
     int64_t n = A.n();
     int64_t nt = A.nt();
@@ -1654,7 +1675,7 @@ void generate_matrix(
                             auto Aij = A(i, j);
                             scalar_t* data = Aij.data();
                             int64_t lda = Aij.stride();
-                            // Added local seed array for each process to prevent race condition contention of params.seed
+                            // Added local seed array for each process to prevent race condition contention of iseed
                             int64_t tile_iseed[4];
                             tile_iseed[0] = (iseed[0] + i) % 4096;
                             tile_iseed[1] = (iseed[1] + j) % 4096;
@@ -1703,7 +1724,7 @@ void generate_matrix(
                             auto Aij = A(i, j);
                             scalar_t* data = Aij.data();
                             int64_t lda = Aij.stride();
-                            // Added local seed array for each process to prevent race condition contention of params.seed
+                            // Added local seed array for each process to prevent race condition contention of iseed
                             int64_t tile_iseed[4];
                             tile_iseed[0] = (iseed[0] + i) % 4096;
                             tile_iseed[1] = (iseed[1] + j) % 4096;

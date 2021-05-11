@@ -17,7 +17,6 @@ public:
     void mark();
 
     int64_t verbose;
-    int64_t iseed[4];
 
     // ---- test matrix generation parameters
     testsweeper::ParamString kind;

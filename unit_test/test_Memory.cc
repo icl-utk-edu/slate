@@ -135,6 +135,7 @@ void test_alloc_device()
     }
 
     double* hx = new double[ nb*nb ];
+    const int batch_arrays_index = 0;
 
     const int cnt = 5;
     for (int dev = 0; dev < mem.num_devices_; ++dev) {
@@ -150,11 +151,11 @@ void test_alloc_device()
             test_assert(int(mem.capacity (dev)) == max(cnt, i+1));
 
             // Touch memory to verify it is valid.
-            slate_cuda_call(
-                cudaSetDevice(dev));
-            slate_cuda_call(
-                cudaMemcpy(dx[i], hx, sizeof(double) * nb * nb,
-                           cudaMemcpyHostToDevice));
+            blas::Queue queue(dev, batch_arrays_index);
+            blas::set_device(dev);
+            blas::device_memcpy<double>(dx[i], hx, nb * nb,
+                                        blas::MemcpyKind::HostToDevice,
+                                        queue);
         }
 
         // Free some.
@@ -245,8 +246,8 @@ void run_tests()
     run_test(test_addDeviceBlocks,   "addDeviceBlocks");
     run_test(test_alloc_host,        "alloc and free (host)");
     run_test(test_alloc_device,      "alloc and free (device)");
-    run_test(test_clearHostBlocks,   "clearHostBlacks");
-    run_test(test_clearDeviceBlocks, "clearDeviceBlacks");
+    run_test(test_clearHostBlocks,   "clearHostBlocks");
+    run_test(test_clearDeviceBlocks, "clearDeviceBlocks");
 }
 
 //------------------------------------------------------------------------------

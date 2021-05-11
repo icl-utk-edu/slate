@@ -11,10 +11,6 @@
 
 #include <iostream>
 
-#include "slate/internal/cuda.hh"
-#include "slate/internal/mpi.hh"
-#include "slate/internal/openmp.hh"
-
 namespace slate {
 
 // -----------------------------------------------------------------------------

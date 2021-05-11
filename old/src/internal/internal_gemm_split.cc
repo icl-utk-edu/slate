@@ -9,12 +9,6 @@
 #include "internal/internal.hh"
 #include "internal/internal_batch.hh"
 
-#ifdef SLATE_WITH_MKL
-    #include <mkl_cblas.h>
-#else
-    #include <cblas.h>
-#endif
-
 namespace slate {
 namespace internal {
 
@@ -186,7 +180,7 @@ void gemmPrep(internal::TargetType<Target::Devices>,
                 cudaSetDevice(device));
 
             // cublas_handle uses this stream
-            cudaStream_t stream = C.comm_stream(device);
+            cudaStream_t stream = C.comm_queue(device)->stream();
 
             slate_cuda_call(
                 cudaMemcpyAsync(a_array_dev, a_array_host,
@@ -310,8 +304,9 @@ void gemmExec(internal::TargetType<Target::Devices>,
                 cudaSetDevice(device));
 
             // cublas_handle uses this stream
-            cudaStream_t stream = C.compute_stream(device);
-            cublasHandle_t cublas_handle = C.cublas_handle(device);
+            cudaStream_t stream = C.compute_queue(device)->stream();
+            // cublasHandle_t cublas_handle = C.cublas_handle(device);
+            cublasHandle_t cublas_handle = C.compute_queue(device)->handle();
 
             auto& deviceArrays = batchArrays->deviceArrays(device);
 

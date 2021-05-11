@@ -124,7 +124,7 @@ void geqrf(
             // setting diagonal to 1
             if (thread_rank == 0) {
                 for (int rank = 1; rank < thread_size; ++rank) {
-                    add_sumsq(scale[0], sumsq[0], scale[rank], sumsq[rank]);
+                    combine_sumsq(scale[0], sumsq[0], scale[rank], sumsq[rank]);
                 }
                 xnorm = scale[0]*std::sqrt(sumsq[0]);
                 diag_tile.at(j, j) = scalar_t(1.0);

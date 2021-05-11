@@ -3,11 +3,12 @@
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
+#include "slate/Exception.hh"
 #include "slate/internal/device.hh"
+
 #include "device_util.cuh"
 
 #include <cstdio>
-#include <cuComplex.h>
 
 namespace slate {
 namespace device {
@@ -82,7 +83,6 @@ double imag(cuDoubleComplex a)
 /// @param[in] n
 ///     Number of rows and columns of each tile. n >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
-///     n <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] tiles
 ///     Array of tiles of dimension gridDim.x,
@@ -105,32 +105,44 @@ __global__ void henormMaxKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    scalar_t const* row = &tile[threadIdx.x];
-
-    // Each thread finds max of one row.
-    // This does coalesced reads of one column at a time in parallel.
-    real_t max = 0;
-    if (uplo == lapack::Uplo::Lower) {
-        for (int64_t j = 0; j < threadIdx.x && j < n; ++j) // strictly lower
-            max = max_nan(max, abs(row[j*lda]));
-        int64_t j = threadIdx.x;
-        max = max_nan(max, abs( real( row[j*lda] )));  // diag (real)
-    }
-    else {
-        // Loop backwards (n-1 down to i) to maintain coalesced reads.
-        for (int64_t j = n-1; j > threadIdx.x; --j) // strictly upper
-            max = max_nan(max, abs(row[j*lda]));
-        int64_t j = threadIdx.x;
-        max = max_nan(max, abs( real( row[j*lda] )));  // diag (real)
-    }
+    int chunk;
 
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
     real_t* row_max = (real_t*) dynamic_data;
-    row_max[threadIdx.x] = max;
-    __syncthreads();
+    if (threadIdx.x < blockDim.x) {
+        row_max[threadIdx.x] = 0;
+    }
+
+    // Each thread finds max of one row.
+    // This does coalesced reads of one column at a time in parallel.
+    for (int idx = threadIdx.x; idx < n; idx += blockDim.x) {
+        chunk = idx % blockDim.x;
+
+        scalar_t const* row = &tile[idx];
+        if (idx < blockDim.x) {
+            row_max[chunk] = 0;
+        }
+
+        real_t max = 0;
+        if (uplo == lapack::Uplo::Lower) {
+            for (int64_t j = 0; j < idx && j < n; ++j) // strictly lower
+                max = max_nan(max, abs(row[j*lda]));
+            int64_t j = idx;
+            max = max_nan(max, abs( real( row[j*lda] )));  // diag (real)
+        }
+        else {
+            // Loop backwards (n-1 down to i) to maintain coalesced reads.
+            for (int64_t j = n-1; j > idx; --j) // strictly upper
+                max = max_nan(max, abs(row[j*lda]));
+            int64_t j = idx;
+            max = max_nan(max, abs( real( row[j*lda] )));  // diag (real)
+        }
+        row_max[chunk] = max_nan(max, row_max[chunk]);
+    }
 
     // Reduction to find max of tile.
+    __syncthreads();
     max_nan_reduce(blockDim.x, threadIdx.x, row_max);
     if (threadIdx.x == 0) {
         tiles_maxima[blockIdx.x] = row_max[0];
@@ -147,7 +159,6 @@ __global__ void henormMaxKernel(
 /// @param[in] n
 ///     Number of rows and columns of each tile. n >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
-///     n <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] tiles
 ///     Array of tiles of dimension gridDim.x,
@@ -173,31 +184,34 @@ __global__ void henormOneKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    scalar_t const* row    = &tile[threadIdx.x];
-    scalar_t const* column = &tile[lda*threadIdx.x];
 
     // Each thread sums one row/column.
     // todo: the row reads are coalesced, but the col reads are not coalesced
-    real_t sum = 0;
-    if (uplo == lapack::Uplo::Lower) {
-        for (int64_t j = 0; j < threadIdx.x; ++j) // strictly lower
-            sum += abs(row[j*lda]);
-        int64_t j = threadIdx.x;
-        sum += abs( real( row[j*lda] )); // diag (real)
-        for (int64_t i = threadIdx.x + 1; i < n; ++i) // strictly lower
-            sum += abs(column[i]);
-    }
-    else {
-        // Loop backwards (n-1 down to i) to maintain coalesced reads.
-        for (int64_t j = n-1; j > threadIdx.x; --j) // strictly upper
-            sum += abs(row[j*lda]);
-        int64_t j = threadIdx.x;
-        sum += abs( real( row[j*lda] )); // diag (real)
-        for (int64_t i = 0; i < threadIdx.x && i < n; ++i) // strictly upper
-            sum += abs(column[i]);
-    }
+    for (int idx = threadIdx.x; idx < n; idx += blockDim.x) {
 
-    tiles_sums[blockIdx.x*ldv + threadIdx.x] = sum;
+        scalar_t const* row    = &tile[idx];
+        scalar_t const* column = &tile[lda*idx];
+        real_t sum = 0;
+
+        if (uplo == lapack::Uplo::Lower) {
+            for (int64_t j = 0; j < idx; ++j) // strictly lower
+                sum += abs(row[j*lda]);
+            int64_t j = idx;
+            sum += abs( real( row[j*lda] )); // diag (real)
+            for (int64_t i = idx + 1; i < n; ++i) // strictly lower
+                sum += abs(column[i]);
+        }
+        else {
+            // Loop backwards (n-1 down to i) to maintain coalesced reads.
+            for (int64_t j = n-1; j > idx; --j) // strictly upper
+                sum += abs(row[j*lda]);
+            int64_t j = idx;
+            sum += abs( real( row[j*lda] )); // diag (real)
+            for (int64_t i = 0; i < idx && i < n; ++i) // strictly upper
+                sum += abs(column[i]);
+        }
+        tiles_sums[blockIdx.x*ldv + idx] = sum;
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -210,7 +224,6 @@ __global__ void henormOneKernel(
 /// @param[in] n
 ///     Number of rows and columns of each tile. n >= 1.
 ///     Also the number of threads per block, hence,
-///     n <= 1024 for current CUDA architectures (2.x to 6.x).
 ///
 /// @param[in] tiles
 ///     Array of tiles of dimension blockDim.x,
@@ -236,45 +249,55 @@ __global__ void henormFroKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    scalar_t const* row = &tile[threadIdx.x];
-
-    // Each thread finds sum-of-squares of one row.
-    // This does coalesced reads of one column at a time in parallel.
-    real_t scale = 0;
-    real_t sumsq = 1;
-    if (uplo == lapack::Uplo::Lower) {
-        for (int64_t j = 0; j < threadIdx.x && j < n; ++j) // strictly lower
-            add_sumsq(scale, sumsq, abs(row[j*lda]));
-        // double for symmetric entries
-        sumsq *= 2;
-        // diagonal (real)
-        add_sumsq(scale, sumsq, abs( real( row[threadIdx.x*lda] )));
-    }
-    else {
-        // Loop backwards (n-1 down to i) to maintain coalesced reads.
-        for (int64_t j = n-1; j > threadIdx.x; --j) // strictly upper
-            add_sumsq(scale, sumsq, abs(row[j*lda]));
-        // double for symmetric entries
-        sumsq *= 2;
-        // diagonal (real)
-        add_sumsq(scale, sumsq, abs( real( row[threadIdx.x*lda] )));
-    }
+    int chunk;
 
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
     real_t* row_scale = (real_t*) &dynamic_data[0];
-    real_t* row_sumsq = &row_scale[n];
-    row_scale[threadIdx.x] = scale;
-    row_sumsq[threadIdx.x] = sumsq;
-    __syncthreads();
+    real_t* row_sumsq = &row_scale[blockDim.x];
+
+    // Each thread finds sum-of-squares of one row.
+    // This does coalesced reads of one column at a time in parallel.
+    for (int idx = threadIdx.x; idx < n; idx += blockDim.x) {
+        real_t scale = 0;
+        real_t sumsq = 1;
+        chunk = idx % blockDim.x;
+        scalar_t const* row = &tile[idx];
+
+        if (uplo == lapack::Uplo::Lower) {
+            for (int64_t j = 0; j < idx && j < n; ++j) // strictly lower
+                add_sumsq(scale, sumsq, abs(row[j*lda]));
+            // double for symmetric entries
+            sumsq *= 2;
+            // diagonal (real)
+            add_sumsq(scale, sumsq, abs( real( row[idx*lda] )));
+        }
+        else {
+            // Loop backwards (n-1 down to i) to maintain coalesced reads.
+            for (int64_t j = n-1; j > idx; --j) // strictly upper
+                add_sumsq(scale, sumsq, abs(row[j*lda]));
+            // double for symmetric entries
+            sumsq *= 2;
+            // diagonal (real)
+            add_sumsq(scale, sumsq, abs( real( row[idx*lda] )));
+        }
+
+        if (idx < blockDim.x) {
+            row_scale[chunk] = 0;
+            row_sumsq[chunk] = 1;
+        }
+        combine_sumsq(row_scale[chunk], row_sumsq[chunk], scale, sumsq);
+        __syncthreads();
+    }
 
     // Reduction to find sum-of-squares of tile.
     // todo: parallel reduction.
     if (threadIdx.x == 0) {
         real_t tile_scale = row_scale[0];
         real_t tile_sumsq = row_sumsq[0];
-        for (int64_t i = 1; i < n; ++i)
-            add_sumsq(tile_scale, tile_sumsq, row_scale[i], row_sumsq[i]);
+        for (int64_t chunk = 1; chunk < blockDim.x && chunk < n; ++chunk) {
+            combine_sumsq(tile_scale, tile_sumsq, row_scale[chunk], row_sumsq[chunk]);
+        }
 
         tiles_values[blockIdx.x*2 + 0] = tile_scale;
         tiles_values[blockIdx.x*2 + 1] = tile_sumsq;
@@ -293,7 +316,6 @@ __global__ void henormFroKernel(
 ///
 /// @param[in] n
 ///     Number of rows and columns of each tile. n >= 0.
-///     Currently, n <= 1024 due to CUDA implementation.
 ///
 /// @param[in] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
@@ -336,9 +358,10 @@ void henorm(
     int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream)
+    blas::Queue &queue)
 {
     using real_t = blas::real_type<scalar_t>;
+    int64_t nb = 512;
 
     // quick return
     if (batch_count == 0)
@@ -348,13 +371,11 @@ void henorm(
     // max norm
     if (norm == lapack::Norm::Max) {
         if (n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count, stream);
+            blas::device_memset(values, 0, batch_count, queue);
         }
         else {
-            assert(n <= 1024);
             assert(ldv == 1);
-            // Max 1024 threads * 8 bytes = 8 KiB shared memory in double [complex].
-            henormMaxKernel<<<batch_count, n, sizeof(real_t) * n, stream>>>
+            henormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, queue.stream()>>>
                 (uplo, n, Aarray, lda, values);
         }
     }
@@ -362,12 +383,11 @@ void henorm(
     // one norm
     else if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
         if (n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * n, stream);
+            blas::device_memset(values, 0, batch_count * n, queue);
         }
         else {
-            assert(n <= 1024);
             assert(ldv >= n);
-            henormOneKernel<<<batch_count, n, 0, stream>>>
+            henormOneKernel<<<batch_count, nb, 0, queue.stream()>>>
                 (uplo, n, Aarray, lda, values, ldv);
         }
     }
@@ -375,18 +395,17 @@ void henorm(
     // Frobenius norm
     else if (norm == lapack::Norm::Fro) {
         if (n == 0) {
-            cudaMemsetAsync(values, 0, sizeof(real_t) * batch_count * 2, stream);
+            blas::device_memset(values, 0, batch_count * 2, queue);
         }
         else {
-            assert(n <= 1024);
             assert(ldv == 2);
-            // Max 1024 threads * 16 bytes = 16 KiB shared memory in double [complex].
-            henormFroKernel<<<batch_count, n, sizeof(real_t) * n * 2, stream>>>
+            henormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
                 (uplo, n, Aarray, lda, values);
         }
     }
 
-    slate_cuda_call(cudaGetLastError());
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
 
 //------------------------------------------------------------------------------
@@ -397,7 +416,7 @@ void henorm(
     int64_t n,
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void henorm(
@@ -405,7 +424,7 @@ void henorm(
     int64_t n,
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void henorm(
@@ -413,7 +432,7 @@ void henorm(
     int64_t n,
     cuFloatComplex const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 template
 void henorm(
@@ -421,7 +440,7 @@ void henorm(
     int64_t n,
     cuDoubleComplex const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    cudaStream_t stream);
+    blas::Queue &queue);
 
 } // namespace device
 } // namespace slate

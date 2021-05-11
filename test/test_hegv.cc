@@ -312,120 +312,120 @@ void test_hegv_work(Params& params, bool run)
     }
 
     if (ref || check) {
-        #ifdef SLATE_HAVE_SCALAPACK
-            // Run reference routine from ScaLAPACK
-
-            // initialize BLACS
-            blas_int mpi_rank_ = 0, nprocs = 1, ictxt;
-            blas_int p_, q_, myrow_, mycol_;
-            Cblacs_pinfo(&mpi_rank_, &nprocs);
-            slate_assert( mpi_rank == mpi_rank_ );
-            slate_assert(p*q <= nprocs);
-            Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit(&ictxt, "Col", p, q);
-            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            slate_assert( p == p_ );
-            slate_assert( q == q_ );
-            slate_assert( myrow == myrow_ );
-            slate_assert( mycol == mycol_ );
-
-            blas_int A_desc[9];
-            scalapack_descinit(A_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-            slate_assert(info == 0);
-
-            blas_int B_desc[9];
-            scalapack_descinit(B_desc, n, n, nb, nb, izero, izero, ictxt, mlocB, &info);
-            slate_assert(info == 0);
-
-            blas_int Z_desc[9];
-            scalapack_descinit(Z_desc, n, n, nb, nb, izero, izero, ictxt, mlocZ, &info);
-            slate_assert(info == 0);
-
-            // set num threads appropriately for parallel BLAS if possible
-            int omp_num_threads = 1;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
-            const char* range = "A";
-            int64_t ia=1, ja=1, ib=1, jb=1, iz=1, jz=1;
-            int64_t vl=0, vu=0, il=0, iu=0;
-            real_t abstol=0;
-            int64_t m=0, nz=0;
-            real_t orfac=0;
-
-            // query for workspace size
-            int64_t info_tst = 0;
-            int64_t lwork = -1, lrwork = -1, liwork=-1;
-            // For the query, it should be work(3) and rwork(3), since
-            // work and rwork have dimension max(3,LWORK) and max(3,LRWORK) in
-            // http://www.netlib.org/scalapack/explore-html/db/d5b/pdsygvx_8f_source.html
-            // http://www.netlib.org/scalapack/explore-html/d7/dff/pzhegvx_8f_source.html
-            std::vector<scalar_t> work(3);
-            std::vector<real_t> rwork(3);
-            std::vector<int> iwork(1);
-            std::vector<int> ifail(n);
-            std::vector<int> iclustr(2*p*q);
-            std::vector<real_t> gap(p*q);
-            scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
-                            &Aref_data[0], ia, ja, A_desc,
-                            &Bref_data[0], ib, jb, B_desc,
-                            vl, vu, il, iu, abstol, &m, &nz, &Wref_data[0], orfac,
-                            &Zref_data[0], iz, jz, Z_desc,
-                            &work[0], lwork, &rwork[0], lrwork, &iwork[0], liwork,
-                            &ifail[0], &iclustr[0], &gap[0], &info_tst);
-
-            // resize workspace based on query for workspace sizes
-            slate_assert(info_tst == 0);
-            lwork = int64_t(real(work[0]));
-            work.resize(lwork);
-            // The lrwork, rwork parameters are only valid for complex
-            if (slate::is_complex<scalar_t>::value) {
-                lrwork = int64_t(real(rwork[0]));
-                rwork.resize(lrwork);
-            }
-            liwork = int64_t(iwork[0]);
-            iwork.resize(liwork);
-
-            // Run ScaLAPACK reference routine.
-            double time = barrier_get_wtime(mpi_comm);
-
-            scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
-                            &Aref_data[0], // local input/local output
-                            ia, ja, A_desc,
-                            &Bref_data[0], // local input/local output
-                            ib, jb, B_desc,
-                            vl, vu, il, iu, abstol, &m, &nz,
-                            &Wref_data[0], // global output
-                            orfac,
-                            &Zref_data[0], // local output
-                            iz, jz, Z_desc,
-                            &work[0], lwork, &rwork[0], lrwork, &iwork[0], liwork,
-                            &ifail[0], &iclustr[0], &gap[0], &info_tst);
-
-            slate_assert(info_tst == 0);
-            time = barrier_get_wtime(mpi_comm) - time;
-
-            params.ref_time() = time;
-
-            // Reset omp thread number
-            slate_set_num_blas_threads(saved_num_threads);
-
-            if (! ref_only) {
-                // Reference Scalapack was run, check reference eigenvalues
-                // Perform a local operation to get differences W_data = W_data - Wref_data
-                blas::axpy(W_data.size(), -1.0, &Wref_data[0], 1, &W_data[0], 1);
-                // Relative forward error: || Wref_data - W_data || / || Wref_data ||
-                params.error2() = blas::asum(W_data.size(), &W_data[0], 1)
-                    / blas::asum(Wref_data.size(), &Wref_data[0], 1);
-                real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-                params.okay() = (params.error2() <= tol);
-            }
-            Cblacs_gridexit(ictxt);
-        #else
-            if (mpi_rank == 0)
-                printf( "ScaLAPACK not available\n" );
-        #endif
+#ifdef SLATE_HAVE_SCALAPACK
+        // Run reference routine from ScaLAPACK
+        
+        // initialize BLACS
+        blas_int mpi_rank_ = 0, nprocs = 1, ictxt;
+        blas_int p_, q_, myrow_, mycol_;
+        Cblacs_pinfo(&mpi_rank_, &nprocs);
+        slate_assert( mpi_rank == mpi_rank_ );
+        slate_assert(p*q <= nprocs);
+        Cblacs_get(-1, 0, &ictxt);
+        Cblacs_gridinit(&ictxt, "Col", p, q);
+        Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
+        slate_assert( p == p_ );
+        slate_assert( q == q_ );
+        slate_assert( myrow == myrow_ );
+        slate_assert( mycol == mycol_ );
+        
+        blas_int A_desc[9];
+        scalapack_descinit(A_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+        slate_assert(info == 0);
+        
+        blas_int B_desc[9];
+        scalapack_descinit(B_desc, n, n, nb, nb, izero, izero, ictxt, mlocB, &info);
+        slate_assert(info == 0);
+        
+        blas_int Z_desc[9];
+        scalapack_descinit(Z_desc, n, n, nb, nb, izero, izero, ictxt, mlocZ, &info);
+        slate_assert(info == 0);
+        
+        // set num threads appropriately for parallel BLAS if possible
+        int omp_num_threads = 1;
+#pragma omp parallel
+        { omp_num_threads = omp_get_num_threads(); }
+        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
+        
+        const char* range = "A";
+        int64_t ia=1, ja=1, ib=1, jb=1, iz=1, jz=1;
+        int64_t vl=0, vu=0, il=0, iu=0;
+        real_t abstol=0;
+        int64_t m=0, nz=0;
+        real_t orfac=0;
+        
+        // query for workspace size
+        int64_t info_tst = 0;
+        int64_t lwork = -1, lrwork = -1, liwork=-1;
+        // For the query, it should be work(3) and rwork(3), since
+        // work and rwork have dimension max(3,LWORK) and max(3,LRWORK) in
+        // http://www.netlib.org/scalapack/explore-html/db/d5b/pdsygvx_8f_source.html
+        // http://www.netlib.org/scalapack/explore-html/d7/dff/pzhegvx_8f_source.html
+        std::vector<scalar_t> work(3);
+        std::vector<real_t> rwork(3);
+        std::vector<int> iwork(1);
+        std::vector<int> ifail(n);
+        std::vector<int> iclustr(2*p*q);
+        std::vector<real_t> gap(p*q);
+        scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
+                         &Aref_data[0], ia, ja, A_desc,
+                         &Bref_data[0], ib, jb, B_desc,
+                         vl, vu, il, iu, abstol, &m, &nz, &Wref_data[0], orfac,
+                         &Zref_data[0], iz, jz, Z_desc,
+                         &work[0], lwork, &rwork[0], lrwork, &iwork[0], liwork,
+                         &ifail[0], &iclustr[0], &gap[0], &info_tst);
+        
+        // resize workspace based on query for workspace sizes
+        slate_assert(info_tst == 0);
+        lwork = int64_t(real(work[0]));
+        work.resize(lwork);
+        // The lrwork, rwork parameters are only valid for complex
+        if (slate::is_complex<scalar_t>::value) {
+            lrwork = int64_t(real(rwork[0]));
+            rwork.resize(lrwork);
+        }
+        liwork = int64_t(iwork[0]);
+        iwork.resize(liwork);
+        
+        // Run ScaLAPACK reference routine.
+        double time = barrier_get_wtime(mpi_comm);
+        
+        scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
+                         &Aref_data[0], // local input/local output
+                         ia, ja, A_desc,
+                         &Bref_data[0], // local input/local output
+                         ib, jb, B_desc,
+                         vl, vu, il, iu, abstol, &m, &nz,
+                         &Wref_data[0], // global output
+                         orfac,
+                         &Zref_data[0], // local output
+                         iz, jz, Z_desc,
+                         &work[0], lwork, &rwork[0], lrwork, &iwork[0], liwork,
+                         &ifail[0], &iclustr[0], &gap[0], &info_tst);
+        
+        slate_assert(info_tst == 0);
+        time = barrier_get_wtime(mpi_comm) - time;
+        
+        params.ref_time() = time;
+        
+        // Reset omp thread number
+        slate_set_num_blas_threads(saved_num_threads);
+        
+        if (! ref_only) {
+            // Reference Scalapack was run, check reference eigenvalues
+            // Perform a local operation to get differences W_data = W_data - Wref_data
+            blas::axpy(W_data.size(), -1.0, &Wref_data[0], 1, &W_data[0], 1);
+            // Relative forward error: || Wref_data - W_data || / || Wref_data ||
+            params.error2() = blas::asum(W_data.size(), &W_data[0], 1)
+            / blas::asum(Wref_data.size(), &Wref_data[0], 1);
+            real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+            params.okay() = (params.error2() <= tol);
+        }
+        Cblacs_gridexit(ictxt);
+#else
+        if (mpi_rank == 0)
+            printf( "ScaLAPACK not available\n" );
+#endif
     }
 }
 

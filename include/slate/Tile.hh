@@ -22,7 +22,6 @@
 #include <cstring>
 #include <memory>
 
-#include "slate/internal/cuda.hh"
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
 
@@ -140,19 +139,11 @@ public:
     // 2. copy & move constructors
     // 3. copy & move assignment
 
-    void copyDataToHost(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
-    void copyDataToDevice(Tile<scalar_t>* dst_tile, cudaStream_t stream) const;
-    void copyData(Tile<scalar_t>* dst_tile, cudaStream_t stream,
+    void copyData(Tile<scalar_t>* dst_tile, blas::Queue& queue,
                   bool async = false) const;
 
     /// copies this tile's data to dst_tile data, both assumed on host
-    void copyData(Tile<scalar_t>* dst_tile) const
-    {
-        assert(this->device_ < 0);
-        assert(dst_tile->device() < 0);
-        // forward
-        copyData(dst_tile, nullptr, false);
-    }
+    void copyData(Tile<scalar_t>* dst_tile) const;
 
     void send(int dst, MPI_Comm mpi_comm, int tag = 0) const;
     void isend(int dst, MPI_Comm mpi_comm, int tag, MPI_Request *req); // const;
@@ -307,17 +298,16 @@ public:
             return user_stride_;
     }
 
-    void layoutConvert( scalar_t* work_data,
-                        cudaStream_t stream = nullptr,
-                        bool async = false);
+    void layoutConvert(scalar_t* work_data = nullptr);
 
-    /// Convert layout of this tile (assuming no workspace is needed)
-    /// CUDA stream must be provided if conversion is to happen on device
-    void layoutConvert( cudaStream_t stream = nullptr,
-                        bool async = false)
+    void layoutConvert(
+        scalar_t* work_data, blas::Queue& queue, bool async = false);
+
+    /// Overload with work_data = nullptr.
+    void layoutConvert(blas::Queue& queue, bool async = false)
     {
         assert(mb() == nb() || extended());
-        layoutConvert(nullptr, stream, async);
+        layoutConvert(nullptr, queue, async);
     }
 
 protected:
@@ -656,89 +646,58 @@ void Tile<scalar_t>::layoutReset()
 }
 
 //------------------------------------------------------------------------------
-/// Convert layout (Column / Row major) of this tile.
+/// Convert layout (Column / Row major) of this tile (host CPU implementation).
 /// Performs:
 ///     - In-place conversion for square tiles
-///     - In-place conversion for contiguous rectangular tiles, using a workspace.
-///     - Out-of-place conversion if extended tile, swaps front buffer accordingly.
+///     - In-place conversion for contiguous rectangular tiles,
+///       using a workspace.
+///     - Out-of-place conversion if extended tile, swaps front buffer
+///       accordingly.
 ///
 /// Tile must be transposable already, should call makeTransposable() if not.
-/// A CUDA stream should be provided if tile instance is on a GPU device.
 ///
 /// @param[in] work_data
 ///     Pointer to a workspace buffer, needed for out-of-place transpose.
 ///
-/// @param[in] stream
-///     CUDA stream to run the kernels on if conversion is carried on the device.
-///
 template <typename scalar_t>
-void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream,
-    bool async)
+void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
 {
-    slate_assert(device_ == HostNum || stream != nullptr);
+    slate_assert(device_ == HostNum);
     slate_assert(isTransposable());
 
     trace::Block trace_block("slate::convertLayout");
-    // square tile
+
     if (mb() == nb()) {
-        // in-place convert
-        if (device_ == HostNum)
-            transpose(nb(), data_, stride_);
-        else {
-            slate_cuda_call(
-                cudaSetDevice(device_));
-
-            device::transpose(mb(), data(), stride(), stream);
-
-            if (! async)
-                slate_cuda_call(
-                    cudaStreamSynchronize(stream));
-        }
+        // square tile, in-place conversion
+        transpose(nb(), data_, stride_);
     }
-    // rectangular tile
     else {
-        // if tile made Convertible
+        // rectangular tile, out-of-place conversion
         if (extended()) {
-            // out-of-place convert
+            // if tile made Convertible
             scalar_t* src_data;
             int64_t src_stride = 0;
 
             if (user_data_ == data_) {
                 // need to convert into ext_data_
-                data_ = ext_data_;
-                src_data = user_data_;
+                data_      = ext_data_;
+                src_data   = user_data_;
                 src_stride = user_stride_;
-                stride_ = user_layout_ == Layout::RowMajor ?
-                          mb_ : nb_;
+                stride_    = user_layout_ == Layout::RowMajor ? mb_ : nb_;
             }
-            else if (ext_data_ == data_) {
+            else {
                 // need to convert into user_data_
-                data_ = user_data_;
-                src_data = ext_data_;
+                assert(ext_data_ == data_);
+                data_      = user_data_;
+                src_data   = ext_data_;
                 src_stride = stride_;
-                stride_ = user_stride_;
+                stride_    = user_stride_;
             }
-            else {
-                assert(0);
-            }
-            if (device_ == HostNum)
-                transpose(layout() == Layout::ColMajor ? mb_ : nb_,
-                          layout() == Layout::ColMajor ? nb_ : mb_,
-                          src_data, src_stride,
-                          data_, stride_);
-            else {
-                slate_cuda_call(
-                    cudaSetDevice(device_));
 
-                device::transpose(layout() == Layout::ColMajor ? mb_ : nb_,
-                                  layout() == Layout::ColMajor ? nb_ : mb_,
-                                  src_data, src_stride,
-                                  data_, stride_,
-                                  stream);
-                if (! async)
-                    slate_cuda_call(
-                        cudaStreamSynchronize(stream));
-            }
+            transpose(layout() == Layout::ColMajor ? mb_ : nb_,
+                      layout() == Layout::ColMajor ? nb_ : mb_,
+                      src_data, src_stride,
+                      data_, stride_);
         }
         else {
             // tile already Convertible
@@ -746,34 +705,14 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream,
             // need a workspace buffer
             slate_assert(work_data != nullptr);
 
-            // out-of-place convert
-            int64_t work_stride = layout() == Layout::ColMajor ?
-                                  nb() : mb();
-            if (device_ == HostNum) {
-                transpose(layout() == Layout::ColMajor ? mb_ : nb_,
-                          layout() == Layout::ColMajor ? nb_ : mb_,
-                          data_, stride_,
-                          work_data, work_stride);
-                std::memcpy(data_, work_data, bytes());
-            }
-            else {
-                slate_cuda_call(
-                    cudaSetDevice(device_));
+            int64_t work_stride = layout() == Layout::ColMajor ? nb() : mb();
 
-                device::transpose(layout() == Layout::ColMajor ? mb_ : nb_,
-                                  layout() == Layout::ColMajor ? nb_ : mb_,
-                                  data_, stride_,
-                                  work_data, work_stride,
-                                  stream);
-                slate_cuda_call(
-                    cudaMemcpyAsync(
-                            data_, work_data, bytes(),
-                            cudaMemcpyDeviceToDevice, stream));
+            transpose(layout() == Layout::ColMajor ? mb_ : nb_,
+                      layout() == Layout::ColMajor ? nb_ : mb_,
+                      data_, stride_,
+                      work_data, work_stride);
+            std::memcpy(data_, work_data, bytes());
 
-                if (! async)
-                    slate_cuda_call(
-                        cudaStreamSynchronize(stream));
-            }
             stride_ = work_stride;
         }
     }
@@ -782,124 +721,121 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data, cudaStream_t stream,
 
 
 //------------------------------------------------------------------------------
-/// @deprecated
-/// Copies data from this tile on device to dst_tile on host.
+/// Convert layout (Column / Row major) of this tile (device GPU implementation).
+/// Performs:
+///     - In-place conversion for square tiles
+///     - In-place conversion for contiguous rectangular tiles,
+///       using a workspace.
+///     - Out-of-place conversion if extended tile, swaps front buffer
+///       accordingly.
 ///
-/// @param[in] dst_tile
-///     Destination tile, assumed to be on host.
+/// Tile must be transposable already, should call makeTransposable() if not.
+/// A BLAS++ queue should be provided if tile instance is on a device.
 ///
-/// @param[in] stream
-///     CUDA stream for copy.
+/// @param[in] work_data
+///     Pointer to a workspace buffer, needed for out-of-place transpose.
 ///
-// todo need to copy or verify metadata (sizes, op, uplo, ...)
+/// @param[in] queue
+///     BLAS++ queue to run the kernels on the device.
+///
+/// @param[in] async
+///     If false, don't synchronize the device queues (asynchronous mode),
+///    otherwise synchronize at every device operation
+///
 template <typename scalar_t>
-void Tile<scalar_t>::copyDataToHost(
-    Tile<scalar_t>* dst_tile, cudaStream_t stream) const
+void Tile<scalar_t>::layoutConvert(
+    scalar_t* work_data, blas::Queue& queue, bool async)
 {
-    // sizes has to match
-    slate_assert(mb_ == dst_tile->mb_);
-    slate_assert(nb_ == dst_tile->nb_);
-
-    slate_cuda_call(
-        cudaSetDevice(device_));
-
-    // If no stride on both sides.
-    if (stride_ == mb_ &&
-        dst_tile->stride_ == dst_tile->mb_) {
-
-        // Use simple copy.
-        trace::Block trace_block("cudaMemcpyAsync");
-
-        slate_cuda_call(
-            cudaMemcpyAsync(
-                    dst_tile->data_, data_, bytes(),
-                    cudaMemcpyDeviceToHost, stream));
-
-        slate_cuda_call(
-            cudaStreamSynchronize(stream));
+    if (device_ == HostNum) {
+        layoutConvert(work_data);
+        return;
     }
-    else {
-        // Otherwise, use 2D copy.
-        trace::Block trace_block("cudaMemcpy2DAsync");
 
-        void* dst = dst_tile->data_;
-        const void* src = data_;
-        size_t dpitch = sizeof(scalar_t)*dst_tile->stride_;
-        size_t spitch = sizeof(scalar_t)*stride_;
-        size_t width  = sizeof(scalar_t)*mb_;
-        size_t height = nb_;
+    slate_assert(isTransposable());
+    slate_assert(device_ != HostNum);
 
-        slate_cuda_call(
-            cudaMemcpy2DAsync(
-                    dst, dpitch,
-                    src, spitch,
-                    width, height,
-                    cudaMemcpyDeviceToHost, stream));
+    trace::Block trace_block("slate::convertLayout");
 
-        slate_cuda_call(
-            cudaStreamSynchronize(stream));
+    if (mb() == nb()) { // square tile (in-place conversion)
+        blas::set_device(device_);
+        device::transpose(mb(), data(), stride(), queue);
+        if (! async)
+            queue.sync();
     }
-    dst_tile->layout(this->layout());
+    else { // rectangular tile (out-of-place conversion)
+        if (extended()) { // if tile made is convertible
+            scalar_t* src_data;
+            int64_t src_stride = 0;
+            if (user_data_ == data_) { // need to convert into ext_data_
+                data_      = ext_data_;
+                src_data   = user_data_;
+                src_stride = user_stride_;
+                stride_    = user_layout_ == Layout::RowMajor ? mb_ : nb_;
+            }
+            else { // need to convert into user_data_
+                assert(ext_data_ == data_);
+                data_      = user_data_;
+                src_data   = ext_data_;
+                src_stride = stride_;
+                stride_    = user_stride_;
+            }
+
+            blas::set_device(device_);
+            device::transpose(
+                layout() == Layout::ColMajor ? mb_ : nb_,
+                layout() == Layout::ColMajor ? nb_ : mb_,
+                src_data, src_stride, data_, stride_, queue);
+            if (! async)
+                queue.sync();
+        }
+        else { // tile already convertible
+            slate_assert(isContiguous());
+            slate_assert(work_data != nullptr); // need a workspace buffer
+
+            int64_t work_stride = layout() == Layout::ColMajor ? nb() : mb();
+
+            blas::set_device(device_);
+            device::transpose(
+                layout() == Layout::ColMajor ? mb_ : nb_,
+                layout() == Layout::ColMajor ? nb_ : mb_,
+                data_, stride_, work_data, work_stride, queue);
+            blas::device_memcpy<scalar_t>(
+                data_, work_data, size(),
+                blas::MemcpyKind::DeviceToDevice, queue);
+            if (! async)
+                queue.sync();
+
+            stride_ = work_stride;
+        }
+    }
+    layout(layout() == Layout::RowMajor ? Layout::ColMajor : Layout::RowMajor);
 }
 
 //------------------------------------------------------------------------------
-/// @deprecated
-/// Copies data from this tile on host to dst_tile on device.
+/// Copies data from this tile to dst_tile (host to host implementation).
+/// WARNING: device ID set in device_ of both tiles should be properly set.
 ///
 /// @param[in] dst_tile
-///     Destination tile, assumed to be on device.
-///
-/// @param[in] stream
-///     CUDA stream for copy.
+///     Destination tile.
 ///
 // todo: need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
-void Tile<scalar_t>::copyDataToDevice(
-    Tile<scalar_t>* dst_tile, cudaStream_t stream) const
+void Tile<scalar_t>::copyData(Tile<scalar_t>* dst_tile) const
 {
     // sizes has to match
     slate_assert(mb_ == dst_tile->mb_);
     slate_assert(nb_ == dst_tile->nb_);
 
-    slate_cuda_call(
-        cudaSetDevice(dst_tile->device_));
+    slate_assert(this->device_      == HostNum);
+    slate_assert(dst_tile->device() == HostNum);
 
-    // If no stride on both sides.
-    if (stride_ == mb_ &&
-        dst_tile->stride_ == dst_tile->mb_) {
-
-        // Use simple copy.
-        trace::Block trace_block("cudaMemcpyAsync");
-
-        slate_cuda_call(
-            cudaMemcpyAsync(
-                    dst_tile->data_, data_, bytes(),
-                    cudaMemcpyHostToDevice, stream));
-
-        slate_cuda_call(
-            cudaStreamSynchronize(stream));
+    // adjust stride if not UserOwned
+    if (dst_tile->kind_ != TileKind::UserOwned) {
+        dst_tile->stride_ = this->layout() == Layout::ColMajor ? mb_ : nb_;
     }
-    else {
-        // Otherwise, use 2D copy.
-        trace::Block trace_block("cudaMemcpy2DAsync");
 
-        void* dst = dst_tile->data_;
-        const void* src = data_;
-        size_t dpitch = sizeof(scalar_t)*dst_tile->stride_;
-        size_t spitch = sizeof(scalar_t)*stride_;
-        size_t width  = sizeof(scalar_t)*mb_;
-        size_t height = nb_;
+    gecopy(*this, *dst_tile);
 
-        slate_cuda_call(
-            cudaMemcpy2DAsync(
-                    dst, dpitch,
-                    src, spitch,
-                    width, height,
-                    cudaMemcpyHostToDevice, stream));
-
-        slate_cuda_call(
-            cudaStreamSynchronize(stream));
-    }
     dst_tile->layout(this->layout());
 }
 
@@ -912,55 +848,56 @@ void Tile<scalar_t>::copyDataToDevice(
 /// @param[in] dst_tile
 ///     Destination tile.
 ///
-/// @param[in] stream
-///     CUDA stream for copy if needed.
+/// @param[in] queue
+///     BLAS++ queue for copy if needed.
+///
+/// @param[in] async
+///     If false, don't synchronize the device queues (asynchronous mode),
+///     otherwise synchronize at every device operation
 ///
 // todo: need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
 void Tile<scalar_t>::copyData(
-    Tile<scalar_t>* dst_tile, cudaStream_t stream,
-    bool async) const
+    Tile<scalar_t>* dst_tile, blas::Queue& queue, bool async) const
 {
     // sizes has to match
     slate_assert(mb_ == dst_tile->mb_);
     slate_assert(nb_ == dst_tile->nb_);
 
     int device;
-    cudaMemcpyKind memcpy_kind;
+    blas::MemcpyKind memcpy_kind;
 
     // figure out copy direction and device
     if (this->device_ >= 0 && dst_tile->device() == HostNum) {
         // device to host copy
         device = this->device_;
-        memcpy_kind = cudaMemcpyDeviceToHost;
+        memcpy_kind = blas::MemcpyKind::DeviceToHost;
     }
     else if (this->device_ == HostNum && dst_tile->device() >= 0) {
         // host to device copy
         device = dst_tile->device();
-        memcpy_kind = cudaMemcpyHostToDevice;
+        memcpy_kind = blas::MemcpyKind::HostToDevice;
     }
     else if (this->device_ == HostNum && dst_tile->device() == HostNum) {
         // host to host copy
         device = -1;
-        memcpy_kind = cudaMemcpyHostToHost;
+        memcpy_kind = blas::MemcpyKind::HostToHost;
+        copyData(dst_tile);
+        return;
     }
     else if (this->device_ >= 0 && dst_tile->device() >= 0) {
         // device to device copy
         device = this->device_;
-        memcpy_kind = cudaMemcpyDeviceToDevice;
+        memcpy_kind = blas::MemcpyKind::DeviceToDevice;
         // todo: handle peer to peer copy
         if (this->device_ != dst_tile->device())
             assert(0);
     }
     else {
-        device = HostNum; // silence a compiler warning
-        memcpy_kind = cudaMemcpyHostToHost; // silence a compiler warning
+        // silence compiler warnings
+        device = HostNum;
+        memcpy_kind = blas::MemcpyKind::HostToHost;
         slate_error("illegal combination of source and destination devices");
-    }
-
-    if (device >= 0) {
-        slate_cuda_call(
-            cudaSetDevice(device));
     }
 
     // adjust stride if not UserOwned
@@ -968,50 +905,35 @@ void Tile<scalar_t>::copyData(
         dst_tile->stride_ = this->layout() == Layout::ColMajor ? mb_ : nb_;
     }
 
-    if (memcpy_kind == cudaMemcpyHostToHost) {
-        gecopy(*this, *dst_tile);
+    slate_assert(device >= 0);
+    blas::set_device(device);
+
+    // If no stride on both sides.
+    if (this->isContiguous() &&
+        dst_tile->isContiguous()) {
+
+        // Use simple copy.
+        trace::Block trace_block("blas::device_memcpy");
+
+        blas::device_memcpy<scalar_t>(
+            dst_tile->data_, data_, size(), memcpy_kind, queue);
+
+        if (! async)
+            queue.sync();
     }
     else {
-        assert(stream != nullptr);
+        // Otherwise, use 2D copy.
+        trace::Block trace_block("blas::device_memcpy_2d");
 
-        // If no stride on both sides.
-        if (this->isContiguous() &&
-            dst_tile->isContiguous()) {
+        blas::device_memcpy_2d<scalar_t>(
+            dst_tile->data_, dst_tile->stride_,
+            data_, stride_,
+            (this->layout() == Layout::ColMajor ? mb_ : nb_),
+            (this->layout() == Layout::ColMajor ? nb_ : mb_),
+            memcpy_kind, queue);
 
-            // Use simple copy.
-            trace::Block trace_block("cudaMemcpyAsync");
-
-            slate_cuda_call(
-                cudaMemcpyAsync(
-                        dst_tile->data_, data_, bytes(),
-                        memcpy_kind, stream));
-
-            if (! async)
-                slate_cuda_call(
-                    cudaStreamSynchronize(stream));
-        }
-        else {
-            // Otherwise, use 2D copy.
-            trace::Block trace_block("cudaMemcpy2DAsync");
-
-            void* dst = dst_tile->data_;
-            const void* src = data_;
-            size_t dpitch = sizeof(scalar_t)*dst_tile->stride_;
-            size_t spitch = sizeof(scalar_t)*stride_;
-            size_t width  = sizeof(scalar_t)*(this->layout() == Layout::ColMajor ? mb_ : nb_);
-            size_t height = (this->layout() == Layout::ColMajor ? nb_ : mb_);
-
-            slate_cuda_call(
-                cudaMemcpy2DAsync(
-                        dst, dpitch,
-                        src, spitch,
-                        width, height,
-                        memcpy_kind, stream));
-
-            if (! async)
-                slate_cuda_call(
-                    cudaStreamSynchronize(stream));
-        }
+        if (! async)
+            queue.sync();
     }
     dst_tile->layout(this->layout());
 }

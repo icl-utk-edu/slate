@@ -126,8 +126,7 @@ void test_posv_work(Params& params, bool run)
                 return int(i%p + (j%q)*p);
             };
 
-            int num_devices = 0;
-            cudaGetDeviceCount(&num_devices);
+            int num_devices = blas::get_device_count();
             slate_assert(num_devices > 0);
 
             std::function<int (std::tuple<int64_t, int64_t> ij)>

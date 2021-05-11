@@ -20,14 +20,21 @@ void geset(
     int64_t m, int64_t n,
     std::complex<float> alpha, std::complex<float> beta,
     std::complex<float>** Aarray, int64_t lda,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA)
+#if ! defined(SLATE_NO_CUDA)
     geset(m, n,
           make_cuFloatComplex(alpha.real(), alpha.imag()),
           make_cuFloatComplex(beta.real(), beta.imag()),
           (cuFloatComplex**) Aarray, lda,
-          batch_count, stream);
+          batch_count, queue);
+
+#elif ! defined(SLATE_NO_HIP)
+    geset(m, n,
+          make_hipFloatComplex(alpha.real(), alpha.imag()),
+          make_hipFloatComplex(beta.real(), beta.imag()),
+          (hipFloatComplex**) Aarray, lda,
+          batch_count, queue);
 #endif
 }
 
@@ -36,25 +43,32 @@ void geset(
     int64_t m, int64_t n,
     std::complex<double> alpha, std::complex<double> beta,
     std::complex<double>** Aarray, int64_t lda,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA)
+#if ! defined(SLATE_NO_CUDA)
     geset(m, n,
-          make_cuDoubleComplex(alpha.real(), alpha.imag()) ,
+          make_cuDoubleComplex(alpha.real(), alpha.imag()),
           make_cuDoubleComplex(beta.real(), beta.imag()),
           (cuDoubleComplex**) Aarray, lda,
-          batch_count, stream);
+          batch_count, queue);
+
+#elif ! defined(SLATE_NO_HIP)
+    geset(m, n,
+          make_hipDoubleComplex(alpha.real(), alpha.imag()),
+          make_hipDoubleComplex(beta.real(), beta.imag()),
+          (hipDoubleComplex**) Aarray, lda,
+          batch_count, queue);
 #endif
 }
 
-#if defined(SLATE_NO_CUDA)
-// Specializations to allow compilation without CUDA.
+#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+// Specializations to allow compilation without CUDA or HIP.
 template <>
 void geset(
     int64_t m, int64_t n,
     double alpha, double beta,
     double** Aarray, int64_t lda,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 }
 
@@ -63,7 +77,7 @@ void geset(
     int64_t m, int64_t n,
     float alpha, float beta,
     float** Aarray, int64_t lda,
-    int64_t batch_count, cudaStream_t stream)
+    int64_t batch_count, blas::Queue &queue)
 {
 }
 #endif // not SLATE_WITH_CUDA
@@ -78,10 +92,12 @@ namespace internal {
 /// @ingroup set_internal
 ///
 template <Target target, typename scalar_t>
-void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>&& A, int priority)
+void set(
+    scalar_t alpha, scalar_t beta, Matrix<scalar_t>&& A,
+    int priority, int queue_index)
 {
     set(internal::TargetType<target>(),
-        alpha, beta, A, priority);
+        alpha, beta, A, priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -91,8 +107,10 @@ void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>&& A, int priority)
 /// @ingroup set_internal
 ///
 template <typename scalar_t>
-void set(internal::TargetType<Target::HostTask>,
-         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A, int priority)
+void set(
+    internal::TargetType<Target::HostTask>,
+    scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
+    int priority, int queue_index)
 {
     // trace::Block trace_block("set");
 
@@ -117,17 +135,19 @@ void set(internal::TargetType<Target::HostTask>,
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void set(internal::TargetType<Target::HostNest>,
-         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A, int priority)
+         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
+         int priority, int queue_index)
 {
-    throw Exception("HostNest not yet implemented");
+    slate_not_implemented("Target::HostNest isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void set(internal::TargetType<Target::HostBatch>,
-         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A, int priority)
+         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
+         int priority, int queue_index)
 {
-    throw Exception("HostBatch not yet implemented");
+    slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
@@ -138,7 +158,8 @@ void set(internal::TargetType<Target::HostBatch>,
 ///
 template <typename scalar_t>
 void set(internal::TargetType<Target::Devices>,
-         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A, int priority)
+         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
+         int priority, int queue_index)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
@@ -217,21 +238,17 @@ void set(internal::TargetType<Target::Devices>,
 
             scalar_t** a_array_dev = A.array_device(device);
 
-            slate_cuda_call(cudaSetDevice(device));
+            blas::Queue* queue = A.compute_queue(device, queue_index);
 
-            cudaStream_t stream = A.compute_stream(device);
-
-            slate_cuda_call(
-                cudaMemcpyAsync(a_array_dev, a_array_host,
-                                sizeof(scalar_t*)*batch_count,
-                                cudaMemcpyHostToDevice,
-                                stream));
+            blas::device_memcpy<scalar_t*>(
+                a_array_dev, a_array_host, batch_count,
+                blas::MemcpyKind::HostToDevice, *queue);
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
                     device::geset(mb[q], nb[q],
                                   alpha, alpha, a_array_dev, lda[q],
-                                  group_count[q], stream);
+                                  group_count[q], *queue);
                     a_array_dev += group_count[q];
                 }
             }
@@ -239,12 +256,12 @@ void set(internal::TargetType<Target::Devices>,
                 if (group_count[q] > 0) {
                     device::geset(mb[q], nb[q],
                                   alpha, beta, a_array_dev, lda[q],
-                                  group_count[q], stream);
+                                  group_count[q], *queue);
                     a_array_dev += group_count[q];
                 }
             }
 
-            slate_cuda_call(cudaStreamSynchronize(stream));
+            queue->sync();
         }
     }
 
@@ -256,78 +273,94 @@ void set(internal::TargetType<Target::Devices>,
 // ----------------------------------------
 template
 void set<Target::HostTask, float>(
-    float alpha, float beta, Matrix<float>&& A, int priority);
+    float alpha, float beta, Matrix<float>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::HostNest, float>(
-    float alpha, float beta, Matrix<float>&& A, int priority);
+    float alpha, float beta, Matrix<float>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::HostBatch, float>(
-    float alpha, float beta, Matrix<float>&& A, int priority);
+    float alpha, float beta, Matrix<float>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::Devices, float>(
-    float alpha, float beta, Matrix<float>&& A, int priority);
+    float alpha, float beta, Matrix<float>&& A,
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set<Target::HostTask, double>(
-    double alpha, double beta, Matrix<double>&& A, int priority);
+    double alpha, double beta, Matrix<double>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::HostNest, double>(
-    double alpha, double beta, Matrix<double>&& A, int priority);
+    double alpha, double beta, Matrix<double>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::HostBatch, double>(
-    double alpha, double beta, Matrix<double>&& A, int priority);
+    double alpha, double beta, Matrix<double>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::Devices, double>(
-    double alpha, double beta, Matrix<double>&& A, int priority);
+    double alpha, double beta, Matrix<double>&& A,
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    Matrix< std::complex<float> >&& A, int priority);
+    Matrix< std::complex<float> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    Matrix< std::complex<float> >&& A, int priority);
+    Matrix< std::complex<float> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    Matrix< std::complex<float> >&& A, int priority);
+    Matrix< std::complex<float> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    Matrix< std::complex<float> >&& A, int priority);
+    Matrix< std::complex<float> >&& A,
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    Matrix< std::complex<double> >&& A, int priority);
+    Matrix< std::complex<double> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    Matrix< std::complex<double> >&& A, int priority);
+    Matrix< std::complex<double> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    Matrix< std::complex<double> >&& A, int priority);
+    Matrix< std::complex<double> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    Matrix< std::complex<double> >&& A, int priority);
+    Matrix< std::complex<double> >&& A,
+    int priority, int queue_index);
 
 } // namespace internal
 } // namespace slate

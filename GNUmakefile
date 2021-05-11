@@ -3,60 +3,11 @@
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 #
-# Relies on settings in environment. These can be set by modules or in make.inc.
-# Set compiler by $CXX; usually want CXX=mpicxx.
-# Add include directories to $CPATH or $CXXFLAGS for MPI, CUDA, MKL, etc.
-# Add lib directories to $LIBRARY_PATH or $LDFLAGS for MPI, CUDA, MKL, etc.
-# At runtime, these lib directories need to be in $LD_LIBRARY_PATH,
-# or on MacOS, $DYLD_LIBRARY_PATH, or set as rpaths in $LDFLAGS.
-#
-# Set options on command line or in make.inc file.
-#
-# CXX=mpicxx, mpic++, etc. (mpi*) for MPI using compiler wrapper.
-# FC =mpif90, mpifort, etc.
-# Alternatively:
-#     mpi=1         for MPI (-lmpi).
-#     mpi=spectrum  for IBM Spectrum MPI (-lmpi_ibm).
-#
-# blas=mkl        for Intel MKL. Additional sub-options:
-#     mkl_blacs=openmpi     for Open MPI BLACS in SLATE's testers.
-#     mkl_blacs=intelmpi    for Intel MPI BLACS in SLATE's testers (default).
-# blas=essl       for IBM ESSL.
-# blas=openblas   for OpenBLAS.
-#
-# blas_int=int    for 32-bit int (lp64; default)
-# blas_int=int64  for 64-bit int (ilp64; only with Intel MKL)
-#
-# SLATE handles threading itself, so sequential BLAS is preferred.
-# blas_threaded=0 single threaded BLAS (default)
-# blas_threaded=1 for multi-threaded BLAS (only with IBM ESSL, Intel MKL);
-#
-# Fortran interface to use. Currently applies only to Intel MKL.
-# blas_fortran=ifort        use Intel ifort  conventions (e.g., libmkl_intel_lp64)
-#                           Automatically set if CXX=icpc or on macOS.
-# blas_fortran=gfortran     use GNU gfortran conventions (e.g., libmkl_gf_lp64)
-#
-# openmp=1        for OpenMP (default).
-# static=1        for static library (libslate.a);
-#                 otherwise default is shared library (libslate.so).
-#
-# C/Fortran API:
-#     c_api=1         build C interface.
-#     c_api=0         do not build C interface (default).
-#     fortran_api=1   build Fortran interface;
-#                     if c_api=1 and $(FC) compiler is found.
-#     fortran_api=0   do not build Fortran interface (default).
-#
-# cuda=1          for CUDA (default if $(NVCC) compiler is found).
-# NVCC=nvcc by default.
-# cuda_arch="ARCH" for CUDA architectures, where ARCH is one or more of:
-#     kepler maxwell pascal volta turing ampere sm_XX
-# and sm_XX is a CUDA architecture (e.g., sm_30; see nvcc -h).
-# kepler and maxwell are no longer supported in CUDA 11.
-# cuda_arch="pascal" by default.
+# See INSTALL.md for documentation.
 
 -include make.inc
 
+#-------------------------------------------------------------------------------
 # Error for obsolete settings.
 ifneq ($(openmpi),)
     $(error ERROR: Variable `openmpi=$(openmpi)` is obsolete; use `mkl_blacs=openmpi`)
@@ -101,6 +52,25 @@ ifeq ($(ilp64),1)
     blas_int ?= int64
 endif
 
+cuda := $(strip $(cuda))
+ifeq ($(cuda),1)
+    $(warning WARNING: Variable `cuda=$(cuda)` is deprecated; setting `gpu_backend ?= cuda`)
+    gpu_backend ?= cuda
+endif
+
+hip := $(strip $(hip))
+ifeq ($(hip),1)
+    $(warning WARNING: Variable `hip=$(hip)` is deprecated; setting `gpu_backend ?= hip`)
+    gpu_backend ?= hip
+endif
+
+#-------------------------------------------------------------------------------
+# Define functions.
+
+# Get parent directory, stripping trailing /.
+dir_strip = $(patsubst %/,%,$(dir $(1)))
+
+#-------------------------------------------------------------------------------
 # Set defaults
 # Do all ?= before strip!
 prefix          ?= /opt/slate
@@ -112,15 +82,12 @@ c_api           ?= 0
 fortran_api     ?= 0
 
 NVCC            ?= nvcc
+HIPCC           ?= hipcc
+HIPIFY          ?= hipify-perl
 
-# If nvcc exists, set cuda = 1 by default.
-have_cuda := $(shell which $(NVCC))
-ifneq ($(have_cuda),)
-    cuda ?= 1
-    cuda_arch ?= pascal
-else ifeq ($(strip $(cuda)),1)
-    $(error ERROR: cuda = $(cuda), but NVCC = ${NVCC} not found)
-endif
+gpu_backend     ?= auto
+cuda_arch       ?= pascal
+hip_arch        ?= gfx900 gfx906 gfx908
 
 # Strip whitespace from variables, in case make.inc had trailing spaces.
 mpi             := $(strip $(mpi))
@@ -131,19 +98,56 @@ blas_fortran    := $(strip $(blas_fortran))
 mkl_blacs       := $(strip $(mkl_blacs))
 openmp          := $(strip $(openmp))
 static          := $(strip $(static))
+gpu_backend     := $(strip $(gpu_backend))
 cuda_arch       := $(strip $(cuda_arch))
-cuda            := $(strip $(cuda))
+hip_arch        := $(strip $(hip_arch))
 prefix          := $(strip $(prefix))
 c_api           := $(strip $(c_api))
 fortran_api     := $(strip $(fortran_api))
 
+#-------------------------------------------------------------------------------
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
-export CXX blas blas_int blas_threaded openmp static
+export CXX blas blas_int blas_threaded openmp static gpu_backend
 
-CXXFLAGS  += -O3 -std=c++17 -Wall -pedantic -MMD
-NVCCFLAGS += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
+CXXFLAGS   += -O3 -std=c++17 -Wall -pedantic -MMD
+NVCCFLAGS  += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
+HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
 
 force: ;
+
+# Auto-detect CUDA, HIP.
+ifneq ($(filter-out auto cuda hip none, $(gpu_backend)),)
+    $(error ERROR: gpu_backend = $(gpu_backend) is unknown)
+endif
+
+cuda = 0
+ifneq ($(filter auto cuda, $(gpu_backend)),)
+    NVCC_which := $(shell which $(NVCC) 2>/dev/null)
+    ifneq ($(NVCC_which),)
+        cuda = 1
+        CUDA_DIR ?= $(call dir_strip, $(call dir_strip, $(NVCC_which)))
+    else ifeq ($(gpu_backend),cuda)
+        $(error ERROR: gpu_backend = $(gpu_backend), but NVCC = $(NVCC) not found)
+    endif
+endif
+
+hip = 0
+ifneq ($(cuda),1)
+    ifneq ($(filter auto hip, $(gpu_backend)),)
+        HIPCC_which = $(shell which $(HIPCC) 2>/dev/null)
+        ifneq ($(HIPCC_which),)
+            hip = 1
+            ROCM_DIR ?= $(call dir_strip, $(call dir_strip, $(HIPCC_which)))
+        else ifeq ($(gpu_backend),hip)
+            $(error ERROR: gpu_backend = $(gpu_backend), but HIPCC = $(HIPCC) not found)
+        endif
+    endif
+endif
+
+# Default LD=ld won't work; use CXX. Can override in make.inc or environment.
+ifeq ($(origin LD),default)
+    LD = $(CXX)
+endif
 
 # auto-detect OS
 # $OSTYPE may not be exported from the shell, so echo it
@@ -155,7 +159,7 @@ endif
 
 # Check if Fortran compiler exists.
 # Note that 'make' sets $(FC) to f77 by default.
-have_fortran := $(shell which $(FC))
+have_fortran := $(shell which $(FC) 2>/dev/null)
 ifeq ($(have_fortran),)
     fortran_api = 0
 endif
@@ -168,10 +172,11 @@ endif
 #-------------------------------------------------------------------------------
 # if shared
 ifneq ($(static),1)
-    CXXFLAGS += -fPIC
-    LDFLAGS  += -fPIC
-    FCFLAGS  += -fPIC
-    NVCCFLAGS += --compiler-options '-fPIC'
+    CXXFLAGS   += -fPIC
+    LDFLAGS    += -fPIC
+    FCFLAGS    += -fPIC
+    NVCCFLAGS  += --compiler-options '-fPIC'
+    HIPCCFLAGS += -fPIC
     lib_ext = so
 else
     lib_ext = a
@@ -337,8 +342,22 @@ ifeq ($(cuda),1)
     LIBS += -lcublas -lcudart
 else
     FLAGS += -DSLATE_NO_CUDA
-    libslate_src += src/stubs/cuda_stubs.cc
-    libslate_src += src/stubs/cublas_stubs.cc
+endif
+
+#-------------------------------------------------------------------------------
+# if HIP
+ifeq ($(hip),1)
+    gfx = $(sort $(filter gfx%, $(hip_arch)))
+    amdgpu_targets = $(foreach arch, $(gfx),--amdgpu-target=$(arch))
+    HIPCCFLAGS += $(amdgpu_targets)
+    FLAGS += -D__HIP_PLATFORM_HCC__
+    LIBS += -L$(ROCM_DIR)/lib -lrocblas -lamdhip64
+
+    # ROCm 4.0 has errors in its headers that produce excessive warnings.
+    CXXFLAGS := $(filter-out -pedantic, $(CXXFLAGS))
+    CXXFLAGS += -Wno-unused-result
+else
+    FLAGS += -DSLATE_NO_HIP
 endif
 
 #-------------------------------------------------------------------------------
@@ -355,7 +374,6 @@ endif
 # types and classes
 libslate_src += \
         src/aux/Debug.cc \
-        src/aux/Exception.cc \
         src/core/Memory.cc \
         src/aux/Trace.cc \
         src/core/types.cc \
@@ -376,7 +394,6 @@ libslate_src += \
         src/internal/internal_geadd.cc \
         src/internal/internal_gemm.cc \
         src/internal/internal_gemmA.cc \
-        src/internal/internal_gemm_split.cc \
         src/internal/internal_genorm.cc \
         src/internal/internal_gebr.cc \
         src/internal/internal_geqrf.cc \
@@ -426,6 +443,25 @@ ifeq ($(cuda),1)
             src/cuda/device_trnorm.cu \
             src/cuda/device_tzcopy.cu \
 
+endif
+
+ifeq ($(hip),1)
+    libslate_src += \
+            src/hip/device_geadd.hip.cc \
+            src/hip/device_gecopy.hip.cc \
+            src/hip/device_genorm.hip.cc \
+            src/hip/device_geset.hip.cc \
+            src/hip/device_henorm.hip.cc \
+            src/hip/device_synorm.hip.cc \
+            src/hip/device_transpose.hip.cc \
+            src/hip/device_trnorm.hip.cc \
+            src/hip/device_tzcopy.hip.cc \
+
+    hip_src = \
+        $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(wildcard src/cuda/*.cu))
+
+    hip_header = \
+        $(patsubst src/cuda/%.cuh,src/hip/%.hip.hh,$(wildcard src/cuda/*.cuh))
 endif
 
 # driver
@@ -587,19 +623,22 @@ endif
 
 # unit testers
 unit_src = \
-        unit_test/test_BandMatrix.cc \
-        unit_test/test_HermitianMatrix.cc \
-        unit_test/test_LockGuard.cc \
-        unit_test/test_Matrix.cc \
-        unit_test/test_Memory.cc \
-        unit_test/test_SymmetricMatrix.cc \
-        unit_test/test_Tile.cc \
-        unit_test/test_Tile_kernels.cc \
-        unit_test/test_TrapezoidMatrix.cc \
-        unit_test/test_TriangularMatrix.cc \
-        unit_test/test_lq.cc \
-        unit_test/test_norm.cc \
-        unit_test/test_qr.cc \
+    unit_test/test_BandMatrix.cc \
+    unit_test/test_HermitianMatrix.cc \
+    unit_test/test_LockGuard.cc \
+    unit_test/test_Matrix.cc \
+    unit_test/test_Memory.cc \
+    unit_test/test_SymmetricMatrix.cc \
+    unit_test/test_Tile.cc \
+    unit_test/test_Tile_kernels.cc \
+    unit_test/test_TrapezoidMatrix.cc \
+    unit_test/test_TriangularMatrix.cc \
+    unit_test/test_lq.cc \
+    unit_test/test_norm.cc \
+    unit_test/test_qr.cc \
+    unit_test/test_geadd.cc \
+    unit_test/test_gecopy.cc \
+    unit_test/test_geset.cc \
 
 # unit test framework
 unit_test_obj = \
@@ -641,8 +680,9 @@ FLAGS += -I./lapackpp/include
 FLAGS += -I./include
 FLAGS += -I./src
 
-CXXFLAGS  += $(FLAGS)
-NVCCFLAGS += $(FLAGS)
+CXXFLAGS   += $(FLAGS)
+NVCCFLAGS  += $(FLAGS)
+HIPCCFLAGS += $(FLAGS)
 
 # libraries to create libslate.so
 LDFLAGS  += -L./blaspp/lib
@@ -794,7 +834,7 @@ $(libslate_a): $(libslate_obj)
 
 $(libslate_so): $(libslate_obj)
 	mkdir -p lib
-	$(CXX) $(LDFLAGS) \
+	$(LD) $(LDFLAGS) \
 		$(libslate_obj) \
 		$(LIBS) \
 		-shared $(install_name) -o $@
@@ -830,7 +870,7 @@ test/clean:
 	rm -f $(tester) $(tester_obj)
 
 $(tester): $(tester_obj) $(libslate) $(testsweeper)
-	$(CXX) $(TEST_LDFLAGS) $(LDFLAGS) $(tester_obj) \
+	$(LD) $(TEST_LDFLAGS) $(LDFLAGS) $(tester_obj) \
 		$(TEST_LIBS) $(LIBS) \
 		-o $@
 
@@ -849,7 +889,7 @@ unit_test/clean:
 	rm -f $(unit_test) $(unit_obj) $(unit_test_obj)
 
 $(unit_test): %: %.o $(unit_test_obj) $(libslate)
-	$(CXX) $(UNIT_LDFLAGS) $(LDFLAGS) $< \
+	$(LD) $(UNIT_LDFLAGS) $(LDFLAGS) $< \
 		$(unit_test_obj) $(UNIT_LIBS) $(LIBS)  \
 		-o $@
 
@@ -899,7 +939,7 @@ $(scalapack_api_a): $(scalapack_api_obj) $(libslate)
 	ranlib $@
 
 $(scalapack_api_so): $(scalapack_api_obj) $(libslate)
-	$(CXX) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $(scalapack_api_obj) \
+	$(LD) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $(scalapack_api_obj) \
 		$(SCALAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
@@ -951,7 +991,7 @@ $(lapack_api_a): $(lapack_api_obj) $(libslate)
 	ranlib $@
 
 $(lapack_api_so): $(lapack_api_obj) $(libslate)
-	$(CXX) $(LAPACK_API_LDFLAGS) $(LDFLAGS) $(lapack_api_obj) \
+	$(LD) $(LAPACK_API_LDFLAGS) $(LDFLAGS) $(lapack_api_obj) \
 		$(LAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
@@ -972,9 +1012,25 @@ distclean: clean
 	rm -f include/slate/c_api/matrix.h
 	rm -f include/slate/c_api/util.hh
 	rm -f src/fortran/slate_module.f90
+	rm -rf src/hip
 	cd testsweeper && $(MAKE) distclean
 	cd blaspp      && $(MAKE) distclean
 	cd lapackpp    && $(MAKE) distclean
+
+%.hip.o: %.hip.cc | $(hip_header)
+	$(HIPCC) $(HIPCCFLAGS) -c $< -o $@
+
+# Convert CUDA => HIP code.
+src/hip/%.hip.cc: src/cuda/%.cu | src/hip
+	$(HIPIFY) $< > $@
+	sed -i -e "s/\.cuh/.hip.hh/g" $@
+
+src/hip/%.hip.hh: src/cuda/%.cuh | src/hip
+	$(HIPIFY) $< > $@
+	sed -i -e "s/\.cuh/.hip.hh/g" $@
+
+src/hip:
+	mkdir -p $@
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -1064,8 +1120,9 @@ echo:
 	@echo "cuda          = '$(cuda)'"
 	@echo "cuda_arch     = '$(cuda_arch)'"
 	@echo "NVCC          = $(NVCC)"
+	@echo "NVCC_which    = $(NVCC_which)"
+	@echo "CUDA_DIR      = $(CUDA_DIR)"
 	@echo "NVCCFLAGS     = $(NVCCFLAGS)"
-	@echo "have_cuda     = ${have_cuda}"
 	@echo "cuda_arch     = $(cuda_arch)"
 	@echo "cuda_arch_    = $(cuda_arch_)"
 	@echo "sms           = $(sms)"
@@ -1075,12 +1132,23 @@ echo:
 	@echo "nwords_1      = $(nwords_1)"
 	@echo "nv_compute_last = $(nv_compute_last)"
 	@echo
+	@echo "---------- HIP options"
+	@echo "hip           = '$(hip)'"
+	@echo "hip_arch      = '$(hip_arch)'"
+	@echo "gfx           = $(gfx)"
+	@echo "HIPCC         = $(HIPCC)"
+	@echo "HIPCC_which   = $(HIPCC_which)"
+	@echo "ROCM_DIR      = $(ROCM_DIR)"
+	@echo "HIPCCFLAGS    = $(HIPCCFLAGS)"
+	@echo "amdgpu_targets = $(amdgpu_targets)"
+	@echo
 	@echo "---------- Fortran compiler"
 	@echo "FC            = $(FC)"
 	@echo "FCFLAGS       = $(FCFLAGS)"
 	@echo "have_fortran  = $(have_fortran)"
 	@echo
 	@echo "---------- Link flags"
+	@echo "LD            = $(LD)"
 	@echo "LDFLAGS       = $(LDFLAGS)"
 	@echo "LIBS          = $(LIBS)"
 	@echo

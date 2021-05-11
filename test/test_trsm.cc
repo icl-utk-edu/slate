@@ -189,7 +189,7 @@ void test_trsm_work(Params& params, bool run)
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
-    double gflop = blas::Gflop < scalar_t >::trsm(side, m, n);
+    double gflop = blas::Gflop<scalar_t>::trsm(side, m, n);
     params.time() = time_tst;
     params.gflops() = gflop / time_tst;
 

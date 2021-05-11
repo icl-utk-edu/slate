@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
+
 #include "slate/internal/device.hh"
 #include "internal/internal_batch.hh"
 #include "internal/internal.hh"
@@ -11,32 +12,6 @@
 #include "slate/types.hh"
 
 namespace slate {
-
-namespace device {
-
-#if defined(SLATE_NO_CUDA)
-// Specializations to allow compilation without CUDA.
-template <>
-void tzset(
-    int64_t m, int64_t n,
-    double alpha, double beta,
-    double** Aarray, int64_t lda,
-    int64_t batch_count, cudaStream_t stream)
-{
-}
-
-template <>
-void tzset(
-    int64_t m, int64_t n,
-    float alpha, float beta,
-    float** Aarray, int64_t lda,
-    int64_t batch_count, cudaStream_t stream)
-{
-}
-#endif // not SLATE_WITH_CUDA
-
-} // namespace device
-
 namespace internal {
 
 //------------------------------------------------------------------------------
@@ -45,10 +20,12 @@ namespace internal {
 /// @ingroup set_internal
 ///
 template <Target target, typename scalar_t>
-void set(scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>&& A, int priority)
+void set(
+    scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>&& A,
+    int priority, int queue_index)
 {
     set(internal::TargetType<target>(),
-        alpha, beta, A, priority);
+        alpha, beta, A, priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -58,8 +35,10 @@ void set(scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>&& A, int p
 /// @ingroup set_internal
 ///
 template <typename scalar_t>
-void set(internal::TargetType<Target::HostTask>,
-         scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A, int priority)
+void set(
+    internal::TargetType<Target::HostTask>,
+    scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
+    int priority, int queue_index)
 {
     // trace::Block trace_block("set");
 
@@ -95,23 +74,26 @@ void set(internal::TargetType<Target::HostTask>,
             }
         }
     }
+
     #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void set(internal::TargetType<Target::HostNest>,
-         scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A, int priority)
+         scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
+         int priority, int queue_index)
 {
-    throw Exception("HostNest not yet implemented");
+    slate_not_implemented("Target::HostNest isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void set(internal::TargetType<Target::HostBatch>,
-         scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A, int priority)
+         scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
+         int priority, int queue_index)
 {
-    throw Exception("HostBatch not yet implemented");
+    slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
@@ -122,7 +104,8 @@ void set(internal::TargetType<Target::HostBatch>,
 ///
 template <typename scalar_t>
 void set(internal::TargetType<Target::Devices>,
-         scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A, int priority)
+         scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
+         int priority, int queue_index)
 {
     using ij_tuple = typename BaseTrapezoidMatrix<scalar_t>::ij_tuple;
 
@@ -244,21 +227,17 @@ void set(internal::TargetType<Target::Devices>,
 
             scalar_t** a_array_dev = A.array_device(device);
 
-            slate_cuda_call(cudaSetDevice(device));
+            blas::Queue* queue = A.compute_queue(device, queue_index);
 
-            cudaStream_t stream = A.compute_stream(device);
-
-            slate_cuda_call(
-                cudaMemcpyAsync(a_array_dev, a_array_host,
-                                sizeof(scalar_t*)*batch_count,
-                                cudaMemcpyHostToDevice,
-                                stream));
+            blas::device_memcpy<scalar_t*>(
+                a_array_dev, a_array_host, batch_count,
+                blas::MemcpyKind::HostToDevice, *queue);
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
                     device::geset(mb[q], nb[q],
                                   alpha, alpha, a_array_dev, lda[q],
-                                  group_count[q], stream);
+                                  group_count[q], *queue);
                     a_array_dev += group_count[q];
                 }
             }
@@ -266,12 +245,12 @@ void set(internal::TargetType<Target::Devices>,
                 if (group_count[q] > 0) {
                     device::geset(mb[q], nb[q],
                                   alpha, beta, a_array_dev, lda[q],
-                                  group_count[q], stream);
+                                  group_count[q], *queue);
                     a_array_dev += group_count[q];
                 }
             }
 
-            slate_cuda_call(cudaStreamSynchronize(stream));
+            queue->sync();
         }
     }
 
@@ -283,78 +262,94 @@ void set(internal::TargetType<Target::Devices>,
 // ----------------------------------------
 template
 void set<Target::HostTask, float>(
-    float alpha, float beta, BaseTrapezoidMatrix<float>&& A, int priority);
+    float alpha, float beta, BaseTrapezoidMatrix<float>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::HostNest, float>(
-    float alpha, float beta, BaseTrapezoidMatrix<float>&& A, int priority);
+    float alpha, float beta, BaseTrapezoidMatrix<float>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::HostBatch, float>(
-    float alpha, float beta, BaseTrapezoidMatrix<float>&& A, int priority);
+    float alpha, float beta, BaseTrapezoidMatrix<float>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::Devices, float>(
-    float alpha, float beta, BaseTrapezoidMatrix<float>&& A, int priority);
+    float alpha, float beta, BaseTrapezoidMatrix<float>&& A,
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set<Target::HostTask, double>(
-    double alpha, double beta, BaseTrapezoidMatrix<double>&& A, int priority);
+    double alpha, double beta, BaseTrapezoidMatrix<double>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::HostNest, double>(
-    double alpha, double beta, BaseTrapezoidMatrix<double>&& A, int priority);
+    double alpha, double beta, BaseTrapezoidMatrix<double>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::HostBatch, double>(
-    double alpha, double beta, BaseTrapezoidMatrix<double>&& A, int priority);
+    double alpha, double beta, BaseTrapezoidMatrix<double>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::Devices, double>(
-    double alpha, double beta, BaseTrapezoidMatrix<double>&& A, int priority);
+    double alpha, double beta, BaseTrapezoidMatrix<double>&& A,
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    BaseTrapezoidMatrix< std::complex<float> >&& A, int priority);
+    BaseTrapezoidMatrix< std::complex<float> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    BaseTrapezoidMatrix< std::complex<float> >&& A, int priority);
+    BaseTrapezoidMatrix< std::complex<float> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    BaseTrapezoidMatrix< std::complex<float> >&& A, int priority);
+    BaseTrapezoidMatrix< std::complex<float> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    BaseTrapezoidMatrix< std::complex<float> >&& A, int priority);
+    BaseTrapezoidMatrix< std::complex<float> >&& A,
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    BaseTrapezoidMatrix< std::complex<double> >&& A, int priority);
+    BaseTrapezoidMatrix< std::complex<double> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    BaseTrapezoidMatrix< std::complex<double> >&& A, int priority);
+    BaseTrapezoidMatrix< std::complex<double> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    BaseTrapezoidMatrix< std::complex<double> >&& A, int priority);
+    BaseTrapezoidMatrix< std::complex<double> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    BaseTrapezoidMatrix< std::complex<double> >&& A, int priority);
+    BaseTrapezoidMatrix< std::complex<double> >&& A,
+    int priority, int queue_index);
 
 } // namespace internal
 } // namespace slate

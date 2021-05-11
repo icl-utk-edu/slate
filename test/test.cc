@@ -477,10 +477,10 @@ int run(int argc, char** argv)
             args += nowstr;
             args += ", MPI size " + std::to_string(mpi_size);
             args += ", OpenMP threads " + std::to_string(omp_get_max_threads());
-            int num_devices = 0;
-            cudaGetDeviceCount(&num_devices);
+
+            int num_devices = blas::get_device_count();
             if (num_devices > 0)
-                args += ", CUDA devices available " + std::to_string(num_devices);
+                args += ", GPU devices available " + std::to_string(num_devices);
             args += "\n";
 
             printf("%s", args.c_str());

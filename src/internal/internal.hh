@@ -11,9 +11,6 @@
 
 #include "slate/types.hh"
 
-#include "slate/internal/cuda.hh"
-#include "slate/internal/cublas.hh"
-
 #ifdef SLATE_WITH_MKL
     #include <mkl_cblas.h>
 #else
@@ -27,32 +24,6 @@
 #include "slate/TriangularMatrix.hh"
 #include "slate/TriangularBandMatrix.hh"
 #include "slate/BandMatrix.hh"
-#include "internal/internal_batch.hh"
-
-//------------------------------------------------------------------------------
-#define THROW_IF(cond, error) \
-    if (cond) \
-        throw TrueConditionException( \
-            #cond, error, __FILE__, __func__, __LINE__);
-
-#define THROW_IF_NOT(cond, error) \
-    if (! (cond)) \
-        throw FalseConditionException( \
-            #cond, error, __FILE__, __func__, __LINE__);
-
-#define MPI_CALL(call) \
-{ \
-    int retval = (call); \
-    if (retval != MPI_SUCCESS) \
-        throw MpiException(#call, retval, __FILE__, __func__, __LINE__); \
-}
-
-#define CUDA_CALL(call) \
-{ \
-    cudaError_t error = (call); \
-    if (error != cudaSuccess) \
-        throw CudaException(#call, error, __FILE__, __func__, __LINE__); \
-}
 
 namespace slate {
 
@@ -72,58 +43,6 @@ namespace internal {
 ///   internal::specialization::gemm.
 namespace specialization {
     // here just for documentation
-}
-
-//------------------------------------------------------------------------------
-inline CBLAS_TRANSPOSE cblas_trans_const(Op op)
-{
-    switch (op) {
-        case Op::NoTrans:   return CblasNoTrans;
-        case Op::Trans:     return CblasTrans;
-        case Op::ConjTrans: return CblasConjTrans;
-        default: assert( false );
-    }
-}
-
-//------------------------------------------------------------------------------
-inline cublasOperation_t cublas_op_const(Op op)
-{
-    switch (op) {
-        case Op::NoTrans:   return CUBLAS_OP_N;
-        case Op::Trans:     return CUBLAS_OP_T;
-        case Op::ConjTrans: return CUBLAS_OP_C;
-        default: assert(false);
-    }
-}
-
-//------------------------------------------------------------------------------
-inline cublasFillMode_t cublas_uplo_const(Uplo uplo)
-{
-    switch (uplo) {
-        case Uplo::Lower: return CUBLAS_FILL_MODE_LOWER;
-        case Uplo::Upper: return CUBLAS_FILL_MODE_UPPER;
-        default: assert(false);
-    }
-}
-
-//------------------------------------------------------------------------------
-inline cublasSideMode_t cublas_side_const(Side side)
-{
-    switch (side) {
-        case Side::Left:  return CUBLAS_SIDE_LEFT;
-        case Side::Right: return CUBLAS_SIDE_RIGHT;
-        default: assert(false);
-    }
-}
-
-//------------------------------------------------------------------------------
-inline cublasDiagType_t cublas_diag_const(Diag diag)
-{
-    switch (diag) {
-        case Diag::NonUnit: return CUBLAS_DIAG_NON_UNIT;
-        case Diag::Unit:    return CUBLAS_DIAG_UNIT;
-        default: assert(false);
-    }
 }
 
 //------------------------------------------------------------------------------
@@ -176,25 +95,25 @@ template <Target target=Target::HostTask,
           typename src_scalar_t, typename dst_scalar_t>
 void copy(Matrix<src_scalar_t>&& A,
           Matrix<dst_scalar_t>&& B,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask,
           typename src_scalar_t, typename dst_scalar_t>
 void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           BaseTrapezoidMatrix<dst_scalar_t>&& B,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 //-----------------------------------------
 // set()
 template <Target target=Target::HostTask, typename scalar_t>
 void set(scalar_t alpha, scalar_t beta,
          Matrix<scalar_t>&& A,
-         int priority=0);
+         int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void set(scalar_t alpha, scalar_t beta,
          BaseTrapezoidMatrix<scalar_t>&& A,
-         int priority=0);
+         int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void copytb2bd(TriangularBandMatrix<scalar_t>& A,
@@ -215,27 +134,13 @@ template <Target target=Target::HostTask, typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          Layout layout, int priority=0, int64_t batch_arrays_index=0);
+          Layout layout, int priority=0, int64_t queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
                            Matrix<scalar_t>&& B,
            scalar_t beta,  Matrix<scalar_t>&& C,
            Layout layout, int priority=0);
-
-template <Target target=Target::Devices, typename scalar_t>
-void gemmPrep(scalar_t alpha, Matrix<scalar_t>&& A,
-                              Matrix<scalar_t>&& B,
-              scalar_t beta,  Matrix<scalar_t>&& C,
-              GemmBatchArrays<scalar_t>* batchArrays,
-              Layout layout, bool prefetched=false, int priority=0);
-
-template <Target target=Target::Devices, typename scalar_t>
-void gemmExec(scalar_t alpha, Matrix<scalar_t>&& A,
-                              Matrix<scalar_t>&& B,
-              scalar_t beta,  Matrix<scalar_t>&& C,
-              GemmBatchArrays<scalar_t>* batchArrays,
-              Layout layout, int priority=0);
 
 //-----------------------------------------
 // hemm()
@@ -265,27 +170,28 @@ void hemm(Side side,
 template <Target target=Target::HostTask, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
-          int priority=0);
+          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor);
 
 // forward real-symmetric matrices to herk;
 // disabled for complex
 template <Target target=Target::HostTask, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>&& C,
-          int priority=0,
+          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     herk<target>(alpha, std::move(A),
-                 beta, HermitianMatrix<scalar_t>(C), priority);
+                 beta, HermitianMatrix<scalar_t>(C),
+                 priority, queue_index, layout);
 }
 
 //-----------------------------------------
 // her2k()
 template <Target target=Target::HostTask, typename scalar_t>
-void her2k(scalar_t alpha,                  Matrix< scalar_t >&& A,
-                                            Matrix< scalar_t >&& B,
-           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
-           int priority=0);
+void her2k(scalar_t alpha,                 Matrix<scalar_t>&& A,
+                                           Matrix<scalar_t>&& B,
+           blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>&& C,
+           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor);
 
 // forward real-symmetric matrices to her2k;
 // disabled for complex
@@ -293,11 +199,12 @@ template <Target target=Target::HostTask, typename scalar_t>
 void her2k(scalar_t alpha,                  Matrix<scalar_t>&& A,
                                             Matrix<scalar_t>&& B,
            blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>&& C,
-           int priority=0,
+           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     her2k<target>(alpha, std::move(A),
-                  beta, HermitianMatrix<scalar_t>(C), priority);
+                  beta, HermitianMatrix<scalar_t>(C),
+                  priority, queue_index, layout);
 }
 
 //-----------------------------------------
@@ -328,18 +235,19 @@ void symm(Side side,
 template <Target target=Target::HostTask, typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
-          int priority=0);
+          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor);
 
 // forward real-Hermitian matrices to syrk;
 // disabled for complex
 template <Target target=Target::HostTask, typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
           scalar_t beta,  HermitianMatrix<scalar_t>&& C,
-          int priority=0,
+          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     syrk<target>(alpha, std::move(A),
-                 beta, SymmetricMatrix<scalar_t>(C), priority);
+                 beta, SymmetricMatrix<scalar_t>(C),
+                 priority, queue_index, layout);
 }
 
 //-----------------------------------------
@@ -348,7 +256,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void syr2k(scalar_t alpha, Matrix<scalar_t>&& A,
                            Matrix<scalar_t>&& B,
            scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
-           int priority=0);
+           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor);
 
 // forward real-Hermitian matrices to syr2k;
 // disabled for complex
@@ -356,11 +264,12 @@ template <Target target=Target::HostTask, typename scalar_t>
 void syr2k(scalar_t alpha, Matrix<scalar_t>&& A,
                            Matrix<scalar_t>&& B,
            scalar_t beta,  HermitianMatrix<scalar_t>&& C,
-           int priority=0,
+           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     syr2k<target>(alpha, std::move(A), std::move(B),
-                  beta, SymmetricMatrix<scalar_t>(C), priority);
+                  beta, SymmetricMatrix<scalar_t>(C),
+                  priority, queue_index, layout);
 }
 
 //-----------------------------------------
@@ -378,7 +287,7 @@ void trsm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
           int priority=0, Layout layout=Layout::ColMajor,
-          int64_t batch_arrays_index=0);
+          int64_t queue_index=0);
 
 //-----------------------------------------
 // trtri()
@@ -398,7 +307,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void permuteRows(
     Direction direction,
     Matrix<scalar_t>&& A, std::vector<Pivot>& pivot,
-    Layout layout, int priority=0, int tag=0);
+    Layout layout, int priority=0, int tag=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void permuteRowsCols(
@@ -410,8 +319,8 @@ void permuteRowsCols(
 // Other BLAS-like
 template <Target target=Target::HostTask, typename scalar_t>
 void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
-           scalar_t beta, Matrix<scalar_t>&& B,
-           int priority=0);
+           scalar_t beta,  Matrix<scalar_t>&& B,
+           int priority=0, int queue_index=0);
 
 //------------------------------------------------------------------------------
 // Band reduction
@@ -456,32 +365,32 @@ void hebr3(std::vector<scalar_t>& v,
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, NormScope scope, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, NormScope scope, HermitianMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, NormScope scope, SymmetricMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, NormScope scope, TrapezoidMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, NormScope scope, BandMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void norm(Norm in_norm, NormScope scope, HermitianBandMatrix<scalar_t>&& A,
           blas::real_type<scalar_t>* values,
-          int priority=0);
+          int priority=0, int queue_index=0);
 
 //------------------------------------------------------------------------------
 // Factorizations

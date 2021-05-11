@@ -16,7 +16,7 @@ cmake_minimum_required( VERSION 3.15 )
 
 project(
     slate
-    VERSION 2020.10.00
+    VERSION 2021.05.01
     LANGUAGES CXX Fortran
 )
 
@@ -45,11 +45,27 @@ endif()
 option( BUILD_SHARED_LIBS "Build shared libraries" true )
 option( build_tests "Build test suite" "${slate_is_project}" )
 option( color "Use ANSI color output" true )
-option( use_cuda "Use CUDA, if available" true )
 option( use_mpi "Use MPI, if available" true )
 option( use_openmp "Use OpenMP, if available" true )
 # todo: option( c_api "Build C API" false )
 # todo: option( fortran_api "Build Fortran API. Requires C API." false )
+
+set( gpu_backend "auto" CACHE STRING "GPU backend to use" )
+set_property( CACHE gpu_backend PROPERTY STRINGS
+              auto cuda hip none )
+
+set( use_cuda "" CACHE STRING "Use CUDA, if available [deprecated: use gpu_backend]" )
+set( use_hip  "" CACHE STRING "Use HIP, if available [deprecated: use gpu_backend]" )
+
+if (use_cuda)
+    message( DEPRECATION "WARNING: Variable `use_cuda=$(use_cuda)` is deprecated; setting `gpu_backend = cuda`" )
+    set( gpu_backend "cuda" CACHE STRING "" )
+endif()
+
+if (use_hip)
+    message( DEPRECATION "WARNING: Variable `use_hip=$(use_hip)` is deprecated; setting `gpu_backend = hip`" )
+    set( gpu_backend "hip" CACHE STRING "" )
+endif()
 
 # Default prefix=/opt/slate
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT
@@ -67,6 +83,15 @@ if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT
     list( APPEND CMAKE_SYSTEM_PREFIX_PATH ${CMAKE_INSTALL_PREFIX} )
 else()
     message( STATUS "Using CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}" )
+endif()
+
+# GNU Filesystem Conventions
+include( GNUInstallDirs )
+
+# the RPATH to be used when installing, but only if it's not a system directory
+list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}" isSystemDir)
+if ("${isSystemDir}" STREQUAL "-1")
+    list( APPEND CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}" )
 endif()
 
 # Provide menu of options. (Why doesn't CMake do this?)
@@ -88,7 +113,9 @@ CMAKE_BUILD_TYPE       = ${CMAKE_BUILD_TYPE}
 BUILD_SHARED_LIBS      = ${BUILD_SHARED_LIBS}
 build_tests            = ${build_tests}
 color                  = ${color}
+gpu_backend            = ${gpu_backend}
 use_cuda               = ${use_cuda}
+use_hip                = ${use_hip}
 use_mpi                = ${use_mpi}
 use_openmp             = ${use_openmp}
 c_api                  = ${c_api}
@@ -171,14 +198,17 @@ target_link_libraries( slate_lapack_api PUBLIC slate )
 
 #-------------------------------------------------------------------------------
 # CUDA support.
-if (NOT use_cuda)
-    message( STATUS "User has requested to NOT use CUDA" )
-else()
+set( slate_use_cuda false )  # output in slateConfig.cmake.in
+if (gpu_backend MATCHES "^(auto|cuda)$")
     include( CheckLanguage )
     check_language( CUDA )
+    if (gpu_backend STREQUAL "cuda" AND NOT CMAKE_CUDA_COMPILER)
+        message( FATAL_ERROR "gpu_backend = $(gpu_backend), but CUDA was not found")
+    endif()
 endif()
 if (CMAKE_CUDA_COMPILER)
     enable_language( CUDA )
+    set( slate_use_cuda true )
 
     if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.18)
         # CUDA architectures required in CMake 3.18
@@ -196,7 +226,6 @@ if (CMAKE_CUDA_COMPILER)
                       30 50 60 70 75 80 )
     endif()
 
-    message( STATUS "Building CUDA kernels." )
     file(
         GLOB libslate_cuda_src
         CONFIGURE_DEPENDS  # glob at build time
@@ -215,20 +244,122 @@ if (CMAKE_CUDA_COMPILER)
     find_library( cublas_lib cublas ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES} )
 
     # Some platforms need these to be public libraries.
-    target_link_libraries( slate PUBLIC "${cudart_lib}" "${cublas_lib}" )
+    target_link_libraries(
+        slate PUBLIC "${cudart_lib}" "${cublas_lib}" )
     target_include_directories(
         slate PUBLIC "${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}" )
+    message( STATUS "Building CUDA support in SLATE" )
 else()
-    message( STATUS "No CUDA support in SLATE" )
-    target_sources(
-        slate
-        PRIVATE
-        src/stubs/cublas_stubs.cc
-        src/stubs/cuda_stubs.cc
-    )
+    message( STATUS "Not building CUDA support in SLATE" )
     target_compile_definitions( slate PUBLIC "-DSLATE_NO_CUDA" )
 endif()
 
+#-------------------------------------------------------------------------------
+# HIP/ROCm support.
+set( slate_use_hip false )  # output in slateConfig.cmake.in
+if (NOT CMAKE_CUDA_COMPILER
+    AND gpu_backend MATCHES "^(auto|hip)$")
+
+    message( STATUS "Looking for HIP/ROCm" )
+    if (gpu_backend STREQUAL "hip")
+        find_package( HIP REQUIRED )
+    else()
+        find_package( HIP QUIET )
+    endif()
+endif()
+if (HIP_FOUND)
+    # NOTE: We assume some features from HIP >= 3.5
+
+    # In their official docs, they have 'hip' and 'HIP' as different packages,
+    # which both need to be found
+    # https://github.com/ROCm-Developer-Tools/HIP/issues/1029
+    find_package( hip REQUIRED )
+    set( slate_use_hip true )
+
+    # For ROCm >= 3.5, wipe hip-clang specific interface options which are propagated
+    set_target_properties( hip::device PROPERTIES INTERFACE_COMPILE_OPTIONS "-fPIC" )
+    set_target_properties( hip::device PROPERTIES INTERFACE_LINK_LIBRARIES "hip::host" )
+
+    # Propagate flags to HIP code.
+    set_target_properties( hip::device PROPERTIES INTERFACE_COMPILE_OPTIONS "-DSLATE_NO_CUDA")
+
+    # First, get the HIP source's base files (which are CUDA sources, needing
+    # to be hipified)
+    file(
+        GLOB libslate_hip_src_cuda
+        CONFIGURE_DEPENDS  # glob at build time
+        src/cuda/*.cu
+        src/cuda/*.cuh
+    )
+
+    # Make the generated source directory
+    file( MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/src/hip" )
+
+    # Iterate over CUDA files
+    foreach (src_cu_ ${libslate_hip_src_cuda})
+        # First, generate source in the build folder (since it is generated)
+        STRING( REGEX REPLACE "^.*src/cuda" "${CMAKE_BINARY_DIR}/src/hip"
+                src_hip_ ${src_cu_} )
+
+        # Now, replace the file extensions to match HIP ones
+        STRING( REGEX REPLACE ".cu$"  ".hip.cc" src_hip_ ${src_hip_} )
+        # Just allow the headers to keep '.cuh' so we don't have to string
+        # replace contents of the file
+        #STRING( REGEX REPLACE ".cuh$" ".hip.hh" src_hip_ ${src_hip_} )
+
+        # Now, add a rule to automatically generate it
+        add_custom_command(
+            OUTPUT "${src_hip_}"
+            DEPENDS "${src_cu_}"
+            COMMAND "hipify-perl" ${src_cu_} > ${src_hip_}
+        )
+
+        # And, add a rule to compile it (if it is actual code, and not a header)
+        if (${src_hip_} MATCHES ".hip.cc$")
+            # Generate output file
+            STRING( REGEX REPLACE ".cc$" ".o" src_o_ ${src_hip_} )
+
+            # Generate definitions list
+            get_target_property( defs_ slate COMPILE_DEFINITIONS )
+            set( defs__ "" )
+            foreach (def_ ${defs_})
+                list( FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES
+                      "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir )
+            endforeach()
+
+            # Compilation rule
+            # TODO: Figure out how to generically find
+            add_custom_command(
+                OUTPUT "${src_o_}"
+                # Just keep .cuh, see above
+                DEPENDS "${src_hip_}" "${CMAKE_BINARY_DIR}/src/hip/device_util.cuh"
+                COMMAND "hipcc"
+                    ${defs__}
+                    "-I${CMAKE_SOURCE_DIR}/include"
+                    "-I${CMAKE_SOURCE_DIR}/blaspp/include"
+                    "-I${CMAKE_SOURCE_DIR}/lapackpp/include"
+                    "-I${CMAKE_BINARY_DIR}/blaspp/include"
+                    "-I${CMAKE_BINARY_DIR}/lapackpp/include"
+                    "-DSLATE_NO_CUDA"
+                ${src_hip_} -c -fPIC -o ${src_o_}
+            )
+
+            # Add the .o as a 'source' (even though it is already compiled)
+            target_sources(
+                slate
+                PRIVATE
+                ${src_o_}
+            )
+
+        endif()
+    endforeach()
+    message( STATUS "Building HIP/ROCm support in SLATE" )
+else()
+    message( STATUS "Not building HIP/ROCm support in SLATE" )
+    target_compile_definitions( slate PUBLIC "-DSLATE_NO_HIP" )
+endif()
+
+#-------------------------------------------------------------------------------
 # Include directory.
 # During build it's {source}/include; after install it's {prefix}/include.
 target_include_directories(
@@ -241,6 +372,7 @@ target_include_directories(
 )
 
 # OpenMP support.
+set( slate_use_openmp false )  # output in slateConfig.cmake.in
 if (NOT use_openmp)
     message( STATUS "User has requested to NOT use OpenMP" )
 else()
@@ -248,6 +380,7 @@ else()
 endif()
 if (OpenMP_CXX_FOUND)
     target_link_libraries( slate PUBLIC "OpenMP::OpenMP_CXX" )
+    set( slate_use_openmp true )
 else()
     message( STATUS "No OpenMP support in SLATE" )
     target_sources(
@@ -259,6 +392,7 @@ endif()
 
 # MPI support.
 # CXX means MPI C API being usable from C++, not the MPI-2 C++ API.
+set( slate_use_mpi false )  # output in slateConfig.cmake.in
 if (NOT use_mpi)
     message( STATUS "User has requested to NOT use MPI" )
 else()
@@ -267,6 +401,7 @@ else()
 endif()
 if (MPI_FOUND)
     target_link_libraries( slate PUBLIC MPI::MPI_CXX )
+    set( slate_use_mpi true )
 
     # Remove Open MPI flags that are incompatible with nvcc (-fexceptions).
     get_target_property( mpi_cxx_defines MPI::MPI_CXX INTERFACE_COMPILE_OPTIONS )
@@ -386,8 +521,6 @@ if (slate_is_project)
 endif()
 
 #-------------------------------------------------------------------------------
-# GNU Filesystem Conventions
-include( GNUInstallDirs )
 set( install_configdir "${CMAKE_INSTALL_LIBDIR}/slate" )
 
 # Install library and add to <package>Targets.cmake

@@ -160,7 +160,7 @@ void test_syrk_work(Params& params, bool run)
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
-    double gflop = blas::Gflop <scalar_t>::syrk(n, k);
+    double gflop = blas::Gflop<scalar_t>::syrk(n, k);
     params.time() = time_tst;
     params.gflops() = gflop / time_tst;
 

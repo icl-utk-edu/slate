@@ -168,8 +168,8 @@ void test_hemm_work(Params& params, bool run)
 
     // Compute and save timing/performance
     double gflop = blas::Gflop<scalar_t>::hemm(side, m, n);
-    params.time() = time_tst;
-    params.gflops() = gflop / time_tst;
+    params.time() = time;
+    params.gflops() = gflop / time;
 
     if (check || ref) {
         #ifdef SLATE_HAVE_SCALAPACK

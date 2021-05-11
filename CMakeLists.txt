@@ -441,6 +441,7 @@ if (HIP_FOUND)
     # which both need to be found
     # https://github.com/ROCm-Developer-Tools/HIP/issues/1029
     find_package( hip REQUIRED )
+    find_package( rocblas REQUIRED )
     set( slate_use_hip true )
 
     # For ROCm >= 3.5, wipe hip-clang specific interface options which are propagated
@@ -465,8 +466,10 @@ if (HIP_FOUND)
     # Generate BLAS++ and LAPACK++ include flags
     get_target_property( blaspp_inc   blaspp   INTERFACE_INCLUDE_DIRECTORIES )
     get_target_property( lapackpp_inc lapackpp INTERFACE_INCLUDE_DIRECTORIES )
+    get_target_property( rocblas_inc roc::rocblas INTERFACE_INCLUDE_DIRECTORIES )
     set( dirs ${blaspp_inc} )
     list( APPEND dirs ${lapackpp_inc} )
+    list( APPEND dirs ${rocblas_inc} )
     list( REMOVE_DUPLICATES dirs )
     set( inc_ "" )
     foreach (dir IN LISTS dirs)
@@ -474,6 +477,7 @@ if (HIP_FOUND)
     endforeach()
     message( DEBUG "blaspp_inc   = '${blaspp_inc}'" )
     message( DEBUG "lapackpp_inc = '${lapackpp_inc}'" )
+    message( DEBUG "rocblas_inc  = '${rocblas_inc}'" )
     message( DEBUG "dirs = '${dirs}'" )
     message( DEBUG "inc_ = '${inc_}'" )
 

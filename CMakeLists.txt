@@ -323,8 +323,7 @@ if (HIP_FOUND)
             get_target_property( defs_ slate COMPILE_DEFINITIONS )
             set( defs__ "" )
             foreach (def_ ${defs_})
-                list( FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES
-                      "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir )
+                list( APPEND defs__ "-D${def_}" )
             endforeach()
 
             # Compilation rule

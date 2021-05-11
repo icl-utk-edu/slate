@@ -260,7 +260,7 @@ void test_gesvd_work(Params& params, bool run)
 
             // Relative forward error: || Sref_data - S_data || / || Sref_data ||
             params.error() = blas::asum(S_data.size(), &S_data[0], 1)
-                        / blas::asum(Sref_data.size(), &Sref_data[0], 1);
+                           / blas::asum(Sref_data.size(), &Sref_data[0], 1);
 
             real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
             params.okay() = (params.error() <= tol);

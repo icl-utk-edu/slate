@@ -61,6 +61,9 @@ void getrf(slate::internal::TargetType<target>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
+    // Communication of the jth tile column uses the MPI tag j
+    // So, the data dependencies protect the corresponding MPI tags
+
     if (target == Target::Devices) {
         A.allocateBatchArrays(batch_size_zero, num_queues);
         A.reserveDeviceWorkspace();

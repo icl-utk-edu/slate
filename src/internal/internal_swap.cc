@@ -435,9 +435,27 @@ void permuteRows(
 /// Permutes rows according to the pivot vector.
 /// Dispatches to target implementations.
 ///
+/// @prama[in] direction
+///     Whether the permutation matrix should be applied from the left or right
+///
+/// @param[inout] A
+///     The matrix to permute
+///
+/// @param[in] pivot
+///     The vector of rows to swap
+///
 /// @param[in] layout
 ///     Indicates the Layout (ColMajor/RowMajor) to operate with.
 ///     Local tiles of matrix on target devices will be converted to layout.
+///
+/// @param[in] priority
+///     The priority to use for internal tasks
+///
+/// @param[in] tag_base
+///     The communication for the jth tile column of A uses the MPI tag tag_base+j
+///
+/// @param[in] queue_index
+///     For Target::Devices, which blaspp queue to use
 ///
 /// @ingroup permute_internal
 ///

@@ -15,74 +15,74 @@ extern "C" void Cblacs_gridinfo(int context, int*  np_row, int* np_col, int*  my
 
 // Type generic function calls the SLATE routine
 template< typename scalar_t >
-void slate_pgetri(int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* work, int lwork, int* iwork, int liwork, int* info)
+void slate_pgetri(int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* work, int lwork, int* iwork, int liwork, int* info);
 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
 // Each C interface calls the type generic slate_pher2k
 
-extern "C" void PSGETRI(int* n, float* a, int ia, int ja, int* desca, int* ipiv, float* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void PSGETRI(int* n, float* a, int* ia, int* ja, int* desca, int* ipiv, float* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
-extern "C" void psgetri(int* n, float* a, int ia, int ja, int* desca, int* ipiv, float* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void psgetri(int* n, float* a, int* ia, int* ja, int* desca, int* ipiv, float* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
-extern "C" void psgetri_(int* n, float* a, int ia, int ja, int* desca, int* ipiv, float* work, int lwork, int* iwork, int liwork, int* info)
-{
-    slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PDGETRI(int* n, double* a, int ia, int ja, int* desca, int* ipiv, double* work, int lwork, int* iwork, int liwork, int* info)
-{
-    slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
-}
-
-extern "C" void pdgetri(int* n, double* a, int ia, int ja, int* desca, int* ipiv, double* work, int lwork, int* iwork, int liwork, int* info)
-{
-    slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
-}
-
-extern "C" void pdgetri_(int* n, double* a, int ia, int ja, int* desca, int* ipiv, double* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void psgetri_(int* n, float* a, int* ia, int* ja, int* desca, int* ipiv, float* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
 // -----------------------------------------------------------------------------
 
-extern "C" void PCGETRI(int* n, std::complex<float>* a, int ia, int ja, int* desca, int* ipiv, std::complex<float>* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void PDGETRI(int* n, double* a, int* ia, int* ja, int* desca, int* ipiv, double* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
-extern "C" void pcgetri(int* n, std::complex<float>* a, int ia, int ja, int* desca, int* ipiv, std::complex<float>* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void pdgetri(int* n, double* a, int* ia, int* ja, int* desca, int* ipiv, double* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
-extern "C" void pcgetri_(int* n, std::complex<float>* a, int ia, int ja, int* desca, int* ipiv, std::complex<float>* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void pdgetri_(int* n, double* a, int* ia, int* ja, int* desca, int* ipiv, double* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
 // -----------------------------------------------------------------------------
 
-extern "C" void PZGETRI(int* n, std::complex<double>* a, int ia, int ja, int* desca, int* ipiv, std::complex<double>* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void PCGETRI(int* n, std::complex<float>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<float>* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
-extern "C" void pzgetri(int* n, std::complex<double>* a, int ia, int ja, int* desca, int* ipiv, std::complex<double>* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void pcgetri(int* n, std::complex<float>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<float>* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
-extern "C" void pzgetri_(int* n, std::complex<double>* a, int ia, int ja, int* desca, int* ipiv, std::complex<double>* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void pcgetri_(int* n, std::complex<float>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<float>* work, int* lwork, int* iwork, int* liwork, int* info)
+{
+    slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
+}
+
+// -----------------------------------------------------------------------------
+
+extern "C" void PZGETRI(int* n, std::complex<double>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<double>* work, int* lwork, int* iwork, int* liwork, int* info)
+{
+    slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
+}
+
+extern "C" void pzgetri(int* n, std::complex<double>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<double>* work, int* lwork, int* iwork, int* liwork, int* info)
+{
+    slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
+}
+
+extern "C" void pzgetri_(int* n, std::complex<double>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<double>* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
@@ -109,9 +109,6 @@ void slate_pgetri(int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, sca
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib}
     };
-
-    // Matrix sizes
-    slate::Pivots pivots;
 
     // create SLATE matrices from the ScaLAPACK layouts
     int nprow, npcol, myprow, mypcol;

@@ -36,7 +36,7 @@ USING THE COMPATIBILITY API
 * RUNTIME VIA PRELOAD: A user can preload this library for runtime
 interception.
 
-env LD_PRELOAD=$SLATE_DIR/lib/libslate_scalapack_api.so mpirun -np 4 $SLATE_DIR/test/test gemm --p 2 --q 2
+env LD_PRELOAD=$SLATE_DIR/lib/libslate_scalapack_api.so mpirun -np 4 $SLATE_DIR/test/tester gemm --p 2 --q 2
 
 * COMPILE TIME VIA LINKING: A user can link with this library to get
 link time binding.  Remember that this library depends on (precedes)
@@ -60,13 +60,19 @@ parameters.
 
 Example on a properly configured SLATE install on a machine with GPUs.
 
+Re-link the tester using the scalapack_api library.  The following
+will prepend the slate_scalapack_api library (before scalapack).
+
+rm test/tester;
+env TEST_LIBS=-lslate_scalapack_api make;
+
 Run the reference test using ScaLAPACK
 
-${SLATE_DIR}/test/test gemm --p 1 --q 1 --ref y
+${SLATE_DIR}/test/tester gemm --p 1 --q 1 --ref n
 
-Run the reference test, calling ScaLAPACK, which gets intercepted and sent to SLATE/Devices
+Run the reference test, calling ScaLAPACK reference, which gets intercepted and sent to SLATE/Devices
 
-env SLATE_SCALAPACK_TARGET=Devices SLATE_SCALAPACK_VERBOSE=1 ${SLATE_DIR}/test/test gemm --p 1 --q 1 --ref y
+env SLATE_SCALAPACK_TARGET=Devices SLATE_SCALAPACK_VERBOSE=1 ${SLATE_DIR}/test/tester gemm --p 1 --q 1 --ref y
 
 
 TESTING
@@ -77,9 +83,9 @@ print a small message, otherwise it is not easy to tell if the routine
 was intercepted.  Using the SLATE tester will not work for norms,
 because there are temporary implementations of norms within SLATE.
 
-env LD_PRELOAD=$SLATE_DIR/lib/libslate_scalapack_api.so SLATE_SCALAPACK_VERBOSE=1 SLATE_SCALAPACK_TARGET=HostTask $SLATE_DIR/test/test gemm
+env LD_PRELOAD=$SLATE_DIR/lib/libslate_scalapack_api.so SLATE_SCALAPACK_VERBOSE=1 SLATE_SCALAPACK_TARGET=HostTask $SLATE_DIR/test/tester gemm
 
-env LD_PRELOAD=$SLATE_DIR/lib/libslate_scalapack_api.so SLATE_SCALAPACK_VERBOSE=1 SLATE_SCALAPACK_TARGET=Devices $SLATE_DIR/test/test gemm
+env LD_PRELOAD=$SLATE_DIR/lib/libslate_scalapack_api.so SLATE_SCALAPACK_VERBOSE=1 SLATE_SCALAPACK_TARGET=Devices $SLATE_DIR/test/tester gemm
 
 Testing can also be done with the ScaLAPACK and PBLAS testers.  Note,
 SLATE does not handle parameter errors, so error exits will need to be
@@ -99,4 +105,3 @@ export SLATE_DIR=...
 export SCALAPACK_DIR=...
 export SLATE_SCALAPACK_VERBOSE=1
 cd ${SCALAPACK_DIR}/TESTING/; env LD_PRELOAD=${SLATE_DIR}/lib/libslate_scalapack_api.so mpirun -np 4 -envall ./xsinv
-

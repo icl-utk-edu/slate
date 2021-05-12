@@ -99,9 +99,12 @@ void slate_pgetrs(const char* transstr, int n, int nrhs, scalar_t* a, int ia, in
 
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
-    int64_t lookahead = 1;
-    int64_t panel_threads = slate_scalapack_set_panelthreads();
-    int64_t inner_blocking = slate_scalapack_set_ib();
+    int64_t lookahead = slate_scalapack_set_lookahead();
+
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    };
 
     // Matrix sizes
     blas::Op trans = blas::char2op(transstr[0]);
@@ -109,87 +112,85 @@ void slate_pgetrs(const char* transstr, int n, int nrhs, scalar_t* a, int ia, in
     int64_t An = n;
     int64_t Bm = n;
     int64_t Bn = nrhs;
-    slate::Pivots pivots;
 
     // create SLATE matrices from the ScaLAPACK layouts
-    int nprow, npcol, myrow, mycol;
-    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myrow, &mycol);
+    int nprow, npcol, myprow, mypcol;
+    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
     auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
 
-    Cblacs_gridinfo(desc_CTXT(descb), &nprow, &npcol, &myrow, &mycol);
+    Cblacs_gridinfo(desc_CTXT(descb), &nprow, &npcol, &myprow, &mypcol);
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descb), desc_N(descb), b, desc_LLD(descb), desc_MB(descb), nprow, npcol, MPI_COMM_WORLD);
     B = slate_scalapack_submatrix(Bm, Bn, B, ib, jb, descb);
 
-    if (verbose && myrow == 0 && mycol == 0)
+    if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "getrs");
 
-    slate::getrf(A, pivots, {
-        {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target},
-        {slate::Option::MaxPanelThreads, panel_threads},
-        {slate::Option::InnerBlocking, inner_blocking}
-    });
+    // std::vector< std::vector<Pivot> >
+    slate::Pivots pivots;
 
-    // Extract pivots from SLATE's global Pivots structure into ScaLAPACK local ipiv array
+    // copy pivots from ScaLAPACK local ipiv array to SLATE global Pivots structure
     {
-        int64_t p_count = 0;
-        int nb = desc_MB(desca);
+        // allocate pivots
+        int64_t min_mt_nt = std::min(A.mt(), A.nt());
+        pivots.resize(min_mt_nt);
+        for (int64_t k = 0; k < min_mt_nt; ++k) {
+            int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
+            pivots.at(k).resize(diag_len);
+        }
 
-        // NOTE: this is not the most efficient way, instead use local tile index directly to avoid looping over tiles
-        // int64_t A_nt = A.nt();
-        // int64_t A_mt = A.mt();
-        // for (int tm = 0; tm < A_mt; ++tm) {
-        //     for (int tn = 0; tn < A_nt; ++tn) {
-        //         if (A.tileIsLocal(tm, tn)) {
-        //             for (auto p_iter = pivots[tm].begin(); p_iter != pivots[tm].end(); ++p_iter) {
-        //                 ipiv[p_count++] = p_iter->tileIndex() * nb + p_iter->elementOffset() + 1;
-        //             }
-        //             break;
-        //         }
-        //     }
-        // }
+        // transfer local ipiv to local part of pivots
+        int isrcproc0 = 0;
+        int nb = desc_MB(desca); // ScaLAPACK style fixed nb
+        int64_t l_numrows = scalapack_numroc(n, nb, myprow, isrcproc0, nprow);  // local number of rows
+        // l_rindx local row index (Scalapack 1-index)
+        // for each local ipiv entry, find corresponding local-pivot information and swap-pivot information
+        for (int l_ipiv_rindx=1; l_ipiv_rindx<=l_numrows; ++l_ipiv_rindx) {
+            // for local ipiv index, convert to global indexing
+            int64_t g_ipiv_rindx = scalapack_indxl2g(&l_ipiv_rindx, &nb, &myprow, &isrcproc0, &nprow);
+            // assuming uniform nb from scalapack (note 1-indexing), find global tile, offset
+            int64_t g_ipiv_tile_indx = (g_ipiv_rindx - 1) / nb;
+            int64_t g_ipiv_tile_offset = (g_ipiv_rindx -1) % nb;
+            // get the reference to this specific pivot
+            Pivot& pivref = pivots[g_ipiv_tile_indx][g_ipiv_tile_offset];
+            // get swap-pivot information pivots(tile-index, offset)
+            // note, slate indexes pivot-tiles from this-point-forward, so subtract earlier tiles.
+            int64_t tileIndexSwap = ((ipiv[l_ipiv_rindx - 1] - 1) / nb) - g_ipiv_tile_indx;
+            int64_t elementOffsetSwap = (ipiv[l_ipiv_rindx - 1] - 1) % nb;
+            // in the local pivot object, assign swap information
+            pivref = Pivot(tileIndexSwap, elementOffsetSwap);
+            // using lld = long long int;
+            // if (verbose)
+            //     printf("[%d,%d] getrs ipiv[%lld=%lld]=%lld  ->  pivots[%lld][%lld]=(%lld,%lld)\n",
+            //            myprow, mypcol,
+            //            (lld)l_ipiv_rindx, (lld)g_ipiv_rindx, (lld)ipiv[l_ipiv_rindx - 1],
+            //            (lld)g_ipiv_tile_indx, (lld)g_ipiv_tile_offset, (lld)tileIndexSwap, (lld)elementOffsetSwap);
+            // fflush(0);
+        }
 
-        int ZERO = 0;
-        int l_numrows = scalapack_numroc(An, nb, myrow, ZERO, nprow);  // local number of rows
-        int l_rindx = 1;// local row index (Scalapack 1-index)
-        // find the global tile indices of the local tiles
-        while (l_rindx <= l_numrows) {
-            int64_t g_rindx = scalapack_indxl2g(&l_rindx, &nb, &myrow, &ZERO, &nprow);
-            int64_t g_tile_indx = g_rindx / nb; //assuming uniform tile size from Scalapack
-            // extract this tile pivots
-            for (auto p_iter = pivots[g_tile_indx].begin();
-                 p_iter != pivots[g_tile_indx].end();
-                 ++p_iter)
-                ipiv[p_count++] = p_iter->tileIndex() * nb + p_iter->elementOffset() + 1;
-            //next tile
-            l_rindx += nb;
+        // broadcast local pivot information to all processes
+        for (int64_t k = 0; k < min_mt_nt; ++k) {
+            MPI_Bcast(pivots.at(k).data(),
+                      sizeof(Pivot)*pivots.at(k).size(),
+                      MPI_BYTE, A.tileRank(k, k), A.mpiComm());
         }
     }
 
-    // todo: extract the real info from getrf
-    *info = 0;
+    // apply operators to the matrix
+    auto opA = A;
+    if (trans == slate::Op::Trans)
+        opA = transpose(A);
+    else if (trans == slate::Op::ConjTrans)
+        opA = conjTranspose(A);
 
-    if (*info == 0) {
-
-        auto opA = A;
-        if (trans == slate::Op::Trans)
-            opA = transpose(A);
-        else if (trans == slate::Op::ConjTrans)
-            opA = conjTranspose(A);
-
-        slate::getrs(opA, pivots, B, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
-
-    }
+    // call the SLATE getrs routine
+    slate::getrs(opA, pivots, B, opts);
 
     // todo: extract the real info from getrs
     *info = 0;
 
+    // reset blas threading
     slate_set_num_blas_threads(saved_num_blas_threads);
-
 }
 
 } // namespace scalapack_api

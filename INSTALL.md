@@ -205,6 +205,11 @@ options include:
         wrapper, set one of:
         mpi = 1             link with `-lmpi`
         mpi = spectrum      link with `-lmpi_ibm`
+        mpi = 0             without MPI (experimental)
+
+        NOTE: SLATE compiles without MPI, but not all routines operate
+        correctly. Also, the testers currently require ScaLAPACK, which
+        requires MPI, so testers will fail.
 
     cuda_arch
         With the CUDA backend, by default SLATE will compile for
@@ -303,7 +308,11 @@ options include:
     use_mpi
         Whether to use MPI, if available. One of:
         yes (default)
-        no
+        no  (experimental)
+
+        NOTE: SLATE compiles without MPI, but not all routines operate
+        correctly. Also, the testers currently require ScaLAPACK, which
+        requires MPI, so testers will fail.
 
     use_openmp
         Whether to use OpenMP, if available. One of:

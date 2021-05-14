@@ -80,7 +80,6 @@ void he2hb(slate::internal::TargetType<target>,
     std::vector< uint8_t > block_vector(nt);
     uint8_t* block = block_vector.data();
     uint8_t* row = block_vector.data();
-    const int priority_one = 1;
 
     // bool debug = true;
 
@@ -399,18 +398,12 @@ void he2hb(slate::internal::TargetType<target>,
                                 if (i > j) {
                                     if (A.tileIsLocal(i, j)) {
                                         // Aij -= Vik Wjk^H
-                                        //#pragma omp task depend(in:row[j]) \
-                                                         depend(in:block[k]) \
-                                                         depend(inout:block[j])
                                         gemm(-one, A(i, k), conjTranspose(W(j, k)),
                                               one, A(i, j));
                                     }
                                 }
                                 else if (i < j) {
                                     if (A.tileIsLocal(j, i)) {
-                                        //#pragma omp task depend(in:row[j]) \
-                                                         depend(in:block[k]) \
-                                                         depend(inout:block[i])
                                         // Aji -= Wjk Vik^H
                                         gemm(-one, W(j, k), conjTranspose(A(i, k)),
                                               one, A(j, i));

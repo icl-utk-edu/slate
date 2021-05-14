@@ -46,7 +46,6 @@ void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
                 B.tileSend(i+1, i, B.tileRank(i, i+1), tag_i);
         }
         if (i+1 < nt && B.tileIsLocal(i, i+1)) {
-            auto Bi1i = B(i, i+1);
             if (! B.tileIsLocal(i+1, i)) {
                 // Remote copy-transpose B(i+1, i) => B(i, i+1);
                 B.tileRecv(i+1, i, B.tileRank(i+1, i), slate::Layout::ColMajor, tag_i);

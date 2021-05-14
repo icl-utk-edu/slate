@@ -137,7 +137,7 @@ void test_potri_work(Params& params, bool run)
         params.gflops() = gflop / time;
     }
 
-    // Test only with SLATE routines
+    // Test only with SLATE routines for a residual check
     if (check) {
         slate::Matrix<scalar_t> X, Y;
         X = slate::Matrix<scalar_t>( n, nrhs, nb, p, q, MPI_COMM_WORLD);
@@ -156,6 +156,9 @@ void test_potri_work(Params& params, bool run)
         params.okay() = (params.error() <= tol);
     }
 
+// TODO:  Enable the SLATE_HAVE_SCALAPACK check after a SLATE hehemm routine is created,
+// or after a SLATE symmetrize routine is created to transform a Hermitian/Symmetric
+// matrix into a general matrix.
 #if 0
     if (check) {
         #ifdef SLATE_HAVE_SCALAPACK

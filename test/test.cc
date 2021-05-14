@@ -161,7 +161,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "gelqf",              test_gelqf,     Section::qr },
     //{ "geqlf",              test_geqlf,     Section::qr },
     //{ "gerqf",              test_gerqf,     Section::qr },
-    { "",                   nullptr,        Section::newline },
+    //{ "",                   nullptr,        Section::newline },
 
     //{ "ungqr",              test_ungqr,     Section::qr },
     //{ "unglq",              test_unglq,     Section::qr },
@@ -169,11 +169,11 @@ std::vector< testsweeper::routines_t > routines = {
     //{ "ungrq",              test_ungrq,     Section::qr },
     //{ "",                   nullptr,        Section::newline },
 
-    //{ "unmqr",              test_unmqr,     Section::qr },
+    { "unmqr",              test_unmqr,     Section::qr },
     //{ "unmlq",              test_unmlq,     Section::qr },
     //{ "unmql",              test_unmql,     Section::qr },
     //{ "unmrq",              test_unmrq,     Section::qr },
-    //{ "",                   nullptr,        Section::newline },
+    { "",                   nullptr,        Section::newline },
 
     // -----
     // symmetric/Hermitian eigenvalues

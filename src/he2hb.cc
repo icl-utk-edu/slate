@@ -90,8 +90,6 @@ void he2hb(slate::internal::TargetType<target>,
         omp_set_nested(1);
         for (int64_t k = 0; k < nt-1; ++k) {
 
-        trace::Block trace_block( "task::panel", k );
-
             //----------------------------------------
             // Q panel and update.
             auto       A_panel =       A.sub(k+1, nt-1, k, k);

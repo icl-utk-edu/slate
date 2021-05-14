@@ -114,18 +114,7 @@ void he2hb(slate::internal::TargetType<target>,
                     }
                 }
             }
-            //TODO: keep only this indices loop
             std::vector<int64_t> indices;
-            for (int panel_rank: panel_ranks) {
-                // Find local indices for panel_rank.
-                indices.clear();
-                for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                    if (A_panel.tileRank(i, 0) == panel_rank) {
-                        // todo: global index
-                        indices.push_back(i+k+1);
-                    }
-                }
-            }
             int64_t i0;
 
             //--------------------
@@ -184,6 +173,7 @@ void he2hb(slate::internal::TargetType<target>,
                     Treduce.template listBcast(bcast_list_T, layout);
                 }
 
+                //TODO: keep only this indices loop
                 for (int panel_rank: panel_ranks) {
                     // Find local indices for panel_rank.
                     indices.clear();

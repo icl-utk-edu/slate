@@ -166,8 +166,18 @@ void test_unmqr_work(Params& params, bool run)
         A_tst.clear();
     }
 
-    auto QR = slate::Matrix<scalar_t>::fromScaLAPACK(
-        m, n, &QR_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    slate::Matrix<scalar_t> QR;
+    if (origin != slate::Origin::ScaLAPACK) {
+        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        slate::Target origin_target = origin2target(origin);
+        QR = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        QR.insertLocalTiles(origin_target);
+        copy(&QR_tst[0], descQR_tst, QR);
+    }
+    else {
+        QR = slate::Matrix<scalar_t>::fromScaLAPACK(
+                m, n, &QR_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    }
     
     if (verbose > 1) {
         print_matrix("R", QR);
@@ -192,8 +202,6 @@ void test_unmqr_work(Params& params, bool run)
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double time = testsweeper::get_wtime();
-    {
-        slate::trace::Block trace_block("unmqr");
 
     // Form QR, where Q's representation is in A and T, and R is in QR.
     slate::qr_multiply_by_q(
@@ -205,7 +213,6 @@ void test_unmqr_work(Params& params, bool run)
     // slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, T, QR, {
     //     {slate::Option::Target, target}
     // });
-    }
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);
@@ -224,10 +231,18 @@ void test_unmqr_work(Params& params, bool run)
     }
 
     if (check) {
+        if (origin != slate::Origin::ScaLAPACK) {
+            copy(QR, &QR_tst[0], descQR_tst);
+        }
+        
         // Form QR - A, where A is in Aref.
         // todo: slate::geadd(-one, Aref, QR);
         // using axpy assumes A_ref and QR_tst have same lda.
         blas::axpy(QR_tst.size(), -one, &A_ref[0], 1, &QR_tst[0], 1);
+        
+        if (origin != slate::Origin::ScaLAPACK) {
+            copy(&QR_tst[0], descQR_tst, QR);
+        }
 
         if (verbose > 1) {
             print_matrix("QR - A", QR);

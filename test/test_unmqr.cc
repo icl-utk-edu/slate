@@ -18,8 +18,6 @@
 #include <cstdlib>
 #include <utility>
 
-#include <cuda_profiler_api.h>
-
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_unmqr_work(Params& params, bool run)
@@ -180,9 +178,10 @@ void test_unmqr_work(Params& params, bool run)
     }
     
     if (! check) {
-        // move all matrices to GPU
-        A.tileGetAllForReading(0, slate::LayoutConvert::None); // todo for experimental reasons
-        QR.tileGetAllForWriting(0, slate::LayoutConvert::None); // todo for experimental reasons
+        // prefetch all matrices to devices
+        // when performance of unmqr is measured
+        A.tileGetAllForReadingOnDevices(slate::LayoutConvert::None);
+        QR.tileGetAllForWritingOnDevices(slate::LayoutConvert::None); 
     }
 
     if (trace) slate::trace::Trace::on();
@@ -193,7 +192,6 @@ void test_unmqr_work(Params& params, bool run)
         MPI_Barrier(MPI_COMM_WORLD);
     }
     double time = testsweeper::get_wtime();
-    // cudaProfilerStart();
     {
         slate::trace::Block trace_block("unmqr");
 
@@ -208,7 +206,6 @@ void test_unmqr_work(Params& params, bool run)
     //     {slate::Option::Target, target}
     // });
     }
-    // cudaProfilerStop();
     {
         slate::trace::Block trace_block("MPI_Barrier");
         MPI_Barrier(MPI_COMM_WORLD);

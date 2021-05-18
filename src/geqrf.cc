@@ -212,9 +212,11 @@ void geqrf(slate::internal::TargetType<target>,
                     }
                 }
                 // Prevent trmm's in lookahead and trailing submatrix
-                // from releasing Tl_panel's first triangular tile
+                // from releasing Tl_panel's first triangular tile.
+                // Also check whether tile exists to prevent
+                // getting and holding non-existent tile on host.
                 if (target == Target::Devices) {
-                    if (lookahead > 0) {
+                    if (lookahead > 0 && Tl_panel.tileExists(0, 0)) {
                         auto device = Tl_panel.tileDevice(0, 0);
                         Tl_panel.tileGetAndHold(0, 0, device, LayoutConvert::None);
                     }

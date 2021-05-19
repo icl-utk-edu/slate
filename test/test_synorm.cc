@@ -130,6 +130,11 @@ void test_synorm_work(Params& params, bool run)
         scalapack_descinit(A_desc, n, n, nb, nb, izero, izero, ictxt, lldA, &info);
         slate_assert(info == 0);
 
+        if (origin != slate::Origin::ScaLAPACK) {
+            copy( A, &A_data[0], A_desc );
+        }
+
+
         if (check || ref) {
             // comparison with reference routine from ScaLAPACK
 

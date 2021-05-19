@@ -184,6 +184,7 @@ void generate_sigma(
     #pragma omp parallel for
     for (int64_t i = 0; i < min_mt_nt; ++i) {
         if (A.tileIsLocal(i, i)) {
+            A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
             auto T = A(i, i);
             for (int ii = 0; ii < A.tileNb(i); ++ii) {
                 T.at(ii, ii) = Sigma[S_index + ii];
@@ -191,6 +192,8 @@ void generate_sigma(
         }
         S_index += A.tileNb(i);
     }
+
+    A.tileUpdateAllOrigin();
 }
 
 
@@ -298,13 +301,13 @@ void generate_svd(
         #pragma omp parallel for
         for (int64_t i = 0; i < min_mt_nt; ++i) {
             if (A.tileIsLocal(i, i)) {
+                A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
                 auto T = A(i, i);
                 for (int ii = 0; ii < A.tileNb(i); ++ii) {
                     T.at(ii, ii) = Sigma[S_index + ii];
                 }
             }
             S_index += A.tileNb(i);
-            //A.tileTick(i, i);
         }
     }
 
@@ -410,6 +413,7 @@ void generate_svd(
         for (int64_t j = 0; j < nt; ++j) {
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
+                    A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                     auto T = A(i, j);
                     for (int jj = 0; jj < A.tileNb(j); ++jj) {
                         for (int ii = 0; ii < A.tileMb(i); ++ii) {
@@ -421,6 +425,7 @@ void generate_svd(
             J_index += A.tileNb(j);
         }
     }
+    A.tileUpdateAllOrigin();
 }
 
 // -----------------------------------------------------------------------------
@@ -501,6 +506,7 @@ void generate_heev(
     #pragma omp parallel for
     for (int64_t i = 0; i < nt; ++i) {
         if (A.tileIsLocal(i, i)) {
+            A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
             auto T = A(i, i);
             for (int ii = 0; ii < A.tileMb(i); ++ii) {
                 T.at(ii, ii) = std::real( T.at(ii, ii) );
@@ -523,6 +529,7 @@ void generate_heev(
             int64_t I_index = 0;
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
+                    A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                     auto T = A(i, j);
                     for (int jj = 0; jj < A.tileMb(j); ++jj) {
                         for (int ii = 0; ii < A.tileMb(i); ++ii) {
@@ -535,6 +542,7 @@ void generate_heev(
             J_index += A.tileMb(j);
         }
     }
+    A.tileUpdateAllOrigin();
 }
 
 // -----------------------------------------------------------------------------
@@ -1072,20 +1080,20 @@ void generate_matrix(
                 // Set 1 element from sub-diagonal tile to 1.
                 if (i > 0) {
                     if (A.tileIsLocal(i, i-1)) {
+                        A.tileGetForWriting( i, i-1, LayoutConvert::ColMajor );
                         auto T = A(i, i-1);
                         T.at(0, T.nb()-1) = 1.;
-                        A.tileTick(i, i-1);
                     }
                 }
 
                 // Set 1 element from sub-diagonal tile to 1.
                 if (A.tileIsLocal(i, i)) {
+                    A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
                     auto T = A(i, i);
                     auto len = T.nb();
                     for (int j = 0; j < len-1; ++j) {
                         T.at(j+1, j) = 1.;
                     }
-                    A.tileTick(i, i);
                 }
             }
             break;
@@ -1099,6 +1107,7 @@ void generate_matrix(
             for (int64_t j = 0; j < nt; ++j) {
                 for (int64_t i = 0; i < mt; ++i) {
                     if (A.tileIsLocal(i, j)) {
+                        A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                         auto Aij = A(i, j);
                         scalar_t* data = Aij.data();
                         int64_t lda = Aij.stride();
@@ -1165,6 +1174,7 @@ void generate_matrix(
            slate_error("Not implemented yet");
            throw std::exception();  // not implemented
     }
+    A.tileUpdateAllOrigin();
 }
 
 // -----------------------------------------------------------------------------
@@ -1226,20 +1236,20 @@ void generate_matrix(
                     // Set 1 element from sub-diagonal tile to 1.
                     if (i > 0) {
                         if (A.tileIsLocal(i, i-1)) {
+                            A.tileGetForWriting( i, i-1, LayoutConvert::ColMajor );
                             auto T = A(i, i-1);
                             T.at(0, T.nb()-1) = 1.;
-                            //A.tileTick(i, i-1);
                         }
                     }
 
                     // Set 1 element from sub-diagonal tile to 1.
                     if (A.tileIsLocal(i, i)) {
+                        A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
                         auto T = A(i, i);
                         auto len = T.nb();
                         for (int j = 0; j < len-1; ++j) {
                             T.at(j+1, j) = 1.;
                         }
-                        //A.tileTick(i, i);
                     }
                 }
             }
@@ -1249,20 +1259,20 @@ void generate_matrix(
                     // Set 1 element from sub-diagonal tile to 1.
                     if (i > 0) {
                         if (A.tileIsLocal(i-1, i)) {
+                            A.tileGetForWriting( i-1, i, LayoutConvert::ColMajor );
                             auto T = A(i-1, i);
                             T.at(T.nb()-1, 0) = 1.;
-                            //A.tileTick(i-1, i);
                         }
                     }
 
                     // Set 1 element from sub-diagonal tile to 1.
                     if (A.tileIsLocal(i, i)) {
+                        A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
                         auto T = A(i, i);
                         auto len = T.nb();
                         for (int j = 0; j < len-1; ++j) {
                             T.at(j, j+1) = 1.;
                         }
-                        //A.tileTick(i, i);
                     }
                 }
             }
@@ -1283,6 +1293,7 @@ void generate_matrix(
                 for (int64_t j=0; j < nt; ++j) {
                     for (int64_t i = j; i < mt; ++i) {
                         if (A.tileIsLocal(i, j)) {
+                            A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                             auto Aij = A(i, j);
                             scalar_t* data = Aij.data();
                             int64_t lda = Aij.stride();
@@ -1324,6 +1335,7 @@ void generate_matrix(
                 for (int64_t j = 0; j < nt; ++j) {
                     for (int64_t i = 0; i <= j && i < mt; ++i){  // upper trapezoid
                         if (A.tileIsLocal(i, j)) {
+                            A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                             auto Aij = A(i, j);
                             scalar_t* data = Aij.data();
                             int64_t lda = Aij.stride();
@@ -1377,6 +1389,8 @@ void generate_matrix(
            slate_error("Not implemented yet");
            throw std::exception();  // not implemented
     }
+
+    A.tileUpdateAllOrigin();
 }
 
 // -----------------------------------------------------------------------------
@@ -1400,6 +1414,7 @@ void generate_matrix(
     #pragma omp parallel for
     for (int64_t i = 0; i < A.mt(); ++i) {
         if (A.tileIsLocal( i, i )) {
+            A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
             auto T = A( i, i );
             int64_t mb = T.mb();
             for (int64_t ii = 0; ii < mb; ++ii) {
@@ -1407,6 +1422,7 @@ void generate_matrix(
             }
         }
     }
+    A.tileUpdateAllOrigin();
 }
 // -----------------------------------------------------------------------------
 /// Overload without Sigma.

@@ -19,7 +19,7 @@
 #include <utility>
 
 #undef PIN_MATRICES
-#define SLATE_HAVE_SCALAPACK
+//#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template<typename scalar_t>
 void test_gbmm_work(Params& params, bool run)
@@ -84,6 +84,13 @@ void test_gbmm_work(Params& params, bool run)
     int64_t An = (transA == slate::Op::NoTrans ? k : m);
     int64_t Bm = (transB == slate::Op::NoTrans ? k : n);
     int64_t Bn = (transB == slate::Op::NoTrans ? n : k);
+
+    // constants
+    #ifdef SLATE_HAVE_SCALAPACK
+        int izero = 0, ione = 1;
+    #else
+        const scalar_t one = 1;
+    #endif
 
     // Local values
     int myrow, mycol;
@@ -227,9 +234,6 @@ void test_gbmm_work(Params& params, bool run)
             int64_t Cm = m;
             int64_t Cn = n;
 
-            // constants
-            int izero = 0, ione = 1;
-
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
             slate_assert( mpi_rank == mpi_rank_ );
@@ -260,7 +264,7 @@ void test_gbmm_work(Params& params, bool run)
             // get norms of the original data
             real_t A_norm      = scalapack_plange(norm2str(norm), Am, An, &A_data[0], ione, ione, A_desc, &worklange[0]);
             real_t B_norm      = scalapack_plange(norm2str(norm), Bm, Bn, &B_data[0], ione, ione, B_desc, &worklange[0]);
-            real_t C_orig_norm = scalapack_plange(norm2str(norm), Cm, Cn, &C_data[0], ione, ione, Cref_desc, &worklange[0]);
+            real_t C_orig_norm = scalapack_plange(norm2str(norm), Cm, Cn, &Cref_data[0], ione, ione, Cref_desc, &worklange[0]);
 
             time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pgemm(op2str(transA), op2str(transB), m, n, k, alpha,
@@ -298,18 +302,25 @@ void test_gbmm_work(Params& params, bool run)
             //==================================================
             // Run SLATE non-band routine
             //==================================================
-            // constants
-            const scalar_t one = 1;
-
             if (verbose > 1) {
                 print_matrix("Cref", Cref);
             }
+
+            // Get norms of the original data.
+            real_t A_norm = slate::norm( norm, Aref );
+            real_t B_norm = slate::norm( norm, B );
+            real_t Cref_norm = slate::norm( norm, Cref );
+
             time = barrier_get_wtime(MPI_COMM_WORLD);
             slate::multiply( alpha, Aref, B, beta, Cref, opts );
+            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
             // get differences Cref_data = Cref_data - C_data
             slate::geadd( -one, C, one, Cref );
-            real_t error = slate::norm( norm, Cref );
-            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+            real_t C_diff_norm = slate::norm( norm, Cref ); // norm of residual
+
+            real_t error = C_diff_norm
+                        / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * B_norm
+                            + 2 * std::abs(beta) * Cref_norm);
 
             if (verbose > 1) {
                 print_matrix( "C_diff", Cref );

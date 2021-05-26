@@ -7,6 +7,7 @@
 #include "test.hh"
 #include "blas/flops.hh"
 
+#include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
 #include "print_matrix.hh"
 #include "band_utils.hh"
@@ -18,7 +19,7 @@
 #include <utility>
 
 #undef PIN_MATRICES
-
+#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template<typename scalar_t>
 void test_gbmm_work(Params& params, bool run)
@@ -83,9 +84,6 @@ void test_gbmm_work(Params& params, bool run)
     int64_t An = (transA == slate::Op::NoTrans ? k : m);
     int64_t Bm = (transB == slate::Op::NoTrans ? k : n);
     int64_t Bn = (transB == slate::Op::NoTrans ? n : k);
-
-    // constants
-    const scalar_t one = 1;
 
     // Local values
     int myrow, mycol;
@@ -218,27 +216,109 @@ void test_gbmm_work(Params& params, bool run)
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-        //==================================================
-        // Run SLATE non-band routine
-        //==================================================
-        if (verbose > 1) {
-            print_matrix("Cref", Cref);
-        }
-        time = barrier_get_wtime(MPI_COMM_WORLD);
-        slate::multiply( alpha, Aref, B, beta, Cref, opts );
-        // get differences Cref_data = Cref_data - C_data
-        slate::geadd( -one, C, one, Cref );
-        real_t error = slate::norm( norm, Cref );
-        time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+        #ifdef SLATE_HAVE_SCALAPACK
+            //==================================================
+            // Run ScaLAPACK reference routine.
+            //==================================================
+            // BLACS/MPI variables
+            int ictxt, p_, q_, myrow_, mycol_, info;
+            int A_desc[9], B_desc[9], C_desc[9], Cref_desc[9];
+            int mpi_rank_ = 0, nprocs = 1;
+            int64_t Cm = m;
+            int64_t Cn = n;
 
-        if (verbose > 1) {
-            print_matrix( "C_diff", Cref );
-        }
+            // constants
+            int izero = 0, ione = 1;
 
-        params.ref_time() = time;
-        params.ref_gflops() = gflop / time;
-        params.error() = error;
+            // initialize BLACS and ScaLAPACK
+            Cblacs_pinfo(&mpi_rank_, &nprocs);
+            slate_assert( mpi_rank == mpi_rank_ );
+            slate_assert(p*q <= nprocs);
+            Cblacs_get(-1, 0, &ictxt);
+            Cblacs_gridinit(&ictxt, "Col", p, q);
+            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
+            slate_assert( p == p_ );
+            slate_assert( q == q_ );
+            slate_assert( myrow == myrow_ );
+            slate_assert( mycol == mycol_ );
 
+            scalapack_descinit(A_desc, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
+            slate_assert(info == 0);
+
+            scalapack_descinit(B_desc, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
+            slate_assert(info == 0);
+
+            scalapack_descinit(C_desc, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
+            slate_assert(info == 0);
+
+            scalapack_descinit(Cref_desc, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
+            slate_assert(info == 0);
+
+            // allocate work space
+            std::vector<real_t> worklange(std::max({mlocC, mlocB, mlocA, nlocC, nlocB, nlocA}));
+
+            // get norms of the original data
+            real_t A_norm      = scalapack_plange(norm2str(norm), Am, An, &A_data[0], ione, ione, A_desc, &worklange[0]);
+            real_t B_norm      = scalapack_plange(norm2str(norm), Bm, Bn, &B_data[0], ione, ione, B_desc, &worklange[0]);
+            real_t C_orig_norm = scalapack_plange(norm2str(norm), Cm, Cn, &C_data[0], ione, ione, Cref_desc, &worklange[0]);
+
+            time = barrier_get_wtime(MPI_COMM_WORLD);
+            scalapack_pgemm(op2str(transA), op2str(transB), m, n, k, alpha,
+                            &A_data[0], ione, ione, A_desc,
+                            &B_data[0], ione, ione, B_desc, beta,
+                            &Cref_data[0], ione, ione, Cref_desc);
+
+            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+
+            if (verbose > 1) {
+                print_matrix("C_ref", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
+            }
+
+            // perform a local operation to get differences Cref_data = Cref_data - C_data
+            blas::axpy(Cref_data.size(), -1.0, &C_data[0], 1, &Cref_data[0], 1);
+
+            if (verbose > 1) {
+                print_matrix("C_diff", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
+            }
+
+            // norm(C_ref - C_tst)
+            real_t C_diff_norm = scalapack_plange(
+                                    norm2str(norm), Cm, Cn, &Cref_data[0], ione, ione, Cref_desc, &worklange[0]);
+
+            real_t error = C_diff_norm
+                        / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * B_norm
+                            + 2 * std::abs(beta) * C_orig_norm);
+
+            params.ref_time() = time;
+            params.ref_gflops() = gflop / time;
+            params.error() = error;
+
+            Cblacs_gridexit(ictxt);
+        #else
+            //==================================================
+            // Run SLATE non-band routine
+            //==================================================
+            // constants
+            const scalar_t one = 1;
+
+            if (verbose > 1) {
+                print_matrix("Cref", Cref);
+            }
+            time = barrier_get_wtime(MPI_COMM_WORLD);
+            slate::multiply( alpha, Aref, B, beta, Cref, opts );
+            // get differences Cref_data = Cref_data - C_data
+            slate::geadd( -one, C, one, Cref );
+            real_t error = slate::norm( norm, Cref );
+            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+
+            if (verbose > 1) {
+                print_matrix( "C_diff", Cref );
+            }
+
+            params.ref_time() = time;
+            params.ref_gflops() = gflop / time;
+            params.error() = error;
+        #endif
         slate_set_num_blas_threads(saved_num_threads);
 
         // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.

@@ -32,8 +32,8 @@ void test_bdsqr_work(
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     int64_t nb = params.nb();
-    int64_t p = params.grid.m();
-    int64_t q = params.grid.n();
+    int p = params.grid.m();
+    int q = params.grid.n();
     lapack::Job jobu = params.jobu();
     lapack::Job jobvt = params.jobvt();
     bool check = params.check() == 'y';
@@ -62,37 +62,23 @@ void test_bdsqr_work(
 
     int64_t min_mn = std::min(m, n);
     scalar_t zero = 0.0, one = 1.0, minusone = -1;
-    // local values
-    // const int izero = 0;
 
-    // BLACS/MPI variables
-    int ictxt, nprow, npcol, myrow, mycol, info;
-    int descU_tst[9], descVT_tst[9];
-    int iam = 0, nprocs = 1;
+    // Local values
+    int myrow, mycol;
 
-
-    // initialize BLACS and ScaLAPACK
-    Cblacs_pinfo(&iam, &nprocs);
-    slate_assert(p*q <= nprocs);
-    Cblacs_get(-1, 0, &ictxt);
-    Cblacs_gridinit(&ictxt, "Col", p, q);
-    Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     // matrix U, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocU = num_local_rows_cols(m, nb, myrow, nprow);
-    int64_t nlocU = num_local_rows_cols(n, nb, mycol, npcol);
-    scalapack_descinit(descU_tst, m, n, nb, nb, 0, 0, ictxt, mlocU, &info);
-    slate_assert(info == 0);
-    int64_t lldU = (int64_t)descU_tst[8];
-    std::vector<scalar_t> U_tst(1);
+    int64_t mlocU = num_local_rows_cols(m, nb, myrow, p);
+    int64_t nlocU = num_local_rows_cols(n, nb, mycol, q);
+    int64_t lldU  = blas::max(1, mlocU); // local leading dimension of U
+    std::vector<scalar_t> U_data(1);
 
     // matrix VT, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocVT = num_local_rows_cols(min_mn, nb, myrow, nprow);
-    int64_t nlocVT = num_local_rows_cols(n, nb, mycol, npcol);
-    scalapack_descinit(descVT_tst, n, n, nb, nb, 0, 0, ictxt, mlocVT, &info);
-    slate_assert(info == 0);
-    int64_t lldVT = (int64_t)descVT_tst[8];
-    std::vector<scalar_t> VT_tst(1);
+    int64_t mlocVT = num_local_rows_cols(min_mn, nb, myrow, p);
+    int64_t nlocVT = num_local_rows_cols(n, nb, mycol, q);
+    int64_t lldVT  = blas::max(1, mlocVT); // local leading dimension of VT
+    std::vector<scalar_t> VT_data(1);
 
     // initialize D and E to call the bidiagonal svd solver
     std::vector<real_t> D(n), E(n - 1);
@@ -114,25 +100,25 @@ void test_bdsqr_work(
     if (origin != slate::Origin::ScaLAPACK) {
         if (wantu) {
             U = slate::Matrix<scalar_t>(
-                m, min_mn, nb, nprow, npcol, MPI_COMM_WORLD);
+                m, min_mn, nb, p, q, MPI_COMM_WORLD);
             U.insertLocalTiles();
         }
         if (wantvt) {
             VT = slate::Matrix<scalar_t>(
-                 min_mn, n, nb, nprow, npcol, MPI_COMM_WORLD);
+                 min_mn, n, nb, p, q, MPI_COMM_WORLD);
             VT.insertLocalTiles();
         }
     }
     else {
         if (wantu) {
-            U_tst.resize(lldU*nlocU);
+            U_data.resize(lldU*nlocU);
             U = slate::Matrix<scalar_t>::fromScaLAPACK(
-                m, n, &U_tst[0], lldU, nb, nprow, npcol, MPI_COMM_WORLD);
+                m, n, &U_data[0], lldU, nb, p, q, MPI_COMM_WORLD);
         }
         if (wantvt) {
-            VT_tst.resize(lldVT*nlocVT);
+            VT_data.resize(lldVT*nlocVT);
             VT = slate::Matrix<scalar_t>::fromScaLAPACK(
-                 min_mn, n, &VT_tst[0], lldVT, nb, nprow, npcol, MPI_COMM_WORLD);
+                 min_mn, n, &VT_data[0], lldVT, nb, p, q, MPI_COMM_WORLD);
         }
     }
 
@@ -141,22 +127,14 @@ void test_bdsqr_work(
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time = testsweeper::get_wtime();
+    double time = barrier_get_wtime(MPI_COMM_WORLD);
 
     //==================================================
     // Run SLATE test.
     //==================================================
     slate::bdsqr<scalar_t>(jobu, jobvt, D, E, U, VT);
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    params.time() = testsweeper::get_wtime() - time;
+    params.time() = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
     if (trace)
         slate::trace::Trace::finish();
@@ -176,15 +154,13 @@ void test_bdsqr_work(
         //==================================================
         // Run LAPACK reference routine.
         //==================================================
-        MPI_Barrier(MPI_COMM_WORLD);
-        time = testsweeper::get_wtime();
+        time = barrier_get_wtime(MPI_COMM_WORLD);
 
         scalar_t dummy[1];  // U, VT, C not needed for NoVec
         lapack::bdsqr(uplo, n, 0, 0, 0,
                       &Dref[0], &Eref[0], dummy, 1, dummy, 1, dummy, 1);
 
-        MPI_Barrier(MPI_COMM_WORLD);
-        params.ref_time() = testsweeper::get_wtime() - time;
+        params.ref_time() = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         slate_set_num_blas_threads(saved_num_threads);
         if (verbose) {
@@ -217,7 +193,7 @@ void test_bdsqr_work(
         params.ortho_V() = 0.;
         if (wantu) {
             slate::Matrix<scalar_t> Id;
-            Id = slate::Matrix<scalar_t>(min_mn, min_mn, nb, nprow, npcol, MPI_COMM_WORLD);
+            Id = slate::Matrix<scalar_t>(min_mn, min_mn, nb, p, q, MPI_COMM_WORLD);
             Id.insertLocalTiles();
             set( zero, one, Id);
 
@@ -229,7 +205,7 @@ void test_bdsqr_work(
         // If we flip the fat matrix, then no need for Id_nn
         if (wantvt) {
             slate::Matrix<scalar_t> Id_nn;
-            Id_nn = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
+            Id_nn = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
             Id_nn.insertLocalTiles();
             set( zero, one, Id_nn);
             auto VTT = conjTranspose(VT);

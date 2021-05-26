@@ -110,6 +110,9 @@ std::vector< testsweeper::routines_t > routines = {
     { "getriOOP",           test_getri,        Section::gesv },
     { "",                   nullptr,           Section::newline },
 
+    { "trtri",              test_trtri,        Section::gesv },
+    { "",                   nullptr,           Section::newline },
+
     // -----
     // Cholesky
     { "posv",               test_posv,         Section::posv },

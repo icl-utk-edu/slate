@@ -381,6 +381,7 @@ if (opts.chol):
     #[ 'porfs', gen + dtype + la + n + uplo ],
     #[ 'poequ', gen + dtype + la + n ],  # only diagonal elements (no uplo)
     [ 'posvMixed',  gen + dtype_double + la + n + uplo ],
+    [ 'trtri', gen + dtype + la + n + uplo + diag ],
     ]
 
 # Cholesky banded

@@ -186,7 +186,7 @@ void copy(internal::TargetType<Target::HostTask>,
                     // tileAcquire() to avoid un-needed copy
                     B.tileAcquire(i, j, A.tileLayout(i, j));
                     gecopy(A(i, j), B(i, j));
-                    B.tileModified(i, j);
+                    B.tileModified(i, j, HostNum, true);
                     A.tileTick(i, j);// TODO is this correct here?
                 }
             }

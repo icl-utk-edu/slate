@@ -17,7 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-#define SLATE_HAVE_SCALAPACK
+//#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template<typename scalar_t>
 void test_hbmm_work(Params& params, bool run)
@@ -117,8 +117,8 @@ void test_hbmm_work(Params& params, bool run)
     std::vector<scalar_t> C_data(lldC*nlocC);
 
     // create SLATE matrices from the ScaLAPACK layouts
-    auto Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                    Am, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
+    auto Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                    uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
                   Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     auto C = slate::Matrix<scalar_t>::fromScaLAPACK(

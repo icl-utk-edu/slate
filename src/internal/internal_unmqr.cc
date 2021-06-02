@@ -153,6 +153,14 @@ void unmqr(internal::TargetType<target>,
             T0tr = conjTranspose(T0tr);
         }
 
+        // Prevent trmm's in lookahead and trailing submatrix
+        // from releasing Tl_panel's first triangular tile.
+        // todo: add to Side::Right
+        if (target == Target::Devices) {
+            auto device = T0tr.tileDevice(0, 0);
+            T0tr.tileGetAndHold(0, 0, device, LayoutConvert::None);
+        }
+
         // --------------------
         // 1. W = V^H C
 
@@ -241,6 +249,11 @@ void unmqr(internal::TargetType<target>,
             if (Wr.tileIsLocal(0, j)) {
                 Wr.tileErase(0, j);
             }
+        }
+
+        if (target == Target::Devices) {
+            auto device = T0tr.tileDevice(0, 0);
+            T0tr.tileUnsetHold(0, 0, device);
         }
     }
     else {

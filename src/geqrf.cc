@@ -200,7 +200,7 @@ void geqrf(slate::internal::TargetType<target>,
                             // send A(i, k) across row A(i, k:nt-1) and
                             //                down col A(i:mt-1, i) with msg tag i
                             bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1), 
-                                                           A.sub(i, A_mt-1, i, i)}, i});
+                                                           A.sub(i, A_mt-1, i, i)}, i+A_mt});
                         }
 
                         // "is_shared" is to request copying the tiles to the devices,
@@ -209,16 +209,6 @@ void geqrf(slate::internal::TargetType<target>,
                         // (avoiding possible race condition)
                         A.template listBcastMT<Target::Devices>(
                                 bcast_list_A, layout, life_factor_one, is_shared);
-                    }
-                }
-                // Prevent trmm's in lookahead and trailing submatrix
-                // from releasing Tl_panel's first triangular tile.
-                // Also check whether tile exists to prevent
-                // getting and holding non-existent tile on host.
-                if (target == Target::Devices) {
-                    if (lookahead > 0 && Tl_panel.tileExists(0, 0)) {
-                        auto device = Tl_panel.tileDevice(0, 0);
-                        Tl_panel.tileGetAndHold(0, 0, device, LayoutConvert::None);
                     }
                 }
             }
@@ -291,14 +281,6 @@ void geqrf(slate::internal::TargetType<target>,
                         depend(inout:block[k+1])
                     {
                         geqrfReleasePanel(A, k - lookahead);
-                    }
-                }
-                if (lookahead > 0) {
-                    #pragma omp task depend(in:block[k]) \
-                        depend(inout:block[k+1])
-                    {
-                        auto device = Tl_panel.tileDevice(0, 0);
-                        Tl_panel.tileUnsetHold(0, 0, device);
                     }
                 }
             }

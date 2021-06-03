@@ -16,43 +16,6 @@ namespace internal {
 namespace specialization {
 
 //------------------------------------------------------------------------------
-/// An auxiliary routine to release the panel tiles that are broadcasted. Since
-/// the broadcasted tiles are flagged to be hold on the devices memories to be
-/// accessed by multiple internal kernels while preventing the tileRelease call
-/// in these routine to release them before the others finish accessing
-/// them. Note: this function update the tiles origin to make sure that
-/// the origin memory is up-to-date and the coherency is kept consistent
-/// across multiple address spaces.
-/// @param[in] A
-///     The matrix $A$, which is a sub of the input matrix $A$.
-///
-/// @param[in] k
-///     Current column k of the input matrix $A$.
-///
-/// @ingroup geqrf_specialization
-///
-template <typename scalar_t>
-void geqrfReleasePanel(Matrix<scalar_t> A, int64_t k)
-{
-    int64_t A_mt = A.mt();
-    int64_t A_nt = A.nt();
-    for (int64_t i = k; i < A_nt; ++i) {
-        if (A.tileIsLocal(i, k)) {
-            A.tileUpdateOrigin(i, k);
-
-            std::set<int> dev_set;
-            A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
-            A.sub(i, A_mt-1, i, i).getLocalDevices(&dev_set);
-
-            for (auto device : dev_set) {
-                A.tileUnsetHold(i, k, device);
-                A.tileRelease(i, k, device);
-            }
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
 /// Distributed parallel QR factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
@@ -68,7 +31,6 @@ void geqrf(slate::internal::TargetType<target>,
            int64_t ib, int max_panel_threads, int64_t lookahead)
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
-    using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
     using blas::real;
 
@@ -78,7 +40,7 @@ void geqrf(slate::internal::TargetType<target>,
     const int priority_zero = 0;
     const int priority_one = 1;
     const int life_factor_one = 1;
-    const bool is_shared = lookahead > 0;  // Do tileGetAndHold in the bcast
+    const bool set_hold = lookahead > 0;  // Do tileGetAndHold in the bcast
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
@@ -171,8 +133,9 @@ void geqrf(slate::internal::TargetType<target>,
                             else
                                 bcast_list_V.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                         }
-                        A.template listBcast(bcast_list_V_first, layout, 0, 3);
-                        A.template listBcast(bcast_list_V, layout, 0, 2);
+                        // todo set shared
+                        A.template listBcast<target>(bcast_list_V_first, layout, 0, 3, set_hold);
+                        A.template listBcast<target>(bcast_list_V, layout, 0, 2, set_hold);
                     }
 
                     // bcast Tlocal across row for trailing matrix update
@@ -181,7 +144,7 @@ void geqrf(slate::internal::TargetType<target>,
                         for (int64_t row : first_indices) {
                             bcast_list_T.push_back({row, k, {Tlocal.sub(row, row, k+1, A_nt-1)}});
                         }
-                        Tlocal.template listBcast(bcast_list_T, layout, k, life_factor_one, is_shared);
+                        Tlocal.template listBcast<target>(bcast_list_T, layout, k, life_factor_one, set_hold);
                     }
 
                     // bcast Treduce across row for trailing matrix update
@@ -192,23 +155,6 @@ void geqrf(slate::internal::TargetType<target>,
                                 bcast_list_T.push_back({row, k, {Treduce.sub(row, row, k+1, A_nt-1)}});
                         }
                         Treduce.template listBcast(bcast_list_T, layout);
-                    }
-
-                    if (target == Target::Devices) {
-                        BcastListTag bcast_list_A;
-                        for (int64_t i = k; i < A_nt; ++i) {
-                            // send A(i, k) across row A(i, k:nt-1) and
-                            //                down col A(i:mt-1, i) with msg tag i
-                            bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1), 
-                                                           A.sub(i, A_mt-1, i, i)}, i+A_mt});
-                        }
-
-                        // "is_shared" is to request copying the tiles to the devices,
-                        // and set them on-hold, which avoids releasing them by
-                        // internal functions
-                        // (avoiding possible race condition)
-                        A.template listBcastMT<Target::Devices>(
-                                bcast_list_A, layout, life_factor_one, is_shared);
                     }
                 }
             }
@@ -280,7 +226,36 @@ void geqrf(slate::internal::TargetType<target>,
                     #pragma omp task depend(in:block[k]) \
                         depend(inout:block[k+1])
                     {
-                        geqrfReleasePanel(A, k - lookahead);
+                        int64_t _k = k - lookahead;
+                        for (int64_t i = _k; i < A_mt; ++i) {
+                            if (A.tileIsLocal(i, _k)) {
+                                A.tileUpdateOrigin(i, _k);
+
+                                std::set<int> dev_set;
+                                A.sub(i, i, _k+1, A_nt-1).getLocalDevices(&dev_set);
+
+                                for (auto device : dev_set) {
+                                    A.tileUnsetHold(i, _k, device);
+                                    A.tileRelease(i, _k, device);
+                                }
+                            }
+                        }
+
+                        if (first_indices.size() > 0) {
+                            for (int64_t row : first_indices) {
+                                if (Tlocal.tileIsLocal(row, _k)) {
+                                    Tlocal.tileUpdateOrigin(row, _k);
+
+                                    std::set<int> dev_set;
+                                    Tlocal.sub(row, row, _k+1, A_nt-1).getLocalDevices(&dev_set);
+
+                                    for (auto device : dev_set) {
+                                        Tlocal.tileUnsetHold(row, _k, device);
+                                        Tlocal.tileRelease(row, _k, device);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
             }

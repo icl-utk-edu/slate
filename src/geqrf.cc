@@ -133,7 +133,6 @@ void geqrf(slate::internal::TargetType<target>,
                             else
                                 bcast_list_V.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                         }
-                        // todo set shared
                         A.template listBcast<target>(bcast_list_V_first, layout, 0, 3, set_hold);
                         A.template listBcast<target>(bcast_list_V, layout, 0, 2, set_hold);
                     }

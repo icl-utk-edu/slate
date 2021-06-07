@@ -221,11 +221,11 @@ void geqrf(slate::internal::TargetType<target>,
                 // for memory consistency
                 // TODO: find better solution to handle tile release, and
                 //       investigate the correctness of the task dependency
-                if (lookahead > 0 && k >= lookahead) {
+                if (k >= lookahead && k < A_nt-1) {
                     #pragma omp task depend(in:block[k]) \
                         depend(inout:block[k+1])
                     {
-                        int64_t _k = k - lookahead;
+                        int64_t _k = k-lookahead;
                         for (int64_t i = _k; i < A_mt; ++i) {
                             if (A.tileIsLocal(i, _k)) {
                                 A.tileUpdateOrigin(i, _k);
@@ -239,18 +239,25 @@ void geqrf(slate::internal::TargetType<target>,
                                 }
                             }
                         }
-
+                    }
+                }
+                if (k+lookahead < A_nt-1) {
+                    #pragma omp task depend(in:block[k+lookahead]) \
+                        depend(inout:block[k+1+lookahead]) \
+                        firstprivate(first_indices) \
+                        firstprivate(k)
+                    {
                         if (first_indices.size() > 0) {
                             for (int64_t row : first_indices) {
-                                if (Tlocal.tileIsLocal(row, _k)) {
-                                    Tlocal.tileUpdateOrigin(row, _k);
+                                if (Tlocal.tileIsLocal(row, k)) {
+                                    Tlocal.tileUpdateOrigin(row, k);
 
                                     std::set<int> dev_set;
-                                    Tlocal.sub(row, row, _k+1, A_nt-1).getLocalDevices(&dev_set);
+                                    Tlocal.sub(row, row, k+1, A_nt-1).getLocalDevices(&dev_set);
 
                                     for (auto device : dev_set) {
-                                        Tlocal.tileUnsetHold(row, _k, device);
-                                        Tlocal.tileRelease(row, _k, device);
+                                        Tlocal.tileUnsetHold(row, k, device);
+                                        Tlocal.tileRelease(row, k, device);
                                     }
                                 }
                             }

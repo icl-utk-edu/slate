@@ -15,6 +15,29 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
+template <typename scalar_t>
+void geqrf_compute_first_indices(Matrix<scalar_t>& A_panel, int64_t k,
+                                 std::vector< int64_t >& first_indices)
+{
+    // Find ranks in this column.
+    std::set<int> ranks_set;
+    A_panel.getRanks(&ranks_set);
+    assert(ranks_set.size() > 0);
+
+    // Find each rank's first (top-most) row in this panel,
+    // where the triangular tile resulting from local geqrf panel
+    // will reside.
+    first_indices.reserve(ranks_set.size());
+    for (int r: ranks_set) {
+        for (int64_t i = 0; i < A_panel.mt(); ++i) {
+            if (A_panel.tileRank(i, 0) == r) {
+                first_indices.push_back(i+k);
+                break;
+            }
+        }
+    }
+}
+
 //------------------------------------------------------------------------------
 /// Distributed parallel QR factorization.
 /// Generic implementation for any target.
@@ -83,24 +106,8 @@ void geqrf(slate::internal::TargetType<target>,
             auto Tl_panel =  Tlocal.sub(k, A_mt-1, k, k);
             auto Tr_panel = Treduce.sub(k, A_mt-1, k, k);
 
-            // Find ranks in this column.
-            std::set<int> ranks_set;
-            A_panel.getRanks(&ranks_set);
-            assert(ranks_set.size() > 0);
-
-            // Find each rank's first (top-most) row in this panel,
-            // where the triangular tile resulting from local geqrf panel
-            // will reside.
             std::vector< int64_t > first_indices;
-            first_indices.reserve(ranks_set.size());
-            for (int r: ranks_set) {
-                for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                    if (A_panel.tileRank(i, 0) == r) {
-                        first_indices.push_back(i+k);
-                        break;
-                    }
-                }
-            }
+            geqrf_compute_first_indices(A_panel, k, first_indices);
             // todo: pass first_indices into internal geqrf or ttqrt?
 
             // panel, high priority
@@ -239,25 +246,21 @@ void geqrf(slate::internal::TargetType<target>,
                                 }
                             }
                         }
-                    }
-                }
-                if (k+lookahead < A_nt-1) {
-                    #pragma omp task depend(in:block[k+lookahead]) \
-                        depend(inout:block[k+1+lookahead]) \
-                        firstprivate(first_indices) \
-                        firstprivate(k)
-                    {
+
+                        auto A_panel = A.sub(_k, A_mt-1, _k, _k);
+                        std::vector< int64_t > first_indices;
+                        geqrf_compute_first_indices(A_panel, _k, first_indices);
                         if (first_indices.size() > 0) {
                             for (int64_t row : first_indices) {
-                                if (Tlocal.tileIsLocal(row, k)) {
-                                    Tlocal.tileUpdateOrigin(row, k);
+                                if (Tlocal.tileIsLocal(row, _k)) {
+                                    Tlocal.tileUpdateOrigin(row, _k);
 
                                     std::set<int> dev_set;
-                                    Tlocal.sub(row, row, k+1, A_nt-1).getLocalDevices(&dev_set);
+                                    Tlocal.sub(row, row, _k+1, A_nt-1).getLocalDevices(&dev_set);
 
                                     for (auto device : dev_set) {
-                                        Tlocal.tileUnsetHold(row, k, device);
-                                        Tlocal.tileRelease(row, k, device);
+                                        Tlocal.tileUnsetHold(row, _k, device);
+                                        Tlocal.tileRelease(row, _k, device);
                                     }
                                 }
                             }

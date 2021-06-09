@@ -232,35 +232,35 @@ void geqrf(slate::internal::TargetType<target>,
                     #pragma omp task depend(in:block[k]) \
                         depend(inout:block[k+1])
                     {
-                        int64_t _k = k-lookahead;
-                        for (int64_t i = _k; i < A_mt; ++i) {
-                            if (A.tileIsLocal(i, _k)) {
-                                A.tileUpdateOrigin(i, _k);
+                        int64_t k_la = k-lookahead;
+                        for (int64_t i = k_la; i < A_mt; ++i) {
+                            if (A.tileIsLocal(i, k_la)) {
+                                A.tileUpdateOrigin(i, k_la);
 
                                 std::set<int> dev_set;
-                                A.sub(i, i, _k+1, A_nt-1).getLocalDevices(&dev_set);
+                                A.sub(i, i, k_la+1, A_nt-1).getLocalDevices(&dev_set);
 
                                 for (auto device : dev_set) {
-                                    A.tileUnsetHold(i, _k, device);
-                                    A.tileRelease(i, _k, device);
+                                    A.tileUnsetHold(i, k_la, device);
+                                    A.tileRelease(i, k_la, device);
                                 }
                             }
                         }
 
-                        auto A_panel = A.sub(_k, A_mt-1, _k, _k);
+                        auto A_panel = A.sub(k_la, A_mt-1, k_la, k_la);
                         std::vector< int64_t > first_indices;
-                        geqrf_compute_first_indices(A_panel, _k, first_indices);
+                        geqrf_compute_first_indices(A_panel, k_la, first_indices);
                         if (first_indices.size() > 0) {
                             for (int64_t row : first_indices) {
-                                if (Tlocal.tileIsLocal(row, _k)) {
-                                    Tlocal.tileUpdateOrigin(row, _k);
+                                if (Tlocal.tileIsLocal(row, k_la)) {
+                                    Tlocal.tileUpdateOrigin(row, k_la);
 
                                     std::set<int> dev_set;
-                                    Tlocal.sub(row, row, _k+1, A_nt-1).getLocalDevices(&dev_set);
+                                    Tlocal.sub(row, row, k_la+1, A_nt-1).getLocalDevices(&dev_set);
 
                                     for (auto device : dev_set) {
-                                        Tlocal.tileUnsetHold(row, _k, device);
-                                        Tlocal.tileRelease(row, _k, device);
+                                        Tlocal.tileUnsetHold(row, k_la, device);
+                                        Tlocal.tileRelease(row, k_la, device);
                                     }
                                 }
                             }

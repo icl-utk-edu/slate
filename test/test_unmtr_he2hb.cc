@@ -84,7 +84,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     lapack::larnv(idist, iseed, A_data.size(), A_data.data());
     // Create SLATE matrices from the ScaLAPACK layouts.
     auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                    uplo, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
+                 uplo, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
 
     if (verbose > 1) {
         print_matrix("A", A);
@@ -96,7 +96,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         if ((side == slate::Side::Left  && trans == slate::Op::NoTrans) ||
             (side == slate::Side::Right && trans != slate::Op::NoTrans)) {
             A_ref = slate::HermitianMatrix<scalar_t>(
-                uplo, n, nb, p, q, MPI_COMM_WORLD);
+                        uplo, n, nb, p, q, MPI_COMM_WORLD);
 
             A_ref.insertLocalTiles();
             slate::copy(A, A_ref);

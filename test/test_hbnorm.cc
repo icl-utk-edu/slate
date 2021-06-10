@@ -58,7 +58,7 @@ void test_hbnorm_work(Params& params, bool run)
     // Constants
     const int izero = 0, ione = 1;
 
-   // Local values
+    // Local values
     int myrow, mycol;
     int mpi_rank;
 
@@ -173,7 +173,7 @@ void test_hbnorm_work(Params& params, bool run)
 
             if (verbose && mpi_rank == 0) {
                 printf("norm %15.8e, ref %15.8e, ref - norm %5.2f, error %9.2e\n",
-                    A_norm, A_norm_ref, A_norm_ref - A_norm, error);
+                       A_norm, A_norm_ref, A_norm_ref - A_norm, error);
             }
 
             // Allow for difference, except max norm in real should be exact.

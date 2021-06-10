@@ -122,14 +122,14 @@ void test_gbmm_work(Params& params, bool run)
     std::vector<scalar_t> C_data(lldC*nlocC);
 
     #ifdef PIN_MATRICES
-    int cuerror;
-    cuerror = cudaHostRegister(&A_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
-    cuerror = cudaHostRegister(&B_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
-    cuerror = cudaHostRegister(&C_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
+        int cuerror;
+        cuerror = cudaHostRegister(&A_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
+        cuerror = cudaHostRegister(&B_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
+        cuerror = cudaHostRegister(&C_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
     #endif
 
     auto Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                Am, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
+                    Am, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
                  Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     auto C = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -141,7 +141,7 @@ void test_gbmm_work(Params& params, bool run)
 
     // create SLATE matrices from the ScaLAPACK layouts
     auto A_band = BandFromScaLAPACK(
-                 Am, An, kl, ku, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                      Am, An, kl, ku, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
     // if check is required, copy test data and create a descriptor for it
     slate::Matrix<scalar_t> Cref;
@@ -149,7 +149,7 @@ void test_gbmm_work(Params& params, bool run)
     if (check || ref) {
         Cref_data.resize( C_data.size() );
         Cref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                 m, n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+                   m, n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
         slate::copy( C, Cref );
     }
 
@@ -189,8 +189,6 @@ void test_gbmm_work(Params& params, bool run)
     // C = alpha A_band B + beta C.
     //==================================================
     slate::multiply(alpha, A_band, B, beta, C, opts);
-
-    //---------------------
     // Using traditional BLAS/LAPACK name
     // slate::gbmm(alpha, A_band, B, beta, C, opts);
 
@@ -287,7 +285,7 @@ void test_gbmm_work(Params& params, bool run)
 
             // norm(C_ref - C_tst)
             real_t C_diff_norm = scalapack_plange(
-                                    norm2str(norm), Cm, Cn, &Cref_data[0], ione, ione, Cref_desc, &worklange[0]);
+                                     norm2str(norm), Cm, Cn, &Cref_data[0], ione, ione, Cref_desc, &worklange[0]);
 
             real_t error = C_diff_norm
                         / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * B_norm
@@ -339,9 +337,9 @@ void test_gbmm_work(Params& params, bool run)
     //printf("%% done\n");
 
     #ifdef PIN_MATRICES
-    cuerror = cudaHostUnregister(&A_data[0]);
-    cuerror = cudaHostUnregister(&B_data[0]);
-    cuerror = cudaHostUnregister(&C_data[0]);
+        cuerror = cudaHostUnregister(&A_data[0]);
+        cuerror = cudaHostUnregister(&B_data[0]);
+        cuerror = cudaHostUnregister(&C_data[0]);
     #endif
 }
 

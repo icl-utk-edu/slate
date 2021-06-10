@@ -52,7 +52,8 @@ void test_gesv_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     bool nonuniform_nb = params.nonuniform_nb() == 'y';
-    int verbose = params.verbose(); SLATE_UNUSED(verbose);
+    int verbose = params.verbose();
+    SLATE_UNUSED(verbose);
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -119,16 +120,14 @@ void test_gesv_work(Params& params, bool run)
 
     // To generate matrix with non-uniform tile size using the Lambda constructor
     std::function< int64_t (int64_t j) >
-    tileNb = [n, nb](int64_t j)
-    {
+    tileNb = [n, nb](int64_t j) {
         // for non-uniform tile size
         return (j % 2 != 0 ? nb/2 : nb);
     };
 
     // 2D block column cyclic
     std::function< int (std::tuple<int64_t, int64_t> ij) >
-    tileRank = [p, q](std::tuple<int64_t, int64_t> ij)
-    {
+    tileRank = [p, q](std::tuple<int64_t, int64_t> ij) {
         int64_t i = std::get<0>(ij);
         int64_t j = std::get<1>(ij);
         return int(i%p + (j%q)*p);
@@ -137,8 +136,7 @@ void test_gesv_work(Params& params, bool run)
     // 1D block row cyclic
     int num_devices_ = 0;//num_devices;
     std::function< int (std::tuple<int64_t, int64_t> ij) >
-    tileDevice = [num_devices_](std::tuple<int64_t, int64_t> ij)
-    {
+    tileDevice = [num_devices_](std::tuple<int64_t, int64_t> ij) {
         int64_t i = std::get<0>(ij);
         return int(i)%num_devices_;
     };
@@ -282,7 +280,6 @@ void test_gesv_work(Params& params, bool run)
         }
         else if (params.routine == "getrf_nopiv") {
             slate::lu_factor_nopiv(A, opts);
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::getrf_nopiv(A, opts);
         }
@@ -364,8 +361,8 @@ void test_gesv_work(Params& params, bool run)
         if (params.routine == "gesvMixed") {
             if (std::is_same<real_t, double>::value)
                 slate::multiply(-one, opAref, X, one, Bref);
-                // Using traditional BLAS/LAPACK name
-                // slate::gemm(-one, opAref, X, one, Bref);
+            // Using traditional BLAS/LAPACK name
+            // slate::gemm(-one, opAref, X, one, Bref);
         }
         else {
             slate::multiply(-one, opAref, B, one, Bref);
@@ -385,8 +382,7 @@ void test_gesv_work(Params& params, bool run)
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // A comparison with a reference routine from ScaLAPACK for timing only
-            if ( nonuniform_nb )
-            {
+            if ( nonuniform_nb ) {
                 printf("Unsupported to test nonuniform tile size using scalapack\n");
                 return;
             }
@@ -431,7 +427,7 @@ void test_gesv_work(Params& params, bool run)
             if (params.routine == "getrs" || params.routine == "getrs_nopiv") {
                 // Factor matrix A.
                 scalapack_pgetrf(m, n,
-                                &Aref_data[0], ione, ione, Aref_desc, &ipiv_ref[0], &info_ref);
+                                 &Aref_data[0], ione, ione, Aref_desc, &ipiv_ref[0], &info_ref);
                 slate_assert(info_ref == 0);
             }
 
@@ -441,12 +437,12 @@ void test_gesv_work(Params& params, bool run)
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             if (params.routine == "getrf" || params.routine == "getrf_nopiv") {
                 scalapack_pgetrf(m, n,
-                                &Aref_data[0], ione, ione, Aref_desc, &ipiv_ref[0], &info_ref);
+                                 &Aref_data[0], ione, ione, Aref_desc, &ipiv_ref[0], &info_ref);
             }
             else if (params.routine == "getrs" || params.routine == "getrs_nopiv") {
                 scalapack_pgetrs(op2str(trans), n, nrhs,
-                                &Aref_data[0], ione, ione, Aref_desc, &ipiv_ref[0],
-                                &Bref_data[0], ione, ione, Bref_desc, &info_ref);
+                                 &Aref_data[0], ione, ione, Aref_desc, &ipiv_ref[0],
+                                 &Bref_data[0], ione, ione, Bref_desc, &info_ref);
             }
             else {
                 scalapack_pgesv(n, nrhs,

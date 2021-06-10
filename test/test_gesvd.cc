@@ -165,8 +165,6 @@ void test_gesvd_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         slate::svd_vals(A, S_data, opts);
-
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::gesvd(A, S_data, opts);
 
@@ -229,10 +227,10 @@ void test_gesvd_work(Params& params, bool run)
             scalar_t dummy_work;
             real_t dummy_rwork;
             scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
-                            &Aref_data[0],  ione, ione, A_desc, &Sref_data[0],
-                            &U_data[0],  ione, ione, U_desc,
-                            &VT_data[0], ione, ione, VT_desc,
-                            &dummy_work, -1, &dummy_rwork, &info_ref);
+                             &Aref_data[0],  ione, ione, A_desc, &Sref_data[0],
+                             &U_data[0],  ione, ione, U_desc,
+                             &VT_data[0], ione, ione, VT_desc,
+                             &dummy_work, -1, &dummy_rwork, &info_ref);
             slate_assert(info_ref == 0);
             int64_t lwork  = int64_t( real( dummy_work ) );
             int64_t lrwork = int64_t( dummy_rwork );
@@ -242,10 +240,10 @@ void test_gesvd_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
-                            &Aref_data[0],  ione, ione, A_desc, &Sref_data[0],
-                            &U_data[0],  ione, ione, U_desc,
-                            &VT_data[0], ione, ione, VT_desc,
-                            &work[0], lwork, &rwork[0], &info_ref);
+                             &Aref_data[0],  ione, ione, A_desc, &Sref_data[0],
+                             &U_data[0],  ione, ione, U_desc,
+                             &VT_data[0], ione, ione, VT_desc,
+                             &work[0], lwork, &rwork[0], &info_ref);
             slate_assert(info_ref == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 

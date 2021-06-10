@@ -97,15 +97,14 @@ void test_tb2bd_work(
     }
 
     auto Afull = slate::Matrix<scalar_t>::fromLAPACK(
-        m, n, &A1[0], lda, nb, p, q, MPI_COMM_WORLD);
+                     m, n, &A1[0], lda, nb, p, q, MPI_COMM_WORLD);
 
     auto Afullrm = slate::Matrix<scalar_t>::fromLAPACK(
-        m, n, &A3[0], lda, nb, 1, 1, MPI_COMM_WORLD);
+                       m, n, &A3[0], lda, nb, 1, 1, MPI_COMM_WORLD);
     auto Abandrm = slate::BandMatrix<scalar_t>(ku, ku, Afullrm);
     //auto Aband = slate::BandMatrix<scalar_t>(ku, ku, Afull);
-    auto A     = slate::TriangularBandMatrix<scalar_t>( lapack::Uplo::Upper,
-                                                        lapack::Diag::NonUnit,
-                                                        Abandrm);
+    auto A     = slate::TriangularBandMatrix<scalar_t>(
+                    lapack::Uplo::Upper, lapack::Diag::NonUnit, Abandrm);
     //auto A = slate::TriangularBandMatrix<scalar_t>(
     //                    slate::Uplo::Upper, slate::Diag::NonUnit,
     //                    m, ku, nb, p, q, MPI_COMM_WORLD);
@@ -134,7 +133,7 @@ void test_tb2bd_work(
                     if (i > 0) {
                         auto T_ptr = A.tileInsert( i, j-1 );
                         lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                              0, 0, T_ptr->data(), T_ptr->stride());
+                                      0, 0, T_ptr->data(), T_ptr->stride());
                     }
                 }
 
@@ -143,7 +142,7 @@ void test_tb2bd_work(
                     //      0, 0, A(i, j).data(), A(i, j).stride());
                     auto T_ptr = A.tileInsert( i, j+1 );
                     lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                          0, 0, T_ptr->data(), T_ptr->stride());
+                                  0, 0, T_ptr->data(), T_ptr->stride());
                 }
             }
             ii += A.tileMb(i);

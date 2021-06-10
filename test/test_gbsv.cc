@@ -31,7 +31,7 @@ void test_gbsv_work(Params& params, bool run)
     // constants
     const scalar_t one = 1.0;
 
-   // get & mark input values
+    // get & mark input values
     slate::Op trans = slate::Op::NoTrans;
     if (params.routine == "gbtrs")
         trans = params.trans();
@@ -167,8 +167,6 @@ void test_gbsv_work(Params& params, bool run)
         if (params.routine == "gbtrs") {
             // Factor matrix A.
             slate::lu_factor(A, pivots, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::gbtrf(A, pivots, opts);
         }
@@ -187,8 +185,6 @@ void test_gbsv_work(Params& params, bool run)
         //==================================================
         if (params.routine == "gbtrf") {
             slate::lu_factor(A, pivots, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::gbtrf(A, pivots, opts);
         }
@@ -200,15 +196,11 @@ void test_gbsv_work(Params& params, bool run)
                 opA = conjTranspose(A);
 
             slate::lu_solve_using_factor(opA, pivots, B, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::gbtrs(opA, pivots, B, opts);
         }
         else {
             slate::lu_solve(A, B, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::gbsv(A, pivots, B, opts);
         }
@@ -283,8 +275,6 @@ void test_gbsv_work(Params& params, bool run)
             if (params.routine == "gbtrf") {
                 // Solve AX = B.
                 slate::lu_solve_using_factor(A, pivots, B, opts);
-
-                //---------------------
                 // Using traditional BLAS/LAPACK name
                 // slate::gbtrs(A, pivots, B, opts);
             }
@@ -304,8 +294,6 @@ void test_gbsv_work(Params& params, bool run)
             else if (trans == slate::Op::ConjTrans)
                 opAorig = conjTranspose(Aorig);
             slate::multiply(-one, opAorig, B, one, Bref);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::gbmm(-one, opAorig, B, one, Bref);
 
@@ -319,7 +307,7 @@ void test_gbsv_work(Params& params, bool run)
 
             if (verbose > 0) {
                 printf("Anorm = %.4e; Xnorm = %.4e; Rnorm = %.4e; error = %.4e;\n",
-                    A_norm, X_norm, R_norm, residual);
+                       A_norm, X_norm, R_norm, residual);
             }
             if (verbose > 1) {
                 print_matrix("Residual", n, nrhs, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD);
@@ -327,7 +315,7 @@ void test_gbsv_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
-       #else
+        #else
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

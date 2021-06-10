@@ -107,7 +107,7 @@ void test_geqrf_work(Params& params, bool run)
         // For simplicity, always use ScaLAPACK format for Aref.
         Aref_data.resize( lldA * nlocA );
         Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                   m, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         slate::copy(A, Aref);
     }
 
@@ -156,7 +156,7 @@ void test_geqrf_work(Params& params, bool run)
 
         std::vector<scalar_t> QR_data(Aref_data.size(), zero);
         slate::Matrix<scalar_t> QR = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, n, &QR_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                                         m, n, &QR_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
         // R1 is the upper part of QR matrix.
         slate::TrapezoidMatrix<scalar_t> R1(slate::Uplo::Upper, slate::Diag::NonUnit, QR);
@@ -174,7 +174,6 @@ void test_geqrf_work(Params& params, bool run)
             slate::Side::Left, slate::Op::NoTrans, A, T, QR,
             {{slate::Option::Target, target}}
         );
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, T, QR, {
         //     {slate::Option::Target, target}
@@ -242,7 +241,7 @@ void test_geqrf_work(Params& params, bool run)
             // query for workspace size
             scalar_t dummy;
             scalapack_pgeqrf(m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                            &dummy, -1, &info_ref);
+                             &dummy, -1, &info_ref);
             lwork = int64_t( real( dummy ) );
             work.resize(lwork);
 
@@ -251,7 +250,7 @@ void test_geqrf_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pgeqrf(m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                            work.data(), lwork, &info_ref);
+                             work.data(), lwork, &info_ref);
             slate_assert(info_ref == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 

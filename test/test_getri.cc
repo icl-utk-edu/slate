@@ -36,7 +36,8 @@ void test_getri_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose(); SLATE_UNUSED(verbose);
+    int verbose = params.verbose();
+    SLATE_UNUSED(verbose);
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -142,24 +143,18 @@ void test_getri_work(Params& params, bool run)
         //==================================================
         // factor then invert; measure time for both
         slate::lu_factor(A, pivots, opts);
-
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::getrf(A, pivots, opts);
 
         if (params.routine == "getri") {
             // call in-place inversion
             slate::lu_inverse_using_factor(A, pivots, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::getri(A, pivots, opts);
         }
         else if (params.routine == "getriOOP") {
             // Call the out-of-place version; on exit, C = inv(A), A unchanged
             slate::lu_inverse_using_factor_out_of_place(A, pivots, C, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::getri(A, pivots, C, opts);
         }
@@ -218,14 +213,14 @@ void test_getri_work(Params& params, bool run)
             }
 
             // For check make Cchk_data a identity matrix to check the result of multiplying A and A_inv
-            scalar_t zero = 0.0; scalar_t one = 1.0;
+            scalar_t zero = 0.0;
+            scalar_t one = 1.0;
             scalapack_plaset("All", n, n, zero, one, &Cchk_data[0], ione, ione, Cchk_desc);
 
             // Cchk_data has been setup as an identity matrix; C_chk = C_chk - inv(A)*A
-            scalar_t alpha = -1.0; scalar_t beta = 1.0;
-            scalapack_pgemm("notrans", "notrans", n, n, n, alpha,
+            scalapack_pgemm("notrans", "notrans", n, n, n, -one,
                             &A_data[0], ione, ione, A_desc,
-                            &Aref_data[0], ione, ione, Aref_desc, beta,
+                            &Aref_data[0], ione, ione, Aref_desc, one,
                             &Cchk_data[0], ione, ione, Cchk_desc);
 
             // Norm of Cchk_data ( = I - inv(A) * A )

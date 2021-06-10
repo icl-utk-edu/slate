@@ -88,7 +88,7 @@ void test_ge2tb_work(Params& params, bool run)
     else {
         // Create SLATE matrices from the ScaLAPACK layouts.
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
+                m, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
     }
     slate::TriangularFactors<scalar_t> TU, TV;
 
@@ -181,7 +181,6 @@ void test_ge2tb_work(Params& params, bool run)
         // Form UB, where U's representation is in lower part of A and TU.
         slate::qr_multiply_by_q(
             slate::Side::Left, slate::Op::NoTrans, A, TU, B, opts);
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, TU, B, opts);
 
@@ -200,7 +199,6 @@ void test_ge2tb_work(Params& params, bool run)
         // Note V^H == Q, not Q^H.
         slate::lq_multiply_by_q(
             slate::Side::Right, slate::Op::NoTrans, Asub, TVsub, Bsub, opts);
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::unmlq(slate::Side::Right, slate::Op::NoTrans,
         //              Asub, TVsub, Bsub, opts);

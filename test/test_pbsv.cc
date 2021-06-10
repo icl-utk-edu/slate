@@ -26,7 +26,7 @@ void test_pbsv_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
     using llong = long long;
 
-     // Constants
+    // Constants
     const scalar_t one = 1.0;
     const int izero = 0, ione = 1;
 
@@ -87,9 +87,9 @@ void test_pbsv_work(Params& params, bool run)
 
     int64_t iseeds[4] = { myrow, mycol, 2, 3 };
     auto A = slate::HermitianBandMatrix<scalar_t>(
-              uplo, n, kd, nb, p, q, MPI_COMM_WORLD);
+                 uplo, n, kd, nb, p, q, MPI_COMM_WORLD);
     auto Aorig = slate::HermitianBandMatrix<scalar_t>(
-                  uplo, n, kd, nb, p, q, MPI_COMM_WORLD);
+                     uplo, n, kd, nb, p, q, MPI_COMM_WORLD);
 
     int64_t kdt = slate::ceildiv(kd, nb);
     int64_t jj = 0;
@@ -162,8 +162,6 @@ void test_pbsv_work(Params& params, bool run)
         if (params.routine == "pbtrs") {
             // Factor matrix A.
             slate::chol_factor(A, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::pbtrf(A, opts);
         }
@@ -182,15 +180,11 @@ void test_pbsv_work(Params& params, bool run)
         //==================================================
         if (params.routine == "pbtrf") {
             slate::chol_factor(A, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::pbtrf(A, opts);
         }
         else if (params.routine == "pbtrs") {
             slate::chol_solve_using_factor(A, B, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::pbtrs(A, B, opts);
         }
@@ -211,7 +205,7 @@ void test_pbsv_work(Params& params, bool run)
 
         if (verbose > 1) {
             printf("%% rank %d A2 kd %lld\n",
-                  A.mpiRank(), llong( A.bandwidth( )));
+                   A.mpiRank(), llong( A.bandwidth( )));
             print_matrix("A2", A);
             print_matrix("B2", B);
             printf( "nb = %lld;\n", llong( nb ) );
@@ -243,7 +237,7 @@ void test_pbsv_work(Params& params, bool run)
             slate_assert(info == 0);
 
             scalapack_descinit(
-            Bref_desc, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
+                Bref_desc, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
             //==================================================
@@ -262,8 +256,6 @@ void test_pbsv_work(Params& params, bool run)
             if (params.routine == "pbtrf") {
                 // Solve AX = B.
                 slate::chol_solve_using_factor(A, B, opts);
-
-                //---------------------
                 // Using traditional BLAS/LAPACK name
                 // slate::pbtrs(A, B, opts);
             }
@@ -278,7 +270,6 @@ void test_pbsv_work(Params& params, bool run)
 
             // Bref_data -= Aref*B_data
             slate::multiply(-one, Aorig, B, one, Bref);
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::hbmm(blas::Side::Left, -one, Aorig, B, one, Bref);
 
@@ -292,7 +283,7 @@ void test_pbsv_work(Params& params, bool run)
 
             if (verbose > 0) {
                 printf("Anorm = %.4e; Xnorm = %.4e; Rnorm = %.4e; error = %.4e;\n",
-                    A_norm, X_norm, R_norm, residual);
+                       A_norm, X_norm, R_norm, residual);
             }
             if (verbose > 1) {
                 print_matrix("Residual", n, nrhs, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD);
@@ -300,7 +291,7 @@ void test_pbsv_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
-       #else
+        #else
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

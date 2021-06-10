@@ -114,10 +114,10 @@ void test_gemm_work(Params& params, bool run)
     std::vector<scalar_t> C_data(lldC*nlocC);
 
     #ifdef PIN_MATRICES
-    int cuerror;
-    cuerror = cudaHostRegister(&A_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
-    cuerror = cudaHostRegister(&B_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
-    cuerror = cudaHostRegister(&C_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
+        int cuerror;
+        cuerror = cudaHostRegister(&A_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
+        cuerror = cudaHostRegister(&B_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
+        cuerror = cudaHostRegister(&C_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
     #endif
 
     slate::Matrix<scalar_t> A, B, C;
@@ -144,7 +144,7 @@ void test_gemm_work(Params& params, bool run)
     slate::generate_matrix(params.matrixB, B);
     slate::generate_matrix(params.matrixC, C);
 
-   // if reference run is required, copy test data
+    // if reference run is required, copy test data
     std::vector<scalar_t> Cref_data;
     slate::Matrix<scalar_t> Cref;
     if (check || ref) {
@@ -172,7 +172,7 @@ void test_gemm_work(Params& params, bool run)
     real_t A_norm=0, B_norm=0, C_orig_norm=0;
     if (check || ref) {
         A_norm = slate::norm(norm, A);
-        B_norm = slate::norm(norm,B);
+        B_norm = slate::norm(norm, B);
         C_orig_norm = slate::norm(norm, Cref);
     }
 
@@ -199,8 +199,6 @@ void test_gemm_work(Params& params, bool run)
         if (params.routine == "gemm") {
             slate::multiply(
                 alpha, A, B, beta, C, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::gemm(
             //     alpha, A, B, beta, C, opts);
@@ -226,7 +224,7 @@ void test_gemm_work(Params& params, bool run)
 
     if (check || ref) {
         #ifdef SLATE_HAVE_SCALAPACK
-        // comparison with reference routine from ScaLAPACK
+            // comparison with reference routine from ScaLAPACK
 
             // BLACS/MPI variables
             int ictxt, p_, q_, myrow_, mycol_, info;
@@ -316,9 +314,9 @@ void test_gemm_work(Params& params, bool run)
     }
 
     #ifdef PIN_MATRICES
-    cuerror = cudaHostUnregister(&A_data[0]);
-    cuerror = cudaHostUnregister(&B_data[0]);
-    cuerror = cudaHostUnregister(&C_data[0]);
+        cuerror = cudaHostUnregister(&A_data[0]);
+        cuerror = cudaHostUnregister(&B_data[0]);
+        cuerror = cudaHostUnregister(&C_data[0]);
     #endif
 }
 

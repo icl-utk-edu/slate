@@ -53,7 +53,7 @@ void test_trmm_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
-    if (! run){
+    if (! run) {
         return;
     }
 
@@ -114,7 +114,7 @@ void test_trmm_work(Params& params, bool run)
         A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
                 uplo, diag, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         B = slate::Matrix<scalar_t>::fromScaLAPACK
-                (Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+            (Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     }
 
     generate_matrix( params.matrix, A );
@@ -125,7 +125,7 @@ void test_trmm_work(Params& params, bool run)
     if (check || ref) {
         Bref_data.resize( B_data.size() );
         auto Bref = slate::Matrix<scalar_t>::fromScaLAPACK
-                (Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+                    (Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         slate::copy( B, Bref );
     }
 
@@ -157,8 +157,6 @@ void test_trmm_work(Params& params, bool run)
         slate::triangular_multiply(alpha, B, opA, opts);
     else
         throw slate::Exception("unknown side");
-
-    //---------------------
     // Using traditional BLAS/LAPACK name
     // slate::trmm(side, alpha, A, B, opts);
 
@@ -232,7 +230,7 @@ void test_trmm_work(Params& params, bool run)
             real_t B_diff_norm = scalapack_plange(norm2str(norm), Bm, Bn, &Bref_data[0], ione, ione, Bref_desc, &worklange[0]);
 
             real_t error = B_diff_norm
-                        / (sqrt(real_t(Am) + 2) * std::abs(alpha) * A_norm * B_orig_norm);
+                         / (sqrt(real_t(Am) + 2) * std::abs(alpha) * A_norm * B_orig_norm);
 
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;

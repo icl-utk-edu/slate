@@ -174,7 +174,7 @@ void test_synorm_work(Params& params, bool run)
 
             if (verbose && mpi_rank == 0) {
                 printf("norm %15.8e, ref %15.8e, ref - norm %5.2f, error %9.2e\n",
-                    A_norm, A_norm_ref, A_norm_ref - A_norm, error);
+                       A_norm, A_norm_ref, A_norm_ref - A_norm, error);
             }
 
             // Allow for difference, except max norm in real should be exact.
@@ -289,14 +289,14 @@ void test_synorm_work(Params& params, bool run)
                             if (mpi_rank == 0) {
                                 // if peak is nan, expect A_norm to be nan.
                                 bool okay = (std::isnan(real(peak))
-                                            ? std::isnan(A_norm)
-                                            : error <= tol);
+                                             ? std::isnan(A_norm)
+                                             : error <= tol);
                                 params.okay() = params.okay() && okay;
                                 if (verbose || ! okay) {
                                     printf("i %5lld, j %5lld, ii %3lld, jj %3lld, peak %15.8e, norm %15.8e, ref %15.8e, error %9.2e, %s\n",
-                                        llong( i ), llong( j ), llong( ii ), llong( jj ),
-                                        real(peak), A_norm, A_norm_ref, error,
-                                        (okay ? "pass" : "failed"));
+                                           llong( i ), llong( j ), llong( ii ), llong( jj ),
+                                           real(peak), A_norm, A_norm_ref, error,
+                                           (okay ? "pass" : "failed"));
                                 }
                             }
 
@@ -313,9 +313,9 @@ void test_synorm_work(Params& params, bool run)
                 }
             }
         }
-    Cblacs_gridexit(ictxt);
-    //Cblacs_exit(1) does not handle re-entering
-     #endif
+        Cblacs_gridexit(ictxt);
+        //Cblacs_exit(1) does not handle re-entering
+    #endif
 
 }
 

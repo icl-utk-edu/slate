@@ -53,7 +53,7 @@ void test_he2hb_work(Params& params, bool run)
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib}
     };
-     // Requires a square processing grid.
+    // Requires a square processing grid.
     assert(p == q);
     assert(uplo == slate::Uplo::Lower);  // only lower for now.
 
@@ -92,7 +92,7 @@ void test_he2hb_work(Params& params, bool run)
     else {
         // Create SLATE matrices from the ScaLAPACK layouts.
         A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-            uplo, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
+                uplo, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
     }
     slate::TriangularFactors<scalar_t> T;
 

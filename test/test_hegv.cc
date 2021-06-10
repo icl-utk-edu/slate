@@ -64,7 +64,7 @@ void test_hegv_work(Params& params, bool run)
     if (! run) {
         // B matrix must be Symmetric Positive Definite (SPD) for scalapack_phegvx
         params.matrixB.kind.set_default( "rand_dominant" );
-       return;
+        return;
     }
 
     // Local values
@@ -195,8 +195,6 @@ void test_hegv_work(Params& params, bool run)
         // else {
             // todo: slate::Job::Vec
         // }
-
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::hegv(itype, jobz, A, B, W_data, Z, opts);
 
@@ -368,12 +366,12 @@ void test_hegv_work(Params& params, bool run)
             std::vector<int> iclustr(2*p*q);
             std::vector<real_t> gap(p*q);
             scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
-                            &Aref_data[0], ia, ja, A_desc,
-                            &Bref_data[0], ib, jb, B_desc,
-                            vl, vu, il, iu, abstol, &m, &nz, &Wref_data[0], orfac,
-                            &Zref_data[0], iz, jz, Z_desc,
-                            &work[0], lwork, &rwork[0], lrwork, &iwork[0], liwork,
-                            &ifail[0], &iclustr[0], &gap[0], &info_tst);
+                             &Aref_data[0], ia, ja, A_desc,
+                             &Bref_data[0], ib, jb, B_desc,
+                             vl, vu, il, iu, abstol, &m, &nz, &Wref_data[0], orfac,
+                             &Zref_data[0], iz, jz, Z_desc,
+                             &work[0], lwork, &rwork[0], lrwork, &iwork[0], liwork,
+                             &ifail[0], &iclustr[0], &gap[0], &info_tst);
 
             // resize workspace based on query for workspace sizes
             slate_assert(info_tst == 0);
@@ -391,17 +389,17 @@ void test_hegv_work(Params& params, bool run)
             double time = barrier_get_wtime(mpi_comm);
 
             scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
-                            &Aref_data[0], // local input/local output
-                            ia, ja, A_desc,
-                            &Bref_data[0], // local input/local output
-                            ib, jb, B_desc,
-                            vl, vu, il, iu, abstol, &m, &nz,
-                            &Wref_data[0], // global output
-                            orfac,
-                            &Zref_data[0], // local output
-                            iz, jz, Z_desc,
-                            &work[0], lwork, &rwork[0], lrwork, &iwork[0], liwork,
-                            &ifail[0], &iclustr[0], &gap[0], &info_tst);
+                             &Aref_data[0], // local input/local output
+                             ia, ja, A_desc,
+                             &Bref_data[0], // local input/local output
+                             ib, jb, B_desc,
+                             vl, vu, il, iu, abstol, &m, &nz,
+                             &Wref_data[0], // global output
+                             orfac,
+                             &Zref_data[0], // local output
+                             iz, jz, Z_desc,
+                             &work[0], lwork, &rwork[0], lrwork, &iwork[0], liwork,
+                             &ifail[0], &iclustr[0], &gap[0], &info_tst);
 
             slate_assert(info_tst == 0);
             time = barrier_get_wtime(mpi_comm) - time;

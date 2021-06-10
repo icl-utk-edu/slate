@@ -164,8 +164,6 @@ void test_her2k_work(Params& params, bool run)
     // C = alpha A B^H + conj(alpha) B A^H + beta C.
     //==================================================
     slate::rank_2k_update(alpha, opA, opB, beta, C, opts);
-
-    //---------------------
     // Using traditional BLAS/LAPACK name
     // slate::her2k(alpha, A, B, beta, C, opts);
 
@@ -237,9 +235,9 @@ void test_her2k_work(Params& params, bool run)
             //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pher2k(uplo2str(uplo), op2str(trans), n, k, alpha,
-                            &A_data[0], ione, ione, A_desc,
-                            &B_data[0], ione, ione, B_desc, beta,
-                            &Cref_data[0], ione, ione, Cref_desc);
+                             &A_data[0], ione, ione, A_desc,
+                             &B_data[0], ione, ione, B_desc, beta,
+                             &Cref_data[0], ione, ione, Cref_desc);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             // local operation: error = Cref_data - C_data
@@ -249,7 +247,7 @@ void test_her2k_work(Params& params, bool run)
             real_t C_diff_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &Cref_data[0], ione, ione, Cref_desc, &worklansy[0]);
 
             real_t error = C_diff_norm
-                        / (sqrt(real_t(2*k) + 2) * std::abs(alpha) * A_norm * B_norm
+                         / (sqrt(real_t(2*k) + 2) * std::abs(alpha) * A_norm * B_norm
                             + 2 * std::abs(beta) * C_orig_norm);
 
             params.ref_time() = time;

@@ -81,7 +81,7 @@ void test_trnorm_work(Params& params, bool run)
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector<scalar_t> A_data(lldA*nlocA);
 
-   // todo: work-around to initialize BaseMatrix::num_devices_
+    // todo: work-around to initialize BaseMatrix::num_devices_
     slate::TrapezoidMatrix<scalar_t> A0(uplo, diag, m, n, nb, p, q, MPI_COMM_WORLD);
 
     slate::TrapezoidMatrix<scalar_t> A;
@@ -185,7 +185,7 @@ void test_trnorm_work(Params& params, bool run)
 
             if (verbose && mpi_rank == 0) {
                 printf("norm %15.8e, ref %15.8e, ref - norm %5.2f, error %9.2e\n",
-                    A_norm, A_norm_ref, A_norm_ref - A_norm, error);
+                       A_norm, A_norm_ref, A_norm_ref - A_norm, error);
             }
 
             // Allow for difference, except max norm in real should be exact.
@@ -306,14 +306,14 @@ void test_trnorm_work(Params& params, bool run)
                                 // except in Unit case with i == j and ii == jj,
                                 // where peak shouldn't affect A_norm.
                                 bool okay = (std::isnan(real(peak)) && ! (diag == slate::Diag::Unit && i == j && ii == jj)
-                                            ? std::isnan(A_norm)
-                                            : error <= tol);
+                                             ? std::isnan(A_norm)
+                                             : error <= tol);
                                 params.okay() = params.okay() && okay;
                                 if (verbose || ! okay) {
                                     printf("i %5lld, j %5lld, ii %3lld, jj %3lld, peak %15.8e, norm %15.8e, ref %15.8e, error %9.2e, %s\n",
-                                        llong( i ), llong( j ), llong( ii ), llong( jj ),
-                                        real(peak), A_norm, A_norm_ref, error,
-                                        (okay ? "pass" : "failed"));
+                                           llong( i ), llong( j ), llong( ii ), llong( jj ),
+                                           real(peak), A_norm, A_norm_ref, error,
+                                           (okay ? "pass" : "failed"));
                                 }
                             }
 

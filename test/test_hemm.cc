@@ -123,7 +123,7 @@ void test_hemm_work(Params& params, bool run)
     slate::generate_matrix( params.matrixB, B);
     slate::generate_matrix( params.matrixC, C);
 
-   // if reference run is required, copy test data
+    // if reference run is required, copy test data
     std::vector<scalar_t> Cref_data;
     slate::Matrix<scalar_t> Cref;
     if (check || ref) {
@@ -157,8 +157,6 @@ void test_hemm_work(Params& params, bool run)
         slate::multiply(alpha, B, A, beta, C, opts);
     else
         throw slate::Exception("unknown side");
-
-    //---------------------
     // Using traditional BLAS/LAPACK name
     // slate::hemm(side, alpha, A, B, beta, C, opts);
 
@@ -243,7 +241,7 @@ void test_hemm_work(Params& params, bool run)
             real_t C_diff_norm = scalapack_plange(norm2str(norm), Cm, Cn, &Cref_data[0], ione, ione, Cref_desc, &worklange[0]);
 
             real_t error = C_diff_norm
-                        / (sqrt(real_t(An) + 2) * std::abs(alpha) * A_norm * B_norm
+                         / (sqrt(real_t(An) + 2) * std::abs(alpha) * A_norm * B_norm
                             + 2 * std::abs(beta) * C_orig_norm);
 
             params.ref_time() = time;

@@ -176,8 +176,6 @@ void test_tbsm_work(Params& params, bool run)
         slate::triangular_solve(alpha, B, A, opts);
     else
         throw slate::Exception("unknown side");
-
-    //---------------------
     // Using traditional BLAS/LAPACK name
     // slate::tbsm(side, alpha, A, pivots, B, opts);
 
@@ -268,7 +266,7 @@ void test_tbsm_work(Params& params, bool run)
                 print_matrix("B_diff", mlocB, nlocB, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD);
             }
             real_t error = B_diff_norm
-                        / (sqrt(real_t(Am) + 2) * std::abs(alpha) * A_norm * B_orig_norm);
+                         / (sqrt(real_t(Am) + 2) * std::abs(alpha) * A_norm * B_orig_norm);
 
             params.ref_time() = time;
             //params.ref_gflops() = gflop / time;
@@ -282,7 +280,7 @@ void test_tbsm_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
-       #else
+        #else
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif
@@ -290,8 +288,8 @@ void test_tbsm_work(Params& params, bool run)
     //printf("%% done\n");
 
     #ifdef PIN_MATRICES
-    cuerror = cudaHostUnregister(&A_data[0]);
-    cuerror = cudaHostUnregister(&B_data[0]);
+        cuerror = cudaHostUnregister(&A_data[0]);
+        cuerror = cudaHostUnregister(&B_data[0]);
     #endif
 }
 

@@ -59,7 +59,8 @@ void test_steqr2_work(
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
 
     // Constants
-    scalar_t zero = 0.0; scalar_t one = 1.0;
+    scalar_t zero = 0.0;
+    scalar_t one = 1.0;
 
     // Local values
     int myrow, mycol;
@@ -102,7 +103,7 @@ void test_steqr2_work(
     if (origin != slate::Origin::ScaLAPACK) {
         if (wantz) {
             Z = slate::Matrix<scalar_t>(
-                n, n, nb, p, q, MPI_COMM_WORLD);
+                    n, n, nb, p, q, MPI_COMM_WORLD);
             Z.insertLocalTiles(origin2target(origin));
         }
     }
@@ -110,7 +111,7 @@ void test_steqr2_work(
         if (wantz) {
             Z_data.resize(lldZ*nlocZ);
             Z = slate::Matrix<scalar_t>::fromScaLAPACK(
-                n, n, &Z_data[0], lldZ, nb, p, q, MPI_COMM_WORLD);
+                    n, n, &Z_data[0], lldZ, nb, p, q, MPI_COMM_WORLD);
         }
     }
     if (trace) slate::trace::Trace::on();

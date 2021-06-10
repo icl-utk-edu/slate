@@ -183,11 +183,11 @@ void test_gels_work(Params& params, bool run)
     slate::Matrix<scalar_t> Aref, opAref, BXref, Bref;
     if (check || ref) {
         Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                   m, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         slate::copy(A, Aref);
 
         BXref = slate::Matrix<scalar_t>::fromScaLAPACK(
-            maxmn, nrhs, &BXref_data[0], lldBX, nb, p, q, MPI_COMM_WORLD);
+                    maxmn, nrhs, &BXref_data[0], lldBX, nb, p, q, MPI_COMM_WORLD);
         slate::copy(BX, BXref);
 
         if (opAm >= opAn) {
@@ -217,8 +217,6 @@ void test_gels_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         slate::least_squares_solve(opA, BX, opts);
-
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::gels(opA, T, BX, opts);
 
@@ -321,13 +319,12 @@ void test_gels_work(Params& params, bool run)
 
             slate::TriangularFactors<scalar_t> TD;
             slate::qr_factor(D, TD);
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::geqrf(D, TD);
 
             if (verbose > 1) {
                 auto DR = slate::TrapezoidMatrix<scalar_t>(
-                    slate::Uplo::Upper, slate::Diag::NonUnit, D );
+                              slate::Uplo::Upper, slate::Diag::NonUnit, D );
                 print_matrix("DR", DR);
             }
 

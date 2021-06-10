@@ -40,7 +40,8 @@ void test_trtri_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose(); SLATE_UNUSED(verbose);
+    int verbose = params.verbose();
+    SLATE_UNUSED(verbose);
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -51,7 +52,7 @@ void test_trtri_work(Params& params, bool run)
     //params.ref_time();
     //params.ref_gflops();
 
-    if (! run){
+    if (! run) {
         // AH Hermitian matrix needs to be rand_dominant (or other SPD)
         // for the Cholesky factorization.
         params.matrix.kind.set_default( "rand_dominant" );
@@ -204,7 +205,7 @@ void test_trtri_work(Params& params, bool run)
 
             // Setup full nxn SLATE matrix in Aref on CPU pointing to ScaLAPACK data in Aref_data
             auto Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                n, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                            n, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
             if (verbose >= 2) {
                 print_matrix( "Aref_", Aref );
             }
@@ -213,8 +214,8 @@ void test_trtri_work(Params& params, bool run)
             // For diag=unit, set diag to 1.0.
             // todo: how can slate::set work on A( 1:n-1, 2:n )? Does slicing work?
             slate::Uplo lo_up = (uplo == slate::Uplo::Lower
-                                ? slate::Uplo::Upper
-                                : slate::Uplo::Lower);
+                                 ? slate::Uplo::Upper
+                                 : slate::Uplo::Lower);
             if (uplo == slate::Uplo::Lower) {
                 if (diag == slate::Diag::Unit) {
                     scalapack_plaset( uplo2str(lo_up), n, n, zero, one, &Aref_data[0], 1, 1, Aref_desc );

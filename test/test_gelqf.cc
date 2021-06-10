@@ -88,7 +88,7 @@ void test_gelqf_work(Params& params, bool run)
     else {
         // create SLATE matrices from the ScaLAPACK layouts
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
 
     slate::generate_matrix(params.matrix, A);
@@ -105,7 +105,7 @@ void test_gelqf_work(Params& params, bool run)
     if (check || ref) {
         Aref_data.resize(lldA*nlocA);
         Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                   m, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         slate::copy(A, Aref);
     }
 
@@ -121,8 +121,6 @@ void test_gelqf_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         slate::lq_factor(A, T, opts);
-
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::gelqf(A, T, opts);
 
@@ -156,7 +154,7 @@ void test_gelqf_work(Params& params, bool run)
 
         std::vector<scalar_t> LQ_data(Aref_data.size(), zero);
         auto LQ = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, n, &LQ_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                      m, n, &LQ_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
         // L1 is the lower part of LQ matrix.
         slate::TrapezoidMatrix<scalar_t> L1(slate::Uplo::Lower, slate::Diag::NonUnit, LQ);
@@ -176,7 +174,6 @@ void test_gelqf_work(Params& params, bool run)
             slate::Side::Right, slate::Op::NoTrans, A, T, LQ,
             {{slate::Option::Target, target}}
         );
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::unmlq(slate::Side::Right, slate::Op::NoTrans, A, T, LQ, {
         //     {slate::Option::Target, target}
@@ -252,7 +249,7 @@ void test_gelqf_work(Params& params, bool run)
             // query for workspace size
             scalar_t dummy;
             scalapack_pgelqf(m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                            &dummy, -1, &info_ref);
+                             &dummy, -1, &info_ref);
 
             lwork = int64_t( real( dummy ) );
             work.resize(lwork);
@@ -262,7 +259,7 @@ void test_gelqf_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pgelqf(m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                            work.data(), lwork, &info_ref);
+                             work.data(), lwork, &info_ref);
             slate_assert(info_ref == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 

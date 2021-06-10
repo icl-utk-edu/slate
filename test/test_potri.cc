@@ -37,7 +37,8 @@ void test_potri_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose(); SLATE_UNUSED(verbose);
+    int verbose = params.verbose();
+    SLATE_UNUSED(verbose);
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -49,7 +50,7 @@ void test_potri_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
-    if (! run){
+    if (! run) {
         params.matrix.kind.set_default( "rand_dominant" );
         params.matrixB.kind.set_default( "rand" );
         return;
@@ -122,8 +123,6 @@ void test_potri_work(Params& params, bool run)
         // factor then invert; measure time for both
         slate::chol_factor(A, opts);
         slate::chol_inverse_using_factor(A, opts);
-
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::potrf(A, opts);
         // slate::potri(A, opts);
@@ -156,10 +155,10 @@ void test_potri_work(Params& params, bool run)
         params.okay() = (params.error() <= tol);
     }
 
-// TODO:  Enable the SLATE_HAVE_SCALAPACK check after a SLATE hehemm routine is created,
-// or after a SLATE symmetrize routine is created to transform a Hermitian/Symmetric
-// matrix into a general matrix.
-#if 0
+    // TODO:  Enable the SLATE_HAVE_SCALAPACK check after a SLATE hehemm routine is created,
+    // or after a SLATE symmetrize routine is created to transform a Hermitian/Symmetric
+    // matrix into a general matrix.
+    #if 0
     if (check) {
         #ifdef SLATE_HAVE_SCALAPACK
 
@@ -211,15 +210,15 @@ void test_potri_work(Params& params, bool run)
             // multiplying A and A_inv.
             // Cchk_data starts with the same size/dimensions as A_data.
             std::vector<scalar_t> Cchk_data( A_data.size() );
-            scalar_t zero = 0.0; scalar_t one = 1.0;
+            scalar_t zero = 0.0;
+            scalar_t one = 1.0;
             scalapack_plaset("All", n, n, zero, one, &Cchk_data[0], ione, ione, Cchk_desc);
 
             // Cchk_data has been setup as an identity matrix; Cchk_data = C_chk - inv(A)*A
             // A should have real diagonal. potrf and potri ignore the img part on the diagonal
-            scalar_t alpha = -1.0; scalar_t beta = 1.0;
-            scalapack_phemm("Left", uplo2str(uplo), n, n, alpha,
+            scalapack_phemm("Left", uplo2str(uplo), n, n, -one,
                             &A_data[0], ione, ione, A_desc,
-                            &Aref_data[0], ione, ione, Aref_desc, beta,
+                            &Aref_data[0], ione, ione, Aref_desc, one,
                             &Cchk_data[0], ione, ione, Cchk_desc);
 
             // Norm of Cchk_data ( = I - inv(A) * A )
@@ -248,7 +247,7 @@ void test_potri_work(Params& params, bool run)
                 printf( "ScaLAPACK not available\n" );
         #endif
     }
-#endif
+    #endif
 
     if (ref) {
         // todo: call to reference potri from ScaLAPACK not implemented

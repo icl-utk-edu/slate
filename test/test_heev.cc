@@ -105,9 +105,8 @@ void test_heev_work(Params& params, bool run)
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
-        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_data[0],
-                                                            lldA, nb, p, q,
-                                                            MPI_COMM_WORLD);
+        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
 
     //lapack::TestMatrixType type = lapack::TestMatrixType::heev;
@@ -118,8 +117,8 @@ void test_heev_work(Params& params, bool run)
 
     // Z is currently used for ScaLAPACK heev call and can also be used
     // for SLATE heev call when slate::eig_vals takes Z
-    auto Z = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &Z_data[0], lldZ,
-                                                    nb, p, q, MPI_COMM_WORLD);
+    auto Z = slate::Matrix<scalar_t>::fromScaLAPACK(
+                n, n, &Z_data[0], lldZ, nb, p, q, MPI_COMM_WORLD);
 
     if (verbose >= 1) {
         printf( "%% A   %6lld-by-%6lld\n", llong( A.m() ), llong( A.n() ) );
@@ -158,8 +157,6 @@ void test_heev_work(Params& params, bool run)
         // else {
             // todo: slate::Job::Vec
         // }
-
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::heev(jobz, A, W_data, Z, opts);
 

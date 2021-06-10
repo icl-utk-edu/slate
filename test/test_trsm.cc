@@ -129,7 +129,7 @@ void test_trsm_work(Params& params, bool run)
     // Even when we replace the diagonal with unit diagonal,
     // it seems to still be well conditioned.
     auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK
-        (uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+              (uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     slate::potrf(AH, {{slate::Option::Target, target}});
 
     // if check is required, copy test data
@@ -168,8 +168,6 @@ void test_trsm_work(Params& params, bool run)
         slate::triangular_solve(alpha, B, opA, opts);
     else
         throw slate::Exception("unknown side");
-
-    //---------------------
     // Using traditional BLAS/LAPACK name
     // slate::trsm(side, alpha, A, B, opts);
 

@@ -139,7 +139,7 @@ void test_genorm_work(Params& params, bool run)
 
     if (check || ref) {
         #ifdef SLATE_HAVE_SCALAPACK
-        // comparison with reference routine from ScaLAPACK
+            // comparison with reference routine from ScaLAPACK
 
             // BLACS/MPI variables
             int ictxt, p_, q_, myrow_, mycol_, info;
@@ -193,16 +193,16 @@ void test_genorm_work(Params& params, bool run)
             time = barrier_get_wtime(MPI_COMM_WORLD);
             if (scope == slate::NormScope::Matrix) {
                 A_norm_ref = scalapack_plange(
-                    norm2str(op_norm),
-                    m, n, &A_data[0], ione, ione, A_desc, &worklange[0]);
+                                 norm2str(op_norm),
+                                 m, n, &A_data[0], ione, ione, A_desc, &worklange[0]);
                 time = MPI_Barrier(MPI_COMM_WORLD) - time;
             }
             else if (scope == slate::NormScope::Columns) {
                 for (int64_t c = 0; c < n; ++c) {
                     int64_t c_1 = c+1;
                     A_norm_ref = scalapack_plange(
-                        norm2str(norm),
-                        m, 1, &A_data[0], ione, c_1, A_desc, &worklange[0]);
+                                     norm2str(norm),
+                                     m, 1, &A_data[0], ione, c_1, A_desc, &worklange[0]);
                     time = MPI_Barrier(MPI_COMM_WORLD) - time;
                     error += std::abs(values[c] - A_norm_ref) / A_norm_ref;
                 }
@@ -230,7 +230,7 @@ void test_genorm_work(Params& params, bool run)
 
                 if (verbose && mpi_rank == 0) {
                     printf("norm %15.8e, ref %15.8e, ref - norm %5.2f, error %9.2e\n",
-                        A_norm, A_norm_ref, A_norm_ref - A_norm, error);
+                           A_norm, A_norm_ref, A_norm_ref - A_norm, error);
                 }
             }
 
@@ -345,14 +345,14 @@ void test_genorm_work(Params& params, bool run)
                                 if (mpi_rank == 0) {
                                     // if peak is nan, expect A_norm to be nan.
                                     bool okay = (std::isnan(real(peak))
-                                                ? std::isnan(A_norm)
-                                                : error <= tol);
+                                                 ? std::isnan(A_norm)
+                                                 : error <= tol);
                                     params.okay() = params.okay() && okay;
                                     if (verbose || ! okay) {
                                         printf("i %5lld, j %5lld, ii %3lld, jj %3lld, peak %15.8e, norm %15.8e, ref %15.8e, error %9.2e, %s\n",
-                                            llong( i ), llong( j ), llong( ii ), llong( jj ),
-                                            real(peak), A_norm, A_norm_ref, error,
-                                            (okay ? "pass" : "failed"));
+                                               llong( i ), llong( j ), llong( ii ), llong( jj ),
+                                               real(peak), A_norm, A_norm_ref, error,
+                                               (okay ? "pass" : "failed"));
                                     }
                                 }
 

@@ -100,12 +100,12 @@ void test_bdsqr_work(
     if (origin != slate::Origin::ScaLAPACK) {
         if (wantu) {
             U = slate::Matrix<scalar_t>(
-                m, min_mn, nb, p, q, MPI_COMM_WORLD);
+                    m, min_mn, nb, p, q, MPI_COMM_WORLD);
             U.insertLocalTiles();
         }
         if (wantvt) {
             VT = slate::Matrix<scalar_t>(
-                 min_mn, n, nb, p, q, MPI_COMM_WORLD);
+                     min_mn, n, nb, p, q, MPI_COMM_WORLD);
             VT.insertLocalTiles();
         }
     }
@@ -113,12 +113,12 @@ void test_bdsqr_work(
         if (wantu) {
             U_data.resize(lldU*nlocU);
             U = slate::Matrix<scalar_t>::fromScaLAPACK(
-                m, n, &U_data[0], lldU, nb, p, q, MPI_COMM_WORLD);
+                    m, n, &U_data[0], lldU, nb, p, q, MPI_COMM_WORLD);
         }
         if (wantvt) {
             VT_data.resize(lldVT*nlocVT);
             VT = slate::Matrix<scalar_t>::fromScaLAPACK(
-                 min_mn, n, &VT_data[0], lldVT, nb, p, q, MPI_COMM_WORLD);
+                     min_mn, n, &VT_data[0], lldVT, nb, p, q, MPI_COMM_WORLD);
         }
     }
 
@@ -170,7 +170,7 @@ void test_bdsqr_work(
                 if (i < 20 || i > n-20) {
                     bool okay = std::abs( D[i] - Dref[i] ) < tol;
                     printf( "%9.6f  %9.6f%s\n",
-                              D[i], Dref[i], (okay ? "" : " !!") );
+                            D[i], Dref[i], (okay ? "" : " !!") );
                 }
             }
             printf( "\n" );

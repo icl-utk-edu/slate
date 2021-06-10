@@ -67,7 +67,7 @@ void test_hbmm_work(Params& params, bool run)
         {slate::Option::Target, target}
     };
 
-     // slate_assert(uplo == slate::Uplo::Lower);
+    // slate_assert(uplo == slate::Uplo::Lower);
 
     // Error analysis applies in these norms.
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
@@ -120,9 +120,9 @@ void test_hbmm_work(Params& params, bool run)
     auto Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                     uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
-                  Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+                 Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     auto C = slate::Matrix<scalar_t>::fromScaLAPACK(
-                  Cm, Cn, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+                 Cm, Cn, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
 
     slate::generate_matrix( params.matrix, Aref );
     slate::generate_matrix( params.matrixB, B );
@@ -130,7 +130,7 @@ void test_hbmm_work(Params& params, bool run)
     zeroOutsideBand(uplo, &A_data[0], An, kd, nb, myrow, mycol, p, q, lldA);
 
     auto A_band = HermitianBandFromScaLAPACK(
-                  uplo, An, kd, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                      uplo, An, kd, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
     // if check is required, copy test data and create a descriptor for it
     slate::Matrix<scalar_t> Cref;
@@ -138,7 +138,7 @@ void test_hbmm_work(Params& params, bool run)
     if (check || ref) {
         Cref_data.resize( C_data.size() );
         Cref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                 m, n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+                   m, n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
         slate::copy( C, Cref );
     }
 
@@ -174,8 +174,6 @@ void test_hbmm_work(Params& params, bool run)
         slate::multiply(alpha, B, A_band, beta, C, opts);
     else
         throw slate::Exception("unknown side");
-
-    //---------------------
     // Using traditional BLAS/LAPACK name
     // slate::hbmm(side, alpha, A_band, B, beta, C, opts);
 
@@ -265,10 +263,10 @@ void test_hbmm_work(Params& params, bool run)
 
             // norm(Cref_data - C_data)
             real_t C_diff_norm = scalapack_plange(
-                                    norm2str(norm), Cm, Cn, &Cref_data[0], ione, ione, Cref_desc, &worklange[0]);
+                                     norm2str(norm), Cm, Cn, &Cref_data[0], ione, ione, Cref_desc, &worklange[0]);
 
             real_t error = C_diff_norm
-                        / (sqrt(real_t(An) + 2) * std::abs(alpha) * A_norm * B_norm
+                         / (sqrt(real_t(An) + 2) * std::abs(alpha) * A_norm * B_norm
                             + 2 * std::abs(beta) * C_orig_norm);
 
             params.ref_time() = time;
@@ -277,7 +275,7 @@ void test_hbmm_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
-       #else
+        #else
             //==================================================
             // Run SLATE non-band routine
             //==================================================
@@ -303,7 +301,7 @@ void test_hbmm_work(Params& params, bool run)
             real_t C_diff_norm = slate::norm( norm, Cref ); // norm of residual
 
             real_t error = C_diff_norm
-                        / (sqrt(real_t(An) + 2) * std::abs(alpha) * A_norm * B_norm
+                         / (sqrt(real_t(An) + 2) * std::abs(alpha) * A_norm * B_norm
                             + 2 * std::abs(beta) * Cref_norm);
 
             if (verbose > 1) {

@@ -55,7 +55,7 @@ void test_posv_work(Params& params, bool run)
         params.iters();
     }
 
-    if (! run){
+    if (! run) {
         params.matrix.kind.set_default( "rand_dominant" );
         return;
     }
@@ -116,8 +116,9 @@ void test_posv_work(Params& params, bool run)
             // slate_assert(lookahead < 3);
             // std::function<int64_t (int64_t i)> tileMb = [nrhs, nb] (int64_t i)
             //    { return (i + 1)*mb > nrhs ? nrhs%mb : mb; };
-            std::function<int64_t (int64_t j)> tileNb = [n, nb] (int64_t j)
-                { return (j + 1)*nb > n ? n%nb : nb; };
+            std::function<int64_t (int64_t j)> tileNb = [n, nb] (int64_t j) {
+                return (j + 1)*nb > n ? n%nb : nb;
+            };
 
             std::function<int (std::tuple<int64_t, int64_t> ij)>
             tileRank = [p, q](std::tuple<int64_t, int64_t> ij) {
@@ -136,9 +137,9 @@ void test_posv_work(Params& params, bool run)
             };
 
             A = slate::HermitianMatrix<scalar_t>(
-                uplo, n, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
+                    uplo, n, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
             B = slate::Matrix<scalar_t>(
-                n, nrhs, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
+                    n, nrhs, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
         }
         else {
             // A
@@ -191,9 +192,9 @@ void test_posv_work(Params& params, bool run)
     if (check || ref) {
         // SLATE matrix wrappers for the reference data
         Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-            uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                   uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
-            n, nrhs, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+                   n, nrhs, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
 
         slate::copy( A, Aref );
         slate::copy( B, Bref );
@@ -220,8 +221,6 @@ void test_posv_work(Params& params, bool run)
         if (params.routine == "potrs") {
             // Factor matrix A.
             slate::chol_factor(A, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::potrf(A, opts);
         }
@@ -239,22 +238,16 @@ void test_posv_work(Params& params, bool run)
         //==================================================
         if (params.routine == "potrf") {
             slate::chol_factor(A, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::potrf(A, opts);
         }
         else if (params.routine == "potrs") {
             slate::chol_solve_using_factor(A, B, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::potrs(A, B, opts);
         }
         else if (params.routine == "posv") {
             slate::chol_solve(A, B, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::posv(A, B, opts);
         }
@@ -267,7 +260,7 @@ void test_posv_work(Params& params, bool run)
             slate_error("Unknown routine!");
         }
 
-       time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+        time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         if (trace) slate::trace::Trace::finish();
 
@@ -293,8 +286,6 @@ void test_posv_work(Params& params, bool run)
         if (params.routine == "potrf") {
             // Solve AX = B.
             slate::chol_solve_using_factor(A, B, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::potrs(A, B, opts);
         }
@@ -313,15 +304,11 @@ void test_posv_work(Params& params, bool run)
         if (params.routine == "posvMixed") {
             if (std::is_same<real_t, double>::value)
                 slate::multiply(-one, Aref, X, one, Bref);
-
-                //---------------------
-                // Using traditional BLAS/LAPACK name
-                // slate::hemm(slate::Side::Left, -one, Aref, X, one, Bref);
+            // Using traditional BLAS/LAPACK name
+            // slate::hemm(slate::Side::Left, -one, Aref, X, one, Bref);
         }
         else {
             slate::multiply(-one, Aref, B, one, Bref);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::hemm(slate::Side::Left, -one, Aref, B, one, Bref);
         }

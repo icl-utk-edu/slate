@@ -137,9 +137,7 @@ void test_syrk_work(Params& params, bool run)
     // C = alpha A A^T + beta C.
     //==================================================
     slate::rank_k_update(alpha, opA, beta, C, opts);
-
-    //---------------------
-    // Using traditional BLAS/LAPACK name
+  // Using traditional BLAS/LAPACK name
     // slate::syrk(alpha, A, beta, C, opts);
 
     time = barrier_get_wtime( MPI_COMM_WORLD ) - time;
@@ -218,7 +216,7 @@ void test_syrk_work(Params& params, bool run)
             real_t C_diff_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &Cref_data[0], ione, ione, Cref_desc, &worklansy[0]);
 
             real_t error = C_diff_norm
-                        / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * A_norm
+                         / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * A_norm
                             + 2 * std::abs(beta) * C_orig_norm);
 
             params.ref_time() = time;

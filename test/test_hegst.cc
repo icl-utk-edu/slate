@@ -92,7 +92,7 @@ void test_hegst_work(Params& params, bool run)
     // Matrix A
     std::vector<scalar_t> A_data(lld*nlocal);
     auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-        uplo, n, A_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
+                 uplo, n, A_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
 
     slate::generate_matrix( params.matrix, A );
 
@@ -103,7 +103,7 @@ void test_hegst_work(Params& params, bool run)
     // Matrix Aref
     std::vector<scalar_t> Aref_data(lld*nlocal);
     auto Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-        uplo, n, Aref_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
+                    uplo, n, Aref_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
 
     slate::copy( A, Aref );
     if (verbose > 2) {
@@ -113,7 +113,7 @@ void test_hegst_work(Params& params, bool run)
     // Matrix B
     std::vector<scalar_t> B_data(lld*nlocal);
     auto B = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-        uplo, n, B_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
+                 uplo, n, B_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
 
     slate::generate_matrix( params.matrixB, B );
 
@@ -191,9 +191,9 @@ void test_hegst_work(Params& params, bool run)
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
             scalapack_phegst(itype, uplo2str(uplo), n,
-                Aref_data.data(), ione, ione, A_desc,
-                B_data.data(),     ione, ione, B_desc,
-                &scale, &info);
+                             Aref_data.data(), ione, ione, A_desc,
+                             B_data.data(),     ione, ione, B_desc,
+                             &scale, &info);
             slate_assert(info == 0);
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;

@@ -130,7 +130,7 @@ void test_trsm_work(Params& params, bool run)
     // it seems to still be well conditioned.
     auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK
               (uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-    slate::potrf(AH, {{slate::Option::Target, target}});
+    slate::potrf( AH, opts );
 
     // if check is required, copy test data
     std::vector< scalar_t > Bref_data;

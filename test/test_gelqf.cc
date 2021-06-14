@@ -209,15 +209,15 @@ void test_gelqf_work(Params& params, bool run)
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
-            assert( mpi_rank == mpi_rank_ );
+            slate_assert( mpi_rank == mpi_rank_ );
             slate_assert(p*q <= nprocs);
             Cblacs_get(-1, 0, &ictxt);
             Cblacs_gridinit(&ictxt, "Col", p, q);
             Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            assert( p == p_ );
-            assert( q == q_ );
-            assert( myrow == myrow_ );
-            assert( mycol == mycol_ );
+            slate_assert( p == p_ );
+            slate_assert( q == q_ );
+            slate_assert( myrow == myrow_ );
+            slate_assert( mycol == mycol_ );
 
             scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);

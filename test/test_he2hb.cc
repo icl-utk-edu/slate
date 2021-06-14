@@ -54,8 +54,8 @@ void test_he2hb_work(Params& params, bool run)
         {slate::Option::InnerBlocking, ib}
     };
     // Requires a square processing grid.
-    assert(p == q);
-    assert(uplo == slate::Uplo::Lower);  // only lower for now.
+    slate_assert(p == q);
+    slate_assert(uplo == slate::Uplo::Lower);  // only lower for now.
 
     // Local values
     const scalar_t one = 1;

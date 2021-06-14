@@ -204,17 +204,19 @@ void test_geqrf_work(Params& params, bool run)
             // A comparison with a reference routine from ScaLAPACK for timing only
 
             // BLACS/MPI variables
-            int ictxt, myrow, mycol, info, p_, q_;
+            int ictxt, myrow_, mycol_, info, p_, q_;
             int Aref_desc[9];
-            int iam = 0, nprocs = 1;
+            int mpi_rank_ = 0, nprocs = 1;
             // initialize BLACS and ScaLAPACK
-            Cblacs_pinfo(&iam, &nprocs);
+            Cblacs_pinfo(&mpi_rank_, &nprocs);
             slate_assert(p*q <= nprocs);
             Cblacs_get(-1, 0, &ictxt);
             Cblacs_gridinit(&ictxt, "Col", p, q);
-            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow, &mycol);
-            assert( p == p_ );
-            assert( q == q_ );
+            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
+            slate_assert( p == p_ );
+            slate_assert( q == q_ );
+            slate_assert( myrow == myrow_ );
+            slate_assert( mycol == mycol_ );
 
             scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);

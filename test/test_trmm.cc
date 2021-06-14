@@ -80,11 +80,6 @@ void test_trmm_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // BLACS/MPI variables
-    int ictxt, p_, q_, myrow_, mycol_, info;
-    int A_desc[9], B_desc[9], Bref_desc[9];
-    int mpi_rank_ = 0, nprocs = 1;
-
     // todo: matrix A is a unit, or non-unit, upper or lower triangular distributed matrix,
     // matrix A, figure out local size, allocate, create descriptor, initialize
     int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
@@ -172,6 +167,10 @@ void test_trmm_work(Params& params, bool run)
     if (check || ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
+            // BLACS/MPI variables
+            int ictxt, p_, q_, myrow_, mycol_, info;
+            int A_desc[9], B_desc[9], Bref_desc[9];
+            int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
@@ -241,14 +240,14 @@ void test_trmm_work(Params& params, bool run)
             // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
             real_t eps = std::numeric_limits<real_t>::epsilon();
             params.okay() = (params.error() <= 3*eps);
+
+            Cblacs_gridexit(ictxt);
+            //Cblacs_exit(1) does not handle re-entering
         #else
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif
     }
-
-    Cblacs_gridexit(ictxt);
-    //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------

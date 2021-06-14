@@ -192,13 +192,13 @@ void test_hbmm_work(Params& params, bool run)
     }
 
     if (check || ref) {
-        // set MKL num threads appropriately for parallel BLAS
-        int omp_num_threads;
-        #pragma omp parallel
-        { omp_num_threads = omp_get_num_threads(); }
-        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
+            // set MKL num threads appropriately for parallel BLAS
+            int omp_num_threads;
+            #pragma omp parallel
+            { omp_num_threads = omp_get_num_threads(); }
+            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
             // BLACS/MPI variables
             int ictxt, p_, q_, myrow_, mycol_, info;
@@ -273,6 +273,8 @@ void test_hbmm_work(Params& params, bool run)
             params.ref_gflops() = gflop / time;
             params.error() = error;
 
+            slate_set_num_blas_threads(saved_num_threads);
+
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else
@@ -312,7 +314,6 @@ void test_hbmm_work(Params& params, bool run)
             params.ref_gflops() = gflop / time;
             params.error() = error;
         #endif
-        slate_set_num_blas_threads(saved_num_threads);
         real_t eps = std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= 3*eps);
     }

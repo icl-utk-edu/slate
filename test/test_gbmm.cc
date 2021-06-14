@@ -215,13 +215,13 @@ void test_gbmm_work(Params& params, bool run)
         else if (transA == slate::Op::ConjTrans)
             Aref = conjTranspose(Aref);
 
-        // set MKL num threads appropriately for parallel BLAS
-        int omp_num_threads;
-        #pragma omp parallel
-        { omp_num_threads = omp_get_num_threads(); }
-        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
         #ifdef SLATE_HAVE_SCALAPACK
+            // set MKL num threads appropriately for parallel BLAS
+            int omp_num_threads;
+            #pragma omp parallel
+            { omp_num_threads = omp_get_num_threads(); }
+            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
+
             // BLACS/MPI variables
             int ictxt, p_, q_, myrow_, mycol_, info;
             int A_desc[9], B_desc[9], C_desc[9], Cref_desc[9];
@@ -295,6 +295,8 @@ void test_gbmm_work(Params& params, bool run)
             params.ref_gflops() = gflop / time;
             params.error() = error;
 
+            slate_set_num_blas_threads(saved_num_threads);
+
             Cblacs_gridexit(ictxt);
         #else
             if (verbose > 1) {
@@ -328,7 +330,6 @@ void test_gbmm_work(Params& params, bool run)
             params.ref_gflops() = gflop / time;
             params.error() = error;
         #endif
-        slate_set_num_blas_threads(saved_num_threads);
 
         // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
         real_t eps = std::numeric_limits<real_t>::epsilon();

@@ -74,12 +74,6 @@ void test_trtri_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // BLACS/MPI variables
-    int ictxt, p_, q_, myrow_, mycol_, info;
-    int A_desc[9], Aref_desc[9];
-    int Cchk_desc[9];
-    int mpi_rank_ = 0, nprocs = 1;
-
     // scalapack matrix A, figure out local size, allocate, initialize
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
@@ -174,6 +168,11 @@ void test_trtri_work(Params& params, bool run)
 
     if (check) {
         #ifdef SLATE_HAVE_SCALAPACK
+            // BLACS/MPI variables
+            int ictxt, p_, q_, myrow_, mycol_, info;
+            int A_desc[9], Aref_desc[9];
+            int Cchk_desc[9];
+            int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);

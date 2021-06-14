@@ -160,16 +160,14 @@ void test_he2hb_work(Params& params, bool run)
             print_matrix("B", B);
         }
 
-        slate::unmtr_he2hb(slate::Side::Left,
-                           slate::Op::NoTrans, A, T, B,
-                           {{slate::Option::Target, target}});
+        slate::unmtr_he2hb(slate::Side::Left, slate::Op::NoTrans,
+                           A, T, B, opts);
         if (verbose > 1) {
             print_matrix("Q^H B", B);
         }
 
-        slate::unmtr_he2hb(slate::Side::Right,
-                           slate::Op::ConjTrans, A, T, B,
-                           {{slate::Option::Target, target}});
+        slate::unmtr_he2hb(slate::Side::Right, slate::Op::ConjTrans,
+                           A, T, B, opts);
         if (verbose > 1) {
             print_matrix("Q^H B Q", B);
         }

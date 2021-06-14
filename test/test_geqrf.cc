@@ -171,13 +171,10 @@ void test_geqrf_work(Params& params, bool run)
         // Multiply QR by Q (implicitly stored in A and T).
         // Form QR, where Q's representation is in A and T, and R is in QR.
         slate::qr_multiply_by_q(
-            slate::Side::Left, slate::Op::NoTrans, A, T, QR,
-            {{slate::Option::Target, target}}
-        );
+            slate::Side::Left, slate::Op::NoTrans, A, T, QR, opts);
         // Using traditional BLAS/LAPACK name
-        // slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, T, QR, {
-        //     {slate::Option::Target, target}
-        // });
+        // slate::unmqr(
+        //     slate::Side::Left, slate::Op::NoTrans, A, T, QR, opts);
 
         if (verbose > 1) {
             print_matrix("QR", QR);

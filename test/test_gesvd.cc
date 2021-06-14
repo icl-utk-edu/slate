@@ -237,7 +237,9 @@ void test_gesvd_work(Params& params, bool run)
             std::vector<scalar_t> work(lwork);
             std::vector<real_t> rwork(lrwork);
 
+            //==================================================
             // Run ScaLAPACK reference routine.
+            //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
                              &Aref_data[0],  ione, ione, A_desc, &Sref_data[0],
@@ -255,8 +257,7 @@ void test_gesvd_work(Params& params, bool run)
             // Perform a local operation to get differences S_data = S_data - Sref_data
             blas::axpy(Sref_data.size(), -1.0, &Sref_data[0], 1, &S_data[0], 1);
 
-
-            // Relative forward error: || Sref_data - S_data || / || Sref_data ||
+            // Relative forward error: || Sref_data - S_data || / || Sref_data ||.
             params.error() = blas::asum(S_data.size(), &S_data[0], 1)
                            / blas::asum(Sref_data.size(), &Sref_data[0], 1);
 

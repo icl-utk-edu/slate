@@ -30,6 +30,7 @@ void test_pbsv_work(Params& params, bool run)
     const scalar_t one = 1.0;
     const int izero = 0, ione = 1;
 
+    // get & mark input values
     slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
     int64_t nrhs = params.nrhs();

@@ -67,8 +67,8 @@ void test_trnorm_work(Params& params, bool run)
 
     // upper requires m <= n,
     // lower requires m >= n
-    if (((uplo == slate::Uplo::Lower) && (m < n)) ||
-        ((uplo == slate::Uplo::Upper) && (m > n))) {
+    if ((uplo == slate::Uplo::Lower && m < n) ||
+        (uplo == slate::Uplo::Upper && m > n)) {
         if (mpi_rank == 0) {
             printf("skipping invalid size: %s, %lld-by-%lld\n", uplo2str(uplo), llong( m ), llong( n ));
         }
@@ -257,8 +257,10 @@ void test_trnorm_work(Params& params, bool run)
                             continue;
 
                         for (auto ii : ii_indices) {
-                            if (ii < 0 || ii >= ib ||
-                                (i == j && (uplo == slate::Uplo::Lower ? ii < jj : ii > jj))) {
+                            if (ii < 0 || ii >= ib
+                                || (i == j && (uplo == slate::Uplo::Lower
+                                               ? ii < jj
+                                               : ii > jj))) {
                                 continue;
                             }
 

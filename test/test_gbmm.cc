@@ -134,7 +134,7 @@ void test_gbmm_work(Params& params, bool run)
                  Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     auto C = slate::Matrix<scalar_t>::fromScaLAPACK(
                  m, n, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
-    slate::generate_matrix( params.matrix, Aref );
+    slate::generate_matrix(params.matrix, Aref);
     slate::generate_matrix(params.matrixB, B);
     slate::generate_matrix(params.matrixC, C);
     zeroOutsideBand(&A_data[0], Am, An, kl, ku, nb, nb, myrow, mycol, p, q, lldA);
@@ -222,9 +222,6 @@ void test_gbmm_work(Params& params, bool run)
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
         #ifdef SLATE_HAVE_SCALAPACK
-            //==================================================
-            // Run ScaLAPACK reference routine.
-            //==================================================
             // BLACS/MPI variables
             int ictxt, p_, q_, myrow_, mycol_, info;
             int A_desc[9], B_desc[9], C_desc[9], Cref_desc[9];
@@ -264,6 +261,9 @@ void test_gbmm_work(Params& params, bool run)
             real_t B_norm      = scalapack_plange(norm2str(norm), Bm, Bn, &B_data[0], ione, ione, B_desc, &worklange[0]);
             real_t C_orig_norm = scalapack_plange(norm2str(norm), Cm, Cn, &Cref_data[0], ione, ione, Cref_desc, &worklange[0]);
 
+            //==================================================
+            // Run ScaLAPACK reference routine.
+            //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pgemm(op2str(transA), op2str(transB), m, n, k, alpha,
                             &A_data[0], ione, ione, A_desc,
@@ -297,9 +297,6 @@ void test_gbmm_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
         #else
-            //==================================================
-            // Run SLATE non-band routine
-            //==================================================
             if (verbose > 1) {
                 print_matrix("Cref", Cref);
             }
@@ -309,6 +306,9 @@ void test_gbmm_work(Params& params, bool run)
             real_t B_norm = slate::norm( norm, B );
             real_t Cref_norm = slate::norm( norm, Cref );
 
+            //==================================================
+            // Run SLATE non-band routine
+            //==================================================
             time = barrier_get_wtime(MPI_COMM_WORLD);
             slate::multiply( alpha, Aref, B, beta, Cref, opts );
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;

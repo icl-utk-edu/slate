@@ -245,8 +245,10 @@ void test_henorm_work(Params& params, bool run)
                             continue;
 
                         for (auto ii : ii_indices) {
-                            if (ii < 0 || ii >= ib ||
-                                (i == j && (uplo == slate::Uplo::Lower ? ii < jj : ii > jj))) {
+                            if (ii < 0 || ii >= ib
+                                || (i == j && (uplo == slate::Uplo::Lower
+                                               ? ii < jj
+                                               : ii > jj))) {
                                 continue;
                             }
 

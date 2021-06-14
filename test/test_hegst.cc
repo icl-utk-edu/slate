@@ -29,6 +29,7 @@ void test_hegst_work(Params& params, bool run)
     // constants
     const scalar_t one = 1.0;
 
+    // get & mark input values
     int64_t itype = params.itype();
     slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();

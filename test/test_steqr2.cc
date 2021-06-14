@@ -19,8 +19,7 @@
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void test_steqr2_work(
-    Params& params, bool run)
+void test_steqr2_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
@@ -184,10 +183,9 @@ void test_steqr2_work(
             auto ZT = conjTranspose(Z);
             set(zero, one, A);
             slate::gemm(one, ZT, Z, minusone, A);
-            params.ortho()  = slate::norm(slate::Norm::Fro, A) / n;
+            params.ortho() = slate::norm(slate::Norm::Fro, A) / n;
         }
-        params.okay() = ((params.error() <= tol) && (params.ortho() <= tol));
-
+        params.okay() = (params.error() <= tol) && (params.ortho() <= tol);
     }
 }
 

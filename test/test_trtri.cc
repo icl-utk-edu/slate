@@ -92,8 +92,8 @@ void test_trtri_work(Params& params, bool run)
     // Cholesky factor of A_data to get a well conditioned triangular matrix
     // Even when we replace the diagonal with unit diagonal,
     // it seems to still be well conditioned.
-    auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK
-              (uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+    auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                  uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     if (verbose >= 2) {
         print_matrix( "AH", AH );
     }
@@ -108,8 +108,8 @@ void test_trtri_work(Params& params, bool run)
     }
     else {
         // Create SLATE matrix on CPU from the ScaLAPACK data in A_tst
-        A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK
-            (uplo, diag, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
+                uplo, diag, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
 
     if (verbose >= 2) {
@@ -140,7 +140,8 @@ void test_trtri_work(Params& params, bool run)
 
     // Create SLATE matrix from the ScaLAPACK layouts
     slate::Matrix<scalar_t> C;
-    C = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &Cchk_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+    C = slate::Matrix<scalar_t>::fromScaLAPACK(
+            n, n, &Cchk_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
     // trtri flop count
     double gflop = lapack::Gflop<scalar_t>::trtri(n);
@@ -197,13 +198,14 @@ void test_trtri_work(Params& params, bool run)
 
             //==================================================
             // Check  || I - inv(A)*A || / ( || A || * N ) <=  tol * eps
-
+            //==================================================
             if (origin != slate::Origin::ScaLAPACK) {
                 // Copy data back from CPU/GPUs to ScaLAPACK layout
                 copy(A, &A_data[0], A_desc);
             }
 
-            // Setup full nxn SLATE matrix in Aref on CPU pointing to ScaLAPACK data in Aref_data
+            // Setup full nxn SLATE matrix in Aref on CPU pointing to ScaLAPACK
+            // data in Aref_data
             auto Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
                             n, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
             if (verbose >= 2) {
@@ -218,18 +220,22 @@ void test_trtri_work(Params& params, bool run)
                                  : slate::Uplo::Lower);
             if (uplo == slate::Uplo::Lower) {
                 if (diag == slate::Diag::Unit) {
-                    scalapack_plaset( uplo2str(lo_up), n, n, zero, one, &Aref_data[0], 1, 1, Aref_desc );
+                    scalapack_plaset( uplo2str(lo_up), n, n, zero, one,
+                                      &Aref_data[0], 1, 1, Aref_desc );
                 }
                 else {
-                    scalapack_plaset( uplo2str(lo_up), n-1, n-1, zero, zero, &Aref_data[0], 1, 2, Aref_desc );
+                    scalapack_plaset( uplo2str(lo_up), n-1, n-1, zero, zero,
+                                      &Aref_data[0], 1, 2, Aref_desc );
                 }
             }
             else {
                 if (diag == slate::Diag::Unit) {
-                    scalapack_plaset( uplo2str(lo_up), n, n, zero, one, &Aref_data[0], 1, 1, Aref_desc );
+                    scalapack_plaset( uplo2str(lo_up), n, n, zero, one,
+                                      &Aref_data[0], 1, 1, Aref_desc );
                 }
                 else {
-                    scalapack_plaset( uplo2str(lo_up), n-1, n-1, zero, zero, &Aref_data[0], 2, 1, Aref_desc );
+                    scalapack_plaset( uplo2str(lo_up), n-1, n-1, zero, zero,
+                                      &Aref_data[0], 2, 1, Aref_desc );
                 }
             }
             if (verbose >= 2) {

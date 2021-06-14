@@ -246,8 +246,10 @@ void test_synorm_work(Params& params, bool run)
                             continue;
 
                         for (auto ii : ii_indices) {
-                            if (ii < 0 || ii >= ib ||
-                                (i == j && (uplo == slate::Uplo::Lower ? ii < jj : ii > jj))) {
+                            if (ii < 0 || ii >= ib
+                                || (i == j && (uplo == slate::Uplo::Lower
+                                               ? ii < jj
+                                               : ii > jj))) {
                                 continue;
                             }
 
@@ -295,7 +297,7 @@ void test_synorm_work(Params& params, bool run)
                                 if (verbose || ! okay) {
                                     printf("i %5lld, j %5lld, ii %3lld, jj %3lld, peak %15.8e, norm %15.8e, ref %15.8e, error %9.2e, %s\n",
                                            llong( i ), llong( j ), llong( ii ), llong( jj ),
-                                           real(peak), A_norm, A_norm_ref, error,
+                                           real( peak ), A_norm, A_norm_ref, error,
                                            (okay ? "pass" : "failed"));
                                 }
                             }

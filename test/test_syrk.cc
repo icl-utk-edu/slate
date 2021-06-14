@@ -137,7 +137,7 @@ void test_syrk_work(Params& params, bool run)
     // C = alpha A A^T + beta C.
     //==================================================
     slate::rank_k_update(alpha, opA, beta, C, opts);
-  // Using traditional BLAS/LAPACK name
+    // Using traditional BLAS/LAPACK name
     // slate::syrk(alpha, A, beta, C, opts);
 
     time = barrier_get_wtime( MPI_COMM_WORLD ) - time;

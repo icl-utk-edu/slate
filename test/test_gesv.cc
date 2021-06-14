@@ -176,17 +176,16 @@ void test_gesv_work(Params& params, bool run)
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
         A_data.resize( lldA * nlocA );
-        A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_data[0], lldA,
-                                                   nb, p, q, MPI_COMM_WORLD);
+        A = slate::Matrix<scalar_t>::fromScaLAPACK(
+                m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         B_data.resize( lldB * nlocB );
-        B = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &B_data[0], lldB,
-                                                   nb, p, q, MPI_COMM_WORLD);
-        if (params.routine == "gesvMixed") {
-            if (std::is_same<real_t, double>::value) {
-                X_data.resize(lldB*nlocB);
-                X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_data[0], lldB,
-                                                           nb, p, q, MPI_COMM_WORLD);
-            }
+        B = slate::Matrix<scalar_t>::fromScaLAPACK(
+                n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+        if (params.routine == "gesvMixed"
+            && std::is_same<real_t, double>::value) {
+            X_data.resize(lldB*nlocB);
+            X = slate::Matrix<scalar_t>::fromScaLAPACK(
+                    n, nrhs, &X_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         }
     }
 
@@ -382,7 +381,7 @@ void test_gesv_work(Params& params, bool run)
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // A comparison with a reference routine from ScaLAPACK for timing only
-            if ( nonuniform_nb ) {
+            if (nonuniform_nb) {
                 printf("Unsupported to test nonuniform tile size using scalapack\n");
                 return;
             }

@@ -17,8 +17,7 @@
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void test_tb2bd_work(
-    Params& params, bool run)
+void test_tb2bd_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
@@ -103,8 +102,8 @@ void test_tb2bd_work(
                        m, n, &A3[0], lda, nb, 1, 1, MPI_COMM_WORLD);
     auto Abandrm = slate::BandMatrix<scalar_t>(ku, ku, Afullrm);
     //auto Aband = slate::BandMatrix<scalar_t>(ku, ku, Afull);
-    auto A     = slate::TriangularBandMatrix<scalar_t>(
-                    lapack::Uplo::Upper, lapack::Diag::NonUnit, Abandrm);
+    auto A = slate::TriangularBandMatrix<scalar_t>(
+                 lapack::Uplo::Upper, lapack::Diag::NonUnit, Abandrm);
     //auto A = slate::TriangularBandMatrix<scalar_t>(
     //                    slate::Uplo::Upper, slate::Diag::NonUnit,
     //                    m, ku, nb, p, q, MPI_COMM_WORLD);
@@ -122,10 +121,9 @@ void test_tb2bd_work(
     for (int64_t j = 0; j < A.nt(); ++j) {
         int64_t ii = 0; // row index
         for (int64_t i = 0; i < A.mt(); ++i) {
-            if (A.tileIsLocal(i, j) &&
-                ((ii == jj) ||
-                 ( ii < jj && (jj - (ii + A.tileMb(i) - 1)) <= (A.bandwidth()+1) ) ) )
-            {
+            if (A.tileIsLocal(i, j)
+                && (ii == jj
+                    || (ii < jj && jj - (ii + A.tileMb(i) - 1) <= A.bandwidth() + 1))) {
 
                 if (i == j) {
                     //lapack::laset(lapack::MatrixType::Lower, A(i, j).mb(), A(i, j).nb(),
@@ -137,7 +135,7 @@ void test_tb2bd_work(
                     }
                 }
 
-                if ((j < A.nt()-1) && (i == (j - 1))) {
+                if (j < A.nt() - 1 && i == j - 1) {
                     //lapack::laset(lapack::MatrixType::Upper, A(i, j).mb(), A(i, j).nb(),
                     //      0, 0, A(i, j).data(), A(i, j).stride());
                     auto T_ptr = A.tileInsert( i, j+1 );

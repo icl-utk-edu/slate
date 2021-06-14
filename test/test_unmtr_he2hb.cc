@@ -225,8 +225,8 @@ void test_unmtr_he2hb_work(Params& params, bool run)
             }
 
             // Norm of backwards error: || A - QBQ^H ||_1
-            params.error()  = slate::norm(slate::Norm::One, A_ref)
-                            / (n * A_ref_norm);
+            params.error() = slate::norm(slate::Norm::One, A_ref)
+                           / (n * A_ref_norm);
         }
         else if ((side == slate::Side::Left  && trans != slate::Op::NoTrans) ||
                  (side == slate::Side::Right && trans == slate::Op::NoTrans)) {

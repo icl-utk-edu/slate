@@ -94,7 +94,8 @@ void test_hesv_work(Params& params, bool run)
 
     //---------------------
     // Create SLATE matrix from the ScaLAPACK layouts
-    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                 uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     slate::Pivots pivots;
 
     //---------------------
@@ -120,7 +121,8 @@ void test_hesv_work(Params& params, bool run)
     std::vector<scalar_t> B_data(lldB*nlocB);
     //scalapack_pplrnt(&B_data[0], n, nrhs, nb, nb, myrow, mycol, p, q, mlocB, iseed + 2);
 
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
+                 n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
 
     slate::generate_matrix( params.matrix, A );
     slate::generate_matrix( params.matrixB, B );
@@ -132,11 +134,13 @@ void test_hesv_work(Params& params, bool run)
     std::vector<scalar_t> Aref_data;
     if (check) {
         Aref_data.resize( A_data.size() );
-        Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                   uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         slate::copy( A, Aref );
 
         Bref_data.resize( B_data.size() );
-        Bref = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+        Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                   n, nrhs, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         slate::copy( B, Bref );
     }
 

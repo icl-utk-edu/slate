@@ -19,8 +19,7 @@
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void test_bdsqr_work(
-    Params& params, bool run)
+void test_bdsqr_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
@@ -93,9 +92,9 @@ void test_bdsqr_work(
     slate::Matrix<scalar_t> VT;
 
     bool wantu  = (jobu  == slate::Job::Vec || jobu  == slate::Job::AllVec
-                || jobu  == slate::Job::SomeVec );
+                   || jobu  == slate::Job::SomeVec);
     bool wantvt = (jobvt == slate::Job::Vec || jobvt == slate::Job::AllVec
-                || jobvt == slate::Job::SomeVec );
+                   || jobvt == slate::Job::SomeVec);
 
     if (origin != slate::Origin::ScaLAPACK) {
         if (wantu) {
@@ -163,6 +162,7 @@ void test_bdsqr_work(
         params.ref_time() = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         slate_set_num_blas_threads(saved_num_threads);
+
         if (verbose) {
             // Print first 20 and last 20 rows.
             printf( "%9s  %9s\n", "D", "Dref" );

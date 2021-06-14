@@ -349,9 +349,9 @@ inline const char* scope2str(slate::NormScope scope)
 // -----------------------------------------------------------------------------
 inline double barrier_get_wtime(MPI_Comm comm)
 {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(comm);
-        return testsweeper::get_wtime();
+    slate::trace::Block trace_block("MPI_Barrier");
+    MPI_Barrier(comm);
+    return testsweeper::get_wtime();
 }
 
 #endif // SLATE_TEST_HH

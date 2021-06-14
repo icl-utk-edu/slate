@@ -118,7 +118,7 @@ void test_heev_work(Params& params, bool run)
     // Z is currently used for ScaLAPACK heev call and can also be used
     // for SLATE heev call when slate::eig_vals takes Z
     auto Z = slate::Matrix<scalar_t>::fromScaLAPACK(
-                n, n, &Z_data[0], lldZ, nb, p, q, MPI_COMM_WORLD);
+                 n, n, &Z_data[0], lldZ, nb, p, q, MPI_COMM_WORLD);
 
     if (verbose >= 1) {
         printf( "%% A   %6lld-by-%6lld\n", llong( A.m() ), llong( A.n() ) );
@@ -136,7 +136,8 @@ void test_heev_work(Params& params, bool run)
     if (check || ref) {
         Aref_data.resize( A_data.size() );
         Wref_data.resize( W_data.size() );
-        Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                   uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         slate::copy( A, Aref );
     }
 
@@ -150,7 +151,6 @@ void test_heev_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-
         if (jobz == slate::Job::NoVec) {
             slate::eig_vals(A, W_data, opts);
         }
@@ -226,7 +226,10 @@ void test_heev_work(Params& params, bool run)
                 lrwork = int64_t( real( rwork[0] ) );
                 rwork.resize(lrwork);
             }
+
+            //==================================================
             // Run ScaLAPACK reference routine.
+            //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
                             &Aref_data[0], ione, ione, A_desc,
@@ -245,7 +248,7 @@ void test_heev_work(Params& params, bool run)
             // Perform a local operation to get differences W_data = W_data - Wref_data
             blas::axpy(Wref_data.size(), -1.0, &Wref_data[0], 1, &W_data[0], 1);
 
-            // Relative forward error: || Wref_data - W_data || / || Wref_data ||
+            // Relative forward error: || Wref_data - W_data || / || Wref_data ||.
             params.error() = blas::asum(n, &W_data[0], 1)
                            / blas::asum(n, &Wref_data[0], 1);
 

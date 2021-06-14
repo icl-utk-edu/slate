@@ -104,22 +104,22 @@ void test_trsm_work(Params& params, bool run)
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
         slate::Target origin_target = origin2target(origin);
-        A = slate::TriangularMatrix<scalar_t>
-                (uplo, diag, An, nb, p, q, MPI_COMM_WORLD);
+        A = slate::TriangularMatrix<scalar_t>(
+                uplo, diag, An, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
         //copy(&A_data[0], A_desc, A);
 
-        B = slate::Matrix<scalar_t>
-                 (Bm, Bn, nb, p, q, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>(
+                Bm, Bn, nb, p, q, MPI_COMM_WORLD);
         B.insertLocalTiles(origin_target);
         //copy(&B_data[0], B_desc, B);
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
-        A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK
-                 (uplo, diag, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        B = slate::Matrix<scalar_t>::fromScaLAPACK
-                 (Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+        A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
+                uplo, diag, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>::fromScaLAPACK(
+                Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     }
 
     slate::generate_matrix( params.matrix, A );
@@ -128,8 +128,8 @@ void test_trsm_work(Params& params, bool run)
     // Cholesky factor of A to get a well conditioned triangular matrix.
     // Even when we replace the diagonal with unit diagonal,
     // it seems to still be well conditioned.
-    auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK
-              (uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+    auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                  uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     slate::potrf( AH, opts );
 
     // if check is required, copy test data
@@ -137,8 +137,8 @@ void test_trsm_work(Params& params, bool run)
     slate::Matrix<scalar_t> Bref;
     if (check || ref) {
         Bref_data.resize( B_data.size() );
-        Bref = slate::Matrix<scalar_t>::fromScaLAPACK
-                   (Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+        Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                   Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         slate::copy( B, Bref );
     }
 

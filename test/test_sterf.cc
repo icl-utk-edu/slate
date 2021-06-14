@@ -18,8 +18,7 @@
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void test_sterf_work(
-    Params& params, bool run)
+void test_sterf_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
@@ -28,7 +27,6 @@ void test_sterf_work(
 
     // get & mark input values
     int64_t n = params.dim.n();
-    //int64_t nb = params.nb();
     int p = params.grid.m();
     int q = params.grid.n();
     bool check = params.check() == 'y';

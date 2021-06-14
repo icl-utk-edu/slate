@@ -385,7 +385,9 @@ void test_hegv_work(Params& params, bool run)
             liwork = int64_t(iwork[0]);
             iwork.resize(liwork);
 
+            //==================================================
             // Run ScaLAPACK reference routine.
+            //==================================================
             double time = barrier_get_wtime(mpi_comm);
 
             scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
@@ -413,7 +415,7 @@ void test_hegv_work(Params& params, bool run)
                 // Reference Scalapack was run, check reference eigenvalues
                 // Perform a local operation to get differences W_data = W_data - Wref_data
                 blas::axpy(W_data.size(), -1.0, &Wref_data[0], 1, &W_data[0], 1);
-                // Relative forward error: || Wref_data - W_data || / || Wref_data ||
+                // Relative forward error: || Wref_data - W_data || / || Wref_data ||.
                 params.error2() = blas::asum(W_data.size(), &W_data[0], 1)
                                 / blas::asum(Wref_data.size(), &Wref_data[0], 1);
                 real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();

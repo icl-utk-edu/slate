@@ -266,12 +266,12 @@ void test_gemm_work(Params& params, bool run)
             { omp_num_threads = omp_get_num_threads(); }
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-            //==================================================
-            // Run ScaLAPACK reference routine.
-            //==================================================
             if (verbose >= 2)
                 print_matrix("Cref", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
 
+            //==================================================
+            // Run ScaLAPACK reference routine.
+            //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
             scalapack_pgemm(op2str(transA), op2str(transB), m, n, k, alpha,

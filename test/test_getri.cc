@@ -105,7 +105,8 @@ void test_getri_work(Params& params, bool run)
 
     // If check is required: record the norm(A original)
     real_t A_norm = 0.0;
-    if (check) A_norm = slate::norm(slate::Norm::One, A);
+    if (check)
+        A_norm = slate::norm(slate::Norm::One, A);
 
     // initialize Cchk_data; space to hold A*inv(A); also used for out-of-place algorithm
     std::vector<scalar_t> Cchk_data( lldA*nlocA );

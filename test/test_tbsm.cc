@@ -118,8 +118,8 @@ void test_tbsm_work(Params& params, bool run)
                      Am, An, kd, kd, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
     auto A = slate::TriangularBandMatrix<scalar_t>(uplo, diag, Aband);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK
-             (Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
+                 Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     slate::Pivots pivots;
 
     slate::generate_matrix(params.matrixB, B);

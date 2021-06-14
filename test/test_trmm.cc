@@ -66,10 +66,10 @@ void test_trmm_work(Params& params, bool run)
     slate_assert(norm == Norm::One || norm == Norm::Inf || norm == Norm::Fro);
 
     // setup so op(B) is m-by-n
-    int64_t An  = (side == slate::Side::Left ? m : n);
-    int64_t Am  = An;
-    int64_t Bm  = (transB == slate::Op::NoTrans ? m : n);
-    int64_t Bn  = (transB == slate::Op::NoTrans ? n : m);
+    int64_t An = (side == slate::Side::Left ? m : n);
+    int64_t Am = An;
+    int64_t Bm = (transB == slate::Op::NoTrans ? m : n);
+    int64_t Bn = (transB == slate::Op::NoTrans ? n : m);
 
     // Constants
     const int izero = 0, ione = 1;
@@ -85,7 +85,7 @@ void test_trmm_work(Params& params, bool run)
     int A_desc[9], B_desc[9], Bref_desc[9];
     int mpi_rank_ = 0, nprocs = 1;
 
-    // todo: matrix a is a unit, or non-unit, upper or lower triangular distributed matrix,
+    // todo: matrix A is a unit, or non-unit, upper or lower triangular distributed matrix,
     // matrix A, figure out local size, allocate, create descriptor, initialize
     int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
@@ -113,8 +113,8 @@ void test_trmm_work(Params& params, bool run)
         // Create SLATE matrices from the ScaLAPACK layouts.
         A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
                 uplo, diag, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        B = slate::Matrix<scalar_t>::fromScaLAPACK
-            (Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>::fromScaLAPACK(
+                Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     }
 
     generate_matrix( params.matrix, A );
@@ -124,8 +124,8 @@ void test_trmm_work(Params& params, bool run)
     std::vector<scalar_t> Bref_data;
     if (check || ref) {
         Bref_data.resize( B_data.size() );
-        auto Bref = slate::Matrix<scalar_t>::fromScaLAPACK
-                    (Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+        auto Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                        Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         slate::copy( B, Bref );
     }
 

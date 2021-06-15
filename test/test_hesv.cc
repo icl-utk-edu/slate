@@ -24,9 +24,8 @@ void test_hesv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
-    // constants
+    // Constants
     const scalar_t one = 1.0;
-    const int izero = 0, ione = 1;
 
     //---------------------
     // get & mark input values
@@ -38,7 +37,6 @@ void test_hesv_work(Params& params, bool run)
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
     int64_t panel_threads = params.panel_threads();
-    slate::Norm norm = slate::Norm::One;
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
     slate::Origin origin = params.origin();
@@ -212,16 +210,16 @@ void test_hesv_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            scalapack_descinit(A_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(Aref_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(B_desc, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
+            scalapack_descinit(B_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
+            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
             copy( A, &A_data[0], A_desc );
@@ -240,22 +238,22 @@ void test_hesv_work(Params& params, bool run)
             std::vector<real_t> worklangeA(std::max(mlocA, nlocA));
             std::vector<real_t> worklangeB(std::max(mlocB, nlocB));
 
-            // Norm of the orig matrix: || A ||_I
-            real_t A_norm = scalapack_plange(norm2str(norm), n, n, &Aref_data[0], ione, ione, Aref_desc, &worklangeA[0]);
-            // norm of updated rhs matrix: || X ||_I
-            real_t X_norm = scalapack_plange(norm2str(norm), n, nrhs, &B_data[0], ione, ione, B_desc, &worklangeB[0]);
+            // Norm of the orig matrix: || A ||
+            real_t A_norm = scalapack_plange("1", n, n, &Aref_data[0], 1, 1, Aref_desc, &worklangeA[0]);
+            // norm of updated rhs matrix: || X ||
+            real_t X_norm = scalapack_plange("1", n, nrhs, &B_data[0], 1, 1, B_desc, &worklangeB[0]);
 
             // Bref_data -= Aref*B_data
             scalapack_phemm("Left", "Lower",
                             n, nrhs,
                             -one,
-                            &Aref_data[0], ione, ione, Aref_desc,
-                            &B_data[0], ione, ione, B_desc,
+                            &Aref_data[0], 1, 1, Aref_desc,
+                            &B_data[0], 1, 1, B_desc,
                             one,
-                            &Bref_data[0], ione, ione, Bref_desc);
+                            &Bref_data[0], 1, 1, Bref_desc);
 
-            // || B - AX ||_I
-            real_t R_norm = scalapack_plange(norm2str(norm), n, nrhs, &Bref_data[0], ione, ione, Bref_desc, &worklangeB[0]);
+            // || B - AX ||
+            real_t R_norm = scalapack_plange("1", n, nrhs, &Bref_data[0], 1, 1, Bref_desc, &worklangeB[0]);
 
             double residual = R_norm / (n*A_norm*X_norm);
             params.error() = residual;

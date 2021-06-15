@@ -56,10 +56,7 @@ void test_trnorm_work(Params& params, bool run)
         {slate::Option::Target, target}
     };
 
-    // constants
-    const int izero = 0, ione = 1;
-
-    // local values
+    // Local values
     int myrow, mycol;
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -145,7 +142,7 @@ void test_trnorm_work(Params& params, bool run)
         slate_assert( myrow == myrow_ );
         slate_assert( mycol == mycol_ );
 
-        scalapack_descinit(A_desc, m, n, nb, nb, izero, izero, ictxt, lldA, &info);
+        scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, lldA, &info);
         if (info != 0)
             printf("scalapack_descinit info %d\n", info);
         slate_assert(info == 0);
@@ -164,7 +161,7 @@ void test_trnorm_work(Params& params, bool run)
             time = barrier_get_wtime(MPI_COMM_WORLD);
             real_t A_norm_ref = scalapack_plantr(
                                     norm2str(norm), uplo2str(A.uplo()), diag2str(diag),
-                                    m, n, &A_data[0], ione, ione, A_desc, &worklantr[0]);
+                                    m, n, &A_data[0], 1, 1, A_desc, &worklantr[0]);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             //A_norm_ref = lapack::lantr(
@@ -279,7 +276,7 @@ void test_trnorm_work(Params& params, bool run)
 
                             real_t A_norm_ref = scalapack_plantr(
                                                     norm2str(norm), uplo2str(A.uplo()), diag2str(diag),
-                                                    m, n, &A_data[0], ione, ione, A_desc, &worklantr[0]);
+                                                    m, n, &A_data[0], 1, 1, A_desc, &worklantr[0]);
 
                             // difference between norms
                             real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;

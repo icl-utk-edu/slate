@@ -32,7 +32,6 @@ void test_gesvd_work(Params& params, bool run)
     lapack::Job jobvt = params.jobvt();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
-
     int64_t p = params.grid.m();
     int64_t q = params.grid.n();
     int64_t nb = params.nb();
@@ -62,9 +61,6 @@ void test_gesvd_work(Params& params, bool run)
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib}
     };
-
-    // Constants
-    const int izero = 0, ione = 1;
 
     // Local values
     int64_t minmn = std::min(m, n);
@@ -203,17 +199,17 @@ void test_gesvd_work(Params& params, bool run)
             slate_assert( mycol == mycol_ );
 
             int A_desc[9];
-            scalapack_descinit(A_desc, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
             std::vector<scalar_t> Aref_data(lldA*nlocA);
             copy(Aref, &Aref_data[0], A_desc);
 
             int U_desc[9];
-            scalapack_descinit(U_desc, m, minmn, nb, nb, izero, izero, ictxt, mlocU, &info);
+            scalapack_descinit(U_desc, m, minmn, nb, nb, 0, 0, ictxt, mlocU, &info);
             slate_assert(info == 0);
 
             int VT_desc[9];
-            scalapack_descinit(VT_desc, minmn, n, nb, nb, izero, izero, ictxt, mlocVT, &info);
+            scalapack_descinit(VT_desc, minmn, n, nb, nb, 0, 0, ictxt, mlocVT, &info);
             slate_assert(info == 0);
 
             // set MKL num threads appropriately for parallel BLAS
@@ -227,9 +223,9 @@ void test_gesvd_work(Params& params, bool run)
             scalar_t dummy_work;
             real_t dummy_rwork;
             scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
-                             &Aref_data[0],  ione, ione, A_desc, &Sref_data[0],
-                             &U_data[0],  ione, ione, U_desc,
-                             &VT_data[0], ione, ione, VT_desc,
+                             &Aref_data[0],  1, 1, A_desc, &Sref_data[0],
+                             &U_data[0],  1, 1, U_desc,
+                             &VT_data[0], 1, 1, VT_desc,
                              &dummy_work, -1, &dummy_rwork, &info_ref);
             slate_assert(info_ref == 0);
             int64_t lwork  = int64_t( real( dummy_work ) );
@@ -242,9 +238,9 @@ void test_gesvd_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
-                             &Aref_data[0],  ione, ione, A_desc, &Sref_data[0],
-                             &U_data[0],  ione, ione, U_desc,
-                             &VT_data[0], ione, ione, VT_desc,
+                             &Aref_data[0],  1, 1, A_desc, &Sref_data[0],
+                             &U_data[0],  1, 1, U_desc,
+                             &VT_data[0], 1, 1, VT_desc,
                              &work[0], lwork, &rwork[0], &info_ref);
             slate_assert(info_ref == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;

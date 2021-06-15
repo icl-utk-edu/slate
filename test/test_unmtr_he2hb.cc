@@ -22,6 +22,9 @@ void test_unmtr_he2hb_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
+    // Constants
+    const scalar_t one = 1;
+
     // get & mark input values
     slate::Uplo uplo = params.uplo();
     slate::Side side = params.side();
@@ -178,8 +181,6 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     //params.gflops() = gflop / time_tst;
 
     if (check) {
-        const scalar_t negative_one = -1;
-
         if ((side == slate::Side::Left  && trans == slate::Op::NoTrans) ||
             (side == slate::Side::Right && trans != slate::Op::NoTrans)) {
             //==================================================
@@ -215,7 +216,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
                         auto Bij = B(i, j);
                         // if i == j, Aij was Lower; set it to General for axpy.
                         A_refij.uplo(slate::Uplo::General);
-                        axpy(negative_one, Bij, A_refij);
+                        axpy(-one, Bij, A_refij);
                     }
                 }
             }
@@ -259,7 +260,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
             for (int64_t i = 0; i < A_sym.nt(); ++i) {
                 for (int64_t j = 0; j < A_sym.mt(); ++j) {
                     if (A_sym.tileIsLocal(i, j)) {
-                        axpy(negative_one, B(i, j), A_sym(i, j));
+                        axpy(-one, B(i, j), A_sym(i, j));
                     }
                 }
             }

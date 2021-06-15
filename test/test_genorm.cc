@@ -58,9 +58,6 @@ void test_genorm_work(Params& params, bool run)
         {slate::Option::Target, target}
     };
 
-    // local values
-    const int izero = 0, ione = 1;
-
     // Local values
     int myrow, mycol;
     int mpi_rank;
@@ -158,7 +155,7 @@ void test_genorm_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            scalapack_descinit(A_desc, m, n, nb, nb, izero, izero, ictxt, lldA, &info);
+            scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, lldA, &info);
             slate_assert(info == 0);
 
             if (origin != slate::Origin::ScaLAPACK) {
@@ -194,15 +191,14 @@ void test_genorm_work(Params& params, bool run)
             if (scope == slate::NormScope::Matrix) {
                 A_norm_ref = scalapack_plange(
                                  norm2str(op_norm),
-                                 m, n, &A_data[0], ione, ione, A_desc, &worklange[0]);
+                                 m, n, &A_data[0], 1, 1, A_desc, &worklange[0]);
                 time = MPI_Barrier(MPI_COMM_WORLD) - time;
             }
             else if (scope == slate::NormScope::Columns) {
                 for (int64_t c = 0; c < n; ++c) {
-                    int64_t c_1 = c+1;
                     A_norm_ref = scalapack_plange(
                                      norm2str(norm),
-                                     m, 1, &A_data[0], ione, c_1, A_desc, &worklange[0]);
+                                     m, 1, &A_data[0], 1, c+1, A_desc, &worklange[0]);
                     time = MPI_Barrier(MPI_COMM_WORLD) - time;
                     error += std::abs(values[c] - A_norm_ref) / A_norm_ref;
                 }
@@ -318,9 +314,10 @@ void test_genorm_work(Params& params, bool run)
 
                                 real_t A_norm = slate::norm(norm, A, opts);
 
-                                real_t A_norm_ref = scalapack_plange(
-                                                        norm2str(norm),
-                                                        m, n, &A_data[0], ione, ione, A_desc, &worklange[0]);
+                                A_norm_ref = scalapack_plange(
+                                                 norm2str(norm), m, n,
+                                                 &A_data[0], 1, 1, A_desc,
+                                                 &worklange[0]);
 
                                 // difference between norms
                                 real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;

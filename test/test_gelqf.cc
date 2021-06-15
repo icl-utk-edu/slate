@@ -28,6 +28,10 @@ void test_gelqf_work(Params& params, bool run)
     using blas::real;
     // using llong = long long;
 
+    // Constants
+    const scalar_t zero = 0;
+    const scalar_t one = 1;
+
     // get & mark input values
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
@@ -61,10 +65,6 @@ void test_gelqf_work(Params& params, bool run)
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib}
     };
-
-    // Constants
-    const scalar_t zero = 0;
-    const scalar_t one = 1;
 
     // Local values
     int myrow, mycol;

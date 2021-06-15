@@ -25,6 +25,9 @@ void test_he2hb_work(Params& params, bool run)
     // using blas::conj;
     // using llong = long long;
 
+    // Constants
+    const scalar_t one = 1;
+
     // get & mark input values
     slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
@@ -53,12 +56,10 @@ void test_he2hb_work(Params& params, bool run)
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib}
     };
+
     // Requires a square processing grid.
     slate_assert(p == q);
     slate_assert(uplo == slate::Uplo::Lower);  // only lower for now.
-
-    // Local values
-    const scalar_t one = 1;
 
     // MPI variables
     int mpi_rank, mpi_size;

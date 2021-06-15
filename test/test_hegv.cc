@@ -28,6 +28,9 @@ void test_hegv_work(Params& params, bool run)
     using blas::real;
     using llong = long long;
 
+    // Constants
+    const scalar_t zero = 0.0, one = 1.0;
+
     // get & mark input values
     slate::Job jobz = params.jobz();
     slate::Uplo uplo = params.uplo();
@@ -69,9 +72,6 @@ void test_hegv_work(Params& params, bool run)
 
     // Local values
     MPI_Comm mpi_comm = MPI_COMM_WORLD;
-    const blas_int izero = 0;
-
-    // Local values
     int myrow, mycol;
     int mpi_rank;
     MPI_Comm_rank(mpi_comm, &mpi_rank);
@@ -231,7 +231,6 @@ void test_hegv_work(Params& params, bool run)
         real_t A_norm = slate::norm(slate::Norm::One, A_orig);
         real_t Z_norm = slate::norm(slate::Norm::One, Z);
         real_t R_norm = 0;
-        scalar_t zero = 0.0, one = 1.0;
 
         if (itype == 1) {
             // C = AZ + 0*C = AZ
@@ -328,15 +327,15 @@ void test_hegv_work(Params& params, bool run)
             slate_assert( mycol == mycol_ );
 
             blas_int A_desc[9];
-            scalapack_descinit(A_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
             blas_int B_desc[9];
-            scalapack_descinit(B_desc, n, n, nb, nb, izero, izero, ictxt, mlocB, &info);
+            scalapack_descinit(B_desc, n, n, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
             blas_int Z_desc[9];
-            scalapack_descinit(Z_desc, n, n, nb, nb, izero, izero, ictxt, mlocZ, &info);
+            scalapack_descinit(Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
             slate_assert(info == 0);
 
             // set num threads appropriately for parallel BLAS if possible

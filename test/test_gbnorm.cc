@@ -62,9 +62,6 @@ void test_gbnorm_work(Params& params, bool run)
         {slate::Option::Target, target}
     };
 
-    // local values
-    const int izero = 0, ione = 1;
-
     // Local values
     int myrow, mycol;
     int mpi_rank;
@@ -81,7 +78,7 @@ void test_gbnorm_work(Params& params, bool run)
     //int iseed = 1;
     //scalapack_pplrnt(&A_data[0], m, n, nb, nb, myrow, mycol, p, q, mlocA, iseed+1);
     int64_t iseeds[4] = { myrow, mycol, 2, 3 };
-    //lapack::larnv(2, iseeds, lldA*nlocA, &A_data[0] );
+    //lapack::larnv(2, iseeds, lldA*nlocA, &A_data[0]);
     for (int64_t j = 0; j < nlocA; ++j)
         lapack::larnv(2, iseeds, mlocA, &A_data[j*lldA]);
     zeroOutsideBand(&A_data[0], m, n, kl, ku, nb, nb, myrow, mycol, p, q, lldA);
@@ -137,7 +134,7 @@ void test_gbnorm_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            scalapack_descinit(A_desc, m, n, nb, nb, izero, izero, ictxt, lldA, &info);
+            scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, lldA, &info);
             slate_assert(info == 0);
 
             // set MKL num threads appropriately for parallel BLAS
@@ -155,7 +152,7 @@ void test_gbnorm_work(Params& params, bool run)
             time = barrier_get_wtime(MPI_COMM_WORLD);
             real_t A_norm_ref = scalapack_plange(
                                     norm2str(norm),
-                                    m, n, &A_data[0], ione, ione, A_desc, &worklange[0]);
+                                    m, n, &A_data[0], 1, 1, A_desc, &worklange[0]);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             // difference between norms

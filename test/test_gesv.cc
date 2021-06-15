@@ -25,7 +25,7 @@ void test_gesv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
-    // constants
+    // Constants
     const scalar_t one = 1.0;
 
     // get & mark input values
@@ -104,9 +104,6 @@ void test_gesv_work(Params& params, bool run)
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib}
     };
-
-    // constants
-    const int izero = 0, ione = 1;
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
@@ -409,11 +406,11 @@ void test_gesv_work(Params& params, bool run)
 
             // ScaLAPACK descriptor for the reference matrix
             int Aref_desc[9];
-            scalapack_descinit(Aref_desc, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
             int Bref_desc[9];
-            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
+            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
             // ScaLAPACK data for the reference matrix
@@ -428,7 +425,7 @@ void test_gesv_work(Params& params, bool run)
             if (params.routine == "getrs" || params.routine == "getrs_nopiv") {
                 // Factor matrix A.
                 scalapack_pgetrf(m, n,
-                                 &Aref_data[0], ione, ione, Aref_desc, &ipiv_ref[0], &info_ref);
+                                 &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info_ref);
                 slate_assert(info_ref == 0);
             }
 
@@ -438,17 +435,17 @@ void test_gesv_work(Params& params, bool run)
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             if (params.routine == "getrf" || params.routine == "getrf_nopiv") {
                 scalapack_pgetrf(m, n,
-                                 &Aref_data[0], ione, ione, Aref_desc, &ipiv_ref[0], &info_ref);
+                                 &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info_ref);
             }
             else if (params.routine == "getrs" || params.routine == "getrs_nopiv") {
                 scalapack_pgetrs(op2str(trans), n, nrhs,
-                                 &Aref_data[0], ione, ione, Aref_desc, &ipiv_ref[0],
-                                 &Bref_data[0], ione, ione, Bref_desc, &info_ref);
+                                 &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0],
+                                 &Bref_data[0], 1, 1, Bref_desc, &info_ref);
             }
             else {
                 scalapack_pgesv(n, nrhs,
-                                &Aref_data[0], ione, ione, Aref_desc, &ipiv_ref[0],
-                                &Bref_data[0], ione, ione, Bref_desc, &info_ref);
+                                &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0],
+                                &Bref_data[0], 1, 1, Bref_desc, &info_ref);
             }
             slate_assert(info_ref == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;

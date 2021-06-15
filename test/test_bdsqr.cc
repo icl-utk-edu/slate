@@ -26,6 +26,9 @@ void test_bdsqr_work(Params& params, bool run)
     using blas::imag;
     // typedef long long llong;
 
+    // Constants
+    const scalar_t zero = 0.0, one = 1.0;
+
     // get & mark input values
     slate::Uplo uplo = params.uplo();
     int64_t m = params.dim.m();
@@ -60,7 +63,6 @@ void test_bdsqr_work(Params& params, bool run)
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
 
     int64_t min_mn = std::min(m, n);
-    scalar_t zero = 0.0, one = 1.0, minusone = -1;
 
     // Local values
     int myrow, mycol;
@@ -195,11 +197,10 @@ void test_bdsqr_work(Params& params, bool run)
             slate::Matrix<scalar_t> Id;
             Id = slate::Matrix<scalar_t>(min_mn, min_mn, nb, p, q, MPI_COMM_WORLD);
             Id.insertLocalTiles();
-            set( zero, one, Id);
+            set(zero, one, Id);
 
-            const scalar_t minusone = -1;
             auto UT = conjTranspose(U);
-            slate::gemm(one, UT, U, minusone, Id);
+            slate::gemm(one, UT, U, -one, Id);
             params.ortho_U()  = slate::norm(slate::Norm::Fro, Id) / m;
         }
         // If we flip the fat matrix, then no need for Id_nn
@@ -207,9 +208,10 @@ void test_bdsqr_work(Params& params, bool run)
             slate::Matrix<scalar_t> Id_nn;
             Id_nn = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
             Id_nn.insertLocalTiles();
-            set( zero, one, Id_nn);
+            set(zero, one, Id_nn);
+
             auto VTT = conjTranspose(VT);
-            slate::gemm(one, VTT, VT, minusone, Id_nn);
+            slate::gemm(one, VTT, VT, -one, Id_nn);
             params.ortho_V()  = slate::norm(slate::Norm::Fro, Id_nn) / n;
         }
         params.okay() = ( (params.error() <= tol) && (params.ortho_U() <= tol)

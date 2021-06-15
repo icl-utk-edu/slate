@@ -28,6 +28,9 @@ void test_gels_work(Params& params, bool run)
     using blas::real;
     using llong = long long;
 
+    // Constants
+    const scalar_t zero = 0, one = 1;
+
     // get & mark input values
     slate::Op trans = params.trans();
     int64_t m = params.dim.m();
@@ -78,10 +81,6 @@ void test_gels_work(Params& params, bool run)
     int64_t opAm = (trans == slate::Op::NoTrans ? m : n);
     int64_t opAn = (trans == slate::Op::NoTrans ? n : m);
     int64_t maxmn = std::max(m, n);
-
-    // Constants
-    const int izero = 0, ione = 1;
-    const scalar_t zero = 0, one = 1;
 
     // Local values
     int myrow, mycol;
@@ -400,15 +399,15 @@ void test_gels_work(Params& params, bool run)
             slate_assert( mycol == mycol_ );
 
             int A_desc[9];
-            scalapack_descinit(A_desc, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
             int X0_desc[9];
-            scalapack_descinit(X0_desc, opAn, nrhs, nb, nb, izero, izero, ictxt, mlocX0, &info);
+            scalapack_descinit(X0_desc, opAn, nrhs, nb, nb, 0, 0, ictxt, mlocX0, &info);
             slate_assert(info == 0);
 
             int BX_desc[9];
-            scalapack_descinit(BX_desc, maxmn, nrhs, nb, nb, izero, izero, ictxt, mlocBX, &info);
+            scalapack_descinit(BX_desc, maxmn, nrhs, nb, nb, 0, 0, ictxt, mlocBX, &info);
             slate_assert(info == 0);
 
             // workspace for ScaLAPACK
@@ -422,10 +421,10 @@ void test_gels_work(Params& params, bool run)
             }
 
             int Aref_desc[9], BXref_desc[9];
-            scalapack_descinit(Aref_desc, m, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(BXref_desc, maxmn, nrhs, nb, nb, izero, izero, ictxt, mlocBX, &info);
+            scalapack_descinit(BXref_desc, maxmn, nrhs, nb, nb, 0, 0, ictxt, mlocBX, &info);
             slate_assert(info == 0);
 
             // set MKL num threads appropriately for parallel BLAS
@@ -438,8 +437,8 @@ void test_gels_work(Params& params, bool run)
             // query for workspace size
             scalar_t dummy;
             scalapack_pgels(op2str(trans), m, n, nrhs,
-                            &Aref_data[0],  ione, ione, Aref_desc,
-                            &BXref_data[0], ione, ione, BXref_desc,
+                            &Aref_data[0],  1, 1, Aref_desc,
+                            &BXref_data[0], 1, 1, BXref_desc,
                             &dummy, -1, &info_ref);
             slate_assert(info_ref == 0);
             lwork = int64_t( real( dummy ) );
@@ -450,8 +449,8 @@ void test_gels_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pgels(op2str(trans), m, n, nrhs,
-                            &Aref_data[0],  ione, ione, Aref_desc,
-                            &BXref_data[0], ione, ione, BXref_desc,
+                            &Aref_data[0],  1, 1, Aref_desc,
+                            &BXref_data[0], 1, 1, BXref_desc,
                             work.data(), lwork, &info_ref);
             slate_assert(info_ref == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;

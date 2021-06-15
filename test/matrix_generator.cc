@@ -72,6 +72,8 @@ void generate_sigma(
     using scalar_t = typename matrix_type::value_type;
     using real_t = blas::real_type<scalar_t>;
 
+    // Constants
+    const scalar_t zero = 0.0;
 
     // locals
     int64_t minmn = std::min( A.m(), A.n() );
@@ -177,7 +179,6 @@ void generate_sigma(
     }
 
     // copy Sigma => A
-    scalar_t zero = 0.0;
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
     set(zero, zero, A);
     int64_t S_index = 0;
@@ -1036,12 +1037,12 @@ void generate_matrix(
 {
     using real_t = blas::real_type<scalar_t>;
 
-    // constants
+    // Constants
     const real_t nan = std::numeric_limits<real_t>::quiet_NaN();
     const real_t d_zero = 0;
     const real_t d_one  = 1;
-    const scalar_t c_zero = 0;
-    const scalar_t c_one  = 1;
+    const scalar_t zero = 0;
+    const scalar_t one  = 1;
 
     // ----------
     // set Sigma to unknown (nan)
@@ -1062,19 +1063,19 @@ void generate_matrix(
     // ----- generate matrix
     switch (type) {
         case TestMatrixType::zero:
-            set(c_zero, c_zero, A);
+            set(zero, zero, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_zero, d_zero, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::identity:
-            set(c_zero, c_one, A);
+            set(zero, one, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_one, d_one, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::jordan: {
-            set(c_zero, c_one, A ); // ones on diagonal
+            set(zero, one, A ); // ones on diagonal
             // ones on sub-diagonal
             for (int64_t i = 0; i < nt; ++i) {
                 // Set 1 element from sub-diagonal tile to 1.
@@ -1191,12 +1192,12 @@ void generate_matrix(
 {
     using real_t = blas::real_type<scalar_t>;
 
-    // constants
+    // Constants
     const real_t nan = std::numeric_limits<real_t>::quiet_NaN();
     const real_t d_zero = 0;
     const real_t d_one  = 1;
-    const scalar_t c_zero = 0;
-    const scalar_t c_one  = 1;
+    const scalar_t zero = 0;
+    const scalar_t one  = 1;
 
     // ----------
     // set Sigma to unknown (nan)
@@ -1217,19 +1218,19 @@ void generate_matrix(
     // ----- generate matrix
     switch (type) {
         case TestMatrixType::zero:
-            set(c_zero, c_zero, A);
+            set(zero, zero, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_zero, d_zero, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::identity:
-            set(c_zero, c_one, A);
+            set(zero, one, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_one, d_one, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::jordan: {
-            set(c_zero, c_one, A ); // ones on diagonal
+            set(zero, one, A ); // ones on diagonal
             if (A.uplo() == Uplo::Lower) {
                 // ones on sub-diagonal
                 for (int64_t i = 0; i < nt; ++i) {

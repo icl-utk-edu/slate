@@ -25,6 +25,10 @@ void test_potri_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
+    // Constants
+    const scalar_t zero = 0;
+    const scalar_t one  = 1;
+
     // get & mark input values
     slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
@@ -63,10 +67,6 @@ void test_potri_work(Params& params, bool run)
 
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-
-    // constants
-    const scalar_t zero = 0;
-    const scalar_t one  = 1;
 
     // Local values
     int myrow, mycol;
@@ -180,13 +180,13 @@ void test_potri_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            scalapack_descinit(A_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(Aref_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(Cchk_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(Cchk_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
             // Check  || I - inv(A)*A || / ( || A || * N ) <=  tol * eps
@@ -210,16 +210,14 @@ void test_potri_work(Params& params, bool run)
             // multiplying A and A_inv.
             // Cchk_data starts with the same size/dimensions as A_data.
             std::vector<scalar_t> Cchk_data( A_data.size() );
-            scalar_t zero = 0.0;
-            scalar_t one = 1.0;
-            scalapack_plaset("All", n, n, zero, one, &Cchk_data[0], ione, ione, Cchk_desc);
+            scalapack_plaset("All", n, n, zero, one, &Cchk_data[0], 1, 1, Cchk_desc);
 
             // Cchk_data has been setup as an identity matrix; Cchk_data = C_chk - inv(A)*A
             // A should have real diagonal. potrf and potri ignore the img part on the diagonal
             scalapack_phemm("Left", uplo2str(uplo), n, n, -one,
-                            &A_data[0], ione, ione, A_desc,
-                            &Aref_data[0], ione, ione, Aref_desc, one,
-                            &Cchk_data[0], ione, ione, Cchk_desc);
+                            &A_data[0], 1, 1, A_desc,
+                            &Aref_data[0], 1, 1, Aref_desc, one,
+                            &Cchk_data[0], 1, 1, Cchk_desc);
 
             // Norm of Cchk_data ( = I - inv(A) * A )
             // allocate work space for lange and lanhe
@@ -228,11 +226,11 @@ void test_potri_work(Params& params, bool run)
             int lwork = std::max(n, 2*mlocA + nlocA + ldw);
             std::vector<real_t> worknorm(lwork);
             real_t C_norm = scalapack_plange(
-                                "One", n, n, &Cchk_data[0], ione, ione, Cchk_desc, &worknorm[0]);
+                                "One", n, n, &Cchk_data[0], 1, 1, Cchk_desc, &worknorm[0]);
 
             real_t A_inv_norm = scalapack_planhe(
                                     "One", uplo2str(A.uplo()),
-                                    n, &A_data[0], ione, ione, A_desc, &worknorm[0]);
+                                    n, &A_data[0], 1, 1, A_desc, &worknorm[0]);
 
             double residual = C_norm / (A_norm * n * A_inv_norm);
             params.error() = residual;

@@ -55,9 +55,6 @@ void test_hbnorm_work(Params& params, bool run)
         return;
     }
 
-    // Constants
-    const int izero = 0, ione = 1;
-
     // Local values
     int myrow, mycol;
     int mpi_rank;
@@ -134,7 +131,7 @@ void test_hbnorm_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            scalapack_descinit(A_desc, n, n, nb, nb, izero, izero, ictxt, lldA, &info);
+            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, lldA, &info);
             slate_assert(info == 0);
 
             // set MKL num threads appropriately for parallel BLAS
@@ -155,7 +152,7 @@ void test_hbnorm_work(Params& params, bool run)
             time = barrier_get_wtime(MPI_COMM_WORLD);
             real_t A_norm_ref = scalapack_planhe(
                                     norm2str(norm), uplo2str(A.uplo()),
-                                    n, &A_data[0], ione, ione, A_desc, &worklanhe[0]);
+                                    n, &A_data[0], 1, 1, A_desc, &worklanhe[0]);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             //A_norm_ref = lapack::lanhe(

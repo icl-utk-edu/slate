@@ -65,9 +65,6 @@ void test_heev_work(Params& params, bool run)
         {slate::Option::InnerBlocking, ib}
     };
 
-    // Constants
-    const int izero = 0, ione = 1;
-
     // Local values
     int myrow, mycol;
     int mpi_rank;
@@ -194,11 +191,11 @@ void test_heev_work(Params& params, bool run)
             slate_assert( mycol == mycol_ );
 
             int A_desc[9];
-            scalapack_descinit(A_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
             int Z_desc[9];
-            scalapack_descinit(Z_desc, n, n, nb, nb, izero, izero, ictxt, mlocZ, &info);
+            scalapack_descinit(Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
             slate_assert(info == 0);
 
             // set num threads appropriately for parallel BLAS if possible
@@ -213,10 +210,9 @@ void test_heev_work(Params& params, bool run)
             std::vector<scalar_t> work(1);
             std::vector<real_t> rwork(1);
             scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
-                            &Aref_data[0], ione, ione, A_desc,
+                            &Aref_data[0], 1, 1, A_desc,
                             &Wref_data[0], // global output
-                            &Z_data[0], // local output
-                            ione, ione, Z_desc,
+                            &Z_data[0], 1, 1, Z_desc,
                             &work[0], -1, &rwork[0], -1, &info_tst);
             slate_assert(info_tst == 0);
             lwork = int64_t( real( work[0] ) );
@@ -232,9 +228,9 @@ void test_heev_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
-                            &Aref_data[0], ione, ione, A_desc,
+                            &Aref_data[0], 1, 1, A_desc,
                             &Wref_data[0],
-                            &Z_data[0], ione, ione, Z_desc,
+                            &Z_data[0], 1, 1, Z_desc,
                             &work[0], lwork, &rwork[0], lrwork, &info_tst);
             slate_assert(info_tst == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;

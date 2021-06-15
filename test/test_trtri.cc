@@ -25,7 +25,7 @@ void test_trtri_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
-    // constants
+    // Constants
     const scalar_t one = 1.0, zero = 0.0;
 
     // get & mark input values
@@ -63,9 +63,6 @@ void test_trtri_work(Params& params, bool run)
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     };
-
-    // Constants
-    const int izero = 0, ione = 1;
 
     // Local values
     int myrow, mycol;
@@ -186,13 +183,13 @@ void test_trtri_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            scalapack_descinit(A_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(Aref_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(Cchk_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(Cchk_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
             //==================================================
@@ -245,8 +242,8 @@ void test_trtri_work(Params& params, bool run)
             // Aref_data = inv(A) * Aref_data
             scalapack_ptrmm("left", uplo2str(uplo), "notrans", diag2str(diag),
                             n, n, one,
-                            &A_data[0], ione, ione, A_desc,
-                            &Aref_data[0], ione, ione, Aref_desc);
+                            &A_data[0], 1, 1, A_desc,
+                            &Aref_data[0], 1, 1, Aref_desc);
 
             // Make Cchk_data into an identity matrix
             slate::set(zero, one, C);
@@ -263,7 +260,9 @@ void test_trtri_work(Params& params, bool run)
             // Norm of Cchk_data ( = I - inv(A) * A )
             //// real_t C_norm = slate::norm(slate::norm::One, C);
             std::vector<real_t> worklange(n);
-            real_t C_norm = scalapack_plange("One", n, n, &Cchk_data[0], ione, ione, Cchk_desc, &worklange[0]);
+            real_t C_norm
+                = scalapack_plange(
+                      "1", n, n, &Cchk_data[0], 1, 1, Cchk_desc, &worklange[0]);
 
             double residual = C_norm / (A_norm * n);
             params.error() = residual;

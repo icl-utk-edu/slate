@@ -26,7 +26,7 @@ void test_hegst_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
-    // constants
+    // Constants
     const scalar_t one = 1.0;
 
     // get & mark input values
@@ -164,15 +164,13 @@ void test_hegst_work(Params& params, bool run)
             Cblacs_get(-1, 0, &ictxt);
             Cblacs_gridinit(&ictxt, "Col", p, q);
 
-            const int izero = 0;
             int A_desc[9], B_desc[9], info;
             scalapack_descinit(
-                A_desc, n, n, nb, nb, izero, izero, ictxt, mlocal, &info);
+                A_desc, n, n, nb, nb, 0, 0, ictxt, mlocal, &info);
             slate_assert(info == 0);
             scalapack_descinit(
-                B_desc, n, n, nb, nb, izero, izero, ictxt, mlocal, &info);
+                B_desc, n, n, nb, nb, 0, 0, ictxt, mlocal, &info);
             slate_assert(info == 0);
-            const int64_t ione = 1;
             double scale;
 
             copy( A, &A_data[0], A_desc );
@@ -192,8 +190,8 @@ void test_hegst_work(Params& params, bool run)
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
             scalapack_phegst(itype, uplo2str(uplo), n,
-                             Aref_data.data(), ione, ione, A_desc,
-                             B_data.data(),     ione, ione, B_desc,
+                             Aref_data.data(), 1, 1, A_desc,
+                             B_data.data(),    1, 1, B_desc,
                              &scale, &info);
             slate_assert(info == 0);
 

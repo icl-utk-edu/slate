@@ -28,6 +28,10 @@ void test_steqr2_work(Params& params, bool run)
     using llong = long long;
     // typedef long long llong;
 
+    // Constants
+    const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
+
     // get & mark input values
     int64_t n = params.dim.n();
     int64_t nb = params.nb();
@@ -56,10 +60,6 @@ void test_steqr2_work(Params& params, bool run)
         MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
     slate_mpi_call(
         MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
-
-    // Constants
-    scalar_t zero = 0.0;
-    scalar_t one = 1.0;
 
     // Local values
     int myrow, mycol;
@@ -177,12 +177,11 @@ void test_steqr2_work(Params& params, bool run)
         //           n
         //
         //==================================================
-        const scalar_t minusone = -1;
         params.ortho() = 0.;
         if (wantz) {
             auto ZT = conjTranspose(Z);
             set(zero, one, A);
-            slate::gemm(one, ZT, Z, minusone, A);
+            slate::gemm(one, ZT, Z, -one, A);
             params.ortho() = slate::norm(slate::Norm::Fro, A) / n;
         }
         params.okay() = (params.error() <= tol) && (params.ortho() <= tol);

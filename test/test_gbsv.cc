@@ -28,7 +28,8 @@ void test_gbsv_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
     using llong = long long;
 
-    // constants
+    // Constants
+    const int izero = 0, ione = 1;
     const scalar_t one = 1.0;
 
     // get & mark input values
@@ -81,9 +82,6 @@ void test_gbsv_work(Params& params, bool run)
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib}
     };
-
-    // Constants
-    const int izero = 0, ione = 1;
 
     // Local values
     int myrow, mycol;

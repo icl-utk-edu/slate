@@ -26,6 +26,9 @@ void test_posv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
+    // Constants
+    const scalar_t one = 1.0;
+
     // get & mark input values
     slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
@@ -82,10 +85,6 @@ void test_posv_work(Params& params, bool run)
             return;
         }
     }
-
-    // Constants
-    const scalar_t one = 1.0;
-    const int izero = 0, ione = 1;
 
     // Local values
     int myrow, mycol;
@@ -343,16 +342,16 @@ void test_posv_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            scalapack_descinit(A_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(B_desc, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
+            scalapack_descinit(B_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(Aref_desc, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
+            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
             // set MKL num threads appropriately for parallel BLAS
@@ -364,13 +363,13 @@ void test_posv_work(Params& params, bool run)
             if (check) {
                 // restore Bref_data
                 Bref_data = B_orig;
-                //scalapack_descinit(Bref_desc, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
+                //scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
                 //slate_assert(info == 0);
             }
 
             if (params.routine == "potrs") {
                 // Factor matrix A.
-                scalapack_ppotrf(uplo2str(uplo), n, &Aref_data[0], ione, ione, Aref_desc, &info);
+                scalapack_ppotrf(uplo2str(uplo), n, &Aref_data[0], 1, 1, Aref_desc, &info);
                 slate_assert(info == 0);
             }
 
@@ -379,13 +378,13 @@ void test_posv_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             if (params.routine == "potrf") {
-                scalapack_ppotrf(uplo2str(uplo), n, &Aref_data[0], ione, ione, Aref_desc, &info);
+                scalapack_ppotrf(uplo2str(uplo), n, &Aref_data[0], 1, 1, Aref_desc, &info);
             }
             else if (params.routine == "potrs") {
-                scalapack_ppotrs(uplo2str(uplo), n, nrhs, &Aref_data[0], ione, ione, Aref_desc, &Bref_data[0], ione, ione, Bref_desc, &info);
+                scalapack_ppotrs(uplo2str(uplo), n, nrhs, &Aref_data[0], 1, 1, Aref_desc, &Bref_data[0], 1, 1, Bref_desc, &info);
             }
             else {
-                scalapack_pposv(uplo2str(uplo), n, nrhs, &Aref_data[0], ione, ione, Aref_desc, &Bref_data[0], ione, ione, Bref_desc, &info);
+                scalapack_pposv(uplo2str(uplo), n, nrhs, &Aref_data[0], 1, 1, Aref_desc, &Bref_data[0], 1, 1, Bref_desc, &info);
             }
             slate_assert(info == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;

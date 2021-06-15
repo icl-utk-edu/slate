@@ -23,6 +23,9 @@ void test_tb2bd_work(Params& params, bool run)
     using blas::real;
     using blas::imag;
 
+    // Constants
+    const scalar_t zero = 0.0;
+
     // get & mark input values
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
@@ -131,7 +134,7 @@ void test_tb2bd_work(Params& params, bool run)
                     if (i > 0) {
                         auto T_ptr = A.tileInsert( i, j-1 );
                         lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                                      0, 0, T_ptr->data(), T_ptr->stride());
+                                      zero, zero, T_ptr->data(), T_ptr->stride());
                     }
                 }
 
@@ -140,7 +143,7 @@ void test_tb2bd_work(Params& params, bool run)
                     //      0, 0, A(i, j).data(), A(i, j).stride());
                     auto T_ptr = A.tileInsert( i, j+1 );
                     lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                                  0, 0, T_ptr->data(), T_ptr->stride());
+                                  zero, zero, T_ptr->data(), T_ptr->stride());
                 }
             }
             ii += A.tileMb(i);

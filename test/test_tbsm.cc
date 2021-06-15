@@ -86,9 +86,6 @@ void test_tbsm_work(Params& params, bool run)
     int64_t Bm  = m;  //(transB == slate::Op::NoTrans ? m : n);
     int64_t Bn  = n;  //(transB == slate::Op::NoTrans ? n : m);
 
-    // Constants
-    const int izero = 0, ione = 1;
-
     // Local values
     int myrow, mycol;
     int mpi_rank;
@@ -216,13 +213,13 @@ void test_tbsm_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            scalapack_descinit(A_desc, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(A_desc, Am, An, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(B_desc, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
+            scalapack_descinit(B_desc, Bm, Bn, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(Bref_desc, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
+            scalapack_descinit(Bref_desc, Bm, Bn, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
             // set MKL num threads appropriately for parallel BLAS
@@ -235,8 +232,8 @@ void test_tbsm_work(Params& params, bool run)
             std::vector<real_t> worklange(std::max(mlocB, nlocB));
 
             // get norms of the original data
-            real_t A_norm = scalapack_plantr(norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_data[0], ione, ione, A_desc, &worklantr[0]);
-            real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_data[0], ione, ione, B_desc, &worklange[0]);
+            real_t A_norm = scalapack_plantr(norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_data[0], 1, 1, A_desc, &worklantr[0]);
+            real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_data[0], 1, 1, B_desc, &worklange[0]);
 
             if (verbose > 1) {
                 print_matrix("Bref_data", mlocB, nlocB, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD);
@@ -249,8 +246,8 @@ void test_tbsm_work(Params& params, bool run)
             time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_ptrsm(side2str(side), uplo2str(uplo), op2str(transA), diag2str(diag),
                             m, n, alpha,
-                            &A_data[0], ione, ione, A_desc,
-                            &Bref_data[0], ione, ione, Bref_desc);
+                            &A_data[0], 1, 1, A_desc,
+                            &Bref_data[0], 1, 1, Bref_desc);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             if (verbose > 1) {
@@ -260,7 +257,7 @@ void test_tbsm_work(Params& params, bool run)
             blas::axpy(Bref_data.size(), -1.0, &B_data[0], 1, &Bref_data[0], 1);
 
             // norm(Bref_data - B_data)
-            real_t B_diff_norm = scalapack_plange(norm2str(norm), Bm, Bn, &Bref_data[0], ione, ione, Bref_desc, &worklange[0]);
+            real_t B_diff_norm = scalapack_plange(norm2str(norm), Bm, Bn, &Bref_data[0], 1, 1, Bref_desc, &worklange[0]);
 
             if (verbose > 1) {
                 print_matrix("B_diff", mlocB, nlocB, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD);

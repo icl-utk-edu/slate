@@ -28,6 +28,9 @@ void test_trsm_work(Params& params, bool run)
     using blas::real;
     // using llong = long long;
 
+    // Constants
+    const scalar_t one = 1;
+
     // get & mark input values
     slate::Side side = params.side();
     slate::Uplo uplo = params.uplo();
@@ -75,10 +78,7 @@ void test_trsm_work(Params& params, bool run)
     int64_t Bm  = m;
     int64_t Bn  = n;
 
-    // constants
-    const int izero = 0, ione = 1;
-
-    // local values
+    // Local values
     int myrow, mycol;
     int mpi_rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
@@ -199,7 +199,6 @@ void test_trsm_work(Params& params, bool run)
         auto AZ = static_cast< slate::TrapezoidMatrix<scalar_t> >( opA );
         real_t A_norm = slate::norm(norm, AZ);
 
-        scalar_t one = 1;
         slate::trmm(side, one/alpha, opA, B);
         slate::geadd(-one, Bref, one, B);
         real_t error = slate::norm(norm, B);
@@ -233,13 +232,13 @@ void test_trsm_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            scalapack_descinit(A_desc, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(A_desc, Am, An, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(B_desc, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
+            scalapack_descinit(B_desc, Bm, Bn, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(Bref_desc, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
+            scalapack_descinit(Bref_desc, Bm, Bn, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
             copy( A, &A_data[0], A_desc );
@@ -257,8 +256,8 @@ void test_trsm_work(Params& params, bool run)
             time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_ptrsm(side2str(side), uplo2str(uplo), op2str(transA), diag2str(diag),
                             m, n, alpha,
-                            &A_data[0], ione, ione, A_desc,
-                            &Bref_data[0], ione, ione, Bref_desc);
+                            &A_data[0], 1, 1, A_desc,
+                            &Bref_data[0], 1, 1, Bref_desc);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             if (verbose >= 2) {

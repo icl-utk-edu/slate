@@ -71,9 +71,6 @@ void test_syr2k_work(Params& params, bool run)
     int64_t Cm = n;
     int64_t Cn = n;
 
-    // Constants
-    const int izero = 0, ione = 1;
-
     // Local values
     int myrow, mycol;
     int mpi_rank;
@@ -198,16 +195,16 @@ void test_syr2k_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            scalapack_descinit(A_desc, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(A_desc, Am, An, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(B_desc, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
+            scalapack_descinit(B_desc, Bm, Bn, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(C_desc, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
+            scalapack_descinit(C_desc, Cm, Cn, nb, nb, 0, 0, ictxt, mlocC, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(Cref_desc, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
+            scalapack_descinit(Cref_desc, Cm, Cn, nb, nb, 0, 0, ictxt, mlocC, &info);
             slate_assert(info == 0);
 
             if (origin != slate::Origin::ScaLAPACK) {
@@ -229,25 +226,25 @@ void test_syr2k_work(Params& params, bool run)
             std::vector< real_t > worklange(std::max({mlocA, mlocB, nlocA, nlocB}));
 
             // get norms of the original data
-            real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_data[0], ione, ione, A_desc, &worklange[0]);
-            real_t B_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_data[0], ione, ione, B_desc, &worklange[0]);
-            real_t C_orig_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &Cref_data[0], ione, ione, Cref_desc, &worklansy[0]);
+            real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_data[0], 1, 1, A_desc, &worklange[0]);
+            real_t B_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_data[0], 1, 1, B_desc, &worklange[0]);
+            real_t C_orig_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &Cref_data[0], 1, 1, Cref_desc, &worklansy[0]);
 
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
             time = barrier_get_wtime( MPI_COMM_WORLD );
             scalapack_psyr2k(uplo2str(uplo), op2str(trans), n, k, alpha,
-                             &A_data[0], ione, ione, A_desc,
-                             &B_data[0], ione, ione, B_desc, beta,
-                             &Cref_data[0], ione, ione, Cref_desc);
+                             &A_data[0], 1, 1, A_desc,
+                             &B_data[0], 1, 1, B_desc, beta,
+                             &Cref_data[0], 1, 1, Cref_desc);
             time = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
             // local operation: error = Cref_data - C_data
             blas::axpy(Cref_data.size(), -1.0, &C_data[0], 1, &Cref_data[0], 1);
 
             // norm(Cref_data - C_data)
-            real_t C_diff_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &Cref_data[0], ione, ione, Cref_desc, &worklansy[0]);
+            real_t C_diff_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &Cref_data[0], 1, 1, Cref_desc, &worklansy[0]);
 
             real_t error = C_diff_norm
                          / (sqrt(real_t(2*k) + 2) * std::abs(alpha) * A_norm * B_norm

@@ -32,6 +32,13 @@ void test_gbmm_work(Params& params, bool run)
     using slate::Norm;
     //using llong = long long;
 
+    // Constants
+    #ifdef SLATE_HAVE_SCALAPACK
+        const int izero = 0, ione = 1;
+    #else
+        const scalar_t one = 1;
+    #endif
+
     // get & mark input values
     slate::Op transA = params.transA();
     slate::Op transB = params.transB();
@@ -84,13 +91,6 @@ void test_gbmm_work(Params& params, bool run)
     int64_t An = (transA == slate::Op::NoTrans ? k : m);
     int64_t Bm = (transB == slate::Op::NoTrans ? k : n);
     int64_t Bn = (transB == slate::Op::NoTrans ? n : k);
-
-    // constants
-    #ifdef SLATE_HAVE_SCALAPACK
-        int izero = 0, ione = 1;
-    #else
-        const scalar_t one = 1;
-    #endif
 
     // Local values
     int myrow, mycol;

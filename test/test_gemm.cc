@@ -27,6 +27,9 @@ void test_gemm_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
     using slate::Norm;
 
+    // Constants
+    const scalar_t one = 1.0;
+
     // get & mark input values
     slate::Op transA = params.transA();
     slate::Op transB = params.transB();
@@ -81,9 +84,6 @@ void test_gemm_work(Params& params, bool run)
     int64_t Bn = (transB == slate::Op::NoTrans ? n : k);
     int64_t Cm = m;
     int64_t Cn = n;
-
-    // constants
-    const int izero = 0, ione = 1;
 
     // Local values
     int myrow, mycol;
@@ -243,14 +243,14 @@ void test_gemm_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            scalapack_descinit(A_desc, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
+            scalapack_descinit(A_desc, Am, An, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
-            scalapack_descinit(B_desc, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
+            scalapack_descinit(B_desc, Bm, Bn, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
-            scalapack_descinit(C_desc, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
+            scalapack_descinit(C_desc, Cm, Cn, nb, nb, 0, 0, ictxt, mlocC, &info);
             slate_assert(info == 0);
 
-            scalapack_descinit(Cref_desc, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
+            scalapack_descinit(Cref_desc, Cm, Cn, nb, nb, 0, 0, ictxt, mlocC, &info);
             slate_assert(info == 0);
 
             if (origin != slate::Origin::ScaLAPACK) {
@@ -275,9 +275,9 @@ void test_gemm_work(Params& params, bool run)
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
             scalapack_pgemm(op2str(transA), op2str(transB), m, n, k, alpha,
-                            &A_data[0], ione, ione, A_desc,
-                            &B_data[0], ione, ione, B_desc, beta,
-                            &Cref_data[0], ione, ione, Cref_desc);
+                            &A_data[0], 1, 1, A_desc,
+                            &B_data[0], 1, 1, B_desc, beta,
+                            &Cref_data[0], 1, 1, Cref_desc);
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -285,7 +285,6 @@ void test_gemm_work(Params& params, bool run)
                 print_matrix("Cref2", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
 
             // get differences C_data = C_data - Cref_data
-            scalar_t one=1;
             slate::geadd(-one, Cref, one, C);
 
             if (verbose >= 2)

@@ -25,6 +25,13 @@ void test_hbmm_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
     using slate::Norm;
 
+    // Constants
+    #ifdef SLATE_HAVE_SCALAPACK
+        const int izero = 0, ione = 1;
+    #else
+        const scalar_t one = 1;
+    #endif
+
     // get & mark input values
     slate::Side side = params.side();
     slate::Uplo uplo = params.uplo();
@@ -79,13 +86,6 @@ void test_hbmm_work(Params& params, bool run)
     int64_t Bn = n;
     int64_t Cm = m;
     int64_t Cn = n;
-
-    // Constants
-    #ifdef SLATE_HAVE_SCALAPACK
-        const int izero = 0, ione = 1;
-    #else
-        const scalar_t one = 1;
-    #endif
 
     // Local values
     int myrow, mycol;

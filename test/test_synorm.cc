@@ -63,7 +63,7 @@ void test_synorm_work(Params& params, bool run)
     // matrix A, figure out local size, allocate, create descriptor, initialize
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
-    int64_t lldA  = std::max(int64_t(1), mlocA);
+    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector<scalar_t> A_data(lldA*nlocA);
 
     // todo: work-around to initialize BaseMatrix::num_devices_

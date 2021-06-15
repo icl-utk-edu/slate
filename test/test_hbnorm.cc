@@ -63,13 +63,13 @@ void test_hbnorm_work(Params& params, bool run)
     // matrix A, figure out local size, allocate, create descriptor, initialize
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
-    int64_t lldA  = std::max(int64_t(1), mlocA);
+    int64_t lldA  = blas::max(1, mlocA);
     std::vector<scalar_t> A_data(lldA*nlocA);
     // todo: fix the generation
     // int iseed = 1;
     // scalapack_pplrnt(&A_data[0], n, n, nb, nb, myrow, mycol, p, q, mlocA, iseed+1);
     int64_t iseeds[4] = { myrow, mycol, 2, 3 };
-    //lapack::larnv(2, iseeds, lldA*nlocA, &A_data[0] );
+    //lapack::larnv(2, iseeds, lldA*nlocA, &A_data[0]);
     for (int64_t j = 0; j < nlocA; ++j)
         lapack::larnv(2, iseeds, mlocA, &A_data[j*lldA]);
 

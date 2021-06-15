@@ -248,9 +248,6 @@ void test_genorm_work(Params& params, bool run)
 
             //---------- extended tests
             if (extended && scope == slate::NormScope::Matrix) {
-                // allocate work space
-                std::vector<real_t> worklange(std::max(mlocA, nlocA));
-
                 // seed all MPI processes the same
                 srand(1234);
 
@@ -312,7 +309,7 @@ void test_genorm_work(Params& params, bool run)
                                     A.tileGetForWriting(i, j, A.tileDevice(i, j), slate::LayoutConvert::ColMajor);
                                 }
 
-                                real_t A_norm = slate::norm(norm, A, opts);
+                                A_norm = slate::norm(norm, A, opts);
 
                                 A_norm_ref = scalapack_plange(
                                                  norm2str(norm), m, n,
@@ -320,7 +317,7 @@ void test_genorm_work(Params& params, bool run)
                                                  &worklange[0]);
 
                                 // difference between norms
-                                real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
+                                error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
                                 if (norm == slate::Norm::One) {
                                     error /= sqrt(m);
                                 }
@@ -330,14 +327,6 @@ void test_genorm_work(Params& params, bool run)
                                 else if (norm == slate::Norm::Fro) {
                                     error /= sqrt(m*n);
                                 }
-
-                                // Allow for difference, except max norm in real should be exact.
-                                real_t eps = std::numeric_limits<real_t>::epsilon();
-                                real_t tol;
-                                if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
-                                    tol = 0;
-                                else
-                                    tol = 10*eps;
 
                                 if (mpi_rank == 0) {
                                     // if peak is nan, expect A_norm to be nan.

@@ -303,9 +303,9 @@ void generate_svd(
         for (int64_t i = 0; i < min_mt_nt; ++i) {
             if (A.tileIsLocal(i, i)) {
                 A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
-                auto T = A(i, i);
+                auto Aii = A(i, i);
                 for (int ii = 0; ii < A.tileNb(i); ++ii) {
-                    T.at(ii, ii) = Sigma[S_index + ii];
+                    Aii.at(ii, ii) = Sigma[S_index + ii];
                 }
             }
             S_index += A.tileNb(i);
@@ -415,10 +415,10 @@ void generate_svd(
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
                     A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
-                    auto T = A(i, j);
+                    auto Aij = A(i, j);
                     for (int jj = 0; jj < A.tileNb(j); ++jj) {
                         for (int ii = 0; ii < A.tileMb(i); ++ii) {
-                            T.at(ii, jj) *= D[J_index + jj];
+                            Aij.at(ii, jj) *= D[J_index + jj];
                         }
                     }
                 }
@@ -508,9 +508,9 @@ void generate_heev(
     for (int64_t i = 0; i < nt; ++i) {
         if (A.tileIsLocal(i, i)) {
             A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
-            auto T = A(i, i);
+            auto Aii = A(i, i);
             for (int ii = 0; ii < A.tileMb(i); ++ii) {
-                T.at(ii, ii) = std::real( T.at(ii, ii) );
+                Aii.at(ii, ii) = std::real( Aii.at(ii, ii) );
             }
         }
     }
@@ -531,10 +531,10 @@ void generate_heev(
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
                     A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
-                    auto T = A(i, j);
+                    auto Aij = A(i, j);
                     for (int jj = 0; jj < A.tileMb(j); ++jj) {
                         for (int ii = 0; ii < A.tileMb(i); ++ii) {
-                            T.at(ii, jj) *= D[I_index + ii] * D[J_index + jj];
+                            Aij.at(ii, jj) *= D[I_index + ii] * D[J_index + jj];
                         }
                     }
                 }

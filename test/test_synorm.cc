@@ -260,7 +260,7 @@ void test_synorm_work(Params& params, bool run)
                                 A.tileGetForWriting(i, j, A.tileDevice(i, j), slate::LayoutConvert::ColMajor);
                             }
 
-                            real_t A_norm = slate::norm(norm, A, opts);
+                            A_norm = slate::norm(norm, A, opts);
 
                             real_t A_norm_ref = scalapack_plansy(
                                                     norm2str(norm), uplo2str(A.uplo()),

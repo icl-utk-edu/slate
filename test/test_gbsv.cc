@@ -137,7 +137,7 @@ void test_gbsv_work(Params& params, bool run)
 
     if (verbose > 1) {
         printf("%% rank %d A kl %lld, ku %lld\n",
-               A.mpiRank(), llong( A.lowerBandwidth( )), llong( A.upperBandwidth( )));
+               A.mpiRank(), llong( A.lowerBandwidth() ), llong( A.upperBandwidth() ));
         print_matrix("A", A);
         print_matrix("B", B);
     }
@@ -213,16 +213,17 @@ void test_gbsv_work(Params& params, bool run)
 
         if (verbose > 1) {
             printf("%% rank %d A2 kl %lld, ku %lld\n",
-                   A.mpiRank(), llong( A.lowerBandwidth( )), llong( A.upperBandwidth( )));
+                   A.mpiRank(), llong( A.lowerBandwidth() ), llong( A.upperBandwidth() ));
             print_matrix("A2", A);
             print_matrix("B2", B);
             printf( "nb = %lld;\n", llong( nb ) );
             printf( "pivots = [\n" );
             int ii = 0;
-            for (auto p1: pivots) {
+            for (auto pivot: pivots) {
                 int i = ii / nb;
-                for (auto p: p1) {
-                    printf( "  %d*nb + %lld*nb + %lld\n", i, llong( p.tileIndex( )), llong( p.elementOffset( )) );
+                for (auto piv: pivot) {
+                    printf( "  %d*nb + %lld*nb + %lld\n", i,
+                            llong( piv.tileIndex() ), llong( piv.elementOffset() ) );
                     ++ii;
                 }
                 printf( "\n" );

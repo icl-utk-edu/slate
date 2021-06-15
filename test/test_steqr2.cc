@@ -172,8 +172,8 @@ void test_steqr2_work(Params& params, bool run)
         //==================================================
         // Test results by checking the orthogonality of Q
         //
-        //      || Q'Q - I ||_f
-        //     ---------------- < tol * epsilon
+        //     || Q^H Q - I ||_f
+        //     ----------------- < tol * epsilon
         //           n
         //
         //==================================================

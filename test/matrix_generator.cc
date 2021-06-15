@@ -348,7 +348,7 @@ void generate_svd(
     // we need to make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
     // However, currently we do geqrf here,
-    // since we don’t have a way to make Householder vectors (no distributed larfg).
+    // since we don't have a way to make Householder vectors (no distributed larfg).
     slate::geqrf(U, T);
 
     // A = U*A
@@ -388,8 +388,8 @@ void generate_svd(
     slate::unmqr( slate::Side::Right, slate::Op::ConjTrans, V, T, A);
 
     if (condD != 1) {
-        // A = A*W, W orthogonal, such that A has unit column norms
-        // i.e., A'*A is a correlation matrix with unit diagonal
+        // A = A*W, W orthogonal, such that A has unit column norms,
+        // i.e., A^H A is a correlation matrix with unit diagonal
         // TODO: uncomment generate_correlation_factor
         //generate_correlation_factor( A );
 

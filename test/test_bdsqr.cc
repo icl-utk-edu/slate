@@ -194,29 +194,27 @@ void test_bdsqr_work(Params& params, bool run)
         params.ortho_U() = 0.;
         params.ortho_V() = 0.;
         if (wantu) {
-            slate::Matrix<scalar_t> Id;
-            Id = slate::Matrix<scalar_t>(min_mn, min_mn, nb, p, q, MPI_COMM_WORLD);
+            slate::Matrix<scalar_t> Id(min_mn, min_mn, nb, p, q, MPI_COMM_WORLD);
             Id.insertLocalTiles();
             set(zero, one, Id);
 
             auto UT = conjTranspose(U);
             slate::gemm(one, UT, U, -one, Id);
-            params.ortho_U()  = slate::norm(slate::Norm::Fro, Id) / m;
+            params.ortho_U() = slate::norm(slate::Norm::Fro, Id) / m;
         }
-        // If we flip the fat matrix, then no need for Id_nn
+        // If we flip the fat matrix, then no need for Id
         if (wantvt) {
-            slate::Matrix<scalar_t> Id_nn;
-            Id_nn = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
-            Id_nn.insertLocalTiles();
-            set(zero, one, Id_nn);
+            slate::Matrix<scalar_t> Id(n, n, nb, p, q, MPI_COMM_WORLD);
+            Id.insertLocalTiles();
+            set(zero, one, Id);
 
             auto VTT = conjTranspose(VT);
-            slate::gemm(one, VTT, VT, -one, Id_nn);
-            params.ortho_V()  = slate::norm(slate::Norm::Fro, Id_nn) / n;
+            slate::gemm(one, VTT, VT, -one, Id);
+            params.ortho_V() = slate::norm(slate::Norm::Fro, Id) / n;
         }
-        params.okay() = ( (params.error() <= tol) && (params.ortho_U() <= tol)
-                          && (params.ortho_V() <= tol));
-
+        params.okay() = (params.error() <= tol)
+                        && (params.ortho_U() <= tol)
+                        && (params.ortho_V() <= tol);
     }
 }
 

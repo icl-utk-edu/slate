@@ -104,8 +104,6 @@ void test_genorm_work(Params& params, bool run)
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
-    double time = barrier_get_wtime(MPI_COMM_WORLD);
-
     real_t A_norm = 0;
     if (! ref_only) {
 
@@ -113,6 +111,7 @@ void test_genorm_work(Params& params, bool run)
         // Run SLATE test.
         // Compute || A ||_norm.
         //==================================================
+        double time = barrier_get_wtime(MPI_COMM_WORLD);
 
         if (scope == slate::NormScope::Matrix) {
             A_norm = slate::norm(norm, A, opts);
@@ -186,25 +185,24 @@ void test_genorm_work(Params& params, bool run)
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
-            time = barrier_get_wtime(MPI_COMM_WORLD);
+            double time = barrier_get_wtime(MPI_COMM_WORLD);
             if (scope == slate::NormScope::Matrix) {
                 A_norm_ref = scalapack_plange(
                                  norm2str(op_norm),
                                  m, n, &A_data[0], 1, 1, A_desc, &worklange[0]);
-                time = MPI_Barrier(MPI_COMM_WORLD) - time;
             }
             else if (scope == slate::NormScope::Columns) {
                 for (int64_t c = 0; c < n; ++c) {
                     A_norm_ref = scalapack_plange(
                                      norm2str(norm),
                                      m, 1, &A_data[0], 1, c+1, A_desc, &worklange[0]);
-                    time = MPI_Barrier(MPI_COMM_WORLD) - time;
                     error += std::abs(values[c] - A_norm_ref) / A_norm_ref;
                 }
             }
             else if (scope == slate::NormScope::Rows) {
                 // todo
             }
+            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             //A_norm_ref = lapack::lange(
             //    op_norm,

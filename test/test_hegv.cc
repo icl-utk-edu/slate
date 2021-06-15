@@ -133,9 +133,9 @@ void test_hegv_work(Params& params, bool run)
     slate::generate_matrix( params.matrixC, Z);
 
     if (verbose >= 1) {
-        printf("%% A   %6lld-by-%6lld\n", llong(A.m()), llong(A.n()));
-        printf("%% B   %6lld-by-%6lld\n", llong(B.m()), llong(B.n()));
-        printf("%% Z   %6lld-by-%6lld\n", llong(Z.m()), llong(Z.n()));
+        printf("%% A   %6lld-by-%6lld\n", llong( A.m() ), llong( A.n() ));
+        printf("%% B   %6lld-by-%6lld\n", llong( B.m() ), llong( B.n() ));
+        printf("%% Z   %6lld-by-%6lld\n", llong( Z.m() ), llong( Z.n() ));
     }
 
     if (verbose >= 2) {
@@ -345,10 +345,9 @@ void test_hegv_work(Params& params, bool run)
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
             const char* range = "A";
-            int64_t ia=1, ja=1, ib=1, jb=1, iz=1, jz=1;
             int64_t vl=0, vu=0, il=0, iu=0;
             real_t abstol=0;
-            int64_t m=0, nz=0;
+            int64_t nfound=0, nzfound=0;
             real_t orfac=0;
 
             // query for workspace size
@@ -365,11 +364,14 @@ void test_hegv_work(Params& params, bool run)
             std::vector<int> iclustr(2*p*q);
             std::vector<real_t> gap(p*q);
             scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
-                             &Aref_data[0], ia, ja, A_desc,
-                             &Bref_data[0], ib, jb, B_desc,
-                             vl, vu, il, iu, abstol, &m, &nz, &Wref_data[0], orfac,
-                             &Zref_data[0], iz, jz, Z_desc,
-                             &work[0], lwork, &rwork[0], lrwork, &iwork[0], liwork,
+                             &Aref_data[0], 1, 1, A_desc,
+                             &Bref_data[0], 1, 1, B_desc,
+                             vl, vu, il, iu, abstol, &nfound, &nzfound,
+                             &Wref_data[0], orfac,
+                             &Zref_data[0], 1, 1, Z_desc,
+                             &work[0], lwork,
+                             &rwork[0], lrwork,
+                             &iwork[0], liwork,
                              &ifail[0], &iclustr[0], &gap[0], &info_tst);
 
             // resize workspace based on query for workspace sizes
@@ -390,16 +392,14 @@ void test_hegv_work(Params& params, bool run)
             double time = barrier_get_wtime(mpi_comm);
 
             scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
-                             &Aref_data[0], // local input/local output
-                             ia, ja, A_desc,
-                             &Bref_data[0], // local input/local output
-                             ib, jb, B_desc,
-                             vl, vu, il, iu, abstol, &m, &nz,
-                             &Wref_data[0], // global output
-                             orfac,
-                             &Zref_data[0], // local output
-                             iz, jz, Z_desc,
-                             &work[0], lwork, &rwork[0], lrwork, &iwork[0], liwork,
+                             &Aref_data[0], 1, 1, A_desc,
+                             &Bref_data[0], 1, 1, B_desc,
+                             vl, vu, il, iu, abstol, &nfound, &nzfound,
+                             &Wref_data[0], orfac,
+                             &Zref_data[0], 1, 1, Z_desc,
+                             &work[0], lwork,
+                             &rwork[0], lrwork,
+                             &iwork[0], liwork,
                              &ifail[0], &iclustr[0], &gap[0], &info_tst);
 
             slate_assert(info_tst == 0);

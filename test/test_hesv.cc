@@ -106,7 +106,6 @@ void test_hesv_work(Params& params, bool run)
 
     //---------------------
     // right-hand-side and solution vectors
-    int B_desc[9], Bref_desc[9];
     std::vector<scalar_t> Bref_data;
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
@@ -191,6 +190,7 @@ void test_hesv_work(Params& params, bool run)
             // BLACS/MPI variables
             int ictxt, p_, q_, myrow_, mycol_, info;
             int A_desc[9], Aref_desc[9];
+            int B_desc[9], Bref_desc[9];
             int mpi_rank_ = 0, nprocs = 1;
 
             //---------------------
@@ -260,6 +260,7 @@ void test_hesv_work(Params& params, bool run)
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else
+            SLATE_UNUSED(one);
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

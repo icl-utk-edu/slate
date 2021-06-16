@@ -312,6 +312,11 @@ void test_henorm_work(Params& params, bool run)
         }
         Cblacs_gridexit(ictxt);
         //Cblacs_exit(1) does not handle re-entering
+    #else
+        SLATE_UNUSED(A_norm);
+        SLATE_UNUSED(check);
+        SLATE_UNUSED(ref);
+        SLATE_UNUSED(extended);
     #endif
 }
 

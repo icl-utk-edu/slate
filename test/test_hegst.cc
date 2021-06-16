@@ -214,6 +214,7 @@ void test_hegst_work(Params& params, bool run)
             }
             Cblacs_gridexit(ictxt);
         #else
+            SLATE_UNUSED(one);
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

@@ -76,9 +76,6 @@ void test_hegv_work(Params& params, bool run)
     MPI_Comm_rank(mpi_comm, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // variables for scalapack wrapped routines
-    int info;
-
     // figure out local size, allocate, create descriptor, initialize
     // matrix A (local input/local output), n-by-n, Hermitian
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
@@ -313,7 +310,7 @@ void test_hegv_work(Params& params, bool run)
 
             // initialize BLACS
             int mpi_rank_ = 0, nprocs = 1, ictxt;
-            int p_, q_, myrow_, mycol_;
+            int p_, q_, myrow_, mycol_, info;
             Cblacs_pinfo(&mpi_rank_, &nprocs);
             slate_assert( mpi_rank == mpi_rank_ );
             slate_assert(p*q <= nprocs);

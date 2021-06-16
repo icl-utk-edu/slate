@@ -41,7 +41,6 @@ void test_trtri_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
-    SLATE_UNUSED(verbose);
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -270,6 +269,9 @@ void test_trtri_work(Params& params, bool run)
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else
+            SLATE_UNUSED(A_norm);
+            SLATE_UNUSED(one);
+            SLATE_UNUSED(zero);
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

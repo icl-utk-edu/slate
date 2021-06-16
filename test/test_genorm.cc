@@ -354,6 +354,9 @@ void test_genorm_work(Params& params, bool run)
             }
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
+        #else
+            SLATE_UNUSED(A_norm);
+            SLATE_UNUSED(extended);
         #endif
     }
 }

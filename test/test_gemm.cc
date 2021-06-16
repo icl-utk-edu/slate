@@ -307,6 +307,11 @@ void test_gemm_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
+        #else
+            SLATE_UNUSED(one);
+            SLATE_UNUSED(A_norm);
+            SLATE_UNUSED(B_norm);
+            SLATE_UNUSED(C_orig_norm);
         #endif
     }
 

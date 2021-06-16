@@ -68,7 +68,7 @@ void test_gesvd_work(Params& params, bool run)
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     // skip unsupported
-    if (jobu != lapack::Job::NoVec) {
+    if (jobu != lapack::Job::NoVec || jobvt != lapack::Job::NoVec) {
         if (mpi_rank == 0)
             printf("\nskipping: Only singular values supported (vectors not yet supported)\n");
         return;

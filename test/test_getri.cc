@@ -237,6 +237,9 @@ void test_getri_work(Params& params, bool run)
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else
+            SLATE_UNUSED(zero);
+            SLATE_UNUSED(one);
+            SLATE_UNUSED(A_norm);
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

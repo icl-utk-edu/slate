@@ -46,7 +46,7 @@ void test_hegv_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    blas_int verbose = params.verbose();
+    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -312,8 +312,8 @@ void test_hegv_work(Params& params, bool run)
             // Run reference routine from ScaLAPACK
 
             // initialize BLACS
-            blas_int mpi_rank_ = 0, nprocs = 1, ictxt;
-            blas_int p_, q_, myrow_, mycol_;
+            int mpi_rank_ = 0, nprocs = 1, ictxt;
+            int p_, q_, myrow_, mycol_;
             Cblacs_pinfo(&mpi_rank_, &nprocs);
             slate_assert( mpi_rank == mpi_rank_ );
             slate_assert(p*q <= nprocs);
@@ -325,15 +325,15 @@ void test_hegv_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            blas_int A_desc[9];
+            int A_desc[9];
             scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            blas_int B_desc[9];
+            int B_desc[9];
             scalapack_descinit(B_desc, n, n, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
-            blas_int Z_desc[9];
+            int Z_desc[9];
             scalapack_descinit(Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
             slate_assert(info == 0);
 

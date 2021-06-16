@@ -73,8 +73,6 @@ void test_gbnorm_work(Params& params, bool run)
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector<scalar_t> A_data(lldA*nlocA);
     // todo: fix the generation
-    //int iseed = 1;
-    //scalapack_pplrnt(&A_data[0], m, n, nb, nb, myrow, mycol, p, q, mlocA, iseed+1);
     int64_t iseeds[4] = { myrow, mycol, 2, 3 };
     //lapack::larnv(2, iseeds, lldA*nlocA, &A_data[0]);
     for (int64_t j = 0; j < nlocA; ++j)

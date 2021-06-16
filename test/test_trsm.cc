@@ -83,20 +83,17 @@ void test_trsm_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // pplghe generates a diagonally dominant matrix.
     // matrix A, figure out local size, allocate, create descriptor, initialize
     int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector< scalar_t > A_data(lldA*nlocA);
-    //scalapack_pplghe(&A_data[0], Am, An, nb, nb, myrow, mycol, p, q, mlocA, iseed + 1);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
     int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
     std::vector< scalar_t > B_data(lldB*nlocB);
-    //scalapack_pplrnt(&B_data[0], Bm, Bn, nb, nb, myrow, mycol, p, q, mlocB, iseed + 1);
 
     slate::TriangularMatrix<scalar_t> A;
     slate::Matrix<scalar_t> B;
@@ -217,7 +214,6 @@ void test_trsm_work(Params& params, bool run)
             int ictxt, p_, q_, myrow_, mycol_, info;
             int A_desc[9], B_desc[9], Bref_desc[9];
             int mpi_rank_ = 0, nprocs = 1;
-            //int iseed = 1;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);

@@ -79,7 +79,6 @@ void test_hesv_work(Params& params, bool run)
     int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
-    //int iseed = 1;
 
     //---------------------
     // matrix A, figure out local size, allocate, create descriptor, initialize
@@ -87,7 +86,6 @@ void test_hesv_work(Params& params, bool run)
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector<scalar_t> A_data(lldA*nlocA);
-    //scalapack_pplghe(&A_data[0], n, n, nb, nb, myrow, mycol, p, q, mlocA, iseed + 1);
 
     //---------------------
     // Create SLATE matrix from the ScaLAPACK layouts
@@ -116,7 +114,6 @@ void test_hesv_work(Params& params, bool run)
     int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
     std::vector<scalar_t> B_data(lldB*nlocB);
-    //scalapack_pplrnt(&B_data[0], n, nrhs, nb, nb, myrow, mycol, p, q, mlocB, iseed + 2);
 
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
                  n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);

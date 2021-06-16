@@ -81,21 +81,18 @@ void test_her2k_work(Params& params, bool run)
     int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector< scalar_t > A_data(lldA*nlocA);
-    //scalapack_pplrnt(&A_data[0], Am, An, nb, nb, myrow, mycol, p, q, mlocA, iseed + 1);
 
     // matrix B, figure out local size, allocate, create descriptor, initialize
     int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
     std::vector< scalar_t > B_data(lldB*nlocB);
-    //scalapack_pplrnt(&B_data[0], Bm, Bn, nb, nb, myrow, mycol, p, q, mlocB, iseed + 1);
 
     // matrix C, figure out local size, allocate, create descriptor, initialize
     int64_t mlocC = num_local_rows_cols(Cm, nb, myrow, p);
     int64_t nlocC = num_local_rows_cols(Cn, nb, mycol, q);
     int64_t lldC  = blas::max(1, mlocC); // local leading dimension of C
     std::vector< scalar_t > C_data(lldC*nlocC);
-    //scalapack_pplrnt(&C_data[0], Cm, Cn, nb, nb, myrow, mycol, p, q, mlocC, iseed + 1);
 
     slate::Matrix<scalar_t> A, B;
     slate::HermitianMatrix<scalar_t> C;

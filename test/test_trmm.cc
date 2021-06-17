@@ -71,9 +71,8 @@ void test_trmm_work(Params& params, bool run)
     int64_t Bm = (transB == slate::Op::NoTrans ? m : n);
     int64_t Bn = (transB == slate::Op::NoTrans ? n : m);
 
-    // Local values
-    int myrow, mycol;
-    int mpi_rank;
+    // MPI variables
+    int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 

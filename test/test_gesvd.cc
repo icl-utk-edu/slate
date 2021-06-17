@@ -62,10 +62,8 @@ void test_gesvd_work(Params& params, bool run)
         {slate::Option::InnerBlocking, ib}
     };
 
-    // Local values
-    int64_t minmn = std::min(m, n);
-    int myrow, mycol;
-    int mpi_rank;
+    // MPI variables
+    int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
@@ -75,6 +73,8 @@ void test_gesvd_work(Params& params, bool run)
             printf("\nskipping: Only singular values supported (vectors not yet supported)\n");
         return;
     }
+
+    int64_t minmn = std::min(m, n);
 
     // figure out local size, allocate, create descriptor, initialize
     // matrix A (local input), m-by-n

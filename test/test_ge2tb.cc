@@ -57,15 +57,9 @@ void test_ge2tb_work(Params& params, bool run)
     };
 
     // MPI variables
-    int mpi_rank, mpi_size;
-    slate_mpi_call(
-        MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
-    slate_mpi_call(
-        MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
-    slate_assert(p*q <= mpi_size);
-
-    int myrow = whoismyrow(mpi_rank, p);
-    int mycol = whoismycol(mpi_rank, p);
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, initialize
     int64_t mlocal = num_local_rows_cols(m, nb, myrow, p);

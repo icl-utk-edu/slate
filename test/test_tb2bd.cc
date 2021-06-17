@@ -7,6 +7,7 @@
 #include "blas.hh"
 #include "test.hh"
 #include "print_matrix.hh"
+#include "grid_utils.hh"
 #include "scalapack_support_routines.hh"
 #include "internal/internal.hh"
 
@@ -49,11 +50,10 @@ void test_tb2bd_work(Params& params, bool run)
     if (! run)
         return;
 
-    int mpi_rank, mpi_size;
-    slate_mpi_call(
-        MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
-    slate_mpi_call(
-        MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
+    // MPI variables
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     int64_t lda = m;
     int64_t seed[] = {0, 1, 2, 3};

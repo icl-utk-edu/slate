@@ -70,10 +70,9 @@ void test_hegv_work(Params& params, bool run)
         return;
     }
 
-    // Local values
+    // MPI variables
     MPI_Comm mpi_comm = MPI_COMM_WORLD;
-    int myrow, mycol;
-    int mpi_rank;
+    int mpi_rank, myrow, mycol;
     MPI_Comm_rank(mpi_comm, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 

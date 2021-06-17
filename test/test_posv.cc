@@ -68,8 +68,10 @@ void test_posv_work(Params& params, bool run)
         {slate::Option::Target, target}
     };
 
-    int mpi_rank;
+    // MPI variables
+    int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     if (target != slate::Target::Devices && dev_dist != slate::Dist::Col) {
         if (mpi_rank == 0)
@@ -85,10 +87,6 @@ void test_posv_work(Params& params, bool run)
             return;
         }
     }
-
-    // Local values
-    int myrow, mycol;
-    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);

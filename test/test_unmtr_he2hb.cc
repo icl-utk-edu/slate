@@ -55,7 +55,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     //==================================================
     // quick returns:
     //==================================================
-    // todo: implement none-ScaLAPACK layout.
+    // todo: implement non-ScaLAPACK layout.
     if (origin != slate::Origin::ScaLAPACK) {
         printf("skipping: currently only origin=scalapack is supported.\n");
         return;
@@ -67,14 +67,10 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         return;
     }
 
-    int mpi_rank;
-    slate_mpi_call(MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
-    int mpi_size;
-    slate_mpi_call(MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
-    slate_assert( p*q <= mpi_size);
-
-    int64_t myrow = whoismyrow(mpi_rank, p);
-    int64_t mycol = whoismycol(mpi_rank, p);
+    // MPI variables
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     // Matrix A
     // Figure out local size, allocate, initialize

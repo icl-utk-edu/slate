@@ -65,11 +65,9 @@ void test_potri_work(Params& params, bool run)
         {slate::Option::Target, target}
     };
 
-    int mpi_rank;
+    // MPI variables
+    int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-
-    // Local values
-    int myrow, mycol;
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     // matrix A, figure out local size, allocate

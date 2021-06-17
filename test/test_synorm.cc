@@ -55,9 +55,8 @@ void test_synorm_work(Params& params, bool run)
         {slate::Option::Target, target}
     };
 
-    // Local values
-    int myrow, mycol;
-    int mpi_rank;
+    // MPI variables
+    int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 

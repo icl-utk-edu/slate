@@ -55,15 +55,9 @@ void test_steqr2_work(Params& params, bool run)
     if (! run)
         return;
 
-    int mpi_rank, mpi_size;
-    slate_mpi_call(
-        MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
-    slate_mpi_call(
-        MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
-
-    // Local values
-    int myrow, mycol;
-
+    // MPI variables
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     // matrix Z, figure out local size, allocate, create descriptor, initialize

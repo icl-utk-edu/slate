@@ -56,18 +56,12 @@ void test_bdsqr_work(Params& params, bool run)
     if (! run)
         return;
 
-    int mpi_rank, mpi_size;
-    slate_mpi_call(
-        MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
-    slate_mpi_call(
-        MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
+    // MPI variables
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     int64_t min_mn = std::min(m, n);
-
-    // Local values
-    int myrow, mycol;
-
-    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     // matrix U, figure out local size, allocate, create descriptor, initialize
     int64_t mlocU = num_local_rows_cols(m, nb, myrow, p);

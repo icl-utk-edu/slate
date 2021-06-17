@@ -29,16 +29,6 @@ inline int64_t num_local_rows_cols(int64_t n, int64_t nb, int iproc, int nprocs)
 //------------------------------------------------------------------------------
 // Similar to BLACS gridinfo
 // (local row ID and column ID in 2D block cyclic distribution).
-inline int whoismyrow(int mpi_rank, int p)
-{
-    return (mpi_rank % p);
-}
-
-inline int whoismycol(int mpi_rank, int p)
-{
-    return (mpi_rank / p);
-}
-
 inline void gridinfo(int mpi_rank, int p, int q, int*  my_row, int*  my_col)
 {
     *my_row = mpi_rank % p;

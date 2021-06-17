@@ -42,15 +42,9 @@ void test_sterf_work(Params& params, bool run)
     if (! run)
         return;
 
-    // Local values
-    int myrow, mycol;
-    int mpi_rank, mpi_size;
-
-    slate_mpi_call(
-        MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
-    slate_mpi_call(
-        MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
-
+    // MPI variables
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     std::vector<real_t> D(n), E(n - 1);

@@ -67,9 +67,8 @@ void test_syrk_work(Params& params, bool run)
     int64_t Cm = n;
     int64_t Cn = n;
 
-    // Local values
-    int myrow, mycol;
-    int mpi_rank;
+    // MPI variables
+    int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 

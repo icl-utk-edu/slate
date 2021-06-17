@@ -82,9 +82,8 @@ void test_gels_work(Params& params, bool run)
     int64_t opAn = (trans == slate::Op::NoTrans ? n : m);
     int64_t maxmn = std::max(m, n);
 
-    // Local values
-    int myrow, mycol;
-    int mpi_rank;
+    // MPI variables
+    int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 

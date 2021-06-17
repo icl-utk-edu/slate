@@ -156,9 +156,8 @@ void test_potri_work(Params& params, bool run)
     // TODO:  Enable the SLATE_HAVE_SCALAPACK check after a SLATE hehemm routine is created,
     // or after a SLATE symmetrize routine is created to transform a Hermitian/Symmetric
     // matrix into a general matrix.
-    #if 0
     if (check) {
-        #ifdef SLATE_HAVE_SCALAPACK
+        #if 0 // #ifdef SLATE_HAVE_SCALAPACK
 
             // BLACS/MPI variables
             int ictxt, p_, q_, myrow_, mycol_, info;
@@ -243,7 +242,6 @@ void test_potri_work(Params& params, bool run)
                 printf( "ScaLAPACK not available\n" );
         #endif
     }
-    #endif
 
     if (ref) {
         // todo: call to reference potri from ScaLAPACK not implemented

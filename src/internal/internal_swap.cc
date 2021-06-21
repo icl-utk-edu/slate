@@ -315,7 +315,8 @@ void permuteRows(
                                 &A(0,    j).at(i1, 0), stride_0j,
                                 &A(idx2, j).at(i2, 0), stride_idx2j);
                         }
-                    } else {
+                    }
+                    else {
                         auto remote_index = remote_pivot_table[pivot[i]];
                         blas::swap(
                             A.tileNb(j),
@@ -336,7 +337,8 @@ void permuteRows(
                     }
                 }
                 MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
-            } else {
+            }
+            else {
                 std::map<Pivot, int> remote_pivot_table;
                 int remote_length = 0;
                 for (int64_t i = begin; i != end; i += inc) {
@@ -620,7 +622,8 @@ void permuteRows(
                                         &A(idx2, j, device).at(i2, 0), 1,
                                         *compute_queue);
                                 }
-                            } else {
+                            }
+                            else {
                                 auto remote_index = remote_pivot_table[pivot[i]];
                                 blas::swap(
                                     A.tileNb(j),
@@ -646,7 +649,8 @@ void permuteRows(
                             }
                         }
                         MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
-                    } else {
+                    }
+                    else {
                         std::map<Pivot, int> remote_pivot_table;
                         int remote_length = 0;
                         for (int64_t i = begin; i != end; i += inc) {

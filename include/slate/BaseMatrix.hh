@@ -456,7 +456,7 @@ protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set);
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
                         int radix, int tag, Layout layout);
-    void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
+    void tileIbcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
                         int radix, int tag, Layout layout,
                         std::vector<MPI_Request>& send_requests);
 
@@ -1307,14 +1307,37 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsertWorkspace(
     return tile_instance.tile();
 }
 
+//------------------------------------------------------------------------------
+/// Allocates a workspace buffer using the matrix's memory pool.
+/// The memory must be freed with BaseMatrix::freeWorkspaceBuffer
+///
+/// @param[in] device
+///     Device ID (GPU or Host) where the memory block is needed.
+///
+/// @param[in] size
+///     The required allocation size
+///
+/// @return Pointer to the buffer
+///
 template<typename scalar_t>
-scalar_t* BaseMatrix<scalar_t>::allocWorkspaceBuffer(int device, int64_t size) {
+scalar_t* BaseMatrix<scalar_t>::allocWorkspaceBuffer(int device, int64_t size)
+{
     assert(size <= storage_->tileMb(0)*storage_->tileNb(0));
     return storage_->allocWorkspaceBuffer(device);
 }
 
+//------------------------------------------------------------------------------
+/// Frees a workspace buffer allocated with BaseMatrix::allocWorkspaceBuffer.
+///
+/// @param[in] device
+///     Device ID (GPU or Host) where the memory block is needed.
+///
+/// @param[in] buffer
+///     Pointer to the buffer
+///
 template<typename scalar_t>
-void BaseMatrix<scalar_t>::freeWorkspaceBuffer(int device, scalar_t* buffer) {
+void BaseMatrix<scalar_t>::freeWorkspaceBuffer(int device, scalar_t* buffer)
+{
     storage_->releaseWorkspaceBuffer(buffer, device);
 }
 
@@ -1779,7 +1802,7 @@ void BaseMatrix<scalar_t>::listBcast(
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
             // Currently uses 2D hypercube p2p send.
-            tileBcastToSet(i, j, bcast_set, 2, tag, layout, send_requests);
+            tileIbcastToSet(i, j, bcast_set, 2, tag, layout, send_requests);
         }
 
         // Copy to devices.
@@ -2115,7 +2138,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     std::vector<MPI_Request> requests;
     requests.reserve(radix);
 
-    tileBcastToSet(i, j, bcast_set, radix, tag, layout, requests);
+    tileIbcastToSet(i, j, bcast_set, radix, tag, layout, requests);
     slate_mpi_call(MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE));
 }
 
@@ -2150,7 +2173,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 ///     Vector where requests for this bcast are appended.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileBcastToSet(
+void BaseMatrix<scalar_t>::tileIbcastToSet(
     int64_t i, int64_t j, std::set<int> const& bcast_set,
     int radix, int tag, Layout layout,
     std::vector<MPI_Request>& send_requests)

@@ -341,8 +341,8 @@ void getrf(
                     }
                 }
             }
-            // Next: either search my tiles or do swaps on trailing matrix
-            //thread_barrier.wait(thread_size);
+            // Next instructions only use thread's assigned tiles
+            // So no thread barrier is needed here
         }
 
         // If there is a trailing submatrix.

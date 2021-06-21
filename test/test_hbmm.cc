@@ -7,8 +7,6 @@
 #include "test.hh"
 #include "blas/flops.hh"
 
-#include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "print_matrix.hh"
 #include "band_utils.hh"
 #include "grid_utils.hh"
@@ -17,7 +15,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-//#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template<typename scalar_t>
 void test_hbmm_work(Params& params, bool run)
@@ -26,11 +23,7 @@ void test_hbmm_work(Params& params, bool run)
     using slate::Norm;
 
     // Constants
-    #ifdef SLATE_HAVE_SCALAPACK
-        const int izero = 0, ione = 1;
-    #else
-        const scalar_t one = 1;
-    #endif
+    const scalar_t one = 1;
 
     // get & mark input values
     slate::Side side = params.side();
@@ -190,128 +183,41 @@ void test_hbmm_work(Params& params, bool run)
     }
 
     if (check || ref) {
-        #ifdef SLATE_HAVE_SCALAPACK
-            // comparison with reference routine from ScaLAPACK
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
+        //==================================================
+        // Run SLATE non-band routine
+        //==================================================
+        if (verbose > 1) {
+            print_matrix("Cref", Cref);
+        }
 
-            // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int A_desc[9], B_desc[9], C_desc[9], Cref_desc[9];
-            int mpi_rank_ = 0, nprocs = 1;
+        // Get norms of the original data.
+        real_t A_norm = slate::norm( norm, Aref );
+        real_t B_norm = slate::norm( norm, B );
+        real_t Cref_norm = slate::norm( norm, Cref );
 
-            // initialize BLACS and ScaLAPACK
-            Cblacs_pinfo(&mpi_rank_, &nprocs);
-            slate_assert( mpi_rank == mpi_rank_ );
-            slate_assert(p*q <= nprocs);
-            Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit(&ictxt, "Col", p, q);
-            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            slate_assert( p == p_ );
-            slate_assert( q == q_ );
-            slate_assert( myrow == myrow_ );
-            slate_assert( mycol == mycol_ );
+        time = barrier_get_wtime(MPI_COMM_WORLD);
+        if (side == slate::Side::Left)
+            slate::multiply( alpha, Aref, B, beta, Cref, opts );
+        else if (side == slate::Side::Right)
+            slate::multiply( alpha, B, Aref, beta, Cref, opts );
+        else
+            throw slate::Exception("unknown side");
+        time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+        // get differences Cref_data = Cref_data - C_data
+        slate::geadd( -one, C, one, Cref );
+        real_t C_diff_norm = slate::norm( norm, Cref ); // norm of residual
 
-            scalapack_descinit(A_desc, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
-            slate_assert(info == 0);
+        real_t error = C_diff_norm
+                        / (sqrt(real_t(An) + 2) * std::abs(alpha) * A_norm * B_norm
+                        + 2 * std::abs(beta) * Cref_norm);
 
-            scalapack_descinit(B_desc, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
-            slate_assert(info == 0);
+        if (verbose > 1) {
+            print_matrix( "C_diff", Cref );
+        }
 
-            scalapack_descinit(C_desc, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
-            slate_assert(info == 0);
-
-            scalapack_descinit(Cref_desc, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
-            slate_assert(info == 0);
-
-            // allocate workspace for norms
-            size_t ldw = nb*ceil(ceil(mlocA / (double) nb) / (scalapack_ilcm(&p, &q) / p));
-            std::vector<real_t> worklansy(2*nlocA + mlocA + ldw);
-            std::vector<real_t> worklange(std::max({mlocC, nlocC, mlocB, nlocB}));
-
-            // get norms of the original data
-            real_t A_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), An, &A_data[0], ione, ione, A_desc, &worklansy[0]);
-            real_t B_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_data[0], ione, ione, B_desc, &worklange[0]);
-            real_t C_orig_norm = scalapack_plange(norm2str(norm), Cm, Cn, &Cref_data[0], ione, ione, Cref_desc, &worklange[0]);
-
-            //==================================================
-            // Run ScaLAPACK reference routine.
-            //==================================================
-            time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_phemm(side2str(side), uplo2str(uplo), m, n, alpha,
-                            &A_data[0], ione, ione, A_desc,
-                            &B_data[0], ione, ione, B_desc, beta,
-                            &Cref_data[0], ione, ione, Cref_desc);
-
-            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
-
-            if (verbose > 1) {
-                print_matrix("Cref_data", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
-            }
-
-            // Local operation: error = Cref_data - C_data
-            blas::axpy(Cref_data.size(), -1.0, &C_data[0], 1, &Cref_data[0], 1);
-
-            if (verbose > 1) {
-                print_matrix("C_diff", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
-            }
-
-            // norm(Cref_data - C_data)
-            real_t C_diff_norm = scalapack_plange(
-                                     norm2str(norm), Cm, Cn, &Cref_data[0], ione, ione, Cref_desc, &worklange[0]);
-
-            real_t error = C_diff_norm
-                         / (sqrt(real_t(An) + 2) * std::abs(alpha) * A_norm * B_norm
-                            + 2 * std::abs(beta) * C_orig_norm);
-
-            params.ref_time() = time;
-            params.ref_gflops() = gflop / time;
-            params.error() = error;
-
-            slate_set_num_blas_threads(saved_num_threads);
-
-            Cblacs_gridexit(ictxt);
-            //Cblacs_exit(1) does not handle re-entering
-        #else
-            //==================================================
-            // Run SLATE non-band routine
-            //==================================================
-            if (verbose > 1) {
-                print_matrix("Cref", Cref);
-            }
-
-            // Get norms of the original data.
-            real_t A_norm = slate::norm( norm, Aref );
-            real_t B_norm = slate::norm( norm, B );
-            real_t Cref_norm = slate::norm( norm, Cref );
-
-            time = barrier_get_wtime(MPI_COMM_WORLD);
-            if (side == slate::Side::Left)
-                slate::multiply( alpha, Aref, B, beta, Cref, opts );
-            else if (side == slate::Side::Right)
-                slate::multiply( alpha, B, Aref, beta, Cref, opts );
-            else
-                throw slate::Exception("unknown side");
-            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
-            // get differences Cref_data = Cref_data - C_data
-            slate::geadd( -one, C, one, Cref );
-            real_t C_diff_norm = slate::norm( norm, Cref ); // norm of residual
-
-            real_t error = C_diff_norm
-                         / (sqrt(real_t(An) + 2) * std::abs(alpha) * A_norm * B_norm
-                            + 2 * std::abs(beta) * Cref_norm);
-
-            if (verbose > 1) {
-                print_matrix( "C_diff", Cref );
-            }
-
-            params.ref_time() = time;
-            params.ref_gflops() = gflop / time;
-            params.error() = error;
-        #endif
+        params.ref_time() = time;
+        params.ref_gflops() = gflop / time;
+        params.error() = error;
         real_t eps = std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= 3*eps);
     }

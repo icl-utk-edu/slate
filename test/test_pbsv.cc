@@ -9,8 +9,6 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 
-#include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "print_matrix.hh"
 #include "grid_utils.hh"
 
@@ -18,7 +16,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_pbsv_work(Params& params, bool run)
@@ -28,7 +25,6 @@ void test_pbsv_work(Params& params, bool run)
 
     // Constants
     const scalar_t one = 1.0;
-    const int izero = 0, ione = 1;
 
     // get & mark input values
     slate::Uplo uplo = params.uplo();
@@ -211,89 +207,55 @@ void test_pbsv_work(Params& params, bool run)
         }
     }
     if (check) {
-        #ifdef SLATE_HAVE_SCALAPACK
+        //==================================================
+        // Test results by checking the residual
+        //
+        //           || B - AX ||_1
+        //     --------------------------- < tol * epsilon
+        //      || A ||_1 * || X ||_1 * N
+        //
+        //==================================================
 
-            // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int B_desc[9], Bref_desc[9];
-            int mpi_rank_ = 0, nprocs = 1;
-            //int iseed = 1;
+        // LAPACK (dget02) does
+        // max_j || A * x_j - b_j ||_1 / (|| A ||_1 * || x_j ||_1).
+        // No N?
 
-            // initialize BLACS and ScaLAPACK
-            Cblacs_pinfo(&mpi_rank_, &nprocs);
-            slate_assert( mpi_rank_ == mpi_rank );
-            slate_assert(p*q <= nprocs);
-            Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit(&ictxt, "Col", p, q);
-            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            slate_assert( p == p_ );
-            slate_assert( q == q_ );
-            slate_assert( myrow == myrow_ );
-            slate_assert( mycol == mycol_ );
-
-            scalapack_descinit(
-                B_desc, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
-            slate_assert(info == 0);
-
-            scalapack_descinit(
-                Bref_desc, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
-            slate_assert(info == 0);
-
-            //==================================================
-            // Test results by checking the residual
-            //
-            //           || B - AX ||_1
-            //     --------------------------- < tol * epsilon
-            //      || A ||_1 * || X ||_1 * N
-            //
-            //==================================================
-
-            // LAPACK (dget02) does
-            // max_j || A * x_j - b_j ||_1 / (|| A ||_1 * || x_j ||_1).
-            // No N?
-
-            if (params.routine == "pbtrf") {
-                // Solve AX = B.
-                slate::chol_solve_using_factor(A, B, opts);
-                // Using traditional BLAS/LAPACK name
-                // slate::pbtrs(A, B, opts);
-            }
-
-            // allocate work space
-            std::vector<real_t> worklangeB(std::max(mlocB, nlocB));
-
-            // Norm of original matrix: || A ||_1
-            real_t A_norm = slate::norm(slate::Norm::One, Aorig);
-            // Norm of updated rhs matrix: || X ||_1
-            real_t X_norm = scalapack_plange("1", n, nrhs, &B_data[0], ione, ione, B_desc, &worklangeB[0]);
-
-            // Bref_data -= Aref*B_data
-            slate::multiply(-one, Aorig, B, one, Bref);
+        if (params.routine == "pbtrf") {
+            // Solve AX = B.
+            slate::chol_solve_using_factor(A, B, opts);
             // Using traditional BLAS/LAPACK name
-            // slate::hbmm(blas::Side::Left, -one, Aorig, B, one, Bref);
+            // slate::pbtrs(A, B, opts);
+        }
 
-            // Norm of residual: || B - AX ||_1
-            real_t R_norm = scalapack_plange("1", n, nrhs, &Bref_data[0], ione, ione, Bref_desc, &worklangeB[0]);
-            double residual = R_norm / (n*A_norm*X_norm);
-            params.error() = residual;
+        // allocate work space
+        std::vector<real_t> worklangeB(std::max(mlocB, nlocB));
 
-            real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-            params.okay() = (params.error() <= tol);
+        // Norm of original matrix: || A ||_1
+        real_t A_norm = slate::norm(slate::Norm::One, Aorig);
+        // Norm of updated rhs matrix: || X ||_1
+        real_t X_norm = slate::norm( slate::Norm::One, B );
 
-            if (verbose > 0) {
-                printf("Anorm = %.4e; Xnorm = %.4e; Rnorm = %.4e; error = %.4e;\n",
-                       A_norm, X_norm, R_norm, residual);
-            }
-            if (verbose > 1) {
-                print_matrix("Residual", n, nrhs, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD);
-            }
+        // Bref_data -= Aref*B_data
+        slate::multiply(-one, Aorig, B, one, Bref);
+        // Using traditional BLAS/LAPACK name
+        // slate::hbmm(blas::Side::Left, -one, Aorig, B, one, Bref);
 
-            Cblacs_gridexit(ictxt);
-            //Cblacs_exit(1) does not handle re-entering
-        #else
-            if (mpi_rank == 0)
-                printf( "ScaLAPACK not available\n" );
-        #endif
+        // Norm of residual: || B - AX ||_1
+        real_t R_norm = slate::norm( slate::Norm::One, Bref );
+
+        double residual = R_norm / (n*A_norm*X_norm);
+        params.error() = residual;
+
+        real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+        params.okay() = (params.error() <= tol);
+
+        if (verbose > 0) {
+            printf("Anorm = %.4e; Xnorm = %.4e; Rnorm = %.4e; error = %.4e;\n",
+                    A_norm, X_norm, R_norm, residual);
+        }
+        if (verbose > 1) {
+            print_matrix("Residual", n, nrhs, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD);
+        }
     }
     // todo: reference solution requires setting up band matrix in ScaLAPACK's
     // band storage format.

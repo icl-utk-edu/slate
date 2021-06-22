@@ -159,6 +159,19 @@ struct is_complex< std::complex<T> >:
     using enable_if_t = typename std::enable_if<B, T>::type;
 #endif
 
+template <typename T>
+T get_option( Options opts, Option option, T defval )
+{
+    T retval;
+    auto search = opts.find( option );
+    if (search != opts.end())
+        retval = T(search->second.i_);
+    else
+        retval = defval;
+
+    return retval;
+}
+
 } // namespace slate
 
 #endif // SLATE_TYPES_HH

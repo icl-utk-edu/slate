@@ -184,6 +184,21 @@ T get_option( Options opts, Option option, T defval )
     return retval;
 }
 
+//----------------------------
+/// Specialization for double.
+template <>
+inline double get_option<double>( Options opts, Option option, double defval )
+{
+    double retval;
+    auto search = opts.find( option );
+    if (search != opts.end())
+        retval = search->second.d_;
+    else
+        retval = defval;
+
+    return retval;
+}
+
 } // namespace slate
 
 #endif // SLATE_TYPES_HH

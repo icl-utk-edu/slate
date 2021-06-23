@@ -81,13 +81,7 @@ template <typename scalar_t>
 void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
          Options const& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
@@ -207,13 +201,7 @@ template <typename scalar_t>
 void set(scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
          Options const& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:

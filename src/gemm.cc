@@ -234,7 +234,7 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  Matrix<scalar_t>& C,
           Options const& opts)
 {
-    Target target = get_option<Target>( opts, Option::Target, Target::HostTask );
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:

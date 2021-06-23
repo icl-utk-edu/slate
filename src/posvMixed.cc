@@ -235,14 +235,7 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
                 int& iter,
                 Options const& opts)
 {
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range&) {
-        lookahead = 1;
-    }
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     internal::specialization::posvMixed<target, scalar_hi, scalar_lo>(
         internal::TargetType<target>(),
@@ -340,13 +333,7 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
                 int& iter,
                 Options const& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:

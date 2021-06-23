@@ -159,6 +159,18 @@ struct is_complex< std::complex<T> >:
     using enable_if_t = typename std::enable_if<B, T>::type;
 #endif
 
+//------------------------------------------------------------------------------
+/// Extracts an option.
+///
+/// @param[in] opt
+///     Map of options and values.
+///
+///  @param[in] option
+///     Option to get.
+///
+///  @param [in] defval
+///     Default option value if option is not found in map.
+///
 template <typename T>
 T get_option( Options opts, Option option, T defval )
 {

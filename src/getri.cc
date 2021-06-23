@@ -148,14 +148,7 @@ void getri(Matrix<scalar_t>& A, Pivots& pivots,
 {
     slate_assert(A.mt() == A.nt());  // square
 
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range&) {
-        lookahead = 1;
-    }
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     internal::specialization::getri(internal::TargetType<target>(),
                                     A, pivots, lookahead);
@@ -202,13 +195,7 @@ void getri(Matrix<scalar_t>& A, Pivots& pivots,
     auto U = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A);
     trtri(U, opts);
 
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:

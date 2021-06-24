@@ -358,7 +358,6 @@ int64_t hegst(int64_t itype, Tile<scalar_t>&& A, Tile<scalar_t>&& B)
     return hegst(itype, A, B);
 }
 
-} // namespace slate
 //------------------------------------------------------------------------------
 /// Scale matrix entries by the real scalar numer/denom.
 /// uplo is set in the tile.
@@ -410,4 +409,5 @@ int64_t scale(scalar_t value, Tile<scalar_t>&& A){
 
     return scale(value, A);
 }
+} // namespace slate
 #endif // SLATE_TILE_LAPACK_HH

@@ -429,6 +429,9 @@ libslate_src += \
         src/internal/internal_unmlq.cc \
         src/internal/internal_util.cc \
         src/internal/internal_hegst.cc \
+        src/internal/internal_gescale.cc \
+        src/internal/internal_tzscale.cc \
+
 
 # device
 ifeq ($(cuda),1)
@@ -442,6 +445,8 @@ ifeq ($(cuda),1)
             src/cuda/device_transpose.cu \
             src/cuda/device_trnorm.cu \
             src/cuda/device_tzcopy.cu \
+            src/cuda/device_gescale.cu \
+            src/cuda/device_tzscale.cu \
 
 endif
 
@@ -527,6 +532,7 @@ libslate_src += \
         src/unmqr.cc \
         src/unmlq.cc \
         src/hegst.cc \
+        src/scale.cc \
 
 ifneq ($(have_fortran),)
     libslate_src += \

@@ -282,6 +282,7 @@ int64_t potrf(Tile<scalar_t>&& A)
     return potrf(A);
 }
 
+
 //------------------------------------------------------------------------------
 /// Triangular inversion of tile.
 /// uplo is set in the tile.
@@ -358,5 +359,55 @@ int64_t hegst(int64_t itype, Tile<scalar_t>&& A, Tile<scalar_t>&& B)
 }
 
 } // namespace slate
+//------------------------------------------------------------------------------
+/// Scale matrix entries by the real scalar numer/denom.
+/// uplo is set in the tile.
+/// @ingroup scale_tile
+///
+template<typename scalar_t>
+int64_t scale(scalar_t numer, scalar_t denom, Tile<scalar_t>& A){
 
+    trace::Block trace_block("lapack::lascl");
+    //TODO lower and upper bandwidth values 
+    return lapack::lascl(A.uploPhysical(),
+                         0, 0, denom, numer, A.mb(), A.nb(),
+                         A.data(), A.stride());
+}
+//------------------------------------------------------------------------------
+/// Converts rvalue refs to lvalue refs.
+/// @ingroup tr_tile
+///
+template<typename scalar_t>
+int64_t scale(scalar_t numer, scalar_t denom, Tile<scalar_t>&& A){
+
+
+    return scale(numer, denom, A);
+}
+//------------------------------------------------------------------------------
+/// Scale matrix entries by the real scalar numer/denom.
+/// uplo is set in the tile.
+/// @ingroup scale_tile
+///
+template<typename scalar_t>
+int64_t scale(scalar_t value, Tile<scalar_t>& A){
+
+    trace::Block trace_block("lapack::lascl");
+   
+    scalar_t one = 1; 
+    //TODO lower and upper bandwidth values 
+    return lapack::lascl(A.uploPhysical(),
+                         0, 0, one, value, A.mb(), A.nb(),
+                         A.data(), A.stride());
+}
+//------------------------------------------------------------------------------
+/// Converts rvalue refs to lvalue refs.
+/// @ingroup tr_tile
+///
+template<typename scalar_t>
+int64_t scale(scalar_t value, Tile<scalar_t>&& A){
+    
+    scalar_t one = 1;
+
+    return scale(value, A);
+}
 #endif // SLATE_TILE_LAPACK_HH

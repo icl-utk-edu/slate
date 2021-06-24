@@ -104,6 +104,18 @@ void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           int priority=0, int queue_index=0);
 
 //-----------------------------------------
+//scale()
+template <Target target=Target::HostTask, typename scalar_t>
+void scale(scalar_t numer, scalar_t denom,
+         Matrix<scalar_t>&& A,
+         int priority=0, int queue_index=0);
+
+template <Target target=Target::HostTask, typename scalar_t>
+void scale(scalar_t numer, scalar_t denom,
+         BaseTrapezoidMatrix<scalar_t>&& A,
+         int priority=0, int queue_index=0);
+//-----------------------------------------
+//
 // set()
 template <Target target=Target::HostTask, typename scalar_t>
 void set(scalar_t alpha, scalar_t beta,

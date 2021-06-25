@@ -157,11 +157,8 @@ void test_tb2bd_work(Params& params, bool run)
     // run test
     if (trace)
         slate::trace::Trace::on();
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time = testsweeper::get_wtime();
+
+    double time = barrier_get_wtime(MPI_COMM_WORLD);
 
     //==================================================
     // Run SLATE test.
@@ -170,11 +167,8 @@ void test_tb2bd_work(Params& params, bool run)
         slate::tb2bd(A);
     }
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    params.time() = testsweeper::get_wtime() - time;
+    time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+    params.time() = time;
 
     if (trace)
         slate::trace::Trace::finish();

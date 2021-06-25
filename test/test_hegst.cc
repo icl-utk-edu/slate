@@ -144,7 +144,7 @@ void test_hegst_work(Params& params, bool run)
 
         // compute and save timing/performance
         params.time() = time;
-        //params.gflops() = gflop / time_tst;
+        //params.gflops() = gflop / time;
 
         if (verbose > 1) {
             print_matrix("A_hegst", A);
@@ -193,7 +193,7 @@ void test_hegst_work(Params& params, bool run)
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             params.ref_time() = time;
-            // params.ref_gflops() = gflop / time_ref;
+            // params.ref_gflops() = gflop / time;
 
             if (verbose > 1) {
                 print_matrix("Aref_hegst", Aref);

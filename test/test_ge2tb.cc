@@ -101,28 +101,20 @@ void test_ge2tb_work(Params& params, bool run)
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time = testsweeper::get_wtime();
+    double time = barrier_get_wtime(MPI_COMM_WORLD);
 
     //==================================================
     // Run SLATE test.
     //==================================================
     slate::ge2tb(A, TU, TV, opts);
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time_tst = testsweeper::get_wtime() - time;
+    time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
     if (trace) slate::trace::Trace::finish();
 
     // compute and save timing/performance
-    params.time() = time_tst;
-    //params.gflops() = gflop / time_tst;
+    params.time() = time;
+    //params.gflops() = gflop / time;
 
     if (verbose > 1) {
         print_matrix("A_factored", A);

@@ -74,7 +74,7 @@ void test_gesvd_work(Params& params, bool run)
         return;
     }
 
-    int64_t minmn = std::min(m, n);
+    int64_t min_mn = std::min(m, n);
 
     // figure out local size, allocate, create descriptor, initialize
     // matrix A (local input), m-by-n
@@ -83,24 +83,29 @@ void test_gesvd_work(Params& params, bool run)
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector<scalar_t> A_data(lldA*nlocA);
 
-    // matrix U (local output), U(m, minmn), singular values of A
+    // matrix U (local output), U(m, min_mn), singular values of A
     int64_t mlocU = num_local_rows_cols(m, nb, myrow, p);
-    int64_t nlocU = num_local_rows_cols(minmn, nb, mycol, q);
+    int64_t nlocU = num_local_rows_cols(min_mn, nb, mycol, q);
     int64_t lldU  = blas::max(1, mlocU); // local leading dimension of U
-    std::vector<scalar_t> U_data(lldU * nlocU, 0);
+    std::vector<scalar_t> U_data(1);
 
-    // matrix VT (local output), VT(minmn, n)
-    int64_t mlocVT = num_local_rows_cols(minmn, nb, myrow, p);
+    // matrix VT (local output), VT(min_mn, n)
+    int64_t mlocVT = num_local_rows_cols(min_mn, nb, myrow, p);
     int64_t nlocVT = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldVT  = blas::max(1, mlocVT); // local leading dimension of VT
-    std::vector<scalar_t> VT_data(lldVT * nlocVT, 0);
+    std::vector<scalar_t> VT_data(1);
 
     // array S (global output), S(size), singular values of A
-    std::vector<real_t> S_data(minmn);
+    std::vector<real_t> S_data(min_mn);
 
     slate::Matrix<scalar_t> A; // (m, n);
-    slate::Matrix<scalar_t> U; // (m, minmn);
-    slate::Matrix<scalar_t> VT; // (minmn, n);
+    slate::Matrix<scalar_t> U; // (m, min_mn);
+    slate::Matrix<scalar_t> VT; // (min_mn, n);
+
+    bool wantu  = (jobu  == slate::Job::Vec || jobu  == slate::Job::AllVec
+                   || jobu  == slate::Job::SomeVec);
+    bool wantvt = (jobvt == slate::Job::Vec || jobvt == slate::Job::AllVec
+                   || jobvt == slate::Job::SomeVec);
 
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
@@ -108,17 +113,29 @@ void test_gesvd_work(Params& params, bool run)
         A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
 
-        U = slate::Matrix<scalar_t>(m, minmn, nb, p, q, MPI_COMM_WORLD);
-        U.insertLocalTiles(origin_target);
-
-        VT = slate::Matrix<scalar_t>(minmn, n, nb, p, q, MPI_COMM_WORLD);
-        VT.insertLocalTiles(origin_target);
+        if (wantu) {
+            U = slate::Matrix<scalar_t>(m, min_mn, nb, p, q, MPI_COMM_WORLD);
+            U.insertLocalTiles(origin_target);
+        }
+        if (wantvt) {
+            VT = slate::Matrix<scalar_t>(min_mn, n, nb, p, q, MPI_COMM_WORLD);
+            VT.insertLocalTiles(origin_target);
+        }
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
-        A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_data[0],  lldA,  nb, p, q, MPI_COMM_WORLD);
-        U = slate::Matrix<scalar_t>::fromScaLAPACK(m, minmn, &U_data[0], lldU, nb, p, q, MPI_COMM_WORLD);
-        VT = slate::Matrix<scalar_t>::fromScaLAPACK(minmn, n, &VT_data[0], lldVT, nb, p, q, MPI_COMM_WORLD);
+        A = slate::Matrix<scalar_t>::fromScaLAPACK(
+                m, n, &A_data[0],  lldA,  nb, p, q, MPI_COMM_WORLD);
+        if (wantu) {
+            U_data.resize(lldU*nlocU);
+            U = slate::Matrix<scalar_t>::fromScaLAPACK(
+                    m, min_mn, &U_data[0], lldU, nb, p, q, MPI_COMM_WORLD);
+        }
+        if (wantvt) {
+            VT_data.resize(lldVT*nlocVT);
+            VT = slate::Matrix<scalar_t>::fromScaLAPACK(
+                     min_mn, n, &VT_data[0], lldVT, nb, p, q, MPI_COMM_WORLD);
+        }
     }
 
     if (verbose >= 1) {
@@ -205,11 +222,11 @@ void test_gesvd_work(Params& params, bool run)
             copy(Aref, &Aref_data[0], A_desc);
 
             int U_desc[9];
-            scalapack_descinit(U_desc, m, minmn, nb, nb, 0, 0, ictxt, mlocU, &info);
+            scalapack_descinit(U_desc, m, min_mn, nb, nb, 0, 0, ictxt, mlocU, &info);
             slate_assert(info == 0);
 
             int VT_desc[9];
-            scalapack_descinit(VT_desc, minmn, n, nb, nb, 0, 0, ictxt, mlocVT, &info);
+            scalapack_descinit(VT_desc, min_mn, n, nb, nb, 0, 0, ictxt, mlocVT, &info);
             slate_assert(info == 0);
 
             // set MKL num threads appropriately for parallel BLAS

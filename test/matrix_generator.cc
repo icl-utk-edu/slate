@@ -76,58 +76,58 @@ void generate_sigma(
     const scalar_t zero = 0.0;
 
     // locals
-    int64_t minmn = std::min( A.m(), A.n() );
-    assert( minmn == int64_t(Sigma.size()) );
+    int64_t min_mn = std::min( A.m(), A.n() );
+    assert( min_mn == int64_t(Sigma.size()) );
 
     switch (dist) {
         case TestMatrixDist::arith:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = 1 - i / real_t(minmn - 1) * (1 - 1/cond);
+            for (int64_t i = 0; i < min_mn; ++i) {
+                Sigma[i] = 1 - i / real_t(min_mn - 1) * (1 - 1/cond);
             }
             break;
 
         case TestMatrixDist::rarith:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = 1 - (minmn - 1 - i) / real_t(minmn - 1) * (1 - 1/cond);
+            for (int64_t i = 0; i < min_mn; ++i) {
+                Sigma[i] = 1 - (min_mn - 1 - i) / real_t(min_mn - 1) * (1 - 1/cond);
             }
             break;
 
         case TestMatrixDist::geo:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = pow( cond, -i / real_t(minmn - 1) );
+            for (int64_t i = 0; i < min_mn; ++i) {
+                Sigma[i] = pow( cond, -i / real_t(min_mn - 1) );
             }
             break;
 
         case TestMatrixDist::rgeo:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = pow( cond, -(minmn - 1 - i) / real_t(minmn - 1) );
+            for (int64_t i = 0; i < min_mn; ++i) {
+                Sigma[i] = pow( cond, -(min_mn - 1 - i) / real_t(min_mn - 1) );
             }
             break;
 
         case TestMatrixDist::cluster0:
             Sigma[0] = 1;
-            for (int64_t i = 1; i < minmn; ++i) {
+            for (int64_t i = 1; i < min_mn; ++i) {
                 Sigma[i] = 1/cond;
             }
             break;
 
         case TestMatrixDist::rcluster0:
-            for (int64_t i = 0; i < minmn-1; ++i) {
+            for (int64_t i = 0; i < min_mn-1; ++i) {
                 Sigma[i] = 1/cond;
             }
-            Sigma[minmn-1] = 1;
+            Sigma[min_mn-1] = 1;
             break;
 
         case TestMatrixDist::cluster1:
-            for (int64_t i = 0; i < minmn-1; ++i) {
+            for (int64_t i = 0; i < min_mn-1; ++i) {
                 Sigma[i] = 1;
             }
-            Sigma[minmn-1] = 1/cond;
+            Sigma[min_mn-1] = 1/cond;
             break;
 
         case TestMatrixDist::rcluster1:
             Sigma[0] = 1/cond;
-            for (int64_t i = 1; i < minmn; ++i) {
+            for (int64_t i = 1; i < min_mn; ++i) {
                 Sigma[i] = 1;
             }
             break;
@@ -135,11 +135,11 @@ void generate_sigma(
         case TestMatrixDist::logrand: {
             real_t range = log( 1/cond );
             lapack::larnv( idist_rand, params.iseed, Sigma.size(), Sigma.data() );
-            for (int64_t i = 0; i < minmn; ++i) {
+            for (int64_t i = 0; i < min_mn; ++i) {
                 Sigma[i] = exp( Sigma[i] * range );
             }
             // make cond exact
-            if (minmn >= 2) {
+            if (min_mn >= 2) {
                 Sigma[0] = 1;
                 Sigma[1] = 1/cond;
             }
@@ -171,7 +171,7 @@ void generate_sigma(
 
     if (rand_sign) {
         // apply random signs
-        for (int64_t i = 0; i < minmn; ++i) {
+        for (int64_t i = 0; i < min_mn; ++i) {
             if (rand() > RAND_MAX/2) {
                 Sigma[i] = -Sigma[i];
             }
@@ -312,7 +312,7 @@ void generate_svd(
         }
     }
 
-    // random U, m-by-minmn
+    // random U, m-by-min_mn
     auto Tmp = U.emptyLike();
     #pragma omp parallel for collapse(2)
     for (int64_t j = 0; j < nt; ++j) {
@@ -355,7 +355,7 @@ void generate_svd(
     // A = U*A
     slate::unmqr( slate::Side::Left, slate::Op::NoTrans, U, T, A);
 
-    // random V, n-by-minmn (stored column-wise in U)
+    // random V, n-by-min_mn (stored column-wise in U)
     auto V = U.sub(0, nt-1, 0, nt-1);
     #pragma omp parallel for collapse(2)
     for (int64_t j = 0; j < nt; ++j) {
@@ -459,7 +459,7 @@ void generate_heev(
     // ----------
     generate_sigma( params, dist, rand_sign, cond, sigma_max, A, Sigma );
 
-    // random U, m-by-minmn
+    // random U, m-by-min_mn
     int64_t nt = U.nt();
     int64_t mt = U.mt();
     auto Tmp = U.emptyLike();

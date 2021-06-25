@@ -162,6 +162,7 @@ void test_steqr2_work(Params& params, bool run)
         real_t err = blas::nrm2(Dref.size(), &Dref[0], 1);
         blas::axpy(D.size(), -1.0, &D[0], 1, &Dref[0], 1);
         params.error() = blas::nrm2(Dref.size(), &Dref[0], 1) / err;
+        params.okay() = (params.error() <= tol);
 
         //==================================================
         // Test results by checking the orthogonality of Q
@@ -171,14 +172,13 @@ void test_steqr2_work(Params& params, bool run)
         //           n
         //
         //==================================================
-        params.ortho() = 0.;
         if (wantz) {
             auto ZT = conjTranspose(Z);
             set(zero, one, A);
             slate::gemm(one, ZT, Z, -one, A);
             params.ortho() = slate::norm(slate::Norm::Fro, A) / n;
+            params.okay() = params.okay() && (params.ortho() <= tol);
         }
-        params.okay() = (params.error() <= tol) && (params.ortho() <= tol);
     }
 }
 

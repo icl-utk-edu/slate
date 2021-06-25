@@ -176,6 +176,7 @@ void test_bdsqr_work(Params& params, bool run)
         blas::axpy(D.size(), -1.0, &Dref[0], 1, &D[0], 1);
         params.error() = blas::nrm2(D.size(), &D[0], 1)
                        / blas::nrm2(Dref.size(), &Dref[0], 1);
+        params.okay() = params.error() <= tol;
 
         //==================================================
         // Test results by checking the orthogonality of Q
@@ -185,8 +186,6 @@ void test_bdsqr_work(Params& params, bool run)
         //           n
         //
         //==================================================
-        params.ortho_U() = 0.;
-        params.ortho_V() = 0.;
         if (wantu) {
             slate::Matrix<scalar_t> Id(min_mn, min_mn, nb, p, q, MPI_COMM_WORLD);
             Id.insertLocalTiles();
@@ -195,6 +194,7 @@ void test_bdsqr_work(Params& params, bool run)
             auto UT = conjTranspose(U);
             slate::gemm(one, UT, U, -one, Id);
             params.ortho_U() = slate::norm(slate::Norm::Fro, Id) / m;
+            params.okay() = params.okay() && (params.ortho_U() <= tol);
         }
         // If we flip the fat matrix, then no need for Id
         if (wantvt) {
@@ -205,10 +205,8 @@ void test_bdsqr_work(Params& params, bool run)
             auto VTT = conjTranspose(VT);
             slate::gemm(one, VTT, VT, -one, Id);
             params.ortho_V() = slate::norm(slate::Norm::Fro, Id) / n;
+            params.okay() = params.okay() && (params.ortho_V() <= tol);
         }
-        params.okay() = (params.error() <= tol)
-                        && (params.ortho_U() <= tol)
-                        && (params.ortho_V() <= tol);
     }
 }
 

@@ -96,10 +96,6 @@ void test_gbmm_work(Params& params, bool run)
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A_band
     std::vector<scalar_t> A_data(lldA*nlocA);
 
-    if (verbose > 1) {
-        print_matrix("A_data", mlocA, nlocA, &A_data[0], lldA, p, q, MPI_COMM_WORLD);
-    }
-
     // matrix B, figure out local size, allocate, initialize
     int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
@@ -194,7 +190,6 @@ void test_gbmm_work(Params& params, bool run)
 
     if (verbose > 1) {
         print_matrix("C2", C);
-        print_matrix("C_data", mlocC, nlocC, &C_data[0], lldC, p, q, MPI_COMM_WORLD);
     }
 
     if (check || ref) {

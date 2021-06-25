@@ -101,11 +101,10 @@ void test_genorm_work(Params& params, bool run)
         print_matrix("A", A);
     }
 
-    if (trace) slate::trace::Trace::on();
-    else slate::trace::Trace::off();
-
     real_t A_norm = 0;
     if (! ref_only) {
+        if (trace) slate::trace::Trace::on();
+        else slate::trace::Trace::off();
 
         //==================================================
         // Run SLATE test.

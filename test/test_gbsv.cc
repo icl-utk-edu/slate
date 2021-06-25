@@ -248,9 +248,6 @@ void test_gbsv_work(Params& params, bool run)
             // slate::gbtrs(A, pivots, B, opts);
         }
 
-        // allocate work space
-        std::vector<real_t> worklangeB(std::max(mlocB, nlocB));
-
         // Norm of original matrix: || A ||_1
         real_t A_norm = slate::norm(slate::Norm::One, Aorig);
         // Norm of updated rhs matrix: || X ||_1

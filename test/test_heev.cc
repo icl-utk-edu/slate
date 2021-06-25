@@ -89,7 +89,6 @@ void test_heev_work(Params& params, bool run)
     int64_t lldZ  = blas::max(1, mlocZ); // local leading dimension of Z
     std::vector<scalar_t> Z_data(lldZ * nlocZ, 0);
 
-
     // Initialize SLATE data structures
     slate::HermitianMatrix<scalar_t> A;
     std::vector<real_t> W(n);
@@ -104,10 +103,6 @@ void test_heev_work(Params& params, bool run)
         A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                 uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
-
-    //lapack::TestMatrixType type = lapack::TestMatrixType::heev;
-    //params.matrix.kind.set_default("heev");
-    //params.matrix.cond.set_default(1e4);
 
     slate::generate_matrix( params.matrix, A);
 

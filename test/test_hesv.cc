@@ -150,7 +150,10 @@ void test_hesv_work(Params& params, bool run)
 
     //==================================================
     // Run SLATE test.
-    // Factor A = LTL^H.
+    // One of:
+    // hetrf: Factor A = LTL^H or A = U^H TU.
+    // hetrs: Solve AX = B, after factoring A above.
+    // hesv:  Solve AX = B, including factoring A.
     //==================================================
     if (params.routine == "hetrf") {
         slate::indefinite_factor(A, pivots, T, pivots2, H, opts);

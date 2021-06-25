@@ -94,13 +94,11 @@ void test_bdsqr_work(Params& params, bool run)
 
     if (origin != slate::Origin::ScaLAPACK) {
         if (wantu) {
-            U = slate::Matrix<scalar_t>(
-                    m, min_mn, nb, p, q, MPI_COMM_WORLD);
+            U = slate::Matrix<scalar_t>(m, min_mn, nb, p, q, MPI_COMM_WORLD);
             U.insertLocalTiles();
         }
         if (wantvt) {
-            VT = slate::Matrix<scalar_t>(
-                     min_mn, n, nb, p, q, MPI_COMM_WORLD);
+            VT = slate::Matrix<scalar_t>(min_mn, n, nb, p, q, MPI_COMM_WORLD);
             VT.insertLocalTiles();
         }
     }
@@ -108,7 +106,7 @@ void test_bdsqr_work(Params& params, bool run)
         if (wantu) {
             U_data.resize(lldU*nlocU);
             U = slate::Matrix<scalar_t>::fromScaLAPACK(
-                    m, n, &U_data[0], lldU, nb, p, q, MPI_COMM_WORLD);
+                    m, min_mn, &U_data[0], lldU, nb, p, q, MPI_COMM_WORLD);
         }
         if (wantvt) {
             VT_data.resize(lldVT*nlocVT);

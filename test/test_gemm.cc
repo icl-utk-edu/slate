@@ -148,7 +148,8 @@ void test_gemm_work(Params& params, bool run)
     if (check || ref) {
         // For simplicity, always use ScaLAPACK format for ref matrices.
         Cref_data.resize( lldC * nlocC );
-        Cref = slate::Matrix<scalar_t>::fromScaLAPACK( m,  n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+        Cref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                   m,  n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
         slate::copy(C, Cref);
     }
 

@@ -113,9 +113,12 @@ void test_syr2k_work(Params& params, bool run)
     }
     else {
         // Create SLATE matrices from the ScaLAPACK layouts.
-        A = slate::Matrix<scalar_t>::fromScaLAPACK(Am, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-        C = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(uplo, Cn, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+        A = slate::Matrix<scalar_t>::fromScaLAPACK(
+                Am, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>::fromScaLAPACK(
+                Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+        C = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
+                uplo, Cn, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
     }
 
     slate::generate_matrix( params.matrix, A );
@@ -127,7 +130,8 @@ void test_syr2k_work(Params& params, bool run)
     std::vector< scalar_t > Cref_data;
     if (check || ref) {
         Cref_data.resize( C_data.size() );
-        Cref = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+        Cref = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
+                   uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
         slate::copy( C, Cref );
     }
 

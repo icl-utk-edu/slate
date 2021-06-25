@@ -97,8 +97,10 @@ void test_herk_work(Params& params, bool run)
     }
     else {
         // Create SLATE matrices from the ScaLAPACK layouts
-        A = slate::Matrix<scalar_t>::fromScaLAPACK(Am, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        C = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, Cn, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+        A = slate::Matrix<scalar_t>::fromScaLAPACK(
+                Am, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        C = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                uplo, Cn, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
     }
 
     slate::generate_matrix( params.matrix, A );
@@ -109,7 +111,8 @@ void test_herk_work(Params& params, bool run)
     std::vector<scalar_t> Cref_data;
     if (check || ref) {
         Cref_data.resize( C_data.size() );
-        Cref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+        Cref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                   uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
         slate::copy( C, Cref );
     }
 

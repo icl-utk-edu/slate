@@ -122,9 +122,12 @@ void test_gels_work(Params& params, bool run)
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
-        A  = slate::Matrix<scalar_t>::fromScaLAPACK(m,     n,    &A_data[0],  lldA,  nb, p, q, MPI_COMM_WORLD);
-        X0 = slate::Matrix<scalar_t>::fromScaLAPACK(opAn,  nrhs, &X0_data[0], lldX0, nb, p, q, MPI_COMM_WORLD);
-        BX = slate::Matrix<scalar_t>::fromScaLAPACK(maxmn, nrhs, &BX_data[0], lldBX, nb, p, q, MPI_COMM_WORLD);
+        A  = slate::Matrix<scalar_t>::fromScaLAPACK(
+                 m,     n,    &A_data[0],  lldA,  nb, p, q, MPI_COMM_WORLD);
+        X0 = slate::Matrix<scalar_t>::fromScaLAPACK(
+                 opAn,  nrhs, &X0_data[0], lldX0, nb, p, q, MPI_COMM_WORLD);
+        BX = slate::Matrix<scalar_t>::fromScaLAPACK(
+                 maxmn, nrhs, &BX_data[0], lldBX, nb, p, q, MPI_COMM_WORLD);
     }
     // Create SLATE matrix from the ScaLAPACK layouts
     // slate::TriangularFactors<scalar_t> T;

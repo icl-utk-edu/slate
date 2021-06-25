@@ -276,7 +276,7 @@ void test_gbsv_work(Params& params, bool run)
 
         if (verbose > 0) {
             printf("Anorm = %.4e; Xnorm = %.4e; Rnorm = %.4e; error = %.4e;\n",
-                    A_norm, X_norm, R_norm, residual);
+                   A_norm, X_norm, R_norm, residual);
         }
         if (verbose > 1) {
             print_matrix("Residual", n, nrhs, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD);

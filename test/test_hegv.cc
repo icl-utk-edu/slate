@@ -119,9 +119,12 @@ void test_hegv_work(Params& params, bool run)
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
-        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_data[0], lldA, nb, p, q, mpi_comm);
-        B = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &B_data[0], lldB, nb, p, q, mpi_comm);
-        Z = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &Z_data[0], lldZ, nb, p, q, mpi_comm);
+        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                uplo, n, &A_data[0], lldA, nb, p, q, mpi_comm);
+        B = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                uplo, n, &B_data[0], lldB, nb, p, q, mpi_comm);
+        Z = slate::Matrix<scalar_t>::fromScaLAPACK(
+                n, n, &Z_data[0], lldZ, nb, p, q, mpi_comm);
     }
 
     slate::generate_matrix( params.matrix, A);
@@ -146,11 +149,13 @@ void test_hegv_work(Params& params, bool run)
     slate::HermitianMatrix<scalar_t> Bref;
     if (ref || check) {
         Aref_data.resize( A_data.size() );
-        Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &Aref_data[0], lldA, nb, p, q, mpi_comm);
+        Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                   uplo, n, &Aref_data[0], lldA, nb, p, q, mpi_comm);
         slate::copy(A, Aref);
 
         Bref_data.resize( B_data.size() );
-        Bref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &Bref_data[0], lldB, nb, p, q, mpi_comm);
+        Bref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                   uplo, n, &Bref_data[0], lldB, nb, p, q, mpi_comm);
         slate::copy(B, Bref);
 
         Zref_data.resize( Z_data.size() );

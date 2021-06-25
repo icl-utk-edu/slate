@@ -110,9 +110,12 @@ void test_hemm_work(Params& params, bool run)
     }
     else {
         // Create SLATE matrices from the ScaLAPACK layouts.
-        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        B = slate::Matrix<scalar_t>::fromScaLAPACK(Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-        C = slate::Matrix<scalar_t>::fromScaLAPACK(Cm, Cn, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>::fromScaLAPACK(
+                Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+        C = slate::Matrix<scalar_t>::fromScaLAPACK(
+                Cm, Cn, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
     }
 
     slate::generate_matrix( params.matrix, A);
@@ -125,7 +128,8 @@ void test_hemm_work(Params& params, bool run)
     if (check || ref) {
         // For simplicity, always use ScaLAPACK format for ref matrices.
         Cref_data.resize( lldC * nlocC );
-        Cref = slate::Matrix<scalar_t>::fromScaLAPACK( m,  n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+        Cref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                   m,  n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
         slate::copy(C, Cref);
     }
 

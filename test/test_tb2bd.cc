@@ -59,6 +59,8 @@ void test_tb2bd_work(Params& params, bool run)
     int64_t seed[] = {0, 1, 2, 3};
     int64_t min_mn = std::min(m, n);
 
+    // TODO: unclear if all these matrices are needed (A1, A3, Afull,
+    // Afullrm, Abandrm, A). Clean up to reduce memory requirements.
     std::vector<scalar_t> A1( lda*n );
     lapack::larnv(1, seed, A1.size(), &A1[0]);
     std::vector<scalar_t> A3( lda*n );
@@ -77,25 +79,23 @@ void test_tb2bd_work(Params& params, bool run)
         print_matrix( "A1", m, n, &A1[0], lda );
 
     std::vector<real_t> S1(min_mn);
-    if (check) {
+    if (check && mpi_rank == 0) {
         //==================================================
         // For checking results, compute SVD of original matrix A.
         //==================================================
-        if (mpi_rank == 0) {
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
+        // set MKL num threads appropriately for parallel BLAS
+        int omp_num_threads;
+        #pragma omp parallel
+        { omp_num_threads = omp_get_num_threads(); }
+        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-            std::vector<scalar_t> A2 = A1;
-            std::vector<scalar_t> U ( 1 );  // ( lda*n );  // U, VT not needed for NoVec
-            std::vector<scalar_t> VT( 1 );  // ( lda*n );
-            lapack::gesvd(lapack::Job::NoVec, lapack::Job::NoVec,
-                          m, n, &A2[0], lda, &S1[0], &U[0], lda, &VT[0], lda);
+        std::vector<scalar_t> Aref = A1;
+        std::vector<scalar_t> U ( 1 );  // ( lda*n );  // U, VT not needed for NoVec
+        std::vector<scalar_t> VT( 1 );  // ( lda*n );
+        lapack::gesvd(lapack::Job::NoVec, lapack::Job::NoVec,
+                      m, n, &Aref[0], lda, &S1[0], &U[0], lda, &VT[0], lda);
 
-            slate_set_num_blas_threads(saved_num_threads);
-        }
+        slate_set_num_blas_threads(saved_num_threads);
     }
 
     auto Afull = slate::Matrix<scalar_t>::fromLAPACK(

@@ -89,7 +89,8 @@ void test_potri_work(Params& params, bool run)
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
-        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
 
     slate::generate_matrix(params.matrix, A);
@@ -99,14 +100,16 @@ void test_potri_work(Params& params, bool run)
     std::vector<scalar_t> Aref_data;
     if (check || ref) {
         Aref_data.resize( A_data.size() );
-        Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                   uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         slate::copy( A, Aref );
     }
 
     double gflop = 0.0;
     // 1/3 n^3 + 1/2 n^2 flops for Cholesky factorization
     // 2/3 n^3 + 1/2 n^2 flops for Cholesky inversion
-    gflop = lapack::Gflop<scalar_t>::potrf(n) + lapack::Gflop<scalar_t>::potri(n);
+    gflop = lapack::Gflop<scalar_t>::potrf(n)
+          + lapack::Gflop<scalar_t>::potri(n);
 
     if (! ref_only) {
 
@@ -134,8 +137,11 @@ void test_potri_work(Params& params, bool run)
         params.gflops() = gflop / time;
     }
 
-    // Test only with SLATE routines for a residual check
+    // Test using only SLATE routines for a residual check.
     if (check) {
+        //==================================================
+        // Check || X - A^{-1} A X || / (n || X ||) < tol
+        //==================================================
         slate::Matrix<scalar_t> X, Y;
         X = slate::Matrix<scalar_t>( n, nrhs, nb, p, q, MPI_COMM_WORLD);
         Y = slate::Matrix<scalar_t>( n, nrhs, nb, p, q, MPI_COMM_WORLD);
@@ -143,19 +149,18 @@ void test_potri_work(Params& params, bool run)
         X.insertLocalTiles(origin_target);
         Y.insertLocalTiles(origin_target);
         generate_matrix( params.matrixB, X );  // rand
-        blas::real_type<scalar_t> normX, error;
-        normX = slate::norm( slate::Norm::One, X );
+        real_t normX = slate::norm( slate::Norm::One, X );
         slate::multiply(  one, Aref, X, zero, Y );  // hemm: Y = Aref X;
-        slate::multiply( -one, A, Y, one, X );  // hemm: X = X - A Y
-        error = slate::norm( slate::Norm::One, X ) / (n * normX);
+        slate::multiply( -one, A, Y, one, X );      // hemm: X = X - A^{-1} Y
+        real_t error = slate::norm( slate::Norm::One, X ) / (n * normX);
         params.error() = error;
         real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
     }
 
-    // TODO:  Enable the SLATE_HAVE_SCALAPACK check after a SLATE hehemm routine is created,
-    // or after a SLATE symmetrize routine is created to transform a Hermitian/Symmetric
-    // matrix into a general matrix.
+    // TODO: Enable the SLATE_HAVE_SCALAPACK check after a SLATE hehemm
+    // routine is created, or after a SLATE symmetrize routine is
+    // created to transform a Hermitian/Symmetric matrix into a general matrix.
     if (check) {
         #if 0 // #ifdef SLATE_HAVE_SCALAPACK
 

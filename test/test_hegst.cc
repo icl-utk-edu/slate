@@ -181,7 +181,6 @@ void test_hegst_work(Params& params, bool run)
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
-
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
             scalapack_phegst(itype, uplo2str(uplo), n,

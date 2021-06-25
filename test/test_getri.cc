@@ -86,7 +86,8 @@ void test_getri_work(Params& params, bool run)
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
-        A = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        A = slate::Matrix<scalar_t>::fromScaLAPACK(
+                n, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
     slate::generate_matrix(params.matrix, A);
 
@@ -99,7 +100,8 @@ void test_getri_work(Params& params, bool run)
     if (check || ref) {
         // For simplicity, always use ScaLAPACK format for ref matrices.
         Aref_data.resize( lldA*nlocA );
-        Aref = slate::Matrix<scalar_t>::fromScaLAPACK( n, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                   n, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         slate::copy(A, Aref);
     }
 
@@ -108,7 +110,8 @@ void test_getri_work(Params& params, bool run)
     if (check)
         A_norm = slate::norm(slate::Norm::One, A);
 
-    // initialize Cchk_data; space to hold A*inv(A); also used for out-of-place algorithm
+    // initialize Cchk_data; space to hold A*inv(A);
+    // also used for out-of-place algorithm
     std::vector<scalar_t> Cchk_data( lldA*nlocA );
 
     // C will be used as storage for out-of-place algorithm
@@ -125,12 +128,14 @@ void test_getri_work(Params& params, bool run)
         }
         else {
             // Create SLATE matrix from the ScaLAPACK layouts
-            C = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &Cchk_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+            C = slate::Matrix<scalar_t>::fromScaLAPACK(
+                    n, n, &Cchk_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         }
     }
 
     // the timing includes getrf and getri
-    double gflop = lapack::Gflop<scalar_t>::getrf(n, n) + lapack::Gflop<scalar_t>::getri(n);
+    double gflop = lapack::Gflop<scalar_t>::getrf(n, n)
+                 + lapack::Gflop<scalar_t>::getri(n);
 
     if (! ref_only) {
 
@@ -173,6 +178,7 @@ void test_getri_work(Params& params, bool run)
         #ifdef SLATE_HAVE_SCALAPACK
             //==================================================
             // Check  || I - inv(A)*A || / ( || A || * N ) <=  tol * eps
+            // TODO: implement check using SLATE.
 
             // BLACS/MPI variables
             int ictxt, p_, q_, myrow_, mycol_, info;

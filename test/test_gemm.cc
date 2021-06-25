@@ -19,7 +19,7 @@
 #include <utility>
 
 #undef PIN_MATRICES
-#define SLATE_HAVE_SCALAPACK
+//#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template<typename scalar_t>
 void test_gemm_work(Params& params, bool run)
@@ -28,7 +28,7 @@ void test_gemm_work(Params& params, bool run)
     using slate::Norm;
 
     // Constants
-    const scalar_t one = 1.0;
+    const scalar_t zero = 0.0, one = 1.0;
 
     // get & mark input values
     slate::Op transA = params.transA();
@@ -37,6 +37,7 @@ void test_gemm_work(Params& params, bool run)
     scalar_t beta = params.beta.get<scalar_t>();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
+    int64_t nrhs = params.nrhs();
     int64_t k = params.dim.k();
     int64_t nb = params.nb();
     int64_t p = params.grid.m();
@@ -116,9 +117,9 @@ void test_gemm_work(Params& params, bool run)
     #endif
 
     slate::Matrix<scalar_t> A, B, C;
+    slate::Target origin_target = origin2target(origin);
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
-        slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(Am, An, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
 
@@ -164,13 +165,37 @@ void test_gemm_work(Params& params, bool run)
     slate_assert(B.nt() == C.nt());
     slate_assert(A.nt() == B.mt());
 
-    // if reference run is required, record norms to be used in the check/ref
-    real_t A_norm=0, B_norm=0, C_orig_norm=0;
-    if (check || ref) {
-        A_norm = slate::norm(norm, A);
-        B_norm = slate::norm(norm, B);
-        C_orig_norm = slate::norm(norm, Cref);
-    }
+    #ifdef SLATE_HAVE_SCALAPACK
+        // If reference run is required, record norms to be used in the check/ref.
+        real_t A_norm=0, B_norm=0, C_orig_norm=0;
+        if (check || ref) {
+            A_norm = slate::norm(norm, A);
+            B_norm = slate::norm(norm, B);
+            C_orig_norm = slate::norm(norm, Cref);
+        }
+    #else
+        // If reference run, perform first half of SLATE residual check.
+        slate::Matrix<scalar_t> x, y, z;
+        if (check || ref) {
+            // Compute y = alpha A * (B * x) + (beta C * x).
+            x = slate::Matrix<scalar_t>( n, nrhs, nb, p, q, MPI_COMM_WORLD );
+            x.insertLocalTiles(origin_target);
+            y = slate::Matrix<scalar_t>( m, nrhs, nb, p, q, MPI_COMM_WORLD );
+            y.insertLocalTiles(origin_target);
+            z = slate::Matrix<scalar_t>( k, nrhs, nb, p, q, MPI_COMM_WORLD );
+            z.insertLocalTiles(origin_target);
+            MatrixParams mp;
+            mp.kind.set_default( "rand" );
+            generate_matrix( mp, x );
+
+            // z = B * x;
+            slate::multiply( one, B, x, zero, z, opts );
+            // y = beta * C * x
+            slate::multiply( beta, C, x, zero, y, opts );
+            // y = alpha * A * z + y;
+            slate::multiply( alpha, A, z, one, y, opts );
+        }
+    #endif
 
     if (verbose >= 2) {
         print_matrix("A", A);
@@ -306,10 +331,18 @@ void test_gemm_work(Params& params, bool run)
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else
-            SLATE_UNUSED(one);
-            SLATE_UNUSED(A_norm);
-            SLATE_UNUSED(B_norm);
-            SLATE_UNUSED(C_orig_norm);
+            // SLATE residual check.
+            // Check error, C*x - y.
+            real_t y_norm = slate::norm( norm, y, opts );
+            // y = C * x - y
+            slate::multiply( one, C, x, -one, y );
+            // error = norm( y ) / y_norm
+            real_t error = slate::norm( slate::Norm::One, y, opts )/y_norm;
+            params.error() = error;
+
+            // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
+            real_t eps = std::numeric_limits<real_t>::epsilon();
+            params.okay() = (params.error() <= 3*eps);
         #endif
     }
 

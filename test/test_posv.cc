@@ -79,13 +79,12 @@ void test_posv_work(Params& params, bool run)
         return;
     }
 
-    if (params.routine == "posvMixed") {
-        if (! std::is_same<real_t, double>::value) {
-            if (mpi_rank == 0) {
-                printf("Unsupported mixed precision\n");
-            }
-            return;
+    if (params.routine == "posvMixed"
+        && ! std::is_same<real_t, double>::value) {
+        if (mpi_rank == 0) {
+            printf("Unsupported mixed precision\n");
         }
+        return;
     }
 
     // matrix A, figure out local size, allocate, create descriptor, initialize
@@ -154,22 +153,21 @@ void test_posv_work(Params& params, bool run)
         B.insertLocalTiles(origin_target);
 
         if (params.routine == "posvMixed") {
-            if (std::is_same<real_t, double>::value) {
-                X_data.resize(lldB*nlocB);
-                X = slate::Matrix<scalar_t>(n, nrhs, nb, p, q, MPI_COMM_WORLD);
-                X.insertLocalTiles(origin_target);
-            }
+            X_data.resize(lldB*nlocB);
+            X = slate::Matrix<scalar_t>(n, nrhs, nb, p, q, MPI_COMM_WORLD);
+            X.insertLocalTiles(origin_target);
         }
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
-        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        B = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>::fromScaLAPACK(
+                n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         if (params.routine == "posvMixed") {
-            if (std::is_same<real_t, double>::value) {
-                X_data.resize(lldB*nlocB);
-                X = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &X_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-            }
+            X_data.resize(lldB*nlocB);
+            X = slate::Matrix<scalar_t>::fromScaLAPACK(
+                    n, nrhs, &X_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         }
     }
 
@@ -248,10 +246,10 @@ void test_posv_work(Params& params, bool run)
             // Using traditional BLAS/LAPACK name
             // slate::posv(A, B, opts);
         }
-        else if (params.routine == "posvMixed") {
-            if (std::is_same<real_t, double>::value) {
-                slate::posvMixed(A, B, X, iters, opts);
-            }
+        else if (params.routine == "posvMixed"
+                 && std::is_same<real_t, double>::value) {
+            slate::posvMixed(A, B, X, iters, opts);
+            params.iters() = iters;
         }
         else {
             slate_error("Unknown routine!");
@@ -260,10 +258,6 @@ void test_posv_work(Params& params, bool run)
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         if (trace) slate::trace::Trace::finish();
-
-        if (params.routine == "posvMixed") {
-            params.iters() = iters;
-        }
 
         // compute and save timing/performance
         params.time() = time;
@@ -299,8 +293,7 @@ void test_posv_work(Params& params, bool run)
 
         // Bref_data -= Aref*B_data
         if (params.routine == "posvMixed") {
-            if (std::is_same<real_t, double>::value)
-                slate::multiply(-one, Aref, X, one, Bref);
+            slate::multiply(-one, Aref, X, one, Bref);
             // Using traditional BLAS/LAPACK name
             // slate::hemm(slate::Side::Left, -one, Aref, X, one, Bref);
         }

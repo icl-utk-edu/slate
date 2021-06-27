@@ -106,17 +106,17 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         }
     }
 
-    // Matrix A_sym
-    slate::Matrix<scalar_t> A_sym;
+    // Matrix Afull is full, symmetrized copy of Hermitian matrix.
+    slate::Matrix<scalar_t> Afull;
     if ((side == slate::Side::Left  && trans != slate::Op::NoTrans) ||
         (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
-        A_sym = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
+        Afull = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
 
-        A_sym.insertLocalTiles();
-        he2ge(A, A_sym);
+        Afull.insertLocalTiles();
+        he2ge(A, Afull);
 
         if (verbose > 1) {
-            print_matrix("A_sym", A_sym);
+            print_matrix("Afull", Afull);
         }
     }
 
@@ -157,7 +157,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     }
     else if ((side == slate::Side::Left  && trans != slate::Op::NoTrans) ||
              (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
-        slate::unmtr_he2hb(side, trans, A, T, A_sym, opts);
+        slate::unmtr_he2hb(side, trans, A, T, Afull, opts);
     }
 
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
@@ -232,33 +232,33 @@ void test_unmtr_he2hb_work(Params& params, bool run)
                 // AQ is already computed, we need Q^HA
                 // (Q^HA)Q
                 slate::unmtr_he2hb(slate::Side::Left,
-                                   slate::Op::ConjTrans, A, T, A_sym, opts);
+                                   slate::Op::ConjTrans, A, T, Afull, opts);
             }
             else {
                 // Q^HA is already computed, we need (Q^HA)Q
                 // (Q^HA)Q
                 slate::unmtr_he2hb(slate::Side::Right,
-                                   slate::Op::NoTrans, A, T, A_sym, opts);
+                                   slate::Op::NoTrans, A, T, Afull, opts);
             }
 
             // Norm of B matrix: || B ||_1
             real_t B_norm = slate::norm(slate::Norm::One, B);
 
             // Form Q^HAQ - B
-            for (int64_t i = 0; i < A_sym.nt(); ++i) {
-                for (int64_t j = 0; j < A_sym.mt(); ++j) {
-                    if (A_sym.tileIsLocal(i, j)) {
-                        axpy(-one, B(i, j), A_sym(i, j));
+            for (int64_t i = 0; i < Afull.nt(); ++i) {
+                for (int64_t j = 0; j < Afull.mt(); ++j) {
+                    if (Afull.tileIsLocal(i, j)) {
+                        axpy(-one, B(i, j), Afull(i, j));
                     }
                 }
             }
 
             if (verbose > 1) {
-                print_matrix("Q^HAQ - B", A_sym);
+                print_matrix("Q^HAQ - B", Afull);
             }
 
             // Norm of backwards error: || Q^HAQ - B ||_1
-            params.error() = slate::norm(slate::Norm::One, A_sym)
+            params.error() = slate::norm(slate::Norm::One, Afull)
                            / (n * B_norm);
         }
 

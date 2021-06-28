@@ -48,7 +48,7 @@ __global__ void tzscaleKernel(
 
     // thread per row, if more rows than threads, loop by blockDim.x
     for (int ridx = threadIdx.x; ridx <= m; ridx += blockDim.x) {
-        src_scalar_t* rowA = &tileA[ridx];
+        scalar_t* rowA = &tileA[ridx];
 
         if (uplo == lapack::Uplo::Lower) {
             for (int64_t j = 0; j <= ridx && j < n; ++j) { // lower
@@ -105,7 +105,7 @@ void tzscale(
     int64_t nthreads = std::min((int64_t)1024 , m);
 
     tzscaleKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
-        m, n,
+        uplo, m, n,
         numer, denom, Aarray, lda);
 
     cudaError_t error = cudaGetLastError();

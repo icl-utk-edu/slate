@@ -19,7 +19,7 @@
 #include <utility>
 
 #undef PIN_MATRICES
-//#define SLATE_HAVE_SCALAPACK
+#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template<typename scalar_t>
 void test_gemm_work(Params& params, bool run)
@@ -45,8 +45,12 @@ void test_gemm_work(Params& params, bool run)
     int64_t lookahead = params.lookahead();
     bool ref_only = params.ref() == 'o';
     slate::Norm norm = params.norm();
-    bool check = params.check() == 'y' && ! ref_only;
     bool ref = params.ref() == 'y' || ref_only;
+    #ifndef SLATE_HAVE_SCALAPACK
+        ref = false;
+        ref_only = false;
+    #endif
+    bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
@@ -140,16 +144,18 @@ void test_gemm_work(Params& params, bool run)
     slate::generate_matrix(params.matrixB, B);
     slate::generate_matrix(params.matrixC, C);
 
-    // if reference run is required, copy test data
-    std::vector<scalar_t> Cref_data;
-    slate::Matrix<scalar_t> Cref;
-    if (check || ref) {
-        // For simplicity, always use ScaLAPACK format for ref matrices.
-        Cref_data.resize( lldC * nlocC );
-        Cref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                   m,  n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
-        slate::copy(C, Cref);
-    }
+    #ifdef SLATE_HAVE_SCALAPACK
+        // if reference run is required, copy test data.
+        std::vector<scalar_t> Cref_data;
+        slate::Matrix<scalar_t> Cref;
+        if ( ref ) {
+            // For simplicity, always use ScaLAPACK format for ref matrices.
+            Cref_data.resize( lldC * nlocC );
+            Cref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                       m,  n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+            slate::copy( C, Cref );
+        }
+    #endif
 
     if (transA == slate::Op::Trans)
         A = transpose(A);
@@ -168,34 +174,34 @@ void test_gemm_work(Params& params, bool run)
     #ifdef SLATE_HAVE_SCALAPACK
         // If reference run is required, record norms to be used in the check/ref.
         real_t A_norm=0, B_norm=0, C_orig_norm=0;
-        if (check || ref) {
+        if ( ref ) {
             A_norm = slate::norm(norm, A);
             B_norm = slate::norm(norm, B);
             C_orig_norm = slate::norm(norm, Cref);
         }
-    #else
-        // If reference run, perform first half of SLATE residual check.
-        slate::Matrix<scalar_t> x, y, z;
-        if (check || ref) {
-            // Compute y = alpha A * (B * x) + (beta C * x).
-            x = slate::Matrix<scalar_t>( n, nrhs, nb, p, q, MPI_COMM_WORLD );
-            x.insertLocalTiles(origin_target);
-            y = slate::Matrix<scalar_t>( m, nrhs, nb, p, q, MPI_COMM_WORLD );
-            y.insertLocalTiles(origin_target);
-            z = slate::Matrix<scalar_t>( k, nrhs, nb, p, q, MPI_COMM_WORLD );
-            z.insertLocalTiles(origin_target);
-            MatrixParams mp;
-            mp.kind.set_default( "rand" );
-            generate_matrix( mp, x );
-
-            // z = B * x;
-            slate::multiply( one, B, x, zero, z, opts );
-            // y = beta * C * x
-            slate::multiply( beta, C, x, zero, y, opts );
-            // y = alpha * A * z + y;
-            slate::multiply( alpha, A, z, one, y, opts );
-        }
     #endif
+
+    // If check run, perform first half of SLATE residual check.
+    slate::Matrix<scalar_t> x, y, z;
+    if ( check && !ref ) {
+        // Compute y = alpha A * (B * x) + (beta C * x).
+        x = slate::Matrix<scalar_t>( n, nrhs, nb, p, q, MPI_COMM_WORLD );
+        x.insertLocalTiles(origin_target);
+        y = slate::Matrix<scalar_t>( m, nrhs, nb, p, q, MPI_COMM_WORLD );
+        y.insertLocalTiles(origin_target);
+        z = slate::Matrix<scalar_t>( k, nrhs, nb, p, q, MPI_COMM_WORLD );
+        z.insertLocalTiles(origin_target);
+        MatrixParams mp;
+        mp.kind.set_default( "rand" );
+        generate_matrix( mp, x );
+
+        // z = B * x;
+        slate::multiply( one, B, x, zero, z, opts );
+        // y = beta * C * x
+        slate::multiply( beta, C, x, zero, y, opts );
+        // y = alpha * A * z + y;
+        slate::multiply( alpha, A, z, one, y, opts );
+    }
 
     if (verbose >= 2) {
         print_matrix("A", A);
@@ -243,8 +249,24 @@ void test_gemm_work(Params& params, bool run)
         params.gflops() = gflop / time;
     }
 
-    if (check || ref) {
-        #ifdef SLATE_HAVE_SCALAPACK
+    if ( check && !ref ) {
+        // SLATE residual check.
+        // Check error, C*x - y.
+        real_t y_norm = slate::norm( norm, y, opts );
+        // y = C * x - y
+        slate::multiply( one, C, x, -one, y );
+        // error = norm( y ) / y_norm
+        real_t error = slate::norm( slate::Norm::One, y, opts )/y_norm;
+        params.error() = error;
+
+        // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
+        real_t eps = std::numeric_limits<real_t>::epsilon();
+        params.okay() = (params.error() <= 3*eps);
+    }
+
+    #ifdef SLATE_HAVE_SCALAPACK
+        if ( ref )
+        {
             // comparison with reference routine from ScaLAPACK
 
             // BLACS/MPI variables
@@ -330,21 +352,8 @@ void test_gemm_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
-        #else
-            // SLATE residual check.
-            // Check error, C*x - y.
-            real_t y_norm = slate::norm( norm, y, opts );
-            // y = C * x - y
-            slate::multiply( one, C, x, -one, y );
-            // error = norm( y ) / y_norm
-            real_t error = slate::norm( slate::Norm::One, y, opts )/y_norm;
-            params.error() = error;
-
-            // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
-            real_t eps = std::numeric_limits<real_t>::epsilon();
-            params.okay() = (params.error() <= 3*eps);
-        #endif
-    }
+        }
+    #endif
 
     #ifdef PIN_MATRICES
         cuerror = cudaHostUnregister(&A_data[0]);

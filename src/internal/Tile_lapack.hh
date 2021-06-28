@@ -368,7 +368,7 @@ int64_t scale(scalar_t numer, scalar_t denom, Tile<scalar_t>& A){
 
     trace::Block trace_block("lapack::lascl");
     //TODO lower and upper bandwidth values 
-    return lapack::lascl(A.uploPhysical(),
+    return lapack::lascl((lapack::MatrixType)A.uploPhysical(),
                          0, 0, denom, numer, A.mb(), A.nb(),
                          A.data(), A.stride());
 }
@@ -394,7 +394,7 @@ int64_t scale(scalar_t value, Tile<scalar_t>& A){
    
     scalar_t one = 1; 
     //TODO lower and upper bandwidth values 
-    return lapack::lascl(A.uploPhysical(),
+    return lapack::lascl((lapack::MatrixType)A.uploPhysical(),
                          0, 0, one, value, A.mb(), A.nb(),
                          A.data(), A.stride());
 }

@@ -91,9 +91,9 @@ void test_ge2tb_work(Params& params, bool run)
     }
 
     // Copy test data for check.
-    slate::Matrix<scalar_t> A_ref(m, n, nb, p, q, MPI_COMM_WORLD);
-    A_ref.insertLocalTiles();
-    slate::copy(A, A_ref);
+    slate::Matrix<scalar_t> Aref(m, n, nb, p, q, MPI_COMM_WORLD);
+    Aref.insertLocalTiles();
+    slate::copy(A, Aref);
 
     // todo
     //double gflop = lapack::Gflop<scalar_t>::ge2tb(m, n);
@@ -135,7 +135,7 @@ void test_ge2tb_work(Params& params, bool run)
         //==================================================
 
         // Norm of original matrix: || A ||_1
-        real_t A_norm = slate::norm(slate::Norm::One, A_ref);
+        real_t A_norm = slate::norm(slate::Norm::One, Aref);
 
         // Zero out B, then copy band matrix B from A.
         slate::Matrix<scalar_t> B = A.emptyLike();
@@ -193,8 +193,8 @@ void test_ge2tb_work(Params& params, bool run)
             print_matrix("UBV^H", B);
         }
 
-        // Form UBV^H - A, where A is in A_ref.
-        slate::geadd(-one, A_ref, one, B);
+        // Form UBV^H - A, where A is in Aref.
+        slate::geadd(-one, Aref, one, B);
         if (verbose > 1) {
             print_matrix("UBV^H - A", B);
         }

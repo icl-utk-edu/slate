@@ -180,7 +180,7 @@ void test_geqrf_work(Params& params, bool run)
         }
 
         // QR should now have the product Q*R, which should equal the original A.
-        // Subtract the original A_ref from QR.
+        // Subtract the original Aref from QR.
         // Form QR - A, where A is in Aref.
         // todo: slate::geadd(-one, Aref, QR);
         // using axpy assumes Aref_data and QR_data have same lda.

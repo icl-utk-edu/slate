@@ -96,9 +96,9 @@ void test_he2hb_work(Params& params, bool run)
     }
 
     // Copy test data for check.
-    slate::HermitianMatrix<scalar_t> A_ref(uplo, n, nb, p, q, MPI_COMM_WORLD);
-    A_ref.insertLocalTiles();
-    slate::copy(A, A_ref);
+    slate::HermitianMatrix<scalar_t> Aref(uplo, n, nb, p, q, MPI_COMM_WORLD);
+    Aref.insertLocalTiles();
+    slate::copy(A, Aref);
 
     // todo
     //double gflop = lapack::Gflop<scalar_t>::he2hb(n, n);
@@ -138,7 +138,7 @@ void test_he2hb_work(Params& params, bool run)
         //==================================================
 
         // Norm of original matrix: || A ||_1
-        real_t A_norm = slate::norm(slate::Norm::One, A_ref);
+        real_t A_norm = slate::norm(slate::Norm::One, Aref);
 
         slate::Matrix<scalar_t> B(n, n, nb, p, q, MPI_COMM_WORLD);
         B.insertLocalTiles();
@@ -159,13 +159,13 @@ void test_he2hb_work(Params& params, bool run)
             print_matrix("Q^H B Q", B);
         }
 
-        // Form QBQ^H - A, where A is in A_ref.
-        // todo: slate::tradd(-one, TriangularMatrix(A_ref),
+        // Form QBQ^H - A, where A is in Aref.
+        // todo: slate::tradd(-one, TriangularMatrix(Aref),
         //                     one, TriangularMatrix(B));
         for (int64_t j = 0; j < A.nt(); ++j) {
             for (int64_t i = j; i < A.nt(); ++i) {
-                if (A_ref.tileIsLocal(i, j)) {
-                    auto Aij = A_ref(i, j);
+                if (Aref.tileIsLocal(i, j)) {
+                    auto Aij = Aref(i, j);
                     auto Bij = B(i, j);
                     // if i == j, Aij was Lower; set it to General for axpy.
                     Aij.uplo(slate::Uplo::General);

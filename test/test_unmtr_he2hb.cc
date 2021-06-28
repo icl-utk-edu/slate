@@ -89,19 +89,19 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         print_matrix("A", A);
     }
 
-    // Matrix A_ref
-    slate::HermitianMatrix<scalar_t> A_ref;
+    // Matrix Aref
+    slate::HermitianMatrix<scalar_t> Aref;
     if (check) {
         if ((side == slate::Side::Left  && trans == slate::Op::NoTrans) ||
             (side == slate::Side::Right && trans != slate::Op::NoTrans)) {
-            A_ref = slate::HermitianMatrix<scalar_t>(
-                        uplo, n, nb, p, q, MPI_COMM_WORLD);
+            Aref = slate::HermitianMatrix<scalar_t>(
+                       uplo, n, nb, p, q, MPI_COMM_WORLD);
 
-            A_ref.insertLocalTiles();
-            slate::copy(A, A_ref);
+            Aref.insertLocalTiles();
+            slate::copy(A, Aref);
 
             if (verbose > 3) {
-                print_matrix("A_ref", A_ref);
+                print_matrix("Aref", Aref);
             }
         }
     }
@@ -193,29 +193,29 @@ void test_unmtr_he2hb_work(Params& params, bool run)
                                    slate::Op::NoTrans, A, T, B, opts);
             }
 
-            // Norm of original matrix: || A ||_1, where A is in A_ref
-            real_t A_ref_norm = slate::norm(slate::Norm::One, A_ref);
+            // Norm of original matrix: || A ||_1, where A is in Aref
+            real_t A_norm = slate::norm(slate::Norm::One, Aref);
 
-            // Form A - QBQ^H, where A is in A_ref.
-            for (int64_t j = 0; j < A_ref.nt(); ++j) {
-                for (int64_t i = j; i < A_ref.nt(); ++i) {
-                    if (A_ref.tileIsLocal(i, j)) {
-                        auto A_refij = A_ref(i, j);
+            // Form A - QBQ^H, where A is in Aref.
+            for (int64_t j = 0; j < Aref.nt(); ++j) {
+                for (int64_t i = j; i < Aref.nt(); ++i) {
+                    if (Aref.tileIsLocal(i, j)) {
+                        auto Aref_ij = Aref(i, j);
                         auto Bij = B(i, j);
                         // if i == j, Aij was Lower; set it to General for axpy.
-                        A_refij.uplo(slate::Uplo::General);
-                        axpy(-one, Bij, A_refij);
+                        Aref_ij.uplo(slate::Uplo::General);
+                        axpy(-one, Bij, Aref_ij);
                     }
                 }
             }
 
             if (verbose > 1) {
-                print_matrix("A - QBQ^H", A_ref);
+                print_matrix("A - QBQ^H", Aref);
             }
 
             // Norm of backwards error: || A - QBQ^H ||_1
-            params.error() = slate::norm(slate::Norm::One, A_ref)
-                           / (n * A_ref_norm);
+            params.error() = slate::norm(slate::Norm::One, Aref)
+                           / (n * A_norm);
         }
         else if ((side == slate::Side::Left  && trans != slate::Op::NoTrans) ||
                  (side == slate::Side::Right && trans == slate::Op::NoTrans)) {

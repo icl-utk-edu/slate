@@ -155,8 +155,8 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         (side == slate::Side::Right && trans != slate::Op::NoTrans)) {
         slate::unmtr_he2hb(side, trans, A, T, B, opts);
     }
-    else if ((side == slate::Side::Left  && trans != slate::Op::NoTrans) ||
-             (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
+    else {
+        // Left-(Conj)Trans or Right-NoTrans
         slate::unmtr_he2hb(side, trans, A, T, Afull, opts);
     }
 
@@ -217,8 +217,8 @@ void test_unmtr_he2hb_work(Params& params, bool run)
             params.error() = slate::norm(slate::Norm::One, Aref)
                            / (n * A_norm);
         }
-        else if ((side == slate::Side::Left  && trans != slate::Op::NoTrans) ||
-                 (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
+        else {
+            // Left-(Conj)Trans or Right-NoTrans
             //==================================================
             // Test results by checking forward error
             //

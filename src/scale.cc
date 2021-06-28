@@ -21,7 +21,7 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void scale(slate::internal::TargetType<target>,
-         scalar_t numer, scalar_t denom, Matrix<scalar_t>& A)
+         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>& A)
 {
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -32,7 +32,7 @@ void scale(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
-        internal::set<target>(numer, denom, std::move(A));
+        internal::scale<target>(numer, denom, std::move(A));
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
@@ -48,7 +48,7 @@ void scale(slate::internal::TargetType<target>,
 /// @ingroup scale_specialization
 ///
 template <Target target, typename scalar_t>
-void scale(scalar_t numer, scalar_t denom, Matrix<scalar_t>& A,
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>& A,
          Options const& opts)
 {
     internal::specialization::scale(internal::TargetType<target>(),
@@ -78,7 +78,7 @@ void scale(scalar_t numer, scalar_t denom, Matrix<scalar_t>& A,
 /// @ingroup set
 ///
 template <typename scalar_t>
-void scale(scalar_t numer, scalar_t denom, Matrix<scalar_t>& A,
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>& A,
          Options const& opts)
 {
     Target target;
@@ -121,13 +121,13 @@ void scale(
 
 template
 void scale(
-    std::complex<float> numer, std::complex<float> denom,
+    float numer, float denom,
     Matrix<std::complex<float> >& A,
     Options const& opts);
 
 template
 void scale(
-    std::complex<double> numer, std::complex<double> denom,
+    double numer, double denom,
     Matrix<std::complex<double> >& A,
     Options const& opts);
 
@@ -147,7 +147,7 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void scale(slate::internal::TargetType<target>,
-         scalar_t numer, scalar_t denom, BaseTrapezoidMatrix<scalar_t>& A)
+         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, BaseTrapezoidMatrix<scalar_t>& A)
 {
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -158,7 +158,6 @@ void scale(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
-q
         internal::scale<target>(numer, denom, std::move(A));
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
@@ -175,7 +174,7 @@ q
 /// @ingroup set_specialization
 ///
 template <Target target, typename scalar_t>
-void scale(scalar_t numer, scalar_t denom, BaseTrapezoidMatrix<scalar_t>& A,
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, BaseTrapezoidMatrix<scalar_t>& A,
          Options const& opts)
 {
     internal::specialization::scale(internal::TargetType<target>(),
@@ -205,7 +204,7 @@ void scale(scalar_t numer, scalar_t denom, BaseTrapezoidMatrix<scalar_t>& A,
 /// @ingroup set
 ///
 template <typename scalar_t>
-void scale(scalar_t numer, scalar_t denom, BaseTrapezoidMatrix<scalar_t>& A,
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, BaseTrapezoidMatrix<scalar_t>& A,
          Options const& opts)
 {
     Target target;
@@ -248,13 +247,13 @@ void scale(
 
 template
 void scale(
-    std::complex<float> numer, std::complex<float> denom,
+    float numer, float denom,
     BaseTrapezoidMatrix<std::complex<float> >& A,
     Options const& opts);
 
 template
 void scale(
-    std::complex<double> numer, std::complex<double> denom,
+    double numer, double denom,
     BaseTrapezoidMatrix<std::complex<double> >& A,
     Options const& opts);
 

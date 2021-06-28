@@ -44,8 +44,8 @@ void copy(
 // scale()
 template <typename scalar_t>
 void scale(
-    scalar_t numer,
-    scalar_t denom,
+    blas::real_type<scalar_t> numer,
+    blas::real_type<scalar_t> denom,
     Matrix<scalar_t>& A,
     Options const& opts = Options());
 
@@ -61,8 +61,8 @@ void scale(
 
 template <typename scalar_t>
 void scale(
-    scalar_t numer,
-    scalar_t denom,
+    blas::real_type<scalar_t> numer,
+    blas::real_type<scalar_t> denom,
     BaseTrapezoidMatrix<scalar_t>& A,
     Options const& opts = Options());
 

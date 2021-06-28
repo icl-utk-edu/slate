@@ -18,21 +18,19 @@ namespace device {
 template <>
 void gescale(
     int64_t m, int64_t n,
-    std::complex<float> numer, std::complex<float> denom,
+    float numer, float denom,
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
 #if ! defined(SLATE_NO_CUDA)
     gescale(m, n,
-          make_cuFloatComplex(numer.real(), numer.imag()),
-          make_cuFloatComplex(denom.real(), denom.imag()),
+          numer, denom,
           (cuFloatComplex**) Aarray, lda,
           batch_count, queue);
 
 #elif ! defined(SLATE_NO_HIP)
     gescale(m, n,
-          make_hipFloatComplex(numer.real(), numer.imag()),
-          make_hipFloatComplex(denom.real(), denom.imag()),
+          numer, denom,
           (hipFloatComplex**) Aarray, lda,
           batch_count, queue);
 #endif
@@ -41,21 +39,19 @@ void gescale(
 template <>
 void gescale(
     int64_t m, int64_t n,
-    std::complex<double> numer, std::complex<double> denom,
+    double numer, double denom,
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
 #if ! defined(SLATE_NO_CUDA)
     gescale(m, n,
-          make_cuDoubleComplex(numer.real(), denom.imag()),
-          make_cuDoubleComplex(numer.real(), denom.imag()),
+          numer, denom,
           (cuDoubleComplex**) Aarray, lda,
           batch_count, queue);
 
 #elif ! defined(SLATE_NO_HIP)
     gescale(m, n,
-          make_hipDoubleComplex(numer.real(), denom.imag()),
-          make_hipDoubleComplex(numer.real(), denom.imag()),
+          numer, denom,
           (hipDoubleComplex**) Aarray, lda,
           batch_count, queue);
 #endif
@@ -93,7 +89,7 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void scale(
-    scalar_t numer, scalar_t denom, Matrix<scalar_t>&& A,
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>&& A,
     int priority, int queue_index)
 {
     scale(internal::TargetType<target>(),
@@ -109,7 +105,7 @@ void scale(
 template <typename scalar_t>
 void scale(
     internal::TargetType<Target::HostTask>,
-    scalar_t numer, scalar_t denom, Matrix<scalar_t>& A,
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>& A,
     int priority, int queue_index)
 {
     // trace::Block trace_block("scale");
@@ -132,7 +128,7 @@ void scale(
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void scale(internal::TargetType<Target::HostNest>,
-         scalar_t numer, scalar_t denom, Matrix<scalar_t>& A,
+         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>& A,
          int priority, int queue_index)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
@@ -141,7 +137,7 @@ void scale(internal::TargetType<Target::HostNest>,
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void scale(internal::TargetType<Target::HostBatch>,
-         scalar_t numer, scalar_t denom, Matrix<scalar_t>& A,
+         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>& A,
          int priority, int queue_index)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
@@ -155,7 +151,7 @@ void scale(internal::TargetType<Target::HostBatch>,
 ///
 template <typename scalar_t>
 void scale(internal::TargetType<Target::Devices>,
-         scalar_t numer, scalar_t denom, Matrix<scalar_t>& A,
+         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>& A,
          int priority, int queue_index)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
@@ -312,50 +308,50 @@ void scale<Target::Devices, double>(
 // ----------------------------------------
 template
 void scale< Target::HostTask, std::complex<float> >(
-    std::complex<float> numer, std::complex<float>  denom,
+    float numer, float denom,
     Matrix< std::complex<float> >&& A,
     int priority, int queue_index);
 
 template
 void scale< Target::HostNest, std::complex<float> >(
-    std::complex<float> numer, std::complex<float>  denom,
+    float numer, float denom,
     Matrix< std::complex<float> >&& A,
     int priority, int queue_index);
 
 template
 void scale< Target::HostBatch, std::complex<float> >(
-    std::complex<float> numer, std::complex<float>  denom,
+    float numer, float denom,
     Matrix< std::complex<float> >&& A,
     int priority, int queue_index);
 
 template
 void scale< Target::Devices, std::complex<float> >(
-    std::complex<float> numer, std::complex<float>  denom,
+    float numer, float  denom,
     Matrix< std::complex<float> >&& A,
     int priority, int queue_index);
 
 // ----------------------------------------
 template
 void scale< Target::HostTask, std::complex<double> >(
-    std::complex<double> numer, std::complex<double> denom,
+    double numer, double denom,
     Matrix< std::complex<double> >&& A,
     int priority, int queue_index);
 
 template
 void scale< Target::HostNest, std::complex<double> >(
-    std::complex<double> numer, std::complex<double> denom,
+    double numer, double denom,
     Matrix< std::complex<double> >&& A,
     int priority, int queue_index);
 
 template
 void scale< Target::HostBatch, std::complex<double> >(
-    std::complex<double> numer, std::complex<double> denom,
+    double numer, double denom,
     Matrix< std::complex<double> >&& A,
     int priority, int queue_index);
 
 template
 void scale< Target::Devices, std::complex<double> >(
-    std::complex<double> numer, std::complex<double> denom,
+    double numer, double denom,
     Matrix< std::complex<double> >&& A,
     int priority, int queue_index);
 

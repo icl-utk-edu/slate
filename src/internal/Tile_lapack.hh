@@ -364,7 +364,7 @@ int64_t hegst(int64_t itype, Tile<scalar_t>&& A, Tile<scalar_t>&& B)
 /// @ingroup scale_tile
 ///
 template<typename scalar_t>
-int64_t scale(scalar_t numer, scalar_t denom, Tile<scalar_t>& A){
+int64_t scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Tile<scalar_t>& A){
 
     trace::Block trace_block("lapack::lascl");
     //TODO lower and upper bandwidth values 
@@ -377,7 +377,7 @@ int64_t scale(scalar_t numer, scalar_t denom, Tile<scalar_t>& A){
 /// @ingroup tr_tile
 ///
 template<typename scalar_t>
-int64_t scale(scalar_t numer, scalar_t denom, Tile<scalar_t>&& A){
+int64_t scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Tile<scalar_t>&& A){
 
 
     return scale(numer, denom, A);

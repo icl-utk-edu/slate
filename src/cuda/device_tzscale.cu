@@ -42,7 +42,7 @@ template <typename scalar_t>
 __global__ void tzscaleKernel(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t numer, scalar_t denom, scalar_t** tilesA, int64_t lda)
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, scalar_t** tilesA, int64_t lda)
 {
     scalar_t* tileA = tilesA[blockIdx.x];
 
@@ -94,7 +94,7 @@ template <typename scalar_t>
 void tzscale(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t numer, scalar_t denom, scalar_t** Aarray, int64_t lda,
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
     // quick return
@@ -132,7 +132,7 @@ template
 void tzscale(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    cuFloatComplex numer, cuFloatComplex denom,
+    float numer, float denom,
     cuFloatComplex** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 
@@ -140,7 +140,7 @@ template
 void tzscale(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    cuDoubleComplex numer, cuDoubleComplex denom,
+    double numer, double denom,
     cuDoubleComplex** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 

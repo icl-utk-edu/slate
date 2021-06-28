@@ -41,7 +41,7 @@ namespace device {
 template <typename scalar_t>
 __global__ void gescaleKernel(
     int64_t m, int64_t n,
-    scalar_t numer, scalar_t denom, scalar_t** tilesA, int64_t lda)
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, scalar_t** tilesA, int64_t lda)
 {
     scalar_t* tileA = tilesA[blockIdx.x];
 
@@ -86,7 +86,7 @@ __global__ void gescaleKernel(
 template <typename scalar_t>
 void gescale(
     int64_t m, int64_t n,
-    scalar_t numer, scalar_t denom, scalar_t** Aarray, int64_t lda,
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
     // quick return
@@ -96,7 +96,7 @@ void gescale(
     // Max threads/block=1024 for current CUDA compute capability (<=7.5)
     int64_t nthreads = std::min((int64_t)1024 , m);
 
-    gesscaleKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    gescaleKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         m, n,
         numer, denom, Aarray, lda);
 
@@ -121,14 +121,14 @@ void gescale(
 template
 void gescale(
     int64_t m, int64_t n,
-    cuFloatComplex numer, cuFloatComplex denom,
+    float numer, float denom,
     cuFloatComplex** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void gescale(
     int64_t m, int64_t n,
-    cuDoubleComplex numer, cuDoubleComplex denom,
+    double numer,  double denom,
     cuDoubleComplex** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 

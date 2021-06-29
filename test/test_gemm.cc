@@ -182,25 +182,25 @@ void test_gemm_work(Params& params, bool run)
     #endif
 
     // If check run, perform first half of SLATE residual check.
-    slate::Matrix<scalar_t> x, y, z;
+    slate::Matrix<scalar_t> X, Y, Z;
     if ( check && !ref ) {
-        // Compute y = alpha A * (B * x) + (beta C * x).
-        x = slate::Matrix<scalar_t>( n, nrhs, nb, p, q, MPI_COMM_WORLD );
-        x.insertLocalTiles(origin_target);
-        y = slate::Matrix<scalar_t>( m, nrhs, nb, p, q, MPI_COMM_WORLD );
-        y.insertLocalTiles(origin_target);
-        z = slate::Matrix<scalar_t>( k, nrhs, nb, p, q, MPI_COMM_WORLD );
-        z.insertLocalTiles(origin_target);
+        // Compute Y = alpha A * (B * X) + (beta C * X).
+        X = slate::Matrix<scalar_t>( n, nrhs, nb, p, q, MPI_COMM_WORLD );
+        X.insertLocalTiles(origin_target);
+        Y = slate::Matrix<scalar_t>( m, nrhs, nb, p, q, MPI_COMM_WORLD );
+        Y.insertLocalTiles(origin_target);
+        Z = slate::Matrix<scalar_t>( k, nrhs, nb, p, q, MPI_COMM_WORLD );
+        Z.insertLocalTiles(origin_target);
         MatrixParams mp;
         mp.kind.set_default( "rand" );
-        generate_matrix( mp, x );
+        generate_matrix( mp, X );
 
-        // z = B * x;
-        slate::multiply( one, B, x, zero, z, opts );
-        // y = beta * C * x
-        slate::multiply( beta, C, x, zero, y, opts );
-        // y = alpha * A * z + y;
-        slate::multiply( alpha, A, z, one, y, opts );
+        // Z = B * X;
+        slate::multiply( one, B, X, zero, Z, opts );
+        // Y = beta * C * X
+        slate::multiply( beta, C, X, zero, Y, opts );
+        // Y = alpha * A * Z + Y;
+        slate::multiply( alpha, A, Z, one, Y, opts );
     }
 
     if (verbose >= 2) {
@@ -251,12 +251,12 @@ void test_gemm_work(Params& params, bool run)
 
     if ( check && !ref ) {
         // SLATE residual check.
-        // Check error, C*x - y.
-        real_t y_norm = slate::norm( norm, y, opts );
-        // y = C * x - y
-        slate::multiply( one, C, x, -one, y );
-        // error = norm( y ) / y_norm
-        real_t error = slate::norm( slate::Norm::One, y, opts )/y_norm;
+        // Check error, C*X - Y.
+        real_t y_norm = slate::norm( norm, Y, opts );
+        // Y = C * X - Y
+        slate::multiply( one, C, X, -one, Y );
+        // error = norm( Y ) / y_norm
+        real_t error = slate::norm( norm, Y, opts )/y_norm;
         params.error() = error;
 
         // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.

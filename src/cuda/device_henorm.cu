@@ -13,64 +13,6 @@
 namespace slate {
 namespace device {
 
-//------------------------------------------------------------------------------
-__host__ __device__
-inline
-float real(float a)
-{
-    return a;
-}
-
-__host__ __device__
-float imag(float a)
-{
-    return 0;
-}
-
-//------------------------------------------------------------------------------
-__host__ __device__
-inline
-double real(double a)
-{
-    return a;
-}
-
-__host__ __device__
-inline
-double imag(double a)
-{
-    return 0;
-}
-
-//------------------------------------------------------------------------------
-__host__ __device__
-inline
-float real(cuFloatComplex a)
-{
-    return a.x;
-}
-
-__host__ __device__
-inline
-float imag(cuFloatComplex a)
-{
-    return a.y;
-}
-
-//------------------------------------------------------------------------------
-__host__ __device__
-inline
-double real(cuDoubleComplex a)
-{
-    return a.x;
-}
-
-__host__ __device__
-inline
-double imag(cuDoubleComplex a)
-{
-    return a.y;
-}
 
 //------------------------------------------------------------------------------
 /// Finds the largest absolute value of elements, for each tile in tiles.

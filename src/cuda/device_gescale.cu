@@ -44,14 +44,13 @@ __global__ void gescaleKernel(
     blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, scalar_t** tilesA, int64_t lda)
 {
     scalar_t* tileA = tilesA[blockIdx.x];
-
+    blas::real_type<scalar_t> mul = numer / denom;
     // thread per row, if more rows than threads, loop by blockDim.x
     for (int64_t ridx = threadIdx.x; ridx < m; ridx += blockDim.x) {
         // todo: should the increment be ridx += 1024?
         scalar_t* rowA = &tileA[ridx];
-
         for (int64_t j = 0; j < n; ++j)
-            rowA[j*lda] = rowA[j*lda] * numer / denom;
+            rowA[j*lda] *= mul;
     }
 }
 

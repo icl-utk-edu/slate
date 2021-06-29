@@ -45,19 +45,20 @@ __global__ void tzscaleKernel(
     blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, scalar_t** tilesA, int64_t lda)
 {
     scalar_t* tileA = tilesA[blockIdx.x];
+    blas::real_type<scalar_t> mul = numer / denom;
 
     // thread per row, if more rows than threads, loop by blockDim.x
     for (int ridx = threadIdx.x; ridx <= m; ridx += blockDim.x) {
         scalar_t* rowA = &tileA[ridx];
-
+        
         if (uplo == lapack::Uplo::Lower) {
             for (int64_t j = 0; j <= ridx && j < n; ++j) { // lower
-            rowA[j*lda] = rowA[j*lda] * numer / denom;
+            rowA[j*lda] *= mul;
             }
         }
         else {
             for (int64_t j = n-1; j >= ridx; --j) // upper
-            rowA[j*lda] = rowA[j*lda] * numer / denom;
+            rowA[j*lda] *= mul;
         }
     }
 }

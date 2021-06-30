@@ -77,7 +77,7 @@ void test_trtri_work(Params& params, bool run)
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::Matrix<scalar_t> A0(n, n, nb, p, q, MPI_COMM_WORLD);
 
-    // Cholesky factor of A_data to get a well conditioned triangular matrix
+    // Cholesky factor of AH to get a well conditioned triangular matrix
     // Even when we replace the diagonal with unit diagonal,
     // it seems to still be well conditioned.
     auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
@@ -89,16 +89,8 @@ void test_trtri_work(Params& params, bool run)
     slate::generate_matrix(params.matrix, AH);
     slate::potrf(AH);
 
-    // Setup SLATE triangular matrix A based on data in A_data (Cholesky factored)
-    slate::TriangularMatrix<scalar_t> A;
-    if (origin != slate::Origin::ScaLAPACK) {
-        A = slate::TriangularMatrix<scalar_t>( diag, AH );
-    }
-    else {
-        // Create SLATE matrix on CPU from the ScaLAPACK data in A_tst
-        A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
-                uplo, diag, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-    }
+    // Setup SLATE triangular matrix A from Cholesky factor in AH.
+    slate::TriangularMatrix<scalar_t> A( diag, AH );
 
     if (verbose >= 2) {
         print_matrix( "A", A );

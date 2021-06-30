@@ -280,13 +280,13 @@ void test_gemm_work(Params& params, bool run)
             if (verbose >= 2)
                 print_matrix("Cref2", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
 
-            // get differences C_data = C_data - Cref_data
+            // get differences C = C - Cref
             slate::geadd(-one, Cref, one, C);
 
             if (verbose >= 2)
                 print_matrix("Diff", C);
 
-            // norm(C_data - Cref_data)
+            // norm(C - Cref)
             real_t C_diff_norm = slate::norm(norm, C);
 
             real_t error = C_diff_norm

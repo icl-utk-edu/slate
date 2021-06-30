@@ -343,7 +343,7 @@ void test_gesv_work(Params& params, bool run)
         else
             opAref = Aref;
 
-        // Bref_data -= op(Aref)*B_data
+        // Bref -= op(Aref)*B
         if (params.routine == "gesvMixed") {
             slate::multiply(-one, opAref, X, one, Bref);
             // Using traditional BLAS/LAPACK name

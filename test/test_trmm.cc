@@ -76,7 +76,6 @@ void test_trmm_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // todo: matrix A is a unit, or non-unit, upper or lower triangular distributed matrix,
     // Matrix A: figure out local size.
     int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);

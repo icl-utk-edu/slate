@@ -78,7 +78,6 @@ void test_potri_work(Params& params, bool run)
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
 
-    // Setup SLATE matrix A based on Scalapack matrix and data in A_data
     slate::HermitianMatrix<scalar_t> A;
     if (origin == slate::Origin::Devices) {
         // SLATE allocates CPU or GPU tiles.

@@ -111,7 +111,6 @@ void test_syrk_work(Params& params, bool run)
     std::vector<scalar_t> Cref_data;
     if (check || ref) {
         Cref_data.resize( C_data.size() );
-        //Cref_data = C_data;
         Cref = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
                    uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
         slate::copy( C, Cref );

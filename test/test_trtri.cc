@@ -227,7 +227,6 @@ void test_trtri_work(Params& params, bool run)
                 print_matrix( "Aref", Aref );
             }
 
-            // Cchk_data has been setup as an identity matrix
             // Aref_data = inv(A) * Aref_data
             scalapack_ptrmm("left", uplo2str(uplo), "notrans", diag2str(diag),
                             n, n, one,

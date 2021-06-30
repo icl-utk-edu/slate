@@ -198,7 +198,6 @@ void test_tbsm_work(Params& params, bool run)
             int ictxt, p_, q_, myrow_, mycol_, info;
             int A_desc[9], B_desc[9], Bref_desc[9];
             int mpi_rank_ = 0, nprocs = 1;
-            //int iseed = 1;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);

@@ -138,10 +138,8 @@ void test_posv_work(Params& params, bool run)
                     n, nrhs, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
         }
         else {
-            // A
             A = slate::HermitianMatrix<scalar_t>(
                     uplo, n, nb, p, q, MPI_COMM_WORLD);
-            // B
             B = slate::Matrix<scalar_t>(
                     n, nrhs, nb, p, q, MPI_COMM_WORLD);
         }
@@ -291,7 +289,7 @@ void test_posv_work(Params& params, bool run)
         else
             X_norm = slate::norm(slate::Norm::One, B);
 
-        // Bref_data -= Aref*B_data
+        // Bref -= Aref*B
         if (params.routine == "posvMixed") {
             slate::multiply(-one, Aref, X, one, Bref);
             // Using traditional BLAS/LAPACK name

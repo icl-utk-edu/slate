@@ -126,13 +126,23 @@ void test_tbsm_work(Params& params, bool run)
         Bref_data = B_data;
     }
 
-    // Make A diagonally dominant to be reasonably well conditioned.
-    // tbsm seems to pass with unit diagonal, even without diagonal dominance.
-    for (int i = 0; i < A.mt(); ++i) {
-        if (A.tileIsLocal(i, i)) {
-            auto T = A(i, i);
-            for (int ii = 0; ii < T.mb(); ++ii) {
-                T.at(ii, ii) += Am;
+    // Improve conditioning of A by scaling by 1/sqrt(n) and adding 2 to
+    // the diagonal. This seems to work for both non-unit and unit
+    // diagonals. Could scale by 1/n to make diagonally dominant, if needed.
+    real_t scale = sqrt(An);
+    for (int j = 0; j < A.nt(); ++j) {
+        for (int i = 0; i < A.mt(); ++i) {
+            if (A.tileExists(i, j)) {
+                auto T = A(i, j);
+                lapack::lascl( lapack::MatrixType::General, 0, 0, scale, 1.0,
+                               T.mb(), T.nb(), T.data(), T.stride() );
+                // Increase diagonal.
+                if (i == j) {
+                    int min_mn = std::min( T.mb(), T.nb() );
+                    for (int ii = 0; ii < min_mn; ++ii) {
+                        T.at(ii, ii) += 2;
+                    }
+                }
             }
         }
     }
@@ -262,6 +272,9 @@ void test_tbsm_work(Params& params, bool run)
             }
             real_t error = B_diff_norm
                          / (sqrt(real_t(Am) + 2) * std::abs(alpha) * A_norm * B_orig_norm);
+            if (verbose >= 1) {
+                printf( "B_diff %.2e, A %.2e, B %.2e, error %.2e\n", B_diff_norm, A_norm, B_orig_norm, error );
+            }
 
             params.ref_time() = time;
             //params.ref_gflops() = gflop / time;

@@ -82,7 +82,7 @@ void test_trnorm_work(Params& params, bool run)
 
     slate::TrapezoidMatrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
         A = slate::TrapezoidMatrix<scalar_t>(uplo, diag, m, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);

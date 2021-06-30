@@ -139,7 +139,7 @@ void test_gesv_work(Params& params, bool run)
     std::vector<scalar_t> A_data, B_data, X_data;
     slate::Matrix<scalar_t> A, B, X;
     if (origin != slate::Origin::ScaLAPACK) {
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
         if (nonuniform_nb) {
             A = slate::Matrix<scalar_t>(m, n, tileNb, tileNb, tileRank,

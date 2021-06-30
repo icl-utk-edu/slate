@@ -66,12 +66,10 @@ void test_hegst_work(Params& params, bool run)
     };
 
     if (origin != slate::Origin::ScaLAPACK) { // todo
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
-        // auto A = slate::HermitianMatrix<scalar_t>(
+        // SLATE allocates CPU or GPU tiles.
+        // A = slate::HermitianMatrix<scalar_t>(
         //                          uplo, n, nb, p, q, MPI_COMM_WORLD);
         // A.insertLocalTiles(origin2target(origin));
-        // todo: need ScaLAPACK descriptor for copy.
-        //copy(A_data.data(), A_desc, A);
         assert(false);
     }
 

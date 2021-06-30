@@ -97,19 +97,16 @@ void test_her2k_work(Params& params, bool run)
     slate::Matrix<scalar_t> A, B;
     slate::HermitianMatrix<scalar_t> C;
     if (origin != slate::Origin::ScaLAPACK) {
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(Am, An, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
-        //copy(&A_data[0], A_desc, A);
 
         B = slate::Matrix<scalar_t>(Bm, Bn, nb, p, q, MPI_COMM_WORLD);
         B.insertLocalTiles(origin_target);
-        //copy(&B_data[0], B_desc, B);
 
         C = slate::HermitianMatrix<scalar_t>(uplo, Cn, nb, p, q, MPI_COMM_WORLD);
         C.insertLocalTiles(origin_target);
-        //copy(&C_data[0], C_desc, C);
     }
     else {
         // Create SLATE matrices from the ScaLAPACK layouts.

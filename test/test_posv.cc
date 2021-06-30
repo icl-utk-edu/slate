@@ -146,7 +146,7 @@ void test_posv_work(Params& params, bool run)
                     n, nrhs, nb, p, q, MPI_COMM_WORLD);
         }
 
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
         A.insertLocalTiles(origin_target);
 

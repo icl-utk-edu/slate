@@ -73,11 +73,9 @@ void test_ge2tb_work(Params& params, bool run)
 
     slate::Matrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        // SLATE allocates CPU or GPU tiles.
         A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin2target(origin));
-        // todo: need ScaLAPACK descriptor for copy. hmpf!
-        //copy(A_data.data(), descA_tst, A);
         assert(false);
     }
     else {

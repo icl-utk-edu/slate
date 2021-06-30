@@ -87,7 +87,7 @@ void test_syrk_work(Params& params, bool run)
     slate::Matrix<scalar_t> A;
     slate::SymmetricMatrix<scalar_t> C;
     if (origin != slate::Origin::ScaLAPACK) {
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(Am, An, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);

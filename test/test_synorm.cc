@@ -71,7 +71,7 @@ void test_synorm_work(Params& params, bool run)
 
     slate::SymmetricMatrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
         A = slate::SymmetricMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);

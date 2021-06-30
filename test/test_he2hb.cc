@@ -78,11 +78,9 @@ void test_he2hb_work(Params& params, bool run)
 
     slate::HermitianMatrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        // SLATE allocates CPU or GPU tiles.
         A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin2target(origin));
-        // todo: need ScaLAPACK descriptor for copy. hmpf!
-        //copy(A_data.data(), descA_tst, A);
         assert(false);
     }
     else {

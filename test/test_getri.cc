@@ -79,7 +79,7 @@ void test_getri_work(Params& params, bool run)
     // Setup SLATE matrix A based on scalapack matrix/data in A_data
     slate::Matrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
@@ -120,7 +120,7 @@ void test_getri_work(Params& params, bool run)
     if (params.routine == "getriOOP") {
         // setup SLATE matrix C based on scalapack matrix/data in Cchk_data
         if (origin != slate::Origin::ScaLAPACK) {
-            // Copy local ScaLAPACK data to GPU or CPU tiles.
+            // SLATE allocates CPU or GPU tiles.
             slate::Target origin_target = origin2target(origin);
             C = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
             C.insertLocalTiles(origin_target);

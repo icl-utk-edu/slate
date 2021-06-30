@@ -107,7 +107,6 @@ void test_hegv_work(Params& params, bool run)
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy ScaLAPACK data to GPU or CPU tiles.
         slate::Target origin_target = origin2target(origin);
-
         A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, p, q, mpi_comm);
         A.insertLocalTiles(origin_target);
 
@@ -168,6 +167,7 @@ void test_hegv_work(Params& params, bool run)
         A_orig = A.emptyLike();
         A_orig.insertLocalTiles();
         copy(A, A_orig);
+
         B_orig = B.emptyLike();
         B_orig.insertLocalTiles();
         copy(B, B_orig);

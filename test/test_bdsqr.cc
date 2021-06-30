@@ -84,15 +84,14 @@ void test_bdsqr_work(Params& params, bool run)
     std::vector<real_t> Dref = D;
     std::vector<real_t> Eref = E;
 
-    slate::Matrix<scalar_t> U;
-    slate::Matrix<scalar_t> VT;
-
     bool wantu  = (jobu  == slate::Job::Vec || jobu  == slate::Job::AllVec
                    || jobu  == slate::Job::SomeVec);
     bool wantvt = (jobvt == slate::Job::Vec || jobvt == slate::Job::AllVec
                    || jobvt == slate::Job::SomeVec);
 
+    slate::Matrix<scalar_t> U, VT;
     if (origin != slate::Origin::ScaLAPACK) {
+        // SLATE allocates CPU or GPU tiles.
         if (wantu) {
             U = slate::Matrix<scalar_t>(m, min_mn, nb, p, q, MPI_COMM_WORLD);
             U.insertLocalTiles();
@@ -103,6 +102,7 @@ void test_bdsqr_work(Params& params, bool run)
         }
     }
     else {
+        // create SLATE matrices from the ScaLAPACK layouts
         if (wantu) {
             U_data.resize(lldU*nlocU);
             U = slate::Matrix<scalar_t>::fromScaLAPACK(

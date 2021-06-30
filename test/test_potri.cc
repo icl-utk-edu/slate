@@ -56,7 +56,6 @@ void test_potri_work(Params& params, bool run)
 
     if (! run) {
         params.matrix.kind.set_default( "rand_dominant" );
-        params.matrixB.kind.set_default( "rand" );
         return;
     }
 
@@ -82,7 +81,7 @@ void test_potri_work(Params& params, bool run)
     // Setup SLATE matrix A based on Scalapack matrix and data in A_data
     slate::HermitianMatrix<scalar_t> A;
     if (origin == slate::Origin::Devices) {
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
         A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);

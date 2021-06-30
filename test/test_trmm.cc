@@ -92,7 +92,7 @@ void test_trmm_work(Params& params, bool run)
     slate::TriangularMatrix<scalar_t> A;
     slate::Matrix<scalar_t> B;
     if (origin != slate::Origin::ScaLAPACK) {
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
         A = slate::TriangularMatrix<scalar_t>(uplo, diag, An, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);

@@ -83,7 +83,7 @@ void test_hegst_work(Params& params, bool run)
     // Figure out local size, allocate, initialize
     int64_t mlocal = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocal = num_local_rows_cols(n, nb, mycol, q);
-    int64_t lld   = mlocal;
+    int64_t lld    = blas::max(1, mlocal); // local leading dimension of A, B
 
     // Matrix A
     std::vector<scalar_t> A_data(lld*nlocal);

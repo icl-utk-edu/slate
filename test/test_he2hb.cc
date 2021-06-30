@@ -69,8 +69,9 @@ void test_he2hb_work(Params& params, bool run)
     // matrix A, figure out local size, allocate, initialize
     int64_t mlocal = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocal = num_local_rows_cols(n, nb, mycol, q);
-    int64_t lldA   = mlocal;
+    int64_t lldA   = blas::max(1, mlocal); // local leading dimension of A
     std::vector<scalar_t> A_data(lldA*nlocal);
+
     int64_t idist = 3; // normal
     int64_t iseed[4] = { 0, myrow, mycol, 3 };
     lapack::larnv(idist, iseed, A_data.size(), A_data.data());

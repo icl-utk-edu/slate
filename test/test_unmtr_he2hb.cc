@@ -38,6 +38,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    params.matrix.mark();
 
     // mark non-standard output values
     params.time();
@@ -76,14 +77,22 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     int64_t mlocal = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocal = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA   = blas::max(1, mlocal); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocal);
+    std::vector<scalar_t> A_data;
 
-    int64_t idist = 3; // normal
-    int64_t iseed[4] = {0, myrow, mycol, 3};
-    lapack::larnv(idist, iseed, A_data.size(), A_data.data());
-    // Create SLATE matrices from the ScaLAPACK layouts.
-    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                 uplo, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
+    slate::HermitianMatrix<scalar_t> A;
+    if (origin != slate::Origin::ScaLAPACK) {
+        slate::Target origin_target = origin2target(origin);
+        A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
+        A.insertLocalTiles(origin_target);
+    }
+    else {
+        // Create SLATE matrices from the ScaLAPACK layouts.
+        A_data.resize( lldA*nlocal );
+        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                uplo, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
+    }
+
+    slate::generate_matrix(params.matrix, A);
 
     if (verbose > 1) {
         print_matrix("A", A);

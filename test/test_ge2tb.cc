@@ -40,8 +40,7 @@ void test_ge2tb_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-
-    origin = slate::Origin::ScaLAPACK;  // todo: for now
+    params.matrix.mark();
 
     // mark non-standard output values
     params.time();
@@ -65,25 +64,23 @@ void test_ge2tb_work(Params& params, bool run)
     int64_t mlocal = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocal = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA   = blas::max(1, mlocal); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocal);
-
-    int64_t idist = 3; // normal
-    int64_t iseed[4] = { 0, myrow, mycol, 3 };
-    lapack::larnv(idist, iseed, A_data.size(), A_data.data());
+    std::vector<scalar_t> A_data;
 
     slate::Matrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
         A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin2target(origin));
-        assert(false);
     }
     else {
         // Create SLATE matrices from the ScaLAPACK layouts.
+        A_data.resize( lldA*nlocal );
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
                 m, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
     }
     slate::TriangularFactors<scalar_t> TU, TV;
+
+    slate::generate_matrix( params.matrix, A );
 
     if (verbose > 1) {
         print_matrix("A", A);

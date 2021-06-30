@@ -138,7 +138,7 @@ void test_herk_work(Params& params, bool run)
     else slate::trace::Trace::off();
 
     // If check run, perform first half of SLATE residual check.
-    slate::Matrix<scalar_t> X, Y;//, Z;
+    slate::Matrix<scalar_t> X, Y;
     slate::HermitianMatrix<scalar_t> Z;
     if ( check && !ref ) {
         X = slate::Matrix<scalar_t>( An, nrhs, nb, p, q, MPI_COMM_WORLD );

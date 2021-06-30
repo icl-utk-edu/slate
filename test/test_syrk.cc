@@ -24,6 +24,9 @@ void test_syrk_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
     using slate::Norm;
 
+    // Constants
+    const scalar_t zero = 0.0, one = 1.0;
+
     // get & mark input values
     slate::Uplo uplo = params.uplo();
     slate::Op transA = params.trans();
@@ -33,11 +36,15 @@ void test_syrk_work(Params& params, bool run)
     scalar_t beta = params.beta.get<scalar_t>();
     int p = params.grid.m();
     int q = params.grid.n();
+    int64_t nrhs = params.nrhs();
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
+    #ifndef SLATE_HAVE_SCALAPACK
+        ref = false;
+    #endif
     bool trace = params.trace() == 'y';
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
@@ -86,9 +93,9 @@ void test_syrk_work(Params& params, bool run)
 
     slate::Matrix<scalar_t> A;
     slate::SymmetricMatrix<scalar_t> C;
+    slate::Target origin_target = origin2target(origin);
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
-        slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(Am, An, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
 
@@ -106,15 +113,17 @@ void test_syrk_work(Params& params, bool run)
     slate::generate_matrix( params.matrix, A );
     slate::generate_matrix( params.matrixC, C );
 
-    // if check is required, copy test data and create a descriptor for it
-    slate::SymmetricMatrix<scalar_t> Cref;
-    std::vector<scalar_t> Cref_data;
-    if (check || ref) {
-        Cref_data.resize( C_data.size() );
-        Cref = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
-                   uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
-        slate::copy( C, Cref );
-    }
+    #ifdef SLATE_HAVE_SCALAPACK
+        // If reference run is required, copy test data.
+        slate::SymmetricMatrix<scalar_t> Cref;
+        std::vector<scalar_t> Cref_data;
+        if (check || ref) {
+            Cref_data.resize( C_data.size() );
+            Cref = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
+                       uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+            slate::copy( C, Cref );
+        }
+    #endif
 
     // Keep the original untransposed A matrix,
     // and make a shallow copy of it for transposing.
@@ -127,6 +136,29 @@ void test_syrk_work(Params& params, bool run)
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
+
+    // If check run, perform first half of SLATE residual check.
+    slate::Matrix<scalar_t> X, Y;
+    slate::SymmetricMatrix<scalar_t> Z;
+    if ( check && !ref ) {
+        X = slate::Matrix<scalar_t>( An, nrhs, nb, p, q, MPI_COMM_WORLD );
+        X.insertLocalTiles(origin_target);
+        Y = slate::Matrix<scalar_t>( Am, nrhs, nb, p, q, MPI_COMM_WORLD );
+        Y.insertLocalTiles(origin_target);
+        Z = slate::SymmetricMatrix<scalar_t>(uplo, Cn, nb, p, q, MPI_COMM_WORLD);
+        Z.insertLocalTiles(origin_target);
+        MatrixParams mp;
+        mp.kind.set_default( "rand" );
+        generate_matrix( mp, X );
+
+        // Compute Y = alpha (A * A^H) * X + (beta C * X).
+        // Z = A A^H
+        slate::rank_k_update(scalar_t(one), opA, scalar_t(zero), Z, opts);
+        // Y = beta * C * X
+        slate::multiply( scalar_t(beta), C, X, zero, Y, opts );
+        // Y = alpha * Z * X + Y
+        slate::multiply( scalar_t(alpha), Z, X, one, Y, opts );
+    }
 
     double time = barrier_get_wtime( MPI_COMM_WORLD );
 
@@ -147,7 +179,22 @@ void test_syrk_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    if (check || ref) {
+    if ( check && !ref ) {
+        // SLATE residual check.
+        // Check error, C*X - Y.
+        real_t y_norm = slate::norm( norm, Y, opts );
+        // Y = C * X - Y
+        slate::multiply( one, C, X, -one, Y );
+        // error = norm( Y ) / y_norm
+        real_t error = slate::norm( slate::Norm::One, Y, opts )/y_norm;
+        params.error() = error;
+
+        // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
+        real_t eps = std::numeric_limits<real_t>::epsilon();
+        params.okay() = (params.error() <= 3*eps);
+    }
+
+    if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
 

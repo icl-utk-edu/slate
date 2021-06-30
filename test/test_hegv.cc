@@ -99,10 +99,10 @@ void test_hegv_work(Params& params, bool run)
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
     std::vector<scalar_t> B_data(lldB*nlocB);
 
-    // matrix W (global output), W(n), gets eigenvalues in decending order
-    std::vector<real_t> W_data(n);
+    // vector Lambda (global output), gets eigenvalues in decending order
+    std::vector<real_t> Lambda(n);
 
-    // matrix Z (local output), n-by-n , gets orthonormal eigenvectors corresponding to W
+    // matrix Z (local output), n-by-n, gets orthonormal eigenvectors corresponding to Lambda
     int64_t mlocZ = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocZ = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldZ  = blas::max(1, mlocZ); // local leading dimension of Z
@@ -153,7 +153,7 @@ void test_hegv_work(Params& params, bool run)
     }
 
     std::vector<scalar_t> Aref_data, Bref_data, Zref_data;
-    std::vector<real_t> Wref_data;
+    std::vector<real_t> Lambda_ref;
     slate::HermitianMatrix<scalar_t> Aref;
     slate::HermitianMatrix<scalar_t> Bref;
     if (ref || check) {
@@ -168,7 +168,7 @@ void test_hegv_work(Params& params, bool run)
         slate::copy(B, Bref);
 
         Zref_data.resize( Z_data.size() );
-        Wref_data.resize( W_data.size() );
+        Lambda_ref.resize( Lambda.size() );
     }
 
     slate::HermitianMatrix<scalar_t> A_orig;
@@ -201,13 +201,13 @@ void test_hegv_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         if (jobz == slate::Job::NoVec) {
-            slate::eig_vals(itype, A, B, W_data, opts);
+            slate::eig_vals(itype, A, B, Lambda, opts);
         }
         // else {
             // todo: slate::Job::Vec
         // }
         // Using traditional BLAS/LAPACK name
-        // slate::hegv(itype, jobz, A, B, W_data, Z, opts);
+        // slate::hegv(itype, jobz, A, B, Lambda, Z, opts);
 
         time = barrier_get_wtime(mpi_comm) - time;
         if (trace) slate::trace::Trace::finish();
@@ -256,7 +256,7 @@ void test_hegv_work(Params& params, bool run)
                         auto T = Z.at(i, j);
                         for (int jj = 0; jj < T.nb(); ++jj)
                             for (int ii = 0; ii < T.mb(); ++ii)
-                                T.at(ii, jj) *= W_data[ jj + joff ];
+                                T.at(ii, jj) *= Lambda[ jj + joff ];
                     }
                     ioff += Z.tileMb(i);
                 }
@@ -279,7 +279,7 @@ void test_hegv_work(Params& params, bool run)
                         auto T = Z.at(i, j);
                         for (int jj = 0; jj < T.nb(); ++jj)
                             for (int ii = 0; ii < T.mb(); ++ii)
-                                T.at(ii, jj) *= W_data[ jj + joff ];
+                                T.at(ii, jj) *= Lambda[ jj + joff ];
                     }
                     ioff += Z.tileMb(i);
                 }
@@ -302,7 +302,7 @@ void test_hegv_work(Params& params, bool run)
                         auto T = Z.at(i, j);
                         for (int jj = 0; jj < T.nb(); ++jj)
                             for (int ii = 0; ii < T.mb(); ++ii)
-                                T.at(ii, jj) *= W_data[ jj + joff ];
+                                T.at(ii, jj) *= Lambda[ jj + joff ];
                     }
                     ioff += Z.tileMb(i);
                 }
@@ -378,7 +378,7 @@ void test_hegv_work(Params& params, bool run)
                              &Aref_data[0], 1, 1, A_desc,
                              &Bref_data[0], 1, 1, B_desc,
                              vl, vu, il, iu, abstol, &nfound, &nzfound,
-                             &Wref_data[0], orfac,
+                             &Lambda_ref[0], orfac,
                              &Zref_data[0], 1, 1, Z_desc,
                              &work[0], lwork,
                              &rwork[0], lrwork,
@@ -406,7 +406,7 @@ void test_hegv_work(Params& params, bool run)
                              &Aref_data[0], 1, 1, A_desc,
                              &Bref_data[0], 1, 1, B_desc,
                              vl, vu, il, iu, abstol, &nfound, &nzfound,
-                             &Wref_data[0], orfac,
+                             &Lambda_ref[0], orfac,
                              &Zref_data[0], 1, 1, Z_desc,
                              &work[0], lwork,
                              &rwork[0], lrwork,
@@ -423,11 +423,11 @@ void test_hegv_work(Params& params, bool run)
 
             if (! ref_only) {
                 // Reference Scalapack was run, check reference eigenvalues
-                // Perform a local operation to get differences W_data = W_data - Wref_data
-                blas::axpy(W_data.size(), -1.0, &Wref_data[0], 1, &W_data[0], 1);
-                // Relative forward error: || Wref_data - W_data || / || Wref_data ||.
-                params.error2() = blas::asum(W_data.size(), &W_data[0], 1)
-                                / blas::asum(Wref_data.size(), &Wref_data[0], 1);
+                // Perform a local operation to get differences Lambda = Lambda - Lambda_ref
+                blas::axpy(Lambda.size(), -1.0, &Lambda_ref[0], 1, &Lambda[0], 1);
+                // Relative forward error: || Lambda_ref - Lambda || / || Lambda_ref ||.
+                params.error2() = blas::asum(Lambda.size(), &Lambda[0], 1)
+                                / blas::asum(Lambda_ref.size(), &Lambda_ref[0], 1);
                 real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
                 params.okay() = (params.error2() <= tol);
             }

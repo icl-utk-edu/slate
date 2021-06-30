@@ -93,11 +93,11 @@ void test_heev_work(Params& params, bool run)
 
     std::vector<scalar_t> A_data(lldA*nlocA);
 
-    // matrix W (global output), W(n), gets eigenvalues in decending order
-    std::vector<real_t> W_data(n);
+    // matrix Lambda (global output) gets eigenvalues in decending order
+    std::vector<real_t> Lambda(n);
 
     // matrix Z (local output), Z(n,n), gets orthonormal eigenvectors
-    // corresponding to W of the reference scalapack
+    // corresponding to Lambda of the reference scalapack
     int64_t mlocZ = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocZ = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldZ  = blas::max(1, mlocZ); // local leading dimension of Z
@@ -105,7 +105,6 @@ void test_heev_work(Params& params, bool run)
 
     // Initialize SLATE data structures
     slate::HermitianMatrix<scalar_t> A;
-    std::vector<real_t> W(n);
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
@@ -136,11 +135,11 @@ void test_heev_work(Params& params, bool run)
     }
 
     std::vector<scalar_t> Aref_data;
-    std::vector<real_t> Wref_data;
+    std::vector<real_t> Lambda_ref;
     slate::HermitianMatrix<scalar_t> Aref;
     if (check || ref) {
         Aref_data.resize( A_data.size() );
-        Wref_data.resize( W_data.size() );
+        Lambda_ref.resize( Lambda.size() );
         Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                    uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         slate::copy( A, Aref );
@@ -157,13 +156,13 @@ void test_heev_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         if (jobz == slate::Job::NoVec) {
-            slate::eig_vals(A, W_data, opts);
+            slate::eig_vals(A, Lambda, opts);
         }
         // else {
             // todo: slate::Job::Vec
         // }
         // Using traditional BLAS/LAPACK name
-        // slate::heev(jobz, A, W_data, Z, opts);
+        // slate::heev(jobz, A, Lambda, Z, opts);
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -219,7 +218,7 @@ void test_heev_work(Params& params, bool run)
             std::vector<real_t> rwork(1);
             scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
                             &Aref_data[0], 1, 1, A_desc,
-                            &Wref_data[0], // global output
+                            &Lambda_ref[0], // global output
                             &Z_data[0], 1, 1, Z_desc,
                             &work[0], -1, &rwork[0], -1, &info_tst);
             slate_assert(info_tst == 0);
@@ -237,7 +236,7 @@ void test_heev_work(Params& params, bool run)
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
                             &Aref_data[0], 1, 1, A_desc,
-                            &Wref_data[0],
+                            &Lambda_ref[0],
                             &Z_data[0], 1, 1, Z_desc,
                             &work[0], lwork, &rwork[0], lrwork, &info_tst);
             slate_assert(info_tst == 0);
@@ -249,12 +248,12 @@ void test_heev_work(Params& params, bool run)
             slate_set_num_blas_threads(saved_num_threads);
 
             // Reference Scalapack was run, check reference against test
-            // Perform a local operation to get differences W_data = W_data - Wref_data
-            blas::axpy(Wref_data.size(), -1.0, &Wref_data[0], 1, &W_data[0], 1);
+            // Perform a local operation to get differences Lambda = Lambda - Lambda_ref
+            blas::axpy(Lambda_ref.size(), -1.0, &Lambda_ref[0], 1, &Lambda[0], 1);
 
-            // Relative forward error: || Wref_data - W_data || / || Wref_data ||.
-            params.error() = blas::asum(n, &W_data[0], 1)
-                           / blas::asum(n, &Wref_data[0], 1);
+            // Relative forward error: || Lambda_ref - Lambda || / || Lambda_ref ||.
+            params.error() = blas::asum(n, &Lambda[0], 1)
+                           / blas::asum(n, &Lambda_ref[0], 1);
 
             real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
             params.okay() = (params.error() <= tol);

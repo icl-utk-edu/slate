@@ -78,7 +78,7 @@ void test_tb2bd_work(Params& params, bool run)
     if (verbose && mpi_rank == 0)
         print_matrix( "A1", m, n, &A1[0], lda );
 
-    std::vector<real_t> S1(min_mn);
+    std::vector<real_t> Sigma1(min_mn);
     if (check && mpi_rank == 0) {
         //==================================================
         // For checking results, compute SVD of original matrix A.
@@ -93,7 +93,7 @@ void test_tb2bd_work(Params& params, bool run)
         std::vector<scalar_t> U ( 1 );  // ( lda*n );  // U, VT not needed for NoVec
         std::vector<scalar_t> VT( 1 );  // ( lda*n );
         lapack::gesvd(lapack::Job::NoVec, lapack::Job::NoVec,
-                      m, n, &Aref[0], lda, &S1[0], &U[0], lda, &VT[0], lda);
+                      m, n, &Aref[0], lda, &Sigma1[0], &U[0], lda, &VT[0], lda);
 
         slate_set_num_blas_threads(saved_num_threads);
     }
@@ -208,7 +208,7 @@ void test_tb2bd_work(Params& params, bool run)
             // Check that the singular values of updated A
             // match the singular values of the original A.
             real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-            std::vector<real_t> S2(min_mn);
+            std::vector<real_t> Sigma2(min_mn);
             std::vector<real_t> E(min_mn - 1);  // super-diagonal
             scalar_t dummy[1];  // U, VT, C not needed for NoVec
 
@@ -223,11 +223,11 @@ void test_tb2bd_work(Params& params, bool run)
                     E_index += 1;
                 }
 
-                // Copy main diagonal to S2.
+                // Copy main diagonal to Sigma2.
                 auto T = A(i, i);
                 auto len = std::min(T.mb(), T.nb());
                 for (int64_t j = 0; j < len; ++j) {
-                    S2[D_index + j] = real( T(j, j) );
+                    Sigma2[D_index + j] = real( T(j, j) );
                 }
                 D_index += len;
 
@@ -238,30 +238,30 @@ void test_tb2bd_work(Params& params, bool run)
                 E_index += len-1;
             }
             if (verbose) {
-                print_matrix("D", min_mn, 1, &S2[0], min_mn);
+                print_matrix("D", min_mn, 1, &Sigma2[0], min_mn);
                 print_matrix("E", min_mn-1, 1, &E[0], min_mn-1);
             }
 
             lapack::bdsqr(lapack::Uplo::Upper, min_mn, 0, 0, 0,
-                          &S2[0], &E[0], dummy, 1, dummy, 1, dummy, 1);
+                          &Sigma2[0], &E[0], dummy, 1, dummy, 1, dummy, 1);
             slate_set_num_blas_threads(saved_num_threads);
 
             if (verbose) {
-                printf( "%9s  %9s\n", "S1", "S2" );
+                printf( "%9s  %9s\n", "Sigma1", "Sigma2" );
                 for (int64_t i = 0; i < std::min(m, n); ++i) {
                     if (i < 20 || i > std::min(m, n)-20) {
-                        bool okay = std::abs( S1[i] - S2[i] ) < tol;
+                        bool okay = std::abs( Sigma1[i] - Sigma2[i] ) < tol;
                         printf( "%9.6f  %9.6f%s\n",
-                                S1[i], S2[i], (okay ? "" : " !!") );
+                                Sigma1[i], Sigma2[i], (okay ? "" : " !!") );
                     }
                 }
                 printf( "\n" );
             }
 
-            // Relative forward error: || S - Sref || / || Sref ||.
-            blas::axpy(S2.size(), -1.0, &S1[0], 1, &S2[0], 1);
-            params.error() = blas::nrm2(S2.size(), &S2[0], 1)
-                           / blas::nrm2(S1.size(), &S1[0], 1);
+            // Relative forward error: || Sigma - Sigma_ref || / || Sigma_ref ||.
+            blas::axpy(Sigma2.size(), -1.0, &Sigma1[0], 1, &Sigma2[0], 1);
+            params.error() = blas::nrm2(Sigma2.size(), &Sigma2[0], 1)
+                           / blas::nrm2(Sigma1.size(), &Sigma1[0], 1);
             params.okay() = (params.error() <= tol && params.error2() <= tol);
         }
     }

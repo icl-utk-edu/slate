@@ -95,8 +95,8 @@ void test_gesvd_work(Params& params, bool run)
     int64_t lldVT  = blas::max(1, mlocVT); // local leading dimension of VT
     std::vector<scalar_t> VT_data(1);
 
-    // array S (global output), S(size), singular values of A
-    std::vector<real_t> S_data(min_mn);
+    // array Sigma (global output), singular values of A
+    std::vector<real_t> Sigma(min_mn);
 
     slate::Matrix<scalar_t> A; // (m, n);
     slate::Matrix<scalar_t> U; // (m, min_mn);
@@ -158,10 +158,10 @@ void test_gesvd_work(Params& params, bool run)
         print_matrix( "A0",  A  );
     }
 
-    std::vector<real_t> Sref_data;
+    std::vector<real_t> Sigma_ref;
     slate::Matrix<scalar_t> Aref;
     if (check || ref) {
-        Sref_data.resize(S_data.size());
+        Sigma_ref.resize(Sigma.size());
         Aref = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
         slate::Target origin_target = origin2target(origin);
         Aref.insertLocalTiles(origin_target);
@@ -177,9 +177,9 @@ void test_gesvd_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::svd_vals(A, S_data, opts);
+        slate::svd_vals(A, Sigma, opts);
         // Using traditional BLAS/LAPACK name
-        // slate::gesvd(A, S_data, opts);
+        // slate::gesvd(A, Sigma, opts);
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -240,7 +240,7 @@ void test_gesvd_work(Params& params, bool run)
             scalar_t dummy_work;
             real_t dummy_rwork;
             scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
-                             &Aref_data[0],  1, 1, A_desc, &Sref_data[0],
+                             &Aref_data[0],  1, 1, A_desc, &Sigma_ref[0],
                              &U_data[0],  1, 1, U_desc,
                              &VT_data[0], 1, 1, VT_desc,
                              &dummy_work, -1, &dummy_rwork, &info_ref);
@@ -255,7 +255,7 @@ void test_gesvd_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
-                             &Aref_data[0],  1, 1, A_desc, &Sref_data[0],
+                             &Aref_data[0],  1, 1, A_desc, &Sigma_ref[0],
                              &U_data[0],  1, 1, U_desc,
                              &VT_data[0], 1, 1, VT_desc,
                              &work[0], lwork, &rwork[0], &info_ref);
@@ -267,12 +267,12 @@ void test_gesvd_work(Params& params, bool run)
             slate_set_num_blas_threads(saved_num_threads);
 
             // Reference Scalapack was run, check reference against test
-            // Perform a local operation to get differences S_data = S_data - Sref_data
-            blas::axpy(Sref_data.size(), -1.0, &Sref_data[0], 1, &S_data[0], 1);
+            // Perform a local operation to get differences Sigma = Sigma - Sigma_ref
+            blas::axpy(Sigma_ref.size(), -1.0, &Sigma_ref[0], 1, &Sigma[0], 1);
 
-            // Relative forward error: || Sref_data - S_data || / || Sref_data ||.
-            params.error() = blas::asum(S_data.size(), &S_data[0], 1)
-                           / blas::asum(Sref_data.size(), &Sref_data[0], 1);
+            // Relative forward error: || Sigma_ref - Sigma || / || Sigma_ref ||.
+            params.error() = blas::asum(Sigma.size(), &Sigma[0], 1)
+                           / blas::asum(Sigma_ref.size(), &Sigma_ref[0], 1);
 
             real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
             params.okay() = (params.error() <= tol);

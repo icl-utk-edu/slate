@@ -121,11 +121,9 @@ void test_hbmm_work(Params& params, bool run)
 
     // if check is required, copy test data and create a descriptor for it
     slate::Matrix<scalar_t> Cref;
-    std::vector<scalar_t> Cref_data;
     if (check || ref) {
-        Cref_data.resize( C_data.size() );
-        Cref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                   m, n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+        Cref = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
+        Cref.insertLocalTiles();
         slate::copy( C, Cref );
     }
 
@@ -199,7 +197,7 @@ void test_hbmm_work(Params& params, bool run)
             throw slate::Exception("unknown side");
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-        // get differences Cref_data = Cref_data - C_data
+        // get differences Cref = Cref - C
         slate::geadd( -one, C, one, Cref );
         real_t C_diff_norm = slate::norm( norm, Cref ); // norm of residual
 

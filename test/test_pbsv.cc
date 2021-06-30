@@ -137,11 +137,9 @@ void test_pbsv_work(Params& params, bool run)
 
     // if check is required, copy test data and create a descriptor for it
     slate::Matrix<scalar_t> Bref;
-    std::vector<scalar_t> Bref_data;
     if (check || ref) {
-        Bref_data.resize( B_data.size() );
-        Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                   n, nrhs, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+        Bref = slate::Matrix<scalar_t>(n, nrhs, nb, p, q, MPI_COMM_WORLD);
+        Bref.insertLocalTiles();
         slate::copy( B, Bref );
     }
 
@@ -232,7 +230,7 @@ void test_pbsv_work(Params& params, bool run)
         // Norm of updated rhs matrix: || X ||_1
         real_t X_norm = slate::norm( slate::Norm::One, B );
 
-        // Bref_data -= Aref*B_data
+        // Bref -= Aref*B
         slate::multiply(-one, Aorig, B, one, Bref);
         // Using traditional BLAS/LAPACK name
         // slate::hbmm(blas::Side::Left, -one, Aorig, B, one, Bref);
@@ -251,7 +249,7 @@ void test_pbsv_work(Params& params, bool run)
                    A_norm, X_norm, R_norm, residual);
         }
         if (verbose > 1) {
-            print_matrix("Residual", n, nrhs, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD);
+            print_matrix("Residual", Bref);
         }
     }
     // todo: reference solution requires setting up band matrix in ScaLAPACK's

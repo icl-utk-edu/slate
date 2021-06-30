@@ -115,13 +115,13 @@ void test_gbmm_work(Params& params, bool run)
         cuerror = cudaHostRegister(&C_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
     #endif
 
-    auto Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                    Am, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(
+                 Am, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
                  Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     auto C = slate::Matrix<scalar_t>::fromScaLAPACK(
                  m, n, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
-    slate::generate_matrix(params.matrix, Aref);
+    slate::generate_matrix(params.matrix,  A);
     slate::generate_matrix(params.matrixB, B);
     slate::generate_matrix(params.matrixC, C);
     zeroOutsideBand(&A_data[0], Am, An, kl, ku, nb, nb, myrow, mycol, p, q, lldA);
@@ -130,13 +130,11 @@ void test_gbmm_work(Params& params, bool run)
     auto A_band = BandFromScaLAPACK(
                       Am, An, kl, ku, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
-    // if check is required, copy test data and create a descriptor for it
+    // If check is required, copy test data.
     slate::Matrix<scalar_t> Cref;
-    std::vector<scalar_t> Cref_data;
     if (check || ref) {
-        Cref_data.resize( C_data.size() );
-        Cref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                   m, n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+        Cref = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
+        Cref.insertLocalTiles();
         slate::copy( C, Cref );
     }
 
@@ -197,16 +195,16 @@ void test_gbmm_work(Params& params, bool run)
         // comparison with SLATE non-band routine
 
         if (transA == slate::Op::Trans)
-            Aref = transpose(Aref);
+            A = transpose(A);
         else if (transA == slate::Op::ConjTrans)
-            Aref = conjTranspose(Aref);
+            A = conjTranspose(A);
 
         if (verbose > 1) {
             print_matrix("Cref", Cref);
         }
 
         // Get norms of the original data.
-        real_t A_norm = slate::norm( norm, Aref );
+        real_t A_norm = slate::norm( norm, A );
         real_t B_norm = slate::norm( norm, B );
         real_t Cref_norm = slate::norm( norm, Cref );
 
@@ -214,9 +212,9 @@ void test_gbmm_work(Params& params, bool run)
         // Run SLATE non-band routine
         //==================================================
         time = barrier_get_wtime(MPI_COMM_WORLD);
-        slate::multiply( alpha, Aref, B, beta, Cref, opts );
+        slate::multiply( alpha, A, B, beta, Cref, opts );
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
-        // get differences Cref_data = Cref_data - C_data
+        // get differences Cref = Cref - C
         slate::geadd( -one, C, one, Cref );
         real_t C_diff_norm = slate::norm( norm, Cref ); // norm of residual
 

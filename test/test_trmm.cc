@@ -77,13 +77,13 @@ void test_trmm_work(Params& params, bool run)
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     // todo: matrix A is a unit, or non-unit, upper or lower triangular distributed matrix,
-    // matrix A, figure out local size, allocate, create descriptor, initialize
+    // Matrix A: figure out local size.
     int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector<scalar_t> A_data(lldA*nlocA);
 
-    // matrix B, figure out local size, allocate, create descriptor, initialize
+    // Matrix B: figure out local size.
     int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B

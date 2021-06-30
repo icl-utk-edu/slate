@@ -76,7 +76,7 @@ void test_gesvd_work(Params& params, bool run)
 
     int64_t min_mn = std::min(m, n);
 
-    // figure out local size, allocate, create descriptor, initialize
+    // Figure out local size.
     // matrix A (local input), m-by-n
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);

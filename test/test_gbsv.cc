@@ -84,7 +84,7 @@ void test_gbsv_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // matrix B, figure out local size, allocate, create descriptor, initialize
+    // Matrix B: figure out local size.
     int64_t mlocB = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B

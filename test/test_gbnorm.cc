@@ -67,11 +67,12 @@ void test_gbnorm_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // matrix A, figure out local size, allocate, create descriptor, initialize
+    // Matrix A: figure out local size.
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector<scalar_t> A_data(lldA*nlocA);
+
     // todo: fix the generation
     int64_t iseeds[4] = { myrow, mycol, 2, 3 };
     //lapack::larnv(2, iseeds, lldA*nlocA, &A_data[0]);

@@ -80,7 +80,7 @@ void test_hegst_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // Figure out local size, allocate, initialize
+    // Matrix A, B: figure out local size.
     int64_t mlocal = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocal = num_local_rows_cols(n, nb, mycol, q);
     int64_t lld    = blas::max(1, mlocal); // local leading dimension of A, B

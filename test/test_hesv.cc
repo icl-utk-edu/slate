@@ -80,17 +80,28 @@ void test_hesv_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    //---------------------
-    // matrix A, figure out local size, allocate, create descriptor, initialize
+    // Matrix A: figure out local size.
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector<scalar_t> A_data(lldA*nlocA);
 
+    // Matrix B: figure out local size.
+    int64_t mlocB = num_local_rows_cols(n, nb, myrow, p);
+    int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
+    int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
+    std::vector<scalar_t> B_data(lldB*nlocB);
+
     //---------------------
     // Create SLATE matrix from the ScaLAPACK layouts
     auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                  uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
+                 n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+
+    slate::generate_matrix( params.matrix, A );
+    slate::generate_matrix( params.matrixB, B );
+
     slate::Pivots pivots;
 
     //---------------------
@@ -102,23 +113,11 @@ void test_hesv_work(Params& params, bool run)
 
     //---------------------
     // auxiliary matrices
-    auto H = slate::Matrix<scalar_t> (n, n, nb, p, q, MPI_COMM_WORLD);
+    auto H = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
 
     //---------------------
     // right-hand-side and solution vectors
     std::vector<scalar_t> Bref_data;
-
-    // matrix B, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocB = num_local_rows_cols(n, nb, myrow, p);
-    int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
-    int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-    std::vector<scalar_t> B_data(lldB*nlocB);
-
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
-                 n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-
-    slate::generate_matrix( params.matrix, A );
-    slate::generate_matrix( params.matrixB, B );
 
     //---------------------
     // if check is required, copy test data.

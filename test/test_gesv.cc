@@ -103,12 +103,12 @@ void test_gesv_work(Params& params, bool run)
         {slate::Option::InnerBlocking, ib}
     };
 
-    // matrix A, figure out local size, allocate, create descriptor, initialize
+    // Matrix A: figure out local size.
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
 
-    // matrix B, figure out local size, allocate, create descriptor, initialize
+    // Matrix B: figure out local size.
     int64_t mlocB = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B

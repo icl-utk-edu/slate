@@ -60,7 +60,7 @@ void test_steqr2_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // matrix Z, figure out local size, allocate, create descriptor, initialize
+    // Matrix Z: figure out local size.
     int64_t mlocZ = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocZ = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldZ  = blas::max(1, mlocZ); // local leading dimension of Z

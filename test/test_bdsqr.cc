@@ -63,13 +63,13 @@ void test_bdsqr_work(Params& params, bool run)
 
     int64_t min_mn = std::min(m, n);
 
-    // matrix U, figure out local size, allocate, create descriptor, initialize
+    // Matrix U: figure out local size.
     int64_t mlocU = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocU = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldU  = blas::max(1, mlocU); // local leading dimension of U
     std::vector<scalar_t> U_data(1);
 
-    // matrix VT, figure out local size, allocate, create descriptor, initialize
+    // Matrix VT: figure out local size.
     int64_t mlocVT = num_local_rows_cols(min_mn, nb, myrow, p);
     int64_t nlocVT = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldVT  = blas::max(1, mlocVT); // local leading dimension of VT

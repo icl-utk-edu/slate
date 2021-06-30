@@ -76,7 +76,7 @@ void test_hegv_work(Params& params, bool run)
     MPI_Comm_rank(mpi_comm, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // figure out local size, allocate, create descriptor, initialize
+    // Figure out local size.
     // matrix A (local input/local output), n-by-n, Hermitian
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);

@@ -69,12 +69,12 @@ void test_geqrf_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // matrix A, figure out local size, allocate, initialize
+    // Matrix A: figure out local size.
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-
     std::vector<scalar_t> A_data;
+
     slate::Matrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
         slate::Target origin_target = origin2target(origin);

@@ -70,7 +70,7 @@ void test_heev_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // figure out local size, allocate, create descriptor, initialize
+    // Figure out local size.
     // matrix A (local input), m-by-n, symmetric matrix
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
@@ -80,7 +80,6 @@ void test_heev_work(Params& params, bool run)
 
     // matrix W (global output), W(n), gets eigenvalues in decending order
     std::vector<real_t> W_data(n);
-
 
     // matrix Z (local output), Z(n,n), gets orthonormal eigenvectors
     // corresponding to W of the reference scalapack

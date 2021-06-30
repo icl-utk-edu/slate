@@ -56,14 +56,22 @@ void test_he2hb_work(Params& params, bool run)
         {slate::Option::InnerBlocking, ib}
     };
 
-    // Requires a square processing grid.
-    slate_assert(p == q);
-    slate_assert(uplo == slate::Uplo::Lower);  // only lower for now.
-
     // MPI variables
     int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
+
+    // Skip invalid or unimplemented options.
+    if (uplo == slate::Uplo::Upper) {
+        if (mpi_rank == 0)
+            printf("skipping: Uplo::Upper isn't supported.\n");
+        return;
+    }
+    if (p != q) {
+        if (mpi_rank == 0)
+            printf("skipping: requires square process grid (p == q).\n");
+        return;
+    }
 
     // Matrix A: figure out local size.
     int64_t mlocal = num_local_rows_cols(n, nb, myrow, p);

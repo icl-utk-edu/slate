@@ -51,27 +51,22 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         {slate::Option::Target, target}
     };
 
-    slate_assert(p == q); // Requires a square processing grid.
-
-    //==================================================
-    // quick returns:
-    //==================================================
-    // todo: implement non-ScaLAPACK layout.
-    if (origin != slate::Origin::ScaLAPACK) {
-        printf("skipping: currently only origin=scalapack is supported.\n");
-        return;
-    }
-    // todo:  he2hb currently doesn't support uplo == upper, needs to figure out
-    //        a different solution.
-    if (uplo == slate::Uplo::Upper) {
-        printf("skipping: currently slate::Uplo::Upper isn't supported.\n");
-        return;
-    }
-
     // MPI variables
     int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
+
+    // Skip invalid or unimplemented options.
+    if (uplo == slate::Uplo::Upper) {
+        if (mpi_rank == 0)
+            printf("skipping: Uplo::Upper isn't supported.\n");
+        return;
+    }
+    if (p != q) {
+        if (mpi_rank == 0)
+            printf("skipping: requires square process grid (p == q).\n");
+        return;
+    }
 
     // Matrix A: figure out local size.
     int64_t mlocal = num_local_rows_cols(n, nb, myrow, p);

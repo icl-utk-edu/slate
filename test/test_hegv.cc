@@ -53,13 +53,6 @@ void test_hegv_work(Params& params, bool run)
     params.matrixB.mark();
     params.matrixC.mark();
 
-    // todo:  relax these assumptions
-    //        required by he2hb
-    slate_assert(p == q); // Requires a square processing grid.
-    slate_assert(uplo == slate::Uplo::Lower);  // only lower for now (he2hb).
-    // todo: vector
-    slate_assert(jobz == lapack::Job::NoVec);  // only NoVec for now.
-
     params.time();
     params.ref_time();
     params.error2();
@@ -75,6 +68,23 @@ void test_hegv_work(Params& params, bool run)
     int mpi_rank, myrow, mycol;
     MPI_Comm_rank(mpi_comm, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
+
+    // Skip invalid or unimplemented options.
+    if (uplo == slate::Uplo::Upper) {
+        if (mpi_rank == 0)
+            printf("skipping: Uplo::Upper isn't supported.\n");
+        return;
+    }
+    if (p != q) {
+        if (mpi_rank == 0)
+            printf("skipping: requires square process grid (p == q).\n");
+        return;
+    }
+    if (jobz != lapack::Job::NoVec) {
+        if (mpi_rank == 0)
+            printf("skipping: only supports Job::NoVec.\n");
+        return;
+    }
 
     // Figure out local size.
     // matrix A (local input/local output), n-by-n, Hermitian

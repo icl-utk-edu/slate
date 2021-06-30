@@ -48,8 +48,6 @@ void test_heev_work(Params& params, bool run)
     slate::Target target = params.target();
     params.matrix.mark();
 
-    slate_assert(p == q);  // heev requires square process grid.
-
     params.time();
     params.ref_time();
     // params.gflops();
@@ -69,6 +67,23 @@ void test_heev_work(Params& params, bool run)
     int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
+
+    // Skip invalid or unimplemented options.
+    if (uplo == slate::Uplo::Upper) {
+        if (mpi_rank == 0)
+            printf("skipping: Uplo::Upper isn't supported.\n");
+        return;
+    }
+    if (p != q) {
+        if (mpi_rank == 0)
+            printf("skipping: requires square process grid (p == q).\n");
+        return;
+    }
+    if (jobz != lapack::Job::NoVec) {
+        if (mpi_rank == 0)
+            printf("skipping: only supports Job::NoVec.\n");
+        return;
+    }
 
     // Figure out local size.
     // matrix A (local input), m-by-n, symmetric matrix

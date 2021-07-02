@@ -409,9 +409,10 @@ if (opts.sysv):
 # Hermitian indefinite
 if (opts.hesv):
     cmds += [
-    [ 'hesv',  gen + dtype + la + n + uplo ],
-    [ 'hetrf', gen + dtype + la + n + uplo ],
-    [ 'hetrs', gen + dtype + la + n + uplo ],
+    # todo: nb, uplo
+    [ 'hesv',  gen_no_nb + ' --nb 50' + dtype + la + n ],
+    [ 'hetrf', gen_no_nb + ' --nb 50' + dtype + la + n ],
+    [ 'hetrs', gen_no_nb + ' --nb 50' + dtype + la + n ],
     #[ 'hetri', gen + dtype + la + n + uplo ],
     #[ 'hecon', gen + dtype + la + n + uplo ],
     #[ 'herfs', gen + dtype + la + n + uplo ],

@@ -12,6 +12,7 @@
 #include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
 #include "grid_utils.hh"
+#include "print_matrix.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -39,6 +40,7 @@ void test_hesv_work(Params& params, bool run)
     int64_t panel_threads = params.panel_threads();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
+    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -104,6 +106,11 @@ void test_hesv_work(Params& params, bool run)
 
     slate::Pivots pivots;
 
+    if (verbose >= 2) {
+        print_matrix( "A", A );
+        print_matrix( "B", B );
+    }
+
     //---------------------
     // band matrix
     int64_t kl = nb;
@@ -136,11 +143,6 @@ void test_hesv_work(Params& params, bool run)
         slate::copy( B, Bref );
     }
 
-    if (trace) slate::trace::Trace::on();
-    else slate::trace::Trace::off();
-
-    double time = barrier_get_wtime(MPI_COMM_WORLD);
-
     if (params.routine == "hetrs") {
         slate::indefinite_factor(A, pivots, T, pivots2, H, opts);
         // Using traditional BLAS/LAPACK name
@@ -154,6 +156,11 @@ void test_hesv_work(Params& params, bool run)
     // hetrs: Solve AX = B, after factoring A above.
     // hesv:  Solve AX = B, including factoring A.
     //==================================================
+    if (trace) slate::trace::Trace::on();
+    else slate::trace::Trace::off();
+
+    double time = barrier_get_wtime(MPI_COMM_WORLD);
+
     if (params.routine == "hetrf") {
         slate::indefinite_factor(A, pivots, T, pivots2, H, opts);
         // Using traditional BLAS/LAPACK name
@@ -173,6 +180,11 @@ void test_hesv_work(Params& params, bool run)
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
     if (trace) slate::trace::Trace::finish();
+
+    if (verbose >= 2) {
+        print_matrix( "Aout", A );
+        print_matrix( "Bout", B );
+    }
 
     //---------------------
     // compute and save timing/performance

@@ -421,6 +421,7 @@ void permuteRows(
 /// Swap a partial row of two tiles, either locally or remotely. Swaps
 ///     op1( A( ij_tuple_1 ) )[ offset_i1, j_offset : j_offset+n-1 ] and
 ///     op2( A( ij_tuple_2 ) )[ offset_i2, j_offset : j_offset+n-1 ].
+/// If op1 != op2, also conjugates both vectors.
 ///
 /// @ingroup permute_internal
 ///
@@ -432,6 +433,9 @@ void swapRow(
     Op op2, std::tuple<int64_t, int64_t>&& ij_tuple_2, int64_t offset_i2,
     int tag)
 {
+    if (n == 0)
+        return;
+
     int64_t i1 = std::get<0>(ij_tuple_1);
     int64_t j1 = std::get<1>(ij_tuple_1);
 
@@ -440,6 +444,16 @@ void swapRow(
 
     if (A.tileRank(i1, j1) == A.mpiRank()) {
         if (A.tileRank(i2, j2) == A.mpiRank()) {
+            if (op1 != op2) {
+                auto A1 = A(i1, j1);
+                auto A2 = A(i2, j2);
+                if (op1 != Op::NoTrans)
+                    A1 = transpose( A1 );
+                if (op2 != Op::NoTrans)
+                    A2 = transpose( A2 );
+                lapack::lacgv( n, &A1.at( offset_i1, j_offset ), A1.rowIncrement() );
+                lapack::lacgv( n, &A2.at( offset_i2, j_offset ), A2.rowIncrement() );
+            }
             // local swap
             swapLocalRow(
                 j_offset, n,
@@ -447,6 +461,12 @@ void swapRow(
                 op2 == Op::NoTrans ? A(i2, j2) : transpose(A(i2, j2)), offset_i2);
         }
         else {
+            if (op1 != op2) {
+                auto A1 = A(i1, j1);
+                if (op1 != Op::NoTrans)
+                    A1 = transpose( A1 );
+                lapack::lacgv( n, &A1.at( offset_i1, j_offset ), A1.rowIncrement() );
+            }
             // sending tile 1
             swapRemoteRow(
                 j_offset, n,
@@ -455,6 +475,12 @@ void swapRow(
         }
     }
     else if (A.tileRank(i2, j2) == A.mpiRank()) {
+        if (op1 != op2) {
+            auto A2 = A(i2, j2);
+            if (op2 != Op::NoTrans)
+                A2 = transpose( A2 );
+            lapack::lacgv( n, &A2.at( offset_i2, j_offset ), A2.rowIncrement() );
+        }
         // sending tile 2
         swapRemoteRow(
             j_offset, n,
@@ -473,10 +499,8 @@ void swapRow(
 template <typename scalar_t>
 void swapElement(
     HermitianMatrix<scalar_t>& A,
-    std::tuple<int64_t, int64_t>&& ij_tuple_1,
-    int64_t offset_i1, int64_t offset_j1,
-    std::tuple<int64_t, int64_t>&& ij_tuple_2,
-    int64_t offset_i2, int64_t offset_j2,
+    std::tuple<int64_t, int64_t>&& ij_tuple_1, int64_t offset_i1, int64_t offset_j1,
+    std::tuple<int64_t, int64_t>&& ij_tuple_2, int64_t offset_i2, int64_t offset_j2,
     int tag)
 {
     int64_t i1 = std::get<0>(ij_tuple_1);
@@ -561,11 +585,11 @@ void permuteRowsCols(
                         Op::NoTrans, {0,  0}, i1,
                         Op::NoTrans, {j2, 0}, i2, tag);
                 if (j2 == 0) {
-                    swapRow(i1+1, i2-i1, A,
+                    swapRow(i1+1, i2-i1-1, A,
                             Op::Trans,   {0, 0}, i1,
                             Op::NoTrans, {0, 0}, i2, tag);
 
-                    swapRow(i2, A.tileNb(0)-i2, A,
+                    swapRow(i2+1, A.tileNb(0)-i2-1, A,
                             Op::Trans, {0, 0}, i1,
                             Op::Trans, {0, 0}, i2, tag);
                 }

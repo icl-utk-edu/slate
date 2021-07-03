@@ -533,6 +533,38 @@ void swapElement(
 /// the pivot vector.
 /// Host implementation.
 ///
+/// Here, lowercase & uppercase are conjugate pairs, e.g., d = conj( D ).
+/// Input is lower part of:
+///
+///             i1          i2
+///         [ . A   |   |   P   |   ]  }
+///     i1: [ a b C | D | E F G | H ]  } tile row 0
+///         [   c . |   |   Q   |   ]  }
+///         [-------+---+-------+---]
+///         [   d   | . |   R   |   ]  } tile rows 1
+///         [-------+---+-------+---]
+///         [   e   |   | . S   |   ]  }
+///     i2: [ p f q | r | s t U | V ]  } tile row 2
+///         [   g   |   |   u . |   ]  }
+///         [-------+---+-------+---]
+///         [   h   |   |   v   | . ]  } tile rows 3
+///
+///
+/// On output, rows i1, i2 and cols i1, i2 are swapped.
+/// Output is lower part of:
+///
+///         [ . P   |   |   A   |   ]  }
+///     i1: [ p t q | r | s f U | V ]  } tile row 0
+///         [   Q . |   |   c   |   ]  }
+///         [-------+---+-------+---]
+///         [   R   | . |   d   |   ]  } tile rows 1
+///         [-------+---+-------+---]
+///         [   S   |   | . e   |   ]  }
+///     i2: [ a F C | D | E b G | H ]  } tile row 2
+///         [   u   |   |   g . |   ]  }
+///         [-------+---+-------+---]
+///         [   v   |   |   h   | . ]  } tile rows 3
+///
 /// @ingroup permute_internal
 ///
 template <typename scalar_t>
@@ -575,60 +607,80 @@ void permuteRowsCols(
         }
         for (int64_t i1 = begin; i1 != end; i1 += inc) {
             int64_t i2 = pivot[i1].elementOffset();
-            int64_t j2 = pivot[i1].tileIndex();
+            int64_t t2 = pivot[i1].tileIndex();
 
-            // If pivot not on the diagonal.
-            if (j2 > 0 || i2 > i1) {
+            // If pivot not on the diagonal (i.e., we need to swap rows).
+            if (t2 > 0 || i2 > i1) {
 
-                // in the upper band
+                // Letters before colon (e.g., a, p) refer to above diagram.
+                // a: A(  0, 0 )[ i1, 0 : i1-1 ] <=>
+                // p: A( t2, 0 )[ i2, 0 : i1-1 ]
                 swapRow(0, i1, A,
                         Op::NoTrans, {0,  0}, i1,
-                        Op::NoTrans, {j2, 0}, i2, tag);
-                if (j2 == 0) {
+                        Op::NoTrans, {t2, 0}, i2, tag);
+                if (t2 == 0) {
+                    // Swap within a tile.
+                    // Also conjugate c => C, q => Q.
+                    // c: A{ 0, 0 }[ i1+1 : i2, i1 ]^H <=>
+                    // q: A{ 0, 0 }[ i2, i1+1 : i2 ]
                     swapRow(i1+1, i2-i1-1, A,
                             Op::Trans,   {0, 0}, i1,
                             Op::NoTrans, {0, 0}, i2, tag);
 
+                    // g: A{ 0, 0 }[ i2 : nb-1, i1 ]^H <=>
+                    // u: A{ 0, 0 }[ i2 : nb-1, i2 ]^H
                     swapRow(i2+1, A.tileNb(0)-i2-1, A,
                             Op::Trans, {0, 0}, i1,
                             Op::Trans, {0, 0}, i2, tag);
                 }
                 else {
+                    // Swap between tiles.
+                    // Also conjugate c => C, q => Q.
+                    // c: A{  0, 0 }[ i1+1 : nb-1, i1 ]^H <=>
+                    // q: A{ t2, 0 }[ i2, i1+1 : nb-1 ]
                     swapRow(i1+1, A.tileNb(0)-i1-1, A,
                             Op::Trans,   {0,  0}, i1,
-                            Op::NoTrans, {j2, 0}, i2, tag);
+                            Op::NoTrans, {t2, 0}, i2, tag);
 
-                    // in the lower band
+                    // Also conjugate e => E, s => S.
+                    // e: A{ t2,  0 }[ 0 : i2-1, i1 ]^H <=>
+                    // s: A{ t2, t2 }[ i2, 0 : i2-1 ]
                     swapRow(0, i2, A,
-                            Op::Trans,   {j2,  0}, i1,
-                            Op::NoTrans, {j2, j2}, i2, tag+1);
+                            Op::Trans,   {t2,  0}, i1,
+                            Op::NoTrans, {t2, t2}, i2, tag+1);
 
-                    swapRow(i2+1, A.tileNb(j2)-i2-1, A,
-                            Op::Trans, {j2,  0}, i1,
-                            Op::Trans, {j2, j2}, i2, tag+1);
+                    // g: A{ t2,  0 }[ i2+1 : nb, i1 ]^H <=>
+                    // u: A{ t2, t2 }[ i2+1 : nb, i2 ]^H
+                    swapRow(i2+1, A.tileNb(t2)-i2-1, A,
+                            Op::Trans, {t2,  0}, i1,
+                            Op::Trans, {t2, t2}, i2, tag+1);
                 }
 
-                // Conjugate the crossing point.
-                if (A.tileRank(j2, 0) == A.mpiRank())
-                    A(j2, 0).at(i2, i1) = conj(A(j2, 0).at(i2, i1));
+                // Conjugate the crossing point, f => F.
+                if (A.tileRank(t2, 0) == A.mpiRank())
+                    A(t2, 0).at(i2, i1) = conj(A(t2, 0).at(i2, i1));
 
-                // Swap the corners.
-                swapElement(A,
-                            {0, 0}, i1, i1,
-                            {j2, j2}, i2, i2, tag);
+                // Swap the diagonal elements in rows i1 and i2, b <=> t.
+                swapElement(A, {0,   0}, i1, i1,
+                               {t2, t2}, i2, i2, tag);
 
-                // before the lower band
-                for (int64_t j1=1; j1 < j2; ++j1) {
-                    swapRow(0, A.tileNb(j1), A,
-                            Op::Trans,   {j1,  0}, i1,
-                            Op::NoTrans, {j2, j1}, i2, tag+1+j1);
+                // Tiles between tile 0 and t2.
+                for (int64_t t = 1; t < t2; ++t) {
+                    // Also conjugate d => D, r => R.
+                    // d: A{ t,  0 }[ 0 : nb-1, i1 ] <=>
+                    // r: A{ t2, t }[ i2, 0 : nb-1 ] for t = 1 : t2-1
+                    swapRow(0, A.tileNb(t), A,
+                            Op::Trans,   {t,  0}, i1,
+                            Op::NoTrans, {t2, t}, i2, tag+1+t);
                 }
 
-                // after the lower band
-                for (int64_t j1=j2+1; j1 < A.nt(); ++j1) {
-                    swapRow(0, A.tileNb(j1), A,
-                            Op::Trans, {j1,  0}, i1,
-                            Op::Trans, {j1, j2}, i2, tag+1+j1);
+                // Tiles below t2.
+                for (int64_t t = t2+1; t < A.nt(); ++t) {
+                    // h: A{ t, 0  }[ 0 : nb-1, i1 ] <=>
+                    // v: A{ t, t2 }[ 0 : nb-1, i2 ]
+                    swapRow(0, A.tileNb(t), A,
+                            Op::Trans, {t,  0}, i1,
+                            Op::Trans, {t, t2}, i2, tag+1+t);
                 }
             }
         }

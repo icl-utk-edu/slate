@@ -7,6 +7,7 @@
 #define SLATE_TILE_GETRF_HH
 
 #include "internal/internal.hh"
+#include "internal/internal_swap.hh"
 #include "slate/Tile.hh"
 #include "slate/Tile_blas.hh"
 #include "internal/Tile_lapack.hh"

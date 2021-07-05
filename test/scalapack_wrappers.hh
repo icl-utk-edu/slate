@@ -124,6 +124,46 @@ inline blas::real_type<scalar_t> scalapack_plange(const char* norm, int64_t m, i
     return scalapack_plange(norm, &m_, &n_, A, &ia_, &ja_, descA, work);
 }
 
+#define scalapack_pslascl BLAS_FORTRAN_NAME( pslascl, PSLASCL )
+#define scalapack_pdlascl BLAS_FORTRAN_NAME( pdlascl, PDLASCL )
+#define scalapack_pclascl BLAS_FORTRAN_NAME( pclascl, PCLASCL )
+#define scalapack_pzlascl BLAS_FORTRAN_NAME( pzlascl, PZLASCL )
+
+extern "C" float scalapack_pslascl(const char* uplo, float numer,  float denom,  blas_int* m, blas_int* n, float* A, blas_int* ia, blas_int* ja, blas_int* descA, blas_int* info);
+
+extern "C" double scalapack_pdlascl(const char* uplo, double numer,  double denom, blas_int* m, blas_int* n, double* A, blas_int* ia, blas_int* ja, blas_int* descA, blas_int* info);
+
+extern "C" float scalapack_pclascl(const char* uplo, float numer,  float denom, blas_int* m, blas_int* n, std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, blas_int* info);
+
+extern "C" double scalapack_pzlascl(const char* uplo, double numer, double denom, blas_int* m, blas_int* n, std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA, blas_int* info);
+
+
+inline void scalapack_plascl(const char* uplo, float numer,  float denom,  blas_int* m, blas_int* n, float* A, blas_int* ia, blas_int* ja, blas_int* descA, blas_int* info)
+{
+   scalapack_pslascl(uplo, denom, numer, m, n, A, ia, ja, descA, info);
+}
+inline void scalapack_plascl(const char* uplo, double numer,  double denom, blas_int* m, blas_int* n, double* A, blas_int* ia, blas_int* ja, blas_int* descA, blas_int* info)
+{
+   scalapack_pdlascl(uplo, denom, numer, m, n, A, ia, ja, descA, info);
+}
+inline void scalapack_plascl(const char* uplo, float numer,  float denom, blas_int* m, blas_int* n, std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, blas_int* info)
+{
+    scalapack_pclascl(uplo, denom, numer, m, n, A, ia, ja, descA, info);
+}
+inline void scalapack_plascl(const char* uplo, double numer, double denom, blas_int* m, blas_int* n, std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA, blas_int* info)
+{
+    scalapack_pzlascl(uplo, denom, numer, m, n, A, ia, ja, descA, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_plascl(const char* uplo, blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, int64_t m, int64_t n, scalar_t* A, int64_t ia, int64_t ja, blas_int* descA, blas_int* info)
+{
+    int m_ = int64_to_int(m);
+    int n_ = int64_to_int(n);
+    int ia_ = int64_to_int(ia);
+    int ja_ = int64_to_int(ja);
+    scalapack_plascl(uplo, denom, numer, &m_, &n_, A, &ia_, &ja_, descA, info); 
+}
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------

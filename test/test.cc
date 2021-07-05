@@ -218,6 +218,10 @@ std::vector< testsweeper::routines_t > routines = {
 
     { "trnorm",             test_trnorm,       Section::aux_norm },
     { "",                   nullptr,           Section::newline },
+    // -----
+    // auxiliary
+    { "scale",              test_scale,        Section::aux },
+    { "",                   nullptr,           Section::newline },
 };
 
 // -----------------------------------------------------------------------------

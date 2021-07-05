@@ -461,6 +461,8 @@ ifeq ($(hip),1)
             src/hip/device_transpose.hip.cc \
             src/hip/device_trnorm.hip.cc \
             src/hip/device_tzcopy.hip.cc \
+            src/hip/device_gescale.hip.cc \
+            src/hip/device_tzscale.hip.cc \
 
     hip_src = \
         $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(wildcard src/cuda/*.cu))
@@ -607,6 +609,7 @@ tester_src += \
         test/test_hegst.cc \
         test/matrix_generator.cc \
         test/matrix_params.cc \
+        test/test_scale.cc \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.

@@ -174,7 +174,7 @@ void test_scale_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-//            scalapack_plascl(uplo2str(uplo), alpha, beta, m, n,  &Aref_data[0], 1, 1, A_desc, &info);
+            scalapack_plascl(uplo2str(uplo), alpha, beta, m, n,  &Aref_data[0], 1, 1, A_desc, &info);
             slate_assert(info == 0);
  
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;

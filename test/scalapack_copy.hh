@@ -159,7 +159,7 @@ void copy(
     Cblacs_gridinfo( descB[ Descriptor::context ], &p, &q, &myrow, &mycol );
 
     // Code assumes A is not transposed.
-    slate_assert(A.op() != slate::Op::NoTrans);
+    slate_assert(A.op() == slate::Op::NoTrans);
 
     #pragma omp parallel for
     for (int64_t j = 0; j < A.nt(); ++j) {
@@ -193,8 +193,7 @@ void copy(
     Cblacs_gridinfo( descB[ Descriptor::context ], &p, &q, &myrow, &mycol );
 
     // Code assumes A is not transposed.
-    if (A.op() != slate::Op::NoTrans)
-        throw std::exception();
+    slate_assert(A.op() == slate::Op::NoTrans);
 
     #pragma omp parallel for
     for (int64_t j = 0; j < A.nt(); ++j) {
@@ -229,8 +228,7 @@ void copy(
     Cblacs_gridinfo( descB[ Descriptor::context ], &p, &q, &myrow, &mycol );
 
     // Code assumes A is not transposed.
-    if (A.op() != slate::Op::NoTrans)
-        throw std::exception();
+    slate_assert(A.op() == slate::Op::NoTrans);
 
     bool lower = A.uplo() == slate::Uplo::Lower;
     #pragma omp parallel for
@@ -268,8 +266,7 @@ void copy(
     Cblacs_gridinfo( descB[ Descriptor::context ], &p, &q, &myrow, &mycol );
 
     // Code assumes A is not transposed.
-    if (A.op() != slate::Op::NoTrans)
-        throw std::exception();
+    slate_assert(A.op() != slate::Op::NoTrans);
 
     bool lower = A.uplo() == slate::Uplo::Lower;
     #pragma omp parallel for

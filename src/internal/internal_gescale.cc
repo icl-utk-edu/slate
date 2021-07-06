@@ -89,8 +89,8 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void scale(
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>&& A,
-    int priority, int queue_index)
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+    Matrix<scalar_t>&& A, int priority, int queue_index)
 {
     scale(internal::TargetType<target>(),
         numer, denom, A, priority, queue_index);
@@ -105,8 +105,8 @@ void scale(
 template <typename scalar_t>
 void scale(
     internal::TargetType<Target::HostTask>,
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>& A,
-    int priority, int queue_index)
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+    Matrix<scalar_t>& A, int priority, int queue_index)
 {
     // trace::Block trace_block("scale");
 
@@ -128,8 +128,8 @@ void scale(
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void scale(internal::TargetType<Target::HostNest>,
-         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>& A,
-         int priority, int queue_index)
+         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+         Matrix<scalar_t>& A, int priority, int queue_index)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
@@ -137,8 +137,8 @@ void scale(internal::TargetType<Target::HostNest>,
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void scale(internal::TargetType<Target::HostBatch>,
-         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>& A,
-         int priority, int queue_index)
+         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+         Matrix<scalar_t>& A, int priority, int queue_index)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
@@ -151,8 +151,8 @@ void scale(internal::TargetType<Target::HostBatch>,
 ///
 template <typename scalar_t>
 void scale(internal::TargetType<Target::Devices>,
-         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>& A,
-         int priority, int queue_index)
+         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+         Matrix<scalar_t>& A, int priority, int queue_index)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 

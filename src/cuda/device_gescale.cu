@@ -41,7 +41,8 @@ namespace device {
 template <typename scalar_t>
 __global__ void gescaleKernel(
     int64_t m, int64_t n,
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, scalar_t** tilesA, int64_t lda)
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+    scalar_t** tilesA, int64_t lda)
 {
     scalar_t* tileA = tilesA[blockIdx.x];
     blas::real_type<scalar_t> mul = numer / denom;
@@ -85,7 +86,8 @@ __global__ void gescaleKernel(
 template <typename scalar_t>
 void gescale(
     int64_t m, int64_t n,
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, scalar_t** Aarray, int64_t lda,
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+    scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
     // quick return

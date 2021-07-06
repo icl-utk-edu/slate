@@ -21,7 +21,8 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void scale(slate::internal::TargetType<target>,
-         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>& A)
+         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+         Matrix<scalar_t>& A)
 {
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -48,8 +49,8 @@ void scale(slate::internal::TargetType<target>,
 /// @ingroup scale_specialization
 ///
 template <Target target, typename scalar_t>
-void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>& A,
-         Options const& opts)
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+         Matrix<scalar_t>& A, Options const& opts)
 {
     internal::specialization::scale(internal::TargetType<target>(),
                                   numer, denom, A);
@@ -78,8 +79,8 @@ void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Mat
 /// @ingroup set
 ///
 template <typename scalar_t>
-void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Matrix<scalar_t>& A,
-         Options const& opts)
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+         Matrix<scalar_t>& A, Options const& opts)
 {
     Target target;
     try {
@@ -147,7 +148,8 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void scale(slate::internal::TargetType<target>,
-         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, BaseTrapezoidMatrix<scalar_t>& A)
+         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+         BaseTrapezoidMatrix<scalar_t>& A)
 {
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -174,8 +176,8 @@ void scale(slate::internal::TargetType<target>,
 /// @ingroup set_specialization
 ///
 template <Target target, typename scalar_t>
-void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, BaseTrapezoidMatrix<scalar_t>& A,
-         Options const& opts)
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+         BaseTrapezoidMatrix<scalar_t>& A, Options const& opts)
 {
     internal::specialization::scale(internal::TargetType<target>(),
                                   numer, denom, A);
@@ -204,8 +206,8 @@ void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, Bas
 /// @ingroup set
 ///
 template <typename scalar_t>
-void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, BaseTrapezoidMatrix<scalar_t>& A,
-         Options const& opts)
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+         BaseTrapezoidMatrix<scalar_t>& A, Options const& opts)
 {
     Target target;
     try {

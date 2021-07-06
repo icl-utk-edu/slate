@@ -31,8 +31,6 @@ void test_scale_work(Params& params, bool run)
     const scalar_t one = 1.0;
     
     // get & mark input values
-    slate::Norm norm = params.norm(); //TODO
-    slate::Uplo uplo = params.uplo();
     slate::Op trans = params.trans();
     real_t alpha = params.alpha.get<real_t>();
     real_t beta = params.beta.get<real_t>();
@@ -48,6 +46,7 @@ void test_scale_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    slate::Uplo uplo = slate::Uplo::General;
     params.matrix.mark();
 
     // mark non-standard output values
@@ -86,7 +85,6 @@ void test_scale_work(Params& params, bool run)
     }
 
     slate::generate_matrix(params.matrix, A);
-
 
     // if reference run is required, copy test data
     std::vector<scalar_t> Aref_data;
@@ -153,6 +151,7 @@ void test_scale_work(Params& params, bool run)
             slate_assert(info == 0);
 
             if (origin != slate::Origin::ScaLAPACK) {
+               //todo: the copy needs to be fixed for transpose case.
                 copy(A, &A_data[0], A_desc);
             }
             real_t A_norm = slate::norm(slate::Norm::One, A);
@@ -166,8 +165,6 @@ void test_scale_work(Params& params, bool run)
             if (verbose >= 2)
                 print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD);
 
-            // difference between norms
-            real_t error = 0.;
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -196,7 +193,9 @@ void test_scale_work(Params& params, bool run)
 
             params.ref_time() = time;
 
-            params.error() = A_diff_norm / (n * A_norm);
+            real_t error = A_diff_norm / (n * A_norm);
+
+            params.error() = error;
 
             slate_set_num_blas_threads(saved_num_threads);
 

@@ -162,7 +162,7 @@ inline void scalapack_plascl(const char* uplo, blas::real_type<scalar_t> numer, 
     int n_ = int64_to_int(n);
     int ia_ = int64_to_int(ia);
     int ja_ = int64_to_int(ja);
-    scalapack_plascl(uplo, &denom, &numer, &m_, &n_, A, &ia_, &ja_, descA, info); 
+    scalapack_plascl(uplo, &numer, &denom, &m_, &n_, A, &ia_, &ja_, descA, info); 
 }
 
 // -----------------------------------------------------------------------------

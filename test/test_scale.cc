@@ -155,7 +155,7 @@ void test_scale_work(Params& params, bool run)
             if (origin != slate::Origin::ScaLAPACK) {
                 copy(A, &A_data[0], A_desc);
             }
-
+            real_t A_norm = slate::norm(slate::Norm::One, A);
             // set MKL num threads appropriately for parallel BLAS
             int omp_num_threads;
             #pragma omp parallel
@@ -191,21 +191,16 @@ void test_scale_work(Params& params, bool run)
                 print_matrix("Diff", A);
 
             // norm(A - Aref)
-            real_t A_diff_norm = slate::norm(norm, A);
+            real_t A_diff_norm = slate::norm(slate::Norm::One, A);
 
-            // Allow for difference, except max norm in real should be exact.
-            real_t eps = std::numeric_limits<real_t>::epsilon();
-            real_t tol;
-            if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
-                tol = 0;
-            else
-                tol = 10*eps; //TODO
 
             params.ref_time() = time;
-            params.error() = A_diff_norm;
+
+            params.error() = A_diff_norm / (n * A_norm);
 
             slate_set_num_blas_threads(saved_num_threads);
 
+            real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
             // Allow for difference
             params.okay() = (params.error() <= tol);
 

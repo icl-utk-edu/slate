@@ -169,6 +169,7 @@ void test_herk   (Params& params, bool run);
 // LU, general
 void test_gesv       (Params& params, bool run);
 void test_getri      (Params& params, bool run);
+void test_trtri      (Params& params, bool run);
 
 // LU, band
 void test_gbsv   (Params& params, bool run);
@@ -343,6 +344,14 @@ inline const char* scope2str(slate::NormScope scope)
         case slate::NormScope::Rows:    return "rows";
     }
     return "?";
+}
+
+// -----------------------------------------------------------------------------
+inline double barrier_get_wtime(MPI_Comm comm)
+{
+    slate::trace::Block trace_block("MPI_Barrier");
+    MPI_Barrier(comm);
+    return testsweeper::get_wtime();
 }
 
 #endif // SLATE_TEST_HH

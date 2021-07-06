@@ -584,4 +584,56 @@ void print_matrix(
     MPI_Barrier(comm);
 }
 
+// -----------------------------------------------------------------------------
+// Copied from slate-dev/lapackpp/test/test.hh
+// Like assert(), but throws error and is not disabled by NDEBUG.
+inline void require_( bool cond, const char* condstr, const char* file, int line )
+{
+    if (! cond) {
+        throw blas::Error( std::string(condstr) + " failed at "
+                           + file + ":" + std::to_string(line) );
+    }
+}
+
+#define require( cond ) require_( (cond), #cond, __FILE__, __LINE__ )
+
+// -----------------------------------------------------------------------------
+// Copied from slate-dev/lapackpp/test/print_matrix.hh
+template< typename T >
+void print_vector( int64_t n, T *x, int64_t incx,
+                   const char* format="%9.4f" )
+{
+    require( n >= 0 );
+    require( incx != 0 );
+    char format2[32];
+    snprintf( format2, sizeof(format2), " %s", format );
+
+    printf( "[" );
+    int64_t ix = (incx > 0 ? 0 : (-n + 1)*incx);
+    for (int64_t i = 0; i < n; ++i) {
+        printf( format2, x[ix] );
+        ix += incx;
+    }
+    printf( " ]';\n" );
+}
+
+// -----------------------------------------------------------------------------
+// Copied from slate-dev/lapackpp/test/print_matrix.hh
+template< typename T >
+void print_vector( int64_t n, std::complex<T>* x, int64_t incx,
+                   const char* format="%9.4f" )
+{
+    require( n >= 0 );
+    require( incx != 0 );
+    char format2[32];
+    snprintf( format2, sizeof(format2), " %s + %si", format, format );
+
+    printf( "[" );
+    int64_t ix = (incx > 0 ? 0 : (-n + 1)*incx);
+    for (int64_t i = 0; i < n; ++i) {
+        printf( format2, real(x[ix]), imag(x[ix]) );
+        ix += incx;
+    }
+    printf( " ]';\n" );
+}
 #endif // SLATE_PRINT_MATRIX_HH

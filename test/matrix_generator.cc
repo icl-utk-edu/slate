@@ -72,60 +72,62 @@ void generate_sigma(
     using scalar_t = typename matrix_type::value_type;
     using real_t = blas::real_type<scalar_t>;
 
+    // Constants
+    const scalar_t zero = 0.0;
 
     // locals
-    int64_t minmn = std::min( A.m(), A.n() );
-    assert( minmn == int64_t(Sigma.size()) );
+    int64_t min_mn = std::min( A.m(), A.n() );
+    assert( min_mn == int64_t(Sigma.size()) );
 
     switch (dist) {
         case TestMatrixDist::arith:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = 1 - i / real_t(minmn - 1) * (1 - 1/cond);
+            for (int64_t i = 0; i < min_mn; ++i) {
+                Sigma[i] = 1 - i / real_t(min_mn - 1) * (1 - 1/cond);
             }
             break;
 
         case TestMatrixDist::rarith:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = 1 - (minmn - 1 - i) / real_t(minmn - 1) * (1 - 1/cond);
+            for (int64_t i = 0; i < min_mn; ++i) {
+                Sigma[i] = 1 - (min_mn - 1 - i) / real_t(min_mn - 1) * (1 - 1/cond);
             }
             break;
 
         case TestMatrixDist::geo:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = pow( cond, -i / real_t(minmn - 1) );
+            for (int64_t i = 0; i < min_mn; ++i) {
+                Sigma[i] = pow( cond, -i / real_t(min_mn - 1) );
             }
             break;
 
         case TestMatrixDist::rgeo:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = pow( cond, -(minmn - 1 - i) / real_t(minmn - 1) );
+            for (int64_t i = 0; i < min_mn; ++i) {
+                Sigma[i] = pow( cond, -(min_mn - 1 - i) / real_t(min_mn - 1) );
             }
             break;
 
         case TestMatrixDist::cluster0:
             Sigma[0] = 1;
-            for (int64_t i = 1; i < minmn; ++i) {
+            for (int64_t i = 1; i < min_mn; ++i) {
                 Sigma[i] = 1/cond;
             }
             break;
 
         case TestMatrixDist::rcluster0:
-            for (int64_t i = 0; i < minmn-1; ++i) {
+            for (int64_t i = 0; i < min_mn-1; ++i) {
                 Sigma[i] = 1/cond;
             }
-            Sigma[minmn-1] = 1;
+            Sigma[min_mn-1] = 1;
             break;
 
         case TestMatrixDist::cluster1:
-            for (int64_t i = 0; i < minmn-1; ++i) {
+            for (int64_t i = 0; i < min_mn-1; ++i) {
                 Sigma[i] = 1;
             }
-            Sigma[minmn-1] = 1/cond;
+            Sigma[min_mn-1] = 1/cond;
             break;
 
         case TestMatrixDist::rcluster1:
             Sigma[0] = 1/cond;
-            for (int64_t i = 1; i < minmn; ++i) {
+            for (int64_t i = 1; i < min_mn; ++i) {
                 Sigma[i] = 1;
             }
             break;
@@ -133,11 +135,11 @@ void generate_sigma(
         case TestMatrixDist::logrand: {
             real_t range = log( 1/cond );
             lapack::larnv( idist_rand, params.iseed, Sigma.size(), Sigma.data() );
-            for (int64_t i = 0; i < minmn; ++i) {
+            for (int64_t i = 0; i < min_mn; ++i) {
                 Sigma[i] = exp( Sigma[i] * range );
             }
             // make cond exact
-            if (minmn >= 2) {
+            if (min_mn >= 2) {
                 Sigma[0] = 1;
                 Sigma[1] = 1/cond;
             }
@@ -169,7 +171,7 @@ void generate_sigma(
 
     if (rand_sign) {
         // apply random signs
-        for (int64_t i = 0; i < minmn; ++i) {
+        for (int64_t i = 0; i < min_mn; ++i) {
             if (rand() > RAND_MAX/2) {
                 Sigma[i] = -Sigma[i];
             }
@@ -177,13 +179,13 @@ void generate_sigma(
     }
 
     // copy Sigma => A
-    scalar_t zero = 0.0;
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
     set(zero, zero, A);
     int64_t S_index = 0;
     #pragma omp parallel for
     for (int64_t i = 0; i < min_mt_nt; ++i) {
         if (A.tileIsLocal(i, i)) {
+            A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
             auto T = A(i, i);
             for (int ii = 0; ii < A.tileNb(i); ++ii) {
                 T.at(ii, ii) = Sigma[S_index + ii];
@@ -191,6 +193,8 @@ void generate_sigma(
         }
         S_index += A.tileNb(i);
     }
+
+    A.tileUpdateAllOrigin();
 }
 
 
@@ -298,17 +302,17 @@ void generate_svd(
         #pragma omp parallel for
         for (int64_t i = 0; i < min_mt_nt; ++i) {
             if (A.tileIsLocal(i, i)) {
-                auto T = A(i, i);
+                A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
+                auto Aii = A(i, i);
                 for (int ii = 0; ii < A.tileNb(i); ++ii) {
-                    T.at(ii, ii) = Sigma[S_index + ii];
+                    Aii.at(ii, ii) = Sigma[S_index + ii];
                 }
             }
             S_index += A.tileNb(i);
-            //A.tileTick(i, i);
         }
     }
 
-    // random U, m-by-minmn
+    // random U, m-by-min_mn
     auto Tmp = U.emptyLike();
     #pragma omp parallel for collapse(2)
     for (int64_t j = 0; j < nt; ++j) {
@@ -345,13 +349,13 @@ void generate_svd(
     // we need to make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
     // However, currently we do geqrf here,
-    // since we don’t have a way to make Householder vectors (no distributed larfg).
+    // since we don't have a way to make Householder vectors (no distributed larfg).
     slate::geqrf(U, T);
 
     // A = U*A
     slate::unmqr( slate::Side::Left, slate::Op::NoTrans, U, T, A);
 
-    // random V, n-by-minmn (stored column-wise in U)
+    // random V, n-by-min_mn (stored column-wise in U)
     auto V = U.sub(0, nt-1, 0, nt-1);
     #pragma omp parallel for collapse(2)
     for (int64_t j = 0; j < nt; ++j) {
@@ -385,8 +389,8 @@ void generate_svd(
     slate::unmqr( slate::Side::Right, slate::Op::ConjTrans, V, T, A);
 
     if (condD != 1) {
-        // A = A*W, W orthogonal, such that A has unit column norms
-        // i.e., A'*A is a correlation matrix with unit diagonal
+        // A = A*W, W orthogonal, such that A has unit column norms,
+        // i.e., A^H A is a correlation matrix with unit diagonal
         // TODO: uncomment generate_correlation_factor
         //generate_correlation_factor( A );
 
@@ -410,10 +414,11 @@ void generate_svd(
         for (int64_t j = 0; j < nt; ++j) {
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
-                    auto T = A(i, j);
+                    A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                    auto Aij = A(i, j);
                     for (int jj = 0; jj < A.tileNb(j); ++jj) {
                         for (int ii = 0; ii < A.tileMb(i); ++ii) {
-                            T.at(ii, jj) *= D[J_index + jj];
+                            Aij.at(ii, jj) *= D[J_index + jj];
                         }
                     }
                 }
@@ -421,6 +426,7 @@ void generate_svd(
             J_index += A.tileNb(j);
         }
     }
+    A.tileUpdateAllOrigin();
 }
 
 // -----------------------------------------------------------------------------
@@ -453,7 +459,7 @@ void generate_heev(
     // ----------
     generate_sigma( params, dist, rand_sign, cond, sigma_max, A, Sigma );
 
-    // random U, m-by-minmn
+    // random U, m-by-min_mn
     int64_t nt = U.nt();
     int64_t mt = U.mt();
     auto Tmp = U.emptyLike();
@@ -501,9 +507,10 @@ void generate_heev(
     #pragma omp parallel for
     for (int64_t i = 0; i < nt; ++i) {
         if (A.tileIsLocal(i, i)) {
-            auto T = A(i, i);
+            A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
+            auto Aii = A(i, i);
             for (int ii = 0; ii < A.tileMb(i); ++ii) {
-                T.at(ii, ii) = std::real( T.at(ii, ii) );
+                Aii.at(ii, ii) = std::real( Aii.at(ii, ii) );
             }
         }
     }
@@ -523,10 +530,11 @@ void generate_heev(
             int64_t I_index = 0;
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
-                    auto T = A(i, j);
+                    A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                    auto Aij = A(i, j);
                     for (int jj = 0; jj < A.tileMb(j); ++jj) {
                         for (int ii = 0; ii < A.tileMb(i); ++ii) {
-                            T.at(ii, jj) *= D[I_index + ii] * D[J_index + jj];
+                            Aij.at(ii, jj) *= D[I_index + ii] * D[J_index + jj];
                         }
                     }
                 }
@@ -535,6 +543,7 @@ void generate_heev(
             J_index += A.tileMb(j);
         }
     }
+    A.tileUpdateAllOrigin();
 }
 
 // -----------------------------------------------------------------------------
@@ -1028,12 +1037,12 @@ void generate_matrix(
 {
     using real_t = blas::real_type<scalar_t>;
 
-    // constants
+    // Constants
     const real_t nan = std::numeric_limits<real_t>::quiet_NaN();
     const real_t d_zero = 0;
     const real_t d_one  = 1;
-    const scalar_t c_zero = 0;
-    const scalar_t c_one  = 1;
+    const scalar_t zero = 0;
+    const scalar_t one  = 1;
 
     // ----------
     // set Sigma to unknown (nan)
@@ -1054,38 +1063,38 @@ void generate_matrix(
     // ----- generate matrix
     switch (type) {
         case TestMatrixType::zero:
-            set(c_zero, c_zero, A);
+            set(zero, zero, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_zero, d_zero, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::identity:
-            set(c_zero, c_one, A);
+            set(zero, one, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_one, d_one, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::jordan: {
-            set(c_zero, c_one, A ); // ones on diagonal
+            set(zero, one, A ); // ones on diagonal
             // ones on sub-diagonal
             for (int64_t i = 0; i < nt; ++i) {
                 // Set 1 element from sub-diagonal tile to 1.
                 if (i > 0) {
                     if (A.tileIsLocal(i, i-1)) {
+                        A.tileGetForWriting( i, i-1, LayoutConvert::ColMajor );
                         auto T = A(i, i-1);
                         T.at(0, T.nb()-1) = 1.;
-                        A.tileTick(i, i-1);
                     }
                 }
 
                 // Set 1 element from sub-diagonal tile to 1.
                 if (A.tileIsLocal(i, i)) {
+                    A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
                     auto T = A(i, i);
                     auto len = T.nb();
                     for (int j = 0; j < len-1; ++j) {
                         T.at(j+1, j) = 1.;
                     }
-                    A.tileTick(i, i);
                 }
             }
             break;
@@ -1099,6 +1108,7 @@ void generate_matrix(
             for (int64_t j = 0; j < nt; ++j) {
                 for (int64_t i = 0; i < mt; ++i) {
                     if (A.tileIsLocal(i, j)) {
+                        A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                         auto Aij = A(i, j);
                         scalar_t* data = Aij.data();
                         int64_t lda = Aij.stride();
@@ -1165,6 +1175,7 @@ void generate_matrix(
            slate_error("Not implemented yet");
            throw std::exception();  // not implemented
     }
+    A.tileUpdateAllOrigin();
 }
 
 // -----------------------------------------------------------------------------
@@ -1181,12 +1192,12 @@ void generate_matrix(
 {
     using real_t = blas::real_type<scalar_t>;
 
-    // constants
+    // Constants
     const real_t nan = std::numeric_limits<real_t>::quiet_NaN();
     const real_t d_zero = 0;
     const real_t d_one  = 1;
-    const scalar_t c_zero = 0;
-    const scalar_t c_one  = 1;
+    const scalar_t zero = 0;
+    const scalar_t one  = 1;
 
     // ----------
     // set Sigma to unknown (nan)
@@ -1207,39 +1218,39 @@ void generate_matrix(
     // ----- generate matrix
     switch (type) {
         case TestMatrixType::zero:
-            set(c_zero, c_zero, A);
+            set(zero, zero, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_zero, d_zero, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::identity:
-            set(c_zero, c_one, A);
+            set(zero, one, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_one, d_one, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::jordan: {
-            set(c_zero, c_one, A ); // ones on diagonal
+            set(zero, one, A ); // ones on diagonal
             if (A.uplo() == Uplo::Lower) {
                 // ones on sub-diagonal
                 for (int64_t i = 0; i < nt; ++i) {
                     // Set 1 element from sub-diagonal tile to 1.
                     if (i > 0) {
                         if (A.tileIsLocal(i, i-1)) {
+                            A.tileGetForWriting( i, i-1, LayoutConvert::ColMajor );
                             auto T = A(i, i-1);
                             T.at(0, T.nb()-1) = 1.;
-                            //A.tileTick(i, i-1);
                         }
                     }
 
                     // Set 1 element from sub-diagonal tile to 1.
                     if (A.tileIsLocal(i, i)) {
+                        A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
                         auto T = A(i, i);
                         auto len = T.nb();
                         for (int j = 0; j < len-1; ++j) {
                             T.at(j+1, j) = 1.;
                         }
-                        //A.tileTick(i, i);
                     }
                 }
             }
@@ -1249,20 +1260,20 @@ void generate_matrix(
                     // Set 1 element from sub-diagonal tile to 1.
                     if (i > 0) {
                         if (A.tileIsLocal(i-1, i)) {
+                            A.tileGetForWriting( i-1, i, LayoutConvert::ColMajor );
                             auto T = A(i-1, i);
                             T.at(T.nb()-1, 0) = 1.;
-                            //A.tileTick(i-1, i);
                         }
                     }
 
                     // Set 1 element from sub-diagonal tile to 1.
                     if (A.tileIsLocal(i, i)) {
+                        A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
                         auto T = A(i, i);
                         auto len = T.nb();
                         for (int j = 0; j < len-1; ++j) {
                             T.at(j, j+1) = 1.;
                         }
-                        //A.tileTick(i, i);
                     }
                 }
             }
@@ -1283,6 +1294,7 @@ void generate_matrix(
                 for (int64_t j=0; j < nt; ++j) {
                     for (int64_t i = j; i < mt; ++i) {
                         if (A.tileIsLocal(i, j)) {
+                            A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                             auto Aij = A(i, j);
                             scalar_t* data = Aij.data();
                             int64_t lda = Aij.stride();
@@ -1324,6 +1336,7 @@ void generate_matrix(
                 for (int64_t j = 0; j < nt; ++j) {
                     for (int64_t i = 0; i <= j && i < mt; ++i){  // upper trapezoid
                         if (A.tileIsLocal(i, j)) {
+                            A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                             auto Aij = A(i, j);
                             scalar_t* data = Aij.data();
                             int64_t lda = Aij.stride();
@@ -1377,9 +1390,41 @@ void generate_matrix(
            slate_error("Not implemented yet");
            throw std::exception();  // not implemented
     }
+
+    A.tileUpdateAllOrigin();
 }
 
+// -----------------------------------------------------------------------------
+/// Generates an m-by-n Hertitian-storage test matrix.
+/// Handles Hermitian matrices.
+/// Diagonal elements of a Hermitian matrix must be real;
+/// their imaginary part must be 0.
+/// @see generate_matrix
+/// @ingroup generate_matrix
+///
+template <typename scalar_t>
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Sigma )
+{
+    slate::BaseTrapezoidMatrix<scalar_t>& TZ = A;
+    generate_matrix( params, TZ, Sigma );
 
+    // Set diagonal to real.
+    #pragma omp parallel for
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        if (A.tileIsLocal( i, i )) {
+            A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
+            auto T = A( i, i );
+            int64_t mb = T.mb();
+            for (int64_t ii = 0; ii < mb; ++ii) {
+                T.at( ii, ii ) = std::real( T( ii, ii ) );
+            }
+        }
+    }
+    A.tileUpdateAllOrigin();
+}
 // -----------------------------------------------------------------------------
 /// Overload without Sigma.
 /// @see generate_matrix()
@@ -1409,6 +1454,19 @@ void generate_matrix(
     generate_matrix( params, A, dummy );
 }
 
+/// Overload without Sigma.
+/// @see generate_matrix()
+/// @ingroup generate_matrix
+///
+template <typename scalar_t>
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<scalar_t>& A )
+{
+    using real_t = blas::real_type<scalar_t>;
+    std::vector<real_t> dummy;
+    generate_matrix( params, A, dummy );
+}
 // -----------------------------------------------------------------------------
 // explicit instantiations
 template
@@ -1450,6 +1508,26 @@ template
 void generate_matrix(
     MatrixParams& params,
     slate::BaseTrapezoidMatrix< std::complex<double> >& A);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<float>& A);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<double>& A);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix< std::complex<float> >& A);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix< std::complex<double> >& A);
 
 template
 void decode_matrix<float>(

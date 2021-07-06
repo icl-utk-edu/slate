@@ -8,6 +8,7 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
+#include "grid_utils.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -18,6 +19,7 @@
 #include <cstdlib>
 #include <limits>
 #include <utility>
+#define SLATE_HAVE_SCALAPACK
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
@@ -46,8 +48,6 @@ void test_heev_work(Params& params, bool run)
     slate::Target target = params.target();
     params.matrix.mark();
 
-    slate_assert(p == q);  // heev requires square process grid.
-
     params.time();
     params.ref_time();
     // params.gflops();
@@ -63,114 +63,86 @@ void test_heev_work(Params& params, bool run)
         {slate::Option::InnerBlocking, ib}
     };
 
-    // Local values
-    const int izero = 0, ione = 1;
+    // MPI variables
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // BLACS/MPI variables
-    int ictxt, nprow, npcol, myrow, mycol, info;
-    int iam = 0, nprocs = 1;
-    int iseed = 1;
+    // Skip invalid or unimplemented options.
+    if (uplo == slate::Uplo::Upper) {
+        if (mpi_rank == 0)
+            printf("skipping: Uplo::Upper isn't supported.\n");
+        return;
+    }
+    if (p != q) {
+        if (mpi_rank == 0)
+            printf("skipping: requires square process grid (p == q).\n");
+        return;
+    }
+    if (jobz != lapack::Job::NoVec) {
+        if (mpi_rank == 0)
+            printf("skipping: only supports Job::NoVec.\n");
+        return;
+    }
 
-    // initialize BLACS and ScaLAPACK
-    Cblacs_pinfo(&iam, &nprocs);
-    slate_assert(p*q <= nprocs);
-    Cblacs_get(-1, 0, &ictxt);
-    Cblacs_gridinit(&ictxt, "Col", p, q);
-    Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
-
-    bool wantz = (jobz == slate::Job::Vec);
-
-    // figure out local size, allocate, create descriptor, initialize
+    // Figure out local size.
     // matrix A (local input), m-by-n, symmetric matrix
-    int64_t mlocA = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocA = scalapack_numroc(n, nb, mycol, izero, npcol);
-    int descA_tst[9];
-    scalapack_descinit(descA_tst, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-    slate_assert(info == 0);
-    int64_t lldA = (int64_t)descA_tst[8];
-    std::vector<scalar_t> A_tst(lldA*nlocA);
-    scalapack_pplghe(&A_tst[0], n, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
+    int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
+    int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
+    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
 
-    // matrix W (global output), W(n), gets eigenvalues in decending order
-    std::vector<real_t> W_tst(n);
+    std::vector<scalar_t> A_data(lldA*nlocA);
 
-    // matrix Z (local output), Z(n,n), gets orthonormal eigenvectors corresponding to W of the reference scalapack
-    int64_t mlocZ = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocZ = scalapack_numroc(n, nb, mycol, izero, npcol);
-    int descZ_tst[9];
-    scalapack_descinit(descZ_tst, n, n, nb, nb, izero, izero, ictxt, mlocZ, &info);
-    slate_assert(info == 0);
-    int64_t lldZ = (int64_t)descZ_tst[8];
-    std::vector<scalar_t> Z_tst(lldZ * nlocZ, 0);
+    // matrix Lambda (global output) gets eigenvalues in decending order
+    std::vector<real_t> Lambda(n);
 
-    // matrix Q (local output), Q(n,n), gets orthonormal eigenvectors corresponding to W of slate heev
-    int64_t mlocQ = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocQ = scalapack_numroc(n, nb, mycol, izero, npcol);
-    int descQ_tst[9];
-    scalapack_descinit(descQ_tst, n, n, nb, nb, izero, izero, ictxt, mlocQ, &info);
-    slate_assert(info == 0);
-    int64_t lldQ = (int64_t)descQ_tst[8];
-    std::vector<scalar_t> Q_tst(lldQ * nlocQ, 0);
+    // matrix Z (local output), Z(n,n), gets orthonormal eigenvectors
+    // corresponding to Lambda of the reference scalapack
+    int64_t mlocZ = num_local_rows_cols(n, nb, myrow, p);
+    int64_t nlocZ = num_local_rows_cols(n, nb, mycol, q);
+    int64_t lldZ  = blas::max(1, mlocZ); // local leading dimension of Z
+    std::vector<scalar_t> Z_data(lldZ * nlocZ, 0);
 
     // Initialize SLATE data structures
     slate::HermitianMatrix<scalar_t> A;
-    std::vector<real_t> W;
-    slate::Matrix<scalar_t> Z;
-    slate::Matrix<scalar_t> Q;
-
     if (origin != slate::Origin::ScaLAPACK) {
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
-        A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
-        copy(&A_tst[0], descA_tst, A);
-
-        W = W_tst;
-
-        Z = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
-        Z.insertLocalTiles(origin_target);
-        if (wantz) {
-            Q = slate::Matrix<scalar_t>(
-                n, n, nb, nprow, npcol, MPI_COMM_WORLD);
-            Q.insertLocalTiles(origin2target(origin));
-        }
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
-        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
-        W = W_tst;
-        Z = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &Z_tst[0], lldZ, nb, nprow, npcol, MPI_COMM_WORLD);
-        if (wantz) {
-            Q_tst.resize(lldQ*nlocQ);
-            Q = slate::Matrix<scalar_t>::fromScaLAPACK(
-                n, n, &Q_tst[0], lldQ, nb, nprow, npcol, MPI_COMM_WORLD);
-        }
+        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
 
-    //lapack::TestMatrixType type = lapack::TestMatrixType::heev;
-    //params.matrix.kind.set_default("heev");
-    //params.matrix.cond.set_default(1e4);
+    slate::generate_matrix( params.matrix, A);
 
-    slate::generate_matrix( params.matrix, Z);
-    A = slate::HermitianMatrix<scalar_t>(
-               uplo, Z );
-    copy(A, &A_tst[0], descA_tst);
+    // Z is currently used for ScaLAPACK heev call and can also be used
+    // for SLATE heev call when slate::eig_vals takes Z
+    auto Z = slate::Matrix<scalar_t>::fromScaLAPACK(
+                 n, n, &Z_data[0], lldZ, nb, p, q, MPI_COMM_WORLD);
 
     if (verbose >= 1) {
-        printf( "%% A   %6lld-by-%6lld\n", llong(   A.m() ), llong(   A.n() ) );
-        printf( "%% Z   %6lld-by-%6lld\n", llong(   Z.m() ), llong(   Z.n() ) );
+        printf( "%% A   %6lld-by-%6lld\n", llong( A.m() ), llong( A.n() ) );
+
+        printf( "%% Z   %6lld-by-%6lld\n", llong( Z.m() ), llong( Z.n() ) );
     }
 
     if (verbose > 1) {
         print_matrix( "A",  A  );
     }
 
-    std::vector<scalar_t> A_ref, Z_ref;
-    std::vector<real_t> W_ref;
+    std::vector<scalar_t> Aref_data;
+    std::vector<real_t> Lambda_ref;
+    slate::HermitianMatrix<scalar_t> Aref;
     if (check || ref) {
-        A_ref = A_tst;
-        W_ref = W_tst;
-        Z_ref = Z_tst;
+        Aref_data.resize( A_data.size() );
+        Lambda_ref.resize( Lambda.size() );
+        Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                   uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        slate::copy( A, Aref );
     }
 
     // SLATE test
@@ -178,102 +150,121 @@ void test_heev_work(Params& params, bool run)
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-        double time = testsweeper::get_wtime();
+        double time = barrier_get_wtime(MPI_COMM_WORLD);
 
         //==================================================
         // Run SLATE test.
         //==================================================
-
         if (jobz == slate::Job::NoVec) {
-            slate::eig_vals(A, W_tst, opts);
+            slate::eig_vals(A, Lambda, opts);
         }
         // else {
             // todo: slate::Job::Vec
         // }
-
-        //---------------------
         // Using traditional BLAS/LAPACK name
-        // slate::heev(jobz, A, W_tst, Q, opts);
+        // slate::heev(jobz, A, Lambda, Z, opts);
 
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-        double time_tst = testsweeper::get_wtime() - time;
+        time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         if (trace) slate::trace::Trace::finish();
 
         // compute and save timing/performance
-        params.time() = time_tst;
+        params.time() = time;
 
         if (verbose > 1) {
             print_matrix( "A",  A  );
-            print_matrix( "Z",  Z  );
+            print_matrix( "Z",  Z  ); //Relevant when slate::eig_vals takes Z
         }
     }
 
     if (check || ref) {
-        // Run reference routine from ScaLAPACK
+        #ifdef SLATE_HAVE_SCALAPACK
+            // Run reference routine from ScaLAPACK
 
-        // set num threads appropriately for parallel BLAS if possible
-        int omp_num_threads = 1;
-        #pragma omp parallel
-        { omp_num_threads = omp_get_num_threads(); }
-        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
+            // BLACS/MPI variables
+            int ictxt, p_, q_, myrow_, mycol_, info;
+            int mpi_rank_ = 0, nprocs = 1;
 
-        // query for workspace size
-        int64_t info_tst = 0;
-        int64_t lwork = -1, lrwork = -1;
-        std::vector<scalar_t> work(1);
-        std::vector<real_t> rwork(1);
-        scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
-                        &A_ref[0], ione, ione, descA_tst,
-                        &W_ref[0],
-                        &Z_ref[0], ione, ione, descZ_tst,
-                        &work[0], -1, &rwork[0], -1, &info_tst);
-        slate_assert(info_tst == 0);
-        lwork = int64_t( real( work[0] ) );
-        work.resize(lwork);
-        // The lrwork, rwork parameters are only valid for complex
-        if (slate::is_complex<scalar_t>::value) {
-            lrwork = int64_t( real( rwork[0] ) );
-            rwork.resize(lrwork);
-        }
-        // Run ScaLAPACK reference routine.
-        MPI_Barrier(MPI_COMM_WORLD);
-        double time = testsweeper::get_wtime();
-        scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
-                        &A_ref[0], ione, ione, descA_tst,
-                        &W_ref[0],
-                        &Z_ref[0], ione, ione, descZ_tst,
-                        &work[0], lwork, &rwork[0], lrwork, &info_tst);
-        slate_assert(info_tst == 0);
-        MPI_Barrier(MPI_COMM_WORLD);
-        double time_ref = testsweeper::get_wtime() - time;
+            // initialize BLACS and ScaLAPACK
+            Cblacs_pinfo(&mpi_rank_, &nprocs);
+            slate_assert( mpi_rank == mpi_rank_ );
+            slate_assert(p*q <= nprocs);
+            Cblacs_get(-1, 0, &ictxt);
+            Cblacs_gridinit(&ictxt, "Col", p, q);
+            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
+            slate_assert( p == p_ );
+            slate_assert( q == q_ );
+            slate_assert( myrow == myrow_ );
+            slate_assert( mycol == mycol_ );
 
-        params.ref_time() = time_ref;
+            int A_desc[9];
+            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            slate_assert(info == 0);
 
-        // Reset omp thread number
-        slate_set_num_blas_threads(saved_num_threads);
+            int Z_desc[9];
+            scalapack_descinit(Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
+            slate_assert(info == 0);
 
-        // Reference Scalapack was run, check reference against test
-        // Perform a local operation to get differences W_tst = W_tst - W_ref
-        blas::axpy(W_ref.size(), -1.0, &W_ref[0], 1, &W_tst[0], 1);
+            // set num threads appropriately for parallel BLAS if possible
+            int omp_num_threads = 1;
+            #pragma omp parallel
+            { omp_num_threads = omp_get_num_threads(); }
+            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-        // Relative forward error: || W_ref - W_tst || / || W_ref ||
-        params.error() = blas::asum(n, &W_tst[0], 1)
-                       / blas::asum(n, &W_ref[0], 1);
+            // query for workspace size
+            int64_t info_tst = 0;
+            int64_t lwork = -1, lrwork = -1;
+            std::vector<scalar_t> work(1);
+            std::vector<real_t> rwork(1);
+            scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
+                            &Aref_data[0], 1, 1, A_desc,
+                            &Lambda_ref[0], // global output
+                            &Z_data[0], 1, 1, Z_desc,
+                            &work[0], -1, &rwork[0], -1, &info_tst);
+            slate_assert(info_tst == 0);
+            lwork = int64_t( real( work[0] ) );
+            work.resize(lwork);
+            // The lrwork, rwork parameters are only valid for complex
+            if (slate::is_complex<scalar_t>::value) {
+                lrwork = int64_t( real( rwork[0] ) );
+                rwork.resize(lrwork);
+            }
 
-        real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-        params.okay() = (params.error() <= tol);
+            //==================================================
+            // Run ScaLAPACK reference routine.
+            //==================================================
+            double time = barrier_get_wtime(MPI_COMM_WORLD);
+            scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
+                            &Aref_data[0], 1, 1, A_desc,
+                            &Lambda_ref[0],
+                            &Z_data[0], 1, 1, Z_desc,
+                            &work[0], lwork, &rwork[0], lrwork, &info_tst);
+            slate_assert(info_tst == 0);
+            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+
+            params.ref_time() = time;
+
+            // Reset omp thread number
+            slate_set_num_blas_threads(saved_num_threads);
+
+            // Reference Scalapack was run, check reference against test
+            // Perform a local operation to get differences Lambda = Lambda - Lambda_ref
+            blas::axpy(Lambda_ref.size(), -1.0, &Lambda_ref[0], 1, &Lambda[0], 1);
+
+            // Relative forward error: || Lambda_ref - Lambda || / || Lambda_ref ||.
+            params.error() = blas::asum(n, &Lambda[0], 1)
+                           / blas::asum(n, &Lambda_ref[0], 1);
+
+            real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+            params.okay() = (params.error() <= tol);
+
+            Cblacs_gridexit(ictxt);
+            //Cblacs_exit(1) does not handle re-entering
+        #else
+            if (mpi_rank == 0)
+                printf( "ScaLAPACK not available\n" );
+        #endif
     }
-
-    Cblacs_gridexit(ictxt);
-    //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------

@@ -32,7 +32,7 @@ void hetrf(slate::internal::TargetType<target>,
                     Matrix<scalar_t>& H,
            int64_t ib, int64_t max_panel_threads, int64_t lookahead)
 {
-    //using real_t = blas::real_type<scalar_t>;
+    using blas::conj;
     using BcastList  = typename Matrix<scalar_t>::BcastList;
     using ReduceList = typename Matrix<scalar_t>::ReduceList;
 
@@ -133,7 +133,7 @@ void hetrf(slate::internal::TargetType<target>,
                     scalar_t *tkk = T(k, k).data();
                     for (int i = 0; i < T(k, k).mb(); i++) {
                         for (int j = i; j < T(k, k).nb(); j++) {
-                            tkk[i + j*ldt] = tkk[j + i*ldt];
+                            tkk[i + j*ldt] = conj( tkk[j + i*ldt] );
                         }
                     }
                 }
@@ -215,7 +215,7 @@ void hetrf(slate::internal::TargetType<target>,
                     scalar_t *tkk = T(k, k).data();
                     for (int i = 0; i < T(k, k).mb(); i++) {
                         for (int j = i; j < T(k, k).nb(); j++) {
-                            tkk[i + j*ldt] = tkk[j + i*ldt];
+                            tkk[i + j*ldt] = conj( tkk[j + i*ldt] );
                         }
                     }
                     T.tileModified(k, k);
@@ -374,6 +374,7 @@ void hetrf(slate::internal::TargetType<target>,
                     T.tileModified(k+1, k);
 
                     // zero out upper-triangular of L(k, k)
+                    // and set diagonal to one.
                     lapack::laset(lapack::MatrixType::Upper,
                           A(k+1, k).mb(), A(k+1, k).nb(),
                           scalar_t(0.0), scalar_t(1.0),
@@ -415,7 +416,7 @@ void hetrf(slate::internal::TargetType<target>,
                             tkk2[j + i*ldt2] = 0.0;
                         }
                         for (int j = i; j < T(k+1, k).nb(); j++) {
-                            tkk2[j + i*ldt2] = tkk1[i + j*ldt1];
+                            tkk2[j + i*ldt2] = conj( tkk1[i + j*ldt1] );
                         }
                     }
                     T.tileModified(k, k+1);

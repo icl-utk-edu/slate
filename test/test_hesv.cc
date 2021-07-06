@@ -10,19 +10,22 @@
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
+#include "scalapack_copy.hh"
+#include "grid_utils.hh"
+#include "print_matrix.hh"
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
+#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_hesv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
 
-    // constants
+    // Constants
     const scalar_t one = 1.0;
 
     //---------------------
@@ -30,16 +33,18 @@ void test_hesv_work(Params& params, bool run)
     slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
     int64_t nrhs = params.nrhs();
-    int64_t p = params.grid.m();
-    int64_t q = params.grid.n();
+    int p = params.grid.m();
+    int q = params.grid.n();
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
     int64_t panel_threads = params.panel_threads();
-    slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
+    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    params.matrix.mark();
+    params.matrixB.mark();
 
     //---------------------
     // mark non-standard output values
@@ -72,39 +77,39 @@ void test_hesv_work(Params& params, bool run)
         {slate::Option::MaxPanelThreads, panel_threads}
     };
 
-    //---------------------
-    // Local values
-    const int izero = 0, ione = 1;
+    // MPI variables
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    //---------------------
-    // BLACS/MPI variables
-    int ictxt, nprow, npcol, myrow, mycol, info;
-    int descA_tst[9], descA_ref[9];
-    int iam = 0, nprocs = 1;
-    int iseed = 1;
+    // Matrix A: figure out local size.
+    int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
+    int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
+    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
+    std::vector<scalar_t> A_data(lldA*nlocA);
 
-    //---------------------
-    // initialize BLACS and ScaLAPACK
-    Cblacs_pinfo(&iam, &nprocs);
-    slate_assert(p*q <= nprocs);
-    Cblacs_get(-1, 0, &ictxt);
-    Cblacs_gridinit(&ictxt, "Col", p, q);
-    Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
-
-    //---------------------
-    // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocA = scalapack_numroc(n, nb, mycol, izero, npcol);
-    scalapack_descinit(descA_tst, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-    slate_assert(info == 0);
-    int64_t lldA = (int64_t)descA_tst[8];
-    std::vector<scalar_t> A_tst(lldA*nlocA);
-    scalapack_pplghe(&A_tst[0], n, n, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
+    // Matrix B: figure out local size.
+    int64_t mlocB = num_local_rows_cols(n, nb, myrow, p);
+    int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
+    int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
+    std::vector<scalar_t> B_data(lldB*nlocB);
 
     //---------------------
     // Create SLATE matrix from the ScaLAPACK layouts
-    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, n, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                 uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
+                 n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+
+    slate::generate_matrix( params.matrix, A );
+    slate::generate_matrix( params.matrixB, B );
+
     slate::Pivots pivots;
+
+    if (verbose >= 2) {
+        print_matrix( "A", A );
+        print_matrix( "B", B );
+    }
 
     //---------------------
     // band matrix
@@ -115,87 +120,71 @@ void test_hesv_work(Params& params, bool run)
 
     //---------------------
     // auxiliary matrices
-    auto H = slate::Matrix<scalar_t> (n, n, nb, p, q, MPI_COMM_WORLD);
+    auto H = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
 
     //---------------------
     // right-hand-side and solution vectors
-    int descB_tst[9], descB_ref[9];
-    std::vector<scalar_t> B_ref;
-
-    // matrix B, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocB = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocB = scalapack_numroc(nrhs, nb, mycol, izero, npcol);
-    scalapack_descinit(descB_tst, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
-    slate_assert(info == 0);
-    int64_t lldB = (int64_t)descB_tst[8];
-    std::vector<scalar_t> B_tst(lldB*nlocB);
-    scalapack_pplrnt(&B_tst[0], n, nrhs, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
-
-    B_ref.resize(B_tst.size());
-    B_ref = B_tst;
-    scalapack_descinit(descB_ref, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
-    slate_assert(info == 0);
-
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+    std::vector<scalar_t> Bref_data;
 
     //---------------------
-    // if check is required, copy test data and create a descriptor for it
-    std::vector<scalar_t> A_ref;
+    // if check is required, copy test data.
+    slate::HermitianMatrix<scalar_t> Aref;
+    slate::Matrix<scalar_t> Bref;
+    std::vector<scalar_t> Aref_data;
     if (check) {
-        A_ref = A_tst;
-        scalapack_descinit(descA_ref, n, n, nb, nb, izero, izero, ictxt, mlocA, &info);
-    }
+        Aref_data.resize( A_data.size() );
+        Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                   uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        slate::copy( A, Aref );
 
-    if (trace) slate::trace::Trace::on();
-    else slate::trace::Trace::off();
-
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
+        Bref_data.resize( B_data.size() );
+        Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                   n, nrhs, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+        slate::copy( B, Bref );
     }
 
     if (params.routine == "hetrs") {
         slate::indefinite_factor(A, pivots, T, pivots2, H, opts);
-
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::hetrf(A, pivots, T, pivots2, H, opts);
     }
 
     //==================================================
     // Run SLATE test.
-    // Factor A = LTL^H.
+    // One of:
+    // hetrf: Factor A = LTL^H or A = U^H TU.
+    // hetrs: Solve AX = B, after factoring A above.
+    // hesv:  Solve AX = B, including factoring A.
     //==================================================
-    double time = testsweeper::get_wtime();
+    if (trace) slate::trace::Trace::on();
+    else slate::trace::Trace::off();
+
+    double time = barrier_get_wtime(MPI_COMM_WORLD);
+
     if (params.routine == "hetrf") {
         slate::indefinite_factor(A, pivots, T, pivots2, H, opts);
-
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::hetrf(A, pivots, T, pivots2, H, opts);
     }
     else if (params.routine == "hetrs") {
         slate::indefinite_solve_using_factor(A, pivots, T, pivots2, B, opts);
-
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::hetrs(A, pivots, T, pivots2, B, opts);
     }
     else {
         slate::indefinite_solve(A, B, opts);
-
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::hesv(A, pivots, T, pivots2, H, B, opts);
     }
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time_tst = testsweeper::get_wtime() - time;
+    time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
     if (trace) slate::trace::Trace::finish();
+
+    if (verbose >= 2) {
+        print_matrix( "Aout", A );
+        print_matrix( "Bout", B );
+    }
 
     //---------------------
     // compute and save timing/performance
@@ -206,49 +195,90 @@ void test_hesv_work(Params& params, bool run)
         gflop = lapack::Gflop<scalar_t>::potrs(n, nrhs);
     else
         gflop = lapack::Gflop<scalar_t>::posv(n, nrhs);
-    params.time() = time_tst;
-    params.gflops() = gflop / time_tst;
+    params.time() = time;
+    params.gflops() = gflop / time;
 
     if (check) {
-        if (params.routine == "hetrf") {
-            // solve
-            slate::indefinite_solve_using_factor(A, pivots, T, pivots2, B, opts);
+        #ifdef SLATE_HAVE_SCALAPACK
+            //---------------------
+            // BLACS/MPI variables
+            int ictxt, p_, q_, myrow_, mycol_, info;
+            int A_desc[9], Aref_desc[9];
+            int B_desc[9], Bref_desc[9];
+            int mpi_rank_ = 0, nprocs = 1;
 
             //---------------------
-            // Using traditional BLAS/LAPACK name
-            // slate::hetrs(A, pivots, T, pivots2, B, opts);
-        }
+            // initialize BLACS and ScaLAPACK
+            Cblacs_pinfo(&mpi_rank_, &nprocs);
+            slate_assert( mpi_rank_ == mpi_rank );
+            slate_assert(p*q <= nprocs);
+            Cblacs_get(-1, 0, &ictxt);
+            Cblacs_gridinit(&ictxt, "Col", p, q);
+            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
+            slate_assert( p == p_ );
+            slate_assert( q == q_ );
+            slate_assert( myrow == myrow_ );
+            slate_assert( mycol == mycol_ );
 
-        // allocate work space
-        std::vector<real_t> worklangeA(std::max(mlocA, nlocA));
-        std::vector<real_t> worklangeB(std::max(mlocB, nlocB));
+            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            slate_assert(info == 0);
 
-        // Norm of the orig matrix: || A ||_I
-        real_t A_norm = scalapack_plange(norm2str(norm), n, n, &A_ref[0], ione, ione, descA_ref, &worklangeA[0]);
-        // norm of updated rhs matrix: || X ||_I
-        real_t X_norm = scalapack_plange(norm2str(norm), n, nrhs, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
+            scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            slate_assert(info == 0);
 
-        // B_ref -= Aref*B_tst
-        scalapack_phemm("Left", "Lower",
-                        n, nrhs,
-                        -one,
-                        &A_ref[0], ione, ione, descA_ref,
-                        &B_tst[0], ione, ione, descB_tst,
-                        one,
-                        &B_ref[0], ione, ione, descB_ref);
+            scalapack_descinit(B_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
+            slate_assert(info == 0);
 
-        // || B - AX ||_I
-        real_t R_norm = scalapack_plange(norm2str(norm), n, nrhs, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);
+            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
+            slate_assert(info == 0);
 
-        double residual = R_norm / (n*A_norm*X_norm);
-        params.error() = residual;
+            copy( A, &A_data[0], A_desc );
+            copy( B, &B_data[0], B_desc );
+            copy( Aref, &Aref_data[0], Aref_desc );
+            copy( Bref, &Bref_data[0], Bref_desc );
 
-        real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-        params.okay() = (params.error() <= tol);
+            if (params.routine == "hetrf") {
+                // solve
+                slate::indefinite_solve_using_factor(A, pivots, T, pivots2, B, opts);
+                // Using traditional BLAS/LAPACK name
+                // slate::hetrs(A, pivots, T, pivots2, B, opts);
+            }
+
+            // allocate work space
+            std::vector<real_t> worklangeA(std::max(mlocA, nlocA));
+            std::vector<real_t> worklangeB(std::max(mlocB, nlocB));
+
+            // Norm of the orig matrix: || A ||
+            real_t A_norm = scalapack_plange("1", n, n, &Aref_data[0], 1, 1, Aref_desc, &worklangeA[0]);
+            // norm of updated rhs matrix: || X ||
+            real_t X_norm = scalapack_plange("1", n, nrhs, &B_data[0], 1, 1, B_desc, &worklangeB[0]);
+
+            // Bref_data -= Aref*B_data
+            scalapack_phemm("Left", "Lower",
+                            n, nrhs,
+                            -one,
+                            &Aref_data[0], 1, 1, Aref_desc,
+                            &B_data[0], 1, 1, B_desc,
+                            one,
+                            &Bref_data[0], 1, 1, Bref_desc);
+
+            // || B - AX ||
+            real_t R_norm = scalapack_plange("1", n, nrhs, &Bref_data[0], 1, 1, Bref_desc, &worklangeB[0]);
+
+            double residual = R_norm / (n*A_norm*X_norm);
+            params.error() = residual;
+
+            real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+            params.okay() = (params.error() <= tol);
+
+            Cblacs_gridexit(ictxt);
+            //Cblacs_exit(1) does not handle re-entering
+        #else
+            SLATE_UNUSED(one);
+            if (mpi_rank == 0)
+                printf( "ScaLAPACK not available\n" );
+        #endif
     }
-
-    Cblacs_gridexit(ictxt);
-    //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------

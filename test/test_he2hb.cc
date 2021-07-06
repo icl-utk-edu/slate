@@ -25,6 +25,9 @@ void test_he2hb_work(Params& params, bool run)
     // using blas::conj;
     // using llong = long long;
 
+    // Constants
+    const scalar_t one = 1;
+
     // get & mark input values
     slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
@@ -38,8 +41,7 @@ void test_he2hb_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-
-    origin = slate::Origin::ScaLAPACK;  // todo: for now
+    params.matrix.mark();
 
     // mark non-standard output values
     params.time();
@@ -53,57 +55,54 @@ void test_he2hb_work(Params& params, bool run)
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib}
     };
-     // Requires a square processing grid.
-    assert(p == q);
-    assert(uplo == slate::Uplo::Lower);  // only lower for now.
-
-    // Local values
-    const scalar_t one = 1;
 
     // MPI variables
-    int mpi_rank, mpi_size;
-    slate_mpi_call(
-        MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
-    slate_mpi_call(
-        MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
-    slate_assert(p*q <= mpi_size);
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    int myrow = whoismyrow(mpi_rank, p);
-    int mycol = whoismycol(mpi_rank, p);
+    // Skip invalid or unimplemented options.
+    if (uplo == slate::Uplo::Upper) {
+        if (mpi_rank == 0)
+            printf("skipping: Uplo::Upper isn't supported.\n");
+        return;
+    }
+    if (p != q) {
+        if (mpi_rank == 0)
+            printf("skipping: requires square process grid (p == q).\n");
+        return;
+    }
 
-    // matrix A, figure out local size, allocate, initialize
-    int64_t mlocal = localRowsCols(n, nb, myrow, p);
-    int64_t nlocal = localRowsCols(n, nb, mycol, q);
-    int64_t lldA   = mlocal;
-    std::vector<scalar_t> A_data(lldA*nlocal);
-    int64_t idist = 3; // normal
-    int64_t iseed[4] = { 0, myrow, mycol, 3 };
-    lapack::larnv(idist, iseed, A_data.size(), A_data.data());
+    // Matrix A: figure out local size.
+    int64_t mlocal = num_local_rows_cols(n, nb, myrow, p);
+    int64_t nlocal = num_local_rows_cols(n, nb, mycol, q);
+    int64_t lldA   = blas::max(1, mlocal); // local leading dimension of A
+    std::vector<scalar_t> A_data;
 
     slate::HermitianMatrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        // SLATE allocates CPU or GPU tiles.
         A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin2target(origin));
-        // todo: need ScaLAPACK descriptor for copy. hmpf!
-        //copy(A_data.data(), descA_tst, A);
-        assert(false);
     }
     else {
         // Create SLATE matrices from the ScaLAPACK layouts.
+        A_data.resize( lldA*nlocal );
         A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-            uplo, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
+                uplo, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
     }
     slate::TriangularFactors<scalar_t> T;
+
+    slate::generate_matrix( params.matrix, A );
 
     if (verbose > 1) {
         print_matrix("A", A);
     }
 
     // Copy test data for check.
-    slate::HermitianMatrix<scalar_t> A_ref(uplo, n, nb, p, q, MPI_COMM_WORLD);
-    A_ref.insertLocalTiles();
-    slate::copy(A, A_ref);
+    slate::HermitianMatrix<scalar_t> Aref(uplo, n, nb, p, q, MPI_COMM_WORLD);
+    Aref.insertLocalTiles();
+    slate::copy(A, Aref);
 
     // todo
     //double gflop = lapack::Gflop<scalar_t>::he2hb(n, n);
@@ -111,28 +110,20 @@ void test_he2hb_work(Params& params, bool run)
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time = testsweeper::get_wtime();
+    double time = barrier_get_wtime(MPI_COMM_WORLD);
 
     //==================================================
     // Run SLATE test.
     //==================================================
     slate::he2hb(A, T, opts);
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time_tst = testsweeper::get_wtime() - time;
+    time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
     if (trace) slate::trace::Trace::finish();
 
     // compute and save timing/performance
-    params.time() = time_tst;
-    //params.gflops() = gflop / time_tst;
+    params.time() = time;
+    //params.gflops() = gflop / time;
 
     if (verbose > 1) {
         print_matrix("A_factored", A);
@@ -151,7 +142,7 @@ void test_he2hb_work(Params& params, bool run)
         //==================================================
 
         // Norm of original matrix: || A ||_1
-        real_t A_norm = slate::norm(slate::Norm::One, A_ref);
+        real_t A_norm = slate::norm(slate::Norm::One, Aref);
 
         slate::Matrix<scalar_t> B(n, n, nb, p, q, MPI_COMM_WORLD);
         B.insertLocalTiles();
@@ -160,27 +151,25 @@ void test_he2hb_work(Params& params, bool run)
             print_matrix("B", B);
         }
 
-        slate::unmtr_he2hb(slate::Side::Left,
-                           slate::Op::NoTrans, A, T, B,
-                           {{slate::Option::Target, target}});
+        slate::unmtr_he2hb(slate::Side::Left, slate::Op::NoTrans,
+                           A, T, B, opts);
         if (verbose > 1) {
             print_matrix("Q^H B", B);
         }
 
-        slate::unmtr_he2hb(slate::Side::Right,
-                           slate::Op::ConjTrans, A, T, B,
-                           {{slate::Option::Target, target}});
+        slate::unmtr_he2hb(slate::Side::Right, slate::Op::ConjTrans,
+                           A, T, B, opts);
         if (verbose > 1) {
             print_matrix("Q^H B Q", B);
         }
 
-        // Form QBQ^H - A, where A is in A_ref.
-        // todo: slate::tradd(-one, TriangularMatrix(A_ref),
+        // Form QBQ^H - A, where A is in Aref.
+        // todo: slate::tradd(-one, TriangularMatrix(Aref),
         //                     one, TriangularMatrix(B));
         for (int64_t j = 0; j < A.nt(); ++j) {
             for (int64_t i = j; i < A.nt(); ++i) {
-                if (A_ref.tileIsLocal(i, j)) {
-                    auto Aij = A_ref(i, j);
+                if (Aref.tileIsLocal(i, j)) {
+                    auto Aij = Aref(i, j);
                     auto Bij = B(i, j);
                     // if i == j, Aij was Lower; set it to General for axpy.
                     Aij.uplo(slate::Uplo::General);

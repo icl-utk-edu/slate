@@ -200,30 +200,10 @@ void scale(internal::TargetType<Target::Devices>,
                 for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
-                            if (i != j) {
                                 a_array_host[batch_count] = A(i, j, device).data();
                                 lda[q] = A(i, j, device).stride();
                                 ++group_count[q];
                                 ++batch_count;
-                            }
-                        }
-                    }
-                }
-            }
-            for (int q = 4; q < 8; ++q) {
-                group_count[q] = 0;
-                lda[q] = 0;
-                mb[q] = A.tileMb(irange[q-4][0]);
-                nb[q] = A.tileNb(jrange[q-4][0]);
-                for (int64_t i = irange[q-4][0]; i < irange[q-4][1]; ++i) {
-                    for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
-                        if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
-                            if (i == j) {
-                                a_array_host[batch_count] = A(i, j, device).data();
-                                lda[q] = A(i, j, device).stride();
-                                ++group_count[q];
-                                ++batch_count;
-                            }
                         }
                     }
                 }
@@ -238,14 +218,6 @@ void scale(internal::TargetType<Target::Devices>,
                 blas::MemcpyKind::HostToDevice, *queue);
 
             for (int q = 0; q < 4; ++q) {
-                if (group_count[q] > 0) { //TODO
-                    device::gescale(mb[q], nb[q],
-                                  numer, denom, a_array_dev, lda[q],
-                                  group_count[q], *queue);
-                    a_array_dev += group_count[q];
-                }
-            }
-            for (int q = 4; q < 8; ++q) {
                 if (group_count[q] > 0) {
                     device::gescale(mb[q], nb[q],
                                   numer, denom, a_array_dev, lda[q],

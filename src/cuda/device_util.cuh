@@ -305,6 +305,8 @@ __host__ __device__  inline float  imag(float              x) { return 0.f; }
 __host__ __device__  inline double             conj(double             x) { return x; }
 __host__ __device__  inline float              conj(float              x) { return x; }
 
+#if ! defined(SLATE_NO_CUDA)
+
 // ---------- negate
 __host__ __device__  inline cuDoubleComplex
 operator - (const cuDoubleComplex &a)
@@ -313,7 +315,7 @@ operator - (const cuDoubleComplex &a)
                          -imag(a) );
 }
 
-// ---------- add
+
 __host__ __device__  inline cuDoubleComplex
 operator + (const cuDoubleComplex a, const cuDoubleComplex b)
 {
@@ -753,6 +755,8 @@ operator != (const float s, const cuFloatComplex a)
 {
     return ! (a == s);
 }
+
+#endif // ! SLATE_NO_CUDA
 
 } // namespace device
 } // namespace slate

@@ -51,7 +51,7 @@ __global__ void gescaleKernel(
         // todo: should the increment be ridx += 1024?
         scalar_t* rowA = &tileA[ridx];
         for (int64_t j = 0; j < n; ++j)
-            rowA[j*lda] *= mul;
+            rowA[j*lda] = rowA[j*lda] * mul;
     }
 }
 

@@ -54,12 +54,12 @@ __global__ void tzscaleKernel(
         
         if (uplo == lapack::Uplo::Lower) {
             for (int64_t j = 0; j <= ridx && j < n; ++j) { // lower
-                rowA[j*lda] *= mul;
+                rowA[j*lda] = rowA[j*lda] * mul;
             }
         }
         else {
             for (int64_t j = n-1; j >= ridx; --j) // upper
-                rowA[j*lda] *= mul;
+                rowA[j*lda] = rowA[j*lda] * mul;
         }
     }
 }

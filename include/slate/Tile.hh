@@ -685,15 +685,13 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
                 src_stride = user_stride_;
                 stride_    = user_layout_ == Layout::RowMajor ? mb_ : nb_;
             }
-            else if (ext_data_ == data_) {
+            else {
                 // need to convert into user_data_
+                assert(ext_data_ == data_);
                 data_      = user_data_;
                 src_data   = ext_data_;
                 src_stride = stride_;
                 stride_    = user_stride_;
-            }
-            else {
-                assert(0);
             }
 
             transpose(layout() == Layout::ColMajor ? mb_ : nb_,
@@ -774,14 +772,12 @@ void Tile<scalar_t>::layoutConvert(
                 src_stride = user_stride_;
                 stride_    = user_layout_ == Layout::RowMajor ? mb_ : nb_;
             }
-            else if (ext_data_ == data_) { // need to convert into user_data_
+            else { // need to convert into user_data_
+                assert(ext_data_ == data_);
                 data_      = user_data_;
                 src_data   = ext_data_;
                 src_stride = stride_;
                 stride_    = user_stride_;
-            }
-            else {
-                assert(0);
             }
 
             blas::set_device(device_);

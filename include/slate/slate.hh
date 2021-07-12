@@ -24,8 +24,8 @@
 namespace slate {
 
 // Version is updated by make_release.py; DO NOT EDIT.
-// Version 2020.10.00
-#define SLATE_VERSION 20201000
+// Version 2021.05.02
+#define SLATE_VERSION 20210502
 
 int version();
 const char* id();
@@ -54,6 +54,22 @@ template <typename scalar_t>
 void set(
     scalar_t value,
     Matrix<scalar_t>& A,
+    Options const& opts = Options())
+{
+    set(value, value, A, opts);
+}
+
+template <typename scalar_t>
+void set(
+    scalar_t offdiag_value,
+    scalar_t diag_value,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts = Options());
+
+template <typename scalar_t>
+void set(
+    scalar_t value,
+    BaseTrapezoidMatrix<scalar_t>& A,
     Options const& opts = Options())
 {
     set(value, value, A, opts);

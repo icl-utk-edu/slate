@@ -30,11 +30,11 @@ void genorm(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     genorm(in_norm, scope, m, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     genorm(in_norm, scope, m, n, (hipFloatComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
@@ -49,11 +49,11 @@ void genorm(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     genorm(in_norm, scope, m, n, (cuDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     genorm(in_norm, scope, m, n, (hipDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif

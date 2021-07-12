@@ -74,6 +74,7 @@ void print_matrix(
 
     width = std::max(width, precision + 3);
 
+    printf("%% LAPACK matrix\n");
     printf("%s = [\n", label);
     for (int64_t i = 0; i < m; ++i) {
         msg = "";
@@ -114,7 +115,9 @@ void print_matrix(
             int rank = prow + pcol*p;
 
             if (rank == mpi_rank) {
-                snprintf(buf, sizeof(buf), "%s%d_%d = [\n", label, prow, pcol);
+                snprintf(buf, sizeof(buf),
+                         "%% ScaLAPACK matrix\n"
+                         "%s%d_%d = [\n", label, prow, pcol);
                 msg += buf;
                 for (int64_t i = 0; i < mlocal; ++i) {
                     for (int64_t j = 0; j < nlocal; ++j) {
@@ -382,14 +385,15 @@ void print_matrix(
 }
 
 //------------------------------------------------------------------------------
-/// Print a SLATE distributed hermitian band matrix.
+/// Print a SLATE distributed BaseTriangular (triangular, symmetric, and
+/// Hermitian) band matrix.
 /// Rank 0 does the printing, and must have enough memory to fit one entire
 /// block row of the matrix.
 /// Tiles outside the bandwidth are printed as "0", with no trailing decimals.
 /// For block-sparse matrices, missing tiles are print as "nan".
 ///
-/// This version handles Hermitian band matrices. Entries in the A.uplo
-/// triangle are printed; entries in the opposite triangle are printed as "nan".
+/// Entries in the A.uplo triangle are printed; entries in the opposite
+/// triangle are printed as "nan".
 ///
 /// Having said that, if the printed matrix is a lower triangular matrix,
 /// then the routine will print the tiles of upper part of the matrix as "nan",
@@ -401,7 +405,7 @@ void print_matrix(
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::HermitianBandMatrix<scalar_t>& A, int width = 10, int precision = 6)
+    slate::BaseTriangularBandMatrix<scalar_t>& A, int width = 10, int precision = 6)
 {
     using blas::real;
     using blas::imag;
@@ -412,7 +416,7 @@ void print_matrix(
 
     width = std::max(width, precision + 3);
 
-    std::string msg = "% slate::HermitianBandMatrix\n";
+    std::string msg = "% slate::BaseTriangularBandMatrix\n";
     msg += label;
     msg += " = [\n";
 
@@ -580,4 +584,56 @@ void print_matrix(
     MPI_Barrier(comm);
 }
 
+// -----------------------------------------------------------------------------
+// Copied from slate-dev/lapackpp/test/test.hh
+// Like assert(), but throws error and is not disabled by NDEBUG.
+inline void require_( bool cond, const char* condstr, const char* file, int line )
+{
+    if (! cond) {
+        throw blas::Error( std::string(condstr) + " failed at "
+                           + file + ":" + std::to_string(line) );
+    }
+}
+
+#define require( cond ) require_( (cond), #cond, __FILE__, __LINE__ )
+
+// -----------------------------------------------------------------------------
+// Copied from slate-dev/lapackpp/test/print_matrix.hh
+template< typename T >
+void print_vector( int64_t n, T *x, int64_t incx,
+                   const char* format="%9.4f" )
+{
+    require( n >= 0 );
+    require( incx != 0 );
+    char format2[32];
+    snprintf( format2, sizeof(format2), " %s", format );
+
+    printf( "[" );
+    int64_t ix = (incx > 0 ? 0 : (-n + 1)*incx);
+    for (int64_t i = 0; i < n; ++i) {
+        printf( format2, x[ix] );
+        ix += incx;
+    }
+    printf( " ]';\n" );
+}
+
+// -----------------------------------------------------------------------------
+// Copied from slate-dev/lapackpp/test/print_matrix.hh
+template< typename T >
+void print_vector( int64_t n, std::complex<T>* x, int64_t incx,
+                   const char* format="%9.4f" )
+{
+    require( n >= 0 );
+    require( incx != 0 );
+    char format2[32];
+    snprintf( format2, sizeof(format2), " %s + %si", format, format );
+
+    printf( "[" );
+    int64_t ix = (incx > 0 ? 0 : (-n + 1)*incx);
+    for (int64_t i = 0; i < n; ++i) {
+        printf( format2, real(x[ix]), imag(x[ix]) );
+        ix += incx;
+    }
+    printf( " ]';\n" );
+}
 #endif // SLATE_PRINT_MATRIX_HH

@@ -8,10 +8,9 @@
 #include "test.hh"
 #include "print_matrix.hh"
 
-#include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
-#include "scalapack_copy.hh"
 #include "band_utils.hh"
+#include "grid_utils.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -20,8 +19,7 @@
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void test_steqr2_work(
-    Params& params, bool run)
+void test_steqr2_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
@@ -30,11 +28,15 @@ void test_steqr2_work(
     using llong = long long;
     // typedef long long llong;
 
+    // Constants
+    const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
+
     // get & mark input values
     int64_t n = params.dim.n();
     int64_t nb = params.nb();
-    int64_t p = params.grid.m();
-    int64_t q = params.grid.n();
+    int p = params.grid.m();
+    int q = params.grid.n();
     lapack::Job jobz = params.jobz();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
@@ -53,41 +55,23 @@ void test_steqr2_work(
     if (! run)
         return;
 
-    int mpi_rank, mpi_size;
-    slate_mpi_call(
-        MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
-    slate_mpi_call(
-        MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
+    // MPI variables
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // Local values
-    scalar_t zero = 0.0; scalar_t one = 1.0;
-
-    // BLACS/MPI variables
-    int ictxt, nprow, npcol, myrow, mycol, info;
-    int descZ_tst[9];
-    int iam = 0, nprocs = 1;
-
-    // initialize BLACS and ScaLAPACK
-    Cblacs_pinfo(&iam, &nprocs);
-    slate_assert(p*q <= nprocs);
-    Cblacs_get(-1, 0, &ictxt);
-    Cblacs_gridinit(&ictxt, "Col", p, q);
-    Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
-
-    // matrix Z, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocZ = scalapack_numroc(n, nb, myrow, 0, nprow);
-    int64_t nlocZ = scalapack_numroc(n, nb, mycol, 0, npcol);
-    scalapack_descinit(descZ_tst, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
-    slate_assert(info == 0);
-    int64_t lldZ = (int64_t)descZ_tst[8];
-    std::vector<scalar_t> Z_tst(1);
+    // Matrix Z: figure out local size.
+    int64_t mlocZ = num_local_rows_cols(n, nb, myrow, p);
+    int64_t nlocZ = num_local_rows_cols(n, nb, mycol, q);
+    int64_t lldZ  = blas::max(1, mlocZ); // local leading dimension of Z
+    std::vector<scalar_t> Z_data(1);
 
     // skip invalid sizes
-    if (n <= (nprow-1)*nb || n <= (npcol-1)*nb) {
-        if (iam == 0) {
+    if (n <= (p-1)*nb || n <= (q-1)*nb) {
+        if (mpi_rank == 0) {
             printf("\nskipping: ScaLAPACK requires that all ranks have some rows & columns; "
                    "i.e., n > (p-1)*nb = %lld and n > (q-1)*nb = %lld\n",
-                   llong( (nprow-1)*nb ), llong( (npcol-1)*nb ) );
+                   llong( (p-1)*nb ), llong( (q-1)*nb ) );
         }
         return;
     }
@@ -104,7 +88,7 @@ void test_steqr2_work(
 
     slate::Matrix<scalar_t> A; // To check the orth of the eigenvectors
     if (check) {
-        A = slate::Matrix<scalar_t>(n, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        A = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles();
     }
 
@@ -112,25 +96,21 @@ void test_steqr2_work(
     if (origin != slate::Origin::ScaLAPACK) {
         if (wantz) {
             Z = slate::Matrix<scalar_t>(
-                n, n, nb, nprow, npcol, MPI_COMM_WORLD);
+                    n, n, nb, p, q, MPI_COMM_WORLD);
             Z.insertLocalTiles(origin2target(origin));
         }
     }
     else {
         if (wantz) {
-            Z_tst.resize(lldZ*nlocZ);
+            Z_data.resize(lldZ*nlocZ);
             Z = slate::Matrix<scalar_t>::fromScaLAPACK(
-                n, n, &Z_tst[0], lldZ, nb, nprow, npcol, MPI_COMM_WORLD);
+                    n, n, &Z_data[0], lldZ, nb, p, q, MPI_COMM_WORLD);
         }
     }
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time = testsweeper::get_wtime();
+    double time = barrier_get_wtime(MPI_COMM_WORLD);
 
     //==================================================
     // Run SLATE test.
@@ -138,11 +118,7 @@ void test_steqr2_work(
     //slate::sterf(D, E);
     steqr2(jobz, D, E, Z);
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    params.time() = testsweeper::get_wtime() - time;
+    params.time() = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
     if (trace)
         slate::trace::Trace::finish();
@@ -162,13 +138,11 @@ void test_steqr2_work(
         //==================================================
         // Run LAPACK reference routine.
         //==================================================
-        //MPI_Barrier(MPI_COMM_WORLD);
-        time = testsweeper::get_wtime();
+        time = barrier_get_wtime(MPI_COMM_WORLD);
 
         lapack::sterf(n, &Dref[0], &Eref[0]);
 
-        //MPI_Barrier(MPI_COMM_WORLD);
-        params.ref_time() = testsweeper::get_wtime() - time;
+        params.ref_time() = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         slate_set_num_blas_threads(saved_num_threads);
         if (verbose) {
@@ -188,25 +162,23 @@ void test_steqr2_work(
         real_t err = blas::nrm2(Dref.size(), &Dref[0], 1);
         blas::axpy(D.size(), -1.0, &D[0], 1, &Dref[0], 1);
         params.error() = blas::nrm2(Dref.size(), &Dref[0], 1) / err;
+        params.okay() = (params.error() <= tol);
 
         //==================================================
         // Test results by checking the orthogonality of Q
         //
-        //      || Q'Q - I ||_f
-        //     ---------------- < tol * epsilon
+        //     || Q^H Q - I ||_f
+        //     ----------------- < tol * epsilon
         //           n
         //
         //==================================================
-        const scalar_t minusone = -1;
-        params.ortho() = 0.;
         if (wantz) {
             auto ZT = conjTranspose(Z);
             set(zero, one, A);
-            slate::gemm(one, ZT, Z, minusone, A);
-            params.ortho()  = slate::norm(slate::Norm::Fro, A) / n;
+            slate::gemm(one, ZT, Z, -one, A);
+            params.ortho() = slate::norm(slate::Norm::Fro, A) / n;
+            params.okay() = params.okay() && (params.ortho() <= tol);
         }
-        params.okay() = ((params.error() <= tol) && (params.ortho() <= tol));
-
     }
 }
 

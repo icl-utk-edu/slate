@@ -582,6 +582,7 @@ void test_trsm()
         // factor to get well-conditioned triangle
         int info = lapack::potrf( A.uploPhysical(), An, Adata.data(), lda );
         assert( info == 0 );
+        SLATE_UNUSED( info );
 
         // setup B such that op(B) is m-by-n
         int Bm = (ib == 0 ? m : n);

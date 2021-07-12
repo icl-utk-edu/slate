@@ -23,14 +23,13 @@ void tzcopy(
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
            batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+#elif ! defined(SLATE_NO_HIP)
     tzcopy(uplo,
            m, n,
            (hipFloatComplex**) Aarray, lda,
@@ -47,14 +46,13 @@ void tzcopy(
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
            batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+#elif ! defined(SLATE_NO_HIP)
     tzcopy(uplo,
            m, n,
            (hipFloatComplex**) Aarray, lda,
@@ -71,14 +69,13 @@ void tzcopy(
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
            batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+#elif ! defined(SLATE_NO_HIP)
     tzcopy(uplo,
            m, n,
            (hipDoubleComplex**) Aarray, lda,
@@ -95,14 +92,13 @@ void tzcopy(
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
            batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+#elif ! defined(SLATE_NO_HIP)
     tzcopy(uplo,
            m, n,
            (hipDoubleComplex**) Aarray, lda,

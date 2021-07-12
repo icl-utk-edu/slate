@@ -59,71 +59,75 @@ namespace slate {
 /// Internal function, called from generate_matrix().
 ///
 /// @ingroup generate_matrix
-template <typename scalar_t>
+///
+template <typename matrix_type>
 void generate_sigma(
     MatrixParams& params,
     TestMatrixDist dist, bool rand_sign,
-    blas::real_type<scalar_t> cond,
-    blas::real_type<scalar_t> sigma_max,
-    slate::Matrix<scalar_t>& A,
-    std::vector< blas::real_type<scalar_t> >& Sigma )
+    blas::real_type<typename matrix_type::value_type> cond,
+    blas::real_type<typename matrix_type::value_type> sigma_max,
+    matrix_type& A,
+    std::vector< blas::real_type<typename matrix_type::value_type> >& Sigma )
 {
+    using scalar_t = typename matrix_type::value_type;
     using real_t = blas::real_type<scalar_t>;
 
+    // Constants
+    const scalar_t zero = 0.0;
 
     // locals
-    int64_t minmn = std::min( A.m(), A.n() );
-    assert( minmn == int64_t(Sigma.size()) );
+    int64_t min_mn = std::min( A.m(), A.n() );
+    assert( min_mn == int64_t(Sigma.size()) );
 
     switch (dist) {
         case TestMatrixDist::arith:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = 1 - i / real_t(minmn - 1) * (1 - 1/cond);
+            for (int64_t i = 0; i < min_mn; ++i) {
+                Sigma[i] = 1 - i / real_t(min_mn - 1) * (1 - 1/cond);
             }
             break;
 
         case TestMatrixDist::rarith:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = 1 - (minmn - 1 - i) / real_t(minmn - 1) * (1 - 1/cond);
+            for (int64_t i = 0; i < min_mn; ++i) {
+                Sigma[i] = 1 - (min_mn - 1 - i) / real_t(min_mn - 1) * (1 - 1/cond);
             }
             break;
 
         case TestMatrixDist::geo:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = pow( cond, -i / real_t(minmn - 1) );
+            for (int64_t i = 0; i < min_mn; ++i) {
+                Sigma[i] = pow( cond, -i / real_t(min_mn - 1) );
             }
             break;
 
         case TestMatrixDist::rgeo:
-            for (int64_t i = 0; i < minmn; ++i) {
-                Sigma[i] = pow( cond, -(minmn - 1 - i) / real_t(minmn - 1) );
+            for (int64_t i = 0; i < min_mn; ++i) {
+                Sigma[i] = pow( cond, -(min_mn - 1 - i) / real_t(min_mn - 1) );
             }
             break;
 
         case TestMatrixDist::cluster0:
             Sigma[0] = 1;
-            for (int64_t i = 1; i < minmn; ++i) {
+            for (int64_t i = 1; i < min_mn; ++i) {
                 Sigma[i] = 1/cond;
             }
             break;
 
         case TestMatrixDist::rcluster0:
-            for (int64_t i = 0; i < minmn-1; ++i) {
+            for (int64_t i = 0; i < min_mn-1; ++i) {
                 Sigma[i] = 1/cond;
             }
-            Sigma[minmn-1] = 1;
+            Sigma[min_mn-1] = 1;
             break;
 
         case TestMatrixDist::cluster1:
-            for (int64_t i = 0; i < minmn-1; ++i) {
+            for (int64_t i = 0; i < min_mn-1; ++i) {
                 Sigma[i] = 1;
             }
-            Sigma[minmn-1] = 1/cond;
+            Sigma[min_mn-1] = 1/cond;
             break;
 
         case TestMatrixDist::rcluster1:
             Sigma[0] = 1/cond;
-            for (int64_t i = 1; i < minmn; ++i) {
+            for (int64_t i = 1; i < min_mn; ++i) {
                 Sigma[i] = 1;
             }
             break;
@@ -131,11 +135,11 @@ void generate_sigma(
         case TestMatrixDist::logrand: {
             real_t range = log( 1/cond );
             lapack::larnv( idist_rand, params.iseed, Sigma.size(), Sigma.data() );
-            for (int64_t i = 0; i < minmn; ++i) {
+            for (int64_t i = 0; i < min_mn; ++i) {
                 Sigma[i] = exp( Sigma[i] * range );
             }
             // make cond exact
-            if (minmn >= 2) {
+            if (min_mn >= 2) {
                 Sigma[0] = 1;
                 Sigma[1] = 1/cond;
             }
@@ -167,7 +171,7 @@ void generate_sigma(
 
     if (rand_sign) {
         // apply random signs
-        for (int64_t i = 0; i < minmn; ++i) {
+        for (int64_t i = 0; i < min_mn; ++i) {
             if (rand() > RAND_MAX/2) {
                 Sigma[i] = -Sigma[i];
             }
@@ -175,13 +179,13 @@ void generate_sigma(
     }
 
     // copy Sigma => A
-    scalar_t zero = 0.0;
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
     set(zero, zero, A);
     int64_t S_index = 0;
     #pragma omp parallel for
     for (int64_t i = 0; i < min_mt_nt; ++i) {
         if (A.tileIsLocal(i, i)) {
+            A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
             auto T = A(i, i);
             for (int ii = 0; ii < A.tileNb(i); ++ii) {
                 T.at(ii, ii) = Sigma[S_index + ii];
@@ -189,6 +193,8 @@ void generate_sigma(
         }
         S_index += A.tileNb(i);
     }
+
+    A.tileUpdateAllOrigin();
 }
 
 
@@ -296,17 +302,17 @@ void generate_svd(
         #pragma omp parallel for
         for (int64_t i = 0; i < min_mt_nt; ++i) {
             if (A.tileIsLocal(i, i)) {
-                auto T = A(i, i);
+                A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
+                auto Aii = A(i, i);
                 for (int ii = 0; ii < A.tileNb(i); ++ii) {
-                    T.at(ii, ii) = Sigma[S_index + ii];
+                    Aii.at(ii, ii) = Sigma[S_index + ii];
                 }
             }
             S_index += A.tileNb(i);
-            //A.tileTick(i, i);
         }
     }
 
-    // random U, m-by-minmn
+    // random U, m-by-min_mn
     auto Tmp = U.emptyLike();
     #pragma omp parallel for collapse(2)
     for (int64_t j = 0; j < nt; ++j) {
@@ -320,27 +326,36 @@ void generate_svd(
                 auto Tmpij = Tmp(i, j);
                 scalar_t* data = Tmpij.data();
                 int64_t ldt = Tmpij.stride();
-                params.iseed[0] = (rand() + i + j) % 256;
                 //lapack::larnv( idist_randn, params.iseed,
                 //    U.tileMb(i)*U.tileNb(j), Tmpij.data() );
+
+                // Added local seed array for each process to prevent race condition contention of params.seed
+                int64_t iseed[4];
+                iseed[0] = (params.iseed[0] + i) % 4096;
+                iseed[1] = (params.iseed[1] + j) % 4096;
+                iseed[2] =  params.iseed[2];
+                iseed[3] =  params.iseed[3];
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
-                    lapack::larnv(idist_randn, params.iseed, Tmpij.mb(), &data[k*ldt]);
+                    lapack::larnv(idist_randn, iseed, Tmpij.mb(), &data[k*ldt]);
                 }
                 gecopy(Tmp(i, j), U(i, j));
                 Tmp.tileErase(i, j);
             }
         }
     }
+    // Hack to update iseed between matrices.
+    params.iseed[2] = (params.iseed[2] + 1) % 4096;
+
     // we need to make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
     // However, currently we do geqrf here,
-    // since we don’t have a way to make Householder vectors (no distributed larfg).
+    // since we don't have a way to make Householder vectors (no distributed larfg).
     slate::geqrf(U, T);
 
     // A = U*A
     slate::unmqr( slate::Side::Left, slate::Op::NoTrans, U, T, A);
 
-    // random V, n-by-minmn (stored column-wise in U)
+    // random V, n-by-min_mn (stored column-wise in U)
     auto V = U.sub(0, nt-1, 0, nt-1);
     #pragma omp parallel for collapse(2)
     for (int64_t j = 0; j < nt; ++j) {
@@ -350,22 +365,32 @@ void generate_svd(
                 auto Tmpij = Tmp(i, j);
                 scalar_t* data = Tmpij.data();
                 int64_t ldt = Tmpij.stride();
+
+                // Added local seed array for each process to prevent race condition contention of params.seed
+                int64_t iseed[4];
+                iseed[0] = (params.iseed[0] + i) % 4096;
+                iseed[1] = (params.iseed[1] + j) % 4096;
+                iseed[2] =  params.iseed[2];
+                iseed[3] =  params.iseed[3];
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
-                    lapack::larnv(idist_randn, params.iseed, Tmpij.mb(), &data[k*ldt]);
+                    lapack::larnv(idist_randn, iseed, Tmpij.mb(), &data[k*ldt]);
                 }
                 gecopy(Tmp(i, j), V(i, j));
                 Tmp.tileErase(i, j);
             }
         }
     }
+    // Hack to update iseed between matrices.
+    params.iseed[2] = (params.iseed[2] + 1) % 4096;
+
     slate::geqrf(V, T);
 
     // A = A*V^H
     slate::unmqr( slate::Side::Right, slate::Op::ConjTrans, V, T, A);
 
     if (condD != 1) {
-        // A = A*W, W orthogonal, such that A has unit column norms
-        // i.e., A'*A is a correlation matrix with unit diagonal
+        // A = A*W, W orthogonal, such that A has unit column norms,
+        // i.e., A^H A is a correlation matrix with unit diagonal
         // TODO: uncomment generate_correlation_factor
         //generate_correlation_factor( A );
 
@@ -389,10 +414,11 @@ void generate_svd(
         for (int64_t j = 0; j < nt; ++j) {
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
-                    auto T = A(i, j);
+                    A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                    auto Aij = A(i, j);
                     for (int jj = 0; jj < A.tileNb(j); ++jj) {
                         for (int ii = 0; ii < A.tileMb(i); ++ii) {
-                            T.at(ii, jj) *= D[J_index + jj];
+                            Aij.at(ii, jj) *= D[J_index + jj];
                         }
                     }
                 }
@@ -400,6 +426,7 @@ void generate_svd(
             J_index += A.tileNb(j);
         }
     }
+    A.tileUpdateAllOrigin();
 }
 
 // -----------------------------------------------------------------------------
@@ -432,7 +459,7 @@ void generate_heev(
     // ----------
     generate_sigma( params, dist, rand_sign, cond, sigma_max, A, Sigma );
 
-    // random U, m-by-minmn
+    // random U, m-by-min_mn
     int64_t nt = U.nt();
     int64_t mt = U.mt();
     auto Tmp = U.emptyLike();
@@ -445,15 +472,24 @@ void generate_heev(
                 auto Tmpij = Tmp(i, j);
                 scalar_t* data = Tmpij.data();
                 int64_t ldt = Tmpij.stride();
-                params.iseed[0] = (rand() + i + j) % 256;
+
+                // Added local seed array for each process to prevent race condition contention of params.seed
+                int64_t iseed[4];
+                iseed[0] = (params.iseed[0] + i) % 4096;
+                iseed[1] = (params.iseed[1] + j) % 4096;
+                iseed[2] =  params.iseed[2];
+                iseed[3] =  params.iseed[3];
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
-                    lapack::larnv(idist_rand, params.iseed, Tmpij.mb(), &data[k*ldt]);
+                    lapack::larnv(idist_rand, iseed, Tmpij.mb(), &data[k*ldt]);
                 }
                 gecopy(Tmp(i, j), U(i, j));
                 Tmp.tileErase(i, j);
             }
         }
     }
+    // Hack to update iseed between matrices.
+    params.iseed[2] = (params.iseed[2] + 1) % 4096;
+
     // we need to make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
     // However, currently we do geqrf here,
@@ -471,9 +507,10 @@ void generate_heev(
     #pragma omp parallel for
     for (int64_t i = 0; i < nt; ++i) {
         if (A.tileIsLocal(i, i)) {
-            auto T = A(i, i);
+            A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
+            auto Aii = A(i, i);
             for (int ii = 0; ii < A.tileMb(i); ++ii) {
-                T.at(ii, ii) = std::real( T.at(ii, ii) );
+                Aii.at(ii, ii) = std::real( Aii.at(ii, ii) );
             }
         }
     }
@@ -493,10 +530,11 @@ void generate_heev(
             int64_t I_index = 0;
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
-                    auto T = A(i, j);
+                    A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                    auto Aij = A(i, j);
                     for (int jj = 0; jj < A.tileMb(j); ++jj) {
                         for (int ii = 0; ii < A.tileMb(i); ++ii) {
-                            T.at(ii, jj) *= D[I_index + ii] * D[J_index + jj];
+                            Aij.at(ii, jj) *= D[I_index + ii] * D[J_index + jj];
                         }
                     }
                 }
@@ -505,6 +543,7 @@ void generate_heev(
             J_index += A.tileMb(j);
         }
     }
+    A.tileUpdateAllOrigin();
 }
 
 // -----------------------------------------------------------------------------
@@ -616,6 +655,248 @@ void generate_matrix_usage()
         ansi_bold, ansi_normal,
         ansi_bold, ansi_normal
     );
+}
+
+// -----------------------------------------------------------------------------
+/// Decode matrix type, distribution, scaling and modifier.
+///
+template <typename scalar_t>
+void decode_matrix(
+    MatrixParams& params,
+    BaseMatrix<scalar_t>& A,
+    TestMatrixType& type,
+    TestMatrixDist& dist,
+    blas::real_type<scalar_t>& cond,
+    blas::real_type<scalar_t>& condD,
+    blas::real_type<scalar_t>& sigma_max,
+    bool& dominant)
+ {
+    using real_t = blas::real_type<scalar_t>;
+
+    const real_t ufl = std::numeric_limits< real_t >::min();      // == lamch("safe min")  ==  1e-38 or  2e-308
+    const real_t ofl = 1 / ufl;                                   //                            8e37 or   4e307
+    const real_t eps = std::numeric_limits< real_t >::epsilon();  // == lamch("precision") == 1.2e-7 or 2.2e-16
+
+    // locals
+    std::string kind = params.kind();
+
+     //---------------
+    cond = params.cond();
+    bool cond_default = std::isnan( cond );
+    if (cond_default) {
+        cond = 1 / sqrt( eps );
+    }
+
+    condD = params.condD();
+    bool condD_default = std::isnan( condD );
+    if (condD_default) {
+        condD = 1;
+    }
+    //---------------
+    sigma_max = 1;
+    std::vector< std::string > tokens = split( kind, "-_" );
+    // ----- decode matrix type
+    auto token = tokens.begin();
+    if (token == tokens.end()) {
+        throw std::runtime_error( "Error: empty matrix kind\n" );
+    }
+    std::string base = *token;
+    ++token;
+    type = TestMatrixType::identity;
+    if      (base == "zero"    ) { type = TestMatrixType::zero;     }
+    else if (base == "identity") { type = TestMatrixType::identity; }
+    else if (base == "jordan"  ) { type = TestMatrixType::jordan;   }
+    else if (base == "randn"   ) { type = TestMatrixType::randn;    }
+    else if (base == "rands"   ) { type = TestMatrixType::rands;    }
+    else if (base == "rand"    ) { type = TestMatrixType::rand;     }
+    else if (base == "diag"    ) { type = TestMatrixType::diag;     }
+    else if (base == "svd"     ) { type = TestMatrixType::svd;      }
+    else if (base == "poev" ||
+             base == "spd"     ) { type = TestMatrixType::poev;     }
+    else if (base == "heev" ||
+             base == "syev"    ) { type = TestMatrixType::heev;     }
+    else if (base == "geevx"   ) { type = TestMatrixType::geevx;    }
+    else if (base == "geev"    ) { type = TestMatrixType::geev;     }
+    else {
+        fprintf( stderr, "%sUnrecognized matrix '%s'%s\n",
+                 ansi_red, kind.c_str(), ansi_normal );
+        throw std::exception();
+    }
+
+    // ----- decode distribution
+    std::string suffix;
+    dist = TestMatrixDist::none;
+    if (token != tokens.end()) {
+        suffix = *token;
+        if      (suffix == "randn"    ) { dist = TestMatrixDist::randn;     }
+        else if (suffix == "rands"    ) { dist = TestMatrixDist::rands;     }
+        else if (suffix == "rand"     ) { dist = TestMatrixDist::rand;      }
+        else if (suffix == "logrand"  ) { dist = TestMatrixDist::logrand;   }
+        else if (suffix == "arith"    ) { dist = TestMatrixDist::arith;     }
+        else if (suffix == "geo"      ) { dist = TestMatrixDist::geo;       }
+        else if (suffix == "cluster1" ) { dist = TestMatrixDist::cluster1;  }
+        else if (suffix == "cluster0" ) { dist = TestMatrixDist::cluster0;  }
+        else if (suffix == "rarith"   ) { dist = TestMatrixDist::rarith;    }
+        else if (suffix == "rgeo"     ) { dist = TestMatrixDist::rgeo;      }
+        else if (suffix == "rcluster1") { dist = TestMatrixDist::rcluster1; }
+        else if (suffix == "rcluster0") { dist = TestMatrixDist::rcluster0; }
+        else if (suffix == "specified") { dist = TestMatrixDist::specified; }
+
+        // if found, move to next token
+        if (dist != TestMatrixDist::none) {
+            ++token;
+
+            // error if matrix type doesn't support it
+            if (! (type == TestMatrixType::diag ||
+                   type == TestMatrixType::svd  ||
+                   type == TestMatrixType::poev ||
+                   type == TestMatrixType::heev ||
+                   type == TestMatrixType::geev ||
+                   type == TestMatrixType::geevx))
+            {
+                fprintf( stderr, "%sError in '%s': matrix '%s' doesn't support"
+                         " distribution suffix.%s\n",
+                         ansi_red, kind.c_str(), base.c_str(), ansi_normal );
+                throw std::exception();
+            }
+        }
+    }
+    if (dist == TestMatrixDist::none)
+        dist = TestMatrixDist::logrand;  // default
+
+    // ----- decode scaling
+    sigma_max = 1;
+    if (token != tokens.end()) {
+        suffix = *token;
+        if      (suffix == "small") { sigma_max = sqrt( ufl ); }
+        else if (suffix == "large") { sigma_max = sqrt( ofl ); }
+        else if (suffix == "ufl"  ) { sigma_max = ufl; }
+        else if (suffix == "ofl"  ) { sigma_max = ofl; }
+
+        // if found, move to next token
+        if (sigma_max != 1) {
+            ++token;
+
+            // error if matrix type doesn't support it
+            if (! (type == TestMatrixType::rand  ||
+                   type == TestMatrixType::rands ||
+                   type == TestMatrixType::randn ||
+                   type == TestMatrixType::svd   ||
+                   type == TestMatrixType::poev  ||
+                   type == TestMatrixType::heev  ||
+                   type == TestMatrixType::geev  ||
+                   type == TestMatrixType::geevx))
+            {
+                fprintf( stderr, "%sError in '%s': matrix '%s' doesn't support"
+                         " scaling suffix.%s\n",
+                         ansi_red, kind.c_str(), base.c_str(), ansi_normal );
+                throw std::exception();
+            }
+        }
+    }
+
+    // ----- decode modifier
+    dominant = false;
+    if (token != tokens.end()) {
+        suffix = *token;
+        if (suffix == "dominant") {
+            dominant = true;
+
+            // move to next token
+            ++token;
+
+            // error if matrix type doesn't support it
+            if (! (type == TestMatrixType::rand  ||
+                   type == TestMatrixType::rands ||
+                   type == TestMatrixType::randn ||
+                   type == TestMatrixType::svd   ||
+                   type == TestMatrixType::poev  ||
+                   type == TestMatrixType::heev  ||
+                   type == TestMatrixType::geev  ||
+                   type == TestMatrixType::geevx))
+            {
+                fprintf( stderr, "%sError in '%s': matrix '%s' doesn't support"
+                         " modifier suffix.%s\n",
+                         ansi_red, kind.c_str(), base.c_str(), ansi_normal );
+                throw std::exception();
+            }
+        }
+    }
+
+    if (token != tokens.end()) {
+        fprintf( stderr, "%sError in '%s': unknown suffix '%s'.%s\n",
+                 ansi_red, kind.c_str(), token->c_str(), ansi_normal );
+        throw std::exception();
+    }
+
+    // ----- check compatability of options
+    if (A.m() != A.n() &&
+        (type == TestMatrixType::jordan ||
+         type == TestMatrixType::poev   ||
+         type == TestMatrixType::heev   ||
+         type == TestMatrixType::geev   ||
+         type == TestMatrixType::geevx))
+    {
+        fprintf( stderr, "%sError: matrix '%s' requires m == n.%s\n",
+                 ansi_red, kind.c_str(), ansi_normal );
+        throw std::exception();
+    }
+
+    if (type == TestMatrixType::zero      ||
+        type == TestMatrixType::identity  ||
+        type == TestMatrixType::jordan    ||
+        type == TestMatrixType::randn     ||
+        type == TestMatrixType::rands     ||
+        type == TestMatrixType::rand)
+    {
+        // warn first time if user set cond and matrix doesn't use it
+        static std::string last;
+        if (! cond_default && last != kind) {
+            last = kind;
+            fprintf( stderr, "%sWarning: matrix '%s' ignores cond %.2e.%s\n",
+                     ansi_red, kind.c_str(), params.cond(), ansi_normal );
+        }
+        params.cond_used() = testsweeper::no_data_flag;
+    }
+    else if (dist == TestMatrixDist::randn ||
+             dist == TestMatrixDist::rands ||
+             dist == TestMatrixDist::rand)
+    {
+        // warn first time if user set cond and distribution doesn't use it
+        static std::string last;
+        if (! cond_default && last != kind) {
+            last = kind;
+            fprintf( stderr, "%sWarning: matrix '%s': rand, randn, and rands "
+                     "singular/eigenvalue distributions ignore cond %.2e.%s\n",
+                     ansi_red, kind.c_str(), params.cond(), ansi_normal );
+        }
+        params.cond_used() = testsweeper::no_data_flag;
+    }
+    else {
+        params.cond_used() = cond;
+    }
+
+    if (! (type == TestMatrixType::svd ||
+           type == TestMatrixType::heev ||
+           type == TestMatrixType::poev))
+    {
+        // warn first time if user set condD and matrix doesn't use it
+        static std::string last;
+        if (! condD_default && last != kind) {
+            last = kind;
+            fprintf( stderr, "%sWarning: matrix '%s' ignores condD %.2e.%s\n",
+                     ansi_red, kind.c_str(), params.condD(), ansi_normal );
+        }
+    }
+
+    if (type == TestMatrixType::poev &&
+        (dist == TestMatrixDist::rands ||
+         dist == TestMatrixDist::randn))
+    {
+        fprintf( stderr, "%sWarning: matrix '%s' using rands or randn "
+                 "will not generate SPD matrix; use rand instead.%s\n",
+                 ansi_red, kind.c_str(), ansi_normal );
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -756,280 +1037,64 @@ void generate_matrix(
 {
     using real_t = blas::real_type<scalar_t>;
 
-    // constants
+    // Constants
     const real_t nan = std::numeric_limits<real_t>::quiet_NaN();
     const real_t d_zero = 0;
     const real_t d_one  = 1;
-    const real_t ufl = std::numeric_limits< real_t >::min();      // == lamch("safe min")  ==  1e-38 or  2e-308
-    const real_t ofl = 1 / ufl;                                   //                            8e37 or   4e307
-    const real_t eps = std::numeric_limits< real_t >::epsilon();  // == lamch("precision") == 1.2e-7 or 2.2e-16
-    const scalar_t c_zero = 0;
-    const scalar_t c_one  = 1;
-
-    // locals
-    std::string kind = params.kind();
-    std::vector< std::string > tokens = split( kind, "-_" );
-
-    real_t cond = params.cond();
-    bool cond_default = std::isnan( cond );
-    if (cond_default) {
-        cond = 1 / sqrt( eps );
-    }
-
-    real_t condD = params.condD();
-    bool condD_default = std::isnan( condD );
-    if (condD_default) {
-        condD = 1;
-    }
-
-    real_t sigma_max = 1;
+    const scalar_t zero = 0;
+    const scalar_t one  = 1;
 
     // ----------
     // set Sigma to unknown (nan)
     lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                    nan, nan, Sigma.data(), Sigma.size() );
 
-    // ----- decode matrix type
-    auto token = tokens.begin();
-    if (token == tokens.end()) {
-        throw std::runtime_error( "Error: empty matrix kind\n" );
-    }
-    std::string base = *token;
-    ++token;
-    TestMatrixType type = TestMatrixType::identity;
-    if      (base == "zero"    ) { type = TestMatrixType::zero;     }
-    else if (base == "identity") { type = TestMatrixType::identity; }
-    else if (base == "jordan"  ) { type = TestMatrixType::jordan;   }
-    else if (base == "randn"   ) { type = TestMatrixType::randn;    }
-    else if (base == "rands"   ) { type = TestMatrixType::rands;    }
-    else if (base == "rand"    ) { type = TestMatrixType::rand;     }
-    else if (base == "diag"    ) { type = TestMatrixType::diag;     }
-    else if (base == "svd"     ) { type = TestMatrixType::svd;      }
-    else if (base == "poev" ||
-             base == "spd"     ) { type = TestMatrixType::poev;     }
-    else if (base == "heev" ||
-             base == "syev"    ) { type = TestMatrixType::heev;     }
-    else if (base == "geevx"   ) { type = TestMatrixType::geevx;    }
-    else if (base == "geev"    ) { type = TestMatrixType::geev;     }
-    else {
-        fprintf( stderr, "%sUnrecognized matrix '%s'%s\n",
-                 ansi_red, kind.c_str(), ansi_normal );
-        throw std::exception();
-    }
+    TestMatrixType type;
+    TestMatrixDist dist;
+    real_t cond;
+    real_t condD;
+    real_t sigma_max;
+    bool dominant;
+    decode_matrix<scalar_t>(params, A, type, dist, cond, condD, sigma_max, dominant);
 
-    // ----- decode distribution
-    std::string suffix;
-    TestMatrixDist dist = TestMatrixDist::none;
-    if (token != tokens.end()) {
-        suffix = *token;
-        if      (suffix == "randn"    ) { dist = TestMatrixDist::randn;     }
-        else if (suffix == "rands"    ) { dist = TestMatrixDist::rands;     }
-        else if (suffix == "rand"     ) { dist = TestMatrixDist::rand;      }
-        else if (suffix == "logrand"  ) { dist = TestMatrixDist::logrand;   }
-        else if (suffix == "arith"    ) { dist = TestMatrixDist::arith;     }
-        else if (suffix == "geo"      ) { dist = TestMatrixDist::geo;       }
-        else if (suffix == "cluster1" ) { dist = TestMatrixDist::cluster1;  }
-        else if (suffix == "cluster0" ) { dist = TestMatrixDist::cluster0;  }
-        else if (suffix == "rarith"   ) { dist = TestMatrixDist::rarith;    }
-        else if (suffix == "rgeo"     ) { dist = TestMatrixDist::rgeo;      }
-        else if (suffix == "rcluster1") { dist = TestMatrixDist::rcluster1; }
-        else if (suffix == "rcluster0") { dist = TestMatrixDist::rcluster0; }
-        else if (suffix == "specified") { dist = TestMatrixDist::specified; }
-
-        // if found, move to next token
-        if (dist != TestMatrixDist::none) {
-            ++token;
-
-            // error if matrix type doesn't support it
-            if (! (type == TestMatrixType::diag ||
-                   type == TestMatrixType::svd  ||
-                   type == TestMatrixType::poev ||
-                   type == TestMatrixType::heev ||
-                   type == TestMatrixType::geev ||
-                   type == TestMatrixType::geevx))
-            {
-                fprintf( stderr, "%sError in '%s': matrix '%s' doesn't support"
-                         " distribution suffix.%s\n",
-                         ansi_red, kind.c_str(), base.c_str(), ansi_normal );
-                throw std::exception();
-            }
-        }
-    }
-    if (dist == TestMatrixDist::none)
-        dist = TestMatrixDist::logrand;  // default
-
-    // ----- decode scaling
-    sigma_max = 1;
-    if (token != tokens.end()) {
-        suffix = *token;
-        if      (suffix == "small") { sigma_max = sqrt( ufl ); }
-        else if (suffix == "large") { sigma_max = sqrt( ofl ); }
-        else if (suffix == "ufl"  ) { sigma_max = ufl; }
-        else if (suffix == "ofl"  ) { sigma_max = ofl; }
-
-        // if found, move to next token
-        if (sigma_max != 1) {
-            ++token;
-
-            // error if matrix type doesn't support it
-            if (! (type == TestMatrixType::rand  ||
-                   type == TestMatrixType::rands ||
-                   type == TestMatrixType::randn ||
-                   type == TestMatrixType::svd   ||
-                   type == TestMatrixType::poev  ||
-                   type == TestMatrixType::heev  ||
-                   type == TestMatrixType::geev  ||
-                   type == TestMatrixType::geevx))
-            {
-                fprintf( stderr, "%sError in '%s': matrix '%s' doesn't support"
-                         " scaling suffix.%s\n",
-                         ansi_red, kind.c_str(), base.c_str(), ansi_normal );
-                throw std::exception();
-            }
-        }
-    }
-
-    // ----- decode modifier
-    bool dominant = false;
-    if (token != tokens.end()) {
-        suffix = *token;
-        if (suffix == "dominant") {
-            dominant = true;
-
-            // move to next token
-            ++token;
-
-            // error if matrix type doesn't support it
-            if (! (type == TestMatrixType::rand  ||
-                   type == TestMatrixType::rands ||
-                   type == TestMatrixType::randn ||
-                   type == TestMatrixType::svd   ||
-                   type == TestMatrixType::poev  ||
-                   type == TestMatrixType::heev  ||
-                   type == TestMatrixType::geev  ||
-                   type == TestMatrixType::geevx))
-            {
-                fprintf( stderr, "%sError in '%s': matrix '%s' doesn't support"
-                         " modifier suffix.%s\n",
-                         ansi_red, kind.c_str(), base.c_str(), ansi_normal );
-                throw std::exception();
-            }
-        }
-    }
-
-    if (token != tokens.end()) {
-        fprintf( stderr, "%sError in '%s': unknown suffix '%s'.%s\n",
-                 ansi_red, kind.c_str(), token->c_str(), ansi_normal );
-        throw std::exception();
-    }
-
-    // ----- check compatability of options
-    if (A.m() != A.n() &&
-        (type == TestMatrixType::jordan ||
-         type == TestMatrixType::poev   ||
-         type == TestMatrixType::heev   ||
-         type == TestMatrixType::geev   ||
-         type == TestMatrixType::geevx))
-    {
-        fprintf( stderr, "%sError: matrix '%s' requires m == n.%s\n",
-                 ansi_red, kind.c_str(), ansi_normal );
-        throw std::exception();
-    }
-
-    if (type == TestMatrixType::zero      ||
-        type == TestMatrixType::identity  ||
-        type == TestMatrixType::jordan    ||
-        type == TestMatrixType::randn     ||
-        type == TestMatrixType::rands     ||
-        type == TestMatrixType::rand)
-    {
-        // warn first time if user set cond and matrix doesn't use it
-        static std::string last;
-        if (! cond_default && last != kind) {
-            last = kind;
-            fprintf( stderr, "%sWarning: matrix '%s' ignores cond %.2e.%s\n",
-                     ansi_red, kind.c_str(), params.cond(), ansi_normal );
-        }
-        params.cond_used() = testsweeper::no_data_flag;
-    }
-    else if (dist == TestMatrixDist::randn ||
-             dist == TestMatrixDist::rands ||
-             dist == TestMatrixDist::rand)
-    {
-        // warn first time if user set cond and distribution doesn't use it
-        static std::string last;
-        if (! cond_default && last != kind) {
-            last = kind;
-            fprintf( stderr, "%sWarning: matrix '%s': rand, randn, and rands "
-                     "singular/eigenvalue distributions ignore cond %.2e.%s\n",
-                     ansi_red, kind.c_str(), params.cond(), ansi_normal );
-        }
-        params.cond_used() = testsweeper::no_data_flag;
-    }
-    else {
-        params.cond_used() = cond;
-    }
-
-    if (! (type == TestMatrixType::svd ||
-           type == TestMatrixType::heev ||
-           type == TestMatrixType::poev))
-    {
-        // warn first time if user set condD and matrix doesn't use it
-        static std::string last;
-        if (! condD_default && last != kind) {
-            last = kind;
-            fprintf( stderr, "%sWarning: matrix '%s' ignores condD %.2e.%s\n",
-                     ansi_red, kind.c_str(), params.condD(), ansi_normal );
-        }
-    }
-
-    if (type == TestMatrixType::poev &&
-        (dist == TestMatrixDist::rands ||
-         dist == TestMatrixDist::randn))
-    {
-        fprintf( stderr, "%sWarning: matrix '%s' using rands or randn "
-                 "will not generate SPD matrix; use rand instead.%s\n",
-                 ansi_red, kind.c_str(), ansi_normal );
-    }
-
-    int n = (int)A.n();
+    int64_t n = A.n();
     int64_t nt = A.nt();
     int64_t mt = A.mt();
     // ----- generate matrix
     switch (type) {
         case TestMatrixType::zero:
-            set(c_zero, c_zero, A);
+            set(zero, zero, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_zero, d_zero, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::identity:
-            set(c_zero, c_one, A);
+            set(zero, one, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_one, d_one, Sigma.data(), Sigma.size() );
             break;
 
         case TestMatrixType::jordan: {
-            set(c_zero, c_one, A ); // ones on diagonal
+            set(zero, one, A ); // ones on diagonal
             // ones on sub-diagonal
             for (int64_t i = 0; i < nt; ++i) {
                 // Set 1 element from sub-diagonal tile to 1.
                 if (i > 0) {
                     if (A.tileIsLocal(i, i-1)) {
+                        A.tileGetForWriting( i, i-1, LayoutConvert::ColMajor );
                         auto T = A(i, i-1);
                         T.at(0, T.nb()-1) = 1.;
-                        A.tileTick(i, i-1);
                     }
                 }
 
                 // Set 1 element from sub-diagonal tile to 1.
                 if (A.tileIsLocal(i, i)) {
+                    A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
                     auto T = A(i, i);
                     auto len = T.nb();
                     for (int j = 0; j < len-1; ++j) {
                         T.at(j+1, j) = 1.;
                     }
-                    A.tileTick(i, i);
                 }
             }
             break;
@@ -1038,42 +1103,43 @@ void generate_matrix(
         case TestMatrixType::rand:
         case TestMatrixType::rands:
         case TestMatrixType::randn: {
-            //int64_t idist = (int64_t) type;
             int64_t idist = 1;
-            auto Tmp = A.emptyLike();
             #pragma omp parallel for collapse(2)
             for (int64_t j = 0; j < nt; ++j) {
                 for (int64_t i = 0; i < mt; ++i) {
                     if (A.tileIsLocal(i, j)) {
-                        Tmp.tileInsert(i, j);
-                        auto Tmpij = Tmp(i, j);
-                        scalar_t* data = Tmpij.data();
-                        int64_t ldt = Tmpij.stride();
-                        params.iseed[0] = (rand() + i + j) % 256;
-                        for (int64_t k = 0; k < Tmpij.nb(); ++k) {
-                            lapack::larnv(idist, params.iseed, Tmpij.mb(), &data[k*ldt]);
+                        A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                        auto Aij = A(i, j);
+                        scalar_t* data = Aij.data();
+                        int64_t lda = Aij.stride();
+                        // Added local seed array for each process to prevent race condition contention of params.seed
+                        int64_t iseed[4];
+                        iseed[0] = (params.iseed[0] + i) % 4096;
+                        iseed[1] = (params.iseed[1] + j) % 4096;
+                        iseed[2] =  params.iseed[2];
+                        iseed[3] =  params.iseed[3];
+                        for (int64_t k = 0; k < Aij.nb(); ++k) {
+                            lapack::larnv(idist, iseed, Aij.mb(), &data[k*lda]);
                         }
-
                         // Make it diagonally dominant
                         if (dominant) {
                             if (i == j) {
-                                //auto T = A(i, i);
-                                for (int ii = 0; ii < A.tileNb(i); ++ii) {
-                                    Tmpij.at(ii, ii) += n;
+                                int bound = std::min( Aij.mb(), Aij.nb() );
+                                for (int ii = 0; ii < bound; ++ii) {
+                                    Aij.at(ii, ii) += n;
                                 }
                             }
                         }
-                        gecopy(Tmp(i, j), A(i, j));
-                        Tmp.tileErase(i, j);
-
                         // Scale the matrix
                         if (sigma_max != 1) {
                             scalar_t s = sigma_max;
-                            scale(s, A(i, j));
+                            scale(s, Aij);
                         }
                     }
                 }
             }
+            // Hack to update iseed between matrices.
+            params.iseed[2] = (params.iseed[2] + 1) % 4096;
             break;
         }
 
@@ -1109,9 +1175,256 @@ void generate_matrix(
            slate_error("Not implemented yet");
            throw std::exception();  // not implemented
     }
+    A.tileUpdateAllOrigin();
 }
 
+// -----------------------------------------------------------------------------
+/// Generates an m-by-n trapezoid-storage test matrix.
+/// Handles Trapezoid, Triangular, Symmetric, and Hermitian matrices.
+/// @see generate_matrix
+/// @ingroup generate_matrix
+///
+template <typename scalar_t>
+void generate_matrix(
+    MatrixParams& params,
+    slate::BaseTrapezoidMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Sigma )
+{
+    using real_t = blas::real_type<scalar_t>;
 
+    // Constants
+    const real_t nan = std::numeric_limits<real_t>::quiet_NaN();
+    const real_t d_zero = 0;
+    const real_t d_one  = 1;
+    const scalar_t zero = 0;
+    const scalar_t one  = 1;
+
+    // ----------
+    // set Sigma to unknown (nan)
+    lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
+                   nan, nan, Sigma.data(), Sigma.size() );
+
+    TestMatrixType type;
+    TestMatrixDist dist;
+    real_t cond;
+    real_t condD;
+    real_t sigma_max;
+    bool dominant;
+    decode_matrix<scalar_t>(params, A, type, dist, cond, condD, sigma_max, dominant);
+
+    int64_t n = A.n();
+    int64_t nt = A.nt();
+    int64_t mt = A.mt();
+    // ----- generate matrix
+    switch (type) {
+        case TestMatrixType::zero:
+            set(zero, zero, A);
+            lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
+                d_zero, d_zero, Sigma.data(), Sigma.size() );
+            break;
+
+        case TestMatrixType::identity:
+            set(zero, one, A);
+            lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
+                d_one, d_one, Sigma.data(), Sigma.size() );
+            break;
+
+        case TestMatrixType::jordan: {
+            set(zero, one, A ); // ones on diagonal
+            if (A.uplo() == Uplo::Lower) {
+                // ones on sub-diagonal
+                for (int64_t i = 0; i < nt; ++i) {
+                    // Set 1 element from sub-diagonal tile to 1.
+                    if (i > 0) {
+                        if (A.tileIsLocal(i, i-1)) {
+                            A.tileGetForWriting( i, i-1, LayoutConvert::ColMajor );
+                            auto T = A(i, i-1);
+                            T.at(0, T.nb()-1) = 1.;
+                        }
+                    }
+
+                    // Set 1 element from sub-diagonal tile to 1.
+                    if (A.tileIsLocal(i, i)) {
+                        A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
+                        auto T = A(i, i);
+                        auto len = T.nb();
+                        for (int j = 0; j < len-1; ++j) {
+                            T.at(j+1, j) = 1.;
+                        }
+                    }
+                }
+            }
+            else { // upper
+                // ones on sub-diagonal
+                for (int64_t i = 0; i < nt; ++i) {
+                    // Set 1 element from sub-diagonal tile to 1.
+                    if (i > 0) {
+                        if (A.tileIsLocal(i-1, i)) {
+                            A.tileGetForWriting( i-1, i, LayoutConvert::ColMajor );
+                            auto T = A(i-1, i);
+                            T.at(T.nb()-1, 0) = 1.;
+                        }
+                    }
+
+                    // Set 1 element from sub-diagonal tile to 1.
+                    if (A.tileIsLocal(i, i)) {
+                        A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
+                        auto T = A(i, i);
+                        auto len = T.nb();
+                        for (int j = 0; j < len-1; ++j) {
+                            T.at(j, j+1) = 1.;
+                        }
+                    }
+                }
+            }
+            break;
+        }
+
+        case TestMatrixType::rand:
+        case TestMatrixType::rands:
+        case TestMatrixType::randn: {
+            int64_t idist = 1;
+            if (A.uplo() == Uplo::Lower) {
+                // TODO: Enable the following pragma to collapse loops for OpenMP 5.0.
+                // OpenMP can parallelize the outer loop,
+                // but since the inner loop depends on the outer loop,
+                // it runs into issues. It appears this is solved in OpenMP 5.0,
+                // but that requires gcc 11, which is under development.
+                #pragma omp parallel for
+                for (int64_t j=0; j < nt; ++j) {
+                    for (int64_t i = j; i < mt; ++i) {
+                        if (A.tileIsLocal(i, j)) {
+                            A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                            auto Aij = A(i, j);
+                            scalar_t* data = Aij.data();
+                            int64_t lda = Aij.stride();
+                            // Added local seed array for each process to prevent race condition contention of params.seed
+                            int64_t iseed[4];
+                            iseed[0] = (params.iseed[0] + i) % 4096;
+                            iseed[1] = (params.iseed[1] + j) % 4096;
+                            iseed[2] =  params.iseed[2];
+                            iseed[3] =  params.iseed[3];
+                            for (int64_t k = 0; k < Aij.nb(); ++k) {
+                                lapack::larnv(idist, iseed, Aij.mb(), &data[k*lda]);
+                            }
+
+                            // Make it diagonally dominant
+                            if (dominant) {
+                                if (i == j) {
+                                    int bound = std::min( Aij.mb(), Aij.nb() );
+                                    for (int ii = 0; ii < bound; ++ii) {
+                                        Aij.at(ii, ii) += n;
+                                    }
+                                }
+                            }
+                            // Scale the matrix
+                            if (sigma_max != 1) {
+                                scalar_t s = sigma_max;
+                                scale(s, Aij);
+                            }
+                        }
+                    }
+                }
+            }
+            else { // upper
+                // TODO: Enable the following pragma to collapse loops for OpenMP 5.0.
+                // OpenMP can parallelize the outer loop,
+                // but since the inner loop depends on the outer loop,
+                // it runs into issues. It appears this is solved in OpenMP 5.0,
+                // but that requires gcc 11, which is under development.
+                #pragma omp parallel for
+                for (int64_t j = 0; j < nt; ++j) {
+                    for (int64_t i = 0; i <= j && i < mt; ++i){  // upper trapezoid
+                        if (A.tileIsLocal(i, j)) {
+                            A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                            auto Aij = A(i, j);
+                            scalar_t* data = Aij.data();
+                            int64_t lda = Aij.stride();
+                            // Added local seed array for each process to prevent race condition contention of params.seed
+                            int64_t iseed[4];
+                            iseed[0] = (params.iseed[0] + i) % 4096;
+                            iseed[1] = (params.iseed[1] + j) % 4096;
+                            iseed[2] =  params.iseed[2];
+                            iseed[3] =  params.iseed[3];
+                            for (int64_t k = 0; k < Aij.nb(); ++k) {
+                                lapack::larnv(idist, iseed, Aij.mb(), &data[k*lda]);
+                            }
+                            // Make it diagonally dominant
+                            if (dominant) {
+                                if (i == j) {
+                                    int bound = std::min( Aij.mb(), Aij.nb() );
+                                    for (int ii = 0; ii < bound; ++ii) {
+                                        Aij.at(ii, ii) += n;
+                                    }
+                                }
+                            }
+                            // Scale the matrix
+                            if (sigma_max != 1) {
+                                scalar_t s = sigma_max;
+                                scale(s, Aij);
+                            }
+                        }
+                    }
+                }
+            }
+            // Hack to update iseed between matrices.
+            params.iseed[2] = (params.iseed[2] + 1) % 4096;
+            break;
+        }
+
+        case TestMatrixType::diag:
+            generate_sigma( params, dist, false, cond, sigma_max, A, Sigma );
+            break;
+
+        case TestMatrixType::poev:
+        case TestMatrixType::heev:
+        default:
+           slate_error("Not implemented yet");
+           throw std::exception();  // not implemented
+    }
+
+    if (! (type == TestMatrixType::rand  ||
+           type == TestMatrixType::rands ||
+           type == TestMatrixType::randn) && dominant) {
+           // make diagonally dominant; strict unless diagonal has zeros
+           slate_error("Not implemented yet");
+           throw std::exception();  // not implemented
+    }
+
+    A.tileUpdateAllOrigin();
+}
+
+// -----------------------------------------------------------------------------
+/// Generates an m-by-n Hertitian-storage test matrix.
+/// Handles Hermitian matrices.
+/// Diagonal elements of a Hermitian matrix must be real;
+/// their imaginary part must be 0.
+/// @see generate_matrix
+/// @ingroup generate_matrix
+///
+template <typename scalar_t>
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Sigma )
+{
+    slate::BaseTrapezoidMatrix<scalar_t>& TZ = A;
+    generate_matrix( params, TZ, Sigma );
+
+    // Set diagonal to real.
+    #pragma omp parallel for
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        if (A.tileIsLocal( i, i )) {
+            A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
+            auto T = A( i, i );
+            int64_t mb = T.mb();
+            for (int64_t ii = 0; ii < mb; ++ii) {
+                T.at( ii, ii ) = std::real( T( ii, ii ) );
+            }
+        }
+    }
+    A.tileUpdateAllOrigin();
+}
 // -----------------------------------------------------------------------------
 /// Overload without Sigma.
 /// @see generate_matrix()
@@ -1127,7 +1440,33 @@ void generate_matrix(
     generate_matrix( params, A, dummy );
 }
 
+/// Overload without Sigma.
+/// @see generate_matrix()
+/// @ingroup generate_matrix
+///
+template <typename scalar_t>
+void generate_matrix(
+    MatrixParams& params,
+    slate::BaseTrapezoidMatrix<scalar_t>& A )
+{
+    using real_t = blas::real_type<scalar_t>;
+    std::vector<real_t> dummy;
+    generate_matrix( params, A, dummy );
+}
 
+/// Overload without Sigma.
+/// @see generate_matrix()
+/// @ingroup generate_matrix
+///
+template <typename scalar_t>
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<scalar_t>& A )
+{
+    using real_t = blas::real_type<scalar_t>;
+    std::vector<real_t> dummy;
+    generate_matrix( params, A, dummy );
+}
 // -----------------------------------------------------------------------------
 // explicit instantiations
 template
@@ -1150,4 +1489,87 @@ void generate_matrix(
     MatrixParams& params,
     slate::Matrix< std::complex<double> >& A );
 
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::BaseTrapezoidMatrix<float>& A);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::BaseTrapezoidMatrix<double>& A);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::BaseTrapezoidMatrix< std::complex<float> >& A);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::BaseTrapezoidMatrix< std::complex<double> >& A);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<float>& A);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix<double>& A);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix< std::complex<float> >& A);
+
+template
+void generate_matrix(
+    MatrixParams& params,
+    slate::HermitianMatrix< std::complex<double> >& A);
+
+template
+void decode_matrix<float>(
+    MatrixParams& params,
+    BaseMatrix<float>& A,
+    TestMatrixType& type,
+    TestMatrixDist& dist,
+    blas::real_type<float>& cond,
+    blas::real_type<float>& condD,
+    blas::real_type<float>& sigma_max,
+    bool& dominant);
+
+template
+void decode_matrix<double>(
+    MatrixParams& params,
+    BaseMatrix<double>& A,
+    TestMatrixType& type,
+    TestMatrixDist& dist,
+    blas::real_type<double>& cond,
+    blas::real_type<double>& condD,
+    blas::real_type<double>& sigma_max,
+    bool& dominant);
+
+template
+void decode_matrix<std::complex<float>>(
+    MatrixParams& params,
+    BaseMatrix<std::complex<float>>& A,
+    TestMatrixType& type,
+    TestMatrixDist& dist,
+    blas::real_type<std::complex<float>>& cond,
+    blas::real_type<std::complex<float>>& condD,
+    blas::real_type<std::complex<float>>& sigma_max,
+    bool& dominant);
+
+template
+void decode_matrix<std::complex<double>>(
+    MatrixParams& params,
+    BaseMatrix<std::complex<double>>& A,
+    TestMatrixType& type,
+    TestMatrixDist& dist,
+    blas::real_type<std::complex<double>>& cond,
+    blas::real_type<std::complex<double>>& condD,
+    blas::real_type<std::complex<double>>& sigma_max,
+    bool& dominant);
 } // namespace slate

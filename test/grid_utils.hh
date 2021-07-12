@@ -10,11 +10,11 @@
 
 //------------------------------------------------------------------------------
 // Similar to ScaLAPACK numroc (number of rows or columns).
-inline int64_t localRowsCols(int64_t n, int64_t nb, int iproc, int mpi_size)
+inline int64_t num_local_rows_cols(int64_t n, int64_t nb, int iproc, int nprocs)
 {
     int64_t nblocks = n / nb;
-    int64_t num = (nblocks / mpi_size) * nb;
-    int64_t extra_blocks = nblocks % mpi_size;
+    int64_t num = (nblocks / nprocs) * nb;
+    int64_t extra_blocks = nblocks % nprocs;
     if (iproc < extra_blocks) {
         // extra full blocks
         num += nb;
@@ -29,14 +29,10 @@ inline int64_t localRowsCols(int64_t n, int64_t nb, int iproc, int mpi_size)
 //------------------------------------------------------------------------------
 // Similar to BLACS gridinfo
 // (local row ID and column ID in 2D block cyclic distribution).
-inline int64_t whoismyrow(int mpi_rank, int64_t p)
+inline void gridinfo(int mpi_rank, int p, int q, int*  my_row, int*  my_col)
 {
-    return (mpi_rank % p);
-}
-
-inline int64_t whoismycol(int mpi_rank, int64_t p)
-{
-    return (mpi_rank / p);
+    *my_row = mpi_rank % p;
+    *my_col = mpi_rank / p;
 }
 
 #endif // SLATE_GRID_UTILS_HH

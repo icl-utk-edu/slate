@@ -266,7 +266,7 @@ void copy(
     Cblacs_gridinfo( descB[ Descriptor::context ], &p, &q, &myrow, &mycol );
 
     // Code assumes A is not transposed.
-    slate_assert(A.op() != slate::Op::NoTrans);
+    slate_assert(A.op() == slate::Op::NoTrans);
 
     bool lower = A.uplo() == slate::Uplo::Lower;
     #pragma omp parallel for

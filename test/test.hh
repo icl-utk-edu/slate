@@ -139,6 +139,7 @@ public:
     testsweeper::ParamInt        ref_iters;
 
     testsweeper::ParamOkay       okay;
+    testsweeper::ParamString     msg;
 
     std::string              routine;
 };

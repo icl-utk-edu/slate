@@ -332,7 +332,8 @@ Params::Params():
 
     // default -1 means "no check"
     //         name,     w, type,          default, min, max, help
-    okay      ("status", 6, ParamType::Output,  -1,   0,   0, "success indicator")
+    okay      ("status", 6, ParamType::Output,  -1,   0,   0, "success indicator"),
+    msg       ( "",      1, ParamType::Output,  "",           "error message" )
 {
     // set header different than command line prefix
     lookahead.name("la", "lookahead");

@@ -66,7 +66,13 @@ void test_trnorm_work(Params& params, bool run)
     if ((uplo == slate::Uplo::Lower && m < n) ||
         (uplo == slate::Uplo::Upper && m > n)) {
         if (mpi_rank == 0) {
-            printf("skipping invalid size: %s, %lld-by-%lld\n", uplo2str(uplo), llong( m ), llong( n ));
+            const int buf_size = 100;
+            char buf[buf_size];
+            int cx = snprintf( buf, buf_size,
+                "skipping invalid size: %s, %lld-by-%lld",
+                uplo2str(uplo), llong( m ), llong( n ) );
+            if (cx >= 0 && cx < buf_size)
+                params.msg() = buf;
         }
         return;
     }

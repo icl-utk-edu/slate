@@ -68,7 +68,7 @@ void test_tbsm_work(Params& params, bool run)
     }
 
     if (origin != slate::Origin::ScaLAPACK) {
-        printf("skipping: currently only origin=scalapack is supported\n");
+        params.msg() = "skipping: currently only origin=scalapack is supported";
         return;
     }
 

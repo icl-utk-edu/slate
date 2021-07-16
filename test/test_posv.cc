@@ -75,7 +75,7 @@ void test_posv_work(Params& params, bool run)
 
     if (target != slate::Target::Devices && dev_dist != slate::Dist::Col) {
         if (mpi_rank == 0)
-            printf("skipping: dev_dist = Row applies only to target devices\n");
+            params.msg() = "skipping: dev_dist = Row applies only to target devices";
         return;
     }
 

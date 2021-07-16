@@ -64,12 +64,12 @@ void test_he2hb_work(Params& params, bool run)
     // Skip invalid or unimplemented options.
     if (uplo == slate::Uplo::Upper) {
         if (mpi_rank == 0)
-            printf("skipping: Uplo::Upper isn't supported.\n");
+            params.msg() = "skipping: Uplo::Upper isn't supported.";
         return;
     }
     if (p != q) {
         if (mpi_rank == 0)
-            printf("skipping: requires square process grid (p == q).\n");
+            params.msg() = "skipping: requires square process grid (p == q).";
         return;
     }
 

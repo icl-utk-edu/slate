@@ -65,7 +65,7 @@ void test_gemm_work(Params& params, bool run)
 
     // skip invalid or unimplemented options
     if (params.routine == "gemmA" && target != slate::Target::HostTask) {
-        printf("skipping: currently gemmA is only implemented for HostTask\n");
+        params.msg() = "skipping: currently gemmA is only implemented for HostTask";
         return;
     }
 

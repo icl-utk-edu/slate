@@ -42,7 +42,7 @@ template <typename scalar_t>
 __global__ void tzscaleKernel(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
     scalar_t** tilesA, int64_t lda)
 {
     scalar_t* tileA = tilesA[blockIdx.x];
@@ -51,7 +51,7 @@ __global__ void tzscaleKernel(
     // thread per row, if more rows than threads, loop by blockDim.x
     for (int ridx = threadIdx.x; ridx <= m; ridx += blockDim.x) {
         scalar_t* rowA = &tileA[ridx];
-        
+
         if (uplo == lapack::Uplo::Lower) {
             for (int64_t j = 0; j <= ridx && j < n; ++j) { // lower
                 rowA[j*lda] = rowA[j*lda] * mul;
@@ -96,7 +96,7 @@ template <typename scalar_t>
 void tzscale(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {

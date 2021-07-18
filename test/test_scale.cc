@@ -29,7 +29,7 @@ void test_scale_work(Params& params, bool run)
 
     // Constants
     const scalar_t one = 1.0;
-    
+
     // get & mark input values
     slate::Op trans = params.trans();
     real_t alpha = params.alpha.get<real_t>();
@@ -173,7 +173,7 @@ void test_scale_work(Params& params, bool run)
 
             scalapack_plascl(uplo2str(uplo), alpha, beta, m, n,  &Aref_data[0], 1, 1, A_desc, &info);
             slate_assert(info == 0);
- 
+
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             if (verbose >= 2)

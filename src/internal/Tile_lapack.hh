@@ -364,12 +364,12 @@ int64_t hegst(int64_t itype, Tile<scalar_t>&& A, Tile<scalar_t>&& B)
 /// @ingroup scale_tile
 ///
 template<typename scalar_t>
-int64_t scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+int64_t scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
               Tile<scalar_t>& A)
 {
 
     trace::Block trace_block("lapack::lascl");
-    //TODO lower and upper bandwidth values 
+    //TODO lower and upper bandwidth values
     return lapack::lascl((lapack::MatrixType)A.uploPhysical(),
                          0, 0, denom, numer, A.mb(), A.nb(),
                          A.data(), A.stride());
@@ -379,7 +379,7 @@ int64_t scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
 /// @ingroup tr_tile
 ///
 template<typename scalar_t>
-int64_t scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, 
+int64_t scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
               Tile<scalar_t>&& A)
 {
 
@@ -395,9 +395,9 @@ template<typename scalar_t>
 int64_t scale(scalar_t value, Tile<scalar_t>& A){
 
     trace::Block trace_block("lapack::lascl");
-   
-    scalar_t one = 1; 
-    //TODO lower and upper bandwidth values 
+
+    scalar_t one = 1;
+    //TODO lower and upper bandwidth values
     return lapack::lascl((lapack::MatrixType)A.uploPhysical(),
                          0, 0, one, value, A.mb(), A.nb(),
                          A.data(), A.stride());
@@ -408,7 +408,7 @@ int64_t scale(scalar_t value, Tile<scalar_t>& A){
 ///
 template<typename scalar_t>
 int64_t scale(scalar_t value, Tile<scalar_t>&& A){
-    
+
     scalar_t one = 1;
 
     return scale(value, A);

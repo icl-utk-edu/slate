@@ -125,6 +125,7 @@ void tpqrt(
     Tile<scalar_t> A2,
     Tile<scalar_t> T)
 {
+#if LAPACK_VERSION >= 30400
     trace::Block trace_block("lapack::tpqrt");
 
     int64_t n = A2.nb();
@@ -142,6 +143,9 @@ void tpqrt(
                   A1.data(), A1.stride(),
                   A2.data(), A2.stride(),
                   T.data(), T.stride());
+#else
+    slate_not_implemented( "In geqrf: tpqrt requires LAPACK >= 3.4" );
+#endif
 }
 
 } // namespace slate

@@ -31,11 +31,11 @@ void synorm(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     synorm(in_norm, uplo, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     synorm(in_norm, uplo, n, (hipFloatComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
@@ -50,11 +50,11 @@ void synorm(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     synorm(in_norm, uplo, n, (cuDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     synorm(in_norm, uplo, n, (hipDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
@@ -69,11 +69,11 @@ void synormOffdiag(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     synormOffdiag(in_norm, m, n, (cuFloatComplex**) Aarray, lda,
                   values, ldv, batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     synormOffdiag(in_norm, m, n, (hipFloatComplex**) Aarray, lda,
                   values, ldv, batch_count, queue);
 #endif
@@ -88,11 +88,11 @@ void synormOffdiag(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     synormOffdiag(in_norm, m, n, (cuDoubleComplex**) Aarray, lda,
                   values, ldv, batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     synormOffdiag(in_norm, m, n, (hipDoubleComplex**) Aarray, lda,
                   values, ldv, batch_count, queue);
 #endif

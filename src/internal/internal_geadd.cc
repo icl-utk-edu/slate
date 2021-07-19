@@ -22,16 +22,20 @@ void geadd(
     std::complex<float> beta, std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     geadd(m, n,
-          make_cuFloatComplex(alpha.real(), alpha.imag()), (cuFloatComplex**) Aarray, lda,
-          make_cuFloatComplex(beta.real(), beta.imag()), (cuFloatComplex**) Barray, ldb,
+          make_cuFloatComplex(alpha.real(), alpha.imag()),
+          (cuFloatComplex**) Aarray, lda,
+          make_cuFloatComplex(beta.real(), beta.imag()),
+          (cuFloatComplex**) Barray, ldb,
           batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     geadd(m, n,
-          make_hipFloatComplex(alpha.real(), alpha.imag()), (hipFloatComplex**) Aarray, lda,
-          make_hipFloatComplex(beta.real(), beta.imag()), (hipFloatComplex**) Barray, ldb,
+          make_hipFloatComplex(alpha.real(), alpha.imag()),
+          (hipFloatComplex**) Aarray, lda,
+          make_hipFloatComplex(beta.real(), beta.imag()),
+          (hipFloatComplex**) Barray, ldb,
           batch_count, queue);
 #endif
 }
@@ -43,16 +47,20 @@ void geadd(
     std::complex<double> beta, std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     geadd(m, n,
-          make_cuDoubleComplex(alpha.real(), alpha.imag()) , (cuDoubleComplex**) Aarray, lda,
-          make_cuDoubleComplex(beta.real(), beta.imag()), (cuDoubleComplex**) Barray, ldb,
+          make_cuDoubleComplex(alpha.real(), alpha.imag()),
+          (cuDoubleComplex**) Aarray, lda,
+          make_cuDoubleComplex(beta.real(), beta.imag()),
+          (cuDoubleComplex**) Barray, ldb,
           batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     geadd(m, n,
-          make_hipDoubleComplex(alpha.real(), alpha.imag()) , (hipDoubleComplex**) Aarray, lda,
-          make_hipDoubleComplex(beta.real(), beta.imag()), (hipDoubleComplex**) Barray, ldb,
+          make_hipDoubleComplex(alpha.real(), alpha.imag()),
+          (hipDoubleComplex**) Aarray, lda,
+          make_hipDoubleComplex(beta.real(), beta.imag()),
+          (hipDoubleComplex**) Barray, ldb,
           batch_count, queue);
 #endif
 }

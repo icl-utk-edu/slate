@@ -181,10 +181,9 @@ void get_2d_cyclic_dimensions(
     int& ntiles, int& ntiles_local, int& n_local,
     int& lda )
 {
-    int err;
     int mpi_rank;
-    err = MPI_Comm_rank(mpi_comm, &mpi_rank);
-    assert(err == 0);
+    slate_mpi_call(
+        MPI_Comm_rank(mpi_comm, &mpi_rank));
 
     assert(p > 0 && q > 0);
     bool columnwise = true;

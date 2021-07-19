@@ -7,23 +7,23 @@
 #include "test.hh"
 #include "blas/flops.hh"
 
-#include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
-#include "scalapack_copy.hh"
 #include "print_matrix.hh"
 #include "band_utils.hh"
+#include "grid_utils.hh"
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
 //------------------------------------------------------------------------------
 template<typename scalar_t>
 void test_hbmm_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using slate::Norm;
+
+    // Constants
+    const scalar_t one = 1;
 
     // get & mark input values
     slate::Side side = params.side();
@@ -32,8 +32,8 @@ void test_hbmm_work(Params& params, bool run)
     int64_t n = params.dim.n();
     scalar_t alpha = params.alpha.get<scalar_t>();
     scalar_t beta = params.beta.get<scalar_t>();
-    int64_t p = params.grid.m();
-    int64_t q = params.grid.n();
+    int p = params.grid.m();
+    int q = params.grid.n();
     int64_t kd = params.kd();
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
@@ -44,6 +44,9 @@ void test_hbmm_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    params.matrix.mark();
+    params.matrixB.mark();
+    params.matrixC.mark();
 
     // mark non-standard output values
     params.time();
@@ -59,6 +62,11 @@ void test_hbmm_work(Params& params, bool run)
         return;
     }
 
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target}
+    };
+
     // slate_assert(uplo == slate::Uplo::Lower);
 
     // Error analysis applies in these norms.
@@ -72,73 +80,55 @@ void test_hbmm_work(Params& params, bool run)
     int64_t Cm = m;
     int64_t Cn = n;
 
-    // local values
-    const int izero = 0, ione = 1;
+    // MPI variables
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // BLACS/MPI variables
-    int ictxt, nprow, npcol, myrow, mycol, info;
-    int descA_tst[9], descB_tst[9], descC_tst[9], descC_ref[9];
-    int iam = 0, nprocs = 1;
-    int iseed = 1;
+    // Matrix A: figure out local size.
+    int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
+    int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
+    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A_band
+    std::vector<scalar_t> A_data(lldA*nlocA);
 
-    // initialize BLACS and ScaLAPACK
-    Cblacs_pinfo(&iam, &nprocs);
-    slate_assert(p*q <= nprocs);
-    Cblacs_get(-1, 0, &ictxt);
-    Cblacs_gridinit(&ictxt, "Col", p, q);
-    Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
-    slate_assert(nprow == p && npcol == q);
+    // Matrix B: figure out local size.
+    int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
+    int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
+    int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
+    std::vector<scalar_t> B_data(lldB*nlocB);
 
-    // matrix A, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocA = scalapack_numroc(Am, nb, myrow, izero, nprow);
-    int64_t nlocA = scalapack_numroc(An, nb, mycol, izero, npcol);
-    scalapack_descinit(descA_tst, Am, An, nb, nb, izero, izero, ictxt, mlocA, &info);
-    slate_assert(info == 0);
-    int64_t lldA = (int64_t)descA_tst[8];
-    std::vector<scalar_t> A_tst(lldA*nlocA);
-    scalapack_pplghe(&A_tst[0], Am, An, nb, nb, myrow, mycol, nprow, npcol, mlocA, iseed + 1);
-    zeroOutsideBand(uplo, &A_tst[0], An, kd, nb, myrow, mycol, nprow, npcol, lldA);
-
-    // if (verbose > 1) {
-    //    print_matrix("A_tst", mlocA, nlocA, &A_tst[0], lldA, p, q, MPI_COMM_WORLD);
-    // }
-
-    // matrix B, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocB = scalapack_numroc(Bm, nb, myrow, izero, nprow);
-    int64_t nlocB = scalapack_numroc(Bn, nb, mycol, izero, npcol);
-    scalapack_descinit(descB_tst, Bm, Bn, nb, nb, izero, izero, ictxt, mlocB, &info);
-    slate_assert(info == 0);
-    int64_t lldB = (int64_t)descB_tst[8];
-    std::vector<scalar_t> B_tst(lldB*nlocB);
-    scalapack_pplrnt(&B_tst[0], Bm, Bn, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 1);
-
-    // matrix C, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocC = scalapack_numroc(Cm, nb, myrow, izero, nprow);
-    int64_t nlocC = scalapack_numroc(Cn, nb, mycol, izero, npcol);
-    scalapack_descinit(descC_tst, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
-    slate_assert(info == 0);
-    int64_t lldC = (int64_t)descC_tst[8];
-    std::vector<scalar_t> C_tst(lldC*nlocC);
-    scalapack_pplrnt(&C_tst[0], Cm, Cn, nb, nb, myrow, mycol, nprow, npcol, mlocC, iseed + 1);
-
-    // if check is required, copy test data and create a descriptor for it
-    std::vector<scalar_t> C_ref;
-    if (check || ref) {
-        C_ref = C_tst;
-        scalapack_descinit(descC_ref, Cm, Cn, nb, nb, izero, izero, ictxt, mlocC, &info);
-        slate_assert(info == 0);
-    }
+    // Matrix C: figure out local size.
+    int64_t mlocC = num_local_rows_cols(Cm, nb, myrow, p);
+    int64_t nlocC = num_local_rows_cols(Cn, nb, mycol, q);
+    int64_t lldC  = blas::max(1, mlocC); // local leading dimension of C
+    std::vector<scalar_t> C_data(lldC*nlocC);
 
     // create SLATE matrices from the ScaLAPACK layouts
-    auto A = HermitianBandFromScaLAPACK(
-                  uplo, An, kd, &A_tst[0], lldA, nb, nprow, npcol, MPI_COMM_WORLD);
+    auto Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                    uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
-                  Bm, Bn, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+                 Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     auto C = slate::Matrix<scalar_t>::fromScaLAPACK(
-                  Cm, Cn, &C_tst[0], lldC, nb, nprow, npcol, MPI_COMM_WORLD);
+                 Cm, Cn, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+
+    slate::generate_matrix( params.matrix, Aref );
+    slate::generate_matrix( params.matrixB, B );
+    slate::generate_matrix( params.matrixC, C );
+    zeroOutsideBand(uplo, &A_data[0], An, kd, nb, myrow, mycol, p, q, lldA);
+
+    auto A_band = HermitianBandFromScaLAPACK(
+                      uplo, An, kd, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+
+    // if check is required, copy test data and create a descriptor for it
+    slate::Matrix<scalar_t> Cref;
+    if (check || ref) {
+        Cref = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
+        Cref.insertLocalTiles();
+        slate::copy( C, Cref );
+    }
 
     if (verbose > 1) {
-        print_matrix("A", A);
+        print_matrix("A_band", A_band);
         if (verbose > 2) {
             print_matrix("B", B);
             print_matrix("C", C);
@@ -146,9 +136,9 @@ void test_hbmm_work(Params& params, bool run)
     }
 
     if (side == slate::Side::Left)
-        slate_assert(A.mt() == C.mt());
+        slate_assert(A_band.mt() == C.mt());
     else
-        slate_assert(A.mt() == C.nt());
+        slate_assert(A_band.mt() == C.nt());
 
     slate_assert(B.mt() == C.mt());
     slate_assert(B.nt() == C.nt());
@@ -156,121 +146,75 @@ void test_hbmm_work(Params& params, bool run)
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time = testsweeper::get_wtime();
+    double time = barrier_get_wtime(MPI_COMM_WORLD);
 
     //==================================================
     // Run SLATE test.
-    // C = alpha A B + beta C (left) or
-    // C = alpha B A + beta C (right).
+    // C = alpha A_band B + beta C (left) or
+    // C = alpha B A_band + beta C (right).
     //==================================================
     if (side == slate::Side::Left)
-        slate::multiply(alpha, A, B, beta, C, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
+        slate::multiply(alpha, A_band, B, beta, C, opts);
     else if (side == slate::Side::Right)
-        slate::multiply(alpha, B, A, beta, C, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target}
-        });
+        slate::multiply(alpha, B, A_band, beta, C, opts);
     else
         throw slate::Exception("unknown side");
-
-    //---------------------
     // Using traditional BLAS/LAPACK name
-    // slate::hbmm(side, alpha, A, B, beta, C, {
-    //     {slate::Option::Lookahead, lookahead},
-    //     {slate::Option::Target, target}
-    // });
+    // slate::hbmm(side, alpha, A_band, B, beta, C, opts);
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time_tst = testsweeper::get_wtime() - time;
+    time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
     double gflop = blas::Gflop<scalar_t>::hbmm(An, Am, kd);
-    params.time() = time_tst;
-    params.gflops() = gflop / time_tst;
+    params.time() = time;
+    params.gflops() = gflop / time;
 
     if (verbose > 2) {
         print_matrix("C2", C);
-        print_matrix("C_tst", mlocC, nlocC, &C_tst[0], lldC, p, q, MPI_COMM_WORLD);
     }
 
     if (check || ref) {
-        // comparison with reference routine from ScaLAPACK
-
-        if (origin != slate::Origin::ScaLAPACK) {
-            // Copy SLATE result back from GPU or CPU tiles.
-            copy(C, &C_tst[0], descC_tst);
-        }
-
-        // set MKL num threads appropriately for parallel BLAS
-        int omp_num_threads;
-        #pragma omp parallel
-        { omp_num_threads = omp_get_num_threads(); }
-        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
-        // allocate workspace for norms
-        size_t ldw = nb*ceil(ceil(mlocA / (double) nb) / (scalapack_ilcm(&nprow, &npcol) / nprow));
-        std::vector<real_t> worklansy(2*nlocA + mlocA + ldw);
-        std::vector<real_t> worklange(std::max({mlocC, nlocC, mlocB, nlocB}));
-
-        // get norms of the original data
-        real_t A_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), An, &A_tst[0], ione, ione, descA_tst, &worklansy[0]);
-        real_t B_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_tst[0], ione, ione, descB_tst, &worklange[0]);
-        real_t C_orig_norm = scalapack_plange(norm2str(norm), Cm, Cn, &C_ref[0], ione, ione, descC_ref, &worklange[0]);
-
         //==================================================
-        // Run ScaLAPACK reference routine.
+        // Run SLATE non-band routine
         //==================================================
-        MPI_Barrier(MPI_COMM_WORLD);
-        time = testsweeper::get_wtime();
-        scalapack_phemm(side2str(side), uplo2str(uplo), m, n, alpha,
-                        &A_tst[0], ione, ione, descA_tst,
-                        &B_tst[0], ione, ione, descB_tst, beta,
-                        &C_ref[0], ione, ione, descC_ref);
-        MPI_Barrier(MPI_COMM_WORLD);
-        double time_ref = testsweeper::get_wtime() - time;
-
         if (verbose > 1) {
-            print_matrix("C_ref", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
+            print_matrix("Cref", Cref);
         }
 
-        // Local operation: error = C_ref - C_tst
-        blas::axpy(C_ref.size(), -1.0, &C_tst[0], 1, &C_ref[0], 1);
+        // Get norms of the original data.
+        real_t A_norm = slate::norm( norm, Aref );
+        real_t B_norm = slate::norm( norm, B );
+        real_t Cref_norm = slate::norm( norm, Cref );
 
-        if (verbose > 1) {
-            print_matrix("C_diff", mlocC, nlocC, &C_ref[0], lldC, p, q, MPI_COMM_WORLD);
-        }
+        time = barrier_get_wtime(MPI_COMM_WORLD);
+        if (side == slate::Side::Left)
+            slate::multiply( alpha, Aref, B, beta, Cref, opts );
+        else if (side == slate::Side::Right)
+            slate::multiply( alpha, B, Aref, beta, Cref, opts );
+        else
+            throw slate::Exception("unknown side");
+        time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-        // norm(C_ref - C_tst)
-        real_t C_diff_norm = scalapack_plange(norm2str(norm), Cm, Cn, &C_ref[0], ione, ione, descC_ref, &worklange[0]);
+        // get differences Cref = Cref - C
+        slate::geadd( -one, C, one, Cref );
+        real_t C_diff_norm = slate::norm( norm, Cref ); // norm of residual
 
         real_t error = C_diff_norm
-                     / (sqrt(real_t(An) + 2) * std::abs(alpha) * A_norm * B_norm
-                        + 2 * std::abs(beta) * C_orig_norm);
+                        / (sqrt(real_t(An) + 2) * std::abs(alpha) * A_norm * B_norm
+                        + 2 * std::abs(beta) * Cref_norm);
 
-        params.ref_time() = time_ref;
-        params.ref_gflops() = gflop / time_ref;
+        if (verbose > 1) {
+            print_matrix( "C_diff", Cref );
+        }
+
+        params.ref_time() = time;
+        params.ref_gflops() = gflop / time;
         params.error() = error;
-
-        slate_set_num_blas_threads(saved_num_threads);
-
         real_t eps = std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= 3*eps);
     }
-
-    Cblacs_gridexit(ictxt);
-    //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------

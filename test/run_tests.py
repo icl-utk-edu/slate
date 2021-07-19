@@ -95,7 +95,7 @@ group_opt.add_argument( '--ref',    action='store', help='default=%(default)s', 
 group_opt.add_argument( '--tol',    action='store', help='default=%(default)s', default='' )
 
 # LAPACK only
-group_opt.add_argument( '--direct', action='store', help='default=%(default)s', default='f,b' )
+group_opt.add_argument( '--direction', action='store', help='default=%(default)s', default='f,b' )
 group_opt.add_argument( '--storev', action='store', help='default=%(default)s', default='c,r' )
 group_opt.add_argument( '--norm',   action='store', help='default=%(default)s', default='max,1,inf,fro' )
 group_opt.add_argument( '--jobz',   action='store', help='default=%(default)s', default='n,v' )
@@ -263,7 +263,7 @@ ref    = ' --ref '    + opts.ref    if (opts.ref)    else ''
 tol    = ' --tol '    + opts.tol    if (opts.tol)    else ''
 
 # LAPACK only
-direct = ' --direct ' + opts.direct if (opts.direct) else ''
+direction = ' --direction ' + opts.direction if (opts.direction) else ''
 storev = ' --storev ' + opts.storev if (opts.storev) else ''
 norm   = ' --norm '   + opts.norm   if (opts.norm)   else ''
 jobz   = ' --jobz '   + opts.jobz   if (opts.jobz)   else ''
@@ -381,6 +381,7 @@ if (opts.chol):
     #[ 'porfs', gen + dtype + la + n + uplo ],
     #[ 'poequ', gen + dtype + la + n ],  # only diagonal elements (no uplo)
     [ 'posvMixed',  gen + dtype_double + la + n + uplo ],
+    [ 'trtri', gen + dtype + la + n + uplo + diag ],
     ]
 
 # Cholesky banded
@@ -408,9 +409,10 @@ if (opts.sysv):
 # Hermitian indefinite
 if (opts.hesv):
     cmds += [
-    [ 'hesv',  gen + dtype + la + n + uplo ],
-    [ 'hetrf', gen + dtype + la + n + uplo ],
-    [ 'hetrs', gen + dtype + la + n + uplo ],
+    # todo: nb, uplo
+    [ 'hesv',  gen_no_nb + ' --nb 50' + dtype + la + n ],
+    [ 'hetrf', gen_no_nb + ' --nb 50' + dtype + la + n ],
+    [ 'hetrs', gen_no_nb + ' --nb 50' + dtype + la + n ],
     #[ 'hetri', gen + dtype + la + n + uplo ],
     #[ 'hecon', gen + dtype + la + n + uplo ],
     #[ 'herfs', gen + dtype + la + n + uplo ],
@@ -474,19 +476,14 @@ if (opts.rq):
 # symmetric/Hermitian eigenvalues
 if (opts.syev):
     cmds += [
-    # todo nb, uplo, jobz
-    [ 'heev',  gen_no_nb + ' --nb 50' + dtype + la + n ],
+    [ 'heev',  gen + dtype + la + n + jobz + uplo ],
     #[ 'ungtr', gen + dtype + la + n + uplo ],
-    #[ 'unmtr', gen + dtype_real    + la + mn + uplo + side + trans    ],  # real does trans = N, T, C
-    #[ 'unmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],  # complex does trans = N, C, not T
-    # todo nb, uplo, origin
-    [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_real    + ' --nb 50' + ' --origin s' + side + trans    ],  # real does trans = N, T, C
-    # todo: include (side=l and trans=c) as well as (side=r and trans=n)
-    # [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + side + trans_nc ],  # complex does trans = N, C, not T
-    [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side l' + ' --trans n' ],
-    [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side r' + ' --trans c' ],
-    # todo nb, uplo
-    [ 'he2hb', gen_no_nb + ' --nb 50' + dtype + n ],
+
+    # real does trans = N, T, C; complex does only trans = N, C.
+    [ 'unmtr_he2hb', gen + dtype_real    + mn + uplo + side + trans    ],
+    [ 'unmtr_he2hb', gen + dtype_complex + mn + uplo + side + trans_nc ],
+    [ 'he2hb', gen + dtype + n + uplo ],
+
     # sterf doesn't take origin, target, nb, uplo
     [ 'sterf', grid + check + ref + tol + repeat + dtype + n ],
     [ 'steqr2', grid + check + ref + tol + repeat + dtype + n ],
@@ -502,8 +499,7 @@ if (opts.syev):
 # generalized symmetric/Hermitian eigenvalues
 if (opts.sygv):
     cmds += [
-    # [ 'hegv',  gen + dtype + la + n + jobz + itype + uplo ], // todo
-    [ 'hegv',  gen + dtype + la + n + itype ],
+    [ 'hegv',  gen + dtype + la + n + jobz + itype + uplo ],
     [ 'hegst', gen + dtype + la + n + itype + uplo ],
     ]
 

@@ -412,6 +412,13 @@ void getrf_nopiv(Matrix<scalar_t>&& A,
                  int64_t ib, int priority=0);
 
 //-----------------------------------------
+// getrf_ca()
+template <Target target=Target::HostTask, typename scalar_t>
+void getrf_ca(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
+           std::vector<Pivot>& pivot,
+           int max_panel_threads, int priority=0);
+
+//-----------------------------------------
 // geqrf()
 template <Target target=Target::HostTask, typename scalar_t>
 void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T, int64_t ib,

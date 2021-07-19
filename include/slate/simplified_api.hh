@@ -293,6 +293,18 @@ void lu_factor(
 }
 
 //-----------------------------------------
+/// lu_factor_ca()
+
+// getrf_ca
+template <typename scalar_t>
+void lu_factor_ca(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts = Options())
+{
+    getrf_ca(A, pivots, opts);
+}
+
+//-----------------------------------------
 // lu_factor_nopiv()
 
 // todo

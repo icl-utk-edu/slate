@@ -34,7 +34,9 @@ void test_gesv_work(Params& params, bool run)
         trans = params.trans();
 
     int64_t m;
-    if (params.routine == "getrf" || params.routine == "getrf_nopiv")
+    if (params.routine == "getrf" ||
+        params.routine == "getrf_nopiv" ||
+        params.routine == "getrf_ca")
         m = params.dim.m();
     else
         m = params.dim.n();  // square, n-by-n
@@ -209,7 +211,9 @@ void test_gesv_work(Params& params, bool run)
     int iters = 0;
 
     double gflop;
-    if (params.routine == "getrf" || params.routine == "getrf_nopiv")
+    if (params.routine == "getrf" || 
+        params.routine == "getrf_nopiv"||
+        params.routine == "getrf_ca")
         gflop = lapack::Gflop<scalar_t>::getrf(m, n);
     else if (params.routine == "getrs" || params.routine == "getrs_nopiv")
         gflop = lapack::Gflop<scalar_t>::getrs(n, nrhs);
@@ -246,6 +250,11 @@ void test_gesv_work(Params& params, bool run)
             slate::lu_factor(A, pivots, opts);
             // Using traditional BLAS/LAPACK name
             // slate::getrf(A, pivots, opts);
+        }
+       else if (params.routine == "getrf_ca") {
+            //slate::calu_factor(A, pivots, opts); //TODO Rabab
+            // Using traditional BLAS/LAPACK name
+            slate::getrf_ca(A, pivots, opts);
         }
         else if (params.routine == "getrs") {
             auto opA = A;
@@ -311,7 +320,7 @@ void test_gesv_work(Params& params, bool run)
         //      || A ||_1 * || X ||_1 * N
         //
         //==================================================
-        if (params.routine == "getrf") {
+        if (params.routine == "getrf" || params.routine == "getrf_ca") {
             // Solve AX = B.
             slate::getrs(A, pivots, B, opts);
             // Using traditional BLAS/LAPACK name
@@ -422,7 +431,9 @@ void test_gesv_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            if (params.routine == "getrf" || params.routine == "getrf_nopiv") {
+            if (params.routine == "getrf" || 
+                params.routine == "getrf_nopiv" ||
+                params.routine == "getrf_ca") {
                 scalapack_pgetrf(m, n,
                                  &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info_ref);
             }
@@ -442,7 +453,27 @@ void test_gesv_work(Params& params, bool run)
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
 
+      /*       // get differences A = A - Aref TODO RABAB, I have to remove it, I use it to check correctness of tall skinny matrices
+             slate::geadd(-one, Aref, one, A);
+                                            
+               
+               
+           //TODO RABAB, I have to remove it, I use it to check correctness of tall skinny matrices
+            
+            real_t A_norm = slate::norm(slate::Norm::One, A);
+
+            real_t A_diff_norm = slate::norm(slate::Norm::One, A);
+
+            real_t error = A_diff_norm / (n * A_norm);
+            
+            params.error() = error;*/
+
             slate_set_num_blas_threads(saved_num_threads);
+
+            /*//TODO RABAB, I have to remove it, I use it to check correctness of tall skinny matrices
+            real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
+            // Allow for difference
+            params.okay() = (params.error() <= tol);*/
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering

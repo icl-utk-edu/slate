@@ -18,7 +18,6 @@ void getrf_ca(
     Matrix<scalar_t>& A,
     std::vector< Tile<scalar_t> >& tiles,    
     int64_t diag_len, int64_t ib, int nb,
-    std::vector< Tile<scalar_t> >& tiles_copy,
     std::vector<int64_t>& tile_indices,
     std::vector< AuxPivot<scalar_t> >& aux_pivot,
     int mpi_rank, int mpi_root, MPI_Comm mpi_comm,
@@ -55,7 +54,7 @@ void getrf_ca(
     for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
         // Factor the panel in parallel.
         getrf(diag_len, ib,
-        tiles_copy, tile_indices,
+        tiles, tile_indices,
         aux_pivot,
         mpi_rank, mpi_root, MPI_COMM_SELF,
         thread_rank, thread_size,
@@ -89,8 +88,9 @@ void getrf_ca(
    //for (int i=0; i<A.mt(); i++){
     //   if (A.tileIsLocal(i, 0)){ 
         //if(A.mpiRank()==1){
-          for(int j=0; j < diag_len ; ++j){
-           std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[j].tileIndex()<<","<<aux_pivot[j].elementOffset()<<", "<<aux_pivot[j].localTileIndex()<<std::endl;
+    /*      for(int j=0; j < diag_len ; ++j){
+           //std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[j].tileIndex()<<","<<aux_pivot[j].elementOffset()<<", "<<aux_pivot[j].localTileIndex()<<std::endl;
+           //std::cout<<tiles.size()<<std::endl;
            swapLocalRow(
                0, nb,
                //A(i, 0), j,
@@ -98,7 +98,8 @@ void getrf_ca(
                tiles[0], j, 
                tiles[aux_pivot[j].localTileIndex()],
                aux_pivot[j].elementOffset());
-          }
+          }*/
+         //std::cout<<"done"<<std::endl;
         //}
       // break;
       // }
@@ -149,7 +150,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
     A.tileGetForWriting(A_tiles_set, LayoutConvert::ColMajor);
 
     // lists of local tiles, indices, and offsets
-    std::vector< Tile<scalar_t> > tiles, tiles_copy;
+    std::vector< Tile<scalar_t> > tiles, tiles_copy_poriginal;
     std::vector<int64_t> tile_indices;
 
     // Build the broadcast set.
@@ -159,8 +160,9 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
     for (int64_t i = 0; i < A.mt(); ++i) {
         bcast_set.insert(A.tileRank(i, 0));
         if (A.tileIsLocal(i, 0)) {
-            tiles.push_back(A(i, 0));
-            tiles_copy.push_back(A_work_panel(i, 0));
+            tiles.push_back(A_work_panel(i, 0));
+            //tiles_copy_poriginal.push_back(A_work_panel(i, 0));
+            //tiles_copy.push_back(A_work_panel(i, 0));
             tile_indices.push_back(i);
         }
         tile_offset += A.tileMb(i);
@@ -200,7 +202,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
             #if 1
             for (int i=0; i<A_work_panel.mt(); i++){
                 if (A.tileIsLocal(i, 0)){
-                    if( A.mpiRank() == 1){
+                    if( A.mpiRank() == 0){
                     std::cout<<"\n Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
                     for(int m=0; m<A_work_panel.tileMb(i);m++){
                         for(int n=0; n<A_work_panel.tileMb(i);n++){
@@ -212,14 +214,31 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                 }
            }
            #endif
-
+            //    std::vector< Tile<scalar_t> > tiles_copy(tiles_copy_poriginal.size());
+                /*for(int i=0; i<tiles_copy_poriginal.size();i++){
+                    tiles_copy_poriginal[i].copyData(&tiles_copy[i]);
+                }*/
+              //  std::copy(tiles_copy_poriginal.begin(), tiles_copy_poriginal.end(), back_inserter(tiles_copy));
                 // Factor the panel locally in parallel.
                 getrf_ca(A, tiles, diag_len, ib, A.tileNb(0),
-                      tiles_copy, tile_indices,
-                      aux_pivot,
+                      tile_indices, aux_pivot,
                       //bcast_rank, bcast_root, bcast_comm,
                       self_rank, self_rank, MPI_COMM_SELF,
                       max_panel_threads, priority);
+
+
+                internal::copy<Target::HostTask>( std::move(A), std::move(A_work_panel) );
+
+
+                for(int j=0; j < diag_len ; ++j){
+                    swapLocalRow(
+                        0, A.tileNb(0),
+                        tiles[0], j,
+                        tiles[aux_pivot[j].localTileIndex()],
+                        aux_pivot[j].elementOffset());
+               }
+
+
             #if 0
             // Print pivot information from aux_pivot.
             for (int64_t i = 0; i < diag_len; ++i) {
@@ -227,18 +246,15 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                 std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[i].tileIndex()<<","<<aux_pivot[i].elementOffset()<<", "<<aux_pivot[i].localTileIndex()<<std::endl;
             }
             #endif
-            /*internal::permuteRows<Target::HostTask>(
-              Direction::Forward, std::move(A), pivot,
-                        Layout::ColMajor, 1, 1);*/
 
             #if 1
             for (int i=0; i<A.mt(); i++){
                 if (A.tileIsLocal(i, 0)){
-                   if( A.mpiRank() == 1 ){
+                   if( A.mpiRank() == 0 ){
                      std::cout<<"\n After Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
                      for(int m=0; m<A.tileMb(i);m++){
                          for(int n=0; n<A.tileMb(i);n++){                                          
-                            std::cout<<A(i,0)(m,n)<<",";                                             
+                            std::cout<<A_work_panel(i,0)(m,n)<<",";                                             
                          }
                       std::cout<<std::endl;                                                        
                       }   
@@ -246,6 +262,26 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                  }                                                                                
            }
          #endif
+
+         //Alocate workspace to copy tiles in the tree reduction.
+         //These tiles will only be used during factorization.
+         //The permoutations happen in the copy tiles of the work panel
+         //TODO::RABAB all nodes will allocate those two tiles, 
+         //but only src nodes during tree reduction will use it
+         //TODO::RABAB I am not sure what is the overhead of moving this inside the for loop. Need testing.
+
+         std::vector< Tile<scalar_t> > local_tiles;
+         std::vector<scalar_t> data1( A.tileMb(0) * A.tileNb(0) ); 
+         std::vector<scalar_t> data2( A.tileMb(0) * A.tileNb(0) );
+         //Tile<scalar_t> tile( tileMb(i), tileNb(j), &data[0], tileMb(i), host_num_, TileKind::Workspace );
+         Tile<scalar_t> tile1( A.tileMb(0), A.tileNb(0),
+                              &data1[0], A.tileMb(0), A.hostNum(), TileKind::Workspace );
+         Tile<scalar_t> tile2( A.tileMb(0), A.tileNb(0),
+                              &data2[0], A.tileMb(0), A.hostNum(), TileKind::Workspace );
+
+         local_tiles.push_back( tile1 );
+         local_tiles.push_back( tile2 );
+
          int step =1;
          int src, dst;
          int64_t i_src, i_dst, i_current;
@@ -259,26 +295,43 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                       i_dst = (rank_rows[ index ].second) + 1;
 
                       //std::cout<<"Recv ("<<src<<", "<<rank_rows[index].first<<")"<< " In: " <<i_dst<<std::endl;
-                      A.tileRecv(i_dst, 0, src, layout);
+                      A_work_panel.tileRecv(i_dst, 0, src, layout);
 
-                      std::vector< Tile<scalar_t> > local_tiles;
-                      local_tiles.push_back( A( i_current, 0) );
-                      local_tiles.push_back( A( i_dst, 0 ) );               
+                       //tiles[i_current].copyData( &local_tiles[0]);
+                       //tiles[ i_dst ].copyData( &local_tiles[1]);
+                       A_work_panel(i_current, 0).copyData( &local_tiles[0]);
+                       A_work_panel(i_dst, 0).copyData( &local_tiles[1]);
 
+                      //std::vector< Tile<scalar_t> > local_tiles;
+                      //local_tiles.push_back( A_work_panel( i_current, 0) );
+                      //local_tiles.push_back( A_work_panel( i_dst, 0 ) );               
+                      //std::cout<<"local tiles size"<<local_tiles.size()<<std::endl;
                       // Factor the panel locally in parallel.
-                      getrf_ca(A, tiles, diag_len, ib, A.tileNb(0),
-                            tiles_copy, tile_indices,
-                            aux_pivot,
+                      getrf_ca(A, local_tiles, diag_len, ib, A.tileNb(0),
+                            //local_tiles, 
+                            tile_indices, aux_pivot,
                             self_rank, self_rank, MPI_COMM_SELF,
                             max_panel_threads, priority);
- 
-                      A.tileTick(i_dst, 0);
+                      /*for (int64_t i = 0; i < diag_len; ++i) {
+                      std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[i].tileIndex()<<","<<aux_pivot[i].elementOffset()<<", "<<aux_pivot[i].localTileIndex()<<std::endl;
+                      }*/
+/*                for(int j=0; j < diag_len ; ++j){
+                    swapLocalRow(
+                        0, A.tileNb(0),
+                        tiles[0], j,
+                        tiles[aux_pivot[j].localTileIndex()],
+                        aux_pivot[j].elementOffset());
+               }
+*/
+
+                       
+                      A_work_panel.tileTick(i_dst, 0);
                    }
                 }else{
                      dst = rank_rows[ index - step ].first;
                      i_src = rank_rows[ index ].second;
                      //std::cout<<"Send ("<<rank_rows[index].first<<", "<<dst<<")"<< " From: " <<i_src<<std::endl;
-                     A.tileSend(i_src, 0, dst);
+                     A_work_panel.tileSend(i_src, 0, dst);
                      break;   
                 }
           step *= 2;

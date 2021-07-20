@@ -13,6 +13,97 @@
 namespace slate {
 namespace internal {
 
+template <typename scalar_t>
+void getrf_ca(
+    Matrix<scalar_t>& A,
+    std::vector< Tile<scalar_t> >& tiles,    
+    int64_t diag_len, int64_t ib, int nb,
+    std::vector< Tile<scalar_t> >& tiles_copy,
+    std::vector<int64_t>& tile_indices,
+    std::vector< AuxPivot<scalar_t> >& aux_pivot,
+    int mpi_rank, int mpi_root, MPI_Comm mpi_comm,
+    int max_panel_threads, int priority)
+{
+
+    // Launch the panel tasks.
+    int thread_size = max_panel_threads;
+    if (int(tiles.size()) < max_panel_threads)
+        thread_size = tiles.size();
+        
+    ThreadBarrier thread_barrier;
+    std::vector<scalar_t> max_value(thread_size);
+    std::vector<int64_t> max_index(thread_size);
+    std::vector<int64_t> max_offset(thread_size);
+    std::vector<scalar_t> top_block(ib*nb);
+
+   #if 1
+       omp_set_nested(1);
+       // Launching new threads for the panel guarantees progression.
+       // This should never deadlock, but may be detrimental to performance.
+       #pragma omp parallel for \
+           num_threads(thread_size) \
+           shared(thread_barrier, max_value, max_index, max_offset, \
+                 top_block, aux_pivot)
+    #else
+      // Issuing panel operation as tasks may cause a deadlock.
+       #pragma omp taskloop \
+           num_tasks(thread_size) \
+           shared(thread_barrier, max_value, max_index, max_offset, \
+                top_block, aux_pivot)
+    #endif
+
+    for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
+        // Factor the panel in parallel.
+        getrf(diag_len, ib,
+        tiles_copy, tile_indices,
+        aux_pivot,
+        mpi_rank, mpi_root, MPI_COMM_SELF,
+        thread_rank, thread_size,
+        thread_barrier,
+        max_value, max_index, max_offset, top_block);
+    }
+    #pragma omp taskwait
+
+    // local swap
+
+//    for (int i=0; i<A.mt(); i++){
+//        if (A.tileIsLocal(i, 0)){
+            /*for(int j=0; j < diag_len ;j++){
+                swapLocalRow(
+                    0, A.tileMb(j),
+                    tiles[0], j,
+                    //A(aux_pivot[j].tileIndex(), 0),
+                    tiles[aux_pivot[j].tileIndex()],
+                    aux_pivot[j].elementOffset());
+            }*/
+         //   break;
+        //}
+    //}
+
+   #if 0
+    // Print pivot information from aux_pivot.
+        for (int64_t i = 0; i < diag_len; ++i) {
+           std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[i].tileIndex()<<","<<aux_pivot[i].elementOffset()<<", "<<aux_pivot[i].localTileIndex()<<std::endl;
+         }
+   #endif
+   //for (int i=0; i<A.mt(); i++){
+    //   if (A.tileIsLocal(i, 0)){ 
+        //if(A.mpiRank()==1){
+          for(int j=0; j < diag_len ; ++j){
+           std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[j].tileIndex()<<","<<aux_pivot[j].elementOffset()<<", "<<aux_pivot[j].localTileIndex()<<std::endl;
+           swapLocalRow(
+               0, nb,
+               //A(i, 0), j,
+               //A(aux_pivot[j].tileIndex(), 0),
+               tiles[0], j, 
+               tiles[aux_pivot[j].localTileIndex()],
+               aux_pivot[j].elementOffset());
+          }
+        //}
+      // break;
+      // }
+   //}
+}
 //------------------------------------------------------------------------------
 /// LU factorization of a column of tiles.
 /// Dispatches to target implementations.
@@ -104,20 +195,9 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
         int self_rank; 
         MPI_Comm_rank(MPI_COMM_SELF, &self_rank);
 
-        // Launch the panel tasks.
-        int thread_size = max_panel_threads;
-        if (int(tiles.size()) < max_panel_threads)
-            thread_size = tiles.size();
-
-        ThreadBarrier thread_barrier;
-        std::vector<scalar_t> max_value(thread_size);
-        std::vector<int64_t> max_index(thread_size);
-        std::vector<int64_t> max_offset(thread_size);
-        std::vector<scalar_t> top_block(ib*A.tileNb(0));
         std::vector< AuxPivot<scalar_t> > aux_pivot(diag_len);
 
-
-            #if 0
+            #if 1
             for (int i=0; i<A_work_panel.mt(); i++){
                 if (A.tileIsLocal(i, 0)){
                     if( A.mpiRank() == 1){
@@ -133,58 +213,25 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
            }
            #endif
 
-            #if 1
-                omp_set_nested(1);
-                // Launching new threads for the panel guarantees progression.
-                // This should never deadlock, but may be detrimental to performance.
-                #pragma omp parallel for \
-                    num_threads(thread_size) \
-                    shared(thread_barrier, max_value, max_index, max_offset, \
-                          top_block, aux_pivot)
-            #else
-                // Issuing panel operation as tasks may cause a deadlock.
-                #pragma omp taskloop \
-                    num_tasks(thread_size) \
-                    shared(thread_barrier, max_value, max_index, max_offset, \
-                           top_block, aux_pivot)
-            #endif
-            for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
-                // Factor the panel in parallel.
-                getrf(diag_len, ib,
+                // Factor the panel locally in parallel.
+                getrf_ca(A, tiles, diag_len, ib, A.tileNb(0),
                       tiles_copy, tile_indices,
                       aux_pivot,
                       //bcast_rank, bcast_root, bcast_comm,
                       self_rank, self_rank, MPI_COMM_SELF,
-                      thread_rank, thread_size,
-                      thread_barrier,
-                      max_value, max_index, max_offset, top_block);
-            }
-           #pragma omp taskwait
+                      max_panel_threads, priority);
             #if 0
             // Print pivot information from aux_pivot.
             for (int64_t i = 0; i < diag_len; ++i) {
-                std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[i].tileIndex()<<","<<aux_pivot[i].elementOffset()<<std::endl;
+                
+                std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[i].tileIndex()<<","<<aux_pivot[i].elementOffset()<<", "<<aux_pivot[i].localTileIndex()<<std::endl;
             }
             #endif
             /*internal::permuteRows<Target::HostTask>(
               Direction::Forward, std::move(A), pivot,
                         Layout::ColMajor, 1, 1);*/
 
-             // local swap
-             for (int i=0; i<A_work_panel.mt(); i++){
-                 if (A.tileIsLocal(i, 0)){   
-                     for(int j=0; j < pivot.size() ;j++){
-                     //std::cout<<"\n"<<A.tileMb(i)<<" "<<pivot.size()<<" "<<std::endl;
-                         swapLocalRow(
-                             0, A.tileMb(j),
-                             A(i, 0), j,
-                             A(aux_pivot[j].tileIndex(), 0),
-                             aux_pivot[j].elementOffset());      
-                      }
-                      break;
-                  }
-             }
-            #if 0
+            #if 1
             for (int i=0; i<A.mt(); i++){
                 if (A.tileIsLocal(i, 0)){
                    if( A.mpiRank() == 1 ){
@@ -201,22 +248,44 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
          #endif
          int step =1;
          int src, dst;
-          int64_t i_src, i_dst;
+         int64_t i_src, i_dst, i_current;
          for (int level = 0; level < nlevels; ++level){
              
                 if(index % (2*step) == 0){
                    if(index + step < nranks){
+
                       src = rank_rows[ index + step].first;
-                      i_dst = rank_rows[ index ].second;
+                      i_current = rank_rows[ index ].second;
+                      i_dst = (rank_rows[ index ].second) + 1;
+
+                      //std::cout<<"Recv ("<<src<<", "<<rank_rows[index].first<<")"<< " In: " <<i_dst<<std::endl;
                       A.tileRecv(i_dst, 0, src, layout);
+
+                      std::vector< Tile<scalar_t> > local_tiles;
+                      local_tiles.push_back( A( i_current, 0) );
+                      local_tiles.push_back( A( i_dst, 0 ) );               
+
+                      // Factor the panel locally in parallel.
+                      getrf_ca(A, tiles, diag_len, ib, A.tileNb(0),
+                            tiles_copy, tile_indices,
+                            aux_pivot,
+                            self_rank, self_rank, MPI_COMM_SELF,
+                            max_panel_threads, priority);
+ 
+                      A.tileTick(i_dst, 0);
                    }
                 }else{
                      dst = rank_rows[ index - step ].first;
-                     i_src = rank_rows[ index - step ].second;
+                     i_src = rank_rows[ index ].second;
+                     //std::cout<<"Send ("<<rank_rows[index].first<<", "<<dst<<")"<< " From: " <<i_src<<std::endl;
                      A.tileSend(i_src, 0, dst);
+                     break;   
                 }
           step *= 2;
         }// for loop over levels
+
+       //TODO RABAB: I need to broadcast pivot info
+       
       // Copy pivot information from aux_pivot to pivot.
       for (int64_t i = 0; i < diag_len; ++i) {  
           pivot[i] = Pivot(aux_pivot[i].tileIndex(), 

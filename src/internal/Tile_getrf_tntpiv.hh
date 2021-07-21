@@ -150,13 +150,12 @@ void getrf_tntpiv_swap(
 ///
 template <typename scalar_t>
 void getrf_tntpiv(
-    int64_t diag_len, int64_t ib, //int stage, //TODO
+    int64_t diag_len, int64_t ib, int stage,
     std::vector< Tile<scalar_t> >& tiles,
     std::vector<int64_t>& tile_indices,
     //std::vector< AuxPivot<scalar_t> >& pivot,
     std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
-    int mpi_rank, //int mpi_root, MPI_Comm mpi_comm, //TODO
-    int thread_rank, int thread_size,
+    int mpi_rank, int thread_rank, int thread_size,
     ThreadBarrier& thread_barrier,
     std::vector<scalar_t>& max_value,
     std::vector<int64_t>& max_index,
@@ -231,12 +230,32 @@ void getrf_tntpiv(
                 }
                 //TODO::RABABAfter computing max value, index, and offset, search in the coressponing povit index with offset, then
                 //read global index and offset and swap it with j
+                if(stage==0){
                 aux_pivot[0][j] = AuxPivot<scalar_t>(tile_indices[max_index[0]],  //TODO::RABAB this should be the global index
                                                                            //TODO::RABAB add as well the global offset
                                               max_offset[0],
                                               max_index[0],
+                                              max_offset[0],
                                               max_value[0],
                                               mpi_rank); //TODO
+                }else{
+                 /*aux_pivot[0][j] = AuxPivot<scalar_t>(tile_indices[max_index[0]],
+                                        max_offset[0], 
+                                        max_index[0],
+                                        max_value[0],
+                                        mpi_rank); //TODO*/
+                int global_tile_index = aux_pivot[max_index[0]][max_offset[0]].tileIndex();
+                int global_Offset = aux_pivot[max_index[0]][max_offset[0]].elementOffset();
+
+                aux_pivot[max_index[0]][max_offset[0]] = aux_pivot[0][j];
+
+                aux_pivot[0][j] = AuxPivot<scalar_t>(global_tile_index, 
+                                                     global_Offset,
+                                                     max_index[0],
+                                                     max_offset[0],
+                                                     max_value[0],
+                                                     mpi_rank); //TODO
+                }
 
                 // pivot swap
                 // if pivot not on the diagonal 

@@ -18,8 +18,8 @@ template <typename scalar_t>
 void getrf_ca(
     Matrix<scalar_t>& A,
     std::vector< Tile<scalar_t> >& tiles,    
-    int64_t diag_len, int64_t ib, int nb,
-    std::vector<int64_t>& tile_indices,
+    int64_t diag_len, int64_t ib, int stage,
+    int nb, std::vector<int64_t>& tile_indices,
     //std::vector< AuxPivot<scalar_t> >& aux_pivot,
     std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
     int mpi_rank, int mpi_root, MPI_Comm mpi_comm,
@@ -55,7 +55,7 @@ void getrf_ca(
 
     for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
         // Factor the panel in parallel.
-        getrf_tntpiv(diag_len, ib,
+        getrf_tntpiv(diag_len, ib, stage,
         tiles, tile_indices,
         aux_pivot,
         mpi_rank, //mpi_root, MPI_COMM_SELF,
@@ -203,10 +203,10 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
         aux_pivot[0].resize(diag_len);
         aux_pivot[1].resize(diag_len);
 
-            #if 1
+            #if 1 
             for (int i=0; i<A_work_panel.mt(); i++){
                 if (A.tileIsLocal(i, 0)){
-                    if( A.mpiRank() == 0){
+                    if( A.mpiRank() == 3){
                     std::cout<<"\n Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
                     for(int m=0; m<A_work_panel.tileMb(i);m++){
                         for(int n=0; n<A_work_panel.tileMb(i);n++){
@@ -224,8 +224,8 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                 }*/
               //  std::copy(tiles_copy_poriginal.begin(), tiles_copy_poriginal.end(), back_inserter(tiles_copy));
                 // Factor the panel locally in parallel.
-                getrf_ca(A, tiles, diag_len, ib, A.tileNb(0),
-                      tile_indices, aux_pivot,
+                getrf_ca(A, tiles, diag_len, ib, 0, 
+                       A.tileNb(0), tile_indices, aux_pivot,
                       //bcast_rank, bcast_root, bcast_comm,
                       self_rank, self_rank, MPI_COMM_SELF,
                       max_panel_threads, priority);
@@ -238,7 +238,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                         0, A.tileNb(0),
                         tiles[0], j,
                         tiles[aux_pivot[0][j].localTileIndex()],
-                        aux_pivot[0][j].elementOffset());
+                        aux_pivot[0][j].localOffset());
                }
 
 
@@ -250,7 +250,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
             }
             #endif
 
-            #if 1
+            #if 0
             for (int i=0; i<A.mt(); i++){
                 if (A.tileIsLocal(i, 0)){
                    if( A.mpiRank() == 0 ){
@@ -297,7 +297,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                       i_current = rank_rows[ index ].second;
                       i_dst = (rank_rows[ index ].second) + 1;
 
-                      //std::cout<<"Recv ("<<src<<", "<<rank_rows[index].first<<")"<< " In: " <<i_dst<<std::endl;
+                 //     std::cout<<"Recv ("<<src<<", "<<rank_rows[index].first<<")"<< " In: " <<i_dst<<std::endl;
                       A_work_panel.tileRecv(i_dst, 0, src, layout);
                       MPI_Status status;
                       MPI_Recv(aux_pivot.at(1).data(),  
@@ -325,9 +325,8 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
             #endif
  
                       // Factor the panel locally in parallel.
-                      getrf_ca(A, local_tiles, diag_len, ib, A.tileNb(0),
-                            //local_tiles, 
-                            tile_indices, aux_pivot,
+                      getrf_ca(A, local_tiles, diag_len, ib, 1, 
+                               A.tileNb(0), tile_indices, aux_pivot,
                             self_rank, self_rank, MPI_COMM_SELF,
                             max_panel_threads, priority);
 

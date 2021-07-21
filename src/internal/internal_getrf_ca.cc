@@ -7,6 +7,7 @@
 #include "slate/HermitianMatrix.hh"
 #include "slate/types.hh"
 #include "internal/Tile_getrf.hh"
+#include "internal/Tile_getrf_tntpiv.hh"
 #include "internal/internal.hh"
 #include "internal/internal_util.hh" 
 
@@ -53,10 +54,10 @@ void getrf_ca(
 
     for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
         // Factor the panel in parallel.
-        getrf(diag_len, ib,
+        getrf_tntpiv(diag_len, ib,
         tiles, tile_indices,
         aux_pivot,
-        mpi_rank, mpi_root, MPI_COMM_SELF,
+        mpi_rank, //mpi_root, MPI_COMM_SELF,
         thread_rank, thread_size,
         thread_barrier,
         max_value, max_index, max_offset, top_block);

@@ -245,7 +245,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
             #if 0
             // Print pivot information from aux_pivot.
             for (int64_t i = 0; i < diag_len; ++i) {
-                
+                if(A.mpiRank()==1) 
                 std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[0][i].tileIndex()<<","<<aux_pivot[0][i].elementOffset()<<", "<<aux_pivot[0][i].localTileIndex()<<std::endl;
             }
             #endif
@@ -276,7 +276,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
          std::vector< Tile<scalar_t> > local_tiles;
          std::vector<scalar_t> data1( A.tileMb(0) * A.tileNb(0) ); 
          std::vector<scalar_t> data2( A.tileMb(0) * A.tileNb(0) );
-         //Tile<scalar_t> tile( tileMb(i), tileNb(j), &data[0], tileMb(i), host_num_, TileKind::Workspace );
+
          Tile<scalar_t> tile1( A.tileMb(0), A.tileNb(0),
                               &data1[0], A.tileMb(0), A.hostNum(), TileKind::Workspace );
          Tile<scalar_t> tile2( A.tileMb(0), A.tileNb(0),
@@ -299,25 +299,40 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
 
                       //std::cout<<"Recv ("<<src<<", "<<rank_rows[index].first<<")"<< " In: " <<i_dst<<std::endl;
                       A_work_panel.tileRecv(i_dst, 0, src, layout);
+                      MPI_Status status;
+                      MPI_Recv(aux_pivot.at(1).data(),  
+                               sizeof(AuxPivot<scalar_t>)*aux_pivot.at(1).size(), 
+                               MPI_BYTE, src, 0, A.mpiComm(),  &status);
 
-                       //tiles[i_current].copyData( &local_tiles[0]);
-                       //tiles[ i_dst ].copyData( &local_tiles[1]);
                        A_work_panel(i_current, 0).copyData( &local_tiles[0]);
                        A_work_panel(i_dst, 0).copyData( &local_tiles[1]);
 
-                      //std::vector< Tile<scalar_t> > local_tiles;
-                      //local_tiles.push_back( A_work_panel( i_current, 0) );
-                      //local_tiles.push_back( A_work_panel( i_dst, 0 ) );               
-                      //std::cout<<"local tiles size"<<local_tiles.size()<<std::endl;
+
+            #if 0
+             if(A.mpiRank()==0){
+                for (int64_t i = 0; i < diag_len; ++i) {
+                std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[0][i].tileIndex()
+                <<","<<aux_pivot[0][i].elementOffset()<<", "
+                <<aux_pivot[0][i].localTileIndex()<<std::endl;
+                }
+
+                for (int64_t i = 0; i < diag_len; ++i) {
+                std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[1][i].tileIndex()
+                <<","<<aux_pivot[1][i].elementOffset()<<", "
+                <<aux_pivot[1][i].localTileIndex()<<std::endl;
+                }
+               }
+            #endif
+ 
                       // Factor the panel locally in parallel.
-                /*      getrf_ca(A, local_tiles, diag_len, ib, A.tileNb(0),
+                      getrf_ca(A, local_tiles, diag_len, ib, A.tileNb(0),
                             //local_tiles, 
                             tile_indices, aux_pivot,
                             self_rank, self_rank, MPI_COMM_SELF,
-                            max_panel_threads, priority);*/
-                      /*for (int64_t i = 0; i < diag_len; ++i) {
-                      std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[i].tileIndex()<<","<<aux_pivot[i].elementOffset()<<", "<<aux_pivot[i].localTileIndex()<<std::endl;
-                      }*/
+                            max_panel_threads, priority);
+
+
+            //
 /*                for(int j=0; j < diag_len ; ++j){
                     swapLocalRow(
                         0, A.tileNb(0),
@@ -326,8 +341,6 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                         aux_pivot[j].elementOffset());
                }
 */
-
-                       
                       A_work_panel.tileTick(i_dst, 0);
                    }
                 }else{
@@ -335,6 +348,9 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                      i_src = rank_rows[ index ].second;
                      //std::cout<<"Send ("<<rank_rows[index].first<<", "<<dst<<")"<< " From: " <<i_src<<std::endl;
                      A_work_panel.tileSend(i_src, 0, dst);
+                     MPI_Send(aux_pivot.at(0).data(), 
+                             sizeof(AuxPivot<scalar_t>)*aux_pivot.at(0).size(), 
+                             MPI_BYTE, dst, 0, A.mpiComm());
                      break;   
                 }
           step *= 2;

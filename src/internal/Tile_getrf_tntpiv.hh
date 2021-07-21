@@ -153,7 +153,8 @@ void getrf_tntpiv(
     int64_t diag_len, int64_t ib, //int stage, //TODO
     std::vector< Tile<scalar_t> >& tiles,
     std::vector<int64_t>& tile_indices,
-    std::vector< AuxPivot<scalar_t> >& pivot,
+    //std::vector< AuxPivot<scalar_t> >& pivot,
+    std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
     int mpi_rank, //int mpi_root, MPI_Comm mpi_comm, //TODO
     int thread_rank, int thread_size,
     ThreadBarrier& thread_barrier,
@@ -169,6 +170,8 @@ void getrf_tntpiv(
     const scalar_t one = 1.0;
 
     int64_t nb = tiles[0].nb();
+
+    //std::vector< AuxPivot<scalar_t> > piv = aux_pivot[0];
 
     // Loop over ib-wide stripes.
     for (int64_t k = 0; k < diag_len; k += ib) {
@@ -226,8 +229,9 @@ void getrf_tntpiv(
                         max_offset[0] = max_offset[rank]; //TODO::RABAB This is local offset
                     }
                 }
-
-                pivot[j] = AuxPivot<scalar_t>(tile_indices[max_index[0]],  //TODO::RABAB this should be the global index
+                //TODO::RABABAfter computing max value, index, and offset, search in the coressponing povit index with offset, then
+                //read global index and offset and swap it with j
+                aux_pivot[0][j] = AuxPivot<scalar_t>(tile_indices[max_index[0]],  //TODO::RABAB this should be the global index
                                                                            //TODO::RABAB add as well the global offset
                                               max_offset[0],
                                               max_index[0],
@@ -236,14 +240,14 @@ void getrf_tntpiv(
 
                 // pivot swap
                 // if pivot not on the diagonal 
-                if (pivot[j].localTileIndex() > 0 ||
-                    pivot[j].elementOffset() > j)
+                if (aux_pivot[0][j].localTileIndex() > 0 ||
+                    aux_pivot[0][j].elementOffset() > j)
                 {
                    // local swap
                     swapLocalRow(k, kb,
                                  tiles[0], j,
-                                 tiles[pivot[j].localTileIndex()],
-                                 pivot[j].elementOffset());
+                                 tiles[aux_pivot[0][j].localTileIndex()],
+                                 aux_pivot[0][j].elementOffset());
                 }  
                 // Broadcast the top row for the geru operation.
                 if (k+kb > j+1) {
@@ -267,7 +271,7 @@ void getrf_tntpiv(
 
                 // column scaling
                 real_t sfmin = std::numeric_limits<real_t>::min();
-                if (cabs1(pivot[j].value()) >= sfmin) {
+                if (cabs1(aux_pivot[0][j].value()) >= sfmin) {
                     // todo: make it a tile operation
                     if (idx == 0) { 
                         // diagonal tile
@@ -278,11 +282,11 @@ void getrf_tntpiv(
                     }
                     else {
                         // off diagonal tile
-                        scalar_t alpha = one / pivot[j].value();
+                        scalar_t alpha = one / aux_pivot[0][j].value();
                         blas::scal(tile.mb(), alpha, &tile.at(0, j), 1);
                     }
                 }
-                else if (pivot[j].value() != zero) {
+                else if (aux_pivot[0][j].value() != zero) {
                     if (idx == 0) { 
                         // diagonal tile
                         for (int64_t i = j+1; i < tile.mb(); ++i)
@@ -291,11 +295,11 @@ void getrf_tntpiv(
                     else {
                         // off diagonal tile
                         for (int64_t i = 0; i < tile.mb(); ++i)
-                            tile.at(i, j) /= pivot[j].value();
+                            tile.at(i, j) /= aux_pivot[0][j].value();
                     }
                 }
                 else {
-                    // pivot[j].value() = 0, The factorization has been completed
+                    // piv[j].value() = 0, The factorization has been completed
                     // but the factor U is exactly singular
                     // todo: how to handle a zero pivot
                     // TODO::RABAB to ask
@@ -330,14 +334,14 @@ void getrf_tntpiv(
             if (thread_rank == 0) {
                 for (int64_t i = k; i < k+kb; ++i) {
                   // if pivot not on the diagonal 
-                  if (pivot[i].localTileIndex() > 0 ||
-                      pivot[i].elementOffset() > i)
+                  if (aux_pivot[0][i].localTileIndex() > 0 ||
+                      aux_pivot[0][i].elementOffset() > i)
                   {
                       // local swap
                       swapLocalRow(k+kb, nb-k-kb,
                                    tiles[0], i,
-                                   tiles[pivot[i].localTileIndex()],
-                                   pivot[i].elementOffset());
+                                   tiles[aux_pivot[0][i].localTileIndex()],
+                                   aux_pivot[0][i].elementOffset());
                   }
                          
                 }
@@ -405,18 +409,20 @@ void getrf_tntpiv(
             for (int64_t i = k; i < k+ib && i < diag_len; ++i) {
                 //TODO::RABAB I might not need it
                 // if pivot not on the diagonal 
-                 if (pivot[i].localTileIndex() > 0 ||
-                     pivot[i].elementOffset() > i)
+                 if (aux_pivot[0][i].localTileIndex() > 0 ||
+                     aux_pivot[0][i].elementOffset() > i)
                  {
                     // local swap
+                  //std::cout<<"\n"<<aux_pivot[0][i].tileIndex()<<","<<aux_pivot[0][i].elementOffset()<<","<<aux_pivot[0][i].localTileIndex()<<std::endl;
                     swapLocalRow(0, k,
                                  tiles[0], i,
-                                 tiles[pivot[i].localTileIndex()],
-                                 pivot[i].elementOffset());
+                                 tiles[aux_pivot[0][i].localTileIndex()],
+                                 aux_pivot[0][i].elementOffset());
                  }
             }
         }
     }
+//aux_pivot.at(0)=piv;
 }
 
 } // namespace internal

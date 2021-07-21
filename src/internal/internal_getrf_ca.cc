@@ -20,7 +20,8 @@ void getrf_ca(
     std::vector< Tile<scalar_t> >& tiles,    
     int64_t diag_len, int64_t ib, int nb,
     std::vector<int64_t>& tile_indices,
-    std::vector< AuxPivot<scalar_t> >& aux_pivot,
+    //std::vector< AuxPivot<scalar_t> >& aux_pivot,
+    std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
     int mpi_rank, int mpi_root, MPI_Comm mpi_comm,
     int max_panel_threads, int priority)
 {
@@ -198,7 +199,9 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
         int self_rank; 
         MPI_Comm_rank(MPI_COMM_SELF, &self_rank);
 
-        std::vector< AuxPivot<scalar_t> > aux_pivot(diag_len);
+        std::vector< std::vector<AuxPivot<scalar_t>>> aux_pivot(2);
+        aux_pivot[0].resize(diag_len);
+        aux_pivot[1].resize(diag_len);
 
             #if 1
             for (int i=0; i<A_work_panel.mt(); i++){
@@ -230,13 +233,12 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
 
                 internal::copy<Target::HostTask>( std::move(A), std::move(A_work_panel) );
 
-
                 for(int j=0; j < diag_len ; ++j){
                     swapLocalRow(
                         0, A.tileNb(0),
                         tiles[0], j,
-                        tiles[aux_pivot[j].localTileIndex()],
-                        aux_pivot[j].elementOffset());
+                        tiles[aux_pivot[0][j].localTileIndex()],
+                        aux_pivot[0][j].elementOffset());
                }
 
 
@@ -244,7 +246,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
             // Print pivot information from aux_pivot.
             for (int64_t i = 0; i < diag_len; ++i) {
                 
-                std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[i].tileIndex()<<","<<aux_pivot[i].elementOffset()<<", "<<aux_pivot[i].localTileIndex()<<std::endl;
+                std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[0][i].tileIndex()<<","<<aux_pivot[0][i].elementOffset()<<", "<<aux_pivot[0][i].localTileIndex()<<std::endl;
             }
             #endif
 
@@ -308,11 +310,11 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                       //local_tiles.push_back( A_work_panel( i_dst, 0 ) );               
                       //std::cout<<"local tiles size"<<local_tiles.size()<<std::endl;
                       // Factor the panel locally in parallel.
-                      getrf_ca(A, local_tiles, diag_len, ib, A.tileNb(0),
+                /*      getrf_ca(A, local_tiles, diag_len, ib, A.tileNb(0),
                             //local_tiles, 
                             tile_indices, aux_pivot,
                             self_rank, self_rank, MPI_COMM_SELF,
-                            max_panel_threads, priority);
+                            max_panel_threads, priority);*/
                       /*for (int64_t i = 0; i < diag_len; ++i) {
                       std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[i].tileIndex()<<","<<aux_pivot[i].elementOffset()<<", "<<aux_pivot[i].localTileIndex()<<std::endl;
                       }*/
@@ -342,8 +344,8 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
        
       // Copy pivot information from aux_pivot to pivot.
       for (int64_t i = 0; i < diag_len; ++i) {  
-          pivot[i] = Pivot(aux_pivot[i].tileIndex(), 
-                     aux_pivot[i].elementOffset());
+          pivot[i] = Pivot(aux_pivot[0][i].tileIndex(), 
+                     aux_pivot[0][i].elementOffset());
       }
     }
 }

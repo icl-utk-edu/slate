@@ -168,7 +168,6 @@ void getrf_tntpiv(
 
     const scalar_t one = 1.0;
 
-    //bool root = mpi_rank == mpi_root; //TODO
     int64_t nb = tiles[0].nb();
 
     // Loop over ib-wide stripes.
@@ -181,16 +180,9 @@ void getrf_tntpiv(
         // Loop over ib columns of a stripe.
         for (int64_t j = k; j < k+kb; ++j) {
 
-         //   if (root) { //TODO
                 max_value[thread_rank] = tiles[0](j, j);
-                max_index[thread_rank] = 0;
-                max_offset[thread_rank] = j;
-           /* } //TODO
-            else {
-                max_value[thread_rank] = tiles[0](0, j);
-                max_index[thread_rank] = 0;
-                max_offset[thread_rank] = 0;
-            }*/
+                max_index[thread_rank] = 0; //TODO::RABAB This is local index
+                max_offset[thread_rank] = j; //TODO::RABAB This is local offset
 
             //------------------
             // thread max search
@@ -199,15 +191,14 @@ void getrf_tntpiv(
                  idx += thread_size)
             {
                 auto tile = tiles[idx];
-                //auto i_index = tile_indices[idx]; TODO
 
                 // if diagonal tile
-                if (idx == 0) { //TODO
+                if (idx == 0) { 
                     for (int64_t i = j+1; i < tile.mb(); ++i) {
                         if (cabs1(tile(i, j)) > cabs1(max_value[thread_rank])) {
                             max_value[thread_rank] = tile(i, j);
-                            max_index[thread_rank] = idx;
-                            max_offset[thread_rank] = i;
+                            max_index[thread_rank] = idx; //TODO::RABAB This is local index
+                            max_offset[thread_rank] = i; //TODO::RABAB This is local offset
                         }
                     }
                 }
@@ -216,8 +207,8 @@ void getrf_tntpiv(
                     for (int64_t i = 0; i < tile.mb(); ++i) {
                         if (cabs1(tile(i, j)) > cabs1(max_value[thread_rank])) {
                             max_value[thread_rank] = tile(i, j);
-                            max_index[thread_rank] = idx;
-                            max_offset[thread_rank] = i;
+                            max_index[thread_rank] = idx; //TODO::RABAB This is local index
+                            max_offset[thread_rank] = i; //TODO::RABAB This is local offset
                         }
                     }
                 }
@@ -231,44 +222,19 @@ void getrf_tntpiv(
                 for (int rank = 1; rank < thread_size; ++rank) {
                     if (cabs1(max_value[rank]) > cabs1(max_value[0])) {
                         max_value[0] = max_value[rank];
-                        max_index[0] = max_index[rank];
-                        max_offset[0] = max_offset[rank];
+                        max_index[0] = max_index[rank]; //TODO::RABAB This is local index
+                        max_offset[0] = max_offset[rank]; //TODO::RABAB This is local offset
                     }
                 }
 
-                // MPI max abs reduction 
-                /*struct { real_t max; int loc; } max_loc_in, max_loc; //TODO
-                max_loc_in.max = cabs1(max_value[0]);
-                max_loc_in.loc = mpi_rank;
-                #pragma omp critical(slate_mpi)
-                {
-                    slate_mpi_call(
-                        MPI_Allreduce(&max_loc_in, &max_loc, 1,
-                                      mpi_type< max_loc_type<real_t> >::value,
-                                      MPI_MAXLOC, mpi_comm));
-                }*/
-
-                // todo: can this Bcast info be merged into the Allreduce?
-                // Broadcast the pivot information.
-                pivot[j] = AuxPivot<scalar_t>(tile_indices[max_index[0]],
+                pivot[j] = AuxPivot<scalar_t>(tile_indices[max_index[0]],  //TODO::RABAB this should be the global index
+                                                                           //TODO::RABAB add as well the global offset
                                               max_offset[0],
                                               max_index[0],
                                               max_value[0],
                                               mpi_rank); //TODO
-                /*#pragma omp critical(slate_mpi) //TODO
-                {
-                    slate_mpi_call(
-                        MPI_Bcast(&pivot[j], sizeof(AuxPivot<scalar_t>),
-                                  MPI_BYTE, max_loc.loc, mpi_comm));
-                }*/ 
 
-
-                 //TODO::RABAB only local copy
                 // pivot swap
-                /*getrf_tntpiv_swap(j, k, kb,
-                           tiles, pivot,
-                           mpi_rank, mpi_root, mpi_comm);*/
-
                 // if pivot not on the diagonal 
                 if (pivot[j].localTileIndex() > 0 ||
                     pivot[j].elementOffset() > j)
@@ -281,20 +247,11 @@ void getrf_tntpiv(
                 }  
                 // Broadcast the top row for the geru operation.
                 if (k+kb > j+1) {
-                    //if (root) { //TODO
                         auto top_tile = tiles[0];
                         // todo: make it a tile operation
                         blas::copy(k+kb-j-1,
                                    &top_tile.at(j, j+1), top_tile.stride(),
                                    top_block.data(), 1);
-                    /*} //TODO
-                    #pragma omp critical(slate_mpi)
-                    {
-                        slate_mpi_call(
-                            MPI_Bcast(top_block.data(),
-                                      k+kb-j-1, mpi_type<scalar_t>::value,
-                                      mpi_root, mpi_comm));
-                    }*/
                 }
             }
             thread_barrier.wait(thread_size);
@@ -307,13 +264,12 @@ void getrf_tntpiv(
                  idx += thread_size)
             {
                 auto tile = tiles[idx];
-                //auto i_index = tile_indices[idx]; TODO
 
                 // column scaling
                 real_t sfmin = std::numeric_limits<real_t>::min();
                 if (cabs1(pivot[j].value()) >= sfmin) {
                     // todo: make it a tile operation
-                    if (idx == 0) { //TODO
+                    if (idx == 0) { 
                         // diagonal tile
                         scalar_t alpha = one / tile(j, j);
                         int64_t m = tile.mb()-j-1;
@@ -327,7 +283,7 @@ void getrf_tntpiv(
                     }
                 }
                 else if (pivot[j].value() != zero) {
-                    if (idx == 0) { //TODO
+                    if (idx == 0) { 
                         // diagonal tile
                         for (int64_t i = j+1; i < tile.mb(); ++i)
                             tile.at(i, j) /= tile(j, j);
@@ -342,12 +298,13 @@ void getrf_tntpiv(
                     // pivot[j].value() = 0, The factorization has been completed
                     // but the factor U is exactly singular
                     // todo: how to handle a zero pivot
+                    // TODO::RABAB to ask
                 }
 
                 // trailing update
                 // todo: make it a tile operation
                 if (k+kb > j+1) {
-                    if (idx == 0) { //TODO
+                    if (idx == 0) { 
                         blas::geru(Layout::ColMajor,
                                    tile.mb()-j-1, k+kb-j-1,
                                    -one, &tile.at(j+1, j), 1,
@@ -372,10 +329,6 @@ void getrf_tntpiv(
             // pivoting to the right
             if (thread_rank == 0) {
                 for (int64_t i = k; i < k+kb; ++i) {
-                /*    getrf_tntpiv_swap(i, k+kb, nb-k-kb, //TODO local copy
-                               tiles, pivot,
-                               mpi_rank, mpi_root, mpi_comm);
-                 */
                   // if pivot not on the diagonal 
                   if (pivot[i].localTileIndex() > 0 ||
                       pivot[i].elementOffset() > i)
@@ -393,7 +346,6 @@ void getrf_tntpiv(
 
             //=================
             // triangular solve
-            //if (root && thread_rank == 0) { TODO
             if (thread_rank == 0) {
                 auto top_tile = tiles[0];
                 blas::trsm(Layout::ColMajor,
@@ -407,20 +359,11 @@ void getrf_tntpiv(
 
             // Broadcast the top block for gemm.
             if (thread_rank == 0) {
-                //if (root) { //TODO
                     auto top_tile = tiles[0];
                     lapack::lacpy(lapack::MatrixType::General,
                                   kb, nb-k-kb,
                                   &top_tile.at(k, k+kb), top_tile.stride(),
                                   top_block.data(), kb);
-                /*} //TODO
-                #pragma omp critical(slate_mpi)
-                {
-                    slate_mpi_call(
-                        MPI_Bcast(top_block.data(),
-                                  kb*(nb-k-kb), mpi_type<scalar_t>::value,
-                                  mpi_root, mpi_comm));
-                }*/
             }
             thread_barrier.wait(thread_size);
 
@@ -431,9 +374,8 @@ void getrf_tntpiv(
                  idx += thread_size)
             {
                 auto tile = tiles[idx];
-                //auto i_index = tile_indices[idx]; TODO
 
-                if (idx == 0) { //TODO
+                if (idx == 0) { 
                     if (k+kb < tile.mb()) {
                         blas::gemm(blas::Layout::ColMajor,
                                    Op::NoTrans, Op::NoTrans,
@@ -461,9 +403,6 @@ void getrf_tntpiv(
     for (int64_t k = ib; k < diag_len; k += ib) {
         if (thread_rank == 0) {
             for (int64_t i = k; i < k+ib && i < diag_len; ++i) {
-                /*getrf_tntpiv_swap(i, 0, k,
-                           tiles, pivot,
-                           mpi_rank, mpi_root, mpi_comm);*/ //TODO
                 //TODO::RABAB I might not need it
                 // if pivot not on the diagonal 
                  if (pivot[i].localTileIndex() > 0 ||

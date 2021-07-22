@@ -260,13 +260,13 @@ void getrf_tntpiv(
                 // pivot swap
                 // if pivot not on the diagonal 
                 if (aux_pivot[0][j].localTileIndex() > 0 ||
-                    aux_pivot[0][j].elementOffset() > j)
+                    aux_pivot[0][j].localOffset() > j)
                 {
                    // local swap
                     swapLocalRow(k, kb,
                                  tiles[0], j,
                                  tiles[aux_pivot[0][j].localTileIndex()],
-                                 aux_pivot[0][j].elementOffset());
+                                 aux_pivot[0][j].localOffset());
                 }  
                 // Broadcast the top row for the geru operation.
                 if (k+kb > j+1) {
@@ -354,13 +354,13 @@ void getrf_tntpiv(
                 for (int64_t i = k; i < k+kb; ++i) {
                   // if pivot not on the diagonal 
                   if (aux_pivot[0][i].localTileIndex() > 0 ||
-                      aux_pivot[0][i].elementOffset() > i)
+                      aux_pivot[0][i].localOffset() > i)
                   {
                       // local swap
                       swapLocalRow(k+kb, nb-k-kb,
                                    tiles[0], i,
                                    tiles[aux_pivot[0][i].localTileIndex()],
-                                   aux_pivot[0][i].elementOffset());
+                                   aux_pivot[0][i].localOffset());
                   }
                          
                 }
@@ -429,14 +429,14 @@ void getrf_tntpiv(
                 //TODO::RABAB I might not need it
                 // if pivot not on the diagonal 
                  if (aux_pivot[0][i].localTileIndex() > 0 ||
-                     aux_pivot[0][i].elementOffset() > i)
+                     aux_pivot[0][i].localOffset() > i)
                  {
                     // local swap
                   //std::cout<<"\n"<<aux_pivot[0][i].tileIndex()<<","<<aux_pivot[0][i].elementOffset()<<","<<aux_pivot[0][i].localTileIndex()<<std::endl;
                     swapLocalRow(0, k,
                                  tiles[0], i,
                                  tiles[aux_pivot[0][i].localTileIndex()],
-                                 aux_pivot[0][i].elementOffset());
+                                 aux_pivot[0][i].localOffset());
                  }
             }
         }

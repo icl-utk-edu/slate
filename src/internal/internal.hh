@@ -87,6 +87,9 @@ public:
     scalar_t value() { return value_; }
     int rank() { return rank_; }
 
+    void set_tileIndex(int i) {tile_index_=i;}
+    void set_elementOffset(int i) {element_offset_=i;}
+
 private:
     int64_t tile_index_;       ///< tile index in the panel submatrix
     int64_t element_offset_;   ///< pivot offset in the tile

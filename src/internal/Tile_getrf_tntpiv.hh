@@ -195,7 +195,7 @@ void getrf_tntpiv(
                 auto tile = tiles[idx];
 
                 // if diagonal tile
-                if (idx == 0) { 
+                if (idx == 0) {
                     for (int64_t i = j+1; i < tile.mb(); ++i) {
                         if (cabs1(tile(i, j)) > cabs1(max_value[thread_rank])) {
                             max_value[thread_rank] = tile(i, j);
@@ -240,16 +240,18 @@ void getrf_tntpiv(
                                               mpi_rank); //TODO
                 }else{
                  /*aux_pivot[0][j] = AuxPivot<scalar_t>(tile_indices[max_index[0]],
-                                        max_offset[0], 
+                                        max_offset[0],
                                         max_index[0],
                                         max_value[0],
                                         mpi_rank); //TODO*/
-                int global_tile_index = aux_pivot[max_index[0]][max_offset[0]].tileIndex();
-                int global_Offset = aux_pivot[max_index[0]][max_offset[0]].elementOffset();
+               int global_tile_index = aux_pivot[max_index[0]][max_offset[0]].tileIndex();
+               int global_Offset = aux_pivot[max_index[0]][max_offset[0]].elementOffset();
 
                 aux_pivot[max_index[0]][max_offset[0]] = aux_pivot[0][j];
+                //int global_tile_index = aux_pivot[0][j].tileIndex();
+                //int global_Offset = aux_pivot[0][j].elementOffset();
 
-                aux_pivot[0][j] = AuxPivot<scalar_t>(global_tile_index, 
+                aux_pivot[0][j] = AuxPivot<scalar_t>(global_tile_index,
                                                      global_Offset,
                                                      max_index[0],
                                                      max_offset[0],
@@ -258,7 +260,7 @@ void getrf_tntpiv(
                 }
 
                 // pivot swap
-                // if pivot not on the diagonal 
+                // if pivot not on the diagonal
                 if (aux_pivot[0][j].localTileIndex() > 0 ||
                     aux_pivot[0][j].localOffset() > j)
                 {
@@ -267,7 +269,7 @@ void getrf_tntpiv(
                                  tiles[0], j,
                                  tiles[aux_pivot[0][j].localTileIndex()],
                                  aux_pivot[0][j].localOffset());
-                }  
+                }
                 // Broadcast the top row for the geru operation.
                 if (k+kb > j+1) {
                         auto top_tile = tiles[0];
@@ -292,7 +294,7 @@ void getrf_tntpiv(
                 real_t sfmin = std::numeric_limits<real_t>::min();
                 if (cabs1(aux_pivot[0][j].value()) >= sfmin) {
                     // todo: make it a tile operation
-                    if (idx == 0) { 
+                    if (idx == 0) {
                         // diagonal tile
                         scalar_t alpha = one / tile(j, j);
                         int64_t m = tile.mb()-j-1;
@@ -306,7 +308,7 @@ void getrf_tntpiv(
                     }
                 }
                 else if (aux_pivot[0][j].value() != zero) {
-                    if (idx == 0) { 
+                    if (idx == 0) {
                         // diagonal tile
                         for (int64_t i = j+1; i < tile.mb(); ++i)
                             tile.at(i, j) /= tile(j, j);
@@ -327,7 +329,7 @@ void getrf_tntpiv(
                 // trailing update
                 // todo: make it a tile operation
                 if (k+kb > j+1) {
-                    if (idx == 0) { 
+                    if (idx == 0) {
                         blas::geru(Layout::ColMajor,
                                    tile.mb()-j-1, k+kb-j-1,
                                    -one, &tile.at(j+1, j), 1,
@@ -352,7 +354,7 @@ void getrf_tntpiv(
             // pivoting to the right
             if (thread_rank == 0) {
                 for (int64_t i = k; i < k+kb; ++i) {
-                  // if pivot not on the diagonal 
+                  // if pivot not on the diagonal
                   if (aux_pivot[0][i].localTileIndex() > 0 ||
                       aux_pivot[0][i].localOffset() > i)
                   {
@@ -362,7 +364,7 @@ void getrf_tntpiv(
                                    tiles[aux_pivot[0][i].localTileIndex()],
                                    aux_pivot[0][i].localOffset());
                   }
-                         
+
                 }
             }
             thread_barrier.wait(thread_size);
@@ -398,7 +400,7 @@ void getrf_tntpiv(
             {
                 auto tile = tiles[idx];
 
-                if (idx == 0) { 
+                if (idx == 0) {
                     if (k+kb < tile.mb()) {
                         blas::gemm(blas::Layout::ColMajor,
                                    Op::NoTrans, Op::NoTrans,
@@ -427,7 +429,7 @@ void getrf_tntpiv(
         if (thread_rank == 0) {
             for (int64_t i = k; i < k+ib && i < diag_len; ++i) {
                 //TODO::RABAB I might not need it
-                // if pivot not on the diagonal 
+                // if pivot not on the diagonal
                  if (aux_pivot[0][i].localTileIndex() > 0 ||
                      aux_pivot[0][i].localOffset() > i)
                  {

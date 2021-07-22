@@ -82,7 +82,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                     // send A(i, k) across row A(i, k+1:nt-1)
                     bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                 }
-                A.template listBcast(bcast_list_A, Layout::ColMajor, tag_k);
+                A.template listBcast(bcast_list_A, Layout::ColMajor, tag_k);*/
 
                 // Root broadcasts the pivot to all ranks.
                 // todo: Panel ranks send the pivots to the right.
@@ -93,7 +93,30 @@ void getrf_ca(slate::internal::TargetType<target>,
                               sizeof(Pivot)*pivots.at(k).size(),
                               MPI_BYTE, A.tileRank(k, k), A.mpiComm());
                 }
-            }*/
+
+                    int tag_kl1 = k+1+lookahead;
+                    internal::permuteRows<Target::HostTask>(
+                        Direction::Forward, A.sub(k, A_mt-1, k, A_nt-1),
+                        pivots.at(k), target_layout, priority_zero, tag_kl1);
+
+
+            #if 0
+            for (int i=0; i<A.mt(); i++){
+                if (A.tileIsLocal(i, 0)){
+                    if( A.mpiRank() == 0){
+                    std::cout<<"\n Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
+                    for(int m=0; m<A.tileMb(i);m++){
+                        for(int n=0; n<A.tileMb(i);n++){
+                           std::cout<<A(i,0)(m,n)<<",";
+                        }
+                        std::cout<<std::endl;
+                    }
+                   }
+                }
+           }
+           #endif
+
+            //}
             // update lookahead column(s), high priority
             // Done on CPU, not target.
             /*for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {

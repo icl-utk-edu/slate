@@ -20,10 +20,8 @@ void getrf_ca(
     std::vector< Tile<scalar_t> >& tiles,
     int64_t diag_len, int64_t ib, int stage,
     int nb, std::vector<int64_t>& tile_indices,
-    //std::vector< AuxPivot<scalar_t> >& aux_pivot,
     std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
-    int mpi_rank, int mpi_root, MPI_Comm mpi_comm,
-    int max_panel_threads, int priority)
+    int mpi_rank, int max_panel_threads, int priority)
 {
 
     // Launch the panel tasks.
@@ -65,47 +63,6 @@ void getrf_ca(
     }
     #pragma omp taskwait
 
-    // local swap
-
-//    for (int i=0; i<A.mt(); i++){
-//        if (A.tileIsLocal(i, 0)){
-            /*for(int j=0; j < diag_len ;j++){
-                swapLocalRow(
-                    0, A.tileMb(j),
-                    tiles[0], j,
-                    //A(aux_pivot[j].tileIndex(), 0),
-                    tiles[aux_pivot[j].tileIndex()],
-                    aux_pivot[j].elementOffset());
-            }*/
-         //   break;
-        //}
-    //}
-
-   #if 0
-    // Print pivot information from aux_pivot.
-        for (int64_t i = 0; i < diag_len; ++i) {
-           std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[i].tileIndex()<<","<<aux_pivot[i].elementOffset()<<", "<<aux_pivot[i].localTileIndex()<<std::endl;
-         }
-   #endif
-   //for (int i=0; i<A.mt(); i++){
-    //   if (A.tileIsLocal(i, 0)){
-        //if(A.mpiRank()==1){
-    /*      for(int j=0; j < diag_len ; ++j){
-           //std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[j].tileIndex()<<","<<aux_pivot[j].elementOffset()<<", "<<aux_pivot[j].localTileIndex()<<std::endl;
-           //std::cout<<tiles.size()<<std::endl;
-           swapLocalRow(
-               0, nb,
-               //A(i, 0), j,
-               //A(aux_pivot[j].tileIndex(), 0),
-               tiles[0], j,
-               tiles[aux_pivot[j].localTileIndex()],
-               aux_pivot[j].elementOffset());
-          }*/
-         //std::cout<<"done"<<std::endl;
-        //}
-      // break;
-      // }
-   //}
 }
 //------------------------------------------------------------------------------
 /// LU factorization of a column of tiles.
@@ -163,8 +120,6 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
         bcast_set.insert(A.tileRank(i, 0));
         if (A.tileIsLocal(i, 0)) {
             tiles.push_back(A_work_panel(i, 0));
-            //tiles_copy_poriginal.push_back(A_work_panel(i, 0));
-            //tiles_copy.push_back(A_work_panel(i, 0));
             tile_indices.push_back(i);
         }
         tile_offset += A.tileMb(i);
@@ -203,201 +158,201 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
         aux_pivot[0].resize(diag_len);
         aux_pivot[1].resize(diag_len);
 
-            #if 1
+        #if 0
             for (int i=0; i<A_work_panel.mt(); i++){
                 if (A.tileIsLocal(i, 0)){
                     if( A.mpiRank() == 0){
-                    std::cout<<"\n Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
-                    for(int m=0; m<A_work_panel.tileMb(i);m++){
-                        for(int n=0; n<A_work_panel.tileMb(i);n++){
-                           std::cout<<A_work_panel(i,0)(m,n)<<",";
+                        std::cout<<"\n Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
+                        for(int m=0; m<A_work_panel.tileMb(i);m++){
+                            for(int n=0; n<A_work_panel.tileMb(i);n++){
+                               std::cout<<A_work_panel(i,0)(m,n)<<",";
+                            }
+                            std::cout<<std::endl;
                         }
-                        std::cout<<std::endl;
-                    }
                    }
                 }
            }
-           #endif
-            //    std::vector< Tile<scalar_t> > tiles_copy(tiles_copy_poriginal.size());
-                /*for(int i=0; i<tiles_copy_poriginal.size();i++){
-                    tiles_copy_poriginal[i].copyData(&tiles_copy[i]);
-                }*/
-              //  std::copy(tiles_copy_poriginal.begin(), tiles_copy_poriginal.end(), back_inserter(tiles_copy));
-                // Factor the panel locally in parallel.
-                getrf_ca(A, tiles, diag_len, ib, 0,
-                       A.tileNb(0), tile_indices, aux_pivot,
-                      //bcast_rank, bcast_root, bcast_comm,
-                      self_rank, self_rank, MPI_COMM_SELF,
-                      max_panel_threads, priority);
+        #endif
+
+        // Factor the panel locally in parallel.
+        getrf_ca(A, tiles, diag_len, ib, 0,
+            A.tileNb(0), tile_indices, aux_pivot,
+            self_rank, max_panel_threads, priority);
 
 
-                internal::copy<Target::HostTask>( std::move(A), std::move(A_work_panel) );
+        internal::copy<Target::HostTask>( std::move(A), std::move(A_work_panel) );
 
 
-                std::vector< std::vector<std::pair<int, int64_t>> > global_tracking(tile_indices.size());
-                //global_tracking.reserve(tile_indices.size());
-                for (int i=0; i<tile_indices.size(); i++) {
-                      global_tracking[i].reserve(A.tileMb(0));
-                    for (int64_t j = 0; j < A.tileMb(0); ++j) {
-                         global_tracking[i].push_back({tile_indices[i], j});
+        std::vector< std::vector<std::pair<int, int64_t>> > global_tracking(tile_indices.size());
+
+        for (int i=0; i<tile_indices.size(); i++) {
+            global_tracking[i].reserve(A.tileMb(0));
+            for (int64_t j = 0; j < A.tileMb(0); ++j) {
+                global_tracking[i].push_back({tile_indices[i], j});
                        //  std::cout<<global_tracking[i][j].first<<", "<<global_tracking[i][j].second<<std::endl;
-                   }
-                 }
-
-                std::pair<int, int64_t> global_pair;
-                for(int j=0; j < diag_len ; ++j){
-                   if (aux_pivot[0][j].localTileIndex() > 0 ||
-                         aux_pivot[0][j].localOffset() > j){
-                    swapLocalRow(
-                        0, A.tileNb(0),
-                        tiles[0], j,
-                        tiles[aux_pivot[0][j].localTileIndex()],
-                        aux_pivot[0][j].localOffset());
-
-                        global_pair = global_tracking[0][j];
-                        global_tracking[0][j] = global_tracking[aux_pivot[0][j].localTileIndex()][aux_pivot[0][j].localOffset()];
-                        global_tracking[aux_pivot[0][j].localTileIndex()][aux_pivot[0][j].localOffset()]=g;
-               }
-               }
-               #if 0
-               if(A.mpiRank()==1){
-                 for (int i=0; i<tile_indices.size(); i++) {
-                    for (int64_t j = 0; j < A.tileMb(0); ++j) {
-                       std::cout<<global_tracking[i][j].first<<", "<<global_tracking[i][j].second<<std::endl;
-                   }
-                 }
-                 }
-                #endif
-
-              for(int j=0; j < diag_len ; ++j){
-                 aux_pivot[0][j].set_tileIndex(global_tracking[0][j].first);
-                 aux_pivot[0][j].set_elementOffset(global_tracking[0][j].second);
-                 }
-
-
-            #if 0
-            // Print pivot information from aux_pivot.
-            for (int64_t i = 0; i < diag_len; ++i) {
-                if(A.mpiRank()==3)
-                std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[0][i].tileIndex()<<","<<aux_pivot[0][i].elementOffset()<<", "<<aux_pivot[0][i].localTileIndex()<<std::endl;
+                }
             }
-            #endif
 
-            #if 0
-            for (int i=0; i<A.mt(); i++){
-                if (A.tileIsLocal(i, 0)){
+
+        std::pair<int, int64_t> global_pair;
+
+        for(int j=0; j < diag_len ; ++j){
+            if (aux_pivot[0][j].localTileIndex() > 0 ||
+                aux_pivot[0][j].localOffset() > j){
+
+                swapLocalRow(
+                    0, A.tileNb(0),
+                    tiles[0], j,
+                    tiles[aux_pivot[0][j].localTileIndex()],
+                    aux_pivot[0][j].localOffset());
+
+                    int index = aux_pivot[0][j].localTileIndex();
+                    int offset = aux_pivot[0][j].localOffset();
+
+                    global_pair = global_tracking[0][j];
+                    global_tracking[0][j] = global_tracking[index][offset];
+                    global_tracking[index][offset]=global_pair;
+            }
+        }
+
+
+        for(int j=0; j < diag_len ; ++j){
+            aux_pivot[0][j].set_tileIndex(global_tracking[0][j].first);
+            aux_pivot[0][j].set_elementOffset(global_tracking[0][j].second);
+        }
+
+
+        #if 0
+            if(A.mpiRank()==1){
+                for (int i=0; i<tile_indices.size(); i++) {
+                    for (int64_t j = 0; j < A.tileMb(0); ++j) {
+                        std::cout<<global_tracking[i][j].first<<", "<<global_tracking[i][j].second<<std::endl;
+                    }
+               }
+            }
+        #endif
+
+
+
+
+       #if 0
+           for (int i=0; i<A.mt(); i++){
+               if (A.tileIsLocal(i, 0)){
                    if( A.mpiRank() == 3 ){
-                     std::cout<<"\n After Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
-                     for(int m=0; m<A.tileMb(i);m++){
-                         for(int n=0; n<A.tileMb(i);n++){
-                            std::cout<<A_work_panel(i,0)(m,n)<<",";
-                         }
+                       std::cout<<"\n After Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
+                       for(int m=0; m<A.tileMb(i);m++){
+                           for(int n=0; n<A.tileMb(i);n++){
+                               std::cout<<A_work_panel(i,0)(m,n)<<",";
+                           }
                       std::cout<<std::endl;
                       }
                    }
-                 }
-           }
-         #endif
+              }
+          }
+        #endif
 
-         //Alocate workspace to copy tiles in the tree reduction.
-         //These tiles will only be used during factorization.
-         //The permoutations happen in the copy tiles of the work panel
-         //TODO::RABAB all nodes will allocate those two tiles,
-         //but only src nodes during tree reduction will use it
-         //TODO::RABAB I am not sure what is the overhead of moving this inside the for loop. Need testing.
+       //Alocate workspace to copy tiles in the tree reduction.
+       //These tiles will only be used during factorization.
+       //The permoutations happen in the copy tiles of the work panel
+       //TODO::RABAB all nodes will allocate those two tiles,
+       //but only src nodes during tree reduction will use it
+       //TODO::RABAB I am not sure what is the overhead of moving this inside the for loop. Need testing.
 
-         std::vector< Tile<scalar_t> > local_tiles;
-         std::vector<scalar_t> data1( A.tileMb(0) * A.tileNb(0) );
-         std::vector<scalar_t> data2( A.tileMb(0) * A.tileNb(0) );
+       std::vector< Tile<scalar_t> > local_tiles;
+       std::vector<scalar_t> data1( A.tileMb(0) * A.tileNb(0) );
+       std::vector<scalar_t> data2( A.tileMb(0) * A.tileNb(0) );
 
-         Tile<scalar_t> tile1( A.tileMb(0), A.tileNb(0),
-                              &data1[0], A.tileMb(0), A.hostNum(), TileKind::Workspace );
-         Tile<scalar_t> tile2( A.tileMb(0), A.tileNb(0),
-                              &data2[0], A.tileMb(0), A.hostNum(), TileKind::Workspace );
+       Tile<scalar_t> tile1( A.tileMb(0), A.tileNb(0),
+          &data1[0], A.tileMb(0), A.hostNum(), TileKind::Workspace );
+       Tile<scalar_t> tile2( A.tileMb(0), A.tileNb(0),
+          &data2[0], A.tileMb(0), A.hostNum(), TileKind::Workspace );
 
-         local_tiles.push_back( tile1 );
-         local_tiles.push_back( tile2 );
+       local_tiles.push_back( tile1 );
+       local_tiles.push_back( tile2 );
 
-         int step =1;
-         int src, dst;
-         int64_t i_src, i_dst, i_current;
-         for (int level = 0; level < nlevels; ++level){
+       int step =1;
+       int src, dst;
+       int64_t i_src, i_dst, i_current;
 
-                if(index % (2*step) == 0){
-                   if(index + step < nranks){
+       for (int level = 0; level < nlevels; ++level){
 
-                      src = rank_rows[ index + step].first;
-                      i_current = rank_rows[ index ].second;
-                      i_dst = (rank_rows[ index ].second) + 1;
+           if(index % (2*step) == 0){
+               if(index + step < nranks){
+                   src = rank_rows[ index + step].first;
+                   i_current = rank_rows[ index ].second;
+                   i_dst = (rank_rows[ index ].second) + 1;
 
-                 //     std::cout<<"Recv ("<<src<<", "<<rank_rows[index].first<<")"<< " In: " <<i_dst<<std::endl;
-                      A_work_panel.tileRecv(i_dst, 0, src, layout);
-                      MPI_Status status;
-                      MPI_Recv(aux_pivot.at(1).data(),
+                 //std::cout<<"Recv ("<<src<<", "<<rank_rows[index].first<<")"<< " In: " <<i_dst<<std::endl;
+
+                   A_work_panel.tileRecv(i_dst, 0, src, layout);
+
+                   MPI_Status status;
+                   MPI_Recv(aux_pivot.at(1).data(),
                                sizeof(AuxPivot<scalar_t>)*aux_pivot.at(1).size(),
                                MPI_BYTE, src, 0, A.mpiComm(),  &status);
 
 
-                       A_work_panel(i_current, 0).copyData( &local_tiles[0]);
-                       A_work_panel(i_dst, 0).copyData( &local_tiles[1]);
+                   A_work_panel(i_current, 0).copyData( &local_tiles[0]);
+                   A_work_panel(i_dst, 0).copyData( &local_tiles[1]);
 
 
             #if 0
-             if( (A.mpiRank()==0) ){
-                for (int64_t i = 0; i < diag_len; ++i) {
-                std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[0][i].tileIndex()
-                <<","<<aux_pivot[0][i].elementOffset()<<", "
-                <<aux_pivot[0][i].localTileIndex()
-                <<","<<aux_pivot[0][i].localOffset()<<std::endl;
-                }
+                if( (A.mpiRank()==0) ){
+                    for (int64_t i = 0; i < diag_len; ++i) {
+                        std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[0][i].tileIndex()
+                            <<","<<aux_pivot[0][i].elementOffset()<<", "
+                            <<aux_pivot[0][i].localTileIndex()
+                            <<","<<aux_pivot[0][i].localOffset()<<std::endl;
+                    }
 
-                for (int64_t i = 0; i < diag_len; ++i) {
-                std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[1][i].tileIndex()
-                <<","<<aux_pivot[1][i].elementOffset()<<", "
-                <<aux_pivot[1][i].localTileIndex()
-                <<","<<aux_pivot[1][i].localOffset()<<std::endl;
-                }
+                    for (int64_t i = 0; i < diag_len; ++i) {
+                        std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[1][i].tileIndex()
+                            <<","<<aux_pivot[1][i].elementOffset()<<", "
+                            <<aux_pivot[1][i].localTileIndex()
+                            <<","<<aux_pivot[1][i].localOffset()<<std::endl;
+                    }
                }
 
                if( A.mpiRank()==0 ){
-                for (int i=0; i< A.tileMb(0); i++){
-                    for (int j=0; j< A.tileNb(0); j++){
-                        std::cout<<local_tiles[0](i, j)<<", ";
-                     }
-                    std::cout<<std::endl;
-               }
-               std::cout<<std::endl;
+                   for (int i=0; i< A.tileMb(0); i++){
+                       for (int j=0; j< A.tileNb(0); j++){
+                           std::cout<<local_tiles[0](i, j)<<", ";
+                       }
+                      std::cout<<std::endl;
+                   }
 
-               for (int i=0; i< A.tileMb(0); i++){
-                    for (int j=0; j< A.tileNb(0); j++){
-                        std::cout<<local_tiles[1](i, j)<<", ";
-                     }
-                    std::cout<<std::endl;
-               }
-               std::cout<<std::endl;
-                }
+                   std::cout<<std::endl;
+
+                  for (int i=0; i< A.tileMb(0); i++){
+                      for (int j=0; j< A.tileNb(0); j++){
+                          std::cout<<local_tiles[1](i, j)<<", ";
+                      }
+                     std::cout<<std::endl;
+                  }
+                 std::cout<<std::endl;
+              }
             #endif
 
-                      // Factor the panel locally in parallel.
-                      getrf_ca(A, local_tiles, diag_len, ib, 1,
-                               A.tileNb(0), tile_indices, aux_pivot,
-                            self_rank, self_rank, MPI_COMM_SELF,
-                            max_panel_threads, priority);
+            // Factor the panel locally in parallel.
+            getrf_ca(A, local_tiles, diag_len, ib, 1,
+                     A.tileNb(0), tile_indices, aux_pivot,
+                     self_rank, max_panel_threads, priority);
 
-                std::vector< Tile<scalar_t> > ptiles;
-                ptiles.push_back(A_work_panel(i_current, 0));
-                ptiles.push_back(A_work_panel(i_dst, 0));
+            std::vector< Tile<scalar_t> > ptiles;
+            ptiles.push_back(A_work_panel(i_current, 0));
+            ptiles.push_back(A_work_panel(i_dst, 0));
 
-               int global, offset;
-                for(int j=0; j < diag_len ; ++j){
-                    if (aux_pivot[0][j].localTileIndex() > 0 ||
-                         aux_pivot[0][j].localOffset() > j){
+            //int global, offset;
+            for(int j=0; j < diag_len ; ++j){
+                if (aux_pivot[0][j].localTileIndex() > 0 ||
+                    aux_pivot[0][j].localOffset() > j){
+
                     swapLocalRow(
                         0, A.tileMb(0),
                         ptiles[0], j,
                         ptiles[aux_pivot[0][j].localTileIndex()],
                         aux_pivot[0][j].localOffset());
-                    }
+                }
 
                   /*      global = aux_pivot[0][j].tileIndex();
                         offset = aux_pivot[0][j].elementOffset();
@@ -408,66 +363,71 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                         aux_pivot[aux_pivot[0][j].localTileIndex()][aux_pivot[0][j].localOffset()].set_tileIndex(global);
                         aux_pivot[aux_pivot[0][j].localTileIndex()][aux_pivot[0][j].localOffset()].set_elementOffset(offset);
                     */
-               }
+            }
 
             #if 0
-             if( (A.mpiRank()==0) && level==nlevels-1 ){
-                for (int64_t i = 0; i < diag_len; ++i) {
-                std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[0][i].tileIndex()
-                <<","<<aux_pivot[0][i].elementOffset()<<", "
-                <<aux_pivot[0][i].localTileIndex()
-                <<","<<aux_pivot[0][i].localOffset()<<std::endl;
-                }
+               if( (A.mpiRank()==0) && level==nlevels-1 ){
+                   for (int64_t i = 0; i < diag_len; ++i) {
+                       std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[0][i].tileIndex()
+                           <<","<<aux_pivot[0][i].elementOffset()<<", "
+                           <<aux_pivot[0][i].localTileIndex()
+                           <<","<<aux_pivot[0][i].localOffset()<<std::endl;
+                   }
+
                /*
-                for (int64_t i = 0; i < diag_len; ++i) {
-                std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[1][i].tileIndex()
-                <<","<<aux_pivot[1][i].elementOffset()<<", "
-                <<aux_pivot[1][i].localTileIndex()
-                <<","<<aux_pivot[1][i].localOffset()<<std::endl;
-                }*/
+                    for (int64_t i = 0; i < diag_len; ++i) {
+                        std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[1][i].tileIndex()
+                            <<","<<aux_pivot[1][i].elementOffset()<<", "
+                            <<aux_pivot[1][i].localTileIndex()
+                            <<","<<aux_pivot[1][i].localOffset()<<std::endl;
+                    }
+                */
                }
 
                if( A.mpiRank()==0 && level==nlevels-1){
-                for (int i=0; i< A.tileMb(0); i++){
-                    for (int j=0; j< A.tileNb(0); j++){
-                        std::cout<<ptiles[0](i, j)<<", ";
-                     }
+                   for (int i=0; i< A.tileMb(0); i++){
+                       for (int j=0; j< A.tileNb(0); j++){
+                           std::cout<<ptiles[0](i, j)<<", ";
+                        }
                     std::cout<<std::endl;
-               }
+                   }
                std::cout<<std::endl;
 
-               for (int i=0; i< A.tileMb(0); i++){
-                    for (int j=0; j< A.tileNb(0); j++){
-                        std::cout<<ptiles[1](i, j)<<", ";
-                     }
+                   for (int i=0; i< A.tileMb(0); i++){
+                       for (int j=0; j< A.tileNb(0); j++){
+                           std::cout<<ptiles[1](i, j)<<", ";
+                       }
                     std::cout<<std::endl;
-               }
+                   }
                std::cout<<std::endl;
                 }
             #endif
-                      A_work_panel.tileTick(i_dst, 0);
-                   }
-                }else{
-                     dst = rank_rows[ index - step ].first;
-                     i_src = rank_rows[ index ].second;
-                     //std::cout<<"Send ("<<rank_rows[index].first<<", "<<dst<<")"<< " From: " <<i_src<<std::endl;
-                     A_work_panel.tileSend(i_src, 0, dst);
-                     MPI_Send(aux_pivot.at(0).data(),
+               A_work_panel.tileTick(i_dst, 0);
+
+              }
+            }
+            else{
+                dst = rank_rows[ index - step ].first;
+                i_src = rank_rows[ index ].second;
+                //std::cout<<"Send ("<<rank_rows[index].first<<", "<<dst<<")"<< " From: " <<i_src<<std::endl;
+
+                A_work_panel.tileSend(i_src, 0, dst);
+
+                MPI_Send(aux_pivot.at(0).data(),
                              sizeof(AuxPivot<scalar_t>)*aux_pivot.at(0).size(),
                              MPI_BYTE, dst, 0, A.mpiComm());
-                     break;
+                break;
                 }
           step *= 2;
         }// for loop over levels
 
-       //TODO RABAB: I need to broadcast pivot info
 
       // Copy pivot information from aux_pivot to pivot.
       for (int64_t i = 0; i < diag_len; ++i) {
           pivot[i] = Pivot(aux_pivot[0][i].tileIndex(),
                      aux_pivot[0][i].elementOffset());
           if(A.mpiRank()==0 )
-          std::cout<<aux_pivot[0][i].tileIndex()<<", "<< aux_pivot[0][i].elementOffset()<<std::endl;
+             std::cout<<aux_pivot[0][i].tileIndex()<<", "<< aux_pivot[0][i].elementOffset()<<std::endl;
       }
     }
 }

@@ -151,9 +151,6 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
         int nranks = rank_rows.size();
         int nlevels = int( ceil( log2( nranks ) ) );
 
-        int self_rank;
-        MPI_Comm_rank(MPI_COMM_SELF, &self_rank);
-
         std::vector< std::vector<AuxPivot<scalar_t>>> aux_pivot(2);
         aux_pivot[0].resize(diag_len);
         aux_pivot[1].resize(diag_len);
@@ -177,7 +174,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
         // Factor the panel locally in parallel.
         getrf_ca(A, tiles, diag_len, ib, 0,
             A.tileNb(0), tile_indices, aux_pivot,
-            self_rank, max_panel_threads, priority);
+            A.mpiRank(), max_panel_threads, priority);
 
 
         internal::copy<Target::HostTask>( std::move(A), std::move(A_work_panel) );
@@ -185,7 +182,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
 
         std::vector< std::vector<std::pair<int, int64_t>> > global_tracking(tile_indices.size());
 
-        for (int i=0; i<tile_indices.size(); i++) {
+        for (int i=0; i < int(tile_indices.size()); i++) {
             global_tracking[i].reserve(A.tileMb(0));
             for (int64_t j = 0; j < A.tileMb(0); ++j) {
                 global_tracking[i].push_back({tile_indices[i], j});
@@ -336,7 +333,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
             // Factor the panel locally in parallel.
             getrf_ca(A, local_tiles, diag_len, ib, 1,
                      A.tileNb(0), tile_indices, aux_pivot,
-                     self_rank, max_panel_threads, priority);
+                     A.mpiRank(), max_panel_threads, priority);
 
             std::vector< Tile<scalar_t> > ptiles;
             ptiles.push_back(A_work_panel(i_current, 0));

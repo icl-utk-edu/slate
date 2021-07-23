@@ -243,7 +243,8 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                        //  std::cout<<global_tracking[i][j].first<<", "<<global_tracking[i][j].second<<std::endl;
                    }
                  }
-                std::pair<int, int64_t> g;
+
+                std::pair<int, int64_t> global_pair;
                 for(int j=0; j < diag_len ; ++j){
                    if (aux_pivot[0][j].localTileIndex() > 0 ||
                          aux_pivot[0][j].localOffset() > j){
@@ -253,8 +254,8 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                         tiles[aux_pivot[0][j].localTileIndex()],
                         aux_pivot[0][j].localOffset());
 
-                        g=global_tracking[0][j];
-                        global_tracking[0][j]=global_tracking[aux_pivot[0][j].localTileIndex()][aux_pivot[0][j].localOffset()];
+                        global_pair = global_tracking[0][j];
+                        global_tracking[0][j] = global_tracking[aux_pivot[0][j].localTileIndex()][aux_pivot[0][j].localOffset()];
                         global_tracking[aux_pivot[0][j].localTileIndex()][aux_pivot[0][j].localOffset()]=g;
                }
                }
@@ -383,17 +384,6 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                             self_rank, self_rank, MPI_COMM_SELF,
                             max_panel_threads, priority);
 
-             if( (A.mpiRank()==0&&0)){
-                for (int64_t i = 0; i < diag_len; ++i) {
-                std::cout<<"\n"<<A.mpiRank()<<","<<aux_pivot[0][i].tileIndex()
-                <<","<<aux_pivot[0][i].elementOffset()<<", "
-                <<aux_pivot[0][i].localTileIndex()
-                <<","<<aux_pivot[0][i].localOffset()<<std::endl;
-                }}
-              //TODO::RABAB you can avoid this copy and permute A_work_panel
-              /*A_work_panel(i_current, 0).copyData( &local_tiles[0]);
-              A_work_panel(i_dst, 0).copyData( &local_tiles[1]);*/
-            //
                 std::vector< Tile<scalar_t> > ptiles;
                 ptiles.push_back(A_work_panel(i_current, 0));
                 ptiles.push_back(A_work_panel(i_dst, 0));

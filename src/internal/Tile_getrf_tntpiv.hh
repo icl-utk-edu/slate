@@ -230,33 +230,27 @@ void getrf_tntpiv(
                 }
                 //TODO::RABABAfter computing max value, index, and offset, search in the coressponing povit index with offset, then
                 //read global index and offset and swap it with j
-                if(stage==0){
-                aux_pivot[0][j] = AuxPivot<scalar_t>(tile_indices[max_index[0]],  //TODO::RABAB this should be the global index
-                                                                           //TODO::RABAB add as well the global offset
-                                              max_offset[0],
-                                              max_index[0],
-                                              max_offset[0],
-                                              max_value[0],
-                                              mpi_rank); //TODO
+                if ( stage == 0 ){
+
+                    aux_pivot[0][j] = AuxPivot<scalar_t>(tile_indices[max_index[0]],
+                                                        max_offset[0], max_index[0],
+                                                        max_offset[0], max_value[0],
+                                                        mpi_rank);
                 }else{
-                 /*aux_pivot[0][j] = AuxPivot<scalar_t>(tile_indices[max_index[0]],
-                                        max_offset[0],
-                                        max_index[0],
-                                        max_value[0],
-                                        mpi_rank); //TODO*/
-               int global_tile_index = aux_pivot[max_index[0]][max_offset[0]].tileIndex();
-               int global_Offset = aux_pivot[max_index[0]][max_offset[0]].elementOffset();
 
-                aux_pivot[max_index[0]][max_offset[0]] = aux_pivot[0][j];
-                //int global_tile_index = aux_pivot[0][j].tileIndex();
-                //int global_Offset = aux_pivot[0][j].elementOffset();
+                   int global_tile_index = aux_pivot[max_index[0]][max_offset[0]].tileIndex();
+                   int global_Offset = aux_pivot[max_index[0]][max_offset[0]].elementOffset();
 
-                aux_pivot[0][j] = AuxPivot<scalar_t>(global_tile_index,
-                                                     global_Offset,
-                                                     max_index[0],
-                                                     max_offset[0],
-                                                     max_value[0],
-                                                     mpi_rank); //TODO
+                    aux_pivot[max_index[0]][max_offset[0]] = aux_pivot[0][j];
+                    //int global_tile_index = aux_pivot[0][j].tileIndex();
+                    //int global_Offset = aux_pivot[0][j].elementOffset();
+
+                    aux_pivot[0][j] = AuxPivot<scalar_t>(global_tile_index,
+                                                        global_Offset,
+                                                        max_index[0],
+                                                        max_offset[0],
+                                                        max_value[0],
+                                                        mpi_rank); //TODO
                 }
 
                 // pivot swap
@@ -434,7 +428,6 @@ void getrf_tntpiv(
                      aux_pivot[0][i].localOffset() > i)
                  {
                     // local swap
-                  //std::cout<<"\n"<<aux_pivot[0][i].tileIndex()<<","<<aux_pivot[0][i].elementOffset()<<","<<aux_pivot[0][i].localTileIndex()<<std::endl;
                     swapLocalRow(0, k,
                                  tiles[0], i,
                                  tiles[aux_pivot[0][i].localTileIndex()],
@@ -443,7 +436,7 @@ void getrf_tntpiv(
             }
         }
     }
-//aux_pivot.at(0)=piv;
+
 }
 
 } // namespace internal

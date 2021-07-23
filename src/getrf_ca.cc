@@ -59,6 +59,9 @@ void getrf_ca(slate::internal::TargetType<target>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
+   // workspace
+    auto Awork = A.emptyLike();
+
     #pragma omp parallel
     #pragma omp master
     {
@@ -68,12 +71,15 @@ void getrf_ca(slate::internal::TargetType<target>,
             int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
             pivots.at(k).resize(diag_len);
 
+            auto Apanel = Awork.sub( k, A_mt-1, k, k );
+            Apanel.insertLocalTiles();
+
             // panel, high priority
             /*#pragma omp task depend(inout:column[k]) priority(priority_one)
             {*/
                 // factor A(k:mt-1, k)
                 internal::getrf_ca<Target::HostTask>(
-                    A.sub(k, A_mt-1, k, k), diag_len, ib,
+                    A.sub(k, A_mt-1, k, k),  std::move(Apanel), diag_len, ib,
                     pivots.at(k), max_panel_threads, priority_one);
 
                /* BcastList bcast_list_A;
@@ -100,7 +106,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                         pivots.at(k), target_layout, priority_zero, tag_kl1);
 
 
-            #if 0
+            #if 1
             for (int i=0; i<A.mt(); i++){
                 if (A.tileIsLocal(i, 0)){
                     if( A.mpiRank() == 0){
@@ -116,7 +122,24 @@ void getrf_ca(slate::internal::TargetType<target>,
            }
            #endif
 
-            //}
+           internal::copy<Target::HostTask>( Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
+
+           #if 1
+               for (int i=0; i<A.mt(); i++){
+                   if (A.tileIsLocal(i, 0)){
+                       if( A.mpiRank() == 0){
+                           std::cout<<"\n Factore Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
+                           for(int m=0; m<A.tileMb(i);m++){
+                               for(int n=0; n<A.tileMb(i);n++){
+                                   std::cout<<A(i,0)(m,n)<<",";
+                               }
+                               std::cout<<std::endl;
+                           }
+                       }
+                    }
+               }
+           #endif
+           //}
             // update lookahead column(s), high priority
             // Done on CPU, not target.
             /*for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {

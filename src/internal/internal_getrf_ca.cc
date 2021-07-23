@@ -14,6 +14,7 @@
 namespace slate {
 namespace internal {
 
+//TODO::RABAB, no need to pass A here
 template <typename scalar_t>
 void getrf_ca(
     Matrix<scalar_t>& A,
@@ -70,12 +71,13 @@ void getrf_ca(
 /// @ingroup gesv_internal
 ///
 template <Target target, typename scalar_t>
-void getrf_ca(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
+void getrf_ca(Matrix<scalar_t>&& A, Matrix<scalar_t>&& Awork,
+           int64_t diag_len, int64_t ib,
            std::vector<Pivot>& pivot,
            int max_panel_threads, int priority)
 {
     getrf_ca(internal::TargetType<target>(),
-          A, diag_len, ib, pivot, max_panel_threads, priority);
+          A, Awork, diag_len, ib, pivot, max_panel_threads, priority);
 }
 
 //------------------------------------------------------------------------------
@@ -84,7 +86,8 @@ void getrf_ca(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
 ///
 template <typename scalar_t>
 void getrf_ca(internal::TargetType<Target::HostTask>,
-           Matrix<scalar_t>& A, int64_t diag_len, int64_t ib,
+           Matrix<scalar_t>& A, Matrix<scalar_t>& Awork,
+           int64_t diag_len, int64_t ib,
            std::vector<Pivot>& pivot,
            int max_panel_threads, int priority)
 {
@@ -95,9 +98,9 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
 
     assert(A.nt() == 1);
 
-    slate::Matrix<scalar_t> A_work_panel = A.emptyLike();
-    A_work_panel.insertLocalTiles();
-    internal::copy<Target::HostTask>( std::move(A), std::move(A_work_panel) );
+    //slate::Matrix<scalar_t> Awork = A.emptyLike();
+    //Awork.insertLocalTiles();
+    internal::copy<Target::HostTask>( std::move(A), std::move(Awork) );
 
     // Move the panel to the host
     std::set<ij_tuple> A_tiles_set;
@@ -119,7 +122,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
     for (int64_t i = 0; i < A.mt(); ++i) {
         bcast_set.insert(A.tileRank(i, 0));
         if (A.tileIsLocal(i, 0)) {
-            tiles.push_back(A_work_panel(i, 0));
+            tiles.push_back(Awork(i, 0));
             tile_indices.push_back(i);
         }
         tile_offset += A.tileMb(i);
@@ -156,13 +159,13 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
         aux_pivot[1].resize(diag_len);
 
         #if 0
-            for (int i=0; i<A_work_panel.mt(); i++){
+            for (int i=0; i<Awork.mt(); i++){
                 if (A.tileIsLocal(i, 0)){
                     if( A.mpiRank() == 0){
                         std::cout<<"\n Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
-                        for(int m=0; m<A_work_panel.tileMb(i);m++){
-                            for(int n=0; n<A_work_panel.tileMb(i);n++){
-                               std::cout<<A_work_panel(i,0)(m,n)<<",";
+                        for(int m=0; m<Awork.tileMb(i);m++){
+                            for(int n=0; n<Awork.tileMb(i);n++){
+                               std::cout<<Awork(i,0)(m,n)<<",";
                             }
                             std::cout<<std::endl;
                         }
@@ -176,8 +179,9 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
             A.tileNb(0), tile_indices, aux_pivot,
             A.mpiRank(), max_panel_threads, priority);
 
-
-        internal::copy<Target::HostTask>( std::move(A), std::move(A_work_panel) );
+        //TODO::RABAB pay attention when you are doing CALU for large matrix with will give wrong results
+        //because we will get the orignial tile not the permuted one.
+        internal::copy<Target::HostTask>( std::move(A), std::move(Awork) );
 
 
         std::vector< std::vector<std::pair<int, int64_t>> > global_tracking(tile_indices.size());
@@ -239,7 +243,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                        std::cout<<"\n After Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
                        for(int m=0; m<A.tileMb(i);m++){
                            for(int n=0; n<A.tileMb(i);n++){
-                               std::cout<<A_work_panel(i,0)(m,n)<<",";
+                               std::cout<<Awork(i,0)(m,n)<<",";
                            }
                       std::cout<<std::endl;
                       }
@@ -281,7 +285,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
 
                  //std::cout<<"Recv ("<<src<<", "<<rank_rows[index].first<<")"<< " In: " <<i_dst<<std::endl;
 
-                   A_work_panel.tileRecv(i_dst, 0, src, layout);
+                   Awork.tileRecv(i_dst, 0, src, layout);
 
                    MPI_Status status;
                    MPI_Recv(aux_pivot.at(1).data(),
@@ -289,8 +293,8 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                                MPI_BYTE, src, 0, A.mpiComm(),  &status);
 
 
-                   A_work_panel(i_current, 0).copyData( &local_tiles[0]);
-                   A_work_panel(i_dst, 0).copyData( &local_tiles[1]);
+                   Awork(i_current, 0).copyData( &local_tiles[0]);
+                   Awork(i_dst, 0).copyData( &local_tiles[1]);
 
 
             #if 0
@@ -336,8 +340,8 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                      A.mpiRank(), max_panel_threads, priority);
 
             std::vector< Tile<scalar_t> > ptiles;
-            ptiles.push_back(A_work_panel(i_current, 0));
-            ptiles.push_back(A_work_panel(i_dst, 0));
+            ptiles.push_back(Awork(i_current, 0));
+            ptiles.push_back(Awork(i_dst, 0));
 
             //int global, offset;
             for(int j=0; j < diag_len ; ++j){
@@ -399,7 +403,13 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                std::cout<<std::endl;
                 }
             #endif
-               A_work_panel.tileTick(i_dst, 0);
+               if(level==nlevels-1){
+
+                   //Copy the last factorization back to panel tile
+                 local_tiles[0].copyData(&ptiles[0]);
+
+               }
+               Awork.tileTick(i_dst, 0);
 
               }
             }
@@ -408,7 +418,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                 i_src = rank_rows[ index ].second;
                 //std::cout<<"Send ("<<rank_rows[index].first<<", "<<dst<<")"<< " From: " <<i_src<<std::endl;
 
-                A_work_panel.tileSend(i_src, 0, dst);
+                Awork.tileSend(i_src, 0, dst);
 
                 MPI_Send(aux_pivot.at(0).data(),
                              sizeof(AuxPivot<scalar_t>)*aux_pivot.at(0).size(),
@@ -434,28 +444,32 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
 // ----------------------------------------
 template
 void getrf_ca<Target::HostTask, float>(
-    Matrix<float>&& A, int64_t diag_len, int64_t ib,
+    Matrix<float>&& A, Matrix<float>&& Awork,
+    int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
 
 // ----------------------------------------
 template
 void getrf_ca<Target::HostTask, double>(
-    Matrix<double>&& A, int64_t diag_len, int64_t ib,
+    Matrix<double>&& A, Matrix<double>&& Awork,
+    int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
 
 // ----------------------------------------
 template
 void getrf_ca< Target::HostTask, std::complex<float> >(
-    Matrix< std::complex<float> >&& A, int64_t diag_len, int64_t ib,
+    Matrix< std::complex<float> >&& A, Matrix< std::complex<float> >&& Awork,
+    int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
 
 // ----------------------------------------
 template
 void getrf_ca< Target::HostTask, std::complex<double> >(
-    Matrix< std::complex<double> >&& A, int64_t diag_len, int64_t ib,
+    Matrix< std::complex<double> >&& A, Matrix< std::complex<double> >&& Awork,
+    int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
 

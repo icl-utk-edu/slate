@@ -94,7 +94,8 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void scale(
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, BaseTrapezoidMatrix<scalar_t>&& A,
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    BaseTrapezoidMatrix<scalar_t>&& A,
     int priority, int queue_index)
 {
     scale(internal::TargetType<target>(),
@@ -110,7 +111,8 @@ void scale(
 template <typename scalar_t>
 void scale(
     internal::TargetType<Target::HostTask>,
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom, BaseTrapezoidMatrix<scalar_t>& A,
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    BaseTrapezoidMatrix<scalar_t>& A,
     int priority, int queue_index)
 {
     // trace::Block trace_block("set");

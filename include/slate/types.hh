@@ -159,6 +159,46 @@ struct is_complex< std::complex<T> >:
     using enable_if_t = typename std::enable_if<B, T>::type;
 #endif
 
+//------------------------------------------------------------------------------
+/// Extracts an option.
+///
+/// @param[in] opt
+///     Map of options and values.
+///
+///  @param[in] option
+///     Option to get.
+///
+///  @param [in] defval
+///     Default option value if option is not found in map.
+///
+template <typename T>
+T get_option( Options opts, Option option, T defval )
+{
+    T retval;
+    auto search = opts.find( option );
+    if (search != opts.end())
+        retval = T(search->second.i_);
+    else
+        retval = defval;
+
+    return retval;
+}
+
+//----------------------------
+/// Specialization for double.
+template <>
+inline double get_option<double>( Options opts, Option option, double defval )
+{
+    double retval;
+    auto search = opts.find( option );
+    if (search != opts.end())
+        retval = search->second.d_;
+    else
+        retval = defval;
+
+    return retval;
+}
+
 } // namespace slate
 
 #endif // SLATE_TYPES_HH

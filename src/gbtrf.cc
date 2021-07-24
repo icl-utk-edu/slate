@@ -213,20 +213,12 @@ template <Target target, typename scalar_t>
 void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
            Options const& opts)
 {
-    int64_t lookahead = 1;
-    if (opts.count(Option::Lookahead) > 0) {
-        lookahead = opts.at(Option::Lookahead).i_;
-    }
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
-    int64_t ib = 16;
-    if (opts.count(Option::InnerBlocking) > 0) {
-        ib = opts.at(Option::InnerBlocking).i_;
-    }
+    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
 
-    int64_t max_panel_threads = std::max(omp_get_max_threads()/2, 1);
-    if (opts.count(Option::MaxPanelThreads) > 0) {
-        max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
-    }
+    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
+    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
 
     internal::specialization::gbtrf(internal::TargetType<target>(),
                                     A, pivots,
@@ -293,10 +285,7 @@ template <typename scalar_t>
 void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
            Options const& opts)
 {
-    Target target = Target::HostTask;
-    if (opts.count(Option::Target) > 0) {
-        target = Target(opts.at(Option::Target).i_);
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:

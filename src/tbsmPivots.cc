@@ -325,14 +325,7 @@ void tbsm(blas::Side side,
                         Matrix<scalar_t>& B,
           Options const& opts)
 {
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range&) {
-        lookahead = 1;
-    }
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     internal::specialization::tbsm(internal::TargetType<target>(),
                                    side,
@@ -404,13 +397,7 @@ void tbsm(blas::Side side,
                         Matrix<scalar_t>& B,
           Options const& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:

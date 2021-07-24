@@ -300,7 +300,7 @@ void henorm(
     int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue)
+    blas::Queue& queue)
 {
     using real_t = blas::real_type<scalar_t>;
     int64_t nb = 512;
@@ -358,7 +358,7 @@ void henorm(
     int64_t n,
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue& queue);
 
 template
 void henorm(
@@ -366,7 +366,7 @@ void henorm(
     int64_t n,
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue& queue);
 
 template
 void henorm(
@@ -374,7 +374,7 @@ void henorm(
     int64_t n,
     cuFloatComplex const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue& queue);
 
 template
 void henorm(
@@ -382,7 +382,7 @@ void henorm(
     int64_t n,
     cuDoubleComplex const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue& queue);
 
 } // namespace device
 } // namespace slate

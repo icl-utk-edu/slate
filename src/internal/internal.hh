@@ -104,16 +104,17 @@ void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           int priority=0, int queue_index=0);
 
 //-----------------------------------------
-//scale()
+// scale()
 template <Target target=Target::HostTask, typename scalar_t>
 void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
-         Matrix<scalar_t>&& A,
-         int priority=0, int queue_index=0);
+           Matrix<scalar_t>&& A,
+           int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
 void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
-         BaseTrapezoidMatrix<scalar_t>&& A,
-         int priority=0, int queue_index=0);
+           BaseTrapezoidMatrix<scalar_t>&& A,
+           int priority=0, int queue_index=0);
+
 //-----------------------------------------
 //
 // set()

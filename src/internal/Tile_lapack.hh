@@ -367,33 +367,32 @@ template<typename scalar_t>
 int64_t scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
               Tile<scalar_t>& A)
 {
-
     trace::Block trace_block("lapack::lascl");
     //TODO lower and upper bandwidth values
     return lapack::lascl((lapack::MatrixType)A.uploPhysical(),
                          0, 0, denom, numer, A.mb(), A.nb(),
                          A.data(), A.stride());
 }
+
 //------------------------------------------------------------------------------
 /// Converts rvalue refs to lvalue refs.
-/// @ingroup tr_tile
+/// @ingroup scale_tile
 ///
 template<typename scalar_t>
 int64_t scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
               Tile<scalar_t>&& A)
 {
-
-
     return scale(numer, denom, A);
 }
+
 //------------------------------------------------------------------------------
 /// Scale matrix entries by the real scalar numer/denom.
 /// uplo is set in the tile.
 /// @ingroup scale_tile
 ///
 template<typename scalar_t>
-int64_t scale(scalar_t value, Tile<scalar_t>& A){
-
+int64_t scale(scalar_t value, Tile<scalar_t>& A)
+{
     trace::Block trace_block("lapack::lascl");
 
     scalar_t one = 1;
@@ -404,13 +403,11 @@ int64_t scale(scalar_t value, Tile<scalar_t>& A){
 }
 //------------------------------------------------------------------------------
 /// Converts rvalue refs to lvalue refs.
-/// @ingroup tr_tile
+/// @ingroup scale_tile
 ///
 template<typename scalar_t>
-int64_t scale(scalar_t value, Tile<scalar_t>&& A){
-
-    scalar_t one = 1;
-
+int64_t scale(scalar_t value, Tile<scalar_t>&& A)
+{
     return scale(value, A);
 }
 

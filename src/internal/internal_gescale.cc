@@ -20,19 +20,19 @@ void gescale(
     int64_t m, int64_t n,
     float numer, float denom,
     std::complex<float>** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue &queue)
+    int64_t batch_count, blas::Queue& queue)
 {
 #if ! defined(SLATE_NO_CUDA)
     gescale(m, n,
-          numer, denom,
-          (cuFloatComplex**) Aarray, lda,
-          batch_count, queue);
+            numer, denom,
+            (cuFloatComplex**) Aarray, lda,
+            batch_count, queue);
 
 #elif ! defined(SLATE_NO_HIP)
     gescale(m, n,
-          numer, denom,
-          (hipFloatComplex**) Aarray, lda,
-          batch_count, queue);
+            numer, denom,
+            (hipFloatComplex**) Aarray, lda,
+            batch_count, queue);
 #endif
 }
 
@@ -41,19 +41,19 @@ void gescale(
     int64_t m, int64_t n,
     double numer, double denom,
     std::complex<double>** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue &queue)
+    int64_t batch_count, blas::Queue& queue)
 {
 #if ! defined(SLATE_NO_CUDA)
     gescale(m, n,
-          numer, denom,
-          (cuDoubleComplex**) Aarray, lda,
-          batch_count, queue);
+            numer, denom,
+            (cuDoubleComplex**) Aarray, lda,
+            batch_count, queue);
 
 #elif ! defined(SLATE_NO_HIP)
     gescale(m, n,
-          numer, denom,
-          (hipDoubleComplex**) Aarray, lda,
-          batch_count, queue);
+            numer, denom,
+            (hipDoubleComplex**) Aarray, lda,
+            batch_count, queue);
 #endif
 }
 
@@ -64,7 +64,7 @@ void gescale(
     int64_t m, int64_t n,
     double numer, double denom,
     double** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue &queue)
+    int64_t batch_count, blas::Queue& queue)
 {
 }
 
@@ -73,7 +73,7 @@ void gescale(
     int64_t m, int64_t n,
     float numer, float denom,
     float** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue &queue)
+    int64_t batch_count, blas::Queue& queue)
 {
 }
 #endif // not SLATE_WITH_CUDA
@@ -93,7 +93,7 @@ void scale(
     Matrix<scalar_t>&& A, int priority, int queue_index)
 {
     scale(internal::TargetType<target>(),
-        numer, denom, A, priority, queue_index);
+          numer, denom, A, priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -128,8 +128,8 @@ void scale(
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void scale(internal::TargetType<Target::HostNest>,
-         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
-         Matrix<scalar_t>& A, int priority, int queue_index)
+           blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+           Matrix<scalar_t>& A, int priority, int queue_index)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
@@ -137,8 +137,8 @@ void scale(internal::TargetType<Target::HostNest>,
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void scale(internal::TargetType<Target::HostBatch>,
-         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
-         Matrix<scalar_t>& A, int priority, int queue_index)
+           blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+           Matrix<scalar_t>& A, int priority, int queue_index)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
@@ -151,8 +151,8 @@ void scale(internal::TargetType<Target::HostBatch>,
 ///
 template <typename scalar_t>
 void scale(internal::TargetType<Target::Devices>,
-         blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
-         Matrix<scalar_t>& A, int priority, int queue_index)
+           blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+           Matrix<scalar_t>& A, int priority, int queue_index)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
@@ -200,10 +200,10 @@ void scale(internal::TargetType<Target::Devices>,
                 for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
-                                a_array_host[batch_count] = A(i, j, device).data();
-                                lda[q] = A(i, j, device).stride();
-                                ++group_count[q];
-                                ++batch_count;
+                            a_array_host[batch_count] = A(i, j, device).data();
+                            lda[q] = A(i, j, device).stride();
+                            ++group_count[q];
+                            ++batch_count;
                         }
                     }
                 }
@@ -220,8 +220,8 @@ void scale(internal::TargetType<Target::Devices>,
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
                     device::gescale(mb[q], nb[q],
-                                  numer, denom, a_array_dev, lda[q],
-                                  group_count[q], *queue);
+                                    numer, denom, a_array_dev, lda[q],
+                                    group_count[q], *queue);
                     a_array_dev += group_count[q];
                 }
             }

@@ -151,7 +151,7 @@ void test_scale_work(Params& params, bool run)
             slate_assert(info == 0);
 
             if (origin != slate::Origin::ScaLAPACK) {
-               //todo: the copy needs to be fixed for transpose case.
+                // todo: the copy needs to be fixed for transpose case.
                 copy(A, &A_data[0], A_desc);
             }
             real_t A_norm = slate::norm(slate::Norm::One, A);

@@ -436,6 +436,9 @@ libslate_src += \
         src/internal/internal_unmlq.cc \
         src/internal/internal_util.cc \
         src/internal/internal_hegst.cc \
+        src/internal/internal_gescale.cc \
+        src/internal/internal_tzscale.cc \
+
 
 # device
 ifeq ($(cuda),1)
@@ -449,6 +452,8 @@ ifeq ($(cuda),1)
             src/cuda/device_transpose.cu \
             src/cuda/device_trnorm.cu \
             src/cuda/device_tzcopy.cu \
+            src/cuda/device_gescale.cu \
+            src/cuda/device_tzscale.cu \
 
 endif
 
@@ -463,6 +468,8 @@ ifeq ($(hip),1)
             src/hip/device_transpose.hip.cc \
             src/hip/device_trnorm.hip.cc \
             src/hip/device_tzcopy.hip.cc \
+            src/hip/device_gescale.hip.cc \
+            src/hip/device_tzscale.hip.cc \
 
     hip_src = \
         $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(wildcard src/cuda/*.cu))
@@ -534,6 +541,7 @@ libslate_src += \
         src/unmqr.cc \
         src/unmlq.cc \
         src/hegst.cc \
+        src/scale.cc \
 
 ifneq ($(have_fortran),)
     libslate_src += \
@@ -608,6 +616,7 @@ tester_src += \
         test/test_hegst.cc \
         test/matrix_generator.cc \
         test/matrix_params.cc \
+        test/test_scale.cc \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.

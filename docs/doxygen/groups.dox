@@ -173,6 +173,7 @@
         @defgroup group_blas2_specialization  Target implementations
         @{
             @defgroup set_specialization    set
+            @defgroup scale_specialization  scale
             @defgroup copy_specialization   copy
             @defgroup geadd_specialization  geadd
         @}
@@ -181,7 +182,7 @@
         @brief    Internal routines implement one step of BLAS routine
         @{
             @defgroup set_internal          set
-
+            @defgroup scale_internal        scale
             @defgroup copy_internal         copy
             @defgroup geadd_internal        geadd
         @}

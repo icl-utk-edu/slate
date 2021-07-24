@@ -40,6 +40,41 @@ void copy(
     src_matrix_type& A,
     dst_matrix_type& B,
     Options const& opts = Options());
+//-----------------------------------------
+// scale()
+template <typename scalar_t>
+void scale(
+    blas::real_type<scalar_t> numer,
+    blas::real_type<scalar_t> denom,
+    Matrix<scalar_t>& A,
+    Options const& opts = Options());
+
+template <typename scalar_t>
+void scale(
+    scalar_t value,
+    Matrix<scalar_t>& A,
+    Options const& opts = Options())
+{
+    scalar_t one = 1;
+    scale(value, one, A, opts);
+}
+
+template <typename scalar_t>
+void scale(
+    blas::real_type<scalar_t> numer,
+    blas::real_type<scalar_t> denom,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts = Options());
+
+template <typename scalar_t>
+void scale(
+    scalar_t value,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts = Options())
+{
+    scalar_t one = 1;
+    scale(value, one, A, opts);
+}
 
 //-----------------------------------------
 // set()

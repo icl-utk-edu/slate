@@ -215,7 +215,7 @@ void test_gbmm_work(Params& params, bool run)
         slate::multiply( alpha, A, B, beta, Cref, opts );
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // get differences Cref = Cref - C
-        slate::geadd( -one, C, one, Cref );
+        slate::add( -one, C, one, Cref );
         real_t C_diff_norm = slate::norm( norm, Cref ); // norm of residual
 
         real_t error = C_diff_norm

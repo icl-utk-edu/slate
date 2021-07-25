@@ -163,7 +163,7 @@ void posvMixed( slate::internal::TargetType<target>,
         // Convert X_lo back to double precision and update the current iterate.
         copy(X_lo, R,
              {{Option::Target, target}});
-        geadd<scalar_hi>(
+        add<scalar_hi>(
               scalar_hi(1.0), R,
               scalar_hi(1.0), X,
               {{Option::Target, target}});

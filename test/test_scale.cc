@@ -181,7 +181,7 @@ void test_scale_work(Params& params, bool run)
 
 
             // get differences A = A - Aref
-            slate::geadd(-one, Aref, one, A);
+            slate::add(-one, Aref, one, A);
 
 
             if (verbose >= 2)

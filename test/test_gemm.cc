@@ -281,7 +281,7 @@ void test_gemm_work(Params& params, bool run)
                 print_matrix("Cref2", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
 
             // get differences C = C - Cref
-            slate::geadd(-one, Cref, one, C);
+            slate::add(-one, Cref, one, C);
 
             if (verbose >= 2)
                 print_matrix("Diff", C);

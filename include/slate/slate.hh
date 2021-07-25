@@ -114,13 +114,18 @@ void set(
 // Level 3 BLAS and LAPACK auxiliary
 
 //-----------------------------------------
-// geadd()
+// add()
 template <typename scalar_t>
-void geadd(
+void add(
     scalar_t alpha, Matrix<scalar_t>& A,
     scalar_t beta,  Matrix<scalar_t>& B,
     Options const& opts = Options());
 
+template <typename scalar_t>
+void add(
+     scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
+     scalar_t beta,  BaseTrapezoidMatrix<scalar_t>& B,
+     Options const& opts = Options());
 //-----------------------------------------
 // gbmm()
 template <typename scalar_t>

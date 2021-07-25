@@ -220,7 +220,7 @@ void unmqr(internal::TargetType<target>,
                      std::move(Wr));
 
         // C0 <- C0 - W
-        internal::geadd<target>(
+        internal::add<target>(
                 -one, std::move(Wr),
                 one,  std::move(C0));
 
@@ -392,7 +392,7 @@ void unmqr(internal::TargetType<target>,
                      std::move(Wc));
 
         // C0 <- C0 - W
-        internal::geadd<target>(
+        internal::add<target>(
                 -one, std::move(Wc),
                 one,  std::move(C0));
 

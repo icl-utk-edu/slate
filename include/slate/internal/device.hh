@@ -80,6 +80,15 @@ void geadd(
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
+void tzadd(
+     Uplo uplo,
+     int64_t m, int64_t n,
+     scalar_t alpha, scalar_t** Aarray, int64_t lda,
+     scalar_t beta, scalar_t** Barray, int64_t ldb,
+     int64_t batch_count, blas::Queue& queue);
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
 void gescale(
     int64_t m, int64_t n,
     blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,

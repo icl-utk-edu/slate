@@ -457,7 +457,7 @@ void permuteRows(
 ///     The communication for the jth tile column of A uses the MPI tag tag_base+j
 ///
 /// @param[in] queue_index
-///     For Target::Devices, which blaspp queue to use
+///     For Target::Devices, which BLAS++ queue to use
 ///
 /// @ingroup permute_internal
 ///

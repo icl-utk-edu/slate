@@ -438,7 +438,7 @@ libslate_src += \
         src/internal/internal_hegst.cc \
         src/internal/internal_gescale.cc \
         src/internal/internal_tzscale.cc \
-		src/internal/internal_tzadd.cc \
+        src/internal/internal_tzadd.cc \
 
 
 # device
@@ -455,7 +455,7 @@ ifeq ($(cuda),1)
             src/cuda/device_tzcopy.cu \
             src/cuda/device_gescale.cu \
             src/cuda/device_tzscale.cu \
-			src/cuda/device_tzadd.cu \
+            src/cuda/device_tzadd.cu \
 
 endif
 
@@ -472,7 +472,7 @@ ifeq ($(hip),1)
             src/hip/device_tzcopy.hip.cc \
             src/hip/device_gescale.hip.cc \
             src/hip/device_tzscale.hip.cc \
-			src/hip/device_tzadd.hip.cc \
+            src/hip/device_tzadd.hip.cc \
 
     hip_src = \
         $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(wildcard src/cuda/*.cu))
@@ -544,7 +544,7 @@ libslate_src += \
         src/unmlq.cc \
         src/hegst.cc \
         src/scale.cc \
-		src/add.cc \
+        src/add.cc \
 
 ifneq ($(have_fortran),)
     libslate_src += \

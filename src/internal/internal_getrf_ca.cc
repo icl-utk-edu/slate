@@ -173,14 +173,13 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                 }
            }
         #endif
-
         // Factor the panel locally in parallel.
         getrf_ca(A, tiles, diag_len, ib, 0,
             A.tileNb(0), tile_indices, aux_pivot,
             A.mpiRank(), max_panel_threads, priority);
 
-        //TODO::RABAB pay attention when you are doing CALU for large matrix with will give wrong results
-        //because we will get the orignial tile not the permuted one.
+       if(nranks>1){
+
         internal::copy<Target::HostTask>( std::move(A), std::move(Awork) );
 
 
@@ -428,7 +427,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
           step *= 2;
         }// for loop over levels
 
-
+       }
       // Copy pivot information from aux_pivot to pivot.
       for (int64_t i = 0; i < diag_len; ++i) {
           pivot[i] = Pivot(aux_pivot[0][i].tileIndex(),

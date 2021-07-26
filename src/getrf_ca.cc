@@ -30,6 +30,7 @@ void getrf_ca(slate::internal::TargetType<target>,
 {
     // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
+    using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
     // Host can use Col/RowMajor for row swapping,
     // RowMajor is slightly more efficient.
@@ -53,11 +54,19 @@ void getrf_ca(slate::internal::TargetType<target>,
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
+    int life_factor_one = 1;
+    bool is_shared = lookahead > 0; //TODO::RABAB
     pivots.resize(min_mt_nt);
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
+    std::vector< uint8_t > diag_vector(A_nt);
     uint8_t* column = column_vector.data();
+    uint8_t* diag = diag_vector.data();
+    // Running two listBcastMT's simultaneously can hang due to task ordering
+    // This dependency avoids that
+    uint8_t listBcastMT_token;
+    SLATE_UNUSED(listBcastMT_token); // Only used by OpenMP
 
    // workspace
     auto Awork = A.emptyLike();
@@ -75,20 +84,14 @@ void getrf_ca(slate::internal::TargetType<target>,
             Apanel.insertLocalTiles();
 
             // panel, high priority
-            /*#pragma omp task depend(inout:column[k]) priority(priority_one)
-            {*/
+            #pragma omp task depend(inout:column[k]) \
+                             depend(out:diag[k]) \
+                             priority(priority_one)
+            {
                 // factor A(k:mt-1, k)
                 internal::getrf_ca<Target::HostTask>(
                     A.sub(k, A_mt-1, k, k),  std::move(Apanel), diag_len, ib,
                     pivots.at(k), max_panel_threads, priority_one);
-
-               /* BcastList bcast_list_A;
-                int tag_k = k;
-                for (int64_t i = k; i < A_mt; ++i) {
-                    // send A(i, k) across row A(i, k+1:nt-1)
-                    bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
-                }
-                A.template listBcast(bcast_list_A, Layout::ColMajor, tag_k);*/
 
                 // Root broadcasts the pivot to all ranks.
                 // todo: Panel ranks send the pivots to the right.
@@ -100,13 +103,13 @@ void getrf_ca(slate::internal::TargetType<target>,
                               MPI_BYTE, A.tileRank(k, k), A.mpiComm());
                 }
 
-                    int tag_kl1 = k+1+lookahead;
+                    int tag_kl1 = k+1;//+lookahead;
                     internal::permuteRows<Target::HostTask>(
                         Direction::Forward, A.sub(k, A_mt-1, k, A_nt-1),
                         pivots.at(k), target_layout, priority_zero, tag_kl1);
 
 
-            #if 1
+            #if 0
             for (int i=0; i<A.mt(); i++){
                 if (A.tileIsLocal(i, 0)){
                     if( A.mpiRank() == 0){
@@ -124,7 +127,7 @@ void getrf_ca(slate::internal::TargetType<target>,
 
            internal::copy<Target::HostTask>( Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
 
-           #if 1
+           #if 0
                for (int i=0; i<A.mt(); i++){
                    if (A.tileIsLocal(i, 0)){
                        if( A.mpiRank() == 0){
@@ -139,87 +142,123 @@ void getrf_ca(slate::internal::TargetType<target>,
                     }
                }
            #endif
-           //}
-            // update lookahead column(s), high priority
-            // Done on CPU, not target.
-            /*for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
-                #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[j]) priority(priority_one)
-                {
-                    // swap rows in A(k:mt-1, j)
-                    int tag_j = j;
-                    internal::permuteRows<Target::HostTask>(
-                        Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
-                        host_layout, priority_one, tag_j);
 
+           //Update panel
+           int tag_k = k;
+           BcastList bcast_list_A;
+           bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
+                                          A.sub(k, k, k+1, A_nt-1)}});
+           A.template listBcast<target>(
+                bcast_list_A, host_layout, tag_k, life_factor_one, true);
+           Apanel.clear();
+           }
+
+           #pragma omp task depend(inout:column[k]) \
+                            depend(in:diag[k]) \
+                            depend(inout:listBcastMT_token) \
+                            priority(priority_one)
+           {
+               auto Akk = A.sub(k, k, k, k);
+               auto Tkk = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Akk);
+
+               internal::trsm<target>(
+                       Side::Right,
+                       scalar_t(1.0), std::move(Tkk),
+                       A.sub(k+1, A_mt-1, k, k),
+                       priority_one, Layout::ColMajor, 0);
+
+               BcastListTag bcast_list;
+               // bcast the tiles of the panel to the right hand side
+               for (int64_t i = k+1; i < A_mt; ++i) {
+                   // send A(i, k) across row A(i, k+1:nt-1)
+                   const int64_t tag = i;
+                   bcast_list.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}, tag});
+               }
+               A.template listBcastMT<target>(
+                 bcast_list, Layout::ColMajor, life_factor_one, is_shared);
+
+           #if 1
+               for (int i=0; i<A.mt(); i++){
+                   if (A.tileIsLocal(i, 0)){
+                       if( A.mpiRank() == 3){
+                           std::cout<<"\n Factore Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
+                           for(int m=0; m<A.tileMb(i);m++){
+                               for(int n=0; n<A.tileMb(i);n++){
+                                   std::cout<<A(i,0)(m,n)<<",";
+                               }
+                               std::cout<<std::endl;
+                           }
+                       }
+                   }
+               }
+            #endif
+           }
+
+            // update lookahead column(s), high priority
+            for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
+                #pragma omp task depend(in:diag[k]) \
+                                 depend(inout:column[j]) \
+                                 priority(priority_one)
+                {
+                    int tag_j = j;
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
                         TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
 
                     // solve A(k, k) A(k, j) = A(k, j)
-                    internal::trsm<Target::HostTask>(
+                    internal::trsm<target>(
                         Side::Left,
                         scalar_t(1.0), std::move(Tkk),
-                                       A.sub(k, k, j, j), priority_one);
+                        A.sub(k, k, j, j), priority_one,
+                        Layout::ColMajor, j-k+1);
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
                     A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), Layout::ColMajor, tag_j);
-
-                    // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
-                    internal::gemm<Target::HostTask>(
-                        scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
-                                        A.sub(k, k, j, j),
-                        scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
-                        host_layout, priority_one);
                 }
-            }*/
-            // pivot to the left, high priority
-            // if (k > 0) {
-            //     #pragma omp task depend(in:column[k])
-            //                      depend(inout:column[0])
-            //                      depend(inout:column[k-1])
-            //     {
-            //         // swap rows in A(k:mt-1, 0:k-1)
-            //         int priority_one = 1;
-            //         int tag_km1 = k-1;
-            //         internal::permuteRows<Target::HostTask>(
-            //             Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
-            //             priority_one, tag_km1);
-            //     }
-            // }
-            // update trailing submatrix, normal priority
-            /*if (k+1+lookahead < A_nt) {
+
                 #pragma omp task depend(in:column[k]) \
+                                 depend(inout:column[j]) \
+                                 priority(priority_one)
+                {
+                    // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
+                    internal::gemm<target>(
+                            scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
+                                            A.sub(k, k, j, j),
+                            scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
+                            target_layout, priority_one, j-k+1);
+
+                }
+            }
+            // update trailing submatrix, normal priority
+            if (k+1+lookahead < A_nt) {
+                #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[k+1+lookahead]) \
+                                 depend(inout:listBcastMT_token) \
                                  depend(inout:column[A_nt-1])
                 {
-                    // swap rows in A(k:mt-1, kl+1:nt-1)
-                    int tag_kl1 = k+1+lookahead;
-                    // todo: target
-                    internal::permuteRows<target>(
-                        Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
-                        pivots.at(k), target_layout, priority_zero, tag_kl1);
-
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
                         TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
 
                     // solve A(k, k) A(k, kl+1:nt-1) = A(k, kl+1:nt-1)
-                    // todo: target
-                    internal::trsm<Target::HostTask>(
+                    internal::trsm<target>(
                         Side::Left,
                         scalar_t(1.0), std::move(Tkk),
-                                       A.sub(k, k, k+1+lookahead, A_nt-1));
+                                       A.sub(k, k, k+1+lookahead, A_nt-1),
+                        priority_zero, Layout::ColMajor, 1);
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
-                    BcastList bcast_list_A;
+                    BcastListTag bcast_list;
                     for (int64_t j = k+1+lookahead; j < A_nt; ++j) {
                         // send A(k, j) across column A(k+1:mt-1, j)
-                        bcast_list_A.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
+                        // tag must be distinct from sending left panel
+                        const int64_t tag = j + A_mt;
+                        bcast_list.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}, tag});
                     }
                     // todo: trsm still operates in ColMajor
-                    A.template listBcast(bcast_list_A, Layout::ColMajor, tag_kl1);
+                    A.template listBcastMT<target>(
+                        bcast_list, Layout::ColMajor);
 
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
@@ -228,8 +267,58 @@ void getrf_ca(slate::internal::TargetType<target>,
                         scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
                         target_layout, priority_zero);
                 }
-            }*/
+               #pragma omp task depend(in:column[k]) \
+                                depend(inout:column[k+1+lookahead]) \
+                                depend(inout:column[A_nt-1])
+                {
+                    // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
+                    internal::gemm<target>(
+                            scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
+                                            A.sub(k, k, k+1+lookahead, A_nt-1),
+                            scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
+                            target_layout, priority_zero, 1);
+
+                }
+            }
+            //TODO::RABAB ask
+            if (target == Target::Devices) {
+                #pragma omp task depend(inout:diag[k])
+                {
+                    if (A.tileIsLocal(k, k) && k+1 < A_nt) {
+                        std::set<int> dev_set;
+                        A.sub(k+1, A_mt-1, k, k).getLocalDevices(&dev_set);
+                        A.sub(k, k, k+1, A_nt-1).getLocalDevices(&dev_set);
+
+                        for (auto device : dev_set) {
+                            A.tileUnsetHold(k, k, device);
+                            A.tileRelease(k, k, device);
+                        }
+                    }
+                }
+                if (is_shared) {
+                    #pragma omp task depend(inout:column[k])
+                    {
+                        for (int64_t i = k+1; i < A_mt; ++i) {
+                            if (A.tileIsLocal(i, k)) {
+                                A.tileUpdateOrigin(i, k);
+
+                                std::set<int> dev_set;
+                                A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
+
+                                for (auto device : dev_set) {
+                                    A.tileUnsetHold(i, k, device);
+                                    A.tileRelease(i, k, device);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+
         }
+        #pragma omp taskwait
+        A.tileUpdateAllOrigin();
     }
 
     /*// Pivot to the left of the panel.
@@ -243,11 +332,11 @@ void getrf_ca(slate::internal::TargetType<target>,
         }
     }*/
 
-    #pragma omp parallel
+    /*#pragma omp parallel
     #pragma omp master
     {
         A.tileLayoutReset();
-    }
+    }*/
     A.clearWorkspace();
 }
 

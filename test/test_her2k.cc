@@ -18,8 +18,6 @@
 #include <cstdlib>
 #include <utility>
 #define SLATE_HAVE_SCALAPACK
-
-#include "matrix_generator.hh" // TODO remove this include!!!!!!!!
 //------------------------------------------------------------------------------
 template< typename scalar_t >
 void test_her2k_work(Params& params, bool run)
@@ -122,11 +120,8 @@ void test_her2k_work(Params& params, bool run)
                 uplo, Cn, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
     }
 
-    params.matrix.iseed[0] = 1; params.matrix.iseed[1] = 1; params.matrix.iseed[2] = 1; params.matrix.iseed[3] = 1;
     slate::generate_matrix( params.matrix, A );
-    params.matrixB.iseed[0] = 2; params.matrixB.iseed[1] = 1; params.matrixB.iseed[2] = 1; params.matrixB.iseed[3] = 1;
     slate::generate_matrix( params.matrixB, B );
-    //params.matrixC.iseed[0] = 0; params.matrixC.iseed[1] = 0; params.matrixC.iseed[2] = 0; params.matrixC.iseed[3] = 0;
     slate::generate_matrix( params.matrixC, C );
 
     // if check is required, copy test data
@@ -252,7 +247,6 @@ void test_her2k_work(Params& params, bool run)
                              &B_data[0], 1, 1, B_desc, beta,
                              &Cref_data[0], 1, 1, Cref_desc);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
-
 
             if (verbose >= 2) {
                 slate::HermitianMatrix<scalar_t> C;

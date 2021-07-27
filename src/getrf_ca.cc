@@ -68,6 +68,21 @@ void getrf_ca(slate::internal::TargetType<target>,
     uint8_t listBcastMT_token;
     SLATE_UNUSED(listBcastMT_token); // Only used by OpenMP
 
+
+    #if 0
+     for (int i=0; i<A.mt(); i++){
+         if (A.tileIsLocal(i, 0)){
+             if( A.mpiRank() == 0){
+                 for(int m=0; m<A.tileMb(i);m++){
+                     for(int n=0; n<A.tileMb(i);n++){
+                         std::cout<<A(i,0)(m,n)<<",";
+                     }
+                     std::cout<<";";
+                 }
+             }
+         }
+     }
+    #endif
    // workspace
     auto Awork = A.emptyLike();
 
@@ -84,7 +99,7 @@ void getrf_ca(slate::internal::TargetType<target>,
             Apanel.insertLocalTiles();
 
             // panel, high priority
-            #pragma omp task depend(inout:column[k]) \
+         //   #pragma omp task depend(inout:column[k]) \
                              depend(out:diag[k]) \
                              priority(priority_one)
             {
@@ -103,45 +118,13 @@ void getrf_ca(slate::internal::TargetType<target>,
                               MPI_BYTE, A.tileRank(k, k), A.mpiComm());
                 }
 
-                    int tag_kl1 = k+1;//+lookahead;
-                    internal::permuteRows<Target::HostTask>(
-                        Direction::Forward, A.sub(k, A_mt-1, k, A_nt-1),
-                        pivots.at(k), target_layout, priority_zero, tag_kl1);
-
-
-            #if 0
-            for (int i=0; i<A.mt(); i++){
-                if (A.tileIsLocal(i, 0)){
-                    if( A.mpiRank() == 0){
-                    std::cout<<"\n Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
-                    for(int m=0; m<A.tileMb(i);m++){
-                        for(int n=0; n<A.tileMb(i);n++){
-                           std::cout<<A(i,0)(m,n)<<",";
-                        }
-                        std::cout<<std::endl;
-                    }
-                   }
-                }
-           }
-           #endif
+           // swap rows in A(k+1:A_mt-1, k)
+           int tag_kl1 = k+1;
+           internal::permuteRows<target>(
+                   Direction::Forward, A.sub(k, A_mt-1, k, k),
+                   pivots.at(k), target_layout, priority_one, tag_kl1, 0);
 
            internal::copy<Target::HostTask>( Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
-
-           #if 0
-               for (int i=0; i<A.mt(); i++){
-                   if (A.tileIsLocal(i, 0)){
-                       if( A.mpiRank() == 0){
-                           std::cout<<"\n Factore Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
-                           for(int m=0; m<A.tileMb(i);m++){
-                               for(int n=0; n<A.tileMb(i);n++){
-                                   std::cout<<A(i,0)(m,n)<<",";
-                               }
-                               std::cout<<std::endl;
-                           }
-                       }
-                    }
-               }
-           #endif
 
            //Update panel
            int tag_k = k;
@@ -150,14 +133,21 @@ void getrf_ca(slate::internal::TargetType<target>,
                                           A.sub(k, k, k+1, A_nt-1)}});
            A.template listBcast<target>(
                 bcast_list_A, host_layout, tag_k, life_factor_one, true);
+
            Apanel.clear();
            }
 
-           #pragma omp task depend(inout:column[k]) \
+           // #pragma omp task depend(inout:column[k]) \
                             depend(in:diag[k]) \
                             depend(inout:listBcastMT_token) \
                             priority(priority_one)
            {
+               // swap rows in A(k+1:A_mt-1, k)
+               /*int tag_kl1 = k+1;
+               internal::permuteRows<target>(
+                       Direction::Forward, A.sub(k, A_mt-1, k, k),
+                       pivots.at(k), target_layout, priority_one, tag_kl1, 0);*/
+
                auto Akk = A.sub(k, k, k, k);
                auto Tkk = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Akk);
 
@@ -177,10 +167,10 @@ void getrf_ca(slate::internal::TargetType<target>,
                A.template listBcastMT<target>(
                  bcast_list, Layout::ColMajor, life_factor_one, is_shared);
 
-           #if 1
+           #if 0
                for (int i=0; i<A.mt(); i++){
                    if (A.tileIsLocal(i, 0)){
-                       if( A.mpiRank() == 3){
+                       if( A.mpiRank() == 0){
                            std::cout<<"\n Factore Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
                            for(int m=0; m<A.tileMb(i);m++){
                                for(int n=0; n<A.tileMb(i);n++){
@@ -196,11 +186,15 @@ void getrf_ca(slate::internal::TargetType<target>,
 
             // update lookahead column(s), high priority
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
-                #pragma omp task depend(in:diag[k]) \
+            ///    #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[j]) \
                                  priority(priority_one)
                 {
                     int tag_j = j;
+                    internal::permuteRows<target>(
+                            Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
+                            target_layout, priority_one, tag_j, j-k+1);
+
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
                         TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
@@ -215,12 +209,12 @@ void getrf_ca(slate::internal::TargetType<target>,
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
                     A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), Layout::ColMajor, tag_j);
-                }
 
-                #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[j]) \
-                                 priority(priority_one)
-                {
+
+/*//                #pragma omp task depend(in:column[k]) \
+//                                 depend(inout:column[j]) \
+//                                 priority(priority_one)*/
+//                {
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                     internal::gemm<target>(
                             scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
@@ -228,15 +222,22 @@ void getrf_ca(slate::internal::TargetType<target>,
                             scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
                             target_layout, priority_one, j-k+1);
 
-                }
+                //}
             }
+        }
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
-                #pragma omp task depend(in:diag[k]) \
+              ///  #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[k+1+lookahead]) \
                                  depend(inout:listBcastMT_token) \
                                  depend(inout:column[A_nt-1])
                 {
+                    // swap rows in A(k:mt-1, kl+1:nt-1)
+                    int tag_kl1 = k+1+lookahead;
+                    internal::permuteRows<target>(
+                            Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
+                            pivots.at(k), target_layout, priority_zero, tag_kl1, 1);
+
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
                         TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
@@ -260,26 +261,43 @@ void getrf_ca(slate::internal::TargetType<target>,
                     A.template listBcastMT<target>(
                         bcast_list, Layout::ColMajor);
 
-                    // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
-                    internal::gemm<target>(
-                        scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
-                                        A.sub(k, k, k+1+lookahead, A_nt-1),
-                        scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
-                        target_layout, priority_zero);
-                }
-               #pragma omp task depend(in:column[k]) \
-                                depend(inout:column[k+1+lookahead]) \
-                                depend(inout:column[A_nt-1])
-                {
+                //TODO::RABAB
+               /*#pragma omp task depend(in:column[k]) \
+               //                 depend(inout:column[k+1+lookahead]) \
+               //                 depend(inout:column[A_nt-1])*/
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
                             scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
                                             A.sub(k, k, k+1+lookahead, A_nt-1),
                             scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
                             target_layout, priority_zero, 1);
+                     #if 0
+                        for (int i=0; i<A.mt(); i++){
+                            if (A.tileIsLocal(i, 0)){
+                                if( A.mpiRank() == 0){
+                                    std::cout<<"\n Factore Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
+                                    for(int m=0; m<A.tileMb(i);m++){
+                                        for(int n=0; n<A.tileMb(i);n++){
+                                            std::cout<<A(i,0)(m,n)<<",";
+                                        }
+                                        std::cout<<std::endl;
+                                    }
+                                }
+                            }
+                        }
+                     #endif
 
                 }
             }
+
+      //       #pragma omp task depend(inout:column[k]) \
+                                   depend(out:diag[k]) \
+                                   priority(priority_one)
+          ///  {
+           ///     internal::copy<Target::HostTask>( Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
+            ///    Apanel.clear();
+            ///}
+
             //TODO::RABAB ask
             if (target == Target::Devices) {
                 #pragma omp task depend(inout:diag[k])
@@ -317,11 +335,11 @@ void getrf_ca(slate::internal::TargetType<target>,
 
 
         }
-        #pragma omp taskwait
+        //#pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
 
-    /*// Pivot to the left of the panel.
+    // Pivot to the left of the panel.
     // todo: Blend into the factorization.
     for (int64_t k = 0; k < min_mt_nt; ++k) {
         if (k > 0) {
@@ -330,7 +348,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                 Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
                 host_layout);
         }
-    }*/
+    }
 
     /*#pragma omp parallel
     #pragma omp master

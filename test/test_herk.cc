@@ -138,26 +138,27 @@ void test_herk_work(Params& params, bool run)
     else slate::trace::Trace::off();
 
     // If check run, perform first half of SLATE residual check.
-    slate::Matrix<scalar_t> X, Y;
-    slate::HermitianMatrix<scalar_t> Z;
-    if ( check && !ref ) {
+    slate::Matrix<scalar_t> X, Y, Z;
+    //slate::HermitianMatrix<scalar_t> Z;
+    if (check && ! ref) {
         X = slate::Matrix<scalar_t>( An, nrhs, nb, p, q, MPI_COMM_WORLD );
         X.insertLocalTiles(origin_target);
         Y = slate::Matrix<scalar_t>( Am, nrhs, nb, p, q, MPI_COMM_WORLD );
         Y.insertLocalTiles(origin_target);
-        Z = slate::HermitianMatrix<scalar_t>(uplo, Cn, nb, p, q, MPI_COMM_WORLD);
+        Z = slate::Matrix<scalar_t>( Am, nrhs, nb, p, q, MPI_COMM_WORLD);
         Z.insertLocalTiles(origin_target);
         MatrixParams mp;
         mp.kind.set_default( "rand" );
         generate_matrix( mp, X );
 
-        // Compute Y = alpha (A * A^H) * X + (beta C * X).
-        // Z = A A^H
-        slate::rank_k_update(1.0, opA, 0.0, Z, opts);
-        // Y = beta * C * X
+        // Compute Y = alpha A (A^H X) + (beta C X).
+        // Y = beta C X
         slate::multiply( scalar_t(beta), C, X, zero, Y, opts );
-        // Y = alpha * Z * X + Y
-        slate::multiply( scalar_t(alpha), Z, X, one, Y, opts );
+        // Z = A^H X
+        auto AH = conjTranspose( opA );
+        slate::multiply( one, AH, X, zero, Z, opts );
+        // Y = alpha A Z + Y
+        slate::multiply( scalar_t(alpha), opA, Z, one, Y, opts );
     }
 
     double time = barrier_get_wtime(MPI_COMM_WORLD);
@@ -179,7 +180,7 @@ void test_herk_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    if ( check && !ref ) {
+    if (check && ! ref) {
         // SLATE residual check.
         // Check error, C*X - Y.
         real_t y_norm = slate::norm( norm, Y, opts );
@@ -239,8 +240,11 @@ void test_herk_work(Params& params, bool run)
             std::vector<real_t> worklange(std::max(mlocA, nlocA));
 
             // get norms of the original data
-            real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_data[0], 1, 1, A_desc, &worklange[0]);
-            real_t C_orig_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &Cref_data[0], 1, 1, Cref_desc, &worklansy[0]);
+            real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_data[0], 1, 1,
+                                             A_desc, &worklange[0]);
+            real_t C_orig_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn,
+                                                  &Cref_data[0], 1, 1, Cref_desc,
+                                                  &worklansy[0]);
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -255,7 +259,9 @@ void test_herk_work(Params& params, bool run)
             blas::axpy(Cref_data.size(), -1.0, &C_data[0], 1, &Cref_data[0], 1);
 
             // norm(Cref_data - C_data)
-            real_t C_diff_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &Cref_data[0], 1, 1, Cref_desc, &worklansy[0]);
+            real_t C_diff_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn,
+                                                  &Cref_data[0], 1, 1, Cref_desc,
+                                                  &worklansy[0]);
 
             real_t error = C_diff_norm
                          / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * A_norm

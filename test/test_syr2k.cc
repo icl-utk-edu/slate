@@ -22,6 +22,7 @@ template< typename scalar_t >
 void test_syr2k_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
+    using blas::conj;
     using slate::Op;
     using slate::Norm;
 
@@ -161,27 +162,32 @@ void test_syr2k_work(Params& params, bool run)
     else slate::trace::Trace::off();
 
     // If check run, perform first half of SLATE residual check.
-    slate::Matrix<scalar_t> X, Y;//, Z;
-    slate::SymmetricMatrix<scalar_t> Z;
-    if ( check && !ref ) {
+    slate::Matrix<scalar_t> X, Y, Z;
+    if (check && ! ref) {
         X = slate::Matrix<scalar_t>( An, nrhs, nb, p, q, MPI_COMM_WORLD );
         X.insertLocalTiles(origin_target);
         Y = slate::Matrix<scalar_t>( Am, nrhs, nb, p, q, MPI_COMM_WORLD );
         Y.insertLocalTiles(origin_target);
-        Z = slate::SymmetricMatrix<scalar_t>(uplo, Cn, nb, p, q, MPI_COMM_WORLD);
+        Z = slate::Matrix<scalar_t>( Am, nrhs, nb, p, q, MPI_COMM_WORLD );
         Z.insertLocalTiles(origin_target);
         MatrixParams mp;
         mp.kind.set_default( "rand" );
         generate_matrix( mp, X );
 
-        // Compute Y = (alpha A * B^H + conj(alpha) B * A^H) * X + (beta C * X).
-        // Z = alpha A B^H + conj(alpha) B A^H
-        slate::rank_2k_update( alpha, opA, opB, zero, Z, opts );
-        // Y = beta * C * X
-        slate::multiply( scalar_t(beta), C, X, zero, Y, opts );
-        // Y = Z * X + Y
-        slate::multiply( one, Z, X, one, Y, opts );
-    }
+        // Compute Y = (alpha A (B^T X)) + alpha B (A^T X)) + (beta C X).
+        // Y = beta C X
+        slate::multiply( beta, C, X, zero, Y, opts );
+        // Z = A^T X
+        auto AT = transpose( opA );
+        slate::multiply( one, AT, X, zero, Z, opts );
+        // Y = alpha B Z + Y
+        slate::multiply( alpha, opB, Z, one, Y, opts );
+        // Z = B^T X
+        auto BT = transpose( opB );
+        slate::multiply( one, BT, X, zero, Z, opts );
+        // Y = alpha A Z + Y
+        slate::multiply( alpha, opA, Z, one, Y, opts );
+   }
 
     double time = barrier_get_wtime( MPI_COMM_WORLD );
 
@@ -202,7 +208,7 @@ void test_syr2k_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    if ( check && !ref ) {
+    if (check && ! ref) {
         // SLATE residual check.
         // Check error, C*X - Y.
         real_t y_norm = slate::norm( norm, Y, opts );

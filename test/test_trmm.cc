@@ -143,7 +143,7 @@ void test_trmm_work(Params& params, bool run)
 
     // If check run, perform first half of SLATE residual check.
     slate::Matrix<scalar_t> X, X2, Y;
-    if ( check && !ref ) {
+    if (check && ! ref) {
         X = slate::Matrix<scalar_t>( n, nrhs, nb, p, q, MPI_COMM_WORLD );
         X.insertLocalTiles(origin_target);
         X2 = slate::Matrix<scalar_t>( n, nrhs, nb, p, q, MPI_COMM_WORLD );
@@ -154,7 +154,7 @@ void test_trmm_work(Params& params, bool run)
         mp.kind.set_default( "rand" );
         generate_matrix( mp, X );
 
-        if ( side == slate::Side::Left ) {
+        if (side == slate::Side::Left ) {
             // Compute Y = alpha A * (B * X).
             // Y = B * X;
             slate::multiply( one, B, X, zero, Y, opts );
@@ -200,7 +200,7 @@ void test_trmm_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    if ( check && !ref ) {
+    if (check && ! ref) {
         // SLATE residual check.
         // Check error, B*X - Y.
         real_t y_norm = slate::norm( norm, Y, opts );
@@ -260,8 +260,11 @@ void test_trmm_work(Params& params, bool run)
             std::vector<real_t> worklange(std::max(mlocB, nlocB));
 
             // get norms of the original data
-            real_t A_norm = scalapack_plantr(norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_data[0], 1, 1, A_desc, &worklantr[0]);
-            real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &Bref_data[0], 1, 1, B_desc, &worklange[0]);
+            real_t A_norm = scalapack_plantr(
+                norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_data[0],
+                1, 1, A_desc, &worklantr[0]);
+            real_t B_orig_norm = scalapack_plange(
+                norm2str(norm), Bm, Bn, &Bref_data[0], 1, 1, B_desc, &worklange[0]);
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -277,7 +280,8 @@ void test_trmm_work(Params& params, bool run)
             blas::axpy(Bref_data.size(), -1.0, &B_data[0], 1, &Bref_data[0], 1);
 
             // norm(Bref_data - B_data)
-            real_t B_diff_norm = scalapack_plange(norm2str(norm), Bm, Bn, &Bref_data[0], 1, 1, Bref_desc, &worklange[0]);
+            real_t B_diff_norm = scalapack_plange(norm2str(norm), Bm, Bn, &Bref_data[0],
+                                                  1, 1, Bref_desc, &worklange[0]);
 
             real_t error = B_diff_norm
                          / (sqrt(real_t(Am) + 2) * std::abs(alpha) * A_norm * B_orig_norm);

@@ -152,7 +152,7 @@ void test_symm_work(Params& params, bool run)
 
     // If check run, perform first half of SLATE residual check.
     slate::Matrix<scalar_t> X, Y, Z;
-    if ( check && !ref ) {
+    if (check && ! ref) {
         X = slate::Matrix<scalar_t>( n, nrhs, nb, p, q, MPI_COMM_WORLD );
         X.insertLocalTiles(origin_target);
         Y = slate::Matrix<scalar_t>( m, nrhs, nb, p, q, MPI_COMM_WORLD );
@@ -163,7 +163,7 @@ void test_symm_work(Params& params, bool run)
         mp.kind.set_default( "rand" );
         generate_matrix( mp, X );
 
-        if ( side == slate::Side::Left ) {
+        if (side == slate::Side::Left ) {
             // Compute Y = alpha A * (B * X) + (beta C * X).
             // Z = B * X;
             slate::multiply( one, B, X, zero, Z, opts );
@@ -210,7 +210,7 @@ void test_symm_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    if ( check && !ref ) {
+    if (check && ! ref) {
         // SLATE residual check.
         // Check error, C*X - Y.
         real_t y_norm = slate::norm( norm, Y, opts );
@@ -276,9 +276,12 @@ void test_symm_work(Params& params, bool run)
             std::vector<real_t> worklange(std::max({mlocC, nlocC, mlocB, nlocB}));
 
             // get norms of the original data
-            real_t A_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), An, &A_data[0], 1, 1, A_desc, &worklansy[0]);
-            real_t B_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_data[0], 1, 1, B_desc, &worklange[0]);
-            real_t C_orig_norm = scalapack_plange(norm2str(norm), Cm, Cn, &Cref_data[0], 1, 1, Cref_desc, &worklange[0]);
+            real_t A_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), An,
+                                             &A_data[0], 1, 1, A_desc, &worklansy[0]);
+            real_t B_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_data[0], 1, 1,
+                                             B_desc, &worklange[0]);
+            real_t C_orig_norm = scalapack_plange(norm2str(norm), Cm, Cn, &Cref_data[0],
+                                                  1, 1, Cref_desc, &worklange[0]);
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -295,7 +298,8 @@ void test_symm_work(Params& params, bool run)
             blas::axpy(Cref_data.size(), -1.0, &C_data[0], 1, &Cref_data[0], 1);
 
             // norm(Cref_data - C_data)
-            real_t C_diff_norm = scalapack_plange(norm2str(norm), Cm, Cn, &Cref_data[0], 1, 1, Cref_desc, &worklange[0]);
+            real_t C_diff_norm = scalapack_plange(norm2str(norm), Cm, Cn, &Cref_data[0],
+                                                  1, 1, Cref_desc, &worklange[0]);
 
             real_t error = C_diff_norm
                          / (sqrt(real_t(An) + 2) * std::abs(alpha) * A_norm * B_norm

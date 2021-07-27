@@ -22,6 +22,7 @@ template< typename scalar_t >
 void test_her2k_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
+    using blas::conj;
     using slate::Op;
     using slate::Norm;
 
@@ -161,26 +162,31 @@ void test_her2k_work(Params& params, bool run)
     else slate::trace::Trace::off();
 
     // If check run, perform first half of SLATE residual check.
-    slate::Matrix<scalar_t> X, Y;//, Z;
-    slate::HermitianMatrix<scalar_t> Z;
-    if ( check && !ref ) {
+    slate::Matrix<scalar_t> X, Y, Z;
+    if (check && ! ref) {
         X = slate::Matrix<scalar_t>( An, nrhs, nb, p, q, MPI_COMM_WORLD );
         X.insertLocalTiles(origin_target);
         Y = slate::Matrix<scalar_t>( Am, nrhs, nb, p, q, MPI_COMM_WORLD );
         Y.insertLocalTiles(origin_target);
-        Z = slate::HermitianMatrix<scalar_t>(uplo, Cn, nb, p, q, MPI_COMM_WORLD);
+        Z = slate::Matrix<scalar_t>( Am, nrhs, nb, p, q, MPI_COMM_WORLD );
         Z.insertLocalTiles(origin_target);
         MatrixParams mp;
         mp.kind.set_default( "rand" );
         generate_matrix( mp, X );
 
-        // Compute Y = (alpha A * B^H + conj(alpha) B * A^H) * X + (beta C * X).
-        // Z = alpha A B^H + conj(alpha) B A^H
-        slate::rank_2k_update( alpha, opA, opB, 0.0, Z, opts );
-        // Y = beta * C * X
+        // Compute Y = (alpha A (B^H X)) + (conj(alpha) B (A^H X)) + (beta C X).
+        // Y = beta C X
         slate::multiply( scalar_t(beta), C, X, zero, Y, opts );
-        // Y = Z * X + Y
-        slate::multiply( one, Z, X, one, Y, opts );
+        // Z = A^H X
+        auto AH = conjTranspose( opA );
+        slate::multiply( one, AH, X, zero, Z, opts );
+        // Y = conj(alpha) B Z + Y
+        slate::multiply( conj( alpha ), opB, Z, one, Y, opts );
+        // Z = B^H X
+        auto BH = conjTranspose( opB );
+        slate::multiply( one, BH, X, zero, Z, opts );
+        // Y = alpha A Z + Y
+        slate::multiply( alpha, opA, Z, one, Y, opts );
     }
 
     double time = barrier_get_wtime(MPI_COMM_WORLD);
@@ -202,7 +208,7 @@ void test_her2k_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    if ( check && !ref ) {
+    if (check && ! ref) {
         // SLATE residual check.
         // Check error, C*X - Y.
         real_t y_norm = slate::norm( norm, Y, opts );
@@ -266,9 +272,13 @@ void test_her2k_work(Params& params, bool run)
             std::vector< real_t > worklange(std::max({mlocA, mlocB, nlocA, nlocB}));
 
             // get norms of the original data
-            real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_data[0], 1, 1, A_desc, &worklange[0]);
-            real_t B_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_data[0], 1, 1, B_desc, &worklange[0]);
-            real_t C_orig_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &Cref_data[0], 1, 1, Cref_desc, &worklansy[0]);
+            real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_data[0], 1, 1,
+                                             A_desc, &worklange[0]);
+            real_t B_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_data[0], 1, 1,
+                                             B_desc, &worklange[0]);
+            real_t C_orig_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn,
+                                                  &Cref_data[0], 1, 1, Cref_desc,
+                                                  &worklansy[0]);
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -284,7 +294,9 @@ void test_her2k_work(Params& params, bool run)
             blas::axpy(Cref_data.size(), -1.0, &C_data[0], 1, &Cref_data[0], 1);
 
             // norm(Cref_data - C_data)
-            real_t C_diff_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &Cref_data[0], 1, 1, Cref_desc, &worklansy[0]);
+            real_t C_diff_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn,
+                                                  &Cref_data[0], 1, 1, Cref_desc,
+                                                  &worklansy[0]);
 
             real_t error = C_diff_norm
                          / (sqrt(real_t(2*k) + 2) * std::abs(alpha) * A_norm * B_norm

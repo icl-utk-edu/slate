@@ -138,26 +138,26 @@ void test_syrk_work(Params& params, bool run)
     else slate::trace::Trace::off();
 
     // If check run, perform first half of SLATE residual check.
-    slate::Matrix<scalar_t> X, Y;
-    slate::SymmetricMatrix<scalar_t> Z;
-    if ( check && !ref ) {
+    slate::Matrix<scalar_t> X, Y, Z;
+    if (check && ! ref) {
         X = slate::Matrix<scalar_t>( An, nrhs, nb, p, q, MPI_COMM_WORLD );
         X.insertLocalTiles(origin_target);
         Y = slate::Matrix<scalar_t>( Am, nrhs, nb, p, q, MPI_COMM_WORLD );
         Y.insertLocalTiles(origin_target);
-        Z = slate::SymmetricMatrix<scalar_t>(uplo, Cn, nb, p, q, MPI_COMM_WORLD);
+        Z = slate::Matrix<scalar_t>( Am, nrhs, nb, p, q, MPI_COMM_WORLD);
         Z.insertLocalTiles(origin_target);
         MatrixParams mp;
         mp.kind.set_default( "rand" );
         generate_matrix( mp, X );
 
-        // Compute Y = alpha (A * A^H) * X + (beta C * X).
-        // Z = A A^H
-        slate::rank_k_update(scalar_t(one), opA, scalar_t(zero), Z, opts);
-        // Y = beta * C * X
-        slate::multiply( scalar_t(beta), C, X, zero, Y, opts );
-        // Y = alpha * Z * X + Y
-        slate::multiply( scalar_t(alpha), Z, X, one, Y, opts );
+        // Compute Y = alpha A (A^T X) + (beta C X).
+        // Y = beta C X
+        slate::multiply( beta, C, X, zero, Y, opts );
+        // Z = A^T X
+        auto AT = transpose( opA );
+        slate::multiply( one, AT, X, zero, Z, opts );
+        // Y = alpha A Z + Y
+        slate::multiply( alpha, opA, Z, one, Y, opts );
     }
 
     double time = barrier_get_wtime( MPI_COMM_WORLD );
@@ -179,7 +179,7 @@ void test_syrk_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    if ( check && !ref ) {
+    if (check && ! ref) {
         // SLATE residual check.
         // Check error, C*X - Y.
         real_t y_norm = slate::norm( norm, Y, opts );

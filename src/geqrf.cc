@@ -15,6 +15,21 @@ namespace slate {
 namespace internal {
 namespace specialization {
 
+//------------------------------------------------------------------------------
+/// An auxiliary routine to find each rank's first (top-most) row
+/// in panel k.
+///
+/// @param[in] A_panel
+///     Current panel, which is a sub of the input matrix $A$.
+///
+/// @param[in] k
+///     Index of the current panel in the input matrix $A$.
+///
+/// @param[out] first_indices
+///     The array of computed indices.
+///
+/// @ingroup geqrf_specialization
+///
 template <typename scalar_t>
 void geqrf_compute_first_indices(Matrix<scalar_t>& A_panel, int64_t k,
                                  std::vector< int64_t >& first_indices)
@@ -202,7 +217,7 @@ void geqrf(slate::internal::TargetType<target>,
                                  depend(inout:block[k+1+lookahead]) \
                                  depend(inout:block[A_nt-1])
                 {
-                    // Apply local reflectors
+                    // Apply local reflectors.
                     internal::unmqr<target>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
@@ -211,8 +226,8 @@ void geqrf(slate::internal::TargetType<target>,
                                     W.sub(k, A_mt-1, j, A_nt-1),
                                     priority_zero, j-k+1);
 
-                    // Apply triangle-triangle reduction reflectors
-                    // ttmqr handles the tile broadcasting internally
+                    // Apply triangle-triangle reduction reflectors.
+                    // ttmqr handles the tile broadcasting internally.
                     internal::ttmqr<Target::HostTask>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
@@ -222,15 +237,15 @@ void geqrf(slate::internal::TargetType<target>,
                 }
             }
             if (target == Target::Devices) {
-                // update the status of the on-hold tiles held by the invocation of
-                // the tileBcast routine, and then release them to free up memory
-                // the origin must be updated with the latest modified copy.
-                // for memory consistency
-                // TODO: find better solution to handle tile release, and
+                // Update the status of the on-hold tiles held by the invocation of
+                // the tileBcast routine, and then release them to free up memory.
+                // The origin must be updated with the latest modified copy
+                // for memory consistency.
+                // TODO: Find better solution to handle tile release, and
                 //       investigate the correctness of the task dependency
                 if (k >= lookahead && k < A_nt-1) {
                     #pragma omp task depend(in:block[k]) \
-                        depend(inout:block[k+1])
+                                     depend(inout:block[k+1])
                     {
                         int64_t k_la = k-lookahead;
                         for (int64_t i = k_la; i < A_mt; ++i) {

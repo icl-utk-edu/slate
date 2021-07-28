@@ -36,7 +36,7 @@ void add(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
-       internal::add<target>(alpha, std::move(A),
+        internal::add<target>(alpha, std::move(A),
                                 beta, std::move(B));
         #pragma omp taskwait
         B.tileUpdateAllOrigin();

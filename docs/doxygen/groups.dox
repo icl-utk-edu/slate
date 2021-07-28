@@ -166,7 +166,7 @@
 
         @defgroup group_blas2               Parellel BLAS (PBLAS)
         @{
-            @defgroup geadd                 geadd: Add matrices
+            @defgroup add                   add: Add matrices
             @brief                          $B = \alpha A + \beta B$
         @}
 
@@ -175,7 +175,7 @@
             @defgroup set_specialization    set
             @defgroup scale_specialization  scale
             @defgroup copy_specialization   copy
-            @defgroup geadd_specialization  geadd
+            @defgroup add_specialization    add
         @}
 
         @defgroup group_blas2_internal    Internal
@@ -184,7 +184,7 @@
             @defgroup set_internal          set
             @defgroup scale_internal        scale
             @defgroup copy_internal         copy
-            @defgroup geadd_internal        geadd
+            @defgroup add_internal          add
         @}
 
         @defgroup group_blas2_tile    Tile
@@ -194,7 +194,7 @@
             @defgroup scale_tile            scale
             @defgroup copy_tile             copy
             @defgroup swap_tile             swap
-            @defgroup geadd_tile            geadd
+            @defgroup add_tile              add
             @defgroup gemv_tile             gemv
             @defgroup symv_tile             symv
             @defgroup ger_tile              ger

@@ -243,7 +243,7 @@ void add(internal::TargetType<Target::Devices>,
             }
             else { // upper
                 for (int64_t j = 0; j < B.nt(); ++j) {
-                    for (int64_t i = 0; i<=j && i < B.mt(); ++i){
+                    for (int64_t i = 0; i <= j && i < B.mt(); ++i){
                         if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                             A_tiles_set.insert({i, j});
                             B_tiles_set.insert({i, j});
@@ -312,7 +312,7 @@ void add(internal::TargetType<Target::Devices>,
                 if (B.uplo() == Uplo::Lower) {
                     for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
                         for (int64_t i = std::max(j, irange[q-4][0]); i < irange[q-4][1]; ++i) {
-                            if (i ==j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
+                            if (i == j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                                a_array_host[batch_count] = A(i, j, device).data();
                                b_array_host[batch_count] = B(i, j, device).data();
                                ++group_count[q];

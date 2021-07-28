@@ -180,7 +180,7 @@ void test_gelqf_work(Params& params, bool run)
         }
 
         // Form LQ - A, where A is in Aref.
-        // todo: slate::geadd(-one, Aref, LQ);
+        // todo: slate::add(-one, Aref, LQ);
         // using axpy assumes Aref_data and LQ_data have same lda.
         blas::axpy(LQ_data.size(), -one, &Aref_data[0], 1, &LQ_data[0], 1);
 

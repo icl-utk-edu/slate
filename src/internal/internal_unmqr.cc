@@ -231,7 +231,7 @@ void unmqr(internal::TargetType<target>,
                 priority, queue_index);
 
         // C0 <- C0 - W
-        internal::geadd<target>(
+        internal::add<target>(
                 -one, std::move(Wr),
                 one,  std::move(C0), 
                 priority, queue_index);
@@ -413,7 +413,7 @@ void unmqr(internal::TargetType<target>,
                 priority, queue_index);
 
         // C0 <- C0 - W
-        internal::geadd<target>(
+        internal::add<target>(
                 -one, std::move(Wc),
                 one,  std::move(C0), 
                 priority, queue_index);

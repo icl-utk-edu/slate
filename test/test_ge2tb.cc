@@ -190,7 +190,7 @@ void test_ge2tb_work(Params& params, bool run)
         }
 
         // Form UBV^H - A, where A is in Aref.
-        slate::geadd(-one, Aref, one, B);
+        slate::add(-one, Aref, one, B);
         if (verbose > 1) {
             print_matrix("UBV^H - A", B);
         }

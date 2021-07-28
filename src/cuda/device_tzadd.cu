@@ -17,7 +17,7 @@ namespace device {
 /// Kernel implementing element-wise tile addition.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row.
-/// Launched by geadd().
+/// Launched by tzadd().
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
@@ -40,7 +40,8 @@ namespace device {
 ///     Leading dimension of each tile in Btiles. ldb >= m.
 ///
 template <typename scalar_t>
-__global__ void geaddKernel(
+__global__ void tzaddKernel(
+    lapack::Uplo uplo,
     int64_t m, int64_t n,
     scalar_t alpha, scalar_t** tilesA, int64_t lda,
     scalar_t beta, scalar_t** tilesB, int64_t ldb)
@@ -54,8 +55,16 @@ __global__ void geaddKernel(
         scalar_t* rowA = &tileA[ridx];
         scalar_t* rowB = &tileB[ridx];
 
-        for (int64_t j = 0; j < n; ++j)
-            rowB[j*ldb] = axpby(alpha, rowA[j*lda], beta, rowB[j*ldb]);
+        if (uplo == lapack::Uplo::Lower) {
+           for (int64_t j = 0; j <= ridx && j < n; ++j) { // lower
+               rowB[j*ldb] = axpby(alpha, rowA[j*lda], beta, rowB[j*ldb]);
+           }
+        }
+        else {
+            for (int64_t j = n-1; j >= ridx; --j) { // upper
+                 rowB[j*ldb] = axpby(alpha, rowA[j*lda], beta, rowB[j*ldb]);
+            }
+       }
     }
 }
 
@@ -89,7 +98,8 @@ __global__ void geaddKernel(
 ///     CUDA stream to execute in.
 ///
 template <typename scalar_t>
-void geadd(
+void tzadd(
+    lapack::Uplo uplo,
     int64_t m, int64_t n,
     scalar_t alpha, scalar_t** Aarray, int64_t lda,
     scalar_t beta, scalar_t** Barray, int64_t ldb,
@@ -102,7 +112,8 @@ void geadd(
     // Max threads/block=1024 for current CUDA compute capability (<=7.5)
     int64_t nthreads = std::min((int64_t)1024, m);
 
-    geaddKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    tzaddKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+        uplo,
         m, n,
         alpha, Aarray, lda,
         beta, Barray, ldb);
@@ -114,28 +125,32 @@ void geadd(
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void geadd(
+void tzadd(
+    lapack::Uplo uplo,
     int64_t m, int64_t n,
     float alpha, float** Aarray, int64_t lda,
     float beta, float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
-void geadd(
+void tzadd(
+    lapack::Uplo uplo,
     int64_t m, int64_t n,
     double alpha, double** Aarray, int64_t lda,
     double beta, double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
-void geadd(
+void tzadd(
+    lapack::Uplo uplo,
     int64_t m, int64_t n,
     cuFloatComplex alpha, cuFloatComplex** Aarray, int64_t lda,
     cuFloatComplex beta, cuFloatComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
-void geadd(
+void tzadd(
+    lapack::Uplo uplo,
     int64_t m, int64_t n,
     cuDoubleComplex alpha, cuDoubleComplex** Aarray, int64_t lda,
     cuDoubleComplex beta, cuDoubleComplex** Barray, int64_t ldb,

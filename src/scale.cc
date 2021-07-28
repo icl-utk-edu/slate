@@ -9,19 +9,20 @@
 namespace slate {
 
 // specialization namespace differentiates, e.g.,
-// internal::set from internal::specialization::set
+// internal::scale from internal::specialization::scale
 namespace internal {
 namespace specialization {
 
 //------------------------------------------------------------------------------
 /// @internal
-/// Set matrix entries.
+/// Scale matrix entries by the real scalar numer/denom.
 /// Generic implementation for any target.
 /// @ingroup set_specialization
 ///
 template <Target target, typename scalar_t>
-void set(slate::internal::TargetType<target>,
-         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A)
+void scale(slate::internal::TargetType<target>,
+           blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+           Matrix<scalar_t>& A)
 {
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -32,7 +33,7 @@ void set(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
-        internal::set<target>(alpha, beta, std::move(A));
+        internal::scale<target>(numer, denom, std::move(A));
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
@@ -45,18 +46,18 @@ void set(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup set_specialization
+/// @ingroup scale_specialization
 ///
 template <Target target, typename scalar_t>
-void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
-         Options const& opts)
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+           Matrix<scalar_t>& A, Options const& opts)
 {
-    internal::specialization::set(internal::TargetType<target>(),
-                                  alpha, beta, A);
+    internal::specialization::scale(internal::TargetType<target>(),
+                                    numer, denom, A);
 }
 
 //------------------------------------------------------------------------------
-/// Set matrix entries.
+/// Scale matrix entries by the real scalar numer/denom.
 /// Transposition is currently ignored.
 /// TODO: Inspect transposition?
 //------------------------------------------------------------------------------
@@ -78,25 +79,31 @@ void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
 /// @ingroup set
 ///
 template <typename scalar_t>
-void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
-         Options const& opts)
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+           Matrix<scalar_t>& A, Options const& opts)
 {
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+    Target target;
+    try {
+        target = Target(opts.at(Option::Target).i_);
+    }
+    catch (std::out_of_range&) {
+        target = Target::HostTask;
+    }
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
         default: // todo: this is to silence a warning, should err otherwise
-            set<Target::HostTask>(alpha, beta, A, opts);
+            scale<Target::HostTask>(numer, denom, A, opts);
             break;
-//      case Target::HostNest:
-//          set<Target::HostNest>(alpha, beta, A, opts);
-//          break;
-//      case Target::HostBatch:
-//          set<Target::HostBatch>(alpha, beta, A, opts);
-//          break;
+        // case Target::HostNest:
+        //     scale<Target::HostNest>(numer, denom, A, opts);
+        //     break;
+        // case Target::HostBatch:
+        //     scale<Target::HostBatch>(numer, denom, A, opts);
+        //     break;
         case Target::Devices:
-            set<Target::Devices>(alpha, beta, A, opts);
+            scale<Target::Devices>(numer, denom, A, opts);
             break;
     }
 }
@@ -104,24 +111,24 @@ void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void set(
-    float alpha, float beta, Matrix<float>& A,
+void scale(
+    float numer, float denom, Matrix<float>& A,
     Options const& opts);
 
 template
-void set(
-    double alpha, double beta, Matrix<double>& A,
+void scale(
+    double numer, double denom, Matrix<double>& A,
     Options const& opts);
 
 template
-void set(
-    std::complex<float> alpha, std::complex<float> beta,
+void scale(
+    float numer, float denom,
     Matrix<std::complex<float> >& A,
     Options const& opts);
 
 template
-void set(
-    std::complex<double> alpha, std::complex<double> beta,
+void scale(
+    double numer, double denom,
     Matrix<std::complex<double> >& A,
     Options const& opts);
 
@@ -129,7 +136,7 @@ void set(
 // Added for BaseTrapezoidMatrix.
 //----------------
 // specialization namespace differentiates, e.g.,
-// internal::set from internal::specialization::set
+// internal::scale from internal::specialization::scale
 namespace internal {
 namespace specialization {
 
@@ -140,8 +147,9 @@ namespace specialization {
 /// @ingroup set_specialization
 ///
 template <Target target, typename scalar_t>
-void set(slate::internal::TargetType<target>,
-         scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A)
+void scale(slate::internal::TargetType<target>,
+           blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+           BaseTrapezoidMatrix<scalar_t>& A)
 {
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -152,7 +160,7 @@ void set(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
-        internal::set<target>(alpha, beta, std::move(A));
+        internal::scale<target>(numer, denom, std::move(A));
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
@@ -168,15 +176,15 @@ void set(slate::internal::TargetType<target>,
 /// @ingroup set_specialization
 ///
 template <Target target, typename scalar_t>
-void set(scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
-         Options const& opts)
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+           BaseTrapezoidMatrix<scalar_t>& A, Options const& opts)
 {
-    internal::specialization::set(internal::TargetType<target>(),
-                                  alpha, beta, A);
+    internal::specialization::scale(internal::TargetType<target>(),
+                                    numer, denom, A);
 }
 
 //------------------------------------------------------------------------------
-/// Set matrix entries.
+/// Scale matrix entries by the real scalar numer/denom.
 /// Transposition is currently ignored.
 /// TODO: Inspect transposition?
 //------------------------------------------------------------------------------
@@ -198,25 +206,31 @@ void set(scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
 /// @ingroup set
 ///
 template <typename scalar_t>
-void set(scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
-         Options const& opts)
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+           BaseTrapezoidMatrix<scalar_t>& A, Options const& opts)
 {
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+    Target target;
+    try {
+        target = Target(opts.at(Option::Target).i_);
+    }
+    catch (std::out_of_range&) {
+        target = Target::HostTask;
+    }
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
         default: // todo: this is to silence a warning, should err otherwise
-            set<Target::HostTask>(alpha, beta, A, opts);
+            scale<Target::HostTask>(numer, denom, A, opts);
             break;
-//      case Target::HostNest:
-//          set<Target::HostNest>(alpha, beta, A, opts);
-//          break;
-//      case Target::HostBatch:
-//          set<Target::HostBatch>(alpha, beta, A, opts);
-//          break;
+        // case Target::HostNest:
+        //     scale<Target::HostNest>(numer, denom, A, opts);
+        //     break;
+        // case Target::HostBatch:
+        //     scale<Target::HostBatch>(numer, denom, A, opts);
+        //     break;
         case Target::Devices:
-            set<Target::Devices>(alpha, beta, A, opts);
+            scale<Target::Devices>(numer, denom, A, opts);
             break;
     }
 }
@@ -224,24 +238,24 @@ void set(scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void set(
-    float alpha, float beta, BaseTrapezoidMatrix<float>& A,
+void scale(
+    float numer, float denom, BaseTrapezoidMatrix<float>& A,
     Options const& opts);
 
 template
-void set(
-    double alpha, double beta, BaseTrapezoidMatrix<double>& A,
+void scale(
+    double numer, double denom, BaseTrapezoidMatrix<double>& A,
     Options const& opts);
 
 template
-void set(
-    std::complex<float> alpha, std::complex<float> beta,
+void scale(
+    float numer, float denom,
     BaseTrapezoidMatrix<std::complex<float> >& A,
     Options const& opts);
 
 template
-void set(
-    std::complex<double> alpha, std::complex<double> beta,
+void scale(
+    double numer, double denom,
     BaseTrapezoidMatrix<std::complex<double> >& A,
     Options const& opts);
 

@@ -104,6 +104,19 @@ void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           int priority=0, int queue_index=0);
 
 //-----------------------------------------
+// scale()
+template <Target target=Target::HostTask, typename scalar_t>
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+           Matrix<scalar_t>&& A,
+           int priority=0, int queue_index=0);
+
+template <Target target=Target::HostTask, typename scalar_t>
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+           BaseTrapezoidMatrix<scalar_t>&& A,
+           int priority=0, int queue_index=0);
+
+//-----------------------------------------
+//
 // set()
 template <Target target=Target::HostTask, typename scalar_t>
 void set(scalar_t alpha, scalar_t beta,
@@ -318,9 +331,14 @@ void permuteRowsCols(
 //------------------------------------------------------------------------------
 // Other BLAS-like
 template <Target target=Target::HostTask, typename scalar_t>
-void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
-           scalar_t beta,  Matrix<scalar_t>&& B,
-           int priority=0, int queue_index=0);
+void add(scalar_t alpha, Matrix<scalar_t>&& A,
+         scalar_t beta,  Matrix<scalar_t>&& B,
+         int priority=0, int queue_index=0);
+
+template <Target target=Target::HostTask, typename scalar_t>
+void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>&& A,
+         scalar_t beta,  BaseTrapezoidMatrix<scalar_t>&& B,
+         int priority=0, int queue_index=0);
 
 //------------------------------------------------------------------------------
 // Band reduction

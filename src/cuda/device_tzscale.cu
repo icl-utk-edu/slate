@@ -14,16 +14,22 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
-/// Kernel implementing element-wise tile addition.
+/// Kernel implementing element-wise tile scale.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row.
-/// Launched by geadd().
+/// Launched by gescale().
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 1.
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
+///
+/// @param[in] numer
+///     Scale value on the numerator.
+///
+/// @param[in] denom
+///     Scale value on the denominator.
 ///
 /// @param[in] Atiles
 ///     Array of tiles of dimension gridDim.x,
@@ -32,41 +38,46 @@ namespace device {
 /// @param[in] lda
 ///     Leading dimension of each tile in Atiles. lda >= m.
 ///
-/// @param[in] Btiles
-///     Array of tiles of dimension gridDim.x,
-///     where each Btiles[k] is an m-by-n matrix stored in an ldb-by-n array.
-///
-/// @param[in] ldb
-///     Leading dimension of each tile in Btiles. ldb >= m.
-///
 template <typename scalar_t>
-__global__ void geaddKernel(
+__global__ void tzscaleKernel(
+    lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t alpha, scalar_t** tilesA, int64_t lda,
-    scalar_t beta, scalar_t** tilesB, int64_t ldb)
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    scalar_t** tilesA, int64_t lda)
 {
     scalar_t* tileA = tilesA[blockIdx.x];
-    scalar_t* tileB = tilesB[blockIdx.x];
+    blas::real_type<scalar_t> mul = numer / denom;
 
     // thread per row, if more rows than threads, loop by blockDim.x
-    for (int64_t ridx = threadIdx.x; ridx < m; ridx += blockDim.x) {
-        // todo: should the increment be ridx += 1024?
+    for (int ridx = threadIdx.x; ridx <= m; ridx += blockDim.x) {
         scalar_t* rowA = &tileA[ridx];
-        scalar_t* rowB = &tileB[ridx];
 
-        for (int64_t j = 0; j < n; ++j)
-            rowB[j*ldb] = axpby(alpha, rowA[j*lda], beta, rowB[j*ldb]);
+        if (uplo == lapack::Uplo::Lower) {
+            for (int64_t j = 0; j <= ridx && j < n; ++j) { // lower
+                rowA[j*lda] = rowA[j*lda] * mul;
+            }
+        }
+        else {
+            for (int64_t j = n-1; j >= ridx; --j) // upper
+                rowA[j*lda] = rowA[j*lda] * mul;
+        }
     }
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine for element-wise tile addition.
+/// Batched routine for element-wise tile scale.
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 0.
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 0.
+///
+/// @param[in] numer
+///     Scale value on the numerator.
+///
+/// @param[in] denom
+///     Scale value on the denominator.
 ///
 /// @param[in] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
@@ -75,13 +86,6 @@ __global__ void geaddKernel(
 /// @param[in] lda
 ///     Leading dimension of each tile in A. lda >= m.
 ///
-/// @param[out] Barray
-///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
-///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
-///
-/// @param[in] ldb
-///     Leading dimension of each tile in B. ldb >= m.
-///
 /// @param[in] batch_count
 ///     Size of Aarray and Barray. batch_count >= 0.
 ///
@@ -89,23 +93,23 @@ __global__ void geaddKernel(
 ///     CUDA stream to execute in.
 ///
 template <typename scalar_t>
-void geadd(
+void tzscale(
+    lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t alpha, scalar_t** Aarray, int64_t lda,
-    scalar_t beta, scalar_t** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue)
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    scalar_t** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
 {
     // quick return
     if (batch_count == 0)
         return;
 
     // Max threads/block=1024 for current CUDA compute capability (<=7.5)
-    int64_t nthreads = std::min((int64_t)1024, m);
+    int64_t nthreads = std::min(int64_t(1024), m);
 
-    geaddKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
-        m, n,
-        alpha, Aarray, lda,
-        beta, Barray, ldb);
+    tzscaleKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+        uplo, m, n,
+        numer, denom, Aarray, lda);
 
     cudaError_t error = cudaGetLastError();
     slate_assert(error == cudaSuccess);
@@ -114,32 +118,34 @@ void geadd(
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void geadd(
+void tzscale(
+    lapack::Uplo uplo,
     int64_t m, int64_t n,
-    float alpha, float** Aarray, int64_t lda,
-    float beta, float** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue);
+    float numer, float denom, float** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue);
 
 template
-void geadd(
+void tzscale(
+    lapack::Uplo uplo,
     int64_t m, int64_t n,
-    double alpha, double** Aarray, int64_t lda,
-    double beta, double** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue);
+    double numer, double denom, double** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue);
 
 template
-void geadd(
+void tzscale(
+    lapack::Uplo uplo,
     int64_t m, int64_t n,
-    cuFloatComplex alpha, cuFloatComplex** Aarray, int64_t lda,
-    cuFloatComplex beta, cuFloatComplex** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue);
+    float numer, float denom,
+    cuFloatComplex** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue);
 
 template
-void geadd(
+void tzscale(
+    lapack::Uplo uplo,
     int64_t m, int64_t n,
-    cuDoubleComplex alpha, cuDoubleComplex** Aarray, int64_t lda,
-    cuDoubleComplex beta, cuDoubleComplex** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue);
+    double numer, double denom,
+    cuDoubleComplex** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue);
 
 } // namespace device
 } // namespace slate

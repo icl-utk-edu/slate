@@ -2220,12 +2220,8 @@ void BaseMatrix<scalar_t>::tileIbcastToSet(
     if (! send_to.empty()) {
         // read tile on host memory
         tileGetForReading(i, j, LayoutConvert(layout));
-        // Forward using mpi_send()
-        // for (int dst : send_to)
-        //     at(i, j).send(new_vec[dst], mpi_comm_, tag);
 
-        // Forward using multiple mpi_isend() calls, followed by a waitall
-        std::vector<MPI_Request> isend_req_array(send_to.size(), MPI_REQUEST_NULL);
+        // Forward using multiple mpi_isend() calls
         for (int dst : send_to) {
             MPI_Request request;
             at(i, j).isend(new_vec[dst], mpi_comm_, tag, &request);

@@ -303,7 +303,7 @@ void permuteRows(
                             pivot[i].elementOffset() > i)
                         {
 
-                            // todo: assumes 1-D block cyclic
+                            // todo: assumes 1-D block cyclic distribution on devices
                             int64_t i1 = i;
                             int64_t i2 = pivot[i].elementOffset();
                             int64_t idx2 = pivot[i].tileIndex();

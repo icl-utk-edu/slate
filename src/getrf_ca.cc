@@ -86,8 +86,8 @@ void getrf_ca(slate::internal::TargetType<target>,
    // workspace
     auto Awork = A.emptyLike();
 
-    #pragma omp parallel
-    #pragma omp master
+  //  #pragma omp parallel
+  //  #pragma omp master
     {
         omp_set_nested(1);
         for (int64_t k = 0; k < min_mt_nt; ++k) {
@@ -120,11 +120,28 @@ void getrf_ca(slate::internal::TargetType<target>,
 
            // swap rows in A(k+1:A_mt-1, k)
            int tag_kl1 = k+1;
-           internal::permuteRows<target>(
+           internal::permuteRows<Target::HostTask>(
                    Direction::Forward, A.sub(k, A_mt-1, k, k),
-                   pivots.at(k), target_layout, priority_one, tag_kl1, 0);
+                   pivots.at(k), host_layout, priority_one, tag_kl1, 0);
+
+           #if 0
+            for (int i=0; i<A.mt(); i++){
+                if (A.tileIsLocal(2,2 )){
+                    if( k==2){
+                        std::cout<<"\n Factore Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
+                        for(int m=0; m<A.tileMb(i);m++){
+                             for(int n=0; n<A.tileMb(i);n++){
+                                 std::cout<<A(2,2)(m,n)<<",";
+                             }
+                             std::cout<<std::endl;
+                        }
+                    }
+                }
+            }
+           #endif
 
            internal::copy<Target::HostTask>( Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
+
 
            //Update panel
            int tag_k = k;
@@ -234,9 +251,9 @@ void getrf_ca(slate::internal::TargetType<target>,
                 {
                     // swap rows in A(k:mt-1, kl+1:nt-1)
                     int tag_kl1 = k+1+lookahead;
-                    internal::permuteRows<target>(
+                    internal::permuteRows<Target::HostTask>(
                             Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
-                            pivots.at(k), target_layout, priority_zero, tag_kl1, 1);
+                            pivots.at(k), host_layout, priority_zero, tag_kl1, 1);
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
@@ -273,12 +290,12 @@ void getrf_ca(slate::internal::TargetType<target>,
                             target_layout, priority_zero, 1);
                      #if 0
                         for (int i=0; i<A.mt(); i++){
-                            if (A.tileIsLocal(i, 0)){
-                                if( A.mpiRank() == 0){
+                            if (A.tileIsLocal(3, 2)){
+                                if( k==1){
                                     std::cout<<"\n Factore Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
                                     for(int m=0; m<A.tileMb(i);m++){
                                         for(int n=0; n<A.tileMb(i);n++){
-                                            std::cout<<A(i,0)(m,n)<<",";
+                                            std::cout<<A(3,2)(m,n)<<",";
                                         }
                                         std::cout<<std::endl;
                                     }

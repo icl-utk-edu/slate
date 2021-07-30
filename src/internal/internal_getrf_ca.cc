@@ -493,7 +493,7 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                        std::cout<<"{"<<aux_pivot[0][i].tileIndex()<<", "<< aux_pivot[0][i].elementOffset()<<"}, ";
                 }
                  std::cout<<std::endl;*/
-                 pivotList(aux_pivot, diag_len);
+                pivotList(aux_pivot, diag_len);
 
                }
                Awork.tileTick(i_dst, 0);

@@ -86,8 +86,8 @@ void getrf_ca(slate::internal::TargetType<target>,
    // workspace
     auto Awork = A.emptyLike();
 
-  //  #pragma omp parallel
-  //  #pragma omp master
+    #pragma omp parallel
+    #pragma omp master
     {
         omp_set_nested(1);
         for (int64_t k = 0; k < min_mt_nt; ++k) {
@@ -99,7 +99,7 @@ void getrf_ca(slate::internal::TargetType<target>,
             Apanel.insertLocalTiles();
 
             // panel, high priority
-         //   #pragma omp task depend(inout:column[k]) \
+            #pragma omp task depend(inout:column[k]) \
                              depend(out:diag[k]) \
                              priority(priority_one)
             {
@@ -120,25 +120,9 @@ void getrf_ca(slate::internal::TargetType<target>,
 
            // swap rows in A(k+1:A_mt-1, k)
            int tag_kl1 = k+1;
-           internal::permuteRows<Target::HostTask>(
+           internal::permuteRows<target>(
                    Direction::Forward, A.sub(k, A_mt-1, k, k),
-                   pivots.at(k), host_layout, priority_one, tag_kl1, 0);
-
-           #if 0
-            for (int i=0; i<A.mt(); i++){
-                if (A.tileIsLocal(2,2 )){
-                    if( k==2){
-                        std::cout<<"\n Factore Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
-                        for(int m=0; m<A.tileMb(i);m++){
-                             for(int n=0; n<A.tileMb(i);n++){
-                                 std::cout<<A(2,2)(m,n)<<",";
-                             }
-                             std::cout<<std::endl;
-                        }
-                    }
-                }
-            }
-           #endif
+                   pivots.at(k), target_layout, priority_one, tag_kl1, 0);
 
            internal::copy<Target::HostTask>( Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
 
@@ -154,7 +138,7 @@ void getrf_ca(slate::internal::TargetType<target>,
            Apanel.clear();
            }
 
-           // #pragma omp task depend(inout:column[k]) \
+            #pragma omp task depend(inout:column[k]) \
                             depend(in:diag[k]) \
                             depend(inout:listBcastMT_token) \
                             priority(priority_one)
@@ -203,7 +187,7 @@ void getrf_ca(slate::internal::TargetType<target>,
 
             // update lookahead column(s), high priority
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
-            ///    #pragma omp task depend(in:diag[k]) \
+                #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[j]) \
                                  priority(priority_one)
                 {
@@ -244,16 +228,16 @@ void getrf_ca(slate::internal::TargetType<target>,
         }
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
-              ///  #pragma omp task depend(in:diag[k]) \
+                #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[k+1+lookahead]) \
                                  depend(inout:listBcastMT_token) \
                                  depend(inout:column[A_nt-1])
                 {
                     // swap rows in A(k:mt-1, kl+1:nt-1)
                     int tag_kl1 = k+1+lookahead;
-                    internal::permuteRows<Target::HostTask>(
+                    internal::permuteRows<target>(
                             Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
-                            pivots.at(k), host_layout, priority_zero, tag_kl1, 1);
+                            pivots.at(k), target_layout, priority_zero, tag_kl1, 1);
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
@@ -277,11 +261,11 @@ void getrf_ca(slate::internal::TargetType<target>,
                     // todo: trsm still operates in ColMajor
                     A.template listBcastMT<target>(
                         bcast_list, Layout::ColMajor);
-
+                  //}
                 //TODO::RABAB
-               /*#pragma omp task depend(in:column[k]) \
-               //                 depend(inout:column[k+1+lookahead]) \
-               //                 depend(inout:column[A_nt-1])*/
+              /* #pragma omp task depend(in:column[k]) \
+                                depend(inout:column[k+1+lookahead]) \
+                                depend(inout:column[A_nt-1])*/
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
                             scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
@@ -303,9 +287,8 @@ void getrf_ca(slate::internal::TargetType<target>,
                             }
                         }
                      #endif
-
+                  }
                 }
-            }
 
       //       #pragma omp task depend(inout:column[k]) \
                                    depend(out:diag[k]) \
@@ -352,7 +335,7 @@ void getrf_ca(slate::internal::TargetType<target>,
 
 
         }
-        //#pragma omp taskwait
+        #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
 

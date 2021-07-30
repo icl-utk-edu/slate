@@ -236,7 +236,7 @@ void scale(internal::TargetType<Target::Devices>,
                 if (A.uplo() == Uplo::Lower) {
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         for (int64_t i = std::max(j, irange[q][0]); i < irange[q][1]; ++i) {
-                            if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
+                            if (i != j && A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
                                 a_array_host[batch_count] = A(i, j, device).data();
                                 lda[q] = A(i, j, device).stride();
                                 ++group_count[q];
@@ -248,7 +248,7 @@ void scale(internal::TargetType<Target::Devices>,
                 else { // upper
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         for (int64_t i = irange[q][0]; i < irange[q][1] && i <= j; ++i) {
-                            if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
+                            if (i != j && A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
                                 a_array_host[batch_count] = A(i, j, device).data();
                                 lda[q] = A(i, j, device).stride();
                                 ++group_count[q];
@@ -258,7 +258,36 @@ void scale(internal::TargetType<Target::Devices>,
                     }
                 }
             }
-
+            for (int q = 4; q < 8; ++q) {
+                group_count[q] = 0;
+                lda[q] = 0;
+                mb[q] = A.tileMb(irange[q-4][0]);
+                nb[q] = A.tileNb(jrange[q-4][0]);
+                if (A.uplo() == Uplo::Lower) {
+                    for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
+                        for (int64_t i = std::max(j, irange[q-4][0]); i < irange[q-4][1]; ++i) {
+                            if (i == j && A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
+                                a_array_host[batch_count] = A(i, j, device).data();
+                                lda[q] = A(i, j, device).stride();
+                                ++group_count[q];
+                                ++batch_count;
+                            }
+                        }
+                   }
+               }
+               else { // upper
+                    for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
+                        for (int64_t i = irange[q-4][0]; i < irange[q-4][1] && i <= j; ++i) {
+                            if (i == j && A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
+                                a_array_host[batch_count] = A(i, j, device).data();
+                                lda[q] = A(i, j, device).stride();
+                                ++group_count[q];
+                                ++batch_count;
+                            }
+                        }
+                    }
+                }
+            }
             scalar_t** a_array_dev = A.array_device(device);
 
             blas::Queue* queue = A.compute_queue(device, queue_index);
@@ -270,6 +299,14 @@ void scale(internal::TargetType<Target::Devices>,
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
                     device::gescale(mb[q], nb[q],
+                                    numer, denom, a_array_dev, lda[q],
+                                    group_count[q], *queue);
+                    a_array_dev += group_count[q];
+                }
+            }
+            for (int q = 4; q < 8; ++q) {
+                if (group_count[q] > 0) {
+                    device::tzscale(mb[q], nb[q],
                                     numer, denom, a_array_dev, lda[q],
                                     group_count[q], *queue);
                     a_array_dev += group_count[q];

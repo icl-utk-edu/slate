@@ -223,10 +223,6 @@ void getrf_ca(slate::internal::TargetType<target>,
                     A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), Layout::ColMajor, tag_j);
 
 
-/*//                #pragma omp task depend(in:column[k]) \
-//                                 depend(inout:column[j]) \
-//                                 priority(priority_one)*/
-//                {
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                     internal::gemm<target>(
                             scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
@@ -234,7 +230,6 @@ void getrf_ca(slate::internal::TargetType<target>,
                             scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
                             host_layout, priority_one, j-k+1);
 
-                //}
             }
         }
             // update trailing submatrix, normal priority
@@ -272,11 +267,6 @@ void getrf_ca(slate::internal::TargetType<target>,
                     // todo: trsm still operates in ColMajor
                     A.template listBcastMT<target>(
                         bcast_list, Layout::ColMajor);
-                  //}
-                //TODO::RABAB
-              /* #pragma omp task depend(in:column[k]) \
-                                depend(inout:column[k+1+lookahead]) \
-                                depend(inout:column[A_nt-1])*/
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
                             scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
@@ -300,8 +290,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                      #endif
                   }
                 }
-               #if 0
-               if (is_shared) {
+               /*if (is_shared) {
                    #pragma omp task depend(inout:column[k])
                    {
                        for (int64_t i = k+1; i < A_mt; ++i) {
@@ -318,15 +307,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                            }
                        }
                    }
-               } 
-               #endif 
-      //       #pragma omp task depend(inout:column[k]) \
-                                   depend(out:diag[k]) \
-                                   priority(priority_one)
-          ///  {
-           ///     internal::copy<Target::HostTask>( Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
-            ///    Apanel.clear();
-            ///}
+               } */    
 
             //TODO::RABAB ask
             if (target == Target::Devices) {

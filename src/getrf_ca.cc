@@ -300,6 +300,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                      #endif
                   }
                 }
+               #if 0
                if (is_shared) {
                    #pragma omp task depend(inout:column[k])
                    {
@@ -317,7 +318,8 @@ void getrf_ca(slate::internal::TargetType<target>,
                            }
                        }
                    }
-               }     
+               } 
+               #endif 
       //       #pragma omp task depend(inout:column[k]) \
                                    depend(out:diag[k]) \
                                    priority(priority_one)
@@ -327,7 +329,7 @@ void getrf_ca(slate::internal::TargetType<target>,
             ///}
 
             //TODO::RABAB ask
-            /*if (target == Target::Devices) {
+            if (target == Target::Devices) {
                 #pragma omp task depend(inout:diag[k])
                 {
                     if (A.tileIsLocal(k, k) && k+1 < A_nt) {
@@ -359,7 +361,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                         }
                     }
                 }
-            }*/
+            }
 
 
         }

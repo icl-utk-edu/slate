@@ -124,6 +124,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                    Direction::Forward, A.sub(k, A_mt-1, k, k),
                    pivots.at(k), target_layout, priority_one, tag_kl1, 0);
 
+           //TODO::RABAB segfault when chaning it to target
            internal::copy<Target::HostTask>( Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
 
 
@@ -192,16 +193,16 @@ void getrf_ca(slate::internal::TargetType<target>,
                                  priority(priority_one)
                 {
                     int tag_j = j;
-                    internal::permuteRows<target>(
+                    internal::permuteRows<Target::HostTask>(
                             Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
-                            target_layout, priority_one, tag_j, j-k+1);
+                            host_layout, priority_one, tag_j, j-k+1);
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
                         TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
 
                     // solve A(k, k) A(k, j) = A(k, j)
-                    internal::trsm<target>(
+                    internal::trsm<Target::HostTask>(
                         Side::Left,
                         scalar_t(1.0), std::move(Tkk),
                         A.sub(k, k, j, j), priority_one,
@@ -217,11 +218,11 @@ void getrf_ca(slate::internal::TargetType<target>,
 //                                 priority(priority_one)*/
 //                {
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
-                    internal::gemm<target>(
+                    internal::gemm<Target::HostTask>(
                             scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
                                             A.sub(k, k, j, j),
                             scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
-                            target_layout, priority_one, j-k+1);
+                            host_layout, priority_one, j-k+1);
 
                 //}
             }
@@ -237,7 +238,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                     int tag_kl1 = k+1+lookahead;
                     internal::permuteRows<target>(
                             Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
-                            pivots.at(k), target_layout, priority_zero, tag_kl1, 1);
+                            pivots.at(k), target_layout, priority_zero, tag_kl1);
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
@@ -248,7 +249,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                         Side::Left,
                         scalar_t(1.0), std::move(Tkk),
                                        A.sub(k, k, k+1+lookahead, A_nt-1),
-                        priority_zero, Layout::ColMajor, 1);
+                        priority_zero, Layout::ColMajor);
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastListTag bcast_list;
@@ -271,7 +272,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                             scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
                                             A.sub(k, k, k+1+lookahead, A_nt-1),
                             scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
-                            target_layout, priority_zero, 1);
+                            host_layout, priority_zero);
                      #if 0
                         for (int i=0; i<A.mt(); i++){
                             if (A.tileIsLocal(3, 2)){
@@ -299,7 +300,7 @@ void getrf_ca(slate::internal::TargetType<target>,
             ///}
 
             //TODO::RABAB ask
-            if (target == Target::Devices) {
+            /*if (target == Target::Devices) {
                 #pragma omp task depend(inout:diag[k])
                 {
                     if (A.tileIsLocal(k, k) && k+1 < A_nt) {
@@ -331,12 +332,12 @@ void getrf_ca(slate::internal::TargetType<target>,
                         }
                     }
                 }
-            }
+            }*/
 
 
         }
-        #pragma omp taskwait
-        A.tileUpdateAllOrigin();
+        //#pragma omp taskwait
+        //A.tileUpdateAllOrigin();
     }
 
     // Pivot to the left of the panel.
@@ -350,11 +351,11 @@ void getrf_ca(slate::internal::TargetType<target>,
         }
     }
 
-    /*#pragma omp parallel
+    #pragma omp parallel
     #pragma omp master
     {
         A.tileLayoutReset();
-    }*/
+    }
     A.clearWorkspace();
 }
 

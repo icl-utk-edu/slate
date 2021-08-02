@@ -44,10 +44,10 @@ void getrf_ca(slate::internal::TargetType<target>,
     if (target == Target::Devices)
         target_layout = Layout::RowMajor;
 
-    if (target == Target::Devices) {
+    /*if (target == Target::Devices) {
         A.allocateBatchArrays();
         A.reserveDeviceWorkspace();
-    }
+    }*/
 
     const int priority_one = 1;
     const int priority_zero = 0;
@@ -55,8 +55,18 @@ void getrf_ca(slate::internal::TargetType<target>,
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
     int life_factor_one = 1;
-    bool is_shared = lookahead > 0; //TODO::RABAB
+//    bool is_shared = lookahead > 0; //TODO::RABAB
+    const int queue_0 = 0;
+    const int queue_1 = 1;
+    const int64_t batch_size_zero = 0;
+    const int num_queues = 2 + lookahead;
+    bool is_shared = target==Target::Devices && lookahead > 0;
     pivots.resize(min_mt_nt);
+
+    if (target == Target::Devices) {
+        A.allocateBatchArrays(batch_size_zero, num_queues);
+        A.reserveDeviceWorkspace();
+    }
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -122,7 +132,7 @@ void getrf_ca(slate::internal::TargetType<target>,
            int tag_kl1 = k+1;
            internal::permuteRows<target>(
                    Direction::Forward, A.sub(k, A_mt-1, k, k),
-                   pivots.at(k), target_layout, priority_one, tag_kl1, 0);
+                   pivots.at(k), target_layout, priority_one, tag_kl1, queue_0);
 
            //TODO::RABAB segfault when chaning it to target
            internal::copy<Target::HostTask>( Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
@@ -134,7 +144,7 @@ void getrf_ca(slate::internal::TargetType<target>,
            bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
                                           A.sub(k, k, k+1, A_nt-1)}});
            A.template listBcast<target>(
-                bcast_list_A, host_layout, tag_k, life_factor_one, true);
+                bcast_list_A, host_layout, tag_k, life_factor_one, is_shared);
 
            Apanel.clear();
            }
@@ -157,7 +167,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                        Side::Right,
                        scalar_t(1.0), std::move(Tkk),
                        A.sub(k+1, A_mt-1, k, k),
-                       priority_one, Layout::ColMajor, 0);
+                       priority_one, Layout::ColMajor, queue_0);
 
                BcastListTag bcast_list;
                // bcast the tiles of the panel to the right hand side
@@ -193,16 +203,16 @@ void getrf_ca(slate::internal::TargetType<target>,
                                  priority(priority_one)
                 {
                     int tag_j = j;
-                    internal::permuteRows<Target::HostTask>(
+                    internal::permuteRows<target>(
                             Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
-                            host_layout, priority_one, tag_j, j-k+1);
+                            target_layout, priority_one, tag_j, j-k+1);
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
                         TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
 
                     // solve A(k, k) A(k, j) = A(k, j)
-                    internal::trsm<Target::HostTask>(
+                    internal::trsm<target>(
                         Side::Left,
                         scalar_t(1.0), std::move(Tkk),
                         A.sub(k, k, j, j), priority_one,
@@ -218,7 +228,7 @@ void getrf_ca(slate::internal::TargetType<target>,
 //                                 priority(priority_one)*/
 //                {
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
-                    internal::gemm<Target::HostTask>(
+                    internal::gemm<target>(
                             scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
                                             A.sub(k, k, j, j),
                             scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
@@ -238,7 +248,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                     int tag_kl1 = k+1+lookahead;
                     internal::permuteRows<target>(
                             Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
-                            pivots.at(k), target_layout, priority_zero, tag_kl1);
+                            pivots.at(k), target_layout, priority_zero, tag_kl1, queue_1);
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
@@ -249,7 +259,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                         Side::Left,
                         scalar_t(1.0), std::move(Tkk),
                                        A.sub(k, k, k+1+lookahead, A_nt-1),
-                        priority_zero, Layout::ColMajor);
+                        priority_zero, Layout::ColMajor, queue_1);
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastListTag bcast_list;
@@ -272,7 +282,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                             scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
                                             A.sub(k, k, k+1+lookahead, A_nt-1),
                             scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
-                            host_layout, priority_zero);
+                            host_layout, priority_zero, queue_1);
                      #if 0
                         for (int i=0; i<A.mt(); i++){
                             if (A.tileIsLocal(3, 2)){
@@ -290,7 +300,24 @@ void getrf_ca(slate::internal::TargetType<target>,
                      #endif
                   }
                 }
-
+               if (is_shared) {
+                   #pragma omp task depend(inout:column[k])
+                   {
+                       for (int64_t i = k+1; i < A_mt; ++i) {
+                           if (A.tileIsLocal(i, k)) {
+                               A.tileUpdateOrigin(i, k);
+                               
+                               std::set<int> dev_set;
+                               A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
+                              
+                               for (auto device : dev_set) {
+                                   A.tileUnsetHold(i, k, device);
+                                   A.tileRelease(i, k, device);
+                               }
+                           }
+                       }
+                   }
+               }     
       //       #pragma omp task depend(inout:column[k]) \
                                    depend(out:diag[k]) \
                                    priority(priority_one)

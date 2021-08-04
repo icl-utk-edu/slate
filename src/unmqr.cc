@@ -339,13 +339,7 @@ void unmqr(
     Matrix<scalar_t>& C,
     Options const& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
@@ -353,12 +347,12 @@ void unmqr(
         default:
             unmqr<Target::HostTask>(side, op, A, T, C, opts);
             break;
-        //case Target::HostNest:
-            //unmqr<Target::HostNest>(side, op, A, T, C, opts);
-            //break;
-        //case Target::HostBatch:
-            //unmqr<Target::HostBatch>(side, op, A, T, C, opts);
-            //break;
+        case Target::HostNest:
+            unmqr<Target::HostNest>(side, op, A, T, C, opts);
+            break;
+        case Target::HostBatch:
+            unmqr<Target::HostBatch>(side, op, A, T, C, opts);
+            break;
         case Target::Devices:
             unmqr<Target::Devices>(side, op, A, T, C, opts);
             break;

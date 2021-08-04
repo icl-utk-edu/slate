@@ -110,6 +110,9 @@ std::vector< testsweeper::routines_t > routines = {
     { "getriOOP",           test_getri,        Section::gesv },
     { "",                   nullptr,           Section::newline },
 
+    { "trtri",              test_trtri,        Section::gesv },
+    { "",                   nullptr,           Section::newline },
+
     // -----
     // Cholesky
     { "posv",               test_posv,         Section::posv },
@@ -215,6 +218,10 @@ std::vector< testsweeper::routines_t > routines = {
 
     { "trnorm",             test_trnorm,       Section::aux_norm },
     { "",                   nullptr,           Section::newline },
+    // -----
+    // auxiliary
+    { "scale",              test_scale,        Section::aux },
+    { "",                   nullptr,           Section::newline },
 };
 
 // -----------------------------------------------------------------------------
@@ -225,6 +232,7 @@ Params::Params():
     ParamsBase(),
     matrix(),
     matrixB(),
+    matrixC(),
 
     // w = width
     // p = precision
@@ -334,6 +342,11 @@ Params::Params():
     matrixB.kind.name( "matrixB" );
     matrixB.cond.name( "condB" );
     matrixB.condD.name( "condD_B" );
+
+    // change names of matrix C's params
+    matrixC.kind.name( "matrixC" );
+    matrixC.cond.name( "condC" );
+    matrixC.condD.name( "condD_C" );
 
     // mark standard set of output fields as used
     okay();

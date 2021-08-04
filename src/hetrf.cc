@@ -32,7 +32,7 @@ void hetrf(slate::internal::TargetType<target>,
                     Matrix<scalar_t>& H,
            int64_t ib, int64_t max_panel_threads, int64_t lookahead)
 {
-    //using real_t = blas::real_type<scalar_t>;
+    using blas::conj;
     using BcastList  = typename Matrix<scalar_t>::BcastList;
     using ReduceList = typename Matrix<scalar_t>::ReduceList;
 
@@ -133,7 +133,7 @@ void hetrf(slate::internal::TargetType<target>,
                     scalar_t *tkk = T(k, k).data();
                     for (int i = 0; i < T(k, k).mb(); i++) {
                         for (int j = i; j < T(k, k).nb(); j++) {
-                            tkk[i + j*ldt] = tkk[j + i*ldt];
+                            tkk[i + j*ldt] = conj( tkk[j + i*ldt] );
                         }
                     }
                 }
@@ -215,7 +215,7 @@ void hetrf(slate::internal::TargetType<target>,
                     scalar_t *tkk = T(k, k).data();
                     for (int i = 0; i < T(k, k).mb(); i++) {
                         for (int j = i; j < T(k, k).nb(); j++) {
-                            tkk[i + j*ldt] = tkk[j + i*ldt];
+                            tkk[i + j*ldt] = conj( tkk[j + i*ldt] );
                         }
                     }
                     T.tileModified(k, k);
@@ -374,6 +374,7 @@ void hetrf(slate::internal::TargetType<target>,
                     T.tileModified(k+1, k);
 
                     // zero out upper-triangular of L(k, k)
+                    // and set diagonal to one.
                     lapack::laset(lapack::MatrixType::Upper,
                           A(k+1, k).mb(), A(k+1, k).nb(),
                           scalar_t(0.0), scalar_t(1.0),
@@ -415,7 +416,7 @@ void hetrf(slate::internal::TargetType<target>,
                             tkk2[j + i*ldt2] = 0.0;
                         }
                         for (int j = i; j < T(k+1, k).nb(); j++) {
-                            tkk2[j + i*ldt2] = tkk1[i + j*ldt1];
+                            tkk2[j + i*ldt2] = conj( tkk1[i + j*ldt1] );
                         }
                     }
                     T.tileModified(k, k+1);
@@ -508,32 +509,12 @@ void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
            Options const& opts)
 {
 
-    int64_t ib;
-    try {
-        ib = opts.at(Option::InnerBlocking).i_;
-        assert(ib >= 0);
-    }
-    catch (std::out_of_range&) {
-        ib = 16;
-    }
+    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
 
-    int64_t max_panel_threads;
-    try {
-        max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
-        assert(max_panel_threads >= 0);
-    }
-    catch (std::out_of_range&) {
-        max_panel_threads = std::max(omp_get_max_threads()/2, 1);
-    }
+    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
+    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
 
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range&) {
-        lookahead = 1;
-    }
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     internal::specialization::hetrf(internal::TargetType<target>(),
                                     A, pivots, T, pivots2,
@@ -602,13 +583,7 @@ void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                     Matrix<scalar_t>& H,
            Options const& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:

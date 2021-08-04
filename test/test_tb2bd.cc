@@ -7,6 +7,7 @@
 #include "blas.hh"
 #include "test.hh"
 #include "print_matrix.hh"
+#include "grid_utils.hh"
 #include "scalapack_support_routines.hh"
 #include "internal/internal.hh"
 
@@ -17,12 +18,14 @@
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void test_tb2bd_work(
-    Params& params, bool run)
+void test_tb2bd_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
     using blas::imag;
+
+    // Constants
+    const scalar_t zero = 0.0;
 
     // get & mark input values
     int64_t m = params.dim.m();
@@ -47,16 +50,17 @@ void test_tb2bd_work(
     if (! run)
         return;
 
-    int mpi_rank, mpi_size;
-    slate_mpi_call(
-        MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
-    slate_mpi_call(
-        MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
+    // MPI variables
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     int64_t lda = m;
     int64_t seed[] = {0, 1, 2, 3};
     int64_t min_mn = std::min(m, n);
 
+    // TODO: unclear if all these matrices are needed (A1, A3, Afull,
+    // Afullrm, Abandrm, A). Clean up to reduce memory requirements.
     std::vector<scalar_t> A1( lda*n );
     lapack::larnv(1, seed, A1.size(), &A1[0]);
     std::vector<scalar_t> A3( lda*n );
@@ -74,38 +78,35 @@ void test_tb2bd_work(
     if (verbose && mpi_rank == 0)
         print_matrix( "A1", m, n, &A1[0], lda );
 
-    std::vector<real_t> S1(min_mn);
-    if (check) {
+    std::vector<real_t> Sigma1(min_mn);
+    if (check && mpi_rank == 0) {
         //==================================================
         // For checking results, compute SVD of original matrix A.
         //==================================================
-        if (mpi_rank == 0) {
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
+        // set MKL num threads appropriately for parallel BLAS
+        int omp_num_threads;
+        #pragma omp parallel
+        { omp_num_threads = omp_get_num_threads(); }
+        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-            std::vector<scalar_t> A2 = A1;
-            std::vector<scalar_t> U ( 1 );  // ( lda*n );  // U, VT not needed for NoVec
-            std::vector<scalar_t> VT( 1 );  // ( lda*n );
-            lapack::gesvd(lapack::Job::NoVec, lapack::Job::NoVec,
-                          m, n, &A2[0], lda, &S1[0], &U[0], lda, &VT[0], lda);
+        std::vector<scalar_t> Aref = A1;
+        std::vector<scalar_t> U ( 1 );  // ( lda*n );  // U, VT not needed for NoVec
+        std::vector<scalar_t> VT( 1 );  // ( lda*n );
+        lapack::gesvd(lapack::Job::NoVec, lapack::Job::NoVec,
+                      m, n, &Aref[0], lda, &Sigma1[0], &U[0], lda, &VT[0], lda);
 
-            slate_set_num_blas_threads(saved_num_threads);
-        }
+        slate_set_num_blas_threads(saved_num_threads);
     }
 
     auto Afull = slate::Matrix<scalar_t>::fromLAPACK(
-        m, n, &A1[0], lda, nb, p, q, MPI_COMM_WORLD);
+                     m, n, &A1[0], lda, nb, p, q, MPI_COMM_WORLD);
 
     auto Afullrm = slate::Matrix<scalar_t>::fromLAPACK(
-        m, n, &A3[0], lda, nb, 1, 1, MPI_COMM_WORLD);
+                       m, n, &A3[0], lda, nb, 1, 1, MPI_COMM_WORLD);
     auto Abandrm = slate::BandMatrix<scalar_t>(ku, ku, Afullrm);
     //auto Aband = slate::BandMatrix<scalar_t>(ku, ku, Afull);
-    auto A     = slate::TriangularBandMatrix<scalar_t>( lapack::Uplo::Upper,
-                                                        lapack::Diag::NonUnit,
-                                                        Abandrm);
+    auto A = slate::TriangularBandMatrix<scalar_t>(
+                 lapack::Uplo::Upper, lapack::Diag::NonUnit, Abandrm);
     //auto A = slate::TriangularBandMatrix<scalar_t>(
     //                    slate::Uplo::Upper, slate::Diag::NonUnit,
     //                    m, ku, nb, p, q, MPI_COMM_WORLD);
@@ -114,15 +115,18 @@ void test_tb2bd_work(
 
     A.ge2tbGather(Afull);
 
+    if (verbose) {
+        print_matrix("Aband", A);
+    }
+
     // int64_t index = 0; // index in Ad storage
     int64_t jj = 0; // col index
     for (int64_t j = 0; j < A.nt(); ++j) {
         int64_t ii = 0; // row index
         for (int64_t i = 0; i < A.mt(); ++i) {
-            if (A.tileIsLocal(i, j) &&
-                ((ii == jj) ||
-                 ( ii < jj && (jj - (ii + A.tileMb(i) - 1)) <= (A.bandwidth()+1) ) ) )
-            {
+            if (A.tileIsLocal(i, j)
+                && (ii == jj
+                    || (ii < jj && jj - (ii + A.tileMb(i) - 1) <= A.bandwidth() + 1))) {
 
                 if (i == j) {
                     //lapack::laset(lapack::MatrixType::Lower, A(i, j).mb(), A(i, j).nb(),
@@ -130,16 +134,16 @@ void test_tb2bd_work(
                     if (i > 0) {
                         auto T_ptr = A.tileInsert( i, j-1 );
                         lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                              0, 0, T_ptr->data(), T_ptr->stride());
+                                      zero, zero, T_ptr->data(), T_ptr->stride());
                     }
                 }
 
-                if ((j < A.nt()-1) && (i == (j - 1))) {
+                if (j < A.nt() - 1 && i == j - 1) {
                     //lapack::laset(lapack::MatrixType::Upper, A(i, j).mb(), A(i, j).nb(),
                     //      0, 0, A(i, j).data(), A(i, j).stride());
                     auto T_ptr = A.tileInsert( i, j+1 );
                     lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                          0, 0, T_ptr->data(), T_ptr->stride());
+                                  zero, zero, T_ptr->data(), T_ptr->stride());
                 }
             }
             ii += A.tileMb(i);
@@ -153,11 +157,8 @@ void test_tb2bd_work(
     // run test
     if (trace)
         slate::trace::Trace::on();
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time = testsweeper::get_wtime();
+
+    double time = barrier_get_wtime(MPI_COMM_WORLD);
 
     //==================================================
     // Run SLATE test.
@@ -166,11 +167,8 @@ void test_tb2bd_work(
         slate::tb2bd(A);
     }
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    params.time() = testsweeper::get_wtime() - time;
+    time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+    params.time() = time;
 
     if (trace)
         slate::trace::Trace::finish();
@@ -210,7 +208,7 @@ void test_tb2bd_work(
             // Check that the singular values of updated A
             // match the singular values of the original A.
             real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-            std::vector<real_t> S2(min_mn);
+            std::vector<real_t> Sigma2(min_mn);
             std::vector<real_t> E(min_mn - 1);  // super-diagonal
             scalar_t dummy[1];  // U, VT, C not needed for NoVec
 
@@ -225,11 +223,11 @@ void test_tb2bd_work(
                     E_index += 1;
                 }
 
-                // Copy main diagonal to S2.
+                // Copy main diagonal to Sigma2.
                 auto T = A(i, i);
                 auto len = std::min(T.mb(), T.nb());
                 for (int64_t j = 0; j < len; ++j) {
-                    S2[D_index + j] = real( T(j, j) );
+                    Sigma2[D_index + j] = real( T(j, j) );
                 }
                 D_index += len;
 
@@ -240,30 +238,30 @@ void test_tb2bd_work(
                 E_index += len-1;
             }
             if (verbose) {
-                print_matrix("D", min_mn, 1, &S2[0], min_mn);
+                print_matrix("D", min_mn, 1, &Sigma2[0], min_mn);
                 print_matrix("E", min_mn-1, 1, &E[0], min_mn-1);
             }
 
             lapack::bdsqr(lapack::Uplo::Upper, min_mn, 0, 0, 0,
-                          &S2[0], &E[0], dummy, 1, dummy, 1, dummy, 1);
+                          &Sigma2[0], &E[0], dummy, 1, dummy, 1, dummy, 1);
             slate_set_num_blas_threads(saved_num_threads);
 
             if (verbose) {
-                printf( "%9s  %9s\n", "S1", "S2" );
+                printf( "%9s  %9s\n", "Sigma1", "Sigma2" );
                 for (int64_t i = 0; i < std::min(m, n); ++i) {
                     if (i < 20 || i > std::min(m, n)-20) {
-                        bool okay = std::abs( S1[i] - S2[i] ) < tol;
+                        bool okay = std::abs( Sigma1[i] - Sigma2[i] ) < tol;
                         printf( "%9.6f  %9.6f%s\n",
-                                S1[i], S2[i], (okay ? "" : " !!") );
+                                Sigma1[i], Sigma2[i], (okay ? "" : " !!") );
                     }
                 }
                 printf( "\n" );
             }
 
-            // Relative forward error: || S - Sref || / || Sref ||.
-            blas::axpy(S2.size(), -1.0, &S1[0], 1, &S2[0], 1);
-            params.error() = blas::nrm2(S2.size(), &S2[0], 1)
-                           / blas::nrm2(S1.size(), &S1[0], 1);
+            // Relative forward error: || Sigma - Sigma_ref || / || Sigma_ref ||.
+            blas::axpy(Sigma2.size(), -1.0, &Sigma1[0], 1, &Sigma2[0], 1);
+            params.error() = blas::nrm2(Sigma2.size(), &Sigma2[0], 1)
+                           / blas::nrm2(Sigma1.size(), &Sigma1[0], 1);
             params.okay() = (params.error() <= tol && params.error2() <= tol);
         }
     }

@@ -47,6 +47,7 @@ public:
     // ----- test matrix parameters
     MatrixParams matrix;
     MatrixParams matrixB;
+    MatrixParams matrixC;
 
     // Field members are explicitly public.
     // Order here determines output order.
@@ -168,6 +169,7 @@ void test_herk   (Params& params, bool run);
 // LU, general
 void test_gesv       (Params& params, bool run);
 void test_getri      (Params& params, bool run);
+void test_trtri      (Params& params, bool run);
 
 // LU, band
 void test_gbsv   (Params& params, bool run);
@@ -220,6 +222,9 @@ void test_henorm (Params& params, bool run);
 void test_hbnorm (Params& params, bool run);
 void test_synorm (Params& params, bool run);
 void test_trnorm (Params& params, bool run);
+
+// Scaling Matrix
+void test_scale (Params& params, bool run);
 
 // -----------------------------------------------------------------------------
 inline slate::Dist str2dist(const char* dist)
@@ -343,6 +348,14 @@ inline const char* scope2str(slate::NormScope scope)
         case slate::NormScope::Rows:    return "rows";
     }
     return "?";
+}
+
+// -----------------------------------------------------------------------------
+inline double barrier_get_wtime(MPI_Comm comm)
+{
+    slate::trace::Block trace_block("MPI_Barrier");
+    MPI_Barrier(comm);
+    return testsweeper::get_wtime();
 }
 
 #endif // SLATE_TEST_HH

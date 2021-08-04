@@ -26,10 +26,10 @@ void transpose(
     std::complex<float>* A, int64_t lda,
     blas::Queue& queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     transpose(n, (cuFloatComplex*) A, lda, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     transpose(n, (hipFloatComplex*) A, lda, queue);
 #endif
 }
@@ -40,10 +40,10 @@ void transpose(
     std::complex<double>* A, int64_t lda,
     blas::Queue& queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     transpose(n, (cuDoubleComplex*) A, lda, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     transpose(n, (hipDoubleComplex*) A, lda, queue);
 #endif
 }
@@ -56,10 +56,10 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     transpose_batch(n, (cuFloatComplex**) Aarray, lda, batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     transpose_batch(n, (hipFloatComplex**) Aarray, lda, batch_count, queue);
 #endif
 }
@@ -71,10 +71,10 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     transpose_batch(n, (cuDoubleComplex**) Aarray, lda, batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     transpose_batch(n, (hipDoubleComplex**) Aarray, lda, batch_count, queue);
 #endif
 }
@@ -87,11 +87,15 @@ void transpose(
     std::complex<float>* AT, int64_t ldat,
     blas::Queue& queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
-    transpose(m, n, (cuFloatComplex*) A, lda, (cuFloatComplex*) AT, ldat, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
-    transpose(m, n, (hipFloatComplex*) A, lda, (hipFloatComplex*) AT, ldat, queue);
+#if ! defined(SLATE_NO_CUDA)
+    transpose(m, n,
+              (cuFloatComplex*) A, lda,
+              (cuFloatComplex*) AT, ldat, queue);
+
+#elif ! defined(SLATE_NO_HIP)
+    transpose(m, n,
+              (hipFloatComplex*) A, lda,
+              (hipFloatComplex*) AT, ldat, queue);
 #endif
 }
 
@@ -102,11 +106,15 @@ void transpose(
     std::complex<double>* AT, int64_t ldat,
     blas::Queue& queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
-    transpose(m, n, (cuDoubleComplex*) A, lda, (cuDoubleComplex*) AT, ldat, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
-    transpose(m, n, (hipDoubleComplex*) A, lda, (hipDoubleComplex*) AT, ldat, queue);
+#if ! defined(SLATE_NO_CUDA)
+    transpose(m, n,
+              (cuDoubleComplex*) A, lda,
+              (cuDoubleComplex*) AT, ldat, queue);
+
+#elif ! defined(SLATE_NO_HIP)
+    transpose(m, n,
+              (hipDoubleComplex*) A, lda,
+              (hipDoubleComplex*) AT, ldat, queue);
 #endif
 }
 
@@ -119,11 +127,15 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
-    transpose_batch(m, n, (cuFloatComplex**) Aarray, lda, (cuFloatComplex**) ATarray, ldat, batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
-    transpose_batch(m, n, (hipFloatComplex**) Aarray, lda, (hipFloatComplex**) ATarray, ldat, batch_count, queue);
+#if ! defined(SLATE_NO_CUDA)
+    transpose_batch(m, n,
+                    (cuFloatComplex**) Aarray, lda,
+                    (cuFloatComplex**) ATarray, ldat, batch_count, queue);
+
+#elif ! defined(SLATE_NO_HIP)
+    transpose_batch(m, n,
+                    (hipFloatComplex**) Aarray, lda,
+                    (hipFloatComplex**) ATarray, ldat, batch_count, queue);
 #endif
 }
 
@@ -135,11 +147,15 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
-    transpose_batch(m, n, (cuDoubleComplex**) Aarray, lda, (cuDoubleComplex**) ATarray, ldat, batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
-    transpose_batch(m, n, (hipDoubleComplex**) Aarray, lda, (hipDoubleComplex**) ATarray, ldat, batch_count, queue);
+#if ! defined(SLATE_NO_CUDA)
+    transpose_batch(m, n,
+                    (cuDoubleComplex**) Aarray, lda,
+                    (cuDoubleComplex**) ATarray, ldat, batch_count, queue);
+
+#elif ! defined(SLATE_NO_HIP)
+    transpose_batch(m, n,
+                    (hipDoubleComplex**) Aarray, lda,
+                    (hipDoubleComplex**) ATarray, ldat, batch_count, queue);
 #endif
 }
 

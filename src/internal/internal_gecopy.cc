@@ -22,13 +22,13 @@ void gecopy(
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     gecopy(m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
            batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     gecopy(m, n,
            (hipFloatComplex**) Aarray, lda,
            (hipFloatComplex**) Barray, ldb,
@@ -43,13 +43,13 @@ void gecopy(
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     gecopy(m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
            batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     gecopy(m, n,
            (hipFloatComplex**) Aarray, lda,
            (hipDoubleComplex**) Barray, ldb,
@@ -64,13 +64,13 @@ void gecopy(
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     gecopy(m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
            batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     gecopy(m, n,
            (hipDoubleComplex**) Aarray, lda,
            (hipDoubleComplex**) Barray, ldb,
@@ -85,13 +85,13 @@ void gecopy(
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     gecopy(m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
            batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     gecopy(m, n,
            (hipDoubleComplex**) Aarray, lda,
            (hipFloatComplex**) Barray, ldb,
@@ -186,7 +186,7 @@ void copy(internal::TargetType<Target::HostTask>,
                     // tileAcquire() to avoid un-needed copy
                     B.tileAcquire(i, j, A.tileLayout(i, j));
                     gecopy(A(i, j), B(i, j));
-                    B.tileModified(i, j);
+                    B.tileModified(i, j, HostNum, true);
                     A.tileTick(i, j);// TODO is this correct here?
                 }
             }
@@ -291,7 +291,8 @@ void copy(internal::TargetType<Target::Devices>,
             src_scalar_t** a_array_dev = A.array_device(device, queue_index);
             dst_scalar_t** b_array_dev = B.array_device(device, queue_index);
 
-            blas::Queue* queue = A.compute_queue(device, queue_index);
+            blas::Queue* queue = B.compute_queue(device, queue_index);
+            blas::set_device( queue->device() );
 
             blas::device_memcpy<src_scalar_t*>(a_array_dev, a_array_host,
                                 batch_count,

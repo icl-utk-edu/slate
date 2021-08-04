@@ -23,6 +23,10 @@ void test_ge2tb_work(Params& params, bool run)
     using blas::real;
     //using llong = long long;
 
+    // Constants
+    const scalar_t zero = 0;
+    const scalar_t one = 1;
+
     // get & mark input values
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
@@ -36,8 +40,7 @@ void test_ge2tb_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-
-    origin = slate::Origin::ScaLAPACK;  // todo: for now
+    params.matrix.mark();
 
     // mark non-standard output values
     params.time();
@@ -46,54 +49,47 @@ void test_ge2tb_work(Params& params, bool run)
     if (! run)
         return;
 
-    // Local values
-    const scalar_t zero = 0;
-    const scalar_t one = 1;
+    slate::Options const opts =  {
+        {slate::Option::Target, target},
+        {slate::Option::MaxPanelThreads, panel_threads},
+        {slate::Option::InnerBlocking, ib}
+    };
 
     // MPI variables
-    int mpi_rank, mpi_size;
-    slate_mpi_call(
-        MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
-    slate_mpi_call(
-        MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
-    slate_assert(p*q <= mpi_size);
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    int myrow = whoismyrow(mpi_rank, p);
-    int mycol = whoismycol(mpi_rank, p);
-
-    // matrix A, figure out local size, allocate, initialize
-    int64_t mlocal = localRowsCols(m, nb, myrow, p);
-    int64_t nlocal = localRowsCols(n, nb, mycol, q);
-    int64_t lldA   = mlocal;
-    std::vector<scalar_t> A_data(lldA*nlocal);
-    int64_t idist = 3; // normal
-    int64_t iseed[4] = { 0, myrow, mycol, 3 };
-    lapack::larnv(idist, iseed, A_data.size(), A_data.data());
+    // Matrix A: figure out local size.
+    int64_t mlocal = num_local_rows_cols(m, nb, myrow, p);
+    int64_t nlocal = num_local_rows_cols(n, nb, mycol, q);
+    int64_t lldA   = blas::max(1, mlocal); // local leading dimension of A
+    std::vector<scalar_t> A_data;
 
     slate::Matrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
-        // Copy local ScaLAPACK data to GPU or CPU tiles.
+        // SLATE allocates CPU or GPU tiles.
         A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin2target(origin));
-        // todo: need ScaLAPACK descriptor for copy. hmpf!
-        //copy(A_data.data(), descA_tst, A);
-        assert(false);
     }
     else {
         // Create SLATE matrices from the ScaLAPACK layouts.
+        A_data.resize( lldA*nlocal );
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
+                m, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
     }
     slate::TriangularFactors<scalar_t> TU, TV;
+
+    slate::generate_matrix( params.matrix, A );
 
     if (verbose > 1) {
         print_matrix("A", A);
     }
 
     // Copy test data for check.
-    slate::Matrix<scalar_t> A_ref(m, n, nb, p, q, MPI_COMM_WORLD);
-    A_ref.insertLocalTiles();
-    slate::copy(A, A_ref);
+    slate::Matrix<scalar_t> Aref(m, n, nb, p, q, MPI_COMM_WORLD);
+    Aref.insertLocalTiles();
+    slate::copy(A, Aref);
 
     // todo
     //double gflop = lapack::Gflop<scalar_t>::ge2tb(m, n);
@@ -101,32 +97,20 @@ void test_ge2tb_work(Params& params, bool run)
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time = testsweeper::get_wtime();
+    double time = barrier_get_wtime(MPI_COMM_WORLD);
 
     //==================================================
     // Run SLATE test.
     //==================================================
-    slate::ge2tb(A, TU, TV, {
-        {slate::Option::Target, target},
-        {slate::Option::MaxPanelThreads, panel_threads},
-        {slate::Option::InnerBlocking, ib}
-    });
+    slate::ge2tb(A, TU, TV, opts);
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time_tst = testsweeper::get_wtime() - time;
+    time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
     if (trace) slate::trace::Trace::finish();
 
     // compute and save timing/performance
-    params.time() = time_tst;
-    //params.gflops() = gflop / time_tst;
+    params.time() = time;
+    //params.gflops() = gflop / time;
 
     if (verbose > 1) {
         print_matrix("A_factored", A);
@@ -147,7 +131,7 @@ void test_ge2tb_work(Params& params, bool run)
         //==================================================
 
         // Norm of original matrix: || A ||_1
-        real_t A_norm = slate::norm(slate::Norm::One, A_ref);
+        real_t A_norm = slate::norm(slate::Norm::One, Aref);
 
         // Zero out B, then copy band matrix B from A.
         slate::Matrix<scalar_t> B = A.emptyLike();
@@ -178,13 +162,9 @@ void test_ge2tb_work(Params& params, bool run)
 
         // Form UB, where U's representation is in lower part of A and TU.
         slate::qr_multiply_by_q(
-            slate::Side::Left, slate::Op::NoTrans, A, TU, B,
-            {{slate::Option::Target, target}}
-        );
-        //---------------------
+            slate::Side::Left, slate::Op::NoTrans, A, TU, B, opts);
         // Using traditional BLAS/LAPACK name
-        // slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, TU, B,
-        //              {{slate::Option::Target, target}});
+        // slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, TU, B, opts);
 
         if (verbose > 1) {
             print_matrix("UB", B);
@@ -200,21 +180,17 @@ void test_ge2tb_work(Params& params, bool run)
 
         // Note V^H == Q, not Q^H.
         slate::lq_multiply_by_q(
-            slate::Side::Right, slate::Op::NoTrans, Asub, TVsub, Bsub,
-            {{slate::Option::Target, target}}
-        );
-        //---------------------
+            slate::Side::Right, slate::Op::NoTrans, Asub, TVsub, Bsub, opts);
         // Using traditional BLAS/LAPACK name
         // slate::unmlq(slate::Side::Right, slate::Op::NoTrans,
-        //              Asub, TVsub, Bsub,
-        //              {{slate::Option::Target, target}});
+        //              Asub, TVsub, Bsub, opts);
 
         if (verbose > 1) {
             print_matrix("UBV^H", B);
         }
 
-        // Form UBV^H - A, where A is in A_ref.
-        slate::geadd(-one, A_ref, one, B);
+        // Form UBV^H - A, where A is in Aref.
+        slate::add(-one, Aref, one, B);
         if (verbose > 1) {
             print_matrix("UBV^H - A", B);
         }

@@ -127,6 +127,7 @@ void tplqt(
     Tile<scalar_t> A2,
     Tile<scalar_t> T)
 {
+#if LAPACK_VERSION >= 30700
     trace::Block trace_block("lapack::tplqt");
 
     int64_t m = A2.mb();
@@ -143,6 +144,9 @@ void tplqt(
                   A1.data(), A1.stride(),
                   A2.data(), A2.stride(),
                   T.data(), T.stride());
+#else
+    slate_not_implemented( "In gelqf: tplqt requires LAPACK >= 3.7" );
+#endif
 }
 
 } // namespace slate

@@ -1,6 +1,6 @@
 pipeline {
     agent none
-    triggers { cron ('H H(4-5) * * *') }
+    triggers { pollSCM 'H/10 * * * *' }
     stages {
         //======================================================================
         stage('Parallel Build') {
@@ -18,6 +18,7 @@ pipeline {
 
                         source /home/jenkins/spack_setup
                         sload gcc@6.4.0
+                        spack compiler find
                         sload intel-mkl
                         sload intel-mpi
 
@@ -30,12 +31,14 @@ pipeline {
                         export color=no
 
                         #========================================
+                        env
+
+                        #========================================
                         cat > make.inc << END
                         CXX       = mpicxx
                         FC        = mpif90
                         # CXXFLAGS  = -Werror  # HIP headers have many errors.
                         blas      = mkl
-                        cuda      = 0
                         # openmp=1 by default
 END
 
@@ -74,12 +77,20 @@ END
 
                         source /home/jenkins/spack_setup
                         sload gcc@6.4.0
+                        spack compiler find
                         sload cuda@10.2.89
                         sload intel-mkl
                         sload openmpi%gcc@6.4.0
 
+                        # Load CUDA. LD_LIBRARY_PATH already set.
+                        export CPATH=${CPATH}:${CUDA_HOME}/include
+                        export LIBRARY_PATH=${LIBRARY_PATH}:${CUDA_HOME}/lib64
+
                         export color=no
                         export OMPI_CXX=${CXX}
+
+                        #========================================
+                        env
 
                         #========================================
                         cat > make.inc << END
@@ -89,7 +100,6 @@ END
                         blas      = mkl
                         mkl_blacs = openmpi
                         cuda_arch = kepler
-                        hip       = 0
                         # openmp=1 by default
 END
 
@@ -128,6 +138,7 @@ END
 
                         source /home/jenkins/spack_setup
                         sload gcc@6.4.0
+                        spack compiler find
                         sload intel-mkl
                         sload intel-mpi
 
@@ -171,6 +182,7 @@ END
 
                         source /home/jenkins/spack_setup
                         sload gcc@6.4.0
+                        spack compiler find
                         sload cuda@10.2.89
                         sload intel-mkl
                         sload openmpi%gcc@6.4.0

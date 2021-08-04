@@ -22,14 +22,14 @@ void geset(
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     geset(m, n,
           make_cuFloatComplex(alpha.real(), alpha.imag()),
           make_cuFloatComplex(beta.real(), beta.imag()),
           (cuFloatComplex**) Aarray, lda,
           batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     geset(m, n,
           make_hipFloatComplex(alpha.real(), alpha.imag()),
           make_hipFloatComplex(beta.real(), beta.imag()),
@@ -45,16 +45,16 @@ void geset(
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     geset(m, n,
-          make_cuDoubleComplex(alpha.real(), alpha.imag()) ,
+          make_cuDoubleComplex(alpha.real(), alpha.imag()),
           make_cuDoubleComplex(beta.real(), beta.imag()),
           (cuDoubleComplex**) Aarray, lda,
           batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     geset(m, n,
-          make_hipDoubleComplex(alpha.real(), alpha.imag()) ,
+          make_hipDoubleComplex(alpha.real(), alpha.imag()),
           make_hipDoubleComplex(beta.real(), beta.imag()),
           (hipDoubleComplex**) Aarray, lda,
           batch_count, queue);
@@ -107,7 +107,8 @@ void set(
 /// @ingroup set_internal
 ///
 template <typename scalar_t>
-void set(internal::TargetType<Target::HostTask>,
+void set(
+    internal::TargetType<Target::HostTask>,
     scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
     int priority, int queue_index)
 {
@@ -239,10 +240,9 @@ void set(internal::TargetType<Target::Devices>,
 
             blas::Queue* queue = A.compute_queue(device, queue_index);
 
-            blas::device_memcpy<scalar_t*>(a_array_dev, a_array_host,
-                                batch_count,
-                                blas::MemcpyKind::HostToDevice,
-                                *queue);
+            blas::device_memcpy<scalar_t*>(
+                a_array_dev, a_array_host, batch_count,
+                blas::MemcpyKind::HostToDevice, *queue);
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
@@ -273,78 +273,94 @@ void set(internal::TargetType<Target::Devices>,
 // ----------------------------------------
 template
 void set<Target::HostTask, float>(
-    float alpha, float beta, Matrix<float>&& A, int priority, int queue_index);
+    float alpha, float beta, Matrix<float>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::HostNest, float>(
-    float alpha, float beta, Matrix<float>&& A, int priority, int queue_index);
+    float alpha, float beta, Matrix<float>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::HostBatch, float>(
-    float alpha, float beta, Matrix<float>&& A, int priority, int queue_index);
+    float alpha, float beta, Matrix<float>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::Devices, float>(
-    float alpha, float beta, Matrix<float>&& A, int priority, int queue_index);
+    float alpha, float beta, Matrix<float>&& A,
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set<Target::HostTask, double>(
-    double alpha, double beta, Matrix<double>&& A, int priority, int queue_index);
+    double alpha, double beta, Matrix<double>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::HostNest, double>(
-    double alpha, double beta, Matrix<double>&& A, int priority, int queue_index);
+    double alpha, double beta, Matrix<double>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::HostBatch, double>(
-    double alpha, double beta, Matrix<double>&& A, int priority, int queue_index);
+    double alpha, double beta, Matrix<double>&& A,
+    int priority, int queue_index);
 
 template
 void set<Target::Devices, double>(
-    double alpha, double beta, Matrix<double>&& A, int priority, int queue_index);
+    double alpha, double beta, Matrix<double>&& A,
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    Matrix< std::complex<float> >&& A, int priority, int queue_index);
+    Matrix< std::complex<float> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    Matrix< std::complex<float> >&& A, int priority, int queue_index);
+    Matrix< std::complex<float> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    Matrix< std::complex<float> >&& A, int priority, int queue_index);
+    Matrix< std::complex<float> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, std::complex<float>  beta,
-    Matrix< std::complex<float> >&& A, int priority, int queue_index);
+    Matrix< std::complex<float> >&& A,
+    int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    Matrix< std::complex<double> >&& A, int priority, int queue_index);
+    Matrix< std::complex<double> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    Matrix< std::complex<double> >&& A, int priority, int queue_index);
+    Matrix< std::complex<double> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    Matrix< std::complex<double> >&& A, int priority, int queue_index);
+    Matrix< std::complex<double> >&& A,
+    int priority, int queue_index);
 
 template
 void set< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, std::complex<double> beta,
-    Matrix< std::complex<double> >&& A, int priority, int queue_index);
+    Matrix< std::complex<double> >&& A,
+    int priority, int queue_index);
 
 } // namespace internal
 } // namespace slate

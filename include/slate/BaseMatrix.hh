@@ -2724,7 +2724,9 @@ void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
                 device, tile_set.size() - existing_tiles);
     }
 
-    tileGet(tile_set, device, layout, false, false, device != hostNum());
+    //todo: was tileGet(tile_set, device, layout, false, false, device != hostNum());
+    //todo: changed asyn to false to make it work using HIP 
+    tileGet(tile_set, device, layout, false, false, false);
 
     if (device != hostNum())
         comm_queue(device)->sync();

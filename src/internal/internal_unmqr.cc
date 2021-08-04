@@ -158,7 +158,8 @@ void unmqr(internal::TargetType<target>,
 
         // W <- C0
         // W <- V0^H W
-        internal::copy<target>(std::move(C0), std::move(Wr), 
+        internal::copy<target>(
+                std::move(C0), std::move(Wr), 
                 priority, queue_index);
         internal::trmm<target>(
                 Side::Left,
@@ -230,7 +231,7 @@ void unmqr(internal::TargetType<target>,
                 priority, queue_index);
 
         // C0 <- C0 - W
-        internal::geadd<target>(
+        internal::add<target>(
                 -one, std::move(Wr),
                 one,  std::move(C0), 
                 priority, queue_index);
@@ -339,7 +340,8 @@ void unmqr(internal::TargetType<target>,
 
         // W <- C0
         // W <- W V0
-        internal::copy<target>(std::move(C0), std::move(Wc), 
+        internal::copy<target>(
+                std::move(C0), std::move(Wc), 
                 priority, queue_index);
         internal::trmm<target>(
                 Side::Right,
@@ -411,7 +413,7 @@ void unmqr(internal::TargetType<target>,
                 priority, queue_index);
 
         // C0 <- C0 - W
-        internal::geadd<target>(
+        internal::add<target>(
                 -one, std::move(Wc),
                 one,  std::move(C0), 
                 priority, queue_index);

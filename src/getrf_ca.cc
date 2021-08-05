@@ -110,7 +110,6 @@ void getrf_ca(slate::internal::TargetType<target>,
 
             // panel, high priority
             #pragma omp task depend(inout:column[k]) \
-                             depend(out:diag[k]) \
                              priority(priority_one)
             {
                 // factor A(k:mt-1, k)
@@ -150,7 +149,6 @@ void getrf_ca(slate::internal::TargetType<target>,
            }
 
             #pragma omp task depend(inout:column[k]) \
-                            depend(in:diag[k]) \
                             depend(inout:listBcastMT_token) \
                             priority(priority_one)
            {
@@ -198,7 +196,7 @@ void getrf_ca(slate::internal::TargetType<target>,
 
             // update lookahead column(s), high priority
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
-                #pragma omp task depend(in:diag[k]) \
+                #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[j]) \
                                  priority(priority_one)
                 {
@@ -234,7 +232,7 @@ void getrf_ca(slate::internal::TargetType<target>,
         }
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
-                #pragma omp task depend(in:diag[k]) \
+                #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[k+1+lookahead]) \
                                  depend(inout:listBcastMT_token) \
                                  depend(inout:column[A_nt-1])
@@ -290,16 +288,16 @@ void getrf_ca(slate::internal::TargetType<target>,
                      #endif
                   }
                 }
-               /*if (is_shared) {
+               if (is_shared) {
                    #pragma omp task depend(inout:column[k])
                    {
                        for (int64_t i = k+1; i < A_mt; ++i) {
                            if (A.tileIsLocal(i, k)) {
                                A.tileUpdateOrigin(i, k);
-                               
+
                                std::set<int> dev_set;
                                A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
-                              
+
                                for (auto device : dev_set) {
                                    A.tileUnsetHold(i, k, device);
                                    A.tileRelease(i, k, device);
@@ -307,10 +305,10 @@ void getrf_ca(slate::internal::TargetType<target>,
                            }
                        }
                    }
-               } */    
+               }
 
             //TODO::RABAB ask
-            if (target == Target::Devices) {
+            /*if (target == Target::Devices) {
                 #pragma omp task depend(inout:diag[k])
                 {
                     if (A.tileIsLocal(k, k) && k+1 < A_nt) {
@@ -342,7 +340,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                         }
                     }
                 }
-            }
+            }*/
 
 
         }

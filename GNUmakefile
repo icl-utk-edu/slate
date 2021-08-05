@@ -96,7 +96,7 @@ HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
 force: ;
 
 # Auto-detect CUDA, HIP.
-ifneq ($(filter-out auto cuda hip none, $(gpu_backend)),)
+ifneq ($(filter-out auto cuda hip omptarget none, $(gpu_backend)),)
     $(error ERROR: gpu_backend = $(gpu_backend) is unknown)
 endif
 
@@ -121,6 +121,13 @@ ifneq ($(cuda),1)
         else ifeq ($(gpu_backend),hip)
             $(error ERROR: gpu_backend = $(gpu_backend), but HIPCC = $(HIPCC) not found)
         endif
+    endif
+endif
+
+omptarget = 0
+ifneq ($(cuda),1)
+    ifneq ($(filter auto omptarget, $(gpu_backend)),)
+	omptarget = 1
     endif
 endif
 
@@ -478,12 +485,32 @@ cuda_hdr := \
 hip_src := $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(cuda_src))
 hip_hdr := $(patsubst src/cuda/%.cuh,src/hip/%.hip.hh,$(cuda_hdr))
 
+# missing gescale tzadd tzscale tzset
+omptarget_src := \
+        src/omptarget/device_geadd.cc \
+        src/omptarget/device_gecopy.cc \
+        src/omptarget/device_genorm.cc \
+        src/omptarget/device_geset.cc \
+        src/omptarget/device_henorm.cc \
+        src/omptarget/device_synorm.cc \
+        src/omptarget/device_transpose.cc \
+        src/omptarget/device_trnorm.cc \
+        src/omptarget/device_tzcopy.cc \
+        # End. Add alphabetically.
+
+omptarget_hdr := \
+        src/omptarget/device_util.hh
+
 ifeq ($(cuda),1)
     libslate_src += $(cuda_src)
 endif
 
 ifeq ($(hip),1)
     libslate_src += ${hip_src}
+endif
+
+ifeq ($(omptarget),1)
+    libslate_src += $(omptarget_src)
 endif
 
 # driver

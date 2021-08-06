@@ -13,7 +13,7 @@
 namespace slate {
 
 // specialization namespace differentiates, e.g.,
-// internal::getrf_ca from internal::specialization::getrf
+// internal::getrf_tntpiv from internal::specialization::getrf
 namespace internal {
 namespace specialization {
 
@@ -24,7 +24,7 @@ namespace specialization {
 /// @ingroup gesv_specialization
 ///
 template <Target target, typename scalar_t>
-void getrf_ca(slate::internal::TargetType<target>,
+void getrf_tntpiv(slate::internal::TargetType<target>,
            Matrix<scalar_t>& A, Pivots& pivots,
            int64_t ib, int max_panel_threads, int64_t lookahead)
 {
@@ -43,11 +43,6 @@ void getrf_ca(slate::internal::TargetType<target>,
     // GPU Devices use RowMajor for efficient row swapping.
     if (target == Target::Devices)
         target_layout = Layout::RowMajor;
-
-    /*if (target == Target::Devices) {
-        A.allocateBatchArrays();
-        A.reserveDeviceWorkspace();
-    }*/
 
     const int priority_one = 1;
     const int priority_zero = 0;
@@ -79,20 +74,6 @@ void getrf_ca(slate::internal::TargetType<target>,
     SLATE_UNUSED(listBcastMT_token); // Only used by OpenMP
 
 
-    #if 0
-     for (int i=0; i<A.mt(); i++){
-         if (A.tileIsLocal(i, 0)){
-             if( A.mpiRank() == 0){
-                 for(int m=0; m<A.tileMb(i);m++){
-                     for(int n=0; n<A.tileMb(i);n++){
-                         std::cout<<A(i,0)(m,n)<<",";
-                     }
-                     std::cout<<";";
-                 }
-             }
-         }
-     }
-    #endif
    // workspace
     auto Awork = A.emptyLike();
 
@@ -113,7 +94,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                              priority(priority_one)
             {
                 // factor A(k:mt-1, k)
-                internal::getrf_ca<Target::HostTask>(
+                internal::getrf_tntpiv<Target::HostTask>(
                     A.sub(k, A_mt-1, k, k),  std::move(Apanel), diag_len, ib,
                     pivots.at(k), max_panel_threads, priority_one);
 
@@ -127,36 +108,31 @@ void getrf_ca(slate::internal::TargetType<target>,
                               MPI_BYTE, A.tileRank(k, k), A.mpiComm());
                 }
 
-           // swap rows in A(k+1:A_mt-1, k)
-           int tag_kl1 = k+1;
-           internal::permuteRows<target>(
+               // swap rows in A(k+1:A_mt-1, k)
+               int tag_kl1 = k+1;
+               internal::permuteRows<target>(
                    Direction::Forward, A.sub(k, A_mt-1, k, k),
                    pivots.at(k), target_layout, priority_one, tag_kl1, queue_0);
 
-           //TODO::RABAB segfault when chaning it to target
-           internal::copy<Target::HostTask>( Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
+              //TODO::RABAB segfault when chaning it to target
+              internal::copy<Target::HostTask>( Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
 
 
-           //Update panel
-           int tag_k = k;
-           BcastList bcast_list_A;
-           bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
+              //Update panel
+              int tag_k = k;
+              BcastList bcast_list_A;
+              bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
                                           A.sub(k, k, k+1, A_nt-1)}});
-           A.template listBcast<target>(
-                bcast_list_A, host_layout, tag_k, life_factor_one, is_shared);
+              A.template listBcast<target>(
+                  bcast_list_A, host_layout, tag_k, life_factor_one, is_shared);
 
-           Apanel.clear();
+              Apanel.clear();
            }
 
             #pragma omp task depend(inout:column[k]) \
                             depend(inout:listBcastMT_token) \
                             priority(priority_one)
            {
-               // swap rows in A(k+1:A_mt-1, k)
-               /*int tag_kl1 = k+1;
-               internal::permuteRows<target>(
-                       Direction::Forward, A.sub(k, A_mt-1, k, k),
-                       pivots.at(k), target_layout, priority_one, tag_kl1, 0);*/
 
                auto Akk = A.sub(k, k, k, k);
                auto Tkk = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Akk);
@@ -175,23 +151,7 @@ void getrf_ca(slate::internal::TargetType<target>,
                    bcast_list.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}, tag});
                }
                A.template listBcastMT<target>(
-                 bcast_list, Layout::ColMajor, life_factor_one, is_shared);
-
-           #if 0
-               for (int i=0; i<A.mt(); i++){
-                   if (A.tileIsLocal(i, 0)){
-                       if( A.mpiRank() == 0){
-                           std::cout<<"\n Factore Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
-                           for(int m=0; m<A.tileMb(i);m++){
-                               for(int n=0; n<A.tileMb(i);n++){
-                                   std::cout<<A(i,0)(m,n)<<",";
-                               }
-                               std::cout<<std::endl;
-                           }
-                       }
-                   }
-               }
-            #endif
+                   bcast_list, Layout::ColMajor, life_factor_one, is_shared);              
            }
 
             // update lookahead column(s), high priority
@@ -227,9 +187,8 @@ void getrf_ca(slate::internal::TargetType<target>,
                                             A.sub(k, k, j, j),
                             scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
                             host_layout, priority_one, j-k+1);
-
+               }
             }
-        }
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
                 #pragma omp task depend(in:column[k]) \
@@ -271,21 +230,6 @@ void getrf_ca(slate::internal::TargetType<target>,
                                             A.sub(k, k, k+1+lookahead, A_nt-1),
                             scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
                             host_layout, priority_zero, queue_1);
-                     #if 0
-                        for (int i=0; i<A.mt(); i++){
-                            if (A.tileIsLocal(3, 2)){
-                                if( k==1){
-                                    std::cout<<"\n Factore Tile: "<<i<<" of rank: "<<A.mpiRank()<<std::endl;
-                                    for(int m=0; m<A.tileMb(i);m++){
-                                        for(int n=0; n<A.tileMb(i);n++){
-                                            std::cout<<A(3,2)(m,n)<<",";
-                                        }
-                                        std::cout<<std::endl;
-                                    }
-                                }
-                            }
-                        }
-                     #endif
                   }
                 }
                if (is_shared) {
@@ -375,7 +319,7 @@ void getrf_ca(slate::internal::TargetType<target>,
 /// @ingroup gesv_specialization
 ///
 template <Target target, typename scalar_t>
-void getrf_ca(Matrix<scalar_t>& A, Pivots& pivots,
+void getrf_tntpiv(Matrix<scalar_t>& A, Pivots& pivots,
            Options const& opts)
 {
     int64_t lookahead;
@@ -405,7 +349,7 @@ void getrf_ca(Matrix<scalar_t>& A, Pivots& pivots,
         max_panel_threads = std::max(omp_get_max_threads()/2, 1);
     }
 
-    internal::specialization::getrf_ca(internal::TargetType<target>(),
+    internal::specialization::getrf_tntpiv(internal::TargetType<target>(),
                                     A, pivots,
                                     ib, max_panel_threads, lookahead);
 }
@@ -464,7 +408,7 @@ void getrf_ca(Matrix<scalar_t>& A, Pivots& pivots,
 /// @ingroup gesv_computational
 ///
 template <typename scalar_t>
-void getrf_ca(Matrix<scalar_t>& A, Pivots& pivots,
+void getrf_tntpiv(Matrix<scalar_t>& A, Pivots& pivots,
            Options const& opts)
 {
     Target target;
@@ -478,16 +422,16 @@ void getrf_ca(Matrix<scalar_t>& A, Pivots& pivots,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            getrf_ca<Target::HostTask>(A, pivots, opts);
+            getrf_tntpiv<Target::HostTask>(A, pivots, opts);
             break;
         case Target::HostNest:
-            getrf_ca<Target::HostNest>(A, pivots, opts);
+            getrf_tntpiv<Target::HostNest>(A, pivots, opts);
             break;
         case Target::HostBatch:
-            getrf_ca<Target::HostBatch>(A, pivots, opts);
+            getrf_tntpiv<Target::HostBatch>(A, pivots, opts);
             break;
         case Target::Devices:
-            getrf_ca<Target::Devices>(A, pivots, opts);
+            getrf_tntpiv<Target::Devices>(A, pivots, opts);
             break;
     }
     // todo: return value for errors?
@@ -496,22 +440,22 @@ void getrf_ca(Matrix<scalar_t>& A, Pivots& pivots,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void getrf_ca<float>(
+void getrf_tntpiv<float>(
     Matrix<float>& A, Pivots& pivots,
     Options const& opts);
 
 template
-void getrf_ca<double>(
+void getrf_tntpiv<double>(
     Matrix<double>& A, Pivots& pivots,
     Options const& opts);
 
 template
-void getrf_ca< std::complex<float> >(
+void getrf_tntpiv< std::complex<float> >(
     Matrix< std::complex<float> >& A, Pivots& pivots,
     Options const& opts);
 
 template
-void getrf_ca< std::complex<double> >(
+void getrf_tntpiv< std::complex<double> >(
     Matrix< std::complex<double> >& A, Pivots& pivots,
     Options const& opts);
 

@@ -293,15 +293,15 @@ void lu_factor(
 }
 
 //-----------------------------------------
-/// lu_factor_ca()
+/// lu_factor_tntpiv()
 
-// getrf_ca
+// getrf_tntpiv
 template <typename scalar_t>
-void lu_factor_ca(
+void lu_factor_tntpiv(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts = Options())
 {
-    getrf_ca(A, pivots, opts);
+    getrf_tntpiv(A, pivots, opts);
 }
 
 //-----------------------------------------

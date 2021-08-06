@@ -36,7 +36,7 @@ void test_gesv_work(Params& params, bool run)
     int64_t m;
     if (params.routine == "getrf" ||
         params.routine == "getrf_nopiv" ||
-        params.routine == "getrf_ca")
+        params.routine == "getrf_tntpiv")
         m = params.dim.m();
     else
         m = params.dim.n();  // square, n-by-n
@@ -188,42 +188,6 @@ void test_gesv_work(Params& params, bool run)
     slate::generate_matrix(params.matrix, A);
     slate::generate_matrix(params.matrix, B);
 
-
-/*    std::vector<double> AA1{0.87796,0.793768,0.458041,0.436006,
-                            0.0537945,0.317751,-0.262076,-0.741055,
-                            -1.27362,0.175149,-1.08273,-0.727604,
-                             -1.32067,0.101157,-0.112133,-0.789612};
-
-    std::vector<double> AA2{ 0.0229986,-0.231275,0.211093,0.288913,
-                             -0.362058,0.330477,0.261677,0.249114,
-                             -0.772601,0.0788855,-0.27502,0.208978,
-                              0.123036,1.47716,0.550147,-0.0470233};
-
-    if(A.mpiRank()==0){
-        for (int i=0; i<nb ;i++){
-            for (int j=0; j<nb ; j++){
-                if(A.tileIsLocal(0, 0))
-                {
-                    auto A00 = A(0, 0);
-                    A00.at(i, j)=AA1[i*nb+j];
-                }
-            }
-        }
-
-    }
-
-    if(A.mpiRank()==1){
-        for (int i=0; i<nb ;i++){
-            for (int j=0; j<nb ; j++){
-                if(A.tileIsLocal(1, 0))
-                {
-                    auto A10 = A(1, 0);
-                    A10.at(i, j)=AA2[i*nb+j];
-                }
-            }
-        }
-    }
-*/
     // If check/ref is required, copy test data.
     slate::Matrix<scalar_t> Aref, Bref;
     if (check || ref) {
@@ -253,7 +217,7 @@ void test_gesv_work(Params& params, bool run)
     double gflop;
     if (params.routine == "getrf" ||
         params.routine == "getrf_nopiv"||
-        params.routine == "getrf_ca")
+        params.routine == "getrf_tntpiv")
         gflop = lapack::Gflop<scalar_t>::getrf(m, n);
     else if (params.routine == "getrs" || params.routine == "getrs_nopiv")
         gflop = lapack::Gflop<scalar_t>::getrs(n, nrhs);
@@ -291,10 +255,10 @@ void test_gesv_work(Params& params, bool run)
             // Using traditional BLAS/LAPACK name
             // slate::getrf(A, pivots, opts);
         }
-       else if (params.routine == "getrf_ca") {
+       else if (params.routine == "getrf_tntpiv") {
             //slate::calu_factor(A, pivots, opts); //TODO Rabab
             // Using traditional BLAS/LAPACK name
-            slate::getrf_ca(A, pivots, opts);
+            slate::getrf_tntpiv(A, pivots, opts);
         }
         else if (params.routine == "getrs") {
             auto opA = A;
@@ -364,7 +328,7 @@ void test_gesv_work(Params& params, bool run)
         //      || A ||_1 * || X ||_1 * N
         //
         //==================================================
-        if (params.routine == "getrf" || params.routine == "getrf_ca") {
+        if (params.routine == "getrf" || params.routine == "getrf_tntpiv") {
             // Solve AX = B.
             slate::getrs(A, pivots, B, opts);
             // Using traditional BLAS/LAPACK name
@@ -477,7 +441,7 @@ void test_gesv_work(Params& params, bool run)
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             if (params.routine == "getrf" ||
                 params.routine == "getrf_nopiv" ||
-                params.routine == "getrf_ca") {
+                params.routine == "getrf_tntpiv") {
                 scalapack_pgetrf(m, n,
                                  &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info_ref);
             }
@@ -497,27 +461,7 @@ void test_gesv_work(Params& params, bool run)
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
 
-      /*       // get differences A = A - Aref TODO RABAB, I have to remove it, I use it to check correctness of tall skinny matrices
-             slate::geadd(-one, Aref, one, A);
-
-
-
-           //TODO RABAB, I have to remove it, I use it to check correctness of tall skinny matrices
-
-            real_t A_norm = slate::norm(slate::Norm::One, A);
-
-            real_t A_diff_norm = slate::norm(slate::Norm::One, A);
-
-            real_t error = A_diff_norm / (n * A_norm);
-
-            params.error() = error;*/
-
             slate_set_num_blas_threads(saved_num_threads);
-
-            /*//TODO RABAB, I have to remove it, I use it to check correctness of tall skinny matrices
-            real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
-            // Allow for difference
-            params.okay() = (params.error() <= tol);*/
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering

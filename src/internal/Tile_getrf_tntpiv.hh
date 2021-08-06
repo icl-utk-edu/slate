@@ -21,79 +21,6 @@
 
 namespace slate {
 namespace internal {
-// todo: Perhaps we should put all Tile routines in "internal".
-
-//------------------------------------------------------------------------------
-/// Swap a single row in the panel factorization.
-///
-/// @param[in] i
-///     pivot index
-///
-/// @param[in] j
-///     first column of the swap
-///
-/// @param[in] n
-///     length of the swap
-///
-/// @param[in,out] tiles
-///     vector of local panel tiles
-///
-/// @param[in] pivot
-///     vector of pivot indices for the diagonal tile
-///
-/// @param[in] mpi_rank
-///     MPI rank in the panel factorization
-///
-/// @param[in] mpi_root
-///     MPI rank of the root for the panel factorization
-///
-/// @param[in] mpi_comm
-///     MPI subcommunicator for the panel factorization
-///
-template <typename scalar_t>
-void getrf_tntpiv_swap(
-    int64_t i, int64_t j, int64_t n,
-    std::vector< Tile<scalar_t> >& tiles,
-    std::vector< AuxPivot<scalar_t> >& pivot,
-    int mpi_rank, int mpi_root, MPI_Comm mpi_comm)
-{
-    bool root = mpi_rank == mpi_root;
-
-    // If I own the pivot.
-    if (pivot[i].rank() == mpi_rank) {
-        // If I am the root.
-        if (root) {
-            // if pivot not on the diagonal
-            if (pivot[i].localTileIndex() > 0 ||
-                pivot[i].elementOffset() > i)
-            {
-                // local swap
-                swapLocalRow(j, n,
-                             tiles[0], i,
-                             tiles[pivot[i].localTileIndex()],
-                             pivot[i].elementOffset());
-            }
-        }
-        // I am not the root.
-        else {
-            // MPI swap with the root
-            swapRemoteRow(j, n,
-                          tiles[pivot[i].localTileIndex()],
-                          pivot[i].elementOffset(),
-                          mpi_root, mpi_comm);
-        }
-    }
-    // I don't own the pivot.
-    else {
-        // I am the root.
-        if (root) {
-            // MPI swap with the pivot owner
-            swapRemoteRow(j, n,
-                          tiles[0], i,
-                          pivot[i].rank(), mpi_comm);
-        }
-    }
-}
 
 //------------------------------------------------------------------------------
 /// Compute the LU factorization of a panel.
@@ -238,13 +165,11 @@ void getrf_tntpiv(
                                                         mpi_rank);
                 }else{
 
-                   int global_tile_index = aux_pivot[max_index[0]][max_offset[0]].tileIndex();
-                   int global_Offset = aux_pivot[max_index[0]][max_offset[0]].elementOffset();
+                    int global_tile_index = aux_pivot[max_index[0]][max_offset[0]].tileIndex();
+                    int global_Offset = aux_pivot[max_index[0]][max_offset[0]].elementOffset();
 
                     aux_pivot[max_index[0]][max_offset[0]] = aux_pivot[0][j];
-                    //int global_tile_index = aux_pivot[0][j].tileIndex();
-                    //int global_Offset = aux_pivot[0][j].elementOffset();
-
+ 
                     aux_pivot[0][j] = AuxPivot<scalar_t>(global_tile_index,
                                                         global_Offset,
                                                         max_index[0],
@@ -317,7 +242,6 @@ void getrf_tntpiv(
                     // piv[j].value() = 0, The factorization has been completed
                     // but the factor U is exactly singular
                     // todo: how to handle a zero pivot
-                    // TODO::RABAB to ask
                 }
 
                 // trailing update

@@ -401,9 +401,9 @@ void getrf_nopiv(
     Options const& opts = Options());
 
 //-----------------------------------------
-// getrf_ca()
+// getrf_tntpiv()
 template <typename scalar_t>
-void getrf_ca(
+void getrf_tntpiv(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts = Options());
 

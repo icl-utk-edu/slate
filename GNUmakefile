@@ -400,7 +400,7 @@ libslate_src += \
         src/internal/internal_geset.cc \
         src/internal/internal_getrf.cc \
         src/internal/internal_getrf_nopiv.cc \
-        src/internal/internal_getrf_ca.cc \
+        src/internal/internal_getrf_tntpiv.cc \
         src/internal/internal_hebr.cc \
         src/internal/internal_hemm.cc \
         src/internal/internal_hbnorm.cc \
@@ -486,7 +486,7 @@ libslate_src += \
         src/gesvd.cc \
         src/gesvMixed.cc \
         src/getrf.cc \
-        src/getrf_ca.cc \
+        src/getrf_tntpiv.cc \
         src/getrf_nopiv.cc \
         src/getri.cc \
         src/getriOOP.cc \

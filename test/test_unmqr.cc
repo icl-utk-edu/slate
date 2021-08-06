@@ -75,11 +75,13 @@ void test_unmqr_work(Params& params, bool run)
     }
 
     slate::generate_matrix(params.matrix, A);
+
+    slate::TriangularFactors<scalar_t> T;
+
     if (verbose > 1) {
         print_matrix("A", A);
     }
 
-    slate::TriangularFactors<scalar_t> T;
     // For checks, keep copy of original matrix A.
     slate::Matrix<scalar_t> Aref;
     std::vector<scalar_t> Aref_data;
@@ -87,13 +89,13 @@ void test_unmqr_work(Params& params, bool run)
     if (check) {
         // Norm of original matrix: || A ||_1
         A_norm = slate::norm( slate::Norm::One, A, opts );
-
-        // For simplicity, always use ScaLAPACK format for Aref.
-        Aref_data.resize( lldA * nlocA );
-        Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                   m, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        slate::copy(A, Aref);
     }
+
+    // For simplicity, always use ScaLAPACK format for Aref.
+    Aref_data.resize( lldA * nlocA );
+    Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
+            m, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+    slate::copy(A, Aref);
 
     //==================================================
     // Run SLATE test.
@@ -103,6 +105,7 @@ void test_unmqr_work(Params& params, bool run)
     // slate::geqrf(A, T, opts);
 
     if (verbose > 1) {
+        A.tileGetAllForReading(slate::HostNum, slate::LayoutConvert::None); 
         print_matrix("A_factored", A);
         print_matrix("Tlocal",  T[0]);
         print_matrix("Treduce", T[1]);
@@ -120,18 +123,20 @@ void test_unmqr_work(Params& params, bool run)
     slate::TrapezoidMatrix<scalar_t> R(slate::Uplo::Upper, slate::Diag::NonUnit, A);
 
     std::vector<scalar_t> QR_data(Aref_data.size(), zero);
-    slate::Matrix<scalar_t> QR = slate::Matrix<scalar_t>::fromScaLAPACK(
+    slate::Matrix<scalar_t> QR_host = slate::Matrix<scalar_t>::fromScaLAPACK(
                                      m, n, &QR_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+    slate::Matrix<scalar_t> QR(m, n, nb, p, q, MPI_COMM_WORLD);
     QR.insertLocalTiles(origin_target);
+    slate::copy(QR_host, QR);
 
     // R1 is the upper part of QR matrix.
-    slate::TrapezoidMatrix<scalar_t> R1(slate::Uplo::Upper, slate::Diag::NonUnit, QR);
+    slate::TrapezoidMatrix<scalar_t> R1(slate::Uplo::Upper, slate::Diag::NonUnit, QR_host);
 
     // Copy A's upper trapezoid R to QR's upper trapezoid R1.
     slate::copy(R, R1);
     
     if (verbose > 1) {
-        print_matrix("R", QR);
+        print_matrix("R", QR_host);
     }
     
     if (! check) {
@@ -165,6 +170,7 @@ void test_unmqr_work(Params& params, bool run)
     double time_tst = testsweeper::get_wtime() - time;
 
     if (trace) slate::trace::Trace::finish();
+    slate::copy(QR, QR_host);
 
     // compute and save timing/performance
     params.time() = time_tst;

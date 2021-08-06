@@ -17,7 +17,7 @@ namespace internal {
 
 template <typename scalar_t>
 void pivotList(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
-               int64_t diag_len){
+               int64_t diag_len, int mt){
 
     std::vector<std::pair<int64_t, int64_t>> global_info;
 
@@ -26,18 +26,13 @@ void pivotList(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
                           aux_pivot[ 0 ][ i ].elementOffset()} );
     }
 
-    std::set<int> indices;
-    for (int i=0; i < int(global_info.size()); i++){
-        indices.insert(global_info[i].first);
-    }
-
     std::vector<std::pair<std::pair<int64_t, int64_t>,
                           std::pair<int64_t, int64_t>>> pivot_list;
 
     //Initial fill to the pivlist
-    for (auto inx=indices.begin(); inx != indices.end(); ++inx){
+    for (auto inx=0; inx < mt; ++inx){
         for (auto i=0; i < int(global_info.size()); ++i){
-             pivot_list.push_back({{*inx, i}, {*inx, i}});
+             pivot_list.push_back({{inx, i}, {inx, i}});
         }
     }
 
@@ -166,8 +161,6 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
 
     assert(A.nt() == 1);
 
-    //slate::Matrix<scalar_t> Awork = A.emptyLike();
-    //Awork.insertLocalTiles();
     internal::copy<Target::HostTask>( std::move(A), std::move(Awork) );
 
     // Move the panel to the host
@@ -257,7 +250,6 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
             global_tracking[i].reserve(A.tileMb(0));
             for (int64_t j = 0; j < A.tileMb(0); ++j) {
                 global_tracking[i].push_back({tile_indices[i], j});
-                       //  std::cout<<global_tracking[i][j].first<<", "<<global_tracking[i][j].second<<std::endl;
                 }
             }
 
@@ -434,15 +426,6 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                         aux_pivot[0][j].localOffset());
                 }
 
-                  /*      global = aux_pivot[0][j].tileIndex();
-                        offset = aux_pivot[0][j].elementOffset();
-                        aux_pivot[0][j].set_tileIndex(aux_pivot[aux_pivot[0][j].localTileIndex()][aux_pivot[0][j].localOffset()].tileIndex());
-                        aux_pivot[0][j].set_elementOffset(aux_pivot[aux_pivot[0][j].localTileIndex()][aux_pivot[0][j].localOffset()].elementOffset());
-
-
-                        aux_pivot[aux_pivot[0][j].localTileIndex()][aux_pivot[0][j].localOffset()].set_tileIndex(global);
-                        aux_pivot[aux_pivot[0][j].localTileIndex()][aux_pivot[0][j].localOffset()].set_elementOffset(offset);
-                    */
             }
 
             #if 0
@@ -487,13 +470,8 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
                    //Copy the last factorization back to panel tile
                  local_tiles[0].copyData(&ptiles[0]);
 
-                //std::cout<<std::endl<<"{";
-                 /*for (int64_t i = 0; i < diag_len; ++i) {
-                     if(A.mpiRank()==0)
-                       std::cout<<"{"<<aux_pivot[0][i].tileIndex()<<", "<< aux_pivot[0][i].elementOffset()<<"}, ";
-                }
-                 std::cout<<std::endl;*/
-                pivotList(aux_pivot, diag_len);
+
+                pivotList(aux_pivot, diag_len, A.mt());
 
                }
                Awork.tileTick(i_dst, 0);
@@ -503,7 +481,6 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
             else{
                 dst = rank_rows[ index - step ].first;
                 i_src = rank_rows[ index ].second;
-                //std::cout<<"Send ("<<rank_rows[index].first<<", "<<dst<<")"<< " From: " <<i_src<<std::endl;
 
                 Awork.tileSend(i_src, 0, dst);
 
@@ -523,19 +500,9 @@ void getrf_ca(internal::TargetType<Target::HostTask>,
       for (int64_t i = 0; i < diag_len; ++i) {
           pivot[i] = Pivot(aux_pivot[0][i].tileIndex(),
                      aux_pivot[0][i].elementOffset());
-          /*if(nranks == 2 && A.mpiRank()==0 && i == 4){
-               aux_pivot[0][i].set_tileIndex(0);
-               aux_pivot[0][i].set_elementOffset(7);
-               }*/
            pivot[i] = Pivot(aux_pivot[0][i].tileIndex(),
                      aux_pivot[0][i].elementOffset());
-          /*if(A.mpiRank()==0)
-             std::cout<<std::endl<<aux_pivot[0][i].tileIndex()<<", "<< aux_pivot[0][i].elementOffset()<<std::endl;*/
       }
-     /*for (int64_t i = 0; i < diag_len; ++i) {
-           if(A.mpiRank()==0)
-           std::cout<<aux_pivot[1][i].tileIndex()<<", "<< aux_pivot[1][i].elementOffset()<<std::endl;
-     }*/
     }
 }
 

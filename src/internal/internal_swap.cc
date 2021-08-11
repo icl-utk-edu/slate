@@ -202,7 +202,6 @@ void permuteRows(
     Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag_base, int queue_index)
 {
-
     // todo: for performance optimization, merge with the loops below,
     // at least with lookahead, probably selectively
     A.tileGetAllForWriting(A.hostNum(), LayoutConvert(layout));
@@ -213,7 +212,6 @@ void permuteRows(
 
     {
         trace::Block trace_block("internal::permuteRows");
-
 
         MPI_Datatype mpi_scalar = mpi_type<scalar_t>::value;
 
@@ -302,7 +300,6 @@ void permuteRows(
                         if (pivot[i].tileIndex() > 0 ||
                             pivot[i].elementOffset() > i)
                         {
-
                             // todo: assumes 1-D block cyclic distribution on devices
                             int64_t i1 = i;
                             int64_t i2 = pivot[i].elementOffset();
@@ -353,7 +350,6 @@ void permuteRows(
                 }
 
                 if (remote_length > 0) {
-
                     std::vector<scalar_t> remote_rows_vect (nb*remote_length);
                     scalar_t* remote_rows = remote_rows_vect.data();
 
@@ -504,7 +500,6 @@ void permuteRows(
         MPI_Datatype mpi_scalar = mpi_type<scalar_t>::value;
 
         for (int device = 0; device < A.num_devices(); ++device) {
-
             #pragma omp task
             {
                 blas::set_device(device);
@@ -518,7 +513,6 @@ void permuteRows(
 
                 scalar_t* remote_rows_dev
                             = A.allocWorkspaceBuffer(device, A.tileMb(0)*max_nb);
-
 
                 // Apply pivots forward (0, ..., k-1) or reverse (k-1, ..., 0)
                 int64_t begin, end, inc;
@@ -549,7 +543,6 @@ void permuteRows(
                     MPI_Datatype row_type;
                     MPI_Type_contiguous(nb, mpi_scalar, &row_type);
                     MPI_Type_commit(&row_type);
-
 
                     if (root) {
                         // row indices are stored in int b/c gather/scatter can't use int64_t's
@@ -692,7 +685,6 @@ void permuteRows(
                             scalar_t* remote_rows = remote_rows_vect.data();
                             blas::device_memcpy<scalar_t>(remote_rows, remote_rows_dev,
                                                           remote_rows_size, *compute_queue);
-
 
                             MPI_Send(remote_rows, remote_length, row_type,
                                      root_rank, tag, comm);
@@ -873,7 +865,6 @@ void permuteRowsCols(
 
             // If pivot not on the diagonal.
             if (j2 > 0 || i2 > i1) {
-
                 // in the upper band
                 swapRow(0, i1, A,
                         Op::NoTrans, {0,  0}, i1,

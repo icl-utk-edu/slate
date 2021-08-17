@@ -36,7 +36,7 @@ USING THE COMPATIBILITY API
 * RUNTIME VIA PRELOAD: A user can preload this library for runtime
 interception.
 
-env LD_PRELOAD=$SLATE_DIR/lib/libslate_scalapack_api.so mpirun -np 4 $SLATE_DIR/test/tester gemm --p 2 --q 2
+env LD_PRELOAD=$SLATE_DIR/lib/libslate_scalapack_api.so mpirun -np 4 $SLATE_DIR/test/tester --grid 2x2 gemm
 
 * COMPILE TIME VIA LINKING: A user can link with this library to get
 link time binding.  Remember that this library depends on (precedes)
@@ -68,11 +68,11 @@ env TEST_LIBS=-lslate_scalapack_api make;
 
 Run the reference test using ScaLAPACK
 
-${SLATE_DIR}/test/tester gemm --p 1 --q 1 --ref n
+${SLATE_DIR}/test/tester --grid 1x1 --ref n gemm
 
 Run the reference test, calling ScaLAPACK reference, which gets intercepted and sent to SLATE/Devices
 
-env SLATE_SCALAPACK_TARGET=Devices SLATE_SCALAPACK_VERBOSE=1 ${SLATE_DIR}/test/tester gemm --p 1 --q 1 --ref y
+env SLATE_SCALAPACK_TARGET=Devices SLATE_SCALAPACK_VERBOSE=1 ${SLATE_DIR}/test/tester --grid 1x1 --ref y gemm
 
 
 TESTING

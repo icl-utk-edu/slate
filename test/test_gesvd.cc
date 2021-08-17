@@ -69,8 +69,7 @@ void test_gesvd_work(Params& params, bool run)
 
     // skip unsupported
     if (jobu != lapack::Job::NoVec || jobvt != lapack::Job::NoVec) {
-        if (mpi_rank == 0)
-            params.msg() = "skipping: Only singular values supported (vectors not yet supported)";
+        params.msg() = "skipping: Only singular values supported (vectors not yet supported)";
         return;
     }
 

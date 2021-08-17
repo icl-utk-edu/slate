@@ -70,18 +70,15 @@ void test_heev_work(Params& params, bool run)
 
     // Skip invalid or unimplemented options.
     if (uplo == slate::Uplo::Upper) {
-        if (mpi_rank == 0)
-            params.msg() = "skipping: Uplo::Upper isn't supported.";
+        params.msg() = "skipping: Uplo::Upper isn't supported.";
         return;
     }
     if (p != q) {
-        if (mpi_rank == 0)
-            params.msg() = "skipping: requires square process grid (p == q).";
+        params.msg() = "skipping: requires square process grid (p == q).";
         return;
     }
     if (jobz != lapack::Job::NoVec) {
-        if (mpi_rank == 0)
-            params.msg() = "skipping: only supports Job::NoVec.";
+        params.msg() = "skipping: only supports Job::NoVec.";
         return;
     }
 

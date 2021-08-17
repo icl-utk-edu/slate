@@ -278,8 +278,8 @@ void test_hemm_work(Params& params, bool run)
             std::vector<real_t> worklange(std::max({mlocC, nlocC, mlocB, nlocB}));
 
             // get norms of the original data
-real_t A_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), An, &A_data[0],
-                                 1, 1, A_desc, &worklansy[0]);
+            real_t A_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), An,
+                                             &A_data[0], 1, 1, A_desc, &worklansy[0]);
             real_t B_norm = scalapack_plange(
                 norm2str(norm), Bm, Bn, &B_data[0],1, 1, B_desc, &worklange[0]);
             real_t C_orig_norm = scalapack_plange(

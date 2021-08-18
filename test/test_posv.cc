@@ -237,10 +237,11 @@ void test_posv_work(Params& params, bool run)
             // Using traditional BLAS/LAPACK name
             // slate::posv(A, B, opts);
         }
-        else if (params.routine == "posvMixed"
-                 && std::is_same<real_t, double>::value) {
-            slate::posvMixed(A, B, X, iters, opts);
-            params.iters() = iters;
+        else if (params.routine == "posvMixed") {
+            if constexpr (std::is_same<real_t, double>::value) {
+                slate::posvMixed(A, B, X, iters, opts);
+                params.iters() = iters;
+            }
         }
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance

@@ -308,6 +308,8 @@ Params::Params():
     align     ("align",   6,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
     nonuniform_nb("nonuniform_nb",
                           0,    ParamType::Value, 'n', "ny", "generate matrix with nonuniform tile sizes"),
+    debug     ("debug",   0,    ParamType::Value, -1,     0, 1000000,
+               "given rank waits for debugger (gdb/lldb) to attach"),
 
     // ----- output parameters
     // min, max are ignored
@@ -366,6 +368,7 @@ Params::Params():
     repeat();
     verbose();
     cache();
+    debug();
 
     //  change names of grid elements
     grid.names("p", "q");
@@ -551,6 +554,27 @@ int run(int argc, char** argv)
         slate_assert(params.grid.m() * params.grid.n() == mpi_size);
 
         slate::trace::Trace::pixels_per_second(params.trace_scale());
+
+        // Wait for debugger to attach.
+        // See https://www.open-mpi.org/faq/?category=debugging#serial-debuggers
+        if (params.debug() == mpi_rank
+            || params.debug() == mpi_size) {
+            volatile int i = 0;
+            char hostname[256];
+            gethostname( hostname, sizeof(hostname) );
+            printf( "MPI rank %d, pid %d on %s ready for debugger (gdb/lldb) to attach.\n"
+                    "After attaching, step out to run() and set i=1, e.g.:\n"
+                    "lldb -p %d\n"
+                    "(lldb) break set -n __cxa_throw  # break on C++ exception\n"
+                    "(lldb) thread step-out           # repeat\n"
+                    "(lldb) expr i=1\n"
+                    "(lldb) continue\n",
+                    mpi_rank, getpid(), hostname, getpid() );
+            fflush( stdout );
+            while (0 == i)
+                sleep(1);
+        }
+        slate_mpi_call( MPI_Barrier( MPI_COMM_WORLD ) );
 
         // run tests
         int repeat = params.repeat();

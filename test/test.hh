@@ -118,6 +118,7 @@ public:
     testsweeper::ParamInt    panel_threads;
     testsweeper::ParamInt    align;
     testsweeper::ParamChar   nonuniform_nb;
+    testsweeper::ParamInt    debug;
 
     // ----- output parameters
     testsweeper::ParamScientific error;

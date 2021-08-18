@@ -25,6 +25,9 @@ void test_trmm_work(Params& params, bool run)
     using slate::Op;
     using slate::Norm;
 
+    // Constants
+    const scalar_t zero = 0.0, one = 1.0;
+
     // get & mark input values
     slate::Side side = params.side();
     slate::Uplo uplo = params.uplo();
@@ -32,6 +35,7 @@ void test_trmm_work(Params& params, bool run)
     slate::Diag diag = params.diag();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
+    int64_t nrhs = params.nrhs();
     scalar_t alpha = params.alpha.get<scalar_t>();
     slate::Op transB = params.transB();
     int p = params.grid.m();
@@ -41,6 +45,9 @@ void test_trmm_work(Params& params, bool run)
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
+    #ifndef SLATE_HAVE_SCALAPACK
+        ref = false;
+    #endif
     bool trace = params.trace() == 'y';
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
@@ -90,9 +97,9 @@ void test_trmm_work(Params& params, bool run)
 
     slate::TriangularMatrix<scalar_t> A;
     slate::Matrix<scalar_t> B;
+    slate::Target origin_target = origin2target(origin);
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
-        slate::Target origin_target = origin2target(origin);
         A = slate::TriangularMatrix<scalar_t>(uplo, diag, An, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
 
@@ -110,14 +117,16 @@ void test_trmm_work(Params& params, bool run)
     generate_matrix( params.matrix, A );
     generate_matrix( params.matrixB, B );
 
-    // if check is required, copy test data
-    std::vector<scalar_t> Bref_data;
-    if (check || ref) {
-        Bref_data.resize( B_data.size() );
-        auto Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                        Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-        slate::copy( B, Bref );
-    }
+    #ifdef SLATE_HAVE_SCALAPACK
+        // if reference run is required, copy test data.
+        std::vector<scalar_t> Bref_data;
+        if (ref) {
+            Bref_data.resize( B_data.size() );
+            auto Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                            Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+            slate::copy( B, Bref );
+        }
+    #endif
 
     // Keep the original untransposed A matrix,
     // and make a shallow copy of it for transposing.
@@ -131,6 +140,38 @@ void test_trmm_work(Params& params, bool run)
         B = transpose(B);
     else if (transB == Op::ConjTrans)
         B = conjTranspose(B);
+
+    // If check run, perform first half of SLATE residual check.
+    slate::Matrix<scalar_t> X, X2, Y;
+    if (check && ! ref) {
+        X = slate::Matrix<scalar_t>( n, nrhs, nb, p, q, MPI_COMM_WORLD );
+        X.insertLocalTiles(origin_target);
+        X2 = slate::Matrix<scalar_t>( n, nrhs, nb, p, q, MPI_COMM_WORLD );
+        X2.insertLocalTiles(origin_target);
+        Y = slate::Matrix<scalar_t>( m, nrhs, nb, p, q, MPI_COMM_WORLD );
+        Y.insertLocalTiles(origin_target);
+        MatrixParams mp;
+        mp.kind.set_default( "rand" );
+        generate_matrix( mp, X );
+
+        if (side == slate::Side::Left ) {
+            // Compute Y = alpha A * (B * X).
+            // Y = B * X;
+            slate::multiply( one, B, X, zero, Y, opts );
+            // Y = alpha * A * Y;
+            slate::triangular_multiply( alpha, opA, Y, opts );
+        }
+        else if (side == slate::Side::Right) {
+            // Compute Y = alpha B * (A * X).
+            slate::copy( X, X2 );
+            // X2 = A * X2;
+            slate::triangular_multiply( one, opA, X2, opts );
+            // Y = alpha * B * X2;
+            slate::multiply( alpha, B, X2, zero, Y, opts );
+        }
+        else
+            throw slate::Exception("unknown side");
+    }
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
@@ -159,7 +200,22 @@ void test_trmm_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    if (check || ref) {
+    if (check && ! ref) {
+        // SLATE residual check.
+        // Check error, B*X - Y.
+        real_t y_norm = slate::norm( norm, Y, opts );
+        // Y = B * X - Y
+        slate::multiply( one, B, X, -one, Y );
+        // error = norm( Y ) / y_norm
+        real_t error = slate::norm( norm, Y, opts )/y_norm;
+        params.error() = error;
+
+        // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
+        real_t eps = std::numeric_limits<real_t>::epsilon();
+        params.okay() = (params.error() <= 3*eps);
+    }
+
+    if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
             // BLACS/MPI variables
@@ -204,8 +260,11 @@ void test_trmm_work(Params& params, bool run)
             std::vector<real_t> worklange(std::max(mlocB, nlocB));
 
             // get norms of the original data
-            real_t A_norm = scalapack_plantr(norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_data[0], 1, 1, A_desc, &worklantr[0]);
-            real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &Bref_data[0], 1, 1, B_desc, &worklange[0]);
+            real_t A_norm = scalapack_plantr(
+                norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_data[0],
+                1, 1, A_desc, &worklantr[0]);
+            real_t B_orig_norm = scalapack_plange(
+                norm2str(norm), Bm, Bn, &Bref_data[0], 1, 1, B_desc, &worklange[0]);
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -221,7 +280,8 @@ void test_trmm_work(Params& params, bool run)
             blas::axpy(Bref_data.size(), -1.0, &B_data[0], 1, &Bref_data[0], 1);
 
             // norm(Bref_data - B_data)
-            real_t B_diff_norm = scalapack_plange(norm2str(norm), Bm, Bn, &Bref_data[0], 1, 1, Bref_desc, &worklange[0]);
+            real_t B_diff_norm = scalapack_plange(norm2str(norm), Bm, Bn, &Bref_data[0],
+                                                  1, 1, Bref_desc, &worklange[0]);
 
             real_t error = B_diff_norm
                          / (sqrt(real_t(Am) + 2) * std::abs(alpha) * A_norm * B_orig_norm);

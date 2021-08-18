@@ -16,7 +16,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
 #define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template<typename scalar_t>
@@ -24,6 +23,9 @@ void test_hemm_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using slate::Norm;
+
+    // Constants
+    const scalar_t zero = 0.0, one = 1.0;
 
     // get & mark input values
     slate::Side side = params.side();
@@ -34,11 +36,15 @@ void test_hemm_work(Params& params, bool run)
     scalar_t beta = params.beta.get<scalar_t>();
     int p = params.grid.m();
     int q = params.grid.n();
+    int64_t nrhs = params.nrhs();
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
+    #ifndef SLATE_HAVE_SCALAPACK
+        ref = false;
+    #endif
     bool trace = params.trace() == 'y';
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
@@ -96,9 +102,9 @@ void test_hemm_work(Params& params, bool run)
 
     slate::HermitianMatrix<scalar_t> A;
     slate::Matrix<scalar_t> B, C;
+    slate::Target origin_target = origin2target(origin);
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
-        slate::Target origin_target = origin2target(origin);
         A = slate::HermitianMatrix<scalar_t>(uplo, An, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
 
@@ -122,15 +128,52 @@ void test_hemm_work(Params& params, bool run)
     slate::generate_matrix( params.matrixB, B);
     slate::generate_matrix( params.matrixC, C);
 
-    // if reference run is required, copy test data
-    std::vector<scalar_t> Cref_data;
-    slate::Matrix<scalar_t> Cref;
-    if (check || ref) {
-        // For simplicity, always use ScaLAPACK format for ref matrices.
-        Cref_data.resize( lldC * nlocC );
-        Cref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                   m,  n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
-        slate::copy(C, Cref);
+    #ifdef SLATE_HAVE_SCALAPACK
+        // If reference run is required, copy test data.
+        std::vector<scalar_t> Cref_data;
+        slate::Matrix<scalar_t> Cref;
+        if (check || ref) {
+            // For simplicity, always use ScaLAPACK format for ref matrices.
+            Cref_data.resize( lldC * nlocC );
+            Cref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                m, n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+            slate::copy(C, Cref);
+        }
+    #endif
+
+    // If check run, perform first half of SLATE residual check.
+    slate::Matrix<scalar_t> X, Y, Z;
+    if (check && ! ref) {
+        X = slate::Matrix<scalar_t>( n, nrhs, nb, p, q, MPI_COMM_WORLD );
+        X.insertLocalTiles(origin_target);
+        Y = slate::Matrix<scalar_t>( m, nrhs, nb, p, q, MPI_COMM_WORLD );
+        Y.insertLocalTiles(origin_target);
+        Z = slate::Matrix<scalar_t>( An, nrhs, nb, p, q, MPI_COMM_WORLD );
+        Z.insertLocalTiles(origin_target);
+        MatrixParams mp;
+        mp.kind.set_default( "rand" );
+        generate_matrix( mp, X );
+
+        if (side == slate::Side::Left ) {
+            // Compute Y = alpha A * (B * X) + (beta C * X).
+            // Z = B * X;
+            slate::multiply( one, B, X, zero, Z, opts );
+            // Y = beta * C * X
+            slate::multiply( beta, C, X, zero, Y, opts );
+            // Y = alpha * A * Z + Y;
+            slate::multiply( alpha, A, Z, one, Y, opts );
+        }
+        else if (side == slate::Side::Right) {
+            // Compute Y = alpha B * (A * X) + (beta C * X).
+            // Z = A * X;
+            slate::multiply( one, A, X, zero, Z, opts );
+            // Y = beta * C * X
+            slate::multiply( beta, C, X, zero, Y, opts );
+            // Y = alpha * B * Z + Y;
+            slate::multiply( alpha, B, Z, one, Y, opts );
+        }
+        else
+            throw slate::Exception("unknown side");
     }
 
     if (side == slate::Side::Left)
@@ -169,7 +212,22 @@ void test_hemm_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    if (check || ref) {
+    if (check && ! ref) {
+        // SLATE residual check.
+        // Check error, C*X - Y.
+        real_t y_norm = slate::norm( norm, Y, opts );
+        // Y = C * X - Y
+        slate::multiply( one, C, X, -one, Y );
+        // error = norm( Y ) / y_norm
+        real_t error = slate::norm( slate::Norm::One, Y, opts )/y_norm;
+        params.error() = error;
+
+        // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
+        real_t eps = std::numeric_limits<real_t>::epsilon();
+        params.okay() = (params.error() <= 3*eps);
+    }
+
+    if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
 
@@ -220,9 +278,12 @@ void test_hemm_work(Params& params, bool run)
             std::vector<real_t> worklange(std::max({mlocC, nlocC, mlocB, nlocB}));
 
             // get norms of the original data
-            real_t A_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), An, &A_data[0], 1, 1, A_desc, &worklansy[0]);
-            real_t B_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_data[0], 1, 1, B_desc, &worklange[0]);
-            real_t C_orig_norm = scalapack_plange(norm2str(norm), Cm, Cn, &Cref_data[0], 1, 1, Cref_desc, &worklange[0]);
+            real_t A_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), An,
+                                             &A_data[0], 1, 1, A_desc, &worklansy[0]);
+            real_t B_norm = scalapack_plange(
+                norm2str(norm), Bm, Bn, &B_data[0],1, 1, B_desc, &worklange[0]);
+            real_t C_orig_norm = scalapack_plange(
+                norm2str(norm), Cm, Cn, &Cref_data[0], 1, 1, Cref_desc, &worklange[0]);
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -238,7 +299,8 @@ void test_hemm_work(Params& params, bool run)
             blas::axpy(Cref_data.size(), -1.0, &C_data[0], 1, &Cref_data[0], 1);
 
             // norm(Cref_data - C_data)
-            real_t C_diff_norm = scalapack_plange(norm2str(norm), Cm, Cn, &Cref_data[0], 1, 1, Cref_desc, &worklange[0]);
+            real_t C_diff_norm = scalapack_plange(norm2str(norm), Cm, Cn, &Cref_data[0],
+                                                  1, 1, Cref_desc, &worklange[0]);
 
             real_t error = C_diff_norm
                          / (sqrt(real_t(An) + 2) * std::abs(alpha) * A_norm * B_norm

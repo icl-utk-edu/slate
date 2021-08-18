@@ -26,7 +26,6 @@ void test_hegv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
-    using llong = long long;
 
     // Constants
     const scalar_t zero = 0.0, one = 1.0;

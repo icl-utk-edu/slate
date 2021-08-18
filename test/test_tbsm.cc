@@ -28,7 +28,6 @@ void test_tbsm_work(Params& params, bool run)
     using blas::real;
     using blas::imag;
     using slate::Norm;
-    //using llong = long long;
 
     // get & mark input values
     slate::Side side = params.side();

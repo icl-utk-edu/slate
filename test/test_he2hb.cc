@@ -23,7 +23,6 @@ void test_he2hb_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
     // using blas::real;
     // using blas::conj;
-    // using llong = long long;
 
     // Constants
     const scalar_t one = 1;

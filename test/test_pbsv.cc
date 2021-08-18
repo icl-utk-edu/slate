@@ -21,7 +21,6 @@ template <typename scalar_t>
 void test_pbsv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
-    using llong = long long;
 
     // Constants
     const scalar_t one = 1.0;

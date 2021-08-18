@@ -27,7 +27,6 @@ void test_gbmm_work(Params& params, bool run)
     using blas::max;
     using blas::min;
     using slate::Norm;
-    //using llong = long long;
 
     // Constants
     const scalar_t one = 1;

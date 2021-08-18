@@ -23,7 +23,6 @@ void test_gbsv_work(Params& params, bool run)
     using blas::max;
     using blas::real;
     using real_t = blas::real_type<scalar_t>;
-    using llong = long long;
 
     // Constants
     const scalar_t one = 1.0;

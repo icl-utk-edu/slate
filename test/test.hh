@@ -35,6 +35,9 @@ enum class Dist {
 } // namespace slate
 
 // -----------------------------------------------------------------------------
+using llong = long long;
+
+// -----------------------------------------------------------------------------
 class Params: public testsweeper::ParamsBase {
 public:
     const double inf = std::numeric_limits<double>::infinity();

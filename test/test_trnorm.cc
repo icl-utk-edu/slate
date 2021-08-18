@@ -25,7 +25,6 @@ void test_trnorm_work(Params& params, bool run)
     using blas::real;
     using blas::imag;
     using slate::ceildiv;
-    using llong = long long;
 
     // get & mark input values
     slate::Norm norm = params.norm();

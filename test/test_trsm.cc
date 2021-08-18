@@ -26,7 +26,6 @@ void test_trsm_work(Params& params, bool run)
     using slate::Op;
     using slate::Norm;
     using blas::real;
-    // using llong = long long;
 
     // Constants
     const scalar_t one = 1;

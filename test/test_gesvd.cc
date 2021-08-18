@@ -25,7 +25,6 @@ void test_gesvd_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
-    using llong = long long;
 
     // get & mark input values
     lapack::Job jobu = params.jobu();

@@ -152,12 +152,14 @@ void slate_pgetri(int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, sca
             int64_t elementOffsetSwap = (ipiv[l_ipiv_rindx - 1] - 1) % nb;
             // in the local pivot object, assign swap information
             pivref = Pivot(tileIndexSwap, elementOffsetSwap);
-            // using lld = long long int;
-            // if (verbose)
+            // if (verbose) {
             //     printf("[%d,%d] getrs ipiv[%lld=%lld]=%lld  ->  pivots[%lld][%lld]=(%lld,%lld)\n",
             //            myprow, mypcol,
-            //            (lld)l_ipiv_rindx, (lld)g_ipiv_rindx, (lld)ipiv[l_ipiv_rindx - 1],
-            //            (lld)g_ipiv_tile_indx, (lld)g_ipiv_tile_offset, (lld)tileIndexSwap, (lld)elementOffsetSwap);
+            //            llong( l_ipiv_rindx ), llong( g_ipiv_rindx ),
+            //            llong( ipiv[l_ipiv_rindx - 1] ),
+            //            llong( g_ipiv_tile_indx ), llong( g_ipiv_tile_offset ),
+            //            llong( tileIndexSwap ), llong( elementOffsetSwap ));
+            // }
             // fflush(0);
         }
 

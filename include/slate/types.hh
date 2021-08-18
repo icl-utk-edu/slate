@@ -199,6 +199,10 @@ inline double get_option<double>( Options opts, Option option, double defval )
     return retval;
 }
 
+//------------------------------------------------------------------------------
+// For %lld printf-style printing, cast to llong; guaranteed >= 64 bits.
+using llong = long long;
+
 } // namespace slate
 
 #endif // SLATE_TYPES_HH

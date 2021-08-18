@@ -25,8 +25,6 @@ void test_steqr2_work(Params& params, bool run)
     using blas::real;
     using blas::imag;
     using blas::max;
-    using llong = long long;
-    // typedef long long llong;
 
     // Constants
     const scalar_t zero = 0.0;
@@ -65,16 +63,6 @@ void test_steqr2_work(Params& params, bool run)
     int64_t nlocZ = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldZ  = blas::max(1, mlocZ); // local leading dimension of Z
     std::vector<scalar_t> Z_data(1);
-
-    // skip invalid sizes
-    if (n <= (p-1)*nb || n <= (q-1)*nb) {
-        if (mpi_rank == 0) {
-            printf("\nskipping: ScaLAPACK requires that all ranks have some rows & columns; "
-                   "i.e., n > (p-1)*nb = %lld and n > (q-1)*nb = %lld\n",
-                   llong( (p-1)*nb ), llong( (q-1)*nb ) );
-        }
-        return;
-    }
 
     // Initialize the diagonal and subdiagonal
     std::vector<real_t> D(n), E(n - 1);

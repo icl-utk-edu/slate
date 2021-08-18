@@ -74,8 +74,7 @@ void test_posv_work(Params& params, bool run)
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     if (target != slate::Target::Devices && dev_dist != slate::Dist::Col) {
-        if (mpi_rank == 0)
-            printf("skipping: dev_dist = Row applies only to target devices\n");
+        params.msg() = "skipping: dev_dist = Row applies only to target devices";
         return;
     }
 

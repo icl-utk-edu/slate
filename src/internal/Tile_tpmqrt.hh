@@ -123,11 +123,10 @@ void tpmqrt(
         assert(V2.mb() == n);
         assert(std::min(n, k) >= l);
     }
-
-    int64_t ib = T.mb();
-    assert(k >= ib);
     assert(T.nb() == k);
 
+    // Normally, ib = T.mb, but limit <= k.
+    int64_t ib = std::min( T.mb(), k );
     lapack::tpmqrt(side, op, m, n, k, l, ib,
                    V2.data(), V2.stride(),
                    T.data(), T.stride(),

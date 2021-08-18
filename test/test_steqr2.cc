@@ -25,8 +25,6 @@ void test_steqr2_work(Params& params, bool run)
     using blas::real;
     using blas::imag;
     using blas::max;
-    using llong = long long;
-    // typedef long long llong;
 
     // Constants
     const scalar_t zero = 0.0;

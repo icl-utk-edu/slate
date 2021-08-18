@@ -64,9 +64,21 @@ void test_gesv_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
+    // If getrs, include getrf stats since it is also run.
+    if (! ref_only) {
+        if (params.routine == "getrs" || params.routine == "getrs_nopiv") {
+            params.time0();
+            params.time0.name( "getrf_time(s)" );
+            params.gflops0();
+            params.gflops0.name( "getrf_gflops" );
+        }
+    }
+
     if (params.routine == "gesvMixed") {
         params.iters();
     }
+
+
     if (! run)
         return;
 
@@ -217,19 +229,28 @@ void test_gesv_work(Params& params, bool run)
         gflop = lapack::Gflop<scalar_t>::gesv(n, nrhs);
 
     if (! ref_only) {
-        if (params.routine == "getrs") {
-            // Factor matrix A.
-            slate::lu_factor(A, pivots, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::getrf(A, pivots, opts);
-        }
-        else if (params.routine == "getrs_nopiv") {
-            // Factor matrix A.
-            slate::lu_factor_nopiv(A, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::getrf_nopiv(A, opts);
-        }
+        if (params.routine == "getrs" || params.routine == "getrs_nopiv") {
+            double gflop0 = lapack::Gflop<scalar_t>::getrf(m, n);
+            double time0 = barrier_get_wtime(MPI_COMM_WORLD);
 
+            if (params.routine == "getrs") {
+                // Factor matrix A.
+                slate::lu_factor(A, pivots, opts);
+                // Using traditional BLAS/LAPACK name
+                // slate::getrf(A, pivots, opts);
+            }
+            else if (params.routine == "getrs_nopiv") {
+                // Factor matrix A.
+                slate::lu_factor_nopiv(A, opts);
+                // Using traditional BLAS/LAPACK name
+                // slate::getrf_nopiv(A, opts);
+            }
+
+            time0 = barrier_get_wtime(MPI_COMM_WORLD) - time0;
+            // compute and save timing/performance
+            params.time0() = time0;
+            params.gflops0() = gflop0 / time0;
+        }
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 

@@ -54,6 +54,16 @@ void test_posv_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
+    // If potrs, include potrf stats since it is also run.
+    if (! ref_only) {
+        if (params.routine == "potrs") {
+            params.time0();
+            params.time0.name( "potrf_time(s)" );
+            params.gflops0();
+            params.gflops0.name( "potrf_gflops" );
+        }
+    }
+
     if (params.routine == "posvMixed") {
         params.iters();
     }
@@ -212,10 +222,18 @@ void test_posv_work(Params& params, bool run)
 
     if (! ref_only) {
         if (params.routine == "potrs") {
+            double gflop0 = lapack::Gflop<scalar_t>::potrf(n);
+            double time0 = barrier_get_wtime(MPI_COMM_WORLD);
+
             // Factor matrix A.
             slate::chol_factor(A, opts);
             // Using traditional BLAS/LAPACK name
             // slate::potrf(A, opts);
+
+            time0 = barrier_get_wtime(MPI_COMM_WORLD) - time0;
+            // compute and save timing/performance
+            params.time0() = time0;
+            params.gflops0() = gflop0 / time0;
         }
 
         if (trace) slate::trace::Trace::on();

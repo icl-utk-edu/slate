@@ -122,30 +122,70 @@ bool Debug::checkTilesLayout(BaseMatrix<scalar_t> const& A)
 }
 
 //------------------------------------------------------------------------------
-/// On MPI rank 0 only,
-/// print lives of all tiles, with "." if tile doesn't exist.
+/// Print lives of all tiles on all MPI ranks. Ranks send output to rank 0
+/// to print in a safe manner.
+/// Uses
+///  - "." if tile doesn't exist,
+///  - "o" if it is origin (local non-workspace)
+///  - life if it is workspace
 ///
 template <typename scalar_t>
 void Debug::printTilesLives(BaseMatrix<scalar_t> const& A)
 {
     if (! debug_) return;
-    // i, j are tile indices
-    if (A.mpi_rank_ == 0) {
-        auto index = A.globalIndex(0, 0);
-        auto tmp_tile = A.storage_->find(index);
-        auto tile_end = A.storage_->end();
 
-        for (int64_t i = 0; i < A.mt(); ++i) {
-            for (int64_t j = 0; j < A.nt(); j++) {
-                index = A.globalIndex(i, j);
-                tmp_tile = A.storage_->find(index);
-                if (tmp_tile == tile_end)
-                    printf("  .");
+    using llong = long long;
+
+    // i, j are tile indices
+    std::string msg;
+    char buf[ 8192 ];
+    int len = sizeof( buf );
+
+    auto index = A.globalIndex(0, 0);
+    auto tmp_tile = A.storage_->find(index);
+    auto tile_end = A.storage_->end();
+
+    BaseMatrix<scalar_t>& A_ = const_cast<BaseMatrix<scalar_t>&>( A );
+
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        snprintf( buf, len, "%02d [%4lld]: ", A.mpiRank(), llong( i ) );
+        msg += buf;
+        for (int64_t j = 0; j < A.nt(); j++) {
+            index = A.globalIndex(i, j);
+            tmp_tile = A.storage_->find(index);
+            if (tmp_tile == tile_end)
+                snprintf( buf, len, "   ." );
+            else {
+                auto T = A_(i, j);
+                if (T.workspace())
+                    snprintf( buf, len, " %3lld", llong( A.tileLife(i, j) ) );
                 else
-                    printf("%3lld", (long long) A.tileLife(i, j));
+                    snprintf( buf, len, "   o" );
             }
-            printf("\n");
+            msg += buf;
         }
+        msg += "\n";
+    }
+
+    if (A.mpiRank() == 0) {
+        // Print msg on rank 0.
+        printf( "%02d: %s\n%s\n", 0, __func__, msg.c_str() );
+
+        // Recv and print msg from other ranks.
+        int mpi_size;
+        MPI_Comm_size( A.mpiComm(), &mpi_size );
+        for (int rank = 1; rank < mpi_size; ++rank ) {
+            MPI_Recv( &len, 1, MPI_INT, rank, 0, A.mpiComm(), MPI_STATUS_IGNORE );
+            msg.resize( len );
+            MPI_Recv( msg.data(), len, MPI_CHAR, rank, 0, A.mpiComm(), MPI_STATUS_IGNORE );
+            printf( "%02d: %s\n%s\n", rank, __func__, msg.c_str() );
+        }
+    }
+    else {
+        // Other ranks send msg to rank 0.
+        len = msg.size();
+        MPI_Send( &len, 1, MPI_INT, 0, 0, A.mpiComm() );
+        MPI_Send( msg.data(), len, MPI_CHAR, 0, 0, A.mpiComm() );
     }
 }
 

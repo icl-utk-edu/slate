@@ -6,7 +6,7 @@
 #include "slate/slate.hh"
 #include "internal/internal.hh"
 #include "internal/internal_batch.hh"
-#include "aux/Debug.hh"
+#include "auxiliary/Debug.hh"
 
 #include <list>
 #include <tuple>

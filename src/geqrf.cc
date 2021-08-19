@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
+#include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "internal/internal.hh"
 
@@ -194,7 +194,7 @@ void geqrf(slate::internal::TargetType<target>,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
-                                    W.sub(k, A_mt-1, j, j), 
+                                    W.sub(k, A_mt-1, j, j),
                                     priority_one, j-k+1);
 
                     // Apply triangle-triangle reduction reflectors

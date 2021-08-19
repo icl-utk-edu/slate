@@ -380,9 +380,9 @@ endif
 
 # types and classes
 libslate_src += \
-        src/aux/Debug.cc \
+        src/auxiliary/Debug.cc \
+        src/auxiliary/Trace.cc \
         src/core/Memory.cc \
-        src/aux/Trace.cc \
         src/core/types.cc \
         src/version.cc \
 
@@ -1019,11 +1019,10 @@ $(lapack_api_so): $(lapack_api_obj) $(libslate)
 lib: $(libslate) $(scalapack_api) $(lapack_api)
 
 clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/clean
-	rm -f $(libslate_a) $(libslate_so) $(libslate_obj)
+	rm -f $(libslate_a) $(libslate_so) $(libslate_obj) $(dep)
 	rm -f trace_*.svg
 
 distclean: clean
-	rm -f $(dep)
 	rm -f src/c_api/matrix.cc
 	rm -f src/c_api/wrappers_precisions.cc
 	rm -f src/c_api/util.cc

@@ -542,11 +542,12 @@ if (opts.norms):
     #[ 'tbnorm', gen + dtype + la + n + kd + norm ],
     ]
 
-#aux
+# aux
 if (opts.aux):
     cmds += [
     [ 'scale', gen + dtype + mn ],
     ]
+
 # ------------------------------------------------------------------------------
 # when output is redirected to file instead of TTY console,
 # print extra messages to stderr on TTY console.

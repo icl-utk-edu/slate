@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-// #include "aux/Debug.hh"
+// #include "auxiliary/Debug.hh"
 #include "slate/Tile_blas.hh"
 #include "slate/TriangularBandMatrix.hh"
 #include "internal/internal.hh"

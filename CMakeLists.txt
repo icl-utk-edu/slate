@@ -151,7 +151,7 @@ file(
     CONFIGURE_DEPENDS  # glob at build time
     src/*.cc
     src/*.f
-    src/aux/*.cc
+    src/auxiliary/*.cc
     src/core/*.cc
     src/internal/*.cc
     src/work/*.cc

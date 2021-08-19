@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
+#include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "internal/Tile_tpmqrt.hh"
 #include "internal/internal.hh"

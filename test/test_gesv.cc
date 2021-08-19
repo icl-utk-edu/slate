@@ -215,8 +215,6 @@ void test_gesv_work(Params& params, bool run)
         slate::copy(B, Bref);
     }
 
-    int iters = 0;
-
     double gflop;
     if (params.routine == "gesv"
         || params.routine == "gesv_nopiv"
@@ -260,6 +258,7 @@ void test_gesv_work(Params& params, bool run)
         }
         else if (params.routine == "gesvMixed") {
             if constexpr (std::is_same<real_t, double>::value) {
+                int iters = 0;
                 slate::gesvMixed(A, pivots, B, X, iters, opts);
                 params.iters() = iters;
             }

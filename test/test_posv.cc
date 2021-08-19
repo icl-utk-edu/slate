@@ -206,8 +206,6 @@ void test_posv_work(Params& params, bool run)
             B_orig = Bref_data;
     }
 
-    int iters = 0;
-
     double gflop;
     if (params.routine == "posv" || params.routine == "posvMixed")
         gflop = lapack::Gflop<scalar_t>::posv(n, nrhs);
@@ -239,6 +237,7 @@ void test_posv_work(Params& params, bool run)
         }
         else if (params.routine == "posvMixed") {
             if constexpr (std::is_same<real_t, double>::value) {
+                int iters = 0;
                 slate::posvMixed(A, B, X, iters, opts);
                 params.iters() = iters;
             }

@@ -809,13 +809,13 @@ void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
     {
         for (int d = 0; d < this->num_devices(); ++d) {
             if (! tiles_set_host[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d) shared(tiles_set_host)
                 {
                     this->tileGetForReading(tiles_set_host[d], LayoutConvert::None, d);
                 }
             }
             if (! tiles_set_dev[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d) shared(tiles_set_dev)
                 {
                     this->tileGetForReading(tiles_set_dev[d], d, LayoutConvert::None);
                 }
@@ -986,7 +986,7 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert 
     {
         for (int d = 0; d < this->num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set)
                 {
                     this->tileGetForReading(tiles_set[d], d, layout);
                 }
@@ -1024,7 +1024,7 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert 
     {
         for (int d = 0; d < this->num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set)
                 {
                     this->tileGetForWriting(tiles_set[d], d, layout);
                 }
@@ -1062,7 +1062,7 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAndHoldAllOnDevices(LayoutConvert lay
     {
         for (int d = 0; d < this->num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set)
                 {
                     this->tileGetAndHold(tiles_set[d], d, layout);
                 }
@@ -1143,16 +1143,18 @@ void BaseTrapezoidMatrix<scalar_t>::tileLayoutReset()
     #pragma omp taskgroup
     {
         if (! tiles_set_host.empty()) {
-            #pragma omp task default(shared)
+            auto layout = this->layout();
+            #pragma omp task default(none) firstprivate(layout) shared(tiles_set_host)
             {
-                this->tileLayoutReset(tiles_set_host, hostNum(), this->layout());
+                this->tileLayoutReset(tiles_set_host, hostNum(), layout);
             }
         }
         for (int d = 0; d < this->num_devices(); ++d) {
             if (! tiles_set_dev[d].empty()) {
-                #pragma omp task default(shared)
+                auto layout = this->layout();
+                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set_dev)
                 {
-                    this->tileLayoutReset(tiles_set_dev[d], d, this->layout());
+                    this->tileLayoutReset(tiles_set_dev[d], d, layout);
                 }
             }
         }

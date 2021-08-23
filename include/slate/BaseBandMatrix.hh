@@ -334,13 +334,13 @@ void BaseBandMatrix<scalar_t>::tileUpdateAllOrigin()
     {
         for (int d = 0; d < this->num_devices(); ++d) {
             if (! tiles_set_host[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d) shared(tiles_set_host)
                 {
                     this->tileGetForReading(tiles_set_host[d], LayoutConvert::None, d);
                 }
             }
             if (! tiles_set_dev[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d) shared(tiles_set_dev)
                 {
                     this->tileGetForReading(tiles_set_dev[d], d, LayoutConvert::None);
                 }

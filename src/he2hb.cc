@@ -4,9 +4,10 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
 #include "slate/HermitianMatrix.hh"
 #include "internal/internal.hh"
+#include "work/work.hh"
+#include "../test/print_matrix.hh"
 
 namespace slate {
 
@@ -41,7 +42,8 @@ void he2hb(slate::internal::TargetType<target>,
 
     const scalar_t zero = 0;
     const scalar_t one  = 1;
-    const scalar_t neg_half = -0.5;
+    int64_t lookahead = 0;
+    const scalar_t half = 0.5;
 
     int64_t nt = A.nt();
 
@@ -62,6 +64,7 @@ void he2hb(slate::internal::TargetType<target>,
 
     // Use W(0, 0) for TVAVT, since W(0, 0) is never used otherwise.
     W.tileInsert(0, 0);
+    // use TVAVT = W.sub(0, 0, 0, 0)
     auto TVAVT = W(0, 0);
     TVAVT.uplo(Uplo::General);
 
@@ -69,6 +72,7 @@ void he2hb(slate::internal::TargetType<target>,
         A.allocateBatchArrays();
         A.reserveDeviceWorkspace();
         W.allocateBatchArrays();
+        W.reserveDeviceWorkspace();
     }
 
     // No lookahead is possible, so no need to track dependencies --
@@ -115,6 +119,7 @@ void he2hb(slate::internal::TargetType<target>,
                 }
             }
             std::vector<int64_t> indices;
+            std::vector<int64_t> indices2;
             int64_t i0;
 
             //--------------------
@@ -183,7 +188,6 @@ void he2hb(slate::internal::TargetType<target>,
                             indices.push_back(i+k+1);
                         }
                     }
-
                     i0 = indices[0];
 
                     // Send Tlocal across row i & col i for trailing matrix update
@@ -203,16 +207,22 @@ void he2hb(slate::internal::TargetType<target>,
             //----------------------------------------
             // QR update trailing submatrix.
             if (k < nt-1) {
-                auto A_trail = A.sub(k+1, nt-1);
+
+                for (int64_t i = k+1; i < nt; ++i) {
+                    W.tileInsert(i, k);
+                    W(i, k).set(zero);
+                }
 
                 int64_t i0;
                 for (int panel_rank: panel_ranks) {
                     // Find local indices for panel_rank.
                     indices.clear();
+                    indices2.clear();
                     for (int64_t i = 0; i < A_panel.mt(); ++i) {
                         if (A_panel.tileRank(i, 0) == panel_rank) {
                             // todo: global index
                             indices.push_back(i+k+1);
+                            indices2.push_back(i);
                         }
                     }
                     i0 = indices[0];
@@ -229,45 +239,29 @@ void he2hb(slate::internal::TargetType<target>,
                     //--------------------
                     // Apply local reflectors.
                     // Compute Wi = (sum_j Aij Vj) T, for i = k+1, ..., nt-1.
+                    internal::he2hb_hemm<target>(
+                            A.sub(k+1, nt-1),
+                            A.sub(k+1, nt-1, k, k),
+                            W.sub(k+1, nt-1, k, k),
+                            indices2, &row[k+1]);
+
                     int rank_lower = -1;
                     int rank_upper = -1;
-                    //#pragma omp taskloop
+
+                    // At most 2 ranks contribute to each Wi; if I am one,
+                    // exchange partial sum with neighbor and both ranks sum Wi.
                     for (int64_t i = k+1; i < nt; ++i) {
                         #pragma omp task depend(inout:row[i])
                         {
 
-                            W.tileInsert(i, k);
-                            W(i, k).set(zero);
                             for (int64_t j: indices) {
                                 if (i >= j) { // lower
-                                    //if (rank_lower == my_rank) { // A.tileIsLocal(i, j)
                                     rank_lower = A.tileRank(i, j);
-                                    if (A.tileIsLocal(i, j)) {
-                                        if (i == j) {
-                                            //#pragma omp task depend(inout:row[i])
-                                            hemm(Side::Left, one, A(i, j), A(j, k),
-                                                             one, W(i, k));
-                                        }
-                                        else {
-                                            // todo: if HeMatrix returned conjTrans tiles, could merge this with one below.
-                                            //#pragma omp task depend(inout:row[i])
-                                            gemm(one, A(i, j), A(j, k), one, W(i, k));
-                                        }
-                                    }
                                 }
                                 else { // upper
-                                    //if (rank_upper == my_rank) { // A.tileIsLocal(j, i)
                                     rank_upper = A.tileRank(j, i);
-                                    if (A.tileIsLocal(j, i)) {
-                                        //#pragma omp task depend(inout:row[i])
-                                        gemm(one, conjTranspose(A(j, i)), A(j, k),
-                                             one, W(i, k));
-                                    }
                                 }
                             }
-
-                            // At most 2 ranks contribute to each Wi; if I am one,
-                            // exchange partial sum with neighbor and both ranks sum Wi.
                             int neighbor = -1;
                             if (rank_lower == my_rank)
                                 neighbor = rank_upper;
@@ -276,47 +270,33 @@ void he2hb(slate::internal::TargetType<target>,
                             if (neighbor != -1 && neighbor != my_rank) {
                                 Wtmp.tileInsert(i, k);
                                 int tag_i = i;
+                                int tag_i_ = i+1;
                                 if (neighbor < my_rank) {
-                                    //#pragma omp task depend(in:row[i])
+                                    W.tileGetForWriting(i, k, W.hostNum(), LayoutConvert(layout));
                                     W   .tileSend(i, k, neighbor, tag_i);
-                                    Wtmp.tileRecv(i, k, neighbor, layout, tag_i);
+                                    Wtmp.tileRecv(i, k, neighbor, layout, tag_i_);
                                 }
                                 else {
+                                    W.tileGetForWriting(i, k, W.hostNum(), LayoutConvert(layout));
                                     Wtmp.tileRecv(i, k, neighbor, layout, tag_i);
-                                    //#pragma omp task depend(in:row[i])
-                                    W   .tileSend(i, k, neighbor, tag_i);
+                                    W   .tileSend(i, k, neighbor, tag_i_);
                                 }
-                                //#pragma omp task depend(inout:row[i])
                                 {
                                     axpy(one, Wtmp(i, k), W(i, k));
                                     Wtmp.tileErase(i, k);
                                 }
                             }
-
-                            // If I contributed to Wi, multiply by T.
-                            if (rank_upper == my_rank || rank_lower == my_rank) {
-                                // Wi = Wi * T
-                                auto T0    = Tlocal.sub(i0, i0, k, k);
-                                auto TVAVT0 = W.sub(i, i, k, k);
-
-                                int64_t mb = T0.tileMb(0);
-                                int64_t nb = T0.tileNb(0);
-                                bool trapezoid = (mb < nb);
-
-                                if (trapezoid) {
-                                    auto TVAVT00 = TVAVT0(0, 0);
-                                    int64_t mb1 = TVAVT00.mb();
-                                    T0     = T0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
-                                    TVAVT0 = TVAVT0.slice(0, mb1-1, 0, mb-1); // first mb-by-mb part
-                                }
-
-                                auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
-                                //#pragma omp task depend(inout:row[i])
-                                trmm(Side::Right, Diag::NonUnit,
-                                     one, std::move(Tk0(0, 0)), TVAVT0(0, 0));
-                            }
                         }
                     }
+                    #pragma omp taskwait
+
+                    internal::he2hb_trmm<target>(
+                            A.sub(k+1, nt-1), // todo: needed to get the rank, try replace it with W
+                            W.sub(k+1, nt-1, k, k),
+                            Tlocal.sub(i0, i0, k, k),
+                            indices2, &row[k+1]);
+                        auto Wnt1 = W.sub(k+1, nt-1, k, k);
+                        Wnt1.tileUpdateAllOrigin();
 
                     if (A.tileIsLocal(i0, i0)) {
                         //--------------------
@@ -330,15 +310,23 @@ void he2hb(slate::internal::TargetType<target>,
 
                         // 1a. W = AVT from above.
                         // 1b. TVAVT = V^H (AVT) = V^H W.
+                        // Call internal::geset
+                        W.tileGetForWriting(0, 0, W.hostNum(), LayoutConvert(layout));
                         TVAVT.set(zero);
-                        for (int64_t i: indices) {
-                            #pragma omp task depend(in:row[i]) depend(inout:block[0])
-                            gemm(one, conjTranspose(A(i, k)), W(i, k),
-                                 one, std::move(TVAVT));
-                        }
+
+                        auto AT = conjTranspose(A.sub(k+1, nt-1, k, k));
+                        internal::he2hb_gemm<target>(
+                                        one,  std::move(AT),
+                                              W.sub(k+1, nt-1, k, k),
+                                        zero, W.sub(0, 0, 0, 0),
+                                        panel_rank,
+                                        &row[k+1], &block[0]);
+
                         // 1c. TVAVT = T^H (V^H AVT)
                         auto T0    = Tlocal.sub(i0, i0, k, k);
                         auto TVAVT0  = W.sub(0, 0, 0, 0);
+                        //T0(0, 0).set(zero);
+                        //TVAVT0(0, 0).set(zero);
 
                         int64_t mb = T0.tileMb(0);
                         int64_t nb = T0.tileNb(0);
@@ -349,21 +337,39 @@ void he2hb(slate::internal::TargetType<target>,
                             TVAVT0 = TVAVT0.slice(0, mb-1, 0, nb-1); // first mb-by-nb part
                         }
 
+                        //auto W0 = W.sub(0, 0, 0, 0);
+                        // todo: try to call internal::trmm
                         auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
+                        Tk0.tileGetForReading(0, 0, Tk0.hostNum(), LayoutConvert(layout));
+                        TVAVT0.tileGetForWriting(0, 0, TVAVT0.hostNum(), LayoutConvert(layout));
                         #pragma omp task depend(in:block[k]) depend(inout:block[0])
                         trmm(Side::Left, Diag::NonUnit,
                              one, conjTranspose(Tk0(0, 0)), std::move(TVAVT0(0, 0)));
+                        #pragma omp taskwait
+                        //W00.tileUpdateAllOrigin();
+                        //TVAVT0.tileUpdateOrigin(0, 0);
+                        //W.tileGetForReading(0, 0, W.hostNum(), LayoutConvert(layout));
+
+
+                        //#pragma omp task depend(in:block[k]) depend(inout:block[0])
+                        //internal::trmm<Target::HostTask>(
+                        //    Side::Left,
+                        //    one, conjTranspose(Tk0),
+                        //    std::move(TVAVT0));
 
                         // 1d. W = W - 0.5 V TVAVT.
                         // Technically, could do a hemm here since TVAVT is Hermitian.
-                        for (int64_t i: indices) {
-                            #pragma omp task depend(in:block[0]) depend(inout:row[i])
-                            gemm(neg_half, A(i, k), std::move(TVAVT), one, W(i, k));
-                        }
+                        //todo: use Debug class to check
+                        internal::he2hb_gemm<target>(
+                                        -half, A.sub(k+1, nt-1, k, k),
+                                                  W.sub(0, 0, 0, 0),
+                                        one,      W.sub(k+1, nt-1, k, k),
+                                        panel_rank,
+                                        &block[0], &row[k+1]);
 
                         // 2. Update trailing matrix.
-                        #pragma omp taskwait
-                        internal::her2k<Target::HostTask>(
+                        // todo: use debug class to check why //A.tileTick(i, 0) is needed?
+                        internal::her2k<target>(
                                         -one,  A.sub(k+1, nt-1, k, k),
                                                W.sub(k+1, nt-1, k, k),
                                         1.0,   A.sub(k+1, nt-1));
@@ -378,34 +384,13 @@ void he2hb(slate::internal::TargetType<target>,
                         // where
                         // W = A^H V T = A V T.
 
-                        for (int64_t j = k+1; j < nt; ++j) {
-                        #pragma omp task depend(in:row[j]) \
-                                         depend(in:block[k]) \
-                                         depend(inout:block[j])
-                            for (int64_t i: indices) {
-                                // todo: if HermitianMatrix returned conjTrans
-                                // tiles, could merge these two.
-                                if (i > j) {
-                                    if (A.tileIsLocal(i, j)) {
-                                        // Aij -= Vik Wjk^H
-                                        gemm(-one, A(i, k), conjTranspose(W(j, k)),
-                                              one, A(i, j));
-                                    }
-                                }
-                                else if (i < j) {
-                                    if (A.tileIsLocal(j, i)) {
-                                        // Aji -= Wjk Vik^H
-                                        gemm(-one, W(j, k), conjTranspose(A(i, k)),
-                                              one, A(j, i));
-                                    }
-                                }
-                                else { // i == j
-                                    // Diagonal tiles dealt with above.
-                                    assert(! A.tileIsLocal(i, j));
-                                }
-                            }
-                        }
-                        #pragma omp taskwait
+                        auto W_panel  = W.sub(k+1, nt-1, k, k);
+                        //todo: only for this one pass row and block dep
+                        internal::he2hb_gemm_outer<target>(
+                                        -one, A.sub(k+1, nt-1, k, k),
+                                              std::move(W_panel),
+                                        one,  A.sub(k+1, nt-1),
+                                        indices2, &row[k+1], &block[k+1]);
                     }
 
                     if (A.tileExists(i0, k)) {
@@ -413,6 +398,7 @@ void he2hb(slate::internal::TargetType<target>,
                         #pragma omp task depend(inout:block[k])
                         {
                             gecopy(Asave(i0, k), A(i0, k));
+                            //internal::copy<target>(Asave.sub(i0, i0, k, k), A.sub(i0, i0, k, k));
                             Asave.tileErase(i0, k);
                         }
                     }
@@ -429,6 +415,7 @@ void he2hb(slate::internal::TargetType<target>,
     }
 
     A.releaseWorkspace();
+    W.releaseWorkspace();
 }
 
 } // namespace specialization
@@ -532,12 +519,12 @@ void he2hb(HermitianMatrix<scalar_t>& A,
         case Target::HostTask:
             he2hb<Target::HostTask>(A, T, opts);
             break;
-        case Target::HostNest:
-            he2hb<Target::HostNest>(A, T, opts);
-            break;
-        case Target::HostBatch:
-            he2hb<Target::HostBatch>(A, T, opts);
-            break;
+        //case Target::HostNest:
+        //    he2hb<Target::HostNest>(A, T, opts);
+        //    break;
+        //case Target::HostBatch:
+        //    he2hb<Target::HostBatch>(A, T, opts);
+        //    break;
         case Target::Devices:
             he2hb<Target::Devices>(A, T, opts);
             break;

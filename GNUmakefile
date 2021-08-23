@@ -407,6 +407,10 @@ libslate_src += \
         src/internal/internal_genorm.cc \
         src/internal/internal_gebr.cc \
         src/internal/internal_geqrf.cc \
+        src/internal/internal_he2hb_hemm.cc \
+        src/internal/internal_he2hb_trmm.cc \
+        src/internal/internal_he2hb_gemm.cc \
+        src/internal/internal_he2hb_gemm_outer.cc \
         src/internal/internal_geset.cc \
         src/internal/internal_getrf.cc \
         src/internal/internal_getrf_nopiv.cc \

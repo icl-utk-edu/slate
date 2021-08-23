@@ -106,7 +106,6 @@ void getrf(slate::internal::TargetType<target>,
                 }
             }
             // update lookahead column(s), high priority
-            // Done on CPU, not target.
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
                 #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[j]) priority(priority_one)

@@ -3640,9 +3640,10 @@ void BaseMatrix<scalar_t>::tileLayoutReset()
     {
         if (! tiles_set_host.empty()) {
             auto layout = this->layout();
-            #pragma omp task default(none) firstprivate(host_num_, layout) shared(tiles_set_host)
+            auto host_num = host_num_;
+            #pragma omp task default(none) firstprivate(host_num, layout) shared(tiles_set_host)
             {
-                tileLayoutReset(tiles_set_host, host_num_, layout);
+                tileLayoutReset(tiles_set_host, host_num, layout);
             }
         }
         for (int d = 0; d < num_devices(); ++d) {

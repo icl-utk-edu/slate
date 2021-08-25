@@ -56,9 +56,9 @@ void he2hb_gemm(internal::TargetType<Target::HostTask>,
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
-    #pragma omp task depend(in:row[0]) depend(inout:block[0])
     for (int64_t k = 0; k < B.mt(); ++k) {
         for (int64_t i = 0; i < A.mt(); ++i) {
+            #pragma omp task depend(in:block[0]) depend(inout:row[i])
             if (A.tileRank(i, k) == panel_rank) {
                 A.tileGetForReading(i, k, LayoutConvert(layout));
                 B.tileGetForReading(k, 0, LayoutConvert(layout));
@@ -71,7 +71,6 @@ void he2hb_gemm(internal::TargetType<Target::HostTask>,
         }
         beta = 1.0;
     }
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

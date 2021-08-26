@@ -130,10 +130,10 @@ public:
     testsweeper::ParamScientific ortho_V;
     testsweeper::ParamScientific error_sigma;
 
-    testsweeper::ParamDouble     time0;
-    testsweeper::ParamDouble     gflops0;
     testsweeper::ParamDouble     time;
     testsweeper::ParamDouble     gflops;
+    testsweeper::ParamDouble     time2;
+    testsweeper::ParamDouble     gflops2;
     testsweeper::ParamInt        iters;
 
     testsweeper::ParamDouble     ref_time;

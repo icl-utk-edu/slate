@@ -177,7 +177,7 @@ void Debug::printTilesLives(BaseMatrix<scalar_t> const& A)
         for (int rank = 1; rank < mpi_size; ++rank ) {
             MPI_Recv( &len, 1, MPI_INT, rank, 0, A.mpiComm(), MPI_STATUS_IGNORE );
             msg.resize( len );
-            MPI_Recv( msg.data(), len, MPI_CHAR, rank, 0, A.mpiComm(), MPI_STATUS_IGNORE );
+            MPI_Recv( &msg[0], len, MPI_CHAR, rank, 0, A.mpiComm(), MPI_STATUS_IGNORE );
             printf( "%02d: %s\n%s\n", rank, __func__, msg.c_str() );
         }
     }

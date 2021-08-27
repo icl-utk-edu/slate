@@ -464,9 +464,10 @@ void her2k(internal::TargetType<Target::Devices>,
                 A.tileRelease(0, 0, device);
                 B.tileRelease(0, 0, device);
                 A.tileTick(0, 0);
-                A.tileTick(0, 0);
+                //todo: why I need to comment out these
+                //A.tileTick(0, 0);
                 B.tileTick(0, 0);
-                B.tileTick(0, 0);
+                //B.tileTick(0, 0);
             }
         }
     }
@@ -853,10 +854,11 @@ void her2k(internal::TargetType<Target::Devices>,
                                 B.tileRelease(i, 0, device);
                                 B.tileRelease(j, 0, device);
                                 // decrement life for remote tiles
+                                //todo: why I need to comment out these
                                 A.tileTick(i, 0);
-                                A.tileTick(j, 0);
+                                //A.tileTick(j, 0);
                                 B.tileTick(i, 0);
-                                B.tileTick(j, 0);
+                                //B.tileTick(j, 0);
                             }
                         }
                     }

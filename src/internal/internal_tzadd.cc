@@ -135,7 +135,7 @@ void add(internal::TargetType<Target::HostTask>,
 
     if (B.uplo() == Uplo::Lower) {
         for (int64_t j = 0; j < A_nt; ++j) {
-            for (int64_t i = 0; i < A_mt; ++i) {
+            for (int64_t i = j; i < A_mt; ++i) {
                 if (B.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, B) priority(priority)
                     {

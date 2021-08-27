@@ -132,6 +132,8 @@ public:
 
     testsweeper::ParamDouble     time;
     testsweeper::ParamDouble     gflops;
+    testsweeper::ParamDouble     time2;
+    testsweeper::ParamDouble     gflops2;
     testsweeper::ParamInt        iters;
 
     testsweeper::ParamDouble     ref_time;

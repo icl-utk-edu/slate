@@ -324,6 +324,8 @@ Params::Params():
 
     time      ("time(s)",               12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "time to solution"),
     gflops    ("gflops",                12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "Gflop/s rate"),
+    time2     ("time(s)",               12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "time to solution"),
+    gflops2   ("gflops",                12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "Gflop/s rate"),
     iters     ("iters",                  9,    ParamType::Output,                         0,   0,   0, "iterations to solution"),
 
     ref_time  ("ref_time(s)",           12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "reference time to solution"),

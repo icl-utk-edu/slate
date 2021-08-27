@@ -284,7 +284,6 @@ void test_gesv_work(Params& params, bool run)
             if ((check && params.routine == "getrf")
                 || params.routine == "getrs")
             {
-                //if (check && getrf) originally used A here. Not opA.
                 slate::lu_solve_using_factor(opA, pivots, B, opts);
                 // Using traditional BLAS/LAPACK name
                 // slate::getrs(opA, pivots, B, opts);
@@ -292,7 +291,6 @@ void test_gesv_work(Params& params, bool run)
             else if ((check && params.routine == "getrf_nopiv")
                      || params.routine == "getrs_nopiv")
             {
-                //if (check && getrf_nopiv) originally used A here. Not opA.
                 slate::lu_solve_using_factor_nopiv(opA, B, opts);
                 // Using traditional BLAS/LAPACK name
                 // slate::getrs_nopiv(opA, B, opts);

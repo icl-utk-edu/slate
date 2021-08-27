@@ -53,16 +53,13 @@ void test_posv_work(Params& params, bool run)
     params.gflops();
     params.ref_time();
     params.ref_gflops();
+    params.time2();
+    params.time2.name( "trs_time(s)" );
+    params.gflops2();
+    params.gflops2.name( "trs_gflops" );
 
-    // If potrs, include potrf stats since it is also run.
-    if (! ref_only) {
-        if (params.routine == "potrs") {
-            params.time2();
-            params.time2.name( "trf_time(s)" );
-            params.gflops2();
-            params.gflops2.name( "trf_gflops" );
-        }
-    }
+    bool do_potrs = (
+        (check && params.routine == "potrf") || params.routine == "potrs");
 
     if (params.routine == "posvMixed") {
         params.iters();
@@ -213,49 +210,28 @@ void test_posv_work(Params& params, bool run)
     int iters = 0;
 
     double gflop;
-    if (params.routine == "potrf")
-        gflop = lapack::Gflop<scalar_t>::potrf(n);
-    else if (params.routine == "potrs")
-        gflop = lapack::Gflop<scalar_t>::potrs(n, nrhs);
-    else
+    if (params.routine == "posv" || params.routine == "posvMixed")
         gflop = lapack::Gflop<scalar_t>::posv(n, nrhs);
+    else
+        gflop = lapack::Gflop<scalar_t>::potrf(n);
 
     if (! ref_only) {
-        if (params.routine == "potrs") {
-            double gflop0 = lapack::Gflop<scalar_t>::potrf(n);
-            double time2 = barrier_get_wtime(MPI_COMM_WORLD);
-
-            // Factor matrix A.
-            slate::chol_factor(A, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::potrf(A, opts);
-
-            time2 = barrier_get_wtime(MPI_COMM_WORLD) - time2;
-            // compute and save timing/performance
-            params.time2() = time2;
-            params.gflops2() = gflop0 / time2;
-        }
 
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 
-        double time = barrier_get_wtime(MPI_COMM_WORLD);
         //==================================================
-        // Run SLATE test.
-        // One of:
+        // Run SLATE test: potrf or posv
         // potrf: Factor A = LL^H or A = U^H U.
-        // potrs: Solve AX = B, after factoring A above.
         // posv:  Solve AX = B, including factoring A.
         //==================================================
-        if (params.routine == "potrf") {
+        double time = barrier_get_wtime(MPI_COMM_WORLD);
+
+        if (params.routine == "potrf" || params.routine == "potrs") {
+            // Factor matrix A.
             slate::chol_factor(A, opts);
             // Using traditional BLAS/LAPACK name
             // slate::potrf(A, opts);
-        }
-        else if (params.routine == "potrs") {
-            slate::chol_solve_using_factor(A, B, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::potrs(A, B, opts);
         }
         else if (params.routine == "posv") {
             slate::chol_solve(A, B, opts);
@@ -267,17 +243,35 @@ void test_posv_work(Params& params, bool run)
             slate::posvMixed(A, B, X, iters, opts);
             params.iters() = iters;
         }
-        else {
-            slate_error("Unknown routine!");
-        }
-
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
-
-        if (trace) slate::trace::Trace::finish();
-
         // compute and save timing/performance
         params.time() = time;
         params.gflops() = gflop / time;
+
+        //==================================================
+        // Run SLATE test: potrs
+        // potrs: Solve AX = B, after factoring A above.
+        //==================================================
+        if (do_potrs) {
+            double time2 = barrier_get_wtime(MPI_COMM_WORLD);
+
+            if ((check && params.routine == "potrf")
+                || params.routine == "potrs")
+            {
+                slate::chol_solve_using_factor(A, B, opts);
+                // Using traditional BLAS/LAPACK name
+                // slate::potrs(A, B, opts);
+            }
+            else {
+                slate_error("Unknown routine!");
+            }
+            time2 = barrier_get_wtime(MPI_COMM_WORLD) - time2;
+            // compute and save timing/performance
+            params.time2() = time2;
+            params.gflops2() = lapack::Gflop<scalar_t>::potrs(n, nrhs) / time2;
+        }
+
+        if (trace) slate::trace::Trace::finish();
     }
 
     if (check) {
@@ -289,13 +283,6 @@ void test_posv_work(Params& params, bool run)
         //      || A ||_1 * || X ||_1 * N
         //
         //==================================================
-
-        if (params.routine == "potrf") {
-            // Solve AX = B.
-            slate::chol_solve_using_factor(A, B, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::potrs(A, B, opts);
-        }
 
         // Norm of original matrix: || A ||_1
         real_t A_norm = slate::norm(slate::Norm::One, Aref);

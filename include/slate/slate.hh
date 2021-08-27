@@ -31,7 +31,21 @@ int version();
 const char* id();
 
 //------------------------------------------------------------------------------
-// Auxiliary
+// Level 2 Auxiliary
+
+//-----------------------------------------
+// add()
+template <typename scalar_t>
+void add(
+    scalar_t alpha, Matrix<scalar_t>& A,
+    scalar_t beta,  Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+template <typename scalar_t>
+void add(
+     scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
+     scalar_t beta,  BaseTrapezoidMatrix<scalar_t>& B,
+     Options const& opts = Options());
 
 //-----------------------------------------
 // copy()
@@ -40,6 +54,7 @@ void copy(
     src_matrix_type& A,
     dst_matrix_type& B,
     Options const& opts = Options());
+
 //-----------------------------------------
 // scale()
 template <typename scalar_t>
@@ -113,19 +128,6 @@ void set(
 //------------------------------------------------------------------------------
 // Level 3 BLAS and LAPACK auxiliary
 
-//-----------------------------------------
-// add()
-template <typename scalar_t>
-void add(
-    scalar_t alpha, Matrix<scalar_t>& A,
-    scalar_t beta,  Matrix<scalar_t>& B,
-    Options const& opts = Options());
-
-template <typename scalar_t>
-void add(
-     scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
-     scalar_t beta,  BaseTrapezoidMatrix<scalar_t>& B,
-     Options const& opts = Options());
 //-----------------------------------------
 // gbmm()
 template <typename scalar_t>

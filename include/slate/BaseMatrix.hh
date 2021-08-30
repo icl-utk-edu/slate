@@ -569,6 +569,14 @@ public:
         return storage_->compute_queues_.at(queue_index).at(device);
     }
 
+    //--------------------------------------------------------------------------
+    /// @return number of allocated BLAS++ compute queues
+    ///
+    int numComputeQueues()
+    {
+        return int(storage_->compute_queues_.size());
+    }
+
 protected:
     std::tuple<int64_t, int64_t>
         globalIndex(int64_t i, int64_t j) const;

@@ -94,7 +94,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
 
     // Requires at least 2 queues
     if (target == Target::Devices)
-        assert(B.batchArraySize() >= 2);
+        assert(B.numComputeQueues() >= 2);
     const int64_t queue_0 = 0;
     const int64_t queue_1 = 1;
 

@@ -160,7 +160,7 @@ void he2hb(slate::internal::TargetType<target>,
                     }
                 }
                 A.template listBcast(bcast_list_V_first, layout, 0, 3);
-                A.template listBcast(bcast_list_V, layout, 0, 2);
+                A.template listBcast(bcast_list_V, layout, 0, 5);
 
                 // Send Treduce across row i & col i for trailing matrix update
                 if (first_indices.size() > 1) {

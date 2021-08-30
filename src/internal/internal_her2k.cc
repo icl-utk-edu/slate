@@ -427,6 +427,7 @@ void her2k(internal::TargetType<Target::Devices>,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
            int priority, int queue_index, Layout layout)
 {
+    trace::Block trace_block("internal::her2k");
     using std::swap;
     using blas::conj;
     using real_t = blas::real_type<scalar_t>;
@@ -464,10 +465,9 @@ void her2k(internal::TargetType<Target::Devices>,
                 A.tileRelease(0, 0, device);
                 B.tileRelease(0, 0, device);
                 A.tileTick(0, 0);
-                //todo: why I need to comment out these
-                //A.tileTick(0, 0);
+                A.tileTick(0, 0);
                 B.tileTick(0, 0);
-                //B.tileTick(0, 0);
+                B.tileTick(0, 0);
             }
         }
     }
@@ -854,11 +854,10 @@ void her2k(internal::TargetType<Target::Devices>,
                                 B.tileRelease(i, 0, device);
                                 B.tileRelease(j, 0, device);
                                 // decrement life for remote tiles
-                                //todo: why I need to comment out these
                                 A.tileTick(i, 0);
-                                //A.tileTick(j, 0);
+                                A.tileTick(j, 0);
                                 B.tileTick(i, 0);
-                                //B.tileTick(j, 0);
+                                B.tileTick(j, 0);
                             }
                         }
                     }

@@ -294,8 +294,8 @@ void he2hb_gemm(internal::TargetType<Target::Devices>,
                             A.tileRelease(i, k, device);
                             B.tileRelease(k, 0, device);
                             // decrement life for remote tiles
-                            //A.tileTick(i, k);
-                            //B.tileTick(k, 0);
+                            A.tileTick(i, k);
+                            B.tileTick(k, 0);
                         }
                     }
                 }

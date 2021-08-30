@@ -239,7 +239,7 @@ void he2hb_gemm(internal::TargetType<Target::Devices>,
                 }
 
                 {
-                    trace::Block trace_block("blas::batch::gemm");
+                    trace::Block trace_block("blas::batch::he2hb_gemm");
 
                     std::vector<Op> opA_(1, opA);
                     std::vector<Op> opB_(1, opB);

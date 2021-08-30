@@ -369,6 +369,7 @@ void he2hb(slate::internal::TargetType<target>,
 
                         // 2. Update trailing matrix.
                         // todo: use debug class to check why //A.tileTick(i, 0) is needed?
+                        #pragma omp taskwait
                         internal::her2k<target>(
                                         -one,  A.sub(k+1, nt-1, k, k),
                                                W.sub(k+1, nt-1, k, k),

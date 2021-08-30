@@ -268,7 +268,7 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
                 }
 
                 {
-                    trace::Block trace_block("blas::batch::trmm");
+                    trace::Block trace_block("blas::batch::he2hb_trmm");
                     blas::Queue* queue = W.compute_queue(device, queue_index);
                     assert(queue != nullptr);
 

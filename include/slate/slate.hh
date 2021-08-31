@@ -66,11 +66,11 @@ void scale(
 
 template <typename scalar_t>
 void scale(
-    scalar_t value,
+    blas::real_type<scalar_t> value,
     Matrix<scalar_t>& A,
     Options const& opts = Options())
 {
-    scalar_t one = 1;
+    blas::real_type<scalar_t> one = 1.0;
     scale(value, one, A, opts);
 }
 
@@ -83,11 +83,11 @@ void scale(
 
 template <typename scalar_t>
 void scale(
-    scalar_t value,
+    blas::real_type<scalar_t> value,
     BaseTrapezoidMatrix<scalar_t>& A,
     Options const& opts = Options())
 {
-    scalar_t one = 1;
+    blas::real_type<scalar_t> one = 1.0;
     scale(value, one, A, opts);
 }
 

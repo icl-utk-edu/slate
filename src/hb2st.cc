@@ -76,7 +76,7 @@ void hb2st_step(HermitianBandMatrix<scalar_t>& A,
                 auto V1 = V(0, vindex);
                 internal::hebr1<Target::HostTask>(
                     m1, &V1.at(vi, vj),
-                    A.slice(i, std::min(i + band, n - 1)));
+                    A.slice(i, m1 + i));
             }
             break;
 
@@ -95,8 +95,8 @@ void hb2st_step(HermitianBandMatrix<scalar_t>& A,
                 internal::hebr2<Target::HostTask>(
                     m1, &V1.at(vi, vj),
                     m2, &V2.at(vi, vj),
-                    A.slice(i, std::min(i + band - 1, n - 1),
-                            j, std::min(j + band - 1, n - 1)));
+                    A.slice(i, m2 + i - 1,
+                            j, m1 + i - 1));
             }
             break;
 
@@ -110,7 +110,7 @@ void hb2st_step(HermitianBandMatrix<scalar_t>& A,
                 auto V1 = V(0, vindex + step/2);
                 internal::hebr3<Target::HostTask>(
                     m1, &V1.at(vi, vj),
-                    A.slice(i, std::min(i + band - 1, n - 1)));
+                    A.slice(i, m1 + i - 1));
             }
             break;
     }

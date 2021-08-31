@@ -492,7 +492,7 @@ if (opts.syev):
     [ 'he2hb', gen_no_target + dtype + n ],
     [ 'hb2st', gen_no_target + dtype + n ],
     # sterf doesn't take origin, target, nb, uplo
-    [ 'sterf', grid + check + ref + tol + repeat + dtype + n ],
+    [ 'sterf',  grid + check + ref + tol + repeat + dtype + n ],
     [ 'steqr2', grid + check + ref + tol + repeat + dtype + n ],
     # todo: hb2st
 

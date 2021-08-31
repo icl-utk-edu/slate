@@ -5,8 +5,6 @@
 
 #include "slate/slate.hh"
 #include "test.hh"
-#include "blas_flops.hh"
-#include "lapack_flops.hh"
 #include "print_matrix.hh"
 #include "grid_utils.hh"
 #include "matrix_utils.hh"
@@ -20,271 +18,164 @@
 template <typename scalar_t>
 void test_unmtr_hb2st_work(Params& params, bool run)
 {
-    assert( false );
-/*
     using real_t = blas::real_type<scalar_t>;
+    using blas::real;
+    using blas::imag;
+
+    // Constants
+    const scalar_t zero = 0;
+    const scalar_t one  = 1;
 
     // get & mark input values
-    slate::Uplo uplo = params.uplo();
-    slate::Side side = params.side();
-    slate::Op trans = params.trans();
     int64_t n = params.dim.n();
-    int64_t p = params.p();
-    int64_t q = params.q();
     int64_t nb = params.nb();
+    int64_t band = nb;  // for now use band == nb.
+    int64_t p = params.grid.m();
+    int64_t q = params.grid.n();
+    slate::Uplo uplo = params.uplo();
+    bool upper = uplo == slate::Uplo::Upper;
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
-    slate::Origin origin = params.origin();
-    slate::Target target = params.target();
 
     // mark non-standard output values
     params.time();
-    //params.gflops();
+    params.gflops();
+    params.ref_time();
+    params.ref_gflops();
+    params.ortho();
 
     if (! run)
         return;
 
-    slate_assert(p == q); // Requires a square processing grid.
+    // MPI variables
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    //==================================================
-    // quick returns:
-    //==================================================
-    // todo: implement none-ScaLAPACK layout.
-    if (origin != slate::Origin::ScaLAPACK) {
-        printf("skipping: currently only origin=scalapack is supported.\n");
-        return;
-    }
-    // todo:  hb2st currently doesn't support uplo == upper, needs to figure out
-    //        a different solution.
-    if (uplo == slate::Uplo::Upper) {
-        printf("skipping: currently slate::Uplo::Upper isn't supported.\n");
-        return;
-    }
+    int64_t lda = n;
+    int64_t seed[] = {0, 1, 2, 3};
 
-    int mpi_rank;
-    slate_mpi_call(MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank));
-    int mpi_size;
-    slate_mpi_call(MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
-    slate_assert( p*q <= mpi_size);
+    std::vector<scalar_t> Afull_data( lda*n );
+    lapack::larnv(1, seed, Afull_data.size(), &Afull_data[0]);
 
-    const int64_t myrow = whoismyrow(mpi_rank, p);
-    const int64_t mycol = whoismycol(mpi_rank, p);
-
-    // Matrix A
-    // Figure out local size, allocate, initialize
-    int64_t mlocal = localRowsCols(n, nb, myrow, p);
-    int64_t nlocal = localRowsCols(n, nb, mycol, q);
-    int64_t lldA   = mlocal;
-    std::vector<scalar_t> A_data(lldA*nlocal);
-    int64_t idist = 3; // normal
-    int64_t iseed[4] = {0, myrow, mycol, 3};
-    lapack::larnv(idist, iseed, A_data.size(), A_data.data());
-    // Create SLATE matrices from the ScaLAPACK layouts.
-    auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                    uplo, n, A_data.data(), lldA, nb, p, q, MPI_COMM_WORLD);
-
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
-
-    // Matrix A_ref
-    slate::HermitianBandMatrix<scalar_t> A_ref;
-    if (check) {
-        if (   (side == slate::Side::Left  && trans == slate::Op::NoTrans)
-            || (side == slate::Side::Right && trans != slate::Op::NoTrans)) {
-
-            A_ref = slate::HermitianMatrix<scalar_t>(
-                uplo, n, nb, p, q, MPI_COMM_WORLD);
-
-            A_ref.insertLocalTiles();
-            slate::copy(A, A_ref);
-
-            if (verbose > 3) {
-                print_matrix("A_ref", A_ref);
+    // Zero outside the band.
+    for (int64_t j = 0; j < n; ++j) {
+        if (upper) {
+            for (int64_t i = 0; i < n; ++i) {
+                if (j > i+band || j < i)
+                    Afull_data[i + j*lda] = 0;
             }
         }
-    }
-
-    // Matrix A_sym
-    slate::Matrix<scalar_t> A_sym;
-    if ((side == slate::Side::Left  && trans != slate::Op::NoTrans) ||
-        (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
-
-        A_sym = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
-
-        A_sym.insertLocalTiles();
-        he2ge(A, A_sym);
-
-        if (verbose > 1) {
-            print_matrix("A_sym", A_sym);
+        else { // lower
+            for (int64_t i = 0; i < n; ++i) {
+                if (j < i-band || j > i)
+                    Afull_data[i + j*lda] = 0;
+            }
         }
+        // Diagonal from he2hb is real.
+        Afull_data[j + j*lda] = real( Afull_data[j + j*lda] );
+    }
+    if (verbose && mpi_rank == 0) {
+        print_matrix( "Afull_data", n, n, &Afull_data[0], lda );
     }
 
-    // Triangular Factors T
-    slate::TriangularFactors<scalar_t> T;
-    slate::hb2st(A, T, {{slate::Option::Target, target}});
+    auto Afull = slate::HermitianMatrix<scalar_t>::fromLAPACK(
+        uplo, n, &Afull_data[0], lda, nb, p, q, MPI_COMM_WORLD);
 
-    if (verbose > 2) {
-        print_matrix("A_factored", A);
-        print_matrix("T_local",    T[0]);
-        print_matrix("T_reduce",   T[1]);
+    // Copy band of Afull, currently to rank 0.
+    auto Aband = slate::HermitianBandMatrix<scalar_t>(
+        uplo, n, band, nb,
+        1, 1, MPI_COMM_WORLD);
+    Aband.insertLocalTiles();
+    Aband.he2hbGather( Afull );
+
+    if (verbose) {
+        print_matrix( "Aband", Aband );
     }
 
-    // Matrix B
-    slate::Matrix< scalar_t > B(n, n, nb, p, q, MPI_COMM_WORLD);
+    // [code copied from heev.cc]
+    // Matrix to store Householder vectors.
+    // Could pack into a lower triangular matrix, but we store each
+    // parallelogram in a 2nb-by-nb tile, with nt(nt + 1)/2 tiles.
+    int64_t vm = 2*nb;
+    int64_t nt = Afull.nt();
+    int64_t vn = nt*(nt + 1)/2*nb;
+    slate::Matrix<scalar_t> V(vm, vn, vm, nb, 1, 1, MPI_COMM_WORLD);
+    V.insertLocalTiles();
 
-    B.insertLocalTiles();
-    he2gb(A, B);
-
-    if (verbose > 1) {
-        print_matrix("B", B);
+    // Compute tridiagonal and Householder vectors V.
+    if (mpi_rank == 0) {
+        //printf( "hb2st\n" );
+        slate::hb2st(Aband, V);
+        //printf( "hb2st done\n" );
+    }
+    if (verbose) {
+        print_matrix( "Aband2", Aband );
+        print_matrix( "V", V );
     }
 
-    // todo
-    //double gflop = lapack::Gflop<scalar_t>::unmtr_hb2st(n, n);
+    // Set Q = Identity.
+    //printf( "Q = I\n" );
+    slate::Matrix<scalar_t> Q(n, n, nb, 1, 1, MPI_COMM_WORLD);
+    Q.insertLocalTiles();
+    set(zero, one, Q);
+    //printf( "Q = I done\n" );
+    if (verbose) {
+        print_matrix( "Q0", Q );
+    }
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time = testsweeper::get_wtime();
+    double time = barrier_get_wtime(MPI_COMM_WORLD);
 
     //==================================================
     // Run SLATE test.
+    // Currently runs only on rank 0.
     //==================================================
-    if ((side == slate::Side::Left  && trans == slate::Op::NoTrans) ||
-        (side == slate::Side::Right && trans != slate::Op::NoTrans)) {
-        slate::unmtr_hb2st(side, trans, A, T, B, {
-            {slate::Option::Target, target}
-        });
+    if (mpi_rank == 0) {
+        //printf( "unmtr_hb2st\n" );
+        slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, V, Q);
+        //printf( "unmtr_hb2st done\n" );
     }
-    else if ((side == slate::Side::Left  && trans != slate::Op::NoTrans) ||
-             (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
-        slate::unmtr_hb2st(side, trans, A, T, A_sym, {
-           {slate::Option::Target, target}
-        });
+    if (verbose) {
+        print_matrix( "Q", Q );
     }
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time_tst = testsweeper::get_wtime() - time;
+    time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
     if (trace) slate::trace::Trace::finish();
 
     // compute and save timing/performance
-    params.time() = time_tst;
-    //params.gflops() = gflop / time_tst;
+    params.time() = time;
+    //params.gflops() = gflop / time;
 
     if (check) {
-        const scalar_t negative_one = -1;
-
-        if ((side == slate::Side::Left  && trans == slate::Op::NoTrans) ||
-            (side == slate::Side::Right && trans != slate::Op::NoTrans)) {
-            //==================================================
-            // Test results by checking backwards error
-            //
-            //      || A - QBQ^H ||_1
-            //     ------------------- < tol * epsilon
-            //      || A ||_1 * n
-            //
-            //==================================================
-
-            if (trans == slate::Op::NoTrans) {
-                // QB is already computed, we need (QB)Q^H
-                // (QB)Q^H
-                slate::unmtr_hb2st(slate::Side::Right,
-                                   slate::Op::ConjTrans, A, T, B,
-                                   {{slate::Option::Target, target}});
-            }
-            else {
-                // BQ^H is already computed, we need QB
-                // (QB)Q^H
-                slate::unmtr_hb2st(slate::Side::Left,
-                                   slate::Op::NoTrans, A, T, B,
-                                   {{slate::Option::Target, target}});
-            }
-
-            // Norm of original matrix: || A ||_1, where A is in A_ref
-            real_t A_ref_norm = slate::norm(slate::Norm::One, A_ref);
-
-            // Form A - QBQ^H, where A is in A_ref.
-            for (int64_t j = 0; j < A_ref.nt(); ++j) {
-                for (int64_t i = j; i < A_ref.nt(); ++i) {
-                    if (A_ref.tileIsLocal(i, j)) {
-                        auto A_refij = A_ref(i, j);
-                        auto Bij = B(i, j);
-                        // if i == j, Aij was Lower; set it to General for axpy.
-                        A_refij.uplo(slate::Uplo::General);
-                        axpy(negative_one, Bij, A_refij);
-                    }
-                }
-            }
-
-            if (verbose > 1) {
-                print_matrix("A - QBQ^H", A_ref);
-            }
-
-            // Norm of backwards error: || A - QBQ^H ||_1
-            params.error()  = slate::norm(slate::Norm::One, A_ref)
-                            / (n * A_ref_norm);
+        //==================================================
+        // Test results
+        // || I - Q^H Q || / n < tol
+        // || A - Q S Q^H || / (n || A ||) < tol  // todo
+        //==================================================
+        slate::Matrix<scalar_t> R( n, n, nb, 1, 1, MPI_COMM_WORLD );
+        R.insertLocalTiles();
+        set(zero, one, R);
+        if (verbose) {
+            print_matrix( "R0", R );
         }
-        else if ((side == slate::Side::Left  && trans != slate::Op::NoTrans) ||
-                 (side == slate::Side::Right && trans == slate::Op::NoTrans)) {
-            //==================================================
-            // Test results by checking forward error
-            //
-            //      || Q^H B Q - S ||_1
-            //     --------------------- < tol * epsilon
-            //      || S ||_1 * n
-            //
-            //==================================================
 
-            if (trans == slate::Op::NoTrans) {
-                // AQ is already computed, we need Q^HA
-                // (Q^HA)Q
-                slate::unmtr_hb2st(slate::Side::Left,
-                                   slate::Op::ConjTrans, A, T, A_sym,
-                                   {{slate::Option::Target, target}});
-            }
-            else {
-                // Q^HA is already computed, we need (Q^HA)Q
-                // (Q^HA)Q
-                slate::unmtr_hb2st(slate::Side::Right,
-                                   slate::Op::NoTrans, A, T, A_sym,
-                                   {{slate::Option::Target, target}});
-            }
-
-            // Norm of B matrix: || B ||_1
-            real_t B_norm = slate::norm(slate::Norm::One, B);
-
-            // Form Q^HAQ - B
-            for (int64_t i = 0; i < A_sym.nt(); ++i) {
-                for (int64_t j = 0; j < A_sym.mt(); ++j) {
-                    if (A_sym.tileIsLocal(i, j)) {
-                        axpy(negative_one, B(i, j), A_sym(i, j));
-                    }
-                }
-            }
-
-            if (verbose > 1) {
-                print_matrix("Q^HAQ - B", A_sym);
-            }
-
-            // Norm of backwards error: || Q^HAQ - B ||_1
-            params.error() = slate::norm(slate::Norm::One, A_sym)
-                           / (n * B_norm);
+        auto QH = conj_transpose(Q);
+        slate::gemm(-one, QH, Q, one, R);
+        if (verbose) {
+            print_matrix( "R", R );
         }
+
+        real_t R_norm = slate::norm(slate::Norm::One, R);
+        params.ortho() = R_norm / n;
 
         real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon() / 2;
-        params.okay() = (params.error() <= tol);
+        params.okay() = (params.ortho() <= tol);
     }
-*/
 }
 
 // -----------------------------------------------------------------------------
@@ -304,11 +195,11 @@ void test_unmtr_hb2st(Params& params, bool run)
             break;
 
         case testsweeper::DataType::SingleComplex:
-            test_unmtr_hb2st_work<std::complex<float>> (params, run);
+            test_unmtr_hb2st_work< std::complex<float> > (params, run);
             break;
 
         case testsweeper::DataType::DoubleComplex:
-            test_unmtr_hb2st_work<std::complex<double>> (params, run);
+            test_unmtr_hb2st_work< std::complex<double> > (params, run);
             break;
     }
 }

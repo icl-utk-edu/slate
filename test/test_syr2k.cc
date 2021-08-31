@@ -252,7 +252,7 @@ void test_syr2k_work(Params& params, bool run)
             time = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
             if (verbose >= 2) {
-                print_matrix("Cref", C);
+                print_matrix("Cref", Cref);
             }
 
             // local operation: error = Cref_data - C_data

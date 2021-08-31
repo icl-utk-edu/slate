@@ -155,7 +155,7 @@ void test_syr2k_work(Params& params, bool run)
         print_matrix("B", B);
         print_matrix("Initial C", C);
         if (check || ref) {
-            print_matrix("Initial Cref", C);
+            print_matrix("Initial Cref", Cref);
         }
     }
 
@@ -252,9 +252,6 @@ void test_syr2k_work(Params& params, bool run)
             time = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
             if (verbose >= 2) {
-                slate::SymmetricMatrix<scalar_t> C;
-                C = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
-                        uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
                 print_matrix("Cref", C);
             }
 

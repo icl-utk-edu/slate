@@ -155,7 +155,7 @@ void test_her2k_work(Params& params, bool run)
         print_matrix("B", B);
         print_matrix("Initial C", C);
         if (check || ref) {
-            print_matrix("Initial Cref", C);
+            print_matrix("Initial Cref", Cref);
         }
     }
 
@@ -249,10 +249,7 @@ void test_her2k_work(Params& params, bool run)
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             if (verbose >= 2) {
-                slate::HermitianMatrix<scalar_t> C;
-                C = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                        uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
-                print_matrix("Cref", C);
+                print_matrix("Cref", Cref);
             }
 
             // local operation: error = Cref_data - C_data

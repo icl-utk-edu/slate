@@ -137,7 +137,7 @@ void her2k(slate::internal::TargetType<target>,
                 }
             }
 
-            // multiply alpha A(:, k) A(k, :) + C, no beta
+            // multiply alpha A(:, k) B(k, :) + C, no beta
             #pragma omp task depend(in:bcast[k]) \
                              depend(in:gemm[k-1]) \
                              depend(out:gemm[k])

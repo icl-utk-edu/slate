@@ -5,6 +5,7 @@
 
 #include "slate/slate.hh"
 #include "test.hh"
+#include "print_matrix.hh"
 #include "blas/flops.hh"
 
 #include "scalapack_wrappers.hh"
@@ -48,6 +49,7 @@ void test_her2k_work(Params& params, bool run)
         ref = false;
     #endif
     bool trace = params.trace() == 'y';
+    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -157,6 +159,15 @@ void test_her2k_work(Params& params, bool run)
     slate_assert(A.mt() == C.mt());
     slate_assert(B.mt() == C.mt());
     slate_assert(A.nt() == B.nt());
+    
+    if (verbose >= 2) {
+        print_matrix("A", A);
+        print_matrix("B", B);
+        print_matrix("Initial C", C);
+        if (check || ref) {
+            print_matrix("Initial Cref", Cref);
+        }
+    }
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
@@ -200,6 +211,10 @@ void test_her2k_work(Params& params, bool run)
     // slate::her2k(alpha, A, B, beta, C, opts);
 
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+
+    if (verbose >= 2) {
+        print_matrix("Cslate", C);
+    }
 
     if (trace) slate::trace::Trace::finish();
 
@@ -289,6 +304,10 @@ void test_her2k_work(Params& params, bool run)
                              &B_data[0], 1, 1, B_desc, beta,
                              &Cref_data[0], 1, 1, Cref_desc);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+
+            if (verbose >= 2) {
+                print_matrix("Cref", Cref);
+            }
 
             // local operation: error = Cref_data - C_data
             blas::axpy(Cref_data.size(), -1.0, &C_data[0], 1, &Cref_data[0], 1);

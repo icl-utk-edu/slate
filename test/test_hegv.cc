@@ -197,13 +197,16 @@ void test_hegv_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         if (jobz == slate::Job::NoVec) {
-            slate::eig_vals(itype, A, B, Lambda, opts);
+            slate::eig_vals( itype, A, B, Lambda, opts );
+            slate::eig( itype, A, B, Lambda, opts );
+            // Using traditional BLAS/LAPACK name
+            // slate::hegv( itype, A, B, Lambda, opts );
         }
-        // else {
-            // todo: slate::Job::Vec
-        // }
-        // Using traditional BLAS/LAPACK name
-        // slate::hegv(itype, jobz, A, B, Lambda, Z, opts);
+        else {
+            slate::eig( itype, A, B, Lambda, Z, opts );
+            // Using traditional BLAS/LAPACK name
+            // slate::hegv( itype, A, B, Lambda, Z, opts );
+        }
 
         time = barrier_get_wtime(mpi_comm) - time;
         if (trace) slate::trace::Trace::finish();

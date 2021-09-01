@@ -1,5 +1,5 @@
 // ex11_hermitian_eig.cc
-// Solve Hermitian eigenvalues A = X Lambda X^H
+// Solve Hermitian eigenvalues A = Z Lambda Z^H
 #include <slate/slate.hh>
 
 #include "util.hh"
@@ -20,18 +20,18 @@ void test_hermitian_eig()
     assert( mpi_size == p*q );
     slate::HermitianMatrix<T> A( slate::Uplo::Lower, n, nb, p, q, MPI_COMM_WORLD );
     A.insertLocalTiles();
-    random_matrix( A );
     std::vector<real_t> Lambda( n );
 
-    // A = X Lambda X^H, eigenvalues only
+    // A = Z Lambda Z^H, eigenvalues only
+    random_matrix( A );
     slate::eig_vals( A, Lambda );  // simplified API
 
-    //slate::heev( A, Lambda );      // traditional API
+    // Or
+    random_matrix( A );
+    slate::eig( A, Lambda );       // simplified API
 
-    // TODO: revert to above interface.
-    // Empty matrix of eigenvectors.
-    slate::Matrix<T> Xempty;
-    slate::heev( slate::Job::NoVec, A, Lambda, Xempty );
+    random_matrix( A );
+    slate::heev( A, Lambda );      // traditional API
 
     // TODO: eigenvectors
     // slate::Matrix<T> X( n, n, nb, p, q, MPI_COMM_WORLD );

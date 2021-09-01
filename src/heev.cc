@@ -19,16 +19,20 @@ namespace slate {
 /// @ingroup heev
 ///
 template <typename scalar_t>
-void heev(lapack::Job jobz,
-          HermitianMatrix<scalar_t>& A,
-          std::vector<blas::real_type<scalar_t>>& W,
-          Matrix<scalar_t>& Z,
-          Options const& opts)
+void heev(
+    HermitianMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Matrix<scalar_t>& Z,
+    Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
+    using std::real;
+
+    // Constants
+    const auto mpi_real_type = mpi_type< blas::real_type<scalar_t> >::value;
 
     int64_t n = A.n();
-    bool wantz = (jobz == Job::Vec);
+    bool wantz = (Z.mt() > 0);
 
     // Scale matrix to allowable range, if necessary.
     // todo
@@ -45,7 +49,7 @@ void heev(lapack::Job jobz,
     Aband.he2hbGather(A);
 
     // Currently, hb2st and sterf are run on a single node.
-    W.resize(n);
+    Lambda.resize(n);
     std::vector<real_t> E(n - 1);
     if (A.mpiRank() == 0) {
         // Matrix to store Householder vectors.
@@ -61,24 +65,24 @@ void heev(lapack::Job jobz,
         hb2st(Aband, V, opts);
 
         // Copy diagonal and super-diagonal to vectors.
-        internal::copyhb2st(Aband, W, E);
+        internal::copyhb2st( Aband, Lambda, E );
     }
 
     // 3. Tri-diagonal eigenvalue solver.
     if (wantz) {
-        // Bcast the W and E vectors
-        MPI_Bcast( &W[0], n, mpi_type<blas::real_type<scalar_t>>::value, 0, A.mpiComm() );
-        MPI_Bcast( &E[0], n-1, mpi_type<blas::real_type<scalar_t>>::value, 0, A.mpiComm() );
-        // QR iteration
-        steqr2(jobz, W, E, Z);
+        // Bcast the Lambda and E vectors (diagonal and sup/super-diagonal).
+        MPI_Bcast( &Lambda[0], n,   mpi_real_type, 0, A.mpiComm() );
+        MPI_Bcast( &E[0],      n-1, mpi_real_type, 0, A.mpiComm() );
+        // QR iteration to get eigenvalues and eigenvectors of tridiagonal.
+        steqr2( Job::Vec, Lambda, E, Z );
     }
     else {
         if (A.mpiRank() == 0) {
-            // QR iteration
-            sterf<real_t>(W, E, opts);
-            // Bcast the vectors of the eigenvalues W
+            // QR iteration to get eigenvalues.
+            sterf<real_t>( Lambda, E, opts );
         }
-        MPI_Bcast( &W[0], n, mpi_type<blas::real_type<scalar_t>>::value, 0, A.mpiComm() );
+        // Bcast eigenvalues.
+        MPI_Bcast( &Lambda[0], n, mpi_real_type, 0, A.mpiComm() );
     }
     // todo: If matrix was scaled, then rescale eigenvalues appropriately.
 }
@@ -87,34 +91,30 @@ void heev(lapack::Job jobz,
 // Explicit instantiations.
 template
 void heev<float>(
-    lapack::Job jobz,
     HermitianMatrix<float>& A,
-    std::vector<float>& W,
+    std::vector<float>& Lambda,
     Matrix<float>& Z,
     Options const& opts);
 
 template
 void heev<double>(
-    lapack::Job jobz,
     HermitianMatrix<double>& A,
-    std::vector<double>& W,
+    std::vector<double>& Lambda,
     Matrix<double>& Z,
     Options const& opts);
 
 template
-void heev<std::complex<float>>(
-    lapack::Job jobz,
-    HermitianMatrix<std::complex<float>>& A,
-    std::vector<float>& W,
-    Matrix<std::complex<float>>& Z,
+void heev< std::complex<float> >(
+    HermitianMatrix< std::complex<float> >& A,
+    std::vector<float>& Lambda,
+    Matrix< std::complex<float> >& Z,
     Options const& opts);
 
 template
-void heev<std::complex<double>>(
-    lapack::Job jobz,
-    HermitianMatrix<std::complex<double>>& A,
-    std::vector<double>& W,
-    Matrix<std::complex<double>>& Z,
+void heev< std::complex<double> >(
+    HermitianMatrix< std::complex<double> >& A,
+    std::vector<double>& Lambda,
+    Matrix< std::complex<double> >& Z,
     Options const& opts);
 
 } // namespace slate

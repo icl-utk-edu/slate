@@ -1,8 +1,8 @@
 // ex12_generalized_hermitian_eig.cc
 // Solve generalized Hermitian eigenvalues, types:
-// 1. A = B X Lambda X^H
-// 2. A B = X Lambda X^H
-// 3. B A = X Lambda X^H
+// 1. A = B Z Lambda Z^H
+// 2. A B = Z Lambda Z^H
+// 3. B A = Z Lambda Z^H
 // where B is Hermitian positive definite.
 #include <slate/slate.hh>
 
@@ -26,19 +26,31 @@ void test_hermitian_eig()
     slate::HermitianMatrix<T> B( slate::Uplo::Lower, n, nb, p, q, MPI_COMM_WORLD );
     A.insertLocalTiles();
     B.insertLocalTiles();
-    random_matrix( A );
-    random_matrix_diag_dominant( B );
     std::vector<real_t> Lambda( n );
 
-    // A = B X Lambda X^H, eigenvalues only
+    // Type 1: A = B Z Lambda Z^H, eigenvalues only
+    random_matrix( A );
+    random_matrix_diag_dominant( B );
     slate::eig_vals( 1, A, B, Lambda );  // simplified API
 
-    //slate::hegv( 1, A, B, Lambda );      // traditional API
+    // Or
+    random_matrix( A );
+    random_matrix_diag_dominant( B );
+    slate::eig( 1, A, B, Lambda );       // simplified API
 
-    // TODO: revert to above interface.
-    // Empty matrix of eigenvectors.
-    slate::Matrix<T> Xempty;
-    slate::hegv( 1, slate::Job::NoVec, A, B, Lambda, Xempty );
+    random_matrix( A );
+    random_matrix_diag_dominant( B );
+    slate::hegv( 1, A, B, Lambda );      // traditional API
+
+    // Type 2: A B = Z Lambda Z^H, eigenvalues only
+    random_matrix( A );
+    random_matrix_diag_dominant( B );
+    slate::eig_vals( 2, A, B, Lambda );  // simplified API
+
+    // Type 3: A = B Z Lambda Z^H, eigenvalues only
+    random_matrix( A );
+    random_matrix_diag_dominant( B );
+    slate::eig_vals( 3, A, B, Lambda );  // simplified API
 
     // TODO: eigenvectors
     // slate::Matrix<T> X( n, n, nb, p, q, MPI_COMM_WORLD );

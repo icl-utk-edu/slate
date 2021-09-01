@@ -29,7 +29,7 @@ void test_heev_work(Params& params, bool run)
     using blas::real;
 
     // get & mark input values
-    lapack::Job jobz = params.jobz();
+    slate::Job jobz = params.jobz();
     slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
     int64_t p = params.grid.m();
@@ -152,13 +152,16 @@ void test_heev_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         if (jobz == slate::Job::NoVec) {
-            slate::eig_vals(A, Lambda, opts);
+            slate::eig_vals( A, Lambda, opts );
+            // Or slate::eig( A, Lambda, opts );
+            // Using traditional BLAS/LAPACK name
+            // slate::heev( A, Lambda, opts );
         }
-        // else {
-            // todo: slate::Job::Vec
-        // }
-        // Using traditional BLAS/LAPACK name
-        // slate::heev(jobz, A, Lambda, Z, opts);
+        else {
+            slate::eig( A, Lambda, Z, opts );
+            // Using traditional BLAS/LAPACK name
+            // slate::heev( A, Lambda, Z, opts );
+        }
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 

@@ -188,6 +188,7 @@ void ge2tb(slate::internal::TargetType<target>,
                                 std::move(TUl_panel),
                                 std::move(A_trail_j),
                                 W.sub(k, A_mt-1, j, A_nt-1));
+                A_trail_j.tileUpdateOrigin(0, 0);
 
                 // Apply triangle-triangle reduction reflectors
                 // ttmqr handles the tile broadcasting internally

@@ -52,11 +52,18 @@ void test_hermitian_eig()
     random_matrix_diag_dominant( B );
     slate::eig_vals( 3, A, B, Lambda );  // simplified API
 
-    // TODO: eigenvectors
-    // slate::Matrix<T> X( n, n, nb, p, q, MPI_COMM_WORLD );
-    // X.insertLocalTiles();
-    // slate::eig( 1, A, B, Lambda, X );  // simplified API
-    // slate::hegv( A, B, Lambda, X );    // traditional API
+    //--------------------
+    // Eigenvectors
+    slate::Matrix<T> Z( n, n, nb, p, q, MPI_COMM_WORLD );
+    Z.insertLocalTiles();
+
+    random_matrix( A );
+    random_matrix_diag_dominant( B );
+    slate::eig( 1, A, B, Lambda, Z );    // simplified API
+
+    random_matrix( A );
+    random_matrix_diag_dominant( B );
+    slate::hegv( 1, A, B, Lambda, Z );   // traditional API
 }
 
 //------------------------------------------------------------------------------

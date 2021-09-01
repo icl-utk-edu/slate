@@ -76,10 +76,6 @@ void test_heev_work(Params& params, bool run)
         params.msg() = "skipping: requires square process grid (p == q).";
         return;
     }
-    if (jobz != lapack::Job::NoVec) {
-        params.msg() = "skipping: only supports Job::NoVec.";
-        return;
-    }
 
     // Figure out local size.
     // matrix A (local input), m-by-n, symmetric matrix

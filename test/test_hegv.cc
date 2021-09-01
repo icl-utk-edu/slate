@@ -77,10 +77,6 @@ void test_hegv_work(Params& params, bool run)
         params.msg() = "skipping: requires square process grid (p == q).";
         return;
     }
-    if (jobz != lapack::Job::NoVec) {
-        params.msg() = "skipping: only supports Job::NoVec.";
-        return;
-    }
 
     // Figure out local size.
     // matrix A (local input/local output), n-by-n, Hermitian
@@ -134,7 +130,6 @@ void test_hegv_work(Params& params, bool run)
 
     slate::generate_matrix( params.matrix, A);
     slate::generate_matrix( params.matrixB, B);
-    slate::generate_matrix( params.matrixC, Z);
 
     if (verbose >= 1) {
         printf("%% A   %6lld-by-%6lld\n", llong( A.m() ), llong( A.n() ));
@@ -145,7 +140,6 @@ void test_hegv_work(Params& params, bool run)
     if (verbose >= 2) {
         print_matrix("A", A);
         print_matrix("B", B);
-        print_matrix("Z", Z);
     }
 
     std::vector<scalar_t> Aref_data, Bref_data, Zref_data;

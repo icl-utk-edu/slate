@@ -76,6 +76,7 @@ void heev(
     // Currently, hb2st and sterf are run on a single node.
     Lambda.resize(n);
     std::vector<real_t> E(n - 1);
+    Matrix<scalar_t> V;
     if (A.mpiRank() == 0) {
         // Matrix to store Householder vectors.
         // Could pack into a lower triangular matrix, but we store each
@@ -83,7 +84,7 @@ void heev(
         int64_t vm = 2*nb;
         int64_t nt = A.nt();
         int64_t vn = nt*(nt + 1)/2*nb;
-        Matrix<scalar_t> V(vm, vn, vm, nb, 1, 1, A.mpiComm());
+        V = Matrix<scalar_t>(vm, vn, vm, nb, 1, 1, A.mpiComm());
         V.insertLocalTiles();
 
         // 2. Reduce band to real symmetric tri-diagonal.
@@ -100,6 +101,9 @@ void heev(
         MPI_Bcast( &E[0],      n-1, mpi_real_type, 0, A.mpiComm() );
         // QR iteration to get eigenvalues and eigenvectors of tridiagonal.
         steqr2( Job::Vec, Lambda, E, Z );
+        // Back-transform: Z = Q1 * Q2 * Z.
+        unmtr_hb2st( Side::Left, Op::NoTrans, V, Z );
+        unmtr_he2hb( Side::Left, Op::NoTrans, A, T, Z );
     }
     else {
         if (A.mpiRank() == 0) {

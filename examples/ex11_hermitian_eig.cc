@@ -33,11 +33,16 @@ void test_hermitian_eig()
     random_matrix( A );
     slate::heev( A, Lambda );      // traditional API
 
-    // TODO: eigenvectors
-    // slate::Matrix<T> X( n, n, nb, p, q, MPI_COMM_WORLD );
-    // X.insertLocalTiles();
-    // slate::eig( A, Lambda, X );   // simplified API
-    // slate::heev( A, Lambda, X );  // traditional API
+    //--------------------
+    // Eigenvectors
+    slate::Matrix<T> Z( n, n, nb, p, q, MPI_COMM_WORLD );
+    Z.insertLocalTiles();
+
+    random_matrix( A );
+    slate::eig( A, Lambda, Z );    // simplified API
+
+    random_matrix( A );
+    slate::heev( A, Lambda, Z );   // traditional API
 }
 
 //------------------------------------------------------------------------------

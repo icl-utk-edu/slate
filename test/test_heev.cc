@@ -55,7 +55,7 @@ void test_heev_work(Params& params, bool run)
     if (! run)
         return;
 
-    slate::Options const opts =  {
+    slate::Options const opts = {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
@@ -109,7 +109,7 @@ void test_heev_work(Params& params, bool run)
                 uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
 
-    slate::generate_matrix( params.matrix, A);
+    slate::generate_matrix( params.matrix, A );
 
     // Z is currently used for ScaLAPACK heev call and can also be used
     // for SLATE heev call when slate::eig_vals takes Z
@@ -117,13 +117,12 @@ void test_heev_work(Params& params, bool run)
                  n, n, &Z_data[0], lldZ, nb, p, q, MPI_COMM_WORLD);
 
     if (verbose >= 1) {
-        printf( "%% A   %6lld-by-%6lld\n", llong( A.m() ), llong( A.n() ) );
-
-        printf( "%% Z   %6lld-by-%6lld\n", llong( Z.m() ), llong( Z.n() ) );
+        printf( "%% A %6lld-by-%6lld\n", llong( A.m() ), llong( A.n() ) );
+        printf( "%% Z %6lld-by-%6lld\n", llong( Z.m() ), llong( Z.n() ) );
     }
 
     if (verbose > 1) {
-        print_matrix( "A",  A  );
+        print_matrix( "A_in", A );
     }
 
     std::vector<scalar_t> Aref_data;
@@ -131,7 +130,7 @@ void test_heev_work(Params& params, bool run)
     slate::HermitianMatrix<scalar_t> Aref;
     if (check || ref) {
         Aref_data.resize( A_data.size() );
-        Lambda_ref.resize( Lambda.size() );
+        Lambda_ref.resize( n );
         Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                    uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         slate::copy( A, Aref );
@@ -167,8 +166,8 @@ void test_heev_work(Params& params, bool run)
         params.time() = time;
 
         if (verbose > 1) {
-            print_matrix( "A",  A  );
-            print_matrix( "Z",  Z  ); //Relevant when slate::eig_vals takes Z
+            print_matrix( "A_out", A );
+            print_matrix( "Z_out", Z );
         }
     }
 
@@ -244,11 +243,11 @@ void test_heev_work(Params& params, bool run)
 
             // Reference Scalapack was run, check reference against test
             // Perform a local operation to get differences Lambda = Lambda - Lambda_ref
-            blas::axpy(Lambda_ref.size(), -1.0, &Lambda_ref[0], 1, &Lambda[0], 1);
+            blas::axpy( n, -1.0, &Lambda_ref[0], 1, &Lambda[0], 1 );
 
             // Relative forward error: || Lambda_ref - Lambda || / || Lambda_ref ||.
-            params.error() = blas::asum(n, &Lambda[0], 1)
-                           / blas::asum(n, &Lambda_ref[0], 1);
+            params.error() = blas::asum( n, &Lambda[0], 1 )
+                           / blas::asum( n, &Lambda_ref[0], 1 );
 
             real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
             params.okay() = (params.error() <= tol);
@@ -279,11 +278,11 @@ void test_heev(Params& params, bool run)
             break;
 
         case testsweeper::DataType::SingleComplex:
-            test_heev_work<std::complex<float>> (params, run);
+            test_heev_work< std::complex<float> > (params, run);
             break;
 
         case testsweeper::DataType::DoubleComplex:
-            test_heev_work<std::complex<double>> (params, run);
+            test_heev_work< std::complex<double> > (params, run);
             break;
     }
 }

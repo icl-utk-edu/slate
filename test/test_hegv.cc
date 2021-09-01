@@ -128,8 +128,8 @@ void test_hegv_work(Params& params, bool run)
                 n, n, &Z_data[0], lldZ, nb, p, q, mpi_comm);
     }
 
-    slate::generate_matrix( params.matrix, A);
-    slate::generate_matrix( params.matrixB, B);
+    slate::generate_matrix( params.matrix,  A );
+    slate::generate_matrix( params.matrixB, B );
 
     if (verbose >= 1) {
         printf("%% A   %6lld-by-%6lld\n", llong( A.m() ), llong( A.n() ));
@@ -138,8 +138,8 @@ void test_hegv_work(Params& params, bool run)
     }
 
     if (verbose >= 2) {
-        print_matrix("A", A);
-        print_matrix("B", B);
+        print_matrix( "A_in", A );
+        print_matrix( "B_in", B );
     }
 
     std::vector<scalar_t> Aref_data, Bref_data, Zref_data;
@@ -158,7 +158,7 @@ void test_hegv_work(Params& params, bool run)
         slate::copy(B, Bref);
 
         Zref_data.resize( Z_data.size() );
-        Lambda_ref.resize( Lambda.size() );
+        Lambda_ref.resize( n );
     }
 
     slate::HermitianMatrix<scalar_t> A_orig;
@@ -210,9 +210,9 @@ void test_hegv_work(Params& params, bool run)
     }
 
     if (verbose >= 2) {
-        print_matrix("A", A);
-        print_matrix("B", B);
-        print_matrix("Z", Z);
+        print_matrix( "A_out", A );
+        print_matrix( "B_out", B );
+        print_matrix( "Z_out", Z );
     }
 
     if (check && jobz == slate::Job::Vec) {
@@ -417,10 +417,10 @@ void test_hegv_work(Params& params, bool run)
             if (! ref_only) {
                 // Reference Scalapack was run, check reference eigenvalues
                 // Perform a local operation to get differences Lambda = Lambda - Lambda_ref
-                blas::axpy(Lambda.size(), -1.0, &Lambda_ref[0], 1, &Lambda[0], 1);
+                blas::axpy( n, -1.0, &Lambda_ref[0], 1, &Lambda[0], 1 );
                 // Relative forward error: || Lambda_ref - Lambda || / || Lambda_ref ||.
-                params.error2() = blas::asum(Lambda.size(), &Lambda[0], 1)
-                                / blas::asum(Lambda_ref.size(), &Lambda_ref[0], 1);
+                params.error2() = blas::asum( n, &Lambda[0], 1 )
+                                / blas::asum( n, &Lambda_ref[0], 1 );
                 real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
                 params.okay() = (params.error2() <= tol);
             }

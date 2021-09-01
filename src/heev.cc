@@ -34,8 +34,33 @@ void heev(
     int64_t n = A.n();
     bool wantz = (Z.mt() > 0);
 
+    // Get machine constants.
+    const real_t safe_min = std::numeric_limits<real_t>::min();
+    const real_t eps      = std::numeric_limits<real_t>::epsilon();
+    const real_t sml_num  = safe_min / eps;
+    const real_t big_num  = 1 / sml_num;
+    const real_t sqrt_sml = sqrt( sml_num );
+    const real_t sqrt_big = sqrt( big_num );
+
     // Scale matrix to allowable range, if necessary.
-    // todo
+    real_t Anorm = norm( Norm::Max, A );
+    real_t alpha = 1.0;
+    if (std::isnan( Anorm ) || std::isinf( Anorm )) {
+        // todo: return error value? throw?
+        Lambda.assign( Lambda.size(), Anorm );
+        return;
+    }
+    else if (Anorm > 0 && Anorm < sqrt_sml) {
+        alpha = sqrt_sml;
+    }
+    else if (Anorm > sqrt_big) {
+        alpha = sqrt_big;
+    }
+
+    if (alpha != 1.0) {
+        // Scale by sqrt_sml/Anorm or sqrt_big/Anorm.
+        scale( alpha, Anorm, A, opts );
+    }
 
     // 1. Reduce to band form.
     TriangularFactors<scalar_t> T;
@@ -84,7 +109,13 @@ void heev(
         // Bcast eigenvalues.
         MPI_Bcast( &Lambda[0], n, mpi_real_type, 0, A.mpiComm() );
     }
-    // todo: If matrix was scaled, then rescale eigenvalues appropriately.
+
+    // If matrix was scaled, then rescale eigenvalues appropriately.
+    if (alpha != 1.0) {
+        // Scale by Anorm/sqrt_sml or Anorm/sqrt_big.
+        // todo: deal with not all eigenvalues converging, cf. LAPACK.
+        blas::scal( n, Anorm/alpha, &Lambda[0], 1 );
+    }
 }
 
 //------------------------------------------------------------------------------

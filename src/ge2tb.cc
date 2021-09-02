@@ -188,7 +188,6 @@ void ge2tb(slate::internal::TargetType<target>,
                                 std::move(TUl_panel),
                                 std::move(A_trail_j),
                                 W.sub(k, A_mt-1, j, A_nt-1));
-                A_trail_j.tileUpdateOrigin(0, 0);
 
                 // Apply triangle-triangle reduction reflectors
                 // ttmqr handles the tile broadcasting internally
@@ -237,6 +236,8 @@ void ge2tb(slate::internal::TargetType<target>,
                 // much better cache efficiency.
                 for (int64_t j = 0; j < V_panel.nt(); ++j) {
                     if (V_panel.tileIsLocal(0, j)) {
+                        V_panel.tileGetForReading( 0, j, A.hostNum(), LayoutConvert(layout));
+                        VT_panel.tileGetForWriting( j, 0, A.hostNum(), LayoutConvert(layout) );
                         deepConjTranspose(V_panel(0, j), VT_panel(j, 0));
                     }
                 }

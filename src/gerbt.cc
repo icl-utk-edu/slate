@@ -58,7 +58,8 @@ void gerbt(Matrix<scalar_t>& U_in,
         return;
     }
 
-    slate_assert(nt >= 1<<d);
+    int64_t log2_nt = int64_t(std::ceil(std::log2(nt)));
+    slate_assert(log2_nt > d);
 
 
     #pragma omp parallel
@@ -69,8 +70,7 @@ void gerbt(Matrix<scalar_t>& U_in,
         // 2-sided butterflies are applied smallest to largest
         for (int64_t k = d-1; k >= 0; --k) {
             const int64_t num_bt = 1 << k;
-            // nt / (2^(k+1)) rounding fractions towards infinity
-            const int64_t half_len = (nt >> (k+1)) + ((nt & ((1 << (k+1)) -1)) != 0);
+            const int64_t half_len = 1 << (log2_nt-k-1);
 
             for (int64_t bi = 0; bi < num_bt; ++bi) {
                 const int64_t i1 = bi*2*half_len;
@@ -178,6 +178,8 @@ void gerbt(Matrix<scalar_t>& Uin,
         return;
     }
 
+    int64_t log2_mt = int64_t(std::ceil(std::log2(mt)));
+
     #pragma omp parallel
     #pragma omp master
     {
@@ -189,8 +191,7 @@ void gerbt(Matrix<scalar_t>& Uin,
             const int64_t k = (trans == Op::NoTrans) ? k_iter : d-k_iter-1;
 
             const int64_t num_bt = 1 << k;
-            // nt / (2^(k+1)) rounding fractions towards infinity
-            const int64_t half_len = (mt >> (k+1)) + ((mt & ((1 << (k+1))-1)) != 0);
+            const int64_t half_len = 1 << (log2_mt-k-1);
 
             for (int64_t bi = 0; bi < num_bt; ++bi) {
                 const int64_t i1 = bi*2*half_len;

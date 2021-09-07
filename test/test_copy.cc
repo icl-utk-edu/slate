@@ -17,37 +17,6 @@
 #include <cstdlib>
 #include <utility>
 
-// -----------------------------------------------------------------------------
-// Assumes dimensions of A and B are same. Assumes column-major.
-template <typename scalar_t>
-void copy_matrix( slate::Matrix<scalar_t>& A, slate::Matrix<scalar_t>& B )
-{
-    int64_t mt = A.mt();
-    int64_t nt = A.nt();
-    #pragma omp parallel for collapse(2)
-    for (int64_t j = 0; j < nt; ++j) {
-        for (int64_t i = 0; i < mt; ++i) {
-            if (A.tileIsLocal( i, j )) {
-                A.tileGetForReading( i, j, slate::LayoutConvert::None );
-                B.tileGetForWriting( i, j, slate::LayoutConvert::None );
-                auto TA = A( i, j );
-                auto TB = B( i, j );
-                int64_t mb = TA.mb();
-                int64_t nb = TA.nb();
-                int64_t lda = TA.stride();
-                int64_t ldb = TB.stride();
-                scalar_t const* TA_data = TA.data();
-                scalar_t*       TB_data = TB.data();
-                for (int64_t jj = 0; jj < nb; ++jj) {
-                    for (int64_t ii = 0; ii < mb; ++ii) {
-                        TB_data[ ii + jj*ldb ] = TA_data[ ii + jj*lda ];
-                    }
-                }
-            }
-        }
-    }
-}
-
 #define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template<typename scalar_t>
@@ -60,6 +29,7 @@ void test_copy_work(Params& params, bool run)
 
     // Constants
     const scalar_t one = 1.0;
+    const scalar_t zero = 0.0;
 
     // get & mark input values
     //slate::Op trans = params.trans();
@@ -135,7 +105,7 @@ void test_copy_work(Params& params, bool run)
         Aref_data.resize( lldA*nlocA );
         Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
                    m,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        copy_matrix(A, Aref);
+        slate::add(one, A, zero, Aref);
 	//
         Bref_data.resize( lldB*nlocB );
         Bref = slate::Matrix<scalar_t>::fromScaLAPACK(

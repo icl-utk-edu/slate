@@ -75,6 +75,7 @@ void test_copy_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    slate::Uplo uplo = slate::Uplo::General;
     params.matrix.mark();
 
     // mark non-standard output values
@@ -210,8 +211,8 @@ void test_copy_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-            scalapack_pgemr2d(m, n, &Aref_data[0], 1, 1, A_desc, 
-                                    &Bref_data[0], 1, 1, B_desc, &info);
+            scalapack_placpy(uplo2str(uplo), m, n, &Aref_data[0], 1, 1, A_desc, 
+                                                   &Bref_data[0], 1, 1, B_desc);
 
             slate_assert(info == 0);
 

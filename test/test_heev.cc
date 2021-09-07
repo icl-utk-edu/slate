@@ -5,8 +5,6 @@
 
 #include "slate/slate.hh"
 #include "test.hh"
-#include "blas/flops.hh"
-#include "lapack/flops.hh"
 #include "print_matrix.hh"
 #include "grid_utils.hh"
 
@@ -28,6 +26,12 @@ void test_heev_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
+    // Constants
+    const scalar_t zero = 0;
+    const scalar_t one  = 1;
+    const real_t eps = std::numeric_limits<real_t>::epsilon();
+    const real_t tol = params.tol() * 0.5 * eps;
+
     // get & mark input values
     slate::Job jobz = params.jobz();
     slate::Uplo uplo = params.uplo();
@@ -47,10 +51,14 @@ void test_heev_work(Params& params, bool run)
     slate::Target target = params.target();
     params.matrix.mark();
 
+    // mark non-standard output values
     params.time();
     params.ref_time();
-    // params.gflops();
-    // params.ref_gflops();
+    params.error2();
+    params.ortho();
+    params.error.name( "value err" );
+    params.error2.name( "back err" );
+    params.ortho.name( "Z orth." );
 
     if (! run)
         return;
@@ -82,8 +90,7 @@ void test_heev_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-
-    std::vector<scalar_t> A_data(lldA*nlocA);
+    std::vector<scalar_t> A_data;
 
     // matrix Lambda (global output) gets eigenvalues in decending order
     std::vector<real_t> Lambda(n);
@@ -93,7 +100,7 @@ void test_heev_work(Params& params, bool run)
     int64_t mlocZ = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocZ = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldZ  = blas::max(1, mlocZ); // local leading dimension of Z
-    std::vector<scalar_t> Z_data(lldZ * nlocZ, 0);
+    std::vector<scalar_t> Z_data( lldZ * nlocZ );
 
     // Initialize SLATE data structures
     slate::HermitianMatrix<scalar_t> A;
@@ -105,6 +112,7 @@ void test_heev_work(Params& params, bool run)
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
+        A_data.resize( lldA * nlocA );
         A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                 uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
@@ -128,11 +136,16 @@ void test_heev_work(Params& params, bool run)
     std::vector<scalar_t> Aref_data;
     std::vector<real_t> Lambda_ref;
     slate::HermitianMatrix<scalar_t> Aref;
+    slate::Matrix<scalar_t> Aref_gen;
     if (check || ref) {
-        Aref_data.resize( A_data.size() );
+        Aref_data.resize( lldA * nlocA );
         Lambda_ref.resize( n );
+        // Aref and Aref_gen point to the same data,
+        // to compute Aref - (Z Lambda) Z^H using gemm.
         Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                    uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        Aref_gen = slate::Matrix<scalar_t>::fromScaLAPACK(
+                   n, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         slate::copy( A, Aref );
     }
 
@@ -169,9 +182,73 @@ void test_heev_work(Params& params, bool run)
             print_matrix( "A_out", A );
             print_matrix( "Z_out", Z );
         }
+
+        if (check && jobz == slate::Job::Vec) {
+            //==================================================
+            // Test results by checking backwards error
+            //
+            //      || A - Z Lambda Z^H ||_1
+            //     --------------------------- < tol * epsilon
+            //            || A ||_1 * N
+            //
+            // and orthogonality
+            //
+            //      || I - Z Z^H ||_1
+            //     ------------------- < tol * epsilon
+            //              N
+            //==================================================
+
+            // Compute Z_Lambda = Z Lambda.
+            // todo Z.copy()
+            auto Z_Lambda = Z.emptyLike();
+            Z_Lambda.insertLocalTiles();
+            slate::copy( Z, Z_Lambda );
+
+            // todo: refactor column scaling
+            int64_t mt = Z.mt();
+            int64_t nt = Z.nt();
+            int64_t jj = 0;
+            for (int64_t j = 0; j < nt; ++j) {
+                #pragma omp parallel for default(none) firstprivate(mt, j, jj) shared(Z_Lambda, Lambda)
+                for (int64_t i = 0; i < mt; ++i) {
+                    if (Z_Lambda.tileIsLocal( i, j )) {
+                        auto T = Z_Lambda( i, j );
+                        scalar_t* T_data = T.data();
+                        int64_t ldt = T.stride();
+                        int64_t mb  = T.mb();
+                        int64_t nb  = T.nb();
+                        for (int64_t tj = 0; tj < nb; ++tj)
+                            for (int64_t ti = 0; ti < mb; ++ti)
+                                T_data[ ti + tj*ldt ] *= Lambda[ jj + tj ];
+                    }
+                }
+                jj += Z_Lambda.tileNb( j );
+            }
+
+            // Restore A.
+            copy( Aref, A );
+
+            // A - Z_Lambda Z^H
+            // Aref_gen and Aref point to the same data.
+            // todo: implement herkx
+            auto ZH = conj_transpose( Z );
+            slate::gemm( -one, Z_Lambda, ZH, one, Aref_gen );
+            real_t Anorm = slate::norm( slate::Norm::One, A );
+            params.error2() = slate::norm( slate::Norm::One, Aref ) / (Anorm * n);
+            params.okay() = (params.error2() <= tol);
+
+            // I - Z^H Z
+            slate::set( zero, one, Aref_gen );
+            slate::gemm( -one, ZH, Z, one, Aref_gen );
+            params.ortho() = slate::norm( slate::Norm::One, Aref_gen ) / n;
+            params.okay() = params.okay() && (params.ortho() <= tol);
+
+            // Restore Aref.
+            copy( A, Aref );
+        }
     }
 
-    if (check || ref) {
+    if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // Run reference routine from ScaLAPACK
 
@@ -249,8 +326,7 @@ void test_heev_work(Params& params, bool run)
             params.error() = blas::asum( n, &Lambda[0], 1 )
                            / blas::asum( n, &Lambda_ref[0], 1 );
 
-            real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-            params.okay() = (params.error() <= tol);
+            params.okay() = params.okay() && (params.error() <= tol);
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering

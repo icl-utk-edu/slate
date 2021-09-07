@@ -49,8 +49,6 @@ void he2hb_trmm(internal::TargetType<Target::HostTask>,
            uint8_t* row,
            int priority, int64_t queue_index)
 {
-    using real_t = blas::real_type<scalar_t>;
-
     const scalar_t one  = 1;
     int my_rank = A.mpiRank();
 
@@ -120,10 +118,8 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
            uint8_t* row,
            int priority, int64_t queue_index)
 {
-    using real_t = blas::real_type<scalar_t>;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    const scalar_t one  = 1;
     int my_rank = A.mpiRank();
 
     // Assumes column major
@@ -146,7 +142,6 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
                     }
                 }
 
-                int64_t batch_size = W_tiles_set.size();
                 if (rank_upper == my_rank || rank_lower == my_rank) {
                     if (device == W.tileDevice(i, 0)) {
                         W_tiles_set.insert({i, 0});
@@ -327,6 +322,41 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
 }
 
 //------------------------------------------------------------------------------
+/// Triangular matrix multiply.
+/// Host nested OpenMP implementation.
+/// @ingroup he2hb_trmm_internal
+///
+template <typename scalar_t>
+void he2hb_trmm(internal::TargetType<Target::HostNest>,
+           HermitianMatrix<scalar_t>& A,
+           Matrix<scalar_t>& W,
+           Matrix<scalar_t>& Tlocal,
+           std::vector<int64_t>& indices,
+           uint8_t* row,
+           int priority, int64_t queue_index)
+{
+    slate_not_implemented("Target::HostNest isn't yet supported.");
+}
+
+//------------------------------------------------------------------------------
+/// Triangular matrix multiply.
+/// Host batched OpenMP implementation.
+/// @ingroup he2hb_trmm_internal
+///
+template <typename scalar_t>
+void he2hb_trmm(internal::TargetType<Target::HostBatch>,
+           HermitianMatrix<scalar_t>& A,
+           Matrix<scalar_t>& W,
+           Matrix<scalar_t>& Tlocal,
+           std::vector<int64_t>& indices,
+           uint8_t* row,
+           int priority, int64_t queue_index)
+{
+    slate_not_implemented("Target::HostBatch isn't yet supported.");
+}
+
+
+//------------------------------------------------------------------------------
 // Explicit instantiations.
 // ----------------------------------------
 template
@@ -367,6 +397,7 @@ void he2hb_trmm< Target::HostTask, std::complex<double> >(
     std::vector<int64_t>& indices,
     uint8_t* row,
     int priority, int64_t queue_index);
+
 // ----------------------------------------
 template
 void he2hb_trmm<Target::Devices, float>(
@@ -400,6 +431,86 @@ void he2hb_trmm< Target::Devices, std::complex<float> >(
 // ----------------------------------------
 template
 void he2hb_trmm< Target::Devices, std::complex<double> >(
+    HermitianMatrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& W,
+    Matrix< std::complex<double> >&& T,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_trmm<Target::HostNest, float>(
+    HermitianMatrix<float>&& A,
+    Matrix<float>&& W,
+    Matrix<float>&& T,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_trmm<Target::HostNest, double>(
+    HermitianMatrix<double>&& A,
+    Matrix<double>&& W,
+    Matrix<double>&& T,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_trmm< Target::HostNest, std::complex<float> >(
+    HermitianMatrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& W,
+    Matrix< std::complex<float> >&& T,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_trmm< Target::HostNest, std::complex<double> >(
+    HermitianMatrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& W,
+    Matrix< std::complex<double> >&& T,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_trmm<Target::HostBatch, float>(
+    HermitianMatrix<float>&& A,
+    Matrix<float>&& W,
+    Matrix<float>&& T,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_trmm<Target::HostBatch, double>(
+    HermitianMatrix<double>&& A,
+    Matrix<double>&& W,
+    Matrix<double>&& T,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_trmm< Target::HostBatch, std::complex<float> >(
+    HermitianMatrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& W,
+    Matrix< std::complex<float> >&& T,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_trmm< Target::HostBatch, std::complex<double> >(
     HermitianMatrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& W,
     Matrix< std::complex<double> >&& T,

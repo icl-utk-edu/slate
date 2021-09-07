@@ -46,8 +46,6 @@ void he2hb_hemm(internal::TargetType<Target::HostTask>,
            uint8_t* row,
            int priority, int64_t queue_index)
 {
-    using real_t = blas::real_type<scalar_t>;
-
     int64_t nt = A.nt();
     const scalar_t one  = 1;
 
@@ -141,7 +139,6 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
            uint8_t* row,
            int priority, int64_t queue_index)
 {
-    using real_t = blas::real_type<scalar_t>;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
     int64_t nt = A.nt();
@@ -163,7 +160,6 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
 
     Op opA = A.op();
     Op opB = B.op();
-    Op opC = C.op();
     Op opA_upper = Op::ConjTrans;;
 
     int err = 0;
@@ -584,6 +580,86 @@ void he2hb_hemm< Target::Devices, std::complex<float> >(
 // ----------------------------------------
 template
 void he2hb_hemm< Target::Devices, std::complex<double> >(
+    HermitianMatrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& B,
+    Matrix< std::complex<double> >&& C,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_hemm<Target::HostNest, float>(
+    HermitianMatrix<float>&& A,
+    Matrix<float>&& B,
+    Matrix<float>&& C,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_hemm<Target::HostNest, double>(
+    HermitianMatrix<double>&& A,
+    Matrix<double>&& B,
+    Matrix<double>&& C,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_hemm< Target::HostNest, std::complex<float> >(
+    HermitianMatrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& B,
+    Matrix< std::complex<float> >&& C,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_hemm< Target::HostNest, std::complex<double> >(
+    HermitianMatrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& B,
+    Matrix< std::complex<double> >&& C,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_hemm<Target::HostBatch, float>(
+    HermitianMatrix<float>&& A,
+    Matrix<float>&& B,
+    Matrix<float>&& C,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_hemm<Target::HostBatch, double>(
+    HermitianMatrix<double>&& A,
+    Matrix<double>&& B,
+    Matrix<double>&& C,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_hemm< Target::HostBatch, std::complex<float> >(
+    HermitianMatrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& B,
+    Matrix< std::complex<float> >&& C,
+    std::vector<int64_t>& indices,
+    uint8_t* row,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_hemm< Target::HostBatch, std::complex<double> >(
     HermitianMatrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& B,
     Matrix< std::complex<double> >&& C,

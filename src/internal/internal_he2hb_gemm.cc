@@ -43,6 +43,7 @@ void he2hb_gemm(scalar_t alpha, Matrix<scalar_t>&& A,
 //------------------------------------------------------------------------------
 /// Inner product to update a tile of a matrix,
 /// where A is a single block row and B is a single block column.
+/// Host OpenMP task implementation.
 /// @ingroup he2hb_gemm_internal
 ///
 template <typename scalar_t>
@@ -76,6 +77,7 @@ void he2hb_gemm(internal::TargetType<Target::HostTask>,
 //------------------------------------------------------------------------------
 /// Inner product to update a tile of a matrix,
 /// where A is a single block row and B is a single block column.
+/// Device implementation.
 /// @ingroup he2hb_gemm_internal
 ///
 template <typename scalar_t>
@@ -310,19 +312,43 @@ void he2hb_gemm(internal::TargetType<Target::Devices>,
 }
 
 //------------------------------------------------------------------------------
+/// Inner product to update a tile of a matrix,
+/// where A is a single block row and B is a single block column.
+/// Host nested OpenMP implementation.
+/// @ingroup he2hb_gemm_internal
+///
+template <typename scalar_t>
+void he2hb_gemm(internal::TargetType<Target::HostNest>,
+           scalar_t alpha, Matrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
+           scalar_t beta,  Matrix<scalar_t>& C,
+           int panel_rank, uint8_t* row, uint8_t* block,
+           int priority, int64_t queue_index)
+{
+    slate_not_implemented("Target::HostNest isn't yet supported.");
+}
+
+//------------------------------------------------------------------------------
+/// Inner product to update a tile of a matrix,
+/// where A is a single block row and B is a single block column.
+/// Host batched OpenMP implementation.
+/// @ingroup he2hb_gemm_internal
+///
+template <typename scalar_t>
+void he2hb_gemm(internal::TargetType<Target::HostBatch>,
+           scalar_t alpha, Matrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
+           scalar_t beta,  Matrix<scalar_t>& C,
+           int panel_rank, uint8_t* row, uint8_t* block,
+           int priority, int64_t queue_index)
+{
+    slate_not_implemented("Target::HostBatch isn't yet supported.");
+}
+
 // Explicit instantiations.
 // ----------------------------------------
 template
 void he2hb_gemm<Target::HostTask, float>(
-    float alpha, Matrix<float>&& A,
-                 Matrix<float>&& B,
-    float beta,  Matrix<float>&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
-    int priority, int64_t queue_index);
-
-// ----------------------------------------
-template
-void he2hb_gemm<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
@@ -340,25 +366,7 @@ void he2hb_gemm<Target::HostTask, double>(
 
 // ----------------------------------------
 template
-void he2hb_gemm<Target::Devices, double>(
-    double alpha, Matrix<double>&& A,
-                  Matrix<double>&& B,
-    double beta,  Matrix<double>&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
-    int priority, int64_t queue_index);
-
-// ----------------------------------------
-template
 void he2hb_gemm< Target::HostTask, std::complex<float> >(
-    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-                                   Matrix< std::complex<float> >&& B,
-    std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
-    int priority, int64_t queue_index);
-
-// ----------------------------------------
-template
-void he2hb_gemm< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                    Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
@@ -376,7 +384,106 @@ void he2hb_gemm< Target::HostTask, std::complex<double> >(
 
 // ----------------------------------------
 template
+void he2hb_gemm<Target::Devices, float>(
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
+    int panel_rank, uint8_t* row, uint8_t* block,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_gemm<Target::Devices, double>(
+    double alpha, Matrix<double>&& A,
+                  Matrix<double>&& B,
+    double beta,  Matrix<double>&& C,
+    int panel_rank, uint8_t* row, uint8_t* block,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_gemm< Target::Devices, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                                   Matrix< std::complex<float> >&& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >&& C,
+    int panel_rank, uint8_t* row, uint8_t* block,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
 void he2hb_gemm< Target::Devices, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
+    std::complex<double> beta,  Matrix< std::complex<double> >&& C,
+    int panel_rank, uint8_t* row, uint8_t* block,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_gemm<Target::HostNest, float>(
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
+    int panel_rank, uint8_t* row, uint8_t* block,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_gemm<Target::HostNest, double>(
+    double alpha, Matrix<double>&& A,
+                  Matrix<double>&& B,
+    double beta,  Matrix<double>&& C,
+    int panel_rank, uint8_t* row, uint8_t* block,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_gemm< Target::HostNest, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                                   Matrix< std::complex<float> >&& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >&& C,
+    int panel_rank, uint8_t* row, uint8_t* block,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_gemm< Target::HostNest, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
+    std::complex<double> beta,  Matrix< std::complex<double> >&& C,
+    int panel_rank, uint8_t* row, uint8_t* block,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_gemm<Target::HostBatch, float>(
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
+    int panel_rank, uint8_t* row, uint8_t* block,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_gemm<Target::HostBatch, double>(
+    double alpha, Matrix<double>&& A,
+                  Matrix<double>&& B,
+    double beta,  Matrix<double>&& C,
+    int panel_rank, uint8_t* row, uint8_t* block,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_gemm< Target::HostBatch, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                                   Matrix< std::complex<float> >&& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >&& C,
+    int panel_rank, uint8_t* row, uint8_t* block,
+    int priority, int64_t queue_index);
+
+// ----------------------------------------
+template
+void he2hb_gemm< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,

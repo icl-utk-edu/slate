@@ -42,7 +42,6 @@ void he2hb(slate::internal::TargetType<target>,
 
     const scalar_t zero = 0;
     const scalar_t one  = 1;
-    int64_t lookahead = 0;
     const scalar_t half = 0.5;
 
     int64_t nt = A.nt();
@@ -520,12 +519,12 @@ void he2hb(HermitianMatrix<scalar_t>& A,
         case Target::HostTask:
             he2hb<Target::HostTask>(A, T, opts);
             break;
-        //case Target::HostNest:
-        //    he2hb<Target::HostNest>(A, T, opts);
-        //    break;
-        //case Target::HostBatch:
-        //    he2hb<Target::HostBatch>(A, T, opts);
-        //    break;
+        case Target::HostNest:
+            he2hb<Target::HostNest>(A, T, opts);
+            break;
+        case Target::HostBatch:
+            he2hb<Target::HostBatch>(A, T, opts);
+            break;
         case Target::Devices:
             he2hb<Target::Devices>(A, T, opts);
             break;

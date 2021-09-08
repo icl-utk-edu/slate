@@ -31,9 +31,9 @@ void test_set_work(Params& params, bool run)
     const scalar_t one = 1.0;
 
     // get & mark input values
-    real_t alpha = params.alpha.get<real_t>();
-    real_t beta = params.beta.get<real_t>();
-    slate::Uplo uplo = params.uplo();    
+    scalar_t alpha = params.alpha.get<real_t>();
+    scalar_t beta = params.beta.get<real_t>();
+    slate::Uplo uplo = slate::Uplo::General;    
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     int64_t nb = params.nb();
@@ -93,13 +93,6 @@ void test_set_work(Params& params, bool run)
                    m,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
 
-/*
-    if (trans == slate::Op::Trans)
-        A = transpose(A);
-    else if (trans == slate::Op::ConjTrans)
-        A = conjTranspose(A);
-*/
-
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
@@ -151,15 +144,12 @@ void test_set_work(Params& params, bool run)
             { omp_num_threads = omp_get_num_threads(); }
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-//            if (verbose >= 2)
-//                print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD);
-
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-            scalapack_plaset(uplo2str(uplo), alpha, beta, m, n,  &Aref_data[0], 1, 1, A_desc, &info);
+            scalapack_plaset(uplo2str(uplo), m, n, alpha, beta, &Aref_data[0], 1, 1, A_desc );
             slate_assert(info == 0);
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;

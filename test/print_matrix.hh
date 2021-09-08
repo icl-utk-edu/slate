@@ -131,11 +131,20 @@ void print_matrix(
 ///
 template <typename scalar_t>
 void print_matrix(
+    int verbose,
     const char* label,
     int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
     int p, int q, MPI_Comm comm,
     int width=12, int precision=6 )
 {
+    if ((verbose != 2) ||
+        (verbose != 3) ||
+        (verbose != 4))
+        return;
+
+    const int64_t abbrev_rows = 5;
+    const int64_t abbrev_cols = 5;
+
     int mpi_rank;
     MPI_Comm_rank(comm, &mpi_rank);
 
@@ -154,15 +163,68 @@ void print_matrix(
                          "%% ScaLAPACK matrix\n"
                          "%s%d_%d = [\n", label, prow, pcol);
                 msg += buf;
-                for (int64_t i = 0; i < mlocal; ++i) {
-                    for (int64_t j = 0; j < nlocal; ++j) {
-                        snprintf_value( buf, sizeof(buf), width, precision,
-                                        A[i + j*lda] );
-                        msg += buf;
+                if (verbose == 2) {
+                    //first abbrev_rows
+                    int64_t max_rows = (mlocal < abbrev_rows ? mlocal : abbrev_rows);
+                    int64_t max_cols = (nlocal < abbrev_cols ? nlocal : abbrev_cols);
+                    int64_t start_col = ((nlocal - abbrev_cols) < abbrev_cols ?
+                                        abbrev_cols : nlocal - abbrev_cols);
+                    for (int64_t i = 0; i < max_rows; ++i) {
+                        //first abbrev_cols
+                        for (int64_t j = 0; j < max_cols; ++j) {
+                            snprintf_value( buf, sizeof(buf), width, precision,
+                                            A[i + j*lda] );
+                            msg += buf;
+                        }
+                        if (nlocal > 2*abbrev_cols)
+                            msg += "...";
+                        //last abbrev_cols columns
+                        for (int64_t j = start_col; j < nlocal; ++j) {
+                            snprintf_value( buf, sizeof(buf), width, precision,
+                                            A[i + j*lda] );
+                            msg += buf;
+                        }
+                        msg += "\n";
                     }
-                    msg += "\n";
+                    if (mlocal > 2*abbrev_rows)
+                        msg += "...\n";
+                    //last abbrev_rows
+                    int64_t start_row = (mlocal - abbrev_rows < abbrev_rows ?
+                                        abbrev_rows : mlocal-abbrev_rows);
+                    for (int64_t i = start_row; i < mlocal; ++i) {
+                        //first abbrev_cols
+                        for (int64_t j = 0; j < max_cols; ++j) {
+                            snprintf_value( buf, sizeof(buf), width, precision,
+                                            A[i + j*lda] );
+                            msg += buf;
+                        }
+                        if (nlocal > 2*abbrev_cols)
+                            msg += "...";
+                        //last abbrev_cols columns
+                        for (int64_t j = start_col; j < nlocal; ++j) {
+                            snprintf_value( buf, sizeof(buf), width, precision,
+                                            A[i + j*lda] );
+                            msg += buf;
+                        }
+                        msg += "\n";
+                    }
+                    msg += "];\n\n";
                 }
-                msg += "];\n\n";
+                else if (verbose == 3 || verbose == 4) {
+                    int64_t row_step = (verbose == 3 ? mlocal - 1 : 1);
+                    int64_t col_step = (verbose == 3 ? nlocal - 1 : 1);
+                    for (int64_t i = 0; i < mlocal; i += row_step) {
+                        // for verbose=3 only row i = 0 and i = mlocal-1
+                        for (int64_t j = 0; j < nlocal; j += col_step) {
+                            // for verbose=3 only column j = 0 and j = nlocal-1
+                            snprintf_value( buf, sizeof(buf), width, precision,
+                                            A[i + j*lda] );
+                            msg += buf;
+                        }
+                        msg += "\n";
+                    }
+                    msg += "];\n\n";
+                }
 
                 if (mpi_rank != 0) {
                     // Send msg to root, which handles actual I/O.
@@ -191,6 +253,23 @@ void print_matrix(
     }
     MPI_Barrier(comm);
 }
+
+//------------------------------------------------------------------------------
+/// Print a ScaLAPACK distributed matrix.
+/// Prints each rank's data as a contiguous block, numbered by the block row &
+/// column indices. Rank 0 does the printing.
+///
+template <typename scalar_t>
+void print_matrix(
+    const char* label,
+    int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
+    int p, int q, MPI_Comm comm,
+    int width=12, int precision=6 )
+{
+    int verbose = 4;
+    print_matrix( verbose, label, mlocal, nlocal, A, lda, p, q, comm, width, precision );
+}
+
 
 //------------------------------------------------------------------------------
 /// Sends tiles A(i, j) and receives it on rank 0.
@@ -243,10 +322,16 @@ void send_recv_tile(
 ///
 template <typename scalar_t>
 std::string tile_row_string(
+    int verbose,
     slate::BaseMatrix<scalar_t>& A, int64_t i, int64_t j, int64_t ti,
     int width, int precision,
     const char* opposite="")
 {
+    if (verbose == 0)
+        return std::string("");
+
+    const int64_t abbrev_cols = 5;
+
     using real_t = blas::real_type<scalar_t>;
 
     width = std::max(width, precision + 6);
@@ -256,18 +341,59 @@ std::string tile_row_string(
     std::string msg;
     try {
         auto T = A(i, j);
-        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-            slate::Uplo uplo = T.uplo();
-            if ((uplo == slate::Uplo::General) ||
-                (uplo == slate::Uplo::Lower && ti >= tj) ||
-                (uplo == slate::Uplo::Upper && ti <= tj))
-            {
-                snprintf_value( buf, sizeof(buf), width, precision,
-                                T(ti, tj) );
-                msg += buf;
+        if (verbose == 2) {
+            //first abbrev_cols
+            int64_t max_cols = (A.tileNb(j) < abbrev_cols ? A.tileNb(j) : abbrev_cols);
+            for (int64_t tj = 0; tj < max_cols; ++tj) {
+                slate::Uplo uplo = T.uplo();
+                if ((uplo == slate::Uplo::General) ||
+                    (uplo == slate::Uplo::Lower && ti >= tj) ||
+                    (uplo == slate::Uplo::Upper && ti <= tj))
+                {
+                    snprintf_value( buf, sizeof(buf), width, precision,
+                                    T(ti, tj) );
+                    msg += buf;
+                }
+                else {
+                    msg += opposite;
+                }
             }
-            else {
-                msg += opposite;
+        }
+        else if (verbose == 22) {
+            //last abbrev_cols
+            int64_t start_col = ((A.tileNb(j) - abbrev_cols) < abbrev_cols ?
+                                abbrev_cols : A.tileNb(j) - abbrev_cols);
+            for (int64_t tj = start_col; tj < A.tileNb(j); ++tj) {
+                slate::Uplo uplo = T.uplo();
+                if ((uplo == slate::Uplo::General) ||
+                    (uplo == slate::Uplo::Lower && ti >= tj) ||
+                    (uplo == slate::Uplo::Upper && ti <= tj))
+                {
+                    snprintf_value( buf, sizeof(buf), width, precision,
+                                    T(ti, tj) );
+                    msg += buf;
+                }
+                else {
+                    msg += opposite;
+                }
+            }
+        }
+        else {
+            int64_t col_step = (verbose == 3 ? A.tileNb(j) - 1 : 1);
+            for (int64_t tj = 0; tj < A.tileNb(j); tj += col_step) {
+                // for verbose=3 only j = 0 and j = tileNb-1
+                slate::Uplo uplo = T.uplo();
+                if ((uplo == slate::Uplo::General) ||
+                    (uplo == slate::Uplo::Lower && ti >= tj) ||
+                    (uplo == slate::Uplo::Upper && ti <= tj))
+                {
+                    snprintf_value( buf, sizeof(buf), width, precision,
+                                    T(ti, tj) );
+                    msg += buf;
+                }
+                else {
+                    msg += opposite;
+                }
             }
         }
     }
@@ -282,6 +408,22 @@ std::string tile_row_string(
 }
 
 //------------------------------------------------------------------------------
+/// Returns string for row ti of tile A(i, j).
+/// If tile doesn't exist, returns string with NAN values.
+/// For upper or lower tiles, uses opposite for values in the opposite
+/// (lower or upper, respectively) triangle.
+/// Works for all matrix types.
+///
+template <typename scalar_t>
+std::string tile_row_string(
+    slate::BaseMatrix<scalar_t>& A, int64_t i, int64_t j, int64_t ti,
+    int width, int precision,
+    const char* opposite="")
+{
+    int verbose = 4;
+    return tile_row_string( verbose, A, i, j, ti, width, precision, opposite );
+}
+//------------------------------------------------------------------------------
 /// Print a SLATE distributed matrix.
 /// Rank 0 does the printing, and must have enough memory to fit one entire
 /// block row of the matrix.
@@ -289,10 +431,16 @@ std::string tile_row_string(
 ///
 template <typename scalar_t>
 void print_matrix(
+    int verbose,
     const char* label,
     slate::Matrix<scalar_t>& A,
     int width=12, int precision=6 )
 {
+    if (verbose == 0)
+        return;
+
+    const int64_t abbrev_rows = 5;
+
     int mpi_rank = A.mpiRank();
     MPI_Comm comm = A.mpiComm();
     MPI_Barrier(comm);
@@ -306,27 +454,93 @@ void print_matrix(
     msg += label;
     msg += " = [\n";
 
-    for (int64_t i = 0; i < A.mt(); ++i) {
+    if (mpi_rank == 0 && verbose == 1) {
+        printf( "%s", msg.c_str() );
+        msg.clear();
+        MPI_Barrier(comm);
+        return;
+    }
+
+    int64_t tile_row_step = 1;
+    int64_t tile_col_step = 1;
+    if (verbose == 2) {
+        tile_row_step = (A.mt() > 1 ? A.mt()-1 : 1);
+        tile_col_step = (A.nt() > 1 ? A.nt()-1 : 1);
+    }
+    for (int64_t i = 0; i < A.mt(); i += tile_row_step) {
+        // for verbose=2 only tile row i = 0 and i = mt-1
         // gather block row to rank 0
-        for (int64_t j = 0; j < A.nt(); ++j) {
+        for (int64_t j = 0; j < A.nt(); j += tile_col_step) {
+            // for verbose=2 only tile column j = 0 and j = nt-1
             send_recv_tile(A, i, j, mpi_rank, comm);
         }
 
         if (mpi_rank == 0) {
             // print block row
-            for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
-                for (int64_t j = 0; j < A.nt(); ++j) {
-                    msg += tile_row_string(A, i, j, ti, width, precision);
-                    if (j < A.nt() - 1)
+            if (verbose == 2) {
+                //only first & last abbrev_rows & abbrev_cols
+                //(of 1st & last block-row & block-col)
+                //so just the 4 corner tiles:
+                //A( 0, 0 )  ... A( nt-1, 0 )
+                //...
+                //A( mt-1, 0 ) ... A( mt-1, nt-1 )
+
+                if (i == 0) { //first row tile
+                    //first abbrev_rows
+                    int64_t max_rows = (A.tileMb(i) < abbrev_rows ?
+                                       A.tileMb(i) : abbrev_rows);
+                    for (int64_t ti = 0; ti < max_rows; ++ti) {
+                        //first column tile
+                        int64_t j = 0;
+                        msg += tile_row_string(verbose, A, i, j, ti, width, precision);
+                        msg += "...";
                         msg += "    ";
-                    else
+                        //last column tile
+                        j = A.nt()-1;
+                        msg += tile_row_string(22, A, i, j, ti, width, precision);
                         msg += "\n";
+                    }
+                }
+                if (i == A.mt()-1) { //last row tile
+                    if ((i == 0 && A.tileMb(i) > 2 * abbrev_rows) || (i > 0))
+                            msg += "...\n";
+                    //last abbrev_rows
+                    int64_t start_row = (A.tileMb(i) - abbrev_rows < abbrev_rows ?
+                                        0 : A.tileMb(i)-abbrev_rows);
+                    for (int64_t ti = start_row; ti < A.tileMb(i); ++ti) {
+                        //first column tile
+                        int64_t j = 0;
+                        msg += tile_row_string(verbose, A, i, j, ti, width, precision);
+                        msg += "...";
+                        msg += "    ";
+                        //last column tile
+                        j = A.nt()-1;
+                        msg += tile_row_string(22, A, i, j, ti, width, precision);
+                        msg += "\n";
+                    }
+                    msg += "];\n";
                 }
             }
-            if (i < A.mt() - 1)
-                msg += "\n";
-            else
-                msg += "];\n";
+            else if (verbose == 3 || verbose == 4) {
+                int64_t row_step = (verbose == 3 ? A.tileMb(i) - 1 : 1);
+                for (int64_t ti = 0; ti < A.tileMb(i); ti += row_step) {
+                    // for verbose=3 only rows ti = 0 and ti = tileMb-1
+                    for (int64_t j = 0; j < A.nt(); ++j) {
+                        msg += tile_row_string(verbose, A, i, j, ti, width, precision);
+                        if (j < A.nt() - 1)
+                            msg += "    ";
+                        else
+                            msg += "\n";
+                    }
+                }
+            }
+
+            if (verbose != 2) {
+                if (i < A.mt() - 1)
+                    msg += "\n";
+                else
+                    msg += "];\n";
+            }
             printf("%s", msg.c_str());
             msg.clear();
 
@@ -340,6 +554,21 @@ void print_matrix(
     }
 
     MPI_Barrier(comm);
+}
+
+//------------------------------------------------------------------------------
+/// Print a SLATE distributed matrix.
+/// Rank 0 does the printing, and must have enough memory to fit one entire
+/// block row of the matrix.
+/// For block-sparse matrices, missing tiles are print as "nan".
+///
+template <typename scalar_t>
+void print_matrix(
+    const char* label,
+    slate::Matrix<scalar_t>& A, int width = 10, int precision = 6)
+{
+    int verbose = 4;
+    print_matrix( verbose, label, A, width, precision );
 }
 
 //------------------------------------------------------------------------------

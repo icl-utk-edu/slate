@@ -622,6 +622,7 @@ tester_src += \
         test/test_add.cc \
         test/test_copy.cc \
         test/test_scale.cc \
+        test/test_set.cc \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.

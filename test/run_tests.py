@@ -555,6 +555,7 @@ if (opts.aux):
     [ 'add',   gen + dtype + mn + ab ],
     [ 'copy',  gen + dtype + mn      ],
     [ 'scale', gen + dtype + mn + ab ],
+    [ 'set',   gen + dtype + mn + ab ],
     ]
 
 # ------------------------------------------------------------------------------

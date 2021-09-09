@@ -99,7 +99,8 @@ void test_set_work(Params& params, bool run)
 
         //==================================================
         // Run SLATE test.
-        // Scale A by alpha/beta.
+        // Set A by alpha on off-diagonal entries
+	//           beta on the diagonal entries.
         //==================================================
         double time = barrier_get_wtime(MPI_COMM_WORLD);
 
@@ -111,6 +112,10 @@ void test_set_work(Params& params, bool run)
 
         // compute and save timing/performance
         params.time() = time;
+
+        if (verbose > 1)
+            print_matrix('A',A);
+
     }
 
     if (check || ref) {
@@ -135,7 +140,7 @@ void test_set_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, lldA, &info);
+            szcalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, lldA, &info);
             slate_assert(info == 0);
             
             // set MKL num threads appropriately for parallel BLAS

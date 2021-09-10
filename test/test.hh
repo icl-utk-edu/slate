@@ -35,6 +35,9 @@ enum class Dist {
 } // namespace slate
 
 // -----------------------------------------------------------------------------
+using llong = long long;
+
+// -----------------------------------------------------------------------------
 class Params: public testsweeper::ParamsBase {
 public:
     const double inf = std::numeric_limits<double>::infinity();
@@ -47,6 +50,7 @@ public:
     // ----- test matrix parameters
     MatrixParams matrix;
     MatrixParams matrixB;
+    MatrixParams matrixC;
 
     // Field members are explicitly public.
     // Order here determines output order.
@@ -117,6 +121,7 @@ public:
     testsweeper::ParamInt    panel_threads;
     testsweeper::ParamInt    align;
     testsweeper::ParamChar   nonuniform_nb;
+    testsweeper::ParamInt    debug;
 
     // ----- output parameters
     testsweeper::ParamScientific error;
@@ -131,6 +136,8 @@ public:
 
     testsweeper::ParamDouble     time;
     testsweeper::ParamDouble     gflops;
+    testsweeper::ParamDouble     time2;
+    testsweeper::ParamDouble     gflops2;
     testsweeper::ParamInt        iters;
 
     testsweeper::ParamDouble     ref_time;
@@ -138,6 +145,7 @@ public:
     testsweeper::ParamInt        ref_iters;
 
     testsweeper::ParamOkay       okay;
+    testsweeper::ParamString     msg;
 
     std::string              routine;
 };
@@ -168,6 +176,7 @@ void test_herk   (Params& params, bool run);
 // LU, general
 void test_gesv       (Params& params, bool run);
 void test_getri      (Params& params, bool run);
+void test_trtri      (Params& params, bool run);
 
 // LU, band
 void test_gbsv   (Params& params, bool run);
@@ -219,6 +228,9 @@ void test_henorm (Params& params, bool run);
 void test_hbnorm (Params& params, bool run);
 void test_synorm (Params& params, bool run);
 void test_trnorm (Params& params, bool run);
+
+// Scaling Matrix
+void test_scale (Params& params, bool run);
 
 // -----------------------------------------------------------------------------
 inline slate::Dist str2dist(const char* dist)
@@ -342,6 +354,14 @@ inline const char* scope2str(slate::NormScope scope)
         case slate::NormScope::Rows:    return "rows";
     }
     return "?";
+}
+
+// -----------------------------------------------------------------------------
+inline double barrier_get_wtime(MPI_Comm comm)
+{
+    slate::trace::Block trace_block("MPI_Barrier");
+    MPI_Barrier(comm);
+    return testsweeper::get_wtime();
 }
 
 #endif // SLATE_TEST_HH

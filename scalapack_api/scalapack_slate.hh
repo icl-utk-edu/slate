@@ -162,6 +162,16 @@ inline int slate_scalapack_set_verbose()
     return verbose;
 }
 
+inline int64_t slate_scalapack_set_lookahead()
+{
+    int64_t la = 0;
+    char* lastr = std::getenv("SLATE_SCALAPACK_LOOKAHEAD");
+    if (lastr) {
+        la = (int64_t)strtol(lastr, NULL, 0);
+        if (la != 0) return la;
+    }
+    return 1;
+}
 
 // -----------------------------------------------------------------------------
 // helper funtion to check and do type conversion

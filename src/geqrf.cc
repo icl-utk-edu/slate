@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
+#include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "internal/internal.hh"
 
@@ -14,6 +14,44 @@ namespace slate {
 // internal::geqrf from internal::specialization::geqrf
 namespace internal {
 namespace specialization {
+
+//------------------------------------------------------------------------------
+/// An auxiliary routine to find each rank's first (top-most) row
+/// in panel k.
+///
+/// @param[in] A_panel
+///     Current panel, which is a sub of the input matrix $A$.
+///
+/// @param[in] k
+///     Index of the current panel in the input matrix $A$.
+///
+/// @param[out] first_indices
+///     The array of computed indices.
+///
+/// @ingroup geqrf_specialization
+///
+template <typename scalar_t>
+void geqrf_compute_first_indices(Matrix<scalar_t>& A_panel, int64_t k,
+                                 std::vector< int64_t >& first_indices)
+{
+    // Find ranks in this column.
+    std::set<int> ranks_set;
+    A_panel.getRanks(&ranks_set);
+    assert(ranks_set.size() > 0);
+
+    // Find each rank's first (top-most) row in this panel,
+    // where the triangular tile resulting from local geqrf panel
+    // will reside.
+    first_indices.reserve(ranks_set.size());
+    for (int r: ranks_set) {
+        for (int64_t i = 0; i < A_panel.mt(); ++i) {
+            if (A_panel.tileRank(i, 0) == r) {
+                first_indices.push_back(i+k);
+                break;
+            }
+        }
+    }
+}
 
 //------------------------------------------------------------------------------
 /// Distributed parallel QR factorization.
@@ -37,7 +75,10 @@ void geqrf(slate::internal::TargetType<target>,
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
+    const int priority_zero = 0;
     const int priority_one = 1;
+    const int life_factor_one = 1;
+    const bool set_hold = lookahead > 0;  // Do tileGetAndHold in the bcast
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
@@ -53,9 +94,11 @@ void geqrf(slate::internal::TargetType<target>,
     auto W = A.emptyLike();
 
     if (target == Target::Devices) {
-        A.allocateBatchArrays();
+        const int64_t batch_size_zero = 0; // use default batch size
+        const int64_t num_queues = 3 + lookahead;
+        A.allocateBatchArrays(batch_size_zero, num_queues);
         A.reserveDeviceWorkspace();
-        W.allocateBatchArrays();
+        W.allocateBatchArrays(batch_size_zero, num_queues);
         // todo: this is demanding too much device workspace memory
         // only one tile-row of matrix W per MPI process is going to be used,
         // but W with size of whole A is being allocated
@@ -78,24 +121,8 @@ void geqrf(slate::internal::TargetType<target>,
             auto Tl_panel =  Tlocal.sub(k, A_mt-1, k, k);
             auto Tr_panel = Treduce.sub(k, A_mt-1, k, k);
 
-            // Find ranks in this column.
-            std::set<int> ranks_set;
-            A_panel.getRanks(&ranks_set);
-            assert(ranks_set.size() > 0);
-
-            // Find each rank's first (top-most) row in this panel,
-            // where the triangular tile resulting from local geqrf panel
-            // will reside.
             std::vector< int64_t > first_indices;
-            first_indices.reserve(ranks_set.size());
-            for (int r: ranks_set) {
-                for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                    if (A_panel.tileRank(i, 0) == r) {
-                        first_indices.push_back(i+k);
-                        break;
-                    }
-                }
-            }
+            geqrf_compute_first_indices(A_panel, k, first_indices);
             // todo: pass first_indices into internal geqrf or ttqrt?
 
             // panel, high priority
@@ -128,8 +155,8 @@ void geqrf(slate::internal::TargetType<target>,
                             else
                                 bcast_list_V.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                         }
-                        A.template listBcast(bcast_list_V_first, layout, 0, 3);
-                        A.template listBcast(bcast_list_V, layout, 0, 2);
+                        A.template listBcast<target>(bcast_list_V_first, layout, 0, 3, set_hold);
+                        A.template listBcast<target>(bcast_list_V, layout, 0, 2, set_hold);
                     }
 
                     // bcast Tlocal across row for trailing matrix update
@@ -138,7 +165,7 @@ void geqrf(slate::internal::TargetType<target>,
                         for (int64_t row : first_indices) {
                             bcast_list_T.push_back({row, k, {Tlocal.sub(row, row, k+1, A_nt-1)}});
                         }
-                        Tlocal.template listBcast(bcast_list_T, layout);
+                        Tlocal.template listBcast<target>(bcast_list_T, layout, k, life_factor_one, set_hold);
                     }
 
                     // bcast Treduce across row for trailing matrix update
@@ -162,12 +189,13 @@ void geqrf(slate::internal::TargetType<target>,
                                  priority(priority_one)
                 {
                     // Apply local reflectors
-                    internal::unmqr<Target::HostTask>(
+                    internal::unmqr<target>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
-                                    W.sub(k, A_mt-1, j, j));
+                                    W.sub(k, A_mt-1, j, j),
+                                    priority_one, j-k+1);
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmqr handles the tile broadcasting internally
@@ -189,22 +217,70 @@ void geqrf(slate::internal::TargetType<target>,
                                  depend(inout:block[k+1+lookahead]) \
                                  depend(inout:block[A_nt-1])
                 {
-                    // Apply local reflectors
+                    // Apply local reflectors.
                     internal::unmqr<target>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
-                                    W.sub(k, A_mt-1, j, A_nt-1));
+                                    W.sub(k, A_mt-1, j, A_nt-1),
+                                    priority_zero, j-k+1);
 
-                    // Apply triangle-triangle reduction reflectors
-                    // ttmqr handles the tile broadcasting internally
+                    // Apply triangle-triangle reduction reflectors.
+                    // ttmqr handles the tile broadcasting internally.
                     internal::ttmqr<Target::HostTask>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_j),
                                     j);
+                }
+            }
+            if (target == Target::Devices) {
+                // Update the status of the on-hold tiles held by the invocation of
+                // the tileBcast routine, and then release them to free up memory.
+                // The origin must be updated with the latest modified copy
+                // for memory consistency.
+                // TODO: Find better solution to handle tile release, and
+                //       investigate the correctness of the task dependency
+                if (k >= lookahead && k < A_nt-1) {
+                    #pragma omp task depend(in:block[k]) \
+                                     depend(inout:block[k+1])
+                    {
+                        int64_t k_la = k-lookahead;
+                        for (int64_t i = k_la; i < A_mt; ++i) {
+                            if (A.tileIsLocal(i, k_la)) {
+                                A.tileUpdateOrigin(i, k_la);
+
+                                std::set<int> dev_set;
+                                A.sub(i, i, k_la+1, A_nt-1).getLocalDevices(&dev_set);
+
+                                for (auto device : dev_set) {
+                                    A.tileUnsetHold(i, k_la, device);
+                                    A.tileRelease(i, k_la, device);
+                                }
+                            }
+                        }
+
+                        auto A_panel = A.sub(k_la, A_mt-1, k_la, k_la);
+                        std::vector< int64_t > first_indices;
+                        geqrf_compute_first_indices(A_panel, k_la, first_indices);
+                        if (first_indices.size() > 0) {
+                            for (int64_t row : first_indices) {
+                                if (Tlocal.tileIsLocal(row, k_la)) {
+                                    Tlocal.tileUpdateOrigin(row, k_la);
+
+                                    std::set<int> dev_set;
+                                    Tlocal.sub(row, row, k_la+1, A_nt-1).getLocalDevices(&dev_set);
+
+                                    for (auto device : dev_set) {
+                                        Tlocal.tileUnsetHold(row, k_la, device);
+                                        Tlocal.tileRelease(row, k_la, device);
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -228,32 +304,12 @@ void geqrf(Matrix<scalar_t>& A,
            TriangularFactors<scalar_t>& T,
            Options const& opts)
 {
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range&) {
-        lookahead = 1;
-    }
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
-    int64_t ib;
-    try {
-        ib = opts.at(Option::InnerBlocking).i_;
-        assert(ib >= 0);
-    }
-    catch (std::out_of_range&) {
-        ib = 16;
-    }
+    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
 
-    int64_t max_panel_threads;
-    try {
-        max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
-        assert(max_panel_threads >= 1);
-    }
-    catch (std::out_of_range&) {
-        max_panel_threads = std::max(omp_get_max_threads()/2, 1);
-    }
+    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
+    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
 
     internal::specialization::geqrf(internal::TargetType<target>(),
                                     A, T,
@@ -308,13 +364,7 @@ void geqrf(Matrix<scalar_t>& A,
            TriangularFactors<scalar_t>& T,
            Options const& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:

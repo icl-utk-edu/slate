@@ -24,14 +24,28 @@
 namespace slate {
 
 // Version is updated by make_release.py; DO NOT EDIT.
-// Version 2020.10.00
-#define SLATE_VERSION 20201000
+// Version 2021.05.02
+#define SLATE_VERSION 20210502
 
 int version();
 const char* id();
 
 //------------------------------------------------------------------------------
-// Auxiliary
+// Level 2 Auxiliary
+
+//-----------------------------------------
+// add()
+template <typename scalar_t>
+void add(
+    scalar_t alpha, Matrix<scalar_t>& A,
+    scalar_t beta,  Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+template <typename scalar_t>
+void add(
+     scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
+     scalar_t beta,  BaseTrapezoidMatrix<scalar_t>& B,
+     Options const& opts = Options());
 
 //-----------------------------------------
 // copy()
@@ -40,6 +54,42 @@ void copy(
     src_matrix_type& A,
     dst_matrix_type& B,
     Options const& opts = Options());
+
+//-----------------------------------------
+// scale()
+template <typename scalar_t>
+void scale(
+    blas::real_type<scalar_t> numer,
+    blas::real_type<scalar_t> denom,
+    Matrix<scalar_t>& A,
+    Options const& opts = Options());
+
+template <typename scalar_t>
+void scale(
+    scalar_t value,
+    Matrix<scalar_t>& A,
+    Options const& opts = Options())
+{
+    scalar_t one = 1;
+    scale(value, one, A, opts);
+}
+
+template <typename scalar_t>
+void scale(
+    blas::real_type<scalar_t> numer,
+    blas::real_type<scalar_t> denom,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts = Options());
+
+template <typename scalar_t>
+void scale(
+    scalar_t value,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts = Options())
+{
+    scalar_t one = 1;
+    scale(value, one, A, opts);
+}
 
 //-----------------------------------------
 // set()
@@ -59,16 +109,24 @@ void set(
     set(value, value, A, opts);
 }
 
+template <typename scalar_t>
+void set(
+    scalar_t offdiag_value,
+    scalar_t diag_value,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts = Options());
+
+template <typename scalar_t>
+void set(
+    scalar_t value,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts = Options())
+{
+    set(value, value, A, opts);
+}
+
 //------------------------------------------------------------------------------
 // Level 3 BLAS and LAPACK auxiliary
-
-//-----------------------------------------
-// geadd()
-template <typename scalar_t>
-void geadd(
-    scalar_t alpha, Matrix<scalar_t>& A,
-    scalar_t beta,  Matrix<scalar_t>& B,
-    Options const& opts = Options());
 
 //-----------------------------------------
 // gbmm()
@@ -818,9 +876,10 @@ void he2hb(
 // unmtr_he2hb()
 template <typename scalar_t>
 void unmtr_he2hb(
-    Side side, Op op, HermitianMatrix< scalar_t >& A,
-    TriangularFactors< scalar_t > T,
-    Matrix< scalar_t >& B,
+    Side side, Op op,
+    HermitianMatrix<scalar_t>& A,
+    TriangularFactors<scalar_t> T,
+    Matrix<scalar_t>& C,
     Options const& opts = Options());
 
 //-----------------------------------------
@@ -828,6 +887,7 @@ void unmtr_he2hb(
 template <typename scalar_t>
 void hb2st(
     HermitianBandMatrix<scalar_t>& A,
+    Matrix<scalar_t>& V,
     Options const& opts = Options());
 
 //-----------------------------------------

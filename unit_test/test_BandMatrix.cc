@@ -8,7 +8,7 @@
 #include "slate/internal/util.hh"
 
 #include "unit_test.hh"
-// #include "aux/Debug.hh"
+// #include "auxiliary/Debug.hh"
 // #include "../test/print_matrix.hh"
 
 using slate::ceildiv;

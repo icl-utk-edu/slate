@@ -10,144 +10,136 @@
 #include "slate/HermitianMatrix.hh"
 #include "internal/Tile_lapack.hh"
 #include "slate/types.hh"
+#include "internal/internal_householder.hh"
 
 namespace slate {
 namespace internal {
 
-// todo: These functions are defined in internal_gebr.cc.
-// It would be better to move the declarations to a header file.
-template <typename scalar_t>
-void gerfg(Matrix<scalar_t>& A, std::vector<scalar_t>& v);
-
-template <typename scalar_t>
-void gerf(std::vector<scalar_t> const& in_v, Matrix<scalar_t>& A);
-
 //------------------------------------------------------------------------------
-/// Applies a Houselolder reflector $v$ to the Hermitian matrix $A$
-/// from the left. Takes the $tau$ factor from $v[0]$.
+/// Applies a Householder reflector $H = I - \tau v v^H$ to the Hermitian
+/// matrix $A$ on the left and right. Takes the $\tau$ factor from $v[0]$.
 ///
-/// @param[in] in_v
-///     The Householder reflector to apply.
+/// @param[in] n
+///     Length of vector v.
+///
+/// @param[in] v
+///     The vector v in the representation of H.
+///     Modified but restored on exit.
 ///
 /// @param[in,out] A
 ///     The n-by-n Hermitian matrix A.
 ///
+/// @ingroup heev_computational
+///
 template <typename scalar_t>
-void herf(std::vector<scalar_t> const& in_v, HermitianMatrix<scalar_t>& A)
+void herf(int64_t n, scalar_t* v, HermitianMatrix<scalar_t>& A)
 {
     using blas::conj;
-    scalar_t one  = 1;
-    scalar_t zero = 0;
 
+    const scalar_t one  = 1.0;
+    const scalar_t zero = 0.0;
+    const scalar_t half = 0.5;
+
+    // todo: seems odd to conj tau here. Maybe gerfg isn't generating tau right?
     // Replace tau with 1.0 in v[0].
-    auto v = in_v;
     scalar_t tau = conj(v[0]);
     v[0] = one;
 
-    // w = C * v
+    scalar_t *wi, *vi;
+
+    // w = A v
     // todo: HermitianMatrix::at(i, j) can be extended to support access
     // to the (nonexistent) symmetric part by returning transpose(at(j, i)).
-    // This will allow to remove the if/else condition.
+    // This will allow removing the if/else condition.
     // The first call to gemv() will support both cases.
-    std::vector<scalar_t> w(A.n());
-    scalar_t* w_ptr = w.data();
+    std::vector<scalar_t> w_vec(A.n());
+    scalar_t* w = w_vec.data();
+    wi = w;
     for (int64_t i = 0; i < A.nt(); ++i) {
-        scalar_t* v_ptr = v.data();
+        scalar_t* vj = v;
         scalar_t beta = zero;
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (i == j) {
-                hemv(one, A(i, j), v_ptr, beta, w_ptr);
+                hemv(one, A(i, j), vj, beta, wi);
             }
             else {
-                if (i > j) {
-                    gemv(one, A(i, j), v_ptr, beta, w_ptr);
-                }
-                else {
-                    gemv(one, conjTranspose(A(j, i)), v_ptr, beta, w_ptr);
-                }
+                auto Aij = i > j
+                         ? A(i, j)
+                         : conjTranspose(A(j, i));
+                gemv(one, Aij, vj, beta, wi);
             }
             beta = one;
-            v_ptr += A.tileNb(j);
+            vj += A.tileNb(j);
         }
-        w_ptr += A.tileMb(i);
+        wi += A.tileMb(i);
     }
 
-    scalar_t alpha =
-        scalar_t(-0.5)*tau*blas::dot(A.n(), w.data(), 1, v.data(), 1);
-    blas::axpy(A.n(), alpha, v.data(), 1, w.data(), 1);
+    // todo: should this be switched, v^H w instead of w^H v?
+    // w = A v - 0.5 tau ((A v)^H v) v
+    scalar_t alpha = -half * tau * blas::dot(A.n(), w, 1, v, 1);
+    blas::axpy(A.n(), alpha, v, 1, w, 1);
 
-    // todo: In principle the entire update of C could be done in one pass
-    // instead of three passes.
-
-    // C = C - v * w^H (excluding diagonal tiles)
-    scalar_t* v_ptr = v.data();
+    // A = A - tau v w^H - conj(tau) w v^H, lower triangle
+    vi = v;
+    wi = w;
     for (int64_t i = 0; i < A.nt(); ++i) {
-        w_ptr = w.data();
+        scalar_t* vj = v;
+        scalar_t* wj = w;
         for (int64_t j = 0; j < A.nt(); ++j) {
-            if (i > j) {
-                ger(-tau, v_ptr, w_ptr, A(i, j));
+            if (i > j) {  // lower
+                ger(-tau, vi, wj, A(i, j));
+                ger(-conj(tau), wi, vj, A(i, j));
             }
-            w_ptr += A.tileNb(j);
+            else if (i == j) {  // diag
+                her2(-tau, vi, wj, A(i, j));
+            }
+            vj += A.tileNb(j);
+            wj += A.tileNb(j);
         }
-        v_ptr += A.tileMb(i);
+        vi += A.tileMb(i);
+        wi += A.tileMb(i);
     }
 
-    // C = C - w * v^H (excluding diagonal tiles)
-    w_ptr = w.data();
-    for (int64_t i = 0; i < A.nt(); ++i) {
-        v_ptr = v.data();
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if (i > j) {
-                ger(-conj(tau), w_ptr, v_ptr, A(i, j));
-            }
-            v_ptr += A.tileNb(j);
-        }
-        w_ptr += A.tileMb(i);
-    }
-
-    // C = C - v * w^H - w * v^H (diagonal tiles)
-    v_ptr = v.data();
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        w_ptr = w.data();
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if (i == j) {
-                her2(-tau, v_ptr, w_ptr, A(i, j));
-            }
-            w_ptr += A.tileNb(j);
-        }
-        v_ptr += A.tileMb(i);
-    }
+    // Restore v[0].
+    v[0] = conj(tau);
 }
 
 //------------------------------------------------------------------------------
-/// Implements task 1 in the tridiagonal bulge chasing algorithm.
+/// Implements task type 1 in the tridiagonal bulge chasing algorithm.
 /// Dispatches to target implementations.
 ///
+/// @ingroup heev_computational
+///
 template <Target target, typename scalar_t>
-void hebr1(HermitianMatrix<scalar_t>&& A,
-           std::vector<scalar_t>& v,
+void hebr1(int64_t n, scalar_t* v,
+           HermitianMatrix<scalar_t>&& A,
            int priority)
 {
     hebr1(internal::TargetType<target>(),
-          A, v, priority);
+          n, v, A, priority);
 }
 
 //------------------------------------------------------------------------------
-/// Implements task 1 in the tridiagonal bulge chasing algorithm.
-/// (see https://doi.org/10.1145/2063384.2063394
-/// and http://www.icl.utk.edu/publications/swan-013)
+/// Implements task type 1 in the tridiagonal bulge chasing algorithm,
+/// bringing the first column & row of A to tridiagonal.
+/// See https://doi.org/10.1145/2063384.2063394
+/// and http://www.icl.utk.edu/publications/swan-013
 /// Here, the first block starts at $(0, 0)$, not at $(1, 0)$.
+/// todo: as compared to SVD?
 ///
-/// @param[in,out] A
-///     The first block of a sweep.
+/// @param[in] n
+///     Length of vector v.
 ///
 /// @param[out] v
 ///     The Householder reflector to zero A[2:n-1, 0].
 ///
+/// @param[in,out] A
+///     The first block of a sweep.
+///
 template <typename scalar_t>
 void hebr1(internal::TargetType<Target::HostTask>,
+           int64_t n, scalar_t* v,
            HermitianMatrix<scalar_t>& A,
-           std::vector<scalar_t>& v,
            int priority)
 {
     using blas::conj;
@@ -155,97 +147,116 @@ void hebr1(internal::TargetType<Target::HostTask>,
 
     // Zero A[2:n-1, 0].
     auto A1 = A.slice(1, A.m()-1, 0, 0);
-    gerfg(A1, v);
-    scalar_t tmp = v[0];
-    v[0] = conj(v[0]);
-    gerf(v, A1);
+    gerfg(A1, n, v);
 
-    // Apply the transformations to A[1:n-1, 1:n-1].
-    v[0] = tmp;
+    // todo: this is silly; we already know it zeros the column.
+    v[0] = conj(v[0]);
+    gerf(n, v, A1);
+    v[0] = conj(v[0]);
+
+    // Apply the 2-sided transformation to A[1:n-1, 1:n-1].
     auto A2 = A.slice(1, A.n()-1);
-    herf(v, A2);
+    herf(n, v, A2);
 }
 
 //------------------------------------------------------------------------------
-/// Implements task 2 in the tridiagonal bulge chasing algorithm.
+/// Implements task type 2 in the tridiagonal bulge chasing algorithm.
 /// Dispatches to target implementations.
 ///
+/// @ingroup heev_computational
+///
 template <Target target, typename scalar_t>
-void hebr2(std::vector<scalar_t>& v1,
+void hebr2(int64_t n1, scalar_t* v1,
+           int64_t n2, scalar_t* v2,
            Matrix<scalar_t>&& A,
-           std::vector<scalar_t>& v2,
            int priority)
 {
     hebr2(internal::TargetType<target>(),
-          v1, A, v2, priority);
+          n1, v1, n2, v2, A, priority);
 }
 
 //------------------------------------------------------------------------------
-/// Implements task 2 in the tridiagonal bulge chasing algorithm.
+/// Implements task type 2 in the tridiagonal bulge chasing algorithm,
+/// updating an off-diagonal block, which creates a bulge, then bringing its
+/// first column back to the original bandwidth.
+///
+/// @param[in] n1
+///     Length of vector v1.
 ///
 /// @param[in] v1
-///     The Householder reflector produced by task 1.
+///     The Householder reflector produced by task type 1 or 2.
 ///
-/// @param[in,out] A
-///     An off-diagonal block in a sweep.
+/// @param[in] n2
+///     Length of vector v2.
 ///
 /// @param[out] v2
 ///     The Householder reflector to zero A[1:n-1, 0].
 ///
+/// @param[in,out] A
+///     An off-diagonal block in a sweep.
+///
 template <typename scalar_t>
 void hebr2(internal::TargetType<Target::HostTask>,
-           std::vector<scalar_t>& v1,
+           int64_t n1, scalar_t* v1,
+           int64_t n2, scalar_t* v2,
            Matrix<scalar_t>& A,
-           std::vector<scalar_t>& v2,
            int priority)
 {
     using blas::conj;
     trace::Block trace_block("internal::hebr2");
 
-    // Apply the reflector from task 1.
+    // Apply the reflector from task type 1 or 2.
     auto AH = conjTranspose(A);
-    gerf(v1, AH);
+    gerf(n1, v1, AH);
 
     // Zero A[1:n-1, 0].
-    gerfg(A, v2);
+    gerfg(A, n2, v2);
     v2[0] = conj(v2[0]);
-    gerf(v2, A);
+    gerf(n2, v2, A);
+    v2[0] = conj(v2[0]);
 }
 
 //------------------------------------------------------------------------------
-/// Implements task 3 in the tridiagonal bulge chasing algorithm.
+/// Implements task type 3 in the tridiagonal bulge chasing algorithm.
 /// Dispatches to target implementations.
 ///
+/// @ingroup heev_computational
+///
 template <Target target, typename scalar_t>
-void hebr3(std::vector<scalar_t>& v,
+void hebr3(int64_t n, scalar_t* v,
            HermitianMatrix<scalar_t>&& A,
            int priority)
 {
     hebr3(internal::TargetType<target>(),
-          v, A, priority);
+          n, v, A, priority);
 }
 
 //------------------------------------------------------------------------------
-/// Implements task 3 in the tridiagonal bulge chasing algorithm.
+/// Implements task type 3 in the tridiagonal bulge chasing algorithm,
+/// updating a diagonal block with a 2-sided Householder transformation.
+///
+/// @param[in] n
+///     Length of vector v.
 ///
 /// @param[in] v
-///     The Householder reflector produced by task 2.
+///     The Householder reflector produced by task type 2.
 ///
 /// @param[in,out] A
 ///     A diagonal block in a sweep.
 ///
+/// @ingroup heev_computational
+///
 template <typename scalar_t>
 void hebr3(internal::TargetType<Target::HostTask>,
-           std::vector<scalar_t>& v,
+           int64_t n, scalar_t* v,
            HermitianMatrix<scalar_t>& A,
            int priority)
 {
     using blas::conj;
     trace::Block trace_block("internal::hebr3");
 
-    // Apply the reflector from task 2.
-    v[0] = conj( v[0] );
-    herf(v, A);
+    // Apply the reflector from task type 2.
+    herf(n, v, A);
 }
 
 //------------------------------------------------------------------------------
@@ -253,79 +264,79 @@ void hebr3(internal::TargetType<Target::HostTask>,
 // ----------------------------------------
 template
 void hebr1<Target::HostTask, float>(
+    int64_t n, float* v1,
     HermitianMatrix<float>&& A,
-    std::vector<float>& v1,
     int priority);
 
 template
 void hebr1<Target::HostTask, double>(
+    int64_t n, double* v1,
     HermitianMatrix<double>&& A,
-    std::vector<double>& v1,
     int priority);
 
 template
 void hebr1< Target::HostTask, std::complex<float> >(
+    int64_t n, std::complex<float>* v1,
     HermitianMatrix< std::complex<float> >&& A,
-    std::vector< std::complex<float> >& v1,
     int priority);
 
 template
 void hebr1< Target::HostTask, std::complex<double> >(
+    int64_t n, std::complex<double>* v1,
     HermitianMatrix< std::complex<double> >&& A,
-    std::vector< std::complex<double> >& v1,
     int priority);
 
 // ----------------------------------------
 template
 void hebr2<Target::HostTask, float>(
-    std::vector<float>& v1,
+    int64_t n1, float* v1,
+    int64_t n2, float* v2,
     Matrix<float>&& A,
-    std::vector<float>& v2,
     int priority);
 
 template
 void hebr2<Target::HostTask, double>(
-    std::vector<double>& v1,
+    int64_t n1, double* v1,
+    int64_t n2, double* v2,
     Matrix<double>&& A,
-    std::vector<double>& v2,
     int priority);
 
 template
 void hebr2< Target::HostTask, std::complex<float> >(
-    std::vector< std::complex<float> >& v1,
+    int64_t n1, std::complex<float>* v1,
+    int64_t n2, std::complex<float>* v2,
     Matrix< std::complex<float> >&& A,
-    std::vector< std::complex<float> >& v2,
     int priority);
 
 template
 void hebr2< Target::HostTask, std::complex<double> >(
-    std::vector< std::complex<double> >& v1,
+    int64_t n1, std::complex<double>* v1,
+    int64_t n2, std::complex<double>* v2,
     Matrix< std::complex<double> >&& A,
-    std::vector< std::complex<double> >& v2,
     int priority);
 
 // ----------------------------------------
 template
 void hebr3<Target::HostTask, float>(
-    std::vector<float>& v,
+    int64_t n, float* v,
     HermitianMatrix<float>&& A,
     int priority);
 
 template
 void hebr3<Target::HostTask, double>(
-    std::vector<double>& v,
+    int64_t n, double* v,
     HermitianMatrix<double>&& A,
     int priority);
 
 template
 void hebr3< Target::HostTask, std::complex<float> >(
-    std::vector< std::complex<float> >& v,
+    int64_t n, std::complex<float>* v,
     HermitianMatrix< std::complex<float> >&& A,
     int priority);
 
 template
 void hebr3< Target::HostTask, std::complex<double> >(
-    std::vector< std::complex<double> >& v,
+    int64_t n, std::complex<double>* v,
     HermitianMatrix< std::complex<double> >&& A,
     int priority);
 

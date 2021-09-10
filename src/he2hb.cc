@@ -4,10 +4,9 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
+#include "auxiliary/Debug.hh"
 #include "slate/HermitianMatrix.hh"
 #include "internal/internal.hh"
-#include "work/work.hh"
-#include "../test/print_matrix.hh"
 
 namespace slate {
 
@@ -91,7 +90,6 @@ void he2hb(slate::internal::TargetType<target>,
     {
         omp_set_nested(1);
         for (int64_t k = 0; k < nt-1; ++k) {
-
             //----------------------------------------
             // Q panel and update.
             auto       A_panel =       A.sub(k+1, nt-1, k, k);
@@ -506,13 +504,7 @@ void he2hb(HermitianMatrix<scalar_t>& A,
            TriangularFactors<scalar_t>& T,
            Options const& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:

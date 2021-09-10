@@ -13,64 +13,6 @@
 namespace slate {
 namespace device {
 
-//------------------------------------------------------------------------------
-__host__ __device__
-inline
-float real(float a)
-{
-    return a;
-}
-
-__host__ __device__
-float imag(float a)
-{
-    return 0;
-}
-
-//------------------------------------------------------------------------------
-__host__ __device__
-inline
-double real(double a)
-{
-    return a;
-}
-
-__host__ __device__
-inline
-double imag(double a)
-{
-    return 0;
-}
-
-//------------------------------------------------------------------------------
-__host__ __device__
-inline
-float real(cuFloatComplex a)
-{
-    return a.x;
-}
-
-__host__ __device__
-inline
-float imag(cuFloatComplex a)
-{
-    return a.y;
-}
-
-//------------------------------------------------------------------------------
-__host__ __device__
-inline
-double real(cuDoubleComplex a)
-{
-    return a.x;
-}
-
-__host__ __device__
-inline
-double imag(cuDoubleComplex a)
-{
-    return a.y;
-}
 
 //------------------------------------------------------------------------------
 /// Finds the largest absolute value of elements, for each tile in tiles.
@@ -358,7 +300,7 @@ void henorm(
     int64_t n,
     scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue)
+    blas::Queue& queue)
 {
     using real_t = blas::real_type<scalar_t>;
     int64_t nb = 512;
@@ -416,7 +358,7 @@ void henorm(
     int64_t n,
     float const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue& queue);
 
 template
 void henorm(
@@ -424,7 +366,7 @@ void henorm(
     int64_t n,
     double const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue& queue);
 
 template
 void henorm(
@@ -432,7 +374,7 @@ void henorm(
     int64_t n,
     cuFloatComplex const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue& queue);
 
 template
 void henorm(
@@ -440,7 +382,7 @@ void henorm(
     int64_t n,
     cuDoubleComplex const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue& queue);
 
 } // namespace device
 } // namespace slate

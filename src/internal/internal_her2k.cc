@@ -809,6 +809,11 @@ void her2k(internal::TargetType<Target::Devices>,
                         trace::Block trace_block("blas::batch::her2k");
 
                         std::vector<Uplo> uplo(1, C.uploPhysical());
+
+                        if (C.op() != Op::NoTrans) {
+                            alpha = conj(alpha);
+                        }
+
                         std::vector<scalar_t> alpha_(1, alpha);
                         std::vector<real_t> beta_(1, beta);
 

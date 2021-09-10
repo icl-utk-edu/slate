@@ -6,7 +6,6 @@
 #include "slate/Matrix.hh"
 #include "slate/types.hh"
 #include "internal/internal.hh"
-#include "../aux/Debug.hh"
 
 namespace slate {
 namespace internal {

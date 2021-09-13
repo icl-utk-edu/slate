@@ -569,6 +569,14 @@ public:
         return storage_->compute_queues_.at(queue_index).at(device);
     }
 
+    //--------------------------------------------------------------------------
+    /// @return number of allocated BLAS++ compute queues
+    ///
+    int numComputeQueues()
+    {
+        return int(storage_->compute_queues_.size());
+    }
+
 protected:
     std::tuple<int64_t, int64_t>
         globalIndex(int64_t i, int64_t j) const;
@@ -1622,7 +1630,7 @@ void BaseMatrix<scalar_t>::tileRecv(
 
         // Copy to devices.
         if (target == Target::Devices) {
-            #pragma omp task default(shared)
+            #pragma omp task default(none) firstprivate(i, j)
             {
                 tileGetForReading(i, j, tileDevice(i, j), LayoutConvert::None);
             }
@@ -1778,7 +1786,7 @@ void BaseMatrix<scalar_t>::listBcast(
             }
             else {
                 // todo: should each read be an omp task instead?
-                #pragma omp task
+                #pragma omp task default(none) firstprivate(i, j, is_shared) shared(dev_set)
                 {
                     for (auto device : dev_set) {
                         if (is_shared) {
@@ -1797,7 +1805,7 @@ void BaseMatrix<scalar_t>::listBcast(
         if (mpi_size == 1) {
             for (int d = 0; d < num_devices(); ++d) {
                 if (! tile_set[d].empty()) {
-                    #pragma omp task default(shared)
+                    #pragma omp task default(none) firstprivate(d, is_shared) shared(tile_set)
                     {
                         if (is_shared) {
                             tileGetAndHold(tile_set[d], d, LayoutConvert::None);
@@ -1871,7 +1879,7 @@ void BaseMatrix<scalar_t>::listBcastMT(
         std::tuple< int64_t, int64_t, std::list<BaseMatrix<scalar_t> >, int64_t >;
 
     #pragma omp taskloop default(none) shared(bcast_list) \
-        firstprivate(life_factor,layout,mpi_size,is_shared)
+        firstprivate(life_factor, layout, mpi_size, is_shared)
     for (size_t bcastnum = 0; bcastnum < bcast_list.size(); ++bcastnum) {
 
         BcastTag bcast = bcast_list[bcastnum];
@@ -1930,7 +1938,7 @@ void BaseMatrix<scalar_t>::listBcastMT(
                     submatrix.getLocalDevices(&dev_set);
 
                 for (auto dev : dev_set) {
-                    //todo: test #pragma omp task default(shared) if (mpi_size == 1)
+                    //todo: test #pragma omp task default(none) firstprivate(i,j,dev,is_shared) if (mpi_size == 1)
                     if (is_shared)
                         tileGetAndHold(i, j, dev, LayoutConvert::None);
                     else
@@ -2498,7 +2506,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
                                    bool async)
 {
     // todo: need to acquire read access to the TilesMap
-    // LockGuard guard(storage_->tiles_.get_lock());
+    // LockGuard guard2(storage_->getTilesMapLock());
 
     TileInstance<scalar_t>* src_tile_instance = nullptr;
     Layout target_layout = Layout::ColMajor; // default value to silence compiler warning
@@ -2725,7 +2733,7 @@ void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
     }
 
     //todo: was tileGet(tile_set, device, layout, false, false, device != hostNum());
-    //todo: changed asyn to false to make it work using HIP 
+    //todo: changed asyn to false to make it work using HIP
     tileGet(tile_set, device, layout, false, false, false);
 
     if (device != hostNum())
@@ -3016,7 +3024,7 @@ void BaseMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert layout)
     {
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set)
                 {
                     tileGetForReading(tiles_set[d], d, layout);
                 }
@@ -3051,7 +3059,7 @@ void BaseMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert layout)
     {
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set)
                 {
                     tileGetForWriting(tiles_set[d], d, layout);
                 }
@@ -3086,7 +3094,7 @@ void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices(LayoutConvert layout)
     {
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set)
                 {
                     tileGetAndHold(tiles_set[d], d, layout);
                 }
@@ -3189,13 +3197,13 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
     {
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set_host[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d) shared(tiles_set_host)
                 {
                     tileGetForReading(tiles_set_host[d], LayoutConvert::None, d);
                 }
             }
             if (! tiles_set_dev[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d) shared(tiles_set_dev)
                 {
                     tileGetForReading(tiles_set_dev[d], d, LayoutConvert::None);
                 }
@@ -3316,7 +3324,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
         for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
             int64_t i = std::get<0>(*iter);
             int64_t j = std::get<1>(*iter);
-            #pragma omp task
+            #pragma omp task default(none) firstprivate(i, j, device, layout, reset)
             {
                 tileLayoutConvert(i, j, device, layout, reset);
             }
@@ -3478,7 +3486,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
 
         if (reset) {
             for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
-                // #pragma omp task
+                // #pragma omp task default(none)
                 {
                     int64_t i = std::get<0>(*iter);
                     int64_t j = std::get<1>(*iter);
@@ -3553,7 +3561,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvertOnDevices(Layout layout, bool reset)
     {
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d, layout, reset) shared(tiles_set)
                 {
                     tileLayoutConvert(tiles_set[d], d, layout, reset);
                 }
@@ -3639,16 +3647,19 @@ void BaseMatrix<scalar_t>::tileLayoutReset()
     #pragma omp taskgroup
     {
         if (! tiles_set_host.empty()) {
-            #pragma omp task default(shared)
+            auto layout = this->layout();
+            auto host_num = host_num_;
+            #pragma omp task default(none) firstprivate(host_num, layout) shared(tiles_set_host)
             {
-                tileLayoutReset(tiles_set_host, host_num_, this->layout());
+                tileLayoutReset(tiles_set_host, host_num, layout);
             }
         }
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set_dev[d].empty()) {
-                #pragma omp task default(shared)
+                auto layout = this->layout();
+                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set_dev)
                 {
-                    tileLayoutReset(tiles_set_dev[d], d, this->layout());
+                    tileLayoutReset(tiles_set_dev[d], d, layout);
                 }
             }
         }

@@ -95,7 +95,7 @@ group_opt.add_argument( '--ref',    action='store', help='default=%(default)s', 
 group_opt.add_argument( '--tol',    action='store', help='default=%(default)s', default='' )
 
 # LAPACK only
-group_opt.add_argument( '--direct', action='store', help='default=%(default)s', default='f,b' )
+group_opt.add_argument( '--direction', action='store', help='default=%(default)s', default='f,b' )
 group_opt.add_argument( '--storev', action='store', help='default=%(default)s', default='c,r' )
 group_opt.add_argument( '--norm',   action='store', help='default=%(default)s', default='max,1,inf,fro' )
 group_opt.add_argument( '--jobz',   action='store', help='default=%(default)s', default='n,v' )
@@ -263,7 +263,7 @@ ref    = ' --ref '    + opts.ref    if (opts.ref)    else ''
 tol    = ' --tol '    + opts.tol    if (opts.tol)    else ''
 
 # LAPACK only
-direct = ' --direct ' + opts.direct if (opts.direct) else ''
+direction = ' --direction ' + opts.direction if (opts.direction) else ''
 storev = ' --storev ' + opts.storev if (opts.storev) else ''
 norm   = ' --norm '   + opts.norm   if (opts.norm)   else ''
 jobz   = ' --jobz '   + opts.jobz   if (opts.jobz)   else ''
@@ -290,6 +290,7 @@ repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
 # general options for all routines
 gen       = origin + target + grid + check + ref + tol + repeat + nb
 gen_no_nb = origin + target + grid + check + ref + tol + repeat
+gen_no_target =               grid + check + ref + tol + repeat + nb
 
 # ------------------------------------------------------------------------------
 # filters a comma separated list csv based on items in list values.
@@ -381,6 +382,7 @@ if (opts.chol):
     #[ 'porfs', gen + dtype + la + n + uplo ],
     #[ 'poequ', gen + dtype + la + n ],  # only diagonal elements (no uplo)
     [ 'posvMixed',  gen + dtype_double + la + n + uplo ],
+    [ 'trtri', gen + dtype + la + n + uplo + diag ],
     ]
 
 # Cholesky banded
@@ -408,9 +410,10 @@ if (opts.sysv):
 # Hermitian indefinite
 if (opts.hesv):
     cmds += [
-    [ 'hesv',  gen + dtype + la + n + uplo ],
-    [ 'hetrf', gen + dtype + la + n + uplo ],
-    [ 'hetrs', gen + dtype + la + n + uplo ],
+    # todo: nb, uplo
+    [ 'hesv',  gen_no_nb + ' --nb 50' + dtype + la + n ],
+    [ 'hetrf', gen_no_nb + ' --nb 50' + dtype + la + n ],
+    [ 'hetrs', gen_no_nb + ' --nb 50' + dtype + la + n ],
     #[ 'hetri', gen + dtype + la + n + uplo ],
     #[ 'hecon', gen + dtype + la + n + uplo ],
     #[ 'herfs', gen + dtype + la + n + uplo ],
@@ -475,7 +478,7 @@ if (opts.rq):
 if (opts.syev):
     cmds += [
     # todo nb, uplo, jobz
-    [ 'heev',  gen_no_nb + ' --nb 50' + dtype + la + n ],
+    [ 'heev',  gen + dtype + la + n ],
     #[ 'ungtr', gen + dtype + la + n + uplo ],
     #[ 'unmtr', gen + dtype_real    + la + mn + uplo + side + trans    ],  # real does trans = N, T, C
     #[ 'unmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],  # complex does trans = N, C, not T
@@ -486,7 +489,8 @@ if (opts.syev):
     [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side l' + ' --trans n' ],
     [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side r' + ' --trans c' ],
     # todo nb, uplo
-    [ 'he2hb', gen_no_nb + ' --nb 50' + dtype + n ],
+    [ 'he2hb', gen_no_target + dtype + n ],
+    [ 'hb2st', gen_no_target + dtype + n ],
     # sterf doesn't take origin, target, nb, uplo
     [ 'sterf', grid + check + ref + tol + repeat + dtype + n ],
     [ 'steqr2', grid + check + ref + tol + repeat + dtype + n ],
@@ -502,8 +506,7 @@ if (opts.syev):
 # generalized symmetric/Hermitian eigenvalues
 if (opts.sygv):
     cmds += [
-    # [ 'hegv',  gen + dtype + la + n + jobz + itype + uplo ], // todo
-    [ 'hegv',  gen + dtype + la + n + itype ],
+    [ 'hegv',  gen + dtype + la + n + jobz + itype + uplo ],
     [ 'hegst', gen + dtype + la + n + itype + uplo ],
     ]
 
@@ -524,11 +527,11 @@ if (opts.geev):
 if (opts.svd):
     cmds += [
     # todo: mn (wide), nb, jobu, jobvt
-    [ 'gesvd', gen_no_nb + ' --nb 50' + dtype + la + n + tall ],
+    [ 'gesvd', gen + dtype + la + n + tall ],
     [ 'ge2tb', gen + dtype + n + tall ],
     # tb2bd, bdsqr don't take origin, target
-    [ 'tb2bd', grid + check + ref + tol + repeat + dtype + n ],
-    [ 'bdsqr', grid + check + ref + tol + repeat + dtype + n + uplo ],
+    [ 'tb2bd', gen_no_target + dtype + n ],
+    [ 'bdsqr', gen_no_target + dtype + n + uplo ],
     ]
 
 # norms
@@ -544,6 +547,12 @@ if (opts.norms):
     [ 'hbnorm', gen + dtype + n   + kd      + norm + uplo ],
     #[ 'sbnorm', gen + dtype + la + n + kd + norm ],
     #[ 'tbnorm', gen + dtype + la + n + kd + norm ],
+    ]
+
+# aux
+if (opts.aux):
+    cmds += [
+    [ 'scale', gen + dtype + mn ],
     ]
 
 # ------------------------------------------------------------------------------

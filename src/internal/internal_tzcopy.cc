@@ -23,14 +23,13 @@ void tzcopy(
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
            batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+#elif ! defined(SLATE_NO_HIP)
     tzcopy(uplo,
            m, n,
            (hipFloatComplex**) Aarray, lda,
@@ -47,14 +46,13 @@ void tzcopy(
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
            batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+#elif ! defined(SLATE_NO_HIP)
     tzcopy(uplo,
            m, n,
            (hipFloatComplex**) Aarray, lda,
@@ -71,14 +69,13 @@ void tzcopy(
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
            batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+#elif ! defined(SLATE_NO_HIP)
     tzcopy(uplo,
            m, n,
            (hipDoubleComplex**) Aarray, lda,
@@ -95,14 +92,13 @@ void tzcopy(
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     tzcopy(uplo,
            m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
            batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+#elif ! defined(SLATE_NO_HIP)
     tzcopy(uplo,
            m, n,
            (hipDoubleComplex**) Aarray, lda,
@@ -295,9 +291,9 @@ void copy(internal::TargetType<Target::Devices>,
             A.tileGetForReading(A_tiles_set, device, LayoutConvert::None);
 
             // Usually the output matrix (B) provides all the batch arrays.
-            // Here we are using A, because of the differen types.
-            src_scalar_t** a_array_host = A.array_host(device);
-            dst_scalar_t** b_array_host = B.array_host(device);
+            // Here we are using A, because of the different types.
+            src_scalar_t** a_array_host = A.array_host(device, queue_index);
+            dst_scalar_t** b_array_host = B.array_host(device, queue_index);
 
             int64_t batch_count = 0;
             int64_t mb[6], nb[6], lda[6], ldb[6], group_count[6];
@@ -348,8 +344,8 @@ void copy(internal::TargetType<Target::Devices>,
 
             // Usually the output matrix (B) provides all the batch arrays.
             // Here we are using A, because of the differen types.
-            src_scalar_t** a_array_dev = A.array_device(device);
-            dst_scalar_t** b_array_dev = B.array_device(device);
+            src_scalar_t** a_array_dev = A.array_device(device, queue_index);
+            dst_scalar_t** b_array_dev = B.array_device(device, queue_index);
 
             blas::Queue* queue = A.compute_queue(device, queue_index);
 

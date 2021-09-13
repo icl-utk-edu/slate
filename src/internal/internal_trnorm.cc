@@ -30,11 +30,11 @@ void trnorm(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     trnorm(in_norm, uplo, diag, m, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     trnorm(in_norm, uplo, diag, m, n, (hipFloatComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
@@ -49,11 +49,11 @@ void trnorm(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if !defined(SLATE_NO_CUDA) || defined(__NVCC__)
+#if ! defined(SLATE_NO_CUDA)
     trnorm(in_norm, uplo, diag, m, n, (cuDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
-#endif
-#if !defined(SLATE_NO_HIP) || defined(__HIPCC__)
+
+#elif ! defined(SLATE_NO_HIP)
     trnorm(in_norm, uplo, diag, m, n, (hipDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif

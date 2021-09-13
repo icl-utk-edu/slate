@@ -78,14 +78,15 @@ for its options, which include:
     blas
         BLAS libraries to search for. One or more of:
         auto            search for all libraries (default)
-        libsci          Cray LibSci
+        * libsci        Cray LibSci
         * mkl           Intel MKL
         * essl          IBM ESSL
         * openblas      OpenBLAS
         accelerate      Apple Accelerate framework
         acml            AMD ACML (deprecated)
         generic         generic -lblas
-        * SLATE's Makefile currently supports only mkl, essl, openblas (lowercase).
+        * SLATE's Makefile currently supports only libsci, mkl, essl,
+        openblas (lowercase).
         SLATE's CMake supports all libraries.
 
     blas_int
@@ -121,6 +122,12 @@ for its options, which include:
         Specify the exact BLAS libraries, overriding the built-in search. E.g.,
         cmake -DBLAS_LIBRARIES='-lopenblas' ..
 
+    gpu_backend
+        auto            auto-detect CUDA or HIP/ROCm (default)
+        cuda            build with CUDA support
+        hip             build with HIP/ROCm support
+        none            do not build with GPU backend
+
     color
         Whether to use ANSI colors in output. One of:
         auto            uses color if output is a TTY
@@ -154,6 +161,7 @@ SLATE specific options include:
         With MKL, by default it uses
             -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64
         or  -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64;
+        with LibSci via Cray's CC compiler wrapper, no library is needed;
         otherwise it uses -lscalapack.
 
 With Makefile, options are specified as environment variables or on the
@@ -184,7 +192,14 @@ Available targets:
     make distclean - also deletes dependency files (*.d) and
                      cleans BLAS++, LAPACK++, and TestSweeper.
 
-Options
+### Makefile options
+
+Besides the Environment variables and Options listed above, additional
+options include:
+
+    static
+        0                   build shared libraries (libslate.so) (default)
+        1                   build static libraries (libslate.a)
 
     mpi
         The Makefile will detect mpi from the MPI compiler wrapper name
@@ -192,18 +207,32 @@ Options
         wrapper, set one of:
         mpi = 1             link with `-lmpi`
         mpi = spectrum      link with `-lmpi_ibm`
+        mpi = cray          using Cray compiler wrappers (CXX=CC, FC=ftn)
+        mpi = 0             without MPI (experimental)
 
-    cuda
+        NOTE: SLATE compiles without MPI, but not all routines operate
+        correctly. Also, the testers currently require ScaLAPACK, which
+        requires MPI, so testers will fail.
+
     cuda_arch
-        It will compile with CUDA if nvcc is detected. To compile
-        without CUDA, set `cuda = 0`. By default, it will compile for
+        With the CUDA backend, by default SLATE will compile for
         CUDA architecture Pascal. To use a different architecture, set
         `cuda_arch` to one or more of:
         `kepler maxwell pascal volta turing sm_XY`
         where XY is a valid CUDA architecture (see `nvcc -h | grep sm_`).
 
+    hip_arch
+        With the HIP backend, by default SLATE will compile for
+        HIP architectures gfx900 gfx906 gfx908. To use a different architecture,
+        set `hip_arch` to one or more of:
+        `gfx900`  for AMD Radeon Instinct MI25 / Vega 10
+        `gfx906`  for AMD Radeon Instinct MI50 / Vega 20
+        `gfx908`  for AMD Instinct MI100
+        or other valid HIP architecture.
+        See https://llvm.org/docs/AMDGPUUsage.html
+
     openmp
-        It will compile with OpenMP by default. To compile without
+        SLATE will compile with OpenMP by default. To compile without
         OpenMP, set `openmp = 0`.
 
     c_api
@@ -265,15 +294,13 @@ so the user does not have to install them beforehand. If CMake finds already
 installed versions, it will use those instead of compiling new versions.
 
 
-### Options
+### CMake Otions
 
 Besides the Environment variables and Options listed above, additional
 options include:
 
-    use_cuda
-        Whether to use CUDA, if available. One of:
-        yes (default)
-        no
+    use_cuda [deprecated; use gpu_backend]
+    use_hip  [deprecated; use gpu_backend]
 
     CMAKE_CUDA_ARCHITECTURES
         CUDA architectures, as semi-colon delimited list of 2-digit numbers.
@@ -284,7 +311,11 @@ options include:
     use_mpi
         Whether to use MPI, if available. One of:
         yes (default)
-        no
+        no  (experimental)
+
+        NOTE: SLATE compiles without MPI, but not all routines operate
+        correctly. Also, the testers currently require ScaLAPACK, which
+        requires MPI, so testers will fail.
 
     use_openmp
         Whether to use OpenMP, if available. One of:

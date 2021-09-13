@@ -377,7 +377,7 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
     // triangle-triangle data copied in TT.
     if (debug) printf( "rank %2d, error norms\n", mpi_rank );
     real_t Anorm = slate::norm( slate::Norm::Fro, TT );
-    geadd( -one, TT, one, R );
+    add( -one, TT, one, R );
     if (verbose > 1) {
         print_matrix( "QR - A", R );
     }
@@ -394,7 +394,7 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
     // A0 - A should be 0 outside the triangle-triangle regions;
     // inside the TT regions, the values are meaningless.
     if (verbose > 1) {
-        geadd( -one, A, one, A0 );
+        add( -one, A, one, A0 );
         print_matrix( "Ainit - Ahat", A0 );
     }
 }
@@ -521,7 +521,7 @@ void test_unmqr_work( slate::Side side, slate::Op op, int m, int n, int k )
     // Relative error check.
     real_t Cnorm = slate::norm( slate::Norm::One, Cref );
     scalar_t one = 1;
-    slate::geadd( -one, Cref, one, C );
+    slate::add( -one, Cref, one, C );
     real_t error = slate::norm( slate::Norm::One, C ) / Cnorm;
     if (verbose >= 2) {
         print_matrix( "C - Cref",  C );

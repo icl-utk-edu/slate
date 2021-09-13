@@ -55,14 +55,11 @@ void hegst(slate::internal::TargetType<target>,
     uint8_t* column = column_vector.data();
 
     if (target == Target::Devices) {
-        const int64_t batch_size_zero = 0;
-        const int64_t num_arrays_two  = 2; // Number of kernels without lookahead
-        if (itype == 1) {
-            A.allocateBatchArrays(batch_size_zero, num_arrays_two);
-        }
-        else {
-            A.allocateBatchArrays();
-        }
+        // The work::trsm (itype=1) and work::trmm (itype=2,3)
+        // routines use 2 queues (queue 0,1). All other
+        // internal::routines here use the default queue (queue 0).
+        // So 2 queues need to be allocated.
+        A.allocateBatchArrays(0, 2); // (batch size, num_queues)
         A.reserveDeviceWorkspace();
     }
 
@@ -226,14 +223,7 @@ void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
                           HermitianMatrix<scalar_t>& B,
            Options const& opts)
 {
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range&) {
-        lookahead = 1;
-    }
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     internal::specialization::hegst(internal::TargetType<target>(),
                                     itype, A, B, lookahead);
@@ -300,13 +290,7 @@ void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
                           HermitianMatrix<scalar_t>& B,
            Options const& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:

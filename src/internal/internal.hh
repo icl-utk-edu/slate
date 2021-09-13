@@ -104,10 +104,28 @@ void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           int priority=0, int queue_index=0);
 
 //-----------------------------------------
+// scale()
+template <Target target=Target::HostTask, typename scalar_t>
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+           Matrix<scalar_t>&& A,
+           int priority=0, int queue_index=0);
+
+template <Target target=Target::HostTask, typename scalar_t>
+void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+           BaseTrapezoidMatrix<scalar_t>&& A,
+           int priority=0, int queue_index=0);
+
+//-----------------------------------------
+//
 // set()
 template <Target target=Target::HostTask, typename scalar_t>
 void set(scalar_t alpha, scalar_t beta,
          Matrix<scalar_t>&& A,
+         int priority=0, int queue_index=0);
+
+template <Target target=Target::HostTask, typename scalar_t>
+void set(scalar_t alpha, scalar_t beta,
+         BaseTrapezoidMatrix<scalar_t>&& A,
          int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
@@ -273,7 +291,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void trmm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
-          int priority=0);
+          int priority=0, int64_t queue_index=0);
 
 //-----------------------------------------
 // trsm()
@@ -313,45 +331,50 @@ void permuteRowsCols(
 //------------------------------------------------------------------------------
 // Other BLAS-like
 template <Target target=Target::HostTask, typename scalar_t>
-void geadd(scalar_t alpha, Matrix<scalar_t>&& A,
-           scalar_t beta,  Matrix<scalar_t>&& B,
-           int priority=0, int queue_index=0);
+void add(scalar_t alpha, Matrix<scalar_t>&& A,
+         scalar_t beta,  Matrix<scalar_t>&& B,
+         int priority=0, int queue_index=0);
+
+template <Target target=Target::HostTask, typename scalar_t>
+void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>&& A,
+         scalar_t beta,  BaseTrapezoidMatrix<scalar_t>&& B,
+         int priority=0, int queue_index=0);
 
 //------------------------------------------------------------------------------
-// Band reduction
+// Bidiagonal band reduction
 template <Target target, typename scalar_t>
 void gebr1(Matrix<scalar_t>&& A,
-           std::vector<scalar_t>& v1,
-           std::vector<scalar_t>& v2,
+           int64_t n1, scalar_t* v1,
+           int64_t n2, scalar_t* v2,
            int priority=0);
 
 template <Target target, typename scalar_t>
-void gebr2(std::vector<scalar_t> const& v1,
+void gebr2(int64_t n1, scalar_t* v1,
            Matrix<scalar_t>&& A,
-           std::vector<scalar_t>& v2,
+           int64_t n2, scalar_t* v2,
            int priority=0);
 
 template <Target target, typename scalar_t>
-void gebr3(std::vector<scalar_t> const& v1,
+void gebr3(int64_t n1, scalar_t* v1,
            Matrix<scalar_t>&& A,
-           std::vector<scalar_t>& v2,
+           int64_t n2, scalar_t* v2,
            int priority=0);
 
 //------------------------------------------------------------------------------
 // Tridiagonal band reduction
 template <Target target, typename scalar_t>
-void hebr1(HermitianMatrix<scalar_t>&& A,
-           std::vector<scalar_t>& v,
+void hebr1(int64_t n, scalar_t* v,
+           HermitianMatrix<scalar_t>&& A,
            int priority=0);
 
 template <Target target, typename scalar_t>
-void hebr2(std::vector<scalar_t>& v1,
+void hebr2(int64_t n1, scalar_t* v1,
+           int64_t n2, scalar_t* v2,
            Matrix<scalar_t>&& A,
-           std::vector<scalar_t>& v2,
            int priority=0);
 
 template <Target target, typename scalar_t>
-void hebr3(std::vector<scalar_t>& v,
+void hebr3(int64_t n, scalar_t* v,
            HermitianMatrix<scalar_t>&& A,
            int priority=0);
 
@@ -497,7 +520,8 @@ void unmqr(Side side, Op op,
            Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
-           Matrix<scalar_t>&& W);
+           Matrix<scalar_t>&& W,
+           int priority=0, int64_t queue_index=0);
 
 // unmlq()
 template <Target target=Target::HostTask, typename scalar_t>

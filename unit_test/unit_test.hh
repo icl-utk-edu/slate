@@ -18,6 +18,9 @@
 
 #include "slate/internal/mpi.hh"
 
+//------------------------------------------------------------------------------
+using llong = long long;
+
 //==============================================================================
 /// Exception class thrown by test_assert, test_assert_throw,
 /// test_assert_no_throw.

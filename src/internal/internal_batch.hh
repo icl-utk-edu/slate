@@ -31,7 +31,7 @@ inline CBLAS_TRANSPOSE cblas_trans_const(Op op)
         case Op::NoTrans:   return CblasNoTrans;
         case Op::Trans:     return CblasTrans;
         case Op::ConjTrans: return CblasConjTrans;
-        default: assert( false );
+        default: slate_error("unknown op");
     }
 }
 

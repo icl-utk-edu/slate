@@ -9,12 +9,9 @@ namespace slate {
 namespace lapack_api {
 
 // -----------------------------------------------------------------------------
-
 // Local function
 template <typename scalar_t>
 void slate_getrs(const char* transstr, const int n, const int nrhs, scalar_t* a, const int lda, int* ipiv, scalar_t* b, const int ldb, int* info);
-
-using llong = long long;
 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)

@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
+#include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "internal/Tile_tpmqrt.hh"
 #include "internal/internal.hh"
@@ -150,9 +150,7 @@ void unmqr(
                         j0 = i;
                         j1 = i;
                     }
-                    // Vs in first_indices (except the left-most one)
-                    // need three lives.
-                    if (i > k && std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end()) {
+                    if (std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end()) {
                         bcast_list_V_top.push_back(
                             {i, k, {C.sub(i0, i1, j0, j1)}});
                     }
@@ -161,7 +159,10 @@ void unmqr(
                             {i, k, {C.sub(i0, i1, j0, j1)}});
                     }
                 }
-                A.template listBcast(bcast_list_V_top, layout, 0, 3);
+                // V tiles in first_indices need up to 5 lives: 1 for ttmqr,
+                // 2 + extra 2 if mb > nb (trapezoid) for Vs in unmqr I-VTV^T.
+                // This may leak a few tiles that A.clearWorkspace will cleanup.
+                A.template listBcast(bcast_list_V_top, layout, 0, 5);
                 A.template listBcast(bcast_list_V, layout, 0, 2);
 
                 // Send Tlocal(i) across row C(i, 0:nt-1) or col C(0:mt-1, i).
@@ -253,6 +254,8 @@ void unmqr(
         #pragma omp taskwait
         C.tileUpdateAllOrigin();
     }
+
+    A.clearWorkspace();
     C.clearWorkspace();
 }
 
@@ -339,17 +342,12 @@ void unmqr(
     Matrix<scalar_t>& C,
     Options const& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
+        default:
             unmqr<Target::HostTask>(side, op, A, T, C, opts);
             break;
         case Target::HostNest:

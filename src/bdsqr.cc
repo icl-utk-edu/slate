@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-// #include "aux/Debug.hh"
+// #include "auxiliary/Debug.hh"
 #include "slate/Tile_blas.hh"
 #include "slate/TriangularBandMatrix.hh"
 #include "internal/internal.hh"
@@ -143,13 +143,7 @@ void bdsqr(lapack::Job jobu, lapack::Job jobvt,
            Matrix<scalar_t>& VT,
            Options const& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:

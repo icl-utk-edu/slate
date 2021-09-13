@@ -8,48 +8,44 @@
 
 #include "slate/enums.hh"
 
-#ifndef SLATE_NO_CUDA
+//------------------------------------------------------------------------------
+// Extend BLAS real_type to cover cuComplex and hipComplex.
+// todo: should we move it to BLAS++?
+//
+#if ! defined(SLATE_NO_CUDA)
     #include <cuComplex.h>
 
-//------------------------------------------------------------------------------
-// Extend BLAS real_type to cover cuComplex
-// todo: should we move it to BLAS++ or have a version for rocBLAS
-namespace blas {
+    namespace blas {
 
-template<>
-struct real_type_traits<cuFloatComplex> {
-    using real_t = float;
-};
+    template<>
+    struct real_type_traits<cuFloatComplex> {
+        using real_t = float;
+    };
 
-template<>
-struct real_type_traits<cuDoubleComplex> {
-    using real_t = double;
-};
+    template<>
+    struct real_type_traits<cuDoubleComplex> {
+        using real_t = double;
+    };
 
-} // namespace blas
+    } // namespace blas
 
-#endif // #ifndef SLATE_NO_CUDA
-
-/*
-*/
-#ifndef SLATE_NO_HIP
+#elif ! defined(SLATE_NO_HIP)
     #include <hip/hip_complex.h>
 
-namespace blas {
+    namespace blas {
 
-template<>
-struct real_type_traits<hipFloatComplex> {
-    using real_t = float;
-};
+    template<>
+    struct real_type_traits<hipFloatComplex> {
+        using real_t = float;
+    };
 
-template<>
-struct real_type_traits<hipDoubleComplex> {
-    using real_t = double;
-};
+    template<>
+    struct real_type_traits<hipDoubleComplex> {
+        using real_t = double;
+    };
 
-} // namespace blas
-
-#endif // #ifndef SLATE_NO_HIP
+    } // namespace blas
+#endif // #elif ! defined(SLATE_NO_HIP)
 
 namespace slate {
 
@@ -84,7 +80,40 @@ void geadd(
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
+void tzadd(
+     Uplo uplo,
+     int64_t m, int64_t n,
+     scalar_t alpha, scalar_t** Aarray, int64_t lda,
+     scalar_t beta, scalar_t** Barray, int64_t ldb,
+     int64_t batch_count, blas::Queue& queue);
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void gescale(
+    int64_t m, int64_t n,
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    scalar_t** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue);
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void tzscale(
+    Uplo uplo,
+    int64_t m, int64_t n,
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    scalar_t** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue);
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
 void geset(
+    int64_t m, int64_t n,
+    scalar_t alpha, scalar_t beta, scalar_t** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue);
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void tzset(
     int64_t m, int64_t n,
     scalar_t alpha, scalar_t beta, scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);

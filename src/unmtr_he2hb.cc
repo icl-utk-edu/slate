@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
+#include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "slate/Tile_blas.hh"
 #include "slate/TriangularMatrix.hh"
@@ -67,7 +67,8 @@ namespace slate {
 ///
 template <typename scalar_t>
 void unmtr_he2hb(
-    Side side, Op op, HermitianMatrix<scalar_t>& A,
+    Side side, Op op,
+    HermitianMatrix<scalar_t>& A,
     TriangularFactors<scalar_t> T,
     Matrix<scalar_t>& C,
     Options const& opts)
@@ -98,28 +99,32 @@ void unmtr_he2hb(
 // Explicit instantiations.
 template
 void unmtr_he2hb<float>(
-    Side side, Op op, HermitianMatrix<float>& A,
+    Side side, Op op,
+    HermitianMatrix<float>& A,
     TriangularFactors<float> T,
     Matrix<float>& C,
     Options const& opts);
 
 template
 void unmtr_he2hb<double>(
-    Side side, Op op, HermitianMatrix<double>& A,
+    Side side, Op op,
+    HermitianMatrix<double>& A,
     TriangularFactors<double> T,
     Matrix<double>& C,
     Options const& opts);
 
 template
 void unmtr_he2hb<std::complex<float>>(
-    Side side, Op op, HermitianMatrix<std::complex<float>>& A,
+    Side side, Op op,
+    HermitianMatrix<std::complex<float>>& A,
     TriangularFactors<std::complex<float> > T,
     Matrix< std::complex<float> >& C,
     Options const& opts);
 
 template
 void unmtr_he2hb<std::complex<double>>(
-    Side side, Op op, HermitianMatrix<std::complex<double>>& A,
+    Side side, Op op,
+    HermitianMatrix<std::complex<double>>& A,
     TriangularFactors<std::complex<double>> T,
     Matrix<std::complex<double>>& C,
     Options const& opts);

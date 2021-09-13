@@ -62,9 +62,7 @@ void he2hb(slate::internal::TargetType<target>,
 
     // Use W(0, 0) for TVAVT, since W(0, 0) is never used otherwise.
     W.tileInsert(0, 0);
-    // use TVAVT = W.sub(0, 0, 0, 0)
-    auto TVAVT = W(0, 0);
-    TVAVT.uplo(Uplo::General);
+    auto TVAVT = W.sub(0, 0, 0, 0);
 
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -292,8 +290,6 @@ void he2hb(slate::internal::TargetType<target>,
                             W.sub(k+1, nt-1, k, k),
                             Tlocal.sub(i0, i0, k, k),
                             indices2, &row[k+1]);
-                        auto Wnt1 = W.sub(k+1, nt-1, k, k);
-                        Wnt1.tileUpdateAllOrigin();
 
                     if (A.tileIsLocal(i0, i0)) {
                         //--------------------
@@ -309,7 +305,7 @@ void he2hb(slate::internal::TargetType<target>,
                         // 1b. TVAVT = V^H (AVT) = V^H W.
                         // Call internal::geset
                         W.tileGetForWriting(0, 0, W.hostNum(), LayoutConvert(layout));
-                        TVAVT.set(zero);
+                        TVAVT(0, 0).set(zero);
 
                         auto AT = conjTranspose(A.sub(k+1, nt-1, k, k));
                         internal::he2hb_gemm<target>(
@@ -343,10 +339,6 @@ void he2hb(slate::internal::TargetType<target>,
                         trmm(Side::Left, Diag::NonUnit,
                              one, conjTranspose(Tk0(0, 0)), std::move(TVAVT0(0, 0)));
                         #pragma omp taskwait
-                        //W00.tileUpdateAllOrigin();
-                        //TVAVT0.tileUpdateOrigin(0, 0);
-                        //W.tileGetForReading(0, 0, W.hostNum(), LayoutConvert(layout));
-
 
                         //#pragma omp task depend(in:block[k]) depend(inout:block[0])
                         //internal::trmm<Target::HostTask>(
@@ -356,7 +348,6 @@ void he2hb(slate::internal::TargetType<target>,
 
                         // 1d. W = W - 0.5 V TVAVT.
                         // Technically, could do a hemm here since TVAVT is Hermitian.
-                        //todo: use Debug class to check
                         internal::he2hb_gemm<target>(
                                         -half, A.sub(k+1, nt-1, k, k),
                                                   W.sub(0, 0, 0, 0),
@@ -365,7 +356,6 @@ void he2hb(slate::internal::TargetType<target>,
                                         &block[0], &row[k+1]);
 
                         // 2. Update trailing matrix.
-                        // todo: use debug class to check why //A.tileTick(i, 0) is needed?
                         #pragma omp taskwait
                         internal::her2k<target>(
                                         -one,  A.sub(k+1, nt-1, k, k),

@@ -54,7 +54,7 @@ void test_copy_work(Params& params, bool run)
 
     if (! run)
         return;
- 
+
     slate::Options const opts =  {
         {slate::Option::Target, target}
     };
@@ -106,10 +106,10 @@ void test_copy_work(Params& params, bool run)
         Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
                    m,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         slate::add(one, A, zero, Aref);
-	//
+        //
         Bref_data.resize( lldB*nlocB );
         Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                   m,  n, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);	
+                   m,  n, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     }
 
     if (verbose > 1) {
@@ -181,14 +181,14 @@ void test_copy_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-            scalapack_placpy(uplo2str(uplo), m, n, &Aref_data[0], 1, 1, A_desc, 
+            scalapack_placpy(uplo2str(uplo), m, n, &Aref_data[0], 1, 1, A_desc,
                                                    &Bref_data[0], 1, 1, B_desc);
 
             slate_assert(info == 0);
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            if (verbose >= 2) {   
+            if (verbose >= 2) {
                 print_matrix("Bref", mlocB, nlocA, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD);
             }
 
@@ -216,10 +216,6 @@ void test_copy_work(Params& params, bool run)
             params.error() = errorA + errorB;
 
             slate_set_num_blas_threads(saved_num_threads);
-
-            real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
-            // Allow for difference
-            params.okay() = (params.error() <= tol);
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering

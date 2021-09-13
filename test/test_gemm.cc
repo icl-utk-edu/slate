@@ -209,9 +209,9 @@ void test_gemm_work(Params& params, bool run)
         slate::multiply( alpha, A, Z, one, Y, opts );
     }
 
-    print_matrix( verbose, "A", A );
-    print_matrix( verbose, "B", B );
-    print_matrix( verbose, "C", C );
+    print_matrix( params, "A", A );
+    print_matrix( params, "B", B );
+    print_matrix( params, "C", C );
 
     // compute and save timing/performance
     double gflop = blas::Gflop<scalar_t>::gemm(m, n, k);
@@ -245,7 +245,7 @@ void test_gemm_work(Params& params, bool run)
 
         if (verbose >= 2) {
             C.tileGetAllForReading(C.hostNum(), slate::LayoutConvert::None);
-            print_matrix( verbose, "C2", C );
+            print_matrix( params, "C_out", C );
         }
 
         // compute and save timing/performance
@@ -313,7 +313,7 @@ void test_gemm_work(Params& params, bool run)
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
             print_matrix(
-                verbose,
+                params,
                 "Cref", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
 
             //==================================================
@@ -329,13 +329,13 @@ void test_gemm_work(Params& params, bool run)
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             print_matrix(
-                verbose,
-                "Cref2", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
+                params,
+                "Cref_out", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
 
             // get differences C = C - Cref
             slate::add(-one, Cref, one, C);
 
-            print_matrix(verbose, "Diff", C);
+            print_matrix(params, "Diff", C);
 
             // norm(C - Cref)
             real_t C_diff_norm = slate::norm(norm, C);

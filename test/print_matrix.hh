@@ -10,6 +10,7 @@
 #include "slate/Matrix.hh"
 #include "slate/BaseTrapezoidMatrix.hh"
 #include "slate/BandMatrix.hh"
+#include "test.hh"
 
 #include "blas.hh"
 
@@ -131,19 +132,22 @@ void print_matrix(
 ///
 template <typename scalar_t>
 void print_matrix(
-    int verbose,
+    slate::Options const& opts,
     const char* label,
     int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
     int p, int q, MPI_Comm comm,
     int width=12, int precision=6 )
 {
+    int64_t verbose = opts.at(slate::Option::PrintVerbose).i_;
+    int64_t edgeitems = opts.at(slate::Option::PrintEdgeItems).i_;
+    int64_t threshold = opts.at(slate::Option::PrintThreshold).i_;
     if ((verbose != 2) ||
         (verbose != 3) ||
         (verbose != 4))
         return;
 
-    const int64_t abbrev_rows = 5;
-    const int64_t abbrev_cols = 5;
+    const int64_t abbrev_rows = edgeitems;
+    const int64_t abbrev_cols = edgeitems;
 
     int mpi_rank;
     MPI_Comm_rank(comm, &mpi_rank);
@@ -163,12 +167,13 @@ void print_matrix(
                          "%% ScaLAPACK matrix\n"
                          "%s%d_%d = [\n", label, prow, pcol);
                 msg += buf;
-                if (verbose == 2) {
+                int64_t size = mlocal * nlocal;
+                if (verbose == 2 && size > threshold) {
                     //first abbrev_rows
                     int64_t max_rows = (mlocal < abbrev_rows ? mlocal : abbrev_rows);
                     int64_t max_cols = (nlocal < abbrev_cols ? nlocal : abbrev_cols);
                     int64_t start_col = ((nlocal - abbrev_cols) < abbrev_cols ?
-                                        abbrev_cols : nlocal - abbrev_cols);
+                                         abbrev_cols : nlocal - abbrev_cols);
                     for (int64_t i = 0; i < max_rows; ++i) {
                         //first abbrev_cols
                         for (int64_t j = 0; j < max_cols; ++j) {
@@ -190,7 +195,7 @@ void print_matrix(
                         msg += "...\n";
                     //last abbrev_rows
                     int64_t start_row = (mlocal - abbrev_rows < abbrev_rows ?
-                                        abbrev_rows : mlocal-abbrev_rows);
+                                         abbrev_rows : mlocal-abbrev_rows);
                     for (int64_t i = start_row; i < mlocal; ++i) {
                         //first abbrev_cols
                         for (int64_t j = 0; j < max_cols; ++j) {
@@ -210,7 +215,7 @@ void print_matrix(
                     }
                     msg += "];\n\n";
                 }
-                else if (verbose == 3 || verbose == 4) {
+                else if (verbose == 2 || verbose == 3 || verbose == 4) {
                     int64_t row_step = (verbose == 3 ? mlocal - 1 : 1);
                     int64_t col_step = (verbose == 3 ? nlocal - 1 : 1);
                     for (int64_t i = 0; i < mlocal; i += row_step) {
@@ -266,10 +271,34 @@ void print_matrix(
     int p, int q, MPI_Comm comm,
     int width=12, int precision=6 )
 {
-    int verbose = 4;
-    print_matrix( verbose, label, mlocal, nlocal, A, lda, p, q, comm, width, precision );
+    //Set defaults
+    const slate::Options opts = {
+        { slate::Option::PrintVerbose, 4 } //default 4 prints full matrix
+     };
+
+    print_matrix( opts, label, mlocal, nlocal, A, lda, p, q, comm, width, precision );
 }
 
+//------------------------------------------------------------------------------
+/// Print a ScaLAPACK distributed matrix.
+/// Prints each rank's data as a contiguous block, numbered by the block row &
+/// column indices. Rank 0 does the printing.
+///
+template <typename scalar_t>
+void print_matrix(
+    Params& params,
+    const char* label,
+    int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
+    int p, int q, MPI_Comm comm,
+    int width=12, int precision=6 )
+{
+    const slate::Options opts = {
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+        { slate::Option::PrintThreshold, params.print_threshold() },
+     };
+    print_matrix( opts, label, mlocal, nlocal, A, lda, p, q, comm, width, precision );
+}
 
 //------------------------------------------------------------------------------
 /// Sends tiles A(i, j) and receives it on rank 0.
@@ -322,15 +351,20 @@ void send_recv_tile(
 ///
 template <typename scalar_t>
 std::string tile_row_string(
-    int verbose,
+    slate::Options const& opts,
     slate::BaseMatrix<scalar_t>& A, int64_t i, int64_t j, int64_t ti,
     int width, int precision,
-    const char* opposite="")
+    const char* opposite="",
+    bool bLastAbbrevCols = false)
 {
+
+    int64_t verbose = opts.at(slate::Option::PrintVerbose).i_;
+    int64_t edgeitems = opts.at(slate::Option::PrintEdgeItems).i_;
+    int64_t threshold = opts.at(slate::Option::PrintThreshold).i_;
     if (verbose == 0)
         return std::string("");
 
-    const int64_t abbrev_cols = 5;
+    const int64_t abbrev_cols = edgeitems;
 
     using real_t = blas::real_type<scalar_t>;
 
@@ -341,9 +375,10 @@ std::string tile_row_string(
     std::string msg;
     try {
         auto T = A(i, j);
-        if (verbose == 2) {
+        int64_t size = A.tileMb(j) * A.tileNb(j);
+        if (! bLastAbbrevCols && verbose == 2 && size > threshold) {
             //first abbrev_cols
-            int64_t max_cols = (A.tileNb(j) < abbrev_cols ? A.tileNb(j) : abbrev_cols);
+            int64_t max_cols = std::min( A.tileNb(j), abbrev_cols );
             for (int64_t tj = 0; tj < max_cols; ++tj) {
                 slate::Uplo uplo = T.uplo();
                 if ((uplo == slate::Uplo::General) ||
@@ -359,10 +394,9 @@ std::string tile_row_string(
                 }
             }
         }
-        else if (verbose == 22) {
+        else if (bLastAbbrevCols && verbose == 2 && size > threshold) {
             //last abbrev_cols
-            int64_t start_col = ((A.tileNb(j) - abbrev_cols) < abbrev_cols ?
-                                abbrev_cols : A.tileNb(j) - abbrev_cols);
+            int64_t start_col = std::max( A.tileNb(j) - abbrev_cols, abbrev_cols );
             for (int64_t tj = start_col; tj < A.tileNb(j); ++tj) {
                 slate::Uplo uplo = T.uplo();
                 if ((uplo == slate::Uplo::General) ||
@@ -420,9 +454,12 @@ std::string tile_row_string(
     int width, int precision,
     const char* opposite="")
 {
-    int verbose = 4;
-    return tile_row_string( verbose, A, i, j, ti, width, precision, opposite );
+    const slate::Options opts = {
+        { slate::Option::PrintVerbose, 4 } //default 4 prints full matrix
+    };
+    return tile_row_string( opts, A, i, j, ti, width, precision, opposite );
 }
+
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed matrix.
 /// Rank 0 does the printing, and must have enough memory to fit one entire
@@ -431,15 +468,19 @@ std::string tile_row_string(
 ///
 template <typename scalar_t>
 void print_matrix(
-    int verbose,
+    slate::Options const& opts,
     const char* label,
     slate::Matrix<scalar_t>& A,
     int width=12, int precision=6 )
 {
+    int64_t verbose = opts.at(slate::Option::PrintVerbose).i_;
+    int64_t edgeitems = opts.at(slate::Option::PrintEdgeItems).i_;
+    int64_t threshold = opts.at(slate::Option::PrintThreshold).i_;
     if (verbose == 0)
         return;
 
-    const int64_t abbrev_rows = 5;
+    const int64_t abbrev_rows = edgeitems;
+    const int64_t abbrev_cols = edgeitems;
 
     int mpi_rank = A.mpiRank();
     MPI_Comm comm = A.mpiComm();
@@ -463,7 +504,8 @@ void print_matrix(
 
     int64_t tile_row_step = 1;
     int64_t tile_col_step = 1;
-    if (verbose == 2) {
+    int64_t size = A.m() * A.n();
+    if (verbose == 2 && size > threshold) {
         tile_row_step = (A.mt() > 1 ? A.mt()-1 : 1);
         tile_col_step = (A.nt() > 1 ? A.nt()-1 : 1);
     }
@@ -477,7 +519,7 @@ void print_matrix(
 
         if (mpi_rank == 0) {
             // print block row
-            if (verbose == 2) {
+            if (verbose == 2 && size > threshold) {
                 //only first & last abbrev_rows & abbrev_cols
                 //(of 1st & last block-row & block-col)
                 //so just the 4 corner tiles:
@@ -487,48 +529,55 @@ void print_matrix(
 
                 if (i == 0) { //first row tile
                     //first abbrev_rows
-                    int64_t max_rows = (A.tileMb(i) < abbrev_rows ?
-                                       A.tileMb(i) : abbrev_rows);
+                    int64_t max_rows = std::min( A.tileMb(i), abbrev_rows );
                     for (int64_t ti = 0; ti < max_rows; ++ti) {
                         //first column tile
                         int64_t j = 0;
-                        msg += tile_row_string(verbose, A, i, j, ti, width, precision);
-                        msg += "...";
-                        msg += "    ";
+                        msg += tile_row_string(opts, A, i, j, ti, width, precision);
+                        if (A.n() > 2 * abbrev_cols)
+                            msg += "..."; // column abbreviation indicator
                         //last column tile
                         j = A.nt()-1;
-                        msg += tile_row_string(22, A, i, j, ti, width, precision);
+                        if (j>0)
+                            msg += "    "; //space between column tiles
+                        msg += tile_row_string(opts, A, i, j, ti,
+                                            width, precision, "", true);
                         msg += "\n";
                     }
                 }
                 if (i == A.mt()-1) { //last row tile
-                    if ((i == 0 && A.tileMb(i) > 2 * abbrev_rows) || (i > 0))
-                            msg += "...\n";
+                    if (A.m() > 2 * abbrev_rows)
+                            msg += "...\n"; // row abbreviation indicator
+                    if ( i > 0 )
+                        msg += "\n"; // line between row tiles
+
                     //last abbrev_rows
-                    int64_t start_row = (A.tileMb(i) - abbrev_rows < abbrev_rows ?
-                                        0 : A.tileMb(i)-abbrev_rows);
+                    int64_t start_row = blas::max( 0, A.tileMb(i) - abbrev_rows);
                     for (int64_t ti = start_row; ti < A.tileMb(i); ++ti) {
                         //first column tile
                         int64_t j = 0;
-                        msg += tile_row_string(verbose, A, i, j, ti, width, precision);
-                        msg += "...";
-                        msg += "    ";
+                        msg += tile_row_string(opts, A, i, j, ti, width, precision);
+                        if (A.n() > 2 * abbrev_cols)
+                            msg += "..."; // column abbreviation indicator
                         //last column tile
                         j = A.nt()-1;
-                        msg += tile_row_string(22, A, i, j, ti, width, precision);
+                        if (j>0)
+                            msg += "    "; //space between column tiles
+                        msg += tile_row_string(opts, A, i, j, ti,
+                                            width, precision, "", true);
                         msg += "\n";
-                    }
+                     }
                     msg += "];\n";
                 }
             }
-            else if (verbose == 3 || verbose == 4) {
+            else if (verbose == 2 || verbose == 3 || verbose == 4) {
                 int64_t row_step = (verbose == 3 ? A.tileMb(i) - 1 : 1);
                 for (int64_t ti = 0; ti < A.tileMb(i); ti += row_step) {
                     // for verbose=3 only rows ti = 0 and ti = tileMb-1
                     for (int64_t j = 0; j < A.nt(); ++j) {
-                        msg += tile_row_string(verbose, A, i, j, ti, width, precision);
+                        msg += tile_row_string(opts, A, i, j, ti, width, precision);
                         if (j < A.nt() - 1)
-                            msg += "    ";
+                            msg += "    "; //space between column tiles
                         else
                             msg += "\n";
                     }
@@ -537,7 +586,7 @@ void print_matrix(
 
             if (verbose != 2) {
                 if (i < A.mt() - 1)
-                    msg += "\n";
+                    msg += "\n"; // line between row tiles
                 else
                     msg += "];\n";
             }
@@ -567,8 +616,33 @@ void print_matrix(
     const char* label,
     slate::Matrix<scalar_t>& A, int width = 10, int precision = 6)
 {
-    int verbose = 4;
-    print_matrix( verbose, label, A, width, precision );
+    //Set defaults
+    const slate::Options opts = {
+        { slate::Option::PrintVerbose, 4 } //default 4 prints full matrix
+    };
+
+    print_matrix( opts, label, A, width, precision );
+}
+
+//------------------------------------------------------------------------------
+/// Print a SLATE distributed matrix.
+/// Rank 0 does the printing, and must have enough memory to fit one entire
+/// block row of the matrix.
+/// For block-sparse matrices, missing tiles are print as "nan".
+///
+template <typename scalar_t>
+void print_matrix(
+    Params& params,
+    const char* label,
+    slate::Matrix<scalar_t>& A, int width = 10, int precision = 6)
+{
+    const slate::Options opts = {
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+        { slate::Option::PrintThreshold, params.print_threshold() },
+     };
+
+    print_matrix( opts, label, A, width, precision );
 }
 
 //------------------------------------------------------------------------------

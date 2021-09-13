@@ -53,6 +53,13 @@ enum class Option : char {
     MaxPanelThreads,    ///< max number of threads for panel, >= 1
     Tolerance,          ///< tolerance for iterative methods, default epsilon
     Target,             ///< computation method (@see Target)
+    PrintVerbose,       ///< verbose, >= 0: no output,
+                        ///< verbose, >= 1: metadata only,
+                        ///< verbose, >= 2: first & last edgeitems rows & cols,
+                        ///< verbose, >= 3: 4 corners of every tile
+                        ///< verbose, >= 4: full matrix
+    PrintEdgeItems,     ///< edgeitems, >= 16: first & last 16 rows & cols
+    PrintThreshold,     ///< threshold, >= 1024: full 32x32 matrix
 };
 
 //------------------------------------------------------------------------------

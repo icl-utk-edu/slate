@@ -69,159 +69,159 @@ std::vector< testsweeper::routines_t > routines = {
     // -----
     // Level 3 BLAS
     { "gemm",               test_gemm,         Section::blas3 },
-    { "gemmA",              test_gemm,         Section::blas3 },
-    { "gbmm",               test_gbmm,         Section::blas3 },
-    { "",                   nullptr,           Section::newline },
+    // { "gemmA",              test_gemm,         Section::blas3 },
+    // { "gbmm",               test_gbmm,         Section::blas3 },
+    { "",                   nullptr,           Section::newline }
 
-    { "hemm",               test_hemm,         Section::blas3 },
-    { "hbmm",               test_hbmm,         Section::blas3 },
-    { "herk",               test_herk,         Section::blas3 },
-    { "her2k",              test_her2k,        Section::blas3 },
-    { "",                   nullptr,           Section::newline },
+    // { "hemm",               test_hemm,         Section::blas3 },
+    // { "hbmm",               test_hbmm,         Section::blas3 },
+    // { "herk",               test_herk,         Section::blas3 },
+    // { "her2k",              test_her2k,        Section::blas3 },
+    // { "",                   nullptr,           Section::newline },
 
-    { "symm",               test_symm,         Section::blas3 },
-    { "syrk",               test_syrk,         Section::blas3 },
-    { "syr2k",              test_syr2k,        Section::blas3 },
-    { "",                   nullptr,           Section::newline },
+    // { "symm",               test_symm,         Section::blas3 },
+    // { "syrk",               test_syrk,         Section::blas3 },
+    // { "syr2k",              test_syr2k,        Section::blas3 },
+    // { "",                   nullptr,           Section::newline },
 
-    { "trmm",               test_trmm,         Section::blas3 },
-    { "trsm",               test_trsm,         Section::blas3 },
-    { "tbsm",               test_tbsm,         Section::blas3 },
+    // { "trmm",               test_trmm,         Section::blas3 },
+    // { "trsm",               test_trsm,         Section::blas3 },
+    // { "tbsm",               test_tbsm,         Section::blas3 },
 
-    // -----
-    // LU
-    { "gesv",               test_gesv,         Section::gesv },
-    { "gesv_nopiv",         test_gesv,         Section::gesv },
-    { "gesvMixed",          test_gesv,         Section::gesv },
-    { "gbsv",               test_gbsv,         Section::gesv },
-    { "",                   nullptr,           Section::newline },
+    // // -----
+    // // LU
+    // { "gesv",               test_gesv,         Section::gesv },
+    // { "gesv_nopiv",         test_gesv,         Section::gesv },
+    // { "gesvMixed",          test_gesv,         Section::gesv },
+    // { "gbsv",               test_gbsv,         Section::gesv },
+    // { "",                   nullptr,           Section::newline },
 
-    { "getrf",              test_gesv,          Section::gesv },
-    { "getrf_nopiv",        test_gesv,          Section::gesv },
-    { "gbtrf",              test_gbsv,          Section::gesv },
-    { "",                   nullptr,            Section::newline },
+    // { "getrf",              test_gesv,          Section::gesv },
+    // { "getrf_nopiv",        test_gesv,          Section::gesv },
+    // { "gbtrf",              test_gbsv,          Section::gesv },
+    // { "",                   nullptr,            Section::newline },
 
-    { "getrs",              test_gesv,         Section::gesv },
-    { "getrs_nopiv",        test_gesv,         Section::gesv },
-    { "gbtrs",              test_gbsv,         Section::gesv },
-    { "",                   nullptr,           Section::newline },
+    // { "getrs",              test_gesv,         Section::gesv },
+    // { "getrs_nopiv",        test_gesv,         Section::gesv },
+    // { "gbtrs",              test_gbsv,         Section::gesv },
+    // { "",                   nullptr,           Section::newline },
 
-    { "getri",              test_getri,        Section::gesv },
-    { "getriOOP",           test_getri,        Section::gesv },
-    { "",                   nullptr,           Section::newline },
+    // { "getri",              test_getri,        Section::gesv },
+    // { "getriOOP",           test_getri,        Section::gesv },
+    // { "",                   nullptr,           Section::newline },
 
-    { "trtri",              test_trtri,        Section::gesv },
-    { "",                   nullptr,           Section::newline },
+    // { "trtri",              test_trtri,        Section::gesv },
+    // { "",                   nullptr,           Section::newline },
 
-    // -----
-    // Cholesky
-    { "posv",               test_posv,         Section::posv },
-    { "posvMixed",          test_posv,         Section::posv },
-    { "pbsv",               test_pbsv,         Section::posv },
-    { "",                   nullptr,           Section::newline },
+    // // -----
+    // // Cholesky
+    // { "posv",               test_posv,         Section::posv },
+    // { "posvMixed",          test_posv,         Section::posv },
+    // { "pbsv",               test_pbsv,         Section::posv },
+    // { "",                   nullptr,           Section::newline },
 
-    { "potrf",              test_posv,         Section::posv },
-    { "pbtrf",              test_pbsv,         Section::posv },
-    { "",                   nullptr,           Section::newline },
+    // { "potrf",              test_posv,         Section::posv },
+    // { "pbtrf",              test_pbsv,         Section::posv },
+    // { "",                   nullptr,           Section::newline },
 
-    { "potrs",              test_posv,         Section::posv },
-    { "pbtrs",              test_pbsv,         Section::posv },
-    { "",                   nullptr,           Section::newline },
+    // { "potrs",              test_posv,         Section::posv },
+    // { "pbtrs",              test_pbsv,         Section::posv },
+    // { "",                   nullptr,           Section::newline },
 
-    { "potri",              test_potri,        Section::posv },
-    { "",                   nullptr,           Section::newline },
+    // { "potri",              test_potri,        Section::posv },
+    // { "",                   nullptr,           Section::newline },
 
-    // -----
-    // symmetric indefinite
-    //{ "sysv",                test_sysv,         Section::sysv },
-    //{ "",                    nullptr,           Section::newline },
+    // // -----
+    // // symmetric indefinite
+    // //{ "sysv",                test_sysv,         Section::sysv },
+    // //{ "",                    nullptr,           Section::newline },
 
-    //{ "sytrf",               test_sytrf,        Section::sysv },
-    //{ "",                    nullptr,           Section::newline },
+    // //{ "sytrf",               test_sytrf,        Section::sysv },
+    // //{ "",                    nullptr,           Section::newline },
 
-    //{ "sytrs",               test_sytrs,        Section::sysv },
-    //{ "",                    nullptr,           Section::newline },
+    // //{ "sytrs",               test_sytrs,        Section::sysv },
+    // //{ "",                    nullptr,           Section::newline },
 
-    // -----
-    // Hermitian indefinite
-    { "hesv",                test_hesv,         Section::hesv },
-    { "",                    nullptr,           Section::newline },
+    // // -----
+    // // Hermitian indefinite
+    // { "hesv",                test_hesv,         Section::hesv },
+    // { "",                    nullptr,           Section::newline },
 
-    { "hetrf",               test_hesv,         Section::hesv },
-    { "",                    nullptr,           Section::newline },
+    // { "hetrf",               test_hesv,         Section::hesv },
+    // { "",                    nullptr,           Section::newline },
 
-    { "hetrs",               test_hesv,         Section::hesv },
-    { "",                    nullptr,           Section::newline },
+    // { "hetrs",               test_hesv,         Section::hesv },
+    // { "",                    nullptr,           Section::newline },
 
-    // -----
-    // least squares
-    { "gels",                test_gels,         Section::gels },
-    { "",                    nullptr,           Section::newline },
+    // // -----
+    // // least squares
+    // { "gels",                test_gels,         Section::gels },
+    // { "",                    nullptr,           Section::newline },
 
-    // -----
-    // QR, LQ, RQ, QL
-    { "geqrf",              test_geqrf,     Section::qr },
-    { "gelqf",              test_gelqf,     Section::qr },
-    //{ "geqlf",              test_geqlf,     Section::qr },
-    //{ "gerqf",              test_gerqf,     Section::qr },
-    { "",                   nullptr,        Section::newline },
+    // // -----
+    // // QR, LQ, RQ, QL
+    // { "geqrf",              test_geqrf,     Section::qr },
+    // { "gelqf",              test_gelqf,     Section::qr },
+    // //{ "geqlf",              test_geqlf,     Section::qr },
+    // //{ "gerqf",              test_gerqf,     Section::qr },
+    // { "",                   nullptr,        Section::newline },
 
-    //{ "ungqr",              test_ungqr,     Section::qr },
-    //{ "unglq",              test_unglq,     Section::qr },
-    //{ "ungql",              test_ungql,     Section::qr },
-    //{ "ungrq",              test_ungrq,     Section::qr },
-    //{ "",                   nullptr,        Section::newline },
+    // //{ "ungqr",              test_ungqr,     Section::qr },
+    // //{ "unglq",              test_unglq,     Section::qr },
+    // //{ "ungql",              test_ungql,     Section::qr },
+    // //{ "ungrq",              test_ungrq,     Section::qr },
+    // //{ "",                   nullptr,        Section::newline },
 
-    //{ "unmqr",              test_unmqr,     Section::qr },
-    //{ "unmlq",              test_unmlq,     Section::qr },
-    //{ "unmql",              test_unmql,     Section::qr },
-    //{ "unmrq",              test_unmrq,     Section::qr },
-    //{ "",                   nullptr,        Section::newline },
+    // //{ "unmqr",              test_unmqr,     Section::qr },
+    // //{ "unmlq",              test_unmlq,     Section::qr },
+    // //{ "unmql",              test_unmql,     Section::qr },
+    // //{ "unmrq",              test_unmrq,     Section::qr },
+    // //{ "",                   nullptr,        Section::newline },
 
-    // -----
-    // symmetric/Hermitian eigenvalues
-    { "heev",               test_heev,         Section::heev },
-    { "he2hb",              test_he2hb,        Section::heev },
-    { "unmtr_he2hb",        test_unmtr_he2hb,  Section::heev },
-    { "hb2st",              test_hb2st,        Section::heev },
-    { "sterf",              test_sterf,        Section::heev },
-    { "steqr2",             test_steqr2,       Section::heev },
-    { "",                   nullptr,           Section::newline },
+    // // -----
+    // // symmetric/Hermitian eigenvalues
+    // { "heev",               test_heev,         Section::heev },
+    // { "he2hb",              test_he2hb,        Section::heev },
+    // { "unmtr_he2hb",        test_unmtr_he2hb,  Section::heev },
+    // { "hb2st",              test_hb2st,        Section::heev },
+    // { "sterf",              test_sterf,        Section::heev },
+    // { "steqr2",             test_steqr2,       Section::heev },
+    // { "",                   nullptr,           Section::newline },
 
-    // -----
-    // generalized symmetric/Hermitian eigenvalues
-    { "hegv",               test_hegv,         Section::sygv },
-    { "hegst",              test_hegst,        Section::sygv },
-    { "",                   nullptr,           Section::newline },
+    // // -----
+    // // generalized symmetric/Hermitian eigenvalues
+    // { "hegv",               test_hegv,         Section::sygv },
+    // { "hegst",              test_hegst,        Section::sygv },
+    // { "",                   nullptr,           Section::newline },
 
-    // -----
-    // non-symmetric eigenvalues
+    // // -----
+    // // non-symmetric eigenvalues
 
-    // -----
-    // SVD
-    { "gesvd",              test_gesvd,        Section::svd },
-    { "ge2tb",              test_ge2tb,        Section::svd },
-    { "tb2bd",              test_tb2bd,        Section::svd },
-    { "bdsqr",              test_bdsqr,        Section::svd },
-    { "",                   nullptr,           Section::newline },
+    // // -----
+    // // SVD
+    // { "gesvd",              test_gesvd,        Section::svd },
+    // { "ge2tb",              test_ge2tb,        Section::svd },
+    // { "tb2bd",              test_tb2bd,        Section::svd },
+    // { "bdsqr",              test_bdsqr,        Section::svd },
+    // { "",                   nullptr,           Section::newline },
 
-    // -----
-    // matrix norms
-    { "genorm",             test_genorm,       Section::aux_norm },
-    { "gbnorm",             test_gbnorm,       Section::aux_norm },
-    { "",                   nullptr,           Section::newline },
+    // // -----
+    // // matrix norms
+    // { "genorm",             test_genorm,       Section::aux_norm },
+    // { "gbnorm",             test_gbnorm,       Section::aux_norm },
+    // { "",                   nullptr,           Section::newline },
 
-    { "henorm",             test_henorm,       Section::aux_norm },
-    { "hbnorm",             test_hbnorm,       Section::aux_norm },
-    { "synorm",             test_synorm,       Section::aux_norm },
-    { "",                   nullptr,           Section::newline },
+    // { "henorm",             test_henorm,       Section::aux_norm },
+    // { "hbnorm",             test_hbnorm,       Section::aux_norm },
+    // { "synorm",             test_synorm,       Section::aux_norm },
+    // { "",                   nullptr,           Section::newline },
 
-    { "trnorm",             test_trnorm,       Section::aux_norm },
-    { "",                   nullptr,           Section::newline },
-    // -----
-    // auxiliary
-    { "scale",              test_scale,        Section::aux },
-    { "",                   nullptr,           Section::newline },
+    // { "trnorm",             test_trnorm,       Section::aux_norm },
+    // { "",                   nullptr,           Section::newline },
+    // // -----
+    // // auxiliary
+    // { "scale",              test_scale,        Section::aux },
+    // { "",                   nullptr,           Section::newline },
 };
 
 // -----------------------------------------------------------------------------
@@ -249,6 +249,8 @@ Params::Params():
     tol       ("tol",     0, 0, ParamType::Value,  50,   1, 1000, "tolerance (e.g., error < tol*epsilon to pass)"),
     repeat    ("repeat",  0,    ParamType::Value,   1,   1, 1000, "number of times to repeat each test"),
     verbose   ("verbose", 0,    ParamType::Value,   0,   0,   10, "verbose level"),
+    print_edgeitems ("print_edgeitems", 0,    ParamType::Value,   16,   1,   10, "edgeitems"), //16 prints first & last 16 rows & cols
+    print_threshold ("print_threshold", 0,    ParamType::Value,   1024,   4,   16384, "threshold"), //1024 prints full 32x32 matrix
     extended  ("extended",0,    ParamType::Value,   0,   0,   10, "extended tests"),
     cache     ("cache",   0,    ParamType::Value,  20,   1, 1024, "total cache size, in MiB"),
 
@@ -369,6 +371,8 @@ Params::Params():
     verbose();
     cache();
     debug();
+    print_edgeitems();
+    print_threshold();
 
     //  change names of grid elements
     grid.names("p", "q");

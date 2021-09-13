@@ -33,7 +33,7 @@ void test_set_work(Params& params, bool run)
     // get & mark input values
     scalar_t alpha = params.alpha.get<real_t>();
     scalar_t beta = params.beta.get<real_t>();
-    slate::Uplo uplo = slate::Uplo::General;    
+    slate::Uplo uplo = slate::Uplo::General;
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     int64_t nb = params.nb();
@@ -100,7 +100,7 @@ void test_set_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         // Set A by alpha on off-diagonal entries
-	//           beta on the diagonal entries.
+        //           beta on the diagonal entries.
         //==================================================
         double time = barrier_get_wtime(MPI_COMM_WORLD);
 
@@ -120,7 +120,7 @@ void test_set_work(Params& params, bool run)
 
     if (check || ref) {
         #ifdef SLATE_HAVE_SCALAPACK
-	    real_t norm = slate::norm(slate::Norm::One, A);
+            real_t norm = slate::norm(slate::Norm::One, A);
             // comparison with reference routine from ScaLAPACK
 
             // BLACS/MPI variables
@@ -142,7 +142,7 @@ void test_set_work(Params& params, bool run)
 
             scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, lldA, &info);
             slate_assert(info == 0);
-            
+
             // set MKL num threads appropriately for parallel BLAS
             int omp_num_threads;
             #pragma omp parallel

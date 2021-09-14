@@ -100,7 +100,7 @@ cd ${top}/unit_test
 
 echo "========================================"
 cd ${top}/test
-./run_tests.py --ref n --xml ${top}/report_test.xml
+./run_tests.py --quick --ref n --xml ${top}/report_test.xml
 '''
                     } // steps
 

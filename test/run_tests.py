@@ -179,7 +179,7 @@ if (not opts.dim):
         nk_tall  = ' --dim 1x100x50'  # 2:1
         nk_wide  = ' --dim 1x50x100'  # 1:2
         if (is_default_nb):
-            opts.nb = '32'
+            opts.nb = '8'
 
     if (opts.xsmall):
         n       += ' --dim 10'

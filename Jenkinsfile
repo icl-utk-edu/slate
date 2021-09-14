@@ -25,8 +25,8 @@ pipeline {
                         # load ROCm/HIP
                         export PATH=${PATH}:/opt/rocm/bin
                         export CPATH=${CPATH}:/opt/rocm/include
-                        export LIBRARY_PATH=${LIBRARY_PATH}:/opt/rocm/lib
-                        export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/rocm/lib
+                        export LIBRARY_PATH=${LIBRARY_PATH}:/opt/rocm/lib:/opt/rocm/lib64
+                        export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/rocm/lib:/opt/rocm/lib64
 
                         export color=no
 
@@ -145,8 +145,8 @@ END
                         # load ROCm/HIP
                         export PATH=${PATH}:/opt/rocm/bin
                         export CPATH=${CPATH}:/opt/rocm/include
-                        export LIBRARY_PATH=${LIBRARY_PATH}:/opt/rocm/lib
-                        export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/rocm/lib
+                        export LIBRARY_PATH=${LIBRARY_PATH}:/opt/rocm/lib:/opt/rocm/lib64
+                        export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:/opt/rocm/lib:/opt/rocm/lib64
 
                         export FI_PROVIDER=tcp
 

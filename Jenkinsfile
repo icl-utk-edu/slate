@@ -20,17 +20,29 @@ stages {
                     steps {
                         sh '''
 #!/bin/sh +x
+date
 hostname && pwd
 export top=`pwd`
 
+date
 git submodule update --init
 
-source /home/jenkins/spack_setup
-sload gcc@7.3.0
-spack compiler find
-sload intel-mkl
+# Echo command, then run it. Useful when using `set +x` (non-verbose mode).
+function run {
+    echo $@
+    $@
+}
+
+date
+set +x
+run source /home/jenkins/spack_setup
+run sload gcc@7.3.0
+run spack compiler find
+run sload intel-mkl
+set -x
 
 #========================================
+date
 cat > make.inc << END
 CXX  = mpicxx
 FC   = mpif90
@@ -78,15 +90,18 @@ export color=no
 env
 
 echo "========================================"
+date
 make distclean
 
 echo "========================================"
 make echo
 
 echo "========================================"
+date
 make -j8
 
 echo "========================================"
+date
 make -j8 install prefix=${top}/install
 ls -R ${top}/install
 
@@ -94,13 +109,17 @@ echo "========================================"
 ldd test/tester
 
 echo "========================================"
+date
 export OMP_NUM_THREADS=8
 cd ${top}/unit_test
 ./run_tests.py --xml ../report_unit.xml
 
 echo "========================================"
+date
 cd ${top}/test
 ./run_tests.py --quick --ref n --xml ${top}/report_test.xml
+
+date
 '''
                     } // steps
 

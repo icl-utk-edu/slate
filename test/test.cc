@@ -221,6 +221,7 @@ std::vector< testsweeper::routines_t > routines = {
     // -----
     // auxiliary
     { "scale",              test_scale,        Section::aux },
+    { "add",                test_add,          Section::aux },
     { "",                   nullptr,           Section::newline },
 };
 

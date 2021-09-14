@@ -552,7 +552,8 @@ if (opts.norms):
 # aux
 if (opts.aux):
     cmds += [
-    [ 'scale', gen + dtype + mn ],
+    [ 'add',   gen + dtype + mn + ab ],
+    [ 'scale', gen + dtype + mn + ab ],
     ]
 
 # ------------------------------------------------------------------------------

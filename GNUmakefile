@@ -620,6 +620,7 @@ tester_src += \
         test/matrix_generator.cc \
         test/matrix_params.cc \
         test/test_scale.cc \
+        test/test_add.cc \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.

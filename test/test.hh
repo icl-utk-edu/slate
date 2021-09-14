@@ -229,8 +229,9 @@ void test_hbnorm (Params& params, bool run);
 void test_synorm (Params& params, bool run);
 void test_trnorm (Params& params, bool run);
 
-// Scaling Matrix
-void test_scale (Params& params, bool run);
+// auxiliary matrix routines
+void test_scale  (Params& params, bool run);
+void test_add    (Params& params, bool run);
 
 // -----------------------------------------------------------------------------
 inline slate::Dist str2dist(const char* dist)

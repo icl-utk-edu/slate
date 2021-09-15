@@ -154,6 +154,7 @@ void print_matrix(
     char buf[ 1024 ];
     std::string msg;
 
+    int64_t size = mlocal * nlocal;
     if (verbose == 2 && size > threshold)
         p = q = 0; // Allow only rank 0 to generate output
 
@@ -167,7 +168,6 @@ void print_matrix(
                          "%% ScaLAPACK matrix\n"
                          "%s%d_%d = [\n", label, prow, pcol);
                 msg += buf;
-                int64_t size = mlocal * nlocal;
                 if (verbose == 2 && size > threshold) {
                     //first abbrev_rows
                     int64_t max_rows = (mlocal < abbrev_rows ? mlocal : abbrev_rows);
@@ -453,7 +453,6 @@ std::string tile_row_string(
 /// (lower or upper, respectively) triangle.
 /// Works for all matrix types.
 ///
-/*
 template <typename scalar_t>
 std::string tile_row_string(
     slate::BaseMatrix<scalar_t>& A, int64_t i, int64_t j, int64_t ti,
@@ -467,7 +466,7 @@ std::string tile_row_string(
     };
     return tile_row_string( A, i, j, ti, opts, opposite );
 }
-*/
+
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed matrix.
 /// Rank 0 does the printing, and must have enough memory to fit one entire

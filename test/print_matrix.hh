@@ -132,18 +132,17 @@ void print_matrix(
 ///
 template <typename scalar_t>
 void print_matrix(
-    slate::Options const& opts,
     const char* label,
     int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
     int p, int q, MPI_Comm comm,
-    int width=12, int precision=6 )
+    slate::Options const& opts)
 {
-    int64_t verbose = opts.at(slate::Option::PrintVerbose).i_;
-    int64_t edgeitems = opts.at(slate::Option::PrintEdgeItems).i_;
-    int64_t threshold = opts.at(slate::Option::PrintThreshold).i_;
-    if ((verbose != 2) ||
-        (verbose != 3) ||
-        (verbose != 4))
+    int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 12 );
+    int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 6 );
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
+    int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
+    int64_t threshold = slate::get_option<int64_t>( opts, slate::Option::PrintThreshold, 1024 );
+    if (verbose == 0)
         return;
 
     const int64_t abbrev_rows = edgeitems;
@@ -152,10 +151,11 @@ void print_matrix(
     int mpi_rank;
     MPI_Comm_rank(comm, &mpi_rank);
 
-    width = std::max(width, precision + 6);
-
     char buf[ 1024 ];
     std::string msg;
+
+    if (verbose == 2 && size > threshold)
+        p = q = 0; // Allow only rank 0 to generate output
 
     // loop over process rows & cols
     for (int prow = 0; prow < q; ++prow) {
@@ -271,12 +271,15 @@ void print_matrix(
     int p, int q, MPI_Comm comm,
     int width=12, int precision=6 )
 {
-    //Set defaults
-    const slate::Options opts = {
-        { slate::Option::PrintVerbose, 4 } //default 4 prints full matrix
-     };
+    width = std::max(width, precision + 6);
 
-    print_matrix( opts, label, mlocal, nlocal, A, lda, p, q, comm, width, precision );
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, width},
+        { slate::Option::PrintPrecision, precision},
+        { slate::Option::PrintVerbose, 4 }
+    };
+
+    print_matrix( label, mlocal, nlocal, A, lda, p, q, comm, opts);
 }
 
 //------------------------------------------------------------------------------
@@ -286,18 +289,21 @@ void print_matrix(
 ///
 template <typename scalar_t>
 void print_matrix(
-    Params& params,
     const char* label,
     int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
     int p, int q, MPI_Comm comm,
-    int width=12, int precision=6 )
+    Params& params)
 {
+    int64_t width = std::max(params.print_width(), params.print_precision() + 6);
+
     const slate::Options opts = {
+        { slate::Option::PrintWidth, width },
+        { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
         { slate::Option::PrintThreshold, params.print_threshold() },
-     };
-    print_matrix( opts, label, mlocal, nlocal, A, lda, p, q, comm, width, precision );
+    };
+    print_matrix( label, mlocal, nlocal, A, lda, p, q, comm, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -351,16 +357,16 @@ void send_recv_tile(
 ///
 template <typename scalar_t>
 std::string tile_row_string(
-    slate::Options const& opts,
     slate::BaseMatrix<scalar_t>& A, int64_t i, int64_t j, int64_t ti,
-    int width, int precision,
+    slate::Options const& opts,
     const char* opposite="",
-    bool bLastAbbrevCols = false)
+    bool is_last_abbrev_cols = false)
 {
-
-    int64_t verbose = opts.at(slate::Option::PrintVerbose).i_;
-    int64_t edgeitems = opts.at(slate::Option::PrintEdgeItems).i_;
-    int64_t threshold = opts.at(slate::Option::PrintThreshold).i_;
+    int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 12 );
+    int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 6 );
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
+    int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
+    int64_t threshold = slate::get_option<int64_t>( opts, slate::Option::PrintThreshold, 1024 );
     if (verbose == 0)
         return std::string("");
 
@@ -368,7 +374,6 @@ std::string tile_row_string(
 
     using real_t = blas::real_type<scalar_t>;
 
-    width = std::max(width, precision + 6);
     real_t nan_ = nan("");
 
     char buf[ 80 ];
@@ -376,7 +381,7 @@ std::string tile_row_string(
     try {
         auto T = A(i, j);
         int64_t size = A.tileMb(j) * A.tileNb(j);
-        if (! bLastAbbrevCols && verbose == 2 && size > threshold) {
+        if (! is_last_abbrev_cols && verbose == 2 && size > threshold) {
             //first abbrev_cols
             int64_t max_cols = std::min( A.tileNb(j), abbrev_cols );
             for (int64_t tj = 0; tj < max_cols; ++tj) {
@@ -394,7 +399,7 @@ std::string tile_row_string(
                 }
             }
         }
-        else if (bLastAbbrevCols && verbose == 2 && size > threshold) {
+        else if (is_last_abbrev_cols && verbose == 2 && size > threshold) {
             //last abbrev_cols
             int64_t start_col = std::max( A.tileNb(j) - abbrev_cols, abbrev_cols );
             for (int64_t tj = start_col; tj < A.tileNb(j); ++tj) {
@@ -448,6 +453,7 @@ std::string tile_row_string(
 /// (lower or upper, respectively) triangle.
 /// Works for all matrix types.
 ///
+/*
 template <typename scalar_t>
 std::string tile_row_string(
     slate::BaseMatrix<scalar_t>& A, int64_t i, int64_t j, int64_t ti,
@@ -455,11 +461,13 @@ std::string tile_row_string(
     const char* opposite="")
 {
     const slate::Options opts = {
-        { slate::Option::PrintVerbose, 4 } //default 4 prints full matrix
+        { slate::Option::PrintWidth, width},
+        { slate::Option::PrintPrecision, precision},
+        { slate::Option::PrintVerbose, 4 }
     };
-    return tile_row_string( opts, A, i, j, ti, width, precision, opposite );
+    return tile_row_string( A, i, j, ti, opts, opposite );
 }
-
+*/
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed matrix.
 /// Rank 0 does the printing, and must have enough memory to fit one entire
@@ -468,14 +476,13 @@ std::string tile_row_string(
 ///
 template <typename scalar_t>
 void print_matrix(
-    slate::Options const& opts,
     const char* label,
     slate::Matrix<scalar_t>& A,
-    int width=12, int precision=6 )
+    slate::Options const& opts)
 {
-    int64_t verbose = opts.at(slate::Option::PrintVerbose).i_;
-    int64_t edgeitems = opts.at(slate::Option::PrintEdgeItems).i_;
-    int64_t threshold = opts.at(slate::Option::PrintThreshold).i_;
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
+    int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
+    int64_t threshold = slate::get_option<int64_t>( opts, slate::Option::PrintThreshold, 1024 );
     if (verbose == 0)
         return;
 
@@ -486,7 +493,6 @@ void print_matrix(
     MPI_Comm comm = A.mpiComm();
     MPI_Barrier(comm);
 
-    width = std::max(width, precision + 6);
 
     std::string msg = "\n% slate::Matrix ";
     msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
@@ -533,15 +539,15 @@ void print_matrix(
                     for (int64_t ti = 0; ti < max_rows; ++ti) {
                         //first column tile
                         int64_t j = 0;
-                        msg += tile_row_string(opts, A, i, j, ti, width, precision);
+                        msg += tile_row_string(A, i, j, ti, opts);
                         if (A.n() > 2 * abbrev_cols)
                             msg += "..."; // column abbreviation indicator
                         //last column tile
                         j = A.nt()-1;
                         if (j>0)
                             msg += "    "; //space between column tiles
-                        msg += tile_row_string(opts, A, i, j, ti,
-                                            width, precision, "", true);
+                        msg += tile_row_string(A, i, j, ti,
+                                            opts, "", true);
                         msg += "\n";
                     }
                 }
@@ -556,15 +562,15 @@ void print_matrix(
                     for (int64_t ti = start_row; ti < A.tileMb(i); ++ti) {
                         //first column tile
                         int64_t j = 0;
-                        msg += tile_row_string(opts, A, i, j, ti, width, precision);
+                        msg += tile_row_string(A, i, j, ti, opts);
                         if (A.n() > 2 * abbrev_cols)
                             msg += "..."; // column abbreviation indicator
                         //last column tile
                         j = A.nt()-1;
                         if (j>0)
                             msg += "    "; //space between column tiles
-                        msg += tile_row_string(opts, A, i, j, ti,
-                                            width, precision, "", true);
+                        msg += tile_row_string(A, i, j, ti,
+                                            opts, "", true);
                         msg += "\n";
                      }
                     msg += "];\n";
@@ -575,7 +581,7 @@ void print_matrix(
                 for (int64_t ti = 0; ti < A.tileMb(i); ti += row_step) {
                     // for verbose=3 only rows ti = 0 and ti = tileMb-1
                     for (int64_t j = 0; j < A.nt(); ++j) {
-                        msg += tile_row_string(opts, A, i, j, ti, width, precision);
+                        msg += tile_row_string(A, i, j, ti, opts);
                         if (j < A.nt() - 1)
                             msg += "    "; //space between column tiles
                         else
@@ -616,12 +622,16 @@ void print_matrix(
     const char* label,
     slate::Matrix<scalar_t>& A, int width = 10, int precision = 6)
 {
+    width = std::max(width, precision + 6);
+
     //Set defaults
     const slate::Options opts = {
+        { slate::Option::PrintWidth, width},
+        { slate::Option::PrintPrecision, precision},
         { slate::Option::PrintVerbose, 4 } //default 4 prints full matrix
     };
 
-    print_matrix( opts, label, A, width, precision );
+    print_matrix( label, A, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -632,17 +642,20 @@ void print_matrix(
 ///
 template <typename scalar_t>
 void print_matrix(
-    Params& params,
     const char* label,
-    slate::Matrix<scalar_t>& A, int width = 10, int precision = 6)
+    slate::Matrix<scalar_t>& A, Params& params)
 {
+    int64_t width = std::max(params.print_width(), params.print_precision() + 6);
+
     const slate::Options opts = {
+        { slate::Option::PrintWidth, width },
+        { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
         { slate::Option::PrintThreshold, params.print_threshold() },
      };
 
-    print_matrix( opts, label, A, width, precision );
+    print_matrix( label, A, opts );
 }
 
 //------------------------------------------------------------------------------

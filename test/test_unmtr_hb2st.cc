@@ -14,6 +14,7 @@
 #include <cstdlib>
 #include <utility>
 
+#include <cuda_profiler_api.h>
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_unmtr_hb2st_work(Params& params, bool run)
@@ -131,8 +132,19 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     //==================================================
     // Run SLATE test.
     //==================================================
-    slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, V, Q);
-
+    cudaProfilerStart();
+    #pragma omp parallel
+    #pragma omp master
+    {
+        omp_set_nested(1);
+        #pragma omp task
+        {
+            std::cout << "start" << std::endl;
+            slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, V, Q);
+            std::cout << "end" << std::endl;
+        }
+    }
+    cudaProfilerStop();
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
     if (trace) slate::trace::Trace::finish();

@@ -104,6 +104,9 @@ void unmtr_hb2st(
     // Add one phantom row at bottom to ease specifying dependencies.
     std::vector< uint8_t > row_vector(mt+1);
     uint8_t* row = row_vector.data();
+    std::vector< uint8_t > col_vector(nt+1);
+    uint8_t* col = col_vector.data();
+    row[0] = col[0] = 0;
 
     // Early exit if this rank has no data in C.
     // This lets later code assume every rank gets tiles in V, etc.
@@ -113,11 +116,14 @@ void unmtr_hb2st(
     if (ranks.find( C.mpiRank() ) == ranks.end())
         return;
 
+
+    std::cout << __func__ << std::endl;
     for (int64_t j = mt-1; j >= 0; --j) {
         for (int64_t i = j; i < mt; ++i) {
-            #pragma omp task depend(inout:row[i]) \
-                             depend(inout:row[i+1])
+            //#pragma omp task depend(inout:row[i]) depend(inout:row[i+1])
+            //#pragma omp task 
             {
+                slate::trace::Block trace_block(std::string("t j:"+std::to_string(j)+" i:"+std::to_string(i)).c_str());
                 int64_t mb0 = C.tileMb(i) - 1;
                 int64_t mb1 = i+1 < mt ? C.tileMb(i+1) : 0;
                 int64_t vm_ = mb0 + mb1;
@@ -139,6 +145,12 @@ void unmtr_hb2st(
                 auto  T =  T_matrix(i/2, 0);
                 auto VT = VT_matrix(i/2, 0);
                 auto VC = VC_matrix(i/2, 0);
+                
+                std::cout << "i:" << i << " j:" << j 
+                    << " Vr:0-" << r 
+                    << " T:" << i/2 << "-0" 
+                    << " VT:" << i/2 << "-0"
+                    << std::endl;
 
                 // Copy tau, which is stored on diag(Vr), and set diag(Vr) = 1.
                 // diag(Vr) is restored later.

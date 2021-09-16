@@ -262,9 +262,9 @@ Params::Params():
     print_threshold ("print-threshold", 0,    ParamType::Value,   1024,   4,   16384, "max size (rows*cols) for verbose=2"),
     // print_width: width format specifier
     // For correct printing, print_width = print_precision + 6.
-    print_width ("print-width", 0,    ParamType::Value,   12,   7,   14, "minimum number of characters to be printed per value"),
+    print_width ("print-width", 0,    ParamType::Value,   10,   7,   14, "minimum number of characters to be printed per value"),
     // print_precision: precision print format specifier
-    print_precision("print-precision", 0,    ParamType::Value,   6,   1,   17, "number of digits to be printed after the decimal point"),
+    print_precision("print-precision", 0,    ParamType::Value,   4,   1,   17, "number of digits to be printed after the decimal point"),
     extended  ("extended",0,    ParamType::Value,   0,   0,   10, "extended tests"),
     cache     ("cache",   0,    ParamType::Value,  20,   1, 1024, "total cache size, in MiB"),
 

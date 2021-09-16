@@ -104,7 +104,7 @@ template <typename scalar_t>
 void print_matrix(
     const char* label,
     int64_t m, int64_t n, scalar_t* A, int64_t lda,
-    int width=12, int precision=6 )
+    int width=10, int precision=4 )
 {
     width = std::max(width, precision + 6);
 
@@ -137,8 +137,8 @@ void print_matrix(
     int p, int q, MPI_Comm comm,
     slate::Options const& opts)
 {
-    int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 12 );
-    int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 6 );
+    int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 10 );
+    int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
     int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
     int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
     int64_t threshold = slate::get_option<int64_t>( opts, slate::Option::PrintThreshold, 1024 );
@@ -274,7 +274,7 @@ void print_matrix(
     const char* label,
     int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
     int p, int q, MPI_Comm comm,
-    int width=12, int precision=6 )
+    int width=10, int precision=4 )
 {
     width = std::max(width, precision + 6);
 
@@ -367,8 +367,8 @@ std::string tile_row_string(
     const char* opposite="",
     bool is_last_abbrev_cols = false)
 {
-    int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 12 );
-    int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 6 );
+    int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 10 );
+    int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
     int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
     int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
     int64_t threshold = slate::get_option<int64_t>( opts, slate::Option::PrintThreshold, 1024 );
@@ -685,7 +685,7 @@ template <typename scalar_t>
 void print_matrix(
     const char* label,
     slate::BandMatrix<scalar_t>& A,
-    int width=12, int precision=6 )
+    int width=10, int precision=4 )
 {
     int mpi_rank = A.mpiRank();
     MPI_Comm comm = A.mpiComm();
@@ -784,7 +784,7 @@ template <typename scalar_t>
 void print_matrix(
     const char* label,
     slate::BaseTriangularBandMatrix<scalar_t>& A,
-    int width=12, int precision=6 )
+    int width=10, int precision=4 )
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -892,7 +892,7 @@ template <typename scalar_t>
 void print_matrix_work(
     const char* label,
     slate::BaseTrapezoidMatrix<scalar_t>& A,
-    int width=12, int precision=6 )
+    int width=10, int precision=4 )
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -977,7 +977,7 @@ template <typename scalar_t>
 void print_matrix(
     const char* label,
     slate::HermitianMatrix<scalar_t>& A,
-    int width=12, int precision=6 )
+    int width=10, int precision=4 )
 {
     if (A.mpiRank() == 0) {
         printf( "\n"
@@ -1009,7 +1009,7 @@ template <typename scalar_t>
 void print_matrix(
     const char* label,
     slate::SymmetricMatrix<scalar_t>& A,
-    int width=12, int precision=6 )
+    int width=10, int precision=4 )
 {
     if (A.mpiRank() == 0) {
         printf( "\n"
@@ -1040,7 +1040,7 @@ template <typename scalar_t>
 void print_matrix(
     const char* label,
     slate::TrapezoidMatrix<scalar_t>& A,
-    int width=12, int precision=6 )
+    int width=10, int precision=4 )
 {
     if (A.mpiRank() == 0) {
         printf( "\n"
@@ -1073,7 +1073,7 @@ template <typename scalar_t>
 void print_matrix(
     const char* label,
     slate::TriangularMatrix<scalar_t>& A,
-    int width=12, int precision=6 )
+    int width=10, int precision=4 )
 {
     if (A.mpiRank() == 0) {
         printf( "\n"
@@ -1106,7 +1106,7 @@ template <typename scalar_t>
 void print_vector(
     const char* label,
     int64_t n, scalar_t const* x, int64_t incx,
-    int width=12, int precision=6 )
+    int width=10, int precision=4 )
 {
     slate_assert( n >= 0 );
     slate_assert( incx != 0 );
@@ -1134,7 +1134,7 @@ template <typename scalar_type>
 void print_vector(
     const char* label,
     std::vector<scalar_type> const& x,
-    int width=12, int precision=6 )
+    int width=10, int precision=4 )
 {
     print_vector( label, x.size(), x.data(), 1, width, precision );
 }

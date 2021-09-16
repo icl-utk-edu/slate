@@ -19,9 +19,10 @@
 
 #define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
-template<typename scalar_t>
+template<typename matrix_type>
 void test_copy_work(Params& params, bool run)
 {
+    using scalar_t = typename matrix_type::value_type;
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
     using blas::imag;
@@ -74,6 +75,8 @@ void test_copy_work(Params& params, bool run)
     int64_t mlocB, nlocB, lldB;
     mlocB = mlocA, nlocB = nlocA, lldB = lldA;
     std::vector<scalar_t> B_data(lldB*nlocB);
+
+    if (std::is_same< matrix_type, slate::Matrix<scalar_type> >) {
 
     slate::Matrix<scalar_t> A;
     slate::Matrix<scalar_t> B;
@@ -220,6 +223,7 @@ void test_copy_work(Params& params, bool run)
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #endif
+    }
     }
 }
 

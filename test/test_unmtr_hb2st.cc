@@ -139,9 +139,7 @@ void test_unmtr_hb2st_work(Params& params, bool run)
         omp_set_nested(1);
         #pragma omp task
         {
-            std::cout << "start" << std::endl;
             slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, V, Q);
-            std::cout << "end" << std::endl;
         }
     }
     cudaProfilerStop();

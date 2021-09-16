@@ -102,11 +102,8 @@ void unmtr_hb2st(
 
     // OpenMP needs pointer types, but vectors are exception safe.
     // Add one phantom row at bottom to ease specifying dependencies.
-    std::vector< uint8_t > row_vector(mt+1);
-    uint8_t* row = row_vector.data();
-    std::vector< uint8_t > col_vector(nt+1);
-    uint8_t* col = col_vector.data();
-    row[0] = col[0] = 0;
+ //   std::vector< uint8_t > row_vector(mt+1);
+ //   uint8_t* row = row_vector.data();
 
     // Early exit if this rank has no data in C.
     // This lets later code assume every rank gets tiles in V, etc.
@@ -115,15 +112,21 @@ void unmtr_hb2st(
     Crow.getRanks(&ranks);
     if (ranks.find( C.mpiRank() ) == ranks.end())
         return;
-
-
-    std::cout << __func__ << std::endl;
+/*
     for (int64_t j = mt-1; j >= 0; --j) {
         for (int64_t i = j; i < mt; ++i) {
-            //#pragma omp task depend(inout:row[i]) depend(inout:row[i+1])
-            //#pragma omp task 
+            #pragma omp task depend(inout:row[i]) \
+                             depend(inout:row[i+1])
+*/
+    for (int64_t j2 = mt-1; j2 > -mt; --j2) {
+        double n_ = 1.0 * j2 / 2.0;
+        #pragma omp parallel for
+        for (int64_t j = 0; j < mt; ++j) {
+            int64_t i = (j - n_) * 2;
+            if (i < mt && i >= j)
             {
-                slate::trace::Block trace_block(std::string("t j:"+std::to_string(j)+" i:"+std::to_string(i)).c_str());
+                //std::cout << omp_get_thread_num() << " j:" << j << " i:" << i << std::endl;
+                slate::trace::Block trace_block(std::string(""+std::to_string(j)+","+std::to_string(i)).c_str());
                 int64_t mb0 = C.tileMb(i) - 1;
                 int64_t mb1 = i+1 < mt ? C.tileMb(i+1) : 0;
                 int64_t vm_ = mb0 + mb1;
@@ -145,12 +148,6 @@ void unmtr_hb2st(
                 auto  T =  T_matrix(i/2, 0);
                 auto VT = VT_matrix(i/2, 0);
                 auto VC = VC_matrix(i/2, 0);
-                
-                std::cout << "i:" << i << " j:" << j 
-                    << " Vr:0-" << r 
-                    << " T:" << i/2 << "-0" 
-                    << " VT:" << i/2 << "-0"
-                    << std::endl;
 
                 // Copy tau, which is stored on diag(Vr), and set diag(Vr) = 1.
                 // diag(Vr) is restored later.
@@ -163,18 +160,18 @@ void unmtr_hb2st(
                 // Form T from Vr and tau.
                 T.set(zero, zero);
                 lapack::larft(Direction::Forward, lapack::StoreV::Columnwise,
-                              vm_, vnb,
-                              Vr.data(), Vr.stride(), tau,
-                              T.data(), T.stride());
+                        vm_, vnb,
+                        Vr.data(), Vr.stride(), tau,
+                        T.data(), T.stride());
 
                 // Form VT = V * T. Assumes 0's stored in lower T.
                 // vm_-by-vnb = (vm_-by-vnb) (vnb-by-vnb)
                 blas::gemm(Layout::ColMajor,
-                           Op::NoTrans, Op::NoTrans,
-                           vm_, vnb, vnb,
-                           one,  Vr.data(), Vr.stride(),
-                                  T.data(),  T.stride(),
-                           zero, VT.data(), VT.stride());
+                        Op::NoTrans, Op::NoTrans,
+                        vm_, vnb, vnb,
+                        one,  Vr.data(), Vr.stride(),
+                        T.data(),  T.stride(),
+                        zero, VT.data(), VT.stride());
 
                 // Vr = [ Vr0 ],  VT = [ VT0 ],  [ Ci     ] = [ C0 ],
                 //      [ Vr1 ]        [ VT1 ]   [ C{i+1} ] = [ C1 ]
@@ -192,11 +189,11 @@ void unmtr_hb2st(
                         // vnb-by-cnb = (mb0-by-vnb)^H (mb0-by-cnb)
                         // Slice off 1st row of C0.
                         blas::gemm(Layout::ColMajor,
-                                   Op::ConjTrans, Op::NoTrans,
-                                   vnb, cnb, mb0,
-                                   one,  Vr.data(),   Vr.stride(),
-                                         C0.data()+1, C0.stride(),
-                                   zero, VC.data(),   VC.stride());
+                                Op::ConjTrans, Op::NoTrans,
+                                vnb, cnb, mb0,
+                                one,  Vr.data(),   Vr.stride(),
+                                C0.data()+1, C0.stride(),
+                                zero, VC.data(),   VC.stride());
 
                         // VC += Vr1^H C1
                         // vnb-by-cnb += (mb1-by-vnb)^H (mb1-by-cnb)
@@ -206,33 +203,33 @@ void unmtr_hb2st(
                             scalar_t* Vr1data = &Vr.data()[ mb0 ];
                             C1 = C(i+1, k);
                             blas::gemm(Layout::ColMajor,
-                                       Op::ConjTrans, Op::NoTrans,
-                                       vnb, cnb, mb1,
-                                       one, Vr1data,   Vr.stride(),
-                                            C1.data(), C1.stride(),
-                                       one, VC.data(), VC.stride());
+                                    Op::ConjTrans, Op::NoTrans,
+                                    vnb, cnb, mb1,
+                                    one, Vr1data,   Vr.stride(),
+                                    C1.data(), C1.stride(),
+                                    one, VC.data(), VC.stride());
                         }
 
                         // C0 -= (V0 T) VC
                         // mb0-by-cnb -= (mb0-by-vnb) (vnb-by-cnb)
                         // Slice off 1st row of C0.
                         blas::gemm(Layout::ColMajor,
-                                   Op::NoTrans, Op::NoTrans,
-                                   mb0, cnb, vnb,
-                                   -one, VT.data(),   VT.stride(),
-                                         VC.data(),   VC.stride(),
-                                   one,  C0.data()+1, C0.stride());
+                                Op::NoTrans, Op::NoTrans,
+                                mb0, cnb, vnb,
+                                -one, VT.data(),   VT.stride(),
+                                VC.data(),   VC.stride(),
+                                one,  C0.data()+1, C0.stride());
 
                         // C1 -= (V1 T) VC
                         // mb1-by-cnb -= (mb1-by-vnb) (vnb-by-cnb)
                         if (i+1 < mt) {
                             scalar_t* VT1data = &VT.data()[ mb0 ];
                             blas::gemm(Layout::ColMajor,
-                                       Op::NoTrans, Op::NoTrans,
-                                       mb1, cnb, vnb,
-                                       -one, VT1data,   VT.stride(),
-                                             VC.data(), VC.stride(),
-                                       one,  C1.data(), C1.stride());
+                                    Op::NoTrans, Op::NoTrans,
+                                    mb1, cnb, vnb,
+                                    -one, VT1data,   VT.stride(),
+                                    VC.data(), VC.stride(),
+                                    one,  C1.data(), C1.stride());
                         }
                         V.tileTick(0, r);
                     }

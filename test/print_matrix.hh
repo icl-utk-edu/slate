@@ -164,9 +164,14 @@ void print_matrix(
             int rank = prow + pcol*p;
 
             if (rank == mpi_rank) {
-                snprintf(buf, sizeof(buf),
-                         "%% ScaLAPACK matrix\n"
-                         "%s%d_%d = [\n", label, prow, pcol);
+                if (verbose == 1)
+                    snprintf(buf, sizeof(buf),
+                            "%% %s%d_%d: ScaLAPACK matrix\n",
+                            label, prow, pcol);
+                else
+                    snprintf(buf, sizeof(buf),
+                            "%% ScaLAPACK matrix\n"
+                            "%s%d_%d = [\n", label, prow, pcol);
                 msg += buf;
                 if (verbose == 2 && size > threshold) {
                     //first abbrev_rows
@@ -182,7 +187,7 @@ void print_matrix(
                             msg += buf;
                         }
                         if (nlocal > 2*abbrev_cols)
-                            msg += "...";
+                            msg += " ..."; // column abbreviation indicator
                         //last abbrev_cols columns
                         for (int64_t j = start_col; j < nlocal; ++j) {
                             snprintf_value( buf, sizeof(buf), width, precision,
@@ -192,7 +197,7 @@ void print_matrix(
                         msg += "\n";
                     }
                     if (mlocal > 2*abbrev_rows)
-                        msg += "...\n";
+                        msg += " ...\n";// row abbreviation indicator
                     //last abbrev_rows
                     int64_t start_row = (mlocal - abbrev_rows < abbrev_rows ?
                                          abbrev_rows : mlocal-abbrev_rows);
@@ -204,7 +209,7 @@ void print_matrix(
                             msg += buf;
                         }
                         if (nlocal > 2*abbrev_cols)
-                            msg += "...";
+                            msg += " ..."; // column abbreviation indicator
                         //last abbrev_cols columns
                         for (int64_t j = start_col; j < nlocal; ++j) {
                             snprintf_value( buf, sizeof(buf), width, precision,
@@ -216,8 +221,8 @@ void print_matrix(
                     msg += "];\n\n";
                 }
                 else if (verbose == 2 || verbose == 3 || verbose == 4) {
-                    int64_t row_step = (verbose == 3 ? mlocal - 1 : 1);
-                    int64_t col_step = (verbose == 3 ? nlocal - 1 : 1);
+                    int64_t row_step = (verbose == 3 && mlocal > 1 ? mlocal - 1 : 1);
+                    int64_t col_step = (verbose == 3 && nlocal > 1 ? nlocal - 1 : 1);
                     for (int64_t i = 0; i < mlocal; i += row_step) {
                         // for verbose=3 only row i = 0 and i = mlocal-1
                         for (int64_t j = 0; j < nlocal; j += col_step) {
@@ -418,7 +423,7 @@ std::string tile_row_string(
             }
         }
         else {
-            int64_t col_step = (verbose == 3 ? A.tileNb(j) - 1 : 1);
+            int64_t col_step = (verbose == 3 && A.tileNb(j) > 1 ? A.tileNb(j) - 1 : 1);
             for (int64_t tj = 0; tj < A.tileNb(j); tj += col_step) {
                 // for verbose=3 only j = 0 and j = tileNb-1
                 slate::Uplo uplo = T.uplo();
@@ -492,13 +497,24 @@ void print_matrix(
     MPI_Comm comm = A.mpiComm();
     MPI_Barrier(comm);
 
-
-    std::string msg = "\n% slate::Matrix ";
+    std::string msg;
+    if (verbose == 1) {
+        msg = "\n% ";
+        msg += label;
+        msg += ": slate::Matrix ";
+    }
+    else
+        msg = "\n% slate::Matrix ";
     msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
         +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
         +  " tiles, nb " + std::to_string( A.tileNb(0) ) + "\n";
-    msg += label;
-    msg += " = [\n";
+    if (verbose == 1)
+        msg += "\n";
+    else
+    {
+        msg += label;
+        msg += " = [\n";
+    }
 
     if (mpi_rank == 0 && verbose == 1) {
         printf( "%s", msg.c_str() );
@@ -540,7 +556,7 @@ void print_matrix(
                         int64_t j = 0;
                         msg += tile_row_string(A, i, j, ti, opts);
                         if (A.n() > 2 * abbrev_cols)
-                            msg += "..."; // column abbreviation indicator
+                            msg += " ..."; // column abbreviation indicator
                         //last column tile
                         j = A.nt()-1;
                         if (j>0)
@@ -552,7 +568,7 @@ void print_matrix(
                 }
                 if (i == A.mt()-1) { //last row tile
                     if (A.m() > 2 * abbrev_rows)
-                            msg += "...\n"; // row abbreviation indicator
+                            msg += " ...\n"; // row abbreviation indicator
                     if ( i > 0 )
                         msg += "\n"; // line between row tiles
 
@@ -563,7 +579,7 @@ void print_matrix(
                         int64_t j = 0;
                         msg += tile_row_string(A, i, j, ti, opts);
                         if (A.n() > 2 * abbrev_cols)
-                            msg += "..."; // column abbreviation indicator
+                            msg += " ..."; // column abbreviation indicator
                         //last column tile
                         j = A.nt()-1;
                         if (j>0)
@@ -576,7 +592,8 @@ void print_matrix(
                 }
             }
             else if (verbose == 2 || verbose == 3 || verbose == 4) {
-                int64_t row_step = (verbose == 3 ? A.tileMb(i) - 1 : 1);
+                int64_t row_step =
+                    (verbose == 3 && A.tileMb(i) > 1 ? A.tileMb(i) - 1 : 1);
                 for (int64_t ti = 0; ti < A.tileMb(i); ti += row_step) {
                     // for verbose=3 only rows ti = 0 and ti = tileMb-1
                     for (int64_t j = 0; j < A.nt(); ++j) {

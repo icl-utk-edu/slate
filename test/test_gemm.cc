@@ -312,9 +312,7 @@ void test_gemm_work(Params& params, bool run)
             { omp_num_threads = omp_get_num_threads(); }
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-            print_matrix(
-                "Cref", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD,
-                params);
+            print_matrix( "Cref", Cref, params );
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -328,9 +326,7 @@ void test_gemm_work(Params& params, bool run)
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            print_matrix(
-                "Cref_out", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD,
-                params );
+            print_matrix( "Cref_out", Cref, params );
 
             // get differences C = C - Cref
             slate::add(-one, Cref, one, C);

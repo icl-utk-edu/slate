@@ -166,21 +166,21 @@ void print_matrix(
             if (rank == mpi_rank) {
                 if (verbose == 1)
                     snprintf(buf, sizeof(buf),
-                            "%% %s%d_%d: ScaLAPACK matrix\n",
-                            label, prow, pcol);
+                             "%% %s%d_%d: ScaLAPACK matrix\n",
+                             label, prow, pcol);
                 else
                     snprintf(buf, sizeof(buf),
-                            "%% ScaLAPACK matrix\n"
-                            "%s%d_%d = [\n", label, prow, pcol);
+                             "%% ScaLAPACK matrix\n"
+                             "%s%d_%d = [\n", label, prow, pcol);
                 msg += buf;
                 if (verbose == 2 && size > threshold) {
-                    //first abbrev_rows
+                    // first abbrev_rows
                     int64_t max_rows = (mlocal < abbrev_rows ? mlocal : abbrev_rows);
                     int64_t max_cols = (nlocal < abbrev_cols ? nlocal : abbrev_cols);
-                    int64_t start_col = ((nlocal - abbrev_cols) < abbrev_cols ?
-                                         abbrev_cols : nlocal - abbrev_cols);
+                    int64_t start_col = ((nlocal - abbrev_cols) < abbrev_cols
+                                      ? abbrev_cols : nlocal - abbrev_cols);
                     for (int64_t i = 0; i < max_rows; ++i) {
-                        //first abbrev_cols
+                        // first abbrev_cols
                         for (int64_t j = 0; j < max_cols; ++j) {
                             snprintf_value( buf, sizeof(buf), width, precision,
                                             A[i + j*lda] );
@@ -188,7 +188,7 @@ void print_matrix(
                         }
                         if (nlocal > 2*abbrev_cols)
                             msg += " ..."; // column abbreviation indicator
-                        //last abbrev_cols columns
+                        // last abbrev_cols columns
                         for (int64_t j = start_col; j < nlocal; ++j) {
                             snprintf_value( buf, sizeof(buf), width, precision,
                                             A[i + j*lda] );
@@ -198,11 +198,11 @@ void print_matrix(
                     }
                     if (mlocal > 2*abbrev_rows)
                         msg += " ...\n";// row abbreviation indicator
-                    //last abbrev_rows
-                    int64_t start_row = (mlocal - abbrev_rows < abbrev_rows ?
-                                         abbrev_rows : mlocal-abbrev_rows);
+                    // last abbrev_rows
+                    int64_t start_row = (mlocal - abbrev_rows < abbrev_rows
+                                      ? abbrev_rows : mlocal-abbrev_rows);
                     for (int64_t i = start_row; i < mlocal; ++i) {
-                        //first abbrev_cols
+                        // first abbrev_cols
                         for (int64_t j = 0; j < max_cols; ++j) {
                             snprintf_value( buf, sizeof(buf), width, precision,
                                             A[i + j*lda] );
@@ -210,7 +210,7 @@ void print_matrix(
                         }
                         if (nlocal > 2*abbrev_cols)
                             msg += " ..."; // column abbreviation indicator
-                        //last abbrev_cols columns
+                        // last abbrev_cols columns
                         for (int64_t j = start_col; j < nlocal; ++j) {
                             snprintf_value( buf, sizeof(buf), width, precision,
                                             A[i + j*lda] );
@@ -333,12 +333,12 @@ void send_recv_tile(
         if (A.tileIsLocal(i, j)) {
             try {
                 auto T = A(i, j);
-                err = MPI_Send( &flag_exist, 1, MPI_INT, 0, 0, comm);
+                err = MPI_Send( &flag_exist, 1, MPI_INT, 0, 0, comm );
                 slate_assert(err == 0);
                 T.send(0, comm);
             }
             catch (std::out_of_range const& ex) {
-                err = MPI_Send( &flag_missing, 1, MPI_INT, 0, 0, comm);
+                err = MPI_Send( &flag_missing, 1, MPI_INT, 0, 0, comm );
                 slate_assert(err == 0);
             }
         }
@@ -387,7 +387,7 @@ std::string tile_row_string(
         auto T = A(i, j);
         int64_t size = A.tileMb(j) * A.tileNb(j);
         if (! is_last_abbrev_cols && verbose == 2 && size > threshold) {
-            //first abbrev_cols
+            // first abbrev_cols
             int64_t max_cols = std::min( A.tileNb(j), abbrev_cols );
             for (int64_t tj = 0; tj < max_cols; ++tj) {
                 slate::Uplo uplo = T.uplo();
@@ -405,7 +405,7 @@ std::string tile_row_string(
             }
         }
         else if (is_last_abbrev_cols && verbose == 2 && size > threshold) {
-            //last abbrev_cols
+            // last abbrev_cols
             int64_t start_col = std::max( A.tileNb(j) - abbrev_cols, abbrev_cols );
             for (int64_t tj = start_col; tj < A.tileNb(j); ++tj) {
                 slate::Uplo uplo = T.uplo();
@@ -508,10 +508,10 @@ void print_matrix(
     msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
         +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
         +  " tiles, nb " + std::to_string( A.tileNb(0) ) + "\n";
-    if (verbose == 1)
+    if (verbose == 1) {
         msg += "\n";
-    else
-    {
+    }
+    else {
         msg += label;
         msg += " = [\n";
     }
@@ -541,53 +541,52 @@ void print_matrix(
         if (mpi_rank == 0) {
             // print block row
             if (verbose == 2 && size > threshold) {
-                //only first & last abbrev_rows & abbrev_cols
-                //(of 1st & last block-row & block-col)
-                //so just the 4 corner tiles:
-                //A( 0, 0 )  ... A( nt-1, 0 )
-                //...
-                //A( mt-1, 0 ) ... A( mt-1, nt-1 )
+                // only first & last abbrev_rows & abbrev_cols
+                // (of 1st & last block-row & block-col)
+                // so just the 4 corner tiles:
+                // A( 0, 0 )  ... A( nt-1, 0 )
+                // ...
+                // A( mt-1, 0 ) ... A( mt-1, nt-1 )
 
-                if (i == 0) { //first row tile
-                    //first abbrev_rows
+                if (i == 0) { // first row tile
+                    // first abbrev_rows
                     int64_t max_rows = std::min( A.tileMb(i), abbrev_rows );
                     for (int64_t ti = 0; ti < max_rows; ++ti) {
-                        //first column tile
+                        // first column tile
                         int64_t j = 0;
                         msg += tile_row_string(A, i, j, ti, opts);
                         if (A.n() > 2 * abbrev_cols)
                             msg += " ..."; // column abbreviation indicator
-                        //last column tile
+                        // last column tile
                         j = A.nt()-1;
                         if (j>0)
-                            msg += "    "; //space between column tiles
+                            msg += "    "; // space between column tiles
                         msg += tile_row_string(A, i, j, ti,
-                                            opts, "", true);
+                                               opts, "", true);
                         msg += "\n";
                     }
                 }
-                if (i == A.mt()-1) { //last row tile
+                if (i == A.mt()-1) { // last row tile
                     if (A.m() > 2 * abbrev_rows)
-                            msg += " ...\n"; // row abbreviation indicator
-                    if ( i > 0 )
+                        msg += " ...\n"; // row abbreviation indicator
+                    if (i > 0)
                         msg += "\n"; // line between row tiles
 
-                    //last abbrev_rows
+                    // last abbrev_rows
                     int64_t start_row = blas::max( 0, A.tileMb(i) - abbrev_rows);
                     for (int64_t ti = start_row; ti < A.tileMb(i); ++ti) {
-                        //first column tile
+                        // first column tile
                         int64_t j = 0;
                         msg += tile_row_string(A, i, j, ti, opts);
                         if (A.n() > 2 * abbrev_cols)
                             msg += " ..."; // column abbreviation indicator
-                        //last column tile
+                        // last column tile
                         j = A.nt()-1;
                         if (j>0)
-                            msg += "    "; //space between column tiles
-                        msg += tile_row_string(A, i, j, ti,
-                                            opts, "", true);
+                            msg += "    "; // space between column tiles
+                        msg += tile_row_string(A, i, j, ti, opts, "", true);
                         msg += "\n";
-                     }
+                    }
                     msg += "];\n";
                 }
             }
@@ -599,7 +598,7 @@ void print_matrix(
                     for (int64_t j = 0; j < A.nt(); ++j) {
                         msg += tile_row_string(A, i, j, ti, opts);
                         if (j < A.nt() - 1)
-                            msg += "    "; //space between column tiles
+                            msg += "    "; // space between column tiles
                         else
                             msg += "\n";
                     }
@@ -640,11 +639,11 @@ void print_matrix(
 {
     width = std::max(width, precision + 6);
 
-    //Set defaults
+    // Set defaults
     const slate::Options opts = {
         { slate::Option::PrintWidth, width},
         { slate::Option::PrintPrecision, precision},
-        { slate::Option::PrintVerbose, 4 } //default 4 prints full matrix
+        { slate::Option::PrintVerbose, 4 } // default 4 prints full matrix
     };
 
     print_matrix( label, A, opts );
@@ -669,7 +668,7 @@ void print_matrix(
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
         { slate::Option::PrintThreshold, params.print_threshold() },
-     };
+    };
 
     print_matrix( label, A, opts );
 }
@@ -920,8 +919,8 @@ void print_matrix_work(
     for (int64_t i = 0; i < A.mt(); ++i) {
         // gather block row to rank 0
         for (int64_t j = 0; j < A.nt(); ++j) {
-            if ((A.uplo() == slate::Uplo::Lower && i >= j) ||
-                (A.uplo() == slate::Uplo::Upper && i <= j))
+            if ((A.uplo() == slate::Uplo::Lower && i >= j)
+                || (A.uplo() == slate::Uplo::Upper && i <= j))
             {
                 send_recv_tile(A, i, j, mpi_rank, comm);
             }
@@ -931,8 +930,8 @@ void print_matrix_work(
             // print block row
             for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
                 for (int64_t j = 0; j < A.nt(); ++j) {
-                    if ((A.uplo() == slate::Uplo::Lower && i >= j) ||
-                        (A.uplo() == slate::Uplo::Upper && i <= j))
+                    if ((A.uplo() == slate::Uplo::Lower && i >= j)
+                        || (A.uplo() == slate::Uplo::Upper && i <= j))
                     {
                         // tile in stored triangle
                         msg += tile_row_string(A, i, j, ti, width, precision, opposite);

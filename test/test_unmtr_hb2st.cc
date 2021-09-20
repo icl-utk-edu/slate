@@ -4,6 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
+#include "lapack/flops.hh"
 #include "test.hh"
 #include "print_matrix.hh"
 #include "grid_utils.hh"
@@ -149,7 +150,9 @@ void test_unmtr_hb2st_work(Params& params, bool run)
 
     // compute and save timing/performance
     params.time() = time;
-    //params.gflops() = gflop / time;
+    // todo: using unmqr's flop count, which is an estimation for unmtr_hb2st
+    double gflop = lapack::Gflop<scalar_t>::unmqr(lapack::Side::Left, n, n, n);
+    params.gflops() = gflop / time;
 
     if (verbose >= 2) {
         print_matrix( "Q", Q );

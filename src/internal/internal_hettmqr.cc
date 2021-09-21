@@ -17,6 +17,7 @@ namespace slate {
 template <typename scalar_t>
 void makeHermitian(Tile<scalar_t>&& T)
 {
+    trace::Block trace_block("internal::makeHermitian");
     using blas::conj;
     assert(T.mb() == T.nb());
     int64_t nb = T.nb();
@@ -69,6 +70,7 @@ void hettmqr(internal::TargetType<Target::HostTask>,
              HermitianMatrix<scalar_t>& C,
              int tag)
 {
+    trace::Block trace_block("internal::hettmqr");
     using blas::conj;
 
     // Assumes column major
@@ -192,6 +194,10 @@ void hettmqr(internal::TargetType<Target::HostTask>,
             // If  C(i1, j) is in upper triangle (i1 < j),
             // use C(i1, j) = C(j, i1)^H.
             // TODO: the j loop can be parallelized, with care for MPI.
+            // the j loop splited into three loops:
+            // first loop : send tiles to dst
+            // second loop: applies Q (tpmqrt)
+            // third loop:  send back the updated tiles
             for (int64_t j = 0; j < i2; ++j) {
                 if (j == i1)
                     continue;
@@ -200,27 +206,32 @@ void hettmqr(internal::TargetType<Target::HostTask>,
                     (i1 <  j && C.tileIsLocal(j, i1)))
                 {
                     // First node of each pair sends tile to dst,
-                    // then receives updated tile back ().
                     int dst = C.tileRank(i2, j);
                     if (i1 >= j) {
                         C.tileSend(i1, j, dst, tag);
-                        C.tileRecv(i1, j, dst, layout, tag);
                     }
                     else {
                         // Send transposed tile.
                         deepConjTranspose(C(j, i1));
                         C.tileSend(j, i1, dst, tag);
-                        C.tileRecv(j, i1, dst, layout, tag);
-                        deepConjTranspose(C(j, i1));
                     }
                 }
                 else if (C.tileIsLocal(i2, j)) {
                     // Second node of each pair receives tile from src,
-                    // applies Q, then sends updated tile back.
                     int src = (i1 >= j ? C.tileRank(i1, j)
                                        : C.tileRank(j, i1));
                     C.tileRecv(i1, j, src, layout, tag);
+                }
+            } // for j
 
+            for (int64_t j = 0; j < i2; ++j) {
+                if (j == i1)
+                    continue;
+
+                if (C.tileIsLocal(i2, j)) {
+                    // Applies Q, then sends updated tile back.
+                    #pragma omp task shared(V, T, C)
+                    {
                     V.tileGetForReading(i2, 0, LayoutConvert(layout));
                     T.tileGetForReading(i2, 0, LayoutConvert(layout));
                     C.tileGetForWriting(i2, j, LayoutConvert(layout));
@@ -233,7 +244,32 @@ void hettmqr(internal::TargetType<Target::HostTask>,
                     // todo: should tileRelease()?
                     V.tileTick(i2, 0);
                     T.tileTick(i2, 0);
+                    }
+                }
+            } // for j
+            #pragma omp taskwait
 
+            for (int64_t j = 0; j < i2; ++j) {
+                if (j == i1)
+                    continue;
+
+                if ((i1 >= j && C.tileIsLocal(i1, j)) ||
+                    (i1 <  j && C.tileIsLocal(j, i1)))
+                {
+                    // Receives updated tile back ().
+                    int dst = C.tileRank(i2, j);
+                    if (i1 >= j) {
+                        C.tileRecv(i1, j, dst, layout, tag);
+                    }
+                    else {
+                        C.tileRecv(j, i1, dst, layout, tag);
+                        deepConjTranspose(C(j, i1));
+                    }
+                }
+                else if (C.tileIsLocal(i2, j)) {
+                    // Sends updated tile back.
+                    int src = (i1 >= j ? C.tileRank(i1, j)
+                                       : C.tileRank(j, i1));
                     // Send updated tile back.
                     C.tileSend(i1, j, src, tag);
                     C.tileTick(i1, j);
@@ -255,17 +291,21 @@ void hettmqr(internal::TargetType<Target::HostTask>,
             for (int64_t i = j2+1; i < C.mt(); ++i) {
                 if (C.tileIsLocal(i, j1)) {
                     // First node of each pair sends tile to dst,
-                    // then receives updated tile back.
                     int dst = C.tileRank(i, j2);
                     C.tileSend(i, j1, dst, tag);
-                    C.tileRecv(i, j1, dst, layout, tag);
                 }
                 else if (C.tileIsLocal(i, j2)) {
                     // Second node of each pair receives tile from src,
-                    // applies Q, then sends updated tile back.
                     int src = C.tileRank(i, j1);
                     C.tileRecv(i, j1, src, layout, tag);
+                }
+            } // for i
 
+            for (int64_t i = j2+1; i < C.mt(); ++i) {
+                if (C.tileIsLocal(i, j2)) {
+                    // Applies Q, then sends updated tile back.
+                    #pragma omp task shared(V, T, C)
+                    {
                     V.tileGetForReading(j2, 0, LayoutConvert(layout));
                     T.tileGetForReading(j2, 0, LayoutConvert(layout));
                     C.tileGetForWriting(i, j2, LayoutConvert(layout));
@@ -277,6 +317,19 @@ void hettmqr(internal::TargetType<Target::HostTask>,
                     // todo: should tileRelease()?
                     V.tileTick(j2, 0);
                     T.tileTick(j2, 0);
+                    }
+                }
+            } // for i
+            #pragma omp taskwait
+
+            for (int64_t i = j2+1; i < C.mt(); ++i) {
+                if (C.tileIsLocal(i, j1)) {
+                    // Receives updated tile back.
+                    int dst = C.tileRank(i, j2);
+                    C.tileRecv(i, j1, dst, layout, tag);
+                }
+                else if (C.tileIsLocal(i, j2)) {
+                    int src = C.tileRank(i, j1);
 
                     // Send updated tile back.
                     C.tileSend(i, j1, src, tag);

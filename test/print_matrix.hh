@@ -164,15 +164,15 @@ void print_matrix(
             int rank = prow + pcol*p;
 
             if (rank == mpi_rank) {
-                if (verbose == 1)
-                    snprintf(buf, sizeof(buf),
-                             "%% %s%d_%d: ScaLAPACK matrix\n",
-                             label, prow, pcol);
-                else
-                    snprintf(buf, sizeof(buf),
-                             "%% ScaLAPACK matrix\n"
-                             "%s%d_%d = [\n", label, prow, pcol);
+                snprintf(buf, sizeof(buf),
+                            "%% %s%d_%d: ScaLAPACK matrix\n",
+                            label, prow, pcol);
                 msg += buf;
+                if (verbose != 1) {
+                    snprintf(buf, sizeof(buf),
+                             "%s%d_%d = [\n", label, prow, pcol);
+                    msg += buf;
+                }
                 if (verbose == 2 && size > threshold) {
                     // first abbrev_rows
                     int64_t max_rows = (mlocal < abbrev_rows ? mlocal : abbrev_rows);
@@ -385,7 +385,7 @@ std::string tile_row_string(
     std::string msg;
     try {
         auto T = A(i, j);
-        int64_t size = A.tileMb(j) * A.tileNb(j);
+        int64_t size = A.m() * A.n();
         if (! is_last_abbrev_cols && verbose == 2 && size > threshold) {
             // first abbrev_cols
             int64_t max_cols = std::min( A.tileNb(j), abbrev_cols );
@@ -497,29 +497,19 @@ void print_matrix(
     MPI_Comm comm = A.mpiComm();
     MPI_Barrier(comm);
 
-    std::string msg;
-    if (verbose == 1) {
-        msg = "\n% ";
-        msg += label;
-        msg += ": slate::Matrix ";
-    }
-    else
-        msg = "\n% slate::Matrix ";
+    std::string msg = std::string( "% " ) + label + ": slate::Matrix ";
+
     msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
         +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
         +  " tiles, nb " + std::to_string( A.tileNb(0) ) + "\n";
-    if (verbose == 1) {
-        msg += "\n";
-    }
-    else {
+    if (verbose != 1) {
         msg += label;
         msg += " = [\n";
     }
 
-    if (mpi_rank == 0 && verbose == 1) {
-        printf( "%s", msg.c_str() );
-        msg.clear();
-        MPI_Barrier(comm);
+    if (verbose == 1) {
+        if (mpi_rank == 0)
+            printf( "%s", msg.c_str() );
         return;
     }
 
@@ -569,8 +559,6 @@ void print_matrix(
                 if (i == A.mt()-1) { // last row tile
                     if (A.m() > 2 * abbrev_rows)
                         msg += " ...\n"; // row abbreviation indicator
-                    if (i > 0)
-                        msg += "\n"; // line between row tiles
 
                     // last abbrev_rows
                     int64_t start_row = blas::max( 0, A.tileMb(i) - abbrev_rows);
@@ -587,7 +575,7 @@ void print_matrix(
                         msg += tile_row_string(A, i, j, ti, opts, "", true);
                         msg += "\n";
                     }
-                    msg += "];\n";
+                    msg += "];\n\n";
                 }
             }
             else if (verbose == 2 || verbose == 3 || verbose == 4) {
@@ -605,11 +593,11 @@ void print_matrix(
                 }
             }
 
-            if (verbose != 2) {
+            if (verbose != 2 || size <= threshold) {
                 if (i < A.mt() - 1)
                     msg += "\n"; // line between row tiles
                 else
-                    msg += "];\n";
+                    msg += "];\n\n";
             }
             printf("%s", msg.c_str());
             msg.clear();

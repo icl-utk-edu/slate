@@ -1785,10 +1785,10 @@ void BaseMatrix<scalar_t>::listBcast(
                     tile_set[device].insert({i, j});
             }
             else {
-                // todo: should each read be an omp task instead?
-                #pragma omp task default(none) firstprivate(i, j, is_shared) shared(dev_set)
-                {
-                    for (auto device : dev_set) {
+                for (auto device : dev_set) {
+                    // note: dev_set structure is released after the if-target block
+                    #pragma omp task default(none) firstprivate(i, j, device, is_shared)
+                    {
                         if (is_shared) {
                             tileGetAndHold(i, j, device, LayoutConvert::None);
                         }

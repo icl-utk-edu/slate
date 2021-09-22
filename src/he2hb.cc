@@ -55,12 +55,36 @@ void he2hb(slate::internal::TargetType<target>,
     T.push_back( Treduce );
 
     // workspace
-    auto W = A.emptyLike();
+    //auto W = A.emptyLike();
     auto Wtmp = A.emptyLike();
     //auto TVAVT = A.emptyLike();
     auto Asave = A.emptyLike();
 
     // Use W(0, 0) for TVAVT, since W(0, 0) is never used otherwise.
+    slate::HermitianMatrix<scalar_t> W;
+    // todo: A.n() will loop on A tiles to compute n
+    int64_t n = A.n();
+    int64_t nb = A.tileNb(0);
+    // todo: how to get p and q??
+    int64_t p = 1, q = 1;
+    std::function<int64_t (int64_t j)> tileNb = [n, nb] (int64_t j) {
+        return (j + 1)*nb > n ? n%nb : nb;
+    };
+    std::function<int (std::tuple<int64_t, int64_t> ij)>
+    tileRank = [p, q](std::tuple<int64_t, int64_t> ij) {
+        int64_t i = std::get<0>(ij);
+        int64_t j = std::get<1>(ij);
+        return int(i%p + (j%q)*p);
+    };
+    int num_devices = blas::get_device_count();
+    std::function<int (std::tuple<int64_t, int64_t> ij)>
+    tileDevice = [p, num_devices](std::tuple<int64_t, int64_t> ij) {
+        int64_t i = std::get<0>(ij);
+        return int(i/p)%num_devices;
+    };
+    W = slate::HermitianMatrix<scalar_t>(
+            Uplo::Lower, n, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
+
     W.tileInsert(0, 0);
     auto TVAVT = W.sub(0, 0, 0, 0);
 

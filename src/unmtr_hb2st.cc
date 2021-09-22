@@ -99,12 +99,12 @@ void unmtr_hb2st(
         VC_matrix.tileInsertWorkspace(i, 0);
     }
     std::vector<scalar_t> tau_vector(mt_2*nb);
-
+/*
     // OpenMP needs pointer types, but vectors are exception safe.
     // Add one phantom row at bottom to ease specifying dependencies.
- //   std::vector< uint8_t > row_vector(mt+1);
- //   uint8_t* row = row_vector.data();
-
+    std::vector< uint8_t > row_vector(mt+1);
+    uint8_t* row = row_vector.data();
+*/
     // Early exit if this rank has no data in C.
     // This lets later code assume every rank gets tiles in V, etc.
     std::set<int> ranks;
@@ -139,7 +139,7 @@ void unmtr_hb2st(
                     // Send V(0, r) across ranks owning row C(i, :).
                     // Send from V to be contiguous, instead of V_.
                     // todo make async; put in different task.
-                    V.tileBcast(0, r, C.sub(i, i, 0, nt-1), Layout::ColMajor);
+                    V.tileBcast(0, r, C.sub(i, i, 0, nt-1), Layout::ColMajor, j);
 
                     auto Vr = V_(0, r);
                     scalar_t* Vr_data = Vr.data();
@@ -245,6 +245,7 @@ void unmtr_hb2st(
             }
         }
         #pragma omp taskwait
+        C.tileUpdateAllOrigin();
     }
 }
 

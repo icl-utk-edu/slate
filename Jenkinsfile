@@ -27,21 +27,30 @@ export top=`pwd`
 date
 git submodule update --init
 
-# Echo command, then run it. Useful when using `set +x` (non-verbose mode).
-function run {
-    echo $@
-    $@
+# Suppress trace output of commands executed with `run`. Useful for Spack.
+run() {
+    { set +x; } 2> /dev/null;
+    $@;
+    set -x
 }
 
+# Suppress trace output of `print` commands. https://superuser.com/a/1141026
+# aliasing `echo` causes issues with spack_setup, so use `print` instead.
+echo_and_restore() {
+    builtin echo "$*"
+    case "$save_flags" in
+        (*x*)  set -x
+    esac
+}
+alias print='{ save_flags="$-"; set +x; } 2> /dev/null; echo_and_restore'
+
 date
-set +x
 run source /home/jenkins/spack_setup
 run sload gcc@7.3.0
 run spack compiler find
 run sload intel-mkl
-set -x
 
-#========================================
+print "========================================"
 date
 cat > make.inc << END
 CXX  = mpicxx
@@ -49,10 +58,10 @@ FC   = mpif90
 blas = mkl
 END
 
-echo "========================================"
+print "========================================"
 # Run CUDA, OpenMPI tests on lips.
 if [ "${host}" = "lips" ]; then
-    sload openmpi%gcc@7.3.0
+    run sload openmpi%gcc@7.3.0
     export OMPI_CXX=${CXX}
 
     echo "CXXFLAGS  = -Werror" >> make.inc
@@ -60,7 +69,7 @@ if [ "${host}" = "lips" ]; then
     echo "cuda_arch = kepler"  >> make.inc
 
     # Load CUDA. LD_LIBRARY_PATH set by Spack.
-    sload cuda@10.2.89
+    run sload cuda@10.2.89
     export CPATH=${CPATH}:${CUDA_HOME}/include
     export LIBRARY_PATH=${LIBRARY_PATH}:${CUDA_HOME}/lib64
 fi
@@ -86,35 +95,35 @@ fi
 
 export color=no
 
-#========================================
+print "========================================"
 env
 
-echo "========================================"
+print "========================================"
 date
 make distclean
 
-echo "========================================"
+print "========================================"
 make echo
 
-echo "========================================"
+print "========================================"
 date
 make -j8
 
-echo "========================================"
+print "========================================"
 date
 make -j8 install prefix=${top}/install
 ls -R ${top}/install
 
-echo "========================================"
+print "========================================"
 ldd test/tester
 
-echo "========================================"
+print "========================================"
 date
 export OMP_NUM_THREADS=8
 cd ${top}/unit_test
 ./run_tests.py --xml ../report_unit.xml
 
-echo "========================================"
+print "========================================"
 date
 cd ${top}/test
 ./run_tests.py --quick --ref n --xml ${top}/report_test.xml

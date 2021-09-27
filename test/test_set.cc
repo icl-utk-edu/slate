@@ -104,7 +104,7 @@ void test_set_work(Params& params, bool run)
         //==================================================
         double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-        slate::set(alpha, beta, A);
+        slate::set(alpha, beta, A, opts);
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -176,6 +176,8 @@ void test_set_work(Params& params, bool run)
             real_t error = diff_norm / ( n + norm );
 
             params.error() = error;
+
+            params.okay() = (params.error() == 0);  // Copy should be exact.
 
             slate_set_num_blas_threads(saved_num_threads);
 

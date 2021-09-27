@@ -172,7 +172,7 @@ void test_add_work(Params& params, bool run)
         //==================================================
         double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-        slate::add(alpha, A, beta, B);
+        slate::add(alpha, A, beta, B, opts);
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 

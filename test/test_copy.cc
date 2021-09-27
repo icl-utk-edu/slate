@@ -76,7 +76,7 @@ void test_copy_work(Params& params, bool run)
     mlocB = mlocA, nlocB = nlocA, lldB = lldA;
     std::vector<scalar_t> B_data(lldB*nlocB);
 
-    if (std::is_same< matrix_type, slate::Matrix<scalar_type> >) {
+//    if (std::is_same< matrix_type, slate::Matrix<scalar_t> >) {}
 
     slate::Matrix<scalar_t> A;
     slate::Matrix<scalar_t> B;
@@ -224,6 +224,30 @@ void test_copy_work(Params& params, bool run)
             //Cblacs_exit(1) does not handle re-entering
         #endif
     }
+}
+
+// -----------------------------------------------------------------------------
+template <typename scalar_t >
+void test_copy_dispatch(Params& params, bool run )
+{
+    std::string routine = params.routine;
+    if (routine == "copy") {
+        test_copy_work< slate::Matrix<scalar_t> >( params, run );
+    }
+    else if (routine == "tzcopy") {
+        test_copy_work< slate::TrapezoidMatrix<scalar_t> >( params, run );
+    }
+    else if (routine == "trcopy") {
+        test_copy_work< slate::TriangularMatrix<scalar_t> >( params, run );
+    }
+    else if (routine == "sycopy") {
+        test_copy_work< slate::SymmetricMatrix<scalar_t> >( params, run );
+    }
+    else if (routine == "hecopy") {
+        test_copy_work< slate::HermitianMatrix<scalar_t> >( params, run );
+    }
+    else {
+        throw slate::Exception("unknown routine: " + routine);
     }
 }
 
@@ -236,19 +260,19 @@ void test_copy(Params& params, bool run)
             break;
 
         case testsweeper::DataType::Single:
-            test_copy_work<float> (params, run);
+            test_copy_dispatch<float> (params, run);
             break;
 
         case testsweeper::DataType::Double:
-            test_copy_work<double> (params, run);
+            test_copy_dispatch<double> (params, run);
             break;
 
         case testsweeper::DataType::SingleComplex:
-            test_copy_work<std::complex<float>> (params, run);
+            test_copy_dispatch<std::complex<float>> (params, run);
             break;
 
         case testsweeper::DataType::DoubleComplex:
-            test_copy_work<std::complex<double>> (params, run);
+            test_copy_dispatch<std::complex<double>> (params, run);
             break;
     }
 }

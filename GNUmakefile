@@ -433,6 +433,7 @@ libslate_src += \
         src/internal/internal_tzset.cc \
         src/internal/internal_unmqr.cc \
         src/internal/internal_unmlq.cc \
+        src/internal/internal_unmtr_hb2st.cc \
         src/internal/internal_util.cc \
         src/internal/internal_hegst.cc \
         src/internal/internal_gescale.cc \

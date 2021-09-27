@@ -179,10 +179,6 @@ void test_set_work(Params& params, bool run)
 
             slate_set_num_blas_threads(saved_num_threads);
 
-            real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
-            // Allow for difference
-            params.okay() = (params.error() <= tol);
-
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #endif

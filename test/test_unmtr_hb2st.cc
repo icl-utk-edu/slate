@@ -39,6 +39,8 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    slate::Origin origin = params.origin();
+    slate::Target target = params.target();
 
     // mark non-standard output values
     params.time();
@@ -49,6 +51,10 @@ void test_unmtr_hb2st_work(Params& params, bool run)
 
     if (! run)
         return;
+    
+    slate::Options const opts =  {
+        {slate::Option::Target, target}
+    };
 
     // MPI variables
     int mpi_rank, myrow, mycol;
@@ -82,14 +88,16 @@ void test_unmtr_hb2st_work(Params& params, bool run)
         print_matrix( "Afull_data", n, n, &Afull_data[0], lda );
     }
 
+    slate::Target origin_target = origin2target(origin);
     auto Afull = slate::HermitianMatrix<scalar_t>::fromLAPACK(
         uplo, n, &Afull_data[0], lda, nb, p, q, MPI_COMM_WORLD);
+    Afull.insertLocalTiles(origin_target);
 
     // Copy band of Afull, currently to rank 0.
     auto Aband = slate::HermitianBandMatrix<scalar_t>(
         uplo, n, band, nb,
         1, 1, MPI_COMM_WORLD);
-    Aband.insertLocalTiles();
+    Aband.insertLocalTiles(origin_target);
     Aband.he2hbGather( Afull );
 
     if (verbose >= 2) {
@@ -105,7 +113,7 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     int64_t nt = Afull.nt();
     int64_t vn = nt*(nt + 1)/2*nb;
     slate::Matrix<scalar_t> V(vm, vn, vm, nb, 1, 1, MPI_COMM_WORLD);
-    V.insertLocalTiles();
+    V.insertLocalTiles(origin_target);
     //--------------------
 
     // Compute tridiagonal and Householder vectors V.
@@ -119,7 +127,7 @@ void test_unmtr_hb2st_work(Params& params, bool run)
 
     // Set Q = Identity. Use 1D column cyclic.
     slate::Matrix<scalar_t> Q(n, n, nb, 1, p*q, MPI_COMM_WORLD);
-    Q.insertLocalTiles();
+    Q.insertLocalTiles(origin_target);
     set(zero, one, Q);
     if (verbose >= 2) {
         print_matrix( "Q0", Q );
@@ -134,17 +142,7 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     // Run SLATE test.
     //==================================================
     cudaProfilerStart();
-    #pragma omp parallel
-    #pragma omp master
-    {
-        omp_set_nested(1);
-        #pragma omp task
-        {
-            slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, V, Q);
-        }
-        #pragma omp taskwait
-        Q.tileUpdateAllOrigin();
-    }
+    slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, V, Q);
     cudaProfilerStop();
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 

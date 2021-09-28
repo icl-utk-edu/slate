@@ -27,7 +27,17 @@ void unmtr_hb2st(slate::internal::TargetType<target>,
                  Matrix<scalar_t>& C,
                  const std::map<Option, Value>& opts)
 {
-    internal::unmtr_hb2st<target>(side, op, V, C, opts);
+    #pragma omp parallel
+    #pragma omp master
+    {
+        omp_set_nested(1);
+        #pragma omp task
+        {
+            internal::unmtr_hb2st<target>(side, op, V, C, opts);
+        }
+        #pragma omp taskwait
+        C.tileUpdateAllOrigin();
+    }
 }
 } // namespace specialization
 } // namespace internal

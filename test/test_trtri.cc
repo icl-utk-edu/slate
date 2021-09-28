@@ -40,7 +40,6 @@ void test_trtri_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -82,9 +81,7 @@ void test_trtri_work(Params& params, bool run)
     // it seems to still be well conditioned.
     auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                   uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-    if (verbose >= 2) {
-        print_matrix( "AH", AH );
-    }
+    print_matrix( "AH", AH, params );
 
     slate::generate_matrix(params.matrix, AH);
     slate::potrf(AH);
@@ -92,9 +89,7 @@ void test_trtri_work(Params& params, bool run)
     // Setup SLATE triangular matrix A from Cholesky factor in AH.
     slate::TriangularMatrix<scalar_t> A( diag, AH );
 
-    if (verbose >= 2) {
-        print_matrix( "A", A );
-    }
+    print_matrix( "A", A, params );
 
     // if check (or ref) is required, copy test data and create a descriptor for it
     std::vector<scalar_t> Aref_data;
@@ -147,9 +142,7 @@ void test_trtri_work(Params& params, bool run)
         params.time() = time;
         params.gflops() = gflop / time;
 
-        if (verbose >= 2) {
-            print_matrix( "Ainv", A );
-        }
+        print_matrix( "Ainv", A, params );
     }
 
     if (check) {
@@ -193,9 +186,7 @@ void test_trtri_work(Params& params, bool run)
             // data in Aref_data
             auto Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
                             n, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-            if (verbose >= 2) {
-                print_matrix( "Aref_", Aref );
-            }
+            print_matrix( "Aref_", Aref, params );
 
             // Zero out unused opposite lower/upper triangle.
             // For diag=unit, set diag to 1.0.
@@ -223,9 +214,7 @@ void test_trtri_work(Params& params, bool run)
                                       &Aref_data[0], 2, 1, Aref_desc );
                 }
             }
-            if (verbose >= 2) {
-                print_matrix( "Aref", Aref );
-            }
+            print_matrix( "Aref", Aref, params );
 
             // Aref_data = inv(A) * Aref_data
             scalapack_ptrmm("left", uplo2str(uplo), "notrans", diag2str(diag),
@@ -235,15 +224,11 @@ void test_trtri_work(Params& params, bool run)
 
             // Make Cchk_data into an identity matrix
             slate::set(zero, one, C);
-            if (verbose >= 2) {
-                print_matrix( "C", C );
-            }
+            print_matrix( "C", C, params );
 
             // C = C - A; note Aref is a general n-by-n SLATE matrix pointing to Aref_data data
             slate::add(-one, Aref, one, C);
-            if (verbose >= 2) {
-                print_matrix( "Cdiff", C );
-            }
+            print_matrix( "Cdiff", C, params );
 
             // Norm of Cchk_data ( = I - inv(A) * A )
             //// real_t C_norm = slate::norm(slate::norm::One, C);

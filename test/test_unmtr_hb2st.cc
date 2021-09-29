@@ -52,6 +52,15 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     if (! run)
         return;
     
+    if (origin == slate::Origin::ScaLAPACK) {
+        params.msg() = "skipping: currently origin=scalapack is not supported";
+        return;
+    }
+    if (origin == slate::Origin::Devices) {
+        params.msg() = "skipping: currently origin=devices is not supported";
+        return;
+    }
+    
     slate::Options const opts =  {
         {slate::Option::Target, target}
     };

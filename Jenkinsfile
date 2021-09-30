@@ -67,6 +67,7 @@ if [ "${host}" = "lips" ]; then
     echo "CXXFLAGS  = -Werror" >> make.inc
     echo "mkl_blacs = openmpi" >> make.inc
     echo "cuda_arch = kepler"  >> make.inc
+    echo "gpu_backend = cuda"  >> make.inc
 
     # Load CUDA. LD_LIBRARY_PATH set by Spack.
     run sload cuda@10.2.89
@@ -81,7 +82,7 @@ if [ "${host}" = "caffeine" ]; then
 
     #echo "CXXFLAGS  = -Werror"  >> make.inc  # HIP headers have many errors; ignore.
     echo "mkl_blacs = intelmpi" >> make.inc
-    echo "hip_arch  = gfx900"   >> make.inc  # MI25 / Vega 10
+    echo "gpu_backend = hip"    >> make.inc
 
     # Load ROCm/HIP.
     export PATH=${PATH}:/opt/rocm/bin

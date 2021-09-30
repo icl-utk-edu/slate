@@ -123,6 +123,7 @@ void unmtr_hb2st(Side side, Op op,
         case Target::HostBatch:
             break;
         case Target::Devices:
+            internal::unmtr_hb2st<Target::Devices>( side, op, V, C, opts);
             break;
     }
     // todo: return value for errors?

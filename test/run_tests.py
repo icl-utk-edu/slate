@@ -553,14 +553,14 @@ if (opts.norms):
 # aux
 if (opts.aux):
     cmds += [
-    [ 'add',    gen + dtype + mn + ab ],
-    [ 'copy',   gen + dtype + mn      ],
-    [ 'tzcopy', gen + dtype + mn      ],
-    [ 'trcopy', gen + dtype + mn      ],
-    [ 'sycopy', gen + dtype + mn      ],
-    [ 'hecopy', gen + dtype + mn      ],
-    [ 'scale',  gen + dtype + mn + ab ],
-    [ 'set',    gen + dtype + mn + ab ],
+    [ 'add',    gen + dtype + mn + ab        ],
+    [ 'copy',   gen + dtype + mn             ],
+    [ 'tzcopy', gen + dtype + mn      + uplo ],
+    [ 'trcopy', gen + dtype + mn      + uplo ],
+    [ 'sycopy', gen + dtype + mn      + uplo ],
+    [ 'hecopy', gen + dtype + mn      + uplo ],
+    [ 'scale',  gen + dtype + mn + ab        ],
+    [ 'set',    gen + dtype + mn + ab        ],
     ]
 
 # ------------------------------------------------------------------------------

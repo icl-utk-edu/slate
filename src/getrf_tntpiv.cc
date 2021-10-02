@@ -86,13 +86,13 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
             int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
             pivots.at(k).resize(diag_len);
 
-            auto Apanel = Awork.sub( k, A_mt-1, k, k );
-            Apanel.insertLocalTiles();
-
             // panel, high priority
             #pragma omp task depend(inout:column[k]) \
                              priority(priority_one)
             {
+                auto Apanel = Awork.sub( k, A_mt-1, k, k );
+                Apanel.insertLocalTiles();
+
                 // factor A(k:mt-1, k)
                 internal::getrf_tntpiv<Target::HostTask>(
                     A.sub(k, A_mt-1, k, k),  std::move(Apanel), diag_len, ib,
@@ -151,7 +151,7 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                    bcast_list.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}, tag});
                }
                A.template listBcastMT<target>(
-                   bcast_list, Layout::ColMajor, life_factor_one, is_shared);              
+                   bcast_list, Layout::ColMajor, life_factor_one, is_shared);
            }
 
             // update lookahead column(s), high priority

@@ -97,8 +97,6 @@ void getrf_tntpiv(
 
     int64_t nb = tiles[0].nb();
 
-    //std::vector< AuxPivot<scalar_t> > piv = aux_pivot[0];
-
     // Loop over ib-wide stripes.
     for (int64_t k = 0; k < diag_len; k += ib) {
 
@@ -169,7 +167,7 @@ void getrf_tntpiv(
                     int global_Offset = aux_pivot[max_index[0]][max_offset[0]].elementOffset();
 
                     aux_pivot[max_index[0]][max_offset[0]] = aux_pivot[0][j];
- 
+
                     aux_pivot[0][j] = AuxPivot<scalar_t>(global_tile_index,
                                                         global_Offset,
                                                         max_index[0],

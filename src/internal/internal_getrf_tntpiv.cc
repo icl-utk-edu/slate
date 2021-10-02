@@ -212,11 +212,12 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
         aux_pivot[0].resize(diag_len);
         aux_pivot[1].resize(diag_len);
 
+        int piv_len = std::min(tiles[0].mb(), tiles[0].nb());
+
         // Factor the panel locally in parallel.
-        getrf_tntpiv(A, tiles, diag_len, ib, 0,
+        getrf_tntpiv(A, tiles, piv_len, ib, 0,
             A.tileNb(0), tile_indices, aux_pivot,
             A.mpiRank(), max_panel_threads, priority);
-
        if( nranks > 1 ){
 
            internal::copy<Target::HostTask>( std::move(A), std::move(Awork) );
@@ -234,7 +235,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
 
            std::pair<int, int64_t> global_pair;
 
-            for(int j=0; j < diag_len ; ++j){
+            for(int j=0; j < piv_len ; ++j){
                 if (aux_pivot[0][j].localTileIndex() > 0 ||
                     aux_pivot[0][j].localOffset() > j){
 
@@ -254,7 +255,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
             }
 
 
-            for(int j=0; j < diag_len ; ++j){
+            for(int j=0; j < piv_len ; ++j){
                 aux_pivot[0][j].set_tileIndex(global_tracking[0][j].first);
                 aux_pivot[0][j].set_elementOffset(global_tracking[0][j].second);
             }
@@ -266,7 +267,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
            //but only src nodes during tree reduction will use it
            //TODO::RABAB I am not sure what is the overhead of moving this inside the for loop. Need testing.
 
-           std::vector< Tile<scalar_t> > local_tiles;
+         /*  std::vector< Tile<scalar_t> > local_tiles;
            std::vector<scalar_t> data1( A.tileMb(0) * A.tileNb(0) );
            std::vector<scalar_t> data2( A.tileMb(0) * A.tileNb(0) );
 
@@ -277,6 +278,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
 
            local_tiles.push_back( tile1 );
            local_tiles.push_back( tile2 );
+          */
 
            int step =1;
            int src, dst;
@@ -297,13 +299,25 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                            sizeof(AuxPivot<scalar_t>)*aux_pivot.at(1).size(),
                            MPI_BYTE, src, 0, A.mpiComm(),  &status);
 
+                      std::vector< Tile<scalar_t> > local_tiles;
+                      std::vector<scalar_t> data1( Awork.tileMb(i_current) * Awork.tileNb(0) );
+                      std::vector<scalar_t> data2( Awork.tileMb(i_dst) * Awork.tileNb(0) );
+
+                      Tile<scalar_t> tile1( Awork.tileMb(i_current), Awork.tileNb(0),
+                           &data1[0], Awork.tileMb(i_current), A.hostNum(), TileKind::Workspace );
+                      Tile<scalar_t> tile2( Awork.tileMb(i_dst), Awork.tileNb(0),
+                          &data2[0], Awork.tileMb(i_dst), A.hostNum(), TileKind::Workspace );
+
+                      local_tiles.push_back( tile1 );
+                      local_tiles.push_back( tile2 );
 
                       Awork(i_current, 0).copyData( &local_tiles[0]);
                       Awork(i_dst, 0).copyData( &local_tiles[1]);
 
+                      piv_len = std::min(local_tiles[0].mb(), local_tiles[0].nb());
 
                       // Factor the panel locally in parallel.
-                      getrf_tntpiv(A, local_tiles, diag_len, ib, 1,
+                      getrf_tntpiv(A, local_tiles, piv_len, ib, 1,
                           A.tileNb(0), tile_indices, aux_pivot,
                           A.mpiRank(), max_panel_threads, priority);
 
@@ -311,12 +325,12 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                       ptiles.push_back(Awork(i_current, 0));
                       ptiles.push_back(Awork(i_dst, 0));
 
-                      for(int j=0; j < diag_len ; ++j){
+                      for(int j=0; j < piv_len ; ++j){
                           if (aux_pivot[0][j].localTileIndex() > 0 ||
                               aux_pivot[0][j].localOffset() > j){
 
                               swapLocalRow(
-                                  0, A.tileMb(0),
+                                  0, A.tileNb(0),
                                   ptiles[0], j,
                                   ptiles[aux_pivot[0][j].localTileIndex()],
                                   aux_pivot[0][j].localOffset());
@@ -333,6 +347,9 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                      }
 
                      Awork.tileTick(i_dst, 0);
+                     data1.clear();
+                     data2.clear();
+                     local_tiles.clear();
                  }
               }
               else{
@@ -354,8 +371,6 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
 
        // Copy pivot information from aux_pivot to pivot.
        for (int64_t i = 0; i < diag_len; ++i) {
-           pivot[i] = Pivot(aux_pivot[0][i].tileIndex(),
-                     aux_pivot[0][i].elementOffset());
            pivot[i] = Pivot(aux_pivot[0][i].tileIndex(),
                      aux_pivot[0][i].elementOffset());
        }

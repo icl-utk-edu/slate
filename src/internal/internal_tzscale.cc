@@ -306,7 +306,7 @@ void scale(internal::TargetType<Target::Devices>,
             }
             for (int q = 4; q < 8; ++q) {
                 if (group_count[q] > 0) {
-                    device::tzscale(mb[q], nb[q],
+                    device::tzscale(A.uplo(), mb[q], nb[q],
                                     numer, denom, a_array_dev, lda[q],
                                     group_count[q], *queue);
                     a_array_dev += group_count[q];

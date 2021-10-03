@@ -116,7 +116,7 @@ void test_scale_work(Params& params, bool run)
         //==================================================
         double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-        slate::scale(alpha, beta, A);
+        slate::scale(alpha, beta, A, opts);
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 

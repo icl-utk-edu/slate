@@ -882,6 +882,7 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
                 }    
         } else {
             // one row of y at a time
+            slate_not_implemented("axpby uplo == Lower cannot process by row, only by column");
         }
     } else if( X.uploPhysical() == Uplo::Upper ) {
         int64_t m = std::min(X.mb(), Y.mb());
@@ -908,6 +909,7 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
             }
         } else {
             // one row of y at a time
+            slate_not_implemented("axpby uplo == Upper cannot process by row, only by column");
         }
     }
 }

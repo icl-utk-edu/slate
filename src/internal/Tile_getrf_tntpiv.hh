@@ -108,8 +108,8 @@ void getrf_tntpiv(
         for (int64_t j = k; j < k+kb; ++j) {
 
                 max_value[thread_rank] = tiles[0](j, j);
-                max_index[thread_rank] = 0; //TODO::RABAB This is local index
-                max_offset[thread_rank] = j; //TODO::RABAB This is local offset
+                max_index[thread_rank] = 0;
+                max_offset[thread_rank] = j;
 
             //------------------
             // thread max search
@@ -124,8 +124,8 @@ void getrf_tntpiv(
                     for (int64_t i = j+1; i < tile.mb(); ++i) {
                         if (cabs1(tile(i, j)) > cabs1(max_value[thread_rank])) {
                             max_value[thread_rank] = tile(i, j);
-                            max_index[thread_rank] = idx; //TODO::RABAB This is local index
-                            max_offset[thread_rank] = i; //TODO::RABAB This is local offset
+                            max_index[thread_rank] = idx;
+                            max_offset[thread_rank] = i;
                         }
                     }
                 }
@@ -134,8 +134,8 @@ void getrf_tntpiv(
                     for (int64_t i = 0; i < tile.mb(); ++i) {
                         if (cabs1(tile(i, j)) > cabs1(max_value[thread_rank])) {
                             max_value[thread_rank] = tile(i, j);
-                            max_index[thread_rank] = idx; //TODO::RABAB This is local index
-                            max_offset[thread_rank] = i; //TODO::RABAB This is local offset
+                            max_index[thread_rank] = idx;
+                            max_offset[thread_rank] = i;
                         }
                     }
                 }
@@ -149,11 +149,10 @@ void getrf_tntpiv(
                 for (int rank = 1; rank < thread_size; ++rank) {
                     if (cabs1(max_value[rank]) > cabs1(max_value[0])) {
                         max_value[0] = max_value[rank];
-                        max_index[0] = max_index[rank]; //TODO::RABAB This is local index
-                        max_offset[0] = max_offset[rank]; //TODO::RABAB This is local offset
+                        max_index[0] = max_index[rank];
+                        max_offset[0] = max_offset[rank];
                     }
                 }
-                //TODO::RABABAfter computing max value, index, and offset, search in the coressponing povit index with offset, then
                 //read global index and offset and swap it with j
                 if ( stage == 0 ){
 
@@ -173,7 +172,7 @@ void getrf_tntpiv(
                                                         max_index[0],
                                                         max_offset[0],
                                                         max_value[0],
-                                                        mpi_rank); //TODO
+                                                        mpi_rank);
                 }
 
                 // pivot swap
@@ -344,7 +343,6 @@ void getrf_tntpiv(
     for (int64_t k = ib; k < diag_len; k += ib) {
         if (thread_rank == 0) {
             for (int64_t i = k; i < k+ib && i < diag_len; ++i) {
-                //TODO::RABAB I might not need it
                 // if pivot not on the diagonal
                  if (aux_pivot[0][i].localTileIndex() > 0 ||
                      aux_pivot[0][i].localOffset() > i)

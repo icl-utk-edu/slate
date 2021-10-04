@@ -14,10 +14,10 @@
 namespace slate {
 namespace internal {
 
-
 template <typename scalar_t>
 void pivotList(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
-               int64_t diag_len, int mt){
+               int64_t diag_len, int mt)
+{
 
     std::vector<std::pair<int64_t, int64_t>> global_info;
 
@@ -39,7 +39,6 @@ void pivotList(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
     for (int i=0 ; i < int(global_info.size()); ++i){
        int index = -1;
           //Find the pivot position in the pivot_list
-
         for (int j=i; j < int(pivot_list.size()); ++j){
             if( pivot_list[j].first == global_info[i] ){
                 index = j;
@@ -49,7 +48,6 @@ void pivotList(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
 
        if((global_info[i].first == pivot_list[i].second.first)
           && (global_info[i].second < pivot_list[i].second.second)){
-
           std::pair<int64_t, int64_t> temp = pivot_list[i].first;
           //If the index is already moved down, put it is new index
           pivot_list[i].first = pivot_list[index].second;
@@ -70,10 +68,8 @@ void pivotList(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
 
 }
 
-//TODO::RABAB, no need to pass A here
 template <typename scalar_t>
 void getrf_tntpiv(
-    Matrix<scalar_t>& A,
     std::vector< Tile<scalar_t> >& tiles,
     int64_t diag_len, int64_t ib, int stage,
     int nb, std::vector<int64_t>& tile_indices,
@@ -121,6 +117,7 @@ void getrf_tntpiv(
     #pragma omp taskwait
 
 }
+
 //------------------------------------------------------------------------------
 /// LU factorization of a column of tiles.
 /// Dispatches to target implementations.
@@ -149,7 +146,6 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    // Assumes column major RABAB::Check the row major in case of getrf gpu as in old imp TODO
     const Layout layout = Layout::ColMajor;
 
     assert(A.nt() == 1);
@@ -215,13 +211,13 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
         int piv_len = std::min(tiles[0].mb(), tiles[0].nb());
 
         // Factor the panel locally in parallel.
-        getrf_tntpiv(A, tiles, piv_len, ib, 0,
+        getrf_tntpiv(tiles, piv_len, ib, 0,
             A.tileNb(0), tile_indices, aux_pivot,
             A.mpiRank(), max_panel_threads, priority);
+
        if( nranks > 1 ){
 
            internal::copy<Target::HostTask>( std::move(A), std::move(Awork) );
-
 
            std::vector< std::vector<std::pair<int, int64_t>> > global_tracking(tile_indices.size());
 
@@ -260,26 +256,6 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                 aux_pivot[0][j].set_elementOffset(global_tracking[0][j].second);
             }
 
-           //Alocate workspace to copy tiles in the tree reduction.
-           //These tiles will only be used during factorization.
-           //The permoutations happen in the copy tiles of the work panel
-           //TODO::RABAB all nodes will allocate those two tiles,
-           //but only src nodes during tree reduction will use it
-           //TODO::RABAB I am not sure what is the overhead of moving this inside the for loop. Need testing.
-
-         /*  std::vector< Tile<scalar_t> > local_tiles;
-           std::vector<scalar_t> data1( A.tileMb(0) * A.tileNb(0) );
-           std::vector<scalar_t> data2( A.tileMb(0) * A.tileNb(0) );
-
-           Tile<scalar_t> tile1( A.tileMb(0), A.tileNb(0),
-               &data1[0], A.tileMb(0), A.hostNum(), TileKind::Workspace );
-           Tile<scalar_t> tile2( A.tileMb(0), A.tileNb(0),
-             &data2[0], A.tileMb(0), A.hostNum(), TileKind::Workspace );
-
-           local_tiles.push_back( tile1 );
-           local_tiles.push_back( tile2 );
-          */
-
            int step =1;
            int src, dst;
            int64_t i_src, i_dst, i_current;
@@ -288,6 +264,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
 
                if(index % (2*step) == 0){
                    if(index + step < nranks){
+
                        src = rank_rows[ index + step].first;
                        i_current = rank_rows[ index ].second;
                        i_dst = (rank_rows[ index ].second) + 1;
@@ -299,6 +276,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                            sizeof(AuxPivot<scalar_t>)*aux_pivot.at(1).size(),
                            MPI_BYTE, src, 0, A.mpiComm(),  &status);
 
+                      //Alocate workspace to copy tiles in the tree reduction.
                       std::vector< Tile<scalar_t> > local_tiles;
                       std::vector<scalar_t> data1( Awork.tileMb(i_current) * Awork.tileNb(0) );
                       std::vector<scalar_t> data2( Awork.tileMb(i_dst) * Awork.tileNb(0) );
@@ -317,7 +295,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                       piv_len = std::min(local_tiles[0].mb(), local_tiles[0].nb());
 
                       // Factor the panel locally in parallel.
-                      getrf_tntpiv(A, local_tiles, piv_len, ib, 1,
+                      getrf_tntpiv(local_tiles, piv_len, ib, 1,
                           A.tileNb(0), tile_indices, aux_pivot,
                           A.mpiRank(), max_panel_threads, priority);
 
@@ -339,7 +317,6 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                      }
 
                      if(level==nlevels-1){
-
                          //Copy the last factorization back to panel tile
                          local_tiles[0].copyData(&ptiles[0]);
                          pivotList(aux_pivot, diag_len, A.mt());
@@ -363,10 +340,9 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                       MPI_BYTE, dst, 0, A.mpiComm());
                   break;
                 }
-
               step *= 2;
-           }// for loop over levels
 
+           }// for loop over levels
        }
 
        // Copy pivot information from aux_pivot to pivot.

@@ -364,6 +364,18 @@ norm(
     Options const& opts = Options());
 
 //-----------------------------------------
+// norm for triangular case
+template <typename scalar_t>
+blas::real_type<scalar_t>
+norm(
+    Norm trnorm,
+    TriangularMatrix<scalar_t>& A,
+    Options const& opts = Options())
+{
+    return norm< TrapezoidMatrix<scalar_t> >( trnorm, A, opts );
+}
+
+//-----------------------------------------
 // colNorms()
 // all cols max norm
 template <typename matrix_type>

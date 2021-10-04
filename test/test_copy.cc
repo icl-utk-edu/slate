@@ -17,15 +17,15 @@
 #include <cstdlib>
 #include <utility>
 
-template <typename scalar_t>
-blas::real_type<scalar_t>
-norm(
-    slate::Norm norm,
-    slate::TriangularMatrix<scalar_t>& A)
-{
-    slate::TrapezoidMatrix<scalar_t> AZ( A );
-    return slate::norm( norm, AZ );
-}
+//template <typename scalar_t>
+//blas::real_type<scalar_t>
+//norm(
+//    slate::Norm norm,
+//    slate::TriangularMatrix<scalar_t>& A,
+//    slate::Options const& opts = slate::Options())
+//{
+//    return slate::norm< slate::TrapezoidMatrix<scalar_t> >( norm, A, opts );
+//}
 
 #define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
@@ -252,7 +252,7 @@ void test_copy_work(Params& params, bool run)
                 // todo: the copy needs to be fixed for transpose case.
                 copy(A, &A_data[0], A_desc);
             }
-            real_t A_norm = norm(slate::Norm::One, A);
+            real_t A_norm = norm(slate::Norm::One, A, opts);
             // set MKL num threads appropriately for parallel BLAS
             int omp_num_threads;
             #pragma omp parallel
@@ -297,9 +297,9 @@ void test_copy_work(Params& params, bool run)
             }
 
             // norm(A - Aref)
-            real_t A_diff_norm = norm(slate::Norm::One, A);
+            real_t A_diff_norm = norm(slate::Norm::One, A, opts);
             // norm(B - Bref)
-            real_t B_diff_norm = norm(slate::Norm::One, B);
+            real_t B_diff_norm = norm(slate::Norm::One, B, opts);
 
             params.ref_time() = time;
 

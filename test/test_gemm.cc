@@ -331,7 +331,7 @@ void test_gemm_work(Params& params, bool run)
             // get differences C = C - Cref
             slate::add(-one, Cref, one, C);
 
-            print_matrix( "Diff", C, params);
+            print_matrix( "Diff", C, params );
 
             // norm(C - Cref)
             real_t C_diff_norm = slate::norm(norm, C);

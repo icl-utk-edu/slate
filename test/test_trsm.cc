@@ -136,8 +136,8 @@ void test_trsm_work(Params& params, bool run)
     }
 
     if (verbose >= 2) {
-        print_matrix( "A", mlocA, nlocA, &A_data[0], lldA, p, q, MPI_COMM_WORLD);
-        print_matrix( "B", mlocB, nlocB, &B_data[0], lldB, p, q, MPI_COMM_WORLD);
+        print_matrix( "A", mlocA, nlocA, &A_data[0], lldA, p, q, MPI_COMM_WORLD, params);
+        print_matrix( "B", mlocB, nlocB, &B_data[0], lldB, p, q, MPI_COMM_WORLD, params);
     }
 
     auto opA = A;

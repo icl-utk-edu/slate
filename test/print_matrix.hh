@@ -1178,6 +1178,45 @@ void print_matrix(
 }
 
 //------------------------------------------------------------------------------
+/// Print a SLATE distributed symmetric matrix.
+/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
+///
+template <typename scalar_t>
+void print_matrix(
+    const char* label,
+    slate::SymmetricMatrix<scalar_t>& A,
+    Params& params)
+{
+    // Set defaults
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+        { slate::Option::PrintThreshold, params.print_threshold() },
+    };
+
+    if (A.mpiRank() == 0) {
+        printf( "\n"
+                "%% slate::SymmetricMatrix %lld-by-%lld, %lld-by-%lld tiles, "
+                "nb %lld uplo %c\n",
+                llong( A.m() ), llong( A.n() ),
+                llong( A.mt() ), llong( A.nt() ),
+                llong( A.tileNb(0) ),
+                char( A.uplo() ) );
+    }
+    print_matrix_work( label, A, opts );
+    if (A.mpiRank() == 0) {
+        if (A.uplo() == slate::Uplo::Lower) {
+            printf( "%s = tril( %s_ ) + tril( %s_, -1 ).';\n", label, label, label );
+        }
+        else {
+            printf( "%s = triu( %s_ ) + triu( %s_,  1 ).';\n", label, label, label );
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
 /// Print a SLATE distributed trapezoid matrix.
 /// Also prints Matlab tril or triu command to fix entries in opposite triangle.
 /// todo: fix unit diag in Matlab.
@@ -1193,6 +1232,48 @@ void print_matrix(
         { slate::Option::PrintWidth, width},
         { slate::Option::PrintPrecision, precision},
         { slate::Option::PrintVerbose, 4 } // default 4 prints full matrix
+    };
+
+    if (A.mpiRank() == 0) {
+        printf( "\n"
+                "%% slate::TrapezoidMatrix %lld-by-%lld, %lld-by-%lld tiles, "
+                "nb %lld uplo %c diag %c\n",
+                llong( A.m() ), llong( A.n() ),
+                llong( A.mt() ), llong( A.nt() ),
+                llong( A.tileNb(0) ),
+                char( A.uplo() ), char( A.diag() ) );
+    }
+    char buf[ 80 ];
+    snprintf( buf, sizeof(buf), "%s_", label );
+    print_matrix_work( buf, A, opts );
+    if (A.mpiRank() == 0) {
+        if (A.uplo() == slate::Uplo::Lower) {
+            printf( "%s = tril( %s_ );\n", label, label );
+        }
+        else {
+            printf( "%s = triu( %s_ );\n", label, label );
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Print a SLATE distributed trapezoid matrix.
+/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
+/// todo: fix unit diag in Matlab.
+///
+template <typename scalar_t>
+void print_matrix(
+    const char* label,
+    slate::TrapezoidMatrix<scalar_t>& A,
+    Params& params)
+{
+    // Set defaults
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+        { slate::Option::PrintThreshold, params.print_threshold() },
     };
 
     if (A.mpiRank() == 0) {

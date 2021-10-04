@@ -95,9 +95,7 @@ void test_trnorm_work(Params& params, bool run)
 
     slate::generate_matrix( params.matrix, A );
 
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+    print_matrix("A", A, params);
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();

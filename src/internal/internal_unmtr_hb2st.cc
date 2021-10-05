@@ -31,6 +31,7 @@ void unmtr_hb2st(
 /// Host OpenMP task implementation.
 /// @ingroup heev_internal
 ///
+/*
 template <typename scalar_t>
 void unmtr_hb2st(internal::TargetType<Target::HostTask>,
                  Side side, Op op,
@@ -205,20 +206,23 @@ void unmtr_hb2st(internal::TargetType<Target::HostTask>,
         }
         #pragma omp taskwait
     }
-}
+*/
 //------------------------------------------------------------------------------
 /// GPU device batched implementation.
 /// @ingroup heev_internal
 ///
-template <typename scalar_t>
-void unmtr_hb2st(internal::TargetType<Target::Devices>,
+template <Target target, typename scalar_t>
+void unmtr_hb2st(//internal::TargetType<Target::Devices>,
+                 internal::TargetType<target>,
                  Side side, Op op,
                  Matrix<scalar_t>& V,
                  Matrix<scalar_t>& C,
                  const std::map<Option, Value>& opts)
 {
+    trace::Block trace_block("unmtr_hb2st");
+    
     slate_assert(side == Side::Left);
-
+    
     const scalar_t zero = 0, one = 1;
 
     int64_t mb = V.tileMb(0); // == 2 nb
@@ -246,7 +250,11 @@ void unmtr_hb2st(internal::TargetType<Target::Devices>,
          T_matrix.tileInsertWorkspace(i, 0);
         VT_matrix.tileInsertWorkspace(i, 0);
         VC_matrix.tileInsertWorkspace(i, 0);
+         T_matrix.tileModified(i, 0);
+        VT_matrix.tileModified(i, 0);
+        VC_matrix.tileModified(i, 0);
     }
+
     std::vector<scalar_t> tau_vector(mt_2*nb);
     
     // Early exit if this rank has no data in C.
@@ -257,14 +265,16 @@ void unmtr_hb2st(internal::TargetType<Target::Devices>,
     if (ranks.find( C.mpiRank() ) == ranks.end())
         return;
     
-    for (int64_t j2 = mt-1; j2 > -mt; --j2) {
+    // TODO loops in src folder
+    for (int64_t j2 = mt-1; j2 > -mt; --j2) { // outer loop
         double n_ = 1.0 * j2 / 2.0;
         for (int64_t j = 0; j < mt; ++j) {
             int64_t i = (j - n_) * 2;
             if (i < mt && i >= j) {
                 #pragma omp task firstprivate(i, j)
                 {
-                    //std::cout << omp_get_thread_num() << " j:" << j << " i:" << i << std::endl;
+                    // TODO task in internal folder
+
                     slate::trace::Block trace_block(std::string(""+std::to_string(j)+","+std::to_string(i)).c_str());
                     int64_t mb0 = C.tileMb(i) - 1;
                     int64_t mb1 = i+1 < mt ? C.tileMb(i+1) : 0;
@@ -305,12 +315,49 @@ void unmtr_hb2st(internal::TargetType<Target::Devices>,
 
                     // Form VT = V * T. Assumes 0's stored in lower T.
                     // vm_-by-vnb = (vm_-by-vnb) (vnb-by-vnb)
-                    blas::gemm(Layout::ColMajor,
+                    /*
+                    blas::gemm(Layout::ColMajor, // TODO gpu
                             Op::NoTrans, Op::NoTrans,
                             vm_, vnb, vnb,
                             one,  Vr.data(), Vr.stride(),
                             T.data(),  T.stride(),
                             zero, VT.data(), VT.stride());
+                    */
+                    if(target == Target::Devices){
+                        slate::trace::Block trace_block(std::string("Tilegemm").c_str());
+
+                        int device = VT_matrix.tileDevice(i/2, 0);
+                        V_.tileGetForReading(0, r, device, LayoutConvert::None);
+                        T_matrix.tileGetForReading(i/2, 0, device, LayoutConvert::None);
+                        VT_matrix.tileGetForWriting(i/2, 0, device, LayoutConvert::None);
+
+                        blas::Queue* queue = VT_matrix.compute_queue(device, 0/*queue_index*/);
+
+                        //auto A00 = V_(0, r, device);
+                        //auto B00 = T_matrix(i/2, 0, device);
+                        //auto C00 = VT_matrix(i/2, 0, device);
+                        
+                        blas::gemm(Layout::ColMajor,
+                                   Op::NoTrans, Op::NoTrans,
+                                   vm_, vnb, vnb,
+                                   one,  
+                                   V_(0, r, device).data(), 
+                                   V_(0, r, device).stride(),
+                                   T_matrix(i/2, 0, device).data(),  
+                                   T_matrix(i/2, 0, device).stride(),
+                                   zero, 
+                                   VT_matrix(i/2, 0, device).data(), 
+                                   VT_matrix(i/2, 0, device).stride(), 
+                                   *queue);
+
+                        queue->sync();
+                        VT_matrix.tileModified(i/2, 0, device, false);
+                        VT_matrix.tileGetForReading(i/2, 0, LayoutConvert::None);
+                    }
+                    else {
+                        // internal::gemm<target>(one, Vr, T, zero, VT, layout, priority_zero);
+                        gemm(one, Vr, T, zero, VT);
+                    }
 
                     // Vr = [ Vr0 ],  VT = [ VT0 ],  [ Ci     ] = [ C0 ],
                     //      [ Vr1 ]        [ VT1 ]   [ C{i+1} ] = [ C1 ]
@@ -384,7 +431,7 @@ void unmtr_hb2st(internal::TargetType<Target::Devices>,
             }
         }
         #pragma omp taskwait
-    }
+    } // outer loop
 }
 
 //------------------------------------------------------------------------------

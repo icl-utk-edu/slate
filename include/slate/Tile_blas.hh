@@ -849,8 +849,8 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
     int64_t x_row_inc = X.rowIncrement();
     const scalar_t* X00 = &X.at(0, 0);
 
-    if( X.uploPhysical() == Uplo::General ) {
-        // Process by col/row, scale y=b*y then add y=ax+y
+    // Process uplo --> col/row, then scale y=b*y and add y=ax+y
+    if (X.uploPhysical() == Uplo::General) {
         if (Y.colIncrement()==1) {
             // one column of y at a time
             int64_t m = std::min(X.mb(), Y.mb());
@@ -869,22 +869,24 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
                                      &Y00[i*y_col_inc], y_row_inc);
             }
         }
-    } else if( X.uploPhysical() == Uplo::Lower ) {
+    } 
+    else if (X.uploPhysical() == Uplo::Lower) {
         int64_t m = std::min(X.mb(), Y.mb());
         int64_t n = std::min(X.nb(), Y.nb());
-        // Process by col/row, scale y=b*y then add y=ax+y
         if (Y.colIncrement()==1) { 
             // one column of y at a time
-                for (int64_t i = 0; i < n; i++) {
-                    for (int64_t j = i; j < m; j++) {
-                        Y00[j+i*y_row_inc] = beta * Y00[j+i*y_row_inc] + alpha * X00[j+i*x_row_inc];
-                    }
-                }    
-        } else {
+            for (int64_t i = 0; i < n; i++) {
+                for (int64_t j = i; j < m; j++) {
+                    Y00[j+i*y_row_inc] = beta * Y00[j+i*y_row_inc] + alpha * X00[j+i*x_row_inc];
+                }
+            }    
+        } 
+        else {
             // one row of y at a time
             slate_not_implemented("axpby uplo == Lower cannot process by row, only by column");
         }
-    } else if( X.uploPhysical() == Uplo::Upper ) {
+    } 
+    else if (X.uploPhysical() == Uplo::Upper) {
         int64_t m = std::min(X.mb(), Y.mb());
         int64_t n = std::min(X.nb(), Y.nb());
         if (Y.colIncrement()==1) { 
@@ -895,7 +897,8 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
                         Y00[j+i*y_row_inc] = beta * Y00[j+i*y_row_inc] + alpha * X00[j+i*x_row_inc];
                     }
                 }    
-            } else {
+            } 
+            else {
                 for (int64_t i = 0; i < m; i++) {
                     for (int64_t j = 0; j < i+1; j++) {
                         Y00[j+i*y_row_inc] = beta * Y00[j+i*y_row_inc] + alpha * X00[j+i*x_row_inc];
@@ -907,7 +910,8 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
                     }
                 }    
             }
-        } else {
+        } 
+        else {
             // one row of y at a time
             slate_not_implemented("axpby uplo == Upper cannot process by row, only by column");
         }

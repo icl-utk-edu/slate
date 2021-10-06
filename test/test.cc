@@ -221,6 +221,10 @@ std::vector< testsweeper::routines_t > routines = {
     // -----
     // auxiliary
     { "add",                test_add,          Section::aux },
+    { "tzadd",              test_add,          Section::aux },
+    { "tradd",              test_add,          Section::aux },
+    { "syadd",              test_add,          Section::aux },
+    { "headd",              test_add,          Section::aux },
     { "copy",               test_copy,         Section::aux },
     { "tzcopy",             test_copy,         Section::aux },
     { "trcopy",             test_copy,         Section::aux },

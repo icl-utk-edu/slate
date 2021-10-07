@@ -243,16 +243,16 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
     // (I - V T V^H) C = C - (V T) V^H C = C - VT VC.
     // todo: don't need distribution; these are local to each rank.
     int64_t mt_2 = ceildiv(mt, int64_t(2));
-    Matrix<scalar_t>  T_matrix( mt_2*nb, nb, nb, nb, 1, 1, V_.mpiComm() );
-    Matrix<scalar_t> VT_matrix( mt_2*vm, nb, vm, nb, 1, 1, V_.mpiComm() );
-    Matrix<scalar_t> VC_matrix( mt_2*nb, nb, nb, nb, 1, 1, V_.mpiComm() );
+    Matrix<scalar_t>  T( mt_2*nb, nb, nb, nb, 1, 1, V_.mpiComm() );
+    Matrix<scalar_t> VT( mt_2*vm, nb, vm, nb, 1, 1, V_.mpiComm() );
+    Matrix<scalar_t> VC( mt_2*nb, nb, nb, nb, 1, 1, V_.mpiComm() );
     for (int64_t i = 0; i < mt_2; ++i) {
-         T_matrix.tileInsertWorkspace(i, 0);
-        VT_matrix.tileInsertWorkspace(i, 0);
-        VC_matrix.tileInsertWorkspace(i, 0);
-         T_matrix.tileModified(i, 0);
-        VT_matrix.tileModified(i, 0);
-        VC_matrix.tileModified(i, 0);
+         T.tileInsertWorkspace(i, 0);
+        VT.tileInsertWorkspace(i, 0);
+        VC.tileInsertWorkspace(i, 0);
+         T.tileModified(i, 0);
+        VT.tileModified(i, 0);
+        VC.tileModified(i, 0);
     }
 
     std::vector<scalar_t> tau_vector(mt_2*nb);
@@ -294,10 +294,6 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                     scalar_t* Vr_data = Vr.data();
                     int64_t ldv = Vr.stride();
 
-                    auto  T =  T_matrix(i/2, 0);
-                    auto VT = VT_matrix(i/2, 0);
-                    auto VC = VC_matrix(i/2, 0);
-
                     // Copy tau, which is stored on diag(Vr), and set diag(Vr) = 1.
                     // diag(Vr) is restored later.
                     scalar_t* tau = &tau_vector[ (i/2)*nb ];
@@ -307,12 +303,12 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                     }
 
                     // Form T from Vr and tau.
-                    T.set(zero, zero);
+                    T.tileGetForWriting(i/2, 0, LayoutConvert::None);
+                    T(i/2, 0).set(zero, zero);
                     lapack::larft(Direction::Forward, lapack::StoreV::Columnwise,
                             vm_, vnb,
                             Vr.data(), Vr.stride(), tau,
-                            T.data(), T.stride());
-                    T_matrix.tileModified(i/2, 0);
+                            T(i/2, 0).data(), T(i/2, 0).stride());
 
                     // Form VT = V * T. Assumes 0's stored in lower T.
                     // vm_-by-vnb = (vm_-by-vnb) (vnb-by-vnb)
@@ -327,16 +323,12 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                     if(target == Target::Devices){
                         slate::trace::Block trace_block(std::string("Tilegemm").c_str());
 
-                        int device = VT_matrix.tileDevice(i/2, 0);
+                        int device = VT.tileDevice(i/2, 0);
                         V_.tileGetForReading(0, r, device, LayoutConvert::None);
-                        T_matrix.tileGetForReading(i/2, 0, device, LayoutConvert::None);
-                        VT_matrix.tileGetForWriting(i/2, 0, device, LayoutConvert::None);
+                        T.tileGetForReading(i/2, 0, device, LayoutConvert::None);
+                        VT.tileGetForWriting(i/2, 0, device, LayoutConvert::None);
 
-                        blas::Queue* queue = VT_matrix.compute_queue(device, 0/*queue_index*/);
-
-                        //auto A00 = V_(0, r, device);
-                        //auto B00 = T_matrix(i/2, 0, device);
-                        //auto C00 = VT_matrix(i/2, 0, device);
+                        blas::Queue* queue = VT.compute_queue(device, 0/*queue_index*/);
                         
                         blas::gemm(Layout::ColMajor,
                                    Op::NoTrans, Op::NoTrans,
@@ -344,20 +336,21 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                    one,  
                                    V_(0, r, device).data(), 
                                    V_(0, r, device).stride(),
-                                   T_matrix(i/2, 0, device).data(),  
-                                   T_matrix(i/2, 0, device).stride(),
+                                   T(i/2, 0, device).data(),  
+                                   T(i/2, 0, device).stride(),
                                    zero, 
-                                   VT_matrix(i/2, 0, device).data(), 
-                                   VT_matrix(i/2, 0, device).stride(), 
+                                   VT(i/2, 0, device).data(), 
+                                   VT(i/2, 0, device).stride(), 
                                    *queue);
 
                         queue->sync();
-                        VT_matrix.tileModified(i/2, 0, device, false);
-                        VT_matrix.tileGetForReading(i/2, 0, LayoutConvert::None);
+                        VT.tileModified(i/2, 0, device, false);
+                        VT.tileGetForReading(i/2, 0, LayoutConvert::None);
                     }
                     else {
                         // internal::gemm<target>(one, Vr, T, zero, VT, layout, priority_zero);
-                        gemm(one, Vr, T, zero, VT);
+                        auto C00 = VT(i/2, 0);
+                        gemm(one, Vr, T(i/2, 0), zero, C00);
                     }
 
                     // Vr = [ Vr0 ],  VT = [ VT0 ],  [ Ci     ] = [ C0 ],
@@ -369,7 +362,7 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                         if (C.tileIsLocal(i, k)) {
                             auto C0 = C(i, k);
                             int64_t cnb = C0.nb();
-                            assert( cnb <= VC.nb() );
+                            assert( cnb <= VC(i/2, 0).nb() );
                             assert( C0.mb()-1 == mb0 );  // After 1st row sliced off.
 
                             // VC = Vr0^H C0
@@ -380,7 +373,7 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                     vnb, cnb, mb0,
                                     one,  Vr.data(),   Vr.stride(),
                                     C0.data()+1, C0.stride(),
-                                    zero, VC.data(),   VC.stride());
+                                    zero, VC(i/2, 0).data(),   VC(i/2, 0).stride());
 
                             // VC += Vr1^H C1
                             // vnb-by-cnb += (mb1-by-vnb)^H (mb1-by-cnb)
@@ -394,7 +387,7 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                         vnb, cnb, mb1,
                                         one, Vr1data,   Vr.stride(),
                                         C1.data(), C1.stride(),
-                                        one, VC.data(), VC.stride());
+                                        one, VC(i/2, 0).data(), VC(i/2, 0).stride());
                             }
 
                             // C0 -= (V0 T) VC
@@ -403,19 +396,19 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                             blas::gemm(Layout::ColMajor,
                                     Op::NoTrans, Op::NoTrans,
                                     mb0, cnb, vnb,
-                                    -one, VT.data(),   VT.stride(),
-                                    VC.data(),   VC.stride(),
+                                    -one, VT(i/2, 0).data(),   VT(i/2, 0).stride(),
+                                    VC(i/2, 0).data(),   VC(i/2, 0).stride(),
                                     one,  C0.data()+1, C0.stride());
 
                             // C1 -= (V1 T) VC
                             // mb1-by-cnb -= (mb1-by-vnb) (vnb-by-cnb)
                             if (i+1 < mt) {
-                                scalar_t* VT1data = &VT.data()[ mb0 ];
+                                scalar_t* VT1data = &VT(i/2, 0).data()[ mb0 ];
                                 blas::gemm(Layout::ColMajor,
                                         Op::NoTrans, Op::NoTrans,
                                         mb1, cnb, vnb,
-                                        -one, VT1data,   VT.stride(),
-                                        VC.data(), VC.stride(),
+                                        -one, VT1data,   VT(i/2, 0).stride(),
+                                        VC(i/2, 0).data(), VC(i/2, 0).stride(),
                                         one,  C1.data(), C1.stride());
                             }
                             V.tileTick(0, r);

@@ -326,7 +326,9 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                         int device = VT.tileDevice(i/2, 0);
                         V_.tileGetForReading(0, r, device, LayoutConvert::None);
                         T.tileGetForReading(i/2, 0, device, LayoutConvert::None);
-                        VT.tileGetForWriting(i/2, 0, device, LayoutConvert::None);
+                        // VT is only written so use tileAcquire
+                        VT.tileAcquire(i/2, 0, device, Layout::ColMajor);
+                        VT.tileModified(i/2, 0, device, true);
 
                         blas::Queue* queue = VT.compute_queue(device, 0/*queue_index*/);
                         
@@ -344,7 +346,7 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                    *queue);
 
                         queue->sync();
-                        VT.tileModified(i/2, 0, device, false);
+                        VT.tileModified(i/2, 0, device);
                         VT.tileGetForReading(i/2, 0, LayoutConvert::None);
                     }
                     else {

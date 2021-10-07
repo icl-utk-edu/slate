@@ -60,7 +60,7 @@ template< typename scalar_t >
 void slate_pgesvMixed(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* b, int ib, int jb, int* descb, scalar_t* x, int ix, int jx, int* descx, int* iter, int* info)
 {
     using real_t = blas::real_type<scalar_t>;
-    // todo: figure out if the pxq grid is in row or column
+    check_and_assert_blacs_grid_is_column_major();
 
     // make blas single threaded
     // todo: does this set the omp num threads correctly

@@ -96,7 +96,7 @@ extern "C" void pztrmm_(const char* side, const char* uplo, const char* transa, 
 template< typename scalar_t >
 void slate_ptrmm(const char* sidestr, const char* uplostr, const char* transastr, const char* diagstr, int m, int n, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb)
 {
-    // todo: figure out if the pxq grid is in row or column
+    check_and_assert_blacs_grid_is_column_major();
 
     // make blas single threaded
     // todo: does this set the omp num threads correctly

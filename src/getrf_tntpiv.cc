@@ -67,7 +67,6 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
     std::vector< uint8_t > column_vector(A_nt);
     std::vector< uint8_t > diag_vector(A_nt);
     uint8_t* column = column_vector.data();
-    uint8_t* diag = diag_vector.data();
     // Running two listBcastMT's simultaneously can hang due to task ordering
     // This dependency avoids that
     uint8_t listBcastMT_token;
@@ -109,17 +108,16 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                 }
 
                // swap rows in A(k+1:A_mt-1, k)
-               int tag_kl1 = k+1;
+               int tag_k = k;
                internal::permuteRows<target>(
                    Direction::Forward, A.sub(k, A_mt-1, k, k),
-                   pivots.at(k), target_layout, priority_one, tag_kl1, queue_0);
+                   pivots.at(k), target_layout, priority_one, tag_k, queue_0);
 
               //TODO::RABAB segfault when chaning it to target
               internal::copy<Target::HostTask>( Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
 
 
               //Update panel
-              int tag_k = k;
               BcastList bcast_list_A;
               bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
                                           A.sub(k, k, k+1, A_nt-1)}});

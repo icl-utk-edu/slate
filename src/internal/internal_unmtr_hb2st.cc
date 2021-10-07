@@ -312,6 +312,7 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                             vm_, vnb,
                             Vr.data(), Vr.stride(), tau,
                             T.data(), T.stride());
+                    T_matrix.tileModified(i/2, 0);
 
                     // Form VT = V * T. Assumes 0's stored in lower T.
                     // vm_-by-vnb = (vm_-by-vnb) (vnb-by-vnb)

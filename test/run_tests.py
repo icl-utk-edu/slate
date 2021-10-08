@@ -553,6 +553,7 @@ if (opts.norms):
 if (opts.aux):
     cmds += [
     [ 'add',   gen + dtype + mn + ab ],
+    [ 'copy',  gen + dtype + mn      ],
     [ 'scale', gen + dtype + mn + ab ],
     ]
 

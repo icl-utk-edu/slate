@@ -223,6 +223,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "add",                test_add,          Section::aux },
     { "copy",               test_copy,         Section::aux },
     { "scale",              test_scale,        Section::aux },
+    { "set",                test_set,          Section::aux },
     { "",                   nullptr,           Section::newline },
 };
 

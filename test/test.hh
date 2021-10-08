@@ -233,6 +233,7 @@ void test_trnorm (Params& params, bool run);
 void test_add    (Params& params, bool run);
 void test_copy   (Params& params, bool run);
 void test_scale  (Params& params, bool run);
+void test_set    (Params& params, bool run);
 
 // -----------------------------------------------------------------------------
 inline slate::Dist str2dist(const char* dist)

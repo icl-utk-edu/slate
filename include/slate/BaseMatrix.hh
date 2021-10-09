@@ -2169,7 +2169,7 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 /// @param[in] layout
 ///     Indicates the Layout (ColMajor/RowMajor) of the received data.
 ///
-/// @param[inout] send_requests
+/// @param[in,out] send_requests
 ///     Vector where requests for this bcast are appended.
 ///
 template <typename scalar_t>

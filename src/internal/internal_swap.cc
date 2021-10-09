@@ -436,7 +436,7 @@ void permuteRows(
 /// @prama[in] direction
 ///     Whether the permutation matrix should be applied from the left or right
 ///
-/// @param[inout] A
+/// @param[in,out] A
 ///     The matrix to permute
 ///
 /// @param[in] pivot

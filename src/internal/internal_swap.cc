@@ -669,8 +669,7 @@ void permuteRows(
                                     auto tile_offset = pivot[i].elementOffset();
 
                                     if (remote_index >= count) {
-                                        // blas::copy( // no device copy in blaspp
-                                        blas::swap(
+                                        blas::copy(
                                             nb,
                                             &A(tile_index, j, device).at(tile_offset, 0), 1,
                                             remote_rows_dev + nb*remote_index, 1,
@@ -703,8 +702,7 @@ void permuteRows(
                                     auto tile_offset = pivot[i].elementOffset();
 
                                     if (remote_index >= count) {
-                                        // blas::copy( // no device copy in blaspp
-                                        blas::swap(
+                                        blas::copy(
                                             A.tileNb(j),
                                             remote_rows_dev + nb*remote_index, 1,
                                             &A(tile_index, j, device).at(tile_offset, 0), 1,

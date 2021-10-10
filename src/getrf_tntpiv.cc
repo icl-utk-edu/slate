@@ -193,10 +193,10 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                                  depend(inout:column[k-1])
                 {
                     // swap rows in A(k:mt-1, 0:k-1)
-                    int tag_0 = k;
+                    int tag = k;
                     internal::permuteRows<Target::HostTask>(
                         Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
-                        host_layout, priority_zero, tag_0, queue_0);
+                        host_layout, priority_zero, tag, queue_0);
                 }
             }
 

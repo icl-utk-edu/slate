@@ -125,6 +125,7 @@ public:
     testsweeper::ParamInt    align;
     testsweeper::ParamChar   nonuniform_nb;
     testsweeper::ParamInt    debug;
+    testsweeper::ParamDouble pivot_threshold;
 
     // ----- output parameters
     testsweeper::ParamScientific error;

@@ -52,6 +52,7 @@ void test_gesv_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     bool nonuniform_nb = params.nonuniform_nb() == 'y';
+    double pivot_threshold = params.pivot_threshold();
     int verbose = params.verbose();
     SLATE_UNUSED(verbose);
     slate::Origin origin = params.origin();
@@ -109,7 +110,8 @@ void test_gesv_work(Params& params, bool run)
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
-        {slate::Option::InnerBlocking, ib}
+        {slate::Option::InnerBlocking, ib},
+        {slate::Option::PivotThreshold, pivot_threshold}
     };
 
     // Matrix A: figure out local size.

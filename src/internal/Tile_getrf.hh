@@ -160,7 +160,8 @@ void getrf(
     std::vector<scalar_t>& max_value,
     std::vector<int64_t>& max_index,
     std::vector<int64_t>& max_offset,
-    std::vector<scalar_t>& top_block)
+    std::vector<scalar_t>& top_block,
+    blas::real_type<scalar_t> remote_pivot_threshold)
 {
     trace::Block trace_block("lapack::getrf");
 
@@ -241,10 +242,12 @@ void getrf(
                 struct { real_t max; int loc; } max_loc_in, max_loc;
                 max_loc_in.max = cabs1(max_value[0]);
                 max_loc_in.loc = mpi_rank;
+                if (max_loc_in.loc != mpi_root) max_loc_in.max *= remote_pivot_threshold;
                 slate_mpi_call(
                     MPI_Allreduce(&max_loc_in, &max_loc, 1,
                                   mpi_type< max_loc_type<real_t> >::value,
                                   MPI_MAXLOC, mpi_comm));
+
 
                 // todo: can this Bcast info be merged into the Allreduce?
                 // Broadcast the pivot information.

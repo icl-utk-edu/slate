@@ -531,6 +531,41 @@ void print_matrix_work(
                  (int)width, nan_);
     }
 
+    //----------------
+    int64_t kl = 0;
+    int64_t ku = 0;
+//    int64_t kdt = 0;
+    auto ptbm = static_cast<slate::BaseTriangularBandMatrix<scalar_t>*>(&A);
+    if (ptbm != nullptr) {
+        // slate::BaseTriangularBandMatrix
+//        kdt = slate::ceildiv(ptbm->bandwidth(), ptbm->tileNb(0));
+    }
+    else {
+        auto pbm = static_cast<slate::BandMatrix<scalar_t>*>(&A);
+        if (pbm != nullptr) {
+            // slate::BandMatrix
+            // todo: initially, assume fixed size, square tiles for simplicity
+            kl = slate::ceildiv(pbm->lowerBandwidth(), pbm->tileNb(0));
+            ku = slate::ceildiv(pbm->upperBandwidth(), pbm->tileNb(0));
+        }
+        else if (A.uplo() == slate::Uplo::General) {
+            // slate::Matrix
+            kl = ku = std::max( A.mt(), A.nt() ); //Todo: mt-1, nt-1 ?
+        }
+        else if (A.uplo() == slate::Uplo::Lower) {
+            // slate::BaseTrapezoidMatrix lower
+            kl = std::max ( A.mt(), A.nt() ); //mt-1, nt-1 ?
+            ku = 0; //1?
+        }
+        else if (A.uplo() == slate::Uplo::Upper) {
+            // slate::BaseTrapezoidMatrix uppper
+            ku = std::max( A.mt(), A.nt() ); //mt-1, nt-1 ?
+            kl = 0; //1?
+        }
+    }
+
+    //----------------
+
     int64_t tile_row_step = 1;
     int64_t tile_col_step = 1;
 
@@ -553,7 +588,9 @@ void print_matrix_work(
                 || (A.uplo() == slate::Uplo::Lower && i >= j)
                 || (A.uplo() == slate::Uplo::Upper && i <= j))
             {
-                send_recv_tile(A, i, j, mpi_rank, comm);
+                if (-kl <= j - i && j - i <= ku) { // inside bandwidth
+                    send_recv_tile(A, i, j, mpi_rank, comm);
+                }
             }
         }
 
@@ -655,7 +692,9 @@ void print_matrix_work(
                     // for verbose=3 only rows ti = 0 and ti = tileMb-1
                     for (int64_t j = 0; j < A.nt(); ++j) {
                         if (A.uplo() == slate::Uplo::General) {
-                            msg += tile_row_string(A, i, j, ti, opts);
+                            if (-kl <= j - i && j - i <= ku) { // inside bandwidth
+                                msg += tile_row_string(A, i, j, ti, opts);
+                            }
                         }
                         else if ((A.uplo() == slate::Uplo::Lower && i >= j)
                                  || (A.uplo() == slate::Uplo::Upper && i <= j))
@@ -781,6 +820,47 @@ void print_matrix(
 ///
 template <typename scalar_t>
 void print_matrix(
+    const char* label,
+    slate::BandMatrix<scalar_t>& A,
+    int width=10, int precision=4 )
+{
+    // Set defaults
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, width},
+        { slate::Option::PrintPrecision, precision},
+        { slate::Option::PrintVerbose, 4 } // default 4 prints full matrix
+    };
+
+    width = std::max(width, precision + 6);
+
+    if (A.mpiRank() == 0) {
+        std::string msg = "\n% slate::BandMatrix ";
+        msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  )
+            + ", "
+            +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
+            +  " tiles, nb " + std::to_string( A.tileNb(0) )
+            +  " kl " + std::to_string( A.lowerBandwidth() )
+            +  " ku " + std::to_string( A.upperBandwidth() ) + "\n";
+
+        printf( "%s", msg.c_str() );
+    }
+//    msg += label;
+//    msg += " = [\n";
+
+    //char buf[ 80 ];
+    //snprintf( buf, sizeof(buf), "%s_", label );
+    //print_matrix_work( buf, A, opts );
+    print_matrix_work( label, A, opts );
+}
+//------------------------------------------------------------------------------
+/// Print a SLATE distributed band matrix.
+/// Rank 0 does the printing, and must have enough memory to fit one entire
+/// block row of the matrix.
+/// Tiles outside the bandwidth are printed as "0", with no trailing decimals.
+/// For block-sparse matrices, missing tiles are print as "nan".
+///
+template <typename scalar_t>
+void print_matrix_disabled(
     const char* label,
     slate::BandMatrix<scalar_t>& A,
     int width=10, int precision=4 )

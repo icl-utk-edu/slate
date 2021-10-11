@@ -98,14 +98,18 @@ void snprintf_value(
 }
 
 //------------------------------------------------------------------------------
-/// Print an LAPACK matrix. Should be called from only one rank.
+/// Print a LAPACK matrix. Should be called from only one rank.
 ///
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    int64_t m, int64_t n, scalar_t* A, int64_t lda,
-    int width=10, int precision=4 )
+    int64_t m, int64_t n, scalar_t* A, int64_t lda, Params params)
 {
+    if (params.verbose() == 0)
+        return;
+
+    int64_t width = params.print_width();
+    int64_t precision = params.print_precision();
     width = std::max(width, precision + 6);
 
     char buf[ 1024 ];
@@ -142,8 +146,6 @@ void print_matrix(
     int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
     int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
     int64_t threshold = slate::get_option<int64_t>( opts, slate::Option::PrintThreshold, 1024 );
-    if (verbose == 0)
-        return;
 
     width = std::max(width, precision + 6);
     const int64_t abbrev_rows = edgeitems;
@@ -272,17 +274,17 @@ void print_matrix(
 /// Print a ScaLAPACK distributed matrix.
 /// Prints each rank's data as a contiguous block, numbered by the block row &
 /// column indices. Rank 0 does the printing.
+/// Needed for unit_test routines that do not have params.
 ///
 template <typename scalar_t>
 void print_matrix(
     const char* label,
     int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
-    int p, int q, MPI_Comm comm,
-    int width=10, int precision=4 )
+    int p, int q, MPI_Comm comm )
 {
     const slate::Options opts = {
-        { slate::Option::PrintWidth, width},
-        { slate::Option::PrintPrecision, precision},
+        { slate::Option::PrintWidth, 10 },
+        { slate::Option::PrintPrecision, 4 },
         { slate::Option::PrintVerbose, 4 }
     };
 
@@ -301,6 +303,9 @@ void print_matrix(
     int p, int q, MPI_Comm comm,
     Params& params)
 {
+    if (params.verbose() == 0)
+        return;
+
     const slate::Options opts = {
         { slate::Option::PrintWidth, params.print_width() },
         { slate::Option::PrintPrecision, params.print_precision() },
@@ -310,7 +315,6 @@ void print_matrix(
     };
     print_matrix( label, mlocal, nlocal, A, lda, p, q, comm, opts );
 }
-
 //------------------------------------------------------------------------------
 /// Sends tiles A(i, j) and receives it on rank 0.
 /// If rank != 0 and tile A(i, j) is local, sends it to rank 0.
@@ -473,10 +477,14 @@ std::string tile_row_string(
 }
 
 //------------------------------------------------------------------------------
-/// Print a SLATE distributed matrix.
+/// Print a SLATE distributed trapezoid matrix.
 /// Rank 0 does the printing, and must have enough memory to fit one entire
 /// block row of the matrix.
 /// For block-sparse matrices, missing tiles are print as "nan".
+///
+/// This version handles trapezoid, triangular, symmetric, and Hermitian
+/// matrices. Entries in the A.uplo triangle are printed; entries in the
+/// opposite triangle are printed as "nan".
 ///
 template <typename scalar_t>
 void print_matrix_work(
@@ -720,21 +728,23 @@ void print_matrix(
 
     print_matrix_work( label, A, opts );
 }
+
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed matrix.
 /// Rank 0 does the printing, and must have enough memory to fit one entire
 /// block row of the matrix.
 /// For block-sparse matrices, missing tiles are print as "nan".
+/// Needed for unit_test routines that do not have params.
 ///
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::Matrix<scalar_t>& A, int width = 10, int precision = 6)
+    slate::Matrix<scalar_t>& A)
 {
     // Set defaults
     const slate::Options opts = {
-        { slate::Option::PrintWidth, width},
-        { slate::Option::PrintPrecision, precision},
+        { slate::Option::PrintWidth, 10 },
+        { slate::Option::PrintPrecision, 4 },
         { slate::Option::PrintVerbose, 4 } // default 4 prints full matrix
     };
 
@@ -752,6 +762,9 @@ void print_matrix(
     const char* label,
     slate::Matrix<scalar_t>& A, Params& params)
 {
+    if (params.verbose() == 0)
+        return;
+
     const slate::Options opts = {
         { slate::Option::PrintWidth, params.print_width() },
         { slate::Option::PrintPrecision, params.print_precision() },
@@ -967,136 +980,6 @@ void print_matrix(
     MPI_Barrier(comm);
 }
 
-//------------------------------------------------------------------------------
-/// Print a SLATE distributed trapezoid matrix.
-/// Rank 0 does the printing, and must have enough memory to fit one entire
-/// block row of the matrix.
-/// For block-sparse matrices, missing tiles are print as "nan".
-///
-/// This version handles trapezoid, triangular, symmetric, and Hermitian
-/// matrices. Entries in the A.uplo triangle are printed; entries in the
-/// opposite triangle are printed as "nan".
-///
-template <typename scalar_t>
-void print_matrix_work_disabled(
-    const char* label,
-    slate::BaseTrapezoidMatrix<scalar_t>& A,
-    int width=10, int precision=4 )
-{
-    using real_t = blas::real_type<scalar_t>;
-
-    int mpi_rank = A.mpiRank();
-    MPI_Comm comm = A.mpiComm();
-    MPI_Barrier(comm);
-
-    width = std::max(width, precision + 6);
-    real_t nan_ = nan("");
-
-    std::string msg = label;
-    msg += " = [\n";
-
-    // for entries in opposite triangle from A.uplo
-    char opposite[ 80 ];
-    if (slate::is_complex<scalar_t>::value) {
-        snprintf(opposite, sizeof(opposite), " %*f   %*s ",
-                 width, nan_, width, "");
-    }
-    else {
-        snprintf(opposite, sizeof(opposite), " %*f",
-                 width, nan_);
-    }
-
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        // gather block row to rank 0
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if ((A.uplo() == slate::Uplo::Lower && i >= j)
-                || (A.uplo() == slate::Uplo::Upper && i <= j))
-            {
-                send_recv_tile(A, i, j, mpi_rank, comm);
-            }
-        }
-
-        if (mpi_rank == 0) {
-            // print block row
-            for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
-                for (int64_t j = 0; j < A.nt(); ++j) {
-                    if ((A.uplo() == slate::Uplo::Lower && i >= j)
-                        || (A.uplo() == slate::Uplo::Upper && i <= j))
-                    {
-                        // tile in stored triangle
-                        msg += tile_row_string(A, i, j, ti, width, precision, opposite);
-                    }
-                    else {
-                        // tile in opposite triangle
-                        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                            msg += opposite;
-                        }
-                    }
-                    if (j < A.nt() - 1)
-                        msg += "    ";
-                    else
-                        msg += "\n";
-                }
-            }
-            if (i < A.mt() - 1)
-                msg += "\n";
-            else
-                msg += "];\n";
-            printf("%s", msg.c_str());
-            msg.clear();
-
-            // cleanup data
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                if (! A.tileIsLocal(i, j)) {
-                    A.tileErase(i, j);
-                }
-            }
-        }
-    }
-
-    MPI_Barrier(comm);
-}
-
-
-//------------------------------------------------------------------------------
-/// Print a SLATE distributed Hermitian matrix.
-/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
-/// todo: fix complex diag in Matlab? (Sca)LAPACK ignores imag part.
-///
-template <typename scalar_t>
-void print_matrix(
-    const char* label,
-    slate::HermitianMatrix<scalar_t>& A,
-    int width=10, int precision=4 )
-{
-    // Set defaults
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, width},
-        { slate::Option::PrintPrecision, precision},
-        { slate::Option::PrintVerbose, 4 } // default 4 prints full matrix
-    };
-
-    if (A.mpiRank() == 0) {
-        printf( "\n"
-                "%% slate::HermitianMatrix %lld-by-%lld, %lld-by-%lld tiles, "
-                "nb %lld uplo %c\n",
-                llong( A.m() ), llong( A.n() ),
-                llong( A.mt() ), llong( A.nt() ),
-                llong( A.tileNb(0) ),
-                char( A.uplo() ) );
-    }
-    char buf[ 80 ];
-    snprintf( buf, sizeof(buf), "%s_", label );
-    print_matrix_work( buf, A, opts );
-    if (A.mpiRank() == 0) {
-        if (A.uplo() == slate::Uplo::Lower) {
-            printf( "%s = tril( %s_ ) + tril( %s_, -1 )';\n", label, label, label );
-        }
-        else {
-            printf( "%s = triu( %s_ ) + triu( %s_,  1 )';\n", label, label, label );
-        }
-    }
-}
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed Hermitian matrix.
@@ -1109,6 +992,9 @@ void print_matrix(
     slate::HermitianMatrix<scalar_t>& A,
     Params& params)
 {
+    if (params.verbose() == 0)
+        return;
+
     // Set defaults
     const slate::Options opts = {
         { slate::Option::PrintWidth, params.print_width() },
@@ -1148,45 +1034,11 @@ template <typename scalar_t>
 void print_matrix(
     const char* label,
     slate::SymmetricMatrix<scalar_t>& A,
-    int width=10, int precision=4 )
-{
-    // Set defaults
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, width},
-        { slate::Option::PrintPrecision, precision},
-        { slate::Option::PrintVerbose, 4 } // default 4 prints full matrix
-    };
-
-    if (A.mpiRank() == 0) {
-        printf( "\n"
-                "%% slate::SymmetricMatrix %lld-by-%lld, %lld-by-%lld tiles, "
-                "nb %lld uplo %c\n",
-                llong( A.m() ), llong( A.n() ),
-                llong( A.mt() ), llong( A.nt() ),
-                llong( A.tileNb(0) ),
-                char( A.uplo() ) );
-    }
-    print_matrix_work( label, A, opts );
-    if (A.mpiRank() == 0) {
-        if (A.uplo() == slate::Uplo::Lower) {
-            printf( "%s = tril( %s_ ) + tril( %s_, -1 ).';\n", label, label, label );
-        }
-        else {
-            printf( "%s = triu( %s_ ) + triu( %s_,  1 ).';\n", label, label, label );
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-/// Print a SLATE distributed symmetric matrix.
-/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
-///
-template <typename scalar_t>
-void print_matrix(
-    const char* label,
-    slate::SymmetricMatrix<scalar_t>& A,
     Params& params)
 {
+    if (params.verbose() == 0)
+        return;
+
     // Set defaults
     const slate::Options opts = {
         { slate::Option::PrintWidth, params.print_width() },
@@ -1225,48 +1077,11 @@ template <typename scalar_t>
 void print_matrix(
     const char* label,
     slate::TrapezoidMatrix<scalar_t>& A,
-    int width=10, int precision=4 )
-{
-    // Set defaults
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, width},
-        { slate::Option::PrintPrecision, precision},
-        { slate::Option::PrintVerbose, 4 } // default 4 prints full matrix
-    };
-
-    if (A.mpiRank() == 0) {
-        printf( "\n"
-                "%% slate::TrapezoidMatrix %lld-by-%lld, %lld-by-%lld tiles, "
-                "nb %lld uplo %c diag %c\n",
-                llong( A.m() ), llong( A.n() ),
-                llong( A.mt() ), llong( A.nt() ),
-                llong( A.tileNb(0) ),
-                char( A.uplo() ), char( A.diag() ) );
-    }
-    char buf[ 80 ];
-    snprintf( buf, sizeof(buf), "%s_", label );
-    print_matrix_work( buf, A, opts );
-    if (A.mpiRank() == 0) {
-        if (A.uplo() == slate::Uplo::Lower) {
-            printf( "%s = tril( %s_ );\n", label, label );
-        }
-        else {
-            printf( "%s = triu( %s_ );\n", label, label );
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-/// Print a SLATE distributed trapezoid matrix.
-/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
-/// todo: fix unit diag in Matlab.
-///
-template <typename scalar_t>
-void print_matrix(
-    const char* label,
-    slate::TrapezoidMatrix<scalar_t>& A,
     Params& params)
 {
+    if (params.verbose() == 0)
+        return;
+
     // Set defaults
     const slate::Options opts = {
         { slate::Option::PrintWidth, params.print_width() },
@@ -1309,6 +1124,9 @@ void print_matrix(
     slate::TriangularMatrix<scalar_t>& A,
     Params& params)
 {
+    if (params.verbose() == 0)
+        return;
+
     // Set defaults
     const slate::Options opts = {
         { slate::Option::PrintWidth, params.print_width() },

@@ -158,7 +158,7 @@ void test_scale_work(Params& params, bool run)
             { omp_num_threads = omp_get_num_threads(); }
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-            print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD, params);
+            print_matrix("Aref", Aref, params);
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -170,7 +170,7 @@ void test_scale_work(Params& params, bool run)
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD, params);
+            print_matrix("Aref", Aref, params);
 
             // get differences A = A - Aref
             slate::add(-one, Aref, one, A);

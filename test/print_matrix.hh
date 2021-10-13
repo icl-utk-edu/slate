@@ -520,7 +520,6 @@ void print_matrix_work(
     if (verbose == 0)
         return;
 
-    printf("A.m()=%lld, A.n()=%lld\n", A.m(), A.n());
     int64_t size = A.m() * A.n();
     if (verbose == 2) { //abbreviate rows and columns
         if ((size <= threshold) || ((A.m() <= 2*edgeitems) && (A.n() <= 2*edgeitems)))
@@ -627,77 +626,83 @@ void print_matrix_work(
                                 msg += opposite;
                             }
                         }
-                        if ((verbose != 6) && (A.n() > 2 * abbrev_cols || A.nt() > 1))
-                            msg += " ..."; // column abbreviation indicator
-                        // last column tile
-                        j = A.nt()-1;
-                        if (j>0)
-                            msg += "    "; // space between column tiles
-                        if (A.uplo() == slate::Uplo::General) {
-                            msg += tile_row_string(A, i, j, ti, opts, "", true);
-                        }
-                        else if ((A.uplo() == slate::Uplo::Lower && i >= j)
-                                 || (A.uplo() == slate::Uplo::Upper && i <= j))
-                        {
-                            // tile in stored triangle
-                            msg += tile_row_string(A, i, j, ti, opts, opposite, true);
-                        }
-                        else {
-                            // tile in opposite triangle
-                            for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                                msg += opposite;
+                        if (verbose != 6 || A.nt() > 1) {
+                            if ((verbose != 6) && (A.n() > 2 * abbrev_cols || A.nt() > 1))
+                                msg += " ..."; // column abbreviation indicator
+                            // last column tile
+                            j = A.nt()-1;
+                            if (j>0)
+                                msg += "    "; // space between column tiles
+                            if (A.uplo() == slate::Uplo::General) {
+                                msg += tile_row_string(A, i, j, ti, opts, "", true);
+                            }
+                            else if ((A.uplo() == slate::Uplo::Lower && i >= j)
+                                    || (A.uplo() == slate::Uplo::Upper && i <= j))
+                            {
+                                // tile in stored triangle
+                                msg += tile_row_string(A, i, j, ti, opts, opposite, true);
+                            }
+                            else {
+                                // tile in opposite triangle
+                                for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
+                                    msg += opposite;
+                                }
                             }
                         }
                         msg += "\n";
                     }
                 }
                 if (i == A.mt()-1) { // last row tile
-                    if ((verbose != 5) && (A.m() > 2 * abbrev_rows || A.mt() > 1))
-                        msg += " ...\n"; // row abbreviation indicator
+                    if (verbose != 5 || A.mt() > 1) {
+                        if ((verbose != 5) && (A.m() > 2 * abbrev_rows || A.mt() > 1))
+                            msg += " ...\n"; // row abbreviation indicator
 
-                    // last abbrev_rows
-                    int64_t start_row = blas::max( 0, A.tileMb(i) - abbrev_rows);
-                    for (int64_t ti = start_row; ti < A.tileMb(i); ++ti) {
-                        // first column tile
-                        int64_t j = 0;
-                        if (A.uplo() == slate::Uplo::General) {
-                            msg += tile_row_string(A, i, j, ti, opts);
-                        }
-                        else if ((A.uplo() == slate::Uplo::Lower && i >= j)
-                                 || (A.uplo() == slate::Uplo::Upper && i <= j))
-                        {
-                            // tile in stored triangle
-                            msg += tile_row_string(A, i, j, ti, opts, opposite);
-                        }
-                        else {
-                            // tile in opposite triangle
-                            for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                                msg += opposite;
+                        // last abbrev_rows
+                        int64_t start_row = blas::max( 0, A.tileMb(i) - abbrev_rows);
+                        for (int64_t ti = start_row; ti < A.tileMb(i); ++ti) {
+                            // first column tile
+                            int64_t j = 0;
+                            if (A.uplo() == slate::Uplo::General) {
+                                msg += tile_row_string(A, i, j, ti, opts);
                             }
-                        }
+                            else if ((A.uplo() == slate::Uplo::Lower && i >= j)
+                                    || (A.uplo() == slate::Uplo::Upper && i <= j))
+                            {
+                                // tile in stored triangle
+                                msg += tile_row_string(A, i, j, ti, opts, opposite);
+                            }
+                            else {
+                                // tile in opposite triangle
+                                for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
+                                    msg += opposite;
+                                }
+                            }
 
-                        if ((verbose != 6) && (A.n() > 2 * abbrev_cols || A.nt() > 1))
-                            msg += " ..."; // column abbreviation indicator
-                        // last column tile
-                        j = A.nt()-1;
-                        if (j>0)
-                            msg += "    "; // space between column tiles
-                        if (A.uplo() == slate::Uplo::General) {
-                            msg += tile_row_string(A, i, j, ti, opts, "", true);
-                        }
-                        else if ((A.uplo() == slate::Uplo::Lower && i >= j)
-                                 || (A.uplo() == slate::Uplo::Upper && i <= j))
-                        {
-                            // tile in stored triangle
-                            msg += tile_row_string(A, i, j, ti, opts, opposite, true);
-                        }
-                        else {
-                            // tile in opposite triangle
-                            for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                                msg += opposite;
+                            if (verbose != 6 || A.nt() > 1) {
+                                if ((verbose != 6) && (A.n() > 2 * abbrev_cols || A.nt() > 1))
+                                    msg += " ..."; // column abbreviation indicator
+                                // last column tile
+                                j = A.nt()-1;
+                                if (j>0)
+                                    msg += "    "; // space between column tiles
+                                if (A.uplo() == slate::Uplo::General) {
+                                    msg += tile_row_string(A, i, j, ti, opts, "", true);
+                                }
+                                else if ((A.uplo() == slate::Uplo::Lower && i >= j)
+                                        || (A.uplo() == slate::Uplo::Upper && i <= j))
+                                {
+                                    // tile in stored triangle
+                                    msg += tile_row_string(A, i, j, ti, opts, opposite, true);
+                                }
+                                else {
+                                    // tile in opposite triangle
+                                    for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
+                                        msg += opposite;
+                                    }
+                                }
                             }
+                            msg += "\n";
                         }
-                        msg += "\n";
                     }
                     msg += "];\n\n";
                 }

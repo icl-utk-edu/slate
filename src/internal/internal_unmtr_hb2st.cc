@@ -312,14 +312,6 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
 
                     // Form VT = V * T. Assumes 0's stored in lower T.
                     // vm_-by-vnb = (vm_-by-vnb) (vnb-by-vnb)
-                    /*
-                    blas::gemm(Layout::ColMajor, // TODO gpu
-                            Op::NoTrans, Op::NoTrans,
-                            vm_, vnb, vnb,
-                            one,  Vr.data(), Vr.stride(),
-                            T.data(),  T.stride(),
-                            zero, VT.data(), VT.stride());
-                    */
                     if(target == Target::Devices){
                         slate::trace::Block trace_block(std::string("1gemm").c_str());
 
@@ -348,9 +340,14 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                         VT.tileGetForReading(i/2, 0, LayoutConvert::None); // TODO remove
                     }
                     else {
-                        // internal::gemm<target>(one, Vr, T, zero, VT, layout, priority_zero);
-                        auto C00 = VT(i/2, 0);
-                        gemm(one, Vr, T(i/2, 0), zero, C00);
+                        //auto C00 = VT(i/2, 0);
+                        //gemm(one, Vr, T(i/2, 0), zero, C00);
+                        blas::gemm(Layout::ColMajor,
+                                   Op::NoTrans, Op::NoTrans,
+                                   vm_, vnb, vnb,
+                                   one,  Vr.data(), Vr.stride(),
+                                   T(i/2, 0).data(),  T(i/2, 0).stride(),
+                                   zero, VT(i/2, 0).data(), VT(i/2, 0).stride());
                     }
 
                     // Vr = [ Vr0 ],  VT = [ VT0 ],  [ Ci     ] = [ C0 ],
@@ -385,7 +382,7 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                            one, 
                                            V_(0, r, device).data(), 
                                            V_(0, r, device).stride(),
-                                           C(i, k, device).data()+1, 
+                                           &C(i, k, device).data()[ 1 ], 
                                            C(i, k, device).stride(),
                                            zero, 
                                            VC(i/2, 0, device).data(), 
@@ -398,11 +395,11 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                             }
                             else {
                                 blas::gemm(Layout::ColMajor,
-                                        Op::ConjTrans, Op::NoTrans,
-                                        vnb, cnb, mb0,
-                                        one,  Vr.data(),   Vr.stride(),
-                                        C0.data()+1, C0.stride(),
-                                        zero, VC(i/2, 0).data(),   VC(i/2, 0).stride());
+                                           Op::ConjTrans, Op::NoTrans,
+                                           vnb, cnb, mb0,
+                                           one,  Vr.data(),   Vr.stride(),
+                                           C0.data()+1, C0.stride(),
+                                           zero, VC(i/2, 0).data(),   VC(i/2, 0).stride());
                             }
                             VC.tileModified(i/2, 0);
 
@@ -421,17 +418,17 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                     VC.tileGetForWriting(i/2, 0, device, LayoutConvert::None);
                                     blas::Queue* queue = VC.compute_queue(device, 0/*queue_index*/);   
                                     blas::gemm(Layout::ColMajor,
-                                            Op::ConjTrans, Op::NoTrans,
-                                            vnb, cnb, mb1,
-                                            one, 
-                                            &(V_(0, r, device).data()[mb0]),   
-                                            V_(0, r, device).stride(),
-                                            C(i+1, k, device).data(), 
-                                            C(i+1, k, device).stride(),
-                                            one, 
-                                            VC(i/2, 0, device).data(), 
-                                            VC(i/2, 0, device).stride(), 
-                                            *queue);
+                                               Op::ConjTrans, Op::NoTrans,
+                                               vnb, cnb, mb1,
+                                               one, 
+                                               &(V_(0, r, device).data()[ mb0 ]),   
+                                               V_(0, r, device).stride(),
+                                               C(i+1, k, device).data(), 
+                                               C(i+1, k, device).stride(),
+                                               one, 
+                                               VC(i/2, 0, device).data(), 
+                                               VC(i/2, 0, device).stride(), 
+                                               *queue);
                                     
                                     queue->sync(); // TODO remove
                                     VC.tileModified(i/2, 0, device); // TODO remove
@@ -440,36 +437,90 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                 else {
                                     scalar_t* Vr1data = &Vr.data()[ mb0 ];
                                     blas::gemm(Layout::ColMajor,
-                                            Op::ConjTrans, Op::NoTrans,
-                                            vnb, cnb, mb1,
-                                            one, Vr1data,   Vr.stride(),
-                                            C1.data(), C1.stride(),
-                                            one, VC(i/2, 0).data(), VC(i/2, 0).stride());
+                                               Op::ConjTrans, Op::NoTrans,
+                                               vnb, cnb, mb1,
+                                               one, Vr1data,   Vr.stride(),
+                                               C1.data(), C1.stride(),
+                                               one, VC(i/2, 0).data(), VC(i/2, 0).stride());
                                 }
                             }
 
                             // C0 -= (V0 T) VC
                             // mb0-by-cnb -= (mb0-by-vnb) (vnb-by-cnb)
                             // Slice off 1st row of C0.
-                            blas::gemm(Layout::ColMajor,
-                                    Op::NoTrans, Op::NoTrans,
-                                    mb0, cnb, vnb,
-                                    -one, VT(i/2, 0).data(),   VT(i/2, 0).stride(),
-                                    VC(i/2, 0).data(),   VC(i/2, 0).stride(),
-                                    one,  C0.data()+1, C0.stride());
-                            C.tileModified(i, k);
+                            if(target == Target::Devices){
+                                slate::trace::Block trace_block(std::string("4gemm").c_str());
+
+                                int device = C.tileDevice(i, k);
+                                VT.tileGetForReading(i/2, 0, device, LayoutConvert::None);
+                                VC.tileGetForReading(i/2, 0, device, LayoutConvert::None);
+                                C.tileGetForWriting(i, k, device, LayoutConvert::None);
+                                blas::Queue* queue = C.compute_queue(device, 0/*queue_index*/);   
+                                blas::gemm(Layout::ColMajor,
+                                           Op::NoTrans, Op::NoTrans,
+                                           mb0, cnb, vnb,
+                                           -one, 
+                                           VT(i/2, 0, device).data(),   
+                                           VT(i/2, 0, device).stride(),
+                                           VC(i/2, 0, device).data(),   
+                                           VC(i/2, 0, device).stride(),
+                                           one,  
+                                           &C(i, k, device).data()[ 1 ], 
+                                           C(i, k, device).stride(), *queue);
+                                    
+                                queue->sync(); // TODO remove
+                                C.tileModified(i, k, device); // TODO remove
+                                C.tileGetForReading(i, k, LayoutConvert::None); // TODO remove
+                            }
+                            else {
+                                blas::gemm(Layout::ColMajor,
+                                           Op::NoTrans, Op::NoTrans,
+                                           mb0, cnb, vnb,
+                                           -one, VT(i/2, 0).data(),   VT(i/2, 0).stride(),
+                                           VC(i/2, 0).data(),   VC(i/2, 0).stride(),
+                                           one,  C0.data()+1, C0.stride());
+                                C.tileModified(i, k);
+                            }
 
                             // C1 -= (V1 T) VC
                             // mb1-by-cnb -= (mb1-by-vnb) (vnb-by-cnb)
                             if (i+1 < mt) {
-                                scalar_t* VT1data = &VT(i/2, 0).data()[ mb0 ];
-                                blas::gemm(Layout::ColMajor,
-                                        Op::NoTrans, Op::NoTrans,
-                                        mb1, cnb, vnb,
-                                        -one, VT1data,   VT(i/2, 0).stride(),
-                                        VC(i/2, 0).data(), VC(i/2, 0).stride(),
-                                        one,  C1.data(), C1.stride());
-                                C.tileModified(i+1, k);
+                                if(target == Target::Devices){
+                                    slate::trace::Block trace_block(std::string("5gemm").c_str());
+
+                                    int device = C.tileDevice(i, k);
+                                    VT.tileGetForReading(i/2, 0, device, LayoutConvert::None);
+                                    VC.tileGetForReading(i/2, 0, device, LayoutConvert::None);
+                                    C.tileGetForWriting(i+1, k, device, LayoutConvert::None);
+                                    blas::Queue* queue = C.compute_queue(device, 0/*queue_index*/);   
+
+                                    blas::gemm(Layout::ColMajor,
+                                               Op::NoTrans, Op::NoTrans,
+                                               mb1, cnb, vnb,
+                                               -one, 
+                                               &VT(i/2, 0, device).data()[ mb0 ],
+                                               VT(i/2, 0, device).stride(),
+                                               VC(i/2, 0, device).data(), 
+                                               VC(i/2, 0, device).stride(),
+                                               one,  
+                                               C(i+1, k, device).data(), 
+                                               C(i+1, k, device).stride(), 
+                                               *queue);
+
+                                    queue->sync(); // TODO remove
+                                    C.tileModified(i+1, k, device); // TODO remove
+                                    C.tileGetForReading(i+1, k, LayoutConvert::None); // TODO remove
+                                }
+                                else {
+                                    scalar_t* VT1data = &VT(i/2, 0).data()[ mb0 ];
+                                    blas::gemm(Layout::ColMajor,
+                                               Op::NoTrans, Op::NoTrans,
+                                               mb1, cnb, vnb,
+                                               -one, VT1data,   VT(i/2, 0).stride(),
+                                               VC(i/2, 0).data(), VC(i/2, 0).stride(),
+                                               one,  C1.data(), C1.stride());
+                                    C.tileModified(i+1, k);
+                                }
                             }
                             V.tileTick(0, r);
                         }

@@ -529,7 +529,7 @@ void print_matrix_work(
         else if ((A.m() > 2*edgeitems) && (A.n() <= 2*edgeitems))
             verbose = 6; //abbreviate rows, print all columns
 
-        printf("verbose=%lld\n", verbose);
+        printf("verbose=%lld\n", (llong)verbose);
         opts[slate::Option::PrintVerbose] = verbose;
     }
 

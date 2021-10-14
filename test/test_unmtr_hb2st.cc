@@ -100,7 +100,6 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     slate::Target origin_target = origin2target(origin);
     auto Afull = slate::HermitianMatrix<scalar_t>::fromLAPACK( // TODO: fromScaLAPACK
         uplo, n, &Afull_data[0], lda, nb, p, q, MPI_COMM_WORLD);
-    //Afull.insertLocalTiles(origin_target); not correct because matrix is created from a LAPACK array
 
     // Copy band of Afull, currently to rank 0.
     auto Aband = slate::HermitianBandMatrix<scalar_t>(

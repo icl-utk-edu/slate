@@ -103,17 +103,7 @@ void heev(
         // QR iteration to get eigenvalues and eigenvectors of tridiagonal.
         steqr2( Job::Vec, Lambda, E, Z );
         // Back-transform: Z = Q1 * Q2 * Z.
-        cudaProfilerStart();
-        #pragma omp parallel
-        #pragma omp master
-        {
-            omp_set_nested(1);
-            #pragma omp task
-            {
-                unmtr_hb2st( Side::Left, Op::NoTrans, V, Z );
-            }
-        }
-        cudaProfilerStop();
+        unmtr_hb2st( Side::Left, Op::NoTrans, V, Z );
         unmtr_he2hb( Side::Left, Op::NoTrans, A, T, Z );
     }
     else {

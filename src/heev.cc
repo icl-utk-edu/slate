@@ -10,7 +10,6 @@
 #include "slate/HermitianBandMatrix.hh"
 #include "internal/internal.hh"
 
-#include <cuda_profiler_api.h>
 namespace slate {
 
 //------------------------------------------------------------------------------

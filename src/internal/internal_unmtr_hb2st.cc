@@ -206,12 +206,14 @@ void unmtr_hb2st(internal::TargetType<Target::HostTask>,
         }
         #pragma omp taskwait
     }
+}
 */
 //------------------------------------------------------------------------------
 /// GPU device batched implementation.
 /// @ingroup heev_internal
 ///
 template <Target target, typename scalar_t>
+//template <typename scalar_t>
 void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                  internal::TargetType<target>,
                  Side side, Op op,
@@ -219,6 +221,8 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                  Matrix<scalar_t>& C,
                  const std::map<Option, Value>& opts)
 {
+    //Target target = Target::Devices;
+    //Target target = Target::HostTask;
     if (target == Target::Devices) {
         trace::Block trace_block("quealloc");
         const int64_t batch_size_zero = 0; // use default batch size
@@ -256,9 +260,11 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
          T.tileInsertWorkspace(i, 0);
         VT.tileInsertWorkspace(i, 0);
         VC.tileInsertWorkspace(i, 0);
-         T.tileModified(i, 0);
-        VT.tileModified(i, 0);
-        VC.tileModified(i, 0);
+        if(target == Target::Devices) {
+            T.tileModified(i, 0);
+            VT.tileModified(i, 0);
+            VC.tileModified(i, 0);
+        }
     }
 
     std::vector<scalar_t> tau_vector(mt_2*nb);
@@ -477,7 +483,7 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                             // C0 -= (V0 T) VC
                             // mb0-by-cnb -= (mb0-by-vnb) (vnb-by-cnb)
                             // Slice off 1st row of C0.
-                            //#pragma omp task
+                            #pragma omp task
                             {
                                 slate::trace::Block trace_block(std::string("4gemm").c_str());
                                 if(target == Target::Devices) {
@@ -523,7 +529,7 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                             // C1 -= (V1 T) VC
                             // mb1-by-cnb -= (mb1-by-vnb) (vnb-by-cnb)
                             if (i+1 < mt) {
-                                //#pragma omp task
+                                #pragma omp task
                                 {
                                     slate::trace::Block trace_block(std::string("5gemm").c_str());
 
@@ -567,7 +573,7 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                 }
                             }
                             V.tileTick(0, r);
-                            //#pragma omp taskwait
+                            #pragma omp taskwait
                         } // if C(i, k) is local
                     } // inner for loop
 

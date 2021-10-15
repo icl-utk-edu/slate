@@ -116,14 +116,14 @@ void unmtr_hb2st(Side side, Op op,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            internal::unmtr_hb2st<Target::HostTask>( side, op, V, C, opts);
+            unmtr_hb2st<Target::HostTask>( side, op, V, C, opts);
             break;
         case Target::HostNest:
             break;
         case Target::HostBatch:
             break;
         case Target::Devices:
-            internal::unmtr_hb2st<Target::Devices>( side, op, V, C, opts);
+            unmtr_hb2st<Target::Devices>( side, op, V, C, opts);
             break;
     }
     // todo: return value for errors?

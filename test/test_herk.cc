@@ -24,6 +24,9 @@ void test_herk_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
     using slate::Norm;
 
+    // Constants
+    const scalar_t zero = 0.0, one = 1.0;
+
     // get & mark input values
     slate::Uplo uplo = params.uplo();
     slate::Op transA = params.trans();
@@ -33,11 +36,15 @@ void test_herk_work(Params& params, bool run)
     real_t beta = params.beta.get<real_t>();
     int p = params.grid.m();
     int q = params.grid.n();
+    int64_t nrhs = params.nrhs();
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
+    #ifndef SLATE_HAVE_SCALAPACK
+        ref = false;
+    #endif
     bool trace = params.trace() == 'y';
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
@@ -86,9 +93,9 @@ void test_herk_work(Params& params, bool run)
 
     slate::Matrix<scalar_t> A;
     slate::HermitianMatrix<scalar_t> C;
+    slate::Target origin_target = origin2target(origin);
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
-        slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(Am, An, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
 
@@ -106,15 +113,17 @@ void test_herk_work(Params& params, bool run)
     slate::generate_matrix( params.matrix, A );
     slate::generate_matrix( params.matrixB, C );
 
-    // if check is required, copy test data
-    slate::HermitianMatrix<scalar_t> Cref;
-    std::vector<scalar_t> Cref_data;
-    if (check || ref) {
-        Cref_data.resize( C_data.size() );
-        Cref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                   uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
-        slate::copy( C, Cref );
-    }
+    #ifdef SLATE_HAVE_SCALAPACK
+        // if reference run is required, copy test data.
+        slate::HermitianMatrix<scalar_t> Cref;
+        std::vector<scalar_t> Cref_data;
+        if (check || ref) {
+            Cref_data.resize( C_data.size() );
+            Cref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                       uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+            slate::copy( C, Cref );
+        }
+    #endif
 
     // Keep the original untransposed A matrix,
     // and make a shallow copy of it for transposing.
@@ -127,6 +136,29 @@ void test_herk_work(Params& params, bool run)
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
+
+    // If check run, perform first half of SLATE residual check.
+    slate::Matrix<scalar_t> X, Y, Z;
+    if (check && ! ref) {
+        X = slate::Matrix<scalar_t>( An, nrhs, nb, p, q, MPI_COMM_WORLD );
+        X.insertLocalTiles(origin_target);
+        Y = slate::Matrix<scalar_t>( Am, nrhs, nb, p, q, MPI_COMM_WORLD );
+        Y.insertLocalTiles(origin_target);
+        Z = slate::Matrix<scalar_t>( Am, nrhs, nb, p, q, MPI_COMM_WORLD);
+        Z.insertLocalTiles(origin_target);
+        MatrixParams mp;
+        mp.kind.set_default( "rand" );
+        generate_matrix( mp, X );
+
+        // Compute Y = alpha A (A^H X) + (beta C X).
+        // Y = beta C X
+        slate::multiply( scalar_t(beta), C, X, zero, Y, opts );
+        // Z = A^H X
+        auto AH = conjTranspose( opA );
+        slate::multiply( one, AH, X, zero, Z, opts );
+        // Y = alpha A Z + Y
+        slate::multiply( scalar_t(alpha), opA, Z, one, Y, opts );
+    }
 
     double time = barrier_get_wtime(MPI_COMM_WORLD);
 
@@ -147,7 +179,22 @@ void test_herk_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    if (check || ref) {
+    if (check && ! ref) {
+        // SLATE residual check.
+        // Check error, C*X - Y.
+        real_t y_norm = slate::norm( norm, Y, opts );
+        // Y = C * X - Y
+        slate::multiply( one, C, X, -one, Y );
+        // error = norm( Y ) / y_norm
+        real_t error = slate::norm( slate::Norm::One, Y, opts )/y_norm;
+        params.error() = error;
+
+        // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
+        real_t eps = std::numeric_limits<real_t>::epsilon();
+        params.okay() = (params.error() <= 3*eps);
+    }
+
+    if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
 
@@ -192,8 +239,11 @@ void test_herk_work(Params& params, bool run)
             std::vector<real_t> worklange(std::max(mlocA, nlocA));
 
             // get norms of the original data
-            real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_data[0], 1, 1, A_desc, &worklange[0]);
-            real_t C_orig_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &Cref_data[0], 1, 1, Cref_desc, &worklansy[0]);
+            real_t A_norm = scalapack_plange(norm2str(norm), Am, An, &A_data[0], 1, 1,
+                                             A_desc, &worklange[0]);
+            real_t C_orig_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn,
+                                                  &Cref_data[0], 1, 1, Cref_desc,
+                                                  &worklansy[0]);
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -208,7 +258,9 @@ void test_herk_work(Params& params, bool run)
             blas::axpy(Cref_data.size(), -1.0, &C_data[0], 1, &Cref_data[0], 1);
 
             // norm(Cref_data - C_data)
-            real_t C_diff_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn, &Cref_data[0], 1, 1, Cref_desc, &worklansy[0]);
+            real_t C_diff_norm = scalapack_plansy(norm2str(norm), uplo2str(uplo), Cn,
+                                                  &Cref_data[0], 1, 1, Cref_desc,
+                                                  &worklansy[0]);
 
             real_t error = C_diff_norm
                          / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * A_norm

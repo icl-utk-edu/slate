@@ -55,19 +55,19 @@ void test_hesv_work(Params& params, bool run)
         return;
 
     if (origin != slate::Origin::ScaLAPACK) {
-        printf("skipping: currently only origin=scalapack is supported\n");
+        params.msg() = "skipping: currently only origin=scalapack is supported";
         return;
     }
     if (target == slate::Target::Devices) {
-        printf("skipping: currently target=devices is not supported\n");
+        params.msg() = "skipping: currently target=devices is not supported";
         return;
     }
     if (n % nb != 0) {
-        printf("skipping: currently only (n %% nb == 0) is supported\n");
+        params.msg() = "skipping: currently only (n %% nb == 0) is supported";
         return;
     }
     if (uplo != slate::Uplo::Lower) {
-        printf("skipping: currently only uplo=lower is supported\n");
+        params.msg() = "skipping: currently only uplo=lower is supported";
         return;
     }
 

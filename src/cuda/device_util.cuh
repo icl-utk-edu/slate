@@ -282,6 +282,481 @@ inline constexpr T roundup(T x, T y)
 {
     return T((x + y - 1) / y) * y;
 }
+__host__ __device__  inline double real(cuDoubleComplex x) { return x.x; }
+__host__ __device__  inline float  real(cuFloatComplex  x) { return  x.x; }
+
+__host__ __device__  inline double imag(cuDoubleComplex x) { return  x.y; }
+__host__ __device__  inline float  imag(cuFloatComplex  x) { return x.y;  }
+
+__host__ __device__  inline cuDoubleComplex conj(cuDoubleComplex x) { return cuConj(x); }
+__host__ __device__  inline cuFloatComplex  conj(cuFloatComplex  x) { return cuConjf(x); }
+//#endif
+
+__host__ __device__  inline double real(double             x) { return x; }
+__host__ __device__  inline float  real(float              x) { return x; }
+
+/// @return imaginary component of complex number x; 0 for real number.
+/// @ingroup complex
+__host__ __device__  inline double imag(double             x) { return 0.; }
+__host__ __device__  inline float  imag(float              x) { return 0.f; }
+
+/// @return conjugate of complex number x; x for real number.
+/// @ingroup complex
+__host__ __device__  inline double conj(double             x) { return x; }
+__host__ __device__  inline float  conj(float              x) { return x; }
+
+#if ! defined(SLATE_NO_CUDA)
+
+// ---------- negate
+__host__ __device__  inline cuDoubleComplex
+operator - (const cuDoubleComplex& a)
+{
+    return make_cuDoubleComplex( -real(a),
+                                 -imag(a) );
+}
+
+
+__host__ __device__  inline cuDoubleComplex
+operator + (const cuDoubleComplex a, const cuDoubleComplex b)
+{
+    return make_cuDoubleComplex( real(a) + real(b),
+                                 imag(a) + imag(b) );
+}
+
+__host__ __device__  inline cuDoubleComplex
+operator + (const cuDoubleComplex a, const double s)
+{
+    return make_cuDoubleComplex( real(a) + s,
+                                 imag(a) );
+}
+
+__host__ __device__  inline cuDoubleComplex
+operator + (const double s, const cuDoubleComplex b)
+{
+    return make_cuDoubleComplex( s + real(b),
+                                 imag(b) );
+}
+
+__host__ __device__  inline cuDoubleComplex&
+operator += (cuDoubleComplex& a, const cuDoubleComplex b)
+{
+    a = make_cuDoubleComplex( real(a) + real(b),
+                              imag(a) + imag(b) );
+    return a;
+}
+
+__host__ __device__  inline cuDoubleComplex&
+operator += (cuDoubleComplex& a, const double s)
+{
+    a = make_cuDoubleComplex( real(a) + s,
+                              imag(a) );
+    return a;
+}
+
+// ---------- subtract
+__host__ __device__  inline cuDoubleComplex
+operator - (const cuDoubleComplex a, const cuDoubleComplex b)
+{
+    return make_cuDoubleComplex( real(a) - real(b),
+                                 imag(a) - imag(b) );
+}
+
+__host__ __device__  inline cuDoubleComplex
+operator - (const cuDoubleComplex a, const double s)
+{
+    return make_cuDoubleComplex( real(a) - s,
+                                 imag(a) );
+}
+
+__host__ __device__  inline cuDoubleComplex
+operator - (const double s, const cuDoubleComplex b)
+{
+    return make_cuDoubleComplex( s - real(b),
+                                 - imag(b) );
+}
+
+__host__ __device__  inline cuDoubleComplex&
+operator -= (cuDoubleComplex& a, const cuDoubleComplex b)
+{
+    a = make_cuDoubleComplex( real(a) - real(b),
+                              imag(a) - imag(b) );
+    return a;
+}
+
+__host__ __device__  inline cuDoubleComplex&
+operator -= (cuDoubleComplex& a, const double s)
+{
+    a = make_cuDoubleComplex( real(a) - s,
+                              imag(a) );
+    return a;
+}
+
+// ---------- multiply
+__host__ __device__  inline cuDoubleComplex
+operator * (const cuDoubleComplex a, const cuDoubleComplex b)
+{
+    return make_cuDoubleComplex( real(a)*real(b) - imag(a)*imag(b),
+                                 imag(a)*real(b) + real(a)*imag(b) );
+}
+
+__host__ __device__  inline cuDoubleComplex
+operator * (const cuDoubleComplex a, const double s)
+{
+    return make_cuDoubleComplex( real(a)*s,
+                                 imag(a)*s );
+}
+
+__host__ __device__  inline cuDoubleComplex
+operator * (const cuDoubleComplex a, const float s)
+{
+    return make_cuDoubleComplex( real(a)*s,
+                                 imag(a)*s );
+}
+
+
+
+__host__ __device__  inline cuDoubleComplex
+operator * (const double s, const cuDoubleComplex a)
+{
+    return make_cuDoubleComplex( real(a)*s,
+                                 imag(a)*s );
+}
+
+__host__ __device__  inline cuDoubleComplex&
+operator *= (cuDoubleComplex& a, const cuDoubleComplex b)
+{
+    a = make_cuDoubleComplex( real(a)*real(b) - imag(a)*imag(b),
+                              imag(a)*real(b) + real(a)*imag(b) );
+    return a;
+}
+
+__host__ __device__  inline cuDoubleComplex&
+operator *= (cuDoubleComplex& a, const double s)
+{
+    a = make_cuDoubleComplex( real(a)*s,
+                              imag(a)*s );
+    return a;
+}
+
+// ---------- divide
+/* From LAPACK DLADIV
+ * Performs complex division in real arithmetic, avoiding unnecessary overflow.
+ *
+ *             a + i*b
+ *  p + i*q = ---------
+ *             c + i*d
+ */
+__host__ __device__  inline cuDoubleComplex
+operator / (const cuDoubleComplex x, const cuDoubleComplex y)
+{
+    double a = real(x);
+    double b = imag(x);
+    double c = real(y);
+    double d = imag(y);
+    double e, f, p, q;
+    if ( abs( d ) < abs( c ) ) {
+        e = d / c;
+        f = c + d*e;
+        p = ( a + b*e ) / f;
+        q = ( b - a*e ) / f;
+    }
+    else {
+        e = c / d;
+        f = d + c*e;
+        p = (  b + a*e ) / f;
+        q = ( -a + b*e ) / f;
+    }
+    return make_cuDoubleComplex( p, q );
+}
+
+__host__ __device__  inline cuDoubleComplex
+operator / (const cuDoubleComplex a, const double s)
+{
+    return make_cuDoubleComplex( real(a)/s,
+                                 imag(a)/s );
+}
+
+__host__ __device__  inline cuDoubleComplex
+operator / (const double a, const cuDoubleComplex y)
+{
+    double c = real(y);
+    double d = imag(y);
+    double e, f, p, q;
+    if ( abs( d ) < abs( c ) ) {
+        e = d / c;
+        f = c + d*e;
+        p =  a   / f;
+        q = -a*e / f;
+    }
+    else {
+        e = c / d;
+        f = d + c*e;
+        p =  a*e / f;
+        q = -a   / f;
+    }
+    return make_cuDoubleComplex( p, q );
+}
+
+__host__ __device__  inline cuDoubleComplex&
+operator /= (cuDoubleComplex& a, const cuDoubleComplex b)
+{
+    a = a/b;
+    return a;
+}
+
+__host__ __device__  inline cuDoubleComplex&
+operator /= (cuDoubleComplex& a, const double s)
+{
+    a = make_cuDoubleComplex( real(a)/s,
+                              imag(a)/s );
+    return a;
+}
+
+// =============================================================================
+// cuFloatComplex
+
+// ---------- negate
+__host__ __device__  inline cuFloatComplex
+operator - (const cuFloatComplex& a)
+{
+    return make_cuFloatComplex( -real(a), -imag(a) );
+}
+
+// ---------- add
+__host__ __device__  inline cuFloatComplex
+operator + (const cuFloatComplex a, const cuFloatComplex b)
+{
+    return make_cuFloatComplex( real(a) + real(b),
+                                imag(a) + imag(b) );
+}
+
+__host__ __device__  inline cuFloatComplex
+operator + (const cuFloatComplex a, const float s)
+{
+    return make_cuFloatComplex( real(a) + s,
+                                imag(a) );
+}
+
+__host__ __device__  inline cuFloatComplex
+operator + (const float s, const cuFloatComplex b)
+{
+    return make_cuFloatComplex( s + real(b),
+                                imag(b) );
+}
+
+__host__ __device__  inline cuFloatComplex&
+operator += (cuFloatComplex& a, const cuFloatComplex b)
+{
+    a = make_cuFloatComplex( real(a) + real(b),
+                             imag(a) + imag(b) );
+    return a;
+}
+
+__host__ __device__  inline cuFloatComplex&
+operator += (cuFloatComplex& a, const float s)
+{
+    a = make_cuFloatComplex( real(a) + s,
+                             imag(a) );
+    return a;
+}
+
+
+// ---------- subtract
+__host__ __device__  inline cuFloatComplex
+operator - (const cuFloatComplex a, const cuFloatComplex b)
+{
+    return make_cuFloatComplex( real(a) - real(b),
+                                imag(a) - imag(b) );
+}
+
+__host__ __device__  inline cuFloatComplex
+operator - (const cuFloatComplex a, const float s)
+{
+    return make_cuFloatComplex( real(a) - s,
+                                imag(a) );
+}
+
+__host__ __device__  inline cuFloatComplex
+operator - (const float s, const cuFloatComplex b)
+{
+    return make_cuFloatComplex( s - real(b),
+                                - imag(b) );
+}
+
+__host__ __device__  inline cuFloatComplex&
+operator -= (cuFloatComplex& a, const cuFloatComplex b)
+{
+    a = make_cuFloatComplex( real(a) - real(b),
+                             imag(a) - imag(b) );
+    return a;
+}
+
+__host__ __device__  inline cuFloatComplex&
+operator -= (cuFloatComplex& a, const float s)
+{
+    a = make_cuFloatComplex( real(a) - s,
+                             imag(a) );
+    return a;
+}
+
+
+// ---------- multiply
+__host__ __device__  inline cuFloatComplex
+operator * (const cuFloatComplex a, const cuFloatComplex b)
+{
+    return make_cuFloatComplex( real(a)*real(b) - imag(a)*imag(b),
+                                imag(a)*real(b) + real(a)*imag(b) );
+}
+
+__host__ __device__  inline cuFloatComplex
+operator * (const cuFloatComplex a, const float s)
+{
+    return make_cuFloatComplex( real(a)*s,
+                                imag(a)*s );
+}
+
+__host__ __device__  inline cuFloatComplex
+operator * (const float s, const cuFloatComplex a)
+{
+    return make_cuFloatComplex( real(a)*s,
+                                imag(a)*s );
+}
+
+__host__ __device__  inline cuFloatComplex&
+operator *= (cuFloatComplex& a, const cuFloatComplex b)
+{
+    a = make_cuFloatComplex( real(a)*real(b) - imag(a)*imag(b),
+                             imag(a)*real(b) + real(a)*imag(b) );
+    return a;
+}
+
+__host__ __device__  inline cuFloatComplex&
+operator *= (cuFloatComplex& a, const float s)
+{
+    a = make_cuFloatComplex( real(a)*s,
+                             imag(a)*s );
+    return a;
+}
+
+
+// ---------- divide
+/* From LAPACK DLADIV
+ * Performs complex division in real arithmetic, avoiding unnecessary overflow.
+ *
+ *             a + i*b
+ *  p + i*q = ---------
+ *             c + i*d
+ */
+__host__ __device__  inline cuFloatComplex
+operator / (const cuFloatComplex x, const cuFloatComplex y)
+{
+    float a = real(x);
+    float b = imag(x);
+    float c = real(y);
+    float d = imag(y);
+    float e, f, p, q;
+    if ( abs( d ) < abs( c ) ) {
+        e = d / c;
+        f = c + d*e;
+        p = ( a + b*e ) / f;
+        q = ( b - a*e ) / f;
+    }
+    else {
+        e = c / d;
+        f = d + c*e;
+        p = (  b + a*e ) / f;
+        q = ( -a + b*e ) / f;
+    }
+    return make_cuFloatComplex( p, q );
+}
+
+__host__ __device__  inline cuFloatComplex
+operator / (const cuFloatComplex a, const float s)
+{
+    return make_cuFloatComplex( real(a)/s,
+                                imag(a)/s );
+}
+
+__host__ __device__  inline cuFloatComplex
+operator / (const float a, const cuFloatComplex y)
+{
+    float c = real(y);
+    float d = imag(y);
+    float e, f, p, q;
+    if ( abs( d ) < abs( c ) ) {
+        e = d / c;
+        f = c + d*e;
+        p =  a   / f;
+        q = -a*e / f;
+    }
+    else {
+        e = c / d;
+        f = d + c*e;
+        p =  a*e / f;
+        q = -a   / f;
+    }
+    return make_cuFloatComplex( p, q );
+}
+
+__host__ __device__  inline cuFloatComplex&
+operator /= (cuFloatComplex& a, const cuFloatComplex b)
+{
+    a = a/b;
+    return a;
+}
+
+__host__ __device__  inline cuFloatComplex&
+operator /= (cuFloatComplex& a, const float s)
+{
+    a = make_cuFloatComplex( real(a)/s,
+                             imag(a)/s );
+    return a;
+}
+
+
+// ---------- equality
+__host__ __device__  inline bool
+operator == (const cuFloatComplex a, const cuFloatComplex b)
+{
+    return ( real(a) == real(b) &&
+             imag(a) == imag(b) );
+}
+
+__host__ __device__  inline bool
+operator == (const cuFloatComplex a, const float s)
+{
+    return ( real(a) == s &&
+             imag(a) == 0. );
+}
+
+__host__ __device__  inline bool
+operator == (const float s, const cuFloatComplex a)
+{
+    return ( real(a) == s &&
+             imag(a) == 0. );
+}
+
+
+// ---------- not equality
+__host__ __device__  inline bool
+operator != (const cuFloatComplex a, const cuFloatComplex b)
+{
+    return ! (a == b);
+}
+
+__host__ __device__  inline bool
+operator != (const cuFloatComplex a, const float s)
+{
+    return ! (a == s);
+}
+
+__host__ __device__  inline bool
+operator != (const float s, const cuFloatComplex a)
+{
+    return ! (a == s);
+}
+
+#endif // ! SLATE_NO_CUDA
 
 } // namespace device
 } // namespace slate

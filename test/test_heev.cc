@@ -27,7 +27,6 @@ void test_heev_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
-    using llong = long long;
 
     // get & mark input values
     lapack::Job jobz = params.jobz();
@@ -70,18 +69,15 @@ void test_heev_work(Params& params, bool run)
 
     // Skip invalid or unimplemented options.
     if (uplo == slate::Uplo::Upper) {
-        if (mpi_rank == 0)
-            printf("skipping: Uplo::Upper isn't supported.\n");
+        params.msg() = "skipping: Uplo::Upper isn't supported.";
         return;
     }
     if (p != q) {
-        if (mpi_rank == 0)
-            printf("skipping: requires square process grid (p == q).\n");
+        params.msg() = "skipping: requires square process grid (p == q).";
         return;
     }
     if (jobz != lapack::Job::NoVec) {
-        if (mpi_rank == 0)
-            printf("skipping: only supports Job::NoVec.\n");
+        params.msg() = "skipping: only supports Job::NoVec.";
         return;
     }
 

@@ -261,8 +261,8 @@ void copy(internal::TargetType<Target::Devices>,
 
             // Usually the output matrix (B) provides all the batch arrays.
             // Here we are using A, because of the possibly different types.
-            src_scalar_t** a_array_host = A.array_host(device);
-            dst_scalar_t** b_array_host = B.array_host(device);
+            src_scalar_t** a_array_host = A.array_host(device, queue_index);
+            dst_scalar_t** b_array_host = B.array_host(device, queue_index);
 
             int64_t batch_count = 0;
             int64_t mb[4], nb[4], lda[4], ldb[4], group_count[4];
@@ -287,11 +287,12 @@ void copy(internal::TargetType<Target::Devices>,
             }
 
             // Usually the output matrix (B) provides all the batch arrays.
-            // Here we are using A, because of the differen types.
-            src_scalar_t** a_array_dev = A.array_device(device);
-            dst_scalar_t** b_array_dev = B.array_device(device);
+            // Here we are using A, because of the different types.
+            src_scalar_t** a_array_dev = A.array_device(device, queue_index);
+            dst_scalar_t** b_array_dev = B.array_device(device, queue_index);
 
-            blas::Queue* queue = A.compute_queue(device, queue_index);
+            blas::Queue* queue = B.compute_queue(device, queue_index);
+            blas::set_device( queue->device() );
 
             blas::device_memcpy<src_scalar_t*>(a_array_dev, a_array_host,
                                 batch_count,

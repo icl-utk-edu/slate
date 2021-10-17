@@ -101,6 +101,7 @@ void tpmqrt(
     Tile<scalar_t> C1,
     Tile<scalar_t> C2)
 {
+#if LAPACK_VERSION >= 30400
     trace::Block trace_block("lapack::tpmqrt");
 
     int64_t k = V2.nb();
@@ -122,16 +123,18 @@ void tpmqrt(
         assert(V2.mb() == n);
         assert(std::min(n, k) >= l);
     }
-
-    int64_t ib = T.mb();
-    assert(k >= ib);
     assert(T.nb() == k);
 
+    // Normally, ib = T.mb, but limit <= k.
+    int64_t ib = std::min( T.mb(), k );
     lapack::tpmqrt(side, op, m, n, k, l, ib,
                    V2.data(), V2.stride(),
                    T.data(), T.stride(),
                    C1.data(), C1.stride(),
                    C2.data(), C2.stride());
+#else
+    slate_not_implemented( "In geqrf: tpmqrt requires LAPACK >= 3.4" );
+#endif
 }
 
 } // namespace slate

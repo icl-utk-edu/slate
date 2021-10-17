@@ -26,7 +26,6 @@ void test_hbnorm_work(Params& params, bool run)
     using blas::real;
     using blas::imag;
     using slate::ceildiv;
-    // using llong = long long;
 
     // get & mark input values
     slate::Norm norm = params.norm();
@@ -51,7 +50,7 @@ void test_hbnorm_work(Params& params, bool run)
         return;
 
     if (origin != slate::Origin::ScaLAPACK) {
-        printf("skipping: currently only origin=scalapack is supported\n");
+        params.msg() = "skipping: currently only origin=scalapack is supported";
         return;
     }
 

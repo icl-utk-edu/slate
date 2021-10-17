@@ -9,7 +9,6 @@
 #include "print_matrix.hh"
 #include "grid_utils.hh"
 #include "scalapack_support_routines.hh"
-#include "internal/internal.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -24,9 +23,6 @@ void test_tb2bd_work(Params& params, bool run)
     using blas::real;
     using blas::imag;
 
-    // Constants
-    const scalar_t zero = 0.0;
-
     // get & mark input values
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
@@ -37,6 +33,7 @@ void test_tb2bd_work(Params& params, bool run)
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    int64_t info;
 
     // mark non-standard output values
     params.time();
@@ -59,24 +56,35 @@ void test_tb2bd_work(Params& params, bool run)
     int64_t seed[] = {0, 1, 2, 3};
     int64_t min_mn = std::min(m, n);
 
-    // TODO: unclear if all these matrices are needed (A1, A3, Afull,
-    // Afullrm, Abandrm, A). Clean up to reduce memory requirements.
-    std::vector<scalar_t> A1( lda*n );
-    lapack::larnv(1, seed, A1.size(), &A1[0]);
-    std::vector<scalar_t> A3( lda*n );
+    std::vector<scalar_t> Afull_data( lda*n );
+    lapack::larnv(1, seed, Afull_data.size(), &Afull_data[0]);
 
-    // zero outside the upper band
+    // Zero outside the upper band.
     for (int64_t j = 0; j < n; ++j) {
         for (int64_t i = 0; i < m; ++i) {
             if (j > i+ku || j < i)
-                A1[i + j*lda] = 0;
+                Afull_data[i + j*lda] = 0;
         }
         // Diagonal from ge2tb is real.
-        A1[j + j*lda] = real( A1[j + j*lda] );
+        Afull_data[j + j*lda] = real( Afull_data[j + j*lda] );
+    }
+    if (verbose && mpi_rank == 0) {
+        print_matrix( "Afull_data", m, n, &Afull_data[0], lda );
     }
 
-    if (verbose && mpi_rank == 0)
-        print_matrix( "A1", m, n, &A1[0], lda );
+    auto Afull = slate::Matrix<scalar_t>::fromLAPACK(
+        m, n, &Afull_data[0], lda, nb, p, q, MPI_COMM_WORLD);
+
+    // Copy band of Afull, currently to rank 0.
+    auto Aband = slate::TriangularBandMatrix<scalar_t>(
+        slate::Uplo::Upper, slate::Diag::NonUnit, n, ku, nb,
+        1, 1, MPI_COMM_WORLD);
+    Aband.insertLocalTiles();
+    Aband.ge2tbGather( Afull );
+
+    if (verbose) {
+        print_matrix("Aband", Aband);
+    }
 
     std::vector<real_t> Sigma1(min_mn);
     if (check && mpi_rank == 0) {
@@ -89,108 +97,53 @@ void test_tb2bd_work(Params& params, bool run)
         { omp_num_threads = omp_get_num_threads(); }
         int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-        std::vector<scalar_t> Aref = A1;
-        std::vector<scalar_t> U ( 1 );  // ( lda*n );  // U, VT not needed for NoVec
-        std::vector<scalar_t> VT( 1 );  // ( lda*n );
-        lapack::gesvd(lapack::Job::NoVec, lapack::Job::NoVec,
-                      m, n, &Aref[0], lda, &Sigma1[0], &U[0], lda, &VT[0], lda);
+        std::vector<scalar_t> Afull_copy = Afull_data;
+        scalar_t dummy[1];  // U, VT not needed for NoVec
+        info = lapack::gesvd(lapack::Job::NoVec, lapack::Job::NoVec,
+                             m, n, &Afull_copy[0], lda, &Sigma1[0],
+                             dummy, 1, dummy, 1);
+        assert(info == 0);
 
         slate_set_num_blas_threads(saved_num_threads);
     }
 
-    auto Afull = slate::Matrix<scalar_t>::fromLAPACK(
-                     m, n, &A1[0], lda, nb, p, q, MPI_COMM_WORLD);
-
-    auto Afullrm = slate::Matrix<scalar_t>::fromLAPACK(
-                       m, n, &A3[0], lda, nb, 1, 1, MPI_COMM_WORLD);
-    auto Abandrm = slate::BandMatrix<scalar_t>(ku, ku, Afullrm);
-    //auto Aband = slate::BandMatrix<scalar_t>(ku, ku, Afull);
-    auto A = slate::TriangularBandMatrix<scalar_t>(
-                 lapack::Uplo::Upper, lapack::Diag::NonUnit, Abandrm);
-    //auto A = slate::TriangularBandMatrix<scalar_t>(
-    //                    slate::Uplo::Upper, slate::Diag::NonUnit,
-    //                    m, ku, nb, p, q, MPI_COMM_WORLD);
-    //slate::internal::copyge2tb(Afull, A);
-    //print_matrix( "Aband", Aband);
-
-    A.ge2tbGather(Afull);
-
-    if (verbose) {
-        print_matrix("Aband", A);
-    }
-
-    // int64_t index = 0; // index in Ad storage
-    int64_t jj = 0; // col index
-    for (int64_t j = 0; j < A.nt(); ++j) {
-        int64_t ii = 0; // row index
-        for (int64_t i = 0; i < A.mt(); ++i) {
-            if (A.tileIsLocal(i, j)
-                && (ii == jj
-                    || (ii < jj && jj - (ii + A.tileMb(i) - 1) <= A.bandwidth() + 1))) {
-
-                if (i == j) {
-                    //lapack::laset(lapack::MatrixType::Lower, A(i, j).mb(), A(i, j).nb(),
-                    //      0, 0, A(i, j).data(), A(i, j).stride());
-                    if (i > 0) {
-                        auto T_ptr = A.tileInsert( i, j-1 );
-                        lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                                      zero, zero, T_ptr->data(), T_ptr->stride());
-                    }
-                }
-
-                if (j < A.nt() - 1 && i == j - 1) {
-                    //lapack::laset(lapack::MatrixType::Upper, A(i, j).mb(), A(i, j).nb(),
-                    //      0, 0, A(i, j).data(), A(i, j).stride());
-                    auto T_ptr = A.tileInsert( i, j+1 );
-                    lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                                  zero, zero, T_ptr->data(), T_ptr->stride());
-                }
-            }
-            ii += A.tileMb(i);
-        }
-        jj += A.tileNb(j);
-    }
-
-    //print_matrix("A", A);
-
-    //---------
-    // run test
-    if (trace)
-        slate::trace::Trace::on();
+    if (trace) slate::trace::Trace::on();
+    else slate::trace::Trace::off();
 
     double time = barrier_get_wtime(MPI_COMM_WORLD);
 
     //==================================================
     // Run SLATE test.
+    // Currently runs only on rank 0.
     //==================================================
     if (mpi_rank == 0) {
-        slate::tb2bd(A);
+        slate::tb2bd(Aband);
     }
 
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
     params.time() = time;
 
-    if (trace)
-        slate::trace::Trace::finish();
+    if (trace) slate::trace::Trace::finish();
 
     if (check) {
         //==================================================
         // Test results
         // Gather the whole matrix onto rank 0.
         //==================================================
-        A.gather(&A1[0], lda);
+        // Copy Aband back to Afull_data on rank 0.
+        Aband.gather(&Afull_data[0], lda);
 
         if (mpi_rank == 0) {
             if (verbose)
-                print_matrix( "A1_out", m, n, &A1[0], lda );
+                print_matrix( "Afull_data_out", m, n, &Afull_data[0], lda );
 
-            // Check that updated A is real bidiagonal by finding max value
+            // Check that updated Aband is real bidiagonal by finding max value
             // outside bidiagonal, and imaginary parts of bidiagonal.
             // Unclear why this increases modestly with n.
             real_t max_value = 0;
             for (int64_t j = 0; j < n; ++j) {
                 for (int64_t i = 0; i < m; ++i) {
-                    auto val = A1[i + j*lda];
+                    auto val = Afull_data[i + j*lda];
                     if (j > i+1 || j < i)
                         max_value = std::max( std::abs(val), max_value );
                     else
@@ -205,8 +158,8 @@ void test_tb2bd_work(Params& params, bool run)
             { omp_num_threads = omp_get_num_threads(); }
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-            // Check that the singular values of updated A
-            // match the singular values of the original A.
+            // Check that the singular values of updated Aband
+            // match the singular values of the original Aband.
             real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
             std::vector<real_t> Sigma2(min_mn);
             std::vector<real_t> E(min_mn - 1);  // super-diagonal
@@ -215,44 +168,45 @@ void test_tb2bd_work(Params& params, bool run)
             // Copy diagonal & super-diagonal.
             int64_t D_index = 0;
             int64_t E_index = 0;
-            for (int64_t i = 0; i < std::min(A.mt(), A.nt()); ++i) {
+            for (int64_t i = 0; i < std::min(Aband.mt(), Aband.nt()); ++i) {
                 // Copy 1 element from super-diagonal tile to E.
                 if (i > 0) {
-                    auto T = A(i-1, i);
-                    E[E_index] = real( T(T.mb()-1, 0) );
-                    E_index += 1;
+                    auto T = Aband(i-1, i);
+                    E[E_index++] = real( T(T.mb()-1, 0) );
                 }
 
                 // Copy main diagonal to Sigma2.
-                auto T = A(i, i);
-                auto len = std::min(T.mb(), T.nb());
-                for (int64_t j = 0; j < len; ++j) {
-                    Sigma2[D_index + j] = real( T(j, j) );
+                auto T = Aband(i, i);
+                for (int64_t j = 0; j < T.nb(); ++j) {
+                    Sigma2[D_index++] = real( T(j, j) );
                 }
-                D_index += len;
 
                 // Copy super-diagonal to E.
-                for (int64_t j = 0; j < len-1; ++j) {
-                    E[E_index + j] = real( T(j, j+1) );
+                for (int64_t j = 0; j < T.nb()-1; ++j) {
+                    E[E_index++] = real( T(j, j+1) );
                 }
-                E_index += len-1;
             }
             if (verbose) {
-                print_matrix("D", min_mn, 1, &Sigma2[0], min_mn);
-                print_matrix("E", min_mn-1, 1, &E[0], min_mn-1);
+                print_matrix("D", 1, min_mn,   &Sigma2[0], 1);
+                print_matrix("E", 1, min_mn-1, &E[0],  1);
             }
 
-            lapack::bdsqr(lapack::Uplo::Upper, min_mn, 0, 0, 0,
-                          &Sigma2[0], &E[0], dummy, 1, dummy, 1, dummy, 1);
+            info = lapack::bdsqr(lapack::Uplo::Upper, min_mn, 0, 0, 0,
+                                 &Sigma2[0], &E[0], dummy, 1, dummy, 1, dummy, 1);
+            assert(info == 0);
             slate_set_num_blas_threads(saved_num_threads);
 
             if (verbose) {
+                printf( "%% first and last 20 rows of Sigma1 and Sigma2\n" );
                 printf( "%9s  %9s\n", "Sigma1", "Sigma2" );
                 for (int64_t i = 0; i < std::min(m, n); ++i) {
-                    if (i < 20 || i > std::min(m, n)-20) {
+                    if (i < 20 || i >= std::min(m, n)-20) {
                         bool okay = std::abs( Sigma1[i] - Sigma2[i] ) < tol;
                         printf( "%9.6f  %9.6f%s\n",
                                 Sigma1[i], Sigma2[i], (okay ? "" : " !!") );
+                    }
+                    else if (i == 20) {
+                        printf( "--------------------\n" );
                     }
                 }
                 printf( "\n" );

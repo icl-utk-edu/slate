@@ -141,6 +141,8 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                                 j_dst = k_dst;
                             }
                             int dst = C.tileRank(i_dst, j_dst);
+                            // GetForWriting because it will be received in the later loop
+                            C.tileGetForWriting(i, j, LayoutConvert(layout));
                             C.tileSend(i, j, dst, tag);
                         }
                     }
@@ -157,6 +159,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                         }
 
                         int     src   = C.tileRank(i1, j1);
+                        C.tileGetForWriting(i1, j1, LayoutConvert(layout));
                         C.tileRecv(i1, j1, src, layout, tag);
                     }
                 }
@@ -187,7 +190,8 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                         {
                         A.tileGetForReading(rank_ind, 0, LayoutConvert(layout));
                         T.tileGetForReading(rank_ind, 0, LayoutConvert(layout));
-                        C.tileGetForWriting(i, j, LayoutConvert(layout));
+                        //C.tileGetForWriting(i, j, LayoutConvert(layout));
+                        assert( (C.tileState( i, j, C.hostNum() ) & MOSI::Modified) != 0 );
 
                         // Apply Q.
                         tpmqrt(side, op, std::min(A.tileMb(rank_ind), A.tileNb(0)),
@@ -226,6 +230,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                                 j_dst = k_dst;
                             }
                             int dst = C.tileRank(i_dst, j_dst);
+                            assert( (C.tileState( i, j, C.hostNum() ) & MOSI::Modified) != 0 );
                             C.tileRecv(i, j, dst, layout, tag);
                         }
                     }

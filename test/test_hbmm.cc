@@ -58,7 +58,7 @@ void test_hbmm_work(Params& params, bool run)
         return;
 
     if (origin != slate::Origin::ScaLAPACK) {
-        printf("skipping: currently only origin=scalapack is supported\n");
+        params.msg() = "skipping: currently only origin=scalapack is supported";
         return;
     }
 
@@ -198,7 +198,7 @@ void test_hbmm_work(Params& params, bool run)
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         // get differences Cref = Cref - C
-        slate::geadd( -one, C, one, Cref );
+        slate::add( -one, C, one, Cref );
         real_t C_diff_norm = slate::norm( norm, Cref ); // norm of residual
 
         real_t error = C_diff_norm

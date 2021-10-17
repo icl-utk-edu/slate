@@ -240,7 +240,7 @@ void test_trtri_work(Params& params, bool run)
             }
 
             // C = C - A; note Aref is a general n-by-n SLATE matrix pointing to Aref_data data
-            slate::geadd(-one, Aref, one, C);
+            slate::add(-one, Aref, one, C);
             if (verbose >= 2) {
                 print_matrix( "Cdiff", C );
             }

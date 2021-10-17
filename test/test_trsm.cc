@@ -26,7 +26,6 @@ void test_trsm_work(Params& params, bool run)
     using slate::Op;
     using slate::Norm;
     using blas::real;
-    // using llong = long long;
 
     // Constants
     const scalar_t one = 1;
@@ -194,7 +193,7 @@ void test_trsm_work(Params& params, bool run)
         real_t A_norm = slate::norm(norm, AZ);
 
         slate::trmm(side, one/alpha, opA, B);
-        slate::geadd(-one, Bref, one, B);
+        slate::add(-one, Bref, one, B);
         real_t error = slate::norm(norm, B);
         error = error / (Am * A_norm);
         params.error() = error;

@@ -100,25 +100,25 @@ class mpi_type {};
 template<>
 class mpi_type<float> {
 public:
-    static MPI_Datatype value; // = MPI_FLOAT
+    static constexpr MPI_Datatype value = MPI_FLOAT;
 };
 
 template<>
 class mpi_type<double> {
 public:
-    static MPI_Datatype value; // = MPI_DOUBLE
+    static constexpr MPI_Datatype value = MPI_DOUBLE;
 };
 
 template<>
 class mpi_type< std::complex<float> > {
 public:
-    static MPI_Datatype value; // = MPI_C_COMPLEX
+    static constexpr MPI_Datatype value = MPI_C_COMPLEX;
 };
 
 template<>
 class mpi_type< std::complex<double> > {
 public:
-    static MPI_Datatype value; // = MPI_C_DOUBLE_COMPLEX
+    static constexpr MPI_Datatype value = MPI_C_DOUBLE_COMPLEX;
 };
 
 // for type-generic maxloc operations
@@ -128,13 +128,13 @@ struct max_loc_type { real_t x; int i; };
 template<>
 class mpi_type< max_loc_type<float> > {
 public:
-    static MPI_Datatype value; // = MPI_FLOAT_INT
+    static constexpr MPI_Datatype value = MPI_FLOAT_INT;
 };
 
 template<>
 class mpi_type< max_loc_type<double> > {
 public:
-    static MPI_Datatype value; // = MPI_DOUBLE_INT
+    static constexpr MPI_Datatype value = MPI_DOUBLE_INT;
 };
 
 //------------------------------------------------------------------------------
@@ -158,6 +158,50 @@ struct is_complex< std::complex<T> >:
     template<bool B, class T = void>
     using enable_if_t = typename std::enable_if<B, T>::type;
 #endif
+
+//------------------------------------------------------------------------------
+/// Extracts an option.
+///
+/// @param[in] opt
+///     Map of options and values.
+///
+///  @param[in] option
+///     Option to get.
+///
+///  @param [in] defval
+///     Default option value if option is not found in map.
+///
+template <typename T>
+T get_option( Options opts, Option option, T defval )
+{
+    T retval;
+    auto search = opts.find( option );
+    if (search != opts.end())
+        retval = T(search->second.i_);
+    else
+        retval = defval;
+
+    return retval;
+}
+
+//----------------------------
+/// Specialization for double.
+template <>
+inline double get_option<double>( Options opts, Option option, double defval )
+{
+    double retval;
+    auto search = opts.find( option );
+    if (search != opts.end())
+        retval = search->second.d_;
+    else
+        retval = defval;
+
+    return retval;
+}
+
+//------------------------------------------------------------------------------
+// For %lld printf-style printing, cast to llong; guaranteed >= 64 bits.
+using llong = long long;
 
 } // namespace slate
 

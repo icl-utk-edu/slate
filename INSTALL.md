@@ -78,14 +78,15 @@ for its options, which include:
     blas
         BLAS libraries to search for. One or more of:
         auto            search for all libraries (default)
-        libsci          Cray LibSci
+        * libsci        Cray LibSci
         * mkl           Intel MKL
         * essl          IBM ESSL
         * openblas      OpenBLAS
         accelerate      Apple Accelerate framework
         acml            AMD ACML (deprecated)
         generic         generic -lblas
-        * SLATE's Makefile currently supports only mkl, essl, openblas (lowercase).
+        * SLATE's Makefile currently supports only libsci, mkl, essl,
+        openblas (lowercase).
         SLATE's CMake supports all libraries.
 
     blas_int
@@ -160,6 +161,7 @@ SLATE specific options include:
         With MKL, by default it uses
             -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64
         or  -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64;
+        with LibSci via Cray's CC compiler wrapper, no library is needed;
         otherwise it uses -lscalapack.
 
 With Makefile, options are specified as environment variables or on the
@@ -205,6 +207,7 @@ options include:
         wrapper, set one of:
         mpi = 1             link with `-lmpi`
         mpi = spectrum      link with `-lmpi_ibm`
+        mpi = cray          using Cray compiler wrappers (CXX=CC, FC=ftn)
         mpi = 0             without MPI (experimental)
 
         NOTE: SLATE compiles without MPI, but not all routines operate

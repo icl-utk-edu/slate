@@ -224,7 +224,7 @@ void unmlq(internal::TargetType<target>,
                      std::move(Wr));
 
         // C0 <- C0 - W
-        internal::geadd<Target::HostTask>(
+        internal::add<Target::HostTask>(
                 -one, std::move(Wr),
                 one,  std::move(C0));
 
@@ -400,7 +400,7 @@ void unmlq(internal::TargetType<target>,
                      std::move(Wc));
 
         // C0 <- C0 - W
-        internal::geadd<Target::HostTask>(
+        internal::add<Target::HostTask>(
                 -one, std::move(Wc),
                 one,  std::move(C0));
 

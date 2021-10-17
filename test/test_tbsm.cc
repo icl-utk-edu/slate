@@ -28,7 +28,6 @@ void test_tbsm_work(Params& params, bool run)
     using blas::real;
     using blas::imag;
     using slate::Norm;
-    //using llong = long long;
 
     // get & mark input values
     slate::Side side = params.side();
@@ -68,7 +67,7 @@ void test_tbsm_work(Params& params, bool run)
     }
 
     if (origin != slate::Origin::ScaLAPACK) {
-        printf("skipping: currently only origin=scalapack is supported\n");
+        params.msg() = "skipping: currently only origin=scalapack is supported";
         return;
     }
 

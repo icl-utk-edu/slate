@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
+#include "auxiliary/Debug.hh"
 #include "slate/HermitianBandMatrix.hh"
 #include "slate/Tile_blas.hh"
 #include "slate/TriangularMatrix.hh"
@@ -136,14 +136,7 @@ template <Target target, typename scalar_t>
 void pbtrf(HermitianBandMatrix<scalar_t>& A,
            Options const& opts)
 {
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range&){
-        lookahead = 1;
-    }
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     internal::specialization::pbtrf(internal::TargetType<target>(),
                                     A, lookahead);
@@ -210,10 +203,7 @@ template <typename scalar_t>
 void pbtrf(HermitianBandMatrix<scalar_t>& A,
            Options const& opts)
 {
-    Target target = Target::HostTask;
-    if (opts.count(Option::Target) > 0) {
-        target = Target(opts.at(Option::Target).i_);
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:

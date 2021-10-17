@@ -111,13 +111,7 @@ void steqr2(lapack::Job job,
            Matrix<scalar_t>& Z,
            Options const& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     // only HostTask implementation is provided, since it calls LAPACK only
     switch (target) {

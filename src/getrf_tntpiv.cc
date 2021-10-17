@@ -13,12 +13,12 @@
 namespace slate {
 
 // specialization namespace differentiates, e.g.,
-// internal::getrf_tntpiv from internal::specialization::getrf
+// internal::getrf_tntpiv from internal::specialization::getrf_tntpiv
 namespace internal {
 namespace specialization {
 
 //------------------------------------------------------------------------------
-/// Distributed parallel LU factorization.
+/// Distributed parallel CALU factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
 /// @ingroup gesv_specialization
@@ -28,7 +28,6 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
            Matrix<scalar_t>& A, Pivots& pivots,
            int64_t ib, int max_panel_threads, int64_t lookahead)
 {
-    // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
@@ -93,7 +92,7 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
 
                 // factor A(k:mt-1, k)
                 internal::getrf_tntpiv<Target::HostTask>(
-                    A.sub(k, A_mt-1, k, k),  std::move(Apanel), diag_len, ib,
+                    A.sub(k, A_mt-1, k, k), std::move(Apanel), diag_len, ib,
                     pivots.at(k), max_panel_threads, priority_one);
 
                 // Root broadcasts the pivot to all ranks.
@@ -106,30 +105,29 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                               MPI_BYTE, A.tileRank(k, k), A.mpiComm());
                 }
 
-               // swap rows in A(k+1:A_mt-1, k)
-               int tag_k = k;
-               internal::permuteRows<target>(
-                   Direction::Forward, A.sub(k, A_mt-1, k, k),
-                   pivots.at(k), target_layout, priority_one, tag_k, queue_0);
+                // swap rows in A(k+1:A_mt-1, k)
+                int tag_k = k;
+                internal::permuteRows<target>(
+                    Direction::Forward, A.sub(k, A_mt-1, k, k),
+                    pivots.at(k), target_layout, priority_one, tag_k, queue_0);
 
-              internal::copy<Target::HostTask>( Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
+                internal::copy<Target::HostTask>(Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
 
 
-              //Update panel
-              BcastList bcast_list_A;
-              bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
-                                          A.sub(k, k, k+1, A_nt-1)}});
-              A.template listBcast<target>(
-                  bcast_list_A, host_layout, tag_k, life_factor_one, is_shared);
+                //broadcast panel
+                BcastList bcast_list_A;
+                bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
+                   A.sub(k, k, k+1, A_nt-1)}});
+                A.template listBcast<target>(
+                    bcast_list_A, host_layout, tag_k, life_factor_one, is_shared);
 
-              Apanel.clear();
+                Apanel.clear();
            }
 
             #pragma omp task depend(inout:column[k]) \
                             depend(inout:listBcastMT_token) \
                             priority(priority_one)
            {
-
                auto Akk = A.sub(k, k, k, k);
                auto Tkk = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Akk);
 
@@ -175,7 +173,6 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
                     A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), Layout::ColMajor, tag_j);
-
 
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                     internal::gemm<target>(
@@ -232,49 +229,39 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                         const int64_t tag = j + A_mt;
                         bcast_list.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}, tag});
                     }
-                    // todo: trsm still operates in ColMajor
+  
                     A.template listBcastMT<target>(
                         bcast_list, Layout::ColMajor);
+   
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
-                            scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
-                                            A.sub(k, k, k+1+lookahead, A_nt-1),
-                            scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
-                            host_layout, priority_zero, queue_1);
-                  }
+                        scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
+                                        A.sub(k, k, k+1+lookahead, A_nt-1),
+                        scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
+                        host_layout, priority_zero, queue_1);
                 }
-               if (is_shared) {
-                   #pragma omp task depend(inout:column[k])
-                   {
-                       for (int64_t i = k+1; i < A_mt; ++i) {
-                           if (A.tileIsLocal(i, k)) {
-                               A.tileUpdateOrigin(i, k);
+            }
+            if (is_shared) {
+                #pragma omp task depend(inout:column[k])
+                {
+                    for (int64_t i = k+1; i < A_mt; ++i) {
+                        if (A.tileIsLocal(i, k)) {
+                            A.tileUpdateOrigin(i, k);
 
-                               std::set<int> dev_set;
-                               A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
+                            std::set<int> dev_set;
+                            A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
 
-                               for (auto device : dev_set) {
-                                   A.tileUnsetHold(i, k, device);
-                                   A.tileRelease(i, k, device);
-                               }
-                           }
-                       }
-                   }
-               }
+                            for (auto device : dev_set) {
+                                A.tileUnsetHold(i, k, device);
+                                A.tileRelease(i, k, device);
+                            }
+                        }
+                     }
+                }
+            }
 
         }
     }
-
-    /*// Pivot to the left of the panel.
-    // todo: Blend into the factorization.
-    for (int64_t k = 0; k < min_mt_nt; ++k) {
-        if (k > 0) {
-            // swap rows in A(k:mt-1, 0:k-1)
-            internal::permuteRows<Target::HostTask>(
-                Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
-                host_layout);
-        }
-    }*/
 
     #pragma omp parallel
     #pragma omp master

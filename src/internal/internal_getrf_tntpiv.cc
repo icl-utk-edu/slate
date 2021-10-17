@@ -23,7 +23,7 @@ void pivotList(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
 
     for (int i = 0; i < diag_len; i++){
         global_info.push_back( {aux_pivot[ 0 ][ i ].tileIndex(),
-                          aux_pivot[ 0 ][ i ].elementOffset()} );
+            aux_pivot[ 0 ][ i ].elementOffset()} );
     }
 
     std::vector<std::pair<std::pair<int64_t, int64_t>,
@@ -109,7 +109,7 @@ void getrf_tntpiv(
         getrf_tntpiv(diag_len, ib, stage,
         tiles, tile_indices,
         aux_pivot,
-        mpi_rank, //mpi_root, MPI_COMM_SELF,
+        mpi_rank,
         thread_rank, thread_size,
         thread_barrier,
         max_value, max_index, max_offset, top_block);
@@ -130,7 +130,7 @@ void getrf_tntpiv(Matrix<scalar_t>&& A, Matrix<scalar_t>&& Awork,
            int max_panel_threads, int priority)
 {
     getrf_tntpiv(internal::TargetType<target>(),
-          A, Awork, diag_len, ib, pivot, max_panel_threads, priority);
+        A, Awork, diag_len, ib, pivot, max_panel_threads, priority);
 }
 
 //------------------------------------------------------------------------------

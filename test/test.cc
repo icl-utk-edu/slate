@@ -254,7 +254,7 @@ Params::Params():
     //   if matrix size rows*cols > print_threshold
     // verbose, 3: print 4 corner elements of every tile
     // verbose, 4: print full matrix
-    verbose   ("verbose", 0,    ParamType::Value,   0,   0,   10, "verbose level"),
+    verbose   ("verbose", 0,    ParamType::Value,   0,   0,   4, "verbose level"),
     // print_edgeitems: number of first & last rows & cols of matrix to print
     print_edgeitems ("print-edgeitems", 0,    ParamType::Value,   16,   1,   64, "number of first & last rows & columns"),
     // print_threshold: maximum size (rows*cols) of matrix before verbose 2 starts to

@@ -71,7 +71,7 @@ void test_gesv_work(Params& params, bool run)
     params.gflops2.name( "trs_gflops" );
 
     bool do_getrs = (
-        (check && (params.routine == "getrf" || params.routine == "getrf_nopiv"))
+        (check && (params.routine == "getrf" || params.routine == "getrf_nopiv" || params.routine == "getrf_tntpiv"))
         || (params.routine == "getrs" || params.routine == "getrs_nopiv"));
 
     if (params.routine == "gesvMixed") {
@@ -217,38 +217,10 @@ void test_gesv_work(Params& params, bool run)
         slate::copy(B, Bref);
     }
 
-<<<<<<< HEAD
-    int iters = 0;
-
-        if (verbose > 1 && 0) {
-           print_matrix("A", A);
-            }
-
-||||||| merged common ancestors
-    int iters = 0;
-
-=======
->>>>>>> master
     double gflop;
-<<<<<<< HEAD
-    if (params.routine == "getrf" ||
-        params.routine == "getrf_nopiv"||
-        params.routine == "getrf_tntpiv")
-        gflop = lapack::Gflop<scalar_t>::getrf(m, n);
-    else if (params.routine == "getrs" || params.routine == "getrs_nopiv")
-        gflop = lapack::Gflop<scalar_t>::getrs(n, nrhs);
-    else
-||||||| merged common ancestors
-    if (params.routine == "getrf" || params.routine == "getrf_nopiv")
-        gflop = lapack::Gflop<scalar_t>::getrf(m, n);
-    else if (params.routine == "getrs" || params.routine == "getrs_nopiv")
-        gflop = lapack::Gflop<scalar_t>::getrs(n, nrhs);
-    else
-=======
     if (params.routine == "gesv"
         || params.routine == "gesv_nopiv"
         || params.routine == "gesvMixed")
->>>>>>> master
         gflop = lapack::Gflop<scalar_t>::gesv(n, nrhs);
     else
         gflop = lapack::Gflop<scalar_t>::getrf(m, n);
@@ -270,37 +242,11 @@ void test_gesv_work(Params& params, bool run)
             // Using traditional BLAS/LAPACK name
             // slate::getrf(A, pivots, opts);
         }
-<<<<<<< HEAD
-       else if (params.routine == "getrf_tntpiv") {
-            //slate::calu_factor(A, pivots, opts); //TODO Rabab
+        else if (params.routine == "getrf_tntpiv") {
+            // slate::calu_factor(A, pivots, opts);
             // Using traditional BLAS/LAPACK name
             slate::getrf_tntpiv(A, pivots, opts);
         }
-        else if (params.routine == "getrs") {
-            auto opA = A;
-            if (trans == slate::Op::Trans)
-                opA = transpose(A);
-            else if (trans == slate::Op::ConjTrans)
-                opA = conjTranspose(A);
-
-            slate::lu_solve_using_factor(opA, pivots, B, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::getrs(opA, pivots, B, opts);
-        }
-||||||| merged common ancestors
-        else if (params.routine == "getrs") {
-            auto opA = A;
-            if (trans == slate::Op::Trans)
-                opA = transpose(A);
-            else if (trans == slate::Op::ConjTrans)
-                opA = conjTranspose(A);
-
-            slate::lu_solve_using_factor(opA, pivots, B, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::getrs(opA, pivots, B, opts);
-        }
-=======
->>>>>>> master
         else if (params.routine == "gesv") {
             slate::lu_solve(A, B, opts);
             // Using traditional BLAS/LAPACK name
@@ -324,16 +270,6 @@ void test_gesv_work(Params& params, bool run)
                 params.iters() = iters;
             }
         }
-<<<<<<< HEAD
-
-       if (verbose > 1 && 0) {
-             print_matrix("A", A);
-             }
-
-||||||| merged common ancestors
-
-=======
->>>>>>> master
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance
         params.time() = time;
@@ -353,7 +289,8 @@ void test_gesv_work(Params& params, bool run)
                 opA = conjTranspose(A);
 
             if ((check && params.routine == "getrf")
-                || params.routine == "getrs")
+                || params.routine == "getrs"
+                || params.routine == "getrf_tntpiv")
             {
                 slate::lu_solve_using_factor(opA, pivots, B, opts);
                 // Using traditional BLAS/LAPACK name
@@ -388,34 +325,6 @@ void test_gesv_work(Params& params, bool run)
         //      || A ||_1 * || X ||_1 * N
         //
         //==================================================
-<<<<<<< HEAD
-        if (params.routine == "getrf" || params.routine == "getrf_tntpiv") {
-            // Solve AX = B.
-            slate::getrs(A, pivots, B, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::getrs(A, pivots, B, opts);
-        }
-        else if (params.routine == "getrf_nopiv") {
-            // Solve AX = B.
-            slate::lu_solve_using_factor_nopiv(A, B, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::getrs_nopiv(A, B, opts);
-        }
-||||||| merged common ancestors
-        if (params.routine == "getrf") {
-            // Solve AX = B.
-            slate::getrs(A, pivots, B, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::getrs(A, pivots, B, opts);
-        }
-        else if (params.routine == "getrf_nopiv") {
-            // Solve AX = B.
-            slate::lu_solve_using_factor_nopiv(A, B, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::getrs_nopiv(A, B, opts);
-        }
-=======
->>>>>>> master
 
         // Norm of updated-rhs/solution matrix: || X ||_1
         real_t X_norm;
@@ -515,9 +424,9 @@ void test_gesv_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            if (params.routine == "getrf" ||
-                params.routine == "getrf_nopiv" ||
-                params.routine == "getrf_tntpiv") {
+            if (params.routine == "getrf"
+                || params.routine == "getrf_nopiv"
+                || params.routine == "getrf_tntpiv") {
                 scalapack_pgetrf(m, n,
                                  &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info_ref);
             }

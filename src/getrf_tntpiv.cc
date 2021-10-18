@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
+#include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "slate/Tile_blas.hh"
 #include "slate/TriangularMatrix.hh"
@@ -229,10 +229,10 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                         const int64_t tag = j + A_mt;
                         bcast_list.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}, tag});
                     }
-  
+
                     A.template listBcastMT<target>(
                         bcast_list, Layout::ColMajor);
-   
+
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
                         scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),

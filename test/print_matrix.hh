@@ -385,7 +385,7 @@ std::string tile_row_string(
         return std::string("");
 
     int64_t size = A.m() * A.n();
-    //Keep until bandMatrix print is finished
+    // Keep until bandMatrix print is finished
     if (verbose == 2 && size <= threshold)
         verbose = 4;
 
@@ -520,18 +520,20 @@ void print_matrix_work(
     if (verbose == 0)
         return;
 
-    int64_t size = A.m() * A.n();
-    if (verbose == 2) { //abbreviate rows and columns
-        if ((size <= threshold) || ((A.m() <= 2*edgeitems) && (A.n() <= 2*edgeitems)))
-            verbose = 4; //print all rows and columns
-        else if ((A.m() <= 2*edgeitems) && (A.n() > 2*edgeitems))
-            verbose = 5; //print all rows, abbreviate columns
-        else if ((A.m() > 2*edgeitems) && (A.n() <= 2*edgeitems))
-            verbose = 6; //abbreviate rows, print all columns
+    int64_t nrows = A.m();
+    int64_t ncolumns = A.n();
+    int64_t size = nrows * ncolumns;
+    if (verbose == 2) { // abbreviate rows and columns
+        if ((size <= threshold) || ((nrows <= 2*edgeitems) && (ncolumns <= 2*edgeitems)))
+            verbose = 4; // print all rows and columns
+        else if ((nrows <= 2*edgeitems) && (ncolumns > 2*edgeitems))
+            verbose = 5; // print all rows, abbreviate columns
+        else if ((nrows > 2*edgeitems) && (ncolumns <= 2*edgeitems))
+            verbose = 6; // abbreviate rows, print all columns
 
-        printf("verbose=%lld\n", (llong)verbose);
         opts[slate::Option::PrintVerbose] = verbose;
     }
+    //printf("verbose=%lld\n", (llong)verbose);
 
     width = std::max(width, precision + 6);
     real_t nan_ = nan("");
@@ -570,14 +572,14 @@ void print_matrix_work(
     int64_t tile_row_step = 1;
     int64_t tile_col_step = 1;
 
-    if (verbose == 2) { //abbreviate rows and columns
+    if (verbose == 2) { // abbreviate rows and columns
         tile_row_step = (A.mt() > 1 ? A.mt()-1 : 1);
         tile_col_step = (A.nt() > 1 ? A.nt()-1 : 1);
     }
-    else if (verbose == 5) { //abbreviate columns only
+    else if (verbose == 5) { // abbreviate columns only
         tile_col_step = (A.nt() > 1 ? A.nt()-1 : 1);
     }
-    else if (verbose == 6) { //abbreviate rows only
+    else if (verbose == 6) { // abbreviate rows only
        tile_row_step = (A.mt() > 1 ? A.mt()-1 : 1);
     }
     for (int64_t i = 0; i < A.mt(); i += tile_row_step) {
@@ -621,13 +623,16 @@ void print_matrix_work(
                             msg += tile_row_string(A, i, j, ti, opts, opposite);
                         }
                         else {
+                            int64_t max_cols = A.tileNb(j);
+                            if (verbose == 2)
+                                max_cols = std::min( A.tileNb(j), abbrev_cols );
                             // tile in opposite triangle
-                            for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
+                            for (int64_t tj = 0; tj < max_cols; ++tj) {
                                 msg += opposite;
                             }
                         }
                         if (verbose != 6 || A.nt() > 1) {
-                            if ((verbose != 6) && (A.n() > 2 * abbrev_cols || A.nt() > 1))
+                            if ((verbose != 6) && (ncolumns > 2 * abbrev_cols || A.nt() > 1))
                                 msg += " ..."; // column abbreviation indicator
                             // last column tile
                             j = A.nt()-1;
@@ -643,8 +648,16 @@ void print_matrix_work(
                                 msg += tile_row_string(A, i, j, ti, opts, opposite, true);
                             }
                             else {
+                                int64_t start_col = 0;
+                                if (verbose == 2)
+                                {
+                                    if ((A.nt() == 1) && (A.tileNb(j) < abbrev_cols*2)) // only 1 column tile
+                                        start_col = abbrev_cols;
+                                    else
+                                        start_col = blas::max( A.tileNb(j) - abbrev_cols, 0 );
+                                }
                                 // tile in opposite triangle
-                                for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
+                                for (int64_t tj = start_col; tj < A.tileNb(j); ++tj) {
                                     msg += opposite;
                                 }
                             }
@@ -654,7 +667,7 @@ void print_matrix_work(
                 }
                 if (i == A.mt()-1) { // last row tile
                     if (verbose != 5 || A.mt() > 1) {
-                        if ((verbose != 5) && (A.m() > 2 * abbrev_rows || A.mt() > 1))
+                        if ((verbose != 5) && (nrows > 2 * abbrev_rows || A.mt() > 1))
                             msg += " ...\n"; // row abbreviation indicator
 
                         // last abbrev_rows
@@ -672,14 +685,17 @@ void print_matrix_work(
                                 msg += tile_row_string(A, i, j, ti, opts, opposite);
                             }
                             else {
+                                int64_t max_cols = A.tileNb(j);
+                                if (verbose == 2)
+                                    max_cols = std::min( A.tileNb(j), abbrev_cols );
                                 // tile in opposite triangle
-                                for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
+                                for (int64_t tj = 0; tj < max_cols; ++tj) {
                                     msg += opposite;
                                 }
                             }
 
                             if (verbose != 6 || A.nt() > 1) {
-                                if ((verbose != 6) && (A.n() > 2 * abbrev_cols || A.nt() > 1))
+                                if ((verbose != 6) && (ncolumns > 2 * abbrev_cols || A.nt() > 1))
                                     msg += " ..."; // column abbreviation indicator
                                 // last column tile
                                 j = A.nt()-1;
@@ -695,8 +711,16 @@ void print_matrix_work(
                                     msg += tile_row_string(A, i, j, ti, opts, opposite, true);
                                 }
                                 else {
+                                    int64_t start_col = 0;
+                                    if (verbose == 2)
+                                    {
+                                        if ((A.nt() == 1) && (A.tileNb(j) < abbrev_cols*2)) // only 1 column tile
+                                            start_col = abbrev_cols;
+                                        else
+                                            start_col = blas::max( A.tileNb(j) - abbrev_cols, 0 );
+                                    }
                                     // tile in opposite triangle
-                                    for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
+                                    for (int64_t tj = start_col; tj < A.tileNb(j); ++tj) {
                                         msg += opposite;
                                     }
                                 }
@@ -723,9 +747,11 @@ void print_matrix_work(
                             msg += tile_row_string(A, i, j, ti, opts, opposite);
                         }
                         else {
-                            // tile in opposite triangle
-                            for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                                msg += opposite;
+                            int64_t col_step = (verbose == 3 && A.tileNb(j) > 1 ? A.tileNb(j) - 1 : 1);
+                            for (int64_t tj = 0; tj < A.tileNb(j); tj += col_step) {
+                                // for verbose=3 only j = 0 and j = tileNb-1
+                                // tile in opposite triangle
+                                    msg += opposite;
                             }
                         }
                         if (j < A.nt() - 1)
@@ -765,7 +791,7 @@ void print_matrix(
 {
     if (A.mpiRank() == 0) {
         std::string msg = std::string( "% " ) + label + ": slate::Matrix ";
-        msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
+        msg += std::to_string( A.m() ) + "-by-" + std::to_string( A.n() ) + ", "
             +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
             //+  " tiles, nb " + std::to_string( A.tileNb(0) ) + "\n";
             +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
@@ -1054,8 +1080,9 @@ void print_matrix(
 
     if (A.mpiRank() == 0) {
         printf( "\n"
-                "%% slate::HermitianMatrix %lld-by-%lld, %lld-by-%lld tiles, "
+                "%% %s: slate::HermitianMatrix %lld-by-%lld, %lld-by-%lld tiles, "
                 "nb %lld uplo %c\n",
+                label,
                 llong( A.m() ), llong( A.n() ),
                 llong( A.mt() ), llong( A.nt() ),
                 llong( A.tileNb(0) ),
@@ -1098,8 +1125,9 @@ void print_matrix(
 
     if (A.mpiRank() == 0) {
         printf( "\n"
-                "%% slate::SymmetricMatrix %lld-by-%lld, %lld-by-%lld tiles, "
+                "%% %s: slate::SymmetricMatrix %lld-by-%lld, %lld-by-%lld tiles, "
                 "nb %lld uplo %c\n",
+                label,
                 llong( A.m() ), llong( A.n() ),
                 llong( A.mt() ), llong( A.nt() ),
                 llong( A.tileNb(0) ),
@@ -1141,8 +1169,9 @@ void print_matrix(
 
     if (A.mpiRank() == 0) {
         printf( "\n"
-                "%% slate::TrapezoidMatrix %lld-by-%lld, %lld-by-%lld tiles, "
+                "%% %s: slate::TrapezoidMatrix %lld-by-%lld, %lld-by-%lld tiles, "
                 "nb %lld uplo %c diag %c\n",
+                label,
                 llong( A.m() ), llong( A.n() ),
                 llong( A.mt() ), llong( A.nt() ),
                 llong( A.tileNb(0) ),
@@ -1186,8 +1215,9 @@ void print_matrix(
 
     if (A.mpiRank() == 0) {
         printf( "\n"
-                "%% slate::TriangularMatrix %lld-by-%lld, %lld-by-%lld tiles, "
+                "%% %s: slate::TriangularMatrix %lld-by-%lld, %lld-by-%lld tiles, "
                 "nb %lld uplo %c diag %c\n",
+                label,
                 llong( A.m() ), llong( A.n() ),
                 llong( A.mt() ), llong( A.nt() ),
                 llong( A.tileNb(0) ),

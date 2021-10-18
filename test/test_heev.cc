@@ -166,7 +166,7 @@ void test_heev_work(Params& params, bool run)
         params.time() = time;
 
         print_matrix( "A", A, params );
-        print_matrix( "Z", Z, params ); //Relevant when slate::eig_vals takes Z
+        print_matrix( "Z", Z, params ); // Relevant when slate::eig_vals takes Z
     }
 
     if (check || ref) {

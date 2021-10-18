@@ -486,15 +486,15 @@ void test_add_dispatch(Params& params, bool run )
     else if (routine == "tzadd") {
         test_add_work< slate::TrapezoidMatrix<scalar_t> >( params, run );
     }
-    //else if (routine == "tradd") {
-    //    test_add_work< slate::TriangularMatrix<scalar_t> >( params, run );
-    //}
-    //else if (routine == "syadd") {
-    //    test_add_work< slate::SymmetricMatrix<scalar_t> >( params, run );
-    //}
-    //else if (routine == "headd") {
-    //    test_add_work< slate::HermitianMatrix<scalar_t> >( params, run );
-    //}
+    else if (routine == "tradd") {
+        test_add_work< slate::TriangularMatrix<scalar_t> >( params, run );
+    }
+    else if (routine == "syadd") {
+        test_add_work< slate::SymmetricMatrix<scalar_t> >( params, run );
+    }
+    else if (routine == "headd") {
+        test_add_work< slate::HermitianMatrix<scalar_t> >( params, run );
+    }
     else {
         throw slate::Exception("unknown routine: " + routine);
     }

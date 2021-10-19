@@ -609,11 +609,10 @@ void print_matrix_work(
                 if (A.mt() <= 1)
                     max_pass = 2; // pass twice on same tile
                 for (int pass = 0; pass < max_pass; ++pass) {
-                    int64_t start_row;
-                    int64_t max_rows;
+                    int64_t start_row = 0;
+                    int64_t max_rows = 0;
                     if (i == 0 && pass == 0) { // first row tile
                         // first abbrev_rows
-                        start_row = 0;
                         max_rows = std::min( A.tileMb(i), abbrev_rows );
                         if (verbose == 5)
                             max_rows = A.tileMb(i);
@@ -627,10 +626,6 @@ void print_matrix_work(
                             // last abbrev_rows
                             start_row = blas::max( 0, A.tileMb(i) - abbrev_rows);
                             max_rows = A.tileMb(i);
-                        }
-                        else {
-                            start_row = 0;
-                            max_rows = 0; // no more rows to display
                         }
                     }
                     for (int64_t ti = start_row; ti < max_rows; ++ti) {

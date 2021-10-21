@@ -899,7 +899,7 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
             } 
             else {
                 for (int64_t j = 0; j < n; j++) {
-                    for (int64_t i = 0; i <= j && i < n; i++) {
+                    for (int64_t i = 0; i <= j && i < m; i++) {
                         Y00[i+j*y_row_inc] = beta * Y00[i+j*y_row_inc] + alpha * X00[i+j*x_row_inc];
                     }
                 }    

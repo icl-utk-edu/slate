@@ -387,6 +387,7 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                             int64_t cnb = C0.nb();
                             assert( cnb <= VC(i/2, 0).nb() );
                             assert( C0.mb()-1 == mb0 );  // After 1st row sliced off.
+                            int device = C.tileDevice(i, k);
 
                             // VC = Vr0^H C0
                             // vnb-by-cnb = (mb0-by-vnb)^H (mb0-by-cnb)
@@ -396,8 +397,10 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
 
                                 // C0
                                 if (target == Target::Devices) {
-                                    int device;
-                                    device = VC.tileDevice(i/2, 0);
+                                    //int device;
+                                    //device = VC.tileDevice(i/2, 0);
+                                    {slate::trace::Block trace_block(std::string("2V").c_str());
+                                    V_.tileGetForReading(0, r, device, LayoutConvert::None);}
                                     //printf("2VCi: %d %ld,%ld,%ld %d\n", omp_get_thread_num(), i, j, k, device);
                                     {slate::trace::Block trace_block(std::string("2C0").c_str());
                                     C.tileGetForReading(i, k, device, LayoutConvert::None);}
@@ -445,8 +448,8 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                     slate::trace::Block trace_block(std::string("3gemm").c_str());
                                 
                                     if (target == Target::Devices) {
-                                        int device;
-                                        device = VC.tileDevice(i/2, 0);
+                                        //int device;
+                                        //device = VC.tileDevice(i/2, 0);
                                         //printf("3VCi1: %d %ld,%ld,%ld %d\n", omp_get_thread_num(), i, j, k, device);
                                         {slate::trace::Block trace_block(std::string("3C1").c_str());
                                         C.tileGetForReading(i+1, k, device, LayoutConvert::None);}
@@ -488,8 +491,8 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                             {
                                 slate::trace::Block trace_block(std::string("4gemm").c_str());
                                 if (target == Target::Devices) {
-                                    int device;
-                                    device = C.tileDevice(i, k);
+                                    //int device;
+                                    //device = C.tileDevice(i, k);
                                     //printf("4Ci,k: %d %ld,%ld,%ld %d\n", omp_get_thread_num(), i, j, k, device);
                                     {slate::trace::Block trace_block(std::string("4VT").c_str());
                                     VT.tileGetForReading(i/2, 0, device, LayoutConvert::None);}
@@ -536,8 +539,8 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                     slate::trace::Block trace_block(std::string("5gemm").c_str());
 
                                     if (target == Target::Devices) {
-                                        int device;
-                                        device = C.tileDevice(i+1, k);
+                                        //int device;
+                                        //device = C.tileDevice(i+1, k);
                                         //printf("5Ci1,k: %d %ld,%ld,%ld %d\n", omp_get_thread_num(), i, j, k, device);
                                         {slate::trace::Block trace_block(std::string("5VT").c_str());
                                         VT.tileGetForReading(i/2, 0, device, LayoutConvert::None);}

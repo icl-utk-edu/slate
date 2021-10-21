@@ -35,7 +35,7 @@ void test_copy_work(Params& params, bool run)
     // get & mark input values
     int64_t n = params.dim.n();
     int64_t m;
-    if constexpr (std::is_same<matrix_type, slate::TrapezoidMatrix<scalar_t>>::value ||
+    if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value ||
                   std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value ||
                   std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value)
         m = n;

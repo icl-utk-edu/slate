@@ -838,7 +838,6 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
 {
     // trace::Block trace_block("blas::axpby");
 
-    // TODO should be able to loosen these restrictions
     assert(X.op() == Y.op() && X.mb() == Y.mb() && X.nb() == Y.nb());
     assert(X.uploPhysical() == Y.uploPhysical());
 
@@ -899,8 +898,8 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
                 }    
             } 
             else {
-                for (int64_t j = 0; j < m; j++) {
-                    for (int64_t i = 0; i <= j && i < m; i++) {
+                for (int64_t j = 0; j < n; j++) {
+                    for (int64_t i = 0; i <= j && i < n; i++) {
                         Y00[i+j*y_row_inc] = beta * Y00[i+j*y_row_inc] + alpha * X00[i+j*x_row_inc];
                     }
                 }    

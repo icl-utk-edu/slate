@@ -555,9 +555,9 @@ if (opts.aux):
     cmds += [
     [ 'add',    gen + dtype + mn + ab        ],
     [ 'tzadd',  gen + dtype + mn + ab + uplo ],
-    [ 'tradd',  gen + dtype + mn + ab + uplo ],
-    [ 'syadd',  gen + dtype + mn + ab + uplo ],
-    [ 'headd',  gen + dtype + mn + ab + uplo ],
+    [ 'tradd',  gen + dtype + n  + ab + uplo ],
+    [ 'syadd',  gen + dtype + n  + ab + uplo ],
+    [ 'headd',  gen + dtype + n  + ab + uplo ],
     [ 'copy',   gen + dtype + mn             ],
     [ 'tzcopy', gen + dtype + mn      + uplo ],
     [ 'trcopy', gen + dtype + n       + uplo ],

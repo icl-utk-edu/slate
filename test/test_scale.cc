@@ -19,9 +19,10 @@
 
 #define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
-template<typename scalar_t>
+template <typename matrix_type>
 void test_scale_work(Params& params, bool run)
 {
+    using scalar_t = typename matrix_type::value_type;
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
     using blas::imag;
@@ -43,10 +44,24 @@ void test_scale_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
+    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-    slate::Uplo uplo = slate::Uplo::General;
+    slate::Uplo uplo;
+    if constexpr (std::is_same<matrix_type, slate::Matrix<scalar_t>>::value) {
+        uplo = slate::Uplo::General;
+    }
+    else {
+        uplo = params.uplo();
+    }
     params.matrix.mark();
+
+    // Update size m, in case matrix_type is meant to be square
+    if (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value) {
+        || std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value) {
+        || std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value) {
+        m = n;
+    }
 
     // mark non-standard output values
     params.time();
@@ -68,34 +83,106 @@ void test_scale_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
+    std::vector<scalar_t> A_data(lldA*nlocA);
 
-    // ScaLAPACK data if needed.
-    std::vector<scalar_t> A_data;
-
-    slate::Matrix<scalar_t> A;
+    matrix_type A;
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
-        A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
-        A.insertLocalTiles(origin_target);
+        if constexpr (std::is_same<matrix_type, slate::Matrix<scalar_t>>::value) {
+            // General mxn matrix
+            A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
+            A.insertLocalTiles(origin_target);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::TrapezoidMatrix<scalar_t>>::value) {
+            // Trapezoidal mxn matrix
+            A = slate::TrapezoidMatrix<scalar_t>(uplo, slate::Diag::NonUnit, m, n, nb, p, q, MPI_COMM_WORLD);
+            A.insertLocalTiles(origin_target);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value) {
+            // Triangular nxn matrix
+            A = slate::TriangularMatrix<scalar_t>(uplo, slate::Diag::NonUnit, n, nb, p, q, MPI_COMM_WORLD);
+            A.insertLocalTiles(origin_target);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value) {
+            // Symmetric nxn matrix
+            A = slate::SymmetricMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
+            A.insertLocalTiles(origin_target);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value) {
+            // Hermitian nxn matrix
+            A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
+            A.insertLocalTiles(origin_target);
+        }
+        else {
+            throw slate::Exception("unknown routine: not compatible with scale");
+        }
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layout.
-       A_data.resize( lldA * nlocA );
-       A = slate::Matrix<scalar_t>::fromScaLAPACK(
-                m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        if constexpr (std::is_same<matrix_type, slate::Matrix<scalar_t>>::value) {
+            // General mxn matrix
+            A = slate::Matrix<scalar_t>::fromScaLAPACK(
+                    m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
+        }
+        else if constexpr (std::is_same<matrix_type, slate::TrapezoidMatrix<scalar_t>>::value) {
+            // Trapezoidal mxn matrix
+            A = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
+                    uplo, slate::Diag::NonUnit, m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value) {
+            // Triangular nxn matrix
+            A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
+                    uplo, slate::Diag::NonUnit, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value) {
+            // Symmetric nxn matrix
+            A = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
+                    uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value) {
+            // Hermitian mxn matrix
+            A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                    uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        }
+        else {
+            throw slate::Exception("unknown routine: not compatible with scale");
+        }
     }
 
     slate::generate_matrix(params.matrix, A);
 
     // if reference run is required, copy test data
     std::vector<scalar_t> Aref_data;
-    slate::Matrix<scalar_t> Aref;
+    matrix_type Aref;
     if (check || ref) {
         // For simplicity, always use ScaLAPACK format for ref matrices.
         Aref_data.resize( lldA*nlocA );
-        Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                   m,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        if constexpr (std::is_same<matrix_type, slate::Matrix<scalar_t>>::value) {
+            // General mxn matrix
+            Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                       m,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
+        }
+        else if constexpr (std::is_same<matrix_type, slate::TrapezoidMatrix<scalar_t>>::value) {
+            // Trapezoidal mxn matrix
+            Aref = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
+                       uplo, slate::Diag::NonUnit, m,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value) {
+            // Triangular mxn matrix
+            Aref = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
+                       uplo, slate::Diag::NonUnit,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value) {
+            // Symmetric mxn matrix
+            Aref = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
+                       uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value) {
+            // Hermitian mxn matrix
+            Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                       uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        }
         slate::copy(A, Aref);
     }
 
@@ -104,7 +191,9 @@ void test_scale_work(Params& params, bool run)
     else if (trans == slate::Op::ConjTrans)
         A = conjTranspose(A);
 
-    print_matrix("A", A, params);
+    if (verbose > 1) {
+        print_matrix("A", A);
+    }
 
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
@@ -150,6 +239,10 @@ void test_scale_work(Params& params, bool run)
             scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, lldA, &info);
             slate_assert(info == 0);
 
+            if (origin != slate::Origin::ScaLAPACK) {
+                // todo: the copy needs to be fixed for transpose case.
+                copy(A, &A_data[0], A_desc);
+            }
             real_t A_norm = slate::norm(slate::Norm::One, A);
             // set MKL num threads appropriately for parallel BLAS
             int omp_num_threads;
@@ -179,7 +272,6 @@ void test_scale_work(Params& params, bool run)
             // norm(A - Aref)
             real_t A_diff_norm = slate::norm(slate::Norm::One, A);
 
-
             params.ref_time() = time;
 
             real_t error = A_diff_norm / (n * A_norm);
@@ -195,6 +287,31 @@ void test_scale_work(Params& params, bool run)
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #endif
+    }
+}
+
+// -----------------------------------------------------------------------------
+template <typename scalar_t>
+void test_scale_dispatch( Params& params, bool run )
+{
+    std::string routine = params.routine;
+    if (routine == "scale") {
+        test_scale_work< slate::Matrix<scalar_t> >( params, run );
+    }
+    else if (routine == "tzscale") {
+        test_scale_work< slate::TrapezoidMatrix<scalar_t> >( params, run );
+    }
+    else if (routine == "trscale") {
+        test_scale_work< slate::TriangularMatrix<scalar_t> >( params, run );
+    }
+    else if (routine == "syscale") {
+        test_scale_work< slate::SymmetricMatrix<scalar_t> >( params, run );
+    }
+    else if (routine == "hescale") {
+        test_scale_work< slate::HermitianMatrix<scalar_t> >( params, run );
+    }
+    else {
+        throw slate::Exception("unknown routine: " + routine);
     }
 }
 

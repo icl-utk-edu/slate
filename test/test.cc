@@ -232,12 +232,19 @@ std::vector< testsweeper::routines_t > routines = {
     { "tradd",              test_add,          Section::aux },
     { "syadd",              test_add,          Section::aux },
     { "headd",              test_add,          Section::aux },
+
     { "copy",               test_copy,         Section::aux },
     { "tzcopy",             test_copy,         Section::aux },
     { "trcopy",             test_copy,         Section::aux },
     { "sycopy",             test_copy,         Section::aux },
     { "hecopy",             test_copy,         Section::aux },
+
     { "scale",              test_scale,        Section::aux },
+    { "tzscale",            test_scale,        Section::aux },
+    { "trscale",            test_scale,        Section::aux },
+    { "syscale",            test_scale,        Section::aux },
+    { "hescale",            test_scale,        Section::aux },
+
     { "set",                test_set,          Section::aux },
     { "tzset",              test_set,          Section::aux },
     { "trset",              test_set,          Section::aux },

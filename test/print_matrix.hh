@@ -507,10 +507,10 @@ template <typename scalar_t>
 void print_matrix_work(
     const char* label,
     slate::BaseMatrix<scalar_t>& A,
-    slate::Options const& _opts)
+    slate::Options const& opts_)
 {
     using real_t = blas::real_type<scalar_t>;
-    slate::Options opts(_opts);
+    slate::Options opts(opts_);
 
     int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 10 );
     int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );

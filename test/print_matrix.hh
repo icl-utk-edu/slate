@@ -381,8 +381,7 @@ std::string tile_row_string(
     int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
     int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
     int64_t threshold = slate::get_option<int64_t>( opts, slate::Option::PrintThreshold, 1024 );
-    if (verbose == 0)
-        return std::string("");
+    assert( verbose >= 2 );
 
     int64_t size = A.m() * A.n();
     // Keep until bandMatrix print is finished
@@ -517,7 +516,7 @@ void print_matrix_work(
     int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
     int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
     int64_t threshold = slate::get_option<int64_t>( opts, slate::Option::PrintThreshold, 1024 );
-    if (verbose == 0)
+    if (verbose <= 1)
         return;
 
     int64_t nrows = A.m();
@@ -545,18 +544,7 @@ void print_matrix_work(
     MPI_Comm comm = A.mpiComm();
     MPI_Barrier(comm);
 
-    std::string msg = "";
-
-    if (verbose != 1) {
-        msg += label;
-        msg += " = [\n";
-    }
-
-    if (verbose == 1) {
-        if (mpi_rank == 0)
-            printf( "%s", msg.c_str() );
-        return;
-    }
+    std::string msg = std::string( label ) + " = [\n";
 
     // for entries in opposite triangle from A.uplo
     char opposite[ 80 ];

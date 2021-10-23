@@ -392,9 +392,11 @@ std::string tile_row_string(
 
     real_t nan_ = nan("");
 
+    int64_t tile_columns = 0;
     char buf[ 80 ];
     std::string msg;
     try {
+        tile_columns = A.tileNb(j);
         auto T = A(i, j);
         slate::Uplo uplo = T.uplo();
         int64_t nb    = T.nb();
@@ -433,8 +435,32 @@ std::string tile_row_string(
     catch (std::out_of_range const& ex) {
         // tile missing: print NAN
         snprintf_value( buf, sizeof(buf), width, precision, nan_ );
-        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-            msg += buf;
+
+        if (! is_last_abbrev_cols && verbose == 2) {
+            // first abbrev_cols
+            int64_t max_cols = std::min( tile_columns, abbrev_cols );
+            for (int64_t tj = 0; tj < max_cols; ++tj) {
+                msg += buf;
+            }
+        }
+        else if (is_last_abbrev_cols && verbose == 2) {
+            // last abbrev_cols
+            int64_t start_col;
+            if ((A.nt() == 1) && (tile_columns < abbrev_cols*2)) // only 1 column tile
+                start_col = abbrev_cols;
+            else
+                start_col = blas::max( tile_columns - abbrev_cols, 0 );
+
+            for (int64_t tj = start_col; tj < tile_columns; ++tj) {
+                msg += buf;
+            }
+        }
+        else {
+            int64_t col_step = (verbose == 3 && tile_columns > 1 ? tile_columns - 1 : 1);
+            for (int64_t tj = 0; tj < tile_columns; tj += col_step) {
+                // for verbose=3 only j = 0 and j = tileNb-1
+                msg += buf;
+            }
         }
     }
     return msg;
@@ -680,21 +706,18 @@ void print_matrix_work(
                                     msg += opposite;
                                 }
                             }
-                            if (j < A.nt() - 1)
-                                msg += "    "; // space between column tiles
-                            else
-                                msg += "\n";
                         }
                         else { // outside bandwidth
-                            for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                                int64_t col_step = (verbose == 3 && A.tileNb(j) > 1 ? A.tileNb(j) - 1 : 1);
-                                for (int64_t tj = 0; tj < A.tileNb(j); tj += col_step) {
-                                    // for verbose=3 only j = 0 and j = tileNb-1
-                                    msg += outside_bandwidth;
-                                }
+                            int64_t col_step = (verbose == 3 && A.tileNb(j) > 1 ? A.tileNb(j) - 1 : 1);
+                            for (int64_t tj = 0; tj < A.tileNb(j); tj += col_step) {
+                                // for verbose=3 only j = 0 and j = tileNb-1
+                                msg += outside_bandwidth;
                             }
                         }
-
+                        if (j < A.nt() - 1)
+                            msg += "    "; // space between column tiles
+                        else
+                            msg += "\n";
                     }
                 }
             }

@@ -604,7 +604,7 @@ void print_matrix_work(
                         }
                         else {
                             int64_t max_cols = A.tileNb(j);
-                            if (verbose == 2)
+                            if (verbose == 2 || verbose == 5)
                                 max_cols = std::min( A.tileNb(j), abbrev_cols );
                             // tile in opposite triangle
                             for (int64_t tj = 0; tj < max_cols; ++tj) {

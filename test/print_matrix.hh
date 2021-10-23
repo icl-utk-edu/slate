@@ -229,7 +229,7 @@ void print_matrix(
                         }
                         msg += "\n";
                     }
-                    msg += "];\n\n";
+                    msg += "];\n";
                 }
                 else if (verbose == 3 || verbose == 4) {
                     int64_t row_step = (verbose == 3 && mlocal > 1 ? mlocal - 1 : 1);
@@ -244,7 +244,7 @@ void print_matrix(
                         }
                         msg += "\n";
                     }
-                    msg += "];\n\n";
+                    msg += "];\n";
                 }
 
                 if (mpi_rank != 0) {
@@ -684,7 +684,7 @@ void print_matrix_work(
                     }
                 }
                 if (last_row_tile)
-                    msg += "];\n\n";
+                    msg += "];\n";
             }
             else if (verbose == 3 || verbose == 4) {
                 int64_t row_step =
@@ -721,7 +721,7 @@ void print_matrix_work(
                 if (i < A.mt() - 1)
                     msg += "\n"; // line between row tiles
                 else if (verbose != 5)
-                    msg += "];\n\n";
+                    msg += "];\n";
             }
             printf("%s", msg.c_str());
             msg.clear();
@@ -738,12 +738,15 @@ void print_matrix_work(
     MPI_Barrier(comm);
 }
 
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void print_matrix(
     const char* label,
     slate::Matrix<scalar_t>& A,
     slate::Options const& opts)
 {
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
+
     if (A.mpiRank() == 0) {
         std::string msg = std::string( "% " ) + label + ": slate::Matrix ";
         msg += std::to_string( A.m() ) + "-by-" + std::to_string( A.n() ) + ", "
@@ -756,6 +759,9 @@ void print_matrix(
     }
 
     print_matrix_work( label, A, opts );
+    if (A.mpiRank() == 0 && verbose >= 2) {
+        printf( "\n" );
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -1053,12 +1059,14 @@ void print_matrix(
     char buf[ 80 ];
     snprintf( buf, sizeof(buf), "%s_", label );
     print_matrix_work( buf, A, opts );
-    if (A.mpiRank() == 0) {
+    if (A.mpiRank() == 0 && params.verbose() >= 2) {
         if (A.uplo() == slate::Uplo::Lower) {
-            printf( "%s = tril( %s_ ) + tril( %s_, -1 )';\n", label, label, label );
+            printf( "%s = tril( %s_ ) + tril( %s_, -1 )';\n\n",
+                    label, label, label );
         }
         else {
-            printf( "%s = triu( %s_ ) + triu( %s_,  1 )';\n", label, label, label );
+            printf( "%s = triu( %s_ ) + triu( %s_,  1 )';\n\n",
+                    label, label, label );
         }
     }
 }
@@ -1096,12 +1104,14 @@ void print_matrix(
                 char( A.uplo() ) );
     }
     print_matrix_work( label, A, opts );
-    if (A.mpiRank() == 0) {
+    if (A.mpiRank() == 0 && params.verbose() >= 2) {
         if (A.uplo() == slate::Uplo::Lower) {
-            printf( "%s = tril( %s_ ) + tril( %s_, -1 ).';\n", label, label, label );
+            printf( "%s = tril( %s_ ) + tril( %s_, -1 ).';\n\n",
+                    label, label, label );
         }
         else {
-            printf( "%s = triu( %s_ ) + triu( %s_,  1 ).';\n", label, label, label );
+            printf( "%s = triu( %s_ ) + triu( %s_,  1 ).';\n\n",
+                    label, label, label );
         }
     }
 }
@@ -1142,12 +1152,12 @@ void print_matrix(
     char buf[ 80 ];
     snprintf( buf, sizeof(buf), "%s_", label );
     print_matrix_work( buf, A, opts );
-    if (A.mpiRank() == 0) {
+    if (A.mpiRank() == 0 && params.verbose() >= 2) {
         if (A.uplo() == slate::Uplo::Lower) {
-            printf( "%s = tril( %s_ );\n", label, label );
+            printf( "%s = tril( %s_ );\n\n", label, label );
         }
         else {
-            printf( "%s = triu( %s_ );\n", label, label );
+            printf( "%s = triu( %s_ );\n\n", label, label );
         }
     }
 }
@@ -1188,12 +1198,12 @@ void print_matrix(
     char buf[ 80 ];
     snprintf( buf, sizeof(buf), "%s_", label );
     print_matrix_work( buf, A, opts );
-    if (A.mpiRank() == 0) {
+    if (A.mpiRank() == 0 && params.verbose() >= 2) {
         if (A.uplo() == slate::Uplo::Lower) {
-            printf( "%s = tril( %s_ );\n", label, label );
+            printf( "%s = tril( %s_ );\n\n", label, label );
         }
         else {
-            printf( "%s = triu( %s_ );\n", label, label );
+            printf( "%s = triu( %s_ );\n\n", label, label );
         }
     }
 }

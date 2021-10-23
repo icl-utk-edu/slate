@@ -713,7 +713,6 @@ void print_matrix(
         std::string msg = std::string( "% " ) + label + ": slate::Matrix ";
         msg += std::to_string( A.m() ) + "-by-" + std::to_string( A.n() ) + ", "
             +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
-            //+  " tiles, nb " + std::to_string( A.tileNb(0) ) + "\n";
             +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
             +  std::to_string( A.tileNb(0) ) + "\n";
 
@@ -795,7 +794,6 @@ void print_matrix(
     std::string msg = "\n% slate::BandMatrix ";
     msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
         +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
-        //+  " tiles, nb " + std::to_string( A.tileNb(0) )
         +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
         +  std::to_string( A.tileNb(0) )
         +  " kl " + std::to_string( A.lowerBandwidth() )
@@ -899,7 +897,6 @@ void print_matrix(
     std::string msg = "\n% slate::BaseTriangularBandMatrix ";
     msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
         +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
-        //+  " tiles, nb " + std::to_string( A.tileNb(0) )
         +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
         +  std::to_string( A.tileNb(0) )
         +  " kd " + std::to_string( A.bandwidth() )
@@ -1011,11 +1008,11 @@ void print_matrix(
     if (A.mpiRank() == 0) {
         printf( "\n"
                 "%% %s: slate::HermitianMatrix %lld-by-%lld, %lld-by-%lld tiles, "
-                "nb %lld uplo %c\n",
+                "tileSize %lld-by-%lld, uplo %c\n",
                 label,
                 llong( A.m() ), llong( A.n() ),
                 llong( A.mt() ), llong( A.nt() ),
-                llong( A.tileNb(0) ),
+                llong( A.tileMb(0) ), llong( A.tileNb(0) ),
                 char( A.uplo() ) );
     }
     char buf[ 80 ];
@@ -1058,11 +1055,11 @@ void print_matrix(
     if (A.mpiRank() == 0) {
         printf( "\n"
                 "%% %s: slate::SymmetricMatrix %lld-by-%lld, %lld-by-%lld tiles, "
-                "nb %lld uplo %c\n",
+                "tileSize %lld-by-%lld, uplo %c\n",
                 label,
                 llong( A.m() ), llong( A.n() ),
                 llong( A.mt() ), llong( A.nt() ),
-                llong( A.tileNb(0) ),
+                llong( A.tileMb(0) ), llong( A.tileNb(0) ),
                 char( A.uplo() ) );
     }
     print_matrix_work( label, A, opts );
@@ -1104,11 +1101,11 @@ void print_matrix(
     if (A.mpiRank() == 0) {
         printf( "\n"
                 "%% %s: slate::TrapezoidMatrix %lld-by-%lld, %lld-by-%lld tiles, "
-                "nb %lld uplo %c diag %c\n",
+                "tileSize %lld-by-%lld, uplo %c diag %c\n",
                 label,
                 llong( A.m() ), llong( A.n() ),
                 llong( A.mt() ), llong( A.nt() ),
-                llong( A.tileNb(0) ),
+                llong( A.tileMb(0) ), llong( A.tileNb(0) ),
                 char( A.uplo() ), char( A.diag() ) );
     }
     char buf[ 80 ];
@@ -1150,11 +1147,11 @@ void print_matrix(
     if (A.mpiRank() == 0) {
         printf( "\n"
                 "%% %s: slate::TriangularMatrix %lld-by-%lld, %lld-by-%lld tiles, "
-                "nb %lld uplo %c diag %c\n",
+                "tileSize %lld-by-%lld, uplo %c diag %c\n",
                 label,
                 llong( A.m() ), llong( A.n() ),
                 llong( A.mt() ), llong( A.nt() ),
-                llong( A.tileNb(0) ),
+                llong( A.tileMb(0) ), llong( A.tileNb(0) ),
                 char( A.uplo() ), char( A.diag() ) );
     }
     char buf[ 80 ];

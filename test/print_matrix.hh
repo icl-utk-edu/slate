@@ -383,8 +383,6 @@ std::string tile_row_string(
     int64_t threshold = slate::get_option<int64_t>( opts, slate::Option::PrintThreshold, 1024 );
     assert( verbose >= 2 );
 
-    int64_t size = A.m() * A.n();
-
     if (verbose == 5)
         verbose = 2;
 

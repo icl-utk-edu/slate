@@ -401,63 +401,37 @@ std::string tile_row_string(
     std::string msg;
     try {
         auto T = A(i, j);
+        slate::Uplo uplo = T.uplo();
+        int64_t nb    = T.nb();
+        int64_t begin = 0;
+        int64_t end   = nb;
+        int64_t step  = 1;
         if (! is_last_abbrev_cols && verbose == 2) {
             // first abbrev_cols
-            int64_t max_cols = std::min( A.tileNb(j), abbrev_cols );
-            for (int64_t tj = 0; tj < max_cols; ++tj) {
-                slate::Uplo uplo = T.uplo();
-                if ((uplo == slate::Uplo::General)
-                    || (uplo == slate::Uplo::Lower && ti >= tj)
-                    || (uplo == slate::Uplo::Upper && ti <= tj))
-                {
-                    snprintf_value( buf, sizeof(buf), width, precision,
-                                    T(ti, tj) );
-                    msg += buf;
-                }
-                else {
-                    msg += opposite;
-                }
-            }
+            end = std::min( nb, abbrev_cols );
         }
         else if (is_last_abbrev_cols && verbose == 2) {
             // last abbrev_cols
-            int64_t start_col;
-            if ((A.nt() == 1) && (A.tileNb(j) < abbrev_cols*2)) // only 1 column tile
-                start_col = abbrev_cols;
+            if ((A.nt() == 1) && (nb < abbrev_cols*2)) // only 1 column tile
+                begin = abbrev_cols;
             else
-                start_col = blas::max( A.tileNb(j) - abbrev_cols, 0 );
-
-            for (int64_t tj = start_col; tj < A.tileNb(j); ++tj) {
-                slate::Uplo uplo = T.uplo();
-                if ((uplo == slate::Uplo::General)
-                    || (uplo == slate::Uplo::Lower && ti >= tj)
-                    || (uplo == slate::Uplo::Upper && ti <= tj))
-                {
-                    snprintf_value( buf, sizeof(buf), width, precision,
-                                    T(ti, tj) );
-                    msg += buf;
-                }
-                else {
-                    msg += opposite;
-                }
-            }
+                begin = blas::max( nb - abbrev_cols, 0 );
         }
         else {
-            int64_t col_step = (verbose == 3 && A.tileNb(j) > 1 ? A.tileNb(j) - 1 : 1);
-            for (int64_t tj = 0; tj < A.tileNb(j); tj += col_step) {
-                // for verbose=3 only j = 0 and j = tileNb-1
-                slate::Uplo uplo = T.uplo();
-                if ((uplo == slate::Uplo::General)
-                    || (uplo == slate::Uplo::Lower && ti >= tj)
-                    || (uplo == slate::Uplo::Upper && ti <= tj))
-                {
-                    snprintf_value( buf, sizeof(buf), width, precision,
-                                    T(ti, tj) );
-                    msg += buf;
-                }
-                else {
-                    msg += opposite;
-                }
+            // for verbose=3 only j = 0 and j = tileNb-1
+            step = (verbose == 3 && nb > 1 ? nb - 1 : 1);
+        }
+        for (int64_t tj = begin; tj < end; tj += step) {
+            if ((uplo == slate::Uplo::General)
+                || (uplo == slate::Uplo::Lower && ti >= tj)
+                || (uplo == slate::Uplo::Upper && ti <= tj))
+            {
+                snprintf_value( buf, sizeof(buf), width, precision,
+                                T(ti, tj) );
+                msg += buf;
+            }
+            else {
+                msg += opposite;
             }
         }
     }

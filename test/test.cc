@@ -248,23 +248,24 @@ Params::Params():
     //         name,      w, p, type,         default, min,  max, help
     tol       ("tol",     0, 0, ParamType::Value,  50,   1, 1000, "tolerance (e.g., error < tol*epsilon to pass)"),
     repeat    ("repeat",  0,    ParamType::Value,   1,   1, 1000, "number of times to repeat each test"),
-    // verbose, 0: no printing,
-    // verbose, 1: print metadata only (dimensions, uplo, etc.)
-    // verbose, 2: print first & last print_edgeitems rows & cols,
-    //   if matrix size rows*cols > print_threshold
-    // verbose, 3: print 4 corner elements of every tile
-    // verbose, 4: print full matrix
-    verbose   ("verbose", 0,    ParamType::Value,   0,   0,   4, "verbose level"),
-    // print_edgeitems: number of first & last rows & cols of matrix to print
-    print_edgeitems ("print-edgeitems", 0,    ParamType::Value,   16,   1,   64, "number of first & last rows & columns"),
-    // print_threshold: maximum size (rows*cols) of matrix before verbose 2 starts to
-    // abbreviate matrix printing:
-    print_threshold ("print-threshold", 0,    ParamType::Value,   1024,   4,   16384, "max size (rows*cols) for verbose=2"),
-    // print_width: width format specifier
-    // For correct printing, print_width = print_precision + 6.
-    print_width ("print-width", 0,    ParamType::Value,   10,   7,   24, "minimum number of characters to be printed per value"),
-    // print_precision: precision print format specifier
-    print_precision("print-precision", 0,    ParamType::Value,   4,   1,   17, "number of digits to be printed after the decimal point"),
+
+    verbose   ("verbose", 0,    ParamType::Value,   0,   0,   4,
+               "verbose level:\n"
+               "                     0: no printing (default)\n"
+               "                     1: print metadata only (dimensions, uplo, etc.)\n"
+               "                     2: print first & last edgeitems rows & cols, if size > threshold\n"
+               "                     3: print 4 corner elements of every tile\n"
+               "                     4: print full matrix" ),
+
+    print_edgeitems("print-edgeitems", 0, ParamType::Value, 16,   1, 64,
+                    "for verbose=2, number of first & last rows & cols to print"),
+    print_threshold("print-threshold", 0, ParamType::Value, 1024, 1, 16384,
+                    "for verbose=2, size (rows*cols) to trigger abbreviation"),
+    print_width    ("print-width",     0, ParamType::Value, 10,   7, 24,
+                    "minimum number of characters to print per value"),
+    print_precision("print-precision", 0, ParamType::Value, 4,    1, 17,
+                    "number of digits to print after the decimal point"),
+
     extended  ("extended",0,    ParamType::Value,   0,   0,   10, "extended tests"),
     cache     ("cache",   0,    ParamType::Value,  20,   1, 1024, "total cache size, in MiB"),
 

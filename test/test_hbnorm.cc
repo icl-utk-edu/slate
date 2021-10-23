@@ -81,7 +81,7 @@ void test_hbnorm_work(Params& params, bool run)
                  uplo, n, kd, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
     if (verbose > 1) {
-        print_matrix("A", A);
+        print_matrix("A", A, params);
     }
 
     if (trace) slate::trace::Trace::on();

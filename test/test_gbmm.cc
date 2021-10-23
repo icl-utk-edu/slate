@@ -140,7 +140,7 @@ void test_gbmm_work(Params& params, bool run)
     if (verbose > 1) {
         //printf("%% rank %d A2 kl %lld, ku %lld\n",
         //       A_band.mpiRank(), A_band.lowerBandwidth(), A_band.upperBandwidth());
-        print_matrix("A_band", A_band);
+        print_matrix("A_band", A_band, params);
         print_matrix("B", B, params);
         print_matrix("C", C, params);
         printf("alpha = %.4f + %.4fi;\nbeta  = %.4f + %.4fi;\n",

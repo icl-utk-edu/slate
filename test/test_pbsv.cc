@@ -129,7 +129,7 @@ void test_pbsv_work(Params& params, bool run)
 
     if (verbose > 1) {
         printf("%% rank %d A kd %lld\n", A.mpiRank(), llong( A.bandwidth()));
-        print_matrix("A", A);
+        print_matrix("A", A, params);
         print_matrix("B", B, params);
     }
 
@@ -198,7 +198,7 @@ void test_pbsv_work(Params& params, bool run)
         if (verbose > 1) {
             printf("%% rank %d A2 kd %lld\n",
                    A.mpiRank(), llong( A.bandwidth( )));
-            print_matrix("A2", A);
+            print_matrix("A2", A, params);
             print_matrix("B2", B, params);
             printf( "nb = %lld;\n", llong( nb ) );
         }

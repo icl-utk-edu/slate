@@ -88,7 +88,7 @@ void test_gbnorm_work(Params& params, bool run)
                  params);
 
     if (verbose > 1) {
-        print_matrix("A", A);
+        print_matrix("A", A, params);
     }
 
     if (trace) slate::trace::Trace::on();

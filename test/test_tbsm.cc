@@ -162,7 +162,7 @@ void test_tbsm_work(Params& params, bool run)
         printf("alpha = %10.6f + %10.6fi;\n", real(alpha), imag(alpha));
         print_matrix("A_data", mlocA, nlocA, &A_data[0], lldA, p, q, MPI_COMM_WORLD, params);
         print_matrix("B_data", mlocB, nlocB, &B_data[0], lldB, p, q, MPI_COMM_WORLD, params);
-        print_matrix("A", Aband);
+        print_matrix("A", Aband, params);
         print_matrix("B", B, params);
     }
 

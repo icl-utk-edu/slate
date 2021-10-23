@@ -128,7 +128,7 @@ void test_hbmm_work(Params& params, bool run)
     }
 
     if (verbose > 1) {
-        print_matrix("A_band", A_band);
+        print_matrix("A_band", A_band, params);
         print_matrix("B", B, params);
         print_matrix("C", C, params);
     }

@@ -132,7 +132,7 @@ void test_gbsv_work(Params& params, bool run)
     if (verbose > 1) {
         printf("%% rank %d A kl %lld, ku %lld\n",
                A.mpiRank(), llong( A.lowerBandwidth() ), llong( A.upperBandwidth() ));
-        print_matrix("A", A);
+        print_matrix("A", A, params);
         print_matrix("B", B, params);
     }
 
@@ -206,7 +206,7 @@ void test_gbsv_work(Params& params, bool run)
         if (verbose > 1) {
             printf("%% rank %d A2 kl %lld, ku %lld\n",
                    A.mpiRank(), llong( A.lowerBandwidth() ), llong( A.upperBandwidth() ));
-            print_matrix("A2", A);
+            print_matrix("A2", A, params);
             print_matrix("B2", B, params);
             printf( "nb = %lld;\n", llong( nb ) );
             printf( "pivots = [\n" );

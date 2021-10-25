@@ -88,7 +88,7 @@ void getrf_tntpiv(
     std::vector<int64_t> max_offset(thread_size);
     std::vector<scalar_t> top_block(ib*nb);
 
-   #if 1
+    #if 1
        omp_set_nested(1);
        // Launching new threads for the panel guarantees progression.
        // This should never deadlock, but may be detrimental to performance.

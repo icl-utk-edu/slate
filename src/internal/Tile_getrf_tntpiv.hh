@@ -31,6 +31,9 @@ namespace internal {
 /// @param[in] ib
 ///     internal blocking in the panel
 ///
+/// @param[in] stage
+///     stage of the tree reduction
+///
 /// @param[in,out] tiles
 ///     local tiles in the panel
 ///
@@ -153,7 +156,8 @@ void getrf_tntpiv(
                         max_offset[0] = max_offset[rank];
                     }
                 }
-                //read global index and offset and swap it with j
+                // stage 0 means first local lu before the tree reduction
+                // read global index and offset and swap it with j
                 if ( stage == 0 ){
 
                     aux_pivot[0][j] = AuxPivot<scalar_t>(tile_indices[max_index[0]],

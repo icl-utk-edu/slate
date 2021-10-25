@@ -133,7 +133,7 @@ void test_gbsv_work(Params& params, bool run)
         printf("%% rank %d A kl %lld, ku %lld\n",
                A.mpiRank(), llong( A.lowerBandwidth() ), llong( A.upperBandwidth() ));
         print_matrix("A", A);
-        print_matrix("B", B);
+        print_matrix("B", B, params);
     }
 
     // if check is required, copy test data
@@ -207,7 +207,7 @@ void test_gbsv_work(Params& params, bool run)
             printf("%% rank %d A2 kl %lld, ku %lld\n",
                    A.mpiRank(), llong( A.lowerBandwidth() ), llong( A.upperBandwidth() ));
             print_matrix("A2", A);
-            print_matrix("B2", B);
+            print_matrix("B2", B, params);
             printf( "nb = %lld;\n", llong( nb ) );
             printf( "pivots = [\n" );
             int ii = 0;
@@ -273,7 +273,7 @@ void test_gbsv_work(Params& params, bool run)
                    A_norm, X_norm, R_norm, residual);
         }
         if (verbose > 1) {
-            print_matrix("Residual", Bref);
+            print_matrix("Residual", Bref, params);
         }
     }
 

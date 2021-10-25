@@ -46,7 +46,6 @@ void test_trsm_work(Params& params, bool run)
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -135,10 +134,8 @@ void test_trsm_work(Params& params, bool run)
         slate::copy( B, Bref );
     }
 
-    if (verbose >= 2) {
-        print_matrix( "A", mlocA, nlocA, &A_data[0], lldA, p, q, MPI_COMM_WORLD);
-        print_matrix( "B", mlocB, nlocB, &B_data[0], lldB, p, q, MPI_COMM_WORLD);
-    }
+    print_matrix( "A", A, params );
+    print_matrix( "B", B, params );
 
     auto opA = A;
     if (transA == Op::Trans)
@@ -173,9 +170,7 @@ void test_trsm_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    if (verbose >= 2) {
-        print_matrix( "B_out", B, 24, 16 );
-    }
+    print_matrix( "B_out", B, params );
 
     if (check) {
         //==================================================
@@ -252,9 +247,7 @@ void test_trsm_work(Params& params, bool run)
                             &Bref_data[0], 1, 1, Bref_desc);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            if (verbose >= 2) {
-                print_matrix( "Bref_data", mlocB, nlocB, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD, 24, 16 );
-            }
+            print_matrix( "Bref", Bref, params );
 
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;

@@ -49,7 +49,6 @@ void test_syr2k_work(Params& params, bool run)
         ref = false;
     #endif
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -159,14 +158,12 @@ void test_syr2k_work(Params& params, bool run)
     slate_assert(opA.mt() == C.mt());
     slate_assert(opB.mt() == C.mt());
     slate_assert(opA.nt() == B.nt());
-    
-    if (verbose >= 2) {
-        print_matrix("A", A);
-        print_matrix("B", B);
-        print_matrix("Initial C", C);
-        if (check || ref) {
-            print_matrix("Initial Cref", Cref);
-        }
+
+    print_matrix("A", A, params);
+    print_matrix("B", B, params);
+    print_matrix("Initial C", C, params);
+    if (check || ref) {
+        print_matrix("Initial Cref", Cref, params);
     }
 
     if (trace) slate::trace::Trace::on();
@@ -212,9 +209,7 @@ void test_syr2k_work(Params& params, bool run)
 
     time = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
-    if (verbose >= 2) {
-        print_matrix("Cslate", C);
-    }
+    print_matrix("Cslate", C, params);
 
     if (trace) slate::trace::Trace::finish();
 
@@ -304,9 +299,7 @@ void test_syr2k_work(Params& params, bool run)
                              &Cref_data[0], 1, 1, Cref_desc);
             time = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
-            if (verbose >= 2) {
-                print_matrix("Cref", Cref);
-            }
+            print_matrix("Cref", Cref, params);
 
             // local operation: error = Cref_data - C_data
             blas::axpy(Cref_data.size(), -1.0, &C_data[0], 1, &Cref_data[0], 1);

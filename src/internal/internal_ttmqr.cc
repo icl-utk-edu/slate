@@ -159,7 +159,6 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                         }
 
                         int     src   = C.tileRank(i1, j1);
-                        C.tileGetForWriting(i1, j1, LayoutConvert(layout));
                         C.tileRecv(i1, j1, src, layout, tag);
                     }
                 }
@@ -190,8 +189,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                         {
                         A.tileGetForReading(rank_ind, 0, LayoutConvert(layout));
                         T.tileGetForReading(rank_ind, 0, LayoutConvert(layout));
-                        //C.tileGetForWriting(i, j, LayoutConvert(layout));
-                        assert( (C.tileState( i, j, C.hostNum() ) & MOSI::Modified) != 0 );
+                        C.tileGetForWriting(i, j, LayoutConvert(layout));
 
                         // Apply Q.
                         tpmqrt(side, op, std::min(A.tileMb(rank_ind), A.tileNb(0)),

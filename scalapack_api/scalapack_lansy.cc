@@ -91,7 +91,7 @@ extern "C" double pzlansy_(const char* norm, const char* uplo, int* n, std::comp
 template< typename scalar_t >
 blas::real_type<scalar_t> slate_plansy(const char* normstr, const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t>* work)
 {
-    // todo: figure out if the pxq grid is in row or column
+    check_and_assert_blacs_grid_is_column_major();
 
     // make blas single threaded
     // todo: does this set the omp num threads correctly

@@ -94,7 +94,7 @@ extern "C" void pzpotrf_(const char* uplo, int* n, std::complex<double>* a, int*
 template< typename scalar_t >
 void slate_ppotrf(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, int* info)
 {
-    // todo: figure out if the pxq grid is in row or column
+    check_and_assert_blacs_grid_is_column_major();
 
     // make blas single threaded
     // todo: does this set the omp num threads correctly

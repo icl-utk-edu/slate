@@ -50,7 +50,7 @@ __global__ void tzcopyKernel(
     dst_scalar_t* tileB = tilesB[blockIdx.x];
 
     // thread per row, if more rows than threads, loop by blockDim.x
-    for (int ridx = threadIdx.x; ridx <= m; ridx += blockDim.x) {
+    for (int ridx = threadIdx.x; ridx < m; ridx += blockDim.x) {
         src_scalar_t* rowA = &tileA[ridx];
         dst_scalar_t* rowB = &tileB[ridx];
 

@@ -868,43 +868,43 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
                                      &Y00[i*y_col_inc], y_row_inc);
             }
         }
-    } 
+    }
     else if (X.uploPhysical() == Uplo::Lower) {
         int64_t m = std::min(X.mb(), Y.mb());
         int64_t n = std::min(X.nb(), Y.nb());
-        if (Y.colIncrement()==1) { 
+        if (Y.colIncrement()==1) {
             // one column of y at a time
             for (int64_t j = 0; j < n; j++) {
                 for (int64_t i = j; i < m; i++) {
                     Y00[i+j*y_row_inc] = beta * Y00[i+j*y_row_inc] + alpha * X00[i+j*x_row_inc];
                 }
-            }    
-        } 
+            }
+        }
         else {
             // one row of y at a time
             slate_not_implemented("axpby uplo == Lower cannot process by row, only by column");
         }
-    } 
+    }
     else if (X.uploPhysical() == Uplo::Upper) {
         int64_t m = std::min(X.mb(), Y.mb());
         int64_t n = std::min(X.nb(), Y.nb());
-        if (Y.colIncrement()==1) { 
+        if (Y.colIncrement()==1) {
             // one column of y at a time
-            if( m > n ) {
+            if (m > n) {
                 for (int64_t j = 0; j < n; j++) {
                     for (int64_t i = 0; i <= j; i++) {
                         Y00[i+j*y_row_inc] = beta * Y00[i+j*y_row_inc] + alpha * X00[i+j*x_row_inc];
                     }
-                }    
-            } 
+                }
+            }
             else {
                 for (int64_t j = 0; j < n; j++) {
                     for (int64_t i = 0; i <= j && i < m; i++) {
                         Y00[i+j*y_row_inc] = beta * Y00[i+j*y_row_inc] + alpha * X00[i+j*x_row_inc];
                     }
-                }    
+                }
             }
-        } 
+        }
         else {
             // one row of y at a time
             slate_not_implemented("axpby uplo == Upper cannot process by row, only by column");

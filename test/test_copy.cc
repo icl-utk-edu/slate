@@ -78,12 +78,12 @@ void test_copy_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
+    std::vector<scalar_t> A_data;
 
     // Matrix B: using the fact that B must be same dimensions as A.
     int64_t mlocB, nlocB, lldB;
     mlocB = mlocA, nlocB = nlocA, lldB = lldA;
-    std::vector<scalar_t> B_data(lldB*nlocB);
+    std::vector<scalar_t> B_data;
 
     matrix_type A, B;
     if (origin != slate::Origin::ScaLAPACK) {
@@ -121,6 +121,9 @@ void test_copy_work(Params& params, bool run)
         B.insertLocalTiles(origin_target);
     }
     else {
+        // Allocate necessary space here to avoid using 2x memory
+        A_data.resize( lldA * nlocA );
+        B_data.resize( lldB * nlocB );
         // Create SLATE matrix from the ScaLAPACK layout.
         if constexpr (std::is_same<matrix_type, slate::Matrix<scalar_t>>::value) {
             // General mxn matrix

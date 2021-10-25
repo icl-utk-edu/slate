@@ -249,20 +249,37 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
     int64_t mt_2 = ceildiv(mt, int64_t(2));
     Matrix<scalar_t>  T( mt_2*nb, nb, nb, nb, 1, 1, V_.mpiComm() );
     Matrix<scalar_t> VT( mt_2*vm, nb, vm, nb, 1, 1, V_.mpiComm() );
-    Matrix<scalar_t> VC( mt_2*nb, nb, nb, nb, 1, 1, V_.mpiComm() );
+    {slate::trace::Block trace_block(std::string("TVTalloc").c_str());
     for (int64_t i = 0; i < mt_2; ++i) {
          T.tileInsertWorkspace(i, 0);
         VT.tileInsertWorkspace(i, 0);
-        VC.tileInsertWorkspace(i, 0);
         if (target == Target::Devices) {
             T.tileModified(i, 0);
             VT.tileModified(i, 0);
-            VC.tileModified(i, 0);
         }
-    }
+    }}
+    // Number of column blocks of VC
+    // Allocate temporary tile on each device
+    int64_t vc_nt;
     if (target == Target::Devices) {
-        VT.allocateBatchArrays(0, omp_get_max_threads());
+        vc_nt = C.num_devices();
+    } else {
+        vc_nt = 1;
     }
+
+    Matrix<scalar_t> VC( mt_2*nb, vc_nt*nb, nb, nb, 1, 1, V_.mpiComm() );
+    {slate::trace::Block trace_block(std::string("VCalloc").c_str());
+    for (int64_t i = 0; i < mt_2; ++i) {
+        for (int64_t j = 0; j < vc_nt; ++j) {
+            if (target == Target::Devices) {
+                int device = VC.tileDevice(i, j);
+                VC.tileInsertWorkspace(i, j, device);
+                VC.tileModified(i, j);
+            } else {
+                VC.tileInsertWorkspace(i, j);
+            }
+        }
+    }}
 
     std::vector<scalar_t> tau_vector(mt_2*nb);
     
@@ -332,7 +349,7 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
 
                         if (target == Target::Devices) {
                             int device;
-                            device = VT.tileDevice(i/2, 0);
+                            device = C.tileDevice(i, 0);
                             {slate::trace::Block trace_block(std::string("1V").c_str());
                             V_.tileGetForReading(0, r, device, LayoutConvert::None);}
                             {slate::trace::Block trace_block(std::string("1T").c_str());
@@ -341,7 +358,7 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                             {slate::trace::Block trace_block(std::string("1VT").c_str());
                             VT.tileAcquire(i/2, 0, device, Layout::ColMajor);
                             VT.tileModified(i/2, 0, device, true);}
-                            blas::Queue* queue = VT.compute_queue(device, omp_get_thread_num()/*queue_index*/);   
+                            blas::Queue* queue = C.compute_queue(device, omp_get_thread_num()/*queue_index*/);   
                             blas::gemm(Layout::ColMajor,
                                        Op::NoTrans, Op::NoTrans,
                                        vm_, vnb, vnb,
@@ -385,7 +402,9 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
 
                             auto C0 = C(i, k);
                             int64_t cnb = C0.nb();
-                            assert( cnb <= VC(i/2, 0).nb() );
+                            if (target != Target::Devices) {
+                                assert( cnb <= VC(i/2, 0).nb() );
+                            }
                             assert( C0.mb()-1 == mb0 );  // After 1st row sliced off.
                             int device = C.tileDevice(i, k);
 
@@ -405,8 +424,8 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                     {slate::trace::Block trace_block(std::string("2C0").c_str());
                                     C.tileGetForReading(i, k, device, LayoutConvert::None);}
                                     {slate::trace::Block trace_block(std::string("2VC").c_str());
-                                    VC.tileAcquire(i/2, 0, device, Layout::ColMajor);
-                                    VC.tileModified(i/2, 0, device, true);}
+                                    VC.tileAcquire(i/2, device, device, Layout::ColMajor);
+                                    VC.tileModified(i/2, device, device, true);}
                                     blas::Queue* queue = C.compute_queue(device, omp_get_thread_num()/*queue_index*/);
                                     blas::gemm(Layout::ColMajor,
                                                Op::ConjTrans, Op::NoTrans,
@@ -417,8 +436,8 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                                &C(i, k, device).data()[ 1 ], 
                                                C(i, k, device).stride(),
                                                zero, 
-                                               VC(i/2, 0, device).data(), 
-                                               VC(i/2, 0, device).stride(), 
+                                               VC(i/2, device, device).data(), 
+                                               VC(i/2, device, device).stride(), 
                                                *queue);
                                     {slate::trace::Block trace_block(std::string("2s").c_str());
                                     queue->sync();}
@@ -463,8 +482,8 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                                    C(i+1, k, device).data(), 
                                                    C(i+1, k, device).stride(),
                                                    one, 
-                                                   VC(i/2, 0, device).data(), 
-                                                   VC(i/2, 0, device).stride(), 
+                                                   VC(i/2, device, device).data(), 
+                                                   VC(i/2, device, device).stride(), 
                                                    *queue);
                                         queue->sync(); 
                                     }
@@ -497,9 +516,9 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                     {slate::trace::Block trace_block(std::string("4VT").c_str());
                                     VT.tileGetForReading(i/2, 0, device, LayoutConvert::None);}
                                     {slate::trace::Block trace_block(std::string("4VC").c_str());
-                                    VC.tileGetForReading(i/2, 0, device, LayoutConvert::None);}
-                                    {slate::trace::Block trace_block(std::string("4C0").c_str());}
-                                    C.tileGetForWriting(i, k, device, LayoutConvert::None);
+                                    VC.tileGetForReading(i/2, device, device, LayoutConvert::None);}
+                                    {slate::trace::Block trace_block(std::string("4C0").c_str());
+                                    C.tileGetForWriting(i, k, device, LayoutConvert::None);}
                                     blas::Queue* queue = C.compute_queue(device, omp_get_thread_num()/*queue_index*/);   
                                     blas::gemm(Layout::ColMajor,
                                                Op::NoTrans, Op::NoTrans,
@@ -507,8 +526,8 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                                -one, 
                                                VT(i/2, 0, device).data(),   
                                                VT(i/2, 0, device).stride(),
-                                               VC(i/2, 0, device).data(),   
-                                               VC(i/2, 0, device).stride(),
+                                               VC(i/2, device, device).data(),   
+                                               VC(i/2, device, device).stride(),
                                                one,  
                                                &C(i, k, device).data()[ 1 ], 
                                                C(i, k, device).stride(), 
@@ -545,7 +564,7 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                         {slate::trace::Block trace_block(std::string("5VT").c_str());
                                         VT.tileGetForReading(i/2, 0, device, LayoutConvert::None);}
                                         {slate::trace::Block trace_block(std::string("5VC").c_str());
-                                        VC.tileGetForReading(i/2, 0, device, LayoutConvert::None);}
+                                        VC.tileGetForReading(i/2, device, device, LayoutConvert::None);}
                                         {slate::trace::Block trace_block(std::string("5C1").c_str());
                                         C.tileGetForWriting(i+1, k, device, LayoutConvert::None);}
                                         blas::Queue* queue = C.compute_queue(device, omp_get_thread_num()/*queue_index*/);   
@@ -555,8 +574,8 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                                                    -one, 
                                                    &VT(i/2, 0, device).data()[ mb0 ],
                                                    VT(i/2, 0, device).stride(),
-                                                   VC(i/2, 0, device).data(), 
-                                                   VC(i/2, 0, device).stride(),
+                                                   VC(i/2, device, device).data(), 
+                                                   VC(i/2, device, device).stride(),
                                                    one,  
                                                    C(i+1, k, device).data(), 
                                                    C(i+1, k, device).stride(), 

@@ -54,6 +54,8 @@ public:
     int64_t bandwidth() const;
     void    bandwidth(int64_t kd);
 
+    void    gather(scalar_t* A, int64_t lda);
+
     void    insertLocalTiles(Target origin=Target::Host);
 };
 
@@ -209,6 +211,68 @@ void BaseTriangularBandMatrix<scalar_t>::bandwidth(int64_t kd)
         this->kl_ = kd;
     else
         this->ku_ = kd;
+}
+
+//------------------------------------------------------------------------------
+/// Gathers the entire matrix to the LAPACK-style matrix A on MPI rank 0.
+/// Primarily for debugging purposes.
+///
+template <typename scalar_t>
+void BaseTriangularBandMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
+{
+    // this code assumes the matrix is not transposed
+    Op op_save = this->op();
+    this->op_ = Op::NoTrans;
+    auto upper = this->uplo() == Uplo::Upper;
+
+    int64_t mt = this->mt();
+    int64_t nt = this->nt();
+    int64_t kdt = ceildiv( this->bandwidth(), this->tileNb(0) );
+    // ii, jj are row, col indices
+    // i, j are tile (block row, block col) indices
+    int64_t jj = 0;
+    for (int64_t j = 0; j < nt; ++j) {
+        int64_t jb = this->tileNb(j);
+
+        int64_t ii = 0;
+        int64_t istart = upper ? blas::max( 0, j-kdt ) : j;
+        int64_t iend   = upper ? j : blas::min( j+kdt, mt-1 );
+        for (int64_t i = 0; i < this->mt(); ++i) {
+            int64_t ib = this->tileMb(i);
+            if (i >= istart && i <= iend) {
+                if (this->mpi_rank_ == 0) {
+                    if (! this->tileIsLocal(i, j)) {
+                        // erase any existing non-local tile and insert new one
+                        this->tileErase(i, j, this->host_num_);
+                        this->tileInsert(i, j, this->host_num_,
+                                         &A[(size_t)lda*jj + ii], lda);
+                        auto Aij = this->at(i, j);
+                        Aij.recv(this->tileRank(i, j), this->mpi_comm_, this->layout());
+                        this->tileLayout(i, j, this->layout_);
+                    }
+                    else {
+                        this->tileGetForReading(i, j, LayoutConvert(this->layout()));
+                        // copy local tiles if needed.
+                        auto Aij = this->at(i, j);
+                        if (Aij.data() != &A[(size_t)lda*jj + ii]) {
+                            lapack::lacpy(lapack::MatrixType::General, ib, jb,
+                                          Aij.data(), Aij.stride(),
+                                          &A[(size_t)lda*jj + ii], lda);
+                        }
+                    }
+                }
+                else if (this->tileIsLocal(i, j)) {
+                    this->tileGetForReading(i, j, LayoutConvert(this->layout()));
+                    auto Aij = this->at(i, j);
+                    Aij.send(0, this->mpi_comm_);
+                }
+            }
+            ii += ib;
+        }
+        jj += jb;
+    }
+
+    this->op_ = op_save;
 }
 
 //------------------------------------------------------------------------------

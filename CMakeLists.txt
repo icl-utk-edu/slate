@@ -16,7 +16,7 @@ cmake_minimum_required( VERSION 3.15 )
 
 project(
     slate
-    VERSION 2021.05.01
+    VERSION 2021.05.02
     LANGUAGES CXX Fortran
 )
 
@@ -89,7 +89,8 @@ endif()
 include( GNUInstallDirs )
 
 # the RPATH to be used when installing, but only if it's not a system directory
-list(FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}" isSystemDir)
+list( FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES
+      "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}" isSystemDir )
 if ("${isSystemDir}" STREQUAL "-1")
     list( APPEND CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}" )
 endif()
@@ -150,7 +151,7 @@ file(
     CONFIGURE_DEPENDS  # glob at build time
     src/*.cc
     src/*.f
-    src/aux/*.cc
+    src/auxiliary/*.cc
     src/core/*.cc
     src/internal/*.cc
     src/work/*.cc
@@ -197,9 +198,175 @@ target_link_libraries( slate_lapack_api PUBLIC slate )
 # target_link_libraries( slate_scalapack_api PUBLIC scalapack )
 
 #-------------------------------------------------------------------------------
+# Include directory.
+# During build it's {source}/include; after install it's {prefix}/include.
+target_include_directories(
+    slate
+    PUBLIC
+        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+        "$<INSTALL_INTERFACE:include>"
+    PRIVATE
+        "${CMAKE_CURRENT_SOURCE_DIR}/src"
+)
+
+# Get git commit id.
+if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
+    execute_process( COMMAND git rev-parse --short HEAD
+                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+                     OUTPUT_VARIABLE slate_id )
+    string( STRIP "${slate_id}" slate_id )
+    message( STATUS "slate_id = ${slate_id}" )
+    target_compile_definitions(
+        slate PRIVATE SLATE_ID="${slate_id}" )
+endif()
+
+# Use and export -std=c++17; don't allow -std=gnu++17 extensions.
+# The `target_compile_features( slate PUBLIC cxx_std_17 )` syntax
+# doesn't seem to allow setting CUDA_STANDARD separately, and slightly
+# older CMake (3.17) doesn't recognize CUDA_STANDARD=17.
+set_target_properties(
+    slate PROPERTIES
+    CXX_STANDARD 17
+    CUDA_STANDARD 11
+    CXX_STANDARD_REQUIRED true
+    CXX_EXTENSIONS false
+)
+
+if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.15)
+    # Conditionally add -Wall. See CMake tutorial.
+    set( gcc_like_cxx "$<COMPILE_LANG_AND_ID:CXX,ARMClang,AppleClang,Clang,GNU>" )
+    target_compile_options(
+        slate PRIVATE "$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall>>" )
+endif()
+
+#-------------------------------------------------------------------------------
+# OpenMP support.
+# Needed before BLAS++.
+message( "" )
+message( "---------------------------------------- OpenMP: use_openmp = ${use_openmp}" )
+set( slate_use_openmp false )  # output in slateConfig.cmake.in
+if (NOT use_openmp)
+    message( STATUS "User has requested to NOT use OpenMP" )
+else()
+    find_package( OpenMP )
+endif()
+if (OpenMP_CXX_FOUND)
+    target_link_libraries( slate PUBLIC "OpenMP::OpenMP_CXX" )
+    set( slate_use_openmp true )
+else()
+    message( STATUS "No OpenMP support in SLATE" )
+    target_sources(
+        slate
+        PRIVATE
+        src/stubs/openmp_stubs.cc
+    )
+endif()
+
+#-------------------------------------------------------------------------------
+# MPI support.
+# CXX means MPI C API being usable from C++, not the MPI-2 C++ API.
+message( "" )
+message( "---------------------------------------- MPI: use_mpi = ${use_mpi}" )
+set( slate_use_mpi false )  # output in slateConfig.cmake.in
+if (NOT use_mpi)
+    message( STATUS "User has requested to NOT use MPI" )
+else()
+    set( MPI_DETERMINE_LIBRARY_VERSION true )
+    find_package( MPI COMPONENTS CXX )
+endif()
+if (MPI_FOUND)
+    get_target_property( mpi_lib MPI::MPI_CXX INTERFACE_LINK_LIBRARIES )
+    message( STATUS "Found MPI: ${mpi_lib}" )
+
+    target_link_libraries( slate PUBLIC MPI::MPI_CXX )
+    set( slate_use_mpi true )
+
+    # Remove Open MPI flags that are incompatible with nvcc (-fexceptions).
+    get_target_property( mpi_cxx_defines MPI::MPI_CXX INTERFACE_COMPILE_OPTIONS )
+    message( DEBUG "mpi_cxx_defines = '${mpi_cxx_defines}'" )
+    list( REMOVE_ITEM mpi_cxx_defines "-fexceptions" )
+    message( DEBUG "mpi_cxx_defines = '${mpi_cxx_defines}'" )
+    set_target_properties( MPI::MPI_CXX PROPERTIES INTERFACE_COMPILE_OPTIONS
+                           "${mpi_cxx_defines}" )
+else()
+    message( STATUS "No MPI support in SLATE" )
+    target_sources(
+        slate
+        PRIVATE
+        src/stubs/mpi_stubs.cc
+    )
+    target_compile_definitions( slate PUBLIC "-DSLATE_NO_MPI" )
+endif()
+
+#-------------------------------------------------------------------------------
+# Search for BLAS library, if not already included.
+# Needed before ROCm, for include paths.
+message( "" )
+message( "---------------------------------------- BLAS++" )
+if (NOT TARGET blaspp)
+    find_package( blaspp QUIET )
+    if (blaspp_FOUND)
+        message( STATUS "   Found BLAS++: ${blaspp_DIR}" )
+    elseif (EXISTS "${CMAKE_SOURCE_DIR}/blaspp/CMakeLists.txt")
+        set( build_tests_save "${build_tests}" )
+        set( build_tests "false" )
+
+        add_subdirectory( "blaspp" )
+
+        set( build_tests "${build_tests_save}" )
+        set( blaspp_DIR "${CMAKE_BINARY_DIR}/blaspp" )
+    else()
+        message( FATAL_ERROR "blaspp/CMakeLists.txt doesn't exist. Use:\n"
+                 "    git submodule update --init\n"
+                 "to checkout submodules." )
+    endif()
+else()
+    message( STATUS "   BLAS++ already included" )
+endif()
+message( STATUS "BLAS++ done" )
+
+#-------------------------------------------------------------------------------
+# Search for LAPACK library, if not already included.
+message( "" )
+message( "---------------------------------------- LAPACK++" )
+if (NOT TARGET lapackpp)
+    find_package( lapackpp QUIET )
+    if (lapackpp_FOUND)
+        message( STATUS "   Found LAPACK++: ${lapackpp_DIR}" )
+
+    elseif (EXISTS "${CMAKE_SOURCE_DIR}/lapackpp/CMakeLists.txt")
+        set( build_tests_save "${build_tests}" )
+        set( build_tests "false" )
+
+        add_subdirectory( "lapackpp" )
+
+        set( build_tests "${build_tests_save}" )
+        set( lapackpp_DIR "${CMAKE_BINARY_DIR}/lapackpp" )
+
+    else()
+        message( FATAL_ERROR "lapackpp/CMakeLists.txt doesn't exist. Use:\n"
+                 "    git submodule update --init\n"
+                 "to checkout submodules." )
+    endif()
+else()
+    message( STATUS "   LAPACK++ already included" )
+endif()
+message( STATUS "LAPACK++ done" )
+
+target_link_libraries( slate PUBLIC blaspp lapackpp )
+
+if ("${blaspp_defines}" MATCHES "HAVE_MKL")
+    target_compile_definitions( slate PUBLIC "-DSLATE_WITH_MKL" )
+endif()
+
+#-------------------------------------------------------------------------------
 # CUDA support.
+message( "" )
+message( "---------------------------------------- CUDA or HIP/ROCm: gpu_backend = ${gpu_backend}" )
+
 set( slate_use_cuda false )  # output in slateConfig.cmake.in
 if (gpu_backend MATCHES "^(auto|cuda)$")
+    message( STATUS "Looking for CUDA" )
     include( CheckLanguage )
     check_language( CUDA )
     if (gpu_backend STREQUAL "cuda" AND NOT CMAKE_CUDA_COMPILER)
@@ -274,6 +441,7 @@ if (HIP_FOUND)
     # which both need to be found
     # https://github.com/ROCm-Developer-Tools/HIP/issues/1029
     find_package( hip REQUIRED )
+    find_package( rocblas REQUIRED )
     set( slate_use_hip true )
 
     # For ROCm >= 3.5, wipe hip-clang specific interface options which are propagated
@@ -294,6 +462,33 @@ if (HIP_FOUND)
 
     # Make the generated source directory
     file( MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/src/hip" )
+
+    # Generate BLAS++ and LAPACK++ include flags
+    get_target_property( blaspp_inc   blaspp   INTERFACE_INCLUDE_DIRECTORIES )
+    get_target_property( lapackpp_inc lapackpp INTERFACE_INCLUDE_DIRECTORIES )
+    get_target_property( rocblas_inc roc::rocblas INTERFACE_INCLUDE_DIRECTORIES )
+    set( dirs ${blaspp_inc} )
+    list( APPEND dirs ${lapackpp_inc} )
+    list( APPEND dirs ${rocblas_inc} )
+    list( REMOVE_DUPLICATES dirs )
+    set( inc_ "" )
+    foreach (dir IN LISTS dirs)
+        list( APPEND inc_ $<$<BOOL:${dir}>:-I${dir}> )
+    endforeach()
+    message( DEBUG "blaspp_inc   = '${blaspp_inc}'" )
+    message( DEBUG "lapackpp_inc = '${lapackpp_inc}'" )
+    message( DEBUG "rocblas_inc  = '${rocblas_inc}'" )
+    message( DEBUG "dirs = '${dirs}'" )
+    message( DEBUG "inc_ = '${inc_}'" )
+
+    # Generate definitions list
+    get_target_property( defs_ slate COMPILE_DEFINITIONS )
+    set( defs__ "" )
+    foreach (def_ ${defs_})
+        list( APPEND defs__ "-D${def_}" )
+    endforeach()
+    message( DEBUG "defs_  = '${defs_}'" )
+    message( DEBUG "defs__ = '${defs__}'" )
 
     # Iterate over CUDA files
     foreach (src_cu_ ${libslate_hip_src_cuda})
@@ -319,14 +514,6 @@ if (HIP_FOUND)
             # Generate output file
             STRING( REGEX REPLACE ".cc$" ".o" src_o_ ${src_hip_} )
 
-            # Generate definitions list
-            get_target_property( defs_ slate COMPILE_DEFINITIONS )
-            set( defs__ "" )
-            foreach (def_ ${defs_})
-                list( FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES
-                      "${CMAKE_INSTALL_PREFIX}/lib" isSystemDir )
-            endforeach()
-
             # Compilation rule
             # TODO: Figure out how to generically find
             add_custom_command(
@@ -335,13 +522,9 @@ if (HIP_FOUND)
                 DEPENDS "${src_hip_}" "${CMAKE_BINARY_DIR}/src/hip/device_util.cuh"
                 COMMAND "hipcc"
                     ${defs__}
+                    ${inc_}
                     "-I${CMAKE_SOURCE_DIR}/include"
-                    "-I${CMAKE_SOURCE_DIR}/blaspp/include"
-                    "-I${CMAKE_SOURCE_DIR}/lapackpp/include"
-                    "-I${CMAKE_BINARY_DIR}/blaspp/include"
-                    "-I${CMAKE_BINARY_DIR}/lapackpp/include"
-                    "-DSLATE_NO_CUDA"
-                ${src_hip_} -c -fPIC -o ${src_o_}
+                    ${src_hip_} -fPIC -c -o ${src_o_}
             )
 
             # Add the .o as a 'source' (even though it is already compiled)
@@ -357,156 +540,6 @@ if (HIP_FOUND)
 else()
     message( STATUS "Not building HIP/ROCm support in SLATE" )
     target_compile_definitions( slate PUBLIC "-DSLATE_NO_HIP" )
-endif()
-
-#-------------------------------------------------------------------------------
-# Include directory.
-# During build it's {source}/include; after install it's {prefix}/include.
-target_include_directories(
-    slate
-    PUBLIC
-        "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-        "$<INSTALL_INTERFACE:include>"
-    PRIVATE
-        "${CMAKE_CURRENT_SOURCE_DIR}/src"
-)
-
-# OpenMP support.
-set( slate_use_openmp false )  # output in slateConfig.cmake.in
-if (NOT use_openmp)
-    message( STATUS "User has requested to NOT use OpenMP" )
-else()
-    find_package( OpenMP )
-endif()
-if (OpenMP_CXX_FOUND)
-    target_link_libraries( slate PUBLIC "OpenMP::OpenMP_CXX" )
-    set( slate_use_openmp true )
-else()
-    message( STATUS "No OpenMP support in SLATE" )
-    target_sources(
-        slate
-        PRIVATE
-        src/stubs/openmp_stubs.cc
-    )
-endif()
-
-# MPI support.
-# CXX means MPI C API being usable from C++, not the MPI-2 C++ API.
-set( slate_use_mpi false )  # output in slateConfig.cmake.in
-if (NOT use_mpi)
-    message( STATUS "User has requested to NOT use MPI" )
-else()
-    set( MPI_DETERMINE_LIBRARY_VERSION true )
-    find_package( MPI COMPONENTS CXX )
-endif()
-if (MPI_FOUND)
-    target_link_libraries( slate PUBLIC MPI::MPI_CXX )
-    set( slate_use_mpi true )
-
-    # Remove Open MPI flags that are incompatible with nvcc (-fexceptions).
-    get_target_property( mpi_cxx_defines MPI::MPI_CXX INTERFACE_COMPILE_OPTIONS )
-    message( DEBUG "mpi_cxx_defines = '${mpi_cxx_defines}'" )
-    list( REMOVE_ITEM mpi_cxx_defines "-fexceptions" )
-    message( DEBUG "mpi_cxx_defines = '${mpi_cxx_defines}'" )
-    set_target_properties( MPI::MPI_CXX PROPERTIES INTERFACE_COMPILE_OPTIONS
-                           "${mpi_cxx_defines}" )
-else()
-    message( STATUS "No MPI support in SLATE" )
-    target_sources(
-        slate
-        PRIVATE
-        src/stubs/mpi_stubs.cc
-    )
-    target_compile_definitions( slate PUBLIC "-DSLATE_NO_MPI" )
-endif()
-
-# Get git commit id.
-if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
-    execute_process( COMMAND git rev-parse --short HEAD
-                     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
-                     OUTPUT_VARIABLE slate_id )
-    string( STRIP "${slate_id}" slate_id )
-    message( STATUS "slate_id = ${slate_id}" )
-    target_compile_definitions(
-        slate PRIVATE SLATE_ID="${slate_id}" )
-endif()
-
-# Use and export -std=c++17; don't allow -std=gnu++17 extensions.
-# The `target_compile_features( slate PUBLIC cxx_std_17 )` syntax
-# doesn't seem to allow setting CUDA_STANDARD separately, and slightly
-# older CMake (3.17) doesn't recognize CUDA_STANDARD=17.
-set_target_properties(
-    slate PROPERTIES
-    CXX_STANDARD 17
-    CUDA_STANDARD 11
-    CXX_STANDARD_REQUIRED true
-    CXX_EXTENSIONS false
-)
-
-if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.15)
-    # Conditionally add -Wall. See CMake tutorial.
-    set( gcc_like_cxx "$<COMPILE_LANG_AND_ID:CXX,ARMClang,AppleClang,Clang,GNU>" )
-    target_compile_options(
-        slate PRIVATE "$<${gcc_like_cxx}:$<BUILD_INTERFACE:-Wall>>" )
-endif()
-
-#-------------------------------------------------------------------------------
-# Search for BLAS library, if not already included.
-message( "" )
-message( "---------------------------------------- BLAS++" )
-if (NOT TARGET blaspp)
-    find_package( blaspp QUIET )
-    if (blaspp_FOUND)
-        message( "   Found BLAS++: ${blaspp_DIR}" )
-    elseif (EXISTS "${CMAKE_SOURCE_DIR}/blaspp/CMakeLists.txt")
-        set( build_tests_save "${build_tests}" )
-        set( build_tests "false" )
-
-        add_subdirectory( "blaspp" )
-
-        set( build_tests "${build_tests_save}" )
-        set( blaspp_DIR "${CMAKE_BINARY_DIR}/blaspp" )
-    else()
-        message( FATAL_ERROR "blaspp/CMakeLists.txt doesn't exist. Use:\n"
-                 "    git submodule update --init\n"
-                 "to checkout submodules." )
-    endif()
-else()
-    message( "   BLAS++ already included" )
-endif()
-message( STATUS "BLAS++ done" )
-
-# Search for LAPACK library, if not already included.
-message( "" )
-message( "---------------------------------------- LAPACK++" )
-if (NOT TARGET lapackpp)
-    find_package( lapackpp QUIET )
-    if (lapackpp_FOUND)
-        message( "   Found LAPACK++: ${lapackpp_DIR}" )
-
-    elseif (EXISTS "${CMAKE_SOURCE_DIR}/lapackpp/CMakeLists.txt")
-        set( build_tests_save "${build_tests}" )
-        set( build_tests "false" )
-
-        add_subdirectory( "lapackpp" )
-
-        set( build_tests "${build_tests_save}" )
-        set( lapackpp_DIR "${CMAKE_BINARY_DIR}/lapackpp" )
-
-    else()
-        message( FATAL_ERROR "lapackpp/CMakeLists.txt doesn't exist. Use:\n"
-                 "    git submodule update --init\n"
-                 "to checkout submodules." )
-    endif()
-else()
-    message( "   LAPACK++ already included" )
-endif()
-message( STATUS "LAPACK++ done" )
-
-target_link_libraries( slate PUBLIC blaspp lapackpp )
-
-if ("${blaspp_defines}" MATCHES "HAVE_MKL")
-    target_compile_definitions( slate PUBLIC "-DSLATE_WITH_MKL" )
 endif()
 
 #-------------------------------------------------------------------------------

@@ -9,15 +9,13 @@
 #include "blas/flops.hh"
 #include "lapack/flops.hh"
 
-#include "scalapack_wrappers.hh"
-#include "scalapack_support_routines.hh"
 #include "print_matrix.hh"
+#include "grid_utils.hh"
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_gbsv_work(Params& params, bool run)
@@ -25,12 +23,11 @@ void test_gbsv_work(Params& params, bool run)
     using blas::max;
     using blas::real;
     using real_t = blas::real_type<scalar_t>;
-    using llong = long long;
 
-    // constants
+    // Constants
     const scalar_t one = 1.0;
 
-   // get & mark input values
+    // get & mark input values
     slate::Op trans = slate::Op::NoTrans;
     if (params.routine == "gbtrs")
         trans = params.trans();
@@ -45,8 +42,8 @@ void test_gbsv_work(Params& params, bool run)
     int64_t nrhs = params.nrhs();
     int64_t kl = params.kl();
     int64_t ku = params.ku();
-    int64_t p = params.grid.m();
-    int64_t q = params.grid.n();
+    int p = params.grid.m();
+    int q = params.grid.n();
     int64_t nb = params.nb();
     int64_t ib = params.ib();
     int64_t lookahead = params.lookahead();
@@ -58,6 +55,7 @@ void test_gbsv_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    params.matrix.mark();
 
     // mark non-standard output values
     params.time();
@@ -69,7 +67,7 @@ void test_gbsv_work(Params& params, bool run)
         return;
 
     if (origin != slate::Origin::ScaLAPACK) {
-        printf("skipping: currently only origin=scalapack is supported\n");
+        params.msg() = "skipping: currently only origin=scalapack is supported";
         return;
     }
 
@@ -80,34 +78,22 @@ void test_gbsv_work(Params& params, bool run)
         {slate::Option::InnerBlocking, ib}
     };
 
-    // Local values
-    const int izero = 0, ione = 1;
+    // MPI variables
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // BLACS/MPI variables
-    int ictxt, nprow, npcol, myrow, mycol, info;
-    int descB_tst[9], descB_ref[9];
-    int iam = 0, nprocs = 1;
-    int iseed = 1;
-
-    // initialize BLACS and ScaLAPACK
-    Cblacs_pinfo(&iam, &nprocs);
-    slate_assert(p*q <= nprocs);
-    Cblacs_get(-1, 0, &ictxt);
-    Cblacs_gridinit(&ictxt, "Col", p, q);
-    Cblacs_gridinfo(ictxt, &nprow, &npcol, &myrow, &mycol);
-
-    // matrix B, figure out local size, allocate, create descriptor, initialize
-    int64_t mlocB = scalapack_numroc(n, nb, myrow, izero, nprow);
-    int64_t nlocB = scalapack_numroc(nrhs, nb, mycol, izero, npcol);
-    scalapack_descinit(descB_tst, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
-    slate_assert(info == 0);
-    int64_t lldB = (int64_t)descB_tst[8];
-    std::vector<scalar_t> B_tst(lldB*nlocB);
-    scalapack_pplrnt(&B_tst[0], n, nrhs, nb, nb, myrow, mycol, nprow, npcol, mlocB, iseed + 2);
+    // Matrix B: figure out local size.
+    int64_t mlocB = num_local_rows_cols(n, nb, myrow, p);
+    int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
+    int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
+    std::vector<scalar_t> B_data(lldB*nlocB);
 
     // Create SLATE matrix from the ScaLAPACK layouts
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
-                 n, nrhs, &B_tst[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+                 n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+
+    slate::generate_matrix(params.matrix, B);
 
     int64_t iseeds[4] = { myrow, mycol, 2, 3 };
     auto A     = slate::BandMatrix<scalar_t>(m, n, kl, ku, nb, p, q, MPI_COMM_WORLD);
@@ -145,21 +131,17 @@ void test_gbsv_work(Params& params, bool run)
 
     if (verbose > 1) {
         printf("%% rank %d A kl %lld, ku %lld\n",
-               A.mpiRank(), llong( A.lowerBandwidth( )), llong( A.upperBandwidth( )));
+               A.mpiRank(), llong( A.lowerBandwidth() ), llong( A.upperBandwidth() ));
         print_matrix("A", A);
         print_matrix("B", B);
     }
 
-    // if check is required, copy test data and create a descriptor for it
+    // if check is required, copy test data
     slate::Matrix<scalar_t> Bref;
-    std::vector<scalar_t> B_ref;
     if (check || ref) {
-        B_ref = B_tst;
-        scalapack_descinit(descB_ref, n, nrhs, nb, nb, izero, izero, ictxt, mlocB, &info);
-        slate_assert(info == 0);
-
-        Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                   n, nrhs, &B_ref[0], lldB, nb, nprow, npcol, MPI_COMM_WORLD);
+        Bref = slate::Matrix<scalar_t>(n, nrhs, nb, p, q, MPI_COMM_WORLD);
+        Bref.insertLocalTiles();
+        slate::copy( B, Bref);
     }
 
     // todo: gflops formula for band.
@@ -175,8 +157,6 @@ void test_gbsv_work(Params& params, bool run)
         if (params.routine == "gbtrs") {
             // Factor matrix A.
             slate::lu_factor(A, pivots, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::gbtrf(A, pivots, opts);
         }
@@ -184,11 +164,7 @@ void test_gbsv_work(Params& params, bool run)
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-        double time = testsweeper::get_wtime();
+        double time = barrier_get_wtime(MPI_COMM_WORLD);
 
         //==================================================
         // Run SLATE test.
@@ -199,8 +175,6 @@ void test_gbsv_work(Params& params, bool run)
         //==================================================
         if (params.routine == "gbtrf") {
             slate::lu_factor(A, pivots, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::gbtrf(A, pivots, opts);
         }
@@ -212,43 +186,36 @@ void test_gbsv_work(Params& params, bool run)
                 opA = conjTranspose(A);
 
             slate::lu_solve_using_factor(opA, pivots, B, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::gbtrs(opA, pivots, B, opts);
         }
         else {
             slate::lu_solve(A, B, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::gbsv(A, pivots, B, opts);
         }
 
-        {
-            slate::trace::Block trace_block("MPI_Barrier");
-            MPI_Barrier(MPI_COMM_WORLD);
-        }
-        double time_tst = testsweeper::get_wtime() - time;
+        time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
         if (trace) slate::trace::Trace::finish();
 
         // compute and save timing/performance
-        params.time() = time_tst;
-        ///params.gflops() = gflop / time_tst;
+        params.time() = time;
+        ///params.gflops() = gflop / time;
 
         if (verbose > 1) {
             printf("%% rank %d A2 kl %lld, ku %lld\n",
-                   A.mpiRank(), llong( A.lowerBandwidth( )), llong( A.upperBandwidth( )));
+                   A.mpiRank(), llong( A.lowerBandwidth() ), llong( A.upperBandwidth() ));
             print_matrix("A2", A);
             print_matrix("B2", B);
             printf( "nb = %lld;\n", llong( nb ) );
             printf( "pivots = [\n" );
             int ii = 0;
-            for (auto p1: pivots) {
+            for (auto pivot: pivots) {
                 int i = ii / nb;
-                for (auto p: p1) {
-                    printf( "  %d*nb + %lld*nb + %lld\n", i, llong( p.tileIndex( )), llong( p.elementOffset( )) );
+                for (auto piv: pivot) {
+                    printf( "  %d*nb + %lld*nb + %lld\n", i,
+                            llong( piv.tileIndex() ), llong( piv.elementOffset() ) );
                     ++ii;
                 }
                 printf( "\n" );
@@ -274,34 +241,27 @@ void test_gbsv_work(Params& params, bool run)
         if (params.routine == "gbtrf") {
             // Solve AX = B.
             slate::lu_solve_using_factor(A, pivots, B, opts);
-
-            //---------------------
             // Using traditional BLAS/LAPACK name
             // slate::gbtrs(A, pivots, B, opts);
         }
 
-        // allocate work space
-        std::vector<real_t> worklangeB(std::max(mlocB, nlocB));
-
         // Norm of original matrix: || A ||_1
         real_t A_norm = slate::norm(slate::Norm::One, Aorig);
         // Norm of updated rhs matrix: || X ||_1
-        real_t X_norm = scalapack_plange("1", n, nrhs, &B_tst[0], ione, ione, descB_tst, &worklangeB[0]);
+        real_t X_norm = slate::norm( slate::Norm::One, B );
 
-        // B_ref -= op(Aref)*B_tst
+        // Bref -= op(Aref)*B
         auto opAorig = Aorig;
         if (trans == slate::Op::Trans)
             opAorig = transpose(Aorig);
         else if (trans == slate::Op::ConjTrans)
             opAorig = conjTranspose(Aorig);
         slate::multiply(-one, opAorig, B, one, Bref);
-
-        //---------------------
         // Using traditional BLAS/LAPACK name
         // slate::gbmm(-one, opAorig, B, one, Bref);
 
         // Norm of residual: || B - AX ||_1
-        real_t R_norm = scalapack_plange("1", n, nrhs, &B_ref[0], ione, ione, descB_ref, &worklangeB[0]);
+        real_t R_norm = slate::norm( slate::Norm::One, Bref );
         double residual = R_norm / (n*A_norm*X_norm);
         params.error() = residual;
 
@@ -313,15 +273,12 @@ void test_gbsv_work(Params& params, bool run)
                    A_norm, X_norm, R_norm, residual);
         }
         if (verbose > 1) {
-            print_matrix("Residual", n, nrhs, &B_ref[0], lldB, p, q, MPI_COMM_WORLD);
+            print_matrix("Residual", Bref);
         }
     }
 
     // todo: reference solution requires setting up band matrix in ScaLAPACK's
     // band storage format.
-
-    Cblacs_gridexit(ictxt);
-    //Cblacs_exit(1) does not handle re-entering
 }
 
 // -----------------------------------------------------------------------------

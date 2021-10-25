@@ -43,12 +43,9 @@ namespace slate {
 namespace lapack_api {
 
 // -----------------------------------------------------------------------------
-
 // Local function
 template <typename scalar_t>
 void slate_getri(const int n, scalar_t* a, const int lda, int* ipiv, scalar_t* work, const int lwork, int* info);
-
-using llong = long long;
 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
@@ -79,7 +76,6 @@ extern "C" void slate_zgetri(const int* n, std::complex<double>* a, const int* l
 }
 
 // -----------------------------------------------------------------------------
-
 // Type generic function calls the SLATE routine
 template <typename scalar_t>
 void slate_getri(const int n, scalar_t* a, const int lda, int* ipiv, scalar_t* work, const int lwork, int* info)

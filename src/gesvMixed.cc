@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
+#include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
@@ -159,7 +159,7 @@ void gesvMixed( slate::internal::TargetType<target>,
         // Convert X_lo back to double precision and update the current iterate.
         copy(X_lo, R,
              {{Option::Target, target}});
-        geadd<scalar_hi>(
+        add<scalar_hi>(
               scalar_hi(1.0), R,
               scalar_hi(1.0), X,
               {{Option::Target, target}});
@@ -232,32 +232,12 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
                 int& iter,
                 Options const& opts)
 {
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range&) {
-        lookahead = 1;
-    }
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
-    int64_t ib;
-    try {
-        ib = opts.at(Option::InnerBlocking).i_;
-        assert(ib >= 0);
-    }
-    catch (std::out_of_range&) {
-        ib = 16;
-    }
+    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
 
-    int64_t max_panel_threads;
-    try {
-        max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
-        assert(max_panel_threads >= 0);
-    }
-    catch (std::out_of_range&) {
-        max_panel_threads = std::max(omp_get_max_threads()/2, 1);
-    }
+    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
+    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
 
     internal::specialization::gesvMixed<target, scalar_hi, scalar_lo>(
                                         internal::TargetType<target>(),
@@ -356,13 +336,7 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
                 int& iter,
                 Options const& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:

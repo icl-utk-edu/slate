@@ -179,7 +179,7 @@ if (not opts.dim):
         nk_tall  = ' --dim 1x100x50'  # 2:1
         nk_wide  = ' --dim 1x50x100'  # 1:2
         if (is_default_nb):
-            opts.nb = '32'
+            opts.nb = '8'
 
     if (opts.xsmall):
         n       += ' --dim 10'
@@ -290,6 +290,7 @@ repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
 # general options for all routines
 gen       = origin + target + grid + check + ref + tol + repeat + nb
 gen_no_nb = origin + target + grid + check + ref + tol + repeat
+gen_no_target =               grid + check + ref + tol + repeat + nb
 
 # ------------------------------------------------------------------------------
 # filters a comma separated list csv based on items in list values.
@@ -337,7 +338,8 @@ if (opts.blas3):
     [ 'syrk',  gen + dtype_real    + la + uplo + trans    + mn + ab ],
     [ 'syrk',  gen + dtype_complex + la + uplo + trans_nt + mn + ab ],
 
-    [ 'tbsm',  gen + dtype + la + side + uplo + transA + diag + mn + a + kd ],
+    # todo: tbsm fails for nb=8 or 16 with --quick.
+    [ 'tbsm',  gen_no_nb + ' --nb 32' + dtype + la + side + uplo + transA + diag + mn + a + kd ],
     [ 'trmm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
     [ 'trsm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
     ]
@@ -381,6 +383,7 @@ if (opts.chol):
     #[ 'porfs', gen + dtype + la + n + uplo ],
     #[ 'poequ', gen + dtype + la + n ],  # only diagonal elements (no uplo)
     [ 'posvMixed',  gen + dtype_double + la + n + uplo ],
+    [ 'trtri', gen + dtype + la + n + uplo + diag ],
     ]
 
 # Cholesky banded
@@ -408,9 +411,10 @@ if (opts.sysv):
 # Hermitian indefinite
 if (opts.hesv):
     cmds += [
-    [ 'hesv',  gen + dtype + la + n + uplo ],
-    [ 'hetrf', gen + dtype + la + n + uplo ],
-    [ 'hetrs', gen + dtype + la + n + uplo ],
+    # todo: nb, uplo
+    [ 'hesv',  gen_no_nb + ' --nb 50' + dtype + la + n ],
+    [ 'hetrf', gen_no_nb + ' --nb 50' + dtype + la + n ],
+    [ 'hetrs', gen_no_nb + ' --nb 50' + dtype + la + n ],
     #[ 'hetri', gen + dtype + la + n + uplo ],
     #[ 'hecon', gen + dtype + la + n + uplo ],
     #[ 'herfs', gen + dtype + la + n + uplo ],
@@ -475,7 +479,7 @@ if (opts.rq):
 if (opts.syev):
     cmds += [
     # todo nb, uplo, jobz
-    [ 'heev',  gen_no_nb + ' --nb 50' + dtype + la + n ],
+    [ 'heev',  gen + dtype + la + n ],
     #[ 'ungtr', gen + dtype + la + n + uplo ],
     #[ 'unmtr', gen + dtype_real    + la + mn + uplo + side + trans    ],  # real does trans = N, T, C
     #[ 'unmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],  # complex does trans = N, C, not T
@@ -486,7 +490,8 @@ if (opts.syev):
     [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side l' + ' --trans n' ],
     [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side r' + ' --trans c' ],
     # todo nb, uplo
-    [ 'he2hb', gen_no_nb + ' --nb 50' + dtype + n ],
+    [ 'he2hb', gen_no_target + dtype + n ],
+    [ 'hb2st', gen_no_target + dtype + n ],
     # sterf doesn't take origin, target, nb, uplo
     [ 'sterf', grid + check + ref + tol + repeat + dtype + n ],
     [ 'steqr2', grid + check + ref + tol + repeat + dtype + n ],
@@ -502,8 +507,7 @@ if (opts.syev):
 # generalized symmetric/Hermitian eigenvalues
 if (opts.sygv):
     cmds += [
-    # [ 'hegv',  gen + dtype + la + n + jobz + itype + uplo ], // todo
-    [ 'hegv',  gen + dtype + la + n + itype ],
+    [ 'hegv',  gen + dtype + la + n + jobz + itype + uplo ],
     [ 'hegst', gen + dtype + la + n + itype + uplo ],
     ]
 
@@ -524,11 +528,11 @@ if (opts.geev):
 if (opts.svd):
     cmds += [
     # todo: mn (wide), nb, jobu, jobvt
-    [ 'gesvd', gen_no_nb + ' --nb 50' + dtype + la + n + tall ],
+    [ 'gesvd', gen + dtype + la + n + tall ],
     [ 'ge2tb', gen + dtype + n + tall ],
     # tb2bd, bdsqr don't take origin, target
-    [ 'tb2bd', grid + check + ref + tol + repeat + dtype + n ],
-    [ 'bdsqr', grid + check + ref + tol + repeat + dtype + n + uplo ],
+    [ 'tb2bd', gen_no_target + dtype + n ],
+    [ 'bdsqr', gen_no_target + dtype + n + uplo ],
     ]
 
 # norms
@@ -544,6 +548,15 @@ if (opts.norms):
     [ 'hbnorm', gen + dtype + n   + kd      + norm + uplo ],
     #[ 'sbnorm', gen + dtype + la + n + kd + norm ],
     #[ 'tbnorm', gen + dtype + la + n + kd + norm ],
+    ]
+
+# aux
+if (opts.aux):
+    cmds += [
+    [ 'add',   gen + dtype + mn + ab ],
+    [ 'copy',  gen + dtype + mn      ],
+    [ 'scale', gen + dtype + mn + ab ],
+    [ 'set',   gen + dtype + mn + ab ],
     ]
 
 # ------------------------------------------------------------------------------

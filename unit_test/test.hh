@@ -16,6 +16,9 @@
 #include <iostream>
 #include <iomanip>
 
+//------------------------------------------------------------------------------
+using llong = long long;
+
 // -----------------------------------------------------------------------------
 // global variables
 MPI_Comm g_mpi_comm;
@@ -197,7 +200,6 @@ template <typename scalar_t>
 void print(const char* name, slate::Matrix<scalar_t>& A)
 {
     using blas::real;
-    typedef long long lld;
 
     printf("%s = [  %% op=%c\n", name, char(A.op()));
     // loop over block rows, then rows within block row
@@ -216,7 +218,7 @@ void print(const char* name, slate::Matrix<scalar_t>& A)
             if (A.tileIsLocal(i, j)) {
                 row_is_local = true;
                 auto Aij = A(i, j);
-                printf("   %-18p %2lld by %2lld", (void*) Aij.data(), lld(ib), lld(jb));
+                printf("   %-18p %2lld by %2lld", (void*) Aij.data(), llong(ib), llong(jb));
                 for (int64_t jt = 3; jt < jb; ++jt) { // above pointer is 3 columns
                     printf(" %9s", "");
                 }

@@ -1,5 +1,8 @@
+2021.05.02
+  - CMake: fix include paths with HIP for Spack
+
 2021.05.01
-  - CMake fix for Spack
+  - CMake: fix library paths for Spack
 
 2021.05.00
   - HIP/ROCm support

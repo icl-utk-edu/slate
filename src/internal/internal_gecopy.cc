@@ -186,7 +186,7 @@ void copy(internal::TargetType<Target::HostTask>,
                     // tileAcquire() to avoid un-needed copy
                     B.tileAcquire(i, j, A.tileLayout(i, j));
                     gecopy(A(i, j), B(i, j));
-                    B.tileModified(i, j);
+                    B.tileModified(i, j, HostNum, true);
                     A.tileTick(i, j);// TODO is this correct here?
                 }
             }
@@ -194,6 +194,26 @@ void copy(internal::TargetType<Target::HostTask>,
     }
 
     #pragma omp taskwait
+}
+
+//------------------------------------------------------------------------------
+template <typename src_scalar_t, typename dst_scalar_t>
+void copy(internal::TargetType<Target::HostNest>,
+          Matrix<src_scalar_t>& A,
+          Matrix<dst_scalar_t>& B,
+          int priority, int queue_index)
+{
+    slate_not_implemented("Target::HostNest isn't yet supported.");
+}
+
+//------------------------------------------------------------------------------
+template <typename src_scalar_t, typename dst_scalar_t>
+void copy(internal::TargetType<Target::HostBatch>,
+          Matrix<src_scalar_t>& A,
+          Matrix<dst_scalar_t>& B,
+          int priority, int queue_index)
+{
+    slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
@@ -241,8 +261,8 @@ void copy(internal::TargetType<Target::Devices>,
 
             // Usually the output matrix (B) provides all the batch arrays.
             // Here we are using A, because of the possibly different types.
-            src_scalar_t** a_array_host = A.array_host(device);
-            dst_scalar_t** b_array_host = B.array_host(device);
+            src_scalar_t** a_array_host = A.array_host(device, queue_index);
+            dst_scalar_t** b_array_host = B.array_host(device, queue_index);
 
             int64_t batch_count = 0;
             int64_t mb[4], nb[4], lda[4], ldb[4], group_count[4];
@@ -267,11 +287,12 @@ void copy(internal::TargetType<Target::Devices>,
             }
 
             // Usually the output matrix (B) provides all the batch arrays.
-            // Here we are using A, because of the differen types.
-            src_scalar_t** a_array_dev = A.array_device(device);
-            dst_scalar_t** b_array_dev = B.array_device(device);
+            // Here we are using A, because of the different types.
+            src_scalar_t** a_array_dev = A.array_device(device, queue_index);
+            dst_scalar_t** b_array_dev = B.array_device(device, queue_index);
 
-            blas::Queue* queue = A.compute_queue(device, queue_index);
+            blas::Queue* queue = B.compute_queue(device, queue_index);
+            blas::set_device( queue->device() );
 
             blas::device_memcpy<src_scalar_t*>(a_array_dev, a_array_host,
                                 batch_count,
@@ -402,5 +423,88 @@ void copy< Target::Devices, std::complex<double>, std::complex<float> >(
     Matrix< std::complex<double> >&& A, Matrix< std::complex<float> >&& B,
     int priority, int queue_index);
 
+// ----------------------------------------
+template
+void copy<Target::HostNest, float, float>(
+    Matrix<float>&& A, Matrix<float>&& B,
+    int priority, int queue_index);
+
+template
+void copy<Target::HostNest, float, double>(
+    Matrix<float>&& A, Matrix<double>&& B,
+    int priority, int queue_index);
+
+template
+void copy<Target::HostBatch, float, float>(
+    Matrix<float>&& A, Matrix<float>&& B,
+    int priority, int queue_index);
+
+template
+void copy<Target::HostBatch, float, double>(
+    Matrix<float>&& A, Matrix<double>&& B,
+    int priority, int queue_index);
+
+// ----------------------------------------
+template
+void copy<Target::HostNest, double, double>(
+    Matrix<double>&& A, Matrix<double>&& B,
+    int priority, int queue_index);
+
+template
+void copy<Target::HostNest, double, float>(
+    Matrix<double>&& A, Matrix<float>&& B,
+    int priority, int queue_index);
+
+template
+void copy<Target::HostBatch, double, double>(
+    Matrix<double>&& A, Matrix<double>&& B,
+    int priority, int queue_index);
+
+template
+void copy<Target::HostBatch, double, float>(
+    Matrix<double>&& A, Matrix<float>&& B,
+    int priority, int queue_index);
+
+// ----------------------------------------
+template
+void copy< Target::HostNest, std::complex<float>, std::complex<float> >(
+    Matrix< std::complex<float> >&& A, Matrix< std::complex<float> >&& B,
+    int priority, int queue_index);
+
+template
+void copy< Target::HostNest, std::complex<float>, std::complex<double> >(
+    Matrix< std::complex<float> >&& A, Matrix< std::complex<double> >&& B,
+    int priority, int queue_index);
+
+template
+void copy< Target::HostBatch, std::complex<float>, std::complex<float>  >(
+    Matrix< std::complex<float> >&& A, Matrix< std::complex<float> >&& B,
+    int priority, int queue_index);
+
+template
+void copy< Target::HostBatch, std::complex<float>, std::complex<double>  >(
+    Matrix< std::complex<float> >&& A, Matrix< std::complex<double> >&& B,
+    int priority, int queue_index);
+
+// ----------------------------------------
+template
+void copy< Target::HostNest, std::complex<double>, std::complex<double> >(
+    Matrix< std::complex<double> >&& A, Matrix< std::complex<double> >&& B,
+    int priority, int queue_index);
+
+template
+void copy< Target::HostNest, std::complex<double>, std::complex<float> >(
+    Matrix< std::complex<double> >&& A, Matrix< std::complex<float> >&& B,
+    int priority, int queue_index);
+
+template
+void copy< Target::HostBatch, std::complex<double>, std::complex<double> >(
+    Matrix< std::complex<double> >&& A, Matrix< std::complex<double> >&& B,
+    int priority, int queue_index);
+
+template
+void copy< Target::HostBatch, std::complex<double>, std::complex<float> >(
+    Matrix< std::complex<double> >&& A, Matrix< std::complex<float> >&& B,
+    int priority, int queue_index);
 } // namespace internal
 } // namespace slate

@@ -196,6 +196,8 @@ endif
 ifneq ($(filter mpi%,$(CXX)),)
     # CXX = mpicxx, mpic++, ...
     # Generic MPI via compiler wrapper. No flags to set.
+else ifeq ($(mpi),cray)
+    # Cray MPI via compiler wrapper. No flags to set.
 else ifeq ($(mpi),1)
     # Generic MPI.
     LIBS  += -lmpi
@@ -217,8 +219,8 @@ scalapack = -lscalapack
 # If using shared libraries, and Fortran files that directly call BLAS are
 # removed, BLAS++ would pull in the BLAS library for us.
 
-# if MKL
 ifeq ($(blas),mkl)
+    # Intel MKL
     FLAGS += -DSLATE_WITH_MKL
     # Auto-detect whether to use Intel or GNU conventions.
     # Won't detect if CXX = mpicxx.
@@ -278,18 +280,23 @@ ifeq ($(blas),mkl)
             endif
         endif
     endif
-# if ESSL
 else ifeq ($(blas),essl)
+    # IBM ESSL
     FLAGS += -DSLATE_WITH_ESSL
     # todo threaded, int64
     # hmm... likely LAPACK won't be int64 even if ESSL is.
     LIBS += -lessl -llapack
-# if OpenBLAS
 else ifeq ($(blas),openblas)
+    # OpenBLAS
     FLAGS += -DSLATE_WITH_OPENBLAS
     LIBS += -lopenblas
+else ifeq ($(blas),libsci)
+    # Cray LibSci
+    FLAGS += -DSLATE_WITH_LIBSCI
+    # no LIBS to add
+    scalapack =
 else
-    $(error ERROR: unknown `blas=$(blas)`. Set blas to one of mkl, essl, openbblas.)
+    $(error ERROR: unknown `blas=$(blas)`. Set blas to one of mkl, essl, openbblas, libsci.)
 endif
 
 #-------------------------------------------------------------------------------
@@ -373,10 +380,9 @@ endif
 
 # types and classes
 libslate_src += \
-        src/aux/Debug.cc \
+        src/auxiliary/Debug.cc \
+        src/auxiliary/Trace.cc \
         src/core/Memory.cc \
-        src/aux/Trace.cc \
-        src/core/types.cc \
         src/version.cc \
 
 # work
@@ -429,6 +435,10 @@ libslate_src += \
         src/internal/internal_unmlq.cc \
         src/internal/internal_util.cc \
         src/internal/internal_hegst.cc \
+        src/internal/internal_gescale.cc \
+        src/internal/internal_tzscale.cc \
+        src/internal/internal_tzadd.cc \
+
 
 # device
 ifeq ($(cuda),1)
@@ -442,6 +452,9 @@ ifeq ($(cuda),1)
             src/cuda/device_transpose.cu \
             src/cuda/device_trnorm.cu \
             src/cuda/device_tzcopy.cu \
+            src/cuda/device_gescale.cu \
+            src/cuda/device_tzscale.cu \
+            src/cuda/device_tzadd.cu \
 
 endif
 
@@ -456,6 +469,9 @@ ifeq ($(hip),1)
             src/hip/device_transpose.hip.cc \
             src/hip/device_trnorm.hip.cc \
             src/hip/device_tzcopy.hip.cc \
+            src/hip/device_gescale.hip.cc \
+            src/hip/device_tzscale.hip.cc \
+            src/hip/device_tzadd.hip.cc \
 
     hip_src = \
         $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(wildcard src/cuda/*.cu))
@@ -474,7 +490,6 @@ libslate_src += \
         src/gbtrf.cc \
         src/gbtrs.cc \
         src/ge2tb.cc \
-        src/geadd.cc \
         src/gels.cc \
         src/gemm.cc \
         src/gemmA.cc \
@@ -527,6 +542,8 @@ libslate_src += \
         src/unmqr.cc \
         src/unmlq.cc \
         src/hegst.cc \
+        src/scale.cc \
+        src/add.cc \
 
 ifneq ($(have_fortran),)
     libslate_src += \
@@ -577,6 +594,7 @@ tester_src += \
         test/test_heev.cc \
         test/test_hegv.cc \
         test/test_hemm.cc \
+        test/test_hb2st.cc \
         test/test_hbmm.cc \
         test/test_hbnorm.cc \
         test/test_henorm.cc \
@@ -601,6 +619,10 @@ tester_src += \
         test/test_hegst.cc \
         test/matrix_generator.cc \
         test/matrix_params.cc \
+        test/test_add.cc \
+        test/test_copy.cc \
+        test/test_scale.cc \
+        test/test_set.cc \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
@@ -1000,11 +1022,10 @@ $(lapack_api_so): $(lapack_api_obj) $(libslate)
 lib: $(libslate) $(scalapack_api) $(lapack_api)
 
 clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/clean
-	rm -f $(libslate_a) $(libslate_so) $(libslate_obj)
+	rm -f $(libslate_a) $(libslate_so) $(libslate_obj) $(dep)
 	rm -f trace_*.svg
 
 distclean: clean
-	rm -f $(dep)
 	rm -f src/c_api/matrix.cc
 	rm -f src/c_api/wrappers_precisions.cc
 	rm -f src/c_api/util.cc

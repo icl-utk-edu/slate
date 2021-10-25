@@ -15,74 +15,74 @@ extern "C" void Cblacs_gridinfo(int context, int*  np_row, int* np_col, int*  my
 
 // Type generic function calls the SLATE routine
 template< typename scalar_t >
-void slate_pgetri(int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* work, int lwork, int* iwork, int liwork, int* info)
+void slate_pgetri(int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* work, int lwork, int* iwork, int liwork, int* info);
 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
 // Each C interface calls the type generic slate_pher2k
 
-extern "C" void PSGETRI(int* n, float* a, int ia, int ja, int* desca, int* ipiv, float* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void PSGETRI(int* n, float* a, int* ia, int* ja, int* desca, int* ipiv, float* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
-extern "C" void psgetri(int* n, float* a, int ia, int ja, int* desca, int* ipiv, float* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void psgetri(int* n, float* a, int* ia, int* ja, int* desca, int* ipiv, float* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
-extern "C" void psgetri_(int* n, float* a, int ia, int ja, int* desca, int* ipiv, float* work, int lwork, int* iwork, int liwork, int* info)
-{
-    slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
-}
-
-// -----------------------------------------------------------------------------
-
-extern "C" void PDGETRI(int* n, double* a, int ia, int ja, int* desca, int* ipiv, double* work, int lwork, int* iwork, int liwork, int* info)
-{
-    slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
-}
-
-extern "C" void pdgetri(int* n, double* a, int ia, int ja, int* desca, int* ipiv, double* work, int lwork, int* iwork, int liwork, int* info)
-{
-    slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
-}
-
-extern "C" void pdgetri_(int* n, double* a, int ia, int ja, int* desca, int* ipiv, double* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void psgetri_(int* n, float* a, int* ia, int* ja, int* desca, int* ipiv, float* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
 // -----------------------------------------------------------------------------
 
-extern "C" void PCGETRI(int* n, std::complex<float>* a, int ia, int ja, int* desca, int* ipiv, std::complex<float>* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void PDGETRI(int* n, double* a, int* ia, int* ja, int* desca, int* ipiv, double* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
-extern "C" void pcgetri(int* n, std::complex<float>* a, int ia, int ja, int* desca, int* ipiv, std::complex<float>* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void pdgetri(int* n, double* a, int* ia, int* ja, int* desca, int* ipiv, double* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
-extern "C" void pcgetri_(int* n, std::complex<float>* a, int ia, int ja, int* desca, int* ipiv, std::complex<float>* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void pdgetri_(int* n, double* a, int* ia, int* ja, int* desca, int* ipiv, double* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
 // -----------------------------------------------------------------------------
 
-extern "C" void PZGETRI(int* n, std::complex<double>* a, int ia, int ja, int* desca, int* ipiv, std::complex<double>* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void PCGETRI(int* n, std::complex<float>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<float>* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
-extern "C" void pzgetri(int* n, std::complex<double>* a, int ia, int ja, int* desca, int* ipiv, std::complex<double>* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void pcgetri(int* n, std::complex<float>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<float>* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
 
-extern "C" void pzgetri_(int* n, std::complex<double>* a, int ia, int ja, int* desca, int* ipiv, std::complex<double>* work, int lwork, int* iwork, int liwork, int* info)
+extern "C" void pcgetri_(int* n, std::complex<float>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<float>* work, int* lwork, int* iwork, int* liwork, int* info)
+{
+    slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
+}
+
+// -----------------------------------------------------------------------------
+
+extern "C" void PZGETRI(int* n, std::complex<double>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<double>* work, int* lwork, int* iwork, int* liwork, int* info)
+{
+    slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
+}
+
+extern "C" void pzgetri(int* n, std::complex<double>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<double>* work, int* lwork, int* iwork, int* liwork, int* info)
+{
+    slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
+}
+
+extern "C" void pzgetri_(int* n, std::complex<double>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<double>* work, int* lwork, int* iwork, int* liwork, int* info)
 {
     slate_pgetri(*n, a, *ia, *ja, desca, ipiv, work, *lwork, iwork, *liwork, info);
 }
@@ -91,7 +91,7 @@ extern "C" void pzgetri_(int* n, std::complex<double>* a, int ia, int ja, int* d
 template< typename scalar_t >
 void slate_pgetri(int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* work, int lwork, int* iwork, int liwork, int* info)
 {
-    // todo: figure out if the pxq grid is in row or column
+    check_and_assert_blacs_grid_is_column_major();
 
     // make blas single threaded
     // todo: does this set the omp num threads correctly
@@ -99,69 +99,79 @@ void slate_pgetri(int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, sca
 
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
-    int64_t lookahead = 1;
+    int64_t lookahead = slate_scalapack_set_lookahead();
     int64_t panel_threads = slate_scalapack_set_panelthreads();
     int64_t ib = slate_scalapack_set_ib();
 
-    // Matrix sizes
-    slate::Pivots pivots;
-
-    // create SLATE matrices from the ScaLAPACK layouts
-    int nprow, npcol, myrow, mycol;
-    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myrow, &mycol);
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
-    A = slate_scalapack_submatrix(n, n, A, ia, ja, desca);
-
-    if (verbose && myrow == 0 && mycol == 0)
-        logprintf("%s\n", "getri");
-
-
-FIXME need to convert scalapack IPIV to Pivots
-
-
-    slate::getri(A, pivots, {
+    slate::Options const opts = {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib}
-    });
+    };
 
-    // Extract pivots from SLATE's global Pivots structure into ScaLAPACK local ipiv array
+    // create SLATE matrices from the ScaLAPACK layouts
+    int nprow, npcol, myprow, mypcol;
+    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
+    A = slate_scalapack_submatrix(n, n, A, ia, ja, desca);
+
+    if (verbose && myprow == 0 && mypcol == 0)
+        logprintf("%s\n", "getri");
+
+    // std::vector< std::vector<Pivot> >
+    slate::Pivots pivots;
+
+    // copy pivots from ScaLAPACK local ipiv array to SLATE global Pivots structure
     {
-        int64_t p_count = 0;
-        int nb = desc_MB(desca);
+        // allocate pivots
+        int64_t min_mt_nt = std::min(A.mt(), A.nt());
+        pivots.resize(min_mt_nt);
+        for (int64_t k = 0; k < min_mt_nt; ++k) {
+            int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
+            pivots.at(k).resize(diag_len);
+        }
 
-        // NOTE: this is not the most efficient way, instead use local tile index directly to avoid looping over tiles
-        // int64_t A_nt = A.nt();
-        // int64_t A_mt = A.mt();
-        // for (int tm = 0; tm < A_mt; ++tm) {
-        //     for (int tn = 0; tn < A_nt; ++tn) {
-        //         if (A.tileIsLocal(tm, tn)) {
-        //             for (auto p_iter = pivots[tm].begin(); p_iter != pivots[tm].end(); ++p_iter) {
-        //                 ipiv[p_count++] = p_iter->tileIndex() * nb + p_iter->elementOffset() + 1;
-        //             }
-        //             break;
-        //         }
-        //     }
-        // }
+        // transfer local ipiv to local part of pivots
+        int isrcproc0 = 0;
+        int nb = desc_MB(desca); // ScaLAPACK style fixed nb
+        int64_t l_numrows = scalapack_numroc(n, nb, myprow, isrcproc0, nprow);  // local number of rows
+        // l_rindx local row index (Scalapack 1-index)
+        // for each local ipiv entry, find corresponding local-pivot information and swap-pivot information
+        for (int l_ipiv_rindx=1; l_ipiv_rindx<=l_numrows; ++l_ipiv_rindx) {
+            // for local ipiv index, convert to global indexing
+            int64_t g_ipiv_rindx = scalapack_indxl2g(&l_ipiv_rindx, &nb, &myprow, &isrcproc0, &nprow);
+            // assuming uniform nb from scalapack (note 1-indexing), find global tile, offset
+            int64_t g_ipiv_tile_indx = (g_ipiv_rindx - 1) / nb;
+            int64_t g_ipiv_tile_offset = (g_ipiv_rindx -1) % nb;
+            // get the reference to this specific pivot
+            Pivot& pivref = pivots[g_ipiv_tile_indx][g_ipiv_tile_offset];
+            // get swap-pivot information pivots(tile-index, offset)
+            // note, slate indexes pivot-tiles from this-point-forward, so subtract earlier tiles.
+            int64_t tileIndexSwap = ((ipiv[l_ipiv_rindx - 1] - 1) / nb) - g_ipiv_tile_indx;
+            int64_t elementOffsetSwap = (ipiv[l_ipiv_rindx - 1] - 1) % nb;
+            // in the local pivot object, assign swap information
+            pivref = Pivot(tileIndexSwap, elementOffsetSwap);
+            // if (verbose) {
+            //     printf("[%d,%d] getrs ipiv[%lld=%lld]=%lld  ->  pivots[%lld][%lld]=(%lld,%lld)\n",
+            //            myprow, mypcol,
+            //            llong( l_ipiv_rindx ), llong( g_ipiv_rindx ),
+            //            llong( ipiv[l_ipiv_rindx - 1] ),
+            //            llong( g_ipiv_tile_indx ), llong( g_ipiv_tile_offset ),
+            //            llong( tileIndexSwap ), llong( elementOffsetSwap ));
+            // }
+            // fflush(0);
+        }
 
-        int ZERO = 0;
-        int l_numrows = scalapack_numroc(An, nb, myrow, ZERO, nprow);  // local number of rows
-        int l_rindx = 1;// local row index (Scalapack 1-index)
-        // find the global tile indices of the local tiles
-        while (l_rindx <= l_numrows) {
-            int64_t g_rindx = scalapack_indxl2g(&l_rindx, &nb, &myrow, &ZERO, &nprow);
-            int64_t g_tile_indx = g_rindx / nb; //assuming uniform tile size from Scalapack
-            // extract this tile pivots
-            for (auto p_iter = pivots[g_tile_indx].begin();
-                 p_iter != pivots[g_tile_indx].end();
-                 ++p_iter) {
-                ipiv[p_count++] = p_iter->tileIndex() * nb + p_iter->elementOffset() + 1;
-            }
-            //next tile
-            l_rindx += nb;
+        // broadcast local pivot information to all processes
+        for (int64_t k = 0; k < min_mt_nt; ++k) {
+            MPI_Bcast(pivots.at(k).data(),
+                      sizeof(Pivot)*pivots.at(k).size(),
+                      MPI_BYTE, A.tileRank(k, k), A.mpiComm());
         }
     }
+
+    slate::getri(A, pivots, opts);
 
     slate_set_num_blas_threads(saved_num_blas_threads);
 

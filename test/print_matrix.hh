@@ -17,43 +17,82 @@
 #include <cstdio>
 
 //------------------------------------------------------------------------------
-/// Print value to a buffer buf of length buf_len.
-/// Prints with format %w.pf, where w = width and p = precision.
-/// For complex values, prints both real and imaginary parts.
-/// If a real or complex value is exactly an integer, it is printed with
-/// format %v.0f where v = w-p, i.e., with no digits after decimal point.
-template <typename scalar_t>
-void snprintf_value(
-    char* buf, size_t buf_len, int width, int precision, scalar_t value)
+/// @return 10^y for 0 <= y <= 20.
+inline double pow10( int y )
 {
-    using blas::real;
-    using blas::imag;
+    static double values[] = {
+        1, 10, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10, 1e11, 1e12,
+        1e13, 1e14, 1e15, 1e16, 1e17, 1e18, 1e19, 1e20 };
+    assert( 0 <= y && y <= 20 );
+    return values[ y ];
+}
 
-    if (value == scalar_t( int( real( value )))) {
+//------------------------------------------------------------------------------
+/// Print real value to a buffer buf of length buf_len.
+/// For w = width and p = precision:
+/// - integers are printed with %v.0f where v = w-p
+/// - small values < 0.01 or large values > threshold are printed with %w.pg
+/// - modest values are printed with %w.pf.
+/// To ensure data fits, set threshold = 10^(w - p - 2) and w >= p + 6.
+template <typename real_t>
+int snprintf_value(
+    char* buf, size_t buf_len,
+    int width, int precision,
+    real_t value)
+{
+    real_t abs_val = std::abs( value );
+    real_t threshold = pow10( width - precision - 2 );
+
+    int len;
+    if (value == int64_t( value )) {
         // exactly integer, print without digits after decimal point
-        if (slate::is_complex<scalar_t>::value) {
-            snprintf(buf, buf_len, " %#*.0f%*s   %*s ",
-                     width - precision, real(value), precision, "",
-                     width, "");
-        }
-        else {
-            snprintf(buf, buf_len,
-                     " %#*.0f%*s",
-                     width - precision, real(value), precision, "");
-        }
+        len = snprintf( buf, buf_len,
+                        " %#*.0f%*s", width - precision, value,
+                        precision, "" );
+    }
+    else if (abs_val < 0.01 || abs_val >= threshold) {
+        // small or large value: print with %g
+        len = snprintf( buf, buf_len,
+                        " %#*.*g", width, precision, value );
     }
     else {
-        // general case
-        if (slate::is_complex<scalar_t>::value) {
-            snprintf(buf, buf_len, " %*.*f + %*.*fi",
-                     width, precision, real(value),
-                     width, precision, imag(value));
-        }
-        else {
-            snprintf(buf, buf_len,
-                     " %*.*f",
-                     width, precision, real(value));
-        }
+        // between 1 and threshold = 10^(w-p-2): %f will fit in width.
+        len = snprintf( buf, buf_len,
+                        " %#*.*f", width, precision, value );
+    }
+    return len;
+}
+
+//------------------------------------------------------------------------------
+/// Print complex values as " <real> + <imag>i".
+template <typename real_t>
+void snprintf_value(
+    char* buf, size_t buf_len,
+    int width, int precision,
+    std::complex<real_t> value)
+{
+    // " real"
+    real_t re = std::real( value );
+    int len = snprintf_value( buf, buf_len, width, precision, re );
+    buf     += len;
+    buf_len -= len;
+
+    real_t im = std::imag( value );
+    if (im == 0) {
+        // blank padding
+        snprintf( buf, buf_len, "   %*s ", width, "" );
+    }
+    else {
+        // " + imagi"
+        len = snprintf( buf, buf_len, " +" );
+        buf     += len;
+        buf_len -= len;
+
+        len = snprintf_value( buf, buf_len, width, precision, im );
+        buf     += len;
+        buf_len -= len;
+
+        snprintf( buf, buf_len, "i" );
     }
 }
 
@@ -64,22 +103,20 @@ template <typename scalar_t>
 void print_matrix(
     const char* label,
     int64_t m, int64_t n, scalar_t* A, int64_t lda,
-    int width = 10, int precision = 6)
+    int width=12, int precision=6 )
 {
-    using blas::real;
-    using blas::imag;
+    width = std::max(width, precision + 6);
 
     char buf[ 1024 ];
     std::string msg;
-
-    width = std::max(width, precision + 3);
 
     printf("%% LAPACK matrix\n");
     printf("%s = [\n", label);
     for (int64_t i = 0; i < m; ++i) {
         msg = "";
         for (int64_t j = 0; j < n; ++j) {
-            snprintf_value(buf, sizeof(buf), width, precision, A[i + j*lda]);
+            snprintf_value( buf, sizeof(buf), width, precision,
+                            A[i + j*lda] );
             msg += buf;
         }
         printf( "%s\n", msg.c_str() );
@@ -96,18 +133,16 @@ template <typename scalar_t>
 void print_matrix(
     const char* label,
     int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
-    int p, int q, MPI_Comm comm, int width = 10, int precision = 6)
+    int p, int q, MPI_Comm comm,
+    int width=12, int precision=6 )
 {
-    using blas::real;
-    using blas::imag;
-
     int mpi_rank;
     MPI_Comm_rank(comm, &mpi_rank);
 
+    width = std::max(width, precision + 6);
+
     char buf[ 1024 ];
     std::string msg;
-
-    width = std::max(width, precision + 3);
 
     // loop over process rows & cols
     for (int prow = 0; prow < q; ++prow) {
@@ -121,7 +156,8 @@ void print_matrix(
                 msg += buf;
                 for (int64_t i = 0; i < mlocal; ++i) {
                     for (int64_t j = 0; j < nlocal; ++j) {
-                        snprintf_value(buf, sizeof(buf), width, precision, A[i + j*lda]);
+                        snprintf_value( buf, sizeof(buf), width, precision,
+                                        A[i + j*lda] );
                         msg += buf;
                     }
                     msg += "\n";
@@ -211,6 +247,11 @@ std::string tile_row_string(
     int width, int precision,
     const char* opposite="")
 {
+    using real_t = blas::real_type<scalar_t>;
+
+    width = std::max(width, precision + 6);
+    real_t nan_ = nan("");
+
     char buf[ 80 ];
     std::string msg;
     try {
@@ -221,7 +262,8 @@ std::string tile_row_string(
                 (uplo == slate::Uplo::Lower && ti >= tj) ||
                 (uplo == slate::Uplo::Upper && ti <= tj))
             {
-                snprintf_value(buf, sizeof(buf), width, precision, T(ti, tj));
+                snprintf_value( buf, sizeof(buf), width, precision,
+                                T(ti, tj) );
                 msg += buf;
             }
             else {
@@ -231,7 +273,7 @@ std::string tile_row_string(
     }
     catch (std::out_of_range const& ex) {
         // tile missing: print NAN
-        snprintf_value(buf, sizeof(buf), width, precision, NAN);
+        snprintf_value( buf, sizeof(buf), width, precision, nan_ );
         for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
             msg += buf;
         }
@@ -248,18 +290,19 @@ std::string tile_row_string(
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::Matrix<scalar_t>& A, int width = 10, int precision = 6)
+    slate::Matrix<scalar_t>& A,
+    int width=12, int precision=6 )
 {
-    using blas::real;
-    using blas::imag;
-
     int mpi_rank = A.mpiRank();
     MPI_Comm comm = A.mpiComm();
     MPI_Barrier(comm);
 
-    width = std::max(width, precision + 3);
+    width = std::max(width, precision + 6);
 
-    std::string msg = "% slate::Matrix\n";
+    std::string msg = "\n% slate::Matrix ";
+    msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
+        +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
+        +  " tiles, nb " + std::to_string( A.tileNb(0) ) + "\n";
     msg += label;
     msg += " = [\n";
 
@@ -309,18 +352,21 @@ void print_matrix(
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::BandMatrix<scalar_t>& A, int width = 10, int precision = 6)
+    slate::BandMatrix<scalar_t>& A,
+    int width=12, int precision=6 )
 {
-    using blas::real;
-    using blas::imag;
-
     int mpi_rank = A.mpiRank();
     MPI_Comm comm = A.mpiComm();
     MPI_Barrier(comm);
 
-    width = std::max(width, precision + 3);
+    width = std::max(width, precision + 6);
 
-    std::string msg = "% slate::BandMatrix\n";
+    std::string msg = "\n% slate::BandMatrix ";
+    msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
+        +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
+        +  " tiles, nb " + std::to_string( A.tileNb(0) )
+        +  " kl " + std::to_string( A.lowerBandwidth() )
+        +  " ku " + std::to_string( A.upperBandwidth() ) + "\n";
     msg += label;
     msg += " = [\n";
 
@@ -405,18 +451,24 @@ void print_matrix(
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::BaseTriangularBandMatrix<scalar_t>& A, int width = 10, int precision = 6)
+    slate::BaseTriangularBandMatrix<scalar_t>& A,
+    int width=12, int precision=6 )
 {
-    using blas::real;
-    using blas::imag;
+    using real_t = blas::real_type<scalar_t>;
 
     int mpi_rank = A.mpiRank();
     MPI_Comm comm = A.mpiComm();
     MPI_Barrier(comm);
 
-    width = std::max(width, precision + 3);
+    width = std::max(width, precision + 6);
+    real_t nan_ = nan("");
 
-    std::string msg = "% slate::BaseTriangularBandMatrix\n";
+    std::string msg = "\n% slate::BaseTriangularBandMatrix ";
+    msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
+        +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
+        +  " tiles, nb " + std::to_string( A.tileNb(0) )
+        +  " kd " + std::to_string( A.bandwidth() )
+        +  " uplo " + char( A.uplo() ) + "\n";
     msg += label;
     msg += " = [\n";
 
@@ -424,11 +476,11 @@ void print_matrix(
     char opposite[ 80 ];
     if (slate::is_complex<scalar_t>::value) {
         snprintf(opposite, sizeof(opposite), " %*f   %*s ",
-                 width, NAN, width, "");
+                 width, nan_, width, "");
     }
     else {
         snprintf(opposite, sizeof(opposite), " %*f",
-                 width, NAN);
+                 width, nan_);
     }
 
     // for tiles outside bandwidth
@@ -505,32 +557,32 @@ void print_matrix(
 /// opposite triangle are printed as "nan".
 ///
 template <typename scalar_t>
-void print_matrix(
+void print_matrix_work(
     const char* label,
-    slate::BaseTrapezoidMatrix<scalar_t>& A, int width = 10, int precision = 6)
+    slate::BaseTrapezoidMatrix<scalar_t>& A,
+    int width=12, int precision=6 )
 {
-    using blas::real;
-    using blas::imag;
+    using real_t = blas::real_type<scalar_t>;
 
     int mpi_rank = A.mpiRank();
     MPI_Comm comm = A.mpiComm();
     MPI_Barrier(comm);
 
-    width = std::max(width, precision + 3);
+    width = std::max(width, precision + 6);
+    real_t nan_ = nan("");
 
-    std::string msg = "% slate::BaseTrapezoidMatrix\n";
-    msg += label;
+    std::string msg = label;
     msg += " = [\n";
 
     // for entries in opposite triangle from A.uplo
     char opposite[ 80 ];
     if (slate::is_complex<scalar_t>::value) {
         snprintf(opposite, sizeof(opposite), " %*f   %*s ",
-                 width, NAN, width, "");
+                 width, nan_, width, "");
     }
     else {
         snprintf(opposite, sizeof(opposite), " %*f",
-                 width, NAN);
+                 width, nan_);
     }
 
     for (int64_t i = 0; i < A.mt(); ++i) {
@@ -582,6 +634,177 @@ void print_matrix(
     }
 
     MPI_Barrier(comm);
+}
+
+//------------------------------------------------------------------------------
+/// Print a SLATE distributed Hermitian matrix.
+/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
+/// todo: fix complex diag in Matlab? (Sca)LAPACK ignores imag part.
+///
+template <typename scalar_t>
+void print_matrix(
+    const char* label,
+    slate::HermitianMatrix<scalar_t>& A,
+    int width=12, int precision=6 )
+{
+    if (A.mpiRank() == 0) {
+        printf( "\n"
+                "%% slate::HermitianMatrix %lld-by-%lld, %lld-by-%lld tiles, "
+                "nb %lld uplo %c\n",
+                llong( A.m() ), llong( A.n() ),
+                llong( A.mt() ), llong( A.nt() ),
+                llong( A.tileNb(0) ),
+                char( A.uplo() ) );
+    }
+    char buf[ 80 ];
+    snprintf( buf, sizeof(buf), "%s_", label );
+    print_matrix_work( buf, A, width, precision );
+    if (A.mpiRank() == 0) {
+        if (A.uplo() == slate::Uplo::Lower) {
+            printf( "%s = tril( %s_ ) + tril( %s_, -1 )';\n", label, label, label );
+        }
+        else {
+            printf( "%s = triu( %s_ ) + triu( %s_,  1 )';\n", label, label, label );
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Print a SLATE distributed symmetric matrix.
+/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
+///
+template <typename scalar_t>
+void print_matrix(
+    const char* label,
+    slate::SymmetricMatrix<scalar_t>& A,
+    int width=12, int precision=6 )
+{
+    if (A.mpiRank() == 0) {
+        printf( "\n"
+                "%% slate::SymmetricMatrix %lld-by-%lld, %lld-by-%lld tiles, "
+                "nb %lld uplo %c\n",
+                llong( A.m() ), llong( A.n() ),
+                llong( A.mt() ), llong( A.nt() ),
+                llong( A.tileNb(0) ),
+                char( A.uplo() ) );
+    }
+    print_matrix_work( label, A, width, precision );
+    if (A.mpiRank() == 0) {
+        if (A.uplo() == slate::Uplo::Lower) {
+            printf( "%s = tril( %s_ ) + tril( %s_, -1 ).';\n", label, label, label );
+        }
+        else {
+            printf( "%s = triu( %s_ ) + triu( %s_,  1 ).';\n", label, label, label );
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Print a SLATE distributed trapezoid matrix.
+/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
+/// todo: fix unit diag in Matlab.
+///
+template <typename scalar_t>
+void print_matrix(
+    const char* label,
+    slate::TrapezoidMatrix<scalar_t>& A,
+    int width=12, int precision=6 )
+{
+    if (A.mpiRank() == 0) {
+        printf( "\n"
+                "%% slate::TrapezoidMatrix %lld-by-%lld, %lld-by-%lld tiles, "
+                "nb %lld uplo %c diag %c\n",
+                llong( A.m() ), llong( A.n() ),
+                llong( A.mt() ), llong( A.nt() ),
+                llong( A.tileNb(0) ),
+                char( A.uplo() ), char( A.diag() ) );
+    }
+    char buf[ 80 ];
+    snprintf( buf, sizeof(buf), "%s_", label );
+    print_matrix_work( buf, A, width, precision );
+    if (A.mpiRank() == 0) {
+        if (A.uplo() == slate::Uplo::Lower) {
+            printf( "%s = tril( %s_ );\n", label, label );
+        }
+        else {
+            printf( "%s = triu( %s_ );\n", label, label );
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Print a SLATE distributed triangular matrix.
+/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
+/// todo: fix unit diag in Matlab.
+///
+template <typename scalar_t>
+void print_matrix(
+    const char* label,
+    slate::TriangularMatrix<scalar_t>& A,
+    int width=12, int precision=6 )
+{
+    if (A.mpiRank() == 0) {
+        printf( "\n"
+                "%% slate::TriangularMatrix %lld-by-%lld, %lld-by-%lld tiles, "
+                "nb %lld uplo %c diag %c\n",
+                llong( A.m() ), llong( A.n() ),
+                llong( A.mt() ), llong( A.nt() ),
+                llong( A.tileNb(0) ),
+                char( A.uplo() ), char( A.diag() ) );
+    }
+    char buf[ 80 ];
+    snprintf( buf, sizeof(buf), "%s_", label );
+    print_matrix_work( buf, A, width, precision );
+    if (A.mpiRank() == 0) {
+        if (A.uplo() == slate::Uplo::Lower) {
+            printf( "%s = tril( %s_ );\n", label, label );
+        }
+        else {
+            printf( "%s = triu( %s_ );\n", label, label );
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Print a vector.
+/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
+/// as desired.
+///
+template <typename scalar_t>
+void print_vector(
+    const char* label,
+    int64_t n, scalar_t const* x, int64_t incx,
+    int width=12, int precision=6 )
+{
+    slate_assert( n >= 0 );
+    slate_assert( incx != 0 );
+
+    width = std::max(width, precision + 6);
+
+    char buf[ 80 ];
+    std::string msg;
+
+    int64_t ix = (incx > 0 ? 0 : (-n + 1)*incx);
+    for (int64_t i = 0; i < n; ++i) {
+        snprintf_value( buf, sizeof(buf), width, precision, x[ix] );
+        msg += buf;
+        ix += incx;
+    }
+    printf( "%s = [ %s ]';\n", label, msg.c_str() );
+}
+
+//------------------------------------------------------------------------------
+/// Print a vector.
+/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
+/// as desired.
+///
+template <typename scalar_type>
+void print_vector(
+    const char* label,
+    std::vector<scalar_type> const& x,
+    int width=12, int precision=6 )
+{
+    print_vector( label, x.size(), x.data(), 1, width, precision );
 }
 
 #endif // SLATE_PRINT_MATRIX_HH

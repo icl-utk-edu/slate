@@ -110,6 +110,9 @@ std::vector< testsweeper::routines_t > routines = {
     { "getriOOP",           test_getri,        Section::gesv },
     { "",                   nullptr,           Section::newline },
 
+    { "trtri",              test_trtri,        Section::gesv },
+    { "",                   nullptr,           Section::newline },
+
     // -----
     // Cholesky
     { "posv",               test_posv,         Section::posv },
@@ -180,7 +183,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "heev",               test_heev,         Section::heev },
     { "he2hb",              test_he2hb,        Section::heev },
     { "unmtr_he2hb",        test_unmtr_he2hb,  Section::heev },
-  //{ "hb2st",              test_hb2st,        Section::heev },
+    { "hb2st",              test_hb2st,        Section::heev },
     { "sterf",              test_sterf,        Section::heev },
     { "steqr2",             test_steqr2,       Section::heev },
     { "",                   nullptr,           Section::newline },
@@ -214,6 +217,13 @@ std::vector< testsweeper::routines_t > routines = {
     { "",                   nullptr,           Section::newline },
 
     { "trnorm",             test_trnorm,       Section::aux_norm },
+    { "",                   nullptr,           Section::newline },
+    // -----
+    // auxiliary
+    { "add",                test_add,          Section::aux },
+    { "copy",               test_copy,         Section::aux },
+    { "scale",              test_scale,        Section::aux },
+    { "set",                test_set,          Section::aux },
     { "",                   nullptr,           Section::newline },
 };
 
@@ -301,6 +311,8 @@ Params::Params():
     align     ("align",   6,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
     nonuniform_nb("nonuniform_nb",
                           0,    ParamType::Value, 'n', "ny", "generate matrix with nonuniform tile sizes"),
+    debug     ("debug",   0,    ParamType::Value, -1,     0, 1000000,
+               "given rank waits for debugger (gdb/lldb) to attach"),
 
     // ----- output parameters
     // min, max are ignored
@@ -317,6 +329,8 @@ Params::Params():
 
     time      ("time(s)",               12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "time to solution"),
     gflops    ("gflops",                12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "Gflop/s rate"),
+    time2     ("time(s)",               12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "time to solution"),
+    gflops2   ("gflops",                12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "Gflop/s rate"),
     iters     ("iters",                  9,    ParamType::Output,                         0,   0,   0, "iterations to solution"),
 
     ref_time  ("ref_time(s)",           12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "reference time to solution"),
@@ -325,7 +339,8 @@ Params::Params():
 
     // default -1 means "no check"
     //         name,     w, type,          default, min, max, help
-    okay      ("status", 6, ParamType::Output,  -1,   0,   0, "success indicator")
+    okay      ("status", 6, ParamType::Output,  -1,   0,   0, "success indicator"),
+    msg       ( "",      1, ParamType::Output,  "",           "error message" )
 {
     // set header different than command line prefix
     lookahead.name("la", "lookahead");
@@ -336,7 +351,7 @@ Params::Params():
     matrixB.cond.name( "condB" );
     matrixB.condD.name( "condD_B" );
 
-   // change names of matrix C's params
+    // change names of matrix C's params
     matrixC.kind.name( "matrixC" );
     matrixC.cond.name( "condC" );
     matrixC.condD.name( "condD_C" );
@@ -356,6 +371,7 @@ Params::Params():
     repeat();
     verbose();
     cache();
+    debug();
 
     //  change names of grid elements
     grid.names("p", "q");
@@ -541,6 +557,27 @@ int run(int argc, char** argv)
         slate_assert(params.grid.m() * params.grid.n() == mpi_size);
 
         slate::trace::Trace::pixels_per_second(params.trace_scale());
+
+        // Wait for debugger to attach.
+        // See https://www.open-mpi.org/faq/?category=debugging#serial-debuggers
+        if (params.debug() == mpi_rank
+            || params.debug() == mpi_size) {
+            volatile int i = 0;
+            char hostname[256];
+            gethostname( hostname, sizeof(hostname) );
+            printf( "MPI rank %d, pid %d on %s ready for debugger (gdb/lldb) to attach.\n"
+                    "After attaching, step out to run() and set i=1, e.g.:\n"
+                    "lldb -p %d\n"
+                    "(lldb) break set -n __cxa_throw  # break on C++ exception\n"
+                    "(lldb) thread step-out           # repeat\n"
+                    "(lldb) expr i=1\n"
+                    "(lldb) continue\n",
+                    mpi_rank, getpid(), hostname, getpid() );
+            fflush( stdout );
+            while (0 == i)
+                sleep(1);
+        }
+        slate_mpi_call( MPI_Barrier( MPI_COMM_WORLD ) );
 
         // run tests
         int repeat = params.repeat();

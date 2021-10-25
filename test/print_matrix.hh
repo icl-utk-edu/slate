@@ -380,7 +380,6 @@ std::string tile_row_string(
     int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
     int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
     int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
-    int64_t threshold = slate::get_option<int64_t>( opts, slate::Option::PrintThreshold, 1024 );
     assert( verbose >= 2 );
 
     if (verbose == 5)
@@ -501,6 +500,8 @@ template <typename scalar_t>
 void print_matrix_work(
     const char* label,
     slate::BaseMatrix<scalar_t>& A,
+    int64_t kl,
+    int64_t ku,
     slate::Options const& opts_)
 {
     using real_t = blas::real_type<scalar_t>;
@@ -750,8 +751,6 @@ void print_matrix(
     slate::Matrix<scalar_t>& A,
     slate::Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
-
     if (A.mpiRank() == 0) {
         std::string msg = std::string( "% " ) + label + ": slate::Matrix ";
         msg += std::to_string( A.m() ) + "-by-" + std::to_string( A.n() ) + ", "

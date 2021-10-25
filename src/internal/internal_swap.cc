@@ -243,20 +243,29 @@ void permuteRows(
             MPI_Type_commit(&row_type);
 
             if (root) {
+                // Build table mapping remote pivots to row index in workspace.
+                //
+                // remote_count  [ r ] is # rows swapped with rank r.
+                // remote_offsets[ r ] is index in workspace of first row
+                //                     swapped with rank r.
+                // remote_index  [ r ] tracks the next row swapped with rank r;
+                //                     initially equals remote_offsets[ r ].
+                // remote_pivot_table[ pivot[ i ] ] = remote_index for pivot[ i ].
+                //
                 // row indices are stored in int b/c gather/scatter can't use int64_t's
-                std::vector<int> remote_lengths(comm_size + 1);
+                std::vector<int> remote_count(comm_size + 1);
                 for (int64_t i = begin; i != end; i += inc) {
                     auto piv = pivot[i];
                     auto swap_rank = A.tileRank(piv.tileIndex(), j);
                     if (root_rank != swap_rank) {
-                        ++remote_lengths[swap_rank];
+                        ++remote_count[swap_rank];
                     }
                 }
                 std::vector<int> remote_index(comm_size);
                 std::vector<int> remote_offsets(comm_size+1);
-                for (int i = 0; i < comm_size; ++i) {
-                    remote_offsets[i+1] += remote_offsets[i] + remote_lengths[i];
-                    remote_index[i] = remote_offsets[i];
+                for (int r = 0; r < comm_size; ++r) {
+                    remote_offsets[r+1] += remote_offsets[r] + remote_count[r];
+                    remote_index[r] = remote_offsets[r];
                 }
                 std::map<Pivot, int> remote_pivot_table;
                 for (int64_t i = begin; i != end; i += inc) {
@@ -269,22 +278,24 @@ void permuteRows(
                         remote_pivot_table.insert({piv, index});
                     }
                 }
-                for (int64_t i = 0; i < comm_size; ++i) {
+                for (int r = 0; r < comm_size; ++r) {
                     // trim the lengths to their actual values
-                    remote_lengths[i] = remote_index[i] - remote_offsets[i];
+                    // since a pivot can be repeated.
+                    remote_count[r] = remote_index[r] - remote_offsets[r];
                 }
 
                 std::vector<scalar_t> remote_rows_vect (remote_offsets[comm_size]*nb);
                 scalar_t* remote_rows = remote_rows_vect.data();
 
+                // Gather remote rows to root.
                 std::vector<MPI_Request> requests (comm_size);
                 int request_count = 0;
-                for (int i = 0; i < comm_size; ++i) {
-                    // Assumes remote_lengths[root_rank] == 0
-                    if (remote_lengths[i] != 0) {
-                        scalar_t* row_i = remote_rows + nb*remote_offsets[i];
-                        MPI_Irecv(row_i, remote_lengths[i], row_type,
-                                  i, tag, comm, &requests[request_count]);
+                for (int r = 0; r < comm_size; ++r) {
+                    // Assumes remote_count[root_rank] == 0
+                    if (remote_count[r] != 0) {
+                        scalar_t* rows_r = remote_rows + nb*remote_offsets[r];
+                        MPI_Irecv(rows_r, remote_count[r], row_type,
+                                  r, tag, comm, &requests[request_count]);
                         request_count++;
                     }
                 }
@@ -292,6 +303,7 @@ void permuteRows(
 
                 int64_t stride_0j = A(0, j).rowIncrement();
 
+                // Swap rows locally.
                 for (int64_t i = begin; i != end; i += inc) {
                     int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
 
@@ -322,20 +334,22 @@ void permuteRows(
                     }
                 }
 
+                // Scatter remote rows.
                 // reuse requests array from before
                 request_count = 0;
-                for (int i = 0; i < comm_size; ++i) {
-                    // Assumes remote_lengths[root_rank] == 0
-                    if (remote_lengths[i] != 0) {
-                        scalar_t* row_i = remote_rows + nb*remote_offsets[i];
-                        MPI_Isend(row_i, remote_lengths[i], row_type,
-                                  i, tag, comm, &requests[request_count]);
+                for (int r = 0; r < comm_size; ++r) {
+                    // Assumes remote_count[root_rank] == 0
+                    if (remote_count[r] != 0) {
+                        scalar_t* rows_r = remote_rows + nb*remote_offsets[r];
+                        MPI_Isend(rows_r, remote_count[r], row_type,
+                                  r, tag, comm, &requests[request_count]);
                         request_count++;
                     }
                 }
                 MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
             }
-            else {
+            else { // not root
+                // Build table mapping my pivots to row index in workspace.
                 std::map<Pivot, int> remote_pivot_table;
                 int remote_length = 0;
                 for (int64_t i = begin; i != end; i += inc) {
@@ -353,6 +367,7 @@ void permuteRows(
                     std::vector<scalar_t> remote_rows_vect (nb*remote_length);
                     scalar_t* remote_rows = remote_rows_vect.data();
 
+                    // Pack pivot rows into workspace.
                     int64_t count = 0;
                     for (int64_t i = begin; i != end; i += inc) {
                         int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
@@ -372,11 +387,13 @@ void permuteRows(
                         }
                     }
 
+                    // Send rows, then recv updated rows.
                     MPI_Send(remote_rows, remote_length, row_type,
                              root_rank, tag, comm);
                     MPI_Recv(remote_rows, remote_length, row_type,
                              root_rank, tag, comm, MPI_STATUS_IGNORE);
 
+                    // Unpack pivot rows from workspace.
                     count = 0;
                     for (int64_t i = begin; i != end; i += inc) {
                         int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
@@ -545,20 +562,21 @@ void permuteRows(
                     MPI_Type_commit(&row_type);
 
                     if (root) {
+                        // Build table mapping remote pivots to row index in workspace.
                         // row indices are stored in int b/c gather/scatter can't use int64_t's
-                        std::vector<int> remote_lengths(comm_size + 1);
+                        std::vector<int> remote_count(comm_size + 1);
                         for (int64_t i = begin; i != end; i += inc) {
                             auto piv = pivot[i];
                             auto swap_rank = A.tileRank(piv.tileIndex(), j);
                             if (root_rank != swap_rank) {
-                                ++remote_lengths[swap_rank];
+                                ++remote_count[swap_rank];
                             }
                         }
                         std::vector<int> remote_index(comm_size);
                         std::vector<int> remote_offsets(comm_size+1);
-                        for (int i = 0; i < comm_size; ++i) {
-                            remote_offsets[i+1] += remote_offsets[i] + remote_lengths[i];
-                            remote_index[i] = remote_offsets[i];
+                        for (int r = 0; r < comm_size; ++r) {
+                            remote_offsets[r+1] += remote_offsets[r] + remote_count[r];
+                            remote_index[r] = remote_offsets[r];
                         }
                         std::map<Pivot, int> remote_pivot_table;
                         for (int64_t i = begin; i != end; i += inc) {
@@ -571,23 +589,25 @@ void permuteRows(
                                 remote_pivot_table.insert({piv, index});
                             }
                         }
-                        for (int64_t i = 0; i < comm_size; ++i) {
+                        for (int r = 0; r < comm_size; ++r) {
                             // trim the lengths to their actual values
-                            remote_lengths[i] = remote_index[i] - remote_offsets[i];
+                            // since a pivot can be repeated.
+                            remote_count[r] = remote_index[r] - remote_offsets[r];
                         }
 
                         int64_t remote_rows_size = remote_offsets[comm_size]*nb;
                         std::vector<scalar_t> remote_rows_vect (remote_rows_size);
                         scalar_t* remote_rows = remote_rows_vect.data();
 
+                        // Gather remote rows to root.
                         std::vector<MPI_Request> requests (comm_size);
                         int request_count = 0;
-                        for (int i = 0; i < comm_size; ++i) {
-                            // Assumes remote_lengths[root_rank] == 0
-                            if (remote_lengths[i] != 0) {
-                                scalar_t* row_i = remote_rows + nb*remote_offsets[i];
-                                MPI_Irecv(row_i, remote_lengths[i], row_type,
-                                          i, tag, comm, &requests[request_count]);
+                        for (int r = 0; r < comm_size; ++r) {
+                            // Assumes remote_count[root_rank] == 0
+                            if (remote_count[r] != 0) {
+                                scalar_t* rows_r = remote_rows + nb*remote_offsets[r];
+                                MPI_Irecv(rows_r, remote_count[r], row_type,
+                                          r, tag, comm, &requests[request_count]);
                                 request_count++;
                             }
                         }
@@ -596,6 +616,7 @@ void permuteRows(
                         blas::device_memcpy<scalar_t>(remote_rows_dev, remote_rows,
                                                       remote_rows_size, *compute_queue);
 
+                        // Swap rows locally.
                         for (int64_t i = begin; i != end; i += inc) {
                             int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
 
@@ -630,20 +651,22 @@ void permuteRows(
                         blas::device_memcpy<scalar_t>(remote_rows, remote_rows_dev,
                                                       remote_rows_size, *compute_queue);
 
+                        // Scatter remote rows.
                         // reuse requests array from before
                         request_count = 0;
-                        for (int i = 0; i < comm_size; ++i) {
-                            // Assumes remote_lengths[root_rank] == 0
-                            if (remote_lengths[i] != 0) {
-                                scalar_t* row_i = remote_rows + nb*remote_offsets[i];
-                                MPI_Isend(row_i, remote_lengths[i], row_type,
-                                          i, tag, comm, &requests[request_count]);
+                        for (int r = 0; r < comm_size; ++r) {
+                            // Assumes remote_count[root_rank] == 0
+                            if (remote_count[r] != 0) {
+                                scalar_t* rows_r = remote_rows + nb*remote_offsets[r];
+                                MPI_Isend(rows_r, remote_count[r], row_type,
+                                          r, tag, comm, &requests[request_count]);
                                 request_count++;
                             }
                         }
                         MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
                     }
-                    else {
+                    else { // not root
+                        // Build table mapping my pivots to row index in workspace.
                         std::map<Pivot, int> remote_pivot_table;
                         int remote_length = 0;
                         for (int64_t i = begin; i != end; i += inc) {
@@ -660,6 +683,7 @@ void permuteRows(
                         if (remote_length > 0) {
                             int64_t remote_rows_size = remote_length*nb;
 
+                            // Pack pivot rows into workspace.
                             int64_t count = 0;
                             for (int64_t i = begin; i != end; i += inc) {
                                 int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
@@ -680,6 +704,8 @@ void permuteRows(
                             }
                             compute_queue->sync();
 
+                            // Send rows, then recv updated rows.
+                            // todo: MPI GPU direct.
                             std::vector<scalar_t> remote_rows_vect (remote_rows_size);
                             scalar_t* remote_rows = remote_rows_vect.data();
                             blas::device_memcpy<scalar_t>(remote_rows, remote_rows_dev,
@@ -693,6 +719,7 @@ void permuteRows(
                             blas::device_memcpy<scalar_t>(remote_rows_dev, remote_rows,
                                                           remote_rows_size, *compute_queue);
 
+                            // Unpack pivot rows from workspace.
                             count = 0;
                             for (int64_t i = begin; i != end; i += inc) {
                                 int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);

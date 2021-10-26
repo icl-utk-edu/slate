@@ -96,9 +96,7 @@ void test_genorm_work(Params& params, bool run)
     else if (trans == slate::Op::ConjTrans)
         A = conjTranspose(A);
 
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+    print_matrix("A", A, params);
 
     real_t A_norm = 0;
     if (! ref_only) {

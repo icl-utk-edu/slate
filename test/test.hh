@@ -63,6 +63,10 @@ public:
     testsweeper::ParamDouble tol;
     testsweeper::ParamInt    repeat;
     testsweeper::ParamInt    verbose;
+    testsweeper::ParamInt    print_edgeitems;
+    testsweeper::ParamInt    print_threshold;
+    testsweeper::ParamInt    print_width;
+    testsweeper::ParamInt    print_precision;
     testsweeper::ParamInt    extended;
     testsweeper::ParamInt    cache;
 

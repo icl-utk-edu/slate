@@ -44,7 +44,6 @@ void test_gelqf_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -93,9 +92,7 @@ void test_gelqf_work(Params& params, bool run)
 
     slate::TriangularFactors<scalar_t> T;
 
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+    print_matrix("A", A, params);
 
     // For checks, keep copy of original matrix A.
     std::vector<scalar_t> Aref_data;
@@ -130,11 +127,9 @@ void test_gelqf_work(Params& params, bool run)
         params.time() = time;
         params.gflops() = gflop / time;
 
-        if (verbose > 1) {
-            print_matrix("A_factored", A);
-            print_matrix("Tlocal",  T[0]);
-            print_matrix("Treduce", T[1]);
-        }
+        print_matrix("A_factored", A, params);
+        print_matrix("Tlocal",  T[0], params);
+        print_matrix("Treduce", T[1], params);
     }
 
     if (check) {
@@ -163,9 +158,7 @@ void test_gelqf_work(Params& params, bool run)
         // Norm of original matrix: || A ||_1
         real_t A_norm = slate::norm(slate::Norm::One, Aref);
 
-        if (verbose > 1) {
-            print_matrix("L", LQ);
-        }
+        print_matrix("L", LQ, params);
 
         // Form LQ, where Q's representation is in A and T, and L is in LQ.
         slate::lq_multiply_by_q(
@@ -174,18 +167,14 @@ void test_gelqf_work(Params& params, bool run)
         // slate::unmlq(
         //     slate::Side::Right, slate::Op::NoTrans, A, T, LQ, opts);
 
-        if (verbose > 1) {
-            print_matrix("LQ", LQ);
-        }
+        print_matrix("LQ", LQ, params);
 
         // Form LQ - A, where A is in Aref.
         // todo: slate::add(-one, Aref, LQ);
         // using axpy assumes Aref_data and LQ_data have same lda.
         blas::axpy(LQ_data.size(), -one, &Aref_data[0], 1, &LQ_data[0], 1);
 
-        if (verbose > 1) {
-            print_matrix("LQ - A", LQ);
-        }
+        print_matrix("LQ - A", LQ, params);
 
         // Norm of backwards error: || LQ - A ||_1
         real_t R_norm = slate::norm(slate::Norm::One, LQ);

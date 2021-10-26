@@ -20,43 +20,6 @@
 namespace slate {
 
 // -----------------------------------------------------------------------------
-const int64_t idist_rand  = 1;
-const int64_t idist_rands = 2;
-const int64_t idist_randn = 3;
-
-enum class TestMatrixType {
-    rand      = 1,  // maps to larnv idist
-    rands     = 2,  // maps to larnv idist
-    randn     = 3,  // maps to larnv idist
-    zero,
-    identity,
-    jordan,
-    diag,
-    svd,
-    poev,
-    heev,
-    geev,
-    geevx,
-};
-
-enum class TestMatrixDist {
-    rand      = 1,  // maps to larnv idist
-    rands     = 2,  // maps to larnv idist
-    randn     = 3,  // maps to larnv idist
-    arith,
-    geo,
-    cluster0,
-    cluster1,
-    rarith,
-    rgeo,
-    rcluster0,
-    rcluster1,
-    logrand,
-    specified,
-    none,
-};
-
-// -----------------------------------------------------------------------------
 template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,

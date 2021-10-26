@@ -222,6 +222,9 @@ public:
         return tileInsertWorkspace(i, j, host_num_, layout_);
     }
 
+    scalar_t* allocWorkspaceBuffer(int device, int64_t size);
+    void freeWorkspaceBuffer(int device, scalar_t* buffer);
+
     //--------------------------------------------------------------------------
     // MOSI
 private:
@@ -453,6 +456,9 @@ protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set);
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
                         int radix, int tag, Layout layout);
+    void tileIbcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
+                        int radix, int tag, Layout layout,
+                        std::vector<MPI_Request>& send_requests);
 
     // todo: should this be private?
     void tileReduceFromSet(int64_t i, int64_t j,
@@ -1310,6 +1316,40 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsertWorkspace(
 }
 
 //------------------------------------------------------------------------------
+/// Allocates a workspace buffer using the matrix's memory pool.
+/// The memory must be freed with BaseMatrix::freeWorkspaceBuffer
+///
+/// @param[in] device
+///     Device ID (GPU or Host) where the memory block is needed.
+///
+/// @param[in] size
+///     The required allocation size
+///
+/// @return Pointer to the buffer
+///
+template<typename scalar_t>
+scalar_t* BaseMatrix<scalar_t>::allocWorkspaceBuffer(int device, int64_t size)
+{
+    assert(size <= storage_->tileMb(0)*storage_->tileNb(0));
+    return storage_->allocWorkspaceBuffer(device);
+}
+
+//------------------------------------------------------------------------------
+/// Frees a workspace buffer allocated with BaseMatrix::allocWorkspaceBuffer.
+///
+/// @param[in] device
+///     Device ID (GPU or Host) where the memory block is needed.
+///
+/// @param[in] buffer
+///     Pointer to the buffer
+///
+template<typename scalar_t>
+void BaseMatrix<scalar_t>::freeWorkspaceBuffer(int device, scalar_t* buffer)
+{
+    storage_->releaseWorkspaceBuffer(buffer, device);
+}
+
+//------------------------------------------------------------------------------
 /// Insert tile {i, j} of op(A) with existing data.
 ///
 /// @param[in] i
@@ -1731,6 +1771,8 @@ void BaseMatrix<scalar_t>::listBcast(
     int mpi_size;
     MPI_Comm_size(mpiComm(), &mpi_size);
 
+    std::vector<MPI_Request> send_requests;
+
     for (auto bcast : bcast_list) {
 
         auto i = std::get<0>(bcast);
@@ -1768,7 +1810,7 @@ void BaseMatrix<scalar_t>::listBcast(
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
             // Currently uses 2D hypercube p2p send.
-            tileBcastToSet(i, j, bcast_set, 2, tag, layout);
+            tileIbcastToSet(i, j, bcast_set, 2, tag, layout, send_requests);
         }
 
         // Copy to devices.
@@ -1818,6 +1860,8 @@ void BaseMatrix<scalar_t>::listBcast(
             }
         }
     }
+    slate_mpi_call(
+        MPI_Waitall(send_requests.size(), send_requests.data(), MPI_STATUSES_IGNORE));
     #pragma omp taskwait
 }
 
@@ -2099,6 +2143,49 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     int64_t i, int64_t j, std::set<int> const& bcast_set,
     int radix, int tag, Layout layout)
 {
+    std::vector<MPI_Request> requests;
+    requests.reserve(radix);
+
+    tileIbcastToSet(i, j, bcast_set, radix, tag, layout, requests);
+    slate_mpi_call(MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE));
+}
+
+//------------------------------------------------------------------------------
+/// [internal]
+/// Broadcast tile {i, j} to all MPI ranks in the bcast_set.
+/// This should be called by all (and only) ranks that are in bcast_set,
+/// as either the root sender or a receiver.
+/// This function implements a custom pattern using sends and receives.
+/// Data received must be in 'layout' (ColMajor/RowMajor) major.
+/// Nonblocking sends are used, with requests appended to the provided vector.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] bcast_set
+///     Set of MPI ranks to broadcast to.
+///
+/// @param[in] radix
+///     Radix of the communication pattern.
+///
+/// @param[in] tag
+///     MPI tag, default 0.
+///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the received data.
+///
+/// @param[in,out] send_requests
+///     Vector where requests for this bcast are appended.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileIbcastToSet(
+    int64_t i, int64_t j, std::set<int> const& bcast_set,
+    int radix, int tag, Layout layout,
+    std::vector<MPI_Request>& send_requests)
+{
     // Quit if only root in the broadcast set.
     if (bcast_set.size() == 1)
         return;
@@ -2141,19 +2228,13 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     if (! send_to.empty()) {
         // read tile on host memory
         tileGetForReading(i, j, LayoutConvert(layout));
-        // Forward using mpi_send()
-        // for (int dst : send_to)
-        //     at(i, j).send(new_vec[dst], mpi_comm_, tag);
 
-        // Forward using multiple mpi_isend() calls, followed by a waitall
-        std::vector<MPI_Request> isend_req_array(send_to.size(), MPI_REQUEST_NULL);
-        int idx=0;
+        // Forward using multiple mpi_isend() calls
         for (int dst : send_to) {
-            at(i, j).isend(new_vec[dst], mpi_comm_, tag, &isend_req_array[idx]);
-            idx++;
+            MPI_Request request;
+            at(i, j).isend(new_vec[dst], mpi_comm_, tag, &request);
+            send_requests.push_back(request);
         }
-        slate_mpi_call(
-            MPI_Waitall(isend_req_array.size(), &isend_req_array[0], MPI_STATUSES_IGNORE));
     }
 }
 
@@ -2733,7 +2814,7 @@ void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
     }
 
     //todo: was tileGet(tile_set, device, layout, false, false, device != hostNum());
-    //todo: changed asyn to false to make it work using HIP
+    //todo: changed async to false to make it work using HIP
     tileGet(tile_set, device, layout, false, false, false);
 
     if (device != hostNum())

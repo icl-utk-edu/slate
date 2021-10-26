@@ -169,13 +169,11 @@ void test_gels_work(Params& params, bool run)
         // slate::gemm(one, opA, X0, zero, B);
     }
 
-    if (verbose > 1) {
-        print_matrix( "A",  A  );
-        print_matrix( "X0", X0 );
-        print_matrix( "B",  B  );
-        print_matrix( "X",  X  );
-        print_matrix( "BX", BX );
-    }
+    print_matrix( "A", A, params );
+    print_matrix( "X0", X0, params );
+    print_matrix( "B", B, params );
+    print_matrix( "X", X, params );
+    print_matrix( "BX", BX, params );
 
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> Aref_data( lldA*nlocA );
@@ -228,10 +226,8 @@ void test_gels_work(Params& params, bool run)
         params.time() = time;
         params.gflops() = gflop / time;
 
-        if (verbose > 1) {
-            print_matrix( "A2", A );
-            print_matrix( "BX2", BX );
-        }
+        print_matrix( "A2", A, params );
+        print_matrix( "BX2", BX, params );
     }
 
     if (check) {
@@ -314,8 +310,8 @@ void test_gels_work(Params& params, bool run)
 
             if (verbose >= 1)
                 printf( "%% D %lld-by-%lld\n", llong( D.mt() ), llong( D.nt() ) );
-            if (verbose > 1)
-                print_matrix("D", D);
+
+            print_matrix("D", D, params);
 
             slate::TriangularFactors<scalar_t> TD;
             slate::qr_factor(D, TD);
@@ -325,7 +321,7 @@ void test_gels_work(Params& params, bool run)
             if (verbose > 1) {
                 auto DR = slate::TrapezoidMatrix<scalar_t>(
                               slate::Uplo::Upper, slate::Diag::NonUnit, D );
-                print_matrix("DR", DR);
+                print_matrix("DR", DR, params);
             }
 
             // error = || R_{opAm : opAn-1, opAm : opAm+nrhs-1} ||_max

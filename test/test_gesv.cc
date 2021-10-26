@@ -140,7 +140,7 @@ void test_gesv_work(Params& params, bool run)
     };
 
     // 1D block row cyclic
-    int num_devices_ = 0;//num_devices;
+    int num_devices_ = 0; // num_devices;
     std::function< int (std::tuple<int64_t, int64_t> ij) >
     tileDevice = [num_devices_](std::tuple<int64_t, int64_t> ij) {
         int64_t i = std::get<0>(ij);

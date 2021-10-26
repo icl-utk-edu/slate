@@ -43,7 +43,6 @@ void test_geqrf_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -92,9 +91,7 @@ void test_geqrf_work(Params& params, bool run)
 
     slate::TriangularFactors<scalar_t> T;
 
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+        print_matrix("A", A, params);
 
     // For checks, keep copy of original matrix A.
     slate::Matrix<scalar_t> Aref;
@@ -134,11 +131,9 @@ void test_geqrf_work(Params& params, bool run)
         params.time() = time;
         params.gflops() = gflop / time;
 
-        if (verbose > 1) {
-            print_matrix("A_factored", A);
-            print_matrix("Tlocal",  T[0]);
-            print_matrix("Treduce", T[1]);
-        }
+        print_matrix("A_factored", A, params);
+        print_matrix("Tlocal",  T[0], params);
+        print_matrix("Treduce", T[1], params);
     }
 
     if (check) {
@@ -164,9 +159,7 @@ void test_geqrf_work(Params& params, bool run)
         // Copy A's upper trapezoid R to QR's upper trapezoid R1.
         slate::copy(R, R1);
 
-        if (verbose > 1) {
-            print_matrix("R", QR);
-        }
+        print_matrix("R", QR, params);
 
         // Multiply QR by Q (implicitly stored in A and T).
         // Form QR, where Q's representation is in A and T, and R is in QR.
@@ -176,9 +169,7 @@ void test_geqrf_work(Params& params, bool run)
         // slate::unmqr(
         //     slate::Side::Left, slate::Op::NoTrans, A, T, QR, opts);
 
-        if (verbose > 1) {
-            print_matrix("QR", QR);
-        }
+        print_matrix("QR", QR, params);
 
         // QR should now have the product Q*R, which should equal the original A.
         // Subtract the original Aref from QR.
@@ -186,9 +177,7 @@ void test_geqrf_work(Params& params, bool run)
         // todo: slate::add(-one, Aref, QR);
         // using axpy assumes Aref_data and QR_data have same lda.
         blas::axpy(QR_data.size(), -one, &Aref_data[0], 1, &QR_data[0], 1);
-        if (verbose > 1) {
-            print_matrix("QR - A", QR);
-        }
+        print_matrix("QR - A", QR, params);
 
         // Norm of backwards error: || QR - A ||_1
         real_t R_norm = slate::norm(slate::Norm::One, QR);

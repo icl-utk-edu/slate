@@ -43,7 +43,6 @@ void test_scale_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::Uplo uplo = slate::Uplo::General;
@@ -102,9 +101,7 @@ void test_scale_work(Params& params, bool run)
     else if (trans == slate::Op::ConjTrans)
         A = conjTranspose(A);
 
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+    print_matrix("A", A, params);
 
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
@@ -161,10 +158,7 @@ void test_scale_work(Params& params, bool run)
             { omp_num_threads = omp_get_num_threads(); }
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-
-            if (verbose >= 2)
-                print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD);
-
+            print_matrix("Aref", Aref, params);
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -176,16 +170,12 @@ void test_scale_work(Params& params, bool run)
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            if (verbose >= 2)
-                print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD);
-
+            print_matrix("Aref", Aref, params);
 
             // get differences A = A - Aref
             slate::add(-one, Aref, one, A);
 
-
-            if (verbose >= 2)
-                print_matrix("Diff", A);
+            print_matrix("Diff", A, params);
 
             // norm(A - Aref)
             real_t A_diff_norm = slate::norm(slate::Norm::One, A);

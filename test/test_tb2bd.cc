@@ -68,8 +68,8 @@ void test_tb2bd_work(Params& params, bool run)
         // Diagonal from ge2tb is real.
         Afull_data[j + j*lda] = real( Afull_data[j + j*lda] );
     }
-    if (verbose && mpi_rank == 0) {
-        print_matrix( "Afull_data", m, n, &Afull_data[0], lda );
+    if (mpi_rank == 0) {
+        print_matrix( "Afull_data", m, n, &Afull_data[0], lda, params );
     }
 
     auto Afull = slate::Matrix<scalar_t>::fromLAPACK(
@@ -134,8 +134,7 @@ void test_tb2bd_work(Params& params, bool run)
         Aband.gather(&Afull_data[0], lda);
 
         if (mpi_rank == 0) {
-            if (verbose)
-                print_matrix( "Afull_data_out", m, n, &Afull_data[0], lda );
+            print_matrix( "Afull_data_out", m, n, &Afull_data[0], lda, params );
 
             // Check that updated Aband is real bidiagonal by finding max value
             // outside bidiagonal, and imaginary parts of bidiagonal.
@@ -186,10 +185,9 @@ void test_tb2bd_work(Params& params, bool run)
                     E[E_index++] = real( T(j, j+1) );
                 }
             }
-            if (verbose) {
-                print_matrix("D", 1, min_mn,   &Sigma2[0], 1);
-                print_matrix("E", 1, min_mn-1, &E[0],  1);
-            }
+
+            print_matrix("D", 1, min_mn,   &Sigma2[0], 1, params);
+            print_matrix("E", 1, min_mn-1, &E[0],  1, params);
 
             info = lapack::bdsqr(lapack::Uplo::Upper, min_mn, 0, 0, 0,
                                  &Sigma2[0], &E[0], dummy, 1, dummy, 1, dummy, 1);

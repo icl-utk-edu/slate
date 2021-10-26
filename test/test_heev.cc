@@ -126,9 +126,7 @@ void test_heev_work(Params& params, bool run)
         printf( "%% Z   %6lld-by-%6lld\n", llong( Z.m() ), llong( Z.n() ) );
     }
 
-    if (verbose > 1) {
-        print_matrix( "A",  A  );
-    }
+    print_matrix( "A", A, params );
 
     std::vector<scalar_t> Aref_data;
     std::vector<real_t> Lambda_ref;
@@ -167,10 +165,8 @@ void test_heev_work(Params& params, bool run)
         // compute and save timing/performance
         params.time() = time;
 
-        if (verbose > 1) {
-            print_matrix( "A",  A  );
-            print_matrix( "Z",  Z  ); //Relevant when slate::eig_vals takes Z
-        }
+        print_matrix( "A", A, params );
+        print_matrix( "Z", Z, params ); // Relevant when slate::eig_vals takes Z
     }
 
     if (check || ref) {

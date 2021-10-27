@@ -10,6 +10,8 @@
 
 using std::max;
 
+namespace test {
+
 //------------------------------------------------------------------------------
 // global variables
 int nb;
@@ -250,9 +252,13 @@ void run_tests()
     run_test(test_clearDeviceBlocks, "clearDeviceBlocks");
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     // global nb
     nb = 16;
     if (argc > 1) {

@@ -7,6 +7,8 @@
 #include "slate/Matrix.hh"
 #include "internal/internal.hh"
 
+namespace test {
+
 // -----------------------------------------------------------------------------
 // arrays of options to loop over in tests
 blas::Uplo uplos[] = {
@@ -764,9 +766,13 @@ void test_herk(slate::Target target)
     }}}
 }
 
+}  // namespace test
+
 // -----------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     MPI_Init(&argc, &argv);
     g_mpi_comm = MPI_COMM_WORLD;
     MPI_Comm_rank(g_mpi_comm, &g_mpi_rank);

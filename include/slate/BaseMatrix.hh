@@ -2443,14 +2443,14 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             dst_tile->layoutConvert(*queue, async);
         }
         else if (copy_first) {
-            blas::Queue* queue = comm_queue(work_device);
+            blas::Queue* queue2 = comm_queue(work_device);
 
             int64_t work_stride = src_tile->stride();
 
             Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
                                      work_stride, work_device,
                                      TileKind::Workspace, src_tile->layout());
-            src_tile->copyData(&work_tile, *queue, async);
+            src_tile->copyData(&work_tile, *queue2, async);
 
             if (dst_tile->isContiguous()) {
                 dst_tile->stride( src_tile->layout() == Layout::ColMajor ?
@@ -2466,12 +2466,12 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             device::transpose(phys_mb, phys_nb,
                               work_data, work_stride,
                               dst_data, dst_tile->stride(),
-                              *queue);
+                              *queue2);
             if (! async)
-                queue->sync();
+                queue2->sync();
         }
         else {
-            blas::Queue* queue = comm_queue(work_device);
+            blas::Queue* queue2 = comm_queue(work_device);
 
             int64_t work_stride = src_tile->layout() == Layout::ColMajor ?
                                   src_tile->nb() :
@@ -2486,14 +2486,14 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             device::transpose(phys_mb, phys_nb,
                               src_data, src_tile->stride(),
                               work_data, work_stride,
-                              *queue);
+                              *queue2);
             Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
                                      work_stride, work_device,
                                      TileKind::Workspace, target_layout);
             if (dst_tile->isContiguous())
                 dst_tile->stride(work_stride);
 
-            work_tile.copyData(dst_tile, *queue, async);
+            work_tile.copyData(dst_tile, *queue2, async);
 
             if (! async)
                 queue->sync();

@@ -12,6 +12,8 @@
 using slate::ceildiv;
 using slate::roundup;
 
+namespace test {
+
 //------------------------------------------------------------------------------
 // global variables
 int m, n, k, mb, nb, p, q;
@@ -1233,6 +1235,8 @@ void test_Matrix_sub_trans()
     }
 }
 
+}  // namespace test
+
 //==============================================================================
 // To access BaseMatrix protected members, stick these in the slate::Debug class.
 // Admittedly a hack, since this is different than the Debug class in Debug.hh.
@@ -1305,6 +1309,8 @@ static void verify_slice(
 /// Tests A.slice( row1, row2, col1, col2 ).
 static void test_Matrix_slice()
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     int lda = roundup(m, mb);
     std::vector<double> Ad( lda*n );
     auto A = slate::Matrix<double>::fromLAPACK(
@@ -1426,6 +1432,8 @@ static void test_Matrix_slice()
 
 }; // class Debug
 }  // namespace slate
+
+namespace test {
 
 //------------------------------------------------------------------------------
 /// Tests Matrix( orig, i1, i2, j1, j2 ).
@@ -1807,9 +1815,13 @@ void run_tests()
     run_test(test_tileSend_tileRecv, "tileSend, tileRecv", mpi_comm);
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     MPI_Init(&argc, &argv);
 
     mpi_comm = MPI_COMM_WORLD;

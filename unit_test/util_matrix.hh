@@ -21,11 +21,15 @@ using slate::roundup;
 
 //------------------------------------------------------------------------------
 // global variables
+namespace test {
+
 extern int p, q;
 extern int mpi_rank;
 extern int mpi_size;
 extern MPI_Comm mpi_comm;
 extern int host_num, num_devices;
+
+}
 
 //==============================================================================
 // fromLAPACK
@@ -37,6 +41,8 @@ void verify_tile_lapack(
     slate::BaseMatrix<double>& A, int i, int j, int mb, int nb,
     int m, int n, double* Ad, int lda )
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     int rank = (i % p) + (j % q) * p;
     test_assert(A.tileRank(i, j) == rank);
 
@@ -95,6 +101,8 @@ void verify_tile_lapack(
     slate::BaseTrapezoidMatrix<double>& A, int i, int j, int nb,
     int m, int n, double* Ad, int lda )
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     int rank = (i % p) + (j % q) * p;
     test_assert(A.tileRank(i, j) == rank);
 
@@ -181,6 +189,8 @@ void get_2d_cyclic_dimensions(
     int& ntiles, int& ntiles_local, int& n_local,
     int& lda )
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     int mpi_rank;
     slate_mpi_call(
         MPI_Comm_rank(mpi_comm, &mpi_rank));
@@ -203,6 +213,8 @@ void verify_tile_scalapack(
     slate::BaseMatrix<double>& A, int i, int j, int mb, int nb,
     int m, int n, double* Ad, int lda )
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     int rank = (i % p) + (j % q) * p;
     test_assert(A.tileRank(i, j) == rank);
 
@@ -261,6 +273,8 @@ void verify_tile_scalapack(
     slate::BaseTrapezoidMatrix<double>& A, int i, int j, int nb,
     int m, int n, double* Ad, int lda )
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     int rank = (i % p) + (j % q) * p;
     test_assert(A.tileRank(i, j) == rank);
 
@@ -319,6 +333,8 @@ void verify_tile_device(
     slate::BaseMatrix<double>& A, int i, int j, int mb, int nb,
     int m, int n, double** Aarray, int lda )
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     int rank = (i % p) + (j % q) * p;
     test_assert(A.tileRank(i, j) == rank);
 
@@ -382,6 +398,8 @@ void verify_tile_device(
     slate::BaseTrapezoidMatrix<double>& A, int i, int j, int nb,
     int m, int n, double** Aarray, int lda )
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     int rank = (i % p) + (j % q) * p;
     test_assert(A.tileRank(i, j) == rank);
 

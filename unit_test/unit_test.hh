@@ -174,6 +174,8 @@ void printf_gather(int root, MPI_Comm comm, const std::string& str);
 void printf_gather(int root, MPI_Comm comm, const char* format, ...);
 
 /// To be implemented by user; called by unit_test_main().
+namespace test {
 void run_tests();
+}
 
 #endif // SLATE_UNIT_TEST_HH

@@ -639,7 +639,7 @@ void norm(internal::TargetType<Target::Devices>,
                     lapack::lange(in_norm, 1, batch_count, vals_host_array, 1);
             }
             else if (in_norm == Norm::Fro) {
-                int64_t batch_count = 0;
+                int64_t cnt = 0;
                 for (int q = 0; q < 6; ++q) {
                     // double for symmetric entries in off-diagonal blocks
                     real_t mult = (q < 4 ? 2.0 : 1.0);
@@ -647,9 +647,9 @@ void norm(internal::TargetType<Target::Devices>,
                         combine_sumsq(
                             devices_values[2*device + 0],
                             devices_values[2*device + 1],
-                            vals_host_array[2*batch_count + 0],
-                            vals_host_array[2*batch_count + 1] * mult);
-                        ++batch_count;
+                            vals_host_array[2*cnt + 0],
+                            vals_host_array[2*cnt + 1] * mult);
+                        ++cnt;
                     }
                 }
             }

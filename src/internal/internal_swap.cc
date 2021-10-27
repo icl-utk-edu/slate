@@ -326,11 +326,11 @@ void permuteRows(
                         }
                     }
                     else {
-                        auto remote_index = remote_pivot_table[pivot[i]];
+                        auto remote_idx = remote_pivot_table[pivot[i]];
                         blas::swap(
                             A.tileNb(j),
                             &A(0, j).at(i, 0), stride_0j,
-                            remote_rows + nb*remote_index, 1);
+                            remote_rows + nb*remote_idx, 1);
                     }
                 }
 
@@ -372,16 +372,16 @@ void permuteRows(
                     for (int64_t i = begin; i != end; i += inc) {
                         int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
                         if (pivot_rank == A.mpiRank()) {
-                            auto remote_index = remote_pivot_table[pivot[i]];
+                            auto remote_idx = remote_pivot_table[pivot[i]];
                             auto tile_index = pivot[i].tileIndex();
                             auto tile_offset = pivot[i].elementOffset();
 
-                            if (remote_index >= count) {
+                            if (remote_idx >= count) {
                                 int64_t stride_idxj = A(tile_index, j).rowIncrement();
                                 blas::copy(
                                     A.tileNb(j),
                                     &A(tile_index, j).at(tile_offset, 0), stride_idxj,
-                                    remote_rows + nb*remote_index, 1);
+                                    remote_rows + nb*remote_idx, 1);
                                 ++count;
                             }
                         }
@@ -398,15 +398,15 @@ void permuteRows(
                     for (int64_t i = begin; i != end; i += inc) {
                         int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
                         if (pivot_rank == A.mpiRank()) {
-                            auto remote_index = remote_pivot_table[pivot[i]];
+                            auto remote_idx = remote_pivot_table[pivot[i]];
                             auto tile_index = pivot[i].tileIndex();
                             auto tile_offset = pivot[i].elementOffset();
 
-                            if (remote_index >= count) {
+                            if (remote_idx >= count) {
                                 int64_t stride_idxj = A(tile_index, j).rowIncrement();
                                 blas::copy(
                                     A.tileNb(j),
-                                    remote_rows + nb*remote_index, 1,
+                                    remote_rows + nb*remote_idx, 1,
                                     &A(tile_index, j).at(tile_offset, 0), stride_idxj);
                                 ++count;
                             }
@@ -638,11 +638,11 @@ void permuteRows(
                                 }
                             }
                             else {
-                                auto remote_index = remote_pivot_table[pivot[i]];
+                                auto remote_idx = remote_pivot_table[pivot[i]];
                                 blas::swap(
                                     A.tileNb(j),
                                     &A(0, j, device).at(i, 0), 1,
-                                    remote_rows_dev + nb*remote_index, 1,
+                                    remote_rows_dev + nb*remote_idx, 1,
                                     *compute_queue);
                             }
                         }
@@ -688,15 +688,15 @@ void permuteRows(
                             for (int64_t i = begin; i != end; i += inc) {
                                 int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
                                 if (pivot_rank == A.mpiRank()) {
-                                    auto remote_index = remote_pivot_table[pivot[i]];
+                                    auto remote_idx = remote_pivot_table[pivot[i]];
                                     auto tile_index = pivot[i].tileIndex();
                                     auto tile_offset = pivot[i].elementOffset();
 
-                                    if (remote_index >= count) {
+                                    if (remote_idx >= count) {
                                         blas::copy(
                                             nb,
                                             &A(tile_index, j, device).at(tile_offset, 0), 1,
-                                            remote_rows_dev + nb*remote_index, 1,
+                                            remote_rows_dev + nb*remote_idx, 1,
                                             *compute_queue);
                                         ++count; // only swap the first time
                                     }
@@ -724,14 +724,14 @@ void permuteRows(
                             for (int64_t i = begin; i != end; i += inc) {
                                 int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
                                 if (pivot_rank == A.mpiRank()) {
-                                    auto remote_index = remote_pivot_table[pivot[i]];
+                                    auto remote_idx = remote_pivot_table[pivot[i]];
                                     auto tile_index = pivot[i].tileIndex();
                                     auto tile_offset = pivot[i].elementOffset();
 
-                                    if (remote_index >= count) {
+                                    if (remote_idx >= count) {
                                         blas::copy(
                                             A.tileNb(j),
-                                            remote_rows_dev + nb*remote_index, 1,
+                                            remote_rows_dev + nb*remote_idx, 1,
                                             &A(tile_index, j, device).at(tile_offset, 0), 1,
                                             *compute_queue);
                                         ++count; // only swap the first time

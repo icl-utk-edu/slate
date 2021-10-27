@@ -115,7 +115,7 @@ void test_copy_work(Params& params, bool run)
             B = slate::HermitianMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
         }
         else {
-            throw slate::Exception("unknown routine: not compatible with copy");
+            throw slate::Exception("unknown matrix type: not compatible with copy");
         }
         A.insertLocalTiles(origin_target);
         B.insertLocalTiles(origin_target);
@@ -161,7 +161,7 @@ void test_copy_work(Params& params, bool run)
                     uplo, n, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         }
         else {
-            throw slate::Exception("unknown routine: not compatible with copy");
+            throw slate::Exception("unknown matrix type: not compatible with copy");
         }
     }
 
@@ -184,33 +184,33 @@ void test_copy_work(Params& params, bool run)
         else if constexpr (std::is_same<matrix_type, slate::TrapezoidMatrix<scalar_t>>::value) {
             // Trapezoidal mxn matrix
             Aref = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
-                       uplo, slate::Diag::NonUnit, m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                       uplo, slate::Diag::NonUnit, m, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
             Bref = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
-                       uplo, slate::Diag::NonUnit, m, n, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+                       uplo, slate::Diag::NonUnit, m, n, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value) {
             // Triangular nxn matrix
             Aref = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
-                       uplo, slate::Diag::NonUnit, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                       uplo, slate::Diag::NonUnit, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
             Bref = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
-                       uplo, slate::Diag::NonUnit, n, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+                       uplo, slate::Diag::NonUnit, n, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value) {
             // Symmetric nxn matrix
             Aref = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
-                       uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                       uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
             Bref = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
-                       uplo, n, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+                       uplo, n, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value) {
             // Hermitian nxn matrix
             Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                       uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                       uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
             Bref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                       uplo, n, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+                       uplo, n, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         }
         else {
-            throw slate::Exception("unknown routine: not compatible with copy");
+            throw slate::Exception("unknown matrix type: not compatible with copy");
         }
         slate::add(one, A, zero, Aref); // copying A into Aref, without using the copy routine
     }
@@ -311,11 +311,11 @@ void test_copy_work(Params& params, bool run)
             params.ref_time() = time;
 
             real_t errorA = A_diff_norm / (n * A_norm);
-            real_t errorB = B_diff_norm / (n * A_norm);
+            real_t errorB = B_diff_norm / (n * A_norm); // B_norm == A_norm (or should)
 
             params.error() = errorA + errorB;
 
-            params.okay() = (params.error() == 0);  // Copy should be exact
+            params.okay() = (params.error() == 0); // Copy should be exact
 
             slate_set_num_blas_threads(saved_num_threads);
 

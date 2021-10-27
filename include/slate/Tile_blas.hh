@@ -874,8 +874,8 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
         int64_t n = std::min(X.nb(), Y.nb());
         if (Y.colIncrement()==1) {
             // one column of y at a time
-            for (int64_t j = 0; j < n; j++) {
-                for (int64_t i = j; i < m; i++) {
+            for (int64_t j = 0; j < n; ++j) {
+                for (int64_t i = j; i < m; ++i) {
                     Y00[i+j*y_row_inc] = beta * Y00[i+j*y_row_inc] + alpha * X00[i+j*x_row_inc];
                 }
             }
@@ -891,15 +891,15 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
         if (Y.colIncrement()==1) {
             // one column of y at a time
             if (m > n) {
-                for (int64_t j = 0; j < n; j++) {
-                    for (int64_t i = 0; i <= j; i++) {
+                for (int64_t j = 0; j < n; ++j) {
+                    for (int64_t i = 0; i <= j; ++i) {
                         Y00[i+j*y_row_inc] = beta * Y00[i+j*y_row_inc] + alpha * X00[i+j*x_row_inc];
                     }
                 }
             }
             else {
-                for (int64_t j = 0; j < n; j++) {
-                    for (int64_t i = 0; i <= j && i < m; i++) {
+                for (int64_t j = 0; j < n; ++j) {
+                    for (int64_t i = 0; i <= j && i < m; ++i) {
                         Y00[i+j*y_row_inc] = beta * Y00[i+j*y_row_inc] + alpha * X00[i+j*x_row_inc];
                     }
                 }

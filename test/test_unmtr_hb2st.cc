@@ -15,7 +15,10 @@
 #include <cstdlib>
 #include <utility>
 
+// TODO remove
 #include <cuda_profiler_api.h>
+#include "auxiliary/Debug.hh"
+
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_unmtr_hb2st_work(Params& params, bool run)
@@ -140,7 +143,28 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     if (verbose >= 2) {
         print_matrix( "Q0", Q );
     }
-
+/*
+    if(mpi_rank == 0) {
+        printf("0V\n");
+        slate::Debug::printTilesMaps(V);
+        printf("0Q\n");
+        slate::Debug::printTilesMaps(Q);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    if(mpi_rank == 1) {
+        printf("1V\n");
+        slate::Debug::printTilesMaps(V);
+        printf("1Q\n");
+        slate::Debug::printTilesMaps(Q);
+    }
+    MPI_Barrier(MPI_COMM_WORLD);
+    if(mpi_rank == 2) {
+        printf("2V\n");
+        slate::Debug::printTilesMaps(V);
+        printf("2Q\n");
+        slate::Debug::printTilesMaps(Q);
+    }
+*/
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
 

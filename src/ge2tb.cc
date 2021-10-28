@@ -236,6 +236,8 @@ void ge2tb(slate::internal::TargetType<target>,
                 // much better cache efficiency.
                 for (int64_t j = 0; j < V_panel.nt(); ++j) {
                     if (V_panel.tileIsLocal(0, j)) {
+                        V_panel.tileGetForReading( 0, j, A.hostNum(), LayoutConvert(layout));
+                        VT_panel.tileGetForWriting( j, 0, A.hostNum(), LayoutConvert(layout) );
                         deepConjTranspose(V_panel(0, j), VT_panel(j, 0));
                     }
                 }
@@ -251,6 +253,8 @@ void ge2tb(slate::internal::TargetType<target>,
                 for (int64_t i = 0; i < TVlT_panel.mt(); ++i) {
                     if (TVl_panel.tileIsLocal(0, i)) {
                         TVl_panel.tileInsert(0, i);
+                        TVlT_panel.tileGetForReading( i, 0, A.hostNum(), LayoutConvert(layout));
+                        TVl_panel.tileGetForWriting( 0, i, A.hostNum(), LayoutConvert(layout) );
                         gecopy(TVlT_panel(i, 0), TVl_panel(0, i));
                         break;
                     }
@@ -259,6 +263,8 @@ void ge2tb(slate::internal::TargetType<target>,
                 // Copy result back.
                 for (int64_t j = 0; j < V_panel.nt(); ++j) {
                     if (V_panel.tileIsLocal(0, j)) {
+                        VT_panel.tileGetForReading( j, 0, A.hostNum(), LayoutConvert(layout));
+                        V_panel.tileGetForWriting( 0, j, A.hostNum(), LayoutConvert(layout) );
                         deepConjTranspose(VT_panel(j, 0), V_panel(0, j));
                     }
                 }

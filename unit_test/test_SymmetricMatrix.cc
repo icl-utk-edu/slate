@@ -16,6 +16,8 @@
 using slate::ceildiv;
 using slate::roundup;
 
+namespace test {
+
 //------------------------------------------------------------------------------
 // global variables
 int m, n, k, mb, nb, p, q;
@@ -1011,12 +1013,12 @@ void test_Symmetric_from_Matrix()
     // Rectangular A should fail.
     if (m != n) {
         test_assert_throw(
-            auto L = slate::SymmetricMatrix<double>(
+            auto Lrect = slate::SymmetricMatrix<double>(
                 slate::Uplo::Lower, A ),
             slate::Exception);
 
         test_assert_throw(
-            auto U = slate::SymmetricMatrix<double>(
+            auto Urect = slate::SymmetricMatrix<double>(
                 slate::Uplo::Upper, A ),
             slate::Exception);
     }
@@ -1083,11 +1085,11 @@ void test_Symmetric_from_Trapezoid()
             m, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
         test_assert_throw(
-            auto L = slate::SymmetricMatrix<double>( L0rect ),
+            auto Lrect = slate::SymmetricMatrix<double>( L0rect ),
             slate::Exception);
 
         test_assert_throw(
-            auto U = slate::SymmetricMatrix<double>( U0rect ),
+            auto Urect = slate::SymmetricMatrix<double>( U0rect ),
             slate::Exception);
     }
 }
@@ -1179,9 +1181,13 @@ void run_tests()
     run_test(test_Symmetric_from_Triangular, "SymmetricMatrix( TriangularMatrix )", mpi_comm);
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     MPI_Init(&argc, &argv);
 
     mpi_comm = MPI_COMM_WORLD;

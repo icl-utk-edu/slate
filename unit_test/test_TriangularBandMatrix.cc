@@ -17,6 +17,8 @@
 using slate::ceildiv;
 using slate::roundup;
 
+namespace test {
+
 //------------------------------------------------------------------------------
 // global variables
 int m, n, k, mb, nb, kd, p, q;
@@ -299,9 +301,13 @@ void run_tests()
     run_test(test_TriangularBand_from_BandMatrix,      "TriangularBandMatrix( uplo, diag, BandMatrix )",    mpi_comm);
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     MPI_Init(&argc, &argv);
 
     mpi_comm = MPI_COMM_WORLD;

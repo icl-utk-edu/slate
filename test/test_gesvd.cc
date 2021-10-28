@@ -142,19 +142,15 @@ void test_gesvd_work(Params& params, bool run)
         printf( "%% VT  %6lld-by-%6lld\n", llong(  VT.m() ), llong(  VT.n() ) );
     }
 
-    if (verbose > 1) {
-        print_matrix( "A",  A  );
-        print_matrix( "U",  U  );
-        print_matrix( "VT", VT );
-    }
+    print_matrix( "A",  A, params );
+    print_matrix( "U",  U, params );
+    print_matrix( "VT", VT, params );
 
     //params.matrix.kind.set_default("svd");
     //params.matrix.cond.set_default(1.e16);
 
     slate::generate_matrix( params.matrix, A);
-    if (verbose > 1) {
-        print_matrix( "A0",  A  );
-    }
+    print_matrix( "A0",  A , params );
 
     std::vector<real_t> Sigma_ref;
     slate::Matrix<scalar_t> Aref;
@@ -186,11 +182,9 @@ void test_gesvd_work(Params& params, bool run)
         // compute and save timing/performance
         params.time() = time;
 
-        if (verbose > 1) {
-            print_matrix( "A",  A  );
-            print_matrix( "U",  U  );
-            print_matrix( "VT", VT );
-        }
+        print_matrix( "A",  A, params );
+        print_matrix( "U",  U, params );
+        print_matrix( "VT", VT, params );
     }
 
     if (check || ref) {

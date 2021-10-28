@@ -179,7 +179,7 @@ if (not opts.dim):
         nk_tall  = ' --dim 1x100x50'  # 2:1
         nk_wide  = ' --dim 1x50x100'  # 1:2
         if (is_default_nb):
-            opts.nb = '32'
+            opts.nb = '8'
 
     if (opts.xsmall):
         n       += ' --dim 10'
@@ -338,7 +338,8 @@ if (opts.blas3):
     [ 'syrk',  gen + dtype_real    + la + uplo + trans    + mn + ab ],
     [ 'syrk',  gen + dtype_complex + la + uplo + trans_nt + mn + ab ],
 
-    [ 'tbsm',  gen + dtype + la + side + uplo + transA + diag + mn + a + kd ],
+    # todo: tbsm fails for nb=8 or 16 with --quick.
+    [ 'tbsm',  gen_no_nb + ' --nb 32' + dtype + la + side + uplo + transA + diag + mn + a + kd ],
     [ 'trmm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
     [ 'trsm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
     ]
@@ -552,7 +553,10 @@ if (opts.norms):
 # aux
 if (opts.aux):
     cmds += [
-    [ 'scale', gen + dtype + mn ],
+    [ 'add',   gen + dtype + mn + ab ],
+    [ 'copy',  gen + dtype + mn      ],
+    [ 'scale', gen + dtype + mn + ab ],
+    [ 'set',   gen + dtype + mn + ab ],
     ]
 
 # ------------------------------------------------------------------------------

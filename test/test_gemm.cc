@@ -18,7 +18,6 @@
 #include <cstdlib>
 #include <utility>
 
-#undef PIN_MATRICES
 #define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template<typename scalar_t>
@@ -99,29 +98,24 @@ void test_gemm_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
 
     // Matrix B: figure out local size.
     int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-    std::vector<scalar_t> B_data(lldB*nlocB);
 
     // Matrix C: figure out local size.
     int64_t mlocC = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocC = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldC  = blas::max(1, mlocC); // local leading dimension of C
-    std::vector<scalar_t> C_data(lldC*nlocC);
 
-    #ifdef PIN_MATRICES
-        int cuerror;
-        cuerror = cudaHostRegister(
-            &A_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
-        cuerror = cudaHostRegister(
-            &B_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
-        cuerror = cudaHostRegister(
-            &C_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
-    #endif
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data, B_data, C_data;
+    if (ref || origin == slate::Origin::ScaLAPACK) {
+        A_data.resize( lldA * nlocA );
+        B_data.resize( lldB * nlocB );
+        C_data.resize( lldC * nlocC );
+    }
 
     slate::Matrix<scalar_t> A, B, C;
     slate::Target origin_target = origin2target(origin);
@@ -209,11 +203,9 @@ void test_gemm_work(Params& params, bool run)
         slate::multiply( alpha, A, Z, one, Y, opts );
     }
 
-    if (verbose >= 2) {
-        print_matrix("A", A);
-        print_matrix("B", B);
-        print_matrix("C", C);
-    }
+    print_matrix( "A", A, params );
+    print_matrix( "B", B, params );
+    print_matrix( "C", C, params );
 
     // compute and save timing/performance
     double gflop = blas::Gflop<scalar_t>::gemm(m, n, k);
@@ -247,7 +239,7 @@ void test_gemm_work(Params& params, bool run)
 
         if (verbose >= 2) {
             C.tileGetAllForReading(C.hostNum(), slate::LayoutConvert::None);
-            print_matrix("C2", C);
+            print_matrix( "C_out", C, params );
         }
 
         // compute and save timing/performance
@@ -314,9 +306,7 @@ void test_gemm_work(Params& params, bool run)
             { omp_num_threads = omp_get_num_threads(); }
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-            if (verbose >= 2)
-                print_matrix(
-                    "Cref", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
+            print_matrix( "Cref", Cref, params );
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -330,15 +320,12 @@ void test_gemm_work(Params& params, bool run)
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            if (verbose >= 2)
-                print_matrix(
-                    "Cref2", mlocC, nlocC, &Cref_data[0], lldC, p, q, MPI_COMM_WORLD);
+            print_matrix( "Cref_out", Cref, params );
 
             // get differences C = C - Cref
             slate::add(-one, Cref, one, C);
 
-            if (verbose >= 2)
-                print_matrix("Diff", C);
+            print_matrix( "Diff", C, params );
 
             // norm(C - Cref)
             real_t C_diff_norm = slate::norm(norm, C);
@@ -360,12 +347,6 @@ void test_gemm_work(Params& params, bool run)
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         }
-    #endif
-
-    #ifdef PIN_MATRICES
-        cuerror = cudaHostUnregister(&A_data[0]);
-        cuerror = cudaHostUnregister(&B_data[0]);
-        cuerror = cudaHostUnregister(&C_data[0]);
     #endif
 }
 

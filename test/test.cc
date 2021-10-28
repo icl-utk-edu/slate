@@ -220,7 +220,10 @@ std::vector< testsweeper::routines_t > routines = {
     { "",                   nullptr,           Section::newline },
     // -----
     // auxiliary
+    { "add",                test_add,          Section::aux },
+    { "copy",               test_copy,         Section::aux },
     { "scale",              test_scale,        Section::aux },
+    { "set",                test_set,          Section::aux },
     { "",                   nullptr,           Section::newline },
 };
 
@@ -248,7 +251,24 @@ Params::Params():
     //         name,      w, p, type,         default, min,  max, help
     tol       ("tol",     0, 0, ParamType::Value,  50,   1, 1000, "tolerance (e.g., error < tol*epsilon to pass)"),
     repeat    ("repeat",  0,    ParamType::Value,   1,   1, 1000, "number of times to repeat each test"),
-    verbose   ("verbose", 0,    ParamType::Value,   0,   0,   10, "verbose level"),
+
+    verbose   ("verbose", 0,    ParamType::Value,   0,   0,   4,
+               "verbose level:\n"
+               "                     0: no printing (default)\n"
+               "                     1: print metadata only (dimensions, uplo, etc.)\n"
+               "                     2: print first & last edgeitems rows & cols, if size > threshold\n"
+               "                     3: print 4 corner elements of every tile\n"
+               "                     4: print full matrix" ),
+
+    print_edgeitems("print-edgeitems", 0, ParamType::Value, 16,   1, 64,
+                    "for verbose=2, number of first & last rows & cols to print"),
+    print_threshold("print-threshold", 0, ParamType::Value, 1024, 1, 16384,
+                    "for verbose=2, size (rows*cols) to trigger abbreviation"),
+    print_width    ("print-width",     0, ParamType::Value, 10,   7, 24,
+                    "minimum number of characters to print per value"),
+    print_precision("print-precision", 0, ParamType::Value, 4,    1, 17,
+                    "number of digits to print after the decimal point"),
+
     extended  ("extended",0,    ParamType::Value,   0,   0,   10, "extended tests"),
     cache     ("cache",   0,    ParamType::Value,  20,   1, 1024, "total cache size, in MiB"),
 
@@ -369,6 +389,10 @@ Params::Params():
     verbose();
     cache();
     debug();
+    print_edgeitems();
+    print_threshold();
+    print_width();
+    print_precision();
 
     //  change names of grid elements
     grid.names("p", "q");

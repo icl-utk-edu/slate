@@ -124,6 +124,51 @@ inline blas::real_type<scalar_t> scalapack_plange(const char* norm, int64_t m, i
     return scalapack_plange(norm, &m_, &n_, A, &ia_, &ja_, descA, work);
 }
 
+#define scalapack_psgeadd BLAS_FORTRAN_NAME( psgeadd, PSGEADD )
+#define scalapack_pdgeadd BLAS_FORTRAN_NAME( pdgeadd, PDGEADD )
+#define scalapack_pcgeadd BLAS_FORTRAN_NAME( pcgeadd, PCGEADD )
+#define scalapack_pzgeadd BLAS_FORTRAN_NAME( pzgeadd, PZGEADD )
+
+extern "C" float scalapack_psgeadd(const char* transa, blas_int* m, blas_int* n, float* alpha, float* A, blas_int* ia, blas_int* ja, blas_int* descA, float* beta, float* B, blas_int* ib, blas_int* jb, blas_int* descB, blas_int* info);
+
+extern "C" double scalapack_pdgeadd(const char* transa, blas_int* m, blas_int* n, double* alpha, double* A, blas_int* ia, blas_int* ja, blas_int* descA, double* beta, double* B, blas_int* ib, blas_int* jb, blas_int* descB, blas_int* info);
+
+extern "C" float scalapack_pcgeadd(const char* transa, blas_int* m, blas_int* n, std::complex<float>* alpha, std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, std::complex<float>* beta, std::complex<float>* B, blas_int* ib, blas_int* jb, blas_int* descB, blas_int* info);
+
+extern "C" double scalapack_pzgeadd(const char* transa, blas_int* m, blas_int* n, std::complex<double>* alpha, std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA, std::complex<double>* beta, std::complex<double>* B, blas_int* ib, blas_int* jb, blas_int* descB, blas_int* info);
+
+inline void scalapack_pgeadd(const char* transa, blas_int* m, blas_int* n, float* alpha, float* A, blas_int* ia, blas_int* ja, blas_int* descA, float* beta, float* B, blas_int* ib, blas_int* jb, blas_int* descB, blas_int* info)
+{
+   scalapack_psgeadd(transa, m, n, alpha, A, ia, ja, descA, beta, B, ib, jb, descB, info);
+}
+inline void scalapack_pgeadd(const char* transa, blas_int* m, blas_int* n, double* alpha, double* A, blas_int* ia, blas_int* ja, blas_int* descA, double* beta, double* B, blas_int* ib, blas_int* jb, blas_int* descB, blas_int* info)
+{
+   scalapack_pdgeadd(transa, m, n, alpha, A, ia, ja, descA, beta, B, ib, jb, descB, info);
+}
+inline void scalapack_pgeadd(const char* transa, blas_int* m, blas_int* n, std::complex<float>* alpha, std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA, std::complex<float>* beta, std::complex<float>* B, blas_int* ib, blas_int* jb, blas_int* descB, blas_int* info)
+{
+    scalapack_pcgeadd(transa, m, n, alpha, A, ia, ja, descA, beta, B, ib, jb, descB, info);
+}
+inline void scalapack_pgeadd(const char* transa, blas_int* m, blas_int* n, std::complex<double>* alpha, std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA, std::complex<double>* beta, std::complex<double>* B, blas_int* ib, blas_int* jb, blas_int* descB, blas_int* info)
+{
+    scalapack_pzgeadd(transa, m, n, alpha, A, ia, ja, descA, beta, B, ib, jb, descB, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_pgeadd(const char* transa, int64_t m, int64_t n, scalar_t alpha, scalar_t* A, int64_t ia, int64_t ja, blas_int* descA, scalar_t beta, scalar_t* B, int64_t ib, int64_t jb, blas_int* descB, blas_int* info)
+{
+    int m_ = int64_to_int(m);
+    int n_ = int64_to_int(n);
+    int ia_ = int64_to_int(ia);
+    int ja_ = int64_to_int(ja);
+    int ib_ = int64_to_int(ib);
+    int jb_ = int64_to_int(jb);
+    scalapack_pgeadd(transa, &m_, &n_, &alpha, A, &ia_, &ja_, descA, &beta, B, &ib_, &jb_, descB, info);
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
 #define scalapack_pslascl BLAS_FORTRAN_NAME( pslascl, PSLASCL )
 #define scalapack_pdlascl BLAS_FORTRAN_NAME( pdlascl, PDLASCL )
 #define scalapack_pclascl BLAS_FORTRAN_NAME( pclascl, PCLASCL )

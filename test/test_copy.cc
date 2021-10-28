@@ -20,7 +20,7 @@
 #define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template<typename scalar_t>
-void test_scale_work(Params& params, bool run)
+void test_copy_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
@@ -29,11 +29,10 @@ void test_scale_work(Params& params, bool run)
 
     // Constants
     const scalar_t one = 1.0;
+    const scalar_t zero = 0.0;
 
     // get & mark input values
-    slate::Op trans = params.trans();
-    real_t alpha = params.alpha.get<real_t>();
-    real_t beta = params.beta.get<real_t>();
+    //slate::Op trans = params.trans();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     int64_t nb = params.nb();
@@ -43,6 +42,7 @@ void test_scale_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
+    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::Uplo uplo = slate::Uplo::General;
@@ -70,17 +70,27 @@ void test_scale_work(Params& params, bool run)
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector<scalar_t> A_data(lldA*nlocA);
 
+    // Matrix B: using the fact that B must be same dimensions as A.
+    int64_t mlocB, nlocB, lldB;
+    mlocB = mlocA, nlocB = nlocA, lldB = lldA;
+    std::vector<scalar_t> B_data(lldB*nlocB);
+
     slate::Matrix<scalar_t> A;
+    slate::Matrix<scalar_t> B;
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
+        B = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
+        B.insertLocalTiles(origin_target);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layout.
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
                 m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        B = slate::Matrix<scalar_t>::fromScaLAPACK(
+                m, n, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     }
 
     slate::generate_matrix(params.matrix, A);
@@ -88,20 +98,23 @@ void test_scale_work(Params& params, bool run)
     // if reference run is required, copy test data
     std::vector<scalar_t> Aref_data;
     slate::Matrix<scalar_t> Aref;
+    std::vector<scalar_t> Bref_data;
+    slate::Matrix<scalar_t> Bref;
     if (check || ref) {
         // For simplicity, always use ScaLAPACK format for ref matrices.
         Aref_data.resize( lldA*nlocA );
         Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
                    m,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        slate::copy(A, Aref);
+        slate::add(one, A, zero, Aref);
+        //
+        Bref_data.resize( lldB*nlocB );
+        Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                   m,  n, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     }
 
-    if (trans == slate::Op::Trans)
-        A = transpose(A);
-    else if (trans == slate::Op::ConjTrans)
-        A = conjTranspose(A);
-
-    print_matrix("A", A, params);
+    if (verbose > 1) {
+        print_matrix("A", A);
+    }
 
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
@@ -109,11 +122,11 @@ void test_scale_work(Params& params, bool run)
 
         //==================================================
         // Run SLATE test.
-        // Scale A by alpha/beta.
+        // Set B equal A.
         //==================================================
         double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-        slate::scale(alpha, beta, A);
+        slate::copy(A, B);
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -129,7 +142,7 @@ void test_scale_work(Params& params, bool run)
 
             // BLACS/MPI variables
             int ictxt, p_, q_, myrow_, mycol_, info;
-            int A_desc[9];
+            int A_desc[9], B_desc[9];
             int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
@@ -145,6 +158,7 @@ void test_scale_work(Params& params, bool run)
             slate_assert( mycol == mycol_ );
 
             scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, lldA, &info);
+            scalapack_descinit(B_desc, m, n, nb, nb, 0, 0, ictxt, lldB, &info);
             slate_assert(info == 0);
 
             if (origin != slate::Origin::ScaLAPACK) {
@@ -158,40 +172,50 @@ void test_scale_work(Params& params, bool run)
             { omp_num_threads = omp_get_num_threads(); }
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-            print_matrix("Aref", Aref, params);
+            if (verbose >= 2) {
+                print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD);
+            }
 
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-            scalapack_plascl(uplo2str(uplo), alpha, beta, m, n,  &Aref_data[0], 1, 1, A_desc, &info);
+            scalapack_placpy(uplo2str(uplo), m, n, &Aref_data[0], 1, 1, A_desc,
+                                                   &Bref_data[0], 1, 1, B_desc);
+
             slate_assert(info == 0);
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            print_matrix("Aref", Aref, params);
+            if (verbose >= 2) {
+                print_matrix("Bref", mlocB, nlocA, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD);
+            }
 
             // get differences A = A - Aref
             slate::add(-one, Aref, one, A);
 
-            print_matrix("Diff", A, params);
+            // get differences B = B - Bref
+            slate::add(-one, Bref, one, B);
+
+            if (verbose >= 2) {
+                print_matrix("DiffA", A);
+                print_matrix("DiffB", B);
+            }
 
             // norm(A - Aref)
             real_t A_diff_norm = slate::norm(slate::Norm::One, A);
-
+            // norm(B - Bref)
+            real_t B_diff_norm = slate::norm(slate::Norm::One, B);
 
             params.ref_time() = time;
 
-            real_t error = A_diff_norm / (n * A_norm);
+            real_t errorA = A_diff_norm / (n * A_norm);
+            real_t errorB = B_diff_norm / (n * A_norm);
 
-            params.error() = error;
+            params.error() = errorA + errorB;
 
             slate_set_num_blas_threads(saved_num_threads);
-
-            real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
-            // Allow for difference
-            params.okay() = (params.error() <= tol);
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
@@ -200,7 +224,7 @@ void test_scale_work(Params& params, bool run)
 }
 
 // -----------------------------------------------------------------------------
-void test_scale(Params& params, bool run)
+void test_copy(Params& params, bool run)
 {
     switch (params.datatype()) {
         case testsweeper::DataType::Integer:
@@ -208,19 +232,19 @@ void test_scale(Params& params, bool run)
             break;
 
         case testsweeper::DataType::Single:
-            test_scale_work<float> (params, run);
+            test_copy_work<float> (params, run);
             break;
 
         case testsweeper::DataType::Double:
-            test_scale_work<double> (params, run);
+            test_copy_work<double> (params, run);
             break;
 
         case testsweeper::DataType::SingleComplex:
-            test_scale_work<std::complex<float>> (params, run);
+            test_copy_work<std::complex<float>> (params, run);
             break;
 
         case testsweeper::DataType::DoubleComplex:
-            test_scale_work<std::complex<double>> (params, run);
+            test_copy_work<std::complex<double>> (params, run);
             break;
     }
 }

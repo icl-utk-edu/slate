@@ -421,7 +421,7 @@ void norm(Norm in_norm, NormScope scope, HermitianBandMatrix<scalar_t>&& A,
 template <Target target=Target::HostTask, typename scalar_t>
 void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
            std::vector<Pivot>& pivot,
-           int max_panel_threads, int priority=0);
+           int max_panel_threads, int priority=0, int tag=0);
 
 //-----------------------------------------
 // getrf_nopiv()

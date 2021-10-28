@@ -37,7 +37,6 @@ void test_he2hb_work(Params& params, bool run)
     int64_t panel_threads = params.panel_threads();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -92,9 +91,7 @@ void test_he2hb_work(Params& params, bool run)
 
     slate::generate_matrix( params.matrix, A );
 
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+    print_matrix("A", A, params);
 
     // Copy test data for check.
     slate::HermitianMatrix<scalar_t> Aref(uplo, n, nb, p, q, MPI_COMM_WORLD);
@@ -122,11 +119,9 @@ void test_he2hb_work(Params& params, bool run)
     params.time() = time;
     //params.gflops() = gflop / time;
 
-    if (verbose > 1) {
-        print_matrix("A_factored", A);
-        print_matrix("Tlocal",  T[0]);
-        print_matrix("Treduce", T[1]);
-    }
+    print_matrix("A_factored", A, params);
+    print_matrix("Tlocal",  T[0], params);
+    print_matrix("Treduce", T[1], params);
 
     if (check) {
         //==================================================
@@ -144,21 +139,15 @@ void test_he2hb_work(Params& params, bool run)
         slate::Matrix<scalar_t> B(n, n, nb, p, q, MPI_COMM_WORLD);
         B.insertLocalTiles();
         he2gb(A, B);
-        if (verbose > 1) {
-            print_matrix("B", B);
-        }
+        print_matrix("B", B, params);
 
         slate::unmtr_he2hb(slate::Side::Left, slate::Op::NoTrans,
                            A, T, B, opts);
-        if (verbose > 1) {
-            print_matrix("Q^H B", B);
-        }
+        print_matrix("Q^H B", B, params);
 
         slate::unmtr_he2hb(slate::Side::Right, slate::Op::ConjTrans,
                            A, T, B, opts);
-        if (verbose > 1) {
-            print_matrix("Q^H B Q", B);
-        }
+        print_matrix("Q^H B Q", B, params);
 
         // Form QBQ^H - A, where A is in Aref.
         // todo: slate::tradd(-one, TriangularMatrix(Aref),
@@ -175,9 +164,7 @@ void test_he2hb_work(Params& params, bool run)
             }
         }
         slate::HermitianMatrix<scalar_t> B_he(uplo, B);
-        if (verbose > 1) {
-            print_matrix("QBQ^H - A", B_he);
-        }
+        print_matrix("QBQ^H - A", B_he, params);
 
         // Norm of backwards error: || QBQ^H - A ||_1
         params.error() = slate::norm(slate::Norm::One, B_he) / (n * A_norm);

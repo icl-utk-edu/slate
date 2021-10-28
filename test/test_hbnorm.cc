@@ -80,9 +80,7 @@ void test_hbnorm_work(Params& params, bool run)
     auto A = HermitianBandFromScaLAPACK(
                  uplo, n, kd, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
-    if (verbose > 1) {
-        print_matrix("A", A, params);
-    }
+    print_matrix("A", A, params);
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();

@@ -500,8 +500,8 @@ template <typename scalar_t>
 void print_matrix_work(
     const char* label,
     slate::BaseMatrix<scalar_t>& A,
-    int64_t kl,
-    int64_t ku,
+    int64_t klt,
+    int64_t kut,
     slate::Options const& opts_)
 {
     using real_t = blas::real_type<scalar_t>;
@@ -582,13 +582,12 @@ void print_matrix_work(
         // gather block row to rank 0
         for (int64_t j = 0; j < A.nt(); j += tile_col_step) {
             // for verbose=2 only tile column j = 0 and j = nt-1
-            if ((A.uplo() == slate::Uplo::General)
-                || (A.uplo() == slate::Uplo::Lower && i >= j)
-                || (A.uplo() == slate::Uplo::Upper && i <= j))
+            if ((A.uplo() == slate::Uplo::General && -klt <= j - i && j - i <= kut)
+                || (A.uplo() == slate::Uplo::Lower && i <= j + klt && j <= i)
+                || (A.uplo() == slate::Uplo::Upper && i >= j - kut && j >= i))
             {
-                if (-kl <= j - i && j - i <= ku) { // inside bandwidth
-                    send_recv_tile(A, i, j, mpi_rank, comm);
-                }
+                // inside bandwidth
+                send_recv_tile(A, i, j, mpi_rank, comm);
             }
         }
 
@@ -628,22 +627,26 @@ void print_matrix_work(
                     for (int64_t ti = start_row; ti < max_rows; ++ti) {
                         // first column tile
                         int64_t j = 0;
-                        if (A.uplo() == slate::Uplo::General) {
-                            msg += tile_row_string(A, i, j, ti, opts);
-                        }
-                        else if ((A.uplo() == slate::Uplo::Lower && i >= j)
-                                 || (A.uplo() == slate::Uplo::Upper && i <= j))
+                        if ((A.uplo() == slate::Uplo::General && -klt <= j - i && j - i <= kut)
+                            || (A.uplo() == slate::Uplo::Lower && i <= j + klt && j <= i)
+                            || (A.uplo() == slate::Uplo::Upper && i >= j - kut && j >= i))
                         {
-                            // tile in stored triangle
+                            // inside bandwidth
                             msg += tile_row_string(A, i, j, ti, opts, opposite);
                         }
                         else {
                             int64_t max_cols = A.tileNb(j);
                             if (verbose == 2 || verbose == 5)
                                 max_cols = std::min( A.tileNb(j), abbrev_cols );
-                            // tile in opposite triangle
                             for (int64_t tj = 0; tj < max_cols; ++tj) {
-                                msg += opposite;
+                                if ((A.uplo() == slate::Uplo::Lower && j <= i)
+                                    || (A.uplo() == slate::Uplo::Upper && j >= i))
+                                {
+                                    msg += outside_bandwidth;
+                                }
+                                else {
+                                    msg += opposite;
+                                }
                             }
                         }
 
@@ -654,13 +657,11 @@ void print_matrix_work(
                             j = A.nt()-1;
                             if (j>0)
                                 msg += "    "; // space between column tiles
-                            if (A.uplo() == slate::Uplo::General) {
-                                msg += tile_row_string(A, i, j, ti, opts, "", true);
-                            }
-                            else if ((A.uplo() == slate::Uplo::Lower && i >= j)
-                                     || (A.uplo() == slate::Uplo::Upper && i <= j))
+                            if ((A.uplo() == slate::Uplo::General && -klt <= j - i && j - i <= kut)
+                                || (A.uplo() == slate::Uplo::Lower && i <= j + klt && j <= i)
+                                || (A.uplo() == slate::Uplo::Upper && i >= j - kut && j >= i))
                             {
-                                // tile in stored triangle
+                                // inside bandwidth
                                 msg += tile_row_string(A, i, j, ti, opts, opposite, true);
                             }
                             else {
@@ -671,9 +672,15 @@ void print_matrix_work(
                                     else
                                         start_col = blas::max( A.tileNb(j) - abbrev_cols, 0 );
                                 }
-                                // tile in opposite triangle
                                 for (int64_t tj = start_col; tj < A.tileNb(j); ++tj) {
-                                    msg += opposite;
+                                    if ((A.uplo() == slate::Uplo::Lower && j <= i)
+                                        || (A.uplo() == slate::Uplo::Upper && j >= i))
+                                    {
+                                        msg += outside_bandwidth;
+                                    }
+                                    else {
+                                        msg += opposite;
+                                    }
                                 }
                             }
                         }
@@ -684,35 +691,29 @@ void print_matrix_work(
                     msg += "];\n";
             }
             else if (verbose == 3 || verbose == 4) {
-                int64_t row_step =
-                    (verbose == 3 && A.tileMb(i) > 1 ? A.tileMb(i) - 1 : 1);
+                // for verbose=3 only rows ti = 0 and ti = tileMb-1
+                int64_t row_step = (verbose == 3 && A.tileMb(i) > 1 ? A.tileMb(i) - 1 : 1);
                 for (int64_t ti = 0; ti < A.tileMb(i); ti += row_step) {
-                    // for verbose=3 only rows ti = 0 and ti = tileMb-1
                     for (int64_t j = 0; j < A.nt(); ++j) {
-                        if (-kl <= j - i && j - i <= ku) { // inside bandwidth
-                            if (A.uplo() == slate::Uplo::General) {
-                                msg += tile_row_string(A, i, j, ti, opts);
-                            }
-                            else if ((A.uplo() == slate::Uplo::Lower && i >= j)
-                                    || (A.uplo() == slate::Uplo::Upper && i <= j))
-                            {
-                                // tile in stored triangle
-                                msg += tile_row_string(A, i, j, ti, opts, opposite);
-                            }
-                            else {
-                                int64_t col_step = (verbose == 3 && A.tileNb(j) > 1 ? A.tileNb(j) - 1 : 1);
-                                for (int64_t tj = 0; tj < A.tileNb(j); tj += col_step) {
-                                    // for verbose=3 only j = 0 and j = tileNb-1
-                                    // tile in opposite triangle
-                                    msg += opposite;
-                                }
-                            }
+                        if ((A.uplo() == slate::Uplo::General && -klt <= j - i && j - i <= kut)
+                            || (A.uplo() == slate::Uplo::Lower && i <= j + klt && j <= i)
+                            || (A.uplo() == slate::Uplo::Upper && i >= j - kut && j >= i))
+                        {
+                            // inside bandwidth
+                            msg += tile_row_string(A, i, j, ti, opts, opposite);
                         }
-                        else { // outside bandwidth
+                        else {
+                            // for verbose=3 only j = 0 and j = tileNb-1
                             int64_t col_step = (verbose == 3 && A.tileNb(j) > 1 ? A.tileNb(j) - 1 : 1);
                             for (int64_t tj = 0; tj < A.tileNb(j); tj += col_step) {
-                                // for verbose=3 only j = 0 and j = tileNb-1
-                                msg += outside_bandwidth;
+                                if ((A.uplo() == slate::Uplo::Lower && j <= i)
+                                    || (A.uplo() == slate::Uplo::Upper && j >= i))
+                                {
+                                    msg += outside_bandwidth;
+                                }
+                                else {
+                                    msg += opposite;
+                                }
                             }
                         }
                         if (j < A.nt() - 1)
@@ -761,9 +762,9 @@ void print_matrix(
         printf( "%s", msg.c_str() );
     }
 
-    int64_t kl, ku;
-    kl = ku = std::max( A.mt(), A.nt() ); //Todo: mt-1, nt-1 ?
-    print_matrix_work( label, A, kl, ku, opts );
+    int64_t klt, kut;
+    klt = kut = std::max( A.mt(), A.nt() ); //Todo: mt-1, nt-1 ?
+    print_matrix_work( label, A, klt, kut, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -821,55 +822,6 @@ void print_matrix(
 /// For block-sparse matrices, missing tiles are print as "nan".
 ///
 template <typename scalar_t>
-void print_matrix(
-    const char* label,
-    slate::BandMatrix<scalar_t>& A,
-    Params& params)
-{
-    if (params.verbose() == 0)
-        return;
-
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-        { slate::Option::PrintThreshold, params.print_threshold() },
-    };
-
-    if (A.mpiRank() == 0) {
-        std::string msg = "\n% slate::BandMatrix ";
-        msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  )
-            + ", "
-            +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
-            // +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
-            +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
-            +  std::to_string( A.tileNb(0) ) + ","
-            +  " kl " + std::to_string( A.lowerBandwidth() )
-            +  " ku " + std::to_string( A.upperBandwidth() ) + "\n";
-
-        printf( "%s", msg.c_str() );
-    }
-//    msg += label;
-//    msg += " = [\n";
-
-    //char buf[ 80 ];
-    //snprintf( buf, sizeof(buf), "%s_", label );
-    //print_matrix_work( buf, A, opts );
-
-    // todo: initially, assume fixed size, square tiles for simplicity
-    int64_t kl = slate::ceildiv(A.lowerBandwidth(), A.tileNb(0));
-    int64_t ku = slate::ceildiv(A.upperBandwidth(), A.tileNb(0));
-    print_matrix_work( label, A, kl, ku, opts );
-}
-//------------------------------------------------------------------------------
-/// Print a SLATE distributed band matrix.
-/// Rank 0 does the printing, and must have enough memory to fit one entire
-/// block row of the matrix.
-/// Tiles outside the bandwidth are printed as "0", with no trailing decimals.
-/// For block-sparse matrices, missing tiles are print as "nan".
-///
-template <typename scalar_t>
 void print_matrix_disabled(
     const char* label,
     slate::BandMatrix<scalar_t>& A,
@@ -903,13 +855,13 @@ void print_matrix_disabled(
     }
 
     // todo: initially, assume fixed size, square tiles for simplicity
-    int64_t kl = slate::ceildiv(A.lowerBandwidth(), A.tileNb(0));
-    int64_t ku = slate::ceildiv(A.upperBandwidth(), A.tileNb(0));
+    int64_t klt = slate::ceildiv(A.lowerBandwidth(), A.tileNb(0));
+    int64_t kut = slate::ceildiv(A.upperBandwidth(), A.tileNb(0));
 
     for (int64_t i = 0; i < A.mt(); ++i) {
         // gather block row to rank 0
         for (int64_t j = 0; j < A.nt(); ++j) {
-            if (-kl <= j - i && j - i <= ku) { // inside bandwidth
+            if (-klt <= j - i && j - i <= kut) { // inside bandwidth
                 send_recv_tile(A, i, j, mpi_rank, comm);
             }
         }
@@ -918,12 +870,190 @@ void print_matrix_disabled(
             // print block row
             for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
                 for (int64_t j = 0; j < A.nt(); ++j) {
-                    if (-kl <= j - i && j - i <= ku) { // inside bandwidth
+                    if (-klt <= j - i && j - i <= kut) { // inside bandwidth
                         msg += tile_row_string(A, i, j, ti, width, precision);
                     }
                     else {
                         for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
                             msg += outside;
+                        }
+                    }
+                    if (j < A.nt() - 1)
+                        msg += "    ";
+                    else
+                        msg += "\n";
+                }
+            }
+            if (i < A.mt() - 1)
+                msg += "\n";
+            else
+                msg += "];\n";
+            printf("%s", msg.c_str());
+            msg.clear();
+
+            // cleanup data
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                if (! A.tileIsLocal(i, j)) {
+                    A.tileErase(i, j);
+                }
+            }
+        }
+    }
+
+    MPI_Barrier(comm);
+}
+
+//------------------------------------------------------------------------------
+/// Print a SLATE distributed band matrix.
+/// Rank 0 does the printing, and must have enough memory to fit one entire
+/// block row of the matrix.
+/// Tiles outside the bandwidth are printed as "0", with no trailing decimals.
+/// For block-sparse matrices, missing tiles are print as "nan".
+///
+template <typename scalar_t>
+void print_matrix(
+    const char* label,
+    slate::BandMatrix<scalar_t>& A,
+    Params& params)
+{
+    if (params.verbose() == 0)
+        return;
+
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+        { slate::Option::PrintThreshold, params.print_threshold() },
+    };
+
+    if (A.mpiRank() == 0) {
+        std::string msg = "\n% slate::BandMatrix ";
+        msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  )
+            + ", "
+            +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
+            +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
+            +  std::to_string( A.tileNb(0) ) + ","
+            +  " kl " + std::to_string( A.lowerBandwidth() )
+            +  " ku " + std::to_string( A.upperBandwidth() ) + "\n";
+
+        printf( "%s", msg.c_str() );
+    }
+
+    // todo: initially, assume fixed size, square tiles for simplicity
+    int64_t klt = slate::ceildiv(A.lowerBandwidth(), A.tileNb(0));
+    int64_t kut = slate::ceildiv(A.upperBandwidth(), A.tileNb(0));
+    print_matrix_work( label, A, klt, kut, opts );
+}
+
+//------------------------------------------------------------------------------
+/// Print a SLATE distributed BaseTriangular (triangular, symmetric, and
+/// Hermitian) band matrix.
+/// Rank 0 does the printing, and must have enough memory to fit one entire
+/// block row of the matrix.
+/// Tiles outside the bandwidth are printed as "0", with no trailing decimals.
+/// For block-sparse matrices, missing tiles are print as "nan".
+///
+/// Entries in the A.uplo triangle are printed; entries in the opposite
+/// triangle are printed as "nan".
+///
+/// Having said that, if the printed matrix is a lower triangular matrix,
+/// then the routine will print the tiles of upper part of the matrix as "nan",
+/// and the lower part tiles that are inside the bandwidth will be printed
+/// as they are, whereas the non existing tiles, tiles outside the bandwidth,
+/// will be printed as "0", with no trailing decimals.
+/// This is to follow MATLAB convention and to make it easier for debugging.
+///
+template <typename scalar_t>
+void print_matrix_disabled(
+    const char* label,
+    slate::BaseTriangularBandMatrix<scalar_t>& A,
+    Params& params)
+{
+    if (params.verbose() == 0)
+        return;
+
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+        { slate::Option::PrintThreshold, params.print_threshold() },
+    };
+
+    using real_t = blas::real_type<scalar_t>;
+
+    int mpi_rank = A.mpiRank();
+    MPI_Comm comm = A.mpiComm();
+    MPI_Barrier(comm);
+
+    int width = params.print_width();
+    int precision = params.print_precision();
+    width = std::max(width, precision + 6);
+    real_t nan_ = nan("");
+
+    std::string msg = "\n% Original slate::BaseTriangularBandMatrix ";
+    msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
+        +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
+        +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
+        +  std::to_string( A.tileNb(0) ) + ","
+        +  " kd " + std::to_string( A.bandwidth() )
+        +  " uplo " + char( A.uplo() ) + "\n";
+    msg += label;
+    msg += " = [\n";
+
+    // for entries in opposite triangle from A.uplo
+    char opposite[ 80 ];
+    if (slate::is_complex<scalar_t>::value) {
+        snprintf(opposite, sizeof(opposite), " %*f   %*s ",
+                 width, nan_, width, "");
+    }
+    else {
+        snprintf(opposite, sizeof(opposite), " %*f",
+                 width, nan_);
+    }
+
+    // for tiles outside bandwidth
+    char outside[ 80 ];
+    if (slate::is_complex<scalar_t>::value) {
+        snprintf(outside, sizeof(outside), " %*.0f   %*s ",
+                 width, 0., width, "");
+    }
+    else {
+        snprintf(outside, sizeof(outside), " %*.0f",
+                 width, 0.);
+    }
+
+    int64_t kdt = slate::ceildiv(A.bandwidth(), A.tileNb(0));
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i)
+                || (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i))
+            {
+                // inside bandwidth
+                send_recv_tile(A, i, j, mpi_rank, comm);
+            }
+        }
+
+        if (mpi_rank == 0) {
+            for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
+                for (int64_t j = 0; j < A.nt(); ++j) {
+                    if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i)
+                        || (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i))
+                    {
+                        // inside bandwidth
+                        msg += tile_row_string(A, i, j, ti, width, precision, opposite);
+                    }
+                    else {
+                        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
+                            if ((A.uplo() == slate::Uplo::Lower && j <= i)
+                                || (A.uplo() == slate::Uplo::Upper && j >= i))
+                            {
+                                msg += outside;
+                            }
+                            else {
+                                msg += opposite;
+                            }
                         }
                     }
                     if (j < A.nt() - 1)
@@ -975,6 +1105,8 @@ void print_matrix(
     slate::BaseTriangularBandMatrix<scalar_t>& A,
     Params& params)
 {
+    print_matrix_disabled(label, A, params);
+
     if (params.verbose() == 0)
         return;
 
@@ -986,104 +1118,31 @@ void print_matrix(
         { slate::Option::PrintThreshold, params.print_threshold() },
     };
 
-    using real_t = blas::real_type<scalar_t>;
+    if (A.mpiRank() == 0) {
+        std::string msg = "\n% slate::BaseTriangularBandMatrix ";
+        msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
+            +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
+            +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
+            +  std::to_string( A.tileNb(0) ) + ","
+            +  " kd " + std::to_string( A.bandwidth() )
+            +  " uplo " + char( A.uplo() ) + "\n";
 
-    int mpi_rank = A.mpiRank();
-    MPI_Comm comm = A.mpiComm();
-    MPI_Barrier(comm);
-
-    int width = params.print_width();
-    int precision = params.print_precision();
-    width = std::max(width, precision + 6);
-    real_t nan_ = nan("");
-
-    std::string msg = "\n% slate::BaseTriangularBandMatrix ";
-    msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
-        +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
-        +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
-        +  std::to_string( A.tileNb(0) ) + ","
-        +  " kd " + std::to_string( A.bandwidth() )
-        +  " uplo " + char( A.uplo() ) + "\n";
-    msg += label;
-    msg += " = [\n";
-
-    // for entries in opposite triangle from A.uplo
-    char opposite[ 80 ];
-    if (slate::is_complex<scalar_t>::value) {
-        snprintf(opposite, sizeof(opposite), " %*f   %*s ",
-                 width, nan_, width, "");
-    }
-    else {
-        snprintf(opposite, sizeof(opposite), " %*f",
-                 width, nan_);
-    }
-
-    // for tiles outside bandwidth
-    char outside[ 80 ];
-    if (slate::is_complex<scalar_t>::value) {
-        snprintf(outside, sizeof(outside), " %*.0f   %*s ",
-                 width, 0., width, "");
-    }
-    else {
-        snprintf(outside, sizeof(outside), " %*.0f",
-                 width, 0.);
+        printf( "%s", msg.c_str() );
     }
 
     int64_t kdt = slate::ceildiv(A.bandwidth(), A.tileNb(0));
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i)
-                || (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i))
-            {
-                send_recv_tile(A, i, j, mpi_rank, comm);
-            }
-        }
-
-        if (mpi_rank == 0) {
-            for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
-                for (int64_t j = 0; j < A.nt(); ++j) {
-                    if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i)
-                        || (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i))
-                    {
-                        msg += tile_row_string(A, i, j, ti, width, precision, opposite);
-                    }
-                    else {
-                        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                            if ((A.uplo() == slate::Uplo::Lower && j <= i)
-                                || (A.uplo() == slate::Uplo::Upper && j >= i))
-                            {
-                                msg += outside;
-                            }
-                            else {
-                                msg += opposite;
-                            }
-                        }
-                    }
-                    if (j < A.nt() - 1)
-                        msg += "    ";
-                    else
-                        msg += "\n";
-                }
-            }
-            if (i < A.mt() - 1)
-                msg += "\n";
-            else
-                msg += "];\n";
-            printf("%s", msg.c_str());
-            msg.clear();
-
-            // cleanup data
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                if (! A.tileIsLocal(i, j)) {
-                    A.tileErase(i, j);
-                }
-            }
-        }
+    int64_t klt, kut;
+    if (A.uplo() == slate::Uplo::Lower) {
+        klt = kdt;
+        kut = 0; //1?
     }
-
-    MPI_Barrier(comm);
+    else {
+        kut = kdt;
+        klt = 0; //1?
+    }
+    printf("klt = %lld, kut = %lld, kdt = %lld\n", klt, kut, kdt);
+    print_matrix_work( label, A, klt, kut, opts );
 }
-
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed Hermitian matrix.
@@ -1120,17 +1179,17 @@ void print_matrix(
     char buf[ 80 ];
     snprintf( buf, sizeof(buf), "%s_", label );
 
-    int64_t kl, ku;
+    int64_t klt, kut;
     if (A.uplo() == slate::Uplo::Lower) {
-        kl = std::max ( A.mt(), A.nt() ); //mt-1, nt-1 ?
-        ku = 0; //1?
+        klt = std::max ( A.mt(), A.nt() ); //mt-1, nt-1 ?
+        kut = 0; //1?
     }
     else {
-        ku = std::max( A.mt(), A.nt() ); //mt-1, nt-1 ?
-        kl = 0; //1?
+        kut = std::max( A.mt(), A.nt() ); //mt-1, nt-1 ?
+        klt = 0; //1?
     }
 
-    print_matrix_work( buf, A, kl, ku, opts );
+    print_matrix_work( buf, A, klt, kut, opts );
     if (A.mpiRank() == 0) {
         if (A.uplo() == slate::Uplo::Lower) {
             printf( "%s = tril( %s_ ) + tril( %s_, -1 )';\n\n",
@@ -1176,16 +1235,16 @@ void print_matrix(
                 char( A.uplo() ) );
     }
 
-    int64_t kl, ku;
+    int64_t klt, kut;
     if (A.uplo() == slate::Uplo::Lower) {
-        kl = std::max ( A.mt(), A.nt() ); //mt-1, nt-1 ?
-        ku = 0; //1?
+        klt = std::max ( A.mt(), A.nt() ); //mt-1, nt-1 ?
+        kut = 0; //1?
     }
     else {
-        ku = std::max( A.mt(), A.nt() ); //mt-1, nt-1 ?
-        kl = 0; //1?
+        kut = std::max( A.mt(), A.nt() ); //mt-1, nt-1 ?
+        klt = 0; //1?
     }
-    print_matrix_work( label, A, kl, ku, opts );
+    print_matrix_work( label, A, klt, kut, opts );
     if (A.mpiRank() == 0) {
         if (A.uplo() == slate::Uplo::Lower) {
             printf( "%s = tril( %s_ ) + tril( %s_, -1 ).';\n\n",
@@ -1234,16 +1293,16 @@ void print_matrix(
     char buf[ 80 ];
     snprintf( buf, sizeof(buf), "%s_", label );
 
-    int64_t kl, ku;
+    int64_t klt, kut;
     if (A.uplo() == slate::Uplo::Lower) {
-        kl = std::max ( A.mt(), A.nt() ); //mt-1, nt-1 ?
-        ku = 0; //1?
+        klt = std::max ( A.mt(), A.nt() ); //mt-1, nt-1 ?
+        kut = 0; //1?
     }
     else {
-        ku = std::max( A.mt(), A.nt() ); //mt-1, nt-1 ?
-        kl = 0; //1?
+        kut = std::max( A.mt(), A.nt() ); //mt-1, nt-1 ?
+        klt = 0; //1?
     }
-    print_matrix_work( buf, A, kl, ku, opts );
+    print_matrix_work( buf, A, klt, kut, opts );
     if (A.mpiRank() == 0) {
         if (A.uplo() == slate::Uplo::Lower) {
             printf( "%s = tril( %s_ );\n\n", label, label );
@@ -1290,16 +1349,16 @@ void print_matrix(
     char buf[ 80 ];
     snprintf( buf, sizeof(buf), "%s_", label );
 
-    int64_t kl, ku;
+    int64_t klt, kut;
     if (A.uplo() == slate::Uplo::Lower) {
-        kl = std::max ( A.mt(), A.nt() ); //mt-1, nt-1 ?
-        ku = 0; //1?
+        klt = std::max ( A.mt(), A.nt() ); //mt-1, nt-1 ?
+        kut = 0; //1?
     }
     else {
-        ku = std::max( A.mt(), A.nt() ); //mt-1, nt-1 ?
-        kl = 0; //1?
+        kut = std::max( A.mt(), A.nt() ); //mt-1, nt-1 ?
+        klt = 0; //1?
     }
-    print_matrix_work( buf, A, kl, ku, opts );
+    print_matrix_work( buf, A, klt, kut, opts );
     if (A.mpiRank() == 0) {
         if (A.uplo() == slate::Uplo::Lower) {
             printf( "%s = tril( %s_ );\n\n", label, label );

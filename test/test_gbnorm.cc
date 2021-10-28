@@ -87,9 +87,7 @@ void test_gbnorm_work(Params& params, bool run)
     print_matrix("A_data", mlocA, nlocA, &A_data[0], lldA, p, q, MPI_COMM_WORLD,
                  params);
 
-    if (verbose > 1) {
-        print_matrix("A", A, params);
-    }
+    print_matrix("A", A, params);
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();

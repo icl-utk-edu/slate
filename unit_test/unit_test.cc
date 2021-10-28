@@ -250,7 +250,7 @@ void run_test(test_function* func, const char* name, MPI_Comm comm)
 /// @retval -1 if any failed.
 int unit_test_main()
 {
-    run_tests();
+    test::run_tests();
 
     if (g_pass == g_total) {
         printf("\n%spassed all tests (%d of %d)%s\n",
@@ -282,7 +282,7 @@ int unit_test_main()
 int unit_test_main(MPI_Comm comm)
 {
 #ifndef SLATE_NO_MPI
-    run_tests();
+    test::run_tests();
 
     int mpi_rank;
     MPI_Comm_rank(comm, &mpi_rank);

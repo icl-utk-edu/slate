@@ -10,6 +10,8 @@
 
 #include <unistd.h>
 
+namespace test {
+
 //------------------------------------------------------------------------------
 void test_LockGuard()
 {
@@ -86,6 +88,8 @@ void run_tests()
     run_test(test_LockGuard, "LockGuard()");
     run_test(test_nested,    "LockGuard() nested");
 }
+
+}  // namespace test
 
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)

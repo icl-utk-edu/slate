@@ -16,6 +16,8 @@
 using slate::ceildiv;
 using slate::roundup;
 
+namespace test {
+
 //------------------------------------------------------------------------------
 // global variables
 int m, n, k, mb, nb, p, q;
@@ -1815,9 +1817,13 @@ void run_tests()
     run_test(test_Trapezoid_from_Triangular,   "TrapezoidMatrix( TriangularMatrix )",      mpi_comm);
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     MPI_Init(&argc, &argv);
 
     mpi_comm = MPI_COMM_WORLD;

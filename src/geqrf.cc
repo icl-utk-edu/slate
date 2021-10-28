@@ -262,11 +262,11 @@ void geqrf(slate::internal::TargetType<target>,
                             }
                         }
 
-                        auto A_panel = A.sub(k_la, A_mt-1, k_la, k_la);
-                        std::vector< int64_t > first_indices;
-                        geqrf_compute_first_indices(A_panel, k_la, first_indices);
+                        auto A_panel_k_la = A.sub(k_la, A_mt-1, k_la, k_la);
+                        std::vector< int64_t > first_indices_k_la;
+                        geqrf_compute_first_indices(A_panel_k_la, k_la, first_indices_k_la);
                         if (first_indices.size() > 0) {
-                            for (int64_t row : first_indices) {
+                            for (int64_t row : first_indices_k_la) {
                                 if (Tlocal.tileIsLocal(row, k_la)) {
                                     Tlocal.tileUpdateOrigin(row, k_la);
 

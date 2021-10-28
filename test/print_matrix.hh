@@ -1140,7 +1140,7 @@ void print_matrix(
         kut = kdt;
         klt = 0; //1?
     }
-    printf("klt = %lld, kut = %lld, kdt = %lld\n", klt, kut, kdt);
+    printf("klt = %lld, kut = %lld, kdt = %lld\n", (llong)klt, (llong)kut, (llong)kdt);
     print_matrix_work( label, A, klt, kut, opts );
 }
 

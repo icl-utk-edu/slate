@@ -272,10 +272,6 @@ void test_copy_work(Params& params, bool run)
             { omp_num_threads = omp_get_num_threads(); }
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-            if (verbose >= 2) {
-                print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD);
-            }
-
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
@@ -288,20 +284,11 @@ void test_copy_work(Params& params, bool run)
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            if (verbose >= 2) {
-                print_matrix("Bref", mlocB, nlocA, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD);
-            }
-
             // get differences A = A - Aref
             slate::add(-one, Aref, one, A);
 
             // get differences B = B - Bref
             slate::add(-one, Bref, one, B);
-
-            if (verbose >= 2) {
-                print_matrix("DiffA", A);
-                print_matrix("DiffB", B);
-            }
 
             // norm(A - Aref)
             real_t A_diff_norm = norm(slate::Norm::One, A, opts);

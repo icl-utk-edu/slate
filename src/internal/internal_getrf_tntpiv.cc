@@ -14,14 +14,16 @@
 namespace slate {
 namespace internal {
 
+// Convert pivot candidate to sequence of row-permutations to be applied to a matrix
 template <typename scalar_t>
-void pivotList(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
+void pivot_list(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
                int64_t diag_len, int mt)
 {
 
     std::vector<std::pair<int64_t, int64_t>> global_info;
 
     for (int i = 0; i < diag_len; i++){
+
         global_info.push_back( {aux_pivot[ 0 ][ i ].tileIndex(),
             aux_pivot[ 0 ][ i ].elementOffset()} );
     }
@@ -29,16 +31,18 @@ void pivotList(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
     std::vector<std::pair<std::pair<int64_t, int64_t>,
                           std::pair<int64_t, int64_t>>> pivot_list;
 
-    //Initial fill to the pivlist
+    // Initial fill to the pivlist
     for (auto inx=0; inx < mt; ++inx){
         for (auto i=0; i < int(global_info.size()); ++i){
-             pivot_list.push_back({{inx, i}, {inx, i}});
+
+            pivot_list.push_back({{inx, i}, {inx, i}});
         }
     }
 
     for (int i=0 ; i < int(global_info.size()); ++i){
-       int index = -1;
-          //Find the pivot position in the pivot_list
+
+        int index = -1;
+          // Find the pivot position in the pivot_list
         for (int j=i; j < int(pivot_list.size()); ++j){
             if( pivot_list[j].first == global_info[i] ){
                 index = j;
@@ -47,11 +51,12 @@ void pivotList(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
         }
 
        if((global_info[i].first == pivot_list[i].second.first)
-          && (global_info[i].second < pivot_list[i].second.second)){
-          std::pair<int64_t, int64_t> temp = pivot_list[i].first;
-          //If the index is already moved down, put it is new index
-          pivot_list[i].first = pivot_list[index].second;
-          pivot_list[index].first = temp;
+            && (global_info[i].second < pivot_list[i].second.second)){
+
+            std::pair<int64_t, int64_t> temp = pivot_list[i].first;
+            //If the index is already moved down, put it is new index
+            pivot_list[i].first = pivot_list[index].second;
+            pivot_list[index].first = temp;
        }
        else{
            //If the index id down the list
@@ -62,6 +67,7 @@ void pivotList(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
     }
 
      for (int i = 0; i < diag_len; ++i){
+
          aux_pivot[ 0 ][ i ].set_tileIndex(pivot_list[ i ].first.first);
          aux_pivot[ 0 ][ i ].set_elementOffset(pivot_list[ i ].first.second);
      }
@@ -222,14 +228,15 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
            std::vector< std::vector<std::pair<int, int64_t>> > global_tracking(tile_indices.size());
 
            for (int i=0; i < int(tile_indices.size()); i++) {
-               global_tracking[i].reserve(A.tileMb(0));
+                global_tracking[i].reserve(A.tileMb(0));
+
                 for (int64_t j = 0; j < A.tileMb(0); ++j) {
                     global_tracking[i].push_back({tile_indices[i], j});
                 }
             }
 
 
-           std::pair<int, int64_t> global_pair;
+            std::pair<int, int64_t> global_pair;
 
             for(int j=0; j < piv_len ; ++j){
                 if (aux_pivot[0][j].localTileIndex() > 0 ||
@@ -265,85 +272,85 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                if(index % (2*step) == 0){
                    if(index + step < nranks){
 
-                       src = rank_rows[ index + step].first;
-                       i_current = rank_rows[ index ].second;
-                       i_dst = (rank_rows[ index ].second) + 1;
+                        src = rank_rows[ index + step].first;
+                        i_current = rank_rows[ index ].second;
+                        i_dst = (rank_rows[ index ].second) + 1;
 
-                       Awork.tileRecv(i_dst, 0, src, layout);
+                        Awork.tileRecv(i_dst, 0, src, layout);
 
-                       MPI_Status status;
-                       MPI_Recv(aux_pivot.at(1).data(),
-                           sizeof(AuxPivot<scalar_t>)*aux_pivot.at(1).size(),
-                           MPI_BYTE, src, 0, A.mpiComm(),  &status);
+                        MPI_Status status;
+                        MPI_Recv(aux_pivot.at(1).data(),
+                            sizeof(AuxPivot<scalar_t>)*aux_pivot.at(1).size(),
+                            MPI_BYTE, src, 0, A.mpiComm(),  &status);
 
-                      //Alocate workspace to copy tiles in the tree reduction.
-                      std::vector< Tile<scalar_t> > local_tiles;
-                      std::vector<scalar_t> data1( Awork.tileMb(i_current) * Awork.tileNb(0) );
-                      std::vector<scalar_t> data2( Awork.tileMb(i_dst) * Awork.tileNb(0) );
+                        //Alocate workspace to copy tiles in the tree reduction.
+                        std::vector< Tile<scalar_t> > local_tiles;
+                        std::vector<scalar_t> data1( Awork.tileMb(i_current) * Awork.tileNb(0) );
+                        std::vector<scalar_t> data2( Awork.tileMb(i_dst) * Awork.tileNb(0) );
 
-                      Tile<scalar_t> tile1( Awork.tileMb(i_current), Awork.tileNb(0),
-                           &data1[0], Awork.tileMb(i_current), A.hostNum(), TileKind::Workspace );
-                      Tile<scalar_t> tile2( Awork.tileMb(i_dst), Awork.tileNb(0),
-                          &data2[0], Awork.tileMb(i_dst), A.hostNum(), TileKind::Workspace );
+                        Tile<scalar_t> tile1( Awork.tileMb(i_current), Awork.tileNb(0),
+                            &data1[0], Awork.tileMb(i_current), A.hostNum(), TileKind::Workspace );
+                        Tile<scalar_t> tile2( Awork.tileMb(i_dst), Awork.tileNb(0),
+                            &data2[0], Awork.tileMb(i_dst), A.hostNum(), TileKind::Workspace );
 
-                      local_tiles.push_back( tile1 );
-                      local_tiles.push_back( tile2 );
+                        local_tiles.push_back( tile1 );
+                        local_tiles.push_back( tile2 );
 
-                      Awork(i_current, 0).copyData( &local_tiles[0]);
-                      Awork(i_dst, 0).copyData( &local_tiles[1]);
+                        Awork(i_current, 0).copyData( &local_tiles[0]);
+                        Awork(i_dst, 0).copyData( &local_tiles[1]);
 
-                      piv_len = std::min(local_tiles[0].mb(), local_tiles[0].nb());
+                        piv_len = std::min(local_tiles[0].mb(), local_tiles[0].nb());
 
-                      // Factor the panel locally in parallel.
-                      getrf_tntpiv(local_tiles, piv_len, ib, 1,
-                          A.tileNb(0), tile_indices, aux_pivot,
-                          A.mpiRank(), max_panel_threads, priority);
+                        // Factor the panel locally in parallel.
+                        getrf_tntpiv(local_tiles, piv_len, ib, 1,
+                            A.tileNb(0), tile_indices, aux_pivot,
+                            A.mpiRank(), max_panel_threads, priority);
 
-                      std::vector< Tile<scalar_t> > ptiles;
-                      ptiles.push_back(Awork(i_current, 0));
-                      ptiles.push_back(Awork(i_dst, 0));
+                        std::vector< Tile<scalar_t> > ptiles;
+                        ptiles.push_back(Awork(i_current, 0));
+                        ptiles.push_back(Awork(i_dst, 0));
 
-                      for(int j=0; j < piv_len ; ++j){
-                          if (aux_pivot[0][j].localTileIndex() > 0 ||
-                              aux_pivot[0][j].localOffset() > j){
+                        for(int j=0; j < piv_len ; ++j){
+                            if (aux_pivot[0][j].localTileIndex() > 0 ||
+                                aux_pivot[0][j].localOffset() > j){
 
-                              swapLocalRow(
-                                  0, A.tileNb(0),
-                                  ptiles[0], j,
-                                  ptiles[aux_pivot[0][j].localTileIndex()],
-                                  aux_pivot[0][j].localOffset());
+                                swapLocalRow(
+                                    0, A.tileNb(0),
+                                    ptiles[0], j,
+                                    ptiles[aux_pivot[0][j].localTileIndex()],
+                                    aux_pivot[0][j].localOffset());
                            }
 
-                     }
+                        }
 
-                     if(level==nlevels-1){
-                         //Copy the last factorization back to panel tile
-                         local_tiles[0].copyData(&ptiles[0]);
-                         pivotList(aux_pivot, diag_len, A.mt());
+                        if(level == nlevels-1){
+                            // Copy the last factorization back to panel tile
+                            local_tiles[0].copyData(&ptiles[0]);
+                            pivot_list(aux_pivot, diag_len, A.mt());
+                        }
 
-                     }
+                        Awork.tileTick(i_dst, 0);
+                        data1.clear();
+                        data2.clear();
+                        local_tiles.clear();
+                    }
+                }
+                else{
 
-                     Awork.tileTick(i_dst, 0);
-                     data1.clear();
-                     data2.clear();
-                     local_tiles.clear();
-                 }
-              }
-              else{
-                  dst = rank_rows[ index - step ].first;
-                  i_src = rank_rows[ index ].second;
+                    dst = rank_rows[ index - step ].first;
+                    i_src = rank_rows[ index ].second;
 
-                  Awork.tileSend(i_src, 0, dst);
+                    Awork.tileSend(i_src, 0, dst);
 
-                  MPI_Send(aux_pivot.at(0).data(),
-                      sizeof(AuxPivot<scalar_t>)*aux_pivot.at(0).size(),
-                      MPI_BYTE, dst, 0, A.mpiComm());
-                  break;
+                    MPI_Send(aux_pivot.at(0).data(),
+                        sizeof(AuxPivot<scalar_t>)*aux_pivot.at(0).size(),
+                        MPI_BYTE, dst, 0, A.mpiComm());
+                    break;
                 }
               step *= 2;
 
-           }// for loop over levels
-       }
+            }// for loop over levels
+        }
 
        // Copy pivot information from aux_pivot to pivot.
        for (int64_t i = 0; i < diag_len; ++i) {

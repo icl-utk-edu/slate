@@ -92,7 +92,7 @@ void test_trsm_work(Params& params, bool run)
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
 
     // Allocate ScaLAPACK data if needed.
-    std::vector<scalar_t> A_data, B_data, C_data;
+    std::vector<scalar_t> A_data, B_data;
     if (ref || origin == slate::Origin::ScaLAPACK) {
         A_data.resize( lldA * nlocA );
         B_data.resize( lldB * nlocB );
@@ -125,12 +125,11 @@ void test_trsm_work(Params& params, bool run)
     // Cholesky factor of A to get a well conditioned triangular matrix.
     // Even when we replace the diagonal with unit diagonal,
     // it seems to still be well conditioned.
-    if (ref) {
+    if (ref || origin == slate::Origin::ScaLAPACK) {
         auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                     uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         slate::potrf( AH, opts );
     }
-
     // if check is required, copy test data
     std::vector< scalar_t > Bref_data;
     slate::Matrix<scalar_t> Bref;

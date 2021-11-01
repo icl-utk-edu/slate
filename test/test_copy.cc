@@ -81,8 +81,8 @@ void test_copy_work(Params& params, bool run)
     std::vector<scalar_t> A_data;
 
     // Matrix B: using the fact that B must be same dimensions as A.
-    int64_t mlocB, nlocB, lldB;
-    mlocB = mlocA, nlocB = nlocA, lldB = lldA;
+    int64_t nlocB, lldB;
+    nlocB = nlocA, lldB = lldA;
     std::vector<scalar_t> B_data;
 
     matrix_type A, B;
@@ -216,7 +216,7 @@ void test_copy_work(Params& params, bool run)
     }
 
     if (verbose > 1) {
-        print_matrix("A", A);
+        print_matrix("A", A, params);
     }
 
     if (! ref_only) {

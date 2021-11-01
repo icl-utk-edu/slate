@@ -89,19 +89,24 @@ void test_syr2k_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector< scalar_t > A_data(lldA*nlocA);
 
     // Matrix B: figure out local size.
     int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-    std::vector< scalar_t > B_data(lldB*nlocB);
 
     // Matrix C: figure out local size.
     int64_t mlocC = num_local_rows_cols(Cm, nb, myrow, p);
     int64_t nlocC = num_local_rows_cols(Cn, nb, mycol, q);
     int64_t lldC  = blas::max(1, mlocC); // local leading dimension of C
-    std::vector< scalar_t > C_data(lldC*nlocC);
+
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data, B_data, C_data;
+    if (ref || origin == slate::Origin::ScaLAPACK) {
+        A_data.resize( lldA * nlocA );
+        B_data.resize( lldB * nlocB );
+        C_data.resize( lldC * nlocC );
+    }
 
     slate::Matrix<scalar_t> A, B;
     slate::SymmetricMatrix<scalar_t> C;
@@ -136,7 +141,7 @@ void test_syr2k_work(Params& params, bool run)
         slate::SymmetricMatrix<scalar_t> Cref;
         std::vector< scalar_t > Cref_data;
         if (check || ref) {
-            Cref_data.resize( C_data.size() );
+            Cref_data.resize( lldC * nlocC );
             Cref = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
                        uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
             slate::copy( C, Cref );

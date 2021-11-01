@@ -85,13 +85,18 @@ void test_trsm_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector< scalar_t > A_data(lldA*nlocA);
 
     // Matrix B: figure out local size.
     int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-    std::vector< scalar_t > B_data(lldB*nlocB);
+
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data, B_data, C_data;
+    if (ref || origin == slate::Origin::ScaLAPACK) {
+        A_data.resize( lldA * nlocA );
+        B_data.resize( lldB * nlocB );
+    }
 
     slate::TriangularMatrix<scalar_t> A;
     slate::Matrix<scalar_t> B;
@@ -120,15 +125,17 @@ void test_trsm_work(Params& params, bool run)
     // Cholesky factor of A to get a well conditioned triangular matrix.
     // Even when we replace the diagonal with unit diagonal,
     // it seems to still be well conditioned.
-    auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                  uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-    slate::potrf( AH, opts );
+    if (ref) {
+        auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                    uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        slate::potrf( AH, opts );
+    }
 
     // if check is required, copy test data
     std::vector< scalar_t > Bref_data;
     slate::Matrix<scalar_t> Bref;
     if (check || ref) {
-        Bref_data.resize( B_data.size() );
+        Bref_data.resize( lldB * nlocB );
         Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
                    Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         slate::copy( B, Bref );

@@ -18,7 +18,6 @@
 #include <cstdlib>
 #include <utility>
 
-#undef PIN_MATRICES
 #define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template<typename scalar_t>
@@ -287,11 +286,6 @@ void test_tbsm_work(Params& params, bool run)
         #endif
     }
     //printf("%% done\n");
-
-    #ifdef PIN_MATRICES
-        cuerror = cudaHostUnregister(&A_data[0]);
-        cuerror = cudaHostUnregister(&B_data[0]);
-    #endif
 }
 
 // -----------------------------------------------------------------------------

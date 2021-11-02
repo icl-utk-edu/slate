@@ -204,8 +204,7 @@ void hettmqr(internal::TargetType<Target::HostTask>,
                     continue;
 
                 if ((i1 >= j && C.tileIsLocal(i1, j)) ||
-                    (i1 <  j && C.tileIsLocal(j, i1)))
-                {
+                    (i1 <  j && C.tileIsLocal(j, i1))) {
                     // First node of each pair sends tile to dst,
                     int dst = C.tileRank(i2, j);
                     if (i1 >= j) {
@@ -220,7 +219,7 @@ void hettmqr(internal::TargetType<Target::HostTask>,
                 else if (C.tileIsLocal(i2, j)) {
                     // Second node of each pair receives tile from src,
                     int src = (i1 >= j ? C.tileRank(i1, j)
-                                       : C.tileRank(j, i1));
+                               : C.tileRank(j, i1));
                     C.tileRecv(i1, j, src, layout, tag);
                 }
             } // for j
@@ -233,18 +232,18 @@ void hettmqr(internal::TargetType<Target::HostTask>,
                     // Applies Q, then sends updated tile back.
                     #pragma omp task shared(V, T, C)
                     {
-                    V.tileGetForReading(i2, 0, LayoutConvert(layout));
-                    T.tileGetForReading(i2, 0, LayoutConvert(layout));
-                    C.tileGetForWriting(i2, j, LayoutConvert(layout));
+                        V.tileGetForReading(i2, 0, LayoutConvert(layout));
+                        T.tileGetForReading(i2, 0, LayoutConvert(layout));
+                        C.tileGetForWriting(i2, j, LayoutConvert(layout));
 
-                    // Multiply op(Q) * [ C(i1, j) ].
-                    //                  [ C(i2, j) ]
-                    tpmqrt(Side::Left, op, std::min(V.tileMb(i2), V.tileNb(0)),
-                           V(i2, 0), T(i2, 0), C(i1, j), C(i2, j));
+                        // Multiply op(Q) * [ C(i1, j) ].
+                        //                  [ C(i2, j) ]
+                        tpmqrt(Side::Left, op, std::min(V.tileMb(i2), V.tileNb(0)),
+                               V(i2, 0), T(i2, 0), C(i1, j), C(i2, j));
 
-                    // todo: should tileRelease()?
-                    V.tileTick(i2, 0);
-                    T.tileTick(i2, 0);
+                        // todo: should tileRelease()?
+                        V.tileTick(i2, 0);
+                        T.tileTick(i2, 0);
                     }
                 }
             } // for j
@@ -255,8 +254,7 @@ void hettmqr(internal::TargetType<Target::HostTask>,
                     continue;
 
                 if ((i1 >= j && C.tileIsLocal(i1, j)) ||
-                    (i1 <  j && C.tileIsLocal(j, i1)))
-                {
+                    (i1 <  j && C.tileIsLocal(j, i1))) {
                     // Receives updated tile back ().
                     int dst = C.tileRank(i2, j);
                     if (i1 >= j) {
@@ -270,7 +268,7 @@ void hettmqr(internal::TargetType<Target::HostTask>,
                 else if (C.tileIsLocal(i2, j)) {
                     // Sends updated tile back.
                     int src = (i1 >= j ? C.tileRank(i1, j)
-                                       : C.tileRank(j, i1));
+                               : C.tileRank(j, i1));
                     // Send updated tile back.
                     C.tileSend(i1, j, src, tag);
                     C.tileTick(i1, j);
@@ -307,17 +305,17 @@ void hettmqr(internal::TargetType<Target::HostTask>,
                     // Applies Q, then sends updated tile back.
                     #pragma omp task shared(V, T, C)
                     {
-                    V.tileGetForReading(j2, 0, LayoutConvert(layout));
-                    T.tileGetForReading(j2, 0, LayoutConvert(layout));
-                    C.tileGetForWriting(i, j2, LayoutConvert(layout));
+                        V.tileGetForReading(j2, 0, LayoutConvert(layout));
+                        T.tileGetForReading(j2, 0, LayoutConvert(layout));
+                        C.tileGetForWriting(i, j2, LayoutConvert(layout));
 
-                    // Multiply [ C(i, j1) C(i, j2) ] * opR(Q).
-                    tpmqrt(Side::Right, opR, std::min(V.tileMb(j2), V.tileNb(0)),
-                           V(j2, 0), T(j2, 0), C(i, j1), C(i, j2));
+                        // Multiply [ C(i, j1) C(i, j2) ] * opR(Q).
+                        tpmqrt(Side::Right, opR, std::min(V.tileMb(j2), V.tileNb(0)),
+                               V(j2, 0), T(j2, 0), C(i, j1), C(i, j2));
 
-                    // todo: should tileRelease()?
-                    V.tileTick(j2, 0);
-                    T.tileTick(j2, 0);
+                        // todo: should tileRelease()?
+                        V.tileTick(j2, 0);
+                        T.tileTick(j2, 0);
                     }
                 }
             } // for i

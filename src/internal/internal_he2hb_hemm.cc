@@ -31,7 +31,7 @@ void he2hb_hemm(
     int priority, int64_t queue_index)
 {
     he2hb_hemm(internal::TargetType<target>(),
-        A, B, C, indices, priority, queue_index);
+               A, B, C, indices, priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -41,11 +41,11 @@ void he2hb_hemm(
 ///
 template <typename scalar_t>
 void he2hb_hemm(internal::TargetType<Target::HostTask>,
-    HermitianMatrix<scalar_t>& A,
-    Matrix<scalar_t>& B,
-    Matrix<scalar_t>& C,
-    std::vector<int64_t>& indices,
-    int priority, int64_t queue_index)
+                HermitianMatrix<scalar_t>& A,
+                Matrix<scalar_t>& B,
+                Matrix<scalar_t>& C,
+                std::vector<int64_t>& indices,
+                int priority, int64_t queue_index)
 {
     int64_t nt = A.nt();
     const scalar_t one  = 1;
@@ -65,7 +65,7 @@ void he2hb_hemm(internal::TargetType<Target::HostTask>,
                         C.tileGetForWriting(i, 0, LayoutConvert(layout));
                         if (i == j) {
                             hemm(Side::Left, one, A(i, j), B(j, 0),
-                                             one, C(i, 0));
+                                 one, C(i, 0));
                         }
                         else {
                             // todo: if HeMatrix returned conjTrans tiles,
@@ -101,11 +101,11 @@ void he2hb_hemm(internal::TargetType<Target::HostTask>,
 ///
 template <typename scalar_t>
 void he2hb_hemm(internal::TargetType<Target::HostNest>,
-    HermitianMatrix<scalar_t>& A,
-    Matrix<scalar_t>& B,
-    Matrix<scalar_t>& C,
-    std::vector<int64_t> indices,
-    int priority, int64_t queue_index)
+                HermitianMatrix<scalar_t>& A,
+                Matrix<scalar_t>& B,
+                Matrix<scalar_t>& C,
+                std::vector<int64_t> indices,
+                int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
@@ -117,11 +117,11 @@ void he2hb_hemm(internal::TargetType<Target::HostNest>,
 ///
 template <typename scalar_t>
 void he2hb_hemm(internal::TargetType<Target::HostBatch>,
-    HermitianMatrix<scalar_t>& A,
-    Matrix<scalar_t>& B,
-    Matrix<scalar_t>& C,
-    std::vector<int64_t> indices,
-    int priority, int64_t queue_index)
+                HermitianMatrix<scalar_t>& A,
+                Matrix<scalar_t>& B,
+                Matrix<scalar_t>& C,
+                std::vector<int64_t> indices,
+                int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
@@ -133,11 +133,11 @@ void he2hb_hemm(internal::TargetType<Target::HostBatch>,
 ///
 template <typename scalar_t>
 void he2hb_hemm(internal::TargetType<Target::Devices>,
-    HermitianMatrix<scalar_t>& A,
-    Matrix<scalar_t>& B,
-    Matrix<scalar_t>& C,
-    std::vector<int64_t> indices,
-    int priority, int64_t queue_index)
+                HermitianMatrix<scalar_t>& A,
+                Matrix<scalar_t>& B,
+                Matrix<scalar_t>& C,
+                std::vector<int64_t> indices,
+                int priority, int64_t queue_index)
 {
     int64_t nt = A.nt();
     const scalar_t one  = 1;
@@ -207,15 +207,14 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
             //blas::Queue* queue = C.compute_queue(device, queue_index);
             //assert(queue != nullptr);
             for (int64_t j: indices) {
-	        //queue->fork(); // to have multiple streams
+                //queue->fork(); // to have multiple streams
                 for (int64_t i = 0; i < nt; ++i) {
-	            // queue per iteration i
-	            blas::Queue* queue = C.compute_queue( device, i % num_queues );
+                    // queue per iteration i
+                    blas::Queue* queue = C.compute_queue( device, i % num_queues );
                     assert(queue != nullptr);
                     if (i >= j) { // lower or diagonal
                         if (A.tileIsLocal(i, j)
-                            && device == C.tileDevice(i, 0))
-			{
+                            && device == C.tileDevice(i, 0)) {
                             //blas::Queue* queue = C.compute_queue(device, queue_index);
                             //assert(queue != nullptr);
 
@@ -228,7 +227,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                                             blas::Uplo::Lower,
                                             Ci0.mb(), Ci0.nb(),
                                             one, Aij.data(), Aij.stride(),
-                                                 Bj0.data(), Bj0.stride(),
+                                            Bj0.data(), Bj0.stride(),
                                             one, Ci0.data(), Ci0.stride(),
                                             *queue );
                             }
@@ -238,7 +237,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                                 blas::gemm( layout, Op::NoTrans, Op::NoTrans,
                                             Aij.mb(), Bj0.nb(), Aij.nb(),
                                             one, Aij.data(), Aij.stride(),
-                                                 Bj0.data(), Bj0.stride(),
+                                            Bj0.data(), Bj0.stride(),
                                             one, Ci0.data(), Ci0.stride(),
                                             *queue );
                             }
@@ -246,8 +245,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                     }
                     else { // upper
                         if (A.tileIsLocal(j, i)
-                            && device == C.tileDevice(i, 0))
-			{
+                            && device == C.tileDevice(i, 0)) {
                             auto Aji = A(j, i, device);
                             auto Bj0 = B(j, 0, device);
                             auto Ci0 = C(i, 0, device);
@@ -255,20 +253,20 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                             blas::gemm( layout, Op::ConjTrans, Op::NoTrans,
                                         Aji.nb(), Bj0.nb(), Aji.mb(),
                                         one, Aji.data(), Aji.stride(),
-                                             Bj0.data(), Bj0.stride(),
+                                        Bj0.data(), Bj0.stride(),
                                         one, Ci0.data(), Ci0.stride(),
                                         *queue );
                         }
                     }
-		    //queue->revolve(); // new stream
+                    //queue->revolve(); // new stream
                 } // i loop
-	        //queue->join(); // sync all the streams on this queue
+                //queue->join(); // sync all the streams on this queue
             } // j loop
             //queue->sync(); // sync all the queues/streams
 
-	    // sync all the queues (in case of queue per iteration i)
-	    for (int64_t i = 0; i < num_queues; i++) {
-	        blas::Queue* queue = C.compute_queue( device, i );
+            // sync all the queues (in case of queue per iteration i)
+            for (int64_t i = 0; i < num_queues; i++) {
+                blas::Queue* queue = C.compute_queue( device, i );
                 queue->sync();
             }
 
@@ -276,25 +274,23 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                 for (int64_t i = 0; i < nt; ++i) {
                     if (i >= j) { // lower or diagonal
                         if (A.tileIsLocal(i, j)
-                            && device == C.tileDevice(i, 0))
-			    {
-                                C.tileModified(i, 0, device);
-                                A.tileRelease(i, j, device);
-                                B.tileRelease(j, 0, device);
-                                A.tileTick(i, j);
-                                B.tileTick(j, 0);
-                            }
+                            && device == C.tileDevice(i, 0)) {
+                            C.tileModified(i, 0, device);
+                            A.tileRelease(i, j, device);
+                            B.tileRelease(j, 0, device);
+                            A.tileTick(i, j);
+                            B.tileTick(j, 0);
                         }
+                    }
                     else { // upper
                         if (A.tileIsLocal(j, i)
-                            && device == C.tileDevice(i, 0))
-			    {
-                                C.tileModified(i, 0, device);
-                                A.tileRelease(j, i, device);
-                                B.tileRelease(j, 0, device);
-                                A.tileTick(j, i);
-                                B.tileTick(j, 0);
-                            }
+                            && device == C.tileDevice(i, 0)) {
+                            C.tileModified(i, 0, device);
+                            A.tileRelease(j, i, device);
+                            B.tileRelease(j, 0, device);
+                            A.tileTick(j, i);
+                            B.tileTick(j, 0);
+                        }
                     }
                 } //i loop
             } // j loop

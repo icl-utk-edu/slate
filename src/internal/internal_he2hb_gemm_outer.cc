@@ -21,14 +21,14 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void he2hb_gemm_outer(scalar_t alpha, Matrix<scalar_t>&& A,
-                                Matrix<scalar_t>&& B,
-                scalar_t beta,  HermitianMatrix<scalar_t>&& C,
-                std::vector<int64_t>& indices,
-                uint8_t* block,
-                int priority, int64_t queue_index)
+                      Matrix<scalar_t>&& B,
+                      scalar_t beta,  HermitianMatrix<scalar_t>&& C,
+                      std::vector<int64_t>& indices,
+                      uint8_t* block,
+                      int priority, int64_t queue_index)
 {
     he2hb_gemm_outer(internal::TargetType<target>(),
-          alpha, A, B, beta, C, indices, block, priority, queue_index);
+                     alpha, A, B, beta, C, indices, block, priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -38,12 +38,12 @@ void he2hb_gemm_outer(scalar_t alpha, Matrix<scalar_t>&& A,
 ///
 template <typename scalar_t>
 void he2hb_gemm_outer(internal::TargetType<Target::HostTask>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
-           scalar_t beta,  HermitianMatrix<scalar_t>& C,
-           std::vector<int64_t>& indices,
-           uint8_t* block,
-           int priority, int64_t queue_index)
+                      scalar_t alpha, Matrix<scalar_t>& A,
+                      Matrix<scalar_t>& B,
+                      scalar_t beta,  HermitianMatrix<scalar_t>& C,
+                      std::vector<int64_t>& indices,
+                      uint8_t* block,
+                      int priority, int64_t queue_index)
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -51,9 +51,9 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostTask>,
 
     // try to loop over one tile and do two gemm, similar to her2k
     for (int64_t j = 0; j < nt; ++j) {
-    #pragma omp task depend(in:block[j]) \
-                     depend(in:block[0]) \
-                     depend(inout:block[j])
+        #pragma omp task depend(in:block[j]) \
+                         depend(in:block[0]) \
+                         depend(inout:block[j])
         for (int64_t i: indices) {
             // todo: if HermitianMatrix returned conjTrans
             // tiles, could merge these two.
@@ -64,7 +64,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostTask>,
                     C.tileGetForWriting(i, j, LayoutConvert(layout));
                     // Aij -= Vik Wjk^H
                     gemm(alpha, A(i, 0), conjTranspose(B(j, 0)),
-                          beta, C(i, j));
+                         beta, C(i, j));
                     A.tileTick(i, 0);
                     B.tileTick(j, 0);
                 }
@@ -76,7 +76,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostTask>,
                     C.tileGetForWriting(j, i, LayoutConvert(layout));
                     // Aji -= Wjk Vik^H
                     gemm(alpha, B(j, 0), conjTranspose(A(i, 0)),
-                          beta, C(j, i));
+                         beta, C(j, i));
                     B.tileTick(j, 0);
                     A.tileTick(i, 0);
                 }
@@ -98,12 +98,12 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostTask>,
 ///
 template <typename scalar_t>
 void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
-           scalar_t beta,  HermitianMatrix<scalar_t>& C,
-           std::vector<int64_t>& indices,
-           uint8_t* block,
-           int priority, int64_t queue_index)
+                      scalar_t alpha, Matrix<scalar_t>& A,
+                      Matrix<scalar_t>& B,
+                      scalar_t beta,  HermitianMatrix<scalar_t>& C,
+                      std::vector<int64_t>& indices,
+                      uint8_t* block,
+                      int priority, int64_t queue_index)
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -205,7 +205,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
 
             for (int64_t j = 0; j < j_interior; ++j) {
                 for (int64_t i_ = 0; i_ < i_interior; ++i_) {
-                //for (int64_t i: indices) {
+                    //for (int64_t i: indices) {
                     int64_t i = indices[i_];
                     if (i > j) {
                         if (C.tileIsLocal(i, j)) {
@@ -253,7 +253,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
             int64_t nb01 = C.tileNb(nt-1);
 
             if (j_last == 1) {
-            //for (int64_t j = 0; j < nt; ++j) {
+                //for (int64_t j = 0; j < nt; ++j) {
                 int64_t j = C.nt()-1;
                 //for (int64_t i: indices) {
                 for (int64_t i_ = 0; i_ < i_interior; ++i_) {
@@ -412,7 +412,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
                         layout, opA_, opB_,
                         m, n, kb_,
                         alpha_, a_array00, ldda,
-                                b_array00, lddb,
+                        b_array00, lddb,
                         beta_,  c_array00, lddc,
                         c_array00.size(), info, *queue);
                 }
@@ -427,7 +427,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
                         layout, opA_, opB_,
                         m, n, kb_,
                         alpha_, a_array01, ldda,
-                                b_array01, lddb,
+                        b_array01, lddb,
                         beta_,  c_array01, lddc,
                         c_array01.size(), info, *queue);
                 }
@@ -442,7 +442,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
                         layout, opA_, opB_,
                         m, n, kb_,
                         alpha_, a_array10, ldda,
-                                b_array10, lddb,
+                        b_array10, lddb,
                         beta_,  c_array10, lddc,
                         c_array10.size(), info, *queue);
                 }
@@ -457,7 +457,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
                         layout, opA_, opB_,
                         m, n, kb_,
                         alpha_, a_array11, ldda,
-                                b_array11, lddb,
+                        b_array11, lddb,
                         beta_,  c_array11, lddc,
                         c_array11.size(), info, *queue);
                 }
@@ -508,12 +508,12 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
 ///
 template <typename scalar_t>
 void he2hb_gemm_outer(internal::TargetType<Target::HostNest>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
-           scalar_t beta,  HermitianMatrix<scalar_t>& C,
-           std::vector<int64_t>& indices,
-           uint8_t* block,
-           int priority, int64_t queue_index)
+                      scalar_t alpha, Matrix<scalar_t>& A,
+                      Matrix<scalar_t>& B,
+                      scalar_t beta,  HermitianMatrix<scalar_t>& C,
+                      std::vector<int64_t>& indices,
+                      uint8_t* block,
+                      int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
@@ -526,12 +526,12 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostNest>,
 ///
 template <typename scalar_t>
 void he2hb_gemm_outer(internal::TargetType<Target::HostBatch>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
-           scalar_t beta,  HermitianMatrix<scalar_t>& C,
-           std::vector<int64_t>& indices,
-           uint8_t* block,
-           int priority, int64_t queue_index)
+                      scalar_t alpha, Matrix<scalar_t>& A,
+                      Matrix<scalar_t>& B,
+                      scalar_t beta,  HermitianMatrix<scalar_t>& C,
+                      std::vector<int64_t>& indices,
+                      uint8_t* block,
+                      int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
@@ -542,7 +542,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostBatch>,
 template
 void he2hb_gemm_outer<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
-                 Matrix<float>&& B,
+    Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,
@@ -552,7 +552,7 @@ void he2hb_gemm_outer<Target::HostTask, float>(
 template
 void he2hb_gemm_outer<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
-                  Matrix<double>&& B,
+    Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,
@@ -562,7 +562,7 @@ void he2hb_gemm_outer<Target::HostTask, double>(
 template
 void he2hb_gemm_outer< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-                               Matrix< std::complex<float> >&& B,
+    Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,
@@ -572,7 +572,7 @@ void he2hb_gemm_outer< Target::HostTask, std::complex<float> >(
 template
 void he2hb_gemm_outer< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-                                Matrix< std::complex<double> >&& B,
+    Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,
@@ -582,7 +582,7 @@ void he2hb_gemm_outer< Target::HostTask, std::complex<double> >(
 template
 void he2hb_gemm_outer<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
-                 Matrix<float>&& B,
+    Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,
@@ -592,7 +592,7 @@ void he2hb_gemm_outer<Target::Devices, float>(
 template
 void he2hb_gemm_outer<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
-                  Matrix<double>&& B,
+    Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,
@@ -602,7 +602,7 @@ void he2hb_gemm_outer<Target::Devices, double>(
 template
 void he2hb_gemm_outer< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-                               Matrix< std::complex<float> >&& B,
+    Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,
@@ -612,7 +612,7 @@ void he2hb_gemm_outer< Target::Devices, std::complex<float> >(
 template
 void he2hb_gemm_outer< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-                                Matrix< std::complex<double> >&& B,
+    Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,
@@ -622,7 +622,7 @@ void he2hb_gemm_outer< Target::Devices, std::complex<double> >(
 template
 void he2hb_gemm_outer<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
-                 Matrix<float>&& B,
+    Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,
@@ -632,7 +632,7 @@ void he2hb_gemm_outer<Target::HostNest, float>(
 template
 void he2hb_gemm_outer<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
-                  Matrix<double>&& B,
+    Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,
@@ -642,7 +642,7 @@ void he2hb_gemm_outer<Target::HostNest, double>(
 template
 void he2hb_gemm_outer< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-                               Matrix< std::complex<float> >&& B,
+    Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,
@@ -652,7 +652,7 @@ void he2hb_gemm_outer< Target::HostNest, std::complex<float> >(
 template
 void he2hb_gemm_outer< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-                                Matrix< std::complex<double> >&& B,
+    Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,
@@ -662,7 +662,7 @@ void he2hb_gemm_outer< Target::HostNest, std::complex<double> >(
 template
 void he2hb_gemm_outer<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
-                 Matrix<float>&& B,
+    Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,
@@ -672,7 +672,7 @@ void he2hb_gemm_outer<Target::HostBatch, float>(
 template
 void he2hb_gemm_outer<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
-                  Matrix<double>&& B,
+    Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,
@@ -682,7 +682,7 @@ void he2hb_gemm_outer<Target::HostBatch, double>(
 template
 void he2hb_gemm_outer< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-                               Matrix< std::complex<float> >&& B,
+    Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,
@@ -692,7 +692,7 @@ void he2hb_gemm_outer< Target::HostBatch, std::complex<float> >(
 template
 void he2hb_gemm_outer< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-                                Matrix< std::complex<double> >&& B,
+    Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& indices,
     uint8_t* block,

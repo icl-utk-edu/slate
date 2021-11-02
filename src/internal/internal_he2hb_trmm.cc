@@ -22,12 +22,12 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void he2hb_trmm(HermitianMatrix<scalar_t>&& A, Matrix<scalar_t>&& W,
-           Matrix<scalar_t>&& T,
-           std::vector<int64_t>& indices,
-           int priority, int64_t queue_index)
+                Matrix<scalar_t>&& T,
+                std::vector<int64_t>& indices,
+                int priority, int64_t queue_index)
 {
     he2hb_trmm(internal::TargetType<target>(),
-          A, W, T, indices, priority, queue_index);
+               A, W, T, indices, priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -41,11 +41,11 @@ void he2hb_trmm(HermitianMatrix<scalar_t>&& A, Matrix<scalar_t>&& W,
 ///
 template <typename scalar_t>
 void he2hb_trmm(internal::TargetType<Target::HostTask>,
-           HermitianMatrix<scalar_t>& A,
-           Matrix<scalar_t>& W,
-           Matrix<scalar_t>& Tlocal,
-           std::vector<int64_t>& indices,
-           int priority, int64_t queue_index)
+                HermitianMatrix<scalar_t>& A,
+                Matrix<scalar_t>& W,
+                Matrix<scalar_t>& Tlocal,
+                std::vector<int64_t>& indices,
+                int priority, int64_t queue_index)
 {
     const scalar_t one  = 1;
     int my_rank = A.mpiRank();
@@ -112,11 +112,11 @@ void he2hb_trmm(internal::TargetType<Target::HostTask>,
 ///
 template <typename scalar_t>
 void he2hb_trmm(internal::TargetType<Target::Devices>,
-           HermitianMatrix<scalar_t>& A,
-           Matrix<scalar_t>& W,
-           Matrix<scalar_t>& Tlocal,
-           std::vector<int64_t>& indices,
-           int priority, int64_t queue_index)
+                HermitianMatrix<scalar_t>& A,
+                Matrix<scalar_t>& W,
+                Matrix<scalar_t>& Tlocal,
+                std::vector<int64_t>& indices,
+                int priority, int64_t queue_index)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
@@ -339,11 +339,11 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
 ///
 template <typename scalar_t>
 void he2hb_trmm(internal::TargetType<Target::HostNest>,
-           HermitianMatrix<scalar_t>& A,
-           Matrix<scalar_t>& W,
-           Matrix<scalar_t>& Tlocal,
-           std::vector<int64_t>& indices,
-           int priority, int64_t queue_index)
+                HermitianMatrix<scalar_t>& A,
+                Matrix<scalar_t>& W,
+                Matrix<scalar_t>& Tlocal,
+                std::vector<int64_t>& indices,
+                int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
@@ -355,11 +355,11 @@ void he2hb_trmm(internal::TargetType<Target::HostNest>,
 ///
 template <typename scalar_t>
 void he2hb_trmm(internal::TargetType<Target::HostBatch>,
-           HermitianMatrix<scalar_t>& A,
-           Matrix<scalar_t>& W,
-           Matrix<scalar_t>& Tlocal,
-           std::vector<int64_t>& indices,
-           int priority, int64_t queue_index)
+                HermitianMatrix<scalar_t>& A,
+                Matrix<scalar_t>& W,
+                Matrix<scalar_t>& Tlocal,
+                std::vector<int64_t>& indices,
+                int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
 }

@@ -143,15 +143,15 @@ void he2hb(slate::internal::TargetType<target>,
             #pragma omp task depend(inout:block[k])
             {
                 internal::geqrf<Target::HostTask>(
-                                std::move(A_panel),
-                                std::move(Tlocal_panel),
-                                ib, max_panel_threads);
+                    std::move(A_panel),
+                    std::move(Tlocal_panel),
+                    ib, max_panel_threads);
 
                 // triangle-triangle reductions
                 // ttqrt handles tile transfers internally
                 internal::ttqrt<Target::HostTask>(
-                                std::move(A_panel),
-                                std::move(Treduce_panel));
+                    std::move(A_panel),
+                    std::move(Treduce_panel));
 
                 // if a trailing matrix exists.
                 if (k < nt-1) {
@@ -160,7 +160,7 @@ void he2hb(slate::internal::TargetType<target>,
                     BcastList bcast_list_V_first;
                     BcastList bcast_list_V;
                     for (int64_t i = k; i < nt; ++i) {
-                        // Vs need 6 lives for hemm, .
+                        // Vs need 6 lives.
                         // Vs in first_indices (except top-most one, i == k+1)
                         // need 3 lives: for her2k, gemm_outer, and for hettmqr.
                         if (i > k+1 && std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end()) {
@@ -259,10 +259,10 @@ void he2hb(slate::internal::TargetType<target>,
                     #pragma omp task depend(inout:block[k])
                     {
                         internal::he2hb_hemm<target>(
-                                             A.sub(k+1, nt-1),
-                                             A.sub(k+1, nt-1, k, k),
-                                             W.sub(k+1, nt-1, k, k),
-                                             indices2);
+                            A.sub(k+1, nt-1),
+                            A.sub(k+1, nt-1, k, k),
+                            W.sub(k+1, nt-1, k, k),
+                            indices2);
                     }
 
                     int rank_lower = -1;
@@ -292,12 +292,14 @@ void he2hb(slate::internal::TargetType<target>,
                                 int tag_i = i;
                                 int tag_i_ = i+1;
                                 if (neighbor < my_rank) {
-                                    W.tileGetForWriting(i, k, W.hostNum(), LayoutConvert(layout));
+                                    W.tileGetForWriting(i, k, W.hostNum(),
+                                        LayoutConvert(layout));
                                     W   .tileSend(i, k, neighbor, tag_i);
                                     Wtmp.tileRecv(i, k, neighbor, layout, tag_i_);
                                 }
                                 else {
-                                    W.tileGetForWriting(i, k, W.hostNum(), LayoutConvert(layout));
+                                    W.tileGetForWriting(i, k, W.hostNum(),
+                                        LayoutConvert(layout));
                                     Wtmp.tileRecv(i, k, neighbor, layout, tag_i);
                                     W   .tileSend(i, k, neighbor, tag_i_);
                                 }
@@ -313,11 +315,11 @@ void he2hb(slate::internal::TargetType<target>,
                     #pragma omp task depend(inout:block[k])
                     {
                         internal::he2hb_trmm<target>(
-                                             // todo: needed to get the rank, try replace it with W
-                                             A.sub(k+1, nt-1),
-                                             W.sub(k+1, nt-1, k, k),
-                                             Tlocal.sub(i0, i0, k, k),
-                                             indices2);
+                            // todo: needed to get the rank, try replace it with W
+                            A.sub(k+1, nt-1),
+                            W.sub(k+1, nt-1, k, k),
+                            Tlocal.sub(i0, i0, k, k),
+                            indices2);
                     }
 
                     if (A.tileIsLocal(i0, i0)) {
@@ -338,14 +340,15 @@ void he2hb(slate::internal::TargetType<target>,
                                          depend(inout:block[0])
                         {
                             auto AT = conjTranspose(A.sub(k+1, nt-1, k, k));
-                            W.tileGetForWriting(0, 0, W.hostNum(), LayoutConvert(layout));
+                            W.tileGetForWriting(0, 0, W.hostNum(),
+                                LayoutConvert(layout));
                             TVAVT(0, 0).set(zero);
                             internal::he2hb_gemm<target>(
-                                            one,  std::move(AT),
-                                                  W.sub(k+1, nt-1, k, k),
-                                            zero, W.sub(0, 0, 0, 0),
-                                            panel_rank,
-                                            &block[0]);
+                                one,  std::move(AT),
+                                W.sub(k+1, nt-1, k, k),
+                                zero, W.sub(0, 0, 0, 0),
+                                panel_rank,
+                                &block[0]);
                         }
 
                         // 1c. TVAVT = T^H (V^H AVT)
@@ -367,12 +370,15 @@ void he2hb(slate::internal::TargetType<target>,
                             }
 
                             // todo: try to call internal::trmm
-                            auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
-                            Tk0.tileGetForReading(0, 0, Tk0.hostNum(), LayoutConvert(layout));
-                            TVAVT0.tileGetForWriting(0, 0, TVAVT0.hostNum(), LayoutConvert(layout));
+                            auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper,
+                                Diag::NonUnit, T0);
+                            Tk0.tileGetForReading(0, 0, Tk0.hostNum(),
+                                LayoutConvert(layout));
+                            TVAVT0.tileGetForWriting(0, 0, TVAVT0.hostNum(),
+                                LayoutConvert(layout));
                             trmm(Side::Left, Diag::NonUnit,
                                  one, conjTranspose(Tk0(0, 0)),
-                                      std::move(TVAVT0(0, 0)));
+                                 std::move(TVAVT0(0, 0)));
                         }
 
                         // 1d. W = W - 0.5 V TVAVT.
@@ -381,11 +387,11 @@ void he2hb(slate::internal::TargetType<target>,
                                          depend(inout:block[k])
                         {
                             internal::he2hb_gemm<target>(
-                                                 -half, A.sub(k+1, nt-1, k, k),
-                                                        W.sub(0, 0, 0, 0),
-                                                 one,   W.sub(k+1, nt-1, k, k),
-                                                 panel_rank,
-                                                 &block[k+1]);
+                                -half, A.sub(k+1, nt-1, k, k),
+                                W.sub(0, 0, 0, 0),
+                                one,   W.sub(k+1, nt-1, k, k),
+                                panel_rank,
+                                &block[k+1]);
                         }
 
                         // 2. Update trailing matrix.
@@ -394,9 +400,9 @@ void he2hb(slate::internal::TargetType<target>,
                                          depend(out:block[nt-1])
                         {
                             internal::her2k<target>(
-                                            -one,  A.sub(k+1, nt-1, k, k),
-                                                   W.sub(k+1, nt-1, k, k),
-                                            1.0,   A.sub(k+1, nt-1));
+                                -one,  A.sub(k+1, nt-1, k, k),
+                                W.sub(k+1, nt-1, k, k),
+                                1.0,   A.sub(k+1, nt-1));
                         }
                     }
                     else { // off-diag
@@ -416,10 +422,10 @@ void he2hb(slate::internal::TargetType<target>,
                                          depend(inout:block[nt-1])
                         {
                             internal::he2hb_gemm_outer<target>(
-                                                       -one, A.sub(k+1, nt-1, k, k),
-                                                             std::move(W_panel),
-                                                       one,  A.sub(k+1, nt-1),
-                                                       indices2, &block[k+1]);
+                                -one, A.sub(k+1, nt-1, k, k),
+                                std::move(W_panel),
+                                one,  A.sub(k+1, nt-1),
+                                indices2, &block[k+1]);
                         }
                     }
 
@@ -438,10 +444,10 @@ void he2hb(slate::internal::TargetType<target>,
                                  depend(inout:block[nt-1])
                 {
                     internal::hettmqr<Target::HostTask>(
-                                      Op::ConjTrans,
-                                      std::move(A_panel),
-                                      std::move(Treduce_panel),
-                                      A.sub(k+1, nt-1));
+                        Op::ConjTrans,
+                        std::move(A_panel),
+                        std::move(Treduce_panel),
+                        A.sub(k+1, nt-1));
                 }
             } //if (k < nt-1)
         }
@@ -469,7 +475,8 @@ void he2hb(HermitianMatrix<scalar_t>& A,
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
 
     int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
+    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
+        max_panel_threads );
 
     internal::specialization::he2hb(internal::TargetType<target>(),
                                     A, T,

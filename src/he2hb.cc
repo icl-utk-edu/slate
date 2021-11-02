@@ -55,9 +55,7 @@ void he2hb(slate::internal::TargetType<target>,
     T.push_back( Treduce );
 
     // workspace
-    //auto W = A.emptyLike();
     auto Wtmp = A.emptyLike();
-    //auto TVAVT = A.emptyLike();
     auto Asave = A.emptyLike();
 
     // Use W(0, 0) for TVAVT, since W(0, 0) is never used otherwise.
@@ -66,7 +64,7 @@ void he2hb(slate::internal::TargetType<target>,
     int64_t n = A.n();
     int64_t nb = A.tileNb(0);
     // todo: how to get p and q??
-    int64_t p = 1, q = 1;
+    int64_t p = 2, q = 2;
     std::function<int64_t (int64_t j)> tileNb = [n, nb] (int64_t j) {
         return (j + 1)*nb > n ? n%nb : nb;
     };
@@ -87,11 +85,12 @@ void he2hb(slate::internal::TargetType<target>,
 
     W.tileInsert(0, 0);
     auto TVAVT = W.sub(0, 0, 0, 0);
+    int num_queues = 10;
 
     if (target == Target::Devices) {
         A.allocateBatchArrays();
         A.reserveDeviceWorkspace();
-        W.allocateBatchArrays();
+        W.allocateBatchArrays(0, num_queues);
         W.reserveDeviceWorkspace();
     }
 
@@ -103,9 +102,6 @@ void he2hb(slate::internal::TargetType<target>,
     // tracks dependencies by block-column.
     std::vector< uint8_t > block_vector(nt);
     uint8_t* block = block_vector.data();
-    uint8_t* row = block_vector.data();
-
-    // bool debug = true;
 
     #pragma omp parallel
     #pragma omp master
@@ -144,93 +140,95 @@ void he2hb(slate::internal::TargetType<target>,
             //--------------------
             // QR of panel
             // local panel factorization
-            internal::geqrf<Target::HostTask>(
-                            std::move(A_panel),
-                            std::move(Tlocal_panel),
-                            ib, max_panel_threads);
+            #pragma omp task depend(inout:block[k])
+            {
+                internal::geqrf<Target::HostTask>(
+                                std::move(A_panel),
+                                std::move(Tlocal_panel),
+                                ib, max_panel_threads);
 
-            // triangle-triangle reductions
-            // ttqrt handles tile transfers internally
-            internal::ttqrt<Target::HostTask>(
-                            std::move(A_panel),
-                            std::move(Treduce_panel));
+                // triangle-triangle reductions
+                // ttqrt handles tile transfers internally
+                internal::ttqrt<Target::HostTask>(
+                                std::move(A_panel),
+                                std::move(Treduce_panel));
 
-            // if a trailing matrix exists.
-            if (k < nt-1) {
+                // if a trailing matrix exists.
+                if (k < nt-1) {
 
-                // Send V across row i & col i for trailing matrix update.
-                BcastList bcast_list_V_first;
-                BcastList bcast_list_V;
-                for (int64_t i = k; i < nt; ++i) {
-                    // Vs need 2 lives for unmqr (I - VTV^H).
-                    // Vs in first_indices (except top-most one, i == k+1)
-                    // need 3 lives: 2 for unmqr, 1 for ttmqr.
-                    if (i > k+1 && std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end()) {
-                        bcast_list_V_first.push_back(
-                            {i, k, {A.sub(i, i, k+1, i)}});
-                        bcast_list_V_first.push_back(
-                             {i, k, {A.sub(i+1, nt-1, i, i)}});
-                    }
-                    else {
-                        bcast_list_V.push_back(
-                            {i, k, {A.sub(i, i, k+1, i)}});
-                        bcast_list_V.push_back(
-                            {i, k, {A.sub(i+1, nt-1, i, i)}});
-                    }
-                }
-                A.template listBcast(bcast_list_V_first, layout, 0, 3);
-                A.template listBcast(bcast_list_V, layout, 0, 5);
-
-                // Send Treduce across row i & col i for trailing matrix update
-                if (first_indices.size() > 1) {
-                    BcastList bcast_list_T;
-                    for (int64_t i : first_indices) {
-                        // Exclude first row of this panel,
-                        // which doesn't have Treduce tile.
-                        if (i > k+1) {
-                            bcast_list_T.push_back(
-                                {i, k, {Treduce.sub(i, i, k+1, i)}});
-                            bcast_list_T.push_back(
-                                {i, k, {Treduce.sub(i+1, nt-1, i, i)}});
+                    // Send V across row i & col i for trailing matrix update.
+                    BcastList bcast_list_V_first;
+                    BcastList bcast_list_V;
+                    for (int64_t i = k; i < nt; ++i) {
+                        // Vs need 6 lives for hemm, .
+                        // Vs in first_indices (except top-most one, i == k+1)
+                        // need 3 lives: for her2k, gemm_outer, and for hettmqr.
+                        if (i > k+1 && std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end()) {
+                            bcast_list_V_first.push_back(
+                                {i, k, {A.sub(i, i, k+1, i)}});
+                            bcast_list_V_first.push_back(
+                                 {i, k, {A.sub(i+1, nt-1, i, i)}});
+                        }
+                        else {
+                            bcast_list_V.push_back(
+                                {i, k, {A.sub(i, i, k+1, i)}});
+                            bcast_list_V.push_back(
+                                {i, k, {A.sub(i+1, nt-1, i, i)}});
                         }
                     }
-                    Treduce.template listBcast(bcast_list_T, layout);
-                }
+                    A.template listBcast(bcast_list_V_first, layout, 0, 3);
+                    A.template listBcast(bcast_list_V, layout, 0, 6);
 
-                //TODO: keep only this indices loop
-                for (int panel_rank: panel_ranks) {
-                    // Find local indices for panel_rank.
-                    indices.clear();
-                    for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                        if (A_panel.tileRank(i, 0) == panel_rank) {
-                            // todo: global index
-                            indices.push_back(i+k+1);
+                    // Send Treduce across row i & col i for trailing matrix update
+                    if (first_indices.size() > 1) {
+                        BcastList bcast_list_T;
+                        for (int64_t i : first_indices) {
+                            // Exclude first row of this panel,
+                            // which doesn't have Treduce tile.
+                            if (i > k+1) {
+                                bcast_list_T.push_back(
+                                    {i, k, {Treduce.sub(i, i, k+1, i)}});
+                                bcast_list_T.push_back(
+                                    {i, k, {Treduce.sub(i+1, nt-1, i, i)}});
+                            }
                         }
+                        Treduce.template listBcast(bcast_list_T, layout);
                     }
-                    i0 = indices[0];
 
-                    // Send Tlocal across row i & col i for trailing matrix update
-                    // todo: I think this sets Tlocal with too many lives
-                    // -- needs only 1 life per rank, not # tiles.
-                    BcastList bcast_list_T;
-                    for (int64_t i : indices) {
-                        bcast_list_T.push_back(
-                            {i0, k, {Tlocal.sub(i, i, k+1, i)}});
-                        bcast_list_T.push_back(
-                            {i0, k, {Tlocal.sub(i+1, nt-1, i, i)}});
+                    //TODO: keep only this indices loop
+                    for (int panel_rank: panel_ranks) {
+                        // Find local indices for panel_rank.
+                        indices.clear();
+                        for (int64_t i = 0; i < A_panel.mt(); ++i) {
+                            if (A_panel.tileRank(i, 0) == panel_rank) {
+                                // todo: global index
+                                indices.push_back(i+k+1);
+                            }
+                        }
+                        i0 = indices[0];
+
+                        // Send Tlocal across row i & col i for trailing matrix update
+                        // todo: I think this sets Tlocal with too many lives
+                        // -- needs only 1 life per rank, not # tiles.
+                        BcastList bcast_list_T;
+                        for (int64_t i : indices) {
+                            bcast_list_T.push_back(
+                                {i0, k, {Tlocal.sub(i, i, k+1, i)}});
+                            bcast_list_T.push_back(
+                                {i0, k, {Tlocal.sub(i+1, nt-1, i, i)}});
+                        }
+                        Tlocal.template listBcast(bcast_list_T, layout);
                     }
-                    Tlocal.template listBcast(bcast_list_T, layout);
+                    for (int64_t i = k+1; i < nt; ++i) {
+                        W.tileInsert(i, k);
+                        W(i, k).set(zero);
+                    }
                 }
             }
 
             //----------------------------------------
             // QR update trailing submatrix.
             if (k < nt-1) {
-
-                for (int64_t i = k+1; i < nt; ++i) {
-                    W.tileInsert(i, k);
-                    W(i, k).set(zero);
-                }
 
                 int64_t i0;
                 for (int panel_rank: panel_ranks) {
@@ -246,6 +244,7 @@ void he2hb(slate::internal::TargetType<target>,
                     }
                     i0 = indices[0];
 
+                    #pragma omp task depend(inout:block[k])
                     if (A.tileExists(i0, k)) {
                         // Save V0 and set upper(V0) to identity, to avoid trmm's.
                         Asave.tileInsert(i0, k);
@@ -254,15 +253,17 @@ void he2hb(slate::internal::TargetType<target>,
                         Aik.uplo(Uplo::Upper);
                         Aik.set(zero, one);
                     }
-                    #pragma omp taskwait
                     //--------------------
                     // Apply local reflectors.
                     // Compute Wi = (sum_j Aij Vj) T, for i = k+1, ..., nt-1.
-                    internal::he2hb_hemm<target>(
-                            A.sub(k+1, nt-1),
-                            A.sub(k+1, nt-1, k, k),
-                            W.sub(k+1, nt-1, k, k),
-                            indices2, &row[k+1]);
+                    #pragma omp task depend(inout:block[k])
+                    {
+                        internal::he2hb_hemm<target>(
+                                             A.sub(k+1, nt-1),
+                                             A.sub(k+1, nt-1, k, k),
+                                             W.sub(k+1, nt-1, k, k),
+                                             indices2);
+                    }
 
                     int rank_lower = -1;
                     int rank_upper = -1;
@@ -270,7 +271,7 @@ void he2hb(slate::internal::TargetType<target>,
                     // At most 2 ranks contribute to each Wi; if I am one,
                     // exchange partial sum with neighbor and both ranks sum Wi.
                     for (int64_t i = k+1; i < nt; ++i) {
-                        #pragma omp task depend(inout:row[i])
+                        #pragma omp task depend(inout:block[i])
                         {
 
                             for (int64_t j: indices) {
@@ -306,14 +307,18 @@ void he2hb(slate::internal::TargetType<target>,
                                 }
                             }
                         }
+                        #pragma omp taskwait
                     }
-                    #pragma omp taskwait
 
-                    internal::he2hb_trmm<target>(
-                            A.sub(k+1, nt-1), // todo: needed to get the rank, try replace it with W
-                            W.sub(k+1, nt-1, k, k),
-                            Tlocal.sub(i0, i0, k, k),
-                            indices2, &row[k+1]);
+                    #pragma omp task depend(inout:block[k])
+                    {
+                        internal::he2hb_trmm<target>(
+                                             // todo: needed to get the rank, try replace it with W
+                                             A.sub(k+1, nt-1),
+                                             W.sub(k+1, nt-1, k, k),
+                                             Tlocal.sub(i0, i0, k, k),
+                                             indices2);
+                    }
 
                     if (A.tileIsLocal(i0, i0)) {
                         //--------------------
@@ -328,63 +333,71 @@ void he2hb(slate::internal::TargetType<target>,
                         // 1a. W = AVT from above.
                         // 1b. TVAVT = V^H (AVT) = V^H W.
                         // Call internal::geset
-                        W.tileGetForWriting(0, 0, W.hostNum(), LayoutConvert(layout));
-                        TVAVT(0, 0).set(zero);
 
-                        auto AT = conjTranspose(A.sub(k+1, nt-1, k, k));
-                        internal::he2hb_gemm<target>(
-                                        one,  std::move(AT),
-                                              W.sub(k+1, nt-1, k, k),
-                                        zero, W.sub(0, 0, 0, 0),
-                                        panel_rank,
-                                        &row[k+1], &block[0]);
-
-                        // 1c. TVAVT = T^H (V^H AVT)
-                        auto T0    = Tlocal.sub(i0, i0, k, k);
-                        auto TVAVT0  = W.sub(0, 0, 0, 0);
-                        //T0(0, 0).set(zero);
-                        //TVAVT0(0, 0).set(zero);
-
-                        int64_t mb = T0.tileMb(0);
-                        int64_t nb = T0.tileNb(0);
-                        bool trapezoid = (mb < nb);
-
-                        if (trapezoid) {
-                            T0     = T0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
-                            TVAVT0 = TVAVT0.slice(0, mb-1, 0, nb-1); // first mb-by-nb part
+                        #pragma omp task depend(in:block[k]) \
+                                         depend(inout:block[0])
+                        {
+                            auto AT = conjTranspose(A.sub(k+1, nt-1, k, k));
+                            W.tileGetForWriting(0, 0, W.hostNum(), LayoutConvert(layout));
+                            TVAVT(0, 0).set(zero);
+                            internal::he2hb_gemm<target>(
+                                            one,  std::move(AT),
+                                                  W.sub(k+1, nt-1, k, k),
+                                            zero, W.sub(0, 0, 0, 0),
+                                            panel_rank,
+                                            &block[0]);
                         }
 
-                        //auto W0 = W.sub(0, 0, 0, 0);
-                        // todo: try to call internal::trmm
-                        auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
-                        Tk0.tileGetForReading(0, 0, Tk0.hostNum(), LayoutConvert(layout));
-                        TVAVT0.tileGetForWriting(0, 0, TVAVT0.hostNum(), LayoutConvert(layout));
-                        #pragma omp task depend(in:block[k]) depend(inout:block[0])
-                        trmm(Side::Left, Diag::NonUnit,
-                             one, conjTranspose(Tk0(0, 0)), std::move(TVAVT0(0, 0)));
-                        #pragma omp taskwait
+                        // 1c. TVAVT = T^H (V^H AVT)
+                        #pragma omp task depend(in:block[k]) \
+                                         depend(inout:block[0])
+                        {
+                            auto T0    = Tlocal.sub(i0, i0, k, k);
+                            auto TVAVT0  = W.sub(0, 0, 0, 0);
+                            //T0(0, 0).set(zero);
+                            //TVAVT0(0, 0).set(zero);
 
-                        //#pragma omp task depend(in:block[k]) depend(inout:block[0])
-                        //internal::trmm<Target::HostTask>(
-                        //    Side::Left,
-                        //    one, conjTranspose(Tk0),
-                        //    std::move(TVAVT0));
+                            int64_t mb = T0.tileMb(0);
+                            int64_t nb = T0.tileNb(0);
+                            bool trapezoid = (mb < nb);
+
+                            if (trapezoid) {
+                                T0     = T0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
+                                TVAVT0 = TVAVT0.slice(0, mb-1, 0, nb-1); // first mb-by-nb part
+                            }
+
+                            // todo: try to call internal::trmm
+                            auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
+                            Tk0.tileGetForReading(0, 0, Tk0.hostNum(), LayoutConvert(layout));
+                            TVAVT0.tileGetForWriting(0, 0, TVAVT0.hostNum(), LayoutConvert(layout));
+                            trmm(Side::Left, Diag::NonUnit,
+                                 one, conjTranspose(Tk0(0, 0)),
+                                      std::move(TVAVT0(0, 0)));
+                        }
 
                         // 1d. W = W - 0.5 V TVAVT.
                         // Technically, could do a hemm here since TVAVT is Hermitian.
-                        internal::he2hb_gemm<target>(
-                                        -half, A.sub(k+1, nt-1, k, k),
-                                                  W.sub(0, 0, 0, 0),
-                                        one,      W.sub(k+1, nt-1, k, k),
-                                        panel_rank,
-                                        &block[0], &row[k+1]);
+                        #pragma omp task depend(in:block[0]) \
+                                         depend(inout:block[k])
+                        {
+                            internal::he2hb_gemm<target>(
+                                                 -half, A.sub(k+1, nt-1, k, k),
+                                                        W.sub(0, 0, 0, 0),
+                                                 one,   W.sub(k+1, nt-1, k, k),
+                                                 panel_rank,
+                                                 &block[k+1]);
+                        }
 
                         // 2. Update trailing matrix.
-                        #pragma omp taskwait
-                        internal::her2k<target>(
-                                        -one,  A.sub(k+1, nt-1, k, k),
-                                               W.sub(k+1, nt-1, k, k),
-                                        1.0,   A.sub(k+1, nt-1));
+                        #pragma omp task depend(in:block[k]) \
+                                         depend(out:block[k+1]) \
+                                         depend(out:block[nt-1])
+                        {
+                            internal::her2k<target>(
+                                            -one,  A.sub(k+1, nt-1, k, k),
+                                                   W.sub(k+1, nt-1, k, k),
+                                            1.0,   A.sub(k+1, nt-1));
+                        }
                     }
                     else { // off-diag
                         //--------------------
@@ -397,12 +410,17 @@ void he2hb(slate::internal::TargetType<target>,
                         // W = A^H V T = A V T.
 
                         auto W_panel  = W.sub(k+1, nt-1, k, k);
-                        //todo: only for this one pass row and block dep
-                        internal::he2hb_gemm_outer<target>(
-                                        -one, A.sub(k+1, nt-1, k, k),
-                                              std::move(W_panel),
-                                        one,  A.sub(k+1, nt-1),
-                                        indices2, &row[k+1], &block[k+1]);
+                        //todo: only for this one pass block dep
+                        #pragma omp task depend(in:block[k]) \
+                                         depend(inout:block[k+1]) \
+                                         depend(inout:block[nt-1])
+                        {
+                            internal::he2hb_gemm_outer<target>(
+                                                       -one, A.sub(k+1, nt-1, k, k),
+                                                             std::move(W_panel),
+                                                       one,  A.sub(k+1, nt-1),
+                                                       indices2, &block[k+1]);
+                        }
                     }
 
                     if (A.tileExists(i0, k)) {
@@ -410,15 +428,21 @@ void he2hb(slate::internal::TargetType<target>,
                         #pragma omp task depend(inout:block[k])
                         {
                             gecopy(Asave(i0, k), A(i0, k));
-                            //internal::copy<target>(Asave.sub(i0, i0, k, k), A.sub(i0, i0, k, k));
                             Asave.tileErase(i0, k);
                         }
                     }
                 }
 
-                internal::hettmqr<Target::HostTask>(
-                    Op::ConjTrans, std::move(A_panel), std::move(Treduce_panel),
-                    A.sub(k+1, nt-1));
+                #pragma omp task depend(in:block[k]) \
+                                 depend(inout:block[k+1]) \
+                                 depend(inout:block[nt-1])
+                {
+                    internal::hettmqr<Target::HostTask>(
+                                      Op::ConjTrans,
+                                      std::move(A_panel),
+                                      std::move(Treduce_panel),
+                                      A.sub(k+1, nt-1));
+                }
             } //if (k < nt-1)
         }
 
@@ -442,23 +466,10 @@ void he2hb(HermitianMatrix<scalar_t>& A,
            TriangularFactors<scalar_t>& T,
            Options const& opts)
 {
-    int64_t ib;
-    try {
-        ib = opts.at(Option::InnerBlocking).i_;
-        assert(ib >= 0);
-    }
-    catch (std::out_of_range&) {
-        ib = 16;
-    }
+    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
 
-    int64_t max_panel_threads;
-    try {
-        max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
-        assert(max_panel_threads >= 1);
-    }
-    catch (std::out_of_range&) {
-        max_panel_threads = std::max(omp_get_max_threads()/2, 1);
-    }
+    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
+    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
 
     internal::specialization::he2hb(internal::TargetType<target>(),
                                     A, T,

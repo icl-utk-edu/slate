@@ -442,7 +442,6 @@ void he2hb_hemm(HermitianMatrix<scalar_t>&& A,
             Matrix<scalar_t>&& B,
             Matrix<scalar_t>&& C,
             std::vector<int64_t>& indices,
-            uint8_t* row,
             int priority=0, int64_t queue_index=0);
 
 //-----------------------------------------
@@ -452,7 +451,6 @@ void he2hb_trmm(HermitianMatrix<scalar_t>&& A,
             Matrix<scalar_t>&& W,
             Matrix<scalar_t>&& T,
             std::vector<int64_t>& indices,
-            uint8_t* row,
             int priority=0, int64_t queue_index=0);
 
 
@@ -462,7 +460,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void he2hb_gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                                 Matrix<scalar_t>&& B,
                 scalar_t beta,  Matrix<scalar_t>&& T,
-                int panel_rank, uint8_t* row, uint8_t* block,
+                int panel_rank, uint8_t* block,
                 int priority=0, int64_t queue_index=0);
 
 //-----------------------------------------
@@ -472,7 +470,7 @@ void he2hb_gemm_outer(scalar_t alpha, Matrix<scalar_t>&& A,
                                       Matrix<scalar_t>&& B,
                       scalar_t beta,  HermitianMatrix<scalar_t>&& C,
                       std::vector<int64_t>& indices,
-                      uint8_t* row, uint8_t* block,
+                      uint8_t* block,
                       int priority=0, int64_t queue_index=0);
 //-----------------------------------------
 // ttqrt()

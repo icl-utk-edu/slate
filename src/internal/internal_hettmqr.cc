@@ -14,10 +14,11 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
+/// Make the diagonal tiles hermitian.
 template <typename scalar_t>
-void makeHermitian(Tile<scalar_t>&& T)
+void make_hermitian(Tile<scalar_t>&& T)
 {
-    trace::Block trace_block("internal::makeHermitian");
+    trace::Block trace_block("internal::make_hermitian");
     using blas::conj;
     assert(T.mb() == T.nb());
     int64_t nb = T.nb();
@@ -147,7 +148,7 @@ void hettmqr(internal::TargetType<Target::HostTask>,
             for (int64_t i: i1_i2) {
                 if (C.tileIsLocal(i, i)) {
                     C.tileGetForWriting(i, i, LayoutConvert(layout));
-                    makeHermitian( C(i, i) );
+                    make_hermitian( C(i, i) );
                     int dst = C.tileRank(i2, i1);
                     C.tileSend(i, i, dst, tag);
                     C.tileRecv(i, i, dst, layout, tag);

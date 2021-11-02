@@ -9,7 +9,6 @@
 #include "internal/internal.hh"
 #include "internal/internal.hh"
 #include "internal/internal_batch.hh"
-#include "../../test/print_matrix.hh"
 
 #ifdef SLATE_WITH_MKL
     #include <mkl_cblas.h>
@@ -33,11 +32,11 @@ template <Target target, typename scalar_t>
 void he2hb_gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                                 Matrix<scalar_t>&& B,
                 scalar_t beta,  Matrix<scalar_t>&& T,
-                int panel_rank, uint8_t* row, uint8_t* block,
+                int panel_rank, uint8_t* block,
                 int priority, int64_t queue_index)
 {
     he2hb_gemm(internal::TargetType<target>(),
-          alpha, A, B, beta, T, panel_rank, row, block, priority, queue_index);
+          alpha, A, B, beta, T, panel_rank, block, priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -51,27 +50,30 @@ void he2hb_gemm(internal::TargetType<Target::HostTask>,
            scalar_t alpha, Matrix<scalar_t>& A,
                            Matrix<scalar_t>& B,
            scalar_t beta,  Matrix<scalar_t>& C,
-           int panel_rank, uint8_t* row, uint8_t* block,
+           int panel_rank, uint8_t* block,
            int priority, int64_t queue_index)
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
     for (int64_t k = 0; k < B.mt(); ++k) {
+        #pragma omp task depend(inout:block[0])
         for (int64_t i = 0; i < A.mt(); ++i) {
-            #pragma omp task depend(in:block[0]) depend(inout:row[i])
             if (A.tileRank(i, k) == panel_rank) {
-                A.tileGetForReading(i, k, LayoutConvert(layout));
-                B.tileGetForReading(k, 0, LayoutConvert(layout));
-                C.tileGetForWriting(i, 0, LayoutConvert(layout));
-                gemm(alpha, A(i, k), B(k, 0),
-                     beta, C(i, 0));
-                //A.tileTick(i, j);
-                //B.tileTick(j, 0);
+                {
+                    A.tileGetForReading(i, k, LayoutConvert(layout));
+                    B.tileGetForReading(k, 0, LayoutConvert(layout));
+                    C.tileGetForWriting(i, 0, LayoutConvert(layout));
+                    gemm(alpha, A(i, k), B(k, 0),
+                         beta, C(i, 0));
+                    A.tileTick(i, k);
+                    B.tileTick(k, 0);
+                }
             }
         }
         beta = 1.0;
     }
+    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -85,7 +87,7 @@ void he2hb_gemm(internal::TargetType<Target::Devices>,
            scalar_t alpha, Matrix<scalar_t>& A,
                            Matrix<scalar_t>& B,
            scalar_t beta,  Matrix<scalar_t>& C,
-           int panel_rank, uint8_t* row, uint8_t* block,
+           int panel_rank, uint8_t* block,
            int priority, int64_t queue_index)
 {
     // Assumes column major
@@ -322,7 +324,7 @@ void he2hb_gemm(internal::TargetType<Target::HostNest>,
            scalar_t alpha, Matrix<scalar_t>& A,
                            Matrix<scalar_t>& B,
            scalar_t beta,  Matrix<scalar_t>& C,
-           int panel_rank, uint8_t* row, uint8_t* block,
+           int panel_rank, uint8_t* block,
            int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
@@ -339,7 +341,7 @@ void he2hb_gemm(internal::TargetType<Target::HostBatch>,
            scalar_t alpha, Matrix<scalar_t>& A,
                            Matrix<scalar_t>& B,
            scalar_t beta,  Matrix<scalar_t>& C,
-           int panel_rank, uint8_t* row, uint8_t* block,
+           int panel_rank, uint8_t* block,
            int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
@@ -352,7 +354,7 @@ void he2hb_gemm<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -361,7 +363,7 @@ void he2hb_gemm<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -370,7 +372,7 @@ void he2hb_gemm< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                    Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -379,7 +381,7 @@ void he2hb_gemm< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -388,7 +390,7 @@ void he2hb_gemm<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -397,7 +399,7 @@ void he2hb_gemm<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -406,7 +408,7 @@ void he2hb_gemm< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                    Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -415,7 +417,7 @@ void he2hb_gemm< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -424,7 +426,7 @@ void he2hb_gemm<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -433,7 +435,7 @@ void he2hb_gemm<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -442,7 +444,7 @@ void he2hb_gemm< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                    Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -451,7 +453,7 @@ void he2hb_gemm< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -460,7 +462,7 @@ void he2hb_gemm<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -469,7 +471,7 @@ void he2hb_gemm<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -478,7 +480,7 @@ void he2hb_gemm< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                    Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -487,7 +489,7 @@ void he2hb_gemm< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int panel_rank, uint8_t* row, uint8_t* block,
+    int panel_rank, uint8_t* block,
     int priority, int64_t queue_index);
 
 } // namespace internal

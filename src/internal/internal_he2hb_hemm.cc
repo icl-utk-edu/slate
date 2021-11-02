@@ -17,19 +17,21 @@ namespace internal {
 /// B contains the local reflectors Vj from local QR factorization
 /// of a panel of A
 /// C is the output matrix contains the Wi = sum_j Aij Vj
+/// indices contains the local indices for panel_rank,
+/// where the panel_rank is A_panel.tileRank(i, k), i = k:nt-1.
 /// Dispatches to target implementations.
 /// @ingroup he2hb_hemm_internal
 ///
 template <Target target, typename scalar_t>
-void he2hb_hemm(HermitianMatrix<scalar_t>&& A,
-           Matrix<scalar_t>&& B,
-           Matrix<scalar_t>&& C,
-           std::vector<int64_t>& indices,
-           uint8_t* row,
-           int priority, int64_t queue_index)
+void he2hb_hemm(
+    HermitianMatrix<scalar_t>&& A,
+    Matrix<scalar_t>&& B,
+    Matrix<scalar_t>&& C,
+    std::vector<int64_t>& indices,
+    int priority, int64_t queue_index)
 {
     he2hb_hemm(internal::TargetType<target>(),
-          A, B, C, indices, row, priority, queue_index);
+        A, B, C, indices, priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -39,12 +41,11 @@ void he2hb_hemm(HermitianMatrix<scalar_t>&& A,
 ///
 template <typename scalar_t>
 void he2hb_hemm(internal::TargetType<Target::HostTask>,
-           HermitianMatrix<scalar_t>& A,
-           Matrix<scalar_t>& B,
-           Matrix<scalar_t>& C,
-           std::vector<int64_t>& indices,
-           uint8_t* row,
-           int priority, int64_t queue_index)
+    HermitianMatrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Matrix<scalar_t>& C,
+    std::vector<int64_t>& indices,
+    int priority, int64_t queue_index)
 {
     int64_t nt = A.nt();
     const scalar_t one  = 1;
@@ -52,8 +53,8 @@ void he2hb_hemm(internal::TargetType<Target::HostTask>,
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
-   for (int64_t i = 0; i < nt; ++i) {
-        #pragma omp task depend(inout:row[i])
+    for (int64_t i = 0; i < nt; ++i) {
+        #pragma omp task shared(A, B, C)
         {
 
             for (int64_t j: indices) {
@@ -67,7 +68,8 @@ void he2hb_hemm(internal::TargetType<Target::HostTask>,
                                              one, C(i, 0));
                         }
                         else {
-                            // todo: if HeMatrix returned conjTrans tiles, could merge this with one below.
+                            // todo: if HeMatrix returned conjTrans tiles,
+                            // could merge this with one below.
                             gemm(one, A(i, j), B(j, 0), one, C(i, 0));
                         }
                         A.tileTick(i, j);
@@ -88,6 +90,7 @@ void he2hb_hemm(internal::TargetType<Target::HostTask>,
             }
         }
     }
+
     #pragma omp taskwait
 }
 
@@ -98,12 +101,11 @@ void he2hb_hemm(internal::TargetType<Target::HostTask>,
 ///
 template <typename scalar_t>
 void he2hb_hemm(internal::TargetType<Target::HostNest>,
-           HermitianMatrix<scalar_t>& A,
-           Matrix<scalar_t>& B,
-           Matrix<scalar_t>& C,
-           std::vector<int64_t>& indices,
-           uint8_t* row,
-           int priority, int64_t queue_index)
+    HermitianMatrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Matrix<scalar_t>& C,
+    std::vector<int64_t> indices,
+    int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
@@ -115,12 +117,11 @@ void he2hb_hemm(internal::TargetType<Target::HostNest>,
 ///
 template <typename scalar_t>
 void he2hb_hemm(internal::TargetType<Target::HostBatch>,
-           HermitianMatrix<scalar_t>& A,
-           Matrix<scalar_t>& B,
-           Matrix<scalar_t>& C,
-           std::vector<int64_t>& indices,
-           uint8_t* row,
-           int priority, int64_t queue_index)
+    HermitianMatrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Matrix<scalar_t>& C,
+    std::vector<int64_t> indices,
+    int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
@@ -132,12 +133,190 @@ void he2hb_hemm(internal::TargetType<Target::HostBatch>,
 ///
 template <typename scalar_t>
 void he2hb_hemm(internal::TargetType<Target::Devices>,
-           HermitianMatrix<scalar_t>& A,
-           Matrix<scalar_t>& B,
-           Matrix<scalar_t>& C,
-           std::vector<int64_t>& indices,
-           uint8_t* row,
-           int priority, int64_t queue_index)
+    HermitianMatrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Matrix<scalar_t>& C,
+    std::vector<int64_t> indices,
+    int priority, int64_t queue_index)
+{
+    int64_t nt = A.nt();
+    const scalar_t one  = 1;
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+    scalar_t* dA;
+    scalar_t* dB;
+    scalar_t* dC;
+
+    size_t sizeA = 0;
+    size_t sizeB = 0;
+    size_t sizeC = 0;
+    int64_t m, n, k, lda, ldb, ldc;
+
+    for (int device = 0; device < C.num_devices(); ++device) {
+        #pragma omp task shared(A, B, C) priority(priority)
+        {
+
+            std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
+            for (int64_t j: indices) {
+                for (int64_t i = 0; i < nt; ++i) {
+                    if (i >= j) { // lower or diagonal
+                        if (A.tileIsLocal(i, j)) {
+                            if (device == C.tileDevice(i, 0)) {
+                                A_tiles_set.insert({i, j});
+                                B_tiles_set.insert({j, 0});
+                                C_tiles_set.insert({i, 0});
+                            }
+                        }
+                    }
+                    else { // upper
+                        if (A.tileIsLocal(j, i)) {
+                            if (device == C.tileDevice(i, 0)) {
+                                A_tiles_set.insert({j, i});
+                                B_tiles_set.insert({j, 0});
+                                C_tiles_set.insert({i, 0});
+                            }
+                        }
+                    }
+                }
+
+                #pragma omp task default(shared)
+                {
+                    A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                }
+                #pragma omp task default(shared)
+                {
+                    B.tileGetForReading(B_tiles_set, device, LayoutConvert(layout));
+                }
+                #pragma omp task default(shared)
+                {
+                    C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
+                }
+                #pragma omp taskwait
+            }
+        }
+    }
+    #pragma omp taskwait
+    int num_queues = C.numComputeQueues();
+
+    for (int device = 0; device < C.num_devices(); ++device) {
+        #pragma omp task shared(A, B, C) priority(priority)
+        {
+            // to have one queue and then fork several streams
+            //blas::Queue* queue = C.compute_queue(device, queue_index);
+            //assert(queue != nullptr);
+            for (int64_t j: indices) {
+	        //queue->fork(); // to have multiple streams
+                for (int64_t i = 0; i < nt; ++i) {
+	            // queue per iteration i
+	            blas::Queue* queue = C.compute_queue( device, i % num_queues );
+                    assert(queue != nullptr);
+                    if (i >= j) { // lower or diagonal
+                        if (A.tileIsLocal(i, j)
+                            && device == C.tileDevice(i, 0))
+			{
+                            //blas::Queue* queue = C.compute_queue(device, queue_index);
+                            //assert(queue != nullptr);
+
+                            auto Aij = A(i, j, device);
+                            auto Bj0 = B(j, 0, device);
+                            auto Ci0 = C(i, 0, device);
+
+                            if (i == j) {
+                                blas::hemm( layout, blas::Side::Left,
+                                            blas::Uplo::Lower,
+                                            Ci0.mb(), Ci0.nb(),
+                                            one, Aij.data(), Aij.stride(),
+                                                 Bj0.data(), Bj0.stride(),
+                                            one, Ci0.data(), Ci0.stride(),
+                                            *queue );
+                            }
+                            else {
+                                // todo: if HeMatrix returned conjTrans tiles,
+                                // could merge this with one below.
+                                blas::gemm( layout, Op::NoTrans, Op::NoTrans,
+                                            Aij.mb(), Bj0.nb(), Aij.nb(),
+                                            one, Aij.data(), Aij.stride(),
+                                                 Bj0.data(), Bj0.stride(),
+                                            one, Ci0.data(), Ci0.stride(),
+                                            *queue );
+                            }
+                        }
+                    }
+                    else { // upper
+                        if (A.tileIsLocal(j, i)
+                            && device == C.tileDevice(i, 0))
+			{
+                            auto Aji = A(j, i, device);
+                            auto Bj0 = B(j, 0, device);
+                            auto Ci0 = C(i, 0, device);
+
+                            blas::gemm( layout, Op::ConjTrans, Op::NoTrans,
+                                        Aji.nb(), Bj0.nb(), Aji.mb(),
+                                        one, Aji.data(), Aji.stride(),
+                                             Bj0.data(), Bj0.stride(),
+                                        one, Ci0.data(), Ci0.stride(),
+                                        *queue );
+                        }
+                    }
+		    //queue->revolve(); // new stream
+                } // i loop
+	        //queue->join(); // sync all the streams on this queue
+            } // j loop
+            //queue->sync(); // sync all the queues/streams
+
+	    // sync all the queues (in case of queue per iteration i)
+	    for (int64_t i = 0; i < num_queues; i++) {
+	        blas::Queue* queue = C.compute_queue( device, i );
+                queue->sync();
+            }
+
+            for (int64_t j: indices) {
+                for (int64_t i = 0; i < nt; ++i) {
+                    if (i >= j) { // lower or diagonal
+                        if (A.tileIsLocal(i, j)
+                            && device == C.tileDevice(i, 0))
+			    {
+                                C.tileModified(i, 0, device);
+                                A.tileRelease(i, j, device);
+                                B.tileRelease(j, 0, device);
+                                A.tileTick(i, j);
+                                B.tileTick(j, 0);
+                            }
+                        }
+                    else { // upper
+                        if (A.tileIsLocal(j, i)
+                            && device == C.tileDevice(i, 0))
+			    {
+                                C.tileModified(i, 0, device);
+                                A.tileRelease(j, i, device);
+                                B.tileRelease(j, 0, device);
+                                A.tileTick(j, i);
+                                B.tileTick(j, 0);
+                            }
+                    }
+                } //i loop
+            } // j loop
+        } // pragma
+    } //devices
+
+    #pragma omp taskwait
+}
+
+/*
+//------------------------------------------------------------------------------
+/// Apply local reflectors.
+/// GPU device batched cuBLAS implementation.
+/// @ingroup he2hb_hemm_internal
+///
+template <typename scalar_t>
+void he2hb_hemm(internal::TargetType<Target::Devices>,
+    HermitianMatrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Matrix<scalar_t>& C,
+    std::vector<int64_t> indices,
+    int priority, int64_t queue_index)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
@@ -353,9 +532,8 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                     }
                 }
 
-                {
-                    trace::Block trace_block("blas::batch::he2hb_hemm");
 
+                {
                     std::vector<Op> opA_(1, opA);
                     std::vector<Op> opB_(1, opB);
                     std::vector<Op> opA_upper_(1, opA_upper);
@@ -367,13 +545,27 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
 
                     blas::Queue* queue = C.compute_queue(device, queue_index);
                     assert(queue != nullptr);
+                    int cuerror;
 
+                {
+		    trace::Block trace_block("blas::batch::he2hb_hemm_gemm");
                     if (c_array00_lower.size() > 0) {
                         std::vector<int64_t>    m(1,  mb00);
                         std::vector<int64_t>    n(1,  nb00);
                         std::vector<int64_t> ldda(1, lda00_lower);
                         std::vector<int64_t> lddb(1, ldb00);
                         std::vector<int64_t> lddc(1, ldc00);
+
+                        //cuerror = cudaHostRegister( a_array00_lower.data(),
+                            //(size_t)a_array00_lower.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+                        //cuerror = cudaHostRegister( b_array00_lower.data(),
+                            //(size_t)b_array00_lower.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+                        //cuerror = cudaHostRegister( c_array00_lower.data(),
+                            //(size_t)c_array00_lower.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+
                         blas::batch::gemm(
                             layout, opA_, opB_,
                             m, n, kb_,
@@ -381,6 +573,11 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                                     b_array00_lower, lddb,
                             beta_,  c_array00_lower, lddc,
                             c_array00_lower.size(), info, *queue);
+
+                        //cuerror = cudaHostUnregister( a_array00_lower.data() );
+                        //cuerror = cudaHostUnregister( b_array00_lower.data() );
+                        //cuerror = cudaHostUnregister( c_array00_lower.data() );
+
                     }
 
                     if (c_array00_upper.size() > 0) {
@@ -389,6 +586,17 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                         std::vector<int64_t> ldda(1, lda00_upper);
                         std::vector<int64_t> lddb(1, ldb00);
                         std::vector<int64_t> lddc(1, ldc00);
+
+                        //cuerror = cudaHostRegister( a_array00_upper.data(),
+                            //(size_t)a_array00_upper.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+                        //cuerror = cudaHostRegister( b_array00_upper.data(),
+                            //(size_t)b_array00_upper.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+                        //cuerror = cudaHostRegister( c_array00_upper.data(),
+                            //(size_t)c_array00_upper.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+
                         blas::batch::gemm(
                             layout, opA_upper_, opB_,
                             m, n, kb_,
@@ -396,8 +604,76 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                                     b_array00_upper, lddb,
                             beta_,  c_array00_upper, lddc,
                             c_array00_upper.size(), info, *queue);
+
+                        //cuerror = cudaHostUnregister( a_array00_upper.data() );
+                        //cuerror = cudaHostUnregister( b_array00_upper.data() );
+                        //cuerror = cudaHostUnregister( c_array00_upper.data() );
                     }
 
+                    if (c_array10_lower.size() > 0) {
+                        opA = Op::NoTrans;
+                        std::vector<int64_t>    m(1,  mb10);
+                        std::vector<int64_t>    n(1,  nb10);
+                        std::vector<int64_t> ldda(1, lda10_lower);
+                        std::vector<int64_t> lddb(1, ldb10);
+                        std::vector<int64_t> lddc(1, ldc10);
+
+                        //cuerror = cudaHostRegister( a_array10_lower.data(),
+                            //(size_t)a_array10_lower.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+                        //cuerror = cudaHostRegister( b_array10_lower.data(),
+                            //(size_t)b_array10_lower.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+                        //cuerror = cudaHostRegister( c_array10_lower.data(),
+                            //(size_t)c_array10_lower.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+
+                        blas::batch::gemm(
+                            layout, opA_, opB_,
+                            m, n, kb_,
+                            alpha_, a_array10_lower, ldda,
+                                    b_array10_lower, lddb,
+                            beta_,  c_array10_lower, lddc,
+                            c_array10_lower.size(), info, *queue);
+
+                        //cuerror = cudaHostUnregister( a_array10_lower.data() );
+                        //cuerror = cudaHostUnregister( b_array10_lower.data() );
+                        //cuerror = cudaHostUnregister( c_array10_lower.data() );
+                    }
+
+                    if (c_array10_upper.size() > 0) {
+                        std::vector<int64_t>    m(1,  mb10);
+                        std::vector<int64_t>    n(1,  nb10);
+                        std::vector<int64_t> ldda(1, lda10_upper);
+                        std::vector<int64_t> lddb(1, ldb10);
+                        std::vector<int64_t> lddc(1, ldc10);
+
+                        //cuerror = cudaHostRegister( a_array10_upper.data(),
+                            //(size_t)a_array10_upper.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+                        //cuerror = cudaHostRegister( b_array10_upper.data(),
+                            //(size_t)b_array10_upper.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+                        //cuerror = cudaHostRegister( c_array10_upper.data(),
+                            //(size_t)c_array10_upper.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+
+                        blas::batch::gemm(
+                            layout, opA_upper_, opB_,
+                            m, n, kb_,
+                            alpha_, a_array10_upper, ldda,
+                                    b_array10_upper, lddb,
+                            beta_,  c_array10_upper, lddc,
+                            c_array10_upper.size(), info, *queue);
+
+                        //cuerror = cudaHostUnregister( a_array10_upper.data() );
+                        //cuerror = cudaHostUnregister( b_array10_upper.data() );
+                        //cuerror = cudaHostUnregister( c_array10_upper.data() );
+                    }
+                }
+
+                {
+		    trace::Block trace_block("blas::batch::he2hb_hemm_hemm");
                     if (c_array00_diag.size() > 0) {
                         std::vector<int64_t>    m(1,  mb00);
                         std::vector<int64_t>    n(1,  nb00);
@@ -410,6 +686,17 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                         blas::Uplo uplo_ = Uplo::Lower;
                         std::vector<blas::Uplo> uplo(1, uplo_);
 
+                        //cuerror = cudaHostRegister( a_array00_diag.data(),
+                            //(size_t)a_array00_diag.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+                        //cuerror = cudaHostRegister( b_array00_diag.data(),
+                            //(size_t)b_array00_diag.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+                        //cuerror = cudaHostRegister( c_array00_diag.data(),
+                            //(size_t)c_array00_diag.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+
+
                         blas::batch::hemm(
                             layout, side, uplo,
                             m, n,
@@ -417,37 +704,10 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                                    b_array00_diag, lddb,
                             beta_, c_array00_diag, lddc,
                             c_array00_diag.size(), info, *queue );
-                    }
 
-                    if (c_array10_lower.size() > 0) {
-                        opA = Op::NoTrans;
-                        std::vector<int64_t>    m(1,  mb10);
-                        std::vector<int64_t>    n(1,  nb10);
-                        std::vector<int64_t> ldda(1, lda10_lower);
-                        std::vector<int64_t> lddb(1, ldb10);
-                        std::vector<int64_t> lddc(1, ldc10);
-                        blas::batch::gemm(
-                            layout, opA_, opB_,
-                            m, n, kb_,
-                            alpha_, a_array10_lower, ldda,
-                                    b_array10_lower, lddb,
-                            beta_,  c_array10_lower, lddc,
-                            c_array10_lower.size(), info, *queue);
-                    }
-
-                    if (c_array10_upper.size() > 0) {
-                        std::vector<int64_t>    m(1,  mb10);
-                        std::vector<int64_t>    n(1,  nb10);
-                        std::vector<int64_t> ldda(1, lda10_upper);
-                        std::vector<int64_t> lddb(1, ldb10);
-                        std::vector<int64_t> lddc(1, ldc10);
-                        blas::batch::gemm(
-                            layout, opA_upper_, opB_,
-                            m, n, kb_,
-                            alpha_, a_array10_upper, ldda,
-                                    b_array10_upper, lddb,
-                            beta_,  c_array10_upper, lddc,
-                            c_array10_upper.size(), info, *queue);
+                        //cuerror = cudaHostUnregister( a_array00_diag.data() );
+                        //cuerror = cudaHostUnregister( b_array00_diag.data() );
+                        //cuerror = cudaHostUnregister( c_array00_diag.data() );
                     }
 
                     if (c_array10_diag.size() > 0) {
@@ -462,6 +722,16 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                         blas::Uplo uplo_ = Uplo::Lower;
                         std::vector<blas::Uplo> uplo(1, uplo_);
 
+                        //cuerror = cudaHostRegister( a_array10_diag.data(),
+                            //(size_t)a_array10_diag.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+                        //cuerror = cudaHostRegister( b_array10_diag.data(),
+                            //(size_t)b_array10_diag.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+                        //cuerror = cudaHostRegister( c_array10_diag.data(),
+                            //(size_t)c_array10_diag.size()*sizeof(scalar_t),
+                            //cudaHostRegisterDefault );
+
                         blas::batch::hemm(
                             layout, side, uplo,
                             m, n,
@@ -469,7 +739,12 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                                    b_array10_diag, lddb,
                             beta_, c_array10_diag, lddc,
                             c_array10_diag.size(), info, *queue );
+
+                        //cuerror = cudaHostUnregister( a_array10_diag.data() );
+                        //cuerror = cudaHostUnregister( b_array10_diag.data() );
+                        //cuerror = cudaHostUnregister( c_array10_diag.data() );
                     }
+                }
 
                     queue->sync();
                 }
@@ -499,11 +774,13 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
             } // j:indices
         } // pragma
     } // device
+
     #pragma omp taskwait
 
     if (err)
         slate_error(std::to_string(err));
 }
+*/
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
@@ -514,7 +791,6 @@ void he2hb_hemm<Target::HostTask, float>(
     Matrix<float>&& B,
     Matrix<float>&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -524,7 +800,6 @@ void he2hb_hemm<Target::HostTask, double>(
     Matrix<double>&& B,
     Matrix<double>&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -534,7 +809,6 @@ void he2hb_hemm< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& B,
     Matrix< std::complex<float> >&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -544,7 +818,6 @@ void he2hb_hemm< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& B,
     Matrix< std::complex<double> >&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -554,7 +827,6 @@ void he2hb_hemm<Target::Devices, float>(
     Matrix<float>&& B,
     Matrix<float>&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -564,7 +836,6 @@ void he2hb_hemm<Target::Devices, double>(
     Matrix<double>&& B,
     Matrix<double>&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -574,7 +845,6 @@ void he2hb_hemm< Target::Devices, std::complex<float> >(
     Matrix< std::complex<float> >&& B,
     Matrix< std::complex<float> >&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -584,7 +854,6 @@ void he2hb_hemm< Target::Devices, std::complex<double> >(
     Matrix< std::complex<double> >&& B,
     Matrix< std::complex<double> >&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -594,7 +863,6 @@ void he2hb_hemm<Target::HostNest, float>(
     Matrix<float>&& B,
     Matrix<float>&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -604,7 +872,6 @@ void he2hb_hemm<Target::HostNest, double>(
     Matrix<double>&& B,
     Matrix<double>&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -614,7 +881,6 @@ void he2hb_hemm< Target::HostNest, std::complex<float> >(
     Matrix< std::complex<float> >&& B,
     Matrix< std::complex<float> >&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -624,7 +890,6 @@ void he2hb_hemm< Target::HostNest, std::complex<double> >(
     Matrix< std::complex<double> >&& B,
     Matrix< std::complex<double> >&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -634,7 +899,6 @@ void he2hb_hemm<Target::HostBatch, float>(
     Matrix<float>&& B,
     Matrix<float>&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -644,7 +908,6 @@ void he2hb_hemm<Target::HostBatch, double>(
     Matrix<double>&& B,
     Matrix<double>&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -654,7 +917,6 @@ void he2hb_hemm< Target::HostBatch, std::complex<float> >(
     Matrix< std::complex<float> >&& B,
     Matrix< std::complex<float> >&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -664,7 +926,6 @@ void he2hb_hemm< Target::HostBatch, std::complex<double> >(
     Matrix< std::complex<double> >&& B,
     Matrix< std::complex<double> >&& C,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 } // namespace internal

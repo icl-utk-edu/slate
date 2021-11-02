@@ -24,11 +24,10 @@ template <Target target, typename scalar_t>
 void he2hb_trmm(HermitianMatrix<scalar_t>&& A, Matrix<scalar_t>&& W,
            Matrix<scalar_t>&& T,
            std::vector<int64_t>& indices,
-           uint8_t* row,
            int priority, int64_t queue_index)
 {
     he2hb_trmm(internal::TargetType<target>(),
-          A, W, T, indices, row, priority, queue_index);
+          A, W, T, indices, priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -46,7 +45,6 @@ void he2hb_trmm(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& W,
            Matrix<scalar_t>& Tlocal,
            std::vector<int64_t>& indices,
-           uint8_t* row,
            int priority, int64_t queue_index)
 {
     const scalar_t one  = 1;
@@ -61,8 +59,9 @@ void he2hb_trmm(internal::TargetType<Target::HostTask>,
     // todo: check for slicing here, try to move it to he2hb
     // todo: replace W and T by A and B similar to trmm
 
+    int err;
     for (int64_t i = 0; i < W.mt(); ++i) {
-        #pragma omp task depend(inout:row[i])
+        #pragma omp task shared(A, W, err)
         {
 
             for (int64_t j: indices) {
@@ -94,6 +93,8 @@ void he2hb_trmm(internal::TargetType<Target::HostTask>,
                 auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
                 trmm(Side::Right, Diag::NonUnit,
                      one, std::move(Tk0(0, 0)), TVAVT0(0, 0));
+
+                W.tileTick(i, 0);
             }
         }
     }
@@ -115,7 +116,6 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
            Matrix<scalar_t>& W,
            Matrix<scalar_t>& Tlocal,
            std::vector<int64_t>& indices,
-           uint8_t* row,
            int priority, int64_t queue_index)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
@@ -145,7 +145,6 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
                 if (rank_upper == my_rank || rank_lower == my_rank) {
                     if (device == W.tileDevice(i, 0)) {
                         W_tiles_set.insert({i, 0});
-                        //T0_tiles_set.insert({0, 0});
                     }
                 }
             }
@@ -224,8 +223,7 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
                     }
                 }
 
-                if (i_last == 1)
-                {
+                if (i_last == 1) {
                     int64_t i = W.mt()-1;
                     int rank_lower = -1;
                     int rank_upper = -1;
@@ -309,10 +307,23 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
                     queue->sync();
                 }
 
-                if (rank_upper == my_rank || rank_lower == my_rank) {
-                    //T0.tileRelease(0, 0, device);
-                    for (auto i = 0; i < batch_size; ++i) {
-                    //    T0.tileTick(0, 0);
+                rank_lower = -1;
+                rank_upper = -1;
+                for (int64_t i = 0; i < W.mt(); ++i) {
+                    for (int64_t j: indices) {
+                        if (i >= j) { // lower
+                            rank_lower = A.tileRank(i, j);
+                        }
+                        else { // upper
+                            rank_upper = A.tileRank(j, i);
+                        }
+                    }
+
+                    if (rank_upper == my_rank || rank_lower == my_rank) {
+                        if (device == W.tileDevice(i, 0)) {
+                            W.tileRelease(i, 0, device);
+                            W.tileTick(i, 0);
+                        }
                     }
                 }
             }
@@ -332,7 +343,6 @@ void he2hb_trmm(internal::TargetType<Target::HostNest>,
            Matrix<scalar_t>& W,
            Matrix<scalar_t>& Tlocal,
            std::vector<int64_t>& indices,
-           uint8_t* row,
            int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
@@ -349,7 +359,6 @@ void he2hb_trmm(internal::TargetType<Target::HostBatch>,
            Matrix<scalar_t>& W,
            Matrix<scalar_t>& Tlocal,
            std::vector<int64_t>& indices,
-           uint8_t* row,
            int priority, int64_t queue_index)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
@@ -365,7 +374,6 @@ void he2hb_trmm<Target::HostTask, float>(
     Matrix<float>&& W,
     Matrix<float>&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -375,7 +383,6 @@ void he2hb_trmm<Target::HostTask, double>(
     Matrix<double>&& W,
     Matrix<double>&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -385,7 +392,6 @@ void he2hb_trmm< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& W,
     Matrix< std::complex<float> >&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -395,7 +401,6 @@ void he2hb_trmm< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& W,
     Matrix< std::complex<double> >&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -405,7 +410,6 @@ void he2hb_trmm<Target::Devices, float>(
     Matrix<float>&& W,
     Matrix<float>&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -415,7 +419,6 @@ void he2hb_trmm<Target::Devices, double>(
     Matrix<double>&& W,
     Matrix<double>&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -425,7 +428,6 @@ void he2hb_trmm< Target::Devices, std::complex<float> >(
     Matrix< std::complex<float> >&& W,
     Matrix< std::complex<float> >&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -435,7 +437,6 @@ void he2hb_trmm< Target::Devices, std::complex<double> >(
     Matrix< std::complex<double> >&& W,
     Matrix< std::complex<double> >&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -445,7 +446,6 @@ void he2hb_trmm<Target::HostNest, float>(
     Matrix<float>&& W,
     Matrix<float>&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -455,7 +455,6 @@ void he2hb_trmm<Target::HostNest, double>(
     Matrix<double>&& W,
     Matrix<double>&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -465,7 +464,6 @@ void he2hb_trmm< Target::HostNest, std::complex<float> >(
     Matrix< std::complex<float> >&& W,
     Matrix< std::complex<float> >&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -475,7 +473,6 @@ void he2hb_trmm< Target::HostNest, std::complex<double> >(
     Matrix< std::complex<double> >&& W,
     Matrix< std::complex<double> >&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -485,7 +482,6 @@ void he2hb_trmm<Target::HostBatch, float>(
     Matrix<float>&& W,
     Matrix<float>&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -495,7 +491,6 @@ void he2hb_trmm<Target::HostBatch, double>(
     Matrix<double>&& W,
     Matrix<double>&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -505,7 +500,6 @@ void he2hb_trmm< Target::HostBatch, std::complex<float> >(
     Matrix< std::complex<float> >&& W,
     Matrix< std::complex<float> >&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -515,7 +509,6 @@ void he2hb_trmm< Target::HostBatch, std::complex<double> >(
     Matrix< std::complex<double> >&& W,
     Matrix< std::complex<double> >&& T,
     std::vector<int64_t>& indices,
-    uint8_t* row,
     int priority, int64_t queue_index);
 
 } // namespace internal

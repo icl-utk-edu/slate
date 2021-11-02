@@ -74,7 +74,7 @@ void test_getri_work(Params& params, bool run)
 
     // Allocate ScaLAPACK data if needed.
     std::vector<scalar_t> A_data;
-    if (check || ref) {
+    if (check || ref || origin == slate::Origin::ScaLAPACK) {
         A_data.resize( lldA * nlocA );
     }
     // todo: work-around to initialize BaseMatrix::num_devices_

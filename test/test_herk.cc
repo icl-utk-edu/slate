@@ -122,8 +122,8 @@ void test_herk_work(Params& params, bool run)
         // if reference run is required, copy test data.
         slate::HermitianMatrix<scalar_t> Cref;
         std::vector<scalar_t> Cref_data;
-        if (check || ref) {
-            Cref_data.resize( lldC * nlocC );
+        if (ref) {
+            Cref_data.resize( C_data.size() );
             Cref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                        uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
             slate::copy( C, Cref );

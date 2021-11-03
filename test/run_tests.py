@@ -350,6 +350,7 @@ if (opts.lu):
     [ 'gesv',  gen + dtype + la + n],
     [ 'gesv_nopiv',  gen + dtype + la + n + ' --matrix rand_dominant' + ' --nonuniform_nb n'],
     [ 'getrf', gen + dtype + la + n],  # todo: mn
+    [ 'getrf_tntpiv', gen + dtype + la + n],  # todo: mn
     [ 'getrf_nopiv', target + grid + ref + check + repeat + nb + dtype + la + n + ' --matrix rand_dominant'+ ' --nonuniform_nb n'],
     [ 'getrs', gen + dtype + la + n + trans],
     [ 'getrs_nopiv', gen + dtype + la + n + trans + ' --matrix rand_dominant' + ' --nonuniform_nb n'],

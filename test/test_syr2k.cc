@@ -200,7 +200,7 @@ void test_syr2k_work(Params& params, bool run)
         slate::multiply( one, BT, X, zero, Z, opts );
         // Y = alpha A Z + Y
         slate::multiply( alpha, opA, Z, one, Y, opts );
-   }
+    }
 
     double time = barrier_get_wtime( MPI_COMM_WORLD );
 

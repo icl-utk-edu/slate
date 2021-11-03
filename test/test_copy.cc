@@ -68,12 +68,17 @@ void test_copy_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
 
     // Matrix B: using the fact that B must be same dimensions as A.
     int64_t mlocB, nlocB, lldB;
     mlocB = mlocA, nlocB = nlocA, lldB = lldA;
-    std::vector<scalar_t> B_data(lldB*nlocB);
+    std::vector<scalar_t> B_data;
+
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data;
+    if (check || ref || origin == slate::Origin::ScaLAPACK) {
+        A_data.resize( lldA * nlocA );
+    }
 
     slate::Matrix<scalar_t> A;
     slate::Matrix<scalar_t> B;
@@ -87,6 +92,7 @@ void test_copy_work(Params& params, bool run)
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layout.
+        B_data.resize( lldB * nlocB );
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
                 m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         B = slate::Matrix<scalar_t>::fromScaLAPACK(

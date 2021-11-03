@@ -68,7 +68,12 @@ void test_scale_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
+
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data;
+    if (check || ref || origin == slate::Origin::ScaLAPACK) {
+        A_data.resize( lldA * nlocA );
+    }
 
     slate::Matrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {

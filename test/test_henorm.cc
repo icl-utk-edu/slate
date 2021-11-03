@@ -65,7 +65,12 @@ void test_henorm_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
+
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data;
+    if (origin == slate::Origin::ScaLAPACK || check || ref || extended ) {
+        A_data.resize( lldA * nlocA );
+    }
 
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
@@ -125,7 +130,10 @@ void test_henorm_work(Params& params, bool run)
 
         scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, lldA, &info);
         slate_assert(info == 0);
-        copy( A, &A_data[0], A_desc );
+
+        if (origin != slate::Origin::ScaLAPACK && (check || ref || extended)) {
+            copy( A, &A_data[0], A_desc );
+        }
 
         if (check || ref) {
             // comparison with reference routine from ScaLAPACK

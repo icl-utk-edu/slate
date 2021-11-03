@@ -91,20 +91,25 @@ void test_gels_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
 
     // matrix X0, opAn-by-nrhs
     // used if making a consistent equation, B = A*X0
     int64_t mlocX0 = num_local_rows_cols(opAn, nb, myrow, p);
     int64_t nlocX0 = num_local_rows_cols(nrhs, nb, mycol, q);
     int64_t lldX0  = blas::max(1, mlocX0); // local leading dimension of A
-    std::vector<scalar_t> X0_data(lldX0*nlocX0);
 
     // matrix BX, which stores B (input) and X (output), max(m, n)-by-nrhs
     int64_t mlocBX = num_local_rows_cols(maxmn, nb, myrow, p);
     int64_t nlocBX = num_local_rows_cols(nrhs,  nb, mycol, q);
     int64_t lldBX  = blas::max(1, mlocBX); // local leading dimension of A
-    std::vector<scalar_t> BX_data(lldBX*nlocBX);
+
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data, X0_data, BX_data;
+    if (ref || origin == slate::Origin::ScaLAPACK) {
+        A_data.resize( lldA * nlocA );
+        X0_data.resize( lldX0 * nlocX0 );
+        BX_data.resize( lldBX * nlocBX );
+    }
 
     slate::Matrix<scalar_t> A, X0, BX;
     if (origin != slate::Origin::ScaLAPACK) {

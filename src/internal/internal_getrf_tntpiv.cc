@@ -53,12 +53,26 @@ void pivot_list(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
        if((global_info[i].first == pivot_list[i].second.first)
             && (global_info[i].second < pivot_list[i].second.second)){
 
-            std::pair<int64_t, int64_t> temp = pivot_list[i].first;
-            //If the index is already moved down, put it is new index
-            pivot_list[i].first = pivot_list[index].second;
-            pivot_list[index].first = temp;
+            if( index != -1 ){
+                std::pair<int64_t, int64_t> temp = pivot_list[i].first;
+                //If the index is already moved down, put it is new index
+                pivot_list[i].first = pivot_list[index].second;
+                pivot_list[index].first = temp;
+            }
+           else {
+               int offset = global_info[i].second;
+               for(int j=0; j < int(pivot_list.size());j++){
+                   if( pivot_list[offset].first == pivot_list[j].second){
+                       index = j;
+                       break;
+                   }
+               }
+               std::pair<int64_t, int64_t> temp = pivot_list[i].first;
+               pivot_list[i].first = pivot_list[index].first;
+               pivot_list[index].first = temp;
+           }
        }
-       else{
+       else {
            //If the index id down the list
            std::pair<int64_t, int64_t> temp = pivot_list[ i ].first;
            pivot_list[ i ].first = pivot_list[ index ].first;
@@ -274,7 +288,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
 
                         src = rank_rows[ index + step].first;
                         i_current = rank_rows[ index ].second;
-                        i_dst = (rank_rows[ index ].second) + 1;
+                        i_dst = rank_rows[ index + step ].second;
 
                         Awork.tileRecv(i_dst, 0, src, layout);
 

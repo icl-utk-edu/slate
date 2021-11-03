@@ -211,8 +211,8 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
         int nlevels = int( ceil( log2( nranks ) ) );
 
         std::vector< std::vector<AuxPivot<scalar_t>>> aux_pivot(2);
-        aux_pivot[0].resize(diag_len);
-        aux_pivot[1].resize(diag_len);
+        aux_pivot[0].resize(A.tileMb(0));
+        aux_pivot[1].resize(A.tileMb(0));
 
         int piv_len = std::min(tiles[0].mb(), tiles[0].nb());
 

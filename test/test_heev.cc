@@ -209,8 +209,8 @@ void test_heev_work(Params& params, bool run)
                         scalar_t* T_data = T.data();
                         int64_t ldt = T.stride();
                         int64_t mb  = T.mb();
-                        int64_t nb  = T.nb();
-                        for (int64_t tj = 0; tj < nb; ++tj)
+                        int64_t nb2  = T.nb();
+                        for (int64_t tj = 0; tj < nb2; ++tj)
                             for (int64_t ti = 0; ti < mb; ++ti)
                                 T_data[ ti + tj*ldt ] *= Lambda[ jj + tj ];
                     }

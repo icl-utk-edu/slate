@@ -347,9 +347,9 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                     {
                         #pragma omp task
                         {
-                            int device = C.tileDevice(i, 0);
                             #pragma omp taskgroup
                             {
+                                int device = C.tileDevice(i, 0);
                                 #pragma omp task
                                 {
                                     // Form T from Vr and tau.

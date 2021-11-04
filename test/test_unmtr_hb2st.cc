@@ -41,7 +41,6 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     bool upper = uplo == slate::Uplo::Upper;
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
 
@@ -96,8 +95,8 @@ void test_unmtr_hb2st_work(Params& params, bool run)
         // Diagonal from he2hb is real.
         Afull_data[j + j*lda] = real( Afull_data[j + j*lda] );
     }
-    if (verbose >= 2 && mpi_rank == 0) {
-        print_matrix( "Afull_data", n, n, &Afull_data[0], lda );
+    if (mpi_rank == 0) {
+        print_matrix( "Afull_data", n, n, &Afull_data[0], lda, params );
     }
 
     slate::Target origin_target = origin2target(origin);
@@ -111,9 +110,7 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     Aband.insertLocalTiles(origin_target);
     Aband.he2hbGather( Afull );
 
-    if (verbose >= 2) {
-        print_matrix( "Aband", Aband );
-    }
+    //print_matrix( "Aband", Aband, params );
 
     //--------------------
     // [code copied from heev.cc]
@@ -131,18 +128,14 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     if (mpi_rank == 0) {
         slate::hb2st(Aband, V);
     }
-    if (verbose >= 2) {
-        print_matrix( "Aband2", Aband );
-        print_matrix( "V", V );
-    }
+    //print_matrix( "Aband2", Aband, params );
+    print_matrix( "V", V, params );
 
     // Set Q = Identity. Use 1D column cyclic.
     slate::Matrix<scalar_t> Q(n, n, nb, 1, p*q, MPI_COMM_WORLD);
     Q.insertLocalTiles(origin_target);
     set(zero, one, Q);
-    if (verbose >= 2) {
-        print_matrix( "Q0", Q );
-    }
+    print_matrix( "Q0", Q, params );
 /*
     if(mpi_rank == 0) {
         printf("0V\n");
@@ -186,9 +179,7 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     double gflop = lapack::Gflop<scalar_t>::unmqr(lapack::Side::Left, n, n, n);
     params.gflops() = gflop / time;
 
-    if (verbose >= 2) {
-        print_matrix( "Q", Q );
-    }
+    print_matrix( "Q", Q, params );
 
     if (check) {
         //==================================================
@@ -199,15 +190,11 @@ void test_unmtr_hb2st_work(Params& params, bool run)
         slate::Matrix<scalar_t> R( n, n, nb, 1, 1, MPI_COMM_WORLD );
         R.insertLocalTiles();
         set(zero, one, R);
-        if (verbose >= 2) {
-            print_matrix( "R0", R );
-        }
+        print_matrix( "R0", R, params );
 
         auto QH = conj_transpose(Q);
         slate::gemm(-one, QH, Q, one, R);
-        if (verbose >= 2) {
-            print_matrix( "R", R );
-        }
+        print_matrix( "R", R, params );
 
         real_t R_norm = slate::norm(slate::Norm::One, R);
         real_t R_norm_over_n = R_norm / n;

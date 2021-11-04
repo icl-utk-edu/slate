@@ -29,7 +29,7 @@ int verbose = 0;
 
 //------------------------------------------------------------------------------
 /// default constructor
-/// Tests Matrix(), m, n, mt, nt, op.
+/// Tests Matrix(), m, n, mt, nt, op, gridinfo.
 void test_Matrix()
 {
     slate::Matrix<double> A;
@@ -40,11 +40,18 @@ void test_Matrix()
     test_assert(A.nt() == 0);
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
+
+    int myp, myq, myrow, mycol;
+    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == -1 );
+    test_assert( myq == -1 );
+    test_assert( myrow == -1 );
+    test_assert( mycol == -1 );
 }
 
 //------------------------------------------------------------------------------
 /// m-by-n, no-data constructor, both square and rectangular tiles
-/// Tests Matrix(m, n, nb, ...), m, n, mt, nt, op.
+/// Tests Matrix(m, n, nb, ...), m, n, mt, nt, op, gridinfo.
 void test_Matrix_empty()
 {
     // square tiles
@@ -55,6 +62,13 @@ void test_Matrix_empty()
     test_assert(A.nt() == ceildiv(n, nb));
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
+
+    int myp, myq, myrow, mycol;
+    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
 
     // rectangular tiles
     slate::Matrix<double> B(m, n, mb, nb, p, q, mpi_comm);
@@ -69,7 +83,7 @@ void test_Matrix_empty()
 //------------------------------------------------------------------------------
 /// m-by-n, no-data constructor, both square and rectangular tiles,
 /// using lambda functions for tileMb, tileNb, tileRank, tileDevice.
-/// Tests Matrix(m, n, tileMb, ...), m, n, mt, nt, op.
+/// Tests Matrix(m, n, tileMb, ...), m, n, mt, nt, op, gridinfo.
 void test_Matrix_lambda()
 {
     int mb_ = mb;  // local copy to capture
@@ -130,6 +144,14 @@ void test_Matrix_lambda()
     test_assert(A.n() == n);
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
+
+    // SLATE doesn't know distribution.
+    int myp, myq, myrow, mycol;
+    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == -1 );
+    test_assert( myq == -1 );
+    test_assert( myrow == -1 );
+    test_assert( mycol == -1 );
 }
 
 //------------------------------------------------------------------------------
@@ -198,6 +220,13 @@ void test_Matrix_fromScaLAPACK()
     test_assert(A.nt() == ntiles);
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
+
+    int myp, myq, myrow, mycol;
+    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
 
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {

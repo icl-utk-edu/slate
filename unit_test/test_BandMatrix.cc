@@ -49,6 +49,13 @@ void test_BandMatrix_empty()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.lowerBandwidth() == kl);
     test_assert(A.upperBandwidth() == ku);
+
+    int myp, myq, myrow, mycol;
+    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
 }
 
 //==============================================================================

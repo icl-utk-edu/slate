@@ -46,7 +46,7 @@ void test_SymmetricMatrix()
 
 //------------------------------------------------------------------------------
 /// n-by-n, no-data constructor
-/// Tests SymmetricMatrix(), mt, nt, op, uplo.
+/// Tests SymmetricMatrix(), mt, nt, op, uplo, gridinfo.
 void test_SymmetricMatrix_empty()
 {
     // ----------
@@ -57,6 +57,13 @@ void test_SymmetricMatrix_empty()
     test_assert(L.nt() == ceildiv(n, nb));
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
+
+    int myp, myq, myrow, mycol;
+    L.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
 
     // ----------
     // upper
@@ -230,6 +237,13 @@ void test_SymmetricMatrix_fromScaLAPACK()
     test_assert(L.nt() == ceildiv(n, nb));
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
+
+    int myp, myq, myrow, mycol;
+    L.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower

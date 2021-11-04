@@ -61,6 +61,13 @@ void test_TriangularMatrix_empty()
     test_assert(L.uplo() == blas::Uplo::Lower);
     test_assert(L.diag() == blas::Diag::NonUnit);
 
+    int myp, myq, myrow, mycol;
+    L.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
+
     // ----------
     // upper
     slate::TriangularMatrix<double> U(
@@ -268,6 +275,13 @@ void test_TriangularMatrix_fromScaLAPACK()
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
     test_assert(L.diag() == blas::Diag::NonUnit);
+
+    int myp, myq, myrow, mycol;
+    L.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower

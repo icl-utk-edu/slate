@@ -460,12 +460,12 @@ protected:
                         int radix, int tag, Layout layout,
                         std::vector<MPI_Request>& send_requests);
 
+public:
     // todo: should this be private?
     void tileReduceFromSet(int64_t i, int64_t j,
                            std::set<int> const& reduce_set, int radix, int tag,
                            Layout layout);
 
-public:
 
     void getRanks(std::set<int>* bcast_set) const;
     void getLocalDevices(std::set<int>* dev_set) const;
@@ -2281,7 +2281,8 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
     }
 
     std::vector<scalar_t> data(tileMb(i)*tileNb(j));
-    Tile<scalar_t> tile(tileMb(i), tileNb(j), &data[0], tileMb(i), host_num_, TileKind::Workspace);
+    int64_t lda = (at(i, j).op() == Op::NoTrans ? tileMb(i) : tileNb(j));
+    Tile<scalar_t> tile(at(i, j), &data[0], lda, TileKind::Workspace);
 
     // Receive, accumulate.
     for (int src : recv_from) {

@@ -270,42 +270,45 @@ void he2hb(slate::internal::TargetType<target>,
 
                     // At most 2 ranks contribute to each Wi; if I am one,
                     // exchange partial sum with neighbor and both ranks sum Wi.
-                    for (int64_t i = k+1; i < nt; ++i) {
-                        #pragma omp task depend(inout:block[i])
-                        {
+                    #pragma omp task depend(inout:block[k])
+                    {
+                        for (int64_t i = k+1; i < nt; ++i) {
+                            #pragma omp task
+                            {
 
-                            for (int64_t j: indices) {
-                                if (i >= j) { // lower
-                                    rank_lower = A.tileRank(i, j);
+                                for (int64_t j: indices) {
+                                    if (i >= j) { // lower
+                                        rank_lower = A.tileRank(i, j);
+                                    }
+                                    else { // upper
+                                        rank_upper = A.tileRank(j, i);
+                                    }
                                 }
-                                else { // upper
-                                    rank_upper = A.tileRank(j, i);
-                                }
-                            }
-                            int neighbor = -1;
-                            if (rank_lower == my_rank)
-                                neighbor = rank_upper;
-                            else if (rank_upper == my_rank)
-                                neighbor = rank_lower;
-                            if (neighbor != -1 && neighbor != my_rank) {
-                                Wtmp.tileInsert(i, k);
-                                int tag_i = i;
-                                int tag_i_ = i+1;
-                                if (neighbor < my_rank) {
-                                    W.tileGetForWriting(i, k, W.hostNum(),
-                                        LayoutConvert(layout));
-                                    W   .tileSend(i, k, neighbor, tag_i);
-                                    Wtmp.tileRecv(i, k, neighbor, layout, tag_i_);
-                                }
-                                else {
-                                    W.tileGetForWriting(i, k, W.hostNum(),
-                                        LayoutConvert(layout));
-                                    Wtmp.tileRecv(i, k, neighbor, layout, tag_i);
-                                    W   .tileSend(i, k, neighbor, tag_i_);
-                                }
-                                {
-                                    axpy(one, Wtmp(i, k), W(i, k));
-                                    Wtmp.tileErase(i, k);
+                                int neighbor = -1;
+                                if (rank_lower == my_rank)
+                                    neighbor = rank_upper;
+                                else if (rank_upper == my_rank)
+                                    neighbor = rank_lower;
+                                if (neighbor != -1 && neighbor != my_rank) {
+                                    Wtmp.tileInsert(i, k);
+                                    int tag_i = i;
+                                    int tag_i_ = i+1;
+                                    if (neighbor < my_rank) {
+                                        W.tileGetForWriting(i, k, W.hostNum(),
+                                            LayoutConvert(layout));
+                                        W   .tileSend(i, k, neighbor, tag_i);
+                                        Wtmp.tileRecv(i, k, neighbor, layout, tag_i_);
+                                    }
+                                    else {
+                                        W.tileGetForWriting(i, k, W.hostNum(),
+                                            LayoutConvert(layout));
+                                        Wtmp.tileRecv(i, k, neighbor, layout, tag_i);
+                                        W   .tileSend(i, k, neighbor, tag_i_);
+                                    }
+                                    {
+                                        axpy(one, Wtmp(i, k), W(i, k));
+                                        Wtmp.tileErase(i, k);
+                                    }
                                 }
                             }
                         }
@@ -396,8 +399,8 @@ void he2hb(slate::internal::TargetType<target>,
 
                         // 2. Update trailing matrix.
                         #pragma omp task depend(in:block[k]) \
-                                         depend(out:block[k+1]) \
-                                         depend(out:block[nt-1])
+                                         depend(inout:block[k+1]) \
+                                         depend(inout:block[nt-1])
                         {
                             internal::her2k<target>(
                                 -one,  A.sub(k+1, nt-1, k, k),

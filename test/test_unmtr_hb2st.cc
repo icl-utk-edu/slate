@@ -95,9 +95,8 @@ void test_unmtr_hb2st_work(Params& params, bool run)
         // Diagonal from he2hb is real.
         Afull_data[j + j*lda] = real( Afull_data[j + j*lda] );
     }
-    if (mpi_rank == 0) {
-        print_matrix( "Afull_data", n, n, &Afull_data[0], lda, params );
-    }
+    
+    print_matrix( "Afull_data", n, n, &Afull_data[0], lda, params );
 
     slate::Target origin_target = origin2target(origin);
     auto Afull = slate::HermitianMatrix<scalar_t>::fromLAPACK( // TODO: fromScaLAPACK

@@ -11,6 +11,10 @@
 
 #include "slate/slate.hh"
 
+extern "C" void Cblacs_pinfo(int* mypnum, int* nprocs);
+extern "C" void Cblacs_pcoord(int icontxt, int pnum, int* prow, int* pcol);
+extern "C" void Cblacs_get(int icontxt, int what, int* val);
+
 #include <complex>
 
 namespace slate {
@@ -52,6 +56,25 @@ inline int desc_LLD(int* desca)
 {
     return (desca[0] == BLOCK_CYCLIC_2D) ? desca[LLD_] : desca[LLD_INB];
 }
+
+inline void check_and_assert_blacs_grid_is_column_major()
+{
+    // if nprocs>1 and proc(1) is not at grid-coord(0, 1) then grid is row-major
+    int mypnum, nprocs, prow, pcol, icontxt=-1, imone=-1, izero=0, pnum_1=1;
+    Cblacs_pinfo( &mypnum, &nprocs );
+    Cblacs_get( imone, izero, &icontxt );
+    Cblacs_pcoord( icontxt, pnum_1, &prow, &pcol );
+    if (nprocs == 1) return;    // only one process, so grid-layout is good
+    if (prow==0 && pcol==1) return; // col-major grid layout is good
+    if (!(prow==0 && pcol==1)) {
+        if (mypnum==0) {
+            printf("SLATE only supports ScaLAPACK \"Col-major\" process-grid\n");
+            printf("Use blacs_gridinit( ictxt, \"Col-major\", nprow, npcol )\n");
+            assert("Error: Col-major process-grid required");
+        }
+    }
+}
+
 
 template< typename scalar_t >
 inline slate::Matrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::Matrix<scalar_t>& A, int ia, int ja, int* desca)

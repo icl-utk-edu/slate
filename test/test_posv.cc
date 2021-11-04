@@ -177,10 +177,8 @@ void test_posv_work(Params& params, bool run)
 
     slate::generate_matrix(params.matrix, A);
     slate::generate_matrix(params.matrixB, B);
-    if (verbose >= 2) {
-        print_matrix("A", A);
-        print_matrix("B", B);
-    }
+    print_matrix("A", A, params);
+    print_matrix("B", B, params);
 
     // if check is required, copy test data and create a descriptor for it
     std::vector<scalar_t> Aref_data(lldA*nlocA);

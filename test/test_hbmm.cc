@@ -129,10 +129,8 @@ void test_hbmm_work(Params& params, bool run)
 
     if (verbose > 1) {
         print_matrix("A_band", A_band);
-        if (verbose > 2) {
-            print_matrix("B", B);
-            print_matrix("C", C);
-        }
+        print_matrix("B", B, params);
+        print_matrix("C", C, params);
     }
 
     if (side == slate::Side::Left)
@@ -171,17 +169,13 @@ void test_hbmm_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    if (verbose > 2) {
-        print_matrix("C2", C);
-    }
+    print_matrix("C2", C, params);
 
     if (check || ref) {
         //==================================================
         // Run SLATE non-band routine
         //==================================================
-        if (verbose > 1) {
-            print_matrix("Cref", Cref);
-        }
+        print_matrix("Cref", Cref, params);
 
         // Get norms of the original data.
         real_t A_norm = slate::norm( norm, Aref );
@@ -205,9 +199,7 @@ void test_hbmm_work(Params& params, bool run)
                         / (sqrt(real_t(An) + 2) * std::abs(alpha) * A_norm * B_norm
                         + 2 * std::abs(beta) * Cref_norm);
 
-        if (verbose > 1) {
-            print_matrix( "C_diff", Cref );
-        }
+        print_matrix( "C_diff", Cref, params );
 
         params.ref_time() = time;
         params.ref_gflops() = gflop / time;

@@ -41,6 +41,8 @@ void gbtrf(slate::internal::TargetType<target>,
     pivots.resize(min_mt_nt);
 
     const scalar_t zero = 0.0;
+    const int priority_one = 1;
+    const int priority_zero = 0;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -89,7 +91,6 @@ void gbtrf(slate::internal::TargetType<target>,
             int64_t j_end = std::min(k + ku2t + 1, A_nt);
 
             // panel, high priority
-            int priority_one = 1;
             #pragma omp task depend(inout:column[k]) priority(priority_one)
             {
                 // factor A(k:mt-1, k)
@@ -121,7 +122,6 @@ void gbtrf(slate::internal::TargetType<target>,
                                  depend(inout:column[j]) priority(priority_one)
                 {
                     // swap rows in A(k:mt-1, j)
-                    int priority_one = 1;
                     int tag_j = j;
                     internal::permuteRows<Target::HostTask>(
                         Direction::Forward, A.sub(k, i_end-1, j, j), pivots.at(k),
@@ -157,7 +157,6 @@ void gbtrf(slate::internal::TargetType<target>,
                                  depend(inout:column[A_nt-1])
                 {
                     // swap rows in A(k:mt-1, kl+1:nt-1)
-                    int priority_zero = 0;
                     int tag_kl1 = k+1+lookahead;
                     internal::permuteRows<Target::HostTask>(
                         Direction::Forward, A.sub(k, i_end-1, k+1+lookahead, j_end-1),

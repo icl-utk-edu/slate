@@ -16,6 +16,8 @@
 using slate::ceildiv;
 using slate::roundup;
 
+namespace test {
+
 //------------------------------------------------------------------------------
 // global variables
 int m, n, k, mb, nb, p, q;
@@ -1014,12 +1016,12 @@ void test_Hermitian_from_Matrix()
     // Rectangular A should fail.
     if (m != n) {
         test_assert_throw(
-            auto L = slate::HermitianMatrix<double>(
+            auto Lrect = slate::HermitianMatrix<double>(
                 slate::Uplo::Lower, A ),
             slate::Exception);
 
         test_assert_throw(
-            auto U = slate::HermitianMatrix<double>(
+            auto Urect = slate::HermitianMatrix<double>(
                 slate::Uplo::Upper, A ),
             slate::Exception);
     }
@@ -1086,11 +1088,11 @@ void test_Hermitian_from_Trapezoid()
             m, n, Ad.data(), lda, nb, p, q, mpi_comm );
 
         test_assert_throw(
-            auto L = slate::HermitianMatrix<double>( L0rect ),
+            auto Lrect = slate::HermitianMatrix<double>( L0rect ),
             slate::Exception);
 
         test_assert_throw(
-            auto U = slate::HermitianMatrix<double>( U0rect ),
+            auto Urect = slate::HermitianMatrix<double>( U0rect ),
             slate::Exception);
     }
 }
@@ -1182,9 +1184,13 @@ void run_tests()
     run_test(test_Hermitian_from_Triangular, "HermitianMatrix( TriangularMatrix )", mpi_comm);
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     MPI_Init(&argc, &argv);
 
     mpi_comm = MPI_COMM_WORLD;

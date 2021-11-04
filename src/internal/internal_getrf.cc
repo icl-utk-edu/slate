@@ -20,10 +20,10 @@ namespace internal {
 template <Target target, typename scalar_t>
 void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
            std::vector<Pivot>& pivot,
-           int max_panel_threads, int priority)
+           int max_panel_threads, int priority, int tag)
 {
     getrf(internal::TargetType<target>(),
-          A, diag_len, ib, pivot, max_panel_threads, priority);
+          A, diag_len, ib, pivot, max_panel_threads, priority, tag);
 }
 
 //------------------------------------------------------------------------------
@@ -34,7 +34,7 @@ template <typename scalar_t>
 void getrf(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A, int64_t diag_len, int64_t ib,
            std::vector<Pivot>& pivot,
-           int max_panel_threads, int priority)
+           int max_panel_threads, int priority, int tag)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
     assert(A.nt() == 1);
@@ -75,7 +75,8 @@ void getrf(internal::TargetType<Target::HostTask>,
         MPI_Comm bcast_comm;
         bcast_comm = commFromSet(bcast_set,
                                  A.mpiComm(), A.mpiGroup(),
-                                 A.tileRank(0, 0), bcast_root);
+                                 A.tileRank(0, 0), bcast_root,
+                                 tag);
         // Find the local rank.
         MPI_Comm_rank(bcast_comm, &bcast_rank);
 
@@ -136,28 +137,28 @@ template
 void getrf<Target::HostTask, float>(
     Matrix<float>&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
-    int max_panel_threads, int priority);
+    int max_panel_threads, int priority, int tag);
 
 // ----------------------------------------
 template
 void getrf<Target::HostTask, double>(
     Matrix<double>&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
-    int max_panel_threads, int priority);
+    int max_panel_threads, int priority, int tag);
 
 // ----------------------------------------
 template
 void getrf< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
-    int max_panel_threads, int priority);
+    int max_panel_threads, int priority, int tag);
 
 // ----------------------------------------
 template
 void getrf< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
-    int max_panel_threads, int priority);
+    int max_panel_threads, int priority, int tag);
 
 } // namespace internal
 } // namespace slate

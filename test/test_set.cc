@@ -8,8 +8,8 @@
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
+#include "scalapack_copy.hh"
 #include "print_matrix.hh"
-#include "band_utils.hh"
 #include "grid_utils.hh"
 
 #include <cmath>
@@ -20,30 +20,33 @@
 #define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template<typename scalar_t>
-void test_gbnorm_work(Params& params, bool run)
+void test_set_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
     using blas::imag;
-    using blas::min;
-    using blas::max;
     using slate::ceildiv;
 
+    // Constants
+    const scalar_t one = 1.0;
+
     // get & mark input values
-    slate::Norm norm = params.norm();
+    scalar_t alpha = params.alpha.get<real_t>();
+    scalar_t beta = params.beta.get<real_t>();
+    slate::Uplo uplo = slate::Uplo::General;
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
-    int64_t kl = params.kl();
-    int64_t ku = params.ku();
     int64_t nb = params.nb();
     int64_t p = params.grid.m();
     int64_t q = params.grid.n();
-    bool check = params.check() == 'y';
-    bool ref = params.ref() == 'y';
+    bool ref_only = params.ref() == 'o';
+    bool ref = params.ref() == 'y' || ref_only;
+    bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    params.matrix.mark();
 
     // mark non-standard output values
     params.time();
@@ -51,11 +54,6 @@ void test_gbnorm_work(Params& params, bool run)
 
     if (! run)
         return;
-
-    if (origin != slate::Origin::ScaLAPACK) {
-        params.msg() = "skipping: currently only origin=scalapack is supported";
-        return;
-    }
 
     slate::Options const opts =  {
         {slate::Option::Target, target}
@@ -72,45 +70,57 @@ void test_gbnorm_work(Params& params, bool run)
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector<scalar_t> A_data(lldA*nlocA);
 
-    // todo: fix the generation
-    int64_t iseeds[4] = { myrow, mycol, 2, 3 };
-    //lapack::larnv(2, iseeds, lldA*nlocA, &A_data[0]);
-    for (int64_t j = 0; j < nlocA; ++j)
-        lapack::larnv(2, iseeds, mlocA, &A_data[j*lldA]);
-    zeroOutsideBand(&A_data[0], m, n, kl, ku, nb, nb, myrow, mycol, p, q, lldA);
-
-    // Create SLATE matrix from the ScaLAPACK layout.
-    // TODO: data origin on GPU
-    auto A = BandFromScaLAPACK(
-                 m, n, kl, ku, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-
-    print_matrix("A_data", mlocA, nlocA, &A_data[0], lldA, p, q, MPI_COMM_WORLD,
-                 params);
-
-    if (verbose > 1) {
-        print_matrix("A", A);
+    slate::Matrix<scalar_t> A;
+    if (origin != slate::Origin::ScaLAPACK) {
+        // SLATE allocates CPU or GPU tiles.
+        slate::Target origin_target = origin2target(origin);
+        A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
+        A.insertLocalTiles(origin_target);
+    }
+    else {
+        // Create SLATE matrix from the ScaLAPACK layout.
+        A = slate::Matrix<scalar_t>::fromScaLAPACK(
+                m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
 
-    if (trace) slate::trace::Trace::on();
-    else slate::trace::Trace::off();
+    // if reference run is required, copy test data
+    std::vector<scalar_t> Aref_data;
+    slate::Matrix<scalar_t> Aref;
+    if (check || ref) {
+        // For simplicity, always use ScaLAPACK format for ref matrices.
+        Aref_data.resize( lldA*nlocA );
+        Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                   m,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+    }
 
-    double time = barrier_get_wtime(MPI_COMM_WORLD);
+    if (! ref_only) {
+        if (trace) slate::trace::Trace::on();
+        else slate::trace::Trace::off();
 
-    //==================================================
-    // Run SLATE test.
-    // Compute || A ||_norm.
-    //==================================================
-    real_t A_norm = slate::norm(norm, A, opts);
+        //==================================================
+        // Run SLATE test.
+        // Set A by alpha on off-diagonal entries
+        //           beta on the diagonal entries.
+        //==================================================
+        double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-    time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+        slate::set(alpha, beta, A, opts);
 
-    if (trace) slate::trace::Trace::finish();
+        time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-    // compute and save timing/performance
-    params.time() = time;
+        if (trace) slate::trace::Trace::finish();
+
+        // compute and save timing/performance
+        params.time() = time;
+
+        if (verbose > 1)
+            print_matrix( "A", A );
+
+    }
 
     if (check || ref) {
         #ifdef SLATE_HAVE_SCALAPACK
+            real_t norm = slate::norm(slate::Norm::One, A);
             // comparison with reference routine from ScaLAPACK
 
             // BLACS/MPI variables
@@ -120,7 +130,7 @@ void test_gbnorm_work(Params& params, bool run)
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
-            slate_assert( mpi_rank == mpi_rank_ );
+            slate_assert( mpi_rank_ == mpi_rank );
             slate_assert(p*q <= nprocs);
             Cblacs_get(-1, 0, &ictxt);
             Cblacs_gridinit(&ictxt, "Col", p, q);
@@ -139,63 +149,46 @@ void test_gbnorm_work(Params& params, bool run)
             { omp_num_threads = omp_get_num_threads(); }
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-            // allocate work space
-            std::vector<real_t> worklange(std::max(mlocA, nlocA));
-
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
-            time = barrier_get_wtime(MPI_COMM_WORLD);
-            real_t A_norm_ref = scalapack_plange(
-                                    norm2str(norm),
-                                    m, n, &A_data[0], 1, 1, A_desc, &worklange[0]);
+            double time = barrier_get_wtime(MPI_COMM_WORLD);
+
+            scalapack_plaset(uplo2str(uplo), m, n, alpha, beta, &Aref_data[0], 1, 1, A_desc );
+            slate_assert(info == 0);
+
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            // difference between norms
-            real_t error = std::abs(A_norm - A_norm_ref) / A_norm_ref;
-            if (norm == slate::Norm::One) {
-                error /= sqrt(m);
-            }
-            else if (norm == slate::Norm::Inf) {
-                error /= sqrt(n);
-            }
-            else if (norm == slate::Norm::Fro) {
-                error /= sqrt(m*n);
-            }
+            if (verbose >= 2)
+                print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD);
 
-            if (verbose && mpi_rank == 0) {
-                printf("norm %15.8e, ref %15.8e, ref - norm %5.2f, error %9.2e\n",
-                       A_norm, A_norm_ref, A_norm_ref - A_norm, error);
-            }
+            // get differences A = A - Aref
+            slate::add(-one, Aref, one, A);
 
-            // Allow for difference, except max norm in real should be exact.
-            real_t eps = std::numeric_limits<real_t>::epsilon();
-            real_t tol;
-            if (norm == slate::Norm::Max && ! slate::is_complex<scalar_t>::value)
-                tol = 0;
-            else
-                tol = 10*eps;
+            if (verbose >= 2)
+                print_matrix("Diff", A);
+
+            // norm(A - Aref)
+            real_t diff_norm = slate::norm(slate::Norm::One, A);
 
             params.ref_time() = time;
+
+            real_t error = diff_norm / ( n + norm );
+
             params.error() = error;
+
+            params.okay() = (params.error() == 0);  // Copy should be exact.
 
             slate_set_num_blas_threads(saved_num_threads);
 
-            // Allow for difference
-            params.okay() = (params.error() <= tol);
-
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
-        #else
-            SLATE_UNUSED(A_norm);
-            if (mpi_rank == 0)
-                printf( "ScaLAPACK not available\n" );
         #endif
     }
 }
 
 // -----------------------------------------------------------------------------
-void test_gbnorm(Params& params, bool run)
+void test_set(Params& params, bool run)
 {
     switch (params.datatype()) {
         case testsweeper::DataType::Integer:
@@ -203,19 +196,19 @@ void test_gbnorm(Params& params, bool run)
             break;
 
         case testsweeper::DataType::Single:
-            test_gbnorm_work<float> (params, run);
+            test_set_work<float> (params, run);
             break;
 
         case testsweeper::DataType::Double:
-            test_gbnorm_work<double> (params, run);
+            test_set_work<double> (params, run);
             break;
 
         case testsweeper::DataType::SingleComplex:
-            test_gbnorm_work<std::complex<float>> (params, run);
+            test_set_work<std::complex<float>> (params, run);
             break;
 
         case testsweeper::DataType::DoubleComplex:
-            test_gbnorm_work<std::complex<double>> (params, run);
+            test_set_work<std::complex<double>> (params, run);
             break;
     }
 }

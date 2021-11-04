@@ -5,6 +5,7 @@
 
 #include "slate/slate.hh"
 #include "test.hh"
+#include "print_matrix.hh"
 #include "blas/flops.hh"
 
 #include "scalapack_wrappers.hh"
@@ -142,8 +143,8 @@ void test_syr2k_work(Params& params, bool run)
         }
     #endif
 
-    // Keep the original untransposed A and B matrix,
-    // and make a shallow copy of it for transposing.
+    // Keep the original untransposed A and B matrices,
+    // and make a shallow copy of them for transposing.
     auto opA = A;
     auto opB = B;
     if (trans == slate::Op::Trans) {
@@ -157,6 +158,13 @@ void test_syr2k_work(Params& params, bool run)
     slate_assert(opA.mt() == C.mt());
     slate_assert(opB.mt() == C.mt());
     slate_assert(opA.nt() == B.nt());
+
+    print_matrix("A", A, params);
+    print_matrix("B", B, params);
+    print_matrix("Initial C", C, params);
+    if (check || ref) {
+        print_matrix("Initial Cref", Cref, params);
+    }
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
@@ -200,6 +208,8 @@ void test_syr2k_work(Params& params, bool run)
     // slate::syr2k(alpha, A, B, beta, C, opts);
 
     time = barrier_get_wtime( MPI_COMM_WORLD ) - time;
+
+    print_matrix("Cslate", C, params);
 
     if (trace) slate::trace::Trace::finish();
 
@@ -288,6 +298,8 @@ void test_syr2k_work(Params& params, bool run)
                              &B_data[0], 1, 1, B_desc, beta,
                              &Cref_data[0], 1, 1, Cref_desc);
             time = barrier_get_wtime( MPI_COMM_WORLD ) - time;
+
+            print_matrix("Cref", Cref, params);
 
             // local operation: error = Cref_data - C_data
             blas::axpy(Cref_data.size(), -1.0, &C_data[0], 1, &Cref_data[0], 1);

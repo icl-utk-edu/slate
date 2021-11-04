@@ -41,7 +41,6 @@ void test_hegst_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Target target = params.target();
     slate::Origin origin = params.origin();
     params.matrix.mark();
@@ -90,9 +89,7 @@ void test_hegst_work(Params& params, bool run)
 
     slate::generate_matrix( params.matrix, A );
 
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+    print_matrix("A", A, params);
 
     // Matrix Aref
     std::vector<scalar_t> Aref_data(lld*nlocal);
@@ -100,9 +97,7 @@ void test_hegst_work(Params& params, bool run)
                     uplo, n, Aref_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
 
     slate::copy( A, Aref );
-    if (verbose > 2) {
-        print_matrix("Aref", Aref);
-    }
+    print_matrix("Aref", Aref, params);
 
     // Matrix B
     std::vector<scalar_t> B_data(lld*nlocal);
@@ -111,17 +106,12 @@ void test_hegst_work(Params& params, bool run)
 
     slate::generate_matrix( params.matrixB, B );
 
-
-    if (verbose > 1) {
-        print_matrix("B", B);
-    }
+    print_matrix("B", B, params);
 
     // Factorize B
     slate::potrf(B, opts);
 
-    if (verbose > 2) {
-        print_matrix("B_factored", B);
-    }
+    print_matrix("B_factored", B, params);
 
     if (! ref_only) {
         // todo
@@ -144,9 +134,7 @@ void test_hegst_work(Params& params, bool run)
         params.time() = time;
         //params.gflops() = gflop / time;
 
-        if (verbose > 1) {
-            print_matrix("A_hegst", A);
-        }
+        print_matrix("A_hegst", A, params);
     }
 
     if (check || ref) {
@@ -192,9 +180,7 @@ void test_hegst_work(Params& params, bool run)
             params.ref_time() = time;
             // params.ref_gflops() = gflop / time;
 
-            if (verbose > 1) {
-                print_matrix("Aref_hegst", Aref);
-            }
+            print_matrix("Aref_hegst", Aref, params);
 
             slate_set_num_blas_threads(saved_num_threads);
 

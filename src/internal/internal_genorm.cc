@@ -235,7 +235,7 @@ void norm(
             // Summing up local contributions only.
             std::fill_n(values, A.m(), 0.0);
             {
-                trace::Block trace_block("slate::Tiles_sum");
+                trace::Block trace_block2("slate::Tiles_sum");
 
                 int64_t ii = 0;
                 for (int64_t i = 0; i < A.mt(); ++i) {

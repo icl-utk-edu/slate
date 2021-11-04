@@ -134,8 +134,6 @@ void Debug::printTilesLives(BaseMatrix<scalar_t> const& A)
 {
     if (! debug_) return;
 
-    using llong = long long;
-
     // i, j are tile indices
     std::string msg;
     char buf[ 8192 ];

@@ -63,6 +63,10 @@ public:
     testsweeper::ParamDouble tol;
     testsweeper::ParamInt    repeat;
     testsweeper::ParamInt    verbose;
+    testsweeper::ParamInt    print_edgeitems;
+    testsweeper::ParamInt    print_threshold;
+    testsweeper::ParamInt    print_width;
+    testsweeper::ParamInt    print_precision;
     testsweeper::ParamInt    extended;
     testsweeper::ParamInt    cache;
 
@@ -232,8 +236,11 @@ void test_hbnorm (Params& params, bool run);
 void test_synorm (Params& params, bool run);
 void test_trnorm (Params& params, bool run);
 
-// Scaling Matrix
-void test_scale (Params& params, bool run);
+// auxiliary matrix routines
+void test_add    (Params& params, bool run);
+void test_copy   (Params& params, bool run);
+void test_scale  (Params& params, bool run);
+void test_set    (Params& params, bool run);
 
 // -----------------------------------------------------------------------------
 inline slate::Dist str2dist(const char* dist)

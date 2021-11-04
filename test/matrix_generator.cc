@@ -22,6 +22,44 @@
 #include "matrix_generator.hh"
 
 // -----------------------------------------------------------------------------
+const int64_t idist_rand  = 1;
+const int64_t idist_rands = 2;
+const int64_t idist_randn = 3;
+
+enum class TestMatrixType {
+    rand      = 1,  // maps to larnv idist
+    rands     = 2,  // maps to larnv idist
+    randn     = 3,  // maps to larnv idist
+    zero,
+    identity,
+    ij,
+    jordan,
+    diag,
+    svd,
+    poev,
+    heev,
+    geev,
+    geevx,
+};
+
+enum class TestMatrixDist {
+    rand      = 1,  // maps to larnv idist
+    rands     = 2,  // maps to larnv idist
+    randn     = 3,  // maps to larnv idist
+    arith,
+    geo,
+    cluster0,
+    cluster1,
+    rarith,
+    rgeo,
+    rcluster0,
+    rcluster1,
+    logrand,
+    specified,
+    none,
+};
+
+// -----------------------------------------------------------------------------
 // ANSI color codes
 using testsweeper::ansi_esc;
 using testsweeper::ansi_red;
@@ -600,6 +638,7 @@ void generate_matrix_usage()
     "----------|-------------\n"
     "zero      |  all zero\n"
     "identity  |  ones on diagonal, rest zero\n"
+    "ij        |  Aij = i + j / 10^ceil( log10( max( m, n ) ) )\n"
     "jordan    |  ones on diagonal and first subdiagonal, rest zero\n"
     "          |  \n"
     "rand@     |  matrix entries random uniform on (0, 1)\n"
@@ -695,6 +734,7 @@ void decode_matrix(
     //---------------
     sigma_max = 1;
     std::vector< std::string > tokens = split( kind, "-_" );
+
     // ----- decode matrix type
     auto token = tokens.begin();
     if (token == tokens.end()) {
@@ -705,6 +745,7 @@ void decode_matrix(
     type = TestMatrixType::identity;
     if      (base == "zero"    ) { type = TestMatrixType::zero;     }
     else if (base == "identity") { type = TestMatrixType::identity; }
+    else if (base == "ij"      ) { type = TestMatrixType::ij;       }
     else if (base == "jordan"  ) { type = TestMatrixType::jordan;   }
     else if (base == "randn"   ) { type = TestMatrixType::randn;    }
     else if (base == "rands"   ) { type = TestMatrixType::rands;    }
@@ -1073,6 +1114,36 @@ void generate_matrix(
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_one, d_one, Sigma.data(), Sigma.size() );
             break;
+
+        case TestMatrixType::ij: {
+            // Scale so j*s < 1.
+            real_t s = 1 / pow( 10, ceil( log10( n ) ) );
+            #pragma omp parallel
+            #pragma omp master
+            {
+                int64_t jj = 0;
+                for (int64_t j = 0; j < nt; ++j) {
+                    int64_t ii = 0;
+                    for (int64_t i = 0; i < mt; ++i) {
+                        #pragma omp task default( none ) firstprivate( i, j, ii, jj, s ) shared( A )
+                        {
+                            if (A.tileIsLocal( i, j )) {
+                                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                                auto Aij = A( i, j );
+                                scalar_t* data = Aij.data();
+                                int64_t lda = Aij.stride();
+                                for (int64_t jjj = 0; jjj < Aij.nb(); ++jjj)
+                                    for (int64_t iii = 0 ; iii < Aij.mb(); ++iii)
+                                        data[ iii + jjj*lda ] = ii + iii + (jj + jjj)*s;
+                            }
+                        }
+                        ii += A.tileMb( i );
+                    }
+                    jj += A.tileNb( j );
+                }
+            }
+            break;
+        }
 
         case TestMatrixType::jordan: {
             set(zero, one, A ); // ones on diagonal

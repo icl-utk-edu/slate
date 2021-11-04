@@ -40,7 +40,6 @@ void test_hesv_work(Params& params, bool run)
     int64_t panel_threads = params.panel_threads();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -106,10 +105,8 @@ void test_hesv_work(Params& params, bool run)
 
     slate::Pivots pivots;
 
-    if (verbose >= 2) {
-        print_matrix( "A", A );
-        print_matrix( "B", B );
-    }
+    print_matrix( "A", A, params );
+    print_matrix( "B", B, params );
 
     //---------------------
     // band matrix
@@ -181,10 +178,8 @@ void test_hesv_work(Params& params, bool run)
 
     if (trace) slate::trace::Trace::finish();
 
-    if (verbose >= 2) {
-        print_matrix( "Aout", A );
-        print_matrix( "Bout", B );
-    }
+    print_matrix( "Aout", A, params );
+    print_matrix( "Bout", B, params );
 
     //---------------------
     // compute and save timing/performance

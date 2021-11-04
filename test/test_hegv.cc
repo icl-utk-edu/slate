@@ -137,10 +137,9 @@ void test_hegv_work(Params& params, bool run)
         printf("%% Z   %6lld-by-%6lld\n", llong( Z.m() ), llong( Z.n() ));
     }
 
-    if (verbose >= 2) {
-        print_matrix( "A_in", A );
-        print_matrix( "B_in", B );
-    }
+    print_matrix("A", A, params);
+    print_matrix("B", B, params);
+    print_matrix("Z", Z, params);
 
     std::vector<scalar_t> Aref_data, Bref_data, Zref_data;
     std::vector<real_t> Lambda_ref;
@@ -209,11 +208,9 @@ void test_hegv_work(Params& params, bool run)
         params.time() = time;
     }
 
-    if (verbose >= 2) {
-        print_matrix( "A_out", A );
-        print_matrix( "B_out", B );
-        print_matrix( "Z_out", Z );
-    }
+    print_matrix("A", A, params);
+    print_matrix("B", B, params);
+    print_matrix("Z", Z, params);
 
     if (check && jobz == slate::Job::Vec) {
         // do error checks for the operations

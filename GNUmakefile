@@ -109,7 +109,7 @@ fortran_api     := $(strip $(fortran_api))
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX blas blas_int blas_threaded openmp static gpu_backend
 
-CXXFLAGS   += -O3 -std=c++17 -Wall -pedantic -MMD
+CXXFLAGS   += -O3 -std=c++17 -Wall -Wshadow -pedantic -MMD
 NVCCFLAGS  += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
 HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
 
@@ -622,7 +622,10 @@ tester_src += \
         test/test_hegst.cc \
         test/matrix_generator.cc \
         test/matrix_params.cc \
+        test/test_add.cc \
+        test/test_copy.cc \
         test/test_scale.cc \
+        test/test_set.cc \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.

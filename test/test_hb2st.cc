@@ -76,8 +76,8 @@ void test_hb2st_work(Params& params, bool run)
         // Diagonal from he2hb is real.
         Afull_data[j + j*lda] = real( Afull_data[j + j*lda] );
     }
-    if (verbose && mpi_rank == 0) {
-        print_matrix( "Afull_data", n, n, &Afull_data[0], lda );
+    if (mpi_rank == 0) {
+        print_matrix( "Afull_data", n, n, &Afull_data[0], lda, params );
     }
 
     auto Afull = slate::HermitianMatrix<scalar_t>::fromLAPACK(
@@ -149,8 +149,7 @@ void test_hb2st_work(Params& params, bool run)
         Aband.gather(&Afull_data[0], lda);
 
         if (mpi_rank == 0) {
-            if (verbose)
-                print_matrix( "Afull_data_out", n, n, &Afull_data[0], lda );
+            print_matrix( "Afull_data_out", n, n, &Afull_data[0], lda, params );
 
             // Check that updated Aband is real tridiagonal by finding max value
             // outside tridiagonal, and imaginary parts of tridiagonal.
@@ -222,10 +221,9 @@ void test_hb2st_work(Params& params, bool run)
                     }
                 }
             }
-            if (verbose) {
-                print_matrix("D", 1, n,   &Lambda2[0], 1);
-                print_matrix("E", 1, n-1, &E[0],  1);
-            }
+
+            print_matrix("D", 1, n,   &Lambda2[0], 1, params);
+            print_matrix("E", 1, n-1, &E[0],  1, params);
 
             info = lapack::steqr(lapack::Job::NoVec, n, &Lambda2[0], &E[0],
                                  dummy, 1);

@@ -102,6 +102,8 @@ void he2hb(slate::internal::TargetType<target>,
     // tracks dependencies by block-column.
     std::vector< uint8_t > block_vector(nt);
     uint8_t* block = block_vector.data();
+    std::vector< uint8_t > row_vector(nt);
+    uint8_t* row = row_vector.data();
 
     #pragma omp parallel
     #pragma omp master
@@ -244,14 +246,16 @@ void he2hb(slate::internal::TargetType<target>,
                     }
                     i0 = indices[0];
 
-                    #pragma omp task depend(inout:block[k])
-                    if (A.tileExists(i0, k)) {
-                        // Save V0 and set upper(V0) to identity, to avoid trmm's.
-                        Asave.tileInsert(i0, k);
-                        auto Aik = A(i0, k);
-                        gecopy(std::move(Aik), Asave(i0, k));
-                        Aik.uplo(Uplo::Upper);
-                        Aik.set(zero, one);
+                    #pragma omp task depend(in:block[k])
+                    {
+                        if (A.tileExists(i0, k)) {
+                            // Save V0 and set upper(V0) to identity, to avoid trmm's.
+                            Asave.tileInsert(i0, k);
+                            auto Aik = A(i0, k);
+                            gecopy(std::move(Aik), Asave(i0, k));
+                            Aik.uplo(Uplo::Upper);
+                            Aik.set(zero, one);
+                        }
                     }
                     //--------------------
                     // Apply local reflectors.
@@ -272,7 +276,7 @@ void he2hb(slate::internal::TargetType<target>,
                     // exchange partial sum with neighbor and both ranks sum Wi.
                     #pragma omp task depend(inout:block[k])
                     {
-                        for (int64_t i = k+1; i < nt; ++i) {
+                        for (int64_t i = k+1; i < nt-1; ++i) {
                             #pragma omp task
                             {
 
@@ -418,7 +422,6 @@ void he2hb(slate::internal::TargetType<target>,
                         // where
                         // W = A^H V T = A V T.
 
-                        auto W_panel  = W.sub(k+1, nt-1, k, k);
                         //todo: only for this one pass block dep
                         #pragma omp task depend(in:block[k]) \
                                          depend(inout:block[k+1]) \
@@ -426,18 +429,22 @@ void he2hb(slate::internal::TargetType<target>,
                         {
                             internal::he2hb_gemm_outer<target>(
                                 -one, A.sub(k+1, nt-1, k, k),
-                                std::move(W_panel),
+                                W.sub(k+1, nt-1, k, k),
                                 one,  A.sub(k+1, nt-1),
                                 indices2, &block[k+1]);
                         }
                     }
 
-                    if (A.tileExists(i0, k)) {
-                        // Restore V0.
-                        #pragma omp task depend(inout:block[k])
-                        {
-                            gecopy(Asave(i0, k), A(i0, k));
-                            Asave.tileErase(i0, k);
+                    #pragma omp task depend(inout:block[k])
+                    {
+                        if (A.tileExists(i0, k)) {
+                            // Restore V0.
+                            #pragma omp task
+                            {
+                                gecopy(Asave(i0, k), A(i0, k));
+                                Asave.tileErase(i0, k);
+                            }
+                            #pragma omp taskwait
                         }
                     }
                 }

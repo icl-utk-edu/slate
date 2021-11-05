@@ -446,7 +446,8 @@ Tile<scalar_t>::Tile(
 ///
 ///
 template <typename scalar_t>
-Tile<scalar_t>::Tile(Tile<scalar_t> src_tile, scalar_t* A, int64_t lda, TileKind kind)
+Tile<scalar_t>::Tile(
+    Tile<scalar_t> src_tile, scalar_t* A, int64_t lda, TileKind kind)
     : mb_(src_tile.mb_),
       nb_(src_tile.nb_),
       stride_(lda),

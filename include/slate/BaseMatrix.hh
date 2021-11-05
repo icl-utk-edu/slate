@@ -2280,21 +2280,23 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
         tileGetForReading(i, j, LayoutConvert(layout));
     }
 
-    std::vector<scalar_t> data(tileMb(i)*tileNb(j));
-    int64_t lda = (at(i, j).op() == Op::NoTrans ? tileMb(i) : tileNb(j));
-    Tile<scalar_t> tile(at(i, j), &data[0], lda, TileKind::Workspace);
+    auto Aij = at(i, j);
+
+    std::vector<scalar_t> data(Aij.mb() * Aij.nb());
+    int64_t lda = (Aij.op() == Op::NoTrans ? Aij.mb() : Aij.nb());
+    Tile<scalar_t> tile(Aij, &data[0], lda, TileKind::Workspace);
 
     // Receive, accumulate.
     for (int src : recv_from) {
         // Receive.
         tile.recv(new_vec[src], mpi_comm_, layout, tag);
         // Accumulate.
-        axpy(scalar_t(1.0), tile, at(i, j));
+        axpy(scalar_t(1.0), tile, Aij);
     }
 
     // Forward.
     if (! send_to.empty())
-        at(i, j).send(new_vec[send_to.front()], mpi_comm_, tag);
+        Aij.send(new_vec[send_to.front()], mpi_comm_, tag);
 }
 
 //------------------------------------------------------------------------------

@@ -1743,8 +1743,9 @@ void test_Matrix_tileLayoutConvert()
 }
 
 template <class scalar_t>
-void test_BaseMatrix_tileReduceFromSet(slate::BaseMatrix<scalar_t> A, int64_t i, int64_t j,
-    std::set<int> reduce_set)
+void test_BaseMatrix_tileReduceFromSet(
+    slate::BaseMatrix<scalar_t>& A, int64_t i, int64_t j,
+    std::set<int>& reduce_set)
 {
   int tag       = 0;
   int sol_value = 0;
@@ -1752,45 +1753,45 @@ void test_BaseMatrix_tileReduceFromSet(slate::BaseMatrix<scalar_t> A, int64_t i,
   slate::Layout layout = A.layout();
 
   // Insert the tile, set it locally to the mpi_rank, and compute the solution
-  for ( auto rank : reduce_set ) {
-    if ( rank == mpi_rank ) {
-      if ( ! A.tileIsLocal(i, j) ){
-        A.tileInsert(i, j);
+  for (auto rank : reduce_set) {
+      if (rank == mpi_rank) {
+          if (! A.tileIsLocal(i, j)) {
+              A.tileInsert(i, j);
+          }
+          // Set the value
+          A.at(i, j).set(mpi_rank);
       }
-      // Set the value
-      A.at(i, j).set(mpi_rank);
-    }
-    sol_value += rank;
+      sol_value += rank;
   }
 
   // Routine to test
   A.tileReduceFromSet(i, j, reduce_set, 2, tag, layout);
 
   // Check the result of the reduction
-  if ( mpi_rank == root ) {
-    int64_t nrow = 0;
-    int64_t ncol = 0;
-    int64_t Tstride = A.at(i, j).stride();
-    scalar_t* Tdata = A.at(i, j).data();
+  if (mpi_rank == root) {
+      int64_t nrow    = 0;
+      int64_t ncol    = 0;
+      int64_t Tstride = A.at(i, j).stride();
+      scalar_t* Tdata = A.at(i, j).data();
 
-    if ( A.at(i, j).op() == slate::Op::NoTrans ) {
-      nrow = A.at(i, j).mb();
-      ncol = A.at(i, j).nb();
-    }
-    else{ 
-      nrow = A.at(i, j).nb();
-      ncol = A.at(i, j).mb();
-    }
-
-    for (int ii = 0; ii < nrow; ++ii) {
-      for (int jj = 0; jj < ncol; ++jj) {
-        test_assert( Tdata[ii + jj * Tstride] == sol_value );
+      if (A.at(i, j).op() == slate::Op::NoTrans) {
+          nrow = A.at(i, j).mb();
+          ncol = A.at(i, j).nb();
       }
-    }
+      else { 
+          nrow = A.at(i, j).nb();
+          ncol = A.at(i, j).mb();
+      }
+
+      for (int ii = 0; ii < nrow; ++ii) {
+          for (int jj = 0; jj < ncol; ++jj) {
+            test_assert(Tdata[ii + jj * Tstride] == sol_value);
+          }
+      }
   }
 
-  if ( A.tileExists(i, j) && ! A.tileIsLocal(i, j) )
-    A.tileErase(i, j);
+  if (A.tileExists(i, j) && ! A.tileIsLocal(i, j))
+      A.tileErase(i, j);
 }
 
 template <class scalar_t=double>
@@ -1816,26 +1817,26 @@ void test_Matrix_tileReduceFromSet()
   std::set<int> all_reduce_set;
 
   // Case: all ranks will be part of the reduction
-  for ( int rank = 0; rank < mpi_size; ++rank ){
-    all_reduce_set.insert(rank);
+  for (int rank = 0; rank < mpi_size; ++rank){
+      all_reduce_set.insert(rank);
   }
 
   std::list<slate::Matrix<double>> matrices{ A, AT, AH };
   std::list<std::set<int>> reduce_sets{ all_reduce_set };
 
   for (auto M : matrices) {
-    for (auto reduce_set : reduce_sets) {
-      for (int64_t i = 0; i < M.mt(); ++i) {
-        for (int64_t j = 0; j < M.nt(); ++j) {
-          int root = M.tileRank(i, j);
+      for (auto reduce_set : reduce_sets) {
+          for (int64_t i = 0; i < M.mt(); ++i) {
+              for (int64_t j = 0; j < M.nt(); ++j) {
+                  int root = M.tileRank(i, j);
 
-          // Make sure the root is in the reduce_set
-          reduce_set.insert(root);
+                  // Make sure the root is in the reduce_set
+                  reduce_set.insert(root);
 
-          test_BaseMatrix_tileReduceFromSet(M, i, j, reduce_set);
-        }
+                  test_BaseMatrix_tileReduceFromSet(M, i, j, reduce_set);
+              }
+          }
       }
-    }
   }
 }
 

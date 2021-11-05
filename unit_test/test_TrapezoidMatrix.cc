@@ -68,6 +68,17 @@ void test_TrapezoidMatrix_empty()
     test_assert( myrow == mpi_rank % p );
     test_assert( mycol == mpi_rank / p );
 
+    auto tileMb_     = L.tileMbFunc();
+    auto tileNb_     = L.tileNbFunc();
+    auto tileRank_   = L.tileRankFunc();
+    auto tileDevice_ = L.tileDeviceFunc();
+    test_assert( tileMb_(0) == nb );  // square
+    test_assert( tileNb_(0) == nb );
+    test_assert( tileRank_( {0, 0} ) == 0 );
+    // todo: What is reasonable if num_devices == 0? Currently divides by zero.
+    if (num_devices > 0)
+        test_assert( tileDevice_( {0, 0} ) == 0 );
+
     // ----------
     // upper
     slate::TrapezoidMatrix<double> U(

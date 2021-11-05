@@ -148,6 +148,34 @@ public:
     int num_devices() const { return num_devices_; }
     void gridinfo( int* nprow, int* npcol, int* myrow, int* mycol ) const;
 
+    /// Returns tileMb function. Useful to construct matrices with the
+    /// same block size. For submatrices, this is of the parent matrix.
+    std::function<int64_t (int64_t i)> tileMbFunc() const
+    {
+        return storage_->tileMb;
+    }
+
+    /// Returns tileNb function. Useful to construct matrices with the
+    /// same block size. For submatrices, this is of the parent matrix.
+    std::function<int64_t (int64_t j)> tileNbFunc() const
+    {
+        return storage_->tileNb;
+    }
+
+    /// Returns tileRank function. Useful to construct matrices with the
+    /// same block size. For submatrices, this is of the parent matrix.
+    std::function<int (ij_tuple ij)> tileRankFunc() const
+    {
+        return storage_->tileRank;
+    }
+
+    /// Returns tileDevice function. Useful to construct matrices with the
+    /// same block size. For submatrices, this is of the parent matrix.
+    std::function<int (ij_tuple ij)> tileDeviceFunc() const
+    {
+        return storage_->tileDevice;
+    }
+
     int64_t m() const;
     int64_t n() const;
 

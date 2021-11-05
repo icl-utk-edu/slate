@@ -65,6 +65,17 @@ void test_SymmetricMatrix_empty()
     test_assert( myrow == mpi_rank % p );
     test_assert( mycol == mpi_rank / p );
 
+    auto tileMb_     = L.tileMbFunc();
+    auto tileNb_     = L.tileNbFunc();
+    auto tileRank_   = L.tileRankFunc();
+    auto tileDevice_ = L.tileDeviceFunc();
+    test_assert( tileMb_(0) == nb );  // square
+    test_assert( tileNb_(0) == nb );
+    test_assert( tileRank_( {0, 0} ) == 0 );
+    // todo: What is reasonable if num_devices == 0? Currently divides by zero.
+    if (num_devices > 0)
+        test_assert( tileDevice_( {0, 0} ) == 0 );
+
     // ----------
     // upper
     slate::SymmetricMatrix<double> U(blas::Uplo::Upper, n, nb, p, q, mpi_comm);
@@ -134,6 +145,17 @@ void test_SymmetricMatrix_lambda()
     test_assert(L.n() == n);
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == slate::Uplo::Lower);
+
+    auto tileMb_     = L.tileMbFunc();
+    auto tileNb_     = L.tileNbFunc();
+    auto tileRank_   = L.tileRankFunc();
+    auto tileDevice_ = L.tileDeviceFunc();
+    test_assert( tileMb_(0) == tileNb(0) );  // square
+    test_assert( tileNb_(0) == tileNb(0) );
+    test_assert( tileRank_( {0, 0} ) == tileRank( {0, 0} ) );
+    // todo: What is reasonable if num_devices == 0? Currently divides by zero.
+    if (num_devices > 0)
+        test_assert( tileDevice_( {0, 0} ) == tileDevice( {0, 0} ) );
 
     // ----------
     // upper

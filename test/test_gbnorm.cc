@@ -84,9 +84,6 @@ void test_gbnorm_work(Params& params, bool run)
     auto A = BandFromScaLAPACK(
                  m, n, kl, ku, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
-    print_matrix("A_data", mlocA, nlocA, &A_data[0], lldA, p, q, MPI_COMM_WORLD,
-                 params);
-
     print_matrix("A", A, params);
 
     if (trace) slate::trace::Trace::on();

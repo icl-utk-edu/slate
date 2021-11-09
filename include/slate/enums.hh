@@ -55,14 +55,12 @@ enum class Option : char {
     Target,             ///< computation method (@see Target)
     PrintVerbose,       ///< verbose, 0: no printing,
                         ///< verbose, 1: print metadata only (dimensions, uplo, etc.)
-                        ///< verbose, 2: print first & last PrintEdgeItems rows & cols,
-                        ///< if matrix size rows*cols > PrintThreshold
+                        ///< verbose, 2: print first & last PrintEdgeItems rows & cols
+                        ///< from the four corner tiles
                         ///< verbose, 3: print 4 corner elements of every tile
                         ///< verbose, 4: print full matrix
     PrintEdgeItems,     ///< edgeitems: number of first & last rows & cols of matrix
                         ///< to print
-    PrintThreshold,     ///< threshold: maximum size (rows*cols) of matrix before
-                        ///< verbose 2 starts to abbreviate matrix printing
     PrintWidth,         ///< width print format specifier
     PrintPrecision,     ///< precision print format specifier
                         ///< For correct printing, PrintWidth = PrintPrecision + 6.

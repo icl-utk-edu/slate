@@ -145,11 +145,8 @@ void print_matrix(
     int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
     int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
     int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
-    int64_t threshold = slate::get_option<int64_t>( opts, slate::Option::PrintThreshold, 1024 );
 
-    int64_t size = mlocal * nlocal;
-    if ((verbose == 2)
-        && ((size <= threshold) || ((mlocal <= 2*edgeitems) && (nlocal <= 2*edgeitems))))
+    if ((verbose == 2) && (mlocal <= 2*edgeitems) && (nlocal <= 2*edgeitems))
     {
         verbose = 4;
     }
@@ -316,7 +313,6 @@ void print_matrix(
         { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-        { slate::Option::PrintThreshold, params.print_threshold() },
     };
     print_matrix( label, mlocal, nlocal, A, lda, p, q, comm, opts );
 }
@@ -511,15 +507,13 @@ void print_matrix_work(
     int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
     int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
     int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
-    int64_t threshold = slate::get_option<int64_t>( opts, slate::Option::PrintThreshold, 1024 );
     if (verbose <= 1)
         return;
 
     int64_t nrows = A.m();
     int64_t ncolumns = A.n();
-    int64_t size = nrows * ncolumns;
     if (verbose == 2) { // abbreviate rows and columns
-        if ((size <= threshold) || ((nrows <= 2*edgeitems) && (ncolumns <= 2*edgeitems)))
+        if ((nrows <= 2*edgeitems) && (ncolumns <= 2*edgeitems))
             verbose = 4; // print all rows and columns
         else if ((nrows <= 2*edgeitems) && (ncolumns > 2*edgeitems))
             verbose = 5; // print all rows, abbreviate columns
@@ -795,7 +789,6 @@ void print_matrix(
         { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-        { slate::Option::PrintThreshold, params.print_threshold() },
     };
 
     print_matrix( label, A, opts );
@@ -822,7 +815,6 @@ void print_matrix(
         { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-        { slate::Option::PrintThreshold, params.print_threshold() },
     };
 
     if (A.mpiRank() == 0) {
@@ -876,7 +868,6 @@ void print_matrix(
         { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-        { slate::Option::PrintThreshold, params.print_threshold() },
     };
 
     if (A.mpiRank() == 0) {
@@ -923,7 +914,6 @@ void print_matrix(
         { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-        { slate::Option::PrintThreshold, params.print_threshold() },
     };
 
     if (A.mpiRank() == 0) {
@@ -981,7 +971,6 @@ void print_matrix(
         { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-        { slate::Option::PrintThreshold, params.print_threshold() },
     };
 
     if (A.mpiRank() == 0) {
@@ -1037,7 +1026,6 @@ void print_matrix(
         { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-        { slate::Option::PrintThreshold, params.print_threshold() },
     };
 
     if (A.mpiRank() == 0) {
@@ -1093,7 +1081,6 @@ void print_matrix(
         { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-        { slate::Option::PrintThreshold, params.print_threshold() },
     };
 
     if (A.mpiRank() == 0) {

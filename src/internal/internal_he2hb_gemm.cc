@@ -146,12 +146,11 @@ void he2hb_gemm(internal::TargetType<Target::Devices>,
             for (int64_t k = 0; k < B.mt(); ++k) {
                 std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
                 for (int64_t i = 0; i < A.mt(); ++i) {
-                    if (A.tileRank(i, k) == panel_rank) {
-                        if (device == C.tileDevice(i, 0)) {
-                            A_tiles_set.insert({i, k});
-                            B_tiles_set.insert({k, 0});
-                            C_tiles_set.insert({i, 0});
-                        }
+                    if (A.tileRank(i, k) == panel_rank
+                        && device == C.tileDevice(i, 0)) {
+                        A_tiles_set.insert({i, k});
+                        B_tiles_set.insert({k, 0});
+                        C_tiles_set.insert({i, 0});
                     }
                 }
                 #pragma omp task default(shared)
@@ -173,6 +172,8 @@ void he2hb_gemm(internal::TargetType<Target::Devices>,
                 int64_t i_interior = A.mt();
                 int64_t i_last = 0;
                 int64_t mt = C.mt();
+
+                // check if there are cleanup tiles
                 if (C.tileMb(mt-1) != C.tileMb(0)) {
                     //if (C.m() % C.tileMb(0) != 0) {
                     i_interior = A.mt() - 1;
@@ -194,15 +195,14 @@ void he2hb_gemm(internal::TargetType<Target::Devices>,
                 int64_t nb00 = C.tileNb(0);
                 int64_t kb   = A.tileNb(0);
                 for (int64_t i = 0; i < i_interior; ++i) {
-                    if (A.tileRank(i, k) == panel_rank) {
-                        if (device == C.tileDevice(i, 0)) {
-                            a_array00.push_back( A(i, k, device).data() );
-                            b_array00.push_back( B(k, 0, device).data() );
-                            c_array00.push_back( C(i, 0, device).data() );
-                            lda00 = A(i, k, device).stride();
-                            ldb00 = B(k, 0, device).stride();
-                            ldc00 = C(i, 0, device).stride();
-                        }
+                    if (A.tileRank(i, k) == panel_rank
+                        && device == C.tileDevice(i, 0)) {
+                        a_array00.push_back( A(i, k, device).data() );
+                        b_array00.push_back( B(k, 0, device).data() );
+                        c_array00.push_back( C(i, 0, device).data() );
+                        lda00 = A(i, k, device).stride();
+                        ldb00 = B(k, 0, device).stride();
+                        ldc00 = C(i, 0, device).stride();
                     }
                 }
 
@@ -292,15 +292,14 @@ void he2hb_gemm(internal::TargetType<Target::Devices>,
                 }
 
                 for (int64_t i = 0; i < A.mt(); ++i) {
-                    if (A.tileRank(i, k) == panel_rank) {
-                        if (device == C.tileDevice(i, 0)) {
-                            // erase tmp local and remote device tiles;
-                            A.tileRelease(i, k, device);
-                            B.tileRelease(k, 0, device);
-                            // decrement life for remote tiles
-                            A.tileTick(i, k);
-                            B.tileTick(k, 0);
-                        }
+                    if (A.tileRank(i, k) == panel_rank
+                        && device == C.tileDevice(i, 0)) {
+                        // erase tmp local and remote device tiles;
+                        A.tileRelease(i, k, device);
+                        B.tileRelease(k, 0, device);
+                        // decrement life for remote tiles
+                        A.tileTick(i, k);
+                        B.tileTick(k, 0);
                     }
                 }
                 beta = 1.0;

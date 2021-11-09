@@ -132,21 +132,19 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
             for (int64_t j = 0; j < nt; ++j) {
                 for (int64_t i: indices) {
                     if (i > j) {
-                        if (C.tileIsLocal(i, j)) {
-                            if (device == C.tileDevice(i, j)) {
-                                A_tiles_set.insert({i, 0});
-                                B_tiles_set.insert({j, 0});
-                                C_tiles_set.insert({i, j});
-                            }
+                        if (C.tileIsLocal(i, j)
+                            && device == C.tileDevice(i, j)) {
+                            A_tiles_set.insert({i, 0});
+                            B_tiles_set.insert({j, 0});
+                            C_tiles_set.insert({i, j});
                         }
                     }
                     else if (i < j) {
-                        if (C.tileIsLocal(j, i)) {
-                            if (device == C.tileDevice(j, i)) {
-                                B_tiles_set.insert({j, 0});
-                                A_tiles_set.insert({i, 0});
-                                C_tiles_set.insert({j, i});
-                            }
+                        if (C.tileIsLocal(j, i)
+                            && device == C.tileDevice(j, i)) {
+                            B_tiles_set.insert({j, 0});
+                            A_tiles_set.insert({i, 0});
+                            C_tiles_set.insert({j, i});
                         }
                     }
                     else { // i == j
@@ -205,30 +203,27 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
 
             for (int64_t j = 0; j < j_interior; ++j) {
                 for (int64_t i_ = 0; i_ < i_interior; ++i_) {
-                    //for (int64_t i: indices) {
                     int64_t i = indices[i_];
                     if (i > j) {
-                        if (C.tileIsLocal(i, j)) {
-                            if (device == C.tileDevice(i, j)) {
-                                a_array00.push_back( A(i, 0, device).data() );
-                                b_array00.push_back( B(j, 0, device).data() );
-                                c_array00.push_back( C(i, j, device).data() );
-                                lda00 = A(i, 0, device).stride();
-                                ldb00 = B(j, 0, device).stride();
-                                ldc00 = C(i, j, device).stride();
-                            }
+                        if (C.tileIsLocal(i, j)
+                            && device == C.tileDevice(i, j)) {
+                            a_array00.push_back( A(i, 0, device).data() );
+                            b_array00.push_back( B(j, 0, device).data() );
+                            c_array00.push_back( C(i, j, device).data() );
+                            lda00 = A(i, 0, device).stride();
+                            ldb00 = B(j, 0, device).stride();
+                            ldc00 = C(i, j, device).stride();
                         }
                     }
                     else if (i < j) {
-                        if (C.tileIsLocal(j, i)) {
-                            if (device == C.tileDevice(j, i)) {
-                                a_array00.push_back( B(j, 0, device).data() );
-                                b_array00.push_back( A(i, 0, device).data() );
-                                c_array00.push_back( C(j, i, device).data() );
-                                lda00 = B(j, 0, device).stride();
-                                ldb00 = A(i, 0, device).stride();
-                                ldc00 = C(j, i, device).stride();
-                            }
+                        if (C.tileIsLocal(j, i)
+                            && device == C.tileDevice(j, i)) {
+                            a_array00.push_back( B(j, 0, device).data() );
+                            b_array00.push_back( A(i, 0, device).data() );
+                            c_array00.push_back( C(j, i, device).data() );
+                            lda00 = B(j, 0, device).stride();
+                            ldb00 = A(i, 0, device).stride();
+                            ldc00 = C(j, i, device).stride();
                         }
                     }
                     else { // i == j
@@ -259,29 +254,27 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
                 for (int64_t i_ = 0; i_ < i_interior; ++i_) {
                     int64_t i = indices[i_];
                     if (i > j) {
-                        if (C.tileIsLocal(i, j)) {
-                            if (device == C.tileDevice(i, j)) {
-                                a_array01.push_back( A(i, 0, device).data() );
-                                b_array01.push_back( B(j, 0, device).data() );
-                                c_array01.push_back( C(i, j, device).data() );
-                                lda01 = A(i, 0, device).stride();
-                                ldb01 = B(j, 0, device).stride();
-                                ldc01 = C(i, j, device).stride();
-                            }
+                        if (C.tileIsLocal(i, j)
+                            && device == C.tileDevice(i, j)) {
+                            a_array01.push_back( A(i, 0, device).data() );
+                            b_array01.push_back( B(j, 0, device).data() );
+                            c_array01.push_back( C(i, j, device).data() );
+                            lda01 = A(i, 0, device).stride();
+                            ldb01 = B(j, 0, device).stride();
+                            ldc01 = C(i, j, device).stride();
                         }
                     }
                     else if (i < j) {
-                        if (C.tileIsLocal(j, i)) {
-                            if (device == C.tileDevice(j, i)) {
-                                a_array01.push_back( B(j, 0, device).data() );
-                                b_array01.push_back( A(i, 0, device).data() );
-                                c_array01.push_back( C(j, i, device).data() );
-                                mb01 = C.tileNb(nt-1);
-                                nb01 = C.tileMb(i0);
-                                lda01 = B(j, 0, device).stride();
-                                ldb01 = A(i, 0, device).stride();
-                                ldc01 = C(j, i, device).stride();
-                            }
+                        if (C.tileIsLocal(j, i)
+                            && device == C.tileDevice(j, i)) {
+                            a_array01.push_back( B(j, 0, device).data() );
+                            b_array01.push_back( A(i, 0, device).data() );
+                            c_array01.push_back( C(j, i, device).data() );
+                            mb01 = C.tileNb(nt-1);
+                            nb01 = C.tileMb(i0);
+                            lda01 = B(j, 0, device).stride();
+                            ldb01 = A(i, 0, device).stride();
+                            ldc01 = C(j, i, device).stride();
                         }
                     }
                     else { // i == j
@@ -306,32 +299,29 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
 
             if (i_last == 1) {
                 int64_t i = i1;
-                //for (int64_t i: indices) {
                 for (int64_t j = 0; j < j_interior; ++j) {
                     if (i > j) {
-                        if (C.tileIsLocal(i, j)) {
-                            if (device == C.tileDevice(i, j)) {
-                                a_array10.push_back( A(i, 0, device).data() );
-                                b_array10.push_back( B(j, 0, device).data() );
-                                c_array10.push_back( C(i, j, device).data() );
-                                lda10 = A(i, 0, device).stride();
-                                ldb10 = B(j, 0, device).stride();
-                                ldc10 = C(i, j, device).stride();
-                            }
+                        if (C.tileIsLocal(i, j)
+                            && device == C.tileDevice(i, j)) {
+                            a_array10.push_back( A(i, 0, device).data() );
+                            b_array10.push_back( B(j, 0, device).data() );
+                            c_array10.push_back( C(i, j, device).data() );
+                            lda10 = A(i, 0, device).stride();
+                            ldb10 = B(j, 0, device).stride();
+                            ldc10 = C(i, j, device).stride();
                         }
                     }
                     else if (i < j) {
-                        if (C.tileIsLocal(j, i)) {
-                            if (device == C.tileDevice(j, i)) {
-                                a_array10.push_back( B(j, 0, device).data() );
-                                b_array10.push_back( A(i, 0, device).data() );
-                                c_array10.push_back( C(j, i, device).data() );
-                                mb10 = C.tileNb(0);
-                                nb10 = C.tileMb(i1);
-                                lda10 = A(i, 0, device).stride();
-                                ldb10 = B(j, 0, device).stride();
-                                ldc10 = C(j, i, device).stride();
-                            }
+                        if (C.tileIsLocal(j, i)
+                            && device == C.tileDevice(j, i)) {
+                            a_array10.push_back( B(j, 0, device).data() );
+                            b_array10.push_back( A(i, 0, device).data() );
+                            c_array10.push_back( C(j, i, device).data() );
+                            mb10 = C.tileNb(0);
+                            nb10 = C.tileMb(i1);
+                            lda10 = A(i, 0, device).stride();
+                            ldb10 = B(j, 0, device).stride();
+                            ldc10 = C(j, i, device).stride();
                         }
                     }
                     else { // i == j
@@ -344,9 +334,6 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
             std::vector<scalar_t*> a_array11;
             std::vector<scalar_t*> b_array11;
             std::vector<scalar_t*> c_array11;
-            //a_array11.reserve( batch_size );
-            //b_array11.reserve( batch_size );
-            //c_array11.reserve( batch_size );
 
             int64_t lda11 = 0;
             int64_t ldb11 = 0;
@@ -358,29 +345,27 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
                 int64_t i = i1;
                 int64_t j = nt-1;
                 if (i > j) {
-                    if (C.tileIsLocal(i, j)) {
-                        if (device == C.tileDevice(i, j)) {
-                            a_array11.push_back( A(i, 0, device).data() );
-                            b_array11.push_back( B(j, 0, device).data() );
-                            c_array11.push_back( C(i, j, device).data() );
-                            lda11 = A(i, 0, device).stride();
-                            ldb11 = B(j, 0, device).stride();
-                            ldc11 = C(i, j, device).stride();
-                        }
+                    if (C.tileIsLocal(i, j)
+                        && device == C.tileDevice(i, j)) {
+                        a_array11.push_back( A(i, 0, device).data() );
+                        b_array11.push_back( B(j, 0, device).data() );
+                        c_array11.push_back( C(i, j, device).data() );
+                        lda11 = A(i, 0, device).stride();
+                        ldb11 = B(j, 0, device).stride();
+                        ldc11 = C(i, j, device).stride();
                     }
                 }
                 else if (i < j) {
-                    if (C.tileIsLocal(j, i)) {
-                        if (device == C.tileDevice(j, i)) {
-                            a_array11.push_back( B(j, 0, device).data() );
-                            b_array11.push_back( A(i, 0, device).data() );
-                            c_array11.push_back( C(j, i, device).data() );
-                            mb11 = C.tileNb(nt-1);
-                            nb11 = C.tileMb(i1);
-                            lda11 = A(i, 0, device).stride();
-                            ldb11 = B(j, 0, device).stride();
-                            ldc11 = C(j, i, device).stride();
-                        }
+                    if (C.tileIsLocal(j, i)
+                        && device == C.tileDevice(j, i)) {
+                        a_array11.push_back( B(j, 0, device).data() );
+                        b_array11.push_back( A(i, 0, device).data() );
+                        c_array11.push_back( C(j, i, device).data() );
+                        mb11 = C.tileNb(nt-1);
+                        nb11 = C.tileMb(i1);
+                        lda11 = A(i, 0, device).stride();
+                        ldb11 = B(j, 0, device).stride();
+                        ldc11 = C(j, i, device).stride();
                     }
                 }
                 else { // i == j
@@ -466,27 +451,25 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
             for (int64_t j = 0; j < nt; ++j) {
                 for (int64_t i: indices) {
                     if (i > j) {
-                        if (C.tileIsLocal(i, j)) {
-                            if (device == C.tileDevice(i, j)) {
-                                // erase tmp local and remote device tiles;
-                                A.tileRelease(i, 0, device);
-                                B.tileRelease(j, 0, device);
-                                // decrement life for remote tiles
-                                A.tileTick(i, 0);
-                                B.tileTick(j, 0);
-                            }
+                        if (C.tileIsLocal(i, j)
+                            && device == C.tileDevice(i, j)) {
+                            // erase tmp local and remote device tiles;
+                            A.tileRelease(i, 0, device);
+                            B.tileRelease(j, 0, device);
+                            // decrement life for remote tiles
+                            A.tileTick(i, 0);
+                            B.tileTick(j, 0);
                         }
                     }
                     else if (i < j) {
-                        if (C.tileIsLocal(j, i)) {
-                            if (device == C.tileDevice(j, i)) {
-                                // erase tmp local and remote device tiles;
-                                A.tileRelease(i, 0, device);
-                                B.tileRelease(j, 0, device);
-                                // decrement life for remote tiles
-                                A.tileTick(i, 0);
-                                B.tileTick(j, 0);
-                            }
+                        if (C.tileIsLocal(j, i)
+                            && device == C.tileDevice(j, i)) {
+                            // erase tmp local and remote device tiles;
+                            A.tileRelease(i, 0, device);
+                            B.tileRelease(j, 0, device);
+                            // decrement life for remote tiles
+                            A.tileTick(i, 0);
+                            B.tileTick(j, 0);
                         }
                     }
                 }

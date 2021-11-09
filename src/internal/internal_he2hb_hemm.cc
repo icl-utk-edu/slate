@@ -145,14 +145,6 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-    scalar_t* dA;
-    scalar_t* dB;
-    scalar_t* dC;
-
-    size_t sizeA = 0;
-    size_t sizeB = 0;
-    size_t sizeC = 0;
-    int64_t m, n, k, lda, ldb, ldc;
 
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task shared(A, B, C) priority(priority)
@@ -203,6 +195,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task shared(A, B, C) priority(priority)
         {
+            trace::Block trace_block("blas::batch::he2hb_hemm");
             // to have one queue and then fork several streams
             //blas::Queue* queue = C.compute_queue(device, queue_index);
             //assert(queue != nullptr);

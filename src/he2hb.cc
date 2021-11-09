@@ -64,11 +64,11 @@ void he2hb(slate::internal::TargetType<target>,
     slate::HermitianMatrix<scalar_t> W;
     // todo: A.n() will loop on A tiles to compute n
     int64_t n = A.n();
-    int64_t nb = A.tileNb(0);
+    int64_t nb_A = A.tileNb(0);
     // todo: how to get p and q??
     int64_t p = 2, q = 2;
-    std::function<int64_t (int64_t j)> tileNb = [n, nb] (int64_t j) {
-        return (j + 1)*nb > n ? n%nb : nb;
+    std::function<int64_t (int64_t j)> tileNb = [n, nb_A] (int64_t j) {
+        return (j + 1)*nb_A > n ? n%nb_A : nb_A;
     };
     std::function<int (std::tuple<int64_t, int64_t> ij)>
     tileRank = [p, q](std::tuple<int64_t, int64_t> ij) {
@@ -245,7 +245,6 @@ void he2hb(slate::internal::TargetType<target>,
             // QR update trailing submatrix.
             if (k < nt-1) {
 
-                int64_t i0;
                 for (int panel_rank: panel_ranks) {
                     // Find local indices for panel_rank.
                     indices.clear();

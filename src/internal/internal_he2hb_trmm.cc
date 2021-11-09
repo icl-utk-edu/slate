@@ -59,9 +59,8 @@ void he2hb_trmm(internal::TargetType<Target::HostTask>,
     // todo: check for slicing here, try to move it to he2hb
     // todo: replace W and T by A and B similar to trmm
 
-    int err;
     for (int64_t i = 0; i < W.mt(); ++i) {
-        #pragma omp task shared(A, W, err)
+        #pragma omp task shared(A, W)
         {
 
             for (int64_t j: indices) {
@@ -184,8 +183,8 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
                 int64_t mb1 = W.tileMb(W.mt()-1);
                 int64_t nb1 = W.tileNb(W.mt()-1);
 
-                int rank_lower = -1;
-                int rank_upper = -1;
+                rank_lower = -1;
+                rank_upper = -1;
 
                 for (int64_t i = 0; i < i_interior; ++i) {
                     for (int64_t j: indices) {
@@ -204,7 +203,7 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
 
                     if (trapezoid) {
                         auto TVAVT00 = TVAVT0(0, 0);
-                        int64_t mb1 = TVAVT00.mb();
+                        mb1 = TVAVT00.mb();
                         T0     = T0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
                         TVAVT0 = TVAVT0.slice(0, mb1-1, 0, mb-1); // first mb1-by-mb part
                     }
@@ -225,8 +224,8 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
 
                 if (i_last == 1) {
                     int64_t i = W.mt()-1;
-                    int rank_lower = -1;
-                    int rank_upper = -1;
+                    rank_lower = -1;
+                    rank_upper = -1;
                     for (int64_t j: indices) {
                         if (i >= j) { // lower
                             rank_lower = A.tileRank(i, j);
@@ -243,7 +242,7 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
 
                     if (trapezoid) {
                         auto TVAVT00 = TVAVT0(0, 0);
-                        int64_t mb1 = TVAVT00.mb();
+                        mb1 = TVAVT00.mb();
                         T0     = T0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
                         TVAVT0 = TVAVT0.slice(0, mb1-1, 0, mb-1); // first mb1-by-mb part
                     }

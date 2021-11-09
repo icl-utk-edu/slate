@@ -218,8 +218,9 @@ void hettmqr(internal::TargetType<Target::HostTask>,
                 }
                 else if (C.tileIsLocal(i2, j)) {
                     // Second node of each pair receives tile from src,
-                    int src = (i1 >= j ? C.tileRank(i1, j)
-                               : C.tileRank(j, i1));
+                    int src = (i1 >= j
+                              ? C.tileRank(i1, j)
+                              : C.tileRank(j, i1));
                     C.tileRecv(i1, j, src, layout, tag);
                 }
             } // for j
@@ -267,8 +268,9 @@ void hettmqr(internal::TargetType<Target::HostTask>,
                 }
                 else if (C.tileIsLocal(i2, j)) {
                     // Sends updated tile back.
-                    int src = (i1 >= j ? C.tileRank(i1, j)
-                               : C.tileRank(j, i1));
+                    int src = (i1 >= j
+                              ? C.tileRank(i1, j)
+                              : C.tileRank(j, i1));
                     // Send updated tile back.
                     C.tileSend(i1, j, src, tag);
                     C.tileTick(i1, j);

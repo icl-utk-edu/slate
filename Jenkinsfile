@@ -14,7 +14,7 @@ stages {
             } // axes
             stages {
                 stage('Build') {
-                    agent { node "${host}" }
+                    agent { label "${host}" }
 
                     //----------------------------------------------------------
                     steps {

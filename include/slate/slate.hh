@@ -499,6 +499,25 @@ void gesvMixed(
     int& iter,
     Options const& opts = Options());
 
+
+//-----------------------------------------
+// gesv_mixed_gmres()
+template <typename scalar_t>
+void gesv_mixed_gmres(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Matrix<scalar_t>& B,
+    Matrix<scalar_t>& X,
+    int& iter,
+    Options const& opts = Options());
+
+template <typename scalar_hi, typename scalar_lo>
+void gesv_mixed_gmres(
+    Matrix<scalar_hi>& A, Pivots& pivots,
+    Matrix<scalar_hi>& B,
+    Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts = Options());
+
 //-----------------------------------------
 // gbtrf()
 template <typename scalar_t>

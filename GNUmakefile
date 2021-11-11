@@ -555,6 +555,7 @@ ifneq ($(only_unit),1)
         src/geqrf.cc \
         src/gesv.cc \
         src/gesvMixed.cc \
+        src/gesv_mixed_gmres.cc \
         src/gesv_nopiv.cc \
         src/gesvd.cc \
         src/getrf.cc \

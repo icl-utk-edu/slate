@@ -94,7 +94,7 @@ void test_gesv_work(Params& params, bool run)
     bool do_getrs = params.routine == "getrs"
                     || (check && params.routine == "getrf");
 
-    if (params.routine == "gesvMixed") {
+    if (params.routine == "gesvMixed" || params.routine == "gesv_mixed_gmres") {
         params.iters();
     }
 
@@ -117,7 +117,7 @@ void test_gesv_work(Params& params, bool run)
         origin = slate::Origin::Host;
     }
 
-    if (params.routine == "gesvMixed"
+    if ((params.routine == "gesvMixed" || params.routine == "gesv_mixed_gmres")
         && ! std::is_same<real_t, double>::value) {
         params.msg() = "skipping: unsupported mixed precision; must be type=d or z";
         return;
@@ -187,7 +187,7 @@ void test_gesv_work(Params& params, bool run)
         A.insertLocalTiles(origin_target);
         B.insertLocalTiles(origin_target);
 
-        if (params.routine == "gesvMixed") {
+        if (params.routine == "gesvMixed" || params.routine == "gesv_mixed_gmres") {
             X_data.resize(lldB*nlocB);
             if (nonuniform_nb) {
                 X = slate::Matrix<scalar_t>(n, nrhs, tileNb, tileNb, tileRank,
@@ -210,7 +210,7 @@ void test_gesv_work(Params& params, bool run)
         B = slate::Matrix<scalar_t>::fromScaLAPACK(
             n, nrhs, &B_data[0], lldB, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
 
-        if (params.routine == "gesvMixed") {
+        if (params.routine == "gesvMixed" || params.routine == "gesv_mixed_gmres") {
             X_data.resize(lldB*nlocB);
             X = slate::Matrix<scalar_t>::fromScaLAPACK(
                 n, nrhs, &X_data[0], lldB, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
@@ -255,7 +255,10 @@ void test_gesv_work(Params& params, bool run)
 
     double gflop;
     if (params.routine == "gesv"
-        || params.routine == "gesvMixed")
+        || params.routine == "gesv_nopiv"
+        || params.routine == "gesvMixed"
+        || params.routine == "gesv_mixed_gmres"
+        || params.routine == "gesv_rbt")
         gflop = lapack::Gflop<scalar_t>::gesv(n, nrhs);
     else
         gflop = lapack::Gflop<scalar_t>::getrf(m, n);
@@ -286,6 +289,13 @@ void test_gesv_work(Params& params, bool run)
             if constexpr (std::is_same<real_t, double>::value) {
                 int iters = 0;
                 slate::gesvMixed(A, pivots, B, X, iters, opts);
+                params.iters() = iters;
+            }
+        }
+        else if (params.routine == "gesv_mixed_gmres") {
+            if constexpr (std::is_same<real_t, double>::value) {
+                int iters = 0;
+                slate::gesv_mixed_gmres(A, pivots, B, X, iters, opts);
                 params.iters() = iters;
             }
         }
@@ -340,7 +350,7 @@ void test_gesv_work(Params& params, bool run)
 
         // Norm of updated-rhs/solution matrix: || X ||_1
         real_t X_norm;
-        if (params.routine == "gesvMixed")
+        if (params.routine == "gesvMixed" || params.routine == "gesv_mixed_gmres")
             X_norm = slate::norm(slate::Norm::One, X);
         else
             X_norm = slate::norm(slate::Norm::One, B);
@@ -358,7 +368,7 @@ void test_gesv_work(Params& params, bool run)
             opAref = Aref;
 
         // Bref -= op(Aref)*B
-        if (params.routine == "gesvMixed") {
+        if (params.routine == "gesvMixed" || params.routine == "gesv_mixed_gmres") {
             slate::multiply(-one, opAref, X, one, Bref);
             // Using traditional BLAS/LAPACK name
             // slate::gemm(-one, opAref, X, one, Bref);

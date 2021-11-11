@@ -637,13 +637,15 @@ void print_matrix_work(
                                 if (j>0)
                                     msg += "    "; // space between column tiles
 
-                                if (verbose == 2) {
+                                if (verbose == 2 || verbose == 5) {
                                     if ((A.nt() == 1) && (A.tileNb(j) < abbrev_cols*2))
                                         start_col = abbrev_cols; // only 1 column tile
                                     else
                                         start_col = blas::max( A.tileNb(j) - abbrev_cols, 0 );
                                 }
                             }
+                            else
+                                break;
 
                             if ((A.uplo() == slate::Uplo::General && -klt <= j - i && j - i <= kut)
                                 || (A.uplo() == slate::Uplo::Lower && i <= j + klt && j <= i)

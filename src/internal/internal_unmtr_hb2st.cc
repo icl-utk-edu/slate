@@ -686,6 +686,14 @@ void unmtr_hb2st(//internal::TargetType<Target::Devices>,
                             Vr_data[ii + ii*ldv] = tau[ii];
                         }
                     }
+                    if (target == Target::Devices) {
+                        for (int d = 0; d < C.num_devices(); ++d) {
+                            {
+                                // slate::trace::Block trace_block(std::string("p"+std::to_string(d)+"VR").c_str());
+                                V_.tileRelease(0, r, d);
+                            }
+                        }
+                    }
                 }
             }
         }

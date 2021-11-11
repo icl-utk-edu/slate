@@ -30,8 +30,8 @@ void unmtr_hb2st(slate::internal::TargetType<target>,
     if (target == Target::Devices) {
         trace::Block trace_block("quealloc");
         const int64_t batch_size_zero = 0; // use default batch size
-        //const int64_t num_queues = 2; // 2 for gemms in internal_unmtr_hb2st
-        const int64_t num_queues = 2 + omp_get_max_threads(); // 2 for gemms in internal_unmtr_hb2st
+        // use separate queue for each parallel task in internal_unmtr_hb2st
+        const int64_t num_queues = omp_get_max_threads();
         C.allocateBatchArrays(batch_size_zero, num_queues);
     }
     #pragma omp parallel
@@ -45,6 +45,7 @@ void unmtr_hb2st(slate::internal::TargetType<target>,
         #pragma omp taskwait
         C.tileUpdateAllOrigin();
     }
+    // C.releaseWorkspace();
 }
 } // namespace specialization
 } // namespace internal

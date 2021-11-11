@@ -9,12 +9,12 @@ stages {
             axes {
                 axis {
                     name 'host'
-                    values 'caffeine', 'lips'
+                    values 'gpu_amd', 'gpu_nvidia'
                 }
             } // axes
             stages {
                 stage('Build') {
-                    agent { node "${host}.icl.utk.edu" }
+                    agent { node "${host}" }
 
                     //----------------------------------------------------------
                     steps {
@@ -59,8 +59,8 @@ blas = mkl
 END
 
 print "========================================"
-# Run CUDA, OpenMPI tests on lips.
-if [ "${host}" = "lips" ]; then
+# Run CUDA, OpenMPI tests.
+if [ "${host}" = "gpu_nvidia" ]; then
     run sload openmpi%gcc@7.3.0
     export OMPI_CXX=${CXX}
 
@@ -75,8 +75,8 @@ if [ "${host}" = "lips" ]; then
     export LIBRARY_PATH=${LIBRARY_PATH}:${CUDA_HOME}/lib64
 fi
 
-# Run HIP, Intel MPI tests on caffeine.
-if [ "${host}" = "caffeine" ]; then
+# Run HIP, Intel MPI tests.
+if [ "${host}" = "gpu_amd" ]; then
     sload intel-mpi
     export FI_PROVIDER=tcp
 

@@ -145,11 +145,8 @@ void print_matrix(
     int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
     int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
     int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
-    int64_t threshold = slate::get_option<int64_t>( opts, slate::Option::PrintThreshold, 1024 );
 
-    int64_t size = mlocal * nlocal;
-    if ((verbose == 2)
-        && ((size <= threshold) || ((mlocal <= 2*edgeitems) && (nlocal <= 2*edgeitems))))
+    if ((verbose == 2) && (mlocal <= 2*edgeitems) && (nlocal <= 2*edgeitems))
     {
         verbose = 4;
     }
@@ -316,7 +313,6 @@ void print_matrix(
         { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-        { slate::Option::PrintThreshold, params.print_threshold() },
     };
     print_matrix( label, mlocal, nlocal, A, lda, p, q, comm, opts );
 }
@@ -380,13 +376,7 @@ std::string tile_row_string(
     int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
     int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
     int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
-    int64_t threshold = slate::get_option<int64_t>( opts, slate::Option::PrintThreshold, 1024 );
     assert( verbose >= 2 );
-
-    int64_t size = A.m() * A.n();
-    // Keep until bandMatrix print is finished
-    if (verbose == 2 && size <= threshold)
-        verbose = 4;
 
     if (verbose == 5)
         verbose = 2;
@@ -397,9 +387,11 @@ std::string tile_row_string(
 
     real_t nan_ = nan("");
 
+    int64_t tile_columns = 0;
     char buf[ 80 ];
     std::string msg;
     try {
+        tile_columns = A.tileNb(j);
         auto T = A(i, j);
         slate::Uplo uplo = T.uplo();
         int64_t nb    = T.nb();
@@ -438,8 +430,32 @@ std::string tile_row_string(
     catch (std::out_of_range const& ex) {
         // tile missing: print NAN
         snprintf_value( buf, sizeof(buf), width, precision, nan_ );
-        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-            msg += buf;
+
+        if (! is_last_abbrev_cols && verbose == 2) {
+            // first abbrev_cols
+            int64_t max_cols = std::min( tile_columns, abbrev_cols );
+            for (int64_t tj = 0; tj < max_cols; ++tj) {
+                msg += buf;
+            }
+        }
+        else if (is_last_abbrev_cols && verbose == 2) {
+            // last abbrev_cols
+            int64_t start_col;
+            if ((A.nt() == 1) && (tile_columns < abbrev_cols*2)) // only 1 column tile
+                start_col = abbrev_cols;
+            else
+                start_col = blas::max( tile_columns - abbrev_cols, 0 );
+
+            for (int64_t tj = start_col; tj < tile_columns; ++tj) {
+                msg += buf;
+            }
+        }
+        else {
+            int64_t col_step = (verbose == 3 && tile_columns > 1 ? tile_columns - 1 : 1);
+            for (int64_t tj = 0; tj < tile_columns; tj += col_step) {
+                // for verbose=3 only j = 0 and j = tileNb-1
+                msg += buf;
+            }
         }
     }
     return msg;
@@ -480,6 +496,8 @@ template <typename scalar_t>
 void print_matrix_work(
     const char* label,
     slate::BaseMatrix<scalar_t>& A,
+    int64_t klt,
+    int64_t kut,
     slate::Options const& opts_)
 {
     using real_t = blas::real_type<scalar_t>;
@@ -489,15 +507,13 @@ void print_matrix_work(
     int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
     int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
     int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
-    int64_t threshold = slate::get_option<int64_t>( opts, slate::Option::PrintThreshold, 1024 );
     if (verbose <= 1)
         return;
 
     int64_t nrows = A.m();
     int64_t ncolumns = A.n();
-    int64_t size = nrows * ncolumns;
     if (verbose == 2) { // abbreviate rows and columns
-        if ((size <= threshold) || ((nrows <= 2*edgeitems) && (ncolumns <= 2*edgeitems)))
+        if ((nrows <= 2*edgeitems) && (ncolumns <= 2*edgeitems))
             verbose = 4; // print all rows and columns
         else if ((nrows <= 2*edgeitems) && (ncolumns > 2*edgeitems))
             verbose = 5; // print all rows, abbreviate columns
@@ -506,7 +522,6 @@ void print_matrix_work(
 
         opts[slate::Option::PrintVerbose] = verbose;
     }
-    //printf("verbose=%lld\n", (llong)verbose);
 
     width = std::max(width, precision + 6);
     real_t nan_ = nan("");
@@ -531,6 +546,17 @@ void print_matrix_work(
                  (int)width, nan_);
     }
 
+    // for tiles outside bandwidth
+    char outside_bandwidth[ 80 ];
+    if (slate::is_complex<scalar_t>::value) {
+        snprintf(outside_bandwidth, sizeof(outside_bandwidth), " %*.0f   %*s ",
+                 (int)width, 0., (int)width, "");
+    }
+    else {
+        snprintf(outside_bandwidth, sizeof(outside_bandwidth), " %*.0f",
+                 (int)width, 0.);
+    }
+
     int64_t tile_row_step = 1;
     int64_t tile_col_step = 1;
 
@@ -549,10 +575,11 @@ void print_matrix_work(
         // gather block row to rank 0
         for (int64_t j = 0; j < A.nt(); j += tile_col_step) {
             // for verbose=2 only tile column j = 0 and j = nt-1
-            if ((A.uplo() == slate::Uplo::General)
-                || (A.uplo() == slate::Uplo::Lower && i >= j)
-                || (A.uplo() == slate::Uplo::Upper && i <= j))
+            if ((A.uplo() == slate::Uplo::General && -klt <= j - i && j - i <= kut)
+                || (A.uplo() == slate::Uplo::Lower && i <= j + klt && j <= i)
+                || (A.uplo() == slate::Uplo::Upper && i >= j - kut && j >= i))
             {
+                // inside bandwidth
                 send_recv_tile(A, i, j, mpi_rank, comm);
             }
         }
@@ -591,54 +618,52 @@ void print_matrix_work(
                         }
                     }
                     for (int64_t ti = start_row; ti < max_rows; ++ti) {
-                        // first column tile
-                        int64_t j = 0;
-                        if (A.uplo() == slate::Uplo::General) {
-                            msg += tile_row_string(A, i, j, ti, opts);
-                        }
-                        else if ((A.uplo() == slate::Uplo::Lower && i >= j)
-                                 || (A.uplo() == slate::Uplo::Upper && i <= j))
-                        {
-                            // tile in stored triangle
-                            msg += tile_row_string(A, i, j, ti, opts, opposite);
-                        }
-                        else {
-                            int64_t max_cols = A.tileNb(j);
-                            if (verbose == 2 || verbose == 5)
-                                max_cols = std::min( A.tileNb(j), abbrev_cols );
-                            // tile in opposite triangle
-                            for (int64_t tj = 0; tj < max_cols; ++tj) {
-                                msg += opposite;
+                        bool is_last_abbrev_cols = false;
+                        int64_t j = 0; // first column tile
+                        int64_t start_col = 0;
+                        int64_t max_cols = A.tileNb(j);
+                        for (int loop = 0; loop < 2; ++loop) {
+                            if (loop == 0) { // first column tile
+                                if (verbose == 2 || verbose == 5)
+                                    max_cols = std::min( A.tileNb(j), abbrev_cols );
                             }
-                        }
+                            else if (verbose != 6 || A.nt() > 1) { // last column tile
+                                is_last_abbrev_cols = true;
+                                if ((verbose != 6) && (ncolumns > 2 * abbrev_cols || A.nt() > 1))
+                                    msg += " ..."; // column abbreviation indicator
 
-                        if (verbose != 6 || A.nt() > 1) {
-                            if ((verbose != 6) && (ncolumns > 2 * abbrev_cols || A.nt() > 1))
-                                msg += " ..."; // column abbreviation indicator
-                            // last column tile
-                            j = A.nt()-1;
-                            if (j>0)
-                                msg += "    "; // space between column tiles
-                            if (A.uplo() == slate::Uplo::General) {
-                                msg += tile_row_string(A, i, j, ti, opts, "", true);
-                            }
-                            else if ((A.uplo() == slate::Uplo::Lower && i >= j)
-                                     || (A.uplo() == slate::Uplo::Upper && i <= j))
-                            {
-                                // tile in stored triangle
-                                msg += tile_row_string(A, i, j, ti, opts, opposite, true);
-                            }
-                            else {
-                                int64_t start_col = 0;
-                                if (verbose == 2) {
+                                j = A.nt()-1; // last column tile
+                                max_cols = A.tileNb(j);
+                                if (j>0)
+                                    msg += "    "; // space between column tiles
+
+                                if (verbose == 2 || verbose == 5) {
                                     if ((A.nt() == 1) && (A.tileNb(j) < abbrev_cols*2))
                                         start_col = abbrev_cols; // only 1 column tile
                                     else
                                         start_col = blas::max( A.tileNb(j) - abbrev_cols, 0 );
                                 }
-                                // tile in opposite triangle
-                                for (int64_t tj = start_col; tj < A.tileNb(j); ++tj) {
-                                    msg += opposite;
+                            }
+                            else
+                                break;
+
+                            if ((A.uplo() == slate::Uplo::General && -klt <= j - i && j - i <= kut)
+                                || (A.uplo() == slate::Uplo::Lower && i <= j + klt && j <= i)
+                                || (A.uplo() == slate::Uplo::Upper && i >= j - kut && j >= i))
+                            {
+                                // inside bandwidth
+                                msg += tile_row_string(A, i, j, ti, opts, opposite, is_last_abbrev_cols);
+                            }
+                            else {
+                                for (int64_t tj = start_col; tj < max_cols; ++tj) {
+                                    if ((A.uplo() == slate::Uplo::Lower && j <= i)
+                                        || (A.uplo() == slate::Uplo::Upper && j >= i))
+                                    {
+                                        msg += outside_bandwidth;
+                                    }
+                                    else {
+                                        msg += opposite;
+                                    }
                                 }
                             }
                         }
@@ -649,26 +674,29 @@ void print_matrix_work(
                     msg += "];\n";
             }
             else if (verbose == 3 || verbose == 4) {
-                int64_t row_step =
-                    (verbose == 3 && A.tileMb(i) > 1 ? A.tileMb(i) - 1 : 1);
+                // for verbose=3 only rows ti = 0 and ti = tileMb-1
+                int64_t row_step = (verbose == 3 && A.tileMb(i) > 1 ? A.tileMb(i) - 1 : 1);
                 for (int64_t ti = 0; ti < A.tileMb(i); ti += row_step) {
-                    // for verbose=3 only rows ti = 0 and ti = tileMb-1
                     for (int64_t j = 0; j < A.nt(); ++j) {
-                        if (A.uplo() == slate::Uplo::General) {
-                            msg += tile_row_string(A, i, j, ti, opts);
-                        }
-                        else if ((A.uplo() == slate::Uplo::Lower && i >= j)
-                                 || (A.uplo() == slate::Uplo::Upper && i <= j))
+                        if ((A.uplo() == slate::Uplo::General && -klt <= j - i && j - i <= kut)
+                            || (A.uplo() == slate::Uplo::Lower && i <= j + klt && j <= i)
+                            || (A.uplo() == slate::Uplo::Upper && i >= j - kut && j >= i))
                         {
-                            // tile in stored triangle
+                            // inside bandwidth
                             msg += tile_row_string(A, i, j, ti, opts, opposite);
                         }
                         else {
+                            // for verbose=3 only j = 0 and j = tileNb-1
                             int64_t col_step = (verbose == 3 && A.tileNb(j) > 1 ? A.tileNb(j) - 1 : 1);
                             for (int64_t tj = 0; tj < A.tileNb(j); tj += col_step) {
-                                // for verbose=3 only j = 0 and j = tileNb-1
-                                // tile in opposite triangle
-                                msg += opposite;
+                                if ((A.uplo() == slate::Uplo::Lower && j <= i)
+                                    || (A.uplo() == slate::Uplo::Upper && j >= i))
+                                {
+                                    msg += outside_bandwidth;
+                                }
+                                else {
+                                    msg += opposite;
+                                }
                             }
                         }
                         if (j < A.nt() - 1)
@@ -707,8 +735,6 @@ void print_matrix(
     slate::Matrix<scalar_t>& A,
     slate::Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
-
     if (A.mpiRank() == 0) {
         std::string msg = std::string( "% " ) + label + ": slate::Matrix ";
         msg += std::to_string( A.m() ) + "-by-" + std::to_string( A.n() ) + ", "
@@ -719,10 +745,9 @@ void print_matrix(
         printf( "%s", msg.c_str() );
     }
 
-    print_matrix_work( label, A, opts );
-    if (A.mpiRank() == 0 && verbose >= 2) {
-        printf( "\n" );
-    }
+    int64_t klt, kut;
+    klt = kut = std::max( A.mt(), A.nt() );
+    print_matrix_work( label, A, klt, kut, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -766,7 +791,6 @@ void print_matrix(
         { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-        { slate::Option::PrintThreshold, params.print_threshold() },
     };
 
     print_matrix( label, A, opts );
@@ -783,82 +807,35 @@ template <typename scalar_t>
 void print_matrix(
     const char* label,
     slate::BandMatrix<scalar_t>& A,
-    int width=10, int precision=4 )
+    Params& params)
 {
-    int mpi_rank = A.mpiRank();
-    MPI_Comm comm = A.mpiComm();
-    MPI_Barrier(comm);
+    if (params.verbose() == 0)
+        return;
 
-    width = std::max(width, precision + 6);
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+    };
 
-    std::string msg = "\n% slate::BandMatrix ";
-    msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
-        +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
-        +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
-        +  std::to_string( A.tileNb(0) )
-        +  " kl " + std::to_string( A.lowerBandwidth() )
-        +  " ku " + std::to_string( A.upperBandwidth() ) + "\n";
-    msg += label;
-    msg += " = [\n";
+    if (A.mpiRank() == 0) {
+        std::string msg = "\n% slate::BandMatrix ";
+        msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  )
+            + ", "
+            +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
+            +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
+            +  std::to_string( A.tileNb(0) ) + ","
+            +  " kl " + std::to_string( A.lowerBandwidth() )
+            +  " ku " + std::to_string( A.upperBandwidth() ) + "\n";
 
-    // for tiles outside bandwidth
-    char outside[ 80 ];
-    if (slate::is_complex<scalar_t>::value) {
-        snprintf(outside, sizeof(outside), " %*.0f   %*s ",
-                 width, 0., width, "");
-    }
-    else {
-        snprintf(outside, sizeof(outside), " %*.0f",
-                 width, 0.);
+        printf( "%s", msg.c_str() );
     }
 
     // todo: initially, assume fixed size, square tiles for simplicity
-    int64_t kl = slate::ceildiv(A.lowerBandwidth(), A.tileNb(0));
-    int64_t ku = slate::ceildiv(A.upperBandwidth(), A.tileNb(0));
-
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        // gather block row to rank 0
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if (-kl <= j - i && j - i <= ku) { // inside bandwidth
-                send_recv_tile(A, i, j, mpi_rank, comm);
-            }
-        }
-
-        if (mpi_rank == 0) {
-            // print block row
-            for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
-                for (int64_t j = 0; j < A.nt(); ++j) {
-                    if (-kl <= j - i && j - i <= ku) { // inside bandwidth
-                        msg += tile_row_string(A, i, j, ti, width, precision);
-                    }
-                    else {
-                        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                            msg += outside;
-                        }
-                    }
-                    if (j < A.nt() - 1)
-                        msg += "    ";
-                    else
-                        msg += "\n";
-                }
-            }
-            if (i < A.mt() - 1)
-                msg += "\n";
-            else
-                msg += "];\n";
-            printf("%s", msg.c_str());
-            msg.clear();
-
-            // cleanup data
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                if (! A.tileIsLocal(i, j)) {
-                    A.tileErase(i, j);
-                }
-            }
-        }
-    }
-
-    MPI_Barrier(comm);
+    int64_t klt = slate::ceildiv(A.lowerBandwidth(), A.tileNb(0));
+    int64_t kut = slate::ceildiv(A.upperBandwidth(), A.tileNb(0));
+    print_matrix_work( label, A, klt, kut, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -883,104 +860,42 @@ template <typename scalar_t>
 void print_matrix(
     const char* label,
     slate::BaseTriangularBandMatrix<scalar_t>& A,
-    int width=10, int precision=4 )
+    Params& params)
 {
-    using real_t = blas::real_type<scalar_t>;
+    if (params.verbose() == 0)
+        return;
 
-    int mpi_rank = A.mpiRank();
-    MPI_Comm comm = A.mpiComm();
-    MPI_Barrier(comm);
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+    };
 
-    width = std::max(width, precision + 6);
-    real_t nan_ = nan("");
+    if (A.mpiRank() == 0) {
+        std::string msg = "\n% slate::BaseTriangularBandMatrix ";
+        msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
+            +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
+            +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
+            +  std::to_string( A.tileNb(0) ) + ","
+            +  " kd " + std::to_string( A.bandwidth() )
+            +  " uplo " + char( A.uplo() ) + "\n";
 
-    std::string msg = "\n% slate::BaseTriangularBandMatrix ";
-    msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
-        +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
-        +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
-        +  std::to_string( A.tileNb(0) )
-        +  " kd " + std::to_string( A.bandwidth() )
-        +  " uplo " + char( A.uplo() ) + "\n";
-    msg += label;
-    msg += " = [\n";
-
-    // for entries in opposite triangle from A.uplo
-    char opposite[ 80 ];
-    if (slate::is_complex<scalar_t>::value) {
-        snprintf(opposite, sizeof(opposite), " %*f   %*s ",
-                 width, nan_, width, "");
-    }
-    else {
-        snprintf(opposite, sizeof(opposite), " %*f",
-                 width, nan_);
-    }
-
-    // for tiles outside bandwidth
-    char outside[ 80 ];
-    if (slate::is_complex<scalar_t>::value) {
-        snprintf(outside, sizeof(outside), " %*.0f   %*s ",
-                 width, 0., width, "");
-    }
-    else {
-        snprintf(outside, sizeof(outside), " %*.0f",
-                 width, 0.);
+        printf( "%s", msg.c_str() );
     }
 
     int64_t kdt = slate::ceildiv(A.bandwidth(), A.tileNb(0));
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i)
-                || (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i))
-            {
-                send_recv_tile(A, i, j, mpi_rank, comm);
-            }
-        }
-
-        if (mpi_rank == 0) {
-            for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
-                for (int64_t j = 0; j < A.nt(); ++j) {
-                    if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i)
-                        || (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i))
-                    {
-                        msg += tile_row_string(A, i, j, ti, width, precision, opposite);
-                    }
-                    else {
-                        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                            if ((A.uplo() == slate::Uplo::Lower && j <= i)
-                                || (A.uplo() == slate::Uplo::Upper && j >= i))
-                            {
-                                msg += outside;
-                            }
-                            else {
-                                msg += opposite;
-                            }
-                        }
-                    }
-                    if (j < A.nt() - 1)
-                        msg += "    ";
-                    else
-                        msg += "\n";
-                }
-            }
-            if (i < A.mt() - 1)
-                msg += "\n";
-            else
-                msg += "];\n";
-            printf("%s", msg.c_str());
-            msg.clear();
-
-            // cleanup data
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                if (! A.tileIsLocal(i, j)) {
-                    A.tileErase(i, j);
-                }
-            }
-        }
+    int64_t klt, kut;
+    if (A.uplo() == slate::Uplo::Lower) {
+        klt = kdt;
+        kut = 0;
     }
-
-    MPI_Barrier(comm);
+    else {
+        kut = kdt;
+        klt = 0;
+    }
+    print_matrix_work( label, A, klt, kut, opts );
 }
-
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed Hermitian matrix.
@@ -996,13 +911,11 @@ void print_matrix(
     if (params.verbose() == 0)
         return;
 
-    // Set defaults
     const slate::Options opts = {
         { slate::Option::PrintWidth, params.print_width() },
         { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-        { slate::Option::PrintThreshold, params.print_threshold() },
     };
 
     if (A.mpiRank() == 0) {
@@ -1017,8 +930,19 @@ void print_matrix(
     }
     char buf[ 80 ];
     snprintf( buf, sizeof(buf), "%s_", label );
-    print_matrix_work( buf, A, opts );
-    if (A.mpiRank() == 0 && params.verbose() >= 2) {
+
+    int64_t klt, kut;
+    if (A.uplo() == slate::Uplo::Lower) {
+        klt = std::max ( A.mt(), A.nt() );
+        kut = 0;
+    }
+    else {
+        kut = std::max( A.mt(), A.nt() );
+        klt = 0;
+    }
+
+    print_matrix_work( buf, A, klt, kut, opts );
+    if (A.mpiRank() == 0) {
         if (A.uplo() == slate::Uplo::Lower) {
             printf( "%s = tril( %s_ ) + tril( %s_, -1 )';\n\n",
                     label, label, label );
@@ -1049,7 +973,6 @@ void print_matrix(
         { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-        { slate::Option::PrintThreshold, params.print_threshold() },
     };
 
     if (A.mpiRank() == 0) {
@@ -1062,8 +985,18 @@ void print_matrix(
                 llong( A.tileMb(0) ), llong( A.tileNb(0) ),
                 char( A.uplo() ) );
     }
-    print_matrix_work( label, A, opts );
-    if (A.mpiRank() == 0 && params.verbose() >= 2) {
+
+    int64_t klt, kut;
+    if (A.uplo() == slate::Uplo::Lower) {
+        klt = std::max ( A.mt(), A.nt() );
+        kut = 0;
+    }
+    else {
+        kut = std::max( A.mt(), A.nt() );
+        klt = 0;
+    }
+    print_matrix_work( label, A, klt, kut, opts );
+    if (A.mpiRank() == 0) {
         if (A.uplo() == slate::Uplo::Lower) {
             printf( "%s = tril( %s_ ) + tril( %s_, -1 ).';\n\n",
                     label, label, label );
@@ -1095,7 +1028,6 @@ void print_matrix(
         { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-        { slate::Option::PrintThreshold, params.print_threshold() },
     };
 
     if (A.mpiRank() == 0) {
@@ -1110,8 +1042,18 @@ void print_matrix(
     }
     char buf[ 80 ];
     snprintf( buf, sizeof(buf), "%s_", label );
-    print_matrix_work( buf, A, opts );
-    if (A.mpiRank() == 0 && params.verbose() >= 2) {
+
+    int64_t klt, kut;
+    if (A.uplo() == slate::Uplo::Lower) {
+        klt = std::max ( A.mt(), A.nt() );
+        kut = 0;
+    }
+    else {
+        kut = std::max( A.mt(), A.nt() );
+        klt = 0;
+    }
+    print_matrix_work( buf, A, klt, kut, opts );
+    if (A.mpiRank() == 0) {
         if (A.uplo() == slate::Uplo::Lower) {
             printf( "%s = tril( %s_ );\n\n", label, label );
         }
@@ -1141,7 +1083,6 @@ void print_matrix(
         { slate::Option::PrintPrecision, params.print_precision() },
         { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-        { slate::Option::PrintThreshold, params.print_threshold() },
     };
 
     if (A.mpiRank() == 0) {
@@ -1156,8 +1097,18 @@ void print_matrix(
     }
     char buf[ 80 ];
     snprintf( buf, sizeof(buf), "%s_", label );
-    print_matrix_work( buf, A, opts );
-    if (A.mpiRank() == 0 && params.verbose() >= 2) {
+
+    int64_t klt, kut;
+    if (A.uplo() == slate::Uplo::Lower) {
+        klt = std::max ( A.mt(), A.nt() );
+        kut = 0;
+    }
+    else {
+        kut = std::max( A.mt(), A.nt() );
+        klt = 0;
+    }
+    print_matrix_work( buf, A, klt, kut, opts );
+    if (A.mpiRank() == 0) {
         if (A.uplo() == slate::Uplo::Lower) {
             printf( "%s = tril( %s_ );\n\n", label, label );
         }

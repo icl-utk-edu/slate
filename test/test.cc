@@ -256,14 +256,12 @@ Params::Params():
                "verbose level:\n"
                "                     0: no printing (default)\n"
                "                     1: print metadata only (dimensions, uplo, etc.)\n"
-               "                     2: print first & last edgeitems rows & cols, if size > threshold\n"
+               "                     2: print first & last edgeitems rows & cols from the four corner tiles\n"
                "                     3: print 4 corner elements of every tile\n"
                "                     4: print full matrix" ),
 
     print_edgeitems("print-edgeitems", 0, ParamType::Value, 16,   1, 64,
-                    "for verbose=2, number of first & last rows & cols to print"),
-    print_threshold("print-threshold", 0, ParamType::Value, 1024, 1, 16384,
-                    "for verbose=2, size (rows*cols) to trigger abbreviation"),
+                    "for verbose=2, number of first & last rows & cols to print from the four corner tiles"),
     print_width    ("print-width",     0, ParamType::Value, 10,   7, 24,
                     "minimum number of characters to print per value"),
     print_precision("print-precision", 0, ParamType::Value, 4,    1, 17,
@@ -390,7 +388,6 @@ Params::Params():
     cache();
     debug();
     print_edgeitems();
-    print_threshold();
     print_width();
     print_precision();
 

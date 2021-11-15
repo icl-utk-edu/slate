@@ -50,8 +50,7 @@ void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
 }
 
 //------------------------------------------------------------------------------
-/// General matrix multiply for a left-looking update,
-/// where B and C are single block columns.
+/// General matrix multiply for a left-looking update
 /// Host OpenMP task implementation.
 /// @ingroup gemm_internal
 ///
@@ -63,28 +62,35 @@ void gemmA(internal::TargetType<Target::HostTask>,
            Layout layout, int priority)
 {
     // check dimensions
-    assert(B.nt() == 1);
-    assert(C.nt() == 1);
     assert(A.nt() == B.mt());
     assert(A.mt() == C.mt());
 
-    int err = 0;
+    int err   = 0;
+    // This assumes that if a tile has to be acquired, then all tiles
+    // have to be acquired
+    // TODO make it a matrix of the C tiles involved cTileAcquired(i, k)
+    int cTileAcquired = 0;
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal(i, j)) {
-                #pragma omp task shared(A, B, C, err) priority(priority)
+                #pragma omp task shared(A, B, C, err, cTileAcquired) priority(priority)
                 {
                     try {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
-                        B.tileGetForReading(j, 0, LayoutConvert(layout));
+                        for (int64_t k = 0; k < B.nt(); ++k) {
+                            B.tileGetForReading(j, k, LayoutConvert(layout));
 
-                        if (C.tileIsLocal(i, 0)) {
-                            C.tileGetForWriting(i, 0, LayoutConvert(layout));
-                        }
-                        else {
-                            #pragma omp critical
-                            {
-                                C.tileAcquire(i, 0, C.hostNum(), layout);
+                            if (C.tileIsLocal(i, k)) {
+                                C.tileGetForWriting(i, k, LayoutConvert(layout));
+                            }
+                            else {
+                                if (! C.tileExists(i, k)) {
+                                    cTileAcquired = 1;
+                                    #pragma omp critical
+                                    {
+                                        C.tileAcquire(i, k, C.hostNum(), layout);
+                                    }
+                                }
                             }
                         }
                     }
@@ -104,27 +110,31 @@ void gemmA(internal::TargetType<Target::HostTask>,
             try {
 
                 scalar_t beta_j;
-                if (C.tileIsLocal(i, 0))
-                    beta_j = beta;
-                else
-                    beta_j = scalar_t(0.0);
-                bool Ci0_modified = false;
-                for (int64_t j = 0; j < A.nt(); ++j) {
-                    if (A.tileIsLocal(i, j)) {
-                        gemm(alpha,  A(i, j),
-                                     B(j, 0),
-                             beta_j, C(i, 0));
-
-                        beta_j = scalar_t(1.0);
-
-                        A.tileTick(i, j);
-                        B.tileTick(j, 0);
-                        Ci0_modified = true;
+                for (int64_t k = 0; k < B.nt(); ++k) {
+                    if (! cTileAcquired || C.tileIsLocal(i, 0)) {
+                        beta_j = beta;
                     }
+                    else {
+                      beta_j = scalar_t(0.0);
+                    }
+                    bool Cik_modified = false;
+                    for (int64_t j = 0; j < A.nt(); ++j) {
+                        if (A.tileIsLocal(i, j)) {
+                            gemm(alpha,  A(i, j),
+                                         B(j, k),
+                                 beta_j, C(i, k));
+
+                            beta_j = scalar_t(1.0);
+
+                            A.tileTick(i, j);
+                            B.tileTick(j, k);
+                            Cik_modified = true;
+                        }
+                    }
+                    if (Cik_modified)
+                        // mark this tile modified
+                        C.tileModified(i, k);
                 }
-                if (Ci0_modified)
-                    // mark this tile modified
-                    C.tileModified(i, 0);
             }
             catch (std::exception& e) {
                 err = __LINE__;

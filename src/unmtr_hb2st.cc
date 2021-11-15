@@ -45,7 +45,10 @@ void unmtr_hb2st(slate::internal::TargetType<target>,
         #pragma omp taskwait
         C.tileUpdateAllOrigin();
     }
-    // C.releaseWorkspace();
+    // todo if tiles on devices will be reused in the 
+    // subsequent call, do not release workspace.
+    V.releaseWorkspace();
+    C.releaseWorkspace();
 }
 } // namespace specialization
 } // namespace internal

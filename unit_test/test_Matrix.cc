@@ -29,7 +29,7 @@ int verbose = 0;
 
 //------------------------------------------------------------------------------
 /// default constructor
-/// Tests Matrix(), m, n, mt, nt, op.
+/// Tests Matrix(), m, n, mt, nt, op, gridinfo.
 void test_Matrix()
 {
     slate::Matrix<double> A;
@@ -40,11 +40,30 @@ void test_Matrix()
     test_assert(A.nt() == 0);
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
+
+    int myp, myq, myrow, mycol;
+    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == -1 );
+    test_assert( myq == -1 );
+    test_assert( myrow == -1 );
+    test_assert( mycol == -1 );
+
+    // todo: What is reasonable in this case? It segfaults right now.
+    // auto tileMb_     = A.tileMbFunc();
+    // auto tileNb_     = A.tileNbFunc();
+    // auto tileRank_   = A.tileRankFunc();
+    // auto tileDevice_ = A.tileDeviceFunc();
+    // test_assert( tileMb_(0) == mb );
+    // test_assert( tileNb_(0) == nb );
+    // test_assert( tileRank_( {0, 0} ) == 0 );
+    // // todo: What is reasonable if num_devices == 0? Currently divides by zero.
+    // if (num_devices > 0)
+    //     test_assert( tileDevice_( {0, 0} ) == 0 );
 }
 
 //------------------------------------------------------------------------------
 /// m-by-n, no-data constructor, both square and rectangular tiles
-/// Tests Matrix(m, n, nb, ...), m, n, mt, nt, op.
+/// Tests Matrix(m, n, nb, ...), m, n, mt, nt, op, gridinfo.
 void test_Matrix_empty()
 {
     // square tiles
@@ -56,6 +75,13 @@ void test_Matrix_empty()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
 
+    int myp, myq, myrow, mycol;
+    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
+
     // rectangular tiles
     slate::Matrix<double> B(m, n, mb, nb, p, q, mpi_comm);
     test_assert(B.m() == m);
@@ -64,12 +90,34 @@ void test_Matrix_empty()
     test_assert(B.nt() == ceildiv(n, nb));
     test_assert(B.op() == blas::Op::NoTrans);
     test_assert(B.uplo() == slate::Uplo::General);
+
+    auto tileMb_     = B.tileMbFunc();
+    auto tileNb_     = B.tileNbFunc();
+    auto tileRank_   = B.tileRankFunc();
+    auto tileDevice_ = B.tileDeviceFunc();
+    test_assert( tileMb_(0) == mb );
+    test_assert( tileNb_(0) == nb );
+    test_assert( tileRank_( {0, 0} ) == 0 );
+    // todo: What is reasonable if num_devices == 0? Currently divides by zero.
+    if (num_devices > 0)
+        test_assert( tileDevice_( {0, 0} ) == 0 );
+
+    // Construct Bf same as B, but float instead of double.
+    slate::Matrix<float> Bf(m, n, tileMb_, tileNb_, tileRank_, tileDevice_,
+                            mpi_comm);
+    test_assert(Bf.m() == m);
+    test_assert(Bf.n() == n);
+    test_assert(Bf.tileMb(0) == mb);
+    test_assert(Bf.tileNb(0) == nb);
+    test_assert(Bf.tileRank( 0, 0 ) == 0);
+    if (num_devices > 0)
+        test_assert( Bf.tileDevice( 0, 0 ) == 0 );
 }
 
 //------------------------------------------------------------------------------
 /// m-by-n, no-data constructor, both square and rectangular tiles,
 /// using lambda functions for tileMb, tileNb, tileRank, tileDevice.
-/// Tests Matrix(m, n, tileMb, ...), m, n, mt, nt, op.
+/// Tests Matrix(m, n, tileMb, ...), m, n, mt, nt, op, gridinfo.
 void test_Matrix_lambda()
 {
     int mb_ = mb;  // local copy to capture
@@ -130,6 +178,25 @@ void test_Matrix_lambda()
     test_assert(A.n() == n);
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
+
+    // SLATE doesn't know distribution.
+    int myp, myq, myrow, mycol;
+    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == -1 );
+    test_assert( myq == -1 );
+    test_assert( myrow == -1 );
+    test_assert( mycol == -1 );
+
+    auto tileMb_     = A.tileMbFunc();
+    auto tileNb_     = A.tileNbFunc();
+    auto tileRank_   = A.tileRankFunc();
+    auto tileDevice_ = A.tileDeviceFunc();
+    test_assert( tileMb_(0) == tileMb(0) );
+    test_assert( tileNb_(0) == tileNb(0) );
+    test_assert( tileRank_( {0, 0} ) == tileRank( {0, 0} ) );
+    // todo: What is reasonable if num_devices == 0? Currently divides by zero.
+    if (num_devices > 0)
+        test_assert( tileDevice_( {0, 0} ) == tileDevice( {0, 0} ) );
 }
 
 //------------------------------------------------------------------------------
@@ -169,6 +236,7 @@ void test_Matrix_fromLAPACK_rect()
     test_assert(A.mt() == ceildiv(m, mb));
     test_assert(A.nt() == ceildiv(n, nb));
     test_assert(A.op() == blas::Op::NoTrans);
+    test_assert(A.uplo() == slate::Uplo::General);
 
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
@@ -199,6 +267,24 @@ void test_Matrix_fromScaLAPACK()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
 
+    int myp, myq, myrow, mycol;
+    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
+
+    auto tileMb_     = A.tileMbFunc();
+    auto tileNb_     = A.tileNbFunc();
+    auto tileRank_   = A.tileRankFunc();
+    auto tileDevice_ = A.tileDeviceFunc();
+    test_assert( tileMb_(0) == nb );  // square
+    test_assert( tileNb_(0) == nb );
+    test_assert( tileRank_  ( {0, 0} ) == 0 );
+    // todo: What is reasonable if num_devices == 0? Currently divides by zero.
+    if (num_devices > 0)
+        test_assert( tileDevice_( {0, 0} ) == 0 );
+
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
             verify_tile_scalapack(A, i, j, nb, m, n, Ad.data(), lda);
@@ -226,6 +312,25 @@ void test_Matrix_fromScaLAPACK_rect()
     test_assert(A.mt() == mtiles);
     test_assert(A.nt() == ntiles);
     test_assert(A.op() == blas::Op::NoTrans);
+    test_assert(A.uplo() == slate::Uplo::General);
+
+    int myp, myq, myrow, mycol;
+    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
+
+    auto tileMb_     = A.tileMbFunc();
+    auto tileNb_     = A.tileNbFunc();
+    auto tileRank_   = A.tileRankFunc();
+    auto tileDevice_ = A.tileDeviceFunc();
+    test_assert( tileMb_(0) == mb );  // rect
+    test_assert( tileNb_(0) == nb );
+    test_assert( tileRank_  ( {0, 0} ) == 0 );
+    // todo: What is reasonable if num_devices == 0? Currently divides by zero.
+    if (num_devices > 0)
+        test_assert( tileDevice_( {0, 0} ) == 0 );
 
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {

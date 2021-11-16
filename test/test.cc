@@ -87,6 +87,7 @@ std::vector< testsweeper::routines_t > routines = {
 
     { "trmm",               test_trmm,         Section::blas3 },
     { "trsm",               test_trsm,         Section::blas3 },
+    { "trsmA",              test_trsm,         Section::blas3 },
     { "tbsm",               test_tbsm,         Section::blas3 },
 
     // -----

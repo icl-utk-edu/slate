@@ -51,6 +51,11 @@ public:
         std::vector<std::tuple<int64_t, int64_t,
                              std::list<BaseMatrix<scalar_t> > > >;
 
+    using RootReduceList =
+        std::vector<std::tuple<int64_t, int64_t,
+                             BaseMatrix<scalar_t>,
+                             std::list<BaseMatrix<scalar_t> > > >;
+
     using ij_tuple = typename MatrixStorage<scalar_t>::ij_tuple;
 
     friend class Debug;
@@ -424,6 +429,9 @@ public:
     template <Target target = Target::Host>
     void listReduce(ReduceList& reduce_list, Layout layout, int tag = 0);
 
+    template <Target target = Target::Host>
+    void listRootReduce(RootReduceList& reduce_list, Layout layout, int tag = 0);
+
     //--------------------------------------------------------------------------
     // LAYOUT
 public:
@@ -491,8 +499,8 @@ protected:
 
 public:
     // todo: should this be private?
-    void tileReduceFromSet(int64_t i, int64_t j,
-                           std::set<int> const& reduce_set, int radix, int tag,
+    void tileReduceFromSet(int64_t i, int64_t j, const int root_rank,
+                           std::set<int>& reduce_set, int radix, int tag,
                            Layout layout);
 
 
@@ -2078,7 +2086,7 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
 
         // Find the set of participating ranks.
         std::set<int> reduce_set;
-        reduce_set.insert(tileRank(i, j));      // Insert root.
+        const int root_rank = tileRank(i, j);
         for (auto submatrix : submatrices_list) // Insert sources.
             submatrix.getRanks(&reduce_set);
 
@@ -2087,7 +2095,7 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
 
             // Reduce across MPI ranks.
             // Uses 2D hypercube p2p send.
-            tileReduceFromSet(i, j, reduce_set, 2, tag, layout);
+            tileReduceFromSet(i, j, root_rank, reduce_set, 2, tag, layout);
 
             // If not the tile owner.
             if (! tileIsLocal(i, j)) {
@@ -2095,6 +2103,50 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
                 // todo: should we check its life count before erasing?
                 // Destroy the tile.
                 tileErase(i, j, host_num_);// todo: should it be a tileRelease()?
+            }
+            else {
+                tileModified(i, j);
+            }
+        }
+    }
+
+    #pragma omp taskwait
+}
+
+//------------------------------------------------------------------------------
+///
+template <typename scalar_t>
+template <Target target>
+void BaseMatrix<scalar_t>::listRootReduce(RootReduceList& reduce_list, Layout layout, int tag)
+{
+    for (auto reduce : reduce_list) {
+
+        auto i = std::get<0>(reduce);
+        auto j = std::get<1>(reduce);
+        auto submatrices_dest = std::get<2>(reduce);
+        auto submatrices_list = std::get<3>(reduce);
+
+        // Find the set of participating ranks.
+        std::set<int> reduce_set;
+        const int root_rank = submatrices_dest.tileRank(0,0);
+        for (auto submatrix : submatrices_list) // Insert sources.
+            submatrix.getRanks(&reduce_set);
+
+        // If this rank is in the set.
+        if (root_rank == mpi_rank_
+            || reduce_set.find(mpi_rank_) != reduce_set.end()) {
+
+            // Reduce across MPI ranks.
+            // Uses 2D hypercube p2p send.
+            tileReduceFromSet(i, j, root_rank, reduce_set, 2, tag, layout);
+
+            // If not the tile owner.
+            if (! tileIsLocal(i, j)) {
+
+                // todo: should we check its life count before erasing?
+                // Destroy the tile.
+                // XXX we comment the tileErase for now
+              //tileErase(i, j, host_num_);// todo: should it be a tileRelease()?
             }
             else {
                 tileModified(i, j);
@@ -2313,13 +2365,15 @@ void BaseMatrix<scalar_t>::tileIbcastToSet(
 /// WARNING: Sent and Recevied tiles are converted to 'layout' major.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileReduceFromSet(
-    int64_t i, int64_t j, std::set<int> const& reduce_set, int radix, int tag,
+void BaseMatrix<scalar_t>::tileReduceFromSet( int64_t i, int64_t j,
+    const int root_rank, std::set<int>& reduce_set, int radix, int tag,
     Layout layout)
 {
-    // Quit if only root in the reduction set.
-    if (reduce_set.size() == 1)
+    // Quit if the reduction set is empty
+    if (reduce_set.size() == 0)
         return;
+
+    reduce_set.insert(root_rank);
 
     // Convert the set to a vector.
     std::vector<int> reduce_vec(reduce_set.begin(), reduce_set.end());
@@ -2328,7 +2382,6 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
     std::sort(reduce_vec.begin(), reduce_vec.end());
 
     // Find root.
-    int root_rank = tileRank(i, j);
     auto root_iter = std::find(reduce_vec.begin(), reduce_vec.end(), root_rank);
 
     // Shift root to position zero.

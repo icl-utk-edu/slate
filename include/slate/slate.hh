@@ -260,6 +260,15 @@ void trsm(
     Options const& opts = Options());
 
 //-----------------------------------------
+// trsmA()
+template <typename scalar_t>
+void trsmA(
+    Side side,
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+//-----------------------------------------
 // trtri()
 template <typename scalar_t>
 void trtri(

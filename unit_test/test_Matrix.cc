@@ -1870,7 +1870,7 @@ void test_BaseMatrix_tileReduceFromSet(
   }
 
   // Routine to test
-  A.tileReduceFromSet(i, j, reduce_set, 2, tag, layout);
+  A.tileReduceFromSet(i, j, root, reduce_set, 2, tag, layout);
 
   // Check the result of the reduction
   if (mpi_rank == root) {

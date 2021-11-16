@@ -388,6 +388,7 @@ libslate_src += \
 # work
 libslate_src += \
         src/work/work_trsm.cc \
+        src/work/work_trsmA.cc \
         src/work/work_trmm.cc \
 
 # internal
@@ -424,6 +425,7 @@ libslate_src += \
         src/internal/internal_trmm.cc \
         src/internal/internal_trnorm.cc \
         src/internal/internal_trsm.cc \
+        src/internal/internal_trsmA.cc \
         src/internal/internal_trtri.cc \
         src/internal/internal_trtrm.cc \
         src/internal/internal_ttmqr.cc \
@@ -539,6 +541,7 @@ libslate_src += \
         src/tbsmPivots.cc \
         src/trmm.cc \
         src/trsm.cc \
+        src/trsmA.cc \
         src/trtri.cc \
         src/trtrm.cc \
         src/unmqr.cc \

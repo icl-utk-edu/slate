@@ -342,6 +342,7 @@ if (opts.blas3):
     [ 'tbsm',  gen_no_nb + ' --nb 32' + dtype + la + side + uplo + transA + diag + mn + a + kd ],
     [ 'trmm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
     [ 'trsm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
+    [ 'trsmA', gen + dtype + la + side + uplo + transA + diag + mn + a ],
     ]
 
 # LU

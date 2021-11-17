@@ -15,9 +15,6 @@
 #include <cstdlib>
 #include <utility>
 
-// TODO remove
-#include <cuda_profiler_api.h>
-#include "auxiliary/Debug.hh"
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
@@ -165,9 +162,7 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     //==================================================
     // Run SLATE test.
     //==================================================
-    cudaProfilerStart();
     slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, V, Q, opts);
-    cudaProfilerStop();
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
     if (trace) slate::trace::Trace::finish();

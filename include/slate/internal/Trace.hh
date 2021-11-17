@@ -16,7 +16,6 @@
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
 
-#include <nvToolsExt.h>
 namespace slate {
 namespace trace {
 
@@ -98,7 +97,6 @@ private:
 
 //------------------------------------------------------------------------------
 ///
-/*
 class Block {
 public:
     Block(const char* name)
@@ -109,18 +107,6 @@ public:
 private:
     Event event_;
 };
-*/
-class Block {
-public:
-    Block(const char* name)
-        : event_(name)
-    { nvtxRangePush(name); }
-
-    ~Block() { Trace::insert(event_); nvtxRangePop(); }
-private:
-    Event event_;
-};
-
 } // namespace trace
 } // namespace slate
 

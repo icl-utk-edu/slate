@@ -2091,7 +2091,8 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
             submatrix.getRanks(&reduce_set);
 
         // If this rank is in the set.
-        if (reduce_set.find(mpi_rank_) != reduce_set.end()) {
+        if (root_rank == mpi_rank_
+            || reduce_set.find(mpi_rank_) != reduce_set.end()) {
 
             // Reduce across MPI ranks.
             // Uses 2D hypercube p2p send.

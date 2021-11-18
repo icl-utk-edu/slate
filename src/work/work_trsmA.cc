@@ -52,8 +52,8 @@ namespace work {
 ///
 template <Target target, typename scalar_t>
 void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
-                                               Matrix<scalar_t> B,
-          uint8_t* row, int64_t lookahead)
+                                                Matrix<scalar_t> B,
+           uint8_t* row, int64_t lookahead)
 {
     using blas::conj;
     using BcastList = typename Matrix<scalar_t>::BcastList;
@@ -120,12 +120,12 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 }
 
 
-                if (A.tileIsLocal(k,k)) {
+                if (A.tileIsLocal(k, k)) {
                     for (int64_t j = 0; j < nt; ++j) {
                         if (! B.tileIsLocal(k, j) && ! B.tileExists(k, j)) {
                             B.tileInsert(k, j);
                             B.at(k, j).set(0, 0);
-                  
+
                             // FIXME hande life of the tile
                             //B.tileLife(k,0, 10);
                         }
@@ -145,7 +145,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 }
                 B.template listRootReduce<target>(reduce_list_B, layout);
 
-                if (A.tileIsLocal(k,k)) {
+                if (A.tileIsLocal(k, k)) {
                     // solve A(k, k) B(k, :) = alpha B(k, :)
                     internal::trsmA<target>(
                         Side::Left,
@@ -162,7 +162,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         int dest = B.tileRank(k, j);
                         B.tileSend(k, j, dest);
                     }
-                } 
+                }
                 else {
                     const int root = A.tileRank(k, k);
 
@@ -172,7 +172,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         }
                     }
                 }
-                
+
                 for (int64_t j = 0; j < nt; ++j)
                     if (B.tileExists(k, j) && ! B.tileIsLocal(k, j))
                         B.tileErase(k, j);
@@ -192,7 +192,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 #pragma omp task depend(in:row[k]) \
                                  depend(inout:row[i]) priority(1)
                 {
-                  if (A.tileIsLocal(i,k)) {
+                  if (A.tileIsLocal(i, k)) {
                       for (int64_t j = 0; j < nt; ++j) {
                           if (! B.tileIsLocal(i, j)
                               && ! B.tileExists(i, j))
@@ -277,7 +277,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         if (! B.tileIsLocal(k, j) && ! B.tileExists(k, j)) {
                             B.tileInsert(k, j);
                             B.at(k, j).set(0, 0); // Might not needed if alph is set correctly
-                        
+
                             // FIXME handle life
                           //B.tileLife(k,0, 10); // TODO manage tile life
 
@@ -315,7 +315,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         int dest = B.tileRank(k, j);
                         B.tileSend(k, j, dest);
                     }
-                } 
+                }
                 else {
                     const int root = A.tileRank(k, k);
 
@@ -325,7 +325,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         }
                     }
                 }
-                
+
                 for (int64_t j = 0; j < nt; ++j)
                     if (B.tileExists(k, j) && ! B.tileIsLocal(k, j))
                         B.tileErase(k, j);
@@ -333,7 +333,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 // Bcast the result of the solve, B(k,:) to
                 // ranks owning block row A(k + 1 : mt, k)
                 BcastList bcast_list_upd_B;
-                for (int64_t j = 0; j < nt; ++j){
+                for (int64_t j = 0; j < nt; ++j) {
                     bcast_list_upd_B.push_back({k, j, { A.sub(0, k - 1, k, k),
                                                       //B.sub(k, k, j, j)
                                                       }});
@@ -348,15 +348,15 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 {
                     if (A.tileIsLocal(i, k)) {
                         for (int64_t j = 0; j < nt; ++j) {
-                            if (! B.tileIsLocal(i, j) 
-                                && ! B.tileExists(i, j)) 
+                            if (! B.tileIsLocal(i, j)
+                                && ! B.tileExists(i, j))
                             {
                                 B.tileInsert(i, j);
                                 B.at(i, j).set(0, 0);
                             }
                         }
                     }
-                  // TODO: execute lookahead on devices
+                   // TODO: execute lookahead on devices
                     internal::gemmA<Target::HostTask>(
                         neg_one,        A.sub(i, i, k, k),
                         B.sub(k, k, 0, nt-1),

@@ -20,15 +20,15 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void trsmA(Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>&& A,
-                                    Matrix<scalar_t>&& B,
-          int priority, Layout layout, int64_t queue_index)
+           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
+                                     Matrix<scalar_t>&& B,
+           int priority, Layout layout, int64_t queue_index)
 {
     trsmA(internal::TargetType<target>(),
-         side,
-         alpha, A,
-                B,
-         priority, layout, queue_index);
+          side,
+          alpha, A,
+                 B,
+          priority, layout, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -38,10 +38,10 @@ void trsmA(Side side,
 ///
 template <typename scalar_t>
 void trsmA(internal::TargetType<Target::HostTask>,
-          Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          int priority, Layout layout, int64_t queue_index)
+           Side side,
+           scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                     Matrix<scalar_t>& B,
+           int priority, Layout layout, int64_t queue_index)
 {
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::trsm()
@@ -99,10 +99,10 @@ void trsmA(internal::TargetType<Target::HostTask>,
 ///
 template <typename scalar_t>
 void trsmA(internal::TargetType<Target::HostNest>,
-          Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          int priority, Layout layout, int64_t queue_index)
+           Side side,
+           scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                     Matrix<scalar_t>& B,
+           int priority, Layout layout, int64_t queue_index)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
@@ -114,10 +114,10 @@ void trsmA(internal::TargetType<Target::HostNest>,
 ///
 template <typename scalar_t>
 void trsmA(internal::TargetType<Target::HostBatch>,
-          Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          int priority, Layout layout, int64_t queue_index)
+           Side side,
+           scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                     Matrix<scalar_t>& B,
+           int priority, Layout layout, int64_t queue_index)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
@@ -129,10 +129,10 @@ void trsmA(internal::TargetType<Target::HostBatch>,
 ///
 template <typename scalar_t>
 void trsmA(internal::TargetType<Target::Devices>,
-          Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          int priority, Layout layout, int64_t queue_index)
+           Side side,
+           scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                     Matrix<scalar_t>& B,
+           int priority, Layout layout, int64_t queue_index)
 {
     using std::swap;
     using blas::conj;

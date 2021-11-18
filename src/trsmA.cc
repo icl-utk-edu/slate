@@ -21,10 +21,10 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void trsmA(slate::internal::TargetType<target>,
-          Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          int64_t lookahead)
+           Side side,
+           scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                     Matrix<scalar_t>& B,
+           int64_t lookahead)
 {
     if (target == Target::Devices) {
         const int64_t batch_size_zero = 0;
@@ -71,9 +71,9 @@ void trsmA(slate::internal::TargetType<target>,
 ///
 template <Target target, typename scalar_t>
 void trsmA(blas::Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          Options const& opts)
+           scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                     Matrix<scalar_t>& B,
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -85,10 +85,10 @@ void trsmA(blas::Side side,
     }
 
     internal::specialization::trsmA(internal::TargetType<target>(),
-                                   side,
-                                   alpha, A,
-                                          B,
-                                   lookahead);
+                                    side,
+                                    alpha, A,
+                                           B,
+                                    lookahead);
 }
 
 //------------------------------------------------------------------------------
@@ -144,9 +144,9 @@ void trsmA(blas::Side side,
 ///
 template <typename scalar_t>
 void trsmA(blas::Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          Options const& opts)
+           scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                                     Matrix<scalar_t>& B,
+           Options const& opts)
 {
     Target target;
     try {

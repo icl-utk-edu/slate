@@ -191,7 +191,6 @@ void test_hegv_work(Params& params, bool run)
         //==================================================
         if (jobz == slate::Job::NoVec) {
             slate::eig_vals( itype, A, B, Lambda, opts );
-            slate::eig( itype, A, B, Lambda, opts );
             // Using traditional BLAS/LAPACK name
             // slate::hegv( itype, A, B, Lambda, opts );
         }

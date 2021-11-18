@@ -43,10 +43,10 @@ void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
     }
 
     gemmA(internal::TargetType<target>(),
-           alpha, A,
-                  B,
-           beta,  C,
-           layout, priority);
+          alpha, A,
+                 B,
+          beta,  C,
+          layout, priority);
 }
 
 //------------------------------------------------------------------------------
@@ -115,7 +115,7 @@ void gemmA(internal::TargetType<Target::HostTask>,
                         beta_j = beta;
                     }
                     else {
-                      beta_j = scalar_t(0.0);
+                        beta_j = scalar_t(0.0);
                     }
                     bool Cik_modified = false;
                     for (int64_t j = 0; j < A.nt(); ++j) {

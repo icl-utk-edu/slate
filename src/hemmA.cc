@@ -30,13 +30,12 @@ namespace specialization {
 
 template <Target target, typename scalar_t>
 void hemmA(slate::internal::TargetType<target>,
-          Side side,
-          scalar_t alpha, HermitianMatrix<scalar_t> A,
-          Matrix<scalar_t> B,
-          scalar_t beta,  Matrix<scalar_t> C,
-          int64_t lookahead)
+           Side side,
+           scalar_t alpha, HermitianMatrix<scalar_t> A,
+                           Matrix<scalar_t> B,
+           scalar_t beta,  Matrix<scalar_t> C,
+           int64_t lookahead)
 {
-#if 1
     using blas::conj;
   //using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
     using BcastList = typename Matrix<scalar_t>::BcastList;
@@ -149,8 +148,8 @@ void hemmA(slate::internal::TargetType<target>,
                         if ( i < k ) {
                             if (A.tileIsLocal(k, i)) {
                                 for (int64_t j = 0; j < B.nt(); ++j) {
-                                    if (! C.tileIsLocal(i, j) 
-                                        && ! C.tileExists(i, j)) 
+                                    if (! C.tileIsLocal(i, j)
+                                        && ! C.tileExists(i, j))
                                     {
                                         C.tileInsert(i, j);
                                         C.at(i, j).set(0);
@@ -161,8 +160,8 @@ void hemmA(slate::internal::TargetType<target>,
                         else {
                             if (A.tileIsLocal(i, k)) {
                                 for (int64_t j = 0; j < B.nt(); ++j) {
-                                    if (! C.tileIsLocal(i, j) 
-                                        && ! C.tileExists(i, j)) 
+                                    if (! C.tileIsLocal(i, j)
+                                        && ! C.tileExists(i, j))
                                     {
                                         C.tileInsert(i, j);
                                         C.at(i, j).set(0);
@@ -211,9 +210,9 @@ void hemmA(slate::internal::TargetType<target>,
                             bcast_list_B.push_back(
                                 {k+lookahead, j, {
                                                   A.sub(k+lookahead, k+lookahead,
-                                                    0, k+lookahead-1),
+                                                        0,  k+lookahead-1),
                                                   A.sub(k+lookahead, A.mt()-1,
-                                                    k+lookahead, k+lookahead)
+                                                        k+lookahead, k+lookahead)
                                                   }});
                         }
                         B.template listBcast<target>(bcast_list_B, layout);
@@ -223,8 +222,8 @@ void hemmA(slate::internal::TargetType<target>,
                             if ( i < k + lookahead ) {
                                 if (A.tileIsLocal(k+lookahead, i)) {
                                     for (int64_t j = 0; j < B.nt(); ++j) {
-                                        if (! C.tileIsLocal(i, j) 
-                                            && ! C.tileExists(i, j)) 
+                                        if (! C.tileIsLocal(i, j)
+                                            && ! C.tileExists(i, j))
                                         {
                                             C.tileInsert(i, j);
                                             C.at(i, j).set(0);
@@ -235,8 +234,8 @@ void hemmA(slate::internal::TargetType<target>,
                             else {
                                 if (A.tileIsLocal(i, k+lookahead)) {
                                     for (int64_t j = 0; j < B.nt(); ++j) {
-                                        if (! C.tileIsLocal(i, j) 
-                                            && ! C.tileExists(i, j)) 
+                                        if (! C.tileIsLocal(i, j)
+                                            && ! C.tileExists(i, j))
                                         {
                                             C.tileInsert(i, j);
                                             C.at(i, j).set(0);
@@ -257,7 +256,7 @@ void hemmA(slate::internal::TargetType<target>,
                                  depend(out:gemm[k])
                 {
                     auto Arow_k = A.sub(k, k, 0, k-1);
-                    
+
                     internal::gemmA<target>(
                         alpha,         conjTranspose(Arow_k),
                                        B.sub(k, k, 0, B.nt()-1),
@@ -301,7 +300,7 @@ void hemmA(slate::internal::TargetType<target>,
                         }
                         C.template listReduce<target>(reduce_list_C, layout);
                         reduce_list_C.clear();
-                        // Release the memory 
+                        // Release the memory
                         if (C.tileExists(i, j) && ! C.tileIsLocal(i, j))
                             C.tileErase(i, j);
                     }
@@ -380,8 +379,8 @@ void hemmA(slate::internal::TargetType<target>,
                         if ( i < k ) {
                             if (A.tileIsLocal(i, k)) {
                                 for (int64_t j = 0; j < B.nt(); ++j) {
-                                    if (! C.tileIsLocal(i, j) 
-                                        && ! C.tileExists(i, j)) 
+                                    if (! C.tileIsLocal(i, j)
+                                        && ! C.tileExists(i, j))
                                     {
                                         C.tileInsert(i, j);
                                         C.at(i, j).set(0);
@@ -392,8 +391,8 @@ void hemmA(slate::internal::TargetType<target>,
                         else {
                             if (A.tileIsLocal(k, i)) {
                                 for (int64_t j = 0; j < B.nt(); ++j) {
-                                    if (! C.tileIsLocal(i, j) 
-                                        && ! C.tileExists(i, j)) 
+                                    if (! C.tileIsLocal(i, j)
+                                        && ! C.tileExists(i, j))
                                     {
                                         C.tileInsert(i, j);
                                         C.at(i, j).set(0);
@@ -443,9 +442,9 @@ void hemmA(slate::internal::TargetType<target>,
                             bcast_list_B.push_back(
                                 {k+lookahead, j, {
                                                   A.sub(0, k+lookahead-1,
-                                                    k+lookahead, k+lookahead),
+                                                        k+lookahead, k+lookahead),
                                                   A.sub(k+lookahead, k+lookahead,
-                                                    k+lookahead, A.nt()-1),
+                                                        k+lookahead, A.nt()-1),
                                                   }});
                         }
                         B.template listBcast<target>(bcast_list_B, layout);
@@ -455,8 +454,8 @@ void hemmA(slate::internal::TargetType<target>,
                             if ( i < k + lookahead ) {
                                 if (A.tileIsLocal(i, k+lookahead)) {
                                     for (int64_t j = 0; j < B.nt(); ++j) {
-                                        if (! C.tileIsLocal(i, j) 
-                                            && ! C.tileExists(i, j)) 
+                                        if (! C.tileIsLocal(i, j)
+                                            && ! C.tileExists(i, j))
                                         {
                                             C.tileInsert(i, j);
                                             C.at(i, j).set(0);
@@ -467,8 +466,8 @@ void hemmA(slate::internal::TargetType<target>,
                             else {
                                 if (A.tileIsLocal(k+lookahead, i)) {
                                     for (int64_t j = 0; j < B.nt(); ++j) {
-                                        if (! C.tileIsLocal(i, j) 
-                                            && ! C.tileExists(i, j)) 
+                                        if (! C.tileIsLocal(i, j)
+                                            && ! C.tileExists(i, j))
                                         {
                                             C.tileInsert(i, j);
                                             C.at(i, j).set(0);
@@ -525,13 +524,14 @@ void hemmA(slate::internal::TargetType<target>,
                         }
                         else {
                             reduce_list_C.push_back({i, j,
-                                { A.sub(0, i-1, i, i),
-                                  A.sub(i, i, i, A.nt()-1) }
+                                  { A.sub(0, i-1, i, i),
+                                    A.sub(i, i, i, A.nt()-1) 
+                                  }
                                 });
                         }
                         C.template listReduce<target>(reduce_list_C, layout);
                         reduce_list_C.clear();
-                        // Release the memory 
+                        // Release the memory
                         if (C.tileExists(i, j) && ! C.tileIsLocal(i, j))
                             C.tileErase(i, j);
                     }
@@ -543,7 +543,6 @@ void hemmA(slate::internal::TargetType<target>,
         C.tileUpdateAllOrigin();
     }
     C.releaseWorkspace();
-#endif
 }
 
 } // namespace specialization
@@ -555,10 +554,10 @@ void hemmA(slate::internal::TargetType<target>,
 ///
 template <Target target, typename scalar_t>
 void hemmA(Side side,
-          scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts)
+           scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
+           scalar_t beta,  Matrix<scalar_t>& C,
+           Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -570,11 +569,11 @@ void hemmA(Side side,
     }
 
     internal::specialization::hemmA(internal::TargetType<target>(),
-                                   side,
-                                   alpha, A,
-                                          B,
-                                   beta,  C,
-                                   lookahead);
+                                    side,
+                                    alpha, A,
+                                           B,
+                                    beta,  C,
+                                    lookahead);
 }
 
 //------------------------------------------------------------------------------
@@ -633,10 +632,10 @@ void hemmA(Side side,
 ///
 template <typename scalar_t>
 void hemmA(Side side,
-          scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts)
+           scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
+           scalar_t beta,  Matrix<scalar_t>& C,
+           Options const& opts)
 {
     Target target;
     try {

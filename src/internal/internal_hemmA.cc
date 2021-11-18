@@ -31,10 +31,10 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void hemmA(Side side,
-          scalar_t alpha, HermitianMatrix<scalar_t>&& A,
-                          Matrix<scalar_t>&& B,
-          scalar_t beta,  Matrix<scalar_t>&& C,
-          int priority)
+           scalar_t alpha, HermitianMatrix<scalar_t>&& A,
+                                    Matrix<scalar_t>&& B,
+           scalar_t beta,  Matrix<scalar_t>&& C,
+           int priority)
 {
     // check dimensions
     assert(A.mt() == 1);
@@ -52,11 +52,11 @@ void hemmA(Side side,
     assert(B.op() == C.op());
 
     hemmA(internal::TargetType<target>(),
-         side,
-         alpha, A,
-                B,
-         beta,  C,
-         priority);
+          side,
+          alpha, A,
+                 B,
+          beta,  C,
+          priority);
 }
 
 //------------------------------------------------------------------------------
@@ -66,11 +66,11 @@ void hemmA(Side side,
 ///
 template <typename scalar_t>
 void hemmA(internal::TargetType<Target::HostTask>,
-          Side side,
-          scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          int priority)
+           Side side,
+           scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
+           scalar_t beta,  Matrix<scalar_t>& C,
+           int priority)
 {
     // CPU uses ColMajor
     // todo: relax this assumption, by allowing Tile_blas.hh::hemm() to take layout param
@@ -123,11 +123,11 @@ void hemmA(internal::TargetType<Target::HostTask>,
 ///
 template <typename scalar_t>
 void hemmA(internal::TargetType<Target::HostNest>,
-          Side side,
-          scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          int priority)
+           Side side,
+           scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
+           scalar_t beta,  Matrix<scalar_t>& C,
+           int priority)
 {
     // CPU uses ColMajor
     // todo: relax this assumption, by allowing Tile_blas.hh::hemm() to take layout param

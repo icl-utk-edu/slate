@@ -217,6 +217,11 @@ void unmtr_hb2st(internal::TargetType<Target::HostTask>,
 */
 //------------------------------------------------------------------------------
 /// GPU device batched implementation.
+///
+/// SLATE Working Note 13: Implementing Singular Value and Symmetric/Hermitian 
+/// Eigenvalue Solvers, SLATE Working Notes, no. 13. 
+/// https://www.icl.utk.edu/publications/swan-013
+///
 /// @ingroup heev_internal
 ///
 template <Target target, typename scalar_t>

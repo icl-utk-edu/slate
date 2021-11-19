@@ -188,37 +188,35 @@ void unmtr_hb2st( internal::TargetType<target>,
                             }
                             // Form VT = V * T. Assumes 0's stored in lower T.
                             // vm_-by-vnb = (vm_-by-vnb) (vnb-by-vnb)
-                            {
-                                if (target == Target::Devices) {
-                                    int device = C.tileDevice(i, 0);
-                                    blas::Queue* queue = C.compute_queue(device, omp_get_thread_num());   
-                                    blas::gemm(Layout::ColMajor,
-                                               Op::NoTrans, Op::NoTrans,
-                                               vm_, vnb, vnb,
-                                               one,  
-                                               V_(0, r, device).data(), 
-                                               V_(0, r, device).stride(),
-                                               T(i/2, 0, device).data(),  
-                                               T(i/2, 0, device).stride(),
-                                               zero, 
-                                               VT(i/2, 0, device).data(), 
-                                               VT(i/2, 0, device).stride(), 
-                                               *queue);
-                                    queue->sync();
-                                }
-                                else {
-                                    blas::gemm(Layout::ColMajor,
-                                               Op::NoTrans, Op::NoTrans,
-                                               vm_, vnb, vnb,
-                                               one,  
-                                               V_(0, r).data(), 
-                                               V_(0, r).stride(),
-                                               T(i/2, 0).data(),  
-                                               T(i/2, 0).stride(),
-                                               zero, 
-                                               VT(i/2, 0).data(), 
-                                               VT(i/2, 0).stride());
-                                }
+                            if (target == Target::Devices) {
+                                int device = C.tileDevice(i, 0);
+                                blas::Queue* queue = C.compute_queue(device, omp_get_thread_num());   
+                                blas::gemm(Layout::ColMajor,
+                                           Op::NoTrans, Op::NoTrans,
+                                           vm_, vnb, vnb,
+                                           one,  
+                                           V_(0, r, device).data(), 
+                                           V_(0, r, device).stride(),
+                                           T(i/2, 0, device).data(),  
+                                           T(i/2, 0, device).stride(),
+                                           zero, 
+                                           VT(i/2, 0, device).data(), 
+                                           VT(i/2, 0, device).stride(), 
+                                           *queue);
+                                queue->sync();
+                            }
+                            else {
+                                blas::gemm(Layout::ColMajor,
+                                           Op::NoTrans, Op::NoTrans,
+                                           vm_, vnb, vnb,
+                                           one,  
+                                           V_(0, r).data(), 
+                                           V_(0, r).stride(),
+                                           T(i/2, 0).data(),  
+                                           T(i/2, 0).stride(),
+                                           zero, 
+                                           VT(i/2, 0).data(), 
+                                           VT(i/2, 0).stride());
                             }
                             if (target == Target::Devices) {
                                 #pragma omp taskgroup

@@ -277,41 +277,39 @@ void unmtr_hb2st( internal::TargetType<target>,
                             // VC = Vr0^H C0
                             // vnb-by-cnb = (mb0-by-vnb)^H (mb0-by-cnb)
                             // Slice off 1st row of C0.
-                            { 
-                                // C0
-                                if (target == Target::Devices) {
-                                    V_.tileGetForReading(0, r, device, LayoutConvert::None);
-                                    C.tileGetForReading(i, k, device, LayoutConvert::None);
-                                    VC.tileAcquire(i/2, device, device, Layout::ColMajor);
-                                    VC.tileModified(i/2, device, device, true);
-                                    blas::Queue* queue = C.compute_queue(device, omp_get_thread_num());
-                                    blas::gemm(Layout::ColMajor,
-                                               Op::ConjTrans, Op::NoTrans,
-                                               vnb, cnb, mb0,
-                                               one, 
-                                               V_(0, r, device).data(), 
-                                               V_(0, r, device).stride(),
-                                               &C(i, k, device).data()[ 1 ], 
-                                               C(i, k, device).stride(),
-                                               zero, 
-                                               VC(i/2, device, device).data(), 
-                                               VC(i/2, device, device).stride(), 
-                                               *queue);
-                                    queue->sync();
-                                }
-                                else {
-                                    blas::gemm(Layout::ColMajor,
-                                               Op::ConjTrans, Op::NoTrans,
-                                               vnb, cnb, mb0,
-                                               one, 
-                                               V_(0, r).data(), 
-                                               V_(0, r).stride(),
-                                               &C(i, k).data()[ 1 ], 
-                                               C(i, k).stride(),
-                                               zero, 
-                                               VC(i/2, 0).data(), 
-                                               VC(i/2, 0).stride()); 
-                                }
+                            // C0
+                            if (target == Target::Devices) {
+                                V_.tileGetForReading(0, r, device, LayoutConvert::None);
+                                C.tileGetForReading(i, k, device, LayoutConvert::None);
+                                VC.tileAcquire(i/2, device, device, Layout::ColMajor);
+                                VC.tileModified(i/2, device, device, true);
+                                blas::Queue* queue = C.compute_queue(device, omp_get_thread_num());
+                                blas::gemm(Layout::ColMajor,
+                                           Op::ConjTrans, Op::NoTrans,
+                                           vnb, cnb, mb0,
+                                           one, 
+                                           V_(0, r, device).data(), 
+                                           V_(0, r, device).stride(),
+                                           &C(i, k, device).data()[ 1 ], 
+                                           C(i, k, device).stride(),
+                                           zero, 
+                                           VC(i/2, device, device).data(), 
+                                           VC(i/2, device, device).stride(), 
+                                           *queue);
+                                queue->sync();
+                            }
+                            else {
+                                blas::gemm(Layout::ColMajor,
+                                           Op::ConjTrans, Op::NoTrans,
+                                           vnb, cnb, mb0,
+                                           one, 
+                                           V_(0, r).data(), 
+                                           V_(0, r).stride(),
+                                           &C(i, k).data()[ 1 ], 
+                                           C(i, k).stride(),
+                                           zero, 
+                                           VC(i/2, 0).data(), 
+                                           VC(i/2, 0).stride()); 
                             }
 
                             // VC += Vr1^H C1

@@ -133,7 +133,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 }
 
                 // Gather B(k,:) to ranks owning diagonal block A(k,k)
-                using ReduceList = typename Matrix<scalar_t>::RootReduceList;
+                using ReduceList = typename Matrix<scalar_t>::ReduceList;
                 ReduceList reduce_list_B;
                 for (int64_t j = 0; j < nt; ++j) {
                     reduce_list_B.push_back({k, j,
@@ -143,7 +143,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                               }
                                             });
                 }
-                B.template listRootReduce<target>(reduce_list_B, layout);
+                B.template listReduce<target>(reduce_list_B, layout);
 
                 if (A.tileIsLocal(k, k)) {
                     // solve A(k, k) B(k, :) = alpha B(k, :)
@@ -286,7 +286,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 }
 
                 // Gather B(k,:) to ranks owning diagonal block A(k,k)
-                using ReduceList = typename Matrix<scalar_t>::RootReduceList;
+                using ReduceList = typename Matrix<scalar_t>::ReduceList;
                 ReduceList reduce_list_B;
                 for (int64_t j = 0; j < nt; ++j) {
                     reduce_list_B.push_back({k, j,
@@ -296,7 +296,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                               }
                                             });
                 }
-                B.template listRootReduce<target>(reduce_list_B, layout);
+                B.template listReduce<target>(reduce_list_B, layout);
 
                 if (A.tileIsLocal(k, k)) {
                     // solve A(k, k) B(k, :) = alpha B(k, :)

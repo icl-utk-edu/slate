@@ -49,10 +49,6 @@ public:
 
     using ReduceList =
         std::vector<std::tuple<int64_t, int64_t,
-                             std::list<BaseMatrix<scalar_t> > > >;
-
-    using RootReduceList =
-        std::vector<std::tuple<int64_t, int64_t,
                              BaseMatrix<scalar_t>,
                              std::list<BaseMatrix<scalar_t> > > >;
 
@@ -428,9 +424,6 @@ public:
 
     template <Target target = Target::Host>
     void listReduce(ReduceList& reduce_list, Layout layout, int tag = 0);
-
-    template <Target target = Target::Host>
-    void listRootReduce(RootReduceList& reduce_list, Layout layout, int tag = 0);
 
     //--------------------------------------------------------------------------
     // LAYOUT
@@ -2077,48 +2070,6 @@ void BaseMatrix<scalar_t>::listBcastMT(
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, int tag)
-{
-    for (auto reduce : reduce_list) {
-
-        auto i = std::get<0>(reduce);
-        auto j = std::get<1>(reduce);
-        auto submatrices_list = std::get<2>(reduce);
-
-        // Find the set of participating ranks.
-        std::set<int> reduce_set;
-        const int root_rank = tileRank(i, j);
-        for (auto submatrix : submatrices_list) // Insert sources.
-            submatrix.getRanks(&reduce_set);
-
-        // If this rank is in the set.
-        if (root_rank == mpi_rank_
-            || reduce_set.find(mpi_rank_) != reduce_set.end()) {
-
-            // Reduce across MPI ranks.
-            // Uses 2D hypercube p2p send.
-            tileReduceFromSet(i, j, root_rank, reduce_set, 2, tag, layout);
-
-            // If not the tile owner.
-            if (! tileIsLocal(i, j)) {
-
-                // todo: should we check its life count before erasing?
-                // Destroy the tile.
-                tileErase(i, j, host_num_);// todo: should it be a tileRelease()?
-            }
-            else {
-                tileModified(i, j);
-            }
-        }
-    }
-
-    #pragma omp taskwait
-}
-
-//------------------------------------------------------------------------------
-///
-template <typename scalar_t>
-template <Target target>
-void BaseMatrix<scalar_t>::listRootReduce(RootReduceList& reduce_list, Layout layout, int tag)
 {
     for (auto reduce : reduce_list) {
 

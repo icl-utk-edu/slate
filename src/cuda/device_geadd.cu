@@ -102,6 +102,8 @@ void geadd(
     // Max threads/block=1024 for current CUDA compute capability (<=7.5)
     int64_t nthreads = std::min((int64_t)1024, m);
 
+    cudaSetDevice( queue.device() );
+
     geaddKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         m, n,
         alpha, Aarray, lda,

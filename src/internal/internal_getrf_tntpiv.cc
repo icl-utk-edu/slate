@@ -17,74 +17,74 @@ namespace internal {
 // Convert pivot candidate to sequence of row-permutations to be applied to a matrix
 template <typename scalar_t>
 void pivot_list(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
-               int64_t diag_len, int mt)
+                int64_t diag_len, int mt)
 {
 
     std::vector<std::pair<int64_t, int64_t>> global_info;
 
-    for (int i = 0; i < diag_len; i++){
+    for (int i = 0; i < diag_len; i++) {
 
-        global_info.push_back( {aux_pivot[ 0 ][ i ].tileIndex(),
-            aux_pivot[ 0 ][ i ].elementOffset()} );
+        global_info.push_back({aux_pivot[ 0 ][ i ].tileIndex(),
+                                aux_pivot[ 0 ][ i ].elementOffset()});
     }
 
     std::vector<std::pair<std::pair<int64_t, int64_t>,
-                          std::pair<int64_t, int64_t>>> pivot_list;
+        std::pair<int64_t, int64_t>>> pivot_list;
 
     // Initial fill to the pivlist
-    for (auto inx=0; inx < mt; ++inx){
-        for (auto i=0; i < int(global_info.size()); ++i){
+    for (auto inx=0; inx < mt; ++inx) {
+        for (auto i=0; i < int(global_info.size()); ++i) {
 
             pivot_list.push_back({{inx, i}, {inx, i}});
         }
     }
 
-    for (int i=0 ; i < int(global_info.size()); ++i){
+    for (int i=0 ; i < int(global_info.size()); ++i) {
 
         int index = -1;
-          // Find the pivot position in the pivot_list
-        for (int j=i; j < int(pivot_list.size()); ++j){
-            if( pivot_list[j].first == global_info[i] ){
+        // Find the pivot position in the pivot_list
+        for (int j=i; j < int(pivot_list.size()); ++j) {
+            if ( pivot_list[j].first == global_info[i] ) {
                 index = j;
                 break;
             }
         }
 
-       if((global_info[i].first == pivot_list[i].second.first)
-            && (global_info[i].second < pivot_list[i].second.second)){
+        if ((global_info[i].first == pivot_list[i].second.first)
+            && (global_info[i].second < pivot_list[i].second.second)) {
 
-            if( index != -1 ){
+            if ( index != -1 ) {
                 std::pair<int64_t, int64_t> temp = pivot_list[i].first;
                 //If the index is already moved down, put it is new index
                 pivot_list[i].first = pivot_list[index].second;
                 pivot_list[index].first = temp;
             }
-           else {
-               int offset = global_info[i].second;
-               for(int j=0; j < int(pivot_list.size());j++){
-                   if( pivot_list[offset].first == pivot_list[j].second){
-                       index = j;
-                       break;
-                   }
-               }
-               std::pair<int64_t, int64_t> temp = pivot_list[i].first;
-               pivot_list[i].first = pivot_list[index].first;
-               pivot_list[index].first = temp;
-           }
-       }
-       else {
-           //If the index id down the list
-           std::pair<int64_t, int64_t> temp = pivot_list[ i ].first;
-           pivot_list[ i ].first = pivot_list[ index ].first;
-           pivot_list[ index ].first = temp;
-       }
+            else {
+                int offset = global_info[i].second;
+                for (int j=0; j < int(pivot_list.size()); j++) {
+                    if ( pivot_list[offset].first == pivot_list[j].second) {
+                        index = j;
+                        break;
+                    }
+                }
+                std::pair<int64_t, int64_t> temp = pivot_list[i].first;
+                pivot_list[i].first = pivot_list[index].first;
+                pivot_list[index].first = temp;
+            }
+        }
+        else {
+            //If the index id down the list
+            std::pair<int64_t, int64_t> temp = pivot_list[ i ].first;
+            pivot_list[ i ].first = pivot_list[ index ].first;
+            pivot_list[ index ].first = temp;
+        }
     }
 
-     for (int i = 0; i < diag_len; ++i){
+    for (int i = 0; i < diag_len; ++i) {
 
-         aux_pivot[ 0 ][ i ].set_tileIndex(pivot_list[ i ].first.first);
-         aux_pivot[ 0 ][ i ].set_elementOffset(pivot_list[ i ].first.second);
-     }
+        aux_pivot[ 0 ][ i ].set_tileIndex(pivot_list[ i ].first.first);
+        aux_pivot[ 0 ][ i ].set_elementOffset(pivot_list[ i ].first.second);
+    }
 
 }
 
@@ -109,30 +109,30 @@ void getrf_tntpiv(
     std::vector<scalar_t> top_block(ib*nb);
 
     #if 1
-       omp_set_nested(1);
-       // Launching new threads for the panel guarantees progression.
-       // This should never deadlock, but may be detrimental to performance.
-       #pragma omp parallel for \
-           num_threads(thread_size) \
-           shared(thread_barrier, max_value, max_index, max_offset, \
-                 top_block, aux_pivot)
+    omp_set_nested(1);
+    // Launching new threads for the panel guarantees progression.
+    // This should never deadlock, but may be detrimental to performance.
+    #pragma omp parallel for \
+    num_threads(thread_size) \
+    shared(thread_barrier, max_value, max_index, max_offset, \
+           top_block, aux_pivot)
     #else
-      // Issuing panel operation as tasks may cause a deadlock.
-       #pragma omp taskloop \
-           num_tasks(thread_size) \
-           shared(thread_barrier, max_value, max_index, max_offset, \
-                top_block, aux_pivot)
+    // Issuing panel operation as tasks may cause a deadlock.
+    #pragma omp taskloop \
+    num_tasks(thread_size) \
+    shared(thread_barrier, max_value, max_index, max_offset, \
+           top_block, aux_pivot)
     #endif
 
     for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
         // Factor the panel in parallel.
         getrf_tntpiv(diag_len, ib, stage,
-        tiles, tile_indices,
-        aux_pivot,
-        mpi_rank,
-        thread_rank, thread_size,
-        thread_barrier,
-        max_value, max_index, max_offset, top_block);
+                     tiles, tile_indices,
+                     aux_pivot,
+                     mpi_rank,
+                     thread_rank, thread_size,
+                     thread_barrier,
+                     max_value, max_index, max_offset, top_block);
     }
     #pragma omp taskwait
 
@@ -145,12 +145,12 @@ void getrf_tntpiv(
 ///
 template <Target target, typename scalar_t>
 void getrf_tntpiv(Matrix<scalar_t>&& A, Matrix<scalar_t>&& Awork,
-           int64_t diag_len, int64_t ib,
-           std::vector<Pivot>& pivot,
-           int max_panel_threads, int priority)
+                  int64_t diag_len, int64_t ib,
+                  std::vector<Pivot>& pivot,
+                  int max_panel_threads, int priority)
 {
     getrf_tntpiv(internal::TargetType<target>(),
-        A, Awork, diag_len, ib, pivot, max_panel_threads, priority);
+                 A, Awork, diag_len, ib, pivot, max_panel_threads, priority);
 }
 
 //------------------------------------------------------------------------------
@@ -159,10 +159,10 @@ void getrf_tntpiv(Matrix<scalar_t>&& A, Matrix<scalar_t>&& Awork,
 ///
 template <typename scalar_t>
 void getrf_tntpiv(internal::TargetType<Target::HostTask>,
-           Matrix<scalar_t>& A, Matrix<scalar_t>& Awork,
-           int64_t diag_len, int64_t ib,
-           std::vector<Pivot>& pivot,
-           int max_panel_threads, int priority)
+                  Matrix<scalar_t>& A, Matrix<scalar_t>& Awork,
+                  int64_t diag_len, int64_t ib,
+                  std::vector<Pivot>& pivot,
+                  int max_panel_threads, int priority)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
@@ -232,16 +232,16 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
 
         // Factor the panel locally in parallel.
         getrf_tntpiv(tiles, piv_len, ib, 0,
-            A.tileNb(0), tile_indices, aux_pivot,
-            A.mpiRank(), max_panel_threads, priority);
+                    A.tileNb(0), tile_indices, aux_pivot,
+                    A.mpiRank(), max_panel_threads, priority);
 
-       if( nranks > 1 ){
+        if ( nranks > 1 ) {
 
-           internal::copy<Target::HostTask>( std::move(A), std::move(Awork) );
+            internal::copy<Target::HostTask>( std::move(A), std::move(Awork) );
 
-           std::vector< std::vector<std::pair<int, int64_t>> > global_tracking(tile_indices.size());
+            std::vector< std::vector<std::pair<int, int64_t>> > global_tracking(tile_indices.size());
 
-           for (int i=0; i < int(tile_indices.size()); i++) {
+            for (int i=0; i < int(tile_indices.size()); i++) {
                 global_tracking[i].reserve(A.tileMb(0));
 
                 for (int64_t j = 0; j < A.tileMb(0); ++j) {
@@ -252,9 +252,9 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
 
             std::pair<int, int64_t> global_pair;
 
-            for(int j=0; j < piv_len ; ++j){
+            for (int j=0; j < piv_len ; ++j) {
                 if (aux_pivot[0][j].localTileIndex() > 0 ||
-                    aux_pivot[0][j].localOffset() > j){
+                    aux_pivot[0][j].localOffset() > j) {
 
                     swapLocalRow(
                         0, A.tileNb(0),
@@ -268,23 +268,23 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                     global_pair = global_tracking[0][j];
                     global_tracking[0][j] = global_tracking[index][offset];
                     global_tracking[index][offset]=global_pair;
-               }
+                }
             }
 
 
-            for(int j=0; j < piv_len ; ++j){
+            for (int j=0; j < piv_len ; ++j) {
                 aux_pivot[0][j].set_tileIndex(global_tracking[0][j].first);
                 aux_pivot[0][j].set_elementOffset(global_tracking[0][j].second);
             }
 
-           int step =1;
-           int src, dst;
-           int64_t i_src, i_dst, i_current;
+            int step =1;
+            int src, dst;
+            int64_t i_src, i_dst, i_current;
 
-           for (int level = 0; level < nlevels; ++level){
+            for (int level = 0; level < nlevels; ++level) {
 
-               if(index % (2*step) == 0){
-                   if(index + step < nranks){
+                if (index % (2*step) == 0) {
+                    if (index + step < nranks) {
 
                         src = rank_rows[ index + step].first;
                         i_current = rank_rows[ index ].second;
@@ -294,8 +294,8 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
 
                         MPI_Status status;
                         MPI_Recv(aux_pivot.at(1).data(),
-                            sizeof(AuxPivot<scalar_t>)*aux_pivot.at(1).size(),
-                            MPI_BYTE, src, 0, A.mpiComm(),  &status);
+                                 sizeof(AuxPivot<scalar_t>)*aux_pivot.at(1).size(),
+                                 MPI_BYTE, src, 0, A.mpiComm(),  &status);
 
                         //Alocate workspace to copy tiles in the tree reduction.
                         std::vector< Tile<scalar_t> > local_tiles;
@@ -303,9 +303,9 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                         std::vector<scalar_t> data2( Awork.tileMb(i_dst) * Awork.tileNb(0) );
 
                         Tile<scalar_t> tile1( Awork.tileMb(i_current), Awork.tileNb(0),
-                            &data1[0], Awork.tileMb(i_current), A.hostNum(), TileKind::Workspace );
+                                              &data1[0], Awork.tileMb(i_current), A.hostNum(), TileKind::Workspace );
                         Tile<scalar_t> tile2( Awork.tileMb(i_dst), Awork.tileNb(0),
-                            &data2[0], Awork.tileMb(i_dst), A.hostNum(), TileKind::Workspace );
+                                              &data2[0], Awork.tileMb(i_dst), A.hostNum(), TileKind::Workspace );
 
                         local_tiles.push_back( tile1 );
                         local_tiles.push_back( tile2 );
@@ -317,27 +317,27 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
 
                         // Factor the panel locally in parallel.
                         getrf_tntpiv(local_tiles, piv_len, ib, 1,
-                            A.tileNb(0), tile_indices, aux_pivot,
-                            A.mpiRank(), max_panel_threads, priority);
+                                     A.tileNb(0), tile_indices, aux_pivot,
+                                     A.mpiRank(), max_panel_threads, priority);
 
                         std::vector< Tile<scalar_t> > ptiles;
                         ptiles.push_back(Awork(i_current, 0));
                         ptiles.push_back(Awork(i_dst, 0));
 
-                        for(int j=0; j < piv_len ; ++j){
+                        for (int j=0; j < piv_len ; ++j) {
                             if (aux_pivot[0][j].localTileIndex() > 0 ||
-                                aux_pivot[0][j].localOffset() > j){
+                                aux_pivot[0][j].localOffset() > j) {
 
                                 swapLocalRow(
                                     0, A.tileNb(0),
                                     ptiles[0], j,
                                     ptiles[aux_pivot[0][j].localTileIndex()],
                                     aux_pivot[0][j].localOffset());
-                           }
+                            }
 
                         }
 
-                        if(level == nlevels-1){
+                        if (level == nlevels-1) {
                             // Copy the last factorization back to panel tile
                             local_tiles[0].copyData(&ptiles[0]);
                             pivot_list(aux_pivot, diag_len, A.mt());
@@ -349,7 +349,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                         local_tiles.clear();
                     }
                 }
-                else{
+                else {
 
                     dst = rank_rows[ index - step ].first;
                     i_src = rank_rows[ index ].second;
@@ -357,20 +357,20 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                     Awork.tileSend(i_src, 0, dst);
 
                     MPI_Send(aux_pivot.at(0).data(),
-                        sizeof(AuxPivot<scalar_t>)*aux_pivot.at(0).size(),
-                        MPI_BYTE, dst, 0, A.mpiComm());
+                            sizeof(AuxPivot<scalar_t>)*aux_pivot.at(0).size(),
+                            MPI_BYTE, dst, 0, A.mpiComm());
                     break;
                 }
-              step *= 2;
+                step *= 2;
 
             }// for loop over levels
         }
 
-       // Copy pivot information from aux_pivot to pivot.
-       for (int64_t i = 0; i < diag_len; ++i) {
-           pivot[i] = Pivot(aux_pivot[0][i].tileIndex(),
-                     aux_pivot[0][i].elementOffset());
-       }
+        // Copy pivot information from aux_pivot to pivot.
+        for (int64_t i = 0; i < diag_len; ++i) {
+            pivot[i] = Pivot(aux_pivot[0][i].tileIndex(),
+                            aux_pivot[0][i].elementOffset());
+        }
     }
 }
 

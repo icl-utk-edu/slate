@@ -50,7 +50,7 @@ void test_unmtr_hb2st_work(Params& params, bool run)
 
     if (! run)
         return;
-    
+
     if (origin == slate::Origin::ScaLAPACK) {
         params.msg() = "skipping: currently origin=scalapack is not supported";
         return;
@@ -59,7 +59,7 @@ void test_unmtr_hb2st_work(Params& params, bool run)
         params.msg() = "skipping: currently origin=devices is not supported";
         return;
     }
-    
+
     slate::Options const opts =  {
         {slate::Option::Target, target}
     };
@@ -92,21 +92,19 @@ void test_unmtr_hb2st_work(Params& params, bool run)
         // Diagonal from he2hb is real.
         Afull_data[j + j*lda] = real( Afull_data[j + j*lda] );
     }
-    
+
     print_matrix( "Afull_data", n, n, &Afull_data[0], lda, params );
 
     slate::Target origin_target = origin2target(origin);
-    auto Afull = slate::HermitianMatrix<scalar_t>::fromLAPACK( // TODO: fromScaLAPACK
-        uplo, n, &Afull_data[0], lda, nb, p, q, MPI_COMM_WORLD);
+    auto Afull = slate::HermitianMatrix<scalar_t>::fromLAPACK( // todo: fromScaLAPACK
+                     uplo, n, &Afull_data[0], lda, nb, p, q, MPI_COMM_WORLD);
 
     // Copy band of Afull, currently to rank 0.
     auto Aband = slate::HermitianBandMatrix<scalar_t>(
-        uplo, n, band, nb,
-        1, 1, MPI_COMM_WORLD);
+                     uplo, n, band, nb,
+                     1, 1, MPI_COMM_WORLD);
     Aband.insertLocalTiles(origin_target);
     Aband.he2hbGather( Afull );
-
-    //print_matrix( "Aband", Aband, params );
 
     //--------------------
     // [code copied from heev.cc]
@@ -124,7 +122,6 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     if (mpi_rank == 0) {
         slate::hb2st(Aband, V);
     }
-    //print_matrix( "Aband2", Aband, params );
     print_matrix( "V", V, params );
 
     // Set Q = Identity. Use 1D column cyclic.
@@ -132,30 +129,11 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     Q.insertLocalTiles(origin_target);
     set(zero, one, Q);
     print_matrix( "Q0", Q, params );
-/*
-    if(mpi_rank == 0) {
-        printf("0V\n");
-        slate::Debug::printTilesMaps(V);
-        printf("0Q\n");
-        slate::Debug::printTilesMaps(Q);
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
-    if(mpi_rank == 1) {
-        printf("1V\n");
-        slate::Debug::printTilesMaps(V);
-        printf("1Q\n");
-        slate::Debug::printTilesMaps(Q);
-    }
-    MPI_Barrier(MPI_COMM_WORLD);
-    if(mpi_rank == 2) {
-        printf("2V\n");
-        slate::Debug::printTilesMaps(V);
-        printf("2Q\n");
-        slate::Debug::printTilesMaps(Q);
-    }
-*/
-    if (trace) slate::trace::Trace::on();
-    else slate::trace::Trace::off();
+
+    if (trace)
+        slate::trace::Trace::on();
+    else
+        slate::trace::Trace::off();
 
     double time = barrier_get_wtime(MPI_COMM_WORLD);
 
@@ -165,7 +143,8 @@ void test_unmtr_hb2st_work(Params& params, bool run)
     slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, V, Q, opts);
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-    if (trace) slate::trace::Trace::finish();
+    if (trace)
+        slate::trace::Trace::finish();
 
     // compute and save timing/performance
     params.time() = time;

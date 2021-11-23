@@ -25,7 +25,7 @@ void pivot_list(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
     for (int i = 0; i < diag_len; i++) {
 
         global_info.push_back({aux_pivot[ 0 ][ i ].tileIndex(),
-                                aux_pivot[ 0 ][ i ].elementOffset()});
+                               aux_pivot[ 0 ][ i ].elementOffset()});
     }
 
     std::vector<std::pair<std::pair<int64_t, int64_t>,
@@ -109,19 +109,19 @@ void getrf_tntpiv(
     std::vector<scalar_t> top_block(ib*nb);
 
     #if 1
-    omp_set_nested(1);
-    // Launching new threads for the panel guarantees progression.
-    // This should never deadlock, but may be detrimental to performance.
-    #pragma omp parallel for \
-    num_threads(thread_size) \
-    shared(thread_barrier, max_value, max_index, max_offset, \
-           top_block, aux_pivot)
+        omp_set_nested(1);
+        // Launching new threads for the panel guarantees progression.
+        // This should never deadlock, but may be detrimental to performance.
+        #pragma omp parallel for \
+        num_threads(thread_size) \
+        shared(thread_barrier, max_value, max_index, max_offset, \
+                      top_block, aux_pivot)
     #else
-    // Issuing panel operation as tasks may cause a deadlock.
-    #pragma omp taskloop \
-    num_tasks(thread_size) \
-    shared(thread_barrier, max_value, max_index, max_offset, \
-           top_block, aux_pivot)
+        // Issuing panel operation as tasks may cause a deadlock.
+        #pragma omp taskloop \
+        num_tasks(thread_size) \
+        shared(thread_barrier, max_value, max_index, max_offset, \
+                      top_block, aux_pivot)
     #endif
 
     for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
@@ -232,8 +232,8 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
 
         // Factor the panel locally in parallel.
         getrf_tntpiv(tiles, piv_len, ib, 0,
-                    A.tileNb(0), tile_indices, aux_pivot,
-                    A.mpiRank(), max_panel_threads, priority);
+                     A.tileNb(0), tile_indices, aux_pivot,
+                     A.mpiRank(), max_panel_threads, priority);
 
         if ( nranks > 1 ) {
 
@@ -357,8 +357,8 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                     Awork.tileSend(i_src, 0, dst);
 
                     MPI_Send(aux_pivot.at(0).data(),
-                            sizeof(AuxPivot<scalar_t>)*aux_pivot.at(0).size(),
-                            MPI_BYTE, dst, 0, A.mpiComm());
+                             sizeof(AuxPivot<scalar_t>)*aux_pivot.at(0).size(),
+                             MPI_BYTE, dst, 0, A.mpiComm());
                     break;
                 }
                 step *= 2;
@@ -369,7 +369,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
         // Copy pivot information from aux_pivot to pivot.
         for (int64_t i = 0; i < diag_len; ++i) {
             pivot[i] = Pivot(aux_pivot[0][i].tileIndex(),
-                            aux_pivot[0][i].elementOffset());
+                             aux_pivot[0][i].elementOffset());
         }
     }
 }

@@ -25,8 +25,8 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void getrf_tntpiv(slate::internal::TargetType<target>,
-           Matrix<scalar_t>& A, Pivots& pivots,
-           int64_t ib, int max_panel_threads, int64_t lookahead)
+                  Matrix<scalar_t>& A, Pivots& pivots,
+                  int64_t ib, int max_panel_threads, int64_t lookahead)
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
@@ -71,7 +71,7 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
     SLATE_UNUSED(listBcastMT_token); // Only used by OpenMP
 
 
-   // workspace
+    // workspace
     auto Awork = A.emptyLike();
 
     #pragma omp parallel
@@ -117,36 +117,37 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                 //broadcast panel
                 BcastList bcast_list_A;
                 bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
-                   A.sub(k, k, k+1, A_nt-1)}});
+                                               A.sub(k, k, k+1, A_nt-1)}});
+
                 A.template listBcast<target>(
                     bcast_list_A, host_layout, tag_k, life_factor_one, is_shared);
 
                 Apanel.clear();
-           }
+            }
 
             #pragma omp task depend(inout:column[k]) \
                             depend(inout:listBcastMT_token) \
                             priority(priority_one)
-           {
-               auto Akk = A.sub(k, k, k, k);
-               auto Tkk = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Akk);
+            {
+                auto Akk = A.sub(k, k, k, k);
+                auto Tkk = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Akk);
 
-               internal::trsm<target>(
-                       Side::Right,
-                       scalar_t(1.0), std::move(Tkk),
-                       A.sub(k+1, A_mt-1, k, k),
-                       priority_one, Layout::ColMajor, queue_0);
+                internal::trsm<target>(
+                    Side::Right,
+                    scalar_t(1.0), std::move(Tkk),
+                    A.sub(k+1, A_mt-1, k, k),
+                    priority_one, Layout::ColMajor, queue_0);
 
-               BcastListTag bcast_list;
-               // bcast the tiles of the panel to the right hand side
-               for (int64_t i = k+1; i < A_mt; ++i) {
-                   // send A(i, k) across row A(i, k+1:nt-1)
-                   const int64_t tag = i;
-                   bcast_list.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}, tag});
-               }
-               A.template listBcastMT<target>(
-                   bcast_list, Layout::ColMajor, life_factor_one, is_shared);
-           }
+                BcastListTag bcast_list;
+                // bcast the tiles of the panel to the right hand side
+                for (int64_t i = k+1; i < A_mt; ++i) {
+                    // send A(i, k) across row A(i, k+1:nt-1)
+                    const int64_t tag = i;
+                    bcast_list.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}, tag});
+                }
+                A.template listBcastMT<target>(
+                    bcast_list, Layout::ColMajor, life_factor_one, is_shared);
+            }
 
             // update lookahead column(s), high priority
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
@@ -156,8 +157,8 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                 {
                     int tag_j = j;
                     internal::permuteRows<target>(
-                            Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
-                            target_layout, priority_one, tag_j, j-k+1);
+                        Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
+                        target_layout, priority_one, tag_j, j-k+1);
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
@@ -176,11 +177,11 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
 
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                     internal::gemm<target>(
-                            scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
-                                            A.sub(k, k, j, j),
-                            scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
-                            host_layout, priority_one, j-k+1);
-               }
+                        scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
+                        A.sub(k, k, j, j),
+                        scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
+                        host_layout, priority_one, j-k+1);
+                }
             }
 
             // pivot to the left
@@ -207,8 +208,8 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                     // swap rows in A(k:mt-1, kl+1:nt-1)
                     int tag_kl1 = k+1+lookahead;
                     internal::permuteRows<target>(
-                            Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
-                            pivots.at(k), target_layout, priority_zero, tag_kl1, queue_1);
+                        Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
+                        pivots.at(k), target_layout, priority_zero, tag_kl1, queue_1);
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
@@ -218,7 +219,7 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                     internal::trsm<target>(
                         Side::Left,
                         scalar_t(1.0), std::move(Tkk),
-                                       A.sub(k, k, k+1+lookahead, A_nt-1),
+                        A.sub(k, k, k+1+lookahead, A_nt-1),
                         priority_zero, Layout::ColMajor, queue_1);
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
@@ -236,7 +237,7 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
                         scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
-                                        A.sub(k, k, k+1+lookahead, A_nt-1),
+                        A.sub(k, k, k+1+lookahead, A_nt-1),
                         scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
                         host_layout, priority_zero, queue_1);
                 }
@@ -256,7 +257,7 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                                 A.tileRelease(i, k, device);
                             }
                         }
-                     }
+                    }
                 }
             }
 
@@ -280,7 +281,7 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
 ///
 template <Target target, typename scalar_t>
 void getrf_tntpiv(Matrix<scalar_t>& A, Pivots& pivots,
-           Options const& opts)
+                  Options const& opts)
 {
     int64_t lookahead;
     try {
@@ -310,8 +311,8 @@ void getrf_tntpiv(Matrix<scalar_t>& A, Pivots& pivots,
     }
 
     internal::specialization::getrf_tntpiv(internal::TargetType<target>(),
-                                    A, pivots,
-                                    ib, max_panel_threads, lookahead);
+                                           A, pivots,
+                                           ib, max_panel_threads, lookahead);
 }
 
 //------------------------------------------------------------------------------
@@ -369,7 +370,7 @@ void getrf_tntpiv(Matrix<scalar_t>& A, Pivots& pivots,
 ///
 template <typename scalar_t>
 void getrf_tntpiv(Matrix<scalar_t>& A, Pivots& pivots,
-           Options const& opts)
+                  Options const& opts)
 {
     Target target;
     try {

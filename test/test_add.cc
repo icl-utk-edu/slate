@@ -349,10 +349,8 @@ void test_add_work(Params& params, bool run)
         A = conjTranspose(A);
 */
 
-    if (verbose >= 1) {
-        print_matrix("A", A, params);
-        print_matrix("B", B, params);
-    }
+    print_matrix("A", A, params);
+    print_matrix("B", B, params);
 
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
@@ -412,6 +410,9 @@ void test_add_work(Params& params, bool run)
             { omp_num_threads = omp_get_num_threads(); }
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
+            print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD, params);
+            print_matrix("Bref", mlocB, nlocB, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD, params);
+
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
@@ -425,10 +426,8 @@ void test_add_work(Params& params, bool run)
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            if (verbose >= 1) {
-                print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD);
-                print_matrix("Bref", mlocA, nlocA, &Bref_data[0], lldA, p, q, MPI_COMM_WORLD);
-            }
+            print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD);
+            print_matrix("Bref", mlocA, nlocA, &Bref_data[0], lldA, p, q, MPI_COMM_WORLD);
 
             // get differences A = A - Aref
             subtract_matrix(Aref,A);
@@ -436,10 +435,8 @@ void test_add_work(Params& params, bool run)
             // get differences B = B - Bref
             subtract_matrix(Bref,B);
 
-            if (verbose >= 1) {
-                print_matrix("DiffA", A, params);
-                print_matrix("DiffB", B, params);
-            }
+            print_matrix("DiffA", A, params);
+            print_matrix("DiffB", B, params);
 
             // norm(A - Aref)
             real_t A_diff_norm = slate::norm(slate::Norm::One, A);

@@ -48,7 +48,6 @@ void test_copy_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::Uplo uplo;
@@ -81,8 +80,8 @@ void test_copy_work(Params& params, bool run)
     std::vector<scalar_t> A_data;
 
     // Matrix B: using the fact that B must be same dimensions as A.
-    int64_t nlocB, lldB;
-    nlocB = nlocA, lldB = lldA;
+    int64_t mlocB, nlocB, lldB;
+    mlocB = mlocA, nlocB = nlocA, lldB = lldA;
     std::vector<scalar_t> B_data;
 
     matrix_type A, B;
@@ -215,9 +214,7 @@ void test_copy_work(Params& params, bool run)
         slate::add(one, A, zero, Aref); // copying A into Aref, without using the copy routine
     }
 
-    if (verbose > 1) {
-        print_matrix("A", A, params);
-    }
+    print_matrix("A", A, params);
 
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
@@ -272,6 +269,8 @@ void test_copy_work(Params& params, bool run)
             { omp_num_threads = omp_get_num_threads(); }
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
+            print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD, params);
+
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
@@ -282,6 +281,8 @@ void test_copy_work(Params& params, bool run)
 
             slate_assert(info == 0);
 
+            print_matrix("Bref", mlocB, nlocA, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD, params);
+
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             // get differences A = A - Aref
@@ -289,6 +290,9 @@ void test_copy_work(Params& params, bool run)
 
             // get differences B = B - Bref
             slate::add(-one, Bref, one, B);
+
+            print_matrix("DiffA", A, params);
+            print_matrix("DiffB", B, params);
 
             // norm(A - Aref)
             real_t A_diff_norm = norm(slate::Norm::One, A, opts);

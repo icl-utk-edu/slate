@@ -218,7 +218,7 @@ void he2hb(slate::internal::TargetType<target>,
                                 bcast_list_T.push_back(
                                     {i, k, {Treduce.sub(i, i, k+1, i)}});
                                 bcast_list_T.push_back(
-                                //    {i, k, {Treduce.sub(i+1, nt-1, i, i)}});
+                                    {i, k, {Treduce.sub(i+1, nt-1, i, i)}});
                                 //bcast_list_T.push_back(
                                 //    {i, k, {Treduce.sub(i, i, k+1, i),
                                 //            Treduce.sub(i+1, nt-1, i, i)},

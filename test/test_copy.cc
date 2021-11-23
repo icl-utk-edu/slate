@@ -281,9 +281,9 @@ void test_copy_work(Params& params, bool run)
 
             slate_assert(info == 0);
 
-            print_matrix("Bref", mlocB, nlocA, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD, params);
-
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+
+            print_matrix("Bref", mlocB, nlocA, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD, params);
 
             // get differences A = A - Aref
             slate::add(-one, Aref, one, A);

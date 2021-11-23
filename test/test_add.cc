@@ -426,8 +426,8 @@ void test_add_work(Params& params, bool run)
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD);
-            print_matrix("Bref", mlocA, nlocA, &Bref_data[0], lldA, p, q, MPI_COMM_WORLD);
+            print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD, params);
+            print_matrix("Bref", mlocA, nlocA, &Bref_data[0], lldA, p, q, MPI_COMM_WORLD, params);
 
             // get differences A = A - Aref
             subtract_matrix(Aref,A);

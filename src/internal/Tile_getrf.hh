@@ -261,7 +261,7 @@ void getrf(
                               MPI_BYTE, max_loc.loc, mpi_comm));
 
                 // pivot swap
-                getrf_swap(j, k, kb,
+                getrf_swap(j, 0, nb,
                            tiles, pivot,
                            mpi_rank, mpi_root, mpi_comm);
 
@@ -350,15 +350,7 @@ void getrf(
 
         // If there is a trailing submatrix.
         if (k+kb < nb) {
-            //======================
-            // pivoting to the right
             if (thread_rank == 0) {
-                for (int64_t i = k; i < k+kb; ++i) {
-                    getrf_swap(i, k+kb, nb-k-kb,
-                               tiles, pivot,
-                               mpi_rank, mpi_root, mpi_comm);
-                }
-
                 if (root) {
                     // triangular solve
                     auto top_tile = tiles[0];
@@ -409,19 +401,6 @@ void getrf(
                                      top_block.data(), kb,
                                one,  &tile.at(0, k+kb), tile.stride());
                 }
-            }
-            thread_barrier.wait(thread_size);
-        }
-    }
-
-    //=====================
-    // pivoting to the left
-    if (thread_rank == 0) {
-        for (int64_t k = ib; k < diag_len; k += ib) {
-            for (int64_t i = k; i < k+ib && i < diag_len; ++i) {
-                getrf_swap(i, 0, k,
-                           tiles, pivot,
-                           mpi_rank, mpi_root, mpi_comm);
             }
         }
     }

@@ -31,9 +31,7 @@ void he2hb(slate::internal::TargetType<target>,
            TriangularFactors<scalar_t>& T,
            int64_t ib, int max_panel_threads)
 {
-    // todo: delete the BcastList and listBcast after checking performance with listBcastMT	
-    using BcastList = typename HermitianMatrix<scalar_t>::BcastList;
-    //using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
+    using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
     using blas::real;
 
     assert(A.uplo() == Uplo::Lower);  // for now
@@ -174,59 +172,42 @@ void he2hb(slate::internal::TargetType<target>,
                 if (k < nt-1) {
 
                     // Send V across row i & col i for trailing matrix update.
-                    BcastList bcast_list_V_first;
-                    BcastList bcast_list_V;
-                    //BcastListTag bcast_list_V_first;
-                    //BcastListTag bcast_list_V;
+                    BcastListTag bcast_list_V_first;
+                    BcastListTag bcast_list_V;
                     for (int64_t i = k; i < nt; ++i) {
                         // Vs need 6 lives.
                         // Vs in first_indices (except top-most one, i == k+1)
                         // need 3 lives: for her2k, gemm_outer, and for hettmqr.
                         if (i > k+1 && std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end()) {
                             bcast_list_V_first.push_back(
-                                {i, k, {A.sub(i, i, k+1, i)}});
-                            bcast_list_V_first.push_back(
-                                 {i, k, {A.sub(i+1, nt-1, i, i)}});
-                            //bcast_list_V_first.push_back(
-                            //    {i, k, {A.sub(i, i, k+1, i),
-                            //            A.sub(i+1, nt-1, i, i)},
-                            //            i});
+                                {i, k, {A.sub(i, i, k+1, i),
+                                        A.sub(i+1, nt-1, i, i)},
+                                        i});
                         }
                         else {
                             bcast_list_V.push_back(
-                                {i, k, {A.sub(i, i, k+1, i)}});
-                            bcast_list_V.push_back(
-                                {i, k, {A.sub(i+1, nt-1, i, i)}});
-                            //bcast_list_V.push_back(
-                            //    {i, k, {A.sub(i, i, k+1, i),
-                            //            A.sub(i+1, nt-1, i, i)},
-                            //            i});
+                                {i, k, {A.sub(i, i, k+1, i),
+                                        A.sub(i+1, nt-1, i, i)},
+                                        i});
                         }
                     }
-                    A.template listBcast<target>(bcast_list_V_first, layout, 0, 3, set_hold);
-                    A.template listBcast<target>(bcast_list_V, layout, 0, 6, set_hold);
-                    //A.template listBcastMT<target>(bcast_list_V_first, layout, 3, set_hold);
-                    //A.template listBcastMT<target>(bcast_list_V, layout, 6, set_hold);
+                    A.template listBcastMT<target>(bcast_list_V_first, layout, 5, set_hold);
+                    A.template listBcastMT<target>(bcast_list_V, layout, 6, set_hold);
 
                     if (first_indices.size() > 1) {
-                        BcastList bcast_list_T;
-                        //BcastListTag bcast_list_T;
+                        //BcastList bcast_list_T;
+                        BcastListTag bcast_list_T;
                         for (int64_t i : first_indices) {
                             // Exclude first row of this panel,
                             // which doesn't have Treduce tile.
                             if (i > k+1) {
                                 bcast_list_T.push_back(
-                                    {i, k, {Treduce.sub(i, i, k+1, i)}});
-                                bcast_list_T.push_back(
-                                    {i, k, {Treduce.sub(i+1, nt-1, i, i)}});
-                                //bcast_list_T.push_back(
-                                //    {i, k, {Treduce.sub(i, i, k+1, i),
-                                //            Treduce.sub(i+1, nt-1, i, i)},
-                                //            i});
+                                    {i, k, {Treduce.sub(i, i, k+1, i),
+                                            Treduce.sub(i+1, nt-1, i, i)},
+                                            i});
                             }
                         }
-                        //Treduce.template listBcastMT(bcast_list_T, layout);
-                        Treduce.template listBcast(bcast_list_T, layout);
+                        Treduce.template listBcastMT(bcast_list_T, layout);
                     }
 
                     //TODO: keep only this indices loop
@@ -244,20 +225,15 @@ void he2hb(slate::internal::TargetType<target>,
                         // Send Tlocal across row i & col i for trailing matrix update
                         // todo: I think this sets Tlocal with too many lives
                         // -- needs only 1 life per rank, not # tiles.
-                        BcastList bcast_list_T;
-                        //BcastListTag bcast_list_T;
+                        //BcastList bcast_list_T;
+                        BcastListTag bcast_list_T;
                         for (int64_t i : indices) {
                             bcast_list_T.push_back(
-                                {i0, k, {Tlocal.sub(i, i, k+1, i)}});
-                            bcast_list_T.push_back(
-                                {i0, k, {Tlocal.sub(i+1, nt-1, i, i)}});
-                            //bcast_list_T.push_back(
-                            //    {i0, k, {Tlocal.sub(i, i, k+1, i),
-                            //            Tlocal.sub(i+1, nt-1, i, i)},
-                            //            i});
+                                {i0, k, {Tlocal.sub(i, i, k+1, i),
+                                        Tlocal.sub(i+1, nt-1, i, i)},
+                                        i});
                         }
-                        Tlocal.template listBcast<target>(bcast_list_T, layout, k, 1, set_hold);
-                        //Tlocal.template listBcastMT<target>(bcast_list_T, layout, 1, set_hold);
+                        Tlocal.template listBcastMT<target>(bcast_list_T, layout, 1, set_hold);
                     }
                 }
             }

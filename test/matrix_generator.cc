@@ -1260,7 +1260,7 @@ void generate_matrix(
 
         // circulant matrix for the vector 1:n
         case TestMatrixType::circul: {
-            const int64_t n = std::max(A.n(), A.m());
+            const int64_t max_mn = std::max(A.n(), A.m());
             #pragma omp parallel
             #pragma omp master
             {
@@ -1279,7 +1279,7 @@ void generate_matrix(
                                     for (int64_t jj = 0; jj < nb; ++jj) {
                                         auto diff = (j_global+jj) - (i_global+ii);
                                         A_ij.at(ii, jj) = diff
-                                                          + (diff < 0 ? n : 0) 
+                                                          + (diff < 0 ? max_mn : 0)
                                                           + 1;
                                     }
                                 }
@@ -1359,10 +1359,10 @@ void generate_matrix(
         }
 
         case TestMatrixType::orthog: {
-            const int64_t n = std::max(A.n(), A.m());
-            const scalar_t outer_const = sqrt(scalar_t(2)/scalar_t(n+1));
+            const int64_t max_mn = std::max(A.n(), A.m());
+            const scalar_t outer_const = sqrt(scalar_t(2)/scalar_t(max_mn+1));
             // pi = acos(-1)
-            const scalar_t inner_const = scalar_t(acos(-1))/scalar_t(n+1);
+            const scalar_t inner_const = scalar_t(acos(-1))/scalar_t(max_mn+1);
             #pragma omp parallel
             #pragma omp master
             {
@@ -1434,7 +1434,7 @@ void generate_matrix(
         }
 
         case TestMatrixType::ris: {
-            const int64_t n = std::max(A.n(), A.m());
+            const int64_t max_mn = std::max(A.n(), A.m());
             #pragma omp parallel
             #pragma omp master
             {
@@ -1451,7 +1451,7 @@ void generate_matrix(
                                 auto A_ij = A(i, j);
                                 for (int64_t ii = 0; ii < mb; ++ii) {
                                     for (int64_t jj = 0; jj < nb; ++jj) {
-                                        A_ij.at(ii, jj) = 0.5 / (n-(i_global+ii+1)-(j_global+jj+1)+1.5);
+                                        A_ij.at(ii, jj) = 0.5 / (max_mn-(i_global+ii+1)-(j_global+jj+1)+1.5);
                                     }
                                 }
                             }

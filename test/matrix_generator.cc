@@ -382,10 +382,10 @@ void generate_svd(
 
                 // Added local seed array for each process to prevent race condition contention of iseed
                 int64_t tile_iseed[4];
-                tile_iseed[0] = (iseed[0] + i) % 4096;
-                tile_iseed[1] = (iseed[1] + j) % 4096;
-                tile_iseed[2] =  iseed[2];
-                tile_iseed[3] =  iseed[3];
+                tile_iseed[0] = (iseed[0] + i/4096) % 4096;
+                tile_iseed[1] = (iseed[1] + j/4096) % 4096;
+                tile_iseed[2] = (iseed[2] + i)      % 4096;
+                tile_iseed[3] = (iseed[3] + j)      % 4096;
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
                     lapack::larnv(idist_randn, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
@@ -419,10 +419,10 @@ void generate_svd(
 
                 // Added local seed array for each process to prevent race condition contention of iseed
                 int64_t tile_iseed[4];
-                tile_iseed[0] = (iseed[0] + i) % 4096;
-                tile_iseed[1] = (iseed[1] + j) % 4096;
-                tile_iseed[2] =  iseed[2];
-                tile_iseed[3] =  iseed[3];
+                tile_iseed[0] = (iseed[0] + i/4096) % 4096;
+                tile_iseed[1] = (iseed[1] + j/4096) % 4096;
+                tile_iseed[2] = (iseed[2] + i)      % 4096;
+                tile_iseed[3] = (iseed[3] + j)      % 4096;
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
                     lapack::larnv(idist_randn, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
@@ -527,10 +527,10 @@ void generate_heev(
 
                 // Added local seed array for each process to prevent race condition contention of iseed
                 int64_t tile_iseed[4];
-                tile_iseed[0] = (iseed[0] + i) % 4096;
-                tile_iseed[1] = (iseed[1] + j) % 4096;
-                tile_iseed[2] =  iseed[2];
-                tile_iseed[3] =  iseed[3];
+                tile_iseed[0] = (iseed[0] + i/4096) % 4096;
+                tile_iseed[1] = (iseed[1] + j/4096) % 4096;
+                tile_iseed[2] = (iseed[2] + i)      % 4096;
+                tile_iseed[3] = (iseed[3] + j)      % 4096;
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
                     lapack::larnv(idist_rand, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
@@ -983,18 +983,31 @@ void decode_matrix(
     }
 }
 
-int64_t generate_seed(MPI_Comm comm) {
-    int64_t seed;
-    // use the time in milliseconds as the seed
-    seed = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-    // spread seeds measured close together
-    seed *= 1571;
-    // Correct seed range
-    seed %= 4096;
-    // ensure seeds are uniform across MPI ranks
-    slate_mpi_call(MPI_Bcast(&seed, 1, MPI_INT64_T, 0, comm));
+// -----------------------------------------------------------------------------
+/// Generates an arbitrary seed that is unlikely to be repeated
+void configure_seed(MPI_Comm comm, int64_t user_seed, int64_t iseed[4]) {
 
-    return seed;
+    // if the given seed is -1, generate a new seed
+    if (user_seed == -1) {
+        // use the highest resolution clock as the seed
+        using namespace std::chrono;
+        user_seed = duration_cast<high_resolution_clock::duration>(
+                        high_resolution_clock::now().time_since_epoch()).count();
+        // higher order bits cannot affect the final seed
+        user_seed %= int64_t(1) << 48;
+        // scramble low order bits with a prime number less than 2^15
+        user_seed *= 10477;
+    }
+
+
+    // ensure seeds are uniform across MPI ranks
+    slate_mpi_call(MPI_Bcast(&user_seed, 1, MPI_INT64_T, 0, comm));
+
+    // Assign bits across output seed
+    iseed[0] = (user_seed >> 35) % 4096;
+    iseed[1] = (user_seed >> 23) % 4096;
+    iseed[2] = (user_seed >> 11) % 4096;
+    iseed[3] = 2*(user_seed % 2048) + 1;
 }
 
 // -----------------------------------------------------------------------------
@@ -1163,10 +1176,8 @@ void generate_matrix(
     bool dominant;
     decode_matrix<scalar_t>(params, A, type, dist, cond, condD, sigma_max, dominant);
 
-    int64_t iseed[] = {params.seed(), 108, 97, 115};
-    if (iseed[0] == -1) {
-        iseed[0] = generate_seed(A.mpiComm());
-    }
+    int64_t iseed[4];
+    configure_seed(A.mpiComm(), params.seed(), iseed);
 
     int64_t n = A.n();
     int64_t nt = A.nt();
@@ -1473,10 +1484,10 @@ void generate_matrix(
                         int64_t lda = Aij.stride();
                         // Added local seed array for each process to prevent race condition contention of iseed
                         int64_t tile_iseed[4];
-                        tile_iseed[0] = (iseed[0] + i) % 4096;
-                        tile_iseed[1] = (iseed[1] + j) % 4096;
-                        tile_iseed[2] =  iseed[2];
-                        tile_iseed[3] =  iseed[3];
+                        tile_iseed[0] = (iseed[0] + i/4096) % 4096;
+                        tile_iseed[1] = (iseed[1] + j/4096) % 4096;
+                        tile_iseed[2] = (iseed[2] + i)      % 4096;
+                        tile_iseed[3] = (iseed[3] + j)      % 4096;
                         for (int64_t k = 0; k < Aij.nb(); ++k) {
                             lapack::larnv(idist, tile_iseed, Aij.mb(), &data[k*lda]);
                         }
@@ -1580,10 +1591,8 @@ void generate_matrix(
     bool dominant;
     decode_matrix<scalar_t>(params, A, type, dist, cond, condD, sigma_max, dominant);
 
-    int64_t iseed[] = {params.seed(), 108, 97, 115};
-    if (iseed[0] == -1) {
-        iseed[0] = generate_seed(A.mpiComm());
-    }
+    int64_t iseed[4];
+    configure_seed(A.mpiComm(), params.seed(), iseed);
 
     int64_t n = A.n();
     int64_t nt = A.nt();
@@ -1677,10 +1686,10 @@ void generate_matrix(
                             int64_t lda = Aij.stride();
                             // Added local seed array for each process to prevent race condition contention of iseed
                             int64_t tile_iseed[4];
-                            tile_iseed[0] = (iseed[0] + i) % 4096;
-                            tile_iseed[1] = (iseed[1] + j) % 4096;
-                            tile_iseed[2] =  iseed[2];
-                            tile_iseed[3] =  iseed[3];
+                            tile_iseed[0] = (iseed[0] + i/4096) % 4096;
+                            tile_iseed[1] = (iseed[1] + j/4096) % 4096;
+                            tile_iseed[2] = (iseed[2] + i)      % 4096;
+                            tile_iseed[3] = (iseed[3] + j)      % 4096;
                             for (int64_t k = 0; k < Aij.nb(); ++k) {
                                 lapack::larnv(idist, tile_iseed, Aij.mb(), &data[k*lda]);
                             }
@@ -1726,10 +1735,10 @@ void generate_matrix(
                             int64_t lda = Aij.stride();
                             // Added local seed array for each process to prevent race condition contention of iseed
                             int64_t tile_iseed[4];
-                            tile_iseed[0] = (iseed[0] + i) % 4096;
-                            tile_iseed[1] = (iseed[1] + j) % 4096;
-                            tile_iseed[2] =  iseed[2];
-                            tile_iseed[3] =  iseed[3];
+                            tile_iseed[0] = (iseed[0] + i/4096) % 4096;
+                            tile_iseed[1] = (iseed[1] + j/4096) % 4096;
+                            tile_iseed[2] = (iseed[2] + i)      % 4096;
+                            tile_iseed[3] = (iseed[3] + j)      % 4096;
                             for (int64_t k = 0; k < Aij.nb(); ++k) {
                                 lapack::larnv(idist, tile_iseed, Aij.mb(), &data[k*lda]);
                             }

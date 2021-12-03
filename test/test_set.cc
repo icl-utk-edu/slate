@@ -43,7 +43,6 @@ void test_set_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -113,9 +112,7 @@ void test_set_work(Params& params, bool run)
         // compute and save timing/performance
         params.time() = time;
 
-        if (verbose > 1)
-            print_matrix( "A", A );
-
+        print_matrix( "A", A, params);
     }
 
     if (check || ref) {
@@ -159,14 +156,12 @@ void test_set_work(Params& params, bool run)
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            if (verbose >= 2)
-                print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD);
+            print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD, params);
 
             // get differences A = A - Aref
             slate::add(-one, Aref, one, A);
 
-            if (verbose >= 2)
-                print_matrix("Diff", A);
+            print_matrix("Diff", A, params);
 
             // norm(A - Aref)
             real_t diff_norm = slate::norm(slate::Norm::One, A);

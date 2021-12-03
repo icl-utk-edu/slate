@@ -1159,7 +1159,7 @@ template <typename scalar_t>
 void Tile<scalar_t>::set(scalar_t offdiag_value, scalar_t diag_value)
 {
     lapack::MatrixType mtype = (lapack::MatrixType)uplo_;// TODO is this safe?
-    lapack::laset(mtype, mb(), nb(),
+    lapack::laset(mtype, mb_, nb_,
                   offdiag_value, diag_value,
                   data(), stride());
 }

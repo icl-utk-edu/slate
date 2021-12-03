@@ -545,7 +545,7 @@ void generate_heev(
     // we need to make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
     // However, currently we do geqrf here,
-    // since we donâ€™t have a way to make Householder vectors (no distributed larfg).
+    // since we don’t have a way to make Householder vectors (no distributed larfg).
     slate::geqrf(U, T);
 
     // A = U*A
@@ -659,7 +659,7 @@ void generate_matrix_usage()
     "jordan    |  ones on diagonal and first subdiagonal, rest zero\n"
     "circul    |  circulant matrix where the first column is [1, 2, ..., n]^T\n"
     "fiedler   |  matrix entry i,j equal to |i - j|\n"
-    "gfpp      |  growth factorfor gesv of 1.5^n\n"
+    "gfpp      |  growth factor for gesv of 1.5^n\n"
     "orthog    |  matrix entry i,j equal to sqrt(2/(n+1))sin(i*j*pi/(n+1))\n"
     "riemann   |  matrix entry i,j equal to i+1 if j+2 divides i+2 elso -1\n"
     "ris       |  matrix entry i,j equal to 0.5/(n-i-j+1.5)\n"

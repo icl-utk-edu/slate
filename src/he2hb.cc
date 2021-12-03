@@ -60,27 +60,25 @@ void he2hb(slate::internal::TargetType<target>,
     auto Asave = A.emptyLike();
     const bool set_hold =  1;  // Do tileGetAndHold in the bcast
 
-    // Use W(0, 0) for TVAVT, since W(0, 0) is never used otherwise.
     slate::HermitianMatrix<scalar_t> W;
-    // todo: A.n() will loop on A tiles to compute n
     int64_t n = A.n();
     int64_t nb_A = A.tileNb(0);
-    // todo: how to get p and q??
-    int64_t p = 2, q = 2;
+    int nprow, npcol, myrow, mycol;
+    A.gridinfo( &nprow, &npcol, &myrow, &mycol );
     std::function<int64_t (int64_t j)> tileNb = [n, nb_A] (int64_t j) {
         return (j + 1)*nb_A > n ? n%nb_A : nb_A;
     };
     std::function<int (std::tuple<int64_t, int64_t> ij)>
-    tileRank = [p, q](std::tuple<int64_t, int64_t> ij) {
+    tileRank = [nprow, npcol](std::tuple<int64_t, int64_t> ij) {
         int64_t i = std::get<0>(ij);
         int64_t j = std::get<1>(ij);
-        return int(i%p + (j%q)*p);
+        return int(i%nprow + (j%npcol)*nprow);
     };
     int num_devices = blas::get_device_count();
     std::function<int (std::tuple<int64_t, int64_t> ij)>
-    tileDevice = [p, num_devices](std::tuple<int64_t, int64_t> ij) {
+    tileDevice = [nprow, num_devices](std::tuple<int64_t, int64_t> ij) {
         int64_t i = std::get<0>(ij);
-        return int(i/p)%num_devices;
+        return int(i/nprow)%num_devices;
     };
     W = slate::HermitianMatrix<scalar_t>(
             Uplo::Lower, n, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
@@ -88,9 +86,6 @@ void he2hb(slate::internal::TargetType<target>,
     W.tileInsert(0, 0);
     auto TVAVT = W.sub(0, 0, 0, 0);
     int num_queues = 10;
-
-    // No lookahead is possible, so no need to track dependencies --
-    // just execute tasks in order. Also, priority isn't needed.
 
     int my_rank = A.mpiRank();
 
@@ -151,7 +146,7 @@ void he2hb(slate::internal::TargetType<target>,
             //--------------------
             // QR of panel
             // local panel factorization
-            #pragma omp task depend(inout:block[k]) 
+            #pragma omp task depend(inout:block[k])
             {
                 internal::geqrf<Target::HostTask>(
                     std::move(A_panel),
@@ -282,7 +277,7 @@ void he2hb(slate::internal::TargetType<target>,
                                                 }
                                             }
                                         }
-    
+
                                         #pragma omp task default(shared)
                                         {
                                             A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
@@ -393,7 +388,7 @@ void he2hb(slate::internal::TargetType<target>,
                         #pragma omp taskwait
                     }
 
-                    #pragma omp task depend(inout:block[k]) depend(in:alloc_trailing[0]) 
+                    #pragma omp task depend(inout:block[k]) depend(in:alloc_trailing[0])
                     {
                         internal::he2hb_trmm<target>(
                             // todo: needed to get the rank, try replace it with W
@@ -418,7 +413,7 @@ void he2hb(slate::internal::TargetType<target>,
                         // Call internal::geset
 
                         #pragma omp task depend(in:block[k]) \
-                                         depend(inout:block[0]) depend(in:alloc_trailing[0]) 
+                                         depend(inout:block[0]) depend(in:alloc_trailing[0])
                         {
                             auto AT = conjTranspose(A.sub(k+1, nt-1, k, k));
                             W.tileGetForWriting(0, 0, W.hostNum(),
@@ -465,7 +460,7 @@ void he2hb(slate::internal::TargetType<target>,
                         // 1d. W = W - 0.5 V TVAVT.
                         // Technically, could do a hemm here since TVAVT is Hermitian.
                         #pragma omp task depend(in:block[0]) \
-                                         depend(inout:block[k]) depend(inout:alloc_trailing[0]) 
+                                         depend(inout:block[k]) depend(inout:alloc_trailing[0])
                         {
                             internal::he2hb_gemm<target>(
                                 -half, A.sub(k+1, nt-1, k, k),
@@ -478,7 +473,7 @@ void he2hb(slate::internal::TargetType<target>,
                         // 2. Update trailing matrix.
                         #pragma omp task depend(in:block[k]) \
                                          depend(inout:block[k+1]) \
-                                         depend(inout:block[nt-1]) depend(inout:alloc_trailing[0]) 
+                                         depend(inout:block[nt-1]) depend(inout:alloc_trailing[0])
                         {
                             internal::her2k<target>(
                                 -one,  A.sub(k+1, nt-1, k, k),
@@ -499,7 +494,7 @@ void he2hb(slate::internal::TargetType<target>,
                         //todo: only for this one pass block dep
                         #pragma omp task depend(in:block[k]) \
                                          depend(inout:block[k+1]) \
-                                         depend(inout:block[nt-1]) depend(inout:alloc_trailing[0]) 
+                                         depend(inout:block[nt-1]) depend(inout:alloc_trailing[0])
                         {
                             internal::he2hb_gemm_outer<target>(
                                 -one, A.sub(k+1, nt-1, k, k),
@@ -525,7 +520,7 @@ void he2hb(slate::internal::TargetType<target>,
 
                 #pragma omp task depend(in:block[k]) \
                                  depend(inout:block[k+1]) \
-                                 depend(inout:block[nt-1]) depend(inout:alloc_trailing[0]) 
+                                 depend(inout:block[nt-1]) depend(inout:alloc_trailing[0])
                 {
                     internal::hettmqr<Target::HostTask>(
                         Op::ConjTrans,

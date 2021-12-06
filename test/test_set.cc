@@ -189,7 +189,7 @@ void test_set_work(Params& params, bool run)
         // compute and save timing/performance
         params.time() = time;
 
-        print_matrix("A", A, params);
+        print_matrix( "A", A, params);
 
     }
 

@@ -190,7 +190,6 @@ void test_set_work(Params& params, bool run)
         params.time() = time;
 
         print_matrix( "A", A, params);
-
     }
 
     if (check || ref) {

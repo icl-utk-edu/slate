@@ -565,6 +565,10 @@ if (opts.aux):
     [ 'hecopy', gen + dtype + n       + uplo ],
     [ 'scale',  gen + dtype + mn + ab        ],
     [ 'set',    gen + dtype + mn + ab        ],
+    [ 'tzset',  gen + dtype + mn + ab + uplo ],
+    [ 'trset',  gen + dtype +  n + ab + uplo ],
+    [ 'syset',  gen + dtype +  n + ab + uplo ],
+    [ 'heset',  gen + dtype +  n + ab + uplo ],
     ]
 
 # ------------------------------------------------------------------------------

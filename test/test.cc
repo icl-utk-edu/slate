@@ -232,6 +232,10 @@ std::vector< testsweeper::routines_t > routines = {
     { "hecopy",             test_copy,         Section::aux },
     { "scale",              test_scale,        Section::aux },
     { "set",                test_set,          Section::aux },
+    { "tzset",              test_set,          Section::aux },
+    { "trset",              test_set,          Section::aux },
+    { "syset",              test_set,          Section::aux },
+    { "heset",              test_set,          Section::aux },
     { "",                   nullptr,           Section::newline },
 };
 

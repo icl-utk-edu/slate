@@ -3,32 +3,28 @@
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
-#ifndef SLATE_PRINT_MATRIX_HH
-#define SLATE_PRINT_MATRIX_HH
+#ifndef SLATE_PRINT_HH
+#define SLATE_PRINT_HH
 
-#include "slate/print.hh"
-#include "test.hh"
+#include "slate/Matrix.hh"
+#include "slate/HermitianMatrix.hh"
+#include "slate/SymmetricMatrix.hh"
+#include "slate/TriangularMatrix.hh"
+#include "slate/BandMatrix.hh"
+#include "slate/TriangularBandMatrix.hh"
+#include "slate/HermitianBandMatrix.hh"
+#include "slate/types.hh"
+
+namespace slate {
 
 //------------------------------------------------------------------------------
 /// Print a LAPACK matrix. Should be called from only one rank.
 ///
 template <typename scalar_t>
-void print_matrix(
+void print(
     const char* label,
-    int64_t m, int64_t n, scalar_t* A, int64_t lda, Params params)
-{
-    if (params.verbose() == 0)
-        return;
-
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-    };
-
-    slate::print( label, m, n, A, lda, opts );
-}
+    int64_t m, int64_t n, scalar_t* A, int64_t lda,
+    slate::Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Print a ScaLAPACK distributed matrix.
@@ -36,23 +32,22 @@ void print_matrix(
 /// column indices. Rank 0 does the printing.
 ///
 template <typename scalar_t>
-void print_matrix(
+void print(
     const char* label,
     int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
     int p, int q, MPI_Comm comm,
-    Params& params)
-{
-    if (params.verbose() == 0)
-        return;
+    slate::Options const& opts);
 
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-    };
-    slate::print( label, mlocal, nlocal, A, lda, p, q, comm, opts );
-}
+//------------------------------------------------------------------------------
+/// Print a ScaLAPACK distributed matrix.
+/// Prints each rank's data as a contiguous block, numbered by the block row &
+/// column indices. Rank 0 does the printing.
+///
+template <typename scalar_t>
+void print(
+    const char* label,
+    int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
+    int p, int q, MPI_Comm comm );
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed matrix.
@@ -61,23 +56,21 @@ void print_matrix(
 /// For block-sparse matrices, missing tiles are print as "nan".
 ///
 template <typename scalar_t>
-void print_matrix(
+void print(
     const char* label,
     slate::Matrix<scalar_t>& A,
-    Params& params)
-{
-    if (params.verbose() == 0)
-        return;
+    slate::Options const& opts);
 
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-    };
-
-    slate::print( label, A, opts );
-}
+//------------------------------------------------------------------------------
+/// Print a SLATE distributed matrix.
+/// Rank 0 does the printing, and must have enough memory to fit one entire
+/// block row of the matrix.
+/// For block-sparse matrices, missing tiles are print as "nan".
+///
+template <typename scalar_t>
+void print(
+    const char* label,
+    slate::Matrix<scalar_t>& A);
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed band matrix.
@@ -87,23 +80,10 @@ void print_matrix(
 /// For block-sparse matrices, missing tiles are print as "nan".
 ///
 template <typename scalar_t>
-void print_matrix(
+void print(
     const char* label,
     slate::BandMatrix<scalar_t>& A,
-    Params& params)
-{
-    if (params.verbose() == 0)
-        return;
-
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-    };
-
-    slate::print( label, A, opts );
-}
+    slate::Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed BaseTriangular (triangular, symmetric, and
@@ -124,23 +104,10 @@ void print_matrix(
 /// This is to follow MATLAB convention and to make it easier for debugging.
 ///
 template <typename scalar_t>
-void print_matrix(
+void print(
     const char* label,
     slate::BaseTriangularBandMatrix<scalar_t>& A,
-    Params& params)
-{
-    if (params.verbose() == 0)
-        return;
-
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-    };
-
-    slate::print( label, A, opts );
-}
+    slate::Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed Hermitian matrix.
@@ -148,47 +115,20 @@ void print_matrix(
 /// todo: fix complex diag in Matlab? (Sca)LAPACK ignores imag part.
 ///
 template <typename scalar_t>
-void print_matrix(
+void print(
     const char* label,
     slate::HermitianMatrix<scalar_t>& A,
-    Params& params)
-{
-    if (params.verbose() == 0)
-        return;
-
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-    };
-
-    slate::print( label, A, opts );
-}
+    slate::Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed symmetric matrix.
 /// Also prints Matlab tril or triu command to fix entries in opposite triangle.
 ///
 template <typename scalar_t>
-void print_matrix(
+void print(
     const char* label,
     slate::SymmetricMatrix<scalar_t>& A,
-    Params& params)
-{
-    if (params.verbose() == 0)
-        return;
-
-    // Set defaults
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-    };
-
-    slate::print( label, A, opts );
-}
+    slate::Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed trapezoid matrix.
@@ -196,24 +136,10 @@ void print_matrix(
 /// todo: fix unit diag in Matlab.
 ///
 template <typename scalar_t>
-void print_matrix(
+void print(
     const char* label,
     slate::TrapezoidMatrix<scalar_t>& A,
-    Params& params)
-{
-    if (params.verbose() == 0)
-        return;
-
-    // Set defaults
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-    };
-
-    slate::print( label, A, opts );
-}
+    slate::Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed triangular matrix.
@@ -221,23 +147,33 @@ void print_matrix(
 /// todo: fix unit diag in Matlab.
 ///
 template <typename scalar_t>
-void print_matrix(
+void print(
     const char* label,
     slate::TriangularMatrix<scalar_t>& A,
-    Params& params)
-{
-    if (params.verbose() == 0)
-        return;
+    slate::Options const& opts);
 
-    // Set defaults
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-    };
+//------------------------------------------------------------------------------
+/// Print a vector.
+/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
+/// as desired.
+///
+template <typename scalar_t>
+void print(
+    const char* label,
+    int64_t n, scalar_t const* x, int64_t incx,
+    int width=10, int precision=4 );
 
-    slate::print( label, A, opts );
-}
+//------------------------------------------------------------------------------
+/// Print a vector.
+/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
+/// as desired.
+///
+template <typename scalar_type>
+void print(
+    const char* label,
+    std::vector<scalar_type> const& x,
+    int width=10, int precision=4 );
 
-#endif // SLATE_PRINT_MATRIX_HH
+} // namespace slate
+
+#endif // SLATE_PRINT_HH

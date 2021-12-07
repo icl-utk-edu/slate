@@ -166,6 +166,7 @@ std::string tile_row_string(
     char buf[ 80 ];
     std::string msg;
     try {
+        A.tileGetForReading( i, j, slate::LayoutConvert::None );
         tile_columns = A.tileNb(j);
         auto T = A(i, j);
         slate::Uplo uplo = T.uplo();

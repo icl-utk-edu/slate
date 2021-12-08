@@ -149,7 +149,7 @@ std::string tile_row_string(
 {
     int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 10 );
     int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
     int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
     assert( verbose >= 2 );
 
@@ -281,7 +281,7 @@ void print_work(
 
     int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 10 );
     int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
     int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
     if (verbose <= 1)
         return;
@@ -515,7 +515,7 @@ void print(
 {
     int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 10 );
     int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
 
     if (verbose == 0)
         return;
@@ -580,7 +580,7 @@ void print(
 {
     int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 10 );
     int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
     int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
 
     if (verbose == 0)
@@ -802,7 +802,7 @@ void print(
     slate::Matrix<scalar_t>& A,
     slate::Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
     if (verbose == 0)
         return;
 
@@ -905,7 +905,7 @@ void print(
     slate::BandMatrix<scalar_t>& A,
     slate::Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
     if (verbose == 0)
         return;
 
@@ -979,7 +979,7 @@ void print(
     slate::BaseTriangularBandMatrix<scalar_t>& A,
     slate::Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
     if (verbose == 0)
         return;
 
@@ -1046,7 +1046,7 @@ void print(
     slate::HermitianMatrix<scalar_t>& A,
     slate::Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
     if (verbose == 0)
         return;
 
@@ -1123,7 +1123,7 @@ void print(
     slate::SymmetricMatrix<scalar_t>& A,
     slate::Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
     if (verbose == 0)
         return;
 
@@ -1198,7 +1198,7 @@ void print(
     slate::TrapezoidMatrix<scalar_t>& A,
     slate::Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
     if (verbose == 0)
         return;
 
@@ -1273,7 +1273,7 @@ void print(
     slate::TriangularMatrix<scalar_t>& A,
     slate::Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 0 );
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
     if (verbose == 0)
         return;
 
@@ -1346,10 +1346,13 @@ template <typename scalar_t>
 void print(
     const char* label,
     int64_t n, scalar_t const* x, int64_t incx,
-    int width, int precision )
+    slate::Options const& opts)
 {
     slate_assert( n >= 0 );
     slate_assert( incx != 0 );
+
+    int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 10 );
+    int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
 
     width = std::max(width, precision + 6);
 
@@ -1363,6 +1366,52 @@ void print(
         ix += incx;
     }
     printf( "%s = [ %s ]';\n", label, msg.c_str() );
+}
+
+//------------------------------------------------------------------------------
+// Explicit instantiations.
+// ----------------------------------------
+template
+void print(
+    const char* label,
+    int64_t n, float const* x, int64_t incx,
+    slate::Options const& opts);
+
+template
+void print(
+    const char* label,
+    int64_t n, double const* x, int64_t incx,
+    slate::Options const& opts);
+
+template
+void print(
+    const char* label,
+    int64_t n, std::complex<float> const* x, int64_t incx,
+    slate::Options const& opts);
+
+template
+void print(
+    const char* label,
+    int64_t n, std::complex<double> const* x, int64_t incx,
+    slate::Options const& opts);
+
+//------------------------------------------------------------------------------
+/// Print a vector.
+/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
+/// as desired.
+///
+template <typename scalar_t>
+void print(
+    const char* label,
+    int64_t n, scalar_t const* x, int64_t incx,
+    int width, int precision )
+{
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, width },
+        { slate::Option::PrintPrecision, precision }
+    };
+
+    print( label, n, x, incx, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -1401,9 +1450,55 @@ template <typename scalar_type>
 void print(
     const char* label,
     std::vector<scalar_type> const& x,
+    slate::Options const& opts)
+{
+    print( label, x.size(), x.data(), 1, opts );
+}
+
+//------------------------------------------------------------------------------
+// Explicit instantiations.
+// ----------------------------------------
+template
+void print(
+    const char* label,
+    std::vector<float> const& x,
+    slate::Options const& opts);
+
+template
+void print(
+    const char* label,
+    std::vector<double> const& x,
+    slate::Options const& opts);
+
+template
+void print(
+    const char* label,
+    std::vector<std::complex<float>> const& x,
+    slate::Options const& opts);
+
+template
+void print(
+    const char* label,
+    std::vector<std::complex<double>> const& x,
+    slate::Options const& opts);
+
+//------------------------------------------------------------------------------
+/// Print a vector.
+/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
+/// as desired.
+///
+template <typename scalar_type>
+void print(
+    const char* label,
+    std::vector<scalar_type> const& x,
     int width, int precision )
 {
-    print( label, x.size(), x.data(), 1, width, precision );
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, width },
+        { slate::Option::PrintPrecision, precision }
+    };
+
+    print( label, x.size(), x.data(), 1, opts );
 }
 
 //------------------------------------------------------------------------------

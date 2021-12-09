@@ -300,6 +300,7 @@ void print_work(
     }
 
     width = std::max(width, precision + 6);
+    opts[slate::Option::PrintWidth] = width;
     real_t nan_ = nan("");
 
     const int64_t abbrev_rows = edgeitems;

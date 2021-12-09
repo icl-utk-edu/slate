@@ -6,7 +6,6 @@
 #ifndef SLATE_PRINT_MATRIX_HH
 #define SLATE_PRINT_MATRIX_HH
 
-#include "slate/print.hh"
 #include "test.hh"
 
 //------------------------------------------------------------------------------

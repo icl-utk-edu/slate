@@ -10,7 +10,6 @@
 
 #include "unit_test.hh"
 #include "print_tile.hh"
-#include "slate/print.hh"
 
 namespace test {
 

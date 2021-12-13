@@ -138,7 +138,7 @@ public:
 
 private:
     int count_;
-    volatile int passed_;
+    std::atomic<int> passed_;
 };
 
 //------------------------------------------------------------------------------

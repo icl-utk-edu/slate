@@ -14,6 +14,7 @@
 #include <cmath>
 
 #include <blas.hh>
+#include <atomic>
 
 namespace slate {
 

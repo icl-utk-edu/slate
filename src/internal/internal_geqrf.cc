@@ -84,7 +84,7 @@ void geqrf(internal::TargetType<Target::HostTask>,
 
         #if 1
         omp_set_nested(1);
-        #pragma omp parallel for \
+        #pragma omp parallel \
             num_threads(thread_size) \
             shared(thread_barrier, scale, sumsq, xnorm, W)
         #else
@@ -92,9 +92,10 @@ void geqrf(internal::TargetType<Target::HostTask>,
             num_tasks(thread_size) \
             shared(thread_barrier, scale, sumsq, xnorm, W)
         #endif
-        for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
+	{
             // Factor the panel in parallel.
             // todo: double check the size of W.
+	    int thread_rank = omp_get_thread_num();
             W.at(thread_rank).resize(ib*A.tileNb(0));
             geqrf(ib,
                   tiles, tile_indices, T00,

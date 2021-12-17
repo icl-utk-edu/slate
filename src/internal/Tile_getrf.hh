@@ -239,14 +239,36 @@ void getrf(
                 }
 
                 // MPI max abs reduction
-                struct { real_t max; int loc; } max_loc_in, max_loc;
-                max_loc_in.max = cabs1(max_value[0]);
-                max_loc_in.loc = mpi_rank;
-                if (max_loc_in.loc != mpi_root) max_loc_in.max *= remote_pivot_threshold;
+                struct { real_t max; int loc; } max_loc_in[2], max_loc[2];
+                if (mpi_rank == mpi_root) {
+                    max_loc_in[0].max = cabs1(tiles[0](j, j));
+                    max_loc_in[1].max = cabs1(max_value[0]);
+                } else {
+                    max_loc_in[0].max = cabs1(max_value[0]) * remote_pivot_threshold;
+                    max_loc_in[1].max = max_loc_in[0].max;
+                }
+                max_loc_in[0].loc = mpi_rank;
+                max_loc_in[1].loc = mpi_rank;
                 slate_mpi_call(
-                    MPI_Allreduce(&max_loc_in, &max_loc, 1,
+                    MPI_Allreduce(max_loc_in, max_loc, 2,
                                   mpi_type< max_loc_type<real_t> >::value,
                                   MPI_MAXLOC, mpi_comm));
+
+                if (max_loc[0].loc != mpi_root) {
+                    // if diagonal isn't good enough for remote entries,
+                    // use the second reduction
+                    max_loc[0].max = max_loc[1].max;
+                    max_loc[0].loc = max_loc[1].loc;
+                } else {
+                    // otherwise, if the diagonal also is good enough for local
+                    // entries, update that max_* variables on the root
+                    if (mpi_rank == mpi_root
+                        && max_loc[0].max >= max_loc[1].max*remote_pivot_threshold) {
+                        max_offset[0] = j;
+                        max_index[0] = 0;
+                        max_value[0] = tiles[0](j, j);
+                    }
+                }
 
 
                 // todo: can this Bcast info be merged into the Allreduce?
@@ -255,10 +277,10 @@ void getrf(
                                               max_offset[0],
                                               max_index[0],
                                               max_value[0],
-                                              max_loc.loc);
+                                              max_loc[0].loc);
                 slate_mpi_call(
                     MPI_Bcast(&pivot[j], sizeof(AuxPivot<scalar_t>),
-                              MPI_BYTE, max_loc.loc, mpi_comm));
+                              MPI_BYTE, max_loc[0].loc, mpi_comm));
 
                 // pivot swap
                 getrf_swap(j, 0, nb,

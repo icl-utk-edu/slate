@@ -1033,7 +1033,7 @@ void syev(
 }
 
 //------------------------------------------------------------------------------
-// Generalized symmetric/hermitian
+// Generalized symmetric/Hermitian eigenvalues
 
 template <typename scalar_t>
 void hegv(
@@ -1117,6 +1117,7 @@ void sygst(
 
 //------------------------------------------------------------------------------
 // Symmetric/Hermitian eigenvalue reductions
+// Reduction to band (he2hb), then tridiagonal (hb2st).
 
 //-----------------------------------------
 // he2hb()
@@ -1151,6 +1152,73 @@ void unmtr_hb2st(
     Side side, Op op,
     Matrix<scalar_t>& V,
     Matrix<scalar_t>& C,
+    Options const& opts = Options());
+
+//------------------------------------------------------------------------------
+// Tridiagonal Symmetric eigenvalue solvers
+
+template <typename real_t>
+void stedc(
+    std::vector<real_t>& D, std::vector<real_t>& E,
+    Matrix<real_t>& Q,
+    Options const& opts = Options());
+
+template <typename real_t>
+void stedc_deflate(
+    int64_t n,
+    int64_t n1,
+    real_t& rho,
+    real_t* D, real_t* Dhat,
+    real_t* z, real_t* zhat,
+    Matrix<real_t>& Q,
+    Matrix<real_t>& Qbar,
+    int64_t* ibar,
+    int64_t& nsecular,
+    int64_t& nU123,
+    int64_t& Qbar12_begin, int64_t& Qbar12_end,
+    int64_t& Qbar23_begin, int64_t& Qbar23_end,
+    Options const& opts = Options());
+
+template <typename real_t>
+void stedc_merge(
+    int64_t n, int64_t n1,
+    real_t rho,
+    real_t* D,
+    Matrix<real_t>& Q,
+    Matrix<real_t>& Qbar,
+    Matrix<real_t>& U,
+    Options const& opts = Options());
+
+template <typename real_t>
+void stedc_secular(
+    int64_t nsecular, int64_t n,
+    real_t rho,
+    real_t* D,
+    real_t* z,
+    real_t* Lambda,
+    Matrix<real_t>& U,
+    int64_t* idx_Q_global,
+    Options const& opts = Options() );
+
+template <typename real_t>
+void stedc_solve(
+    std::vector<real_t>& D, std::vector<real_t>& E,
+    Matrix<real_t>& Q,
+    Matrix<real_t>& W,
+    Matrix<real_t>& U,
+    Options const& opts = Options());
+
+template <typename real_t>
+void stedc_sort(
+    std::vector<real_t>& D,
+    Matrix<real_t>& Q,
+    Matrix<real_t>& Qout,
+    Options const& opts = Options());
+
+template <typename real_t>
+void stedc_z_vector(
+    Matrix<real_t>& Q,
+    std::vector<real_t>& z,
     Options const& opts = Options());
 
 //-----------------------------------------

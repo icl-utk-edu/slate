@@ -210,6 +210,13 @@ std::vector< testsweeper::routines_t > routines = {
     { "steqr2",             test_steqr2,       Section::heev },
     { "",                   nullptr,           Section::newline },
 
+    { "stedc",              test_stedc,          Section::heev },
+    { "stedc_deflate",      test_stedc_deflate,  Section::heev },
+    { "stedc_secular",      test_stedc_secular,  Section::heev },
+    { "stedc_sort",         test_stedc_sort,     Section::heev },
+    { "stedc_z_vector",     test_stedc_z_vector, Section::heev },
+    { "",                   nullptr,             Section::newline },
+
     { "he2hb",              test_he2hb,        Section::heev },
     { "unmtr_he2hb",        test_unmtr_he2hb,  Section::heev },
     { "",                   nullptr,           Section::newline },
@@ -398,6 +405,7 @@ Params::Params():
                "given rank waits for debugger (gdb/lldb) to attach"),
     pivot_threshold(
                "thresh",  6, 2, ParamType::List, 1.0,   0.0,     1.0, "threshold for pivoting a remote row"),
+    deflate   ("deflate", 12,   ParamType::List, "", "columns or ranges to deflate in stedc_deflate"),
 
     // ----- output parameters
     // min, max are ignored

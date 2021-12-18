@@ -2026,6 +2026,74 @@ inline void scalapack_pheev(
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+// Fortran prototypes.
+#define scalapack_psstedc BLAS_FORTRAN_NAME( psstedc, PSSTEDC )
+#define scalapack_pdstedc BLAS_FORTRAN_NAME( pdstedc, PDSTEDC )
+
+extern "C" void scalapack_psstedc(
+    const char* jobz, blas_int* n,
+    float* D, float* E,
+    float* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    float* work, blas_int* lwork,
+    blas_int* iwork, blas_int* liwork,
+    blas_int* info);
+
+extern "C" void scalapack_pdstedc(
+    const char* jobz, blas_int* n,
+    double* D, double* E,
+    double* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    double* work, blas_int* lwork,
+    blas_int* iwork, blas_int* liwork,
+    blas_int* info);
+
+// -----------------------------------------------------------------------------
+// Overloaded wrappers.
+inline void scalapack_pstedc(
+    const char* jobz, blas_int* n,
+    float* D, float* E,
+    float* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    float* work, blas_int* lwork,
+    blas_int* iwork, blas_int* liwork,
+    blas_int* info)
+{
+    scalapack_psstedc(jobz, n, D, E, Z, iz, jz, descZ,
+                      work, lwork, iwork, liwork, info);
+}
+
+inline void scalapack_pstedc(
+    const char* jobz, blas_int* n,
+    double* D, double* E,
+    double* Z, blas_int* iz, blas_int* jz, blas_int* descZ,
+    double* work, blas_int* lwork,
+    blas_int* iwork, blas_int* liwork,
+    blas_int* info)
+{
+    scalapack_pdstedc(jobz, n, D, E, Z, iz, jz, descZ,
+                      work, lwork, iwork, liwork, info);
+}
+
+// Templated wrapper converts int types, calls overloaded wrappers.
+template <typename scalar_t>
+inline void scalapack_pstedc(
+    const char* jobz, int64_t n,
+    scalar_t* D, scalar_t* E,
+    scalar_t* Z, int64_t iz, int64_t jz, blas_int* descZ,
+    scalar_t* work, int64_t lwork,
+    blas_int* iwork, int64_t liwork,
+    blas_int* info)
+{
+    blas_int n_      = int64_to_int(n);
+    blas_int iz_     = int64_to_int(iz);
+    blas_int jz_     = int64_to_int(jz);
+    blas_int lwork_  = int64_to_int(lwork);
+    blas_int liwork_ = int64_to_int(liwork);
+    scalapack_pstedc(jobz, &n_, D, E,
+                     Z, &iz_, &jz_, descZ,
+                     work, &lwork_, iwork, &liwork_, info);
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 
 #define scalapack_pslaset BLAS_FORTRAN_NAME( pslaset, PSLASET )
 #define scalapack_pdlaset BLAS_FORTRAN_NAME( pdlaset, PDLASET )
@@ -2698,6 +2766,269 @@ inline void scalapack_ptrcon(
     int info_  = int64_to_int(info);
     scalapack_ptrcon( norm, uplo, diag, &n_, A, &ia_, &ja_, descA,
                       rcond, work, &lwork_, iwork, &liwork_, &info_);
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_pslaed2 BLAS_FORTRAN_NAME( pslaed2, PSLAED2 )
+#define scalapack_pdlaed2 BLAS_FORTRAN_NAME( pdlaed2, PDLAED2 )
+
+extern "C"
+void scalapack_pslaed2(
+    int* ictxt, int* nsecular, int* n, int* n1, int* nb,
+    float* D, int* drow, int* dcol,
+    float* Q, int* ldq,
+    float* rho, float* z, float* w, float* dlambda,
+    float* Q2, int* ldq2, float* qbuf,
+    int* ctot, int* psm, int* npcol,
+    int* indx, int* indxc, int* indxp,
+    int* indcol, int* coltyp,
+    int* nn, int* nn1, int* nn2, int* ib1, int* ib2 );
+
+extern "C"
+void scalapack_pdlaed2(
+    int* ictxt, int* nsecular, int* n, int* n1, int* nb,
+    double* D, int* drow, int* dcol,
+    double* Q, int* ldq,
+    double* rho, double* z, double* w, double* dlambda,
+    double* Q2, int* ldq2, double* qbuf,
+    int* ctot, int* psm, int* npcol,
+    int* indx, int* indxc, int* indxp,
+    int* indcol, int* coltyp,
+    int* nn, int* nn1, int* nn2, int* ib1, int* ib2 );
+
+//--------------------------------------------------------------------------
+inline void scalapack_plaed2(
+    int* ictxt, int* nsecular, int* n, int* n1, int* nb,
+    float* D, int* drow, int* dcol,
+    float* Q, int* ldq,
+    float* rho, float* z, float* w, float* dlambda,
+    float* Q2, int* ldq2, float* qbuf,
+    int* ctot, int* psm, int* npcol,
+    int* indx, int* indxc, int* indxp,
+    int* indcol, int* coltyp,
+    int* nn, int* nn1, int* nn2, int* ib1, int* ib2 )
+{
+    scalapack_pslaed2( ictxt, nsecular, n, n1, nb, D, drow, dcol,
+                       Q, ldq, rho, z, w, dlambda, Q2, ldq2, qbuf,
+                       ctot, psm, npcol, indx, indxc, indxp, indcol, coltyp,
+                       nn, nn1, nn2, ib1, ib2 );
+}
+
+inline void scalapack_plaed2(
+    int* ictxt, int* nsecular, int* n, int* n1, int* nb,
+    double* D, int* drow, int* dcol,
+    double* Q, int* ldq,
+    double* rho, double* z, double* w, double* dlambda,
+    double* Q2, int* ldq2, double* qbuf,
+    int* ctot, int* psm, int* npcol,
+    int* indx, int* indxc, int* indxp,
+    int* indcol, int* coltyp,
+    int* nn, int* nn1, int* nn2, int* ib1, int* ib2 )
+{
+    scalapack_pdlaed2( ictxt, nsecular, n, n1, nb, D, drow, dcol,
+                       Q, ldq, rho, z, w, dlambda, Q2, ldq2, qbuf,
+                       ctot, psm, npcol, indx, indxc, indxp, indcol, coltyp,
+                       nn, nn1, nn2, ib1, ib2 );
+}
+
+//--------------------------------------------------------------------------
+// todo: int64_t
+template <typename scalar_t>
+void scalapack_plaed2(
+    int ictxt, int* nsecular, int n, int n1, int nb,
+    scalar_t* D, int drow, int dcol,
+    scalar_t* Q, int ldq,
+    scalar_t* rho, scalar_t* z, scalar_t* w, scalar_t* dlambda,
+    scalar_t* Q2, int ldq2, scalar_t* Qbuf,
+    int* ctot, int* psm, int  npcol,
+    int* indx, int* indxc, int* indxp,
+    int* indcol, int* coltyp,
+    int* nn, int* nn1, int* nn2, int* ib1, int* ib2 )
+{
+    scalapack_plaed2( &ictxt, nsecular, &n, &n1, &nb, D, &drow, &dcol,
+                      Q, &ldq, rho, z, w, dlambda, Q2, &ldq2, Qbuf,
+                      ctot, psm, &npcol, indx, indxc, indxp, indcol, coltyp,
+                      nn, nn1, nn2, ib1, ib2 );
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_pslaed3 BLAS_FORTRAN_NAME( pslaed3, PSLAED3 )
+#define scalapack_pdlaed3 BLAS_FORTRAN_NAME( pdlaed3, PDLAED3 )
+
+extern "C"
+void scalapack_pslaed3(
+    int* ictxt, int* nsecular, int* n, int* nb,
+    float* Lambda, int* drow, int* dcol,
+    float* rho, float* D, float* z, float* ztilde,
+    float* U, int* ldu, float* buf,
+    int* idx_Q_global, int* pcols, int* prows,
+    int* idx_row, int* idx_col, int* ct_count, int* npcol, int* info );
+
+extern "C"
+void scalapack_pdlaed3(
+    int* ictxt, int* nsecular, int* n, int* nb,
+    double* Lambda, int* drow, int* dcol,
+    double* rho, double* D, double* z, double* ztilde,
+    double* U, int* ldu, double* buf,
+    int* idx_Q_global, int* pcols, int* prows,
+    int* idx_row, int* idx_col, int* ct_count, int* npcol, int* info );
+
+//--------------------------------------------------------------------------
+inline void scalapack_plaed3(
+    int* ictxt, int* nsecular, int* n, int* nb,
+    float* Lambda, int* drow, int* dcol,
+    float* rho, float* D, float* z, float* ztilde,
+    float* U, int* ldu, float* buf,
+    int* idx_Q_global, int* pcols, int* prows,
+    int* idx_row, int* idx_col, int* ct_count, int* npcol, int* info )
+{
+    scalapack_pslaed3( ictxt, nsecular, n, nb, Lambda, drow, dcol,
+                       rho, D, z, ztilde, U, ldu, buf,
+                       idx_Q_global, pcols, prows, idx_row, idx_col, ct_count,
+                       npcol, info );
+}
+
+inline void scalapack_plaed3(
+    int* ictxt, int* nsecular, int* n, int* nb,
+    double* Lambda, int* drow, int* dcol,
+    double* rho, double* D, double* z, double* ztilde,
+    double* U, int* ldu, double* buf,
+    int* idx_Q_global, int* pcols, int* prows,
+    int* idx_row, int* idx_col, int* ct_count, int* npcol, int* info )
+{
+    scalapack_pdlaed3( ictxt, nsecular, n, nb, Lambda, drow, dcol,
+                       rho, D, z, ztilde, U, ldu, buf,
+                       idx_Q_global, pcols, prows, idx_row, idx_col, ct_count,
+                       npcol, info );
+}
+
+//--------------------------------------------------------------------------
+// todo: int64_t
+template <typename scalar_t>
+void scalapack_plaed3(
+    int ictxt, int nsecular, int n, int nb,
+    scalar_t* Lambda, int drow, int dcol,
+    scalar_t rho, scalar_t* D, scalar_t* z, scalar_t* ztilde,
+    scalar_t* U, int ldu, scalar_t* buf,
+    int* idx_Q_global, int* pcols, int* prows,
+    int* idx_row, int* idx_col, int* ct_count, int npcol, int* info )
+{
+    scalapack_plaed3( &ictxt, &nsecular, &n, &nb, Lambda, &drow, &dcol,
+                      &rho, D, z, ztilde, U, &ldu, buf,
+                      idx_Q_global, pcols, prows, idx_row, idx_col, ct_count,
+                      &npcol, info );
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_pslaedz BLAS_FORTRAN_NAME( pslaedz, PSLAEDZ )
+#define scalapack_pdlaedz BLAS_FORTRAN_NAME( pdlaedz, PDLAEDZ )
+
+extern "C" void scalapack_pslaedz(
+    blas_int* n, blas_int* n1, blas_int* id,
+    float* Q, blas_int* iq, blas_int* jq, blas_int* ldq, blas_int* descQ,
+    float* z, float* work);
+
+extern "C" void scalapack_pdlaedz(
+    blas_int* n, blas_int* n1, blas_int* id,
+    double* Q, blas_int* iq, blas_int* jq, blas_int* ldq, blas_int* descQ,
+    double* z, double* work);
+
+// -----------------------------------------------------------------------------
+
+inline void scalapack_plaedz(
+    blas_int* n, blas_int* n1, blas_int* id,
+    float* Q, blas_int* iq, blas_int* jq, blas_int* ldq, blas_int* descQ,
+    float* z, float* work)
+{
+    scalapack_pslaedz( n, n1, id, Q, iq, jq, ldq, descQ, z, work );
+}
+
+inline void scalapack_plaedz(
+    blas_int* n, blas_int* n1, blas_int* id,
+    double* Q, blas_int* iq, blas_int* jq, blas_int* ldq, blas_int* descQ,
+    double* z, double* work)
+{
+    scalapack_pdlaedz( n, n1, id, Q, iq, jq, ldq, descQ, z, work );
+}
+
+template <typename scalar_t>
+inline void scalapack_plaedz(
+    int64_t n, int64_t n1, int64_t id,
+    scalar_t* Q, int64_t iq, int64_t jq, int64_t ldq, int* descQ,
+    scalar_t* z, scalar_t* work)
+{
+    int n_   = int64_to_int( n   );
+    int n1_  = int64_to_int( n1  );
+    int id_  = int64_to_int( id  );
+    int iq_  = int64_to_int( iq  );
+    int jq_  = int64_to_int( jq  );
+    int ldq_ = int64_to_int( ldq );
+    scalapack_plaedz( &n_, &n1_, &id_, Q, &iq_, &jq_, &ldq_, descQ, z, work );
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_pslasrt BLAS_FORTRAN_NAME( pslasrt, PSLASRT )
+#define scalapack_pdlasrt BLAS_FORTRAN_NAME( pdlasrt, PDLASRT )
+
+extern "C"
+void scalapack_pslasrt(
+    const char* id, int* n, float* D,
+    float* Q, int* iq, int* jq, int* descQ,
+    float* work, int* lwork,
+    int* iwork, int* liwork,
+    int* info );
+
+extern "C"
+void scalapack_pdlasrt(
+    const char* id, int* n, double* D,
+    double* Q, int* iq, int* jq, int* descQ,
+    double* work, int* lwork,
+    int* iwork, int* liwork,
+    int* info );
+
+//--------------------------------------------------------------------------
+inline void scalapack_plasrt(
+    const char* id, int* n, float* D,
+    float* Q, int* iq, int* jq, int* descQ,
+    float* work, int* lwork,
+    int* iwork, int* liwork,
+    int* info )
+{
+    scalapack_pslasrt( id, n, D, Q, iq, jq, descQ,
+                       work, lwork, iwork, liwork, info );
+}
+
+inline void scalapack_plasrt(
+    const char* id, int* n, double* D,
+    double* Q, int* iq, int* jq, int* descQ,
+    double* work, int* lwork,
+    int* iwork, int* liwork,
+    int* info )
+{
+    scalapack_pdlasrt( id, n, D, Q, iq, jq, descQ,
+                       work, lwork, iwork, liwork, info );
+}
+
+//--------------------------------------------------------------------------
+// todo: int64_t
+template <typename scalar_t>
+void scalapack_plasrt(
+    const char* id, int n, scalar_t* D,
+    scalar_t* Q, int iq, int jq, int* descQ,
+    scalar_t* work, int lwork,
+    int* iwork, int liwork,
+    int* info )
+{
+    scalapack_plasrt( id, &n, D, Q, &iq, &jq, descQ,
+                      work, &lwork, iwork, &liwork, info );
 }
 
 #endif // SLATE_SCALAPACK_WRAPPERS_HH

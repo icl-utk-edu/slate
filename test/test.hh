@@ -138,6 +138,7 @@ public:
     testsweeper::ParamChar   nonuniform_nb;
     testsweeper::ParamInt    debug;
     testsweeper::ParamDouble pivot_threshold;
+    testsweeper::ParamString deflate;
 
     // ----- output parameters
     testsweeper::ParamScientific value;
@@ -227,12 +228,19 @@ void test_trcondest (Params& params, bool run);
 
 // symmetric/Hermitian eigenvalues
 void test_heev   (Params& params, bool run);
-void test_he2hb  (Params& params, bool run);
-void test_hb2st  (Params& params, bool run);
 void test_sterf  (Params& params, bool run);
 void test_steqr2 (Params& params, bool run);
-void test_unmtr_he2hb(Params& params, bool run);
-void test_unmtr_hb2st(Params& params, bool run);
+void test_stedc  (Params& params, bool run);
+
+void test_stedc_deflate  (Params& params, bool run);
+void test_stedc_secular  (Params& params, bool run);
+void test_stedc_sort     (Params& params, bool run);
+void test_stedc_z_vector (Params& params, bool run);
+
+void test_he2hb       (Params& params, bool run);
+void test_hb2st       (Params& params, bool run);
+void test_unmtr_he2hb (Params& params, bool run);
+void test_unmtr_hb2st (Params& params, bool run);
 
 // generalized symmetric/Hermitian eigenvalues
 void test_hegv   (Params& params, bool run);

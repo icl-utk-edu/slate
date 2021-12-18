@@ -514,6 +514,13 @@ if (opts.syev):
     [ 'he2hb', gen_no_target + dtype + n ],
     [ 'hb2st', gen_no_target + dtype + n ],
 
+    [ 'stedc', gen + n ],
+    # Components of stedc; let's not test separately unless there's an issue.
+    [ 'stedc_deflate',  gen_no_target + ' --ref y' + n ],
+    [ 'stedc_secular',  gen_no_target + ' --ref y' + n ],
+    [ 'stedc_sort',     gen_no_target + ' --ref y' + n ],
+    [ 'stedc_z_vector', gen_no_target + ' --ref y' + n ],
+
     # sterf doesn't take origin, target, nb, uplo
     [ 'sterf',  grid + check + ref + tol + repeat + dtype + n ],
     [ 'steqr2', grid + check + ref + tol + repeat + dtype + n ],

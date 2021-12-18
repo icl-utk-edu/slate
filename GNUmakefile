@@ -593,6 +593,13 @@ ifneq ($(only_unit),1)
         src/scale.cc \
         src/scale_row_col.cc \
         src/set.cc \
+        src/stedc.cc \
+        src/stedc_deflate.cc \
+        src/stedc_merge.cc \
+        src/stedc_secular.cc \
+        src/stedc_solve.cc \
+        src/stedc_sort.cc \
+        src/stedc_z_vector.cc \
         src/steqr2.cc \
         src/sterf.cc \
         src/symm.cc \
@@ -686,6 +693,11 @@ tester_src += \
         test/test_scale.cc \
         test/test_scale_row_col.cc \
         test/test_set.cc \
+        test/test_stedc.cc \
+        test/test_stedc_deflate.cc \
+        test/test_stedc_secular.cc \
+        test/test_stedc_sort.cc \
+        test/test_stedc_z_vector.cc \
         test/test_steqr2.cc \
         test/test_sterf.cc \
         test/test_symm.cc \

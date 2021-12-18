@@ -1180,6 +1180,10 @@ BaseMatrix<out_scalar_t> BaseMatrix<scalar_t>::baseEmptyLike(
         std::swap(mt, nt);
     }
 
+    B.nprow_ = nprow_;
+    B.npcol_ = npcol_;
+    B.order_ = order_;
+
     // Apply operation and return sub-matrix.
     if (this->op() == Op::Trans) {
         B = transpose( B );
@@ -2040,6 +2044,7 @@ void BaseMatrix<scalar_t>::listBcast(
 ///
 /// @param[in] life_factor
 ///     A multiplier for the life count of the broadcasted tile workspace.
+///
 /// @param[in] is_shared
 ///     A flag to get and hold the broadcasted (prefetched) tiles on the
 ///     devices. This flag prevents any subsequent calls of tileRelease()
@@ -2047,7 +2052,6 @@ void BaseMatrix<scalar_t>::listBcast(
 ///     WARNING: must set unhold these tiles before releasing them to free
 ///     up the allocated memories.
 ///
-//todo
 template <typename scalar_t>
 template <Target target>
 void BaseMatrix<scalar_t>::listBcastMT(

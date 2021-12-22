@@ -20,12 +20,12 @@ namespace internal {
 template <Target target, typename scalar_t>
 void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
            std::vector<Pivot>& pivot,
-           blas::real_type<scalar_t> remote_pivot_threshold,
+           blas::real_type<scalar_t> pivot_threshold,
            int max_panel_threads, int priority, int tag)
 {
     getrf(internal::TargetType<target>(),
           A, diag_len, ib, pivot,
-          remote_pivot_threshold, max_panel_threads, priority, tag);
+          pivot_threshold, max_panel_threads, priority, tag);
 }
 
 //------------------------------------------------------------------------------
@@ -36,7 +36,7 @@ template <typename scalar_t>
 void getrf(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A, int64_t diag_len, int64_t ib,
            std::vector<Pivot>& pivot,
-           blas::real_type<scalar_t> remote_pivot_threshold,
+           blas::real_type<scalar_t> pivot_threshold,
            int max_panel_threads, int priority, int tag)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
@@ -119,7 +119,7 @@ void getrf(internal::TargetType<Target::HostTask>,
                   thread_rank, thread_size,
                   thread_barrier,
                   max_value, max_index, max_offset, top_block,
-                  remote_pivot_threshold);
+                  pivot_threshold);
         }
         #pragma omp taskwait
 
@@ -141,7 +141,7 @@ template
 void getrf<Target::HostTask, float>(
     Matrix<float>&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
-    blas::real_type<float> remote_pivot_threshold,
+    blas::real_type<float> pivot_threshold,
     int max_panel_threads, int priority, int tag);
 
 // ----------------------------------------
@@ -149,7 +149,7 @@ template
 void getrf<Target::HostTask, double>(
     Matrix<double>&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
-    blas::real_type<double> remote_pivot_threshold,
+    blas::real_type<double> pivot_threshold,
     int max_panel_threads, int priority, int tag);
 
 // ----------------------------------------
@@ -157,7 +157,7 @@ template
 void getrf< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
-    blas::real_type<std::complex<float>> remote_pivot_threshold,
+    blas::real_type<std::complex<float>> pivot_threshold,
     int max_panel_threads, int priority, int tag);
 
 // ----------------------------------------
@@ -165,7 +165,7 @@ template
 void getrf< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
-    blas::real_type<std::complex<double>> remote_pivot_threshold,
+    blas::real_type<std::complex<double>> pivot_threshold,
     int max_panel_threads, int priority, int tag);
 
 } // namespace internal

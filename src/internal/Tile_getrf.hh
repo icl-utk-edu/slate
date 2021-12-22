@@ -146,6 +146,9 @@ void getrf_swap(
 ///     workspace for broadcasting the top row for the geru operation
 ///     and the top block for the gemm operation.
 ///
+/// @param[in] pivot_threshold
+///     threshold for pivoting.  1 is partial pivoting, 0 is no pivoting
+///
 /// @ingroup gesv_tile
 ///
 template <typename scalar_t>
@@ -161,7 +164,7 @@ void getrf(
     std::vector<int64_t>& max_index,
     std::vector<int64_t>& max_offset,
     std::vector<scalar_t>& top_block,
-    blas::real_type<scalar_t> remote_pivot_threshold)
+    blas::real_type<scalar_t> pivot_threshold)
 {
     trace::Block trace_block("lapack::getrf");
 
@@ -239,12 +242,15 @@ void getrf(
                 }
 
                 // MPI max abs reduction
+                // Do two reductions that differ in the root's value
+                // * the diagonal entry
+                // * the largest entry
                 struct { real_t max; int loc; } max_loc_in[2], max_loc[2];
                 if (mpi_rank == mpi_root) {
                     max_loc_in[0].max = cabs1(tiles[0](j, j));
                     max_loc_in[1].max = cabs1(max_value[0]);
                 } else {
-                    max_loc_in[0].max = cabs1(max_value[0]) * remote_pivot_threshold;
+                    max_loc_in[0].max = cabs1(max_value[0])*pivot_threshold;
                     max_loc_in[1].max = max_loc_in[0].max;
                 }
                 max_loc_in[0].loc = mpi_rank;
@@ -254,16 +260,18 @@ void getrf(
                                   mpi_type< max_loc_type<real_t> >::value,
                                   MPI_MAXLOC, mpi_comm));
 
+                int bcast_rank;
                 if (max_loc[0].loc != mpi_root) {
-                    // if diagonal isn't good enough for remote entries,
-                    // use the second reduction
-                    max_loc[0].max = max_loc[1].max;
-                    max_loc[0].loc = max_loc[1].loc;
+                    // if diagonal isn't good enough for the remote entries,
+                    // use the result of the second reduction
+                    bcast_rank = max_loc[1].loc;
                 } else {
-                    // otherwise, if the diagonal also is good enough for local
-                    // entries, update that max_* variables on the root
+                    bcast_rank = mpi_root;
+
+                    // if the diagonal is good enough for the local entries,
+                    // update that max_* variables on the root
                     if (mpi_rank == mpi_root
-                        && max_loc[0].max >= max_loc[1].max*remote_pivot_threshold) {
+                        && max_loc[0].max >= cabs1(max_value[0])*pivot_threshold) {
                         max_offset[0] = j;
                         max_index[0] = 0;
                         max_value[0] = tiles[0](j, j);
@@ -277,10 +285,10 @@ void getrf(
                                               max_offset[0],
                                               max_index[0],
                                               max_value[0],
-                                              max_loc[0].loc);
+                                              bcast_rank);
                 slate_mpi_call(
                     MPI_Bcast(&pivot[j], sizeof(AuxPivot<scalar_t>),
-                              MPI_BYTE, max_loc[0].loc, mpi_comm));
+                              MPI_BYTE, bcast_rank, mpi_comm));
 
                 // pivot swap
                 getrf_swap(j, 0, nb,

@@ -64,7 +64,7 @@ enum class Option : char {
     PrintWidth,         ///< width print format specifier
     PrintPrecision,     ///< precision print format specifier
                         ///< For correct printing, PrintWidth = PrintPrecision + 6.
-    PivotThreshold,     ///< threshold for pivoting with a remote row
+    PivotThreshold,     ///< threshold for pivoting, >= 0, <= 1
 };
 
 //------------------------------------------------------------------------------

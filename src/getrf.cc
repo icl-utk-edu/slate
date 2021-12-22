@@ -26,7 +26,7 @@ namespace specialization {
 template <Target target, typename scalar_t>
 void getrf(slate::internal::TargetType<target>,
            Matrix<scalar_t>& A, Pivots& pivots,
-           blas::real_type<scalar_t> remote_pivot_threshold,
+           blas::real_type<scalar_t> pivot_threshold,
            int64_t ib, int max_panel_threads, int64_t lookahead)
 {
     // using real_t = blas::real_type<scalar_t>;
@@ -85,7 +85,7 @@ void getrf(slate::internal::TargetType<target>,
                 // factor A(k:mt-1, k)
                 internal::getrf<Target::HostTask>(
                     A.sub(k, A_mt-1, k, k), diag_len, ib, pivots.at(k),
-                    remote_pivot_threshold, max_panel_threads, priority_one, k);
+                    pivot_threshold, max_panel_threads, priority_one, k);
 
                 BcastList bcast_list_A;
                 int tag_k = k;
@@ -233,7 +233,7 @@ template <Target target, typename scalar_t>
 void getrf(Matrix<scalar_t>& A, Pivots& pivots,
            Options const& opts)
 {
-    blas::real_type<scalar_t> remote_row_threshold = get_option<double>( opts, Option::PivotThreshold, 1.0 );
+    blas::real_type<scalar_t> pivot_threshold = get_option<double>( opts, Option::PivotThreshold, 1.0 );
 
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
@@ -244,7 +244,7 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
 
     internal::specialization::getrf(internal::TargetType<target>(),
                                     A, pivots,
-                                    remote_row_threshold,
+                                    pivot_threshold,
                                     ib, max_panel_threads, lookahead);
 }
 
@@ -291,6 +291,9 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
 ///       - HostNest:  nested OpenMP parallel for loop on CPU host.
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
+///    - Option::PivotThreshold:
+///      Strictness of the pivot selection.  Between 0 and 1 with 1 giving
+///      partial pivoting and 0 giving no pivoting.  Default 1.
 ///
 /// TODO: return value
 /// @retval 0 successful exit

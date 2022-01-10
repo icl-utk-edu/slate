@@ -119,6 +119,7 @@ group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', 
 group_opt.add_argument( '--np',     action='store', help='number of MPI processes; default=%(default)s', default='1' )
 group_opt.add_argument( '--grid',   action='store', help='use p-by-q MPI process grid', default='' )
 group_opt.add_argument( '--repeat', action='store', help='times to repeat each test', default='' )
+group_opt.add_argument( '--piv-thresh',action = 'store', help='default=%(default)s', default='1,0.5')
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -286,6 +287,7 @@ nb     = ' --nb '     + opts.nb     if (opts.nb)     else ''
 nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
 grid   = ' --grid '    + opts.grid   if (opts.grid)   else ''
 repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
+pivthr = ' --piv-thresh ' + opts.piv_thresh if (opts.piv_thresh) else ''
 
 # general options for all routines
 gen       = origin + target + grid + check + ref + tol + repeat + nb
@@ -347,11 +349,11 @@ if (opts.blas3):
 # LU
 if (opts.lu):
     cmds += [
-    [ 'gesv',  gen + dtype + la + n],
+    [ 'gesv',  gen + dtype + la + n + pivthr],
     [ 'gesv_nopiv',  gen + dtype + la + n + ' --matrix rand_dominant' + ' --nonuniform_nb n'],
-    [ 'getrf', gen + dtype + la + n],  # todo: mn
+    [ 'getrf', gen + dtype + la + n + pivthr],  # todo: mn
     [ 'getrf_nopiv', target + grid + ref + check + repeat + nb + dtype + la + n + ' --matrix rand_dominant'+ ' --nonuniform_nb n'],
-    [ 'getrs', gen + dtype + la + n + trans],
+    [ 'getrs', gen + dtype + la + n + trans + pivthr],
     [ 'getrs_nopiv', gen + dtype + la + n + trans + ' --matrix rand_dominant' + ' --nonuniform_nb n'],
     [ 'getri', gen + dtype + la + n ],
     [ 'getriOOP', gen + dtype + la + n ],

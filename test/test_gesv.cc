@@ -52,12 +52,19 @@ void test_gesv_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     bool nonuniform_nb = params.nonuniform_nb() == 'y';
-    double pivot_threshold = params.pivot_threshold();
     int verbose = params.verbose();
     SLATE_UNUSED(verbose);
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
+
+    double pivot_threshold;
+    if (params.routine == "gesv_nopiv" || params.routine == "getrf_nopiv"
+        || params.routine == "getrs_nopiv") {
+        pivot_threshold = real_t(-1.0);
+    } else {
+        pivot_threshold = params.pivot_threshold();
+    }
 
     // mark non-standard output values
     params.time();

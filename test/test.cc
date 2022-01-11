@@ -371,6 +371,7 @@ Params::Params():
     matrixC.kind.name( "matrixC" );
     matrixC.cond.name( "condC" );
     matrixC.condD.name( "condD_C" );
+    matrixC.seed.name( "seedC" );
 
     // mark standard set of output fields as used
     okay();

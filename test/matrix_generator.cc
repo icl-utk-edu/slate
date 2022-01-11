@@ -383,9 +383,9 @@ void generate_svd(
                 // Added local seed array for each process to prevent race condition contention of iseed
                 int64_t tile_iseed[4];
                 tile_iseed[0] = (iseed[0] + i/4096) % 4096;
-                tile_iseed[1] = (iseed[1] + j/4096) % 4096;
+                tile_iseed[1] = (iseed[1] + j/2048) % 4096;
                 tile_iseed[2] = (iseed[2] + i)      % 4096;
-                tile_iseed[3] = (iseed[3] + j)      % 4096;
+                tile_iseed[3] = (iseed[3] + j*2)    % 4096;
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
                     lapack::larnv(idist_randn, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
@@ -420,9 +420,9 @@ void generate_svd(
                 // Added local seed array for each process to prevent race condition contention of iseed
                 int64_t tile_iseed[4];
                 tile_iseed[0] = (iseed[0] + i/4096) % 4096;
-                tile_iseed[1] = (iseed[1] + j/4096) % 4096;
+                tile_iseed[1] = (iseed[1] + j/2048) % 4096;
                 tile_iseed[2] = (iseed[2] + i)      % 4096;
-                tile_iseed[3] = (iseed[3] + j)      % 4096;
+                tile_iseed[3] = (iseed[3] + j*2)    % 4096;
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
                     lapack::larnv(idist_randn, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
@@ -432,7 +432,7 @@ void generate_svd(
         }
     }
     // Hack to update iseed between matrices.
-    iseed[2] = (iseed[2] + 1) % 4096;
+    iseed[2] = (iseed[2]*31) % 4096;
 
     slate::geqrf(V, T);
 
@@ -528,9 +528,9 @@ void generate_heev(
                 // Added local seed array for each process to prevent race condition contention of iseed
                 int64_t tile_iseed[4];
                 tile_iseed[0] = (iseed[0] + i/4096) % 4096;
-                tile_iseed[1] = (iseed[1] + j/4096) % 4096;
+                tile_iseed[1] = (iseed[1] + j/2048) % 4096;
                 tile_iseed[2] = (iseed[2] + i)      % 4096;
-                tile_iseed[3] = (iseed[3] + j)      % 4096;
+                tile_iseed[3] = (iseed[3] + j*2)    % 4096;
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
                     lapack::larnv(idist_rand, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
@@ -540,12 +540,12 @@ void generate_heev(
         }
     }
     // Hack to update iseed between matrices.
-    iseed[2] = (iseed[2]*11) % 4096;
+    iseed[2] = (iseed[2]*31) % 4096;
 
     // we need to make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
     // However, currently we do geqrf here,
-    // since we don’t have a way to make Householder vectors (no distributed larfg).
+    // since we don't have a way to make Householder vectors (no distributed larfg).
     slate::geqrf(U, T);
 
     // A = U*A
@@ -661,7 +661,7 @@ void generate_matrix_usage()
     "fiedler   |  matrix entry i,j equal to |i - j|\n"
     "gfpp      |  growth factor for gesv of 1.5^n\n"
     "orthog    |  matrix entry i,j equal to sqrt(2/(n+1))sin(i*j*pi/(n+1))\n"
-    "riemann   |  matrix entry i,j equal to i+1 if j+2 divides i+2 elso -1\n"
+    "riemann   |  matrix entry i,j equal to i+1 if j+2 divides i+2 else -1\n"
     "ris       |  matrix entry i,j equal to 0.5/(n-i-j+1.5)\n"
     "          |  \n"
     "rand@     |  matrix entries random uniform on (0, 1)\n"
@@ -985,7 +985,8 @@ void decode_matrix(
 
 // -----------------------------------------------------------------------------
 /// Generates an arbitrary seed that is unlikely to be repeated
-void configure_seed(MPI_Comm comm, int64_t user_seed, int64_t iseed[4]) {
+void configure_seed(MPI_Comm comm, int64_t user_seed, int64_t iseed[4])
+{
 
     // if the given seed is -1, generate a new seed
     if (user_seed == -1) {
@@ -1180,6 +1181,7 @@ void generate_matrix(
     configure_seed(A.mpiComm(), params.seed(), iseed);
 
     int64_t n = A.n();
+    int64_t m = A.m();
     int64_t nt = A.nt();
     int64_t mt = A.mt();
     // ----- generate matrix
@@ -1194,6 +1196,7 @@ void generate_matrix(
             set(one, one, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_zero, d_one, Sigma.data(), Sigma.size() );
+            Sigma[0] = sqrt(m*n);
             break;
 
         case TestMatrixType::identity:
@@ -1260,7 +1263,7 @@ void generate_matrix(
 
         // circulant matrix for the vector 1:n
         case TestMatrixType::circul: {
-            const int64_t max_mn = std::max(A.n(), A.m());
+            const int64_t max_mn = std::max(n, m);
             #pragma omp parallel
             #pragma omp master
             {
@@ -1341,9 +1344,11 @@ void generate_matrix(
                                     A_ij.at(ii, jj) = -zero;
                                 }
                             }
-                        } else if (i < j) {
+                        }
+                        else if (i < j) {
                             A_ij.set(zero);
-                        } else if (i > j) {
+                        }
+                        else if (i > j) {
                             A_ij.set(-0.5);
                         }
                         if (j == nt-1) {
@@ -1359,7 +1364,7 @@ void generate_matrix(
         }
 
         case TestMatrixType::orthog: {
-            const int64_t max_mn = std::max(A.n(), A.m());
+            const int64_t max_mn = std::max(n, m);
             const scalar_t outer_const = sqrt(scalar_t(2)/scalar_t(max_mn+1));
             // pi = acos(-1)
             const scalar_t inner_const = scalar_t(acos(-1))/scalar_t(max_mn+1);
@@ -1417,7 +1422,8 @@ void generate_matrix(
                                         int64_t B_j = j_global + jj + 2;
                                         if (B_i % B_j == 0) {
                                             A_ij.at(ii, jj) = B_i - 1;
-                                        } else {
+                                        }
+                                        else {
                                             A_ij.at(ii, jj) = -1;
                                         }
                                     }
@@ -1434,7 +1440,7 @@ void generate_matrix(
         }
 
         case TestMatrixType::ris: {
-            const int64_t max_mn = std::max(A.n(), A.m());
+            const int64_t max_mn = std::max(n, m);
             #pragma omp parallel
             #pragma omp master
             {
@@ -1485,9 +1491,9 @@ void generate_matrix(
                         // Added local seed array for each process to prevent race condition contention of iseed
                         int64_t tile_iseed[4];
                         tile_iseed[0] = (iseed[0] + i/4096) % 4096;
-                        tile_iseed[1] = (iseed[1] + j/4096) % 4096;
+                        tile_iseed[1] = (iseed[1] + j/2048) % 4096;
                         tile_iseed[2] = (iseed[2] + i)      % 4096;
-                        tile_iseed[3] = (iseed[3] + j)      % 4096;
+                        tile_iseed[3] = (iseed[3] + j*2)    % 4096;
                         for (int64_t k = 0; k < Aij.nb(); ++k) {
                             lapack::larnv(idist, tile_iseed, Aij.mb(), &data[k*lda]);
                         }
@@ -1516,8 +1522,6 @@ void generate_matrix(
                     }
                 }
             }
-            // Hack to update iseed between matrices.
-            iseed[2] = (iseed[2] + 1) % 4096;
             break;
         }
 
@@ -1687,9 +1691,9 @@ void generate_matrix(
                             // Added local seed array for each process to prevent race condition contention of iseed
                             int64_t tile_iseed[4];
                             tile_iseed[0] = (iseed[0] + i/4096) % 4096;
-                            tile_iseed[1] = (iseed[1] + j/4096) % 4096;
+                            tile_iseed[1] = (iseed[1] + j/2048) % 4096;
                             tile_iseed[2] = (iseed[2] + i)      % 4096;
-                            tile_iseed[3] = (iseed[3] + j)      % 4096;
+                            tile_iseed[3] = (iseed[3] + j*2)    % 4096;
                             for (int64_t k = 0; k < Aij.nb(); ++k) {
                                 lapack::larnv(idist, tile_iseed, Aij.mb(), &data[k*lda]);
                             }
@@ -1736,9 +1740,9 @@ void generate_matrix(
                             // Added local seed array for each process to prevent race condition contention of iseed
                             int64_t tile_iseed[4];
                             tile_iseed[0] = (iseed[0] + i/4096) % 4096;
-                            tile_iseed[1] = (iseed[1] + j/4096) % 4096;
+                            tile_iseed[1] = (iseed[1] + j/2048) % 4096;
                             tile_iseed[2] = (iseed[2] + i)      % 4096;
-                            tile_iseed[3] = (iseed[3] + j)      % 4096;
+                            tile_iseed[3] = (iseed[3] + j*2)    % 4096;
                             for (int64_t k = 0; k < Aij.nb(); ++k) {
                                 lapack::larnv(idist, tile_iseed, Aij.mb(), &data[k*lda]);
                             }
@@ -1768,8 +1772,6 @@ void generate_matrix(
                     }
                 }
             }
-            // Hack to update iseed between matrices.
-            iseed[2] = (iseed[2] + 1) % 4096;
             break;
         }
 

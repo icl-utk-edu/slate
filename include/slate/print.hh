@@ -146,32 +146,11 @@ void print(
 /// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
 /// as desired.
 ///
-template <typename scalar_t>
-void print(
-    const char* label,
-    int64_t n, scalar_t const* x, int64_t incx,
-    int width=10, int precision=4 );
-
-//------------------------------------------------------------------------------
-/// Print a vector.
-/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
-/// as desired.
-///
 template <typename scalar_type>
 void print(
     const char* label,
     std::vector<scalar_type> const& x,
     slate::Options const& opts = Options());
-//------------------------------------------------------------------------------
-/// Print a vector.
-/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
-/// as desired.
-///
-template <typename scalar_type>
-void print(
-    const char* label,
-    std::vector<scalar_type> const& x,
-    int width=10, int precision=4 );
 
 } // namespace slate
 

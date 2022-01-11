@@ -1310,52 +1310,6 @@ void print(
 /// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
 /// as desired.
 ///
-template <typename scalar_t>
-void print(
-    const char* label,
-    int64_t n, scalar_t const* x, int64_t incx,
-    int width, int precision )
-{
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, width },
-        { slate::Option::PrintPrecision, precision }
-    };
-
-    print( label, n, x, incx, opts );
-}
-
-//------------------------------------------------------------------------------
-// Explicit instantiations.
-// ----------------------------------------
-template
-void print(
-    const char* label,
-    int64_t n, float const* x, int64_t incx,
-    int width, int precision );
-
-template
-void print(
-    const char* label,
-    int64_t n, double const* x, int64_t incx,
-    int width, int precision );
-
-template
-void print(
-    const char* label,
-    int64_t n, std::complex<float> const* x, int64_t incx,
-    int width, int precision );
-
-template
-void print(
-    const char* label,
-    int64_t n, std::complex<double> const* x, int64_t incx,
-    int width, int precision );
-
-//------------------------------------------------------------------------------
-/// Print a vector.
-/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
-/// as desired.
-///
 template <typename scalar_type>
 void print(
     const char* label,
@@ -1391,51 +1345,5 @@ void print(
     const char* label,
     std::vector<std::complex<double>> const& x,
     slate::Options const& opts);
-
-//------------------------------------------------------------------------------
-/// Print a vector.
-/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
-/// as desired.
-///
-template <typename scalar_type>
-void print(
-    const char* label,
-    std::vector<scalar_type> const& x,
-    int width, int precision )
-{
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, width },
-        { slate::Option::PrintPrecision, precision }
-    };
-
-    print( label, x.size(), x.data(), 1, opts );
-}
-
-//------------------------------------------------------------------------------
-// Explicit instantiations.
-// ----------------------------------------
-template
-void print(
-    const char* label,
-    std::vector<float> const& x,
-    int width, int precision );
-
-template
-void print(
-    const char* label,
-    std::vector<double> const& x,
-    int width, int precision );
-
-template
-void print(
-    const char* label,
-    std::vector<std::complex<float>> const& x,
-    int width, int precision );
-
-template
-void print(
-    const char* label,
-    std::vector<std::complex<double>> const& x,
-    int width, int precision );
 
 } // namespace slate

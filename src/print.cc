@@ -147,9 +147,9 @@ std::string tile_row_string(
     const char* opposite="",
     bool is_last_abbrev_cols = false)
 {
-    int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 10 );
+    int64_t width     = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 10 );
     int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
+    int64_t verbose   = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
     int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
     assert( verbose >= 2 );
 

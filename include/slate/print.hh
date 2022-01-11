@@ -24,7 +24,7 @@ template <typename scalar_t>
 void print(
     const char* label,
     int64_t m, int64_t n, scalar_t* A, int64_t lda,
-    slate::Options const& opts);
+    slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 /// Print a ScaLAPACK distributed matrix.
@@ -36,18 +36,7 @@ void print(
     const char* label,
     int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
     int p, int q, MPI_Comm comm,
-    slate::Options const& opts);
-
-//------------------------------------------------------------------------------
-/// Print a ScaLAPACK distributed matrix.
-/// Prints each rank's data as a contiguous block, numbered by the block row &
-/// column indices. Rank 0 does the printing.
-///
-template <typename scalar_t>
-void print(
-    const char* label,
-    int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
-    int p, int q, MPI_Comm comm );
+    slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed matrix.
@@ -59,18 +48,7 @@ template <typename scalar_t>
 void print(
     const char* label,
     slate::Matrix<scalar_t>& A,
-    slate::Options const& opts);
-
-//------------------------------------------------------------------------------
-/// Print a SLATE distributed matrix.
-/// Rank 0 does the printing, and must have enough memory to fit one entire
-/// block row of the matrix.
-/// For block-sparse matrices, missing tiles are print as "nan".
-///
-template <typename scalar_t>
-void print(
-    const char* label,
-    slate::Matrix<scalar_t>& A);
+    slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed band matrix.
@@ -83,7 +61,7 @@ template <typename scalar_t>
 void print(
     const char* label,
     slate::BandMatrix<scalar_t>& A,
-    slate::Options const& opts);
+    slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed BaseTriangular (triangular, symmetric, and
@@ -107,7 +85,7 @@ template <typename scalar_t>
 void print(
     const char* label,
     slate::BaseTriangularBandMatrix<scalar_t>& A,
-    slate::Options const& opts);
+    slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed Hermitian matrix.
@@ -118,7 +96,7 @@ template <typename scalar_t>
 void print(
     const char* label,
     slate::HermitianMatrix<scalar_t>& A,
-    slate::Options const& opts);
+    slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed symmetric matrix.
@@ -128,7 +106,7 @@ template <typename scalar_t>
 void print(
     const char* label,
     slate::SymmetricMatrix<scalar_t>& A,
-    slate::Options const& opts);
+    slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed trapezoid matrix.
@@ -139,7 +117,7 @@ template <typename scalar_t>
 void print(
     const char* label,
     slate::TrapezoidMatrix<scalar_t>& A,
-    slate::Options const& opts);
+    slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed triangular matrix.
@@ -150,7 +128,18 @@ template <typename scalar_t>
 void print(
     const char* label,
     slate::TriangularMatrix<scalar_t>& A,
-    slate::Options const& opts);
+    slate::Options const& opts = Options());
+
+//------------------------------------------------------------------------------
+/// Print a vector.
+/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
+/// as desired.
+///
+template <typename scalar_t>
+void print(
+    const char* label,
+    int64_t n, scalar_t const* x, int64_t incx,
+    slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 /// Print a vector.
@@ -163,6 +152,16 @@ void print(
     int64_t n, scalar_t const* x, int64_t incx,
     int width=10, int precision=4 );
 
+//------------------------------------------------------------------------------
+/// Print a vector.
+/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
+/// as desired.
+///
+template <typename scalar_type>
+void print(
+    const char* label,
+    std::vector<scalar_type> const& x,
+    slate::Options const& opts = Options());
 //------------------------------------------------------------------------------
 /// Print a vector.
 /// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`

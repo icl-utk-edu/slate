@@ -745,53 +745,6 @@ void print(
     slate::Options const& opts);
 
 //------------------------------------------------------------------------------
-/// Print a ScaLAPACK distributed matrix.
-/// Prints each rank's data as a contiguous block, numbered by the block row &
-/// column indices. Rank 0 does the printing.
-///
-template <typename scalar_t>
-void print(
-    const char* label,
-    int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
-    int p, int q, MPI_Comm comm )
-{
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, 10 },
-        { slate::Option::PrintPrecision, 4 },
-        { slate::Option::PrintVerbose, 4 }
-    };
-
-    print( label, mlocal, nlocal, A, lda, p, q, comm, opts);
-}
-
-//------------------------------------------------------------------------------
-// Explicit instantiations.
-// ----------------------------------------
-template
-void print(
-    const char* label,
-    int64_t mlocal, int64_t nlocal, float* A, int64_t lda,
-    int p, int q, MPI_Comm comm );
-
-template
-void print(
-    const char* label,
-    int64_t mlocal, int64_t nlocal, double* A, int64_t lda,
-    int p, int q, MPI_Comm comm );
-
-template
-void print(
-    const char* label,
-    int64_t mlocal, int64_t nlocal, std::complex<float>* A, int64_t lda,
-    int p, int q, MPI_Comm comm );
-
-template
-void print(
-    const char* label,
-    int64_t mlocal, int64_t nlocal, std::complex<double>* A, int64_t lda,
-    int p, int q, MPI_Comm comm );
-
-//------------------------------------------------------------------------------
 /// Print a SLATE distributed matrix.
 /// Rank 0 does the printing, and must have enough memory to fit one entire
 /// block row of the matrix.
@@ -848,50 +801,6 @@ void print(
     const char* label,
     slate::Matrix<std::complex<double>>& A,
     slate::Options const& opts);
-
-//------------------------------------------------------------------------------
-/// Print a SLATE distributed matrix.
-/// Rank 0 does the printing, and must have enough memory to fit one entire
-/// block row of the matrix.
-/// For block-sparse matrices, missing tiles are print as "nan".
-///
-template <typename scalar_t>
-void print(
-    const char* label,
-    slate::Matrix<scalar_t>& A)
-{
-    // Set defaults
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, 10 },
-        { slate::Option::PrintPrecision, 4 },
-        { slate::Option::PrintVerbose, 4 } // default 4 prints full matrix
-    };
-
-    print( label, A, opts );
-}
-
-//------------------------------------------------------------------------------
-// Explicit instantiations.
-// ----------------------------------------
-template
-void print(
-    const char* label,
-    slate::Matrix<float>& A);
-
-template
-void print(
-    const char* label,
-    slate::Matrix<double>& A);
-
-template
-void print(
-    const char* label,
-    slate::Matrix<std::complex<float>>& A);
-
-template
-void print(
-    const char* label,
-    slate::Matrix<std::complex<double>>& A);
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed band matrix.
@@ -1422,25 +1331,25 @@ template
 void print(
     const char* label,
     int64_t n, float const* x, int64_t incx,
-    int width=10, int precision=4 );
+    int width, int precision );
 
 template
 void print(
     const char* label,
     int64_t n, double const* x, int64_t incx,
-    int width=10, int precision=4 );
+    int width, int precision );
 
 template
 void print(
     const char* label,
     int64_t n, std::complex<float> const* x, int64_t incx,
-    int width=10, int precision=4 );
+    int width, int precision );
 
 template
 void print(
     const char* label,
     int64_t n, std::complex<double> const* x, int64_t incx,
-    int width=10, int precision=4 );
+    int width, int precision );
 
 //------------------------------------------------------------------------------
 /// Print a vector.
@@ -1509,24 +1418,24 @@ template
 void print(
     const char* label,
     std::vector<float> const& x,
-    int width=10, int precision=4 );
+    int width, int precision );
 
 template
 void print(
     const char* label,
     std::vector<double> const& x,
-    int width=10, int precision=4 );
+    int width, int precision );
 
 template
 void print(
     const char* label,
     std::vector<std::complex<float>> const& x,
-    int width=10, int precision=4 );
+    int width, int precision );
 
 template
 void print(
     const char* label,
     std::vector<std::complex<double>> const& x,
-    int width=10, int precision=4 );
+    int width, int precision );
 
 } // namespace slate

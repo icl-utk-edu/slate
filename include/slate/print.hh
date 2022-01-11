@@ -18,25 +18,25 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
-/// Print a LAPACK matrix. Should be called from only one rank.
-///
-template <typename scalar_t>
-void print(
-    const char* label,
-    int64_t m, int64_t n, scalar_t* A, int64_t lda,
-    slate::Options const& opts = Options());
+/// Print real value to a buffer buf of length buf_len.
+/// For w = width and p = precision:
+/// - integers are printed with %v.0f where v = w-p
+/// - small values < 0.01 or large values > threshold are printed with %w.pg
+/// - modest values are printed with %w.pf.
+/// To ensure data fits, set threshold = 10^(w - p - 2) and w >= p + 6.
+template <typename real_t>
+int snprintf_value(
+    char* buf, size_t buf_len,
+    int width, int precision,
+    real_t value);
 
 //------------------------------------------------------------------------------
-/// Print a ScaLAPACK distributed matrix.
-/// Prints each rank's data as a contiguous block, numbered by the block row &
-/// column indices. Rank 0 does the printing.
-///
-template <typename scalar_t>
-void print(
-    const char* label,
-    int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
-    int p, int q, MPI_Comm comm,
-    slate::Options const& opts = Options());
+/// Print complex values as " <real> + <imag>i".
+template <typename real_t>
+void snprintf_value(
+    char* buf, size_t buf_len,
+    int width, int precision,
+    std::complex<real_t> value);
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed matrix.

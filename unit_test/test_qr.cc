@@ -10,6 +10,7 @@
 
 #include "unit_test.hh"
 #include "print_tile.hh"
+#include "../test/print_matrix.hh"
 
 namespace test {
 
@@ -488,7 +489,7 @@ void test_unmqr_work( slate::Side side, slate::Op op, int m, int n, int k )
 
     if (verbose >= 2) {
         printf( "\n" );
-        slate::print( "tau", 1, k, tau.data(), 1, 1, 1, mpi_comm );
+        print( "tau", 1, k, tau.data(), 1, 1, 1, mpi_comm );
         slate::print( "V", V );
         slate::print( "T", T );
     }

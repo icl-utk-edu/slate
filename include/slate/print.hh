@@ -17,13 +17,6 @@
 
 namespace slate {
 
-//------------------------------------------------------------------------------
-/// Print real value to a buffer buf of length buf_len.
-/// For w = width and p = precision:
-/// - integers are printed with %v.0f where v = w-p
-/// - small values < 0.01 or large values > threshold are printed with %w.pg
-/// - modest values are printed with %w.pf.
-/// To ensure data fits, set threshold = 10^(w - p - 2) and w >= p + 6.
 template <typename real_t>
 int snprintf_value(
     char* buf, size_t buf_len,
@@ -31,7 +24,6 @@ int snprintf_value(
     real_t value);
 
 //------------------------------------------------------------------------------
-/// Print complex values as " <real> + <imag>i".
 template <typename real_t>
 void snprintf_value(
     char* buf, size_t buf_len,
@@ -39,11 +31,6 @@ void snprintf_value(
     std::complex<real_t> value);
 
 //------------------------------------------------------------------------------
-/// Print a SLATE distributed matrix.
-/// Rank 0 does the printing, and must have enough memory to fit one entire
-/// block row of the matrix.
-/// For block-sparse matrices, missing tiles are print as "nan".
-///
 template <typename scalar_t>
 void print(
     const char* label,
@@ -51,12 +38,6 @@ void print(
     slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
-/// Print a SLATE distributed band matrix.
-/// Rank 0 does the printing, and must have enough memory to fit one entire
-/// block row of the matrix.
-/// Tiles outside the bandwidth are printed as "0", with no trailing decimals.
-/// For block-sparse matrices, missing tiles are print as "nan".
-///
 template <typename scalar_t>
 void print(
     const char* label,
@@ -64,23 +45,6 @@ void print(
     slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
-/// Print a SLATE distributed BaseTriangular (triangular, symmetric, and
-/// Hermitian) band matrix.
-/// Rank 0 does the printing, and must have enough memory to fit one entire
-/// block row of the matrix.
-/// Tiles outside the bandwidth are printed as "0", with no trailing decimals.
-/// For block-sparse matrices, missing tiles are print as "nan".
-///
-/// Entries in the A.uplo triangle are printed; entries in the opposite
-/// triangle are printed as "nan".
-///
-/// Having said that, if the printed matrix is a lower triangular matrix,
-/// then the routine will print the tiles of upper part of the matrix as "nan",
-/// and the lower part tiles that are inside the bandwidth will be printed
-/// as they are, whereas the non existing tiles, tiles outside the bandwidth,
-/// will be printed as "0", with no trailing decimals.
-/// This is to follow MATLAB convention and to make it easier for debugging.
-///
 template <typename scalar_t>
 void print(
     const char* label,
@@ -88,10 +52,6 @@ void print(
     slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
-/// Print a SLATE distributed Hermitian matrix.
-/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
-/// todo: fix complex diag in Matlab? (Sca)LAPACK ignores imag part.
-///
 template <typename scalar_t>
 void print(
     const char* label,
@@ -99,9 +59,6 @@ void print(
     slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
-/// Print a SLATE distributed symmetric matrix.
-/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
-///
 template <typename scalar_t>
 void print(
     const char* label,
@@ -109,10 +66,6 @@ void print(
     slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
-/// Print a SLATE distributed trapezoid matrix.
-/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
-/// todo: fix unit diag in Matlab.
-///
 template <typename scalar_t>
 void print(
     const char* label,
@@ -120,10 +73,6 @@ void print(
     slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
-/// Print a SLATE distributed triangular matrix.
-/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
-/// todo: fix unit diag in Matlab.
-///
 template <typename scalar_t>
 void print(
     const char* label,
@@ -131,10 +80,6 @@ void print(
     slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
-/// Print a vector.
-/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
-/// as desired.
-///
 template <typename scalar_t>
 void print(
     const char* label,
@@ -142,10 +87,6 @@ void print(
     slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
-/// Print a vector.
-/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
-/// as desired.
-///
 template <typename scalar_type>
 void print(
     const char* label,

@@ -59,6 +59,21 @@ int snprintf_value(
 }
 
 //------------------------------------------------------------------------------
+// Explicit instantiations.
+// ----------------------------------------
+template
+int snprintf_value(
+    char* buf, size_t buf_len,
+    int width, int precision,
+    float value);
+
+template
+int snprintf_value(
+    char* buf, size_t buf_len,
+    int width, int precision,
+    double value);
+
+//------------------------------------------------------------------------------
 /// Print complex values as " <real> + <imag>i".
 template <typename real_t>
 void snprintf_value(
@@ -90,6 +105,21 @@ void snprintf_value(
         snprintf( buf, buf_len, "i" );
     }
 }
+
+//------------------------------------------------------------------------------
+// Explicit instantiations.
+// ----------------------------------------
+template
+void snprintf_value(
+    char* buf, size_t buf_len,
+    int width, int precision,
+    std::complex<float> value);
+
+template
+void snprintf_value(
+    char* buf, size_t buf_len,
+    int width, int precision,
+    std::complex<double> value);
 
 //------------------------------------------------------------------------------
 /// Sends tiles A(i, j) and receives it on rank 0.

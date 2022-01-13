@@ -249,7 +249,8 @@ void getrf(
                 if (mpi_rank == mpi_root) {
                     max_loc_in[0].max = cabs1(tiles[0](j, j));
                     max_loc_in[1].max = cabs1(max_value[0]);
-                } else {
+                }
+                else {
                     max_loc_in[0].max = cabs1(max_value[0])*pivot_threshold;
                     max_loc_in[1].max = max_loc_in[0].max;
                 }
@@ -265,7 +266,8 @@ void getrf(
                     // if diagonal isn't good enough for the remote entries,
                     // use the result of the second reduction
                     bcast_rank = max_loc[1].loc;
-                } else {
+                }
+                else {
                     bcast_rank = mpi_root;
 
                     // if the diagonal is good enough for the local entries,

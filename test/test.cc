@@ -328,7 +328,8 @@ Params::Params():
                           0,    ParamType::Value, 'n', "ny", "generate matrix with nonuniform tile sizes"),
     debug     ("debug",   0,    ParamType::Value, -1,     0, 1000000,
                "given rank waits for debugger (gdb/lldb) to attach"),
-    pivot_threshold ("piv-thresh", 15, 2,  ParamType::List, 1.0, 0.0, 1.0, "threshold for pivoting a remote row"),
+    pivot_threshold("piv-thresh",
+                         15, 2, ParamType::List, 1.0,   0.0,     1.0, "threshold for pivoting a remote row"),
 
     // ----- output parameters
     // min, max are ignored

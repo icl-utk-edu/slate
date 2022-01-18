@@ -147,7 +147,8 @@ template <Target target=Target::HostTask, typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          Layout layout, int priority=0, int64_t queue_index=0);
+          Layout layout, int priority=0, int64_t queue_index=0,
+          Options const& opts = Options());
 
 template <Target target=Target::HostTask, typename scalar_t>
 void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
@@ -183,7 +184,8 @@ void hemm(Side side,
 template <Target target=Target::HostTask, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
-          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor);
+          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
+          Options const& opts = Options());
 
 // forward real-symmetric matrices to herk;
 // disabled for complex
@@ -191,11 +193,12 @@ template <Target target=Target::HostTask, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>&& C,
           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
+          Options const& opts = Options(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     herk<target>(alpha, std::move(A),
                  beta, HermitianMatrix<scalar_t>(C),
-                 priority, queue_index, layout);
+                 priority, queue_index, layout, opts);
 }
 
 //-----------------------------------------
@@ -300,7 +303,7 @@ void trsm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
           int priority=0, Layout layout=Layout::ColMajor,
-          int64_t queue_index=0);
+          int64_t queue_index=0, Options const& opts = Options());
 
 //-----------------------------------------
 // trtri()

@@ -25,7 +25,7 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void potrf(slate::internal::TargetType<target>,
-           HermitianMatrix<scalar_t> A, int64_t lookahead)
+           HermitianMatrix<scalar_t> A, int64_t lookahead, Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
@@ -170,7 +170,8 @@ void potrfReleasePanel(HermitianMatrix<scalar_t> A, int64_t k)
 ///
 template <typename scalar_t>
 void potrf(slate::internal::TargetType<Target::Devices>,
-           HermitianMatrix<scalar_t> A, int64_t lookahead)
+           HermitianMatrix<scalar_t> A, int64_t lookahead,
+           Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
@@ -228,7 +229,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                         Side::Right,
                         scalar_t(1.0), conjTranspose(Tkk),
                                        A.sub(k+1, A_nt-1, k, k),
-                        priority_zero, layout, queue_1);
+                        priority_zero, layout, queue_1, opts);
                 }
 
                 BcastListTag bcast_list_A;
@@ -284,7 +285,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                             scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
                                             conjTranspose(Ajk),
                             scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j),
-                            layout, priority_zero, j-k+1);
+                            layout, priority_zero, j-k+1, opts);
                     }
                 }
             }
@@ -325,7 +326,7 @@ void potrf(HermitianMatrix<scalar_t>& A,
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     internal::specialization::potrf(internal::TargetType<target>(),
-                                    A, lookahead);
+                                    A, lookahead, opts);
 }
 
 //------------------------------------------------------------------------------

@@ -81,6 +81,7 @@ public:
     testsweeper::ParamEnum< testsweeper::DataType > datatype;
     testsweeper::ParamEnum< slate::Origin >         origin;
     testsweeper::ParamEnum< slate::Target >         target;
+    testsweeper::ParamEnum< slate::TileReleaseStrategy > tile_release_strategy;
     testsweeper::ParamEnum< slate::Dist >           dev_dist;
     testsweeper::ParamEnum< slate::Layout >         layout;
     testsweeper::ParamEnum< lapack::Job >           jobz;   // heev
@@ -333,6 +334,31 @@ inline const char* target2str(slate::Target target)
         case slate::Target::HostBatch: return "batch";
         case slate::Target::Devices:   return "devices";
         case slate::Target::Host:      return "host";
+    }
+    return "?";
+}
+
+// -----------------------------------------------------------------------------
+inline slate::TileReleaseStrategy str2tile_release_strategy(const char* tile_release_strategy)
+{
+    std::string tile_release_strategy_ = tile_release_strategy;
+    std::transform(tile_release_strategy_.begin(), tile_release_strategy_.end(), tile_release_strategy_.begin(), ::tolower);
+    if (tile_release_strategy_ == "n" || tile_release_strategy_ == "none")
+        return slate::TileReleaseStrategy::None;
+    else if (tile_release_strategy_ == "i" || tile_release_strategy_ == "internal")
+        return slate::TileReleaseStrategy::Internal;
+    else if (tile_release_strategy_ == "s" || tile_release_strategy_ == "src")
+        return slate::TileReleaseStrategy::Slate;
+    else
+        throw slate::Exception("unknown tile_release_strategy");
+}
+
+inline const char* tile_release_strategy2str(slate::TileReleaseStrategy tile_release_strategy)
+{
+    switch (tile_release_strategy) {
+        case slate::TileReleaseStrategy::None:     return "none";
+        case slate::TileReleaseStrategy::Internal: return "int";
+        case slate::TileReleaseStrategy::Slate:    return "src";
     }
     return "?";
 }

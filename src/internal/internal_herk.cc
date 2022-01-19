@@ -401,7 +401,8 @@ void herk(internal::TargetType<Target::Devices>,
 
                 queue->sync();
 
-                if (tile_release_strategy == TileReleaseStrategy::Internal) {
+                if (tile_release_strategy == TileReleaseStrategy::Internal ||
+                    tile_release_strategy == TileReleaseStrategy::All) {
                     A.tileRelease(0, 0, device);
                     A.tileTick(0, 0);
                     A.tileTick(0, 0);
@@ -664,7 +665,8 @@ void herk(internal::TargetType<Target::Devices>,
 
                     queue->sync();
 
-                    if (tile_release_strategy == TileReleaseStrategy::Internal) {
+                    if (tile_release_strategy == TileReleaseStrategy::Internal ||
+                            tile_release_strategy == TileReleaseStrategy::All) {
                         // both off-diagonal batch gemm and diagonal herks are done
                         for (int64_t j = 0; j < C.nt(); ++j) {
                             for (int64_t i = j; i < C.mt(); ++i) {  // lower

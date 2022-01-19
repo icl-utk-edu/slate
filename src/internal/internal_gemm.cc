@@ -667,7 +667,8 @@ void gemm(internal::TargetType<Target::Devices>,
                 queue->sync();
             }
 
-            if (tile_release_strategy == TileReleaseStrategy::Internal) {
+            if (tile_release_strategy == TileReleaseStrategy::Internal ||
+                    tile_release_strategy == TileReleaseStrategy::All) {
                 for (int64_t i = 0; i < C.mt(); ++i) {
                     for (int64_t j = 0; j < C.nt(); ++j) {
                         if (C.tileIsLocal(i, j)) {

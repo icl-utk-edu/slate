@@ -349,6 +349,8 @@ inline slate::TileReleaseStrategy str2tile_release_strategy(const char* tile_rel
         return slate::TileReleaseStrategy::Internal;
     else if (tile_release_strategy_ == "s" || tile_release_strategy_ == "src")
         return slate::TileReleaseStrategy::Slate;
+    else if (tile_release_strategy_ == "a" || tile_release_strategy_ == "all")
+        return slate::TileReleaseStrategy::All;
     else
         throw slate::Exception("unknown tile_release_strategy");
 }
@@ -359,6 +361,7 @@ inline const char* tile_release_strategy2str(slate::TileReleaseStrategy tile_rel
         case slate::TileReleaseStrategy::None:     return "none";
         case slate::TileReleaseStrategy::Internal: return "int";
         case slate::TileReleaseStrategy::Slate:    return "src";
+        case slate::TileReleaseStrategy::All:      return "all";
     }
     return "?";
 }

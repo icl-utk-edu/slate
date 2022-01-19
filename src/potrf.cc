@@ -176,6 +176,9 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
+    TileReleaseStrategy tile_release_strategy = get_option( opts, 
+            Option::TileReleaseStrategy, TileReleaseStrategy::Internal );
+
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -191,6 +194,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 
     const int priority_zero = 0;
     const int life_factor_one = 1;
+    const int queue_0 = 0;
     const int queue_1 = 1;
     const int64_t batch_size_zero = 0;
     const int num_queues = 2 + lookahead;  // Number of kernels with lookahead
@@ -260,7 +264,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     // where kl = k + lookahead
                     internal::herk<Target::Devices>(
                         real_t(-1.0), A.sub(k+1+lookahead, A_nt-1, k, k),
-                        real_t( 1.0), A.sub(k+1+lookahead, A_nt-1));
+                        real_t( 1.0), A.sub(k+1+lookahead, A_nt-1),
+                        priority_zero, queue_0, layout, opts);
                 }
             }
 
@@ -276,7 +281,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     // A(j, j) -= A(j, k) * A(j, k)^H
                     internal::herk<Target::Devices>(
                         real_t(-1.0), A.sub(j, j, k, k),
-                        real_t( 1.0), A.sub(j, j));
+                        real_t( 1.0), A.sub(j, j), 
+                        priority_zero, j-k+1, layout, opts);
 
                     // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
                     if (j+1 <= A_nt-1) {
@@ -290,17 +296,20 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 }
             }
 
-            // update the status of the on-hold tiles held by the invocation of
-            // the tileBcast routine, and then release them to free up memory
-            // the origin must be updated with the latest modified copy.
-            // for memory consistency
-            // TODO: find better solution to handle tile release, and
-            //       investigate the correctness of the task dependency
-            if (lookahead > 0 && k >= lookahead) {
-                #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[k+1])
-                {
-                    potrfReleasePanel(A, k - lookahead);
+            if (tile_release_strategy == TileReleaseStrategy::Slate ||
+                    tile_release_strategy == TileReleaseStrategy::All) {
+                // update the status of the on-hold tiles held by the invocation of
+                // the tileBcast routine, and then release them to free up memory
+                // the origin must be updated with the latest modified copy.
+                // for memory consistency
+                // TODO: find better solution to handle tile release, and
+                //       investigate the correctness of the task dependency
+                if (lookahead > 0 && k >= lookahead) {
+                    #pragma omp task depend(in:column[k]) \
+                        depend(inout:column[k+1])
+                    {
+                        potrfReleasePanel(A, k - lookahead);
+                    }
                 }
             }
         }

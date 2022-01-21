@@ -13,93 +13,6 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::hetrs from internal::specialization::hetrs
-namespace internal {
-namespace specialization {
-
-//------------------------------------------------------------------------------
-/// Distributed parallel Hermitian indefinite $LTL^T$ solve.
-/// Generic implementation for any target.
-/// @ingroup hesv_specialization
-///
-template <Target target, typename scalar_t>
-void hetrs(slate::internal::TargetType<target>,
-           HermitianMatrix<scalar_t>& A, Pivots& pivots,
-                BandMatrix<scalar_t>& T, Pivots& pivots2,
-                    Matrix<scalar_t>& B, int64_t lookahead)
-{
-    // assert(A.mt() == A.nt());
-    assert(B.mt() == A.mt());
-
-    // if upper, change to lower
-    if (A.uplo() == Uplo::Upper)
-        A = conjTranspose(A);
-
-    int64_t A_nt = A.nt();
-    int64_t A_mt = A.mt();
-    int64_t B_nt = B.nt();
-    int64_t B_mt = B.mt();
-
-    if (A_nt > 1) {
-        // pivot right-hand-sides
-        for (int64_t k = 1; k < B.mt(); ++k) {
-            // swap rows in B(k:mt-1, 0:nt-1)
-            internal::permuteRows<Target::HostTask>(
-                Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1),
-                pivots.at(k), Layout::ColMajor);
-        }
-
-        // forward substitution with L from Aasen's
-        auto Lkk = TriangularMatrix<scalar_t>( Diag::NonUnit, A, 1, A_mt-1, 0, A_nt-2 );
-        auto Bkk = B.sub(1, B_mt-1, 0, B_nt-1);
-        trsm(Side::Left, scalar_t(1.0), Lkk, Bkk,
-             {{Option::Lookahead, lookahead},
-              {Option::Target, target}});
-    }
-
-    // band solve
-    gbtrs(T, pivots2, B,
-          {{Option::Lookahead, lookahead}});
-
-    if (A_nt > 1) {
-        // backward substitution with L^T from Aasen's
-        auto Lkk = TriangularMatrix<scalar_t>( Diag::NonUnit, A, 1, A_mt-1, 0, A_nt-2 );
-        auto Bkk = B.sub(1, B_mt-1, 0, B_nt-1);
-        Lkk = conjTranspose(Lkk);
-        trsm(Side::Left, scalar_t(1.0), Lkk, Bkk,
-             {{Option::Lookahead, lookahead},
-              {Option::Target, target}});
-
-        // pivot right-hand-sides
-        for (int64_t k = B.mt()-1; k > 0; --k) {
-            // swap rows in B(k:mt-1, 0:nt-1)
-            internal::permuteRows<Target::HostTask>(
-                Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
-                pivots.at(k), Layout::ColMajor);
-        }
-    }
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup hesv_specialization
-///
-template <Target target, typename scalar_t>
-void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,
-                BandMatrix<scalar_t>& T, Pivots& pivots2,
-                    Matrix<scalar_t>& B,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::hetrs(internal::TargetType<target>(),
-                                    A, pivots, T, pivots2, B, lookahead);
-}
-
 //------------------------------------------------------------------------------
 /// Distributed parallel Hermitian indefinite $LTL^T$ solve.
 ///
@@ -148,22 +61,55 @@ void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,
                     Matrix<scalar_t>& B,
            Options const& opts)
 {
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+    // Constants
+    const scalar_t one  = 1;
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            hetrs<Target::HostTask>(A, pivots, T, pivots2, B, opts);
-            break;
-        case Target::HostNest:
-            hetrs<Target::HostNest>(A, pivots, T, pivots2, B, opts);
-            break;
-        case Target::HostBatch:
-            hetrs<Target::HostBatch>(A, pivots, T, pivots2, B, opts);
-            break;
-        case Target::Devices:
-            hetrs<Target::Devices>(A, pivots, T, pivots2, B, opts);
-            break;
+    // assert(A.mt() == A.nt());
+    assert(B.mt() == A.mt());
+
+    auto A_ = A;  // local shallow copy to transpose
+
+    // if upper, change to lower
+    if (A_.uplo() == Uplo::Upper)
+        A_ = conjTranspose(A_);
+
+    int64_t A_nt = A_.nt();
+    int64_t A_mt = A_.mt();
+    int64_t B_nt = B.nt();
+    int64_t B_mt = B.mt();
+
+    if (A_nt > 1) {
+        // pivot right-hand-sides
+        for (int64_t k = 1; k < B.mt(); ++k) {
+            // swap rows in B(k:mt-1, 0:nt-1)
+            internal::permuteRows<Target::HostTask>(
+                Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1),
+                pivots.at(k), Layout::ColMajor);
+        }
+
+        // forward substitution with L from Aasen's
+        auto Lkk = TriangularMatrix<scalar_t>( Diag::NonUnit, A_, 1, A_mt-1, 0, A_nt-2 );
+        auto Bkk = B.sub(1, B_mt-1, 0, B_nt-1);
+        trsm(Side::Left, one, Lkk, Bkk, opts);
+    }
+
+    // band solve
+    gbtrs(T, pivots2, B, opts);
+
+    if (A_nt > 1) {
+        // backward substitution with L^T from Aasen's
+        auto Lkk = TriangularMatrix<scalar_t>( Diag::NonUnit, A_, 1, A_mt-1, 0, A_nt-2 );
+        auto Bkk = B.sub(1, B_mt-1, 0, B_nt-1);
+        Lkk = conjTranspose(Lkk);
+        trsm(Side::Left, one, Lkk, Bkk, opts);
+
+        // pivot right-hand-sides
+        for (int64_t k = B.mt()-1; k > 0; --k) {
+            // swap rows in B(k:mt-1, 0:nt-1)
+            internal::permuteRows<Target::HostTask>(
+                Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
+                pivots.at(k), Layout::ColMajor);
+        }
     }
     // todo: return value for errors?
 }

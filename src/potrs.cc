@@ -13,41 +13,6 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::potrs from internal::specialization::potrs
-namespace internal {
-namespace specialization {
-
-//------------------------------------------------------------------------------
-/// Distributed parallel Cholesky solve.
-/// Generic implementation for any target.
-/// @ingroup posv_specialization
-///
-template <Target target, typename scalar_t>
-void potrs(slate::internal::TargetType<target>,
-           HermitianMatrix<scalar_t> A,
-           Matrix<scalar_t>& B, int64_t lookahead)
-{
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup posv_specialization
-///
-template <Target target, typename scalar_t>
-void potrs(HermitianMatrix<scalar_t>& A,
-           Matrix<scalar_t>& B,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::potrs(internal::TargetType<target>(),
-                                    A, B, lookahead);
-}
-
 //------------------------------------------------------------------------------
 /// Distributed parallel Cholesky solve.
 ///

@@ -68,12 +68,12 @@ void gemmA(internal::TargetType<Target::HostTask>,
     int err   = 0;
     // This assumes that if a tile has to be acquired, then all tiles
     // have to be acquired
-    // TODO make it a matrix of the C tiles involved cTileAcquired(i, k)
-    int cTileAcquired = 0;
+    // TODO make it a matrix of the C tiles involved c.TileAcquire(i, k)
+    int c_tile_acquired = 0;
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal(i, j)) {
-                #pragma omp task shared(A, B, C, err, cTileAcquired) priority(priority)
+                #pragma omp task shared(A, B, C, err, c_tile_acquired) priority(priority)
                 {
                     try {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
@@ -85,7 +85,7 @@ void gemmA(internal::TargetType<Target::HostTask>,
                             }
                             else {
                                 if (! C.tileExists(i, k)) {
-                                    cTileAcquired = 1;
+                                    c_tile_acquired = 1;
                                     #pragma omp critical
                                     {
                                         C.tileAcquire(i, k, C.hostNum(), layout);
@@ -111,7 +111,7 @@ void gemmA(internal::TargetType<Target::HostTask>,
 
                 scalar_t beta_j;
                 for (int64_t k = 0; k < B.nt(); ++k) {
-                    if (! cTileAcquired || C.tileIsLocal(i, 0)) {
+                    if (! c_tile_acquired || C.tileIsLocal(i, 0)) {
                         beta_j = beta;
                     }
                     else {

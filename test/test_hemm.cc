@@ -207,10 +207,7 @@ void test_hemm_work(Params& params, bool run)
             alpha,  A,
                     B,
             beta,   C,
-            {
-              {slate::Option::Lookahead, lookahead},
-              {slate::Option::Target, target}
-            });
+            opts);
     }
     // Using traditional BLAS/LAPACK name
     // slate::hemm(side, alpha, A, B, beta, C, opts);

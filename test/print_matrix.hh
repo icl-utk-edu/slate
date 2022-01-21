@@ -35,7 +35,7 @@ void print(
         msg = "";
         for (int64_t j = 0; j < n; ++j) {
             slate::snprintf_value( buf, sizeof(buf), width, precision,
-                            A[i + j*lda] );
+                                   A[i + j*lda] );
             msg += buf;
         }
         printf( "%s\n", msg.c_str() );
@@ -63,8 +63,7 @@ void print(
     if (verbose == 0)
         return;
 
-    if ((verbose == 2) && (mlocal <= 2*edgeitems) && (nlocal <= 2*edgeitems))
-    {
+    if ((verbose == 2) && (mlocal <= 2*edgeitems) && (nlocal <= 2*edgeitems)) {
         verbose = 4;
     }
 
@@ -108,7 +107,7 @@ void print(
                         // first abbrev_cols
                         for (int64_t j = 0; j < max_cols; ++j) {
                             slate::snprintf_value( buf, sizeof(buf), width, precision,
-                                            A[i + j*lda] );
+                                                   A[i + j*lda] );
                             msg += buf;
                         }
                         if (nlocal > 2*abbrev_cols)
@@ -116,7 +115,7 @@ void print(
                         // last abbrev_cols columns
                         for (int64_t j = start_col; j < nlocal; ++j) {
                             slate::snprintf_value( buf, sizeof(buf), width, precision,
-                                            A[i + j*lda] );
+                                                   A[i + j*lda] );
                             msg += buf;
                         }
                         msg += "\n";
@@ -125,12 +124,13 @@ void print(
                         msg += " ...\n";// row abbreviation indicator
                     // last abbrev_rows
                     int64_t start_row = (mlocal - abbrev_rows < abbrev_rows
-                                      ? abbrev_rows : mlocal-abbrev_rows);
+                                         ? abbrev_rows
+                                         : mlocal-abbrev_rows);
                     for (int64_t i = start_row; i < mlocal; ++i) {
                         // first abbrev_cols
                         for (int64_t j = 0; j < max_cols; ++j) {
                             slate::snprintf_value( buf, sizeof(buf), width, precision,
-                                            A[i + j*lda] );
+                                                   A[i + j*lda] );
                             msg += buf;
                         }
                         if (nlocal > 2*abbrev_cols)
@@ -138,7 +138,7 @@ void print(
                         // last abbrev_cols columns
                         for (int64_t j = start_col; j < nlocal; ++j) {
                             slate::snprintf_value( buf, sizeof(buf), width, precision,
-                                            A[i + j*lda] );
+                                                   A[i + j*lda] );
                             msg += buf;
                         }
                         msg += "\n";
@@ -153,7 +153,7 @@ void print(
                         for (int64_t j = 0; j < nlocal; j += col_step) {
                             // for verbose=3 only column j = 0 and j = nlocal-1
                             slate::snprintf_value( buf, sizeof(buf), width, precision,
-                                            A[i + j*lda] );
+                                                   A[i + j*lda] );
                             msg += buf;
                         }
                         msg += "\n";

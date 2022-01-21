@@ -16,6 +16,7 @@
 #include "slate/HermitianBandMatrix.hh"
 
 #include "slate/types.hh"
+#include "slate/print.hh"
 
 //------------------------------------------------------------------------------
 /// @namespace slate

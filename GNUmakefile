@@ -523,6 +523,7 @@ libslate_src += \
         src/pbsv.cc \
         src/pbtrf.cc \
         src/pbtrs.cc \
+        src/print.cc \
         src/posv.cc \
         src/posvMixed.cc \
         src/potrf.cc \

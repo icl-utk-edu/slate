@@ -489,12 +489,12 @@ protected:
                         int radix, int tag, Layout layout,
                         std::vector<MPI_Request>& send_requests);
 
+public:
     // todo: should this be private?
     void tileReduceFromSet(int64_t i, int64_t j,
                            std::set<int> const& reduce_set, int radix, int tag,
                            Layout layout);
 
-public:
 
     void getRanks(std::set<int>* bcast_set) const;
     void getLocalDevices(std::set<int>* dev_set) const;
@@ -2350,20 +2350,23 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
         tileGetForReading(i, j, LayoutConvert(layout));
     }
 
-    std::vector<scalar_t> data(tileMb(i)*tileNb(j));
-    Tile<scalar_t> tile(tileMb(i), tileNb(j), &data[0], tileMb(i), host_num_, TileKind::Workspace);
+    auto Aij = at(i, j);
+
+    std::vector<scalar_t> data(Aij.mb() * Aij.nb());
+    int64_t lda = (Aij.op() == Op::NoTrans ? Aij.mb() : Aij.nb());
+    Tile<scalar_t> tile(Aij, &data[0], lda, TileKind::Workspace);
 
     // Receive, accumulate.
     for (int src : recv_from) {
         // Receive.
         tile.recv(new_vec[src], mpi_comm_, layout, tag);
         // Accumulate.
-        axpy(scalar_t(1.0), tile, at(i, j));
+        axpy(scalar_t(1.0), tile, Aij);
     }
 
     // Forward.
     if (! send_to.empty())
-        at(i, j).send(new_vec[send_to.front()], mpi_comm_, tag);
+        Aij.send(new_vec[send_to.front()], mpi_comm_, tag);
 }
 
 //------------------------------------------------------------------------------

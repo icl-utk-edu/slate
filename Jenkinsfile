@@ -88,7 +88,7 @@ fi
 
 # Run HIP, Intel MPI tests.
 if [ "${host}" = "gpu_amd" ]; then
-    sload intel-mpi
+    run sload intel-mpi
     export FI_PROVIDER=tcp
 
     #echo "CXXFLAGS  = -Werror"  >> make.inc  # HIP headers have many errors; ignore.
@@ -106,6 +106,23 @@ if [ "${host}" = "gpu_amd" ]; then
 fi
 
 export color=no
+
+print "========================================"
+# Check what is loaded.
+run spack find --loaded
+
+which mpicxx
+which mpif90
+mpicxx --version
+mpif90 --version
+
+which nvcc
+nvcc --version
+
+which hipcc
+hipcc --version
+
+echo "MKLROOT ${MKLROOT}"
 
 print "========================================"
 env

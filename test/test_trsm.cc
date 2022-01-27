@@ -125,11 +125,9 @@ void test_trsm_work(Params& params, bool run)
     // Cholesky factor of A to get a well conditioned triangular matrix.
     // Even when we replace the diagonal with unit diagonal,
     // it seems to still be well conditioned.
-    if (ref || origin == slate::Origin::ScaLAPACK) {
-        auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                    uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        slate::potrf( AH, opts );
-    }
+    auto AH = slate::HermitianMatrix<scalar_t>( A );
+    slate::potrf( AH, opts );
+
     // if check is required, copy test data
     std::vector< scalar_t > Bref_data;
     slate::Matrix<scalar_t> Bref;
@@ -235,7 +233,6 @@ void test_trsm_work(Params& params, bool run)
             slate_assert(info == 0);
 
             copy( A, &A_data[0], A_desc );
-            copy( B, &B_data[0], B_desc );
 
             // set MKL num threads appropriately for parallel BLAS
             int omp_num_threads;

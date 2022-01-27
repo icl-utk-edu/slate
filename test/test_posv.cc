@@ -103,12 +103,9 @@ void test_posv_work(Params& params, bool run)
     int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
 
-    // Allocate ScaLAPACK data if needed.
+    // ScaLAPACK data if needed.
     std::vector<scalar_t> A_data, B_data;
-    if (ref || origin == slate::Origin::ScaLAPACK) {
-        A_data.resize( lldA * nlocA );
-        B_data.resize( lldB * nlocB );
-    }
+
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
 
@@ -168,6 +165,8 @@ void test_posv_work(Params& params, bool run)
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
+        A_data.resize( lldA * nlocA );
+        B_data.resize( lldB * nlocB );
         A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                 uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         B = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -202,11 +201,6 @@ void test_posv_work(Params& params, bool run)
 
         if (check && ref)
             B_orig = Bref_data;
-    }
-
-    if (ref && origin != slate::Origin::ScaLAPACK) {
-        A_data = Aref_data;
-        B_data = Bref_data;
     }
 
     double gflop;

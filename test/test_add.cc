@@ -109,12 +109,8 @@ void test_add_work(Params& params, bool run)
     int64_t mlocB, nlocB, lldB;
     mlocB = mlocA, nlocB = nlocA, lldB = lldA;
 
-    // Allocate ScaLAPACK data if needed.
+    // ScaLAPACK data if needed.
     std::vector<scalar_t> A_data, B_data;
-    if (check || ref || origin == slate::Origin::ScaLAPACK) {
-        A_data.resize( lldA * nlocA );
-        B_data.resize( lldB * nlocB );
-    }
 
     slate::Matrix<scalar_t> A;
     slate::Matrix<scalar_t> B;
@@ -128,6 +124,8 @@ void test_add_work(Params& params, bool run)
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layout.
+        A_data.resize( lldA * nlocA );
+        B_data.resize( lldB * nlocB );
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
                 m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         B = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -212,11 +210,6 @@ void test_add_work(Params& params, bool run)
             scalapack_descinit(B_desc, m, n, nb, nb, 0, 0, ictxt, lldB, &info);
             slate_assert(info == 0);
 
-            if (origin != slate::Origin::ScaLAPACK) {
-                // todo: the copy needs to be fixed for transpose case.
-                copy(A, &A_data[0], A_desc);
-                copy(B, &B_data[0], B_desc);
-            }
             real_t A_norm = slate::norm(slate::Norm::One, A);
             real_t B_norm = slate::norm(slate::Norm::One, B);
             // set MKL num threads appropriately for parallel BLAS

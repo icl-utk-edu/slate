@@ -203,11 +203,7 @@ void test_hemm_work(Params& params, bool run)
             throw slate::Exception("unknown side");
     }
     else if (params.routine == "hemmA") {
-        slate::hemmA(side,
-            alpha,  A,
-                    B,
-            beta,   C,
-            opts);
+        slate::hemmA(side, alpha, A, B, beta, C, opts);
     }
     // Using traditional BLAS/LAPACK name
     // slate::hemm(side, alpha, A, B, beta, C, opts);

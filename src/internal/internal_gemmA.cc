@@ -19,8 +19,7 @@ namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// General matrix multiply for a left-looking update,
-/// where B and C are single block columns.
+/// General matrix multiply for a left-looking update.
 /// Dispatches to target implementations.
 /// In the complex case,
 /// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conjTranspose;
@@ -50,7 +49,7 @@ void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
 }
 
 //------------------------------------------------------------------------------
-/// General matrix multiply for a left-looking update
+/// General matrix multiply for a left-looking update.
 /// Host OpenMP task implementation.
 /// @ingroup gemm_internal
 ///

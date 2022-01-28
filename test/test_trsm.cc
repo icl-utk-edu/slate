@@ -95,7 +95,6 @@ void test_trsm_work(Params& params, bool run)
     std::vector<scalar_t> A_data, B_data;
     if (ref || origin == slate::Origin::ScaLAPACK) {
         A_data.resize( lldA * nlocA );
-        B_data.resize( lldB * nlocB );
     }
 
     slate::TriangularMatrix<scalar_t> A;
@@ -115,6 +114,8 @@ void test_trsm_work(Params& params, bool run)
         // create SLATE matrices from the ScaLAPACK layouts
         A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
                 uplo, diag, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+
+        B_data.resize( lldB * nlocB );
         B = slate::Matrix<scalar_t>::fromScaLAPACK(
                 Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     }

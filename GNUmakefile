@@ -408,6 +408,7 @@ libslate_src += \
         src/internal/internal_getrf_nopiv.cc \
         src/internal/internal_hebr.cc \
         src/internal/internal_hemm.cc \
+        src/internal/internal_hemmA.cc \
         src/internal/internal_hbnorm.cc \
         src/internal/internal_henorm.cc \
         src/internal/internal_her2k.cc \
@@ -510,6 +511,7 @@ libslate_src += \
         src/unmtr_he2hb.cc \
         src/heev.cc \
         src/hemm.cc \
+        src/hemmA.cc \
         src/hbmm.cc \
         src/her2k.cc \
         src/herk.cc \

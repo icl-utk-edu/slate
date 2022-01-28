@@ -194,12 +194,17 @@ void test_hemm_work(Params& params, bool run)
     // C = alpha A B + beta C (left) or
     // C = alpha B A + beta C (right).
     //==================================================
-    if (side == slate::Side::Left)
-        slate::multiply(alpha, A, B, beta, C, opts);
-    else if (side == slate::Side::Right)
-        slate::multiply(alpha, B, A, beta, C, opts);
-    else
-        throw slate::Exception("unknown side");
+    if (params.routine == "hemm") {
+        if (side == slate::Side::Left)
+            slate::multiply(alpha, A, B, beta, C, opts);
+        else if (side == slate::Side::Right)
+            slate::multiply(alpha, B, A, beta, C, opts);
+        else
+            throw slate::Exception("unknown side");
+    }
+    else if (params.routine == "hemmA") {
+        slate::hemmA(side, alpha, A, B, beta, C, opts);
+    }
     // Using traditional BLAS/LAPACK name
     // slate::hemm(side, alpha, A, B, beta, C, opts);
 

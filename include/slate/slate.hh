@@ -192,6 +192,16 @@ void hemm(
 }
 
 //-----------------------------------------
+// hemmA()
+template <typename scalar_t>
+void hemmA(
+    Side side,
+    scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                             Matrix<scalar_t>& B,
+    scalar_t beta,           Matrix<scalar_t>& C,
+    Options const& opts = Options());
+
+//-----------------------------------------
 // symm()
 template <typename scalar_t>
 void symm(

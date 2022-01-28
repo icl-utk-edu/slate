@@ -74,6 +74,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "",                   nullptr,           Section::newline },
 
     { "hemm",               test_hemm,         Section::blas3 },
+    { "hemmA",              test_hemm,         Section::blas3 },
     { "hbmm",               test_hbmm,         Section::blas3 },
     { "herk",               test_herk,         Section::blas3 },
     { "her2k",              test_her2k,        Section::blas3 },

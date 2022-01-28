@@ -103,13 +103,8 @@ void test_gels_work(Params& params, bool run)
     int64_t nlocBX = num_local_rows_cols(nrhs,  nb, mycol, q);
     int64_t lldBX  = blas::max(1, mlocBX); // local leading dimension of A
 
-    // Allocate ScaLAPACK data if needed.
+    // ScaLAPACK data if needed.
     std::vector<scalar_t> A_data, X0_data, BX_data;
-    if (ref || origin == slate::Origin::ScaLAPACK) {
-        A_data.resize( lldA * nlocA );
-        X0_data.resize( lldX0 * nlocX0 );
-        BX_data.resize( lldBX * nlocBX );
-    }
 
     slate::Matrix<scalar_t> A, X0, BX;
     if (origin != slate::Origin::ScaLAPACK) {
@@ -126,6 +121,10 @@ void test_gels_work(Params& params, bool run)
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
+        A_data.resize( lldA * nlocA );
+        X0_data.resize( lldX0 * nlocX0 );
+        BX_data.resize( lldBX * nlocBX );
+
         A  = slate::Matrix<scalar_t>::fromScaLAPACK(
                  m,     n,    &A_data[0],  lldA,  nb, p, q, MPI_COMM_WORLD);
         X0 = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -400,27 +399,9 @@ void test_gels_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            int A_desc[9];
-            scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
-
-            int X0_desc[9];
-            scalapack_descinit(X0_desc, opAn, nrhs, nb, nb, 0, 0, ictxt, mlocX0, &info);
-            slate_assert(info == 0);
-
-            int BX_desc[9];
-            scalapack_descinit(BX_desc, maxmn, nrhs, nb, nb, 0, 0, ictxt, mlocBX, &info);
-            slate_assert(info == 0);
-
             // workspace for ScaLAPACK
             int64_t lwork;
             std::vector<scalar_t> work;
-
-            if (origin != slate::Origin::ScaLAPACK) {
-                copy(A, &A_data[0], A_desc);
-                copy(BX, &BX_data[0], BX_desc); //B is sub-matrix of BX
-                copy(X0, &X0_data[0], X0_desc);
-            }
 
             int Aref_desc[9], BXref_desc[9];
             scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);

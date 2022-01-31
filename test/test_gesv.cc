@@ -61,7 +61,7 @@ void test_gesv_work(Params& params, bool run)
     double pivot_threshold;
     if (params.routine == "gesv_nopiv" || params.routine == "getrf_nopiv"
         || params.routine == "getrs_nopiv") {
-        pivot_threshold = real_t(-1.0);
+        pivot_threshold = 0.0;
     }
     else {
         pivot_threshold = params.pivot_threshold();

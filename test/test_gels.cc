@@ -91,20 +91,20 @@ void test_gels_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
 
     // matrix X0, opAn-by-nrhs
     // used if making a consistent equation, B = A*X0
     int64_t mlocX0 = num_local_rows_cols(opAn, nb, myrow, p);
     int64_t nlocX0 = num_local_rows_cols(nrhs, nb, mycol, q);
     int64_t lldX0  = blas::max(1, mlocX0); // local leading dimension of A
-    std::vector<scalar_t> X0_data(lldX0*nlocX0);
 
     // matrix BX, which stores B (input) and X (output), max(m, n)-by-nrhs
     int64_t mlocBX = num_local_rows_cols(maxmn, nb, myrow, p);
     int64_t nlocBX = num_local_rows_cols(nrhs,  nb, mycol, q);
     int64_t lldBX  = blas::max(1, mlocBX); // local leading dimension of A
-    std::vector<scalar_t> BX_data(lldBX*nlocBX);
+
+    // ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data, X0_data, BX_data;
 
     slate::Matrix<scalar_t> A, X0, BX;
     if (origin != slate::Origin::ScaLAPACK) {
@@ -121,6 +121,10 @@ void test_gels_work(Params& params, bool run)
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
+        A_data.resize( lldA * nlocA );
+        X0_data.resize( lldX0 * nlocX0 );
+        BX_data.resize( lldBX * nlocBX );
+
         A  = slate::Matrix<scalar_t>::fromScaLAPACK(
                  m,     n,    &A_data[0],  lldA,  nb, p, q, MPI_COMM_WORLD);
         X0 = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -395,27 +399,9 @@ void test_gels_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            int A_desc[9];
-            scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
-
-            int X0_desc[9];
-            scalapack_descinit(X0_desc, opAn, nrhs, nb, nb, 0, 0, ictxt, mlocX0, &info);
-            slate_assert(info == 0);
-
-            int BX_desc[9];
-            scalapack_descinit(BX_desc, maxmn, nrhs, nb, nb, 0, 0, ictxt, mlocBX, &info);
-            slate_assert(info == 0);
-
             // workspace for ScaLAPACK
             int64_t lwork;
             std::vector<scalar_t> work;
-
-            if (origin != slate::Origin::ScaLAPACK) {
-                copy(A, &A_data[0], A_desc);
-                copy(BX, &BX_data[0], BX_desc); //B is sub-matrix of BX
-                copy(X0, &X0_data[0], X0_desc);
-            }
 
             int Aref_desc[9], BXref_desc[9];
             scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);

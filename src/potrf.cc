@@ -126,6 +126,30 @@ void potrf(slate::internal::TargetType<target>,
     A.releaseWorkspace();
 }
 
+template <typename scalar_t>
+void potrfCleanTiles(HermitianMatrix<scalar_t> A, int64_t k)
+{
+    int64_t A_nt = A.nt();
+    for (int64_t i = k; i < A_nt; ++i) {
+        if (A.tileIsLocal(i, k)) {
+            A.tileUpdateOrigin(i, k);
+
+            std::set<int> dev_set;
+            A.sub(i, i, k, i).getLocalDevices(&dev_set);
+            A.sub(i, A_nt-1, i, i).getLocalDevices(&dev_set);
+
+            // Unset hold on devices and release the tile
+            for (auto device : dev_set) {
+                A.tileUnsetHold(i, k, device);
+                A.tileRelease(i, k, device);
+            }
+            // Unset hold on host and release the tile
+            A.tileUnsetHold(i, k);
+            A.tileRelease(i, k);
+        }
+    }
+}
+
 //------------------------------------------------------------------------------
 /// An auxiliary routine to release the panel tiles that are broadcasted. Since
 /// the broadcasted tiles are flagged to be hold on the devices memories to be
@@ -177,7 +201,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
     TileReleaseStrategy tile_release_strategy = get_option( opts, 
-            Option::TileReleaseStrategy, TileReleaseStrategy::Internal );
+            Option::TileReleaseStrategy, TileReleaseStrategy::All );
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -296,8 +320,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 }
             }
 
-            if (tile_release_strategy == TileReleaseStrategy::Slate ||
-                    tile_release_strategy == TileReleaseStrategy::All) {
+            if (tile_release_strategy == TileReleaseStrategy::All) {
                 // update the status of the on-hold tiles held by the invocation of
                 // the tileBcast routine, and then release them to free up memory
                 // the origin must be updated with the latest modified copy.
@@ -310,6 +333,14 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     {
                         potrfReleasePanel(A, k - lookahead);
                     }
+                }
+            }
+
+
+            if (tile_release_strategy == TileReleaseStrategy::Slate) {
+                #pragma omp task depend(inout:column[k]) 
+                {
+                    potrfCleanTiles(A, k);
                 }
             }
         }

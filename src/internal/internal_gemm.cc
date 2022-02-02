@@ -673,6 +673,13 @@ void gemm(internal::TargetType<Target::Devices>,
                     for (int64_t j = 0; j < C.nt(); ++j) {
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
+
+                                if(0) {
+                                int myrank;
+                                MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
+                                std::cout << myrank << ": " << __func__ << ": " << i << "," << j << "@" << device << std::endl; 
+                                }
+
                                 // erase tmp local and remote device tiles;
                                 A.tileRelease(i, 0, device);
                                 B.tileRelease(0, j, device);

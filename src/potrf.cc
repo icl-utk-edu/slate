@@ -133,6 +133,8 @@ void potrfCleanTiles(HermitianMatrix<scalar_t> A, int64_t k)
     for (int64_t i = k; i < A_nt; ++i) {
         if (A.tileIsLocal(i, k)) {
             A.tileUpdateOrigin(i, k);
+        }
+        {
 
             std::set<int> dev_set;
             A.sub(i, i, k, i).getLocalDevices(&dev_set);
@@ -275,6 +277,13 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 // (avoiding possible race condition)
                 A.template listBcastMT<Target::Devices>(
                   bcast_list_A, layout, life_factor_one, is_shared);
+                for(int rk = 0; rk < 2; rk++) {
+                    if(A.mpiRank() == rk){
+                //        Debug::printTilesLives(A);
+                //        Debug::printTilesMaps(A);
+                    }
+                }
+                // std::cout << -(k+1) << std::endl;
             }
 
             // update trailing submatrix, normal priority
@@ -348,7 +357,6 @@ void potrf(slate::internal::TargetType<Target::Devices>,
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
-
     A.releaseWorkspace();
 }
 

@@ -45,7 +45,7 @@ public:
 
     OptionValue(Target t) : i_(int(t))
     {}
-    
+
     OptionValue(TileReleaseStrategy t) : i_(int(t))
     {}
 

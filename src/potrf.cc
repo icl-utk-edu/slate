@@ -131,24 +131,18 @@ void potrfCleanTiles(HermitianMatrix<scalar_t> A, int64_t k)
 {
     int64_t A_nt = A.nt();
     for (int64_t i = k; i < A_nt; ++i) {
-        if (A.tileIsLocal(i, k)) {
-            A.tileUpdateOrigin(i, k);
-        }
-        {
+        std::set<int> dev_set;
+        A.sub(i, i, k, i).getLocalDevices(&dev_set);
+        A.sub(i, A_nt-1, i, i).getLocalDevices(&dev_set);
 
-            std::set<int> dev_set;
-            A.sub(i, i, k, i).getLocalDevices(&dev_set);
-            A.sub(i, A_nt-1, i, i).getLocalDevices(&dev_set);
-
-            // Unset hold on devices and release the tile
-            for (auto device : dev_set) {
-                A.tileUnsetHold(i, k, device);
-                A.tileRelease(i, k, device);
-            }
-            // Unset hold on host and release the tile
-            A.tileUnsetHold(i, k);
-            A.tileRelease(i, k);
+        // Unset hold on devices and release the tile
+        for (auto device : dev_set) {
+            A.tileUnsetHold(i, k, device);
+            A.tileRelease(i, k, device);
         }
+        // Unset hold on host and release the tile
+        A.tileUnsetHold(i, k);
+        A.tileRelease(i, k);
     }
 }
 
@@ -202,7 +196,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
-    TileReleaseStrategy tile_release_strategy = get_option( opts, 
+    TileReleaseStrategy tile_release_strategy = get_option( opts,
             Option::TileReleaseStrategy, TileReleaseStrategy::All );
 
     // Assumes column major
@@ -224,7 +218,14 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     const int queue_1 = 1;
     const int64_t batch_size_zero = 0;
     const int num_queues = 2 + lookahead;  // Number of kernels with lookahead
-    const bool is_shared = lookahead > 0;  // Do tileGetAndHold in the bcast
+    bool is_shared = lookahead > 0;  // Do tileGetAndHold in the bcast
+
+    if (tile_release_strategy == TileReleaseStrategy::Slate) {
+        // If release happens only in src/potrf.cc,
+        // tileBcast does not need to hold tiles
+        // because tiles are released only by potrfCleanTiles() function
+        is_shared = false;
+    }
 
     // Allocate batch arrays = number of kernels without lookahead + lookahead
     // number of kernels without lookahead = 2 (internal::gemm & internal::trsm)
@@ -234,7 +235,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     // the number of kernels without lookahead, and then incremented by 1
     // for every execution for the internal::herk
     A.allocateBatchArrays(batch_size_zero, num_queues);
-    A.reserveDeviceWorkspace();
+    //A.reserveDeviceWorkspace(); // kadir todo if the origin is device do not allocate much
 
     #pragma omp parallel
     #pragma omp master
@@ -314,7 +315,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     // A(j, j) -= A(j, k) * A(j, k)^H
                     internal::herk<Target::Devices>(
                         real_t(-1.0), A.sub(j, j, k, k),
-                        real_t( 1.0), A.sub(j, j), 
+                        real_t( 1.0), A.sub(j, j),
                         priority_zero, j-k+1, layout, opts);
 
                     // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
@@ -340,20 +341,19 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     #pragma omp task depend(in:column[k]) \
                         depend(inout:column[k+1])
                     {
-                        potrfReleasePanel(A, k - lookahead);
+                        potrfReleasePanel(A, k - lookahead);  // kadir todo remove
                     }
                 }
             }
 
 
             if (tile_release_strategy == TileReleaseStrategy::Slate) {
-                #pragma omp task depend(inout:column[k]) 
+                #pragma omp task depend(inout:column[k])
                 {
                     potrfCleanTiles(A, k);
                 }
             }
         }
-
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }

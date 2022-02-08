@@ -235,7 +235,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     // the number of kernels without lookahead, and then incremented by 1
     // for every execution for the internal::herk
     A.allocateBatchArrays(batch_size_zero, num_queues);
-    //A.reserveDeviceWorkspace(); // kadir todo if the origin is device do not allocate much
+    A.reserveDeviceWorkspace(); // todo if the origin is device do not allocate much
 
     #pragma omp parallel
     #pragma omp master

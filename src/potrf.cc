@@ -135,13 +135,11 @@ void potrfCleanTiles(HermitianMatrix<scalar_t> A, int64_t k)
         A.sub(i, i, k, i).getLocalDevices(&dev_set);
         A.sub(i, A_nt-1, i, i).getLocalDevices(&dev_set);
 
-        // Unset hold on devices and release the tile
+        // Release the tile on devices
         for (auto device : dev_set) {
-            A.tileUnsetHold(i, k, device);
             A.tileRelease(i, k, device);
         }
-        // Unset hold on host and release the tile
-        A.tileUnsetHold(i, k);
+        // Release the tile on host
         A.tileRelease(i, k);
     }
 }

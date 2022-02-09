@@ -53,7 +53,8 @@ file_hh.write('''\n\
 #define SLATE_C_API_MATRIX_H
 \n''')
 
-file_hh.write('#include "slate/internal/mpi.hh"\n')
+#file_hh.write('#include "slate/internal/mpi.hh"\n')
+file_hh.write('#include "mpi.h"\n')
 file_hh.write('#include "slate/c_api/types.h"\n\n')
 
 file_hh.write('#include <complex.h>\n')

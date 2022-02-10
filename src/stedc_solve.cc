@@ -99,8 +99,6 @@ void stedc_solve(
 
     // Solve each submatrix eigenproblem at the bottom of the divide and
     // conquer tree. D is the same on each process.
-    // todo: why not use stedc on leaf nodes? SLATE's tile size may be fairly
-    // large, so steqr may not be fastest. Profile.
     // ii is row index, i is block-row index.
     int64_t ii = 0;
     int64_t ib;
@@ -116,8 +114,13 @@ void stedc_solve(
                     auto Qii = Q( i, i );
                     assert( Qii.mb() == ib );
                     assert( Qii.nb() == ib );
-                    lapack::steqr( lapack::Job::Vec, ib, &D[ ii ], &E[ ii ],
-                                   Qii.data(), Qii.stride() );
+                    #if 0  // todo: get from opts.
+                        lapack::steqr( lapack::Job::Vec, ib, &D[ ii ], &E[ ii ],
+                                       Qii.data(), Qii.stride() );
+                    #else
+                        lapack::stedc( lapack::Job::Vec, ib, &D[ ii ], &E[ ii ],
+                                       Qii.data(), Qii.stride() );
+                    #endif
                 }
             }
             ii += ib;

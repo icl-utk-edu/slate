@@ -294,7 +294,7 @@ so the user does not have to install them beforehand. If CMake finds already
 installed versions, it will use those instead of compiling new versions.
 
 
-### CMake Otions
+### CMake Options
 
 Besides the Environment variables and Options listed above, additional
 options include:
@@ -307,6 +307,9 @@ options include:
         Each number can take optional `-real` or `-virtual` suffix.
         Default is `60`, for Pascal architecture. For description, see:
         https://cmake.org/cmake/help/latest/prop_tgt/CUDA_ARCHITECTURES.html
+        For other architectures, CMAKE_CUDA_ARCHITECTURES **should be defined**.
+        For example, `-DCMAKE_CUDA_ARCHITECTURES=70` should be added for
+        the Volta architecture.
 
     use_mpi
         Whether to use MPI, if available. One of:

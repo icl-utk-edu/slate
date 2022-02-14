@@ -146,6 +146,7 @@ endif()
 # src/fortran_api/*.f90
 
 if (c_api)
+    find_package(Python3 COMPONENTS Interpreter QUIET)
     set( cmd ${Python_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_api/generate_util.py
         ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/types.h

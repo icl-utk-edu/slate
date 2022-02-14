@@ -318,7 +318,8 @@ options include:
 
         NOTE: SLATE compiles without MPI, but not all routines operate
         correctly. Also, the testers currently require ScaLAPACK, which
-        requires MPI, so testers will fail.
+        requires MPI, so testers will fail. The C API definitely requires
+        MPI.
 
     use_openmp
         Whether to use OpenMP, if available. One of:
@@ -330,6 +331,11 @@ options include:
         Requires ScaLAPACK. One of:
         yes (default)
         no
+
+    c_api
+        Whether to build C API. One of:
+        yes
+        no (default)
 
 BLAS++ options include:
 

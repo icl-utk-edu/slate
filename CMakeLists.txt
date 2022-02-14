@@ -147,7 +147,7 @@ endif()
 
 message( "---------------------------------------- C API: c_api = ${c_api}" )
 if (c_api)
-    find_package(Python3 COMPONENTS Interpreter)
+    find_package(Python COMPONENTS Interpreter)
     set( cmd ${Python_EXECUTABLE}
         ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_api/generate_util.py
         ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/types.h

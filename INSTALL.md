@@ -236,7 +236,7 @@ options include:
         OpenMP, set `openmp = 0`.
 
     c_api
-        Whether to build C API. One of:
+        Whether to build C API. Python is required. One of:
         1                   build C API
         0                   don't build C API
 
@@ -333,7 +333,7 @@ options include:
         no
 
     c_api
-        Whether to build C API. One of:
+        Whether to build C API. Python is required. One of:
         yes
         no (default)
 

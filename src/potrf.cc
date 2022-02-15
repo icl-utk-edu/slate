@@ -343,16 +343,20 @@ void potrf(HermitianMatrix<scalar_t>& A,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::potrf<Target::HostTask>(TargetType<Target::HostTask>(), A, opts);
+            impl::potrf<Target::HostTask>( TargetType<Target::HostTask>(),
+                                           A, opts);
             break;
         case Target::HostNest:
-            impl::potrf<Target::HostNest>(TargetType<Target::HostNest>(), A, opts);
+            impl::potrf<Target::HostNest>( TargetType<Target::HostNest>(),
+                                           A, opts);
             break;
         case Target::HostBatch:
-            impl::potrf<Target::HostBatch>(TargetType<Target::HostBatch>(), A, opts);
+            impl::potrf<Target::HostBatch>( TargetType<Target::HostBatch>(),
+                                            A, opts);
             break;
         case Target::Devices:
-            impl::potrf<Target::Devices>(TargetType<Target::Devices>(), A, opts);
+            impl::potrf<Target::Devices>( TargetType<Target::Devices>(),
+                                          A, opts);
             break;
     }
     // todo: return value for errors?

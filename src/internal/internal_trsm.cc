@@ -142,8 +142,8 @@ void trsm(internal::TargetType<Target::Devices>,
     using std::swap;
     using blas::conj;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
-    
-    TileReleaseStrategy tile_release_strategy = get_option( opts, 
+
+    TileReleaseStrategy tile_release_strategy = get_option( opts,
             Option::TileReleaseStrategy, TileReleaseStrategy::All );
 
     assert(B.num_devices() > 0);
@@ -323,6 +323,7 @@ void trsm(internal::TargetType<Target::Devices>,
 
                 if (tile_release_strategy == TileReleaseStrategy::Internal ||
                     tile_release_strategy == TileReleaseStrategy::All) {
+
                     A.tileRelease(0, 0, device);
                     for (auto i = 0; i < batch_size; ++i) {
                         A.tileTick(0, 0);

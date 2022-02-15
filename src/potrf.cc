@@ -145,43 +145,6 @@ void potrfCleanTiles(HermitianMatrix<scalar_t> A, int64_t k)
 }
 
 //------------------------------------------------------------------------------
-/// An auxiliary routine to release the panel tiles that are broadcasted. Since
-/// the broadcasted tiles are flagged to be hold on the devices memories to be
-/// accessed by multiple internal kernels while preventing the tileRelease call
-/// in these routine to release them before the others finish accessing
-/// them. Note: this function update the tiles origin to make sure that
-/// the origin memory is up-to-date and the coherency is kept consistent
-/// across multiple address spaces.
-/// @param[in] A
-///     The n-by-n Hermitian positive definite matrix $A$, which is
-///     a sub of the input matrix $A$.
-///
-/// @param[in] k
-///     Current column k of the input matrix $A$.
-///
-/// @ingroup posv_computational
-///
-template <typename scalar_t>
-void potrfReleasePanel(HermitianMatrix<scalar_t> A, int64_t k)
-{
-    int64_t A_nt = A.nt();
-    for (int64_t i = k+1; i < A_nt; ++i) {
-        if (A.tileIsLocal(i, k)) {
-            A.tileUpdateOrigin(i, k);
-
-            std::set<int> dev_set;
-            A.sub(i, i, k+1, i).getLocalDevices(&dev_set);
-            A.sub(i, A_nt-1, i, i).getLocalDevices(&dev_set);
-
-            for (auto device : dev_set) {
-                A.tileUnsetHold(i, k, device);
-                A.tileRelease(i, k, device);
-            }
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
 /// GPU device batched cuBLAS implementation.
 /// @ingroup posv_specialization
@@ -216,14 +179,6 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     const int queue_1 = 1;
     const int64_t batch_size_zero = 0;
     const int num_queues = 2 + lookahead;  // Number of kernels with lookahead
-    bool is_shared = lookahead > 0;  // Do tileGetAndHold in the bcast
-
-    if (tile_release_strategy == TileReleaseStrategy::Slate) {
-        // If release happens only in src/potrf.cc,
-        // tileBcast does not need to hold tiles
-        // because tiles are released only by potrfCleanTiles() function
-        is_shared = false;
-    }
 
     // Allocate batch arrays = number of kernels without lookahead + lookahead
     // number of kernels without lookahead = 2 (internal::gemm & internal::trsm)
@@ -270,19 +225,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                                             i});
                 }
 
-                // "is_shared" is to request copying the tiles to the devices,
-                // and set them on-hold, which avoids releasing them by either
-                // internal::gemm or internal::herk
-                // (avoiding possible race condition)
                 A.template listBcastMT<Target::Devices>(
-                  bcast_list_A, layout, life_factor_one, is_shared);
-                for(int rk = 0; rk < 2; rk++) {
-                    if(A.mpiRank() == rk){
-                //        Debug::printTilesLives(A);
-                //        Debug::printTilesMaps(A);
-                    }
-                }
-                // std::cout << -(k+1) << std::endl;
+                  bcast_list_A, layout, life_factor_one);
             }
 
             // update trailing submatrix, normal priority
@@ -327,23 +271,6 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     }
                 }
             }
-
-            if (tile_release_strategy == TileReleaseStrategy::All) {
-                // update the status of the on-hold tiles held by the invocation of
-                // the tileBcast routine, and then release them to free up memory
-                // the origin must be updated with the latest modified copy.
-                // for memory consistency
-                // TODO: find better solution to handle tile release, and
-                //       investigate the correctness of the task dependency
-                if (lookahead > 0 && k >= lookahead) {
-                    #pragma omp task depend(in:column[k]) \
-                        depend(inout:column[k+1])
-                    {
-                        potrfReleasePanel(A, k - lookahead);  // kadir todo remove
-                    }
-                }
-            }
-
 
             if (tile_release_strategy == TileReleaseStrategy::Slate) {
                 #pragma omp task depend(inout:column[k])

@@ -380,8 +380,8 @@ void gemm(internal::TargetType<Target::Devices>,
     using std::swap;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    TileReleaseStrategy tile_release_strategy = get_option( opts,
-            Option::TileReleaseStrategy, TileReleaseStrategy::All );
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
     // check dimensions
     assert(C.mt() > 0);
     assert(C.nt() > 0);

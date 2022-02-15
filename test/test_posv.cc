@@ -41,6 +41,7 @@ void test_posv_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
+    bool hold_local_workspace = params.hold_local_workspace() == 'y';
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
@@ -74,7 +75,8 @@ void test_posv_work(Params& params, bool run)
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
-        {slate::Option::TileReleaseStrategy, tile_release_strategy}
+        {slate::Option::TileReleaseStrategy, tile_release_strategy},
+        {slate::Option::HoldLocalWorkspace, hold_local_workspace}
     };
 
     // MPI variables

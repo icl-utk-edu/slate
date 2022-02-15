@@ -158,8 +158,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-    TileReleaseStrategy tile_release_strategy = get_option( opts,
-            Option::TileReleaseStrategy, TileReleaseStrategy::All );
+    bool hold_local_workspace = get_option<bool>(
+            opts, Option::HoldLocalWorkspace, 1 );
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -272,11 +272,14 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 }
             }
 
-            if (tile_release_strategy == TileReleaseStrategy::Slate) {
-                #pragma omp task depend(inout:column[k])
-                {
-                    potrfCleanTiles(A, k);
+            #pragma omp task depend(inout:column[k])
+            {
+                // auto panel = A.sub( i, n, j, j );
+                // panel.eraseRemoteWorkspace();
+                if (hold_local_workspace) {
+                    // panel.eraseLocalWorkspace();
                 }
+                potrfCleanTiles(A, k);
             }
         }
         #pragma omp taskwait

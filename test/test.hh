@@ -58,6 +58,7 @@ public:
     testsweeper::ParamChar   check;
     testsweeper::ParamChar   error_exit;
     testsweeper::ParamChar   ref;
+    testsweeper::ParamChar   hold_local_workspace;
     testsweeper::ParamChar   trace;
     testsweeper::ParamDouble trace_scale;
     testsweeper::ParamDouble tol;

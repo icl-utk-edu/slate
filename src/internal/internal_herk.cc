@@ -375,8 +375,8 @@ void herk(internal::TargetType<Target::Devices>,
     using real_t = blas::real_type<scalar_t>;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    TileReleaseStrategy tile_release_strategy = get_option( opts,
-            Option::TileReleaseStrategy, TileReleaseStrategy::All );
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
     assert(C.num_devices() > 0);
 
     // if single tile, avoid creating tasks for all devices

@@ -61,6 +61,8 @@ enum class Option : char {
     Tolerance,          ///< tolerance for iterative methods, default epsilon
     Target,             ///< computation method (@see Target)
     TileReleaseStrategy,///< tile releasing strategy used by routines
+    HoldLocalWorkspace, ///< do not erase local workspace tiles for enabling
+                        ///< resue of the tiles by the next routine
     PrintVerbose,       ///< verbose, 0: no printing,
                         ///< verbose, 1: print metadata only (dimensions, uplo, etc.)
                         ///< verbose, 2: print first & last PrintEdgeItems rows & cols

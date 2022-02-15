@@ -143,8 +143,8 @@ void trsm(internal::TargetType<Target::Devices>,
     using blas::conj;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    TileReleaseStrategy tile_release_strategy = get_option( opts,
-            Option::TileReleaseStrategy, TileReleaseStrategy::All );
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
 
     assert(B.num_devices() > 0);
     assert(A.mt() == 1);

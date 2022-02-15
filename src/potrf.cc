@@ -13,9 +13,8 @@
 namespace slate {
 
 // specialization namespace differentiates, e.g.,
-// internal::potrf from internal::specialization::potrf
-namespace internal {
-namespace specialization {
+// internal::potrf from impl::potrf
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
@@ -25,10 +24,12 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void potrf(slate::internal::TargetType<target>,
-           HermitianMatrix<scalar_t> A, int64_t lookahead, Options const& opts)
+           HermitianMatrix<scalar_t> A, Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
+
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -149,14 +150,14 @@ void potrfCleanTiles(HermitianMatrix<scalar_t> A, int64_t k)
 /// GPU device batched cuBLAS implementation.
 /// @ingroup posv_specialization
 ///
-template <typename scalar_t>
+template <Target target, typename scalar_t>
 void potrf(slate::internal::TargetType<Target::Devices>,
-           HermitianMatrix<scalar_t> A, int64_t lookahead,
-           Options const& opts)
+           HermitianMatrix<scalar_t> A, Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
     TileReleaseStrategy tile_release_strategy = get_option( opts,
             Option::TileReleaseStrategy, TileReleaseStrategy::All );
 
@@ -174,7 +175,6 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     uint8_t* column = column_vector.data();
 
     const int priority_zero = 0;
-    const int life_factor_one = 1;
     const int queue_0 = 0;
     const int queue_1 = 1;
     const int64_t batch_size_zero = 0;
@@ -226,7 +226,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                 }
 
                 A.template listBcastMT<Target::Devices>(
-                  bcast_list_A, layout, life_factor_one);
+                  bcast_list_A, layout);
             }
 
             // update trailing submatrix, normal priority
@@ -285,22 +285,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     A.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup posv_specialization
-///
-template <Target target, typename scalar_t>
-void potrf(HermitianMatrix<scalar_t>& A,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::potrf(internal::TargetType<target>(),
-                                    A, lookahead, opts);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
@@ -352,21 +337,22 @@ template <typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,
            Options const& opts)
 {
+    using internal::TargetType;
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            potrf<Target::HostTask>(A, opts);
+            impl::potrf<Target::HostTask>(TargetType<Target::HostTask>(), A, opts);
             break;
         case Target::HostNest:
-            potrf<Target::HostNest>(A, opts);
+            impl::potrf<Target::HostNest>(TargetType<Target::HostNest>(), A, opts);
             break;
         case Target::HostBatch:
-            potrf<Target::HostBatch>(A, opts);
+            impl::potrf<Target::HostBatch>(TargetType<Target::HostBatch>(), A, opts);
             break;
         case Target::Devices:
-            potrf<Target::Devices>(A, opts);
+            impl::potrf<Target::Devices>(TargetType<Target::Devices>(), A, opts);
             break;
     }
     // todo: return value for errors?

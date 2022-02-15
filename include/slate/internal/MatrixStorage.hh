@@ -226,11 +226,6 @@ public:
     {
         slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
         if (tile_instances_[device+1]->valid()) {
-            if(0){
-            int myrank;
-            MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-            std::cout << myrank << ": " << __func__ <<  "@" << device << std::endl; 
-            }
             tile_instances_[device+1]->setState(MOSI::Invalid);
             delete tile_instances_[device+1]->tile();
             tile_instances_[device+1]->tile(nullptr);
@@ -920,16 +915,6 @@ void MatrixStorage<scalar_t>::release(ijdev_tuple ijdev)
         int64_t j  = std::get<1>(ijdev);
         int device = std::get<2>(ijdev);
 
-        if(0) {
-        int myrank;
-        MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-        std::cout << myrank << ": " << __func__ << ": " << i << "," << j << "@" << device <<
-            " ws:" << tile_node[device].tile()->workspace() <<
-            " onhold:" << tile_node[device].stateOn(MOSI::OnHold) <<
-            " modified:" << tile_node[device].stateOn(MOSI::Modified) <<
-            " numInstances:" << tile_node.numInstances()
-            <<  std::endl; 
-        }
         if (tile_node[device].tile()->workspace() &&
             ! (tile_node[device].stateOn(MOSI::OnHold) ||
                tile_node[device].stateOn(MOSI::Modified))
@@ -963,13 +948,6 @@ void MatrixStorage<scalar_t>::erase(ij_tuple ij)
             if (tile_node->existsOn(d)) {
                 freeTileMemory(tile_node->at(d).tile());
                 tile_node->eraseOn(d);
-                if(0){
-                int myrank;
-                MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-                int64_t i  = std::get<0>(ij);
-                int64_t j  = std::get<1>(ij);
-                std::cout << myrank << ": " << __func__ << ": " << i << "," << j << "@" << d << std::endl; 
-                }
             }
         }
         tiles_.erase(ij);

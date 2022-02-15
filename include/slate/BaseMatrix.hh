@@ -612,15 +612,13 @@ public:
         return int(storage_->compute_queues_.size());
     }
 
-//protected: KADIR
-public: // KADIR
+protected:
     std::tuple<int64_t, int64_t>
         globalIndex(int64_t i, int64_t j) const;
 
     std::tuple<int64_t, int64_t, int>
         globalIndex(int64_t i, int64_t j, int device) const;
 
-protected: // KADIR
     /// row offset of first block row.
     int64_t row0_offset() const { return row0_offset_; }
 

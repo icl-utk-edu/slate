@@ -37,7 +37,7 @@ template <Target target, typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          Layout layout, int priority, int64_t queue_index, 
+          Layout layout, int priority, int64_t queue_index,
           Options const& opts )
 {
     if (C.is_complex &&
@@ -67,7 +67,7 @@ void gemm(internal::TargetType<Target::HostTask>,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          Layout layout, int priority, int64_t queue_index, 
+          Layout layout, int priority, int64_t queue_index,
           Options const& opts )
 {
     // todo: optimize for the number of layout conversions,
@@ -134,7 +134,7 @@ void gemm(internal::TargetType<Target::HostNest>,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          Layout layout, int priority, int64_t queue_index, 
+          Layout layout, int priority, int64_t queue_index,
           Options const& opts )
 {
     // check dimensions
@@ -190,7 +190,7 @@ void gemm(internal::TargetType<Target::HostBatch>,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          Layout layout, int priority, int64_t queue_index, 
+          Layout layout, int priority, int64_t queue_index,
           Options const& opts )
 {
     using blas::conj;
@@ -380,7 +380,7 @@ void gemm(internal::TargetType<Target::Devices>,
     using std::swap;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    TileReleaseStrategy tile_release_strategy = get_option( opts, 
+    TileReleaseStrategy tile_release_strategy = get_option( opts,
             Option::TileReleaseStrategy, TileReleaseStrategy::All );
     // check dimensions
     assert(C.mt() > 0);
@@ -673,13 +673,6 @@ void gemm(internal::TargetType<Target::Devices>,
                     for (int64_t j = 0; j < C.nt(); ++j) {
                         if (C.tileIsLocal(i, j)) {
                             if (device == C.tileDevice(i, j)) {
-
-                                if(0) {
-                                int myrank;
-                                MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-                                std::cout << myrank << ": " << __func__ << ": " << i << "," << j << "@" << device << std::endl; 
-                                }
-
                                 // erase tmp local and remote device tiles;
                                 A.tileRelease(i, 0, device);
                                 B.tileRelease(0, j, device);
@@ -708,7 +701,7 @@ void gemm<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 template
@@ -716,7 +709,7 @@ void gemm<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 template
@@ -724,7 +717,7 @@ void gemm<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 template
@@ -732,7 +725,7 @@ void gemm<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 // ----------------------------------------
@@ -741,7 +734,7 @@ void gemm<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 template
@@ -749,7 +742,7 @@ void gemm<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 template
@@ -757,7 +750,7 @@ void gemm<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 template
@@ -765,7 +758,7 @@ void gemm<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 // ----------------------------------------
@@ -774,7 +767,7 @@ void gemm< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 template
@@ -782,7 +775,7 @@ void gemm< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 template
@@ -790,7 +783,7 @@ void gemm< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 template
@@ -798,7 +791,7 @@ void gemm< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 // ----------------------------------------
@@ -807,7 +800,7 @@ void gemm< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 template
@@ -815,7 +808,7 @@ void gemm< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 template
@@ -823,7 +816,7 @@ void gemm< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 template
@@ -831,7 +824,7 @@ void gemm< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index, 
+    Layout layout, int priority, int64_t queue_index,
     Options const& opts );
 
 } // namespace internal

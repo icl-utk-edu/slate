@@ -375,7 +375,7 @@ void herk(internal::TargetType<Target::Devices>,
     using real_t = blas::real_type<scalar_t>;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    TileReleaseStrategy tile_release_strategy = get_option( opts, 
+    TileReleaseStrategy tile_release_strategy = get_option( opts,
             Option::TileReleaseStrategy, TileReleaseStrategy::All );
     assert(C.num_devices() > 0);
 
@@ -403,15 +403,6 @@ void herk(internal::TargetType<Target::Devices>,
 
                 if (tile_release_strategy == TileReleaseStrategy::Internal ||
                     tile_release_strategy == TileReleaseStrategy::All) {
-                    
-                    if(0){
-                    int myrank;
-                    MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-                    ij_tuple ij = A.globalIndex(0, 0);
-                    int64_t i_ = std::get<0>(ij);
-                    int64_t j_ = std::get<1>(ij);
-                    std::cout << myrank << ": " << __func__ << ": " << "("<< i_ << "," << j_ << ") " << 0 << "," << 0 << "@" << device << std::endl; 
-                    }
 
                     A.tileRelease(0, 0, device);
                     A.tileTick(0, 0);
@@ -682,19 +673,6 @@ void herk(internal::TargetType<Target::Devices>,
                             for (int64_t i = j; i < C.mt(); ++i) {  // lower
                                 if (C.tileIsLocal(i, j)) {
                                     if (device == C.tileDevice(i, j)) {
-
-                                        if(0){
-                                        int myrank;
-                                        MPI_Comm_rank(MPI_COMM_WORLD, &myrank);
-                                        ij_tuple ij = A.globalIndex(i, 0);
-                                        int64_t i_ = std::get<0>(ij);
-                                        int64_t j_ = std::get<1>(ij);
-                                        ij_tuple ij2 = A.globalIndex(j, 0);
-                                        int64_t i2_ = std::get<0>(ij2);
-                                        int64_t j2_ = std::get<1>(ij2);
-                                        std::cout << myrank << ": " << __func__ << ": " << "("<< i_ << "," << j_ << ") " << i << "," << 0 << "; ("<< i2_ << "," << j2_ << ") " << j << "," << 0 << "@" << device << std::endl; 
-                                        }
-
                                         // erase tmp local and remote device tiles;
                                         A.tileRelease(i, 0, device);
                                         A.tileRelease(j, 0, device);

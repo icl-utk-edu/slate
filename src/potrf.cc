@@ -127,24 +127,6 @@ void potrf(slate::internal::TargetType<target>,
     A.releaseWorkspace();
 }
 
-template <typename scalar_t>
-void potrfCleanTiles(HermitianMatrix<scalar_t> A, int64_t k)
-{
-    int64_t A_nt = A.nt();
-    for (int64_t i = k; i < A_nt; ++i) {
-        std::set<int> dev_set;
-        A.sub(i, i, k, i).getLocalDevices(&dev_set);
-        A.sub(i, A_nt-1, i, i).getLocalDevices(&dev_set);
-
-        // Release the tile on devices
-        for (auto device : dev_set) {
-            A.tileRelease(i, k, device);
-        }
-        // Release the tile on host
-        A.tileRelease(i, k);
-    }
-}
-
 //------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
 /// GPU device batched cuBLAS implementation.
@@ -274,18 +256,17 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 
             #pragma omp task depend(inout:column[k])
             {
-                // auto panel = A.sub( i, n, j, j );
-                // panel.eraseRemoteWorkspace();
-                if (hold_local_workspace) {
-                    // panel.eraseLocalWorkspace();
-                }
-                potrfCleanTiles(A, k);
+                auto panel = A.sub( k, A_nt-1, k, k );
+                panel.eraseRemoteWorkspace();
+                panel.eraseLocalWorkspace();
             }
         }
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
-    A.releaseWorkspace();
+    if (hold_local_workspace == false) {
+        A.releaseWorkspace();
+    }
 }
 
 } // namespace impl

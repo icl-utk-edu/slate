@@ -90,6 +90,7 @@ void test_heev_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
+
     std::vector<scalar_t> A_data;
 
     // matrix Lambda (global output) gets eigenvalues in decending order
@@ -137,9 +138,7 @@ void test_heev_work(Params& params, bool run)
     slate::Matrix<scalar_t> Aref_gen;
     if (check || ref) {
         Aref_data.resize( lldA * nlocA );
-        Lambda_ref.resize( n );
-        // Aref and Aref_gen point to the same data,
-        // to compute Aref - (Z Lambda) Z^H using gemm.
+        Lambda_ref.resize( Lambda.size() );
         Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                    uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         Aref_gen = slate::Matrix<scalar_t>::fromScaLAPACK(

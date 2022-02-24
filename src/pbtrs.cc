@@ -13,59 +13,6 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::pbtrs from internal::specialization::pbtrs
-namespace internal {
-namespace specialization {
-
-//------------------------------------------------------------------------------
-/// Distributed parallel Cholesky solve.
-/// Generic implementation for any target.
-/// @ingroup pbsv_specialization
-///
-template <Target target, typename scalar_t>
-void pbtrs(slate::internal::TargetType<target>,
-           HermitianBandMatrix<scalar_t> A,
-           Matrix<scalar_t>& B, int64_t lookahead)
-{
-    // assert(A.mt() == A.nt());
-    assert(B.mt() == A.mt());
-
-    // if upper, change to lower
-    if (A.uplo() == Uplo::Upper)
-        A = conjTranspose(A);
-
-    auto L = TriangularBandMatrix<scalar_t>(Diag::NonUnit, A);
-    auto LT = conjTranspose(L);
-
-    tbsm(Side::Left, scalar_t(1.0), L, B,
-         {{Option::Lookahead, lookahead},
-          {Option::Target, target}});
-
-    tbsm(Side::Left, scalar_t(1.0), LT, B,
-         {{Option::Lookahead, lookahead},
-          {Option::Target, target}});
-
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup pbsv_specialization
-///
-template <Target target, typename scalar_t>
-void pbtrs(HermitianBandMatrix<scalar_t>& A,
-           Matrix<scalar_t>& B,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::pbtrs(internal::TargetType<target>(),
-                                    A, B, lookahead);
-}
-
 //------------------------------------------------------------------------------
 /// Distributed parallel Cholesky solve.
 ///
@@ -108,23 +55,25 @@ void pbtrs(HermitianBandMatrix<scalar_t>& A,
            Matrix<scalar_t>& B,
            Options const& opts)
 {
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+    // Constants
+    const scalar_t one  = 1;
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            pbtrs<Target::HostTask>(A, B, opts);
-            break;
-        case Target::HostNest:
-            pbtrs<Target::HostNest>(A, B, opts);
-            break;
-        case Target::HostBatch:
-            pbtrs<Target::HostBatch>(A, B, opts);
-            break;
-        case Target::Devices:
-            pbtrs<Target::Devices>(A, B, opts);
-            break;
-    }
+    // assert(A.mt() == A.nt());
+    assert(B.mt() == A.mt());
+
+    auto A_ = A;  // local shallow copy to transpose
+
+    // if upper, change to lower
+    if (A_.uplo() == Uplo::Upper)
+        A_ = conjTranspose(A_);
+
+    auto L = TriangularBandMatrix<scalar_t>(Diag::NonUnit, A_);
+    auto LT = conjTranspose(L);
+
+    tbsm(Side::Left, one, L, B, opts);
+
+    tbsm(Side::Left, one, LT, B, opts);
+
     // todo: return value for errors?
 }
 

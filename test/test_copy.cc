@@ -42,7 +42,6 @@ void test_copy_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::Uplo uplo = slate::Uplo::General;
@@ -68,12 +67,14 @@ void test_copy_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
 
     // Matrix B: using the fact that B must be same dimensions as A.
     int64_t mlocB, nlocB, lldB;
     mlocB = mlocA, nlocB = nlocA, lldB = lldA;
-    std::vector<scalar_t> B_data(lldB*nlocB);
+    std::vector<scalar_t> B_data;
+
+    // ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data;
 
     slate::Matrix<scalar_t> A;
     slate::Matrix<scalar_t> B;
@@ -87,6 +88,8 @@ void test_copy_work(Params& params, bool run)
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layout.
+        A_data.resize( lldA * nlocA );
+        B_data.resize( lldB * nlocB );
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
                 m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         B = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -112,9 +115,7 @@ void test_copy_work(Params& params, bool run)
                    m,  n, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     }
 
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+    print_matrix("A", A, params);
 
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
@@ -161,10 +162,6 @@ void test_copy_work(Params& params, bool run)
             scalapack_descinit(B_desc, m, n, nb, nb, 0, 0, ictxt, lldB, &info);
             slate_assert(info == 0);
 
-            if (origin != slate::Origin::ScaLAPACK) {
-                // todo: the copy needs to be fixed for transpose case.
-                copy(A, &A_data[0], A_desc);
-            }
             real_t A_norm = slate::norm(slate::Norm::One, A);
             // set MKL num threads appropriately for parallel BLAS
             int omp_num_threads;
@@ -172,9 +169,7 @@ void test_copy_work(Params& params, bool run)
             { omp_num_threads = omp_get_num_threads(); }
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
-            if (verbose >= 2) {
-                print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD);
-            }
+            print_matrix("Aref", mlocA, nlocA, &Aref_data[0], lldA, p, q, MPI_COMM_WORLD, params);
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -188,9 +183,7 @@ void test_copy_work(Params& params, bool run)
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            if (verbose >= 2) {
-                print_matrix("Bref", mlocB, nlocA, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD);
-            }
+            print_matrix("Bref", mlocB, nlocA, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD, params);
 
             // get differences A = A - Aref
             slate::add(-one, Aref, one, A);
@@ -198,10 +191,8 @@ void test_copy_work(Params& params, bool run)
             // get differences B = B - Bref
             slate::add(-one, Bref, one, B);
 
-            if (verbose >= 2) {
-                print_matrix("DiffA", A);
-                print_matrix("DiffB", B);
-            }
+            print_matrix("DiffA", A, params);
+            print_matrix("DiffB", B, params);
 
             // norm(A - Aref)
             real_t A_diff_norm = slate::norm(slate::Norm::One, A);

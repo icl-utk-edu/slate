@@ -408,6 +408,7 @@ libslate_src += \
         src/internal/internal_getrf_nopiv.cc \
         src/internal/internal_hebr.cc \
         src/internal/internal_hemm.cc \
+        src/internal/internal_hemmA.cc \
         src/internal/internal_hbnorm.cc \
         src/internal/internal_henorm.cc \
         src/internal/internal_her2k.cc \
@@ -510,6 +511,7 @@ libslate_src += \
         src/he2hb.cc \
         src/heev.cc \
         src/hemm.cc \
+        src/hemmA.cc \
         src/hbmm.cc \
         src/her2k.cc \
         src/herk.cc \
@@ -521,6 +523,7 @@ libslate_src += \
         src/pbsv.cc \
         src/pbtrf.cc \
         src/pbtrs.cc \
+        src/print.cc \
         src/posv.cc \
         src/posvMixed.cc \
         src/potrf.cc \
@@ -777,13 +780,16 @@ docs:
 # C API
 ifeq ($(c_api),1)
     include/slate/c_api/wrappers.h: src/c_api/wrappers.cc
-		python tools/c_api/generate_wrappers.py $< $@
+		python tools/c_api/generate_wrappers.py $< $@ \
+			src/c_api/wrappers_precisions.cc
 
     include/slate/c_api/matrix.h: include/slate/Tile.hh
-		python tools/c_api/generate_matrix.py $< $@
+		python tools/c_api/generate_matrix.py $< $@ \
+			src/c_api/matrix.cc
 
     include/slate/c_api/util.hh: include/slate/c_api/types.h
-		python tools/c_api/generate_util.py $< $@
+		python tools/c_api/generate_util.py $< $@ \
+			src/c_api/util.cc
 
     src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h
     src/c_api/matrix.cc: include/slate/c_api/matrix.h

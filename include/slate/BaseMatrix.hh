@@ -82,12 +82,12 @@ protected:
                MPI_Comm mpi_comm);
 
     BaseMatrix(int64_t m, int64_t n, int64_t mb, int64_t nb,
-               int p, int q, MPI_Comm mpi_comm);
+               int nprow, int npcol, MPI_Comm mpi_comm);
 
     /// With mb = nb.
     BaseMatrix(int64_t m, int64_t n, int64_t nb,
-               int p, int q, MPI_Comm mpi_comm)
-        : BaseMatrix(m, n, nb, nb, p, q, mpi_comm)
+               int nprow, int npcol, MPI_Comm mpi_comm)
+        : BaseMatrix(m, n, nb, nb, nprow, npcol, mpi_comm)
     {}
 
     BaseMatrix(BaseMatrix& orig,
@@ -146,6 +146,35 @@ public:
 
     /// Returns number of devices (per MPI process) to distribute matrix to.
     int num_devices() const { return num_devices_; }
+    void gridinfo( int* nprow, int* npcol, int* myrow, int* mycol ) const;
+
+    /// Returns tileMb function. Useful to construct matrices with the
+    /// same block size. For submatrices, this is of the parent matrix.
+    std::function<int64_t (int64_t i)> tileMbFunc() const
+    {
+        return storage_->tileMb;
+    }
+
+    /// Returns tileNb function. Useful to construct matrices with the
+    /// same block size. For submatrices, this is of the parent matrix.
+    std::function<int64_t (int64_t j)> tileNbFunc() const
+    {
+        return storage_->tileNb;
+    }
+
+    /// Returns tileRank function. Useful to construct matrices with the
+    /// same block size. For submatrices, this is of the parent matrix.
+    std::function<int (ij_tuple ij)> tileRankFunc() const
+    {
+        return storage_->tileRank;
+    }
+
+    /// Returns tileDevice function. Useful to construct matrices with the
+    /// same block size. For submatrices, this is of the parent matrix.
+    std::function<int (ij_tuple ij)> tileDeviceFunc() const
+    {
+        return storage_->tileDevice;
+    }
 
     int64_t m() const;
     int64_t n() const;
@@ -460,12 +489,12 @@ protected:
                         int radix, int tag, Layout layout,
                         std::vector<MPI_Request>& send_requests);
 
+public:
     // todo: should this be private?
     void tileReduceFromSet(int64_t i, int64_t j,
                            std::set<int> const& reduce_set, int radix, int tag,
                            Layout layout);
 
-public:
 
     void getRanks(std::set<int>* bcast_set) const;
     void getLocalDevices(std::set<int>* dev_set) const;
@@ -618,6 +647,8 @@ private:
     int64_t joffset_;   ///< block col offset with respect to original matrix
     int64_t mt_;        ///< number of local block rows in this view
     int64_t nt_;        ///< number of local block cols in this view
+    int64_t nprow_;     ///< number of process rows if 2D block cyclic
+    int64_t npcol_;     ///< number of process cols if 2D block cyclic
 
 protected:
     Uplo uplo_;         ///< upper or lower storage
@@ -651,6 +682,8 @@ BaseMatrix<scalar_t>::BaseMatrix()
       joffset_(0),
       mt_(0),
       nt_(0),
+      nprow_(-1),
+      npcol_(-1),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
@@ -687,7 +720,7 @@ BaseMatrix<scalar_t>::BaseMatrix()
 ///
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
-///     p*q == MPI_Comm_size(mpi_comm).
+///     nprow * npcol <= MPI_Comm_size( mpi_comm ).
 ///
 template <typename scalar_t>
 BaseMatrix<scalar_t>::BaseMatrix(
@@ -701,6 +734,8 @@ BaseMatrix<scalar_t>::BaseMatrix(
       col0_offset_(0),
       ioffset_(0),
       joffset_(0),
+      nprow_(-1),
+      npcol_(-1),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
@@ -759,19 +794,20 @@ BaseMatrix<scalar_t>::BaseMatrix(
 /// @param[in] nb
 ///     Column block size in 2D block-cyclic distribution. nb > 0.
 ///
-/// @param[in] p
-///     Number of block rows in 2D block-cyclic distribution. p > 0.
+/// @param[in] nprow
+///     Number of process rows in 2D block-cyclic distribution. nprow > 0.
 ///
-/// @param[in] q
-///     Number of block columns of 2D block-cyclic distribution. q > 0.
+/// @param[in] npcol
+///     Number of process cols of 2D block-cyclic distribution. npcol > 0.
 ///
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
-///     p*q == MPI_Comm_size(mpi_comm).
+///     nprow * npcol <= MPI_Comm_size( mpi_comm ).
 ///
 template <typename scalar_t>
 BaseMatrix<scalar_t>::BaseMatrix(
-    int64_t m, int64_t n, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+    int64_t m, int64_t n, int64_t mb, int64_t nb,
+    int nprow, int npcol, MPI_Comm mpi_comm)
     : row0_offset_(0),
       col0_offset_(0),
       last_mb_(m % mb == 0 ? mb : m % mb),
@@ -780,11 +816,13 @@ BaseMatrix<scalar_t>::BaseMatrix(
       joffset_(0),
       mt_(ceildiv(m, mb)),
       nt_(ceildiv(n, nb)),
+      nprow_(nprow),
+      npcol_(npcol),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
       storage_(std::make_shared< MatrixStorage< scalar_t > >(
-          m, n, mb, nb, p, q, mpi_comm)),
+          m, n, mb, nb, nprow, npcol, mpi_comm)),
       mpi_comm_(mpi_comm)
 {
     slate_mpi_call(
@@ -1104,6 +1142,38 @@ void swap(BaseMatrix<scalar_t>& A, BaseMatrix<scalar_t>& B)
     swap(A.uplo_,    B.uplo_);
     swap(A.op_,      B.op_);
     swap(A.storage_, B.storage_);
+}
+
+//------------------------------------------------------------------------------
+/// Get nprow, npcol, myrow, mycol for 2D block cyclic (2DBC) distribution.
+/// If SLATE doesn't know the distribution, sets all values to -1.
+/// todo: Assumes col-major 2D block cyclic distribution, not row-major.
+///
+/// @param[out] nprow
+///     Number of process rows.
+///
+/// @param[out] npcol
+///     Number of process cols.
+///
+/// @param[out] myrow
+///     Process row for this process (MPI rank).
+///
+/// @param[out] mycol
+///     Process col for this process (MPI rank).
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::gridinfo(
+    int* nprow, int* npcol, int* myrow, int* mycol ) const
+{
+    if (nprow_ > 0) {
+        *nprow = nprow_;
+        *npcol = npcol_;
+        *myrow = mpi_rank_ % nprow_;
+        *mycol = mpi_rank_ / nprow_;
+    }
+    else {
+        *nprow = *npcol = *myrow = *mycol = -1;
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -2280,20 +2350,23 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
         tileGetForReading(i, j, LayoutConvert(layout));
     }
 
-    std::vector<scalar_t> data(tileMb(i)*tileNb(j));
-    Tile<scalar_t> tile(tileMb(i), tileNb(j), &data[0], tileMb(i), host_num_, TileKind::Workspace);
+    auto Aij = at(i, j);
+
+    std::vector<scalar_t> data(Aij.mb() * Aij.nb());
+    int64_t lda = (Aij.op() == Op::NoTrans ? Aij.mb() : Aij.nb());
+    Tile<scalar_t> tile(Aij, &data[0], lda, TileKind::Workspace);
 
     // Receive, accumulate.
     for (int src : recv_from) {
         // Receive.
         tile.recv(new_vec[src], mpi_comm_, layout, tag);
         // Accumulate.
-        axpy(scalar_t(1.0), tile, at(i, j));
+        axpy(scalar_t(1.0), tile, Aij);
     }
 
     // Forward.
     if (! send_to.empty())
-        at(i, j).send(new_vec[send_to.front()], mpi_comm_, tag);
+        Aij.send(new_vec[send_to.front()], mpi_comm_, tag);
 }
 
 //------------------------------------------------------------------------------

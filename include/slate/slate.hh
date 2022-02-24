@@ -16,6 +16,7 @@
 #include "slate/HermitianBandMatrix.hh"
 
 #include "slate/types.hh"
+#include "slate/print.hh"
 
 //------------------------------------------------------------------------------
 /// @namespace slate
@@ -189,6 +190,16 @@ void hemm(
     HermitianMatrix<scalar_t> AH(A);
     hemm(side, alpha, AH, B, beta, C, opts);
 }
+
+//-----------------------------------------
+// hemmA()
+template <typename scalar_t>
+void hemmA(
+    Side side,
+    scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                             Matrix<scalar_t>& B,
+    scalar_t beta,           Matrix<scalar_t>& C,
+    Options const& opts = Options());
 
 //-----------------------------------------
 // symm()

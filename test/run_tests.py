@@ -571,8 +571,8 @@ def print_tee( *args ):
 
 # ------------------------------------------------------------------------------
 # cmd is a pair of strings: (function, args)
-
 def run_test( cmd ):
+    print( '-' * 80 )
     cmd = opts.test +' '+ cmd[1] +' '+ cmd[0]
     print_tee( cmd )
     output = ''
@@ -609,16 +609,19 @@ for cmd in cmds:
             failed_tests.append( (cmd[0], err, output) )
         else:
             passed_tests.append( cmd[0] )
-not_seen = list( filter( lambda x: x not in seen, opts.tests ) )
+print( '-' * 80 )
 
+not_seen = list( filter( lambda x: x not in seen, opts.tests ) )
 if (not_seen):
     print_tee( 'Warning: unknown routines:', ' '.join( not_seen ))
 
 # print summary of failures
 nfailed = len( failed_tests )
 if (nfailed > 0):
-    print_tee( '\n' + str(nfailed) + ' routines FAILED:',
+    print_tee( str(nfailed) + ' routines FAILED:',
                ', '.join( [x[0] for x in failed_tests] ) )
+else:
+    print_tee( 'All routines passed' )
 
 # generate jUnit compatible test report
 if opts.xml:

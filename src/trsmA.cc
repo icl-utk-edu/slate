@@ -9,7 +9,7 @@
 namespace slate {
 
 // specialization namespace differentiates, e.g.,
-// internal::trsm from internal::specialization::trsm
+// internal::trsmA from internal::specialization::trsmA
 namespace internal {
 namespace specialization {
 
@@ -75,14 +75,7 @@ void trsmA(blas::Side side,
                                      Matrix<scalar_t>& B,
            Options const& opts)
 {
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range&) {
-        lookahead = 1;
-    }
+    int64_t lookahead = get_option<int64_t>(opts, Option::Lookahead, 1);
 
     internal::specialization::trsmA(internal::TargetType<target>(),
                                     side,
@@ -106,7 +99,14 @@ void trsmA(blas::Side side,
 /// The matrices can be transposed or conjugate-transposed beforehand, e.g.,
 ///
 ///     auto AT = slate::transpose( A );
-///     slate::trsm( Side::Left, alpha, AT, B );
+///     slate::trsmA( Side::Left, alpha, AT, B );
+///
+/// Note: The original trsm computes the solution where B is located.
+/// The trsmA is a variant of trsm where the computation is performed
+/// where A is located using temporary tiles to represent B, 
+/// followed by a reduction to get the result into the given B.
+/// This approach is well suited in the case of a few right-hand side
+/// since it would require less communication.
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
@@ -148,13 +148,7 @@ void trsmA(blas::Side side,
                                      Matrix<scalar_t>& B,
            Options const& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option<Target>(opts, Option::Target, Target::HostTask);
 
     switch (target) {
         case Target::Host:

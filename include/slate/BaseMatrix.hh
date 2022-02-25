@@ -492,7 +492,7 @@ protected:
 
 public:
     // todo: should this be private?
-    void tileReduceFromSet(int64_t i, int64_t j, const int root_rank,
+    void tileReduceFromSet(int64_t i, int64_t j, int root_rank,
                            std::set<int>& reduce_set, int radix, int tag,
                            Layout layout);
 
@@ -2080,7 +2080,7 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
 
         // Find the set of participating ranks.
         std::set<int> reduce_set;
-        const int root_rank = submatrices_dest.tileRank(0,0);
+        int root_rank = submatrices_dest.tileRank(0, 0);
         for (auto submatrix : submatrices_list) // Insert sources.
             submatrix.getRanks(&reduce_set);
 
@@ -2317,12 +2317,12 @@ void BaseMatrix<scalar_t>::tileIbcastToSet(
 /// WARNING: Sent and Recevied tiles are converted to 'layout' major.
 ///
 template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileReduceFromSet( int64_t i, int64_t j,
-    const int root_rank, std::set<int>& reduce_set, int radix, int tag,
-    Layout layout)
+void BaseMatrix<scalar_t>::tileReduceFromSet(
+    int64_t i, int64_t j, int root_rank, std::set<int>& reduce_set,
+    int radix, int tag, Layout layout)
 {
     // Quit if the reduction set is empty
-    if (reduce_set.size() == 0)
+    if (reduce_set.empty())
         return;
 
     reduce_set.insert(root_rank);

@@ -109,7 +109,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
             #pragma omp task depend(inout:row[k]) priority(1)
             {
                 // Scale the RHS in order to be consistent with the upper case
-                if (k == 0) {
+                if (k == 0 && alpha != one) {
                     for (int64_t i = 0; i < mt; ++i) {
                         for (int64_t j = 0; j < nt; ++j) {
                             if (B.tileIsLocal(i, j)) {

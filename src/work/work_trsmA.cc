@@ -96,14 +96,11 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     const scalar_t one = scalar_t(1.0);
     const scalar_t neg_one = scalar_t(-1.0);
 
-//  const int64_t ntilesInB = B.size();
-
     if (A.uplo() == Uplo::Lower) {
         // ----------------------------------------
         // Lower/NoTrans or Upper/Trans, Left case
         // Forward sweep
         for (int64_t k = 0; k < mt; ++k) {
-            scalar_t alph_ = one;
 
             // panel (Akk tile)
             #pragma omp task depend(inout:row[k]) priority(1)
@@ -125,9 +122,6 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         if (! B.tileIsLocal(k, j) && ! B.tileExists(k, j)) {
                             B.tileInsert(k, j);
                             B.at(k, j).set(0, 0);
-
-                            // FIXME hande life of the tile
-                            //B.tileLife(k,0, 10);
                         }
                     }
                 }
@@ -149,7 +143,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     // solve A(k, k) B(k, :) = alpha B(k, :)
                     internal::trsmA<target>(
                         Side::Left,
-                        alph_,        A.sub(k, k),
+                        one,          A.sub(k, k),
                                       B.sub(k, k, 0, nt-1),
                         priority_one, layout, queue_1);
                 }
@@ -203,11 +197,11 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                       }
                   }
 
-                  // TODO TODO: execute lookahead on devices
+                  // TODO : execute lookahead on devices
                   internal::gemmA<Target::HostTask>(
                       neg_one,        A.sub(i, i, k, k),
                                       B.sub(k, k, 0, nt-1),
-                      alph_,          B.sub(i, i, 0, nt-1),
+                      one,            B.sub(i, i, 0, nt-1),
                       layout, priority_one);
 
                 }
@@ -241,7 +235,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     internal::gemmA<Target::HostTask>(
                         neg_one,    A.sub(k+1+lookahead, mt-1, k, k),
                                     B.sub(k, k, 0, nt-1),
-                        alph_,      B.sub(k+1+lookahead, mt-1, 0, nt-1),
+                        one,        B.sub(k+1+lookahead, mt-1, 0, nt-1),
                         layout, priority_zero); //, queue_0);
 
                 }
@@ -253,7 +247,6 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
         // Upper/NoTrans or Lower/Trans, Left case
         // Backward sweep
         for (int64_t k = mt-1; k >= 0; --k) {
-            scalar_t alph_ = one;
 
             // panel (Akk tile)
             #pragma omp task depend(inout:row[k]) priority(1)
@@ -277,15 +270,11 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         if (! B.tileIsLocal(k, j) && ! B.tileExists(k, j)) {
                             B.tileInsert(k, j);
                             B.at(k, j).set(0, 0); // Might not needed if alph is set correctly
-
-                            // FIXME handle life
-                          //B.tileLife(k,0, 10); // TODO manage tile life
-
                         }
                     }
                 }
 
-                // Gather B(k,:) to ranks owning diagonal block A(k,k)
+                // Gather B(k,:) to rank owning diagonal block A(k,k)
                 using ReduceList = typename Matrix<scalar_t>::ReduceList;
                 ReduceList reduce_list_B;
                 for (int64_t j = 0; j < nt; ++j) {
@@ -302,8 +291,8 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     // solve A(k, k) B(k, :) = alpha B(k, :)
                     internal::trsmA<target>(
                         Side::Left,
-                        alph_,  A.sub(k, k),
-                                B.sub(k, k, 0, nt-1),
+                        one,          A.sub(k, k),
+                                      B.sub(k, k, 0, nt-1),
                         priority_one, layout, queue_1);
                 }
 
@@ -335,7 +324,6 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 BcastList bcast_list_upd_B;
                 for (int64_t j = 0; j < nt; ++j) {
                     bcast_list_upd_B.push_back({k, j, { A.sub(0, k - 1, k, k),
-                                                      //B.sub(k, k, j, j)
                                                       }});
                 }
                 B.template listBcast<target>(bcast_list_upd_B, layout);
@@ -359,8 +347,8 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                    // TODO: execute lookahead on devices
                     internal::gemmA<Target::HostTask>(
                         neg_one,        A.sub(i, i, k, k),
-                        B.sub(k, k, 0, nt-1),
-                        alph_,          B.sub(i, i, 0, nt-1),
+                                        B.sub(k, k, 0, nt-1),
+                        one,            B.sub(i, i, 0, nt-1),
                         layout, priority_one);
 
                 }
@@ -392,7 +380,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     internal::gemmA<Target::HostTask>(
                         neg_one,      A.sub(0, k-1-lookahead, k, k),
                                       B.sub(k, k, 0, nt-1),
-                        alph_,        B.sub(0, k-1-lookahead, 0, nt-1),
+                        one,          B.sub(0, k-1-lookahead, 0, nt-1),
                         layout, priority_zero);//, queue_0);
                 }
             }
@@ -400,10 +388,6 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     }
 
     #pragma omp taskwait
-//  const int64_t ntilesInB_new = B.size();
-//  if (ntilesInB != ntilesInB_new)
-//    fprintf ( stderr, "Error, %ld(=%ld - %ld) added B tiles are still in memory\n",
-//        ntilesInB_new - ntilesInB, ntilesInB_new, ntilesInB );
 }
 
 //------------------------------------------------------------------------------

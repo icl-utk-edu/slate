@@ -132,7 +132,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     }
                 }
 
-                // Gather B(k,:) to ranks owning diagonal block A(k,k)
+                // Gather B(k,:) to rank owning diagonal block A(k,k)
                 using ReduceList = typename Matrix<scalar_t>::ReduceList;
                 ReduceList reduce_list_B;
                 for (int64_t j = 0; j < nt; ++j) {

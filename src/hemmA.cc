@@ -105,7 +105,7 @@ void hemmA(slate::internal::TargetType<target>,
                     }
                 }
 
-                //Move C
+                // Move C
                 for (int64_t i = 0; i < C.mt(); ++i) {
                     for (int64_t j = 0; j < C.nt(); ++j) {
                         if (A.tileIsLocal(i, 0) && ! C.tileIsLocal(i, j)) {
@@ -145,7 +145,7 @@ void hemmA(slate::internal::TargetType<target>,
 
                     // Create C tiles
                     for (int64_t i = 0; i < A.mt(); ++i) {
-                        if ( i < k ) {
+                        if (i < k) {
                             if (A.tileIsLocal(k, i)) {
                                 for (int64_t j = 0; j < B.nt(); ++j) {
                                     if (! C.tileIsLocal(i, j)
@@ -219,7 +219,7 @@ void hemmA(slate::internal::TargetType<target>,
 
                         // Create C tiles
                         for (int64_t i = 0; i < A.mt(); ++i) {
-                            if ( i < k + lookahead ) {
+                            if (i < k + lookahead) {
                                 if (A.tileIsLocal(k+lookahead, i)) {
                                     for (int64_t j = 0; j < B.nt(); ++j) {
                                         if (! C.tileIsLocal(i, j)
@@ -339,7 +339,7 @@ void hemmA(slate::internal::TargetType<target>,
                     }
                 }
 
-                //Move C
+                // Move C
                 for (int64_t i = 0; i < C.mt(); ++i) {
                     for (int64_t j = 0; j < C.nt(); ++j) {
                         if (A.tileIsLocal(0, i) && ! C.tileIsLocal(i, j)) {
@@ -378,7 +378,7 @@ void hemmA(slate::internal::TargetType<target>,
 
                     // Create C tiles
                     for (int64_t i = 0; i < A.nt(); ++i) {
-                        if ( i < k ) {
+                        if (i < k) {
                             if (A.tileIsLocal(i, k)) {
                                 for (int64_t j = 0; j < B.nt(); ++j) {
                                     if (! C.tileIsLocal(i, j)
@@ -453,7 +453,7 @@ void hemmA(slate::internal::TargetType<target>,
 
                         // Create C tiles
                         for (int64_t i = 0; i < A.nt(); ++i) {
-                            if ( i < k + lookahead ) {
+                            if (i < k + lookahead) {
                                 if (A.tileIsLocal(i, k+lookahead)) {
                                     for (int64_t j = 0; j < B.nt(); ++j) {
                                         if (! C.tileIsLocal(i, j)
@@ -529,7 +529,7 @@ void hemmA(slate::internal::TargetType<target>,
                             reduce_list_C.push_back({i, j,
                                   C.sub(i, i, j, j),
                                   { A.sub(0, i-1, i, i),
-                                    A.sub(i, i, i, A.nt()-1) 
+                                    A.sub(i, i, i, A.nt()-1)
                                   }
                                 });
                         }

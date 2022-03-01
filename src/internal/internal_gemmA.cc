@@ -53,7 +53,7 @@ void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
 }
 
 //------------------------------------------------------------------------------
-/// General matrix multiply for a left-looking update
+/// General matrix multiply for a left-looking update.
 /// Host OpenMP task implementation.
 /// @ingroup gemm_internal
 ///

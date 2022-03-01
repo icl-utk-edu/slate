@@ -780,13 +780,16 @@ docs:
 # C API
 ifeq ($(c_api),1)
     include/slate/c_api/wrappers.h: src/c_api/wrappers.cc
-		python tools/c_api/generate_wrappers.py $< $@
+		python tools/c_api/generate_wrappers.py $< $@ \
+			src/c_api/wrappers_precisions.cc
 
     include/slate/c_api/matrix.h: include/slate/Tile.hh
-		python tools/c_api/generate_matrix.py $< $@
+		python tools/c_api/generate_matrix.py $< $@ \
+			src/c_api/matrix.cc
 
     include/slate/c_api/util.hh: include/slate/c_api/types.h
-		python tools/c_api/generate_util.py $< $@
+		python tools/c_api/generate_util.py $< $@ \
+			src/c_api/util.cc
 
     src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h
     src/c_api/matrix.cc: include/slate/c_api/matrix.h

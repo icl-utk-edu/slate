@@ -87,7 +87,7 @@ void test_heev_work(Params& params, bool run)
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
 
-    std::vector<scalar_t> A_data(lldA*nlocA);
+    std::vector<scalar_t> A_data;
 
     // matrix Lambda (global output) gets eigenvalues in decending order
     std::vector<real_t> Lambda(n);
@@ -109,6 +109,7 @@ void test_heev_work(Params& params, bool run)
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
+        A_data.resize( lldA * nlocA );
         A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                 uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
@@ -132,7 +133,7 @@ void test_heev_work(Params& params, bool run)
     std::vector<real_t> Lambda_ref;
     slate::HermitianMatrix<scalar_t> Aref;
     if (check || ref) {
-        Aref_data.resize( A_data.size() );
+        Aref_data.resize( lldA * nlocA );
         Lambda_ref.resize( Lambda.size() );
         Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                    uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);

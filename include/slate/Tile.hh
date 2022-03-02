@@ -190,7 +190,7 @@ public:
     /// element in the row, accounting for row-or-column major layout
     /// and transposed tiles.
     int64_t rowIncrement() const {
-        if ( (op_ == Op::NoTrans) == (layout_ == Layout::ColMajor) )
+        if ((op_ == Op::NoTrans) == (layout_ == Layout::ColMajor))
             // (NoTrans && ColMajor) || (Trans   && RowMajor)
             return stride_;
         else
@@ -201,7 +201,7 @@ public:
     /// element in the column, accounting for row-or-column major
     /// layout and transposed tiles.
     int64_t colIncrement() const {
-        if ( (op_ == Op::NoTrans) == (layout_ == Layout::ColMajor) )
+        if ((op_ == Op::NoTrans) == (layout_ == Layout::ColMajor))
             // (NoTrans && ColMajor) || (Trans   && RowMajor)
             return 1;
         else
@@ -1200,7 +1200,8 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm mpi_comm)
 template <typename scalar_t>
 void Tile<scalar_t>::set(scalar_t offdiag_value, scalar_t diag_value)
 {
-    lapack::MatrixType mtype = (lapack::MatrixType)uplo_;// TODO is this safe?
+    // MatrixType is superset of Uplo, so this cast is okay.
+    lapack::MatrixType mtype = lapack::MatrixType( uplo_ );
     lapack::laset(mtype, mb_, nb_,
                   offdiag_value, diag_value,
                   data(), stride());

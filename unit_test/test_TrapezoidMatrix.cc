@@ -1835,9 +1835,9 @@ void run_tests()
     run_test(test_Trapezoid_sub_offdiag_trans, "TrapezoidMatrix::sub(i1, i2, j1, j2), A^T", mpi_comm);
 
     run_test(test_Trapezoid_slice,               "TrapezoidMatrix::slice(i1, i2, j2)",          mpi_comm);
-  //run_test(test_Trapezoid_slice_trans,         "TrapezoidMatrix::slice(i1, i2, j2), A^T",     mpi_comm);  // todo
     run_test(test_Trapezoid_slice_offdiag,       "TrapezoidMatrix::slice(i1, i2, j1, j2)",      mpi_comm);
-  //run_test(test_Trapezoid_slice_offdiag_trans, "TrapezoidMatrix::slice(i1, i2, j1, j2), A^T", mpi_comm);  // todo
+    //run_test(test_Trapezoid_slice_trans,         "TrapezoidMatrix::slice(i1, i2, j2), A^T",     mpi_comm);  // todo
+    //run_test(test_Trapezoid_slice_offdiag_trans, "TrapezoidMatrix::slice(i1, i2, j1, j2), A^T", mpi_comm);  // todo
 
     if (mpi_rank == 0)
         printf("\nConversion to Trapezoid\n");

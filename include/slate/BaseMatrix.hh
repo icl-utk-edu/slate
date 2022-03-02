@@ -487,7 +487,7 @@ public:
     void tileLayoutReset(std::set<ij_tuple>& tile_set, int device, Layout layout);
     void tileLayoutReset(std::set<ij_tuple>& tile_set, Layout layout)
     {
-        tileLayoutReset(tile_set, host_num_, layout);;
+        tileLayoutReset(tile_set, host_num_, layout);
     }
     void tileLayoutReset();
 
@@ -2127,7 +2127,8 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
                 // todo: should we check its life count before erasing?
                 // Destroy the tile.
                 // XXX we comment the tileErase for now
-              //tileErase(i, j, host_num_);// todo: should it be a tileRelease()?
+                // todo: should it be a tileRelease()?
+                //tileErase(i, j, host_num_);
             }
             else {
                 tileModified(i, j);
@@ -2429,10 +2430,10 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
     // if (! is_square) return;
 
     // make sure dst_tile can fit the data in its target_layout
-    if (   (! is_square)                         // rectangular tile
-        && (  dst_userOwned)                     // TileKind::UserOwned
-        && (! dst_tile->extended())              // not extended
-        && (  dst_tile->layout() != target_layout) ) // but need to store a non-compatible layout
+    if (! is_square                             // rectangular tile
+        && dst_userOwned                        // TileKind::UserOwned
+        && ! dst_tile->extended()               // not extended
+        && dst_tile->layout() != target_layout) // but need to store a non-compatible layout
     {
         // extend its data storage
         storage_->tileMakeTransposable(dst_tile);
@@ -2456,9 +2457,9 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
         need_convert = true;
 
         if (! is_square) {
-            if (  (dst_userOwned && ! dst_extended)
-               || (src_userOwned && ! src_extended)
-               || (! dst_userOwned && ! src_userOwned) ) {
+            if ((dst_userOwned && ! dst_extended)
+                || (src_userOwned && ! src_extended)
+                || (! dst_userOwned && ! src_userOwned)) {
 
                 need_workspace = true;
                 if (dst_tile->device() == host_num_) {
@@ -2697,8 +2698,8 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
     // LockGuard guard2(storage_->getTilesMapLock());
 
     TileInstance<scalar_t>* src_tile_instance = nullptr;
-    Layout target_layout = Layout::ColMajor; // default value to silence compiler warning
-                                             // it will be ovverriden below
+    // default value to silence compiler warning will be overridden below
+    Layout target_layout = Layout::ColMajor;
 
     const int invalid_dev = host_num_-1; // invalid device number
     int src_device = invalid_dev;

@@ -139,13 +139,13 @@ void add(internal::TargetType<Target::HostTask>,
                         B.tileGetForWriting(i, j, LayoutConvert::None);
                         axpby(alpha, A(i, j),
                               beta,  B(i, j));
-                        A.tileTick(i, j);// TODO is this correct here?
+                        A.tileTick(i, j);
                     }
                 }
             }
         }
-     }
-    else { //upper
+    }
+    else { // upper
         for (int64_t j = 0; j < A.nt(); ++j) {
             for (int64_t i = 0; i <= j && i < A.mt(); ++i) {
                 if (A.tileIsLocal(i, j)) {
@@ -155,7 +155,7 @@ void add(internal::TargetType<Target::HostTask>,
                         B.tileGetForWriting(i, j, LayoutConvert::None);
                         axpby(alpha, A(i, j),
                         beta,  B(i, j));
-                        A.tileTick(i, j);// TODO is this correct here?
+                        A.tileTick(i, j);
                     }
                 }
             }
@@ -235,7 +235,7 @@ void add(internal::TargetType<Target::Devices>,
             }
             else { // upper
                 for (int64_t j = 0; j < B.nt(); ++j) {
-                    for (int64_t i = 0; i <= j && i < B.mt(); ++i){
+                    for (int64_t i = 0; i <= j && i < B.mt(); ++i) {
                         if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                             A_tiles_set.insert({i, j});
                             B_tiles_set.insert({i, j});
@@ -276,24 +276,24 @@ void add(internal::TargetType<Target::Devices>,
                                 ldb[q] = B(i, j, device).stride();
                                 ++group_count[q];
                                 ++batch_count;
-                           }
-                       }
+                            }
+                        }
                     }
                 }
                 else { // upper
-                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                         for (int64_t i = irange[q][0]; i < irange[q][1] && i <= j; ++i) {
-                             if (i != j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
-                                 a_array_host[batch_count] = A(i, j, device).data();
-                                 b_array_host[batch_count] = B(i, j, device).data();
-                                 lda[q] = A(i, j, device).stride();
-                                 ldb[q] = B(i, j, device).stride();
-                                 ++group_count[q];
-                                 ++batch_count;
-                             }
-                         }
-                     }
-               }
+                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                        for (int64_t i = irange[q][0]; i < irange[q][1] && i <= j; ++i) {
+                            if (i != j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
+                                a_array_host[batch_count] = A(i, j, device).data();
+                                b_array_host[batch_count] = B(i, j, device).data();
+                                lda[q] = A(i, j, device).stride();
+                                ldb[q] = B(i, j, device).stride();
+                                ++group_count[q];
+                                ++batch_count;
+                            }
+                        }
+                    }
+                }
             }
             for (int q = 4; q < 8; ++q) {
                 group_count[q] = 0;
@@ -318,7 +318,7 @@ void add(internal::TargetType<Target::Devices>,
                 else { //upper
                     for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
                         for (int64_t i = irange[q-4][0]; i < irange[q-4][1] && i <= j; ++i) {
-                            if (i ==j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
+                            if (i == j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                                a_array_host[batch_count] = A(i, j, device).data();
                                b_array_host[batch_count] = B(i, j, device).data();
                                lda[q] = A(i, j, device).stride();
@@ -353,7 +353,7 @@ void add(internal::TargetType<Target::Devices>,
                     b_array_dev += group_count[q];
                 }
             }
-            for (int q=4; q < 8; ++q){
+            for (int q = 4; q < 8; ++q) {
                 if (group_count[q] > 0) {
                     device::tzadd(B.uplo(), mb[q], nb[q],
                                   alpha, a_array_dev, lda[q],

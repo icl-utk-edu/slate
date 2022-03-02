@@ -37,7 +37,7 @@ void hemmA(slate::internal::TargetType<target>,
            int64_t lookahead)
 {
     using blas::conj;
-  //using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
+    //using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major

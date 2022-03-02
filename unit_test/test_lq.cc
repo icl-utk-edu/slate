@@ -652,7 +652,7 @@ void run_tests()
     }
     else {
         // Run tests mentioned on command line.
-        for ( ; i < g_argc; ++i) {
+        for (/* continued */; i < g_argc; ++i) {
             std::string arg = g_argv[i];
             bool found = false;
             for (size_t j = 0; j < routines.size(); ++j) {

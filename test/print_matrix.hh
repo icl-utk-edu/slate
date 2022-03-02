@@ -121,7 +121,7 @@ void print(
                         msg += "\n";
                     }
                     if (mlocal > 2*abbrev_rows)
-                        msg += " ...\n";// row abbreviation indicator
+                        msg += " ...\n"; // row abbreviation indicator
                     // last abbrev_rows
                     int64_t start_row = (mlocal - abbrev_rows < abbrev_rows
                                          ? abbrev_rows

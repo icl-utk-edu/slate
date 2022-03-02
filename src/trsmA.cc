@@ -103,7 +103,7 @@ void trsmA(blas::Side side,
 ///
 /// Note: The original trsm computes the solution where B is located.
 /// The trsmA is a variant of trsm where the computation is performed
-/// where A is located using temporary tiles to represent B, 
+/// where A is located using temporary tiles to represent B,
 /// followed by a reduction to get the result into the given B.
 /// This approach is well suited in the case of a few right-hand side
 /// since it would require less communication.

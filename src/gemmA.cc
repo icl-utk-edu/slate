@@ -82,8 +82,8 @@ void gemmA(
             }
         }
 
-       // multiply to get C(:, 0) and reduce
-        #pragma omp task depend(in:bcast[0])            \
+        // multiply to get C(:, 0) and reduce
+        #pragma omp task depend(in:bcast[0]) \
                          depend(out:gemmA[0])
         {
             // multiply C(:, 0) = alpha A(:, :) B(:, 0) + beta C(:, 0)
@@ -105,7 +105,7 @@ void gemmA(
                                           {A.sub(i, i, 0, A.nt()-1)}
                                         });
             C.template listReduce(reduce_list_C, layout);
-         }
+        }
 
         // broadcast (with lookahead) and multiply the rest of the columns
         for (int64_t k = 1; k < B.nt(); ++k) {
@@ -149,7 +149,6 @@ void gemmA(
                                               {A.sub(i, i, 0, A.nt()-1)}
                                             });
                 C.template listReduce(reduce_list_C, layout);
-
             }
         }
         #pragma omp taskwait

@@ -72,7 +72,7 @@ void geqrf(internal::TargetType<Target::HostTask>,
             thread_size = tiles.size();
 
         T.tileInsert(tile_indices[0], 0);
-        T.tileModified(tile_indices[0], 0);// todo: is this necessary?
+        T.tileModified(tile_indices[0], 0);
         auto T00 = T(tile_indices[0], 0);
         T00.set(0);
 

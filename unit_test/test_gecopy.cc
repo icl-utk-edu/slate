@@ -97,8 +97,8 @@ void test_gecopy_dev()
 
     // compute B-B0 on CPU to check the results
     //blas::axpy( A.size(), neg_one, A.data(), ione, B.data(), ione );
-    for( int j = 0; j < n; ++j ) {
-        for( int i = 0; i < m; ++i ) {
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < m; ++i) {
             Adata[i + j*lda] = Adata[i + j*lda] -  Bdata[i + j*ldb];
         }
     }

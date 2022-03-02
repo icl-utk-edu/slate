@@ -207,7 +207,7 @@ void copy(internal::TargetType<Target::HostTask>,
                         B.tileGetForWriting(i, j, LayoutConvert::None);
                         gecopy(A(i, j), B(i, j));
                         B.tileLayout(i, j, A.tileLayout(i, j));
-                        A.tileTick(i, j);// TODO is this correct here?
+                        A.tileTick(i, j);
                     }
                 }
             }
@@ -221,7 +221,7 @@ void copy(internal::TargetType<Target::HostTask>,
                         B.tileGetForWriting(i, j, LayoutConvert::None);
                         gecopy(A(i, j), B(i, j));
                         B.tileLayout(i, j, A.tileLayout(i, j));
-                        A.tileTick(i, j);// TODO is this correct here?
+                        A.tileTick(i, j);
                     }
                 }
             }

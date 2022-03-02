@@ -73,12 +73,12 @@ public:
 
     //--------------------------------------------------------------------------
     /// Get and Set tile pointer
-    Tile<scalar_t>* tile() const { return tile_;}
+    Tile<scalar_t>* tile() const { return tile_; }
     void tile(Tile<scalar_t>* tile) { tile_ = tile; }
 
     //--------------------------------------------------------------------------
     /// Returns whether this tile instance is valid (Tile instance exists)
-    bool valid() const { return tile_ != nullptr;}
+    bool valid() const { return tile_ != nullptr; }
 
     //--------------------------------------------------------------------------
     /// Initialize tile pointer and MOSI state
@@ -808,8 +808,7 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::clearWorkspace()
 {
     LockGuard guard(getTilesMapLock());
-    // incremented below
-    for (auto iter = begin(); iter != end();) {
+    for (auto iter = begin(); iter != end(); /* incremented below */) {
         auto& tile_node = *(iter->second);
         for (int d = host_num_; d < num_devices_; ++d) {
             if (tile_node.existsOn(d) &&
@@ -847,8 +846,7 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::releaseWorkspace()
 {
     LockGuard guard(getTilesMapLock());
-    // incremented below
-    for (auto iter = begin(); iter != end();) {
+    for (auto iter = begin(); iter != end(); /* incremented below */) {
         auto& tile_node = *(iter->second);
         for (int d = host_num_; d < num_devices_; ++d) {
             if (tile_node.existsOn(d) &&
@@ -978,8 +976,7 @@ void MatrixStorage<scalar_t>::clear()
 {
     LockGuard guard(getTilesMapLock());
 
-    // incremented below
-    for (auto iter = begin(); iter != end();) {
+    for (auto iter = begin(); iter != end(); /* incremented below */) {
         // erasing the element invalidates the iterator,
         // so use iter++ to erase the current value but increment it first.
         erase((iter++)->first); // todo: in-efficient

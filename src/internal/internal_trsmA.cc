@@ -82,8 +82,8 @@ void trsmA(internal::TargetType<Target::HostTask>,
                     trsm(side, A.diag(),
                          alpha, A(0, 0),
                                 B(0, j));
-                  // todo: should tileRelease()?
-                  //A.tileTick(0, 0);
+                    // todo: should tileRelease()?
+                    //A.tileTick(0, 0);
                 }
             }
         }
@@ -229,7 +229,7 @@ void trsmA(internal::TargetType<Target::Devices>,
                 if (side == Side::Right) {
                     for (int64_t i = 0; i < B.mt()-1; ++i) {
                         if (B.tileIsLocal(i, 0)
-                            && device == B.tileDevice(i, 0)) 
+                            && device == B.tileDevice(i, 0))
                         {
                             a_array0.push_back( A(0, 0, device).data() );
                             b_array0.push_back( B(i, 0, device).data() );
@@ -240,7 +240,7 @@ void trsmA(internal::TargetType<Target::Devices>,
                     {
                         int64_t i = B.mt()-1;
                         if (B.tileIsLocal(i, 0)
-                            && device == B.tileDevice(i, 0)) 
+                            && device == B.tileDevice(i, 0))
                         {
                             a_array1.push_back( A(0, 0, device).data() );
                             b_array1.push_back( B(i, 0, device).data() );
@@ -252,7 +252,7 @@ void trsmA(internal::TargetType<Target::Devices>,
                 else {
                     for (int64_t j = 0; j < B.nt()-1; ++j) {
                         if (B.tileIsLocal(0, j)
-                            && device == B.tileDevice(0, j)) 
+                            && device == B.tileDevice(0, j))
                         {
                             a_array0.push_back( A(0, 0, device).data() );
                             b_array0.push_back( B(0, j, device).data() );
@@ -263,7 +263,7 @@ void trsmA(internal::TargetType<Target::Devices>,
                     {
                         int64_t j = B.nt()-1;
                         if (B.tileIsLocal(0, j)
-                            && device == B.tileDevice(0, j)) 
+                            && device == B.tileDevice(0, j))
                         {
                             a_array1.push_back( A(0, 0, device).data() );
                             b_array1.push_back( B(0, j, device).data() );

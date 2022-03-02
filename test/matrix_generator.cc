@@ -733,7 +733,7 @@ void decode_matrix(
     blas::real_type<scalar_t>& condD,
     blas::real_type<scalar_t>& sigma_max,
     bool& dominant)
- {
+{
     using real_t = blas::real_type<scalar_t>;
 
     const real_t ufl = std::numeric_limits< real_t >::min();      // == lamch("safe min")  ==  1e-38 or  2e-308
@@ -743,7 +743,7 @@ void decode_matrix(
     // locals
     std::string kind = params.kind();
 
-     //---------------
+    //---------------
     cond = params.cond();
     bool cond_default = std::isnan( cond );
     if (cond_default) {
@@ -1223,7 +1223,7 @@ void generate_matrix(
                                 scalar_t* data = Aij.data();
                                 int64_t lda = Aij.stride();
                                 for (int64_t jjj = 0; jjj < Aij.nb(); ++jjj)
-                                    for (int64_t iii = 0 ; iii < Aij.mb(); ++iii)
+                                    for (int64_t iii = 0; iii < Aij.mb(); ++iii)
                                         data[ iii + jjj*lda ] = ii + iii + (jj + jjj)*s;
                             }
                         }
@@ -1308,7 +1308,7 @@ void generate_matrix(
                     for (int64_t j = 0; j < nt; ++j) {
                         const int64_t nb = A.tileNb(j);
                         if (A.tileIsLocal(i, j)) {
-                            #pragma omp task firstprivate(i, j, mb, nb, i_global, j_global) 
+                            #pragma omp task firstprivate(i, j, mb, nb, i_global, j_global)
                             {
                                 auto A_ij = A(i, j);
                                 for (int64_t ii = 0; ii < mb; ++ii) {
@@ -1554,9 +1554,9 @@ void generate_matrix(
            type == TestMatrixType::rands ||
            type == TestMatrixType::randn ||
            type == TestMatrixType::randb) && dominant) {
-           // make diagonally dominant; strict unless diagonal has zeros
-           slate_error("Not implemented yet");
-           throw std::exception();  // not implemented
+        // make diagonally dominant; strict unless diagonal has zeros
+        slate_error("Not implemented yet");
+        throw std::exception();  // not implemented
     }
     A.tileUpdateAllOrigin();
 }
@@ -1731,7 +1731,7 @@ void generate_matrix(
                 // but that requires gcc 11, which is under development.
                 #pragma omp parallel for
                 for (int64_t j = 0; j < nt; ++j) {
-                    for (int64_t i = 0; i <= j && i < mt; ++i){  // upper trapezoid
+                    for (int64_t i = 0; i <= j && i < mt; ++i) {  // upper trapezoid
                         if (A.tileIsLocal(i, j)) {
                             A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                             auto Aij = A(i, j);
@@ -1782,17 +1782,17 @@ void generate_matrix(
         case TestMatrixType::poev:
         case TestMatrixType::heev:
         default:
-           slate_error("Not implemented yet");
-           throw std::exception();  // not implemented
+            slate_error("Not implemented yet");
+            throw std::exception();  // not implemented
     }
 
     if (! (type == TestMatrixType::rand  ||
            type == TestMatrixType::rands ||
            type == TestMatrixType::randn ||
            type == TestMatrixType::randb) && dominant) {
-           // make diagonally dominant; strict unless diagonal has zeros
-           slate_error("Not implemented yet");
-           throw std::exception();  // not implemented
+        // make diagonally dominant; strict unless diagonal has zeros
+        slate_error("Not implemented yet");
+        throw std::exception();  // not implemented
     }
 
     A.tileUpdateAllOrigin();

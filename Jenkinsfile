@@ -1,6 +1,10 @@
 pipeline {
 
 agent none
+options {
+    // Required to clean before build
+    skipDefaultCheckout( true )
+}
 triggers { pollSCM 'H/10 * * * *' }
 stages {
     //======================================================================
@@ -9,17 +13,23 @@ stages {
             axes {
                 axis {
                     name 'host'
-                    values 'caffeine', 'lips'
+                    values 'gpu_amd', 'gpu_nvidia'
                 }
             } // axes
             stages {
                 stage('Build') {
-                    agent { node "${host}.icl.utk.edu" }
+                    agent { label "${host}" }
 
                     //----------------------------------------------------------
                     steps {
+                        cleanWs()
+                        checkout scm
                         sh '''
-#!/bin/sh +x
+#!/bin/sh
+
+set +e  # errors are not fatal (e.g., Spack sometimes has spurious failures)
+set -x  # echo commands
+
 date
 hostname && pwd
 export top=`pwd`
@@ -27,14 +37,15 @@ export top=`pwd`
 date
 git submodule update --init
 
-# Suppress trace output of commands executed with `run`. Useful for Spack.
+# Suppress echo (-x) output of commands executed with `run`. Useful for Spack.
+# set +x, set -x are not echo'd.
 run() {
     { set +x; } 2> /dev/null;
     $@;
     set -x
 }
 
-# Suppress trace output of `print` commands. https://superuser.com/a/1141026
+# Suppress echo (-x) output of `print` commands. https://superuser.com/a/1141026
 # aliasing `echo` causes issues with spack_setup, so use `print` instead.
 echo_and_restore() {
     builtin echo "$*"
@@ -59,8 +70,8 @@ blas = mkl
 END
 
 print "========================================"
-# Run CUDA, OpenMPI tests on lips.
-if [ "${host}" = "lips" ]; then
+# Run CUDA, OpenMPI tests.
+if [ "${host}" = "gpu_nvidia" ]; then
     run sload openmpi%gcc@7.3.0
     export OMPI_CXX=${CXX}
 
@@ -75,9 +86,9 @@ if [ "${host}" = "lips" ]; then
     export LIBRARY_PATH=${LIBRARY_PATH}:${CUDA_HOME}/lib64
 fi
 
-# Run HIP, Intel MPI tests on caffeine.
-if [ "${host}" = "caffeine" ]; then
-    sload intel-mpi
+# Run HIP, Intel MPI tests.
+if [ "${host}" = "gpu_amd" ]; then
+    run sload intel-mpi
     export FI_PROVIDER=tcp
 
     #echo "CXXFLAGS  = -Werror"  >> make.inc  # HIP headers have many errors; ignore.
@@ -95,6 +106,23 @@ if [ "${host}" = "caffeine" ]; then
 fi
 
 export color=no
+
+print "========================================"
+# Check what is loaded.
+run spack find --loaded
+
+which mpicxx
+which mpif90
+mpicxx --version
+mpif90 --version
+
+which nvcc
+nvcc --version
+
+which hipcc
+hipcc --version
+
+echo "MKLROOT ${MKLROOT}"
 
 print "========================================"
 env

@@ -74,6 +74,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "",                   nullptr,           Section::newline },
 
     { "hemm",               test_hemm,         Section::blas3 },
+    { "hemmA",              test_hemm,         Section::blas3 },
     { "hbmm",               test_hbmm,         Section::blas3 },
     { "herk",               test_herk,         Section::blas3 },
     { "her2k",              test_her2k,        Section::blas3 },
@@ -86,6 +87,7 @@ std::vector< testsweeper::routines_t > routines = {
 
     { "trmm",               test_trmm,         Section::blas3 },
     { "trsm",               test_trsm,         Section::blas3 },
+    { "trsmA",              test_trsm,         Section::blas3 },
     { "tbsm",               test_tbsm,         Section::blas3 },
 
     // -----
@@ -260,14 +262,12 @@ Params::Params():
                "verbose level:\n"
                "                     0: no printing (default)\n"
                "                     1: print metadata only (dimensions, uplo, etc.)\n"
-               "                     2: print first & last edgeitems rows & cols, if size > threshold\n"
+               "                     2: print first & last edgeitems rows & cols from the four corner tiles\n"
                "                     3: print 4 corner elements of every tile\n"
                "                     4: print full matrix" ),
 
     print_edgeitems("print-edgeitems", 0, ParamType::Value, 16,   1, 64,
-                    "for verbose=2, number of first & last rows & cols to print"),
-    print_threshold("print-threshold", 0, ParamType::Value, 1024, 1, 16384,
-                    "for verbose=2, size (rows*cols) to trigger abbreviation"),
+                    "for verbose=2, number of first & last rows & cols to print from the four corner tiles"),
     print_width    ("print-width",     0, ParamType::Value, 10,   7, 24,
                     "minimum number of characters to print per value"),
     print_precision("print-precision", 0, ParamType::Value, 4,    1, 17,
@@ -371,11 +371,13 @@ Params::Params():
     matrixB.kind.name( "matrixB" );
     matrixB.cond.name( "condB" );
     matrixB.condD.name( "condD_B" );
+    matrixB.seed.name( "seedB" );
 
     // change names of matrix C's params
     matrixC.kind.name( "matrixC" );
     matrixC.cond.name( "condC" );
     matrixC.condD.name( "condD_C" );
+    matrixC.seed.name( "seedC" );
 
     // mark standard set of output fields as used
     okay();
@@ -394,7 +396,6 @@ Params::Params():
     cache();
     debug();
     print_edgeitems();
-    print_threshold();
     print_width();
     print_precision();
 

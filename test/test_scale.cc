@@ -68,7 +68,9 @@ void test_scale_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
+
+    // ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data;
 
     slate::Matrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
@@ -79,7 +81,8 @@ void test_scale_work(Params& params, bool run)
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layout.
-        A = slate::Matrix<scalar_t>::fromScaLAPACK(
+       A_data.resize( lldA * nlocA );
+       A = slate::Matrix<scalar_t>::fromScaLAPACK(
                 m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
 
@@ -147,10 +150,6 @@ void test_scale_work(Params& params, bool run)
             scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, lldA, &info);
             slate_assert(info == 0);
 
-            if (origin != slate::Origin::ScaLAPACK) {
-                // todo: the copy needs to be fixed for transpose case.
-                copy(A, &A_data[0], A_desc);
-            }
             real_t A_norm = slate::norm(slate::Norm::One, A);
             // set MKL num threads appropriately for parallel BLAS
             int omp_num_threads;

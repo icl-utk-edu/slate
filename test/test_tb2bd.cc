@@ -83,7 +83,7 @@ void test_tb2bd_work(Params& params, bool run)
     Aband.ge2tbGather( Afull );
 
     if (verbose) {
-        print_matrix("Aband", Aband);
+        print_matrix("Aband", Aband, params);
     }
 
     std::vector<real_t> Sigma1(min_mn);

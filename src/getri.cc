@@ -112,7 +112,10 @@ void getri(slate::internal::TargetType<target>,
             ReduceList reduce_list_A;
             for (int64_t i = 0; i < A.nt(); ++i) {
                 // recude A(i, k) across A(i, k+1:nt-1)
-                reduce_list_A.push_back({i, k, {A.sub(i, i, k+1, A.nt()-1)}});
+                reduce_list_A.push_back({i, k,
+                                          A.sub(i, i, k, k),
+                                          {A.sub(i, i, k+1, A.nt()-1)}
+                                        });
             }
             A.template listReduce(reduce_list_A, layout);
 

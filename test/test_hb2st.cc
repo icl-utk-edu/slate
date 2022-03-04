@@ -91,7 +91,7 @@ void test_hb2st_work(Params& params, bool run)
     Aband.he2hbGather( Afull );
 
     if (verbose) {
-        print_matrix( "Aband", Aband );
+        print_matrix( "Aband", Aband, params );
     }
 
     // [code copied from heev.cc]

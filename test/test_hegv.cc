@@ -87,13 +87,13 @@ void test_hegv_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
+    std::vector<scalar_t> A_data;
 
     // matrix B (local input/local output), n-by-n, Hermitian
     int64_t mlocB = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-    std::vector<scalar_t> B_data(lldB*nlocB);
+    std::vector<scalar_t> B_data;
 
     // vector Lambda (global output), gets eigenvalues in decending order
     std::vector<real_t> Lambda(n);
@@ -102,7 +102,7 @@ void test_hegv_work(Params& params, bool run)
     int64_t mlocZ = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocZ = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldZ  = blas::max(1, mlocZ); // local leading dimension of Z
-    std::vector<scalar_t> Z_data(lldZ * nlocZ);
+    std::vector<scalar_t> Z_data;
 
     // Initialize SLATE data structures
     slate::HermitianMatrix<scalar_t> A;
@@ -123,6 +123,9 @@ void test_hegv_work(Params& params, bool run)
         Z.insertLocalTiles(origin_target);
     }
     else {
+        A_data.resize( lldA * nlocA );
+        B_data.resize( lldB * nlocB );
+        Z_data.resize( lldZ * nlocZ );
         // create SLATE matrices from the ScaLAPACK layouts
         A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                 uplo, n, &A_data[0], lldA, nb, p, q, mpi_comm);
@@ -151,17 +154,17 @@ void test_hegv_work(Params& params, bool run)
     slate::HermitianMatrix<scalar_t> Aref;
     slate::HermitianMatrix<scalar_t> Bref;
     if (ref || check) {
-        Aref_data.resize( A_data.size() );
+        Aref_data.resize( lldA * nlocA );
         Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                    uplo, n, &Aref_data[0], lldA, nb, p, q, mpi_comm);
         slate::copy(A, Aref);
 
-        Bref_data.resize( B_data.size() );
+        Bref_data.resize( lldB * nlocB );
         Bref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                    uplo, n, &Bref_data[0], lldB, nb, p, q, mpi_comm);
         slate::copy(B, Bref);
 
-        Zref_data.resize( Z_data.size() );
+        Zref_data.resize( lldZ * nlocZ );
         Lambda_ref.resize( Lambda.size() );
     }
 

@@ -100,7 +100,10 @@ void gemmA(
             ReduceList reduce_list_C;
             for (int64_t i = 0; i < C.mt(); ++i)
                 // reduce C(i, 0) across i_th row of A
-                reduce_list_C.push_back({i, 0, {A.sub(i, i, 0, A.nt()-1)}});
+                reduce_list_C.push_back({i, 0,
+                                          C.sub(i, i, 0, 0),
+                                          {A.sub(i, i, 0, A.nt()-1)}
+                                        });
             C.template listReduce(reduce_list_C, layout);
          }
 
@@ -141,7 +144,10 @@ void gemmA(
                 ReduceList reduce_list_C;
                 for (int64_t i = 0; i < C.mt(); ++i)
                     // reduce C(i, 0) across i_th row of A
-                    reduce_list_C.push_back({i, k, {A.sub(i, i, 0, A.nt()-1)}});
+                    reduce_list_C.push_back({i, k,
+                                              C.sub(i, i, k, k),
+                                              {A.sub(i, i, 0, A.nt()-1)}
+                                            });
                 C.template listReduce(reduce_list_C, layout);
 
             }

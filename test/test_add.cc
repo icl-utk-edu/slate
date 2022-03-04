@@ -18,15 +18,13 @@
 #include <utility>
 
 // -----------------------------------------------------------------------------
-// The following routine : subtract_matrix : takes input matrices A and B,
-// assumed to be of the same dimension and performs the operation B = A - B.
+// subtract_matrix takes input matrices A and B,
+// assumed to be of the same dimension, and performs the operation B = A - B.
 // This was developed for checking slate::add without using slate::add to check.
 // It is a CPU-only implementation and assumes column-major.
-//template <typename scalar_t>
-//void subtract_matrix( slate::Matrix<scalar_t>& A, slate::Matrix<scalar_t>& B )
 
-template<typename matrix_type>
-void subtract_matrix(matrix_type &A, matrix_type &B)
+template <typename matrix_type>
+void subtract_matrix( matrix_type& A, matrix_type& B )
 {
     using scalar_t = typename matrix_type::value_type;
     int64_t mt = A.mt();
@@ -55,86 +53,93 @@ void subtract_matrix(matrix_type &A, matrix_type &B)
             }
         }
     }
-    else {
-        if (A.uploPhysical() == slate::Uplo::Upper) {
-            for (int64_t i = 0; i < mt; ++i) {
-                for (int64_t j = i; j < nt; ++j) {
-                    if (A.tileIsLocal( i, j )) {
-                        auto Aij = A(i,j);
-                        if (Aij.uploPhysical() == slate::Uplo::Upper) {
-                            A.tileGetForReading( i, j, slate::LayoutConvert::None );
-                            B.tileGetForWriting( i, j, slate::LayoutConvert::None );
-                            auto TA = A( i, j );
-                            auto TB = B( i, j );
-                            int64_t mb = TA.mb();
-                            int64_t nb = TA.nb();
-                            int64_t lda = TA.stride();
-                            int64_t ldb = TB.stride();
-                            scalar_t const* TA_data = TA.data();
-                            scalar_t*       TB_data = TB.data();
-                            for (int64_t ii = 0; ii < mb; ++ii) {
-                                for (int64_t jj = ii; jj < nb; ++jj) {
-                                        TB_data[ ii + jj*ldb ] -= TA_data[ ii + jj*lda ];
-                                }
+    else if (A.uploPhysical() == slate::Uplo::Upper) {
+        // todo: collapse(2) here requires OpenMP 5
+        #pragma omp parallel for
+        for (int64_t i = 0; i < mt; ++i) {
+            for (int64_t j = i; j < nt; ++j) {
+                if (A.tileIsLocal( i, j )) {
+                    auto Aij = A(i, j);
+                    if (Aij.uploPhysical() == slate::Uplo::Upper) {
+                        // Diagonal tiles are upper.
+                        A.tileGetForReading( i, j, slate::LayoutConvert::None );
+                        B.tileGetForWriting( i, j, slate::LayoutConvert::None );
+                        auto TA = A( i, j );
+                        auto TB = B( i, j );
+                        int64_t mb = TA.mb();
+                        int64_t nb = TA.nb();
+                        int64_t lda = TA.stride();
+                        int64_t ldb = TB.stride();
+                        scalar_t const* TA_data = TA.data();
+                        scalar_t*       TB_data = TB.data();
+                        for (int64_t jj = 0; jj < nb; ++jj) {
+                            for (int64_t ii = 0; ii <= jj && ii < mb; ++ii) { // upper
+                                TB_data[ ii + jj*ldb ] -= TA_data[ ii + jj*lda ];
                             }
                         }
-                        else {
-                            A.tileGetForReading( i, j, slate::LayoutConvert::None );
-                            B.tileGetForWriting( i, j, slate::LayoutConvert::None );
-                            auto TA = A( i, j );
-                            auto TB = B( i, j );
-                            int64_t mb = TA.mb();
-                            int64_t nb = TA.nb();
-                            int64_t lda = TA.stride();
-                            int64_t ldb = TB.stride();
-                            scalar_t const* TA_data = TA.data();
-                            scalar_t*       TB_data = TB.data();
-                            for (int64_t jj = 0; jj < nb; ++jj) {
-                                for (int64_t ii = 0; ii < mb; ++ii) {
-                                    TB_data[ ii + jj*ldb ] -= TA_data[ ii + jj*lda ];
-                                }
+                    }
+                    else {
+                        // Off-diagonal tiles are full.
+                        A.tileGetForReading( i, j, slate::LayoutConvert::None );
+                        B.tileGetForWriting( i, j, slate::LayoutConvert::None );
+                        auto TA = A( i, j );
+                        auto TB = B( i, j );
+                        int64_t mb = TA.mb();
+                        int64_t nb = TA.nb();
+                        int64_t lda = TA.stride();
+                        int64_t ldb = TB.stride();
+                        scalar_t const* TA_data = TA.data();
+                        scalar_t*       TB_data = TB.data();
+                        for (int64_t jj = 0; jj < nb; ++jj) {
+                            for (int64_t ii = 0; ii < mb; ++ii) {
+                                TB_data[ ii + jj*ldb ] -= TA_data[ ii + jj*lda ];
                             }
                         }
                     }
                 }
             }
-        } else if (A.uploPhysical() == slate::Uplo::Lower) {
-            for (int64_t j = 0; j < nt; ++j) {
-                for (int64_t i = j; i < mt; ++i) {
-                    if (A.tileIsLocal( i, j )) {
-                        auto Aij = A(i,j);
-                        if (Aij.uploPhysical() == slate::Uplo::Lower) {
-                            A.tileGetForReading( i, j, slate::LayoutConvert::None );
-                            B.tileGetForWriting( i, j, slate::LayoutConvert::None );
-                            auto TA = A( i, j );
-                            auto TB = B( i, j );
-                            int64_t mb = TA.mb();
-                            int64_t nb = TA.nb();
-                            int64_t lda = TA.stride();
-                            int64_t ldb = TB.stride();
-                            scalar_t const* TA_data = TA.data();
-                            scalar_t*       TB_data = TB.data();
-                            for (int64_t jj = 0; jj < nb; ++jj) {
-                                for (int64_t ii = jj; ii < mb; ++ii) {
-                                    TB_data[ ii + jj*ldb ] -= TA_data[ ii + jj*lda ];
-                                }
+        }
+    }
+    else if (A.uploPhysical() == slate::Uplo::Lower) {
+        // todo: collapse(2) here requires OpenMP 5
+        #pragma omp parallel for
+        for (int64_t j = 0; j < nt; ++j) {
+            for (int64_t i = j; i < mt; ++i) {
+                if (A.tileIsLocal( i, j )) {
+                    auto Aij = A(i, j);
+                    if (Aij.uploPhysical() == slate::Uplo::Lower) {
+                        // Diagonal tiles are lower.
+                        A.tileGetForReading( i, j, slate::LayoutConvert::None );
+                        B.tileGetForWriting( i, j, slate::LayoutConvert::None );
+                        auto TA = A( i, j );
+                        auto TB = B( i, j );
+                        int64_t mb = TA.mb();
+                        int64_t nb = TA.nb();
+                        int64_t lda = TA.stride();
+                        int64_t ldb = TB.stride();
+                        scalar_t const* TA_data = TA.data();
+                        scalar_t*       TB_data = TB.data();
+                        for (int64_t jj = 0; jj < nb; ++jj) {
+                            for (int64_t ii = jj; ii < mb; ++ii) { // lower
+                                TB_data[ ii + jj*ldb ] -= TA_data[ ii + jj*lda ];
                             }
                         }
-                        else {
-                            A.tileGetForReading( i, j, slate::LayoutConvert::None );
-                            B.tileGetForWriting( i, j, slate::LayoutConvert::None );
-                            auto TA = A( i, j );
-                            auto TB = B( i, j );
-                            int64_t mb = TA.mb();
-                            int64_t nb = TA.nb();
-                            int64_t lda = TA.stride();
-                            int64_t ldb = TB.stride();
-                            scalar_t const* TA_data = TA.data();
-                            scalar_t*       TB_data = TB.data();
-                            for (int64_t jj = 0; jj < nb; ++jj) {
-                                for (int64_t ii = 0; ii < mb; ++ii) {
-                                    TB_data[ ii + jj*ldb ] -= TA_data[ ii + jj*lda ];
-                                }
+                    }
+                    else {
+                        // Off-diagonal tiles are full.
+                        A.tileGetForReading( i, j, slate::LayoutConvert::None );
+                        B.tileGetForWriting( i, j, slate::LayoutConvert::None );
+                        auto TA = A( i, j );
+                        auto TB = B( i, j );
+                        int64_t mb = TA.mb();
+                        int64_t nb = TA.nb();
+                        int64_t lda = TA.stride();
+                        int64_t ldb = TB.stride();
+                        scalar_t const* TA_data = TA.data();
+                        scalar_t*       TB_data = TB.data();
+                        for (int64_t jj = 0; jj < nb; ++jj) {
+                            for (int64_t ii = 0; ii < mb; ++ii) {
+                                TB_data[ ii + jj*ldb ] -= TA_data[ ii + jj*lda ];
                             }
                         }
                     }
@@ -146,7 +151,7 @@ void subtract_matrix(matrix_type &A, matrix_type &B)
 
 #define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
-template<typename matrix_type>
+template <typename matrix_type>
 void test_add_work(Params& params, bool run)
 {
     using scalar_t = typename matrix_type::value_type;
@@ -165,9 +170,9 @@ void test_add_work(Params& params, bool run)
     scalar_t beta = params.beta.get<real_t>();
     int64_t n = params.dim.n();
     int64_t m;
-    if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value ||
-                  std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value ||
-                  std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value)
+    if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value
+                  || std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value
+                  || std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value)
         m = n;
     else
         m = params.dim.m();
@@ -207,11 +212,11 @@ void test_add_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data,B_data;
+    std::vector<scalar_t> A_data, B_data;
 
     int64_t mlocB = mlocA, nlocB = nlocA, lldB = lldA;
 
-    matrix_type A,B;
+    matrix_type A, B;
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
@@ -222,23 +227,31 @@ void test_add_work(Params& params, bool run)
         }
         else if constexpr (std::is_same<matrix_type, slate::TrapezoidMatrix<scalar_t>>::value) {
             // Trapezoidal mxn matrix
-            A = slate::TrapezoidMatrix<scalar_t>(uplo, slate::Diag::NonUnit, m, n, nb, p, q, MPI_COMM_WORLD);
-            B = slate::TrapezoidMatrix<scalar_t>(uplo, slate::Diag::NonUnit, m, n, nb, p, q, MPI_COMM_WORLD);
+            A = slate::TrapezoidMatrix<scalar_t>(
+                    uplo, slate::Diag::NonUnit, m, n, nb, p, q, MPI_COMM_WORLD);
+            B = slate::TrapezoidMatrix<scalar_t>(
+                    uplo, slate::Diag::NonUnit, m, n, nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value) {
             // Triangular nxn matrix
-            A = slate::TriangularMatrix<scalar_t>(uplo, slate::Diag::NonUnit, n, nb, p, q, MPI_COMM_WORLD);
-            B = slate::TriangularMatrix<scalar_t>(uplo, slate::Diag::NonUnit, n, nb, p, q, MPI_COMM_WORLD);
+            A = slate::TriangularMatrix<scalar_t>(
+                    uplo, slate::Diag::NonUnit, n, nb, p, q, MPI_COMM_WORLD);
+            B = slate::TriangularMatrix<scalar_t>(
+                    uplo, slate::Diag::NonUnit, n, nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value) {
             // Symmetric nxn matrix
-            A = slate::SymmetricMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
-            B = slate::SymmetricMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
+            A = slate::SymmetricMatrix<scalar_t>(
+                    uplo, n, nb, p, q, MPI_COMM_WORLD);
+            B = slate::SymmetricMatrix<scalar_t>(
+                    uplo, n, nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value) {
             // Hermitian nxn matrix
-            A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
-            B = slate::HermitianMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
+            A = slate::HermitianMatrix<scalar_t>(
+                    uplo, n, nb, p, q, MPI_COMM_WORLD);
+            B = slate::HermitianMatrix<scalar_t>(
+                    uplo, n, nb, p, q, MPI_COMM_WORLD);
         }
         else {
             throw slate::Exception("unknown routine: not compatible with add");
@@ -247,9 +260,9 @@ void test_add_work(Params& params, bool run)
         B.insertLocalTiles(origin_target);
     }
     else {
-         // Allocate necessary space here to avoid using 2x memory
-         A_data.resize( lldA*nlocA );
-         B_data.resize( lldA*nlocA );
+        // Allocate necessary space here to avoid using 2x memory
+        A_data.resize( lldA*nlocA );
+        B_data.resize( lldA*nlocA );
         // Create SLATE matrix from the ScaLAPACK layout.
         if constexpr (std::is_same<matrix_type, slate::Matrix<scalar_t>>::value) {
             // General mxn matrix
@@ -261,16 +274,20 @@ void test_add_work(Params& params, bool run)
         else if constexpr (std::is_same<matrix_type, slate::TrapezoidMatrix<scalar_t>>::value) {
             // Trapezoidal mxn matrix
             A = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
-                    uplo, slate::Diag::NonUnit, m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                    uplo, slate::Diag::NonUnit, m, n, &A_data[0], lldA,
+                    nb, p, q, MPI_COMM_WORLD);
             B = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
-                    uplo, slate::Diag::NonUnit, m, n, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+                    uplo, slate::Diag::NonUnit, m, n, &B_data[0], lldB,
+                    nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value) {
             // Triangular nxn matrix
             A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
-                    uplo, slate::Diag::NonUnit, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                    uplo, slate::Diag::NonUnit, n, &A_data[0], lldA,
+                    nb, p, q, MPI_COMM_WORLD);
             B = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
-                    uplo, slate::Diag::NonUnit, n, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+                    uplo, slate::Diag::NonUnit, n, &B_data[0], lldB,
+                    nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value) {
             // Symmetric nxn matrix
@@ -295,8 +312,8 @@ void test_add_work(Params& params, bool run)
     slate::generate_matrix(params.matrix, B);
 
     // if reference run is required, copy test data
-    matrix_type Aref,Bref;
-    std::vector<scalar_t> Aref_data,Bref_data;
+    matrix_type Aref, Bref;
+    std::vector<scalar_t> Aref_data, Bref_data;
     if (check || ref) {
         // For simplicity, always use ScaLAPACK format for ref matrices.
         Aref_data.resize( lldA*nlocA );
@@ -306,21 +323,25 @@ void test_add_work(Params& params, bool run)
             Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
                        m,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
             Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                      m,  n, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+                       m,  n, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::TrapezoidMatrix<scalar_t>>::value) {
             // Trapezoidal mxn matrix
             Aref = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
-                       uplo, slate::Diag::NonUnit, m,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                       uplo, slate::Diag::NonUnit, m,  n, &Aref_data[0], lldA,
+                       nb, p, q, MPI_COMM_WORLD);
             Bref = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
-                       uplo, slate::Diag::NonUnit, m,  n, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+                       uplo, slate::Diag::NonUnit, m,  n, &Bref_data[0], lldB,
+                       nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value) {
             // Triangular nxn matrix
             Aref = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
-                       uplo, slate::Diag::NonUnit,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                       uplo, slate::Diag::NonUnit,  n, &Aref_data[0], lldA,
+                       nb, p, q, MPI_COMM_WORLD);
             Bref = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
-                       uplo, slate::Diag::NonUnit,  n, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+                       uplo, slate::Diag::NonUnit,  n, &Bref_data[0], lldB,
+                       nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value) {
             // Symmetric nxn matrix
@@ -330,7 +351,7 @@ void test_add_work(Params& params, bool run)
                        uplo, n, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value) {
-             // Hermitian nxn matrix
+            // Hermitian nxn matrix
             Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                        uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
             Bref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
@@ -343,12 +364,12 @@ void test_add_work(Params& params, bool run)
         slate::copy(B, Bref);
     }
 
-/*
+    /*
     if (trans == slate::Op::Trans)
         A = transpose(A);
     else if (trans == slate::Op::ConjTrans)
         A = conjTranspose(A);
-*/
+    */
 
     print_matrix("A", A, params);
     print_matrix("B", B, params);
@@ -398,11 +419,6 @@ void test_add_work(Params& params, bool run)
             scalapack_descinit(B_desc, m, n, nb, nb, 0, 0, ictxt, lldB, &info);
             slate_assert(info == 0);
 
-            if (origin == slate::Origin::ScaLAPACK) {
-                // todo: the copy needs to be fixed for transpose case.
-                copy(A, &A_data[0], A_desc);
-                copy(B, &B_data[0], B_desc);
-            }
             real_t A_norm = slate::norm(slate::Norm::One, A);
             real_t B_norm = slate::norm(slate::Norm::One, B);
             // set MKL num threads appropriately for parallel BLAS
@@ -431,10 +447,10 @@ void test_add_work(Params& params, bool run)
             print_matrix("Bref", mlocB, nlocA, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD, params);
 
             // get differences A = A - Aref
-            subtract_matrix(Aref,A);
+            subtract_matrix(Aref, A);
 
             // get differences B = B - Bref
-            subtract_matrix(Bref,B);
+            subtract_matrix(Bref, B);
 
             print_matrix("DiffA", A, params);
             print_matrix("DiffB", B, params);

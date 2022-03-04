@@ -18,7 +18,6 @@
 #include <cstdlib>
 #include <utility>
 
-#undef PIN_MATRICES
 #define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template<typename scalar_t>
@@ -160,11 +159,9 @@ void test_tbsm_work(Params& params, bool run)
         // todo: print_matrix( A ) calls Matrix version;
         // need TriangularBandMatrix version.
         printf("alpha = %10.6f + %10.6fi;\n", real(alpha), imag(alpha));
-        print_matrix("A_data", mlocA, nlocA, &A_data[0], lldA, p, q, MPI_COMM_WORLD, params);
-        print_matrix("B_data", mlocB, nlocB, &B_data[0], lldB, p, q, MPI_COMM_WORLD, params);
-        print_matrix("A", Aband);
-        print_matrix("B", B, params);
     }
+    print_matrix("A", Aband, params);
+    print_matrix("B", B, params);
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
@@ -194,7 +191,6 @@ void test_tbsm_work(Params& params, bool run)
     //params.gflops() = gflop / time;
 
     print_matrix("B2", B, params);
-    print_matrix("B2_tst", mlocB, nlocB, &B_data[0], lldB, p, q, MPI_COMM_WORLD, params);
 
     if (check || ref) {
         #ifdef SLATE_HAVE_SCALAPACK
@@ -240,8 +236,9 @@ void test_tbsm_work(Params& params, bool run)
             real_t A_norm = scalapack_plantr(norm2str(norm), uplo2str(uplo), diag2str(diag), Am, An, &A_data[0], 1, 1, A_desc, &worklantr[0]);
             real_t B_orig_norm = scalapack_plange(norm2str(norm), Bm, Bn, &B_data[0], 1, 1, B_desc, &worklange[0]);
 
-            print_matrix("Bref_data", mlocB, nlocB, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD, params);
-
+            auto Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                        Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+            print_matrix("Bref", Bref, params);
             //==================================================
             // Run ScaLAPACK reference routine.
             // Note this is on a FULL matrix, so ignore reference performance!
@@ -253,7 +250,7 @@ void test_tbsm_work(Params& params, bool run)
                             &Bref_data[0], 1, 1, Bref_desc);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            print_matrix("B2_ref", mlocB, nlocB, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD, params);
+            print_matrix("B2ref", Bref, params);
 
             // local operation: error = Bref_data - B_data
             blas::axpy(Bref_data.size(), -1.0, &B_data[0], 1, &Bref_data[0], 1);
@@ -261,7 +258,7 @@ void test_tbsm_work(Params& params, bool run)
             // norm(Bref_data - B_data)
             real_t B_diff_norm = scalapack_plange(norm2str(norm), Bm, Bn, &Bref_data[0], 1, 1, Bref_desc, &worklange[0]);
 
-            print_matrix("B_diff", mlocB, nlocB, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD, params);
+            print_matrix("Bdiff", Bref, params);
 
             real_t error = B_diff_norm
                          / (sqrt(real_t(Am) + 2) * std::abs(alpha) * A_norm * B_orig_norm);
@@ -287,11 +284,6 @@ void test_tbsm_work(Params& params, bool run)
         #endif
     }
     //printf("%% done\n");
-
-    #ifdef PIN_MATRICES
-        cuerror = cudaHostUnregister(&A_data[0]);
-        cuerror = cudaHostUnregister(&B_data[0]);
-    #endif
 }
 
 // -----------------------------------------------------------------------------

@@ -14,6 +14,7 @@
 #include <cmath>
 
 #include <blas.hh>
+#include <atomic>
 
 namespace slate {
 
@@ -138,7 +139,7 @@ public:
 
 private:
     int count_;
-    volatile int passed_;
+    std::atomic<int> passed_;
 };
 
 //------------------------------------------------------------------------------

@@ -47,7 +47,7 @@ option( build_tests "Build test suite" "${slate_is_project}" )
 option( color "Use ANSI color output" true )
 option( use_mpi "Use MPI, if available" true )
 option( use_openmp "Use OpenMP, if available" true )
-# todo: option( c_api "Build C API" false )
+option( c_api "Build C API" false )
 # todo: option( fortran_api "Build Fortran API. Requires C API." false )
 
 set( gpu_backend "auto" CACHE STRING "GPU backend to use" )
@@ -143,8 +143,41 @@ endif()
 # Build library.
 
 # todo: these need generation
-# src/c_api/*.cc
 # src/fortran_api/*.f90
+
+message( "---------------------------------------- C API: c_api = ${c_api}" )
+if (c_api)
+    find_package(Python COMPONENTS Interpreter)
+    set( cmd ${Python_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_api/generate_util.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/types.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/util.hh
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api/util.cc )
+    execute_process( COMMAND ${cmd} )
+
+    set( cmd ${Python_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_api/generate_matrix.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/Tile.hh
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/matrix.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api/matrix.cc )
+    execute_process( COMMAND ${cmd} )
+
+    set( cmd ${Python_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_api/generate_wrappers.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api/wrappers.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/wrappers.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api/wrappers_precisions.cc )
+    execute_process( COMMAND ${cmd} )
+
+    file(
+        GLOB c_api_src
+        CONFIGURE_DEPENDS  # glob at build time
+        src/c_api/util.cc
+        src/c_api/matrix.cc
+        src/c_api/wrappers.cc
+        src/c_api/wrappers_precisions.cc
+        )
+endif()
 
 file(
     GLOB libslate_src
@@ -155,6 +188,7 @@ file(
     src/core/*.cc
     src/internal/*.cc
     src/work/*.cc
+    ${c_api_src}
 )
 message( DEBUG "libslate_src = ${libslate_src}" )
 

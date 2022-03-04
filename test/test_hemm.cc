@@ -86,19 +86,24 @@ void test_hemm_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
 
     // Matrix B: figure out local size.
     int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-    std::vector<scalar_t> B_data(lldB*nlocB);
 
     // Matrix C: figure out local size.
     int64_t mlocC = num_local_rows_cols(Cm, nb, myrow, p);
     int64_t nlocC = num_local_rows_cols(Cn, nb, mycol, q);
     int64_t lldC  = blas::max(1, mlocC); // local leading dimension of C
-    std::vector<scalar_t> C_data(lldC*nlocC);
+
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data, B_data, C_data;
+    if (ref || origin == slate::Origin::ScaLAPACK) {
+        A_data.resize( lldA * nlocA );
+        B_data.resize( lldB * nlocB );
+        C_data.resize( lldC * nlocC );
+    }
 
     slate::HermitianMatrix<scalar_t> A;
     slate::Matrix<scalar_t> B, C;
@@ -194,12 +199,17 @@ void test_hemm_work(Params& params, bool run)
     // C = alpha A B + beta C (left) or
     // C = alpha B A + beta C (right).
     //==================================================
-    if (side == slate::Side::Left)
-        slate::multiply(alpha, A, B, beta, C, opts);
-    else if (side == slate::Side::Right)
-        slate::multiply(alpha, B, A, beta, C, opts);
-    else
-        throw slate::Exception("unknown side");
+    if (params.routine == "hemm") {
+        if (side == slate::Side::Left)
+            slate::multiply(alpha, A, B, beta, C, opts);
+        else if (side == slate::Side::Right)
+            slate::multiply(alpha, B, A, beta, C, opts);
+        else
+            throw slate::Exception("unknown side");
+    }
+    else if (params.routine == "hemmA") {
+        slate::hemmA(side, alpha, A, B, beta, C, opts);
+    }
     // Using traditional BLAS/LAPACK name
     // slate::hemm(side, alpha, A, B, beta, C, opts);
 

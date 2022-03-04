@@ -73,16 +73,12 @@ void test_hbnorm_work(Params& params, bool run)
 
     zeroOutsideBand(uplo, &A_data[0], n, kd, nb, myrow, mycol, p, q, lldA);
 
-    print_matrix("A_data", mlocA, nlocA, &A_data[0], lldA, p, q, MPI_COMM_WORLD, params);
-
     // Create SLATE matrix from the ScaLAPACK layout.
     // TODO: data origin on GPU
     auto A = HermitianBandFromScaLAPACK(
                  uplo, n, kd, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+    print_matrix("A", A, params);
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();

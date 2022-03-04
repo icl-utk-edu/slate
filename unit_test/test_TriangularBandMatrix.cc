@@ -63,6 +63,13 @@ void test_TriangularBandMatrix_empty()
     test_assert(L.uplo() == blas::Uplo::Lower);
     test_assert(L.diag() == blas::Diag::NonUnit);
 
+    int myp, myq, myrow, mycol;
+    L.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
+
     // ----------
     // upper
     slate::TriangularBandMatrix<double> U(

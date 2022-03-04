@@ -120,8 +120,7 @@ void tzcopy(
           Barray, ldb);
 
     cudaError_t error = cudaGetLastError();
-
-    assert(error == cudaSuccess);
+    slate_assert(error == cudaSuccess);
 }
 
 //------------------------------------------------------------------------------

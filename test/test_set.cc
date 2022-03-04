@@ -19,7 +19,7 @@
 
 #define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
-template<typename matrix_type>
+template <typename matrix_type>
 void test_set_work(Params& params, bool run)
 {
     using scalar_t = typename matrix_type::value_type;
@@ -36,9 +36,9 @@ void test_set_work(Params& params, bool run)
     scalar_t beta = params.beta.get<real_t>();
     int64_t n = params.dim.n();
     int64_t m;
-    if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value ||
-                  std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value ||
-                  std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value)
+    if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value
+                  || std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value
+                  || std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value)
         m = n;
     else
         m = params.dim.m();
@@ -88,16 +88,20 @@ void test_set_work(Params& params, bool run)
             A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::TrapezoidMatrix<scalar_t>>::value) {
-            A = slate::TrapezoidMatrix<scalar_t>(uplo, slate::Diag::NonUnit, m, n, nb, p, q, MPI_COMM_WORLD);
+            A = slate::TrapezoidMatrix<scalar_t>(
+                    uplo, slate::Diag::NonUnit, m, n, nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value) {
-            A = slate::TriangularMatrix<scalar_t>(uplo, slate::Diag::NonUnit, n, nb, p, q, MPI_COMM_WORLD);
+            A = slate::TriangularMatrix<scalar_t>(
+                    uplo, slate::Diag::NonUnit, n, nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value) {
-            A = slate::SymmetricMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
+            A = slate::SymmetricMatrix<scalar_t>(
+                    uplo, n, nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value) {
-            A = slate::HermitianMatrix<scalar_t>(uplo, n, nb, p, q, MPI_COMM_WORLD);
+            A = slate::HermitianMatrix<scalar_t>(
+                    uplo, n, nb, p, q, MPI_COMM_WORLD);
         }
         else {
             throw slate::Exception("unknown routine: not compatible with add");
@@ -105,7 +109,7 @@ void test_set_work(Params& params, bool run)
         A.insertLocalTiles(origin_target);
     }
     else {
-         A_data.resize( lldA*nlocA );
+        A_data.resize( lldA*nlocA );
         // Create SLATE matrix from the ScaLAPACK layout.
         if constexpr (std::is_same<matrix_type, slate::Matrix<scalar_t>>::value) {
             A = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -113,11 +117,13 @@ void test_set_work(Params& params, bool run)
         }
         else if constexpr (std::is_same<matrix_type, slate::TrapezoidMatrix<scalar_t>>::value) {
             A = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
-                    uplo, slate::Diag::NonUnit, m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                    uplo, slate::Diag::NonUnit, m, n, &A_data[0], lldA,
+                    nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value) {
             A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
-                    uplo, slate::Diag::NonUnit, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                    uplo, slate::Diag::NonUnit, n, &A_data[0], lldA,
+                    nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value) {
             A = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
@@ -146,12 +152,14 @@ void test_set_work(Params& params, bool run)
         else if constexpr (std::is_same<matrix_type, slate::TrapezoidMatrix<scalar_t>>::value) {
             // Trapezoidal Matrix-type mxn
             Aref = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
-                       uplo, slate::Diag::NonUnit, m,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                       uplo, slate::Diag::NonUnit, m,  n, &Aref_data[0], lldA,
+                       nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value) {
             // Triangular Matrix-type nxn
             Aref = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
-                       uplo, slate::Diag::NonUnit,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                       uplo, slate::Diag::NonUnit,  n, &Aref_data[0], lldA,
+                       nb, p, q, MPI_COMM_WORLD);
         }
         else if constexpr (std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value) {
             // Symmetric Matrix-type nxn
@@ -260,7 +268,7 @@ void test_set_work(Params& params, bool run)
 }
 
 // -----------------------------------------------------------------------------
-template <typename scalar_t >
+template <typename scalar_t>
 void test_set_dispatch(Params& params, bool run )
 {
     std::string routine = params.routine;

@@ -179,6 +179,15 @@ void hemm(Side side,
 }
 
 //-----------------------------------------
+// hemmA()
+template <Target target=Target::HostTask, typename scalar_t>
+void hemmA(Side side,
+          scalar_t alpha, HermitianMatrix<scalar_t>&& A,
+                          Matrix<scalar_t>&& B,
+          scalar_t beta,  Matrix<scalar_t>&& C,
+          int priority=0);
+
+//-----------------------------------------
 // herk()
 template <Target target=Target::HostTask, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
@@ -297,6 +306,15 @@ void trmm(Side side,
 // trsm()
 template <Target target=Target::HostTask, typename scalar_t>
 void trsm(Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>&& A,
+                                    Matrix<scalar_t>&& B,
+          int priority=0, Layout layout=Layout::ColMajor,
+          int64_t queue_index=0);
+
+//-----------------------------------------
+// trsmA()
+template <Target target=Target::HostTask, typename scalar_t>
+void trsmA(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
           int priority=0, Layout layout=Layout::ColMajor,

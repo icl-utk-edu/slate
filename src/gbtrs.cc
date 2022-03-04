@@ -12,71 +12,6 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::gbtrs from internal::specialization::gbtrs
-namespace internal {
-namespace specialization {
-
-//------------------------------------------------------------------------------
-/// Distributed parallel band LU solve.
-/// Generic implementation for any target.
-/// @ingroup gbsv_specialization
-///
-template <Target target, typename scalar_t>
-void gbtrs(slate::internal::TargetType<target>,
-           BandMatrix<scalar_t>& A, Pivots& pivots,
-           Matrix<scalar_t>& B, int64_t lookahead)
-{
-    assert(A.mt() == A.nt());
-    assert(B.mt() == A.mt());
-
-    auto L = TriangularBandMatrix<scalar_t>(Uplo::Lower, Diag::Unit, A);
-    auto U = TriangularBandMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A);
-//printf( "L kd %lld\n", L.bandwidth() );
-//printf( "U kd %lld\n", U.bandwidth() );
-
-    if (A.op() == Op::NoTrans) {
-        // forward substitution, Y = L^{-1} P B
-        tbsm(Side::Left, scalar_t(1.0), L, pivots, B,
-             {{Option::Lookahead, lookahead},
-              {Option::Target, target}});
-
-        // backward substitution, X = U^{-1} Y
-        tbsm(Side::Left, scalar_t(1.0), U, B,
-             {{Option::Lookahead, lookahead},
-              {Option::Target, target}});
-    }
-    else {
-        // forward substitution, Y = U^{-T} B
-        tbsm(Side::Left, scalar_t(1.0), U, B,
-             {{Option::Lookahead, lookahead},
-              {Option::Target, target}});
-
-        // backward substitution, X = P^T L^{-T} Y
-        tbsm(Side::Left, scalar_t(1.0), L, pivots, B,
-             {{Option::Lookahead, lookahead},
-              {Option::Target, target}});
-    }
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gbsv_specialization
-///
-template <Target target, typename scalar_t>
-void gbtrs(BandMatrix<scalar_t>& A, Pivots& pivots,
-           Matrix<scalar_t>& B,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::gbtrs(internal::TargetType<target>(),
-                                    A, pivots, B, lookahead);
-}
-
 //------------------------------------------------------------------------------
 /// Distributed parallel band LU solve.
 ///
@@ -122,22 +57,30 @@ void gbtrs(BandMatrix<scalar_t>& A, Pivots& pivots,
            Matrix<scalar_t>& B,
            Options const& opts)
 {
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+    // Constants
+    const scalar_t one  = 1;
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            gbtrs<Target::HostTask>(A, pivots, B, opts);
-            break;
-        case Target::HostNest:
-            gbtrs<Target::HostNest>(A, pivots, B, opts);
-            break;
-        case Target::HostBatch:
-            gbtrs<Target::HostBatch>(A, pivots, B, opts);
-            break;
-        case Target::Devices:
-            gbtrs<Target::Devices>(A, pivots, B, opts);
-            break;
+    assert(A.mt() == A.nt());
+    assert(B.mt() == A.mt());
+
+    auto L = TriangularBandMatrix<scalar_t>(Uplo::Lower, Diag::Unit, A);
+    auto U = TriangularBandMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A);
+//printf( "L kd %lld\n", L.bandwidth() );
+//printf( "U kd %lld\n", U.bandwidth() );
+
+    if (A.op() == Op::NoTrans) {
+        // forward substitution, Y = L^{-1} P B
+        tbsm(Side::Left, one, L, pivots, B, opts);
+
+        // backward substitution, X = U^{-1} Y
+        tbsm(Side::Left, one, U, B, opts);
+    }
+    else {
+        // forward substitution, Y = U^{-T} B
+        tbsm(Side::Left, one, U, B, opts);
+
+        // backward substitution, X = P^T L^{-T} Y
+        tbsm(Side::Left, one, L, pivots, B, opts);
     }
     // todo: return value for errors?
 }

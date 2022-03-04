@@ -49,6 +49,24 @@ void test_BandMatrix_empty()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.lowerBandwidth() == kl);
     test_assert(A.upperBandwidth() == ku);
+
+    int myp, myq, myrow, mycol;
+    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
+
+    auto tileMb_     = A.tileMbFunc();
+    auto tileNb_     = A.tileNbFunc();
+    auto tileRank_   = A.tileRankFunc();
+    auto tileDevice_ = A.tileDeviceFunc();
+    test_assert( tileMb_(0) == nb );  // square
+    test_assert( tileNb_(0) == nb );
+    test_assert( tileRank_( {0, 0} ) == 0 );
+    // todo: What is reasonable if num_devices == 0? Currently divides by zero.
+    if (num_devices > 0)
+        test_assert( tileDevice_( {0, 0} ) == 0 );
 }
 
 //==============================================================================

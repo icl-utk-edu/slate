@@ -183,7 +183,6 @@ void test_add_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::Uplo uplo;
@@ -420,11 +419,6 @@ void test_add_work(Params& params, bool run)
             scalapack_descinit(B_desc, m, n, nb, nb, 0, 0, ictxt, lldB, &info);
             slate_assert(info == 0);
 
-            if (origin == slate::Origin::ScaLAPACK) {
-                // todo: the copy needs to be fixed for transpose case.
-                copy(A, &A_data[0], A_desc);
-                copy(B, &B_data[0], B_desc);
-            }
             real_t A_norm = slate::norm(slate::Norm::One, A);
             real_t B_norm = slate::norm(slate::Norm::One, B);
             // set MKL num threads appropriately for parallel BLAS

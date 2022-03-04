@@ -850,7 +850,7 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
 
     // Process uplo --> col/row, then scale y=b*y and add y=ax+y
     if (X.uploPhysical() == Uplo::General) {
-        if (Y.colIncrement()==1) {
+        if (y_col_inc == 1) {
             // one column of y at a time
             int64_t m = std::min(X.mb(), Y.mb());
             for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j) {
@@ -872,7 +872,7 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
     else if (X.uploPhysical() == Uplo::Lower) {
         int64_t m = std::min(X.mb(), Y.mb());
         int64_t n = std::min(X.nb(), Y.nb());
-        if (Y.colIncrement()==1) {
+        if (y_col_inc == 1) {
             // one column of y at a time
             for (int64_t j = 0; j < n; ++j) {
                 for (int64_t i = j; i < m; ++i) {
@@ -888,7 +888,7 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
     else if (X.uploPhysical() == Uplo::Upper) {
         int64_t m = std::min(X.mb(), Y.mb());
         int64_t n = std::min(X.nb(), Y.nb());
-        if (Y.colIncrement()==1) {
+        if (y_col_inc == 1) {
             // one column of y at a time
             if (m > n) {
                 for (int64_t j = 0; j < n; ++j) {

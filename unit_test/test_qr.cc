@@ -322,9 +322,9 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
     auto T = A.emptyLike( ib, 0 );  // ib-by-nb tiles
 
     if (verbose > 1) {
-        print_matrix( "A_init", A );
-        print_matrix( "TT_init", TT );
-        print_matrix( "T_init", T );
+        slate::print( "A_init", A );
+        slate::print( "TT_init", TT );
+        slate::print( "T_init", T );
     }
 
     //----------
@@ -337,8 +337,8 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
         std::move( T_panel ));
 
     if (verbose > 1) {
-        print_matrix( "A", A );
-        print_matrix( "T", T );
+        slate::print( "A", A );
+        slate::print( "T", T );
     }
 
     // Copy top tile as R.
@@ -354,7 +354,7 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
         tzcopy( A00, R00 );
     }
     if (verbose > 1) {
-        print_matrix( "R", R );
+        slate::print( "R", R );
     }
 
     //----------
@@ -372,7 +372,7 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
         std::move( T ),
         std::move( R ));
     if (verbose > 1) {
-        print_matrix( "QR", R );
+        slate::print( "QR", R );
     }
 
     // Error check || QR - A || / || A ||, where A is the original
@@ -381,7 +381,7 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
     real_t Anorm = slate::norm( slate::Norm::Fro, TT );
     add( -one, TT, one, R );
     if (verbose > 1) {
-        print_matrix( "QR - A", R );
+        slate::print( "QR - A", R );
     }
     real_t QR_Anorm = slate::norm( slate::Norm::Fro, R );
     real_t error = QR_Anorm / Anorm;
@@ -397,7 +397,7 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
     // inside the TT regions, the values are meaningless.
     if (verbose > 1) {
         add( -one, A, one, A0 );
-        print_matrix( "Ainit - Ahat", A0 );
+        slate::print( "Ainit - Ahat", A0 );
     }
 }
 
@@ -489,34 +489,34 @@ void test_unmqr_work( slate::Side side, slate::Op op, int m, int n, int k )
 
     if (verbose >= 2) {
         printf( "\n" );
-        print_matrix( "tau", 1, k, tau.data(), 1, 1, 1, mpi_comm );
-        print_matrix( "V", V );
-        print_matrix( "T", T );
+        print( "tau", 1, k, tau.data(), 1, 1, 1, mpi_comm );
+        slate::print( "V", V );
+        slate::print( "T", T );
     }
 
     //----------
     // Perform operations with LAPACK.
     if (verbose >= 2) {
-        print_matrix( "Cref", Cref );
+        slate::print( "Cref", Cref );
     }
     lapack::unmqr( side, op, m, n, k,
                    Vdata.data(), ldv, tau.data(),
                    Cref_data.data(), ldc );
     if (verbose >= 2) {
-        print_matrix( "Cref_after", Cref );
+        slate::print( "Cref_after", Cref );
     }
 
     //----------
     // Perform operations with SLATE.
     if (verbose >= 2) {
-        print_matrix( "C",  C );
+        slate::print( "C",  C );
     }
     auto W = C.emptyLike();
     slate::internal::unmqr( side, op,
                             std::move(V), std::move(T),
                             std::move(C), std::move(W) );
     if (verbose >= 2) {
-        print_matrix( "C_after",  C );
+        slate::print( "C_after",  C );
     }
 
     //----------
@@ -526,7 +526,7 @@ void test_unmqr_work( slate::Side side, slate::Op op, int m, int n, int k )
     slate::add( -one, Cref, one, C );
     real_t error = slate::norm( slate::Norm::One, C ) / Cnorm;
     if (verbose >= 2) {
-        print_matrix( "C - Cref",  C );
+        slate::print( "C - Cref",  C );
     }
     if (verbose > 0 && mpi_rank == 0) {
         printf( "error %.2e, Cnorm %.2e\n", error, Cnorm );

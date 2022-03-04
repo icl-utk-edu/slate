@@ -41,7 +41,6 @@ void test_hbmm_work(Params& params, bool run)
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -127,11 +126,9 @@ void test_hbmm_work(Params& params, bool run)
         slate::copy( C, Cref );
     }
 
-    if (verbose > 1) {
-        print_matrix("A_band", A_band);
-        print_matrix("B", B, params);
-        print_matrix("C", C, params);
-    }
+    print_matrix("A_band", A_band, params);
+    print_matrix("B", B, params);
+    print_matrix("C", C, params);
 
     if (side == slate::Side::Left)
         slate_assert(A_band.mt() == C.mt());

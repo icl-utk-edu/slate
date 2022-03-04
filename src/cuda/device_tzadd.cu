@@ -56,9 +56,9 @@ __global__ void tzaddKernel(
         scalar_t* rowB = &tileB[ridx];
 
         if (uplo == lapack::Uplo::Lower) {
-           for (int64_t j = 0; j <= ridx && j < n; ++j) { // lower
-               rowB[j*ldb] = axpby(alpha, rowA[j*lda], beta, rowB[j*ldb]);
-           }
+            for (int64_t j = 0; j <= ridx && j < n; ++j) { // lower
+                rowB[j*ldb] = axpby(alpha, rowA[j*lda], beta, rowB[j*ldb]);
+            }
         }
         else {
             for (int64_t j = n-1; j >= ridx; --j) { // upper
@@ -109,8 +109,8 @@ void tzadd(
     if (batch_count == 0)
         return;
 
-    // Max threads/block=1024 for current CUDA compute capability (<=7.5)
-    int64_t nthreads = std::min((int64_t)1024, m);
+    // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
+    int64_t nthreads = std::min( int64_t( 1024 ), m );
 
     cudaSetDevice( queue.device() );
 

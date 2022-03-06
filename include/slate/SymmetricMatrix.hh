@@ -36,19 +36,39 @@ public:
                     std::function<int (ij_tuple ij)>& inTileDevice,
                     MPI_Comm mpi_comm);
 
-    SymmetricMatrix(Uplo uplo, int64_t n, int64_t nb,
-                    int p, int q, MPI_Comm mpi_comm);
+    //----------
+    SymmetricMatrix( Uplo uplo, int64_t n, int64_t nb,
+                     GridOrder order, int p, int q, MPI_Comm mpi_comm );
 
+    /// With order = Col.
+    SymmetricMatrix( Uplo uplo, int64_t n, int64_t nb,
+                     int p, int q, MPI_Comm mpi_comm )
+        : SymmetricMatrix( uplo, n, nb, GridOrder::Col, p, q, mpi_comm )
+    {}
+
+    //----------
     static
     SymmetricMatrix fromLAPACK(Uplo uplo, int64_t n,
                                scalar_t* A, int64_t lda, int64_t nb,
                                int p, int q, MPI_Comm mpi_comm);
 
+    //----------
     static
-    SymmetricMatrix fromScaLAPACK(Uplo uplo, int64_t n,
-                                  scalar_t* A, int64_t lda, int64_t nb,
-                                  int p, int q, MPI_Comm mpi_comm);
+    SymmetricMatrix fromScaLAPACK(
+        Uplo uplo, int64_t n, scalar_t* A, int64_t lda, int64_t nb,
+        GridOrder order, int p, int q, MPI_Comm mpi_comm);
 
+    /// With order = Col.
+    static
+    SymmetricMatrix fromScaLAPACK(
+        Uplo uplo, int64_t n, scalar_t* A, int64_t lda, int64_t nb,
+        int p, int q, MPI_Comm mpi_comm)
+    {
+        return fromScaLAPACK( uplo, n, A, lda, nb,
+                              GridOrder::Col, p, q, mpi_comm );
+    }
+
+    //----------
     static
     SymmetricMatrix fromDevices(Uplo uplo, int64_t n,
                                 scalar_t** Aarray, int num_devices, int64_t lda,
@@ -74,9 +94,10 @@ public:
 
 protected:
     // used by fromLAPACK and fromScaLAPACK
-    SymmetricMatrix(Uplo uplo, int64_t n,
-                    scalar_t* A, int64_t lda, int64_t nb,
-                    int p, int q, MPI_Comm mpi_comm, bool is_scalapack);
+    SymmetricMatrix( Uplo uplo, int64_t n,
+                     scalar_t* A, int64_t lda, int64_t nb,
+                     GridOrder order, int p, int q, MPI_Comm mpi_comm,
+                     bool is_scalapack );
 
     // used by fromDevices
     SymmetricMatrix(Uplo uplo, int64_t n,
@@ -126,8 +147,9 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 ///
 template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
-    Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, nb, p, q, mpi_comm)
+    Uplo uplo, int64_t n, int64_t nb,
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>( uplo, n, n, nb, order, p, q, mpi_comm )
 {}
 
 //------------------------------------------------------------------------------
@@ -168,7 +190,8 @@ SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::fromLAPACK(
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    return SymmetricMatrix<scalar_t>(uplo, n, A, lda, nb, p, q, mpi_comm, false);
+    return SymmetricMatrix<scalar_t>( uplo, n, A, lda, nb,
+                                      GridOrder::Col, p, q, mpi_comm, false );
 }
 
 //------------------------------------------------------------------------------
@@ -195,6 +218,10 @@ SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::fromLAPACK(
 /// @param[in] nb
 ///     Block size in 2D block-cyclic distribution. nb > 0.
 ///
+/// @param[in] order
+///     Order to map MPI processes to tile grid,
+///     GridOrder::ColMajor (default) or GridOrder::RowMajor.
+///
 /// @param[in] p
 ///     Number of block rows in 2D block-cyclic distribution. p > 0.
 ///
@@ -209,9 +236,10 @@ template <typename scalar_t>
 SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::fromScaLAPACK(
     Uplo uplo, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
 {
-    return SymmetricMatrix<scalar_t>(uplo, n, A, lda, nb, p, q, mpi_comm, true);
+    return SymmetricMatrix<scalar_t>( uplo, n, A, lda, nb,
+                                      order, p, q, mpi_comm, true );
 }
 
 //------------------------------------------------------------------------------
@@ -275,9 +303,9 @@ template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
     Uplo uplo, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, A, lda, nb, p, q, mpi_comm,
-                                    is_scalapack)
+    GridOrder order, int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
+    : BaseTrapezoidMatrix<scalar_t>( uplo, n, n, A, lda, nb,
+                                     order, p, q, mpi_comm, is_scalapack )
 {}
 
 //------------------------------------------------------------------------------

@@ -11,6 +11,7 @@
 
 using slate::ceildiv;
 using slate::roundup;
+using slate::GridOrder;
 
 namespace test {
 
@@ -30,7 +31,7 @@ int verbose = 0;
 //------------------------------------------------------------------------------
 /// default constructor
 /// Tests Matrix(), m, n, mt, nt, op, gridinfo.
-void test_Matrix()
+void test_Matrix_default()
 {
     slate::Matrix<double> A;
 
@@ -41,8 +42,10 @@ void test_Matrix()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
 
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Unknown );
     test_assert( myp == -1 );
     test_assert( myq == -1 );
     test_assert( myrow == -1 );
@@ -75,13 +78,16 @@ void test_Matrix_empty()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
 
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
     test_assert( myp == p );
     test_assert( myq == q );
     test_assert( myrow == mpi_rank % p );
     test_assert( mycol == mpi_rank / p );
 
+    //----------
     // rectangular tiles
     slate::Matrix<double> B(m, n, mb, nb, p, q, mpi_comm);
     test_assert(B.m() == m);
@@ -112,6 +118,58 @@ void test_Matrix_empty()
     test_assert(Bf.tileRank( 0, 0 ) == 0);
     if (num_devices > 0)
         test_assert( Bf.tileDevice( 0, 0 ) == 0 );
+
+    //----------
+    // rectangular tiles, Col grid order
+    slate::Matrix<double> C( m, n, mb, nb, GridOrder::Col, p, q, mpi_comm );
+    test_assert( C.m() == m );
+    test_assert( C.n() == n );
+    test_assert( C.mt() == ceildiv( m, mb ) );
+    test_assert( C.nt() == ceildiv( n, nb ) );
+    test_assert( C.op() == blas::Op::NoTrans );
+    test_assert( C.uplo() == slate::Uplo::General );
+
+    C.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );  // col major
+    test_assert( mycol == mpi_rank / p );
+
+    // Check col major.
+    int rank = 0;
+    for (int j = 0; j < q; ++j) {
+        for (int i = 0; i < p; ++i) {
+            test_assert( C.tileRank( i, j ) == rank );
+            rank += 1;
+        }
+    }
+
+    //----------
+    // rectangular tiles, Row grid order
+    slate::Matrix<double> D( m, n, mb, nb, GridOrder::Row, p, q, mpi_comm );
+    test_assert( D.m() == m );
+    test_assert( D.n() == n );
+    test_assert( D.mt() == ceildiv( m, mb ) );
+    test_assert( D.nt() == ceildiv( n, nb ) );
+    test_assert( D.op() == blas::Op::NoTrans );
+    test_assert( D.uplo() == slate::Uplo::General );
+
+    D.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Row );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank / q );  // row major
+    test_assert( mycol == mpi_rank % q );
+
+    // Check row major.
+    rank = 0;
+    for (int i = 0; i < p; ++i) {
+        for (int j = 0; j < q; ++j) {
+            test_assert( D.tileRank( i, j ) == rank );
+            rank += 1;
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -180,8 +238,10 @@ void test_Matrix_lambda()
     test_assert(A.uplo() == slate::Uplo::General);
 
     // SLATE doesn't know distribution.
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Unknown );
     test_assert( myp == -1 );
     test_assert( myq == -1 );
     test_assert( myrow == -1 );
@@ -267,8 +327,11 @@ void test_Matrix_fromScaLAPACK()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
 
+
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
     test_assert( myp == p );
     test_assert( myq == q );
     test_assert( myrow == mpi_rank % p );
@@ -314,8 +377,10 @@ void test_Matrix_fromScaLAPACK_rect()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
 
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
     test_assert( myp == p );
     test_assert( myq == q );
     test_assert( myrow == mpi_rank % p );
@@ -1979,7 +2044,7 @@ void run_tests()
 {
     if (mpi_rank == 0)
         printf("\nConstructors\n");
-    run_test(test_Matrix,                    "Matrix()",                   mpi_comm);
+    run_test(test_Matrix_default,            "Matrix()",                   mpi_comm);
     run_test(test_Matrix_empty,              "Matrix(m, n, nb, ...)",      mpi_comm);
     run_test(test_Matrix_lambda,             "Matrix(m, n, tileMb, ...)",  mpi_comm);
     run_test(test_Matrix_fromLAPACK,         "Matrix::fromLAPACK",         mpi_comm);

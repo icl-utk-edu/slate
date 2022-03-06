@@ -13,6 +13,7 @@
 
 using slate::ceildiv;
 using slate::roundup;
+using slate::GridOrder;
 
 namespace test {
 
@@ -50,8 +51,10 @@ void test_BandMatrix_empty()
     test_assert(A.lowerBandwidth() == kl);
     test_assert(A.upperBandwidth() == ku);
 
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
     test_assert( myp == p );
     test_assert( myq == q );
     test_assert( myrow == mpi_rank % p );

@@ -43,16 +43,17 @@ protected:
                         std::function<int (ij_tuple ij)>& inTileDevice,
                         MPI_Comm mpi_comm);
 
-    BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n, int64_t nb,
-                        int p, int q, MPI_Comm mpi_comm);
+    BaseTrapezoidMatrix( Uplo uplo, int64_t m, int64_t n, int64_t nb,
+                         GridOrder order, int p, int q, MPI_Comm mpi_comm );
 
     // conversion
     BaseTrapezoidMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig);
 
     // used by sub-classes' fromLAPACK and fromScaLAPACK
-    BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
-                        scalar_t* A, int64_t lda, int64_t nb,
-                        int p, int q, MPI_Comm mpi_comm, bool is_scalapack);
+    BaseTrapezoidMatrix( Uplo uplo, int64_t m, int64_t n,
+                         scalar_t* A, int64_t lda, int64_t nb,
+                         GridOrder order, int p, int q, MPI_Comm mpi_comm,
+                         bool is_scalapack );
 
     // used by sub-classes' fromDevices
     BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
@@ -147,8 +148,9 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
-    Uplo uplo, int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
-    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
+    Uplo uplo, int64_t m, int64_t n, int64_t nb,
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
+    : BaseMatrix<scalar_t>( m, n, nb, nb, order, p, q, mpi_comm )
 {
     slate_error_if(uplo == Uplo::General);
     this->uplo_ = uplo;
@@ -180,6 +182,10 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 /// @param[in] lda
 ///     Local leading dimension of the array A. lda >= local number of rows.
 ///
+/// @param[in] order
+///     Order to map MPI processes to tile grid,
+///     GridOrder::ColMajor (default) or GridOrder::RowMajor.
+///
 /// @param[in] nb
 ///     Block size in 2D block-cyclic distribution. nb > 0.
 ///
@@ -201,8 +207,8 @@ template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     Uplo uplo, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
-    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
+    GridOrder order, int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
+    : BaseMatrix<scalar_t>( m, n, nb, nb, order, p, q, mpi_comm )
 {
     slate_error_if(uplo == Uplo::General);
     this->uplo_ = uplo;

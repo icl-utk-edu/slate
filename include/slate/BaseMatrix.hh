@@ -82,15 +82,23 @@ protected:
                std::function<int (ij_tuple ij)>& inTileDevice,
                MPI_Comm mpi_comm);
 
-    BaseMatrix(int64_t m, int64_t n, int64_t mb, int64_t nb,
-               int nprow, int npcol, MPI_Comm mpi_comm);
+    //----------
+    BaseMatrix( int64_t m, int64_t n, int64_t mb, int64_t nb,
+                GridOrder order, int nprow, int npcol, MPI_Comm mpi_comm );
 
-    /// With mb = nb.
-    BaseMatrix(int64_t m, int64_t n, int64_t nb,
-               int nprow, int npcol, MPI_Comm mpi_comm)
-        : BaseMatrix(m, n, nb, nb, nprow, npcol, mpi_comm)
+    /// With order = Col.
+    BaseMatrix( int64_t m, int64_t n, int64_t mb, int64_t nb,
+                int nprow, int npcol, MPI_Comm mpi_comm )
+        : BaseMatrix( m, n, mb, nb, GridOrder::Col, nprow, npcol, mpi_comm )
     {}
 
+    /// With mb = nb, order = Col.
+    BaseMatrix( int64_t m, int64_t n, int64_t nb,
+                int nprow, int npcol, MPI_Comm mpi_comm )
+        : BaseMatrix( m, n, nb, nb, GridOrder::Col, nprow, npcol, mpi_comm )
+    {}
+
+    //----------
     BaseMatrix(BaseMatrix& orig,
                int64_t i1, int64_t i2,
                int64_t j1, int64_t j2);
@@ -147,7 +155,9 @@ public:
 
     /// Returns number of devices (per MPI process) to distribute matrix to.
     int num_devices() const { return num_devices_; }
-    void gridinfo( int* nprow, int* npcol, int* myrow, int* mycol ) const;
+
+    void gridinfo( GridOrder* order, int* nprow, int* npcol,
+                   int* myrow, int* mycol ) const;
 
     /// Returns tileMb function. Useful to construct matrices with the
     /// same block size. For submatrices, this is of the parent matrix.
@@ -650,6 +660,7 @@ private:
     int64_t nt_;        ///< number of local block cols in this view
     int64_t nprow_;     ///< number of process rows if 2D block cyclic
     int64_t npcol_;     ///< number of process cols if 2D block cyclic
+    GridOrder order_;   ///< order to map MPI processes to tile grid
 
 protected:
     Uplo uplo_;         ///< upper or lower storage
@@ -685,6 +696,7 @@ BaseMatrix<scalar_t>::BaseMatrix()
       nt_(0),
       nprow_(-1),
       npcol_(-1),
+      order_( GridOrder::Col ),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
@@ -737,6 +749,7 @@ BaseMatrix<scalar_t>::BaseMatrix(
       joffset_(0),
       nprow_(-1),
       npcol_(-1),
+      order_( GridOrder::Unknown ),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
@@ -795,6 +808,10 @@ BaseMatrix<scalar_t>::BaseMatrix(
 /// @param[in] nb
 ///     Column block size in 2D block-cyclic distribution. nb > 0.
 ///
+/// @param[in] order
+///     Order to map MPI processes to tile grid,
+///     GridOrder::ColMajor (default) or GridOrder::RowMajor.
+///
 /// @param[in] nprow
 ///     Number of process rows in 2D block-cyclic distribution. nprow > 0.
 ///
@@ -808,7 +825,7 @@ BaseMatrix<scalar_t>::BaseMatrix(
 template <typename scalar_t>
 BaseMatrix<scalar_t>::BaseMatrix(
     int64_t m, int64_t n, int64_t mb, int64_t nb,
-    int nprow, int npcol, MPI_Comm mpi_comm)
+    GridOrder order, int nprow, int npcol, MPI_Comm mpi_comm)
     : row0_offset_(0),
       col0_offset_(0),
       last_mb_(m % mb == 0 ? mb : m % mb),
@@ -819,11 +836,12 @@ BaseMatrix<scalar_t>::BaseMatrix(
       nt_(ceildiv(n, nb)),
       nprow_(nprow),
       npcol_(npcol),
+      order_(order),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
       storage_(std::make_shared< MatrixStorage< scalar_t > >(
-          m, n, mb, nb, nprow, npcol, mpi_comm)),
+          m, n, mb, nb, order, nprow, npcol, mpi_comm)),
       mpi_comm_(mpi_comm)
 {
     slate_mpi_call(
@@ -1150,6 +1168,9 @@ void swap(BaseMatrix<scalar_t>& A, BaseMatrix<scalar_t>& B)
 /// If SLATE doesn't know the distribution, sets all values to -1.
 /// todo: Assumes col-major 2D block cyclic distribution, not row-major.
 ///
+/// @param[out] order
+///     Order to map MPI processes to tile grid.
+///
 /// @param[out] nprow
 ///     Number of process rows.
 ///
@@ -1164,15 +1185,23 @@ void swap(BaseMatrix<scalar_t>& A, BaseMatrix<scalar_t>& B)
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::gridinfo(
-    int* nprow, int* npcol, int* myrow, int* mycol ) const
+    GridOrder* order, int* nprow, int* npcol, int* myrow, int* mycol ) const
 {
     if (nprow_ > 0) {
+        *order = order_;
         *nprow = nprow_;
         *npcol = npcol_;
-        *myrow = mpi_rank_ % nprow_;
-        *mycol = mpi_rank_ / nprow_;
+        if (order_ == GridOrder::Col) {
+            *myrow = mpi_rank_ % nprow_;
+            *mycol = mpi_rank_ / nprow_;
+        }
+        else {
+            *myrow = mpi_rank_ / npcol_;
+            *mycol = mpi_rank_ % npcol_;
+        }
     }
     else {
+        *order = GridOrder::Unknown;
         *nprow = *npcol = *myrow = *mycol = -1;
     }
 }

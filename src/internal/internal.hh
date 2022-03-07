@@ -179,6 +179,15 @@ void hemm(Side side,
 }
 
 //-----------------------------------------
+// hemmA()
+template <Target target=Target::HostTask, typename scalar_t>
+void hemmA(Side side,
+          scalar_t alpha, HermitianMatrix<scalar_t>&& A,
+                          Matrix<scalar_t>&& B,
+          scalar_t beta,  Matrix<scalar_t>&& C,
+          int priority=0);
+
+//-----------------------------------------
 // herk()
 template <Target target=Target::HostTask, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
@@ -303,6 +312,15 @@ void trsm(Side side,
           int64_t queue_index=0);
 
 //-----------------------------------------
+// trsmA()
+template <Target target=Target::HostTask, typename scalar_t>
+void trsmA(Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>&& A,
+                                    Matrix<scalar_t>&& B,
+          int priority=0, Layout layout=Layout::ColMajor,
+          int64_t queue_index=0);
+
+//-----------------------------------------
 // trtri()
 template <Target target=Target::HostTask, typename scalar_t>
 void trtri(TriangularMatrix<scalar_t>&& A,
@@ -341,40 +359,40 @@ void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>&& A,
          int priority=0, int queue_index=0);
 
 //------------------------------------------------------------------------------
-// Band reduction
+// Bidiagonal band reduction
 template <Target target, typename scalar_t>
 void gebr1(Matrix<scalar_t>&& A,
-           std::vector<scalar_t>& v1,
-           std::vector<scalar_t>& v2,
+           int64_t n1, scalar_t* v1,
+           int64_t n2, scalar_t* v2,
            int priority=0);
 
 template <Target target, typename scalar_t>
-void gebr2(std::vector<scalar_t> const& v1,
+void gebr2(int64_t n1, scalar_t* v1,
            Matrix<scalar_t>&& A,
-           std::vector<scalar_t>& v2,
+           int64_t n2, scalar_t* v2,
            int priority=0);
 
 template <Target target, typename scalar_t>
-void gebr3(std::vector<scalar_t> const& v1,
+void gebr3(int64_t n1, scalar_t* v1,
            Matrix<scalar_t>&& A,
-           std::vector<scalar_t>& v2,
+           int64_t n2, scalar_t* v2,
            int priority=0);
 
 //------------------------------------------------------------------------------
 // Tridiagonal band reduction
 template <Target target, typename scalar_t>
-void hebr1(HermitianMatrix<scalar_t>&& A,
-           std::vector<scalar_t>& v,
+void hebr1(int64_t n, scalar_t* v,
+           HermitianMatrix<scalar_t>&& A,
            int priority=0);
 
 template <Target target, typename scalar_t>
-void hebr2(std::vector<scalar_t>& v1,
+void hebr2(int64_t n1, scalar_t* v1,
+           int64_t n2, scalar_t* v2,
            Matrix<scalar_t>&& A,
-           std::vector<scalar_t>& v2,
            int priority=0);
 
 template <Target target, typename scalar_t>
-void hebr3(std::vector<scalar_t>& v,
+void hebr3(int64_t n, scalar_t* v,
            HermitianMatrix<scalar_t>&& A,
            int priority=0);
 
@@ -421,7 +439,7 @@ void norm(Norm in_norm, NormScope scope, HermitianBandMatrix<scalar_t>&& A,
 template <Target target=Target::HostTask, typename scalar_t>
 void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
            std::vector<Pivot>& pivot,
-           int max_panel_threads, int priority=0);
+           int max_panel_threads, int priority=0, int tag=0);
 
 //-----------------------------------------
 // getrf_nopiv()

@@ -5,6 +5,7 @@
 
 #include "slate/slate.hh"
 #include "test.hh"
+#include "print_matrix.hh"
 #include "blas/flops.hh"
 
 #include "scalapack_wrappers.hh"
@@ -22,8 +23,12 @@ template< typename scalar_t >
 void test_syr2k_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
+    using blas::conj;
     using slate::Op;
     using slate::Norm;
+
+    // Constants
+    const scalar_t zero = 0.0, one = 1.0;
 
     // get & mark input values
     slate::Uplo uplo = params.uplo();
@@ -34,11 +39,15 @@ void test_syr2k_work(Params& params, bool run)
     scalar_t beta = params.beta.get<scalar_t>();
     int p = params.grid.m();
     int q = params.grid.n();
+    int64_t nrhs = params.nrhs();
     int64_t nb = params.nb();
     int64_t lookahead = params.lookahead();
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
+    #ifndef SLATE_HAVE_SCALAPACK
+        ref = false;
+    #endif
     bool trace = params.trace() == 'y';
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
@@ -80,25 +89,30 @@ void test_syr2k_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector< scalar_t > A_data(lldA*nlocA);
 
     // Matrix B: figure out local size.
     int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-    std::vector< scalar_t > B_data(lldB*nlocB);
 
     // Matrix C: figure out local size.
     int64_t mlocC = num_local_rows_cols(Cm, nb, myrow, p);
     int64_t nlocC = num_local_rows_cols(Cn, nb, mycol, q);
     int64_t lldC  = blas::max(1, mlocC); // local leading dimension of C
-    std::vector< scalar_t > C_data(lldC*nlocC);
+
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data, B_data, C_data;
+    if (ref || origin == slate::Origin::ScaLAPACK) {
+        A_data.resize( lldA * nlocA );
+        B_data.resize( lldB * nlocB );
+        C_data.resize( lldC * nlocC );
+    }
 
     slate::Matrix<scalar_t> A, B;
     slate::SymmetricMatrix<scalar_t> C;
+    slate::Target origin_target = origin2target(origin);
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
-        slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(Am, An, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
 
@@ -122,18 +136,20 @@ void test_syr2k_work(Params& params, bool run)
     slate::generate_matrix( params.matrixB, B );
     slate::generate_matrix( params.matrixC, C );
 
-    // if check is required, copy test data and create a descriptor for it
-    slate::SymmetricMatrix<scalar_t> Cref;
-    std::vector< scalar_t > Cref_data;
-    if (check || ref) {
-        Cref_data.resize( C_data.size() );
-        Cref = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
-                   uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
-        slate::copy( C, Cref );
-    }
+    #ifdef SLATE_HAVE_SCALAPACK
+        // If reference run is required, copy test data.
+        slate::SymmetricMatrix<scalar_t> Cref;
+        std::vector< scalar_t > Cref_data;
+        if (check || ref) {
+            Cref_data.resize( lldC * nlocC );
+            Cref = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
+                       uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+            slate::copy( C, Cref );
+        }
+    #endif
 
-    // Keep the original untransposed A and B matrix,
-    // and make a shallow copy of it for transposing.
+    // Keep the original untransposed A and B matrices,
+    // and make a shallow copy of them for transposing.
     auto opA = A;
     auto opB = B;
     if (trans == slate::Op::Trans) {
@@ -148,8 +164,43 @@ void test_syr2k_work(Params& params, bool run)
     slate_assert(opB.mt() == C.mt());
     slate_assert(opA.nt() == B.nt());
 
+    print_matrix("A", A, params);
+    print_matrix("B", B, params);
+    print_matrix("Initial C", C, params);
+    if (check || ref) {
+        print_matrix("Initial Cref", Cref, params);
+    }
+
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
+
+    // If check run, perform first half of SLATE residual check.
+    slate::Matrix<scalar_t> X, Y, Z;
+    if (check && ! ref) {
+        X = slate::Matrix<scalar_t>( An, nrhs, nb, p, q, MPI_COMM_WORLD );
+        X.insertLocalTiles(origin_target);
+        Y = slate::Matrix<scalar_t>( Am, nrhs, nb, p, q, MPI_COMM_WORLD );
+        Y.insertLocalTiles(origin_target);
+        Z = slate::Matrix<scalar_t>( Am, nrhs, nb, p, q, MPI_COMM_WORLD );
+        Z.insertLocalTiles(origin_target);
+        MatrixParams mp;
+        mp.kind.set_default( "rand" );
+        generate_matrix( mp, X );
+
+        // Compute Y = (alpha A (B^T X)) + alpha B (A^T X)) + (beta C X).
+        // Y = beta C X
+        slate::multiply( beta, C, X, zero, Y, opts );
+        // Z = A^T X
+        auto AT = transpose( opA );
+        slate::multiply( one, AT, X, zero, Z, opts );
+        // Y = alpha B Z + Y
+        slate::multiply( alpha, opB, Z, one, Y, opts );
+        // Z = B^T X
+        auto BT = transpose( opB );
+        slate::multiply( one, BT, X, zero, Z, opts );
+        // Y = alpha A Z + Y
+        slate::multiply( alpha, opA, Z, one, Y, opts );
+    }
 
     double time = barrier_get_wtime( MPI_COMM_WORLD );
 
@@ -163,6 +214,8 @@ void test_syr2k_work(Params& params, bool run)
 
     time = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
+    print_matrix("Cslate", C, params);
+
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
@@ -170,7 +223,22 @@ void test_syr2k_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    if (check || ref) {
+    if (check && ! ref) {
+        // SLATE residual check.
+        // Check error, C*X - Y.
+        real_t y_norm = slate::norm( norm, Y, opts );
+        // Y = C * X - Y
+        slate::multiply( one, C, X, -one, Y );
+        // error = norm( Y ) / y_norm
+        real_t error = slate::norm( slate::Norm::One, Y, opts )/y_norm;
+        params.error() = error;
+
+        // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
+        real_t eps = std::numeric_limits<real_t>::epsilon();
+        params.okay() = (params.error() <= 3*eps);
+    }
+
+    if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
 
@@ -235,6 +303,8 @@ void test_syr2k_work(Params& params, bool run)
                              &B_data[0], 1, 1, B_desc, beta,
                              &Cref_data[0], 1, 1, Cref_desc);
             time = barrier_get_wtime( MPI_COMM_WORLD ) - time;
+
+            print_matrix("Cref", Cref, params);
 
             // local operation: error = Cref_data - C_data
             blas::axpy(Cref_data.size(), -1.0, &C_data[0], 1, &Cref_data[0], 1);

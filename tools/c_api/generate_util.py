@@ -31,8 +31,8 @@ for line in file:
         enum_list.append(line)
 file.close()
 
-file_hh = open(sys.argv[2],         'w')
-file_cc = open('src/c_api/util.cc', 'w') # todo
+file_hh = open(sys.argv[2], 'w')
+file_cc = open(sys.argv[3], 'w')
 
 copyright = '''\
 // Copyright (c) 2017-2020, University of Tennessee. All rights reserved.

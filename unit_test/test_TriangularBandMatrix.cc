@@ -17,6 +17,8 @@
 using slate::ceildiv;
 using slate::roundup;
 
+namespace test {
+
 //------------------------------------------------------------------------------
 // global variables
 int m, n, k, mb, nb, kd, p, q;
@@ -60,6 +62,13 @@ void test_TriangularBandMatrix_empty()
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
     test_assert(L.diag() == blas::Diag::NonUnit);
+
+    int myp, myq, myrow, mycol;
+    L.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
 
     // ----------
     // upper
@@ -299,9 +308,13 @@ void run_tests()
     run_test(test_TriangularBand_from_BandMatrix,      "TriangularBandMatrix( uplo, diag, BandMatrix )",    mpi_comm);
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     MPI_Init(&argc, &argv);
 
     mpi_comm = MPI_COMM_WORLD;

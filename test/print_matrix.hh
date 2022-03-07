@@ -6,80 +6,36 @@
 #ifndef SLATE_PRINT_MATRIX_HH
 #define SLATE_PRINT_MATRIX_HH
 
-#include "slate/BaseTrapezoidMatrix.hh"
-#include "slate/Matrix.hh"
-#include "slate/BaseTrapezoidMatrix.hh"
-#include "slate/BandMatrix.hh"
-
-#include "blas.hh"
-
-#include <string>
-#include <cstdio>
+#include "test.hh"
 
 //------------------------------------------------------------------------------
-/// Print value to a buffer buf of length buf_len.
-/// Prints with format %w.pf, where w = width and p = precision.
-/// For complex values, prints both real and imaginary parts.
-/// If a real or complex value is exactly an integer, it is printed with
-/// format %v.0f where v = w-p, i.e., with no digits after decimal point.
-template <typename scalar_t>
-void snprintf_value(
-    char* buf, size_t buf_len, int width, int precision, scalar_t value)
-{
-    using blas::real;
-    using blas::imag;
-
-    if (value == scalar_t( int( real( value )))) {
-        // exactly integer, print without digits after decimal point
-        if (slate::is_complex<scalar_t>::value) {
-            snprintf(buf, buf_len, " %#*.0f%*s   %*s ",
-                     width - precision, real(value), precision, "",
-                     width, "");
-        }
-        else {
-            snprintf(buf, buf_len,
-                     " %#*.0f%*s",
-                     width - precision, real(value), precision, "");
-        }
-    }
-    else {
-        // general case
-        if (slate::is_complex<scalar_t>::value) {
-            snprintf(buf, buf_len, " %*.*f + %*.*fi",
-                     width, precision, real(value),
-                     width, precision, imag(value));
-        }
-        else {
-            snprintf(buf, buf_len,
-                     " %*.*f",
-                     width, precision, real(value));
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-/// Print an LAPACK matrix. Should be called from only one rank.
+/// Print a LAPACK matrix. Should be called from only one rank.
 ///
 template <typename scalar_t>
-void print_matrix(
+void print(
     const char* label,
     int64_t m, int64_t n, scalar_t* A, int64_t lda,
-    int width = 10, int precision = 6)
+    slate::Options const& opts = slate::Options())
 {
-    using blas::real;
-    using blas::imag;
+    int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 10 );
+    int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
+
+    if (verbose == 0)
+        return;
+
+    width = std::max(width, precision + 6);
 
     char buf[ 1024 ];
     std::string msg;
-
-    width = std::max(width, precision + 3);
 
     printf("%% LAPACK matrix\n");
     printf("%s = [\n", label);
     for (int64_t i = 0; i < m; ++i) {
         msg = "";
         for (int64_t j = 0; j < n; ++j) {
-            snprintf_value(buf, sizeof(buf), width, precision, A[i + j*lda]);
+            slate::snprintf_value( buf, sizeof(buf), width, precision,
+                                   A[i + j*lda] );
             msg += buf;
         }
         printf( "%s\n", msg.c_str() );
@@ -93,13 +49,27 @@ void print_matrix(
 /// column indices. Rank 0 does the printing.
 ///
 template <typename scalar_t>
-void print_matrix(
+void print(
     const char* label,
     int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
-    int p, int q, MPI_Comm comm, int width = 10, int precision = 6)
+    int p, int q, MPI_Comm comm,
+    slate::Options const& opts = slate::Options())
 {
-    using blas::real;
-    using blas::imag;
+    int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 10 );
+    int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
+    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
+    int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
+
+    if (verbose == 0)
+        return;
+
+    if ((verbose == 2) && (mlocal <= 2*edgeitems) && (nlocal <= 2*edgeitems)) {
+        verbose = 4;
+    }
+
+    width = std::max(width, precision + 6);
+    const int64_t abbrev_rows = edgeitems;
+    const int64_t abbrev_cols = edgeitems;
 
     int mpi_rank;
     MPI_Comm_rank(comm, &mpi_rank);
@@ -107,26 +77,89 @@ void print_matrix(
     char buf[ 1024 ];
     std::string msg;
 
-    width = std::max(width, precision + 3);
-
     // loop over process rows & cols
     for (int prow = 0; prow < q; ++prow) {
         for (int pcol = 0; pcol < p; ++pcol) {
             int rank = prow + pcol*p;
-
+            // Print only from rank 0 here
+            // to print roughly the same amount of data as for
+            // SLATE matrices (up to 32*32 = 1024 entries).
+            // But in general, wrapping a ScaLAPACK matrix in a SLATE matrix
+            // and printing it is better.
+            if (verbose == 2 && rank != 0)
+                continue;
             if (rank == mpi_rank) {
                 snprintf(buf, sizeof(buf),
-                         "%% ScaLAPACK matrix\n"
-                         "%s%d_%d = [\n", label, prow, pcol);
+                         "%% %s%d_%d: ScaLAPACK matrix\n",
+                         label, prow, pcol);
                 msg += buf;
-                for (int64_t i = 0; i < mlocal; ++i) {
-                    for (int64_t j = 0; j < nlocal; ++j) {
-                        snprintf_value(buf, sizeof(buf), width, precision, A[i + j*lda]);
-                        msg += buf;
-                    }
-                    msg += "\n";
+                if (verbose != 1) {
+                    snprintf(buf, sizeof(buf),
+                             "%s%d_%d = [\n", label, prow, pcol);
+                    msg += buf;
                 }
-                msg += "];\n\n";
+                if (verbose == 2) {
+                    // first abbrev_rows
+                    int64_t max_rows = (mlocal < abbrev_rows ? mlocal : abbrev_rows);
+                    int64_t max_cols = (nlocal < abbrev_cols ? nlocal : abbrev_cols);
+                    int64_t start_col = blas::max( nlocal - abbrev_cols, 0 );
+                    for (int64_t i = 0; i < max_rows; ++i) {
+                        // first abbrev_cols
+                        for (int64_t j = 0; j < max_cols; ++j) {
+                            slate::snprintf_value( buf, sizeof(buf), width, precision,
+                                                   A[i + j*lda] );
+                            msg += buf;
+                        }
+                        if (nlocal > 2*abbrev_cols)
+                            msg += " ..."; // column abbreviation indicator
+                        // last abbrev_cols columns
+                        for (int64_t j = start_col; j < nlocal; ++j) {
+                            slate::snprintf_value( buf, sizeof(buf), width, precision,
+                                                   A[i + j*lda] );
+                            msg += buf;
+                        }
+                        msg += "\n";
+                    }
+                    if (mlocal > 2*abbrev_rows)
+                        msg += " ...\n";// row abbreviation indicator
+                    // last abbrev_rows
+                    int64_t start_row = (mlocal - abbrev_rows < abbrev_rows
+                                         ? abbrev_rows
+                                         : mlocal-abbrev_rows);
+                    for (int64_t i = start_row; i < mlocal; ++i) {
+                        // first abbrev_cols
+                        for (int64_t j = 0; j < max_cols; ++j) {
+                            slate::snprintf_value( buf, sizeof(buf), width, precision,
+                                                   A[i + j*lda] );
+                            msg += buf;
+                        }
+                        if (nlocal > 2*abbrev_cols)
+                            msg += " ..."; // column abbreviation indicator
+                        // last abbrev_cols columns
+                        for (int64_t j = start_col; j < nlocal; ++j) {
+                            slate::snprintf_value( buf, sizeof(buf), width, precision,
+                                                   A[i + j*lda] );
+                            msg += buf;
+                        }
+                        msg += "\n";
+                    }
+                    msg += "];\n";
+                }
+                else if (verbose == 3 || verbose == 4) {
+                    int64_t row_step = (verbose == 3 && mlocal > 1 ? mlocal - 1 : 1);
+                    int64_t col_step = (verbose == 3 && nlocal > 1 ? nlocal - 1 : 1);
+                    for (int64_t i = 0; i < mlocal; i += row_step) {
+                        // for verbose=3 only row i = 0 and i = mlocal-1
+                        for (int64_t j = 0; j < nlocal; j += col_step) {
+                            // for verbose=3 only column j = 0 and j = nlocal-1
+                            slate::snprintf_value( buf, sizeof(buf), width, precision,
+                                                   A[i + j*lda] );
+                            msg += buf;
+                        }
+                        msg += "\n";
+                    }
+                    msg += "];\n";
+                }
 
                 if (mpi_rank != 0) {
                     // Send msg to root, which handles actual I/O.
@@ -157,86 +190,48 @@ void print_matrix(
 }
 
 //------------------------------------------------------------------------------
-/// Sends tiles A(i, j) and receives it on rank 0.
-/// If rank != 0 and tile A(i, j) is local, sends it to rank 0.
-/// If rank == 0, inserts and receives tile A(i, j),
-/// unless tile didn't exist on sender.
+/// Print a LAPACK matrix. Should be called from only one rank.
 ///
 template <typename scalar_t>
-void send_recv_tile(
-    slate::BaseMatrix<scalar_t>& A, int64_t i, int64_t j,
-    int mpi_rank, MPI_Comm comm)
+void print_matrix(
+    const char* label,
+    int64_t m, int64_t n, scalar_t* A, int64_t lda, Params params)
 {
-    int flag_exist   = 0;
-    int flag_missing = 1;
-    int flag;
-    int err;
-    MPI_Status status;
+    if (params.verbose() == 0)
+        return;
 
-    int tile_rank = A.tileRank(i, j);
-    if (tile_rank != 0) {
-        if (A.tileIsLocal(i, j)) {
-            try {
-                auto T = A(i, j);
-                err = MPI_Send( &flag_exist, 1, MPI_INT, 0, 0, comm);
-                slate_assert(err == 0);
-                T.send(0, comm);
-            }
-            catch (std::out_of_range const& ex) {
-                err = MPI_Send( &flag_missing, 1, MPI_INT, 0, 0, comm);
-                slate_assert(err == 0);
-            }
-        }
-        else if (mpi_rank == 0) {
-            err = MPI_Recv(&flag, 1, MPI_INT, tile_rank, 0, comm, &status);
-            slate_assert(err == 0);
-            if (flag == flag_exist) {
-                A.tileInsert(i, j);
-                A(i, j).recv(tile_rank, comm, A.layout());
-            }
-        }
-    }
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+    };
+
+    print( label, m, n, A, lda, opts );
 }
 
 //------------------------------------------------------------------------------
-/// Returns string for row ti of tile A(i, j).
-/// If tile doesn't exist, returns string with NAN values.
-/// For upper or lower tiles, uses opposite for values in the opposite
-/// (lower or upper, respectively) triangle.
-/// Works for all matrix types.
+/// Print a ScaLAPACK distributed matrix.
+/// Prints each rank's data as a contiguous block, numbered by the block row &
+/// column indices. Rank 0 does the printing.
 ///
 template <typename scalar_t>
-std::string tile_row_string(
-    slate::BaseMatrix<scalar_t>& A, int64_t i, int64_t j, int64_t ti,
-    int width, int precision,
-    const char* opposite="")
+void print_matrix(
+    const char* label,
+    int64_t mlocal, int64_t nlocal, scalar_t* A, int64_t lda,
+    int p, int q, MPI_Comm comm,
+    Params& params)
 {
-    char buf[ 80 ];
-    std::string msg;
-    try {
-        auto T = A(i, j);
-        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-            slate::Uplo uplo = T.uplo();
-            if ((uplo == slate::Uplo::General) ||
-                (uplo == slate::Uplo::Lower && ti >= tj) ||
-                (uplo == slate::Uplo::Upper && ti <= tj))
-            {
-                snprintf_value(buf, sizeof(buf), width, precision, T(ti, tj));
-                msg += buf;
-            }
-            else {
-                msg += opposite;
-            }
-        }
-    }
-    catch (std::out_of_range const& ex) {
-        // tile missing: print NAN
-        snprintf_value(buf, sizeof(buf), width, precision, NAN);
-        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-            msg += buf;
-        }
-    }
-    return msg;
+    if (params.verbose() == 0)
+        return;
+
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+    };
+    print( label, mlocal, nlocal, A, lda, p, q, comm, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -248,55 +243,20 @@ std::string tile_row_string(
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::Matrix<scalar_t>& A, int width = 10, int precision = 6)
+    slate::Matrix<scalar_t>& A,
+    Params& params)
 {
-    using blas::real;
-    using blas::imag;
+    if (params.verbose() == 0)
+        return;
 
-    int mpi_rank = A.mpiRank();
-    MPI_Comm comm = A.mpiComm();
-    MPI_Barrier(comm);
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+    };
 
-    width = std::max(width, precision + 3);
-
-    std::string msg = "% slate::Matrix\n";
-    msg += label;
-    msg += " = [\n";
-
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        // gather block row to rank 0
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            send_recv_tile(A, i, j, mpi_rank, comm);
-        }
-
-        if (mpi_rank == 0) {
-            // print block row
-            for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
-                for (int64_t j = 0; j < A.nt(); ++j) {
-                    msg += tile_row_string(A, i, j, ti, width, precision);
-                    if (j < A.nt() - 1)
-                        msg += "    ";
-                    else
-                        msg += "\n";
-                }
-            }
-            if (i < A.mt() - 1)
-                msg += "\n";
-            else
-                msg += "];\n";
-            printf("%s", msg.c_str());
-            msg.clear();
-
-            // cleanup data
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                if (! A.tileIsLocal(i, j)) {
-                    A.tileErase(i, j);
-                }
-            }
-        }
-    }
-
-    MPI_Barrier(comm);
+    slate::print( label, A, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -309,79 +269,20 @@ void print_matrix(
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::BandMatrix<scalar_t>& A, int width = 10, int precision = 6)
+    slate::BandMatrix<scalar_t>& A,
+    Params& params)
 {
-    using blas::real;
-    using blas::imag;
+    if (params.verbose() == 0)
+        return;
 
-    int mpi_rank = A.mpiRank();
-    MPI_Comm comm = A.mpiComm();
-    MPI_Barrier(comm);
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+    };
 
-    width = std::max(width, precision + 3);
-
-    std::string msg = "% slate::BandMatrix\n";
-    msg += label;
-    msg += " = [\n";
-
-    // for tiles outside bandwidth
-    char outside[ 80 ];
-    if (slate::is_complex<scalar_t>::value) {
-        snprintf(outside, sizeof(outside), " %*.0f   %*s ",
-                 width, 0., width, "");
-    }
-    else {
-        snprintf(outside, sizeof(outside), " %*.0f",
-                 width, 0.);
-    }
-
-    // todo: initially, assume fixed size, square tiles for simplicity
-    int64_t kl = slate::ceildiv(A.lowerBandwidth(), A.tileNb(0));
-    int64_t ku = slate::ceildiv(A.upperBandwidth(), A.tileNb(0));
-
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        // gather block row to rank 0
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if (-kl <= j - i && j - i <= ku) { // inside bandwidth
-                send_recv_tile(A, i, j, mpi_rank, comm);
-            }
-        }
-
-        if (mpi_rank == 0) {
-            // print block row
-            for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
-                for (int64_t j = 0; j < A.nt(); ++j) {
-                    if (-kl <= j - i && j - i <= ku) { // inside bandwidth
-                        msg += tile_row_string(A, i, j, ti, width, precision);
-                    }
-                    else {
-                        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                            msg += outside;
-                        }
-                    }
-                    if (j < A.nt() - 1)
-                        msg += "    ";
-                    else
-                        msg += "\n";
-                }
-            }
-            if (i < A.mt() - 1)
-                msg += "\n";
-            else
-                msg += "];\n";
-            printf("%s", msg.c_str());
-            msg.clear();
-
-            // cleanup data
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                if (! A.tileIsLocal(i, j)) {
-                    A.tileErase(i, j);
-                }
-            }
-        }
-    }
-
-    MPI_Barrier(comm);
+    slate::print( label, A, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -405,235 +306,118 @@ void print_matrix(
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::BaseTriangularBandMatrix<scalar_t>& A, int width = 10, int precision = 6)
+    slate::BaseTriangularBandMatrix<scalar_t>& A,
+    Params& params)
 {
-    using blas::real;
-    using blas::imag;
+    if (params.verbose() == 0)
+        return;
 
-    int mpi_rank = A.mpiRank();
-    MPI_Comm comm = A.mpiComm();
-    MPI_Barrier(comm);
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+    };
 
-    width = std::max(width, precision + 3);
-
-    std::string msg = "% slate::BaseTriangularBandMatrix\n";
-    msg += label;
-    msg += " = [\n";
-
-    // for entries in opposite triangle from A.uplo
-    char opposite[ 80 ];
-    if (slate::is_complex<scalar_t>::value) {
-        snprintf(opposite, sizeof(opposite), " %*f   %*s ",
-                 width, NAN, width, "");
-    }
-    else {
-        snprintf(opposite, sizeof(opposite), " %*f",
-                 width, NAN);
-    }
-
-    // for tiles outside bandwidth
-    char outside[ 80 ];
-    if (slate::is_complex<scalar_t>::value) {
-        snprintf(outside, sizeof(outside), " %*.0f   %*s ",
-                 width, 0., width, "");
-    }
-    else {
-        snprintf(outside, sizeof(outside), " %*.0f",
-                 width, 0.);
-    }
-
-    int64_t kdt = slate::ceildiv(A.bandwidth(), A.tileNb(0));
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i) ||
-                (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i)) {
-                send_recv_tile(A, i, j, mpi_rank, comm);
-            }
-        }
-
-        if (mpi_rank == 0) {
-            for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
-                for (int64_t j = 0; j < A.nt(); ++j) {
-                    if ((A.uplo() == slate::Uplo::Lower && i <= j + kdt && j <= i) ||
-                        (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i)) {
-                        msg += tile_row_string(A, i, j, ti, width, precision, opposite);
-                    }
-                    else {
-                        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                            if ((A.uplo() == slate::Uplo::Lower && j <= i) ||
-                                (A.uplo() == slate::Uplo::Upper && j >= i)) {
-                                msg += outside;
-                            }
-                            else {
-                                msg += opposite;
-                            }
-                        }
-                    }
-                    if (j < A.nt() - 1)
-                        msg += "    ";
-                    else
-                        msg += "\n";
-                }
-            }
-            if (i < A.mt() - 1)
-                msg += "\n";
-            else
-                msg += "];\n";
-            printf("%s", msg.c_str());
-            msg.clear();
-
-            // cleanup data
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                if (! A.tileIsLocal(i, j)) {
-                    A.tileErase(i, j);
-                }
-            }
-        }
-    }
-
-    MPI_Barrier(comm);
+    slate::print( label, A, opts );
 }
 
 //------------------------------------------------------------------------------
-/// Print a SLATE distributed trapezoid matrix.
-/// Rank 0 does the printing, and must have enough memory to fit one entire
-/// block row of the matrix.
-/// For block-sparse matrices, missing tiles are print as "nan".
-///
-/// This version handles trapezoid, triangular, symmetric, and Hermitian
-/// matrices. Entries in the A.uplo triangle are printed; entries in the
-/// opposite triangle are printed as "nan".
+/// Print a SLATE distributed Hermitian matrix.
+/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
+/// todo: fix complex diag in Matlab? (Sca)LAPACK ignores imag part.
 ///
 template <typename scalar_t>
 void print_matrix(
     const char* label,
-    slate::BaseTrapezoidMatrix<scalar_t>& A, int width = 10, int precision = 6)
+    slate::HermitianMatrix<scalar_t>& A,
+    Params& params)
 {
-    using blas::real;
-    using blas::imag;
+    if (params.verbose() == 0)
+        return;
 
-    int mpi_rank = A.mpiRank();
-    MPI_Comm comm = A.mpiComm();
-    MPI_Barrier(comm);
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+    };
 
-    width = std::max(width, precision + 3);
-
-    std::string msg = "% slate::BaseTrapezoidMatrix\n";
-    msg += label;
-    msg += " = [\n";
-
-    // for entries in opposite triangle from A.uplo
-    char opposite[ 80 ];
-    if (slate::is_complex<scalar_t>::value) {
-        snprintf(opposite, sizeof(opposite), " %*f   %*s ",
-                 width, NAN, width, "");
-    }
-    else {
-        snprintf(opposite, sizeof(opposite), " %*f",
-                 width, NAN);
-    }
-
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        // gather block row to rank 0
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if ((A.uplo() == slate::Uplo::Lower && i >= j) ||
-                (A.uplo() == slate::Uplo::Upper && i <= j))
-            {
-                send_recv_tile(A, i, j, mpi_rank, comm);
-            }
-        }
-
-        if (mpi_rank == 0) {
-            // print block row
-            for (int64_t ti = 0; ti < A.tileMb(i); ++ti) {
-                for (int64_t j = 0; j < A.nt(); ++j) {
-                    if ((A.uplo() == slate::Uplo::Lower && i >= j) ||
-                        (A.uplo() == slate::Uplo::Upper && i <= j))
-                    {
-                        // tile in stored triangle
-                        msg += tile_row_string(A, i, j, ti, width, precision, opposite);
-                    }
-                    else {
-                        // tile in opposite triangle
-                        for (int64_t tj = 0; tj < A.tileNb(j); ++tj) {
-                            msg += opposite;
-                        }
-                    }
-                    if (j < A.nt() - 1)
-                        msg += "    ";
-                    else
-                        msg += "\n";
-                }
-            }
-            if (i < A.mt() - 1)
-                msg += "\n";
-            else
-                msg += "];\n";
-            printf("%s", msg.c_str());
-            msg.clear();
-
-            // cleanup data
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                if (! A.tileIsLocal(i, j)) {
-                    A.tileErase(i, j);
-                }
-            }
-        }
-    }
-
-    MPI_Barrier(comm);
+    slate::print( label, A, opts );
 }
 
-// -----------------------------------------------------------------------------
-// Copied from slate-dev/lapackpp/test/test.hh
-// Like assert(), but throws error and is not disabled by NDEBUG.
-inline void require_( bool cond, const char* condstr, const char* file, int line )
+//------------------------------------------------------------------------------
+/// Print a SLATE distributed symmetric matrix.
+/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
+///
+template <typename scalar_t>
+void print_matrix(
+    const char* label,
+    slate::SymmetricMatrix<scalar_t>& A,
+    Params& params)
 {
-    if (! cond) {
-        throw blas::Error( std::string(condstr) + " failed at "
-                           + file + ":" + std::to_string(line) );
-    }
+    if (params.verbose() == 0)
+        return;
+
+    // Set defaults
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+    };
+
+    slate::print( label, A, opts );
 }
 
-#define require( cond ) require_( (cond), #cond, __FILE__, __LINE__ )
-
-// -----------------------------------------------------------------------------
-// Copied from slate-dev/lapackpp/test/print_matrix.hh
-template< typename T >
-void print_vector( int64_t n, T *x, int64_t incx,
-                   const char* format="%9.4f" )
+//------------------------------------------------------------------------------
+/// Print a SLATE distributed trapezoid matrix.
+/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
+/// todo: fix unit diag in Matlab.
+///
+template <typename scalar_t>
+void print_matrix(
+    const char* label,
+    slate::TrapezoidMatrix<scalar_t>& A,
+    Params& params)
 {
-    require( n >= 0 );
-    require( incx != 0 );
-    char format2[32];
-    snprintf( format2, sizeof(format2), " %s", format );
+    if (params.verbose() == 0)
+        return;
 
-    printf( "[" );
-    int64_t ix = (incx > 0 ? 0 : (-n + 1)*incx);
-    for (int64_t i = 0; i < n; ++i) {
-        printf( format2, x[ix] );
-        ix += incx;
-    }
-    printf( " ]';\n" );
+    // Set defaults
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+    };
+
+    slate::print( label, A, opts );
 }
 
-// -----------------------------------------------------------------------------
-// Copied from slate-dev/lapackpp/test/print_matrix.hh
-template< typename T >
-void print_vector( int64_t n, std::complex<T>* x, int64_t incx,
-                   const char* format="%9.4f" )
+//------------------------------------------------------------------------------
+/// Print a SLATE distributed triangular matrix.
+/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
+/// todo: fix unit diag in Matlab.
+///
+template <typename scalar_t>
+void print_matrix(
+    const char* label,
+    slate::TriangularMatrix<scalar_t>& A,
+    Params& params)
 {
-    require( n >= 0 );
-    require( incx != 0 );
-    char format2[32];
-    snprintf( format2, sizeof(format2), " %s + %si", format, format );
+    if (params.verbose() == 0)
+        return;
 
-    printf( "[" );
-    int64_t ix = (incx > 0 ? 0 : (-n + 1)*incx);
-    for (int64_t i = 0; i < n; ++i) {
-        printf( format2, real(x[ix]), imag(x[ix]) );
-        ix += incx;
-    }
-    printf( " ]';\n" );
+    // Set defaults
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+    };
+
+    slate::print( label, A, opts );
 }
+
 #endif // SLATE_PRINT_MATRIX_HH

@@ -21,7 +21,6 @@ void test_ge2tb_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
-    //using llong = long long;
 
     // Constants
     const scalar_t zero = 0;
@@ -37,7 +36,6 @@ void test_ge2tb_work(Params& params, bool run)
     int64_t panel_threads = params.panel_threads();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -82,9 +80,7 @@ void test_ge2tb_work(Params& params, bool run)
 
     slate::generate_matrix( params.matrix, A );
 
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+    print_matrix("A", A, params);
 
     // Copy test data for check.
     slate::Matrix<scalar_t> Aref(m, n, nb, p, q, MPI_COMM_WORLD);
@@ -112,13 +108,11 @@ void test_ge2tb_work(Params& params, bool run)
     params.time() = time;
     //params.gflops() = gflop / time;
 
-    if (verbose > 1) {
-        print_matrix("A_factored", A);
-        print_matrix("TUlocal",  TU[0]);
-        print_matrix("TUreduce", TU[1]);
-        print_matrix("TVlocal",  TV[0]);
-        print_matrix("TVreduce", TV[1]);
-    }
+    print_matrix("A_factored", A, params);
+    print_matrix("TUlocal",  TU[0], params);
+    print_matrix("TUreduce", TU[1], params);
+    print_matrix("TVlocal",  TV[0], params);
+    print_matrix("TVreduce", TV[1], params);
 
     if (check) {
         //==================================================
@@ -156,9 +150,7 @@ void test_ge2tb_work(Params& params, bool run)
                 tzcopy(Aii1, Bii1);
             }
         }
-        if (verbose > 1) {
-            print_matrix("B", B);
-        }
+        print_matrix("B", B, params);
 
         // Form UB, where U's representation is in lower part of A and TU.
         slate::qr_multiply_by_q(
@@ -166,9 +158,7 @@ void test_ge2tb_work(Params& params, bool run)
         // Using traditional BLAS/LAPACK name
         // slate::unmqr(slate::Side::Left, slate::Op::NoTrans, A, TU, B, opts);
 
-        if (verbose > 1) {
-            print_matrix("UB", B);
-        }
+        print_matrix("UB", B, params);
 
         // Form (UB)V^H, where V's representation is above band in A and TV.
         auto Asub =  A.sub(0, A.mt()-1, 1, A.nt()-1);
@@ -185,15 +175,11 @@ void test_ge2tb_work(Params& params, bool run)
         // slate::unmlq(slate::Side::Right, slate::Op::NoTrans,
         //              Asub, TVsub, Bsub, opts);
 
-        if (verbose > 1) {
-            print_matrix("UBV^H", B);
-        }
+        print_matrix("UBV^H", B, params);
 
         // Form UBV^H - A, where A is in Aref.
         slate::add(-one, Aref, one, B);
-        if (verbose > 1) {
-            print_matrix("UBV^H - A", B);
-        }
+        print_matrix("UBV^H - A", B, params);
 
         // Norm of backwards error: || UBV^H - A ||_1
         params.error() = slate::norm(slate::Norm::One, B) / (m * A_norm);

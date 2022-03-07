@@ -55,14 +55,11 @@ void hegst(slate::internal::TargetType<target>,
     uint8_t* column = column_vector.data();
 
     if (target == Target::Devices) {
-        const int64_t batch_size_zero = 0;
-        const int64_t num_arrays_two  = 2; // Number of kernels without lookahead
-        if (itype == 1) {
-            A.allocateBatchArrays(batch_size_zero, num_arrays_two);
-        }
-        else {
-            A.allocateBatchArrays();
-        }
+        // The work::trsm (itype=1) and work::trmm (itype=2,3)
+        // routines use 2 queues (queue 0,1). All other
+        // internal::routines here use the default queue (queue 0).
+        // So 2 queues need to be allocated.
+        A.allocateBatchArrays(0, 2); // (batch size, num_queues)
         A.reserveDeviceWorkspace();
     }
 

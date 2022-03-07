@@ -14,6 +14,8 @@
 
 using slate::roundup;
 
+namespace test {
+
 //------------------------------------------------------------------------------
 // global variables
 int mpi_rank;
@@ -165,9 +167,13 @@ void run_tests()
     }
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);

@@ -21,7 +21,6 @@ template <typename scalar_t>
 void test_pbsv_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
-    using llong = long long;
 
     // Constants
     const scalar_t one = 1.0;
@@ -54,7 +53,7 @@ void test_pbsv_work(Params& params, bool run)
         return;
 
     if (origin != slate::Origin::ScaLAPACK) {
-        printf("skipping: currently only origin=scalapack is supported\n");
+        params.msg() = "skipping: currently only origin=scalapack is supported";
         return;
     }
 
@@ -129,10 +128,11 @@ void test_pbsv_work(Params& params, bool run)
     }
 
     if (verbose > 1) {
-        printf("%% rank %d A kd %lld\n", A.mpiRank(), llong( A.bandwidth()));
-        print_matrix("A", A);
-        print_matrix("B", B);
+        printf("%% rank %d A\n", A.mpiRank());
+        //printf("%% rank %d A kd %lld\n", A.mpiRank(), llong( A.bandwidth()));
     }
+    print_matrix("A", A, params);
+    print_matrix("B", B, params);
 
 
     // if check is required, copy test data and create a descriptor for it
@@ -197,12 +197,13 @@ void test_pbsv_work(Params& params, bool run)
         params.gflops() = gflop / time;
 
         if (verbose > 1) {
-            printf("%% rank %d A2 kd %lld\n",
-                   A.mpiRank(), llong( A.bandwidth( )));
-            print_matrix("A2", A);
-            print_matrix("B2", B);
-            printf( "nb = %lld;\n", llong( nb ) );
+            printf("%% rank %d A2\n", A.mpiRank());
+            //printf("%% rank %d A2 kd %lld\n",
+            //       A.mpiRank(), llong( A.bandwidth( )));
+            //printf( "nb = %lld;\n", llong( nb ) );
         }
+        print_matrix("A2", A, params);
+        print_matrix("B2", B, params);
     }
     if (check) {
         //==================================================
@@ -248,9 +249,7 @@ void test_pbsv_work(Params& params, bool run)
             printf("Anorm = %.4e; Xnorm = %.4e; Rnorm = %.4e; error = %.4e;\n",
                    A_norm, X_norm, R_norm, residual);
         }
-        if (verbose > 1) {
-            print_matrix("Residual", Bref);
-        }
+        print_matrix("Residual", Bref, params);
     }
     // todo: reference solution requires setting up band matrix in ScaLAPACK's
     // band storage format.

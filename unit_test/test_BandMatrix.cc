@@ -8,11 +8,13 @@
 #include "slate/internal/util.hh"
 
 #include "unit_test.hh"
-// #include "aux/Debug.hh"
+// #include "auxiliary/Debug.hh"
 // #include "../test/print_matrix.hh"
 
 using slate::ceildiv;
 using slate::roundup;
+
+namespace test {
 
 //------------------------------------------------------------------------------
 // global variables
@@ -47,6 +49,24 @@ void test_BandMatrix_empty()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.lowerBandwidth() == kl);
     test_assert(A.upperBandwidth() == ku);
+
+    int myp, myq, myrow, mycol;
+    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
+
+    auto tileMb_     = A.tileMbFunc();
+    auto tileNb_     = A.tileNbFunc();
+    auto tileRank_   = A.tileRankFunc();
+    auto tileDevice_ = A.tileDeviceFunc();
+    test_assert( tileMb_(0) == nb );  // square
+    test_assert( tileNb_(0) == nb );
+    test_assert( tileRank_( {0, 0} ) == 0 );
+    // todo: What is reasonable if num_devices == 0? Currently divides by zero.
+    if (num_devices > 0)
+        test_assert( tileDevice_( {0, 0} ) == 0 );
 }
 
 //==============================================================================
@@ -433,9 +453,13 @@ void run_tests()
     run_test(test_TriangularBandMatrix_gatherAll, "TriangularBandMatrix::gatherAll()",  mpi_comm);
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, m, n, k, etc.
+
     MPI_Init(&argc, &argv);
 
     mpi_comm = MPI_COMM_WORLD;

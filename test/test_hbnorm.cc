@@ -26,7 +26,6 @@ void test_hbnorm_work(Params& params, bool run)
     using blas::real;
     using blas::imag;
     using slate::ceildiv;
-    // using llong = long long;
 
     // get & mark input values
     slate::Norm norm = params.norm();
@@ -51,7 +50,7 @@ void test_hbnorm_work(Params& params, bool run)
         return;
 
     if (origin != slate::Origin::ScaLAPACK) {
-        printf("skipping: currently only origin=scalapack is supported\n");
+        params.msg() = "skipping: currently only origin=scalapack is supported";
         return;
     }
 
@@ -74,18 +73,12 @@ void test_hbnorm_work(Params& params, bool run)
 
     zeroOutsideBand(uplo, &A_data[0], n, kd, nb, myrow, mycol, p, q, lldA);
 
-    if (verbose > 1) {
-        print_matrix("A_data", mlocA, nlocA, &A_data[0], lldA, p, q, MPI_COMM_WORLD);
-    }
-
     // Create SLATE matrix from the ScaLAPACK layout.
     // TODO: data origin on GPU
     auto A = HermitianBandFromScaLAPACK(
                  uplo, n, kd, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+    print_matrix("A", A, params);
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();

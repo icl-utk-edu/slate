@@ -25,7 +25,6 @@ void test_trnorm_work(Params& params, bool run)
     using blas::real;
     using blas::imag;
     using slate::ceildiv;
-    using llong = long long;
 
     // get & mark input values
     slate::Norm norm = params.norm();
@@ -65,9 +64,10 @@ void test_trnorm_work(Params& params, bool run)
     // lower requires m >= n
     if ((uplo == slate::Uplo::Lower && m < n) ||
         (uplo == slate::Uplo::Upper && m > n)) {
-        if (mpi_rank == 0) {
-            printf("skipping invalid size: %s, %lld-by-%lld\n", uplo2str(uplo), llong( m ), llong( n ));
-        }
+        char buf[255];
+        snprintf( buf, sizeof( buf ), "skipping invalid size: %s, %lld-by-%lld",
+                  uplo2str( uplo ), llong( m ), llong( n ) );
+        params.msg() = buf;
         return;
     }
 
@@ -75,7 +75,12 @@ void test_trnorm_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
+
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data;
+    if (origin == slate::Origin::ScaLAPACK || check || ref || extended ) {
+        A_data.resize( lldA * nlocA );
+    }
 
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::TrapezoidMatrix<scalar_t> A0(uplo, diag, m, n, nb, p, q, MPI_COMM_WORLD);
@@ -95,12 +100,12 @@ void test_trnorm_work(Params& params, bool run)
 
     slate::generate_matrix( params.matrix, A );
 
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+    print_matrix("A", A, params);
 
-    if (trace) slate::trace::Trace::on();
-    else slate::trace::Trace::off();
+    if (trace)
+        slate::trace::Trace::on();
+    else
+        slate::trace::Trace::off();
 
     double time = barrier_get_wtime(MPI_COMM_WORLD);
 
@@ -112,7 +117,8 @@ void test_trnorm_work(Params& params, bool run)
 
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-    if (trace) slate::trace::Trace::finish();
+    if (trace)
+        slate::trace::Trace::finish();
 
     // compute and save timing/performance
     params.time() = time;
@@ -146,7 +152,9 @@ void test_trnorm_work(Params& params, bool run)
             printf("scalapack_descinit info %d\n", info);
         slate_assert(info == 0);
 
-        copy( A, &A_data[0], A_desc );
+        if (origin != slate::Origin::ScaLAPACK && (check || ref || extended)) {
+            copy( A, &A_data[0], A_desc );
+        }
 
         if (check || ref) {
             // comparison with reference routine from ScaLAPACK

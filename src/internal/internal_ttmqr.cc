@@ -141,6 +141,8 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                                 j_dst = k_dst;
                             }
                             int dst = C.tileRank(i_dst, j_dst);
+                            // GetForWriting because it will be received in the later loop
+                            C.tileGetForWriting(i, j, LayoutConvert(layout));
                             C.tileSend(i, j, dst, tag);
                         }
                     }
@@ -226,6 +228,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                                 j_dst = k_dst;
                             }
                             int dst = C.tileRank(i_dst, j_dst);
+                            assert( (C.tileState( i, j, C.hostNum() ) & MOSI::Modified) != 0 );
                             C.tileRecv(i, j, dst, layout, tag);
                         }
                     }

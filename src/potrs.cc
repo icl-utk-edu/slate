@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
+#include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "slate/HermitianMatrix.hh"
 #include "slate/Tile_blas.hh"
@@ -12,58 +12,6 @@
 #include "internal/internal.hh"
 
 namespace slate {
-
-// specialization namespace differentiates, e.g.,
-// internal::potrs from internal::specialization::potrs
-namespace internal {
-namespace specialization {
-
-//------------------------------------------------------------------------------
-/// Distributed parallel Cholesky solve.
-/// Generic implementation for any target.
-/// @ingroup posv_specialization
-///
-template <Target target, typename scalar_t>
-void potrs(slate::internal::TargetType<target>,
-           HermitianMatrix<scalar_t> A,
-           Matrix<scalar_t>& B, int64_t lookahead)
-{
-    // assert(A.mt() == A.nt());
-    assert(B.mt() == A.mt());
-
-    // if upper, change to lower
-    if (A.uplo() == Uplo::Upper)
-        A = conjTranspose(A);
-
-    auto L = TriangularMatrix<scalar_t>(Diag::NonUnit, A);
-    auto LT = conjTranspose(L);
-
-    trsm(Side::Left, scalar_t(1.0), L, B,
-         {{Option::Lookahead, lookahead},
-          {Option::Target, target}});
-
-    trsm(Side::Left, scalar_t(1.0), LT, B,
-         {{Option::Lookahead, lookahead},
-          {Option::Target, target}});
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup posv_specialization
-///
-template <Target target, typename scalar_t>
-void potrs(HermitianMatrix<scalar_t>& A,
-           Matrix<scalar_t>& B,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::potrs(internal::TargetType<target>(),
-                                    A, B, lookahead);
-}
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Cholesky solve.
@@ -107,23 +55,24 @@ void potrs(HermitianMatrix<scalar_t>& A,
            Matrix<scalar_t>& B,
            Options const& opts)
 {
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+    // Constants
+    const scalar_t one  = 1;
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            potrs<Target::HostTask>(A, B, opts);
-            break;
-        case Target::HostNest:
-            potrs<Target::HostNest>(A, B, opts);
-            break;
-        case Target::HostBatch:
-            potrs<Target::HostBatch>(A, B, opts);
-            break;
-        case Target::Devices:
-            potrs<Target::Devices>(A, B, opts);
-            break;
-    }
+    // assert(A.mt() == A.nt());
+    assert(B.mt() == A.mt());
+
+    auto A_ = A;  // local shallow copy to transpose
+
+    // if upper, change to lower
+    if (A_.uplo() == Uplo::Upper)
+        A_ = conjTranspose(A_);
+
+    auto L = TriangularMatrix<scalar_t>(Diag::NonUnit, A_);
+    auto LT = conjTranspose(L);
+
+    trsm(Side::Left, one, L, B, opts);
+
+    trsm(Side::Left, one, LT, B, opts);
     // todo: return value for errors?
 }
 

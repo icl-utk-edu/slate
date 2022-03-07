@@ -59,7 +59,7 @@ extern "C" void pzher2k_(const char* uplo, const char* trans, int* n, int* k, st
 template< typename scalar_t >
 void slate_pher2k(const char* uplostr, const char* transstr, int n, int k, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb, blas::real_type<scalar_t> beta, scalar_t* c, int ic, int jc, int* descc)
 {
-    // todo: figure out if the pxq grid is in row or column
+    check_and_assert_blacs_grid_is_column_major();
 
     // make blas single threaded
     // todo: does this set the omp num threads correctly
@@ -79,16 +79,16 @@ void slate_pher2k(const char* uplostr, const char* transstr, int n, int k, scala
     int64_t Cn = n;
 
     // create SLATE matrices from the ScaLAPACK layouts
-    int nprow, npcol, myrow, mycol;
-    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myrow, &mycol);
+    int nprow, npcol, myprow, mypcol;
+    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
     auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
 
-    Cblacs_gridinfo(desc_CTXT(descb), &nprow, &npcol, &myrow, &mycol);
+    Cblacs_gridinfo(desc_CTXT(descb), &nprow, &npcol, &myprow, &mypcol);
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descb), desc_N(descb), b, desc_LLD(descb), desc_MB(descb), nprow, npcol, MPI_COMM_WORLD);
     B = slate_scalapack_submatrix(Bm, Bn, B, ib, jb, descb);
 
-    Cblacs_gridinfo(desc_CTXT(descc), &nprow, &npcol, &myrow, &mycol);
+    Cblacs_gridinfo(desc_CTXT(descc), &nprow, &npcol, &myprow, &mypcol);
     auto CH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(descc), c, desc_LLD(descc), desc_MB(descc), nprow, npcol, MPI_COMM_WORLD);
     CH = slate_scalapack_submatrix(Cn, Cn, CH, ic, jc, descc);
 
@@ -104,7 +104,7 @@ void slate_pher2k(const char* uplostr, const char* transstr, int n, int k, scala
     assert(B.mt() == CH.mt());
     assert(A.nt() == B.nt());
 
-    if (verbose && myrow == 0 && mycol == 0)
+    if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "her2k");
 
     slate::her2k(alpha, A, B, beta, CH, {

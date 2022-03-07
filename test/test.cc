@@ -74,6 +74,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "",                   nullptr,           Section::newline },
 
     { "hemm",               test_hemm,         Section::blas3 },
+    { "hemmA",              test_hemm,         Section::blas3 },
     { "hbmm",               test_hbmm,         Section::blas3 },
     { "herk",               test_herk,         Section::blas3 },
     { "her2k",              test_her2k,        Section::blas3 },
@@ -86,6 +87,7 @@ std::vector< testsweeper::routines_t > routines = {
 
     { "trmm",               test_trmm,         Section::blas3 },
     { "trsm",               test_trsm,         Section::blas3 },
+    { "trsmA",              test_trsm,         Section::blas3 },
     { "tbsm",               test_tbsm,         Section::blas3 },
 
     // -----
@@ -183,7 +185,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "heev",               test_heev,         Section::heev },
     { "he2hb",              test_he2hb,        Section::heev },
     { "unmtr_he2hb",        test_unmtr_he2hb,  Section::heev },
-  //{ "hb2st",              test_hb2st,        Section::heev },
+    { "hb2st",              test_hb2st,        Section::heev },
     { "sterf",              test_sterf,        Section::heev },
     { "steqr2",             test_steqr2,       Section::heev },
     { "",                   nullptr,           Section::newline },
@@ -220,7 +222,22 @@ std::vector< testsweeper::routines_t > routines = {
     { "",                   nullptr,           Section::newline },
     // -----
     // auxiliary
+    { "add",                test_add,          Section::aux },
+    { "tzadd",              test_add,          Section::aux },
+    { "tradd",              test_add,          Section::aux },
+    { "syadd",              test_add,          Section::aux },
+    { "headd",              test_add,          Section::aux },
+    { "copy",               test_copy,         Section::aux },
+    { "tzcopy",             test_copy,         Section::aux },
+    { "trcopy",             test_copy,         Section::aux },
+    { "sycopy",             test_copy,         Section::aux },
+    { "hecopy",             test_copy,         Section::aux },
     { "scale",              test_scale,        Section::aux },
+    { "set",                test_set,          Section::aux },
+    { "tzset",              test_set,          Section::aux },
+    { "trset",              test_set,          Section::aux },
+    { "syset",              test_set,          Section::aux },
+    { "heset",              test_set,          Section::aux },
     { "",                   nullptr,           Section::newline },
 };
 
@@ -248,7 +265,22 @@ Params::Params():
     //         name,      w, p, type,         default, min,  max, help
     tol       ("tol",     0, 0, ParamType::Value,  50,   1, 1000, "tolerance (e.g., error < tol*epsilon to pass)"),
     repeat    ("repeat",  0,    ParamType::Value,   1,   1, 1000, "number of times to repeat each test"),
-    verbose   ("verbose", 0,    ParamType::Value,   0,   0,   10, "verbose level"),
+
+    verbose   ("verbose", 0,    ParamType::Value,   0,   0,   4,
+               "verbose level:\n"
+               "                     0: no printing (default)\n"
+               "                     1: print metadata only (dimensions, uplo, etc.)\n"
+               "                     2: print first & last edgeitems rows & cols from the four corner tiles\n"
+               "                     3: print 4 corner elements of every tile\n"
+               "                     4: print full matrix" ),
+
+    print_edgeitems("print-edgeitems", 0, ParamType::Value, 16,   1, 64,
+                    "for verbose=2, number of first & last rows & cols to print from the four corner tiles"),
+    print_width    ("print-width",     0, ParamType::Value, 10,   7, 24,
+                    "minimum number of characters to print per value"),
+    print_precision("print-precision", 0, ParamType::Value, 4,    1, 17,
+                    "number of digits to print after the decimal point"),
+
     extended  ("extended",0,    ParamType::Value,   0,   0,   10, "extended tests"),
     cache     ("cache",   0,    ParamType::Value,  20,   1, 1024, "total cache size, in MiB"),
 
@@ -308,6 +340,8 @@ Params::Params():
     align     ("align",   6,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
     nonuniform_nb("nonuniform_nb",
                           0,    ParamType::Value, 'n', "ny", "generate matrix with nonuniform tile sizes"),
+    debug     ("debug",   0,    ParamType::Value, -1,     0, 1000000,
+               "given rank waits for debugger (gdb/lldb) to attach"),
 
     // ----- output parameters
     // min, max are ignored
@@ -324,6 +358,8 @@ Params::Params():
 
     time      ("time(s)",               12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "time to solution"),
     gflops    ("gflops",                12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "Gflop/s rate"),
+    time2     ("time(s)",               12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "time to solution"),
+    gflops2   ("gflops",                12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "Gflop/s rate"),
     iters     ("iters",                  9,    ParamType::Output,                         0,   0,   0, "iterations to solution"),
 
     ref_time  ("ref_time(s)",           12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "reference time to solution"),
@@ -332,7 +368,8 @@ Params::Params():
 
     // default -1 means "no check"
     //         name,     w, type,          default, min, max, help
-    okay      ("status", 6, ParamType::Output,  -1,   0,   0, "success indicator")
+    okay      ("status", 6, ParamType::Output,  -1,   0,   0, "success indicator"),
+    msg       ( "",      1, ParamType::Output,  "",           "error message" )
 {
     // set header different than command line prefix
     lookahead.name("la", "lookahead");
@@ -342,11 +379,13 @@ Params::Params():
     matrixB.kind.name( "matrixB" );
     matrixB.cond.name( "condB" );
     matrixB.condD.name( "condD_B" );
+    matrixB.seed.name( "seedB" );
 
     // change names of matrix C's params
     matrixC.kind.name( "matrixC" );
     matrixC.cond.name( "condC" );
     matrixC.condD.name( "condD_C" );
+    matrixC.seed.name( "seedC" );
 
     // mark standard set of output fields as used
     okay();
@@ -363,6 +402,10 @@ Params::Params():
     repeat();
     verbose();
     cache();
+    debug();
+    print_edgeitems();
+    print_width();
+    print_precision();
 
     //  change names of grid elements
     grid.names("p", "q");
@@ -548,6 +591,27 @@ int run(int argc, char** argv)
         slate_assert(params.grid.m() * params.grid.n() == mpi_size);
 
         slate::trace::Trace::pixels_per_second(params.trace_scale());
+
+        // Wait for debugger to attach.
+        // See https://www.open-mpi.org/faq/?category=debugging#serial-debuggers
+        if (params.debug() == mpi_rank
+            || params.debug() == mpi_size) {
+            volatile int i = 0;
+            char hostname[256];
+            gethostname( hostname, sizeof(hostname) );
+            printf( "MPI rank %d, pid %d on %s ready for debugger (gdb/lldb) to attach.\n"
+                    "After attaching, step out to run() and set i=1, e.g.:\n"
+                    "lldb -p %d\n"
+                    "(lldb) break set -n __cxa_throw  # break on C++ exception\n"
+                    "(lldb) thread step-out           # repeat\n"
+                    "(lldb) expr i=1\n"
+                    "(lldb) continue\n",
+                    mpi_rank, getpid(), hostname, getpid() );
+            fflush( stdout );
+            while (0 == i)
+                sleep(1);
+        }
+        slate_mpi_call( MPI_Barrier( MPI_COMM_WORLD ) );
 
         // run tests
         int repeat = params.repeat();

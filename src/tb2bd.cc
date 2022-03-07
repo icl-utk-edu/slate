@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
+#include "auxiliary/Debug.hh"
 #include "slate/TriangularBandMatrix.hh"
 #include "slate/Tile_blas.hh"
 #include "slate/TriangularMatrix.hh"
@@ -69,10 +69,15 @@ void tb2bd_step(TriangularBandMatrix<scalar_t>& A, int64_t band,
                 auto& v1 = reflectors[{i, j}];
                 auto& v2 = reflectors[{i+1, j}];
                 omp_unset_lock(&lock);
+                int64_t m = std::min(i+band,   A.m()-1) - i;
+                int64_t n = std::min(j+band-1, A.n()-1) - j + 1;
+                v1.resize(m);
+                v2.resize(n);
                 internal::gebr1<Target::HostTask>(
                     A.slice(i, std::min(i+band,   A.m()-1),
                             j, std::min(j+band-1, A.n()-1)),
-                    v1, v2);
+                    v1.size(), v1.data(),
+                    v2.size(), v2.data());
             }
             break;
         // task 1 - an off-diagonal block in the sweep
@@ -84,11 +89,13 @@ void tb2bd_step(TriangularBandMatrix<scalar_t>& A, int64_t band,
                 auto& v1 = reflectors[{i, j-band}];
                 auto& v2 = reflectors[{i, j}];
                 omp_unset_lock(&lock);
+                int64_t n = std::min(j+band-1, A.n()-1) - j + 1;
+                v2.resize(n);
                 internal::gebr2<Target::HostTask>(
-                    v1,
+                    v1.size(), v1.data(),
                     A.slice(i, std::min(i+band-1, A.m()-1),
                             j, std::min(j+band-1, A.n()-1)),
-                    v2);
+                    v2.size(), v2.data());
             }
             break;
         // task 2 - a diagonal block in the sweep
@@ -100,11 +107,13 @@ void tb2bd_step(TriangularBandMatrix<scalar_t>& A, int64_t band,
                 auto& v1 = reflectors[{i-band, j}];
                 auto& v2 = reflectors[{i, j}];
                 omp_unset_lock(&lock);
+                int64_t m = std::min(i+band-1, A.m()-1) - i + 1;
+                v2.resize(m);
                 internal::gebr3<Target::HostTask>(
-                    v1,
+                    v1.size(), v1.data(),
                     A.slice(i, std::min(i+band-1, A.m()-1),
                             j, std::min(j+band-1, A.n()-1)),
-                    v2);
+                    v2.size(), v2.data());
             }
             break;
     }
@@ -225,14 +234,16 @@ void tb2bd(slate::internal::TargetType<target>,
             {
                 if (i == j && i > 0) {
                     auto T_ptr = A.tileInsertWorkspace( i, j-1 );
-                    lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                          0, 0, T_ptr->data(), T_ptr->stride());
+                    lapack::laset(
+                        lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
+                        0, 0, T_ptr->data(), T_ptr->stride());
                 }
 
                 if ((j < A.nt()-1) && (i == (j - 1))) {
                     auto T_ptr = A.tileInsertWorkspace( i, j+1 );
-                    lapack::laset(lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                          0, 0, T_ptr->data(), T_ptr->stride());
+                    lapack::laset(
+                        lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
+                        0, 0, T_ptr->data(), T_ptr->stride());
                 }
 
                 if (i == j) {

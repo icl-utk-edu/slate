@@ -25,7 +25,6 @@ void test_gesvd_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
-    using llong = long long;
 
     // get & mark input values
     lapack::Job jobu = params.jobu();
@@ -69,8 +68,7 @@ void test_gesvd_work(Params& params, bool run)
 
     // skip unsupported
     if (jobu != lapack::Job::NoVec || jobvt != lapack::Job::NoVec) {
-        if (mpi_rank == 0)
-            printf("\nskipping: Only singular values supported (vectors not yet supported)\n");
+        params.msg() = "skipping: Only singular values supported (vectors not yet supported)";
         return;
     }
 
@@ -81,7 +79,7 @@ void test_gesvd_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
+    std::vector<scalar_t> A_data;
 
     // matrix U (local output), U(m, min_mn), singular values of A
     int64_t mlocU = num_local_rows_cols(m, nb, myrow, p);
@@ -124,6 +122,7 @@ void test_gesvd_work(Params& params, bool run)
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
+        A_data.resize( lldA * nlocA );
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
                 m, n, &A_data[0],  lldA,  nb, p, q, MPI_COMM_WORLD);
         if (wantu) {
@@ -144,19 +143,15 @@ void test_gesvd_work(Params& params, bool run)
         printf( "%% VT  %6lld-by-%6lld\n", llong(  VT.m() ), llong(  VT.n() ) );
     }
 
-    if (verbose > 1) {
-        print_matrix( "A",  A  );
-        print_matrix( "U",  U  );
-        print_matrix( "VT", VT );
-    }
+    print_matrix( "A",  A, params );
+    print_matrix( "U",  U, params );
+    print_matrix( "VT", VT, params );
 
     //params.matrix.kind.set_default("svd");
     //params.matrix.cond.set_default(1.e16);
 
     slate::generate_matrix( params.matrix, A);
-    if (verbose > 1) {
-        print_matrix( "A0",  A  );
-    }
+    print_matrix( "A0",  A, params );
 
     std::vector<real_t> Sigma_ref;
     slate::Matrix<scalar_t> Aref;
@@ -188,11 +183,9 @@ void test_gesvd_work(Params& params, bool run)
         // compute and save timing/performance
         params.time() = time;
 
-        if (verbose > 1) {
-            print_matrix( "A",  A  );
-            print_matrix( "U",  U  );
-            print_matrix( "VT", VT );
-        }
+        print_matrix( "A",  A, params );
+        print_matrix( "U",  U, params );
+        print_matrix( "VT", VT, params );
     }
 
     if (check || ref) {

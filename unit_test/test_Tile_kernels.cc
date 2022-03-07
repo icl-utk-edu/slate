@@ -11,6 +11,8 @@
 #include "unit_test.hh"
 #include "print_tile.hh"
 
+namespace test {
+
 //------------------------------------------------------------------------------
 // globals
 int      g_argc      = 0;
@@ -1417,9 +1419,13 @@ void run_tests()
     }
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     g_argc = argc;
     g_argv = argv;
     MPI_Init(&argc, &argv);

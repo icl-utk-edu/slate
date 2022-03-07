@@ -53,6 +53,17 @@ enum class Option : char {
     MaxPanelThreads,    ///< max number of threads for panel, >= 1
     Tolerance,          ///< tolerance for iterative methods, default epsilon
     Target,             ///< computation method (@see Target)
+    PrintVerbose,       ///< verbose, 0: no printing,
+                        ///< verbose, 1: print metadata only (dimensions, uplo, etc.)
+                        ///< verbose, 2: print first & last PrintEdgeItems rows & cols
+                        ///< from the four corner tiles
+                        ///< verbose, 3: print 4 corner elements of every tile
+                        ///< verbose, 4: print full matrix
+    PrintEdgeItems,     ///< edgeitems: number of first & last rows & cols of matrix
+                        ///< to print
+    PrintWidth,         ///< width print format specifier
+    PrintPrecision,     ///< precision print format specifier
+                        ///< For correct printing, PrintWidth = PrintPrecision + 6.
 };
 
 //------------------------------------------------------------------------------

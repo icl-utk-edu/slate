@@ -16,6 +16,8 @@
 using slate::ceildiv;
 using slate::roundup;
 
+namespace test {
+
 //------------------------------------------------------------------------------
 // global variables
 int m, n, k, mb, nb, p, q;
@@ -58,6 +60,24 @@ void test_TriangularMatrix_empty()
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
     test_assert(L.diag() == blas::Diag::NonUnit);
+
+    int myp, myq, myrow, mycol;
+    L.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
+
+    auto tileMb_     = L.tileMbFunc();
+    auto tileNb_     = L.tileNbFunc();
+    auto tileRank_   = L.tileRankFunc();
+    auto tileDevice_ = L.tileDeviceFunc();
+    test_assert( tileMb_(0) == nb );  // square
+    test_assert( tileNb_(0) == nb );
+    test_assert( tileRank_( {0, 0} ) == 0 );
+    // todo: What is reasonable if num_devices == 0? Currently divides by zero.
+    if (num_devices > 0)
+        test_assert( tileDevice_( {0, 0} ) == 0 );
 
     // ----------
     // upper
@@ -132,6 +152,17 @@ void test_TriangularMatrix_lambda()
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == slate::Uplo::Lower);
     test_assert(L.diag() == blas::Diag::NonUnit);
+
+    auto tileMb_     = L.tileMbFunc();
+    auto tileNb_     = L.tileNbFunc();
+    auto tileRank_   = L.tileRankFunc();
+    auto tileDevice_ = L.tileDeviceFunc();
+    test_assert( tileMb_(0) == tileNb(0) );  // square
+    test_assert( tileNb_(0) == tileNb(0) );
+    test_assert( tileRank_( {0, 0} ) == tileRank( {0, 0} ) );
+    // todo: What is reasonable if num_devices == 0? Currently divides by zero.
+    if (num_devices > 0)
+        test_assert( tileDevice_( {0, 0} ) == tileDevice( {0, 0} ) );
 
     // unit diag
     slate::TriangularMatrix<double> Lu(
@@ -266,6 +297,13 @@ void test_TriangularMatrix_fromScaLAPACK()
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
     test_assert(L.diag() == blas::Diag::NonUnit);
+
+    int myp, myq, myrow, mycol;
+    L.gridinfo( &myp, &myq, &myrow, &mycol );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
@@ -483,8 +521,6 @@ void test_TriangularMatrix_emptyLike()
 /// emptyLike with mb, nb overriding size.
 void test_TriangularMatrix_emptyLikeMbNb()
 {
-    //using llong = long long;
-
     int mtiles, mtiles_local, m_local, lda;
     int ntiles, ntiles_local, n_local;
     get_2d_cyclic_dimensions(
@@ -1330,9 +1366,13 @@ void run_tests()
     run_test(test_Triangular_from_Trapezoid,   "TriangularMatrix( TrapezoidMatrix )",       mpi_comm);
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     MPI_Init(&argc, &argv);
 
     mpi_comm = MPI_COMM_WORLD;

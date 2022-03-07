@@ -75,7 +75,7 @@ extern "C" void slate_pzhemm(const char* side, const char* uplo, int* m, int* n,
 template< typename scalar_t >
 void slate_phemm(const char* sidestr, const char* uplostr, int m, int n, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb, scalar_t beta, scalar_t* c, int ic, int jc, int* descc)
 {
-    // todo: figure out if the pxq grid is in row or column
+    check_and_assert_blacs_grid_is_column_major();
 
     // make blas single threaded
     // todo: does this set the omp num threads correctly
@@ -95,16 +95,16 @@ void slate_phemm(const char* sidestr, const char* uplostr, int m, int n, scalar_
     int64_t Cn = n;
 
     // create SLATE matrices from the ScaLAPACK layouts
-    int nprow, npcol, myrow, mycol;
-    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myrow, &mycol);
+    int nprow, npcol, myprow, mypcol;
+    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
     auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
     AH = slate_scalapack_submatrix(Am, An, AH, ia, ja, desca);
 
-    Cblacs_gridinfo(desc_CTXT(descb), &nprow, &npcol, &myrow, &mycol);
+    Cblacs_gridinfo(desc_CTXT(descb), &nprow, &npcol, &myprow, &mypcol);
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descb), desc_N(descb), b, desc_LLD(descb), desc_MB(descb), nprow, npcol, MPI_COMM_WORLD);
     B = slate_scalapack_submatrix(Bm, Bn, B, ib, jb, descb);
 
-    Cblacs_gridinfo(desc_CTXT(descc), &nprow, &npcol, &myrow, &mycol);
+    Cblacs_gridinfo(desc_CTXT(descc), &nprow, &npcol, &myprow, &mypcol);
     auto C = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descc), desc_N(descc), c, desc_LLD(descc), desc_MB(descc), nprow, npcol, MPI_COMM_WORLD);
     C = slate_scalapack_submatrix(Cm, Cn, C, ic, jc, descc);
 
@@ -115,7 +115,7 @@ void slate_phemm(const char* sidestr, const char* uplostr, int m, int n, scalar_
     assert(B.mt() == C.mt());
     assert(B.nt() == C.nt());
 
-    if (verbose && myrow == 0 && mycol == 0)
+    if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "hemm");
 
     slate::hemm(side, alpha, AH, B, beta, C, {

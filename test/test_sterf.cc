@@ -23,7 +23,6 @@ void test_sterf_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
     using blas::imag;
-    // typedef long long llong;
 
     // get & mark input values
     int64_t n = params.dim.n();

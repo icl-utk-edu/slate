@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
+#include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "slate/Tile_blas.hh"
 #include "slate/TriangularMatrix.hh"
@@ -112,7 +112,10 @@ void getri(slate::internal::TargetType<target>,
             ReduceList reduce_list_A;
             for (int64_t i = 0; i < A.nt(); ++i) {
                 // recude A(i, k) across A(i, k+1:nt-1)
-                reduce_list_A.push_back({i, k, {A.sub(i, i, k+1, A.nt()-1)}});
+                reduce_list_A.push_back({i, k,
+                                          A.sub(i, i, k, k),
+                                          {A.sub(i, i, k+1, A.nt()-1)}
+                                        });
             }
             A.template listReduce(reduce_list_A, layout);
 
@@ -127,10 +130,10 @@ void getri(slate::internal::TargetType<target>,
         }
 
         // Apply column pivoting.
-        for (int64_t k = A.nt()-1; k >= 0; --k) {
+        for (int64_t j = A.nt()-1; j >= 0; --j) {
             internal::permuteRows<Target::HostTask>(
-                Direction::Backward, transpose(A).sub(k, A.nt()-1, 0, A.nt()-1),
-                pivots.at(k), Layout::ColMajor);
+                Direction::Backward, transpose(A).sub(j, A.nt()-1, 0, A.nt()-1),
+                pivots.at(j), Layout::ColMajor);
         }
     }
 }

@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
+#include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "slate/HermitianMatrix.hh"
 #include "slate/TriangularMatrix.hh"
@@ -163,7 +163,10 @@ void hetrf(slate::internal::TargetType<target>,
                 #endif
 
                 ReduceList reduce_list;
-                reduce_list.push_back({k, k, {A.sub(k, k, 0, k-2)}});
+                reduce_list.push_back({k, k,
+                                        T.sub(k, k, k, k),
+                                        {A.sub(k, k, 0, k-2)}
+                                      });
                 T.template listReduce<target>(reduce_list, layout, tag);
 
                 // T(k, k) -= L(k, k)*T(k, k-1)* L(k,k-1)'
@@ -306,7 +309,10 @@ void hetrf(slate::internal::TargetType<target>,
 
                             ReduceList reduce_list;
                             for (int i = k+1; i < A_mt; ++i) {
-                                reduce_list.push_back({i, k, {A.sub(i, i, 0, k-2)}});
+                                reduce_list.push_back({i, k,
+                                                        A.sub(i, i, 0, k-2),
+                                                        {A.sub(i, i, 0, k-2)}
+                                                      });
                             }
                             A.template listReduce<target>(reduce_list, layout, tag1);
                         }

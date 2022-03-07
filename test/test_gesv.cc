@@ -57,16 +57,26 @@ void test_gesv_work(Params& params, bool run)
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
+    params.matrixB.mark();
 
     // mark non-standard output values
     params.time();
     params.gflops();
     params.ref_time();
     params.ref_gflops();
+    params.time2();
+    params.time2.name( "trs_time(s)" );
+    params.gflops2();
+    params.gflops2.name( "trs_gflops" );
+
+    bool do_getrs = (
+        (check && (params.routine == "getrf" || params.routine == "getrf_nopiv"))
+        || (params.routine == "getrs" || params.routine == "getrs_nopiv"));
 
     if (params.routine == "gesvMixed") {
         params.iters();
     }
+
     if (! run)
         return;
 
@@ -129,7 +139,7 @@ void test_gesv_work(Params& params, bool run)
     };
 
     // 1D block row cyclic
-    int num_devices_ = 0;//num_devices;
+    int num_devices_ = 0; // num_devices;
     std::function< int (std::tuple<int64_t, int64_t> ij) >
     tileDevice = [num_devices_](std::tuple<int64_t, int64_t> ij) {
         int64_t i = std::get<0>(ij);
@@ -183,8 +193,8 @@ void test_gesv_work(Params& params, bool run)
 
     slate::Pivots pivots;
 
-    slate::generate_matrix(params.matrix, A);
-    slate::generate_matrix(params.matrix, B);
+    slate::generate_matrix(params.matrix,  A);
+    slate::generate_matrix(params.matrixB, B);
 
     // If check/ref is required, copy test data.
     slate::Matrix<scalar_t> Aref, Bref;
@@ -206,100 +216,97 @@ void test_gesv_work(Params& params, bool run)
         slate::copy(B, Bref);
     }
 
-    int iters = 0;
-
     double gflop;
-    if (params.routine == "getrf" || params.routine == "getrf_nopiv")
-        gflop = lapack::Gflop<scalar_t>::getrf(m, n);
-    else if (params.routine == "getrs" || params.routine == "getrs_nopiv")
-        gflop = lapack::Gflop<scalar_t>::getrs(n, nrhs);
-    else
+    if (params.routine == "gesv"
+        || params.routine == "gesv_nopiv"
+        || params.routine == "gesvMixed")
         gflop = lapack::Gflop<scalar_t>::gesv(n, nrhs);
+    else
+        gflop = lapack::Gflop<scalar_t>::getrf(m, n);
 
     if (! ref_only) {
-        if (params.routine == "getrs") {
-            // Factor matrix A.
-            slate::lu_factor(A, pivots, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::getrf(A, pivots, opts);
-        }
-        else if (params.routine == "getrs_nopiv") {
-            // Factor matrix A.
-            slate::lu_factor_nopiv(A, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::getrf_nopiv(A, opts);
-        }
 
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 
-        double time = barrier_get_wtime(MPI_COMM_WORLD);
-
         //==================================================
-        // Run SLATE test.
-        // One of:
+        // Run SLATE test: getrf or gesv
         // getrf: Factor PA = LU.
-        // getrs: Solve AX = B after factoring A above.
         // gesv:  Solve AX = B, including factoring A.
         //==================================================
-        if (params.routine == "getrf") {
+        double time = barrier_get_wtime(MPI_COMM_WORLD);
+
+        if (params.routine == "getrf" || params.routine == "getrs") {
             slate::lu_factor(A, pivots, opts);
             // Using traditional BLAS/LAPACK name
             // slate::getrf(A, pivots, opts);
-        }
-        else if (params.routine == "getrs") {
-            auto opA = A;
-            if (trans == slate::Op::Trans)
-                opA = transpose(A);
-            else if (trans == slate::Op::ConjTrans)
-                opA = conjTranspose(A);
-
-            slate::lu_solve_using_factor(opA, pivots, B, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::getrs(opA, pivots, B, opts);
         }
         else if (params.routine == "gesv") {
             slate::lu_solve(A, B, opts);
             // Using traditional BLAS/LAPACK name
             // slate::gesv(A, pivots, B, opts);
         }
-        else if (params.routine == "gesvMixed"
-                 && std::is_same<real_t, double>::value) {
-            slate::gesvMixed(A, pivots, B, X, iters, opts);
-            params.iters() = iters;
-        }
-        else if (params.routine == "getrf_nopiv") {
+        else if (params.routine == "getrf_nopiv" || params.routine == "getrs_nopiv") {
+            // Factor matrix A.
             slate::lu_factor_nopiv(A, opts);
             // Using traditional BLAS/LAPACK name
             // slate::getrf_nopiv(A, opts);
-        }
-        else if (params.routine == "getrs_nopiv") {
-            auto opA = A;
-            if (trans == slate::Op::Trans)
-                opA = transpose(A);
-            else if (trans == slate::Op::ConjTrans)
-                opA = conjTranspose(A);
-
-            slate::lu_solve_using_factor_nopiv(opA, B, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::getrs_nopiv(opA, B, opts);
         }
         else if (params.routine == "gesv_nopiv") {
             slate::lu_solve_nopiv(A, B, opts);
             // Using traditional BLAS/LAPACK name
             // slate::gesv_nopiv(A, B, opts);
         }
-        else {
-            slate_error("Unknown routine!");
+        else if (params.routine == "gesvMixed") {
+            if constexpr (std::is_same<real_t, double>::value) {
+                int iters = 0;
+                slate::gesvMixed(A, pivots, B, X, iters, opts);
+                params.iters() = iters;
+            }
         }
-
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
-
-        if (trace) slate::trace::Trace::finish();
-
         // compute and save timing/performance
         params.time() = time;
         params.gflops() = gflop / time;
+
+        //==================================================
+        // Run SLATE test: getrs
+        // getrs: Solve AX = B after factoring A above.
+        //==================================================
+        if (do_getrs) {
+            double time2 = barrier_get_wtime(MPI_COMM_WORLD);
+
+            auto opA = A;
+            if (trans == slate::Op::Trans)
+                opA = transpose(A);
+            else if (trans == slate::Op::ConjTrans)
+                opA = conjTranspose(A);
+
+            if ((check && params.routine == "getrf")
+                || params.routine == "getrs")
+            {
+                slate::lu_solve_using_factor(opA, pivots, B, opts);
+                // Using traditional BLAS/LAPACK name
+                // slate::getrs(opA, pivots, B, opts);
+            }
+            else if ((check && params.routine == "getrf_nopiv")
+                     || params.routine == "getrs_nopiv")
+            {
+                slate::lu_solve_using_factor_nopiv(opA, B, opts);
+                // Using traditional BLAS/LAPACK name
+                // slate::getrs_nopiv(opA, B, opts);
+            }
+            else {
+                slate_error("Unknown routine!");
+            }
+
+            // compute and save timing/performance
+            time2 = barrier_get_wtime(MPI_COMM_WORLD) - time2;
+            params.time2() = time2;
+            params.gflops2() = lapack::Gflop<scalar_t>::getrs(n, nrhs) / time2;
+        }
+
+        if (trace) slate::trace::Trace::finish();
     }
 
     if (check) {
@@ -311,18 +318,6 @@ void test_gesv_work(Params& params, bool run)
         //      || A ||_1 * || X ||_1 * N
         //
         //==================================================
-        if (params.routine == "getrf") {
-            // Solve AX = B.
-            slate::getrs(A, pivots, B, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::getrs(A, pivots, B, opts);
-        }
-        else if (params.routine == "getrf_nopiv") {
-            // Solve AX = B.
-            slate::lu_solve_using_factor_nopiv(A, B, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::getrs_nopiv(A, B, opts);
-        }
 
         // Norm of updated-rhs/solution matrix: || X ||_1
         real_t X_norm;

@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
+#include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "slate/Tile_blas.hh"
 #include "slate/TriangularMatrix.hh"
@@ -146,8 +146,8 @@ void getrf_nopiv(slate::internal::TargetType<target>,
             if (k+1+lookahead < A_nt) {
                 #pragma omp task depend(in:diag[k]) \
                                  depend(inout:column[k+1+lookahead]) \
-                                 depend(inout:listBcastMT_token) \
-                                 depend(inout:column[A_nt-1])
+                                 depend(inout:column[A_nt-1]) \
+                                 depend(inout:listBcastMT_token)
                 {
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =

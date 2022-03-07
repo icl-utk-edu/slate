@@ -35,7 +35,6 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     int64_t nb = params.nb();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -58,13 +57,11 @@ void test_unmtr_he2hb_work(Params& params, bool run)
 
     // Skip invalid or unimplemented options.
     if (uplo == slate::Uplo::Upper) {
-        if (mpi_rank == 0)
-            printf("skipping: Uplo::Upper isn't supported.\n");
+        params.msg() = "skipping: Uplo::Upper isn't supported.";
         return;
     }
     if (p != q) {
-        if (mpi_rank == 0)
-            printf("skipping: requires square process grid (p == q).\n");
+        params.msg() = "skipping: requires square process grid (p == q).";
         return;
     }
 
@@ -89,9 +86,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
 
     slate::generate_matrix(params.matrix, A);
 
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+    print_matrix("A", A, params);
 
     // Matrix Aref
     slate::HermitianMatrix<scalar_t> Aref;
@@ -104,9 +99,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
             Aref.insertLocalTiles();
             slate::copy(A, Aref);
 
-            if (verbose > 3) {
-                print_matrix("Aref", Aref);
-            }
+            print_matrix("Aref", Aref, params);
         }
     }
 
@@ -119,20 +112,16 @@ void test_unmtr_he2hb_work(Params& params, bool run)
         Afull.insertLocalTiles();
         he2ge(A, Afull);
 
-        if (verbose > 1) {
-            print_matrix("Afull", Afull);
-        }
+        print_matrix("Afull", Afull, params);
     }
 
     // Triangular Factors T
     slate::TriangularFactors<scalar_t> T;
     slate::he2hb(A, T, opts);
 
-    if (verbose > 2) {
-        print_matrix("A_factored", A);
-        print_matrix("T_local",    T[0]);
-        print_matrix("T_reduce",   T[1]);
-    }
+    print_matrix("A_factored", A, params);
+    print_matrix("T_local",    T[0], params);
+    print_matrix("T_reduce",   T[1], params);
 
     // Matrix B
     slate::Matrix< scalar_t > B(n, n, nb, p, q, MPI_COMM_WORLD);
@@ -140,9 +129,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
     B.insertLocalTiles();
     he2gb(A, B);
 
-    if (verbose > 1) {
-        print_matrix("B", B);
-    }
+    print_matrix("B", B, params);
 
     // todo
     //double gflop = lapack::Gflop<scalar_t>::unmtr_he2hb(n, n);
@@ -213,9 +200,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
                 }
             }
 
-            if (verbose > 1) {
-                print_matrix("A - QBQ^H", Aref);
-            }
+            print_matrix("A - QBQ^H", Aref, params);
 
             // Norm of backwards error: || A - QBQ^H ||_1
             params.error() = slate::norm(slate::Norm::One, Aref)
@@ -257,9 +242,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
                 }
             }
 
-            if (verbose > 1) {
-                print_matrix("Q^HAQ - B", Afull);
-            }
+            print_matrix("Q^HAQ - B", Afull, params);
 
             // Norm of backwards error: || Q^HAQ - B ||_1
             params.error() = slate::norm(slate::Norm::One, Afull)

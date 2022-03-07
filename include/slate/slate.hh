@@ -16,6 +16,7 @@
 #include "slate/HermitianBandMatrix.hh"
 
 #include "slate/types.hh"
+#include "slate/print.hh"
 
 //------------------------------------------------------------------------------
 /// @namespace slate
@@ -31,7 +32,21 @@ int version();
 const char* id();
 
 //------------------------------------------------------------------------------
-// Auxiliary
+// Level 2 Auxiliary
+
+//-----------------------------------------
+// add()
+template <typename scalar_t>
+void add(
+    scalar_t alpha, Matrix<scalar_t>& A,
+    scalar_t beta,  Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+template <typename scalar_t>
+void add(
+     scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
+     scalar_t beta,  BaseTrapezoidMatrix<scalar_t>& B,
+     Options const& opts = Options());
 
 //-----------------------------------------
 // copy()
@@ -40,6 +55,7 @@ void copy(
     src_matrix_type& A,
     dst_matrix_type& B,
     Options const& opts = Options());
+
 //-----------------------------------------
 // scale()
 template <typename scalar_t>
@@ -114,19 +130,6 @@ void set(
 // Level 3 BLAS and LAPACK auxiliary
 
 //-----------------------------------------
-// add()
-template <typename scalar_t>
-void add(
-    scalar_t alpha, Matrix<scalar_t>& A,
-    scalar_t beta,  Matrix<scalar_t>& B,
-    Options const& opts = Options());
-
-template <typename scalar_t>
-void add(
-     scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
-     scalar_t beta,  BaseTrapezoidMatrix<scalar_t>& B,
-     Options const& opts = Options());
-//-----------------------------------------
 // gbmm()
 template <typename scalar_t>
 void gbmm(
@@ -189,6 +192,16 @@ void hemm(
 }
 
 //-----------------------------------------
+// hemmA()
+template <typename scalar_t>
+void hemmA(
+    Side side,
+    scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                             Matrix<scalar_t>& B,
+    scalar_t beta,           Matrix<scalar_t>& C,
+    Options const& opts = Options());
+
+//-----------------------------------------
 // symm()
 template <typename scalar_t>
 void symm(
@@ -242,6 +255,15 @@ void tbsm(
 // trsm()
 template <typename scalar_t>
 void trsm(
+    Side side,
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// trsmA()
+template <typename scalar_t>
+void trsmA(
     Side side,
     scalar_t alpha, TriangularMatrix<scalar_t>& A,
                               Matrix<scalar_t>& B,
@@ -360,6 +382,18 @@ norm(
     Norm norm,
     matrix_type& A,
     Options const& opts = Options());
+
+//-----------------------------------------
+// norm for triangular case
+template <typename scalar_t>
+blas::real_type<scalar_t>
+norm(
+    Norm trnorm,
+    TriangularMatrix<scalar_t>& A,
+    Options const& opts = Options())
+{
+    return norm< TrapezoidMatrix<scalar_t> >( trnorm, A, opts );
+}
 
 //-----------------------------------------
 // colNorms()
@@ -874,9 +908,10 @@ void he2hb(
 // unmtr_he2hb()
 template <typename scalar_t>
 void unmtr_he2hb(
-    Side side, Op op, HermitianMatrix< scalar_t >& A,
-    TriangularFactors< scalar_t > T,
-    Matrix< scalar_t >& B,
+    Side side, Op op,
+    HermitianMatrix<scalar_t>& A,
+    TriangularFactors<scalar_t> T,
+    Matrix<scalar_t>& C,
     Options const& opts = Options());
 
 //-----------------------------------------
@@ -884,6 +919,7 @@ void unmtr_he2hb(
 template <typename scalar_t>
 void hb2st(
     HermitianBandMatrix<scalar_t>& A,
+    Matrix<scalar_t>& V,
     Options const& opts = Options());
 
 //-----------------------------------------

@@ -16,7 +16,6 @@
 #include <cstdlib>
 #include <utility>
 
-#undef PIN_MATRICES
 //------------------------------------------------------------------------------
 template<typename scalar_t>
 void test_gbmm_work(Params& params, bool run)
@@ -27,7 +26,6 @@ void test_gbmm_work(Params& params, bool run)
     using blas::max;
     using blas::min;
     using slate::Norm;
-    //using llong = long long;
 
     // Constants
     const scalar_t one = 1;
@@ -67,7 +65,7 @@ void test_gbmm_work(Params& params, bool run)
         return;
 
     if (origin != slate::Origin::ScaLAPACK) {
-        printf("skipping: currently only origin=scalapack is supported\n");
+        params.msg() = "skipping: currently only origin=scalapack is supported";
         return;
     }
 
@@ -108,13 +106,6 @@ void test_gbmm_work(Params& params, bool run)
     int64_t lldC  = blas::max(1, mlocC); // local leading dimension of C
     std::vector<scalar_t> C_data(lldC*nlocC);
 
-    #ifdef PIN_MATRICES
-        int cuerror;
-        cuerror = cudaHostRegister(&A_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
-        cuerror = cudaHostRegister(&B_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
-        cuerror = cudaHostRegister(&C_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
-    #endif
-
     auto A = slate::Matrix<scalar_t>::fromScaLAPACK(
                  Am, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -138,12 +129,11 @@ void test_gbmm_work(Params& params, bool run)
         slate::copy( C, Cref );
     }
 
+    print_matrix("A_band", A_band, params);
+    print_matrix("B", B, params);
+    print_matrix("C", C, params);
+
     if (verbose > 1) {
-        //printf("%% rank %d A2 kl %lld, ku %lld\n",
-        //       A_band.mpiRank(), A_band.lowerBandwidth(), A_band.upperBandwidth());
-        print_matrix("A_band", A_band);
-        print_matrix("B", B);
-        print_matrix("C", C);
         printf("alpha = %.4f + %.4fi;\nbeta  = %.4f + %.4fi;\n",
                real(alpha), imag(alpha),
                real(beta), imag(beta));
@@ -186,9 +176,7 @@ void test_gbmm_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    if (verbose > 1) {
-        print_matrix("C2", C);
-    }
+    print_matrix("C2", C, params);
 
     if (check || ref) {
         //printf("%% check & ref\n");
@@ -199,9 +187,7 @@ void test_gbmm_work(Params& params, bool run)
         else if (transA == slate::Op::ConjTrans)
             A = conjTranspose(A);
 
-        if (verbose > 1) {
-            print_matrix("Cref", Cref);
-        }
+        print_matrix("Cref", Cref, params);
 
         // Get norms of the original data.
         real_t A_norm = slate::norm( norm, A );
@@ -222,9 +208,7 @@ void test_gbmm_work(Params& params, bool run)
                     / (sqrt(real_t(k) + 2) * std::abs(alpha) * A_norm * B_norm
                         + 2 * std::abs(beta) * Cref_norm);
 
-        if (verbose > 1) {
-            print_matrix( "C_diff", Cref );
-        }
+        print_matrix( "C_diff", Cref, params );
 
         params.ref_time() = time;
         params.ref_gflops() = gflop / time;
@@ -235,12 +219,6 @@ void test_gbmm_work(Params& params, bool run)
         params.okay() = (params.error() <= 3*eps);
     }
     //printf("%% done\n");
-
-    #ifdef PIN_MATRICES
-        cuerror = cudaHostUnregister(&A_data[0]);
-        cuerror = cudaHostUnregister(&B_data[0]);
-        cuerror = cudaHostUnregister(&C_data[0]);
-    #endif
 }
 
 // -----------------------------------------------------------------------------

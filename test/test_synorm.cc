@@ -26,7 +26,6 @@ void test_synorm_work(Params& params, bool run)
     using blas::real;
     using blas::imag;
     using slate::ceildiv;
-    using llong = long long;
 
     // get & mark input values
     slate::Norm norm = params.norm();
@@ -64,7 +63,12 @@ void test_synorm_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
+
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data;
+    if (origin == slate::Origin::ScaLAPACK || check || ref || extended ) {
+        A_data.resize( lldA * nlocA );
+    }
 
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::SymmetricMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
@@ -84,9 +88,7 @@ void test_synorm_work(Params& params, bool run)
 
     slate::generate_matrix(params.matrix, A);
 
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+    print_matrix("A", A, params);
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
@@ -133,7 +135,7 @@ void test_synorm_work(Params& params, bool run)
         scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, lldA, &info);
         slate_assert(info == 0);
 
-        if (origin != slate::Origin::ScaLAPACK) {
+        if (origin != slate::Origin::ScaLAPACK && (check || ref || extended)) {
             copy( A, &A_data[0], A_desc );
         }
 

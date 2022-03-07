@@ -109,7 +109,7 @@ fortran_api     := $(strip $(fortran_api))
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX blas blas_int blas_threaded openmp static gpu_backend
 
-CXXFLAGS   += -O3 -std=c++17 -Wall -pedantic -MMD
+CXXFLAGS   += -O3 -std=c++17 -Wall -Wshadow -pedantic -MMD
 NVCCFLAGS  += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
 HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
 
@@ -380,15 +380,15 @@ endif
 
 # types and classes
 libslate_src += \
-        src/aux/Debug.cc \
+        src/auxiliary/Debug.cc \
+        src/auxiliary/Trace.cc \
         src/core/Memory.cc \
-        src/aux/Trace.cc \
-        src/core/types.cc \
         src/version.cc \
 
 # work
 libslate_src += \
         src/work/work_trsm.cc \
+        src/work/work_trsmA.cc \
         src/work/work_trmm.cc \
 
 # internal
@@ -409,6 +409,7 @@ libslate_src += \
         src/internal/internal_getrf_nopiv.cc \
         src/internal/internal_hebr.cc \
         src/internal/internal_hemm.cc \
+        src/internal/internal_hemmA.cc \
         src/internal/internal_hbnorm.cc \
         src/internal/internal_henorm.cc \
         src/internal/internal_her2k.cc \
@@ -424,6 +425,7 @@ libslate_src += \
         src/internal/internal_trmm.cc \
         src/internal/internal_trnorm.cc \
         src/internal/internal_trsm.cc \
+        src/internal/internal_trsmA.cc \
         src/internal/internal_trtri.cc \
         src/internal/internal_trtrm.cc \
         src/internal/internal_ttmqr.cc \
@@ -511,6 +513,7 @@ libslate_src += \
         src/unmtr_he2hb.cc \
         src/heev.cc \
         src/hemm.cc \
+        src/hemmA.cc \
         src/hbmm.cc \
         src/her2k.cc \
         src/herk.cc \
@@ -522,6 +525,7 @@ libslate_src += \
         src/pbsv.cc \
         src/pbtrf.cc \
         src/pbtrs.cc \
+        src/print.cc \
         src/posv.cc \
         src/posvMixed.cc \
         src/potrf.cc \
@@ -538,6 +542,7 @@ libslate_src += \
         src/tbsmPivots.cc \
         src/trmm.cc \
         src/trsm.cc \
+        src/trsmA.cc \
         src/trtri.cc \
         src/trtrm.cc \
         src/unmqr.cc \
@@ -596,6 +601,7 @@ tester_src += \
         test/test_heev.cc \
         test/test_hegv.cc \
         test/test_hemm.cc \
+        test/test_hb2st.cc \
         test/test_hbmm.cc \
         test/test_hbnorm.cc \
         test/test_henorm.cc \
@@ -620,7 +626,10 @@ tester_src += \
         test/test_hegst.cc \
         test/matrix_generator.cc \
         test/matrix_params.cc \
+        test/test_add.cc \
+        test/test_copy.cc \
         test/test_scale.cc \
+        test/test_set.cc \
 
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
@@ -772,13 +781,16 @@ docs:
 # C API
 ifeq ($(c_api),1)
     include/slate/c_api/wrappers.h: src/c_api/wrappers.cc
-		python tools/c_api/generate_wrappers.py $< $@
+		python tools/c_api/generate_wrappers.py $< $@ \
+			src/c_api/wrappers_precisions.cc
 
     include/slate/c_api/matrix.h: include/slate/Tile.hh
-		python tools/c_api/generate_matrix.py $< $@
+		python tools/c_api/generate_matrix.py $< $@ \
+			src/c_api/matrix.cc
 
     include/slate/c_api/util.hh: include/slate/c_api/types.h
-		python tools/c_api/generate_util.py $< $@
+		python tools/c_api/generate_util.py $< $@ \
+			src/c_api/util.cc
 
     src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h
     src/c_api/matrix.cc: include/slate/c_api/matrix.h
@@ -1020,11 +1032,10 @@ $(lapack_api_so): $(lapack_api_obj) $(libslate)
 lib: $(libslate) $(scalapack_api) $(lapack_api)
 
 clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/clean
-	rm -f $(libslate_a) $(libslate_so) $(libslate_obj)
+	rm -f $(libslate_a) $(libslate_so) $(libslate_obj) $(dep)
 	rm -f trace_*.svg
 
 distclean: clean
-	rm -f $(dep)
 	rm -f src/c_api/matrix.cc
 	rm -f src/c_api/wrappers_precisions.cc
 	rm -f src/c_api/util.cc

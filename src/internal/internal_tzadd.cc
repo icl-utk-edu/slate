@@ -95,11 +95,9 @@ void tzadd(
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// General matrix add.
+/// Trapezoidal matrix add.
 /// Dispatches to target implementations.
 /// @ingroup add_internal
-///
-/// todo: this function should just be named "add".
 template <Target target, typename scalar_t>
 void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>&& A,
          scalar_t beta, BaseTrapezoidMatrix<scalar_t>&& B,
@@ -112,13 +110,11 @@ void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>&& A,
 }
 
 //------------------------------------------------------------------------------
-/// General matrix add.
+/// Trapezoidal matrix add.
 /// assumes A & B have same tile layout and dimensions, and have same distribution
 /// TODO handle transpose A case
 /// Host OpenMP task implementation.
 /// @ingroup add_internal
-///
-/// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::HostTask>,
            scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
@@ -135,7 +131,7 @@ void add(internal::TargetType<Target::HostTask>,
 
     if (B.uplo() == Uplo::Lower) {
         for (int64_t j = 0; j < A_nt; ++j) {
-            for (int64_t i = 0; i < A_mt; ++i) {
+            for (int64_t i = j; i < A_mt; ++i) {
                 if (B.tileIsLocal(i, j)) {
                     #pragma omp task shared(A, B) priority(priority)
                     {
@@ -170,7 +166,6 @@ void add(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
-/// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::HostNest>,
            scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
@@ -181,7 +176,6 @@ void add(internal::TargetType<Target::HostNest>,
 }
 
 //------------------------------------------------------------------------------
-/// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::HostBatch>,
            scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
@@ -192,13 +186,11 @@ void add(internal::TargetType<Target::HostBatch>,
 }
 
 //------------------------------------------------------------------------------
-/// General matrix add.
+/// Trapezoidal matrix add.
 /// assumes A & B have same tile layout and dimensions, and have same distribution
 /// TODO handle transpose A case
 /// GPU device implementation.
 /// @ingroup add_internal
-///
-/// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::Devices>,
            scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
@@ -233,7 +225,7 @@ void add(internal::TargetType<Target::Devices>,
 
             if (B.uplo() == Uplo::Lower) {
                 for (int64_t j = 0; j < B.nt(); ++j) {
-                    for (int64_t i = j; j < B.mt(); ++i) {
+                    for (int64_t i = j; i < B.mt(); ++i) {
                         if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                             A_tiles_set.insert({i, j});
                             B_tiles_set.insert({i, j});
@@ -315,6 +307,8 @@ void add(internal::TargetType<Target::Devices>,
                             if (i == j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                                a_array_host[batch_count] = A(i, j, device).data();
                                b_array_host[batch_count] = B(i, j, device).data();
+                               lda[q] = A(i, j, device).stride();
+                               ldb[q] = B(i, j, device).stride();
                                ++group_count[q];
                                ++batch_count;
                             }
@@ -327,6 +321,8 @@ void add(internal::TargetType<Target::Devices>,
                             if (i ==j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                                a_array_host[batch_count] = A(i, j, device).data();
                                b_array_host[batch_count] = B(i, j, device).data();
+                               lda[q] = A(i, j, device).stride();
+                               ldb[q] = B(i, j, device).stride();
                                ++group_count[q];
                                ++batch_count;
                             }
@@ -382,13 +378,11 @@ void add(internal::TargetType<Target::Devices>,
             }
         }
     }
-
     #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
-/// todo: these functions should just be named "add".
 // ----------------------------------------
 template
 void add<Target::HostTask, float>(

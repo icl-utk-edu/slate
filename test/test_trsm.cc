@@ -26,7 +26,6 @@ void test_trsm_work(Params& params, bool run)
     using slate::Op;
     using slate::Norm;
     using blas::real;
-    // using llong = long long;
 
     // Constants
     const scalar_t one = 1;
@@ -47,7 +46,6 @@ void test_trsm_work(Params& params, bool run)
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -87,13 +85,17 @@ void test_trsm_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector< scalar_t > A_data(lldA*nlocA);
 
     // Matrix B: figure out local size.
     int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-    std::vector< scalar_t > B_data(lldB*nlocB);
+
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data, B_data;
+    if (ref || origin == slate::Origin::ScaLAPACK) {
+        A_data.resize( lldA * nlocA );
+    }
 
     slate::TriangularMatrix<scalar_t> A;
     slate::Matrix<scalar_t> B;
@@ -112,6 +114,8 @@ void test_trsm_work(Params& params, bool run)
         // create SLATE matrices from the ScaLAPACK layouts
         A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
                 uplo, diag, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+
+        B_data.resize( lldB * nlocB );
         B = slate::Matrix<scalar_t>::fromScaLAPACK(
                 Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     }
@@ -122,24 +126,21 @@ void test_trsm_work(Params& params, bool run)
     // Cholesky factor of A to get a well conditioned triangular matrix.
     // Even when we replace the diagonal with unit diagonal,
     // it seems to still be well conditioned.
-    auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                  uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+    auto AH = slate::HermitianMatrix<scalar_t>( A );
     slate::potrf( AH, opts );
 
     // if check is required, copy test data
     std::vector< scalar_t > Bref_data;
     slate::Matrix<scalar_t> Bref;
     if (check || ref) {
-        Bref_data.resize( B_data.size() );
+        Bref_data.resize( lldB * nlocB );
         Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
                    Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         slate::copy( B, Bref );
     }
 
-    if (verbose >= 2) {
-        print_matrix( "A", mlocA, nlocA, &A_data[0], lldA, p, q, MPI_COMM_WORLD);
-        print_matrix( "B", mlocB, nlocB, &B_data[0], lldB, p, q, MPI_COMM_WORLD);
-    }
+    print_matrix( "A", A, params );
+    print_matrix( "B", B, params );
 
     auto opA = A;
     if (transA == Op::Trans)
@@ -156,10 +157,18 @@ void test_trsm_work(Params& params, bool run)
     // Run SLATE test.
     // Solve AX = alpha B (left) or XA = alpha B (right).
     //==================================================
-    if (side == slate::Side::Left)
-        slate::triangular_solve(alpha, opA, B, opts);
-    else if (side == slate::Side::Right)
-        slate::triangular_solve(alpha, B, opA, opts);
+    if (side == slate::Side::Left) {
+        if (params.routine == "trsmA")
+            slate::trsmA(side, alpha, opA, B, opts);
+        else
+            slate::triangular_solve(alpha, opA, B, opts);
+    }
+    else if (side == slate::Side::Right) {
+        if (params.routine == "trsmA")
+            slate::trsmA(side, alpha, opA, B, opts);
+        else
+            slate::triangular_solve(alpha, B, opA, opts);
+    }
     else
         throw slate::Exception("unknown side");
     // Using traditional BLAS/LAPACK name
@@ -174,9 +183,7 @@ void test_trsm_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    if (verbose >= 2) {
-        print_matrix( "B_out", B, 24, 16 );
-    }
+    print_matrix( "B_out", B, params );
 
     if (check) {
         //==================================================
@@ -235,7 +242,6 @@ void test_trsm_work(Params& params, bool run)
             slate_assert(info == 0);
 
             copy( A, &A_data[0], A_desc );
-            copy( B, &B_data[0], B_desc );
 
             // set MKL num threads appropriately for parallel BLAS
             int omp_num_threads;
@@ -253,9 +259,7 @@ void test_trsm_work(Params& params, bool run)
                             &Bref_data[0], 1, 1, Bref_desc);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            if (verbose >= 2) {
-                print_matrix( "Bref_data", mlocB, nlocB, &Bref_data[0], lldB, p, q, MPI_COMM_WORLD, 24, 16 );
-            }
+            print_matrix( "Bref", Bref, params );
 
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;

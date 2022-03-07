@@ -49,6 +49,7 @@ public:
 
     using ReduceList =
         std::vector<std::tuple<int64_t, int64_t,
+                             BaseMatrix<scalar_t>,
                              std::list<BaseMatrix<scalar_t> > > >;
 
     using ij_tuple = typename MatrixStorage<scalar_t>::ij_tuple;
@@ -82,12 +83,12 @@ protected:
                MPI_Comm mpi_comm);
 
     BaseMatrix(int64_t m, int64_t n, int64_t mb, int64_t nb,
-               int p, int q, MPI_Comm mpi_comm);
+               int nprow, int npcol, MPI_Comm mpi_comm);
 
     /// With mb = nb.
     BaseMatrix(int64_t m, int64_t n, int64_t nb,
-               int p, int q, MPI_Comm mpi_comm)
-        : BaseMatrix(m, n, nb, nb, p, q, mpi_comm)
+               int nprow, int npcol, MPI_Comm mpi_comm)
+        : BaseMatrix(m, n, nb, nb, nprow, npcol, mpi_comm)
     {}
 
     BaseMatrix(BaseMatrix& orig,
@@ -146,6 +147,35 @@ public:
 
     /// Returns number of devices (per MPI process) to distribute matrix to.
     int num_devices() const { return num_devices_; }
+    void gridinfo( int* nprow, int* npcol, int* myrow, int* mycol ) const;
+
+    /// Returns tileMb function. Useful to construct matrices with the
+    /// same block size. For submatrices, this is of the parent matrix.
+    std::function<int64_t (int64_t i)> tileMbFunc() const
+    {
+        return storage_->tileMb;
+    }
+
+    /// Returns tileNb function. Useful to construct matrices with the
+    /// same block size. For submatrices, this is of the parent matrix.
+    std::function<int64_t (int64_t j)> tileNbFunc() const
+    {
+        return storage_->tileNb;
+    }
+
+    /// Returns tileRank function. Useful to construct matrices with the
+    /// same block size. For submatrices, this is of the parent matrix.
+    std::function<int (ij_tuple ij)> tileRankFunc() const
+    {
+        return storage_->tileRank;
+    }
+
+    /// Returns tileDevice function. Useful to construct matrices with the
+    /// same block size. For submatrices, this is of the parent matrix.
+    std::function<int (ij_tuple ij)> tileDeviceFunc() const
+    {
+        return storage_->tileDevice;
+    }
 
     int64_t m() const;
     int64_t n() const;
@@ -221,6 +251,9 @@ public:
     {
         return tileInsertWorkspace(i, j, host_num_, layout_);
     }
+
+    scalar_t* allocWorkspaceBuffer(int device, int64_t size);
+    void freeWorkspaceBuffer(int device, scalar_t* buffer);
 
     //--------------------------------------------------------------------------
     // MOSI
@@ -453,13 +486,16 @@ protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set);
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
                         int radix, int tag, Layout layout);
-
-    // todo: should this be private?
-    void tileReduceFromSet(int64_t i, int64_t j,
-                           std::set<int> const& reduce_set, int radix, int tag,
-                           Layout layout);
+    void tileIbcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
+                        int radix, int tag, Layout layout,
+                        std::vector<MPI_Request>& send_requests);
 
 public:
+    // todo: should this be private?
+    void tileReduceFromSet(int64_t i, int64_t j, int root_rank,
+                           std::set<int>& reduce_set, int radix, int tag,
+                           Layout layout);
+
 
     void getRanks(std::set<int>* bcast_set) const;
     void getLocalDevices(std::set<int>* dev_set) const;
@@ -569,6 +605,14 @@ public:
         return storage_->compute_queues_.at(queue_index).at(device);
     }
 
+    //--------------------------------------------------------------------------
+    /// @return number of allocated BLAS++ compute queues
+    ///
+    int numComputeQueues()
+    {
+        return int(storage_->compute_queues_.size());
+    }
+
 protected:
     std::tuple<int64_t, int64_t>
         globalIndex(int64_t i, int64_t j) const;
@@ -604,6 +648,8 @@ private:
     int64_t joffset_;   ///< block col offset with respect to original matrix
     int64_t mt_;        ///< number of local block rows in this view
     int64_t nt_;        ///< number of local block cols in this view
+    int64_t nprow_;     ///< number of process rows if 2D block cyclic
+    int64_t npcol_;     ///< number of process cols if 2D block cyclic
 
 protected:
     Uplo uplo_;         ///< upper or lower storage
@@ -637,6 +683,8 @@ BaseMatrix<scalar_t>::BaseMatrix()
       joffset_(0),
       mt_(0),
       nt_(0),
+      nprow_(-1),
+      npcol_(-1),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
@@ -673,7 +721,7 @@ BaseMatrix<scalar_t>::BaseMatrix()
 ///
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
-///     p*q == MPI_Comm_size(mpi_comm).
+///     nprow * npcol <= MPI_Comm_size( mpi_comm ).
 ///
 template <typename scalar_t>
 BaseMatrix<scalar_t>::BaseMatrix(
@@ -687,6 +735,8 @@ BaseMatrix<scalar_t>::BaseMatrix(
       col0_offset_(0),
       ioffset_(0),
       joffset_(0),
+      nprow_(-1),
+      npcol_(-1),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
@@ -745,19 +795,20 @@ BaseMatrix<scalar_t>::BaseMatrix(
 /// @param[in] nb
 ///     Column block size in 2D block-cyclic distribution. nb > 0.
 ///
-/// @param[in] p
-///     Number of block rows in 2D block-cyclic distribution. p > 0.
+/// @param[in] nprow
+///     Number of process rows in 2D block-cyclic distribution. nprow > 0.
 ///
-/// @param[in] q
-///     Number of block columns of 2D block-cyclic distribution. q > 0.
+/// @param[in] npcol
+///     Number of process cols of 2D block-cyclic distribution. npcol > 0.
 ///
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
-///     p*q == MPI_Comm_size(mpi_comm).
+///     nprow * npcol <= MPI_Comm_size( mpi_comm ).
 ///
 template <typename scalar_t>
 BaseMatrix<scalar_t>::BaseMatrix(
-    int64_t m, int64_t n, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm)
+    int64_t m, int64_t n, int64_t mb, int64_t nb,
+    int nprow, int npcol, MPI_Comm mpi_comm)
     : row0_offset_(0),
       col0_offset_(0),
       last_mb_(m % mb == 0 ? mb : m % mb),
@@ -766,11 +817,13 @@ BaseMatrix<scalar_t>::BaseMatrix(
       joffset_(0),
       mt_(ceildiv(m, mb)),
       nt_(ceildiv(n, nb)),
+      nprow_(nprow),
+      npcol_(npcol),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
       storage_(std::make_shared< MatrixStorage< scalar_t > >(
-          m, n, mb, nb, p, q, mpi_comm)),
+          m, n, mb, nb, nprow, npcol, mpi_comm)),
       mpi_comm_(mpi_comm)
 {
     slate_mpi_call(
@@ -1093,6 +1146,38 @@ void swap(BaseMatrix<scalar_t>& A, BaseMatrix<scalar_t>& B)
 }
 
 //------------------------------------------------------------------------------
+/// Get nprow, npcol, myrow, mycol for 2D block cyclic (2DBC) distribution.
+/// If SLATE doesn't know the distribution, sets all values to -1.
+/// todo: Assumes col-major 2D block cyclic distribution, not row-major.
+///
+/// @param[out] nprow
+///     Number of process rows.
+///
+/// @param[out] npcol
+///     Number of process cols.
+///
+/// @param[out] myrow
+///     Process row for this process (MPI rank).
+///
+/// @param[out] mycol
+///     Process col for this process (MPI rank).
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::gridinfo(
+    int* nprow, int* npcol, int* myrow, int* mycol ) const
+{
+    if (nprow_ > 0) {
+        *nprow = nprow_;
+        *npcol = npcol_;
+        *myrow = mpi_rank_ % nprow_;
+        *mycol = mpi_rank_ / nprow_;
+    }
+    else {
+        *nprow = *npcol = *myrow = *mycol = -1;
+    }
+}
+
+//------------------------------------------------------------------------------
 /// Get shallow copy of tile {i, j} of op(A) on given device,
 /// with the tile's op flag set to match the matrix's.
 ///
@@ -1299,6 +1384,40 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsertWorkspace(
     auto index = globalIndex(i, j, device);
     auto& tile_instance = storage_->tileInsert(index, TileKind::Workspace, layout);
     return tile_instance.tile();
+}
+
+//------------------------------------------------------------------------------
+/// Allocates a workspace buffer using the matrix's memory pool.
+/// The memory must be freed with BaseMatrix::freeWorkspaceBuffer
+///
+/// @param[in] device
+///     Device ID (GPU or Host) where the memory block is needed.
+///
+/// @param[in] size
+///     The required allocation size
+///
+/// @return Pointer to the buffer
+///
+template<typename scalar_t>
+scalar_t* BaseMatrix<scalar_t>::allocWorkspaceBuffer(int device, int64_t size)
+{
+    assert(size <= storage_->tileMb(0)*storage_->tileNb(0));
+    return storage_->allocWorkspaceBuffer(device);
+}
+
+//------------------------------------------------------------------------------
+/// Frees a workspace buffer allocated with BaseMatrix::allocWorkspaceBuffer.
+///
+/// @param[in] device
+///     Device ID (GPU or Host) where the memory block is needed.
+///
+/// @param[in] buffer
+///     Pointer to the buffer
+///
+template<typename scalar_t>
+void BaseMatrix<scalar_t>::freeWorkspaceBuffer(int device, scalar_t* buffer)
+{
+    storage_->releaseWorkspaceBuffer(buffer, device);
 }
 
 //------------------------------------------------------------------------------
@@ -1622,7 +1741,7 @@ void BaseMatrix<scalar_t>::tileRecv(
 
         // Copy to devices.
         if (target == Target::Devices) {
-            #pragma omp task default(shared)
+            #pragma omp task default(none) firstprivate(i, j)
             {
                 tileGetForReading(i, j, tileDevice(i, j), LayoutConvert::None);
             }
@@ -1723,6 +1842,8 @@ void BaseMatrix<scalar_t>::listBcast(
     int mpi_size;
     MPI_Comm_size(mpiComm(), &mpi_size);
 
+    std::vector<MPI_Request> send_requests;
+
     for (auto bcast : bcast_list) {
 
         auto i = std::get<0>(bcast);
@@ -1760,7 +1881,7 @@ void BaseMatrix<scalar_t>::listBcast(
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
             // Currently uses 2D hypercube p2p send.
-            tileBcastToSet(i, j, bcast_set, 2, tag, layout);
+            tileIbcastToSet(i, j, bcast_set, 2, tag, layout, send_requests);
         }
 
         // Copy to devices.
@@ -1777,10 +1898,10 @@ void BaseMatrix<scalar_t>::listBcast(
                     tile_set[device].insert({i, j});
             }
             else {
-                // todo: should each read be an omp task instead?
-                #pragma omp task
-                {
-                    for (auto device : dev_set) {
+                for (auto device : dev_set) {
+                    // note: dev_set structure is released after the if-target block
+                    #pragma omp task default(none) firstprivate(i, j, device, is_shared)
+                    {
                         if (is_shared) {
                             tileGetAndHold(i, j, device, LayoutConvert::None);
                         }
@@ -1797,7 +1918,7 @@ void BaseMatrix<scalar_t>::listBcast(
         if (mpi_size == 1) {
             for (int d = 0; d < num_devices(); ++d) {
                 if (! tile_set[d].empty()) {
-                    #pragma omp task default(shared)
+                    #pragma omp task default(none) firstprivate(d, is_shared) shared(tile_set)
                     {
                         if (is_shared) {
                             tileGetAndHold(tile_set[d], d, LayoutConvert::None);
@@ -1810,6 +1931,8 @@ void BaseMatrix<scalar_t>::listBcast(
             }
         }
     }
+    slate_mpi_call(
+        MPI_Waitall(send_requests.size(), send_requests.data(), MPI_STATUSES_IGNORE));
     #pragma omp taskwait
 }
 
@@ -1871,7 +1994,7 @@ void BaseMatrix<scalar_t>::listBcastMT(
         std::tuple< int64_t, int64_t, std::list<BaseMatrix<scalar_t> >, int64_t >;
 
     #pragma omp taskloop default(none) shared(bcast_list) \
-        firstprivate(life_factor,layout,mpi_size,is_shared)
+        firstprivate(life_factor, layout, mpi_size, is_shared)
     for (size_t bcastnum = 0; bcastnum < bcast_list.size(); ++bcastnum) {
 
         BcastTag bcast = bcast_list[bcastnum];
@@ -1930,7 +2053,7 @@ void BaseMatrix<scalar_t>::listBcastMT(
                     submatrix.getLocalDevices(&dev_set);
 
                 for (auto dev : dev_set) {
-                    //todo: test #pragma omp task default(shared) if (mpi_size == 1)
+                    //todo: test #pragma omp task default(none) firstprivate(i,j,dev,is_shared) if (mpi_size == 1)
                     if (is_shared)
                         tileGetAndHold(i, j, dev, LayoutConvert::None);
                     else
@@ -1952,27 +2075,30 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
 
         auto i = std::get<0>(reduce);
         auto j = std::get<1>(reduce);
-        auto submatrices_list = std::get<2>(reduce);
+        auto submatrices_dest = std::get<2>(reduce);
+        auto submatrices_list = std::get<3>(reduce);
 
         // Find the set of participating ranks.
         std::set<int> reduce_set;
-        reduce_set.insert(tileRank(i, j));      // Insert root.
+        int root_rank = submatrices_dest.tileRank(0, 0);
         for (auto submatrix : submatrices_list) // Insert sources.
             submatrix.getRanks(&reduce_set);
 
         // If this rank is in the set.
-        if (reduce_set.find(mpi_rank_) != reduce_set.end()) {
+        if (root_rank == mpi_rank_
+            || reduce_set.find(mpi_rank_) != reduce_set.end()) {
 
             // Reduce across MPI ranks.
             // Uses 2D hypercube p2p send.
-            tileReduceFromSet(i, j, reduce_set, 2, tag, layout);
+            tileReduceFromSet(i, j, root_rank, reduce_set, 2, tag, layout);
 
             // If not the tile owner.
             if (! tileIsLocal(i, j)) {
 
                 // todo: should we check its life count before erasing?
                 // Destroy the tile.
-                tileErase(i, j, host_num_);// todo: should it be a tileRelease()?
+                // XXX we comment the tileErase for now
+              //tileErase(i, j, host_num_);// todo: should it be a tileRelease()?
             }
             else {
                 tileModified(i, j);
@@ -2091,6 +2217,49 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     int64_t i, int64_t j, std::set<int> const& bcast_set,
     int radix, int tag, Layout layout)
 {
+    std::vector<MPI_Request> requests;
+    requests.reserve(radix);
+
+    tileIbcastToSet(i, j, bcast_set, radix, tag, layout, requests);
+    slate_mpi_call(MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE));
+}
+
+//------------------------------------------------------------------------------
+/// [internal]
+/// Broadcast tile {i, j} to all MPI ranks in the bcast_set.
+/// This should be called by all (and only) ranks that are in bcast_set,
+/// as either the root sender or a receiver.
+/// This function implements a custom pattern using sends and receives.
+/// Data received must be in 'layout' (ColMajor/RowMajor) major.
+/// Nonblocking sends are used, with requests appended to the provided vector.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] bcast_set
+///     Set of MPI ranks to broadcast to.
+///
+/// @param[in] radix
+///     Radix of the communication pattern.
+///
+/// @param[in] tag
+///     MPI tag, default 0.
+///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the received data.
+///
+/// @param[in,out] send_requests
+///     Vector where requests for this bcast are appended.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileIbcastToSet(
+    int64_t i, int64_t j, std::set<int> const& bcast_set,
+    int radix, int tag, Layout layout,
+    std::vector<MPI_Request>& send_requests)
+{
     // Quit if only root in the broadcast set.
     if (bcast_set.size() == 1)
         return;
@@ -2133,19 +2302,13 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
     if (! send_to.empty()) {
         // read tile on host memory
         tileGetForReading(i, j, LayoutConvert(layout));
-        // Forward using mpi_send()
-        // for (int dst : send_to)
-        //     at(i, j).send(new_vec[dst], mpi_comm_, tag);
 
-        // Forward using multiple mpi_isend() calls, followed by a waitall
-        std::vector<MPI_Request> isend_req_array(send_to.size(), MPI_REQUEST_NULL);
-        int idx=0;
+        // Forward using multiple mpi_isend() calls
         for (int dst : send_to) {
-            at(i, j).isend(new_vec[dst], mpi_comm_, tag, &isend_req_array[idx]);
-            idx++;
+            MPI_Request request;
+            at(i, j).isend(new_vec[dst], mpi_comm_, tag, &request);
+            send_requests.push_back(request);
         }
-        slate_mpi_call(
-            MPI_Waitall(isend_req_array.size(), &isend_req_array[0], MPI_STATUSES_IGNORE));
     }
 }
 
@@ -2155,12 +2318,14 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileReduceFromSet(
-    int64_t i, int64_t j, std::set<int> const& reduce_set, int radix, int tag,
-    Layout layout)
+    int64_t i, int64_t j, int root_rank, std::set<int>& reduce_set,
+    int radix, int tag, Layout layout)
 {
-    // Quit if only root in the reduction set.
-    if (reduce_set.size() == 1)
+    // Quit if the reduction set is empty
+    if (reduce_set.empty())
         return;
+
+    reduce_set.insert(root_rank);
 
     // Convert the set to a vector.
     std::vector<int> reduce_vec(reduce_set.begin(), reduce_set.end());
@@ -2169,7 +2334,6 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
     std::sort(reduce_vec.begin(), reduce_vec.end());
 
     // Find root.
-    int root_rank = tileRank(i, j);
     auto root_iter = std::find(reduce_vec.begin(), reduce_vec.end(), root_rank);
 
     // Shift root to position zero.
@@ -2191,20 +2355,23 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
         tileGetForReading(i, j, LayoutConvert(layout));
     }
 
-    std::vector<scalar_t> data(tileMb(i)*tileNb(j));
-    Tile<scalar_t> tile(tileMb(i), tileNb(j), &data[0], tileMb(i), host_num_, TileKind::Workspace);
+    auto Aij = at(i, j);
+
+    std::vector<scalar_t> data(Aij.mb() * Aij.nb());
+    int64_t lda = (Aij.op() == Op::NoTrans ? Aij.mb() : Aij.nb());
+    Tile<scalar_t> tile(Aij, &data[0], lda, TileKind::Workspace);
 
     // Receive, accumulate.
     for (int src : recv_from) {
         // Receive.
         tile.recv(new_vec[src], mpi_comm_, layout, tag);
         // Accumulate.
-        axpy(scalar_t(1.0), tile, at(i, j));
+        axpy(scalar_t(1.0), tile, Aij);
     }
 
     // Forward.
     if (! send_to.empty())
-        at(i, j).send(new_vec[send_to.front()], mpi_comm_, tag);
+        Aij.send(new_vec[send_to.front()], mpi_comm_, tag);
 }
 
 //------------------------------------------------------------------------------
@@ -2354,14 +2521,14 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             dst_tile->layoutConvert(*queue, async);
         }
         else if (copy_first) {
-            blas::Queue* queue = comm_queue(work_device);
+            blas::Queue* queue2 = comm_queue(work_device);
 
             int64_t work_stride = src_tile->stride();
 
             Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
                                      work_stride, work_device,
                                      TileKind::Workspace, src_tile->layout());
-            src_tile->copyData(&work_tile, *queue, async);
+            src_tile->copyData(&work_tile, *queue2, async);
 
             if (dst_tile->isContiguous()) {
                 dst_tile->stride( src_tile->layout() == Layout::ColMajor ?
@@ -2377,12 +2544,12 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             device::transpose(phys_mb, phys_nb,
                               work_data, work_stride,
                               dst_data, dst_tile->stride(),
-                              *queue);
+                              *queue2);
             if (! async)
-                queue->sync();
+                queue2->sync();
         }
         else {
-            blas::Queue* queue = comm_queue(work_device);
+            blas::Queue* queue2 = comm_queue(work_device);
 
             int64_t work_stride = src_tile->layout() == Layout::ColMajor ?
                                   src_tile->nb() :
@@ -2397,14 +2564,14 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             device::transpose(phys_mb, phys_nb,
                               src_data, src_tile->stride(),
                               work_data, work_stride,
-                              *queue);
+                              *queue2);
             Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
                                      work_stride, work_device,
                                      TileKind::Workspace, target_layout);
             if (dst_tile->isContiguous())
                 dst_tile->stride(work_stride);
 
-            work_tile.copyData(dst_tile, *queue, async);
+            work_tile.copyData(dst_tile, *queue2, async);
 
             if (! async)
                 queue->sync();
@@ -2725,7 +2892,7 @@ void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
     }
 
     //todo: was tileGet(tile_set, device, layout, false, false, device != hostNum());
-    //todo: changed asyn to false to make it work using HIP 
+    //todo: changed async to false to make it work using HIP
     tileGet(tile_set, device, layout, false, false, false);
 
     if (device != hostNum())
@@ -3016,7 +3183,7 @@ void BaseMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert layout)
     {
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set)
                 {
                     tileGetForReading(tiles_set[d], d, layout);
                 }
@@ -3051,7 +3218,7 @@ void BaseMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert layout)
     {
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set)
                 {
                     tileGetForWriting(tiles_set[d], d, layout);
                 }
@@ -3086,7 +3253,7 @@ void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices(LayoutConvert layout)
     {
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set)
                 {
                     tileGetAndHold(tiles_set[d], d, layout);
                 }
@@ -3189,13 +3356,13 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
     {
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set_host[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d) shared(tiles_set_host)
                 {
                     tileGetForReading(tiles_set_host[d], LayoutConvert::None, d);
                 }
             }
             if (! tiles_set_dev[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d) shared(tiles_set_dev)
                 {
                     tileGetForReading(tiles_set_dev[d], d, LayoutConvert::None);
                 }
@@ -3316,7 +3483,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
         for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
             int64_t i = std::get<0>(*iter);
             int64_t j = std::get<1>(*iter);
-            #pragma omp task
+            #pragma omp task default(none) firstprivate(i, j, device, layout, reset)
             {
                 tileLayoutConvert(i, j, device, layout, reset);
             }
@@ -3478,7 +3645,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
 
         if (reset) {
             for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
-                // #pragma omp task
+                // #pragma omp task default(none)
                 {
                     int64_t i = std::get<0>(*iter);
                     int64_t j = std::get<1>(*iter);
@@ -3553,7 +3720,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvertOnDevices(Layout layout, bool reset)
     {
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(shared)
+                #pragma omp task default(none) firstprivate(d, layout, reset) shared(tiles_set)
                 {
                     tileLayoutConvert(tiles_set[d], d, layout, reset);
                 }
@@ -3639,16 +3806,19 @@ void BaseMatrix<scalar_t>::tileLayoutReset()
     #pragma omp taskgroup
     {
         if (! tiles_set_host.empty()) {
-            #pragma omp task default(shared)
+            auto layout = this->layout();
+            auto host_num = host_num_;
+            #pragma omp task default(none) firstprivate(host_num, layout) shared(tiles_set_host)
             {
-                tileLayoutReset(tiles_set_host, host_num_, this->layout());
+                tileLayoutReset(tiles_set_host, host_num, layout);
             }
         }
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set_dev[d].empty()) {
-                #pragma omp task default(shared)
+                auto layout = this->layout();
+                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set_dev)
                 {
-                    tileLayoutReset(tiles_set_dev[d], d, this->layout());
+                    tileLayoutReset(tiles_set_dev[d], d, layout);
                 }
             }
         }

@@ -28,7 +28,6 @@ void test_gbnorm_work(Params& params, bool run)
     using blas::min;
     using blas::max;
     using slate::ceildiv;
-    //using llong = long long;
 
     // get & mark input values
     slate::Norm norm = params.norm();
@@ -54,7 +53,7 @@ void test_gbnorm_work(Params& params, bool run)
         return;
 
     if (origin != slate::Origin::ScaLAPACK) {
-        printf("skipping: currently only origin=scalapack is supported\n");
+        params.msg() = "skipping: currently only origin=scalapack is supported";
         return;
     }
 
@@ -85,12 +84,7 @@ void test_gbnorm_work(Params& params, bool run)
     auto A = BandFromScaLAPACK(
                  m, n, kl, ku, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
-    if (verbose > 2) {
-        print_matrix("A_data", mlocA, nlocA, &A_data[0], lldA, p, q, MPI_COMM_WORLD);
-    }
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+    print_matrix("A", A, params);
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();

@@ -4,7 +4,7 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "aux/Debug.hh"
+#include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "slate/HermitianMatrix.hh"
 #include "slate/Tile_blas.hh"
@@ -12,69 +12,6 @@
 #include "internal/internal.hh"
 
 namespace slate {
-
-// specialization namespace differentiates, e.g.,
-// internal::hesv from internal::specialization::hesv
-namespace internal {
-namespace specialization {
-
-//------------------------------------------------------------------------------
-/// Distributed parallel Hermitian indefinite $LTL^T$ factorization and solve.
-/// Generic implementation for any target.
-/// @ingroup hesv_specialization
-///
-template <Target target, typename scalar_t>
-void hesv(slate::internal::TargetType<target>,
-          HermitianMatrix<scalar_t>& A, Pivots& pivots,
-               BandMatrix<scalar_t>& T, Pivots& pivots2,
-                   Matrix<scalar_t>& H,
-          Matrix<scalar_t>& B,
-          int64_t ib, int64_t max_panel_threads, int64_t lookahead)
-{
-    assert(B.mt() == A.mt());
-
-    // if upper, change to lower
-    if (A.uplo() == Uplo::Upper)
-        A = conjTranspose(A);
-
-    // factorization
-    hetrf(A, pivots, T, pivots2, H,
-          {{Option::InnerBlocking,   ib},
-           {Option::MaxPanelThreads, max_panel_threads},
-           {Option::Lookahead,       lookahead},
-           {Option::Target, target}});
-
-    // solve
-    hetrs(A, pivots, T, pivots2, B,
-          {{Option::Lookahead, lookahead},
-           {Option::Target, target}});
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup hesv_specialization
-///
-template <Target target, typename scalar_t>
-void hesv(HermitianMatrix<scalar_t>& A, Pivots& pivots,
-               BandMatrix<scalar_t>& T, Pivots& pivots2,
-                   Matrix<scalar_t>& H,
-          Matrix<scalar_t>& B,
-          Options const& opts)
-{
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
-    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
-
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::hesv(internal::TargetType<target>(),
-                                   A, pivots, T, pivots2, H, B,
-                                   ib, max_panel_threads, lookahead);
-}
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Hermitian indefinite $LTL^T$ factorization and solve.
@@ -161,24 +98,19 @@ void hesv(HermitianMatrix<scalar_t>& A, Pivots& pivots,
           Matrix<scalar_t>& B,
           Options const& opts)
 {
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+    assert(B.mt() == A.mt());
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            hesv<Target::HostTask>(A, pivots, T, pivots2, H, B, opts);
-            break;
-        case Target::HostNest:
-            //hesv<Target::HostNest>(A, B, opts);
-            break;
-        case Target::HostBatch:
-             //hesv<Target::HostBatch>(A, B, opts);
-            break;
-        case Target::Devices:
-            //posv<Target::Devices>(A, B, opts);
-            break;
-    }
-    // todo: return value for errors?
+    auto A_ = A;  // local shallow copy to transpose
+
+    // if upper, change to lower
+    if (A_.uplo() == Uplo::Upper)
+        A_ = conjTranspose(A_);
+
+    // factorization
+    hetrf(A_, pivots, T, pivots2, H, opts);
+
+    // solve
+    hetrs(A_, pivots, T, pivots2, B, opts);
 }
 
 //------------------------------------------------------------------------------

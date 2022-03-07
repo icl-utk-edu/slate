@@ -94,7 +94,7 @@ extern "C" void pzpotrf_(const char* uplo, int* n, std::complex<double>* a, int*
 template< typename scalar_t >
 void slate_ppotrf(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, int* info)
 {
-    // todo: figure out if the pxq grid is in row or column
+    check_and_assert_blacs_grid_is_column_major();
 
     // make blas single threaded
     // todo: does this set the omp num threads correctly
@@ -109,12 +109,12 @@ void slate_ppotrf(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* 
     int64_t An = n;
 
     // create SLATE matrices from the ScaLAPACK layouts
-    int nprow, npcol, myrow, mycol;
-    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myrow, &mycol);
+    int nprow, npcol, myprow, mypcol;
+    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
     auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(An, An, A, ia, ja, desca);
 
-    if (verbose && myrow == 0 && mycol == 0)
+    if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "potrf");
 
     slate::potrf(A, {

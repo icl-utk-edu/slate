@@ -35,6 +35,9 @@ enum class Dist {
 } // namespace slate
 
 // -----------------------------------------------------------------------------
+using llong = long long;
+
+// -----------------------------------------------------------------------------
 class Params: public testsweeper::ParamsBase {
 public:
     const double inf = std::numeric_limits<double>::infinity();
@@ -60,6 +63,9 @@ public:
     testsweeper::ParamDouble tol;
     testsweeper::ParamInt    repeat;
     testsweeper::ParamInt    verbose;
+    testsweeper::ParamInt    print_edgeitems;
+    testsweeper::ParamInt    print_width;
+    testsweeper::ParamInt    print_precision;
     testsweeper::ParamInt    extended;
     testsweeper::ParamInt    cache;
 
@@ -118,6 +124,7 @@ public:
     testsweeper::ParamInt    panel_threads;
     testsweeper::ParamInt    align;
     testsweeper::ParamChar   nonuniform_nb;
+    testsweeper::ParamInt    debug;
 
     // ----- output parameters
     testsweeper::ParamScientific error;
@@ -132,6 +139,8 @@ public:
 
     testsweeper::ParamDouble     time;
     testsweeper::ParamDouble     gflops;
+    testsweeper::ParamDouble     time2;
+    testsweeper::ParamDouble     gflops2;
     testsweeper::ParamInt        iters;
 
     testsweeper::ParamDouble     ref_time;
@@ -139,6 +148,7 @@ public:
     testsweeper::ParamInt        ref_iters;
 
     testsweeper::ParamOkay       okay;
+    testsweeper::ParamString     msg;
 
     std::string              routine;
 };
@@ -223,8 +233,11 @@ void test_hbnorm (Params& params, bool run);
 void test_synorm (Params& params, bool run);
 void test_trnorm (Params& params, bool run);
 
-// Scaling Matrix
-void test_scale (Params& params, bool run);
+// auxiliary matrix routines
+void test_add    (Params& params, bool run);
+void test_copy   (Params& params, bool run);
+void test_scale  (Params& params, bool run);
+void test_set    (Params& params, bool run);
 
 // -----------------------------------------------------------------------------
 inline slate::Dist str2dist(const char* dist)

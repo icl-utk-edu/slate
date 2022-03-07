@@ -16,7 +16,7 @@ namespace internal {
 
 MPI_Comm commFromSet(const std::set<int>& bcast_set,
                      MPI_Comm mpi_comm, MPI_Group mpi_group,
-                     const int in_rank, int& out_rank)
+                     const int in_rank, int& out_rank, int tag)
 {
     // Convert the set of ranks to a vector.
     std::vector<int> bcast_vec(bcast_set.begin(), bcast_set.end());
@@ -29,7 +29,6 @@ MPI_Comm commFromSet(const std::set<int>& bcast_set,
                        &bcast_group));
 
     // Create a broadcast communicator.
-    int tag = 0;
     MPI_Comm bcast_comm;
     #pragma omp critical(slate_mpi)
     {

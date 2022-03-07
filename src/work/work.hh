@@ -35,6 +35,13 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                                Matrix<scalar_t> B,
           uint8_t* row, int64_t lookahead=1);
 
+//-----------------------------------------
+// trsmA()
+template <Target target=Target::HostTask, typename scalar_t>
+void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
+                                                Matrix<scalar_t> B,
+          uint8_t* row, int64_t lookahead=1);
+
 } // namespace work
 } // namespace slate
 

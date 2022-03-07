@@ -91,7 +91,7 @@ extern "C" void pzgetrf_(int* m, int* n, std::complex<double>* a, int* ia, int* 
 template< typename scalar_t >
 void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, int* info)
 {
-    // todo: figure out if the pxq grid is in row or column
+    check_and_assert_blacs_grid_is_column_major();
 
     // make blas single threaded
     // todo: does this set the omp num threads correctly
@@ -109,12 +109,12 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
     slate::Pivots pivots;
 
     // create SLATE matrices from the ScaLAPACK layouts
-    int nprow, npcol, myrow, mycol;
-    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myrow, &mycol);
+    int nprow, npcol, myprow, mypcol;
+    Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
     auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
 
-    if (verbose && myrow == 0 && mycol == 0)
+    if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "getrf");
 
     slate::getrf(A, pivots, {
@@ -126,39 +126,26 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
 
     // Extract pivots from SLATE's global Pivots structure into ScaLAPACK local ipiv array
     {
-        int64_t p_count = 0;
-        int nb = desc_MB(desca);
-
-
-        // NOTE: this is not the most efficient way, instead use local tile index directly to avoid looping over tiles
-        // int64_t A_nt = A.nt();
-        // int64_t A_mt = A.mt();
-        // for (int tm = 0; tm < A_mt; ++tm) {
-        //     for (int tn = 0; tn < A_nt; ++tn) {
-        //         if (A.tileIsLocal(tm, tn)) {
-        //             for (auto p_iter = pivots[tm].begin(); p_iter != pivots[tm].end(); ++p_iter) {
-        //                 ipiv[p_count++] = p_iter->tileIndex() * nb + p_iter->elementOffset() + 1;
-        //             }
-        //             break;
-        //         }
-        //     }
-        // }
-
-        int ZERO = 0;
-        int l_numrows = scalapack_numroc(An, nb, myrow, ZERO, nprow);  // local number of rows
-        int l_rindx = 1;// local row index (Scalapack 1-index)
-        // find the global tile indices of the local tiles
-        while (l_rindx <= l_numrows) {
-            int64_t g_rindx = scalapack_indxl2g(&l_rindx, &nb, &myrow, &ZERO, &nprow);
-            int64_t g_tile_indx = g_rindx / nb; //assuming uniform tile size from Scalapack
-            // extract this tile pivots
-            for (auto p_iter = pivots[g_tile_indx].begin();
-                 p_iter != pivots[g_tile_indx].end();
-                 ++p_iter) {
-                ipiv[p_count++] = p_iter->tileIndex() * nb + p_iter->elementOffset() + 1;
-            }
-            //next tile
-            l_rindx += nb;
+        int isrcproc0 = 0;
+        int nb = desc_MB(desca); // ScaLAPACK style fixed nb
+        int64_t l_numrows = scalapack_numroc(An, nb, myprow, isrcproc0, nprow);
+        // l_ipiv_rindx local ipiv row index (Scalapack 1-index)
+        // for each local ipiv entry, find corresponding local-pivot and swap-pivot
+        for (int l_ipiv_rindx=1; l_ipiv_rindx<=l_numrows; ++l_ipiv_rindx) {
+            // for ipiv index, convert to global indexing
+            int64_t g_ipiv_rindx = scalapack_indxl2g(&l_ipiv_rindx, &nb, &myprow, &isrcproc0, &nprow);
+            // assuming uniform nb from scalapack (note 1-indexing)
+            // figure out pivots(tile-index, offset)
+            int64_t g_ipiv_tile_indx = (g_ipiv_rindx - 1) / nb;
+            int64_t g_ipiv_tile_offset = (g_ipiv_rindx -1 ) % nb;
+            // get the reference to pivot corresponding to current ipiv
+            Pivot pivot = pivots[g_ipiv_tile_indx][g_ipiv_tile_offset];
+            // get swap information from pivot
+            int64_t tileIndexSwap = pivot.tileIndex();
+            int64_t elementOffsetSwap = pivot.elementOffset();
+            // scalapack 1-index
+            // pivots reference local submatrix; so shift by g_ipiv_tile_indx
+            ipiv[l_ipiv_rindx-1] = ((tileIndexSwap+g_ipiv_tile_indx) * nb) + (elementOffsetSwap + 1);
         }
     }
 

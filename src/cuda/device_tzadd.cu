@@ -64,7 +64,7 @@ __global__ void tzaddKernel(
             for (int64_t j = n-1; j >= ridx; --j) { // upper
                  rowB[j*ldb] = axpby(alpha, rowA[j*lda], beta, rowB[j*ldb]);
             }
-       }
+        }
     }
 }
 
@@ -111,6 +111,8 @@ void tzadd(
 
     // Max threads/block=1024 for current CUDA compute capability (<=7.5)
     int64_t nthreads = std::min((int64_t)1024, m);
+
+    cudaSetDevice( queue.device() );
 
     tzaddKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         uplo,

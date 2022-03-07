@@ -509,8 +509,9 @@ template <typename scalar_t>
 HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::slice(
     int64_t index1, int64_t index2)
 {
-    return HermitianMatrix<scalar_t>(*this,
-        typename BaseMatrix<scalar_t>::Slice(index1, index2, index1, index2));
+    return HermitianMatrix<scalar_t>(
+               *this, typename BaseMatrix<scalar_t>::Slice( index1, index2,
+                                                            index1, index2 ));
 }
 
 //------------------------------------------------------------------------------
@@ -538,8 +539,9 @@ Matrix<scalar_t> HermitianMatrix<scalar_t>::slice(
     int64_t row1, int64_t row2,
     int64_t col1, int64_t col2)
 {
-    return Matrix<scalar_t>(*this,
-        typename BaseMatrix<scalar_t>::Slice(row1, row2, col1, col2));
+    return Matrix<scalar_t>(
+               *this, typename BaseMatrix<scalar_t>::Slice( row1, row2,
+                                                            col1, col2 ));
 }
 
 //------------------------------------------------------------------------------

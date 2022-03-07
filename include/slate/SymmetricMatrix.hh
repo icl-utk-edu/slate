@@ -79,9 +79,15 @@ public:
 
     SymmetricMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig);
 
+    SymmetricMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig,
+                    typename BaseMatrix<scalar_t>::Slice slice);
+
     // on-diagonal sub-matrix
     SymmetricMatrix sub(int64_t i1, int64_t i2);
     SymmetricMatrix slice(int64_t index1, int64_t index2);
+
+    SymmetricMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig,
+                    int64_t i1, int64_t i2);
 
     // off-diagonal sub-matrix
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
@@ -381,6 +387,27 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 {}
 
 //------------------------------------------------------------------------------
+/// Sub-matrix constructor creates shallow copy view of parent matrix,
+/// A[ i1:i2, i1:i2 ]. The new view is still a Symmetric matrix, with the
+/// same diagonal as the parent matrix.
+///
+/// @param[in,out] orig
+///     Original matrix.
+///
+/// @param[in] i1
+///     Starting block row and column index. 0 <= i1 < mt.
+///
+/// @param[in] i2
+///     Ending block row and column index (inclusive). i2 < mt.
+///
+template <typename scalar_t>
+SymmetricMatrix<scalar_t>::SymmetricMatrix(
+    Uplo uplo, BaseMatrix<scalar_t>& orig,
+    int64_t i1, int64_t i2)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, orig, i1, i2, i1, i2)
+{}
+
+//------------------------------------------------------------------------------
 /// Returns sub-matrix that is a shallow copy view of the
 /// parent matrix, A[ i1:i2, i1:i2 ].
 /// This version returns a SymmetricMatrix with the same diagonal as the
@@ -448,6 +475,26 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 {}
 
 //------------------------------------------------------------------------------
+/// Sliced matrix constructor creates shallow copy view of parent matrix,
+/// A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+/// Assumes that row1 == col1 and row2 == col2 (@see slice()).
+///
+/// @param[in] orig
+///     Original matrix of which to make sub-matrix.
+///
+/// @param[in] slice
+///     Contains start and end row and column indices.
+///
+template <typename scalar_t>
+SymmetricMatrix<scalar_t>::SymmetricMatrix(
+    Uplo uplo, BaseMatrix<scalar_t>& orig, typename BaseMatrix<scalar_t>::Slice slice)
+    : BaseTrapezoidMatrix<scalar_t>(orig, slice)
+{
+    this->uplo_ = uplo;
+}
+
+//------------------------------------------------------------------------------
 /// Returns sliced matrix that is a shallow copy view of the
 /// parent matrix, A[ index1:index2, index1:index2 ].
 /// This takes row & col indices instead of block row & block col indices.
@@ -462,8 +509,9 @@ template <typename scalar_t>
 SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::slice(
     int64_t index1, int64_t index2)
 {
-    return SymmetricMatrix<scalar_t>(*this,
-        typename BaseMatrix<scalar_t>::Slice(index1, index2, index1, index2));
+    return SymmetricMatrix<scalar_t>(
+               *this, typename BaseMatrix<scalar_t>::Slice( index1, index2,
+                                                            index1, index2 ));
 }
 
 //------------------------------------------------------------------------------
@@ -491,8 +539,9 @@ Matrix<scalar_t> SymmetricMatrix<scalar_t>::slice(
     int64_t row1, int64_t row2,
     int64_t col1, int64_t col2)
 {
-    return Matrix<scalar_t>(*this,
-        typename BaseMatrix<scalar_t>::Slice(row1, row2, col1, col2));
+    return Matrix<scalar_t>(
+               *this, typename BaseMatrix<scalar_t>::Slice( row1, row2,
+                                                            col1, col2 ));
 }
 
 //------------------------------------------------------------------------------

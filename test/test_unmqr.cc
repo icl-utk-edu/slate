@@ -3,10 +3,22 @@
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
+#include "slate/slate.hh"
 #include "test.hh"
+#include "blas/flops.hh"
 #include "lapack/flops.hh"
 #include "print_matrix.hh"
 #include "grid_utils.hh"
+
+#include "scalapack_wrappers.hh"
+#include "scalapack_support_routines.hh"
+#include "scalapack_copy.hh"
+
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <utility>
+#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_unmqr_work(Params& params, bool run)
@@ -29,7 +41,6 @@ void test_unmqr_work(Params& params, bool run)
     int64_t panel_threads = params.panel_threads();
     bool check = params.check() == 'y';
     bool trace = params.trace() == 'y';
-    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -37,8 +48,10 @@ void test_unmqr_work(Params& params, bool run)
     // mark non-standard output values
     params.time();
     params.gflops();
-    params.ref_time();
-    params.ref_gflops();
+    params.time2();
+    params.time2.name( "qr_time(s)" );
+    params.gflops2();
+    params.gflops2.name( "qr_gflops" );
 
     if (! run)
         return;
@@ -62,9 +75,9 @@ void test_unmqr_work(Params& params, bool run)
     std::vector<scalar_t> A_data;
 
     slate::Matrix<scalar_t> A;
-    slate::Target origin_target = origin2target(origin);
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
+        slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
     }
@@ -78,11 +91,9 @@ void test_unmqr_work(Params& params, bool run)
 
     slate::TriangularFactors<scalar_t> T;
 
-    if (verbose > 1) {
-        print_matrix("A", A);
-    }
+        print_matrix("A", A, params);
 
-    // For checks, keep copy of original matrix A.
+    // Keep copy of original matrix A.
     slate::Matrix<scalar_t> Aref;
     std::vector<scalar_t> Aref_data;
     real_t A_norm = 0; //initialize to prevent compiler warning
@@ -94,67 +105,59 @@ void test_unmqr_work(Params& params, bool run)
     // For simplicity, always use ScaLAPACK format for Aref.
     Aref_data.resize( lldA * nlocA );
     Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+               m, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     slate::copy(A, Aref);
 
-    //==================================================
-    // Run SLATE test.
-    //==================================================
+
+    double time_qr = barrier_get_wtime(MPI_COMM_WORLD);
+
     slate::qr_factor(A, T, opts);
     // Using traditional BLAS/LAPACK name
     // slate::geqrf(A, T, opts);
 
-    if (verbose > 1) {
-        A.tileGetAllForReading(slate::HostNum, slate::LayoutConvert::None); 
-        print_matrix("A_factored", A);
-        print_matrix("Tlocal",  T[0]);
-        print_matrix("Treduce", T[1]);
-    }
+    time_qr = barrier_get_wtime(MPI_COMM_WORLD) - time_qr;
+
+    double gflops_qr = lapack::Gflop<scalar_t>::geqrf(m, n);
+
+    // compute and save timing/performance
+    params.time2() = time_qr;
+    params.gflops2() = gflops_qr / time_qr;
+
+    print_matrix("A_factored", A, params);
+    print_matrix("Tlocal",  T[0], params);
+    print_matrix("Treduce", T[1], params);
 
     //==================================================
-    // Test results by checking backwards error
+    // Check backwards error
     //
     //      || QR - A ||_1
     //     ---------------- < tol * epsilon
     //      || A ||_1 * m
     //
     //==================================================
+
     // R is the upper part of A matrix.
     slate::TrapezoidMatrix<scalar_t> R(slate::Uplo::Upper, slate::Diag::NonUnit, A);
 
     std::vector<scalar_t> QR_data(Aref_data.size(), zero);
-    slate::Matrix<scalar_t> QR_host = slate::Matrix<scalar_t>::fromScaLAPACK(
+    slate::Matrix<scalar_t> QR = slate::Matrix<scalar_t>::fromScaLAPACK(
                                      m, n, &QR_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-    slate::Matrix<scalar_t> QR(m, n, nb, p, q, MPI_COMM_WORLD);
-    QR.insertLocalTiles(origin_target);
-    slate::copy(QR_host, QR);
 
     // R1 is the upper part of QR matrix.
-    slate::TrapezoidMatrix<scalar_t> R1(slate::Uplo::Upper, slate::Diag::NonUnit, QR_host);
+    slate::TrapezoidMatrix<scalar_t> R1(slate::Uplo::Upper, slate::Diag::NonUnit, QR);
 
     // Copy A's upper trapezoid R to QR's upper trapezoid R1.
     slate::copy(R, R1);
-    
-    if (verbose > 1) {
-        print_matrix("R", QR_host);
-    }
-    
-    if (! check) {
-        // prefetch all matrices to devices
-        // when performance of unmqr is measured
-        A.tileGetAllForReadingOnDevices(slate::LayoutConvert::None);
-        QR.tileGetAllForWritingOnDevices(slate::LayoutConvert::None); 
-    }
+
+    print_matrix("R", QR, params);
 
     if (trace) slate::trace::Trace::on();
-    else slate::trace::Trace::off();
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time = testsweeper::get_wtime();
+    double time_unmqr = barrier_get_wtime(MPI_COMM_WORLD);
 
+    //==================================================
+    // Run SLATE test.
+    //==================================================
     // Multiply QR by Q (implicitly stored in A and T).
     // Form QR, where Q's representation is in A and T, and R is in QR.
     slate::qr_multiply_by_q(
@@ -163,23 +166,17 @@ void test_unmqr_work(Params& params, bool run)
     // slate::unmqr(
     //     slate::Side::Left, slate::Op::NoTrans, A, T, QR, opts);
 
-    {
-        slate::trace::Block trace_block("MPI_Barrier");
-        MPI_Barrier(MPI_COMM_WORLD);
-    }
-    double time_tst = testsweeper::get_wtime() - time;
+    time_unmqr = barrier_get_wtime(MPI_COMM_WORLD) - time_unmqr;
 
     if (trace) slate::trace::Trace::finish();
-    slate::copy(QR, QR_host);
+
+    print_matrix("QR", QR, params);
+
+    double gflops_unmqr = lapack::Gflop<scalar_t>::unmqr(lapack::Side::Left, m, n, n);
 
     // compute and save timing/performance
-    params.time() = time_tst;
-    double gflop = lapack::Gflop<scalar_t>::unmqr(lapack::Side::Left, m, n, n);
-    params.gflops() = gflop / time_tst;
-
-    if (verbose > 1) {
-        print_matrix("QR", QR);
-    }
+    params.time() = time_unmqr;
+    params.gflops() = gflops_unmqr / time_unmqr;
 
     if (check) {
         // QR should now have the product Q*R, which should equal the original A.
@@ -188,9 +185,7 @@ void test_unmqr_work(Params& params, bool run)
         // todo: slate::add(-one, Aref, QR);
         // using axpy assumes Aref_data and QR_data have same lda.
         blas::axpy(QR_data.size(), -one, &Aref_data[0], 1, &QR_data[0], 1);
-        if (verbose > 1) {
-            print_matrix("QR - A", QR);
-        }
+        print_matrix("QR - A", QR, params);
 
         // Norm of backwards error: || QR - A ||_1
         real_t R_norm = slate::norm(slate::Norm::One, QR);
@@ -201,7 +196,6 @@ void test_unmqr_work(Params& params, bool run)
         params.okay() = (params.error() <= tol);
     }
 }
-
 // -----------------------------------------------------------------------------
 void test_unmqr(Params& params, bool run)
 {

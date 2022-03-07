@@ -440,6 +440,7 @@ if (opts.least_squares):
 if (opts.qr):
     cmds += [
     [ 'geqrf', gen + dtype + la + mn ],
+    [ 'unmqr', gen + dtype + la + mn ],
     #[ 'ggqrf', gen + dtype + la + mnk ],
     #[ 'ungqr', gen + dtype + la + mn ],  # m >= n
     #[ 'unmqr', gen + dtype_real    + la + mnk + side + trans    ],  # real does trans = N, T, C

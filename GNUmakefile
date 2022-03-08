@@ -4,6 +4,10 @@
 # the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 #
 # See INSTALL.md for documentation.
+#
+# Set only_unit=1 to avoid compiling most of the SLATE library,
+# which isn't needed by most unit testers (except test_lq, test_qr).
+# Useful to avoid expensive recompilation when debugging headers.
 
 -include make.inc
 
@@ -385,15 +389,15 @@ libslate_src += \
         src/core/Memory.cc \
         src/version.cc \
 
-# work
-libslate_src += \
-        src/work/work_trsm.cc \
-        src/work/work_trsmA.cc \
-        src/work/work_trmm.cc \
-
 # internal
 libslate_src += \
         src/internal/internal_comm.cc \
+        src/internal/internal_transpose.cc \
+        src/internal/internal_util.cc \
+
+# Most unit testers don't need the whole library, only the above subset.
+ifneq ($(only_unit),1)
+    libslate_src += \
         src/internal/internal_copyhb2st.cc \
         src/internal/internal_copytb2bd.cc \
         src/internal/internal_gecopy.cc \
@@ -421,7 +425,6 @@ libslate_src += \
         src/internal/internal_synorm.cc \
         src/internal/internal_syr2k.cc \
         src/internal/internal_syrk.cc \
-        src/internal/internal_transpose.cc \
         src/internal/internal_trmm.cc \
         src/internal/internal_trnorm.cc \
         src/internal/internal_trsm.cc \
@@ -436,12 +439,12 @@ libslate_src += \
         src/internal/internal_tzset.cc \
         src/internal/internal_unmqr.cc \
         src/internal/internal_unmlq.cc \
-        src/internal/internal_util.cc \
         src/internal/internal_hegst.cc \
         src/internal/internal_gescale.cc \
         src/internal/internal_tzscale.cc \
         src/internal/internal_tzadd.cc \
 
+endif
 
 # device
 ifeq ($(cuda),1)
@@ -484,7 +487,8 @@ ifeq ($(hip),1)
 endif
 
 # driver
-libslate_src += \
+ifneq ($(only_unit),1)
+    libslate_src += \
         src/bdsqr.cc \
         src/colNorms.cc \
         src/copy.cc \
@@ -550,6 +554,11 @@ libslate_src += \
         src/hegst.cc \
         src/scale.cc \
         src/add.cc \
+        src/work/work_trmm.cc \
+        src/work/work_trsm.cc \
+        src/work/work_trsmA.cc \
+
+endif
 
 ifneq ($(have_fortran),)
     libslate_src += \
@@ -662,12 +671,17 @@ unit_src = \
     unit_test/test_Tile_kernels.cc \
     unit_test/test_TrapezoidMatrix.cc \
     unit_test/test_TriangularMatrix.cc \
-    unit_test/test_lq.cc \
     unit_test/test_norm.cc \
-    unit_test/test_qr.cc \
     unit_test/test_geadd.cc \
     unit_test/test_gecopy.cc \
     unit_test/test_geset.cc \
+
+ifneq ($(only_unit),1)
+unit_src += \
+    unit_test/test_lq.cc \
+    unit_test/test_qr.cc \
+    # End. Add alphabetically.
+endif
 
 # unit test framework
 unit_test_obj = \
@@ -742,9 +756,13 @@ UNIT_LIBS    += -lslate -ltestsweeper
 .PHONY: all docs lib test tester unit_test clean distclean testsweeper blaspp lapackpp
 .DEFAULT_GOAL := all
 
-all: lib tester unit_test scalapack_api lapack_api
+all: lib unit_test
 
-install: lib
+ifneq ($(only_unit),1)
+    all: tester scalapack_api lapack_api
+endif
+
+install: lib scalapack_api lapack_api
 	cd blaspp   && $(MAKE) install prefix=${prefix}
 	@echo
 	cd lapackpp && $(MAKE) install prefix=${prefix}
@@ -1029,7 +1047,7 @@ $(lapack_api_so): $(lapack_api_obj) $(libslate)
 #-------------------------------------------------------------------------------
 # general rules
 
-lib: $(libslate) $(scalapack_api) $(lapack_api)
+lib: $(libslate)
 
 clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/clean
 	rm -f $(libslate_a) $(libslate_so) $(libslate_obj) $(dep)
@@ -1125,6 +1143,8 @@ echo:
 	@echo "libslate      = $(libslate)"
 	@echo
 	@echo "---------- Files"
+	@echo "libslate_src  = $(libslate_src)"
+	@echo
 	@echo "libslate_obj  = $(libslate_obj)"
 	@echo
 	@echo "tester_src    = $(tester_src)"

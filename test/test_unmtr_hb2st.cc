@@ -173,7 +173,11 @@ void test_unmtr_hb2st_work(Params& params, bool run)
         real_t R_norm_over_n = R_norm / n;
         params.ortho() = R_norm_over_n;
 
-        if (R_norm_over_n == zero) { // matrix can have only ones on the diagonal
+        // If slate::unmtr_hb2st() fails to update Q, then Q=I.
+        // Q is still orthogonal but this should be a failure.
+        // todo remove this if block when the backward error
+        // check is implemented.
+        if (R_norm_over_n == zero) {
             params.okay() = false;
             return;
         }

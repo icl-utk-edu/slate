@@ -148,7 +148,7 @@ void unmtr_hb2st( internal::TargetType<target>,
                         Vr_data[ii + ii*ldv] = 1;
                     }
 
-                    // larft and prefetch of VT and C in parallel
+                    // larft and prefetch of V and C in parallel
                     #pragma omp taskgroup
                     {
                         // larft and then form VT = V * T.
@@ -233,13 +233,14 @@ void unmtr_hb2st( internal::TargetType<target>,
                             }
                         }
                         if (target == Target::Devices) {
-                            // prefetch VT, V, and C on all devices for C -= VT VC operation
+                            // prefetch V on all devices for VC += V^H C
                             for (int d = 0; d < C.num_devices(); ++d) {
                                 #pragma omp task default(none) firstprivate(d, r) shared(V_)
                                 {
                                     V_.tileGetForReading(0, r, d, LayoutConvert::None);
                                 }
                             }
+                            // prefetch C for C -= VT VC operation
                             for (int64_t k = 0; k < nt; ++k) {
                                 if (C.tileIsLocal(i, k)) {
                                     int device = C.tileDevice(i, k);

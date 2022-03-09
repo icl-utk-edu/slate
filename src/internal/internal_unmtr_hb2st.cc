@@ -92,7 +92,6 @@ void unmtr_hb2st( internal::TargetType<target>,
             if (target == Target::Devices) {
                 int device = VC.tileDevice(i, j);
                 VC.tileInsertWorkspace(i, j, device);
-                VC.tileModified(i, j);
             }
             else {
                 VC.tileInsertWorkspace(i, j);
@@ -224,7 +223,7 @@ void unmtr_hb2st( internal::TargetType<target>,
                                 #pragma omp taskgroup
                                 {
                                     for (int d = 0; d < C.num_devices(); ++d) {
-                                        // prefetch VT on all devices C -= VT VC operation
+                                        // prefetch VT on all devices for C -= VT VC operation
                                         #pragma omp task default(none) firstprivate(d, i) shared(VT)
                                         {
                                             VT.tileGetForReading(i/2, 0, d, LayoutConvert::None);
@@ -234,7 +233,7 @@ void unmtr_hb2st( internal::TargetType<target>,
                             }
                         }
                         if (target == Target::Devices) {
-                            // prefetch VT, V, and C  on all devices C -= VT VC operation
+                            // prefetch VT, V, and C on all devices for C -= VT VC operation
                             for (int d = 0; d < C.num_devices(); ++d) {
                                 #pragma omp task default(none) firstprivate(d, r) shared(V_)
                                 {

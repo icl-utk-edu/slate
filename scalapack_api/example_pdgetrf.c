@@ -14,18 +14,18 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-void blacs_get_( int *ctxt, int *what, int *val );
-void blacs_gridinit_( int *ctxt, char *layout, int *nprow, int *npcol );
-void blacs_gridinfo_( int *ctxt, int *nprow, int *npcol, int *myprow, int *mypcol );
-int blacs_pnum_( int *ctxt, int *myprow, int *mypcol );
-int numroc_( int* n, int* nb, int* iproc, int* isrcproc, int* nprocs);
-void descinit_( int* desc, int* m, int* n, int* mb, int* nb,
-               int* irsrc, int* icsrc, int* ictxt, int* lld, int* info );
-void pdgetrf_( int* m, int* n,
-               double* a, int* ia, int* ja, int* desca, int* ipiv, int* info );
-void pdgetrs_( int* transa, int* n, int* nrhs,
-               double* a, int* ia, int* ja, int* desc_a, int* ipiv,
-               double* b, int* ib, int* jb, int* desc_b, int* info);
+void blacs_get_( const int *ctxt, const int *what, int *val );
+void blacs_gridinit_( const int *ctxt, const char *layout, const int *nprow, const int *npcol );
+void blacs_gridinfo_( const int *ctxt, int *nprow, int *npcol, int *myprow, int *mypcol );
+int blacs_pnum_( const int *ctxt, const int *myprow, const int *mypcol );
+int numroc_( const int* n, const int* nb, const int* iproc, const int* isrcproc, int* nprocs);
+void descinit_( int* desc, const int* m, const int* n, const int* mb, const int* nb,
+               const int* irsrc, const int* icsrc, const int* ictxt, const int* lld, int* info );
+void pdgetrf_( const int* m, const int* n,
+               double* a, const int* ia, const int* ja, const int* desca, const int* ipiv, int* info );
+void pdgetrs_( const int* transa, const int* n, const int* nrhs,
+               double* a, const int* ia, const int* ja, const int* desc_a, const int* ipiv,
+               double* b, const int* ib, const int* jb, const int* desc_b, int* info);
 #ifdef __cplusplus
 }
 #endif
@@ -37,7 +37,7 @@ int main(int argc, char *argv[])
     int info, ictxt, izero=0, imone=-1;
 
     blacs_get_( &imone, &izero, &ictxt );
-    blacs_gridinit_( &ictxt, (char*)"Col-major", &nprow, &npcol );
+    blacs_gridinit_( &ictxt, "Row-major", &nprow, &npcol );
     blacs_gridinfo_( &ictxt, &nprow, &npcol, &myprow, &mypcol);
 
     int mypnum = blacs_pnum_( &ictxt, &myprow, &mypcol );

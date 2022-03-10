@@ -3,7 +3,7 @@
 // Compile with e.g. mkl libraries and paths to the other libraries
 // export LD_LIBRARY_PATH=`pwd`/../lib:`pwd`/../lapackpp/lib::`pwd`/../blaspp/lib:$CUDADIR/lib64:$MKLROOT/lib/intel64
 // export RUNPATH=`pwd`/../lib:`pwd`/../lapackpp/lib::`pwd`/../blaspp/lib:$CUDADIR/lib64:$MKLROOT/lib/intel64
-// mpicc -o example_pdgetrf example_pdgetrf.c -L../lib -L../lapackpp/lib -L../blaspp/lib -lslate_scalapack_api -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64 -lmkl_gf_lp64 -lmkl_sequential -lmkl_core &&
+// mpicc -o example_pdgetrf example_pdgetrf.c -L../lib -L../lapackpp/lib -L../blaspp/lib -lslate_scalapack_api -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64 -lmkl_gf_lp64 -lmkl_sequential -lmkl_core
 // env SLATE_SCALAPACK_VERBOSE=1 mpirun -np 4 ./example_pdgetrf
 
 // Note: Assuming Fortran add underscore name mangling for BLACS/ScaLAPACK calls
@@ -11,6 +11,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 void blacs_get_( int *ctxt, int *what, int *val );
 void blacs_gridinit_( int *ctxt, char *layout, int *nprow, int *npcol );
 void blacs_gridinfo_( int *ctxt, int *nprow, int *npcol, int *myprow, int *mypcol );
@@ -23,6 +26,9 @@ void pdgetrf_( int* m, int* n,
 void pdgetrs_( int* transa, int* n, int* nrhs,
                double* a, int* ia, int* ja, int* desc_a, int* ipiv,
                double* b, int* ib, int* jb, int* desc_b, int* info);
+#ifdef __cplusplus
+}
+#endif
 
 int main(int argc, char *argv[])
 {
@@ -31,7 +37,7 @@ int main(int argc, char *argv[])
     int info, ictxt, izero=0, imone=-1;
 
     blacs_get_( &imone, &izero, &ictxt );
-    blacs_gridinit_( &ictxt, "Col-major", &nprow, &npcol );
+    blacs_gridinit_( &ictxt, (char*)"Col-major", &nprow, &npcol );
     blacs_gridinfo_( &ictxt, &nprow, &npcol, &myprow, &mypcol);
 
     int mypnum = blacs_pnum_( &ictxt, &myprow, &mypcol );

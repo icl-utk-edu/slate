@@ -59,8 +59,6 @@ extern "C" void pzherk_(const char* uplo, const char* trans, int* n, int* k, dou
 template< typename scalar_t >
 void slate_pherk(const char* uplostr, const char* transstr, int n, int k, blas::real_type<scalar_t> alpha, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t> beta, scalar_t* c, int ic, int jc, int* descc)
 {
-    check_and_assert_blacs_grid_is_column_major();
-
     // make blas single threaded
     // todo: does this set the omp num threads correctly
     int saved_num_blas_threads = slate_set_num_blas_threads(1);
@@ -70,6 +68,7 @@ void slate_pherk(const char* uplostr, const char* transstr, int n, int k, blas::
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     int64_t lookahead = 1;
+    slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     // setup so op(A) is n-by-k
     int64_t Am = (transA == blas::Op::NoTrans ? n : k);
@@ -80,11 +79,11 @@ void slate_pherk(const char* uplostr, const char* transstr, int n, int k, blas::
     // create SLATE matrices from the ScaLAPACK layouts
     int nprow, npcol, myprow, mypcol;
     Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
 
     Cblacs_gridinfo(desc_CTXT(descc), &nprow, &npcol, &myprow, &mypcol);
-    auto C = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(descc), c, desc_LLD(descc), desc_MB(descc), nprow, npcol, MPI_COMM_WORLD);
+    auto C = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(uplo, desc_N(descc), c, desc_LLD(descc), desc_NB(descc), grid_order, nprow, npcol, MPI_COMM_WORLD);
     C = slate_scalapack_submatrix(Cm, Cn, C, ic, jc, descc);
 
     if (verbose && myprow == 0 && mypcol == 0)

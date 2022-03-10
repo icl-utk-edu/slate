@@ -94,8 +94,6 @@ extern "C" double pzlantr_(const char* norm, const char* uplo, const char* diag,
 template< typename scalar_t >
 blas::real_type<scalar_t> slate_plantr(const char* normstr, const char* uplostr, const char* diagstr, int m, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t>* work)
 {
-    check_and_assert_blacs_grid_is_column_major();
-
     // make blas single threaded
     // todo: does this set the omp num threads correctly
     int saved_num_blas_threads = slate_set_num_blas_threads(1);
@@ -106,6 +104,7 @@ blas::real_type<scalar_t> slate_plantr(const char* normstr, const char* uplostr,
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     int64_t lookahead = 1;
+    slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     // Matrix sizes
     int64_t Am = m;
@@ -114,7 +113,7 @@ blas::real_type<scalar_t> slate_plantr(const char* normstr, const char* uplostr,
     // create SLATE matrices from the ScaLAPACK layouts
     int nprow, npcol, myprow, mypcol;
     Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
-    auto A = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(uplo, diag, desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_NB(desca), nprow, npcol, MPI_COMM_WORLD);
+    auto A = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(uplo, diag, desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
 
     if (verbose && myprow == 0 && mypcol == 0)

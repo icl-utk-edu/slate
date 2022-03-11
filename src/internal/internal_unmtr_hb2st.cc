@@ -113,11 +113,9 @@ void unmtr_hb2st( internal::TargetType<target>,
     // Outer loop on diagonals of V.
     // See SWAN13 for the definition of parallel tasks.
     for (int64_t j2 = mt-1; j2 > -mt; --j2) {
-        // double type is required for calculation of i
-        double n_ = 1.0 * j2 / 2.0;
         // Inner loop on the tiles of a diagonal.
         for (int64_t j = 0; j < mt; ++j) {
-            int64_t i = (j - n_) * 2;
+            int64_t i = 2 * j - j2;
             if (i < mt && i >= j) {
                 // Each task updates C(i,:) and C(i+1,:)
                 // using V(r). See SWAN13 for storage layout of V.

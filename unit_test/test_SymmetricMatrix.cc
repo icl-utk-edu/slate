@@ -15,6 +15,7 @@
 
 using slate::ceildiv;
 using slate::roundup;
+using slate::GridOrder;
 
 namespace test {
 
@@ -34,7 +35,7 @@ int verbose = 0;
 //------------------------------------------------------------------------------
 /// default constructor
 /// Tests SymmetricMatrix(), mt, nt, op, uplo.
-void test_SymmetricMatrix()
+void test_SymmetricMatrix_default()
 {
     slate::SymmetricMatrix<double> A;
 
@@ -42,11 +43,20 @@ void test_SymmetricMatrix()
     test_assert(A.nt() == 0);
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == blas::Uplo::Lower);
+
+    GridOrder order;
+    int myp, myq, myrow, mycol;
+    A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Unknown );
+    test_assert( myp == -1 );
+    test_assert( myq == -1 );
+    test_assert( myrow == -1 );
+    test_assert( mycol == -1 );
 }
 
 //------------------------------------------------------------------------------
 /// n-by-n, no-data constructor
-/// Tests SymmetricMatrix(), mt, nt, op, uplo, gridinfo.
+/// Tests SymmetricMatrix( uplo, n, nb, ... ), mt, nt, op, uplo.
 void test_SymmetricMatrix_empty()
 {
     // ----------
@@ -58,8 +68,10 @@ void test_SymmetricMatrix_empty()
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
 
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    L.gridinfo( &myp, &myq, &myrow, &mycol );
+    L.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
     test_assert( myp == p );
     test_assert( myq == q );
     test_assert( myrow == mpi_rank % p );
@@ -260,8 +272,10 @@ void test_SymmetricMatrix_fromScaLAPACK()
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
 
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    L.gridinfo( &myp, &myq, &myrow, &mycol );
+    L.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
     test_assert( myp == p );
     test_assert( myq == q );
     test_assert( myrow == mpi_rank % p );
@@ -435,6 +449,9 @@ void test_SymmetricMatrix_emptyLike()
     // ----------
     auto Atrans = transpose( A );
     auto Btrans = Atrans.emptyLike();
+
+    test_assert(Atrans.uplo() == slate::Uplo::Upper);
+    test_assert(Atrans.op() == blas::Op::Trans);
 
     test_assert(Btrans.m() == Atrans.m());
     test_assert(Btrans.n() == Atrans.n());
@@ -1189,7 +1206,7 @@ void run_tests()
 {
     if (mpi_rank == 0)
         printf("\nConstructors\n");
-    run_test(test_SymmetricMatrix,               "SymmetricMatrix()",              mpi_comm);
+    run_test(test_SymmetricMatrix_default,       "SymmetricMatrix()",              mpi_comm);
     run_test(test_SymmetricMatrix_empty,         "SymmetricMatrix(uplo, n, nb, ...)",     mpi_comm);
     run_test(test_SymmetricMatrix_lambda,        "SymmetricMatrix(uplo, n, tileNb, ...)", mpi_comm);
     run_test(test_SymmetricMatrix_fromLAPACK,    "SymmetricMatrix::fromLAPACK",    mpi_comm);

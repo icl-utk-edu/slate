@@ -19,9 +19,10 @@
 
 #define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
-template<typename scalar_t>
+template <typename matrix_type>
 void test_set_work(Params& params, bool run)
 {
+    using scalar_t = typename matrix_type::value_type;
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
     using blas::imag;
@@ -33,9 +34,19 @@ void test_set_work(Params& params, bool run)
     // get & mark input values
     scalar_t alpha = params.alpha.get<real_t>();
     scalar_t beta = params.beta.get<real_t>();
-    slate::Uplo uplo = slate::Uplo::General;
-    int64_t m = params.dim.m();
     int64_t n = params.dim.n();
+    int64_t m;
+    if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value
+                  || std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value
+                  || std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value)
+        m = n;
+    else
+        m = params.dim.m();
+    slate::Uplo uplo;
+    if constexpr (std::is_same<matrix_type, slate::Matrix<scalar_t>>::value)
+        uplo = slate::Uplo::General;
+    else
+        uplo = params.uplo();
     int64_t nb = params.nb();
     int64_t p = params.grid.m();
     int64_t q = params.grid.n();
@@ -67,30 +78,103 @@ void test_set_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data;
 
-    slate::Matrix<scalar_t> A;
+    std::vector<scalar_t> A_data;
+    matrix_type A;
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
-        A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
+        if constexpr (std::is_same<matrix_type, slate::Matrix<scalar_t>>::value) {
+            A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::TrapezoidMatrix<scalar_t>>::value) {
+            A = slate::TrapezoidMatrix<scalar_t>(
+                    uplo, slate::Diag::NonUnit, m, n, nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value) {
+            A = slate::TriangularMatrix<scalar_t>(
+                    uplo, slate::Diag::NonUnit, n, nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value) {
+            A = slate::SymmetricMatrix<scalar_t>(
+                    uplo, n, nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value) {
+            A = slate::HermitianMatrix<scalar_t>(
+                    uplo, n, nb, p, q, MPI_COMM_WORLD);
+        }
+        else {
+            throw slate::Exception("unknown routine: not compatible with add");
+        }
         A.insertLocalTiles(origin_target);
     }
     else {
+        A_data.resize( lldA*nlocA );
         // Create SLATE matrix from the ScaLAPACK layout.
-        A_data.resize( lldA * nlocA );
-        A = slate::Matrix<scalar_t>::fromScaLAPACK(
-                m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        if constexpr (std::is_same<matrix_type, slate::Matrix<scalar_t>>::value) {
+            A = slate::Matrix<scalar_t>::fromScaLAPACK(
+                    m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::TrapezoidMatrix<scalar_t>>::value) {
+            A = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
+                    uplo, slate::Diag::NonUnit, m, n, &A_data[0], lldA,
+                    nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value) {
+            A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
+                    uplo, slate::Diag::NonUnit, n, &A_data[0], lldA,
+                    nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value) {
+            A = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
+                    uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value) {
+            A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                    uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        }
+        else {
+            throw slate::Exception("unknown routine: not compatible with add");
+        }
     }
 
     // if reference run is required, copy test data
     std::vector<scalar_t> Aref_data;
-    slate::Matrix<scalar_t> Aref;
+    matrix_type Aref;
     if (check || ref) {
         // For simplicity, always use ScaLAPACK format for ref matrices.
         Aref_data.resize( lldA*nlocA );
-        Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                   m,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        if constexpr (std::is_same<matrix_type, slate::Matrix<scalar_t>>::value) {
+            // General Matrix-type mxn
+            Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                       m,  n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::TrapezoidMatrix<scalar_t>>::value) {
+            // Trapezoidal Matrix-type mxn
+            Aref = slate::TrapezoidMatrix<scalar_t>::fromScaLAPACK(
+                       uplo, slate::Diag::NonUnit, m,  n, &Aref_data[0], lldA,
+                       nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::TriangularMatrix<scalar_t>>::value) {
+            // Triangular Matrix-type nxn
+            Aref = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
+                       uplo, slate::Diag::NonUnit,  n, &Aref_data[0], lldA,
+                       nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::SymmetricMatrix<scalar_t>>::value) {
+            // Symmetric Matrix-type nxn
+            Aref = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
+                       uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        }
+        else if constexpr (std::is_same<matrix_type, slate::HermitianMatrix<scalar_t>>::value) {
+            // Hermitian Matrix-type nxn
+            Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                       uplo, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        }
+        else {
+            throw slate::Exception("unknown routine: not compatible with add");
+        }
+        slate::copy(A, Aref);
     }
 
     if (! ref_only) {
@@ -184,6 +268,31 @@ void test_set_work(Params& params, bool run)
 }
 
 // -----------------------------------------------------------------------------
+template <typename scalar_t>
+void test_set_dispatch(Params& params, bool run )
+{
+    std::string routine = params.routine;
+    if (routine == "set") {
+        test_set_work< slate::Matrix<scalar_t> >( params, run );
+    }
+    else if (routine == "tzset") {
+        test_set_work< slate::TrapezoidMatrix<scalar_t> >( params, run );
+    }
+    else if (routine == "trset") {
+        test_set_work< slate::TriangularMatrix<scalar_t> >( params, run );
+    }
+    else if (routine == "syset") {
+        test_set_work< slate::SymmetricMatrix<scalar_t> >( params, run );
+    }
+    else if (routine == "heset") {
+        test_set_work< slate::HermitianMatrix<scalar_t> >( params, run );
+    }
+    else {
+        throw slate::Exception("unknown routine: " + routine);
+    }
+}
+
+// -----------------------------------------------------------------------------
 void test_set(Params& params, bool run)
 {
     switch (params.datatype()) {
@@ -192,19 +301,19 @@ void test_set(Params& params, bool run)
             break;
 
         case testsweeper::DataType::Single:
-            test_set_work<float> (params, run);
+            test_set_dispatch<float> (params, run);
             break;
 
         case testsweeper::DataType::Double:
-            test_set_work<double> (params, run);
+            test_set_dispatch<double> (params, run);
             break;
 
         case testsweeper::DataType::SingleComplex:
-            test_set_work<std::complex<float>> (params, run);
+            test_set_dispatch<std::complex<float>> (params, run);
             break;
 
         case testsweeper::DataType::DoubleComplex:
-            test_set_work<std::complex<double>> (params, run);
+            test_set_dispatch<std::complex<double>> (params, run);
             break;
     }
 }

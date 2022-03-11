@@ -50,7 +50,7 @@ __global__ void tzcopyKernel(
     dst_scalar_t* tileB = tilesB[blockIdx.x];
 
     // thread per row, if more rows than threads, loop by blockDim.x
-    for (int ridx = threadIdx.x; ridx <= m; ridx += blockDim.x) {
+    for (int ridx = threadIdx.x; ridx < m; ridx += blockDim.x) {
         src_scalar_t* rowA = &tileA[ridx];
         dst_scalar_t* rowB = &tileB[ridx];
 
@@ -60,8 +60,9 @@ __global__ void tzcopyKernel(
             }
         }
         else {
-            for (int64_t j = n-1; j >= ridx; --j) // upper
+            for (int64_t j = n-1; j >= ridx; --j) { // upper
                 copy(rowA[j*lda], rowB[j*ldb]);
+            }
         }
     }
 }
@@ -109,6 +110,8 @@ void tzcopy(
 
     // Max threads/block=1024 for current CUDA compute capability (<=7.5)
     int64_t nthreads = std::min((int64_t)1024 , m);
+
+    cudaSetDevice( queue.device() );
 
     tzcopyKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
           uplo,

@@ -342,6 +342,7 @@ if (opts.blas3):
     [ 'tbsm',  gen_no_nb + ' --nb 32' + dtype + la + side + uplo + transA + diag + mn + a + kd ],
     [ 'trmm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
     [ 'trsm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
+    [ 'trsmA', gen + dtype + la + side + uplo + transA + diag + mn + a ],
     ]
 
 # LU
@@ -439,6 +440,7 @@ if (opts.least_squares):
 if (opts.qr):
     cmds += [
     [ 'geqrf', gen + dtype + la + mn ],
+    [ 'unmqr', gen + dtype + la + mn ],
     #[ 'ggqrf', gen + dtype + la + mnk ],
     #[ 'ungqr', gen + dtype + la + mn ],  # m >= n
     #[ 'unmqr', gen + dtype_real    + la + mnk + side + trans    ],  # real does trans = N, T, C
@@ -548,10 +550,22 @@ if (opts.norms):
 # aux
 if (opts.aux):
     cmds += [
-    [ 'add',   gen + dtype + mn + ab ],
-    [ 'copy',  gen + dtype + mn      ],
-    [ 'scale', gen + dtype + mn + ab ],
-    [ 'set',   gen + dtype + mn + ab ],
+    [ 'add',    gen + dtype + mn + ab        ],
+    [ 'tzadd',  gen + dtype + mn + ab + uplo ],
+    [ 'tradd',  gen + dtype + n  + ab + uplo ],
+    [ 'syadd',  gen + dtype + n  + ab + uplo ],
+    [ 'headd',  gen + dtype + n  + ab + uplo ],
+    [ 'copy',   gen + dtype + mn             ],
+    [ 'tzcopy', gen + dtype + mn      + uplo ],
+    [ 'trcopy', gen + dtype + n       + uplo ],
+    [ 'sycopy', gen + dtype + n       + uplo ],
+    [ 'hecopy', gen + dtype + n       + uplo ],
+    [ 'scale',  gen + dtype + mn + ab        ],
+    [ 'set',    gen + dtype + mn + ab        ],
+    [ 'tzset',  gen + dtype + mn + ab + uplo ],
+    [ 'trset',  gen + dtype +  n + ab + uplo ],
+    [ 'syset',  gen + dtype +  n + ab + uplo ],
+    [ 'heset',  gen + dtype +  n + ab + uplo ],
     ]
 
 # ------------------------------------------------------------------------------

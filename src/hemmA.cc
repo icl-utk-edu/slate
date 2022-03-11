@@ -289,11 +289,13 @@ void hemmA(slate::internal::TargetType<target>,
                     for (int64_t j = 0; j < C.nt(); ++j) {
                         if (i == 0) {
                             reduce_list_C.push_back({i, j,
+                                C.sub(i, i, j, j),
                                 { A.sub(i, A.mt()-1, i, i) }
                                 });
                         }
                         else {
                             reduce_list_C.push_back({i, j,
+                                C.sub(i, i, j, j),
                                 { A.sub(i, i, 0, i-1),
                                   A.sub(i, A.mt()-1, i, i) }
                                 });
@@ -519,11 +521,13 @@ void hemmA(slate::internal::TargetType<target>,
                     for (int64_t j = 0; j < C.nt(); ++j) {
                         if (i == 0) {
                             reduce_list_C.push_back({i, j,
+                                C.sub(i, i, j, j),
                                 { A.sub(i, i, i, A.nt()-1) }
                                 });
                         }
                         else {
                             reduce_list_C.push_back({i, j,
+                                  C.sub(i, i, j, j),
                                   { A.sub(0, i-1, i, i),
                                     A.sub(i, i, i, A.nt()-1)
                                   }

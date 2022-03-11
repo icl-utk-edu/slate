@@ -261,6 +261,15 @@ void trsm(
     Options const& opts = Options());
 
 //-----------------------------------------
+// trsmA()
+template <typename scalar_t>
+void trsmA(
+    Side side,
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+//-----------------------------------------
 // trtri()
 template <typename scalar_t>
 void trtri(
@@ -373,6 +382,18 @@ norm(
     Norm norm,
     matrix_type& A,
     Options const& opts = Options());
+
+//-----------------------------------------
+// norm for triangular case
+template <typename scalar_t>
+blas::real_type<scalar_t>
+norm(
+    Norm trnorm,
+    TriangularMatrix<scalar_t>& A,
+    Options const& opts = Options())
+{
+    return norm< TrapezoidMatrix<scalar_t> >( trnorm, A, opts );
+}
 
 //-----------------------------------------
 // colNorms()

@@ -312,6 +312,15 @@ void trsm(Side side,
           int64_t queue_index=0);
 
 //-----------------------------------------
+// trsmA()
+template <Target target=Target::HostTask, typename scalar_t>
+void trsmA(Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>&& A,
+                                    Matrix<scalar_t>&& B,
+          int priority=0, Layout layout=Layout::ColMajor,
+          int64_t queue_index=0);
+
+//-----------------------------------------
 // trtri()
 template <Target target=Target::HostTask, typename scalar_t>
 void trtri(TriangularMatrix<scalar_t>&& A,

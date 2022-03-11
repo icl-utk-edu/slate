@@ -253,6 +253,8 @@ void copy(internal::TargetType<Target::Devices>,
                         A_tiles_set.insert({i, j});
                         // tileAcquire() instead to avoid un-needed copy
                         B.tileAcquire(i, j, device, Layout::ColMajor);
+                        // copy local and remote tiles to CPU;
+                        B.tileModified(i, j, device, true);
                     }
                 }
             }

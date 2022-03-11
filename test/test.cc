@@ -87,6 +87,7 @@ std::vector< testsweeper::routines_t > routines = {
 
     { "trmm",               test_trmm,         Section::blas3 },
     { "trsm",               test_trsm,         Section::blas3 },
+    { "trsmA",              test_trsm,         Section::blas3 },
     { "tbsm",               test_tbsm,         Section::blas3 },
 
     // -----
@@ -165,7 +166,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "gelqf",              test_gelqf,     Section::qr },
     //{ "geqlf",              test_geqlf,     Section::qr },
     //{ "gerqf",              test_gerqf,     Section::qr },
-    { "",                   nullptr,        Section::newline },
+    //{ "",                   nullptr,        Section::newline },
 
     //{ "ungqr",              test_ungqr,     Section::qr },
     //{ "unglq",              test_unglq,     Section::qr },
@@ -173,11 +174,11 @@ std::vector< testsweeper::routines_t > routines = {
     //{ "ungrq",              test_ungrq,     Section::qr },
     //{ "",                   nullptr,        Section::newline },
 
-    //{ "unmqr",              test_unmqr,     Section::qr },
+    { "unmqr",              test_unmqr,     Section::qr },
     //{ "unmlq",              test_unmlq,     Section::qr },
     //{ "unmql",              test_unmql,     Section::qr },
     //{ "unmrq",              test_unmrq,     Section::qr },
-    //{ "",                   nullptr,        Section::newline },
+    { "",                   nullptr,        Section::newline },
 
     // -----
     // symmetric/Hermitian eigenvalues
@@ -227,9 +228,21 @@ std::vector< testsweeper::routines_t > routines = {
     // -----
     // auxiliary
     { "add",                test_add,          Section::aux },
+    { "tzadd",              test_add,          Section::aux },
+    { "tradd",              test_add,          Section::aux },
+    { "syadd",              test_add,          Section::aux },
+    { "headd",              test_add,          Section::aux },
     { "copy",               test_copy,         Section::aux },
+    { "tzcopy",             test_copy,         Section::aux },
+    { "trcopy",             test_copy,         Section::aux },
+    { "sycopy",             test_copy,         Section::aux },
+    { "hecopy",             test_copy,         Section::aux },
     { "scale",              test_scale,        Section::aux },
     { "set",                test_set,          Section::aux },
+    { "tzset",              test_set,          Section::aux },
+    { "trset",              test_set,          Section::aux },
+    { "syset",              test_set,          Section::aux },
+    { "heset",              test_set,          Section::aux },
     { "",                   nullptr,           Section::newline },
 };
 

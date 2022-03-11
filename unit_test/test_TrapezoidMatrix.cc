@@ -15,6 +15,7 @@
 
 using slate::ceildiv;
 using slate::roundup;
+using slate::GridOrder;
 
 namespace test {
 
@@ -61,8 +62,10 @@ void test_TrapezoidMatrix_empty()
     test_assert(L.uplo() == blas::Uplo::Lower);
     test_assert(L.diag() == blas::Diag::NonUnit);
 
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    L.gridinfo( &myp, &myq, &myrow, &mycol );
+    L.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
     test_assert( myp == p );
     test_assert( myq == q );
     test_assert( myrow == mpi_rank % p );
@@ -298,8 +301,10 @@ void test_TrapezoidMatrix_fromScaLAPACK()
     test_assert(L.uplo() == blas::Uplo::Lower);
     test_assert(L.diag() == blas::Diag::NonUnit);
 
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    L.gridinfo( &myp, &myq, &myrow, &mycol );
+    L.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
     test_assert( myp == p );
     test_assert( myq == q );
     test_assert( myrow == mpi_rank % p );

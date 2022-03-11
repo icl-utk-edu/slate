@@ -285,8 +285,8 @@ public:
     using ij_tuple    = std::tuple<int64_t, int64_t>;
     using TilesMap = std::map< ij_tuple, std::unique_ptr<TileNode_t> >;
 
-    MatrixStorage(int64_t m, int64_t n, int64_t mb, int64_t nb,
-                  int p, int q, MPI_Comm mpi_comm);
+    MatrixStorage( int64_t m, int64_t n, int64_t mb, int64_t nb,
+                   GridOrder order, int p, int q, MPI_Comm mpi_comm );
 
     MatrixStorage(std::function<int64_t (int64_t i)>& inTileMb,
                   std::function<int64_t (int64_t j)>& inTileNb,
@@ -496,7 +496,7 @@ private:
 template <typename scalar_t>
 MatrixStorage<scalar_t>::MatrixStorage(
     int64_t m, int64_t n, int64_t mb, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
     : tiles_(),
       memory_(sizeof(scalar_t) * mb * nb),  // block size in bytes
       batch_array_size_(0)
@@ -517,11 +517,23 @@ MatrixStorage<scalar_t>::MatrixStorage(
 
     // lambda that captures p, q for computing tile's rank,
     // assuming 2D block cyclic
-    tileRank = [p, q](ij_tuple ij) {
-        int64_t i = std::get<0>(ij);
-        int64_t j = std::get<1>(ij);
-        return int(i%p + (j%q)*p);
-    };
+    if (order == GridOrder::Col) {
+        tileRank = [p, q]( ij_tuple ij ) {
+            int64_t i = std::get<0>( ij );
+            int64_t j = std::get<1>( ij );
+            return int((i%p) + (j%q)*p);
+        };
+    }
+    else if (order == GridOrder::Row) {
+        tileRank = [p, q]( ij_tuple ij ) {
+            int64_t i = std::get<0>( ij );
+            int64_t j = std::get<1>( ij );
+            return int((i%p)*q + (j%q));
+        };
+    }
+    else {
+        slate_error( "invalid GridOrder, must be Col or Row" );
+    }
 
     // lambda that captures q, num_devices to distribute local matrix
     // in 1D column block cyclic fashion among devices

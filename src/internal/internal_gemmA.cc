@@ -20,6 +20,10 @@ namespace internal {
 
 //------------------------------------------------------------------------------
 /// General matrix multiply for a left-looking update.
+/// Does computation where the A tiles are local.
+/// If needed (e.g., not local), inserts C tiles and sets beta to 0.
+/// On output, partial products Cik exist distributed wherever Aij is local,
+/// for all i = 0 : A.mt, j = 0 : A.nt, k=.
 /// Dispatches to target implementations.
 /// In the complex case,
 /// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conjTranspose;
@@ -110,7 +114,7 @@ void gemmA(internal::TargetType<Target::HostTask>,
 
                 scalar_t beta_j;
                 for (int64_t k = 0; k < B.nt(); ++k) {
-                    if (! c_tile_acquired || C.tileIsLocal(i, 0)) {
+                    if (! c_tile_acquired || C.tileIsLocal(i, k)) {
                         beta_j = beta;
                     }
                     else {

@@ -86,6 +86,17 @@ enum class NormScope : char {
     Matrix  = 'M',      ///< Compute matrix norm
 };
 
+//------------------------------------------------------------------------------
+/// Order to map MPI processes to tile grid.
+/// @ingroup enum
+///
+enum class GridOrder : char {
+    Col      = 'C',     ///< Column major
+    Row      = 'R',     ///< Row major
+    Unknown  = 'U',     ///< Unknown (e.g., if using lambda functions)
+};
+
+//------------------------------------------------------------------------------
 const int HostNum = -1;
 
 } // namespace slate

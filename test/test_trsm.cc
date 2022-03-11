@@ -157,10 +157,18 @@ void test_trsm_work(Params& params, bool run)
     // Run SLATE test.
     // Solve AX = alpha B (left) or XA = alpha B (right).
     //==================================================
-    if (side == slate::Side::Left)
-        slate::triangular_solve(alpha, opA, B, opts);
-    else if (side == slate::Side::Right)
-        slate::triangular_solve(alpha, B, opA, opts);
+    if (side == slate::Side::Left) {
+        if (params.routine == "trsmA")
+            slate::trsmA(side, alpha, opA, B, opts);
+        else
+            slate::triangular_solve(alpha, opA, B, opts);
+    }
+    else if (side == slate::Side::Right) {
+        if (params.routine == "trsmA")
+            slate::trsmA(side, alpha, opA, B, opts);
+        else
+            slate::triangular_solve(alpha, B, opA, opts);
+    }
     else
         throw slate::Exception("unknown side");
     // Using traditional BLAS/LAPACK name

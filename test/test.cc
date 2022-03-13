@@ -295,6 +295,7 @@ Params::Params():
     datatype  ("type",    4,    ParamType::List, DataType::Double,        str2datatype, datatype2str, "s=single (float), d=double, c=complex-single, z=complex-double"),
     origin    ("origin",  9,    ParamType::List, slate::Origin::Host,     str2origin,   origin2str,   "origin: h=Host, s=ScaLAPACK, d=Devices"),
     target    ("target",  7,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNest, b=HostBatch, d=Devices"),
+    grid_order("grid-order", 3, ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) grid order: c=Col, r=Row"),
     tile_release_strategy ("trs", 3, ParamType::List, slate::TileReleaseStrategy::All, str2tile_release_strategy,   tile_release_strategy2str,   "tile release strategy: n=none, i=only internal routines, s=only top-level routines in slate namespace, a=all routines"),
     dev_dist  ("dev-dist",9,    ParamType::List, slate::Dist::Col,        str2dist,     dist2str,     "matrix tiles distribution across local devices (one-dimensional block-cyclic): col=column, row=row"),
 
@@ -381,6 +382,7 @@ Params::Params():
     // set header different than command line prefix
     lookahead.name("la", "lookahead");
     panel_threads.name("pt", "panel-threads");
+    grid_order.name("go", "grid-order");
 
     // change names of matrix B's params
     matrixB.kind.name( "matrixB" );

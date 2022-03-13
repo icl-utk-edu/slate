@@ -56,6 +56,7 @@ void test_gesv_work(Params& params, bool run)
     SLATE_UNUSED(verbose);
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    slate::GridOrder grid_order = params.grid_order();
     params.matrix.mark();
     params.matrixB.mark();
 
@@ -83,7 +84,7 @@ void test_gesv_work(Params& params, bool run)
     // MPI variables
     int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    gridinfo(mpi_rank, p, q, &myrow, &mycol);
+    gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
 
     if (nonuniform_nb) {
         if (ref || origin == slate::Origin::ScaLAPACK) {
@@ -158,8 +159,10 @@ void test_gesv_work(Params& params, bool run)
                                         tileDevice, MPI_COMM_WORLD);
         }
         else {
-            A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
-            B = slate::Matrix<scalar_t>(n, nrhs, nb, p, q, MPI_COMM_WORLD);
+            A = slate::Matrix<scalar_t>(
+                m, n,    nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+            B = slate::Matrix<scalar_t>(
+                n, nrhs, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
         }
         A.insertLocalTiles(origin_target);
         B.insertLocalTiles(origin_target);
@@ -171,7 +174,8 @@ void test_gesv_work(Params& params, bool run)
                                             tileDevice, MPI_COMM_WORLD);
             }
             else {
-                X = slate::Matrix<scalar_t>(n, nrhs, nb, p, q, MPI_COMM_WORLD);
+                X = slate::Matrix<scalar_t>(
+                    n, nrhs, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
             }
             X.insertLocalTiles(origin_target);
         }
@@ -180,14 +184,16 @@ void test_gesv_work(Params& params, bool run)
         // Create SLATE matrix from the ScaLAPACK layouts
         A_data.resize( lldA * nlocA );
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
-                m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+            m, n, &A_data[0], lldA, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+
         B_data.resize( lldB * nlocB );
         B = slate::Matrix<scalar_t>::fromScaLAPACK(
-                n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+            n, nrhs, &B_data[0], lldB, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+
         if (params.routine == "gesvMixed") {
             X_data.resize(lldB*nlocB);
             X = slate::Matrix<scalar_t>::fromScaLAPACK(
-                    n, nrhs, &X_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+                n, nrhs, &X_data[0], lldB, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
         }
     }
 
@@ -374,7 +380,7 @@ void test_gesv_work(Params& params, bool run)
             Cblacs_pinfo(&mpi_rank_, &nprocs);
             slate_assert(p*q <= nprocs);
             Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit(&ictxt, "Col", p, q);
+            Cblacs_gridinit( &ictxt, grid_order2str( grid_order ), p, q );
             Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
             slate_assert( p == p_ );
             slate_assert( q == q_ );

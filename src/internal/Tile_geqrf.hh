@@ -77,7 +77,7 @@ void geqrf(
     int64_t diag_len = std::min( diag_tile.mb(), diag_tile.nb() );
 
     std::vector<scalar_t> taus(diag_len);
-    std::vector<real_t> betas(diag_len);
+    std::vector<scalar_t> betas(diag_len);
     int64_t nb = diag_tile.nb();
 
     // Loop over ib-wide stripes.
@@ -131,101 +131,104 @@ void geqrf(
             }
             thread_barrier.wait(thread_size);
 
-            real_t beta =
-                -std::copysign(lapack::lapy3(alphr, alphi, xnorm), alphr);
-            // todo: IF( ABS( BETA ).LT.SAFMIN ) THEN
-
-            // todo: Use overflow-safe division (see CLADIV/ZLADIV)
-            scalar_t scal_alpha = scalar_t(1.0) / (alpha-beta);
-            scalar_t tau = make<scalar_t>((beta-alphr)/beta, -alphi/beta);
-            scalar_t ger_alpha = -conj(tau);
-
-            betas.at(j) = beta;
-            taus.at(j) = tau;
-
-            //----------------------------------
-            // column scaling and thread local W
-            for (int64_t idx = thread_rank;
-                 idx < int64_t(tiles.size());
-                 idx += thread_size)
-            {
-                auto tile = tiles.at(idx);
-                auto i_index = tile_indices.at(idx);
-                scalar_t gemv_beta = idx == thread_rank ? 0.0 : 1.0;
-
-                // column scaling
-                if (i_index == tile_indices.at(0)) {
-                    // diagonal tile
-                    if (j+1 < tile.mb())
-                        blas::scal(tile.mb()-j-1,
-                                   scal_alpha, &tile.at(j+1, j), 1);
-                }
-                else {
-                    // off diagonal tiles
-                    blas::scal(tile.mb(), scal_alpha, &tile.at(0, j), 1);
-                }
-
-                // thread local W
-                if (j+1 < diag_len) {
-                    if (i_index == tile_indices.at(0)) {
-                        // diagonal tile
-                        blas::gemv(Layout::ColMajor, Op::ConjTrans,
-                                   tile.mb()-j, k+kb-j-1,
-                                   one,       &tile.at(j, j+1), tile.stride(),
-                                              &tile.at(j, j), 1,
-                                   gemv_beta, W.at(thread_rank).data(), 1);
-                    }
-                    else {
-                        // off diagonal tile
-                        blas::gemv(Layout::ColMajor, Op::ConjTrans,
-                                   tile.mb(), k+kb-j-1,
-                                   one,       &tile.at(0, j+1), tile.stride(),
-                                              &tile.at(0, j), 1,
-                                   gemv_beta, W.at(thread_rank).data(), 1);
-                    }
-                }
+            if (xnorm == zero && j < diag_len) {
+                betas.at(j) = alpha;
+                taus.at(j) = zero;
             }
-            thread_barrier.wait(thread_size);
+            else {
+                real_t beta = -std::copysign(lapack::lapy3(alphr, alphi, xnorm), alphr);
+                // todo: IF( ABS( BETA ).LT.SAFMIN ) THEN
 
-            //-------------------
-            // global W reduction
-            if (thread_rank == 0) {
-                for (int rank = 1; rank < thread_size; ++rank)
-                    blas::axpy(k+kb-j-1,
-                               scalar_t(1.0), W.at(rank).data(), 1,
-                                              W.at(0).data(), 1);
-            }
-            thread_barrier.wait(thread_size);
+                // todo: Use overflow-safe division (see CLADIV/ZLADIV)
+                scalar_t tau = make<scalar_t>((beta-alphr)/beta, -alphi/beta);
+                scalar_t scal_alpha = scalar_t(1.0) / (alpha-beta);
+                scalar_t ger_alpha = -conj(tau);
+                betas.at(j) = beta;
+                taus.at(j) = tau;
 
-            //-----------
-            // ger update
-            if (j+1 < diag_len) {
+                //----------------------------------
+                // column scaling and thread local W
                 for (int64_t idx = thread_rank;
                      idx < int64_t(tiles.size());
                      idx += thread_size)
                 {
                     auto tile = tiles.at(idx);
                     auto i_index = tile_indices.at(idx);
+                    scalar_t gemv_beta = idx == thread_rank ? 0.0 : 1.0;
 
+                    // column scaling
                     if (i_index == tile_indices.at(0)) {
                         // diagonal tile
-                        blas::ger(Layout::ColMajor,
-                                  tile.mb()-j, k+kb-j-1,
-                                  ger_alpha, &tile.at(j, j), 1,
-                                             W.at(0).data(), 1,
-                                             &tile.at(j, j+1), tile.stride());
+                        if (j+1 < tile.mb())
+                            blas::scal(tile.mb()-j-1,
+                                       scal_alpha, &tile.at(j+1, j), 1);
                     }
                     else {
-                        // off diagonal tile
-                        blas::ger(Layout::ColMajor,
-                                  tile.mb(), k+kb-j-1,
-                                  ger_alpha, &tile.at(0, j), 1,
-                                             W.at(0).data(), 1,
-                                             &tile.at(0, j+1), tile.stride());
+                        // off diagonal tiles
+                        blas::scal(tile.mb(), scal_alpha, &tile.at(0, j), 1);
+                    }
+                    // thread local W
+                    if (j+1 < diag_len) {
+                        if (i_index == tile_indices.at(0)) {
+                            // diagonal tile
+                            blas::gemv(Layout::ColMajor, Op::ConjTrans,
+                                       tile.mb()-j, k+kb-j-1,
+                                       one,       &tile.at(j, j+1), tile.stride(),
+                                                  &tile.at(j, j), 1,
+                                       gemv_beta, W.at(thread_rank).data(), 1);
+                        }
+                        else {
+                            // off diagonal tile
+                            blas::gemv(Layout::ColMajor, Op::ConjTrans,
+                                       tile.mb(), k+kb-j-1,
+                                       one,       &tile.at(0, j+1), tile.stride(),
+                                                  &tile.at(0, j), 1,
+                                       gemv_beta, W.at(thread_rank).data(), 1);
+                        }
                     }
                 }
+                thread_barrier.wait(thread_size);
+
+                //-------------------
+                // global W reduction
+                if (thread_rank == 0) {
+                    for (int rank = 1; rank < thread_size; ++rank)
+                        blas::axpy(k+kb-j-1,
+                                   scalar_t(1.0), W.at(rank).data(), 1,
+                                                  W.at(0).data(), 1);
+                }
+                thread_barrier.wait(thread_size);
+
+                //-----------
+                // ger update
+                if (j+1 < diag_len) {
+                    for (int64_t idx = thread_rank;
+                         idx < int64_t(tiles.size());
+                         idx += thread_size)
+                    {
+                        auto tile = tiles.at(idx);
+                        auto i_index = tile_indices.at(idx);
+
+                        if (i_index == tile_indices.at(0)) {
+                            // diagonal tile
+                            blas::ger(Layout::ColMajor,
+                                      tile.mb()-j, k+kb-j-1,
+                                      ger_alpha, &tile.at(j, j), 1,
+                                                 W.at(0).data(), 1,
+                                                 &tile.at(j, j+1), tile.stride());
+                        }
+                        else {
+                            // off diagonal tile
+                            blas::ger(Layout::ColMajor,
+                                      tile.mb(), k+kb-j-1,
+                                      ger_alpha, &tile.at(0, j), 1,
+                                                 W.at(0).data(), 1,
+                                                 &tile.at(0, j+1), tile.stride());
+                        }
+                    }
+                }
+                thread_barrier.wait(thread_size);
             }
-            thread_barrier.wait(thread_size);
         }
 
         //====================================================
@@ -525,6 +528,9 @@ void geqrf(
         }
     }
 }
+
+
+//}
 
 } // namespace internal
 } // namespace slate

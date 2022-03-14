@@ -97,6 +97,7 @@ enum class NormScope : char {
 };
 
 const int HostNum = -1;
+const int AllDevices = -2;
 
 } // namespace slate
 

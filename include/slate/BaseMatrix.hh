@@ -391,8 +391,6 @@ public:
         storage_->tileTick(globalIndex(i, j));
     }
 
-    void tileEraseEverywhere(int64_t i, int64_t j);
-
     void tileErase(int64_t i, int64_t j, int device=host_num_);
 
     void tileRelease(int64_t i, int64_t j, int device=host_num_);
@@ -552,7 +550,7 @@ public:
         for (int64_t j = 0; j < this->nt(); ++j) {
             for (int64_t i = 0; i < this->mt(); ++i) {
                 if (! this->tileIsLocal(i, j)) { // erase remote tiles
-                    this->tileEraseEverywhere(i, j);
+                    this->tileErase(i, j, AllDevices);
                 }
             }
         }
@@ -1492,7 +1490,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 }
 
 //------------------------------------------------------------------------------
-/// Erase tile {i, j} of op(A).
+/// Erase tile {i, j} of op(A) on device (host, one device or all devices).
 /// If tile's memory was allocated by SLATE,
 /// via tileInsert(i, j, dev) or tileInsertWorkspace(i, j, dev),
 /// then the memory is released to the allocator pool.
@@ -1509,27 +1507,13 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 {
-    // todo: erase only workspace tiles? if so, rename with "Workspace"?
-    storage_->erase(globalIndex(i, j, device));
-}
-
-//------------------------------------------------------------------------------
-/// Erase tile {i, j} of op(A) on host and devices.
-/// If tile's memory was allocated by SLATE,
-/// via tileInsert(i, j, dev) or tileInsertWorkspace(i, j, dev),
-/// then the memory is released to the allocator pool.
-///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
-///
-/// @param[in] j
-///     Tile's block column index. 0 <= j < nt.
-///
-template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileEraseEverywhere(int64_t i, int64_t j)
-{
-    // todo: erase only workspace tiles? if so, rename with "Workspace"?
-    storage_->erase(globalIndex(i, j));
+    if (device == AllDevices) {
+        storage_->erase(globalIndex(i, j));
+    }
+    else {
+        // todo: erase only workspace tiles? if so, rename with "Workspace"?
+        storage_->erase(globalIndex(i, j, device));
+    }
 }
 
 //------------------------------------------------------------------------------

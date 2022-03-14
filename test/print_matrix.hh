@@ -719,7 +719,8 @@ void print_matrix_work(
             // cleanup data
             for (int64_t j = 0; j < A.nt(); ++j) {
                 if (! A.tileIsLocal(i, j)) {
-                    A.tileErase(i, j);
+                    A.tileErase(i, j); // todo The matrix A is modified.
+                    // This might cause failures in the caller function.
                 }
             }
         }

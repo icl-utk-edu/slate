@@ -519,7 +519,7 @@ public:
         storage_->releaseWorkspace();
     }
 
-    /// Releases tiles that are local to node
+    /// Erases tiles that are local to node
     /// but not local to device.
     ///
     void eraseLocalWorkspace()
@@ -535,7 +535,7 @@ public:
                     for (int d = 0; d < this->num_devices(); ++d) {
                         if (tile_node.existsOn(d) ) {
                             if (d != this->tileDevice(i, j)) { // not local to device
-                                this->tileRelease(i, j, d);
+                                this->tileErase(i, j, d);
                             }
                         }
                     }

@@ -321,8 +321,8 @@ void trsm(internal::TargetType<Target::Devices>,
                     queue->sync();
                 }
 
-                if (tile_release_strategy == TileReleaseStrategy::Internal ||
-                    tile_release_strategy == TileReleaseStrategy::All) {
+                if (tile_release_strategy == TileReleaseStrategy::Internal
+                    || tile_release_strategy == TileReleaseStrategy::All) {
 
                     A.tileRelease(0, 0, device);
                     for (auto i = 0; i < batch_size; ++i) {

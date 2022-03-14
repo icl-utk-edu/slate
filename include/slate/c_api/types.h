@@ -33,11 +33,11 @@ typedef enum slate_Target {
 } slate_Target;                       ///< slate::Target
 
 typedef enum slate_TileReleaseStrategy {
-    slate_TileReleaseStrategy_None = 'N',    ///< slate::TileReleaseStrategy::None
-    slate_TileReleaseStrategy_Internal = 'I',///< slate::TileReleaseStrategy::Internal
-    slate_TileReleaseStrategy_Internal = 'S',///< slate::TileReleaseStrategy::Slate
-    slate_TileReleaseStrategy_Internal = 'A',///< slate::TileReleaseStrategy::All
-} slate_TileReleaseStrategy;                 ///< slate::TileReleaseStrategy
+    slate_TileReleaseStrategy_None     = 'N', ///< slate::TileReleaseStrategy::None
+    slate_TileReleaseStrategy_Internal = 'I', ///< slate::TileReleaseStrategy::Internal
+    slate_TileReleaseStrategy_Slate    = 'S', ///< slate::TileReleaseStrategy::Slate
+    slate_TileReleaseStrategy_All      = 'A', ///< slate::TileReleaseStrategy::All
+} slate_TileReleaseStrategy;                  ///< slate::TileReleaseStrategy
 
 typedef enum slate_Option {
     slate_Option_ChunkSize,           ///< slate::Option::ChunkSize

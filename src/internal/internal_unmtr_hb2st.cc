@@ -245,14 +245,14 @@ void unmtr_hb2st( internal::TargetType<target>,
                                     int device = C.tileDevice(i, k);
                                     #pragma omp task default(none) firstprivate(i, k, device) shared(C)
                                     {
-                                        C.tileGetForReading(i, k, device, LayoutConvert::None);
+                                        C.tileGetForWriting(i, k, device, LayoutConvert::None);
                                     }
                                     if (i+1 < mt) {
                                         #pragma omp task default(none) firstprivate(i, k, device) shared(C)
                                         {
                                             // Device of C(i+1, k) is equal to C(i, k) since 1D column
                                             // cyclic distribution is used.
-                                            C.tileGetForReading(i+1, k, device, LayoutConvert::None);
+                                            C.tileGetForWriting(i+1, k, device, LayoutConvert::None);
                                         }
                                     }
                                 }
@@ -280,10 +280,6 @@ void unmtr_hb2st( internal::TargetType<target>,
                             // Slice off 1st row of C0.
                             // C0
                             if (target == Target::Devices) {
-                                V_.tileGetForReading(0, r, device, LayoutConvert::None);
-                                C.tileGetForReading(i, k, device, LayoutConvert::None);
-                                VC.tileAcquire(i/2, device, device, Layout::ColMajor);
-                                VC.tileModified(i/2, device, device, true);
                                 blas::Queue* queue = C.compute_queue(device, omp_get_thread_num());
                                 blas::gemm(Layout::ColMajor,
                                            Op::ConjTrans, Op::NoTrans,
@@ -317,39 +313,37 @@ void unmtr_hb2st( internal::TargetType<target>,
                             // vnb-by-cnb += (mb1-by-vnb)^H (mb1-by-cnb)
                             Tile<scalar_t> C1;
                             if (i+1 < mt) {
+                                // ensures 1D column block distribution for C
                                 assert(C.tileIsLocal(i+1, k));
                                 C1 = C(i+1, k);
-                                {
-                                    if (target == Target::Devices) {
-                                        C.tileGetForReading(i+1, k, device, LayoutConvert::None);
-                                        blas::Queue* queue = C.compute_queue(device, omp_get_thread_num());
-                                        blas::gemm(Layout::ColMajor,
-                                                   Op::ConjTrans, Op::NoTrans,
-                                                   vnb, cnb, mb1,
-                                                   one,
-                                                   &(V_(0, r, device).data()[ mb0 ]),
-                                                   V_(0, r, device).stride(),
-                                                   C(i+1, k, device).data(),
-                                                   C(i+1, k, device).stride(),
-                                                   one,
-                                                   VC(i/2, device, device).data(),
-                                                   VC(i/2, device, device).stride(),
-                                                   *queue);
-                                        queue->sync();
-                                    }
-                                    else {
-                                        blas::gemm(Layout::ColMajor,
-                                                   Op::ConjTrans, Op::NoTrans,
-                                                   vnb, cnb, mb1,
-                                                   one,
-                                                   &(V_(0, r).data()[ mb0 ]),
-                                                   V_(0, r).stride(),
-                                                   C(i+1, k).data(),
-                                                   C(i+1, k).stride(),
-                                                   one,
-                                                   VC(i/2, 0).data(),
-                                                   VC(i/2, 0).stride());
-                                    }
+                                if (target == Target::Devices) {
+                                    blas::Queue* queue = C.compute_queue(device, omp_get_thread_num());
+                                    blas::gemm(Layout::ColMajor,
+                                               Op::ConjTrans, Op::NoTrans,
+                                               vnb, cnb, mb1,
+                                               one,
+                                               &(V_(0, r, device).data()[ mb0 ]),
+                                               V_(0, r, device).stride(),
+                                               C(i+1, k, device).data(),
+                                               C(i+1, k, device).stride(),
+                                               one,
+                                               VC(i/2, device, device).data(),
+                                               VC(i/2, device, device).stride(),
+                                               *queue);
+                                    queue->sync();
+                                }
+                                else {
+                                    blas::gemm(Layout::ColMajor,
+                                               Op::ConjTrans, Op::NoTrans,
+                                               vnb, cnb, mb1,
+                                               one,
+                                               &(V_(0, r).data()[ mb0 ]),
+                                               V_(0, r).stride(),
+                                               C(i+1, k).data(),
+                                               C(i+1, k).stride(),
+                                               one,
+                                               VC(i/2, 0).data(),
+                                               VC(i/2, 0).stride());
                                 }
                             }
                             #pragma omp taskgroup
@@ -360,9 +354,6 @@ void unmtr_hb2st( internal::TargetType<target>,
                                 #pragma omp task
                                 {
                                     if (target == Target::Devices) {
-                                        VT.tileGetForReading(i/2, 0, device, LayoutConvert::None);
-                                        VC.tileGetForReading(i/2, device, device, LayoutConvert::None);
-                                        C.tileGetForWriting(i, k, device, LayoutConvert::None);
                                         blas::Queue* queue = C.compute_queue(device, omp_get_thread_num());
                                         blas::gemm(Layout::ColMajor,
                                                    Op::NoTrans, Op::NoTrans,
@@ -399,9 +390,6 @@ void unmtr_hb2st( internal::TargetType<target>,
                                     #pragma omp task
                                     {
                                         if (target == Target::Devices) {
-                                            VT.tileGetForReading(i/2, 0, device, LayoutConvert::None);
-                                            VC.tileGetForReading(i/2, device, device, LayoutConvert::None);
-                                            C.tileGetForWriting(i+1, k, device, LayoutConvert::None);
                                             blas::Queue* queue = C.compute_queue(device, omp_get_thread_num());
                                             blas::gemm(Layout::ColMajor,
                                                        Op::NoTrans, Op::NoTrans,

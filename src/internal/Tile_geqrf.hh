@@ -136,7 +136,8 @@ void geqrf(
                 taus.at(j) = zero;
             }
             else {
-                real_t beta = -std::copysign(lapack::lapy3(alphr, alphi, xnorm), alphr);
+                real_t beta =
+                    -std::copysign(lapack::lapy3(alphr, alphi, xnorm), alphr);
                 // todo: IF( ABS( BETA ).LT.SAFMIN ) THEN
 
                 // todo: Use overflow-safe division (see CLADIV/ZLADIV)
@@ -528,9 +529,6 @@ void geqrf(
         }
     }
 }
-
-
-//}
 
 } // namespace internal
 } // namespace slate

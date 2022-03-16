@@ -155,7 +155,7 @@ cd ${top}/unit_test
 print "========================================"
 date
 cd ${top}/test
-./run_tests.py --quick --ref n --xml ${top}/report_test.xml
+./run_tests.py --origin s --target t,d --quick --ref n --xml ${top}/report_test.xml
 
 date
 '''
@@ -164,7 +164,7 @@ date
                     //----------------------------------------------------------
                     post {
                         failure {
-                            mail to: 'slate-dev@icl.utk.edu',
+                            mail to: 'kadir@icl.utk.edu',
                                 subject: "${currentBuild.fullDisplayName} >> ${STAGE_NAME} >> ${host} failed",
                                 body: "See more at ${env.BUILD_URL}"
                         }

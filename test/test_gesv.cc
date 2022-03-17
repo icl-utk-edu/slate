@@ -57,6 +57,7 @@ void test_gesv_work(Params& params, bool run)
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
+    params.matrixB.mark();
 
     // mark non-standard output values
     params.time();
@@ -192,8 +193,8 @@ void test_gesv_work(Params& params, bool run)
 
     slate::Pivots pivots;
 
-    slate::generate_matrix(params.matrix, A);
-    slate::generate_matrix(params.matrix, B);
+    slate::generate_matrix(params.matrix,  A);
+    slate::generate_matrix(params.matrixB, B);
 
     // If check/ref is required, copy test data.
     slate::Matrix<scalar_t> Aref, Bref;

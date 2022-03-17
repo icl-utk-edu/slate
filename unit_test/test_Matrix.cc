@@ -11,6 +11,7 @@
 
 using slate::ceildiv;
 using slate::roundup;
+using slate::GridOrder;
 
 namespace test {
 
@@ -30,7 +31,7 @@ int verbose = 0;
 //------------------------------------------------------------------------------
 /// default constructor
 /// Tests Matrix(), m, n, mt, nt, op, gridinfo.
-void test_Matrix()
+void test_Matrix_default()
 {
     slate::Matrix<double> A;
 
@@ -41,8 +42,10 @@ void test_Matrix()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
 
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Unknown );
     test_assert( myp == -1 );
     test_assert( myq == -1 );
     test_assert( myrow == -1 );
@@ -75,13 +78,16 @@ void test_Matrix_empty()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
 
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
     test_assert( myp == p );
     test_assert( myq == q );
     test_assert( myrow == mpi_rank % p );
     test_assert( mycol == mpi_rank / p );
 
+    //----------
     // rectangular tiles
     slate::Matrix<double> B(m, n, mb, nb, p, q, mpi_comm);
     test_assert(B.m() == m);
@@ -112,6 +118,58 @@ void test_Matrix_empty()
     test_assert(Bf.tileRank( 0, 0 ) == 0);
     if (num_devices > 0)
         test_assert( Bf.tileDevice( 0, 0 ) == 0 );
+
+    //----------
+    // rectangular tiles, Col grid order
+    slate::Matrix<double> C( m, n, mb, nb, GridOrder::Col, p, q, mpi_comm );
+    test_assert( C.m() == m );
+    test_assert( C.n() == n );
+    test_assert( C.mt() == ceildiv( m, mb ) );
+    test_assert( C.nt() == ceildiv( n, nb ) );
+    test_assert( C.op() == blas::Op::NoTrans );
+    test_assert( C.uplo() == slate::Uplo::General );
+
+    C.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );  // col major
+    test_assert( mycol == mpi_rank / p );
+
+    // Check col major.
+    int rank = 0;
+    for (int j = 0; j < q; ++j) {
+        for (int i = 0; i < p; ++i) {
+            test_assert( C.tileRank( i, j ) == rank );
+            rank += 1;
+        }
+    }
+
+    //----------
+    // rectangular tiles, Row grid order
+    slate::Matrix<double> D( m, n, mb, nb, GridOrder::Row, p, q, mpi_comm );
+    test_assert( D.m() == m );
+    test_assert( D.n() == n );
+    test_assert( D.mt() == ceildiv( m, mb ) );
+    test_assert( D.nt() == ceildiv( n, nb ) );
+    test_assert( D.op() == blas::Op::NoTrans );
+    test_assert( D.uplo() == slate::Uplo::General );
+
+    D.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Row );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank / q );  // row major
+    test_assert( mycol == mpi_rank % q );
+
+    // Check row major.
+    rank = 0;
+    for (int i = 0; i < p; ++i) {
+        for (int j = 0; j < q; ++j) {
+            test_assert( D.tileRank( i, j ) == rank );
+            rank += 1;
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -180,8 +238,10 @@ void test_Matrix_lambda()
     test_assert(A.uplo() == slate::Uplo::General);
 
     // SLATE doesn't know distribution.
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Unknown );
     test_assert( myp == -1 );
     test_assert( myq == -1 );
     test_assert( myrow == -1 );
@@ -267,8 +327,11 @@ void test_Matrix_fromScaLAPACK()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
 
+
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
     test_assert( myp == p );
     test_assert( myq == q );
     test_assert( myrow == mpi_rank % p );
@@ -314,8 +377,10 @@ void test_Matrix_fromScaLAPACK_rect()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
 
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    A.gridinfo( &myp, &myq, &myrow, &mycol );
+    A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
     test_assert( myp == p );
     test_assert( myq == q );
     test_assert( myrow == mpi_rank % p );
@@ -1847,6 +1912,104 @@ void test_Matrix_tileLayoutConvert()
     A.releaseWorkspace();
 }
 
+template <class scalar_t>
+void test_BaseMatrix_tileReduceFromSet(
+    slate::BaseMatrix<scalar_t>& A, int64_t i, int64_t j,
+    std::set<int>& reduce_set)
+{
+    int tag       = 0;
+    int sol_value = 0;
+    int root      = A.tileRank(i, j);
+    slate::Layout layout = A.layout();
+
+    // Insert the tile, set it locally to the mpi_rank, and compute the solution
+    for (auto rank : reduce_set) {
+        if (rank == mpi_rank) {
+            if (! A.tileIsLocal(i, j)) {
+                A.tileInsert(i, j);
+            }
+            // Set the value
+            A.at(i, j).set(mpi_rank);
+        }
+        sol_value += rank;
+    }
+
+    // Routine to test
+    A.tileReduceFromSet(i, j, root, reduce_set, 2, tag, layout);
+
+    // Check the result of the reduction
+    if (mpi_rank == root) {
+        int64_t nrow    = 0;
+        int64_t ncol    = 0;
+        int64_t Tstride = A.at(i, j).stride();
+        scalar_t* Tdata = A.at(i, j).data();
+
+        if (A.at(i, j).op() == slate::Op::NoTrans) {
+            nrow = A.at(i, j).mb();
+            ncol = A.at(i, j).nb();
+        }
+        else {
+            nrow = A.at(i, j).nb();
+            ncol = A.at(i, j).mb();
+        }
+
+        for (int ii = 0; ii < nrow; ++ii) {
+            for (int jj = 0; jj < ncol; ++jj) {
+                test_assert(Tdata[ii + jj * Tstride] == sol_value);
+            }
+        }
+    }
+
+    if (A.tileExists(i, j) && ! A.tileIsLocal(i, j))
+        A.tileErase(i, j);
+}
+
+template <class scalar_t=double>
+void test_Matrix_tileReduceFromSet()
+{
+    // square tiles
+    // TODO rectangular tiles?
+    int mtiles, mtiles_local, m_local, lda;
+    int ntiles, ntiles_local, n_local;
+    get_2d_cyclic_dimensions(
+        m, n, nb, nb,
+        mtiles, mtiles_local, m_local,
+        ntiles, ntiles_local, n_local, lda );
+
+    std::vector<double> Ad( lda*n_local );
+
+    auto A = slate::Matrix<double>::fromScaLAPACK(
+                 m, n, Ad.data(), lda, nb, p, q, mpi_comm );
+
+    auto AT = transpose( A );
+    auto AH = conjTranspose( A );
+
+    std::set<int> all_reduce_set;
+
+    // Case: all ranks will be part of the reduction
+    for (int rank = 0; rank < mpi_size; ++rank) {
+        all_reduce_set.insert(rank);
+    }
+
+    std::list<slate::Matrix<double>> matrices{ A, AT, AH };
+    std::list<std::set<int>> reduce_sets{ all_reduce_set };
+
+    for (auto M : matrices) {
+        for (auto reduce_set : reduce_sets) {
+            for (int64_t i = 0; i < M.mt(); ++i) {
+                for (int64_t j = 0; j < M.nt(); ++j) {
+                    int root = M.tileRank(i, j);
+
+                    // Make sure the root is in the reduce_set
+                    reduce_set.insert(root);
+
+                    test_BaseMatrix_tileReduceFromSet(M, i, j, reduce_set);
+                }
+            }
+        }
+    }
+}
+
 //==============================================================================
 // todo
 // BaseMatrix
@@ -1881,7 +2044,7 @@ void run_tests()
 {
     if (mpi_rank == 0)
         printf("\nConstructors\n");
-    run_test(test_Matrix,                    "Matrix()",                   mpi_comm);
+    run_test(test_Matrix_default,            "Matrix()",                   mpi_comm);
     run_test(test_Matrix_empty,              "Matrix(m, n, nb, ...)",      mpi_comm);
     run_test(test_Matrix_lambda,             "Matrix(m, n, tileMb, ...)",  mpi_comm);
     run_test(test_Matrix_fromLAPACK,         "Matrix::fromLAPACK",         mpi_comm);
@@ -1896,12 +2059,13 @@ void run_tests()
     run_test(test_Matrix_emptyLikeMbNb,        "Matrix::emptyLikeMbNb",                    mpi_comm);
     run_test(test_Matrix_emptyLikeOp,          "Matrix::emptyLikeOp",                      mpi_comm);
     run_test(test_Matrix_transpose,            "transpose",                                mpi_comm);
-    run_test(test_Matrix_conjTranspose,       "conjTranspose",                           mpi_comm);
+    run_test(test_Matrix_conjTranspose,        "conjTranspose",                            mpi_comm);
     run_test(test_Matrix_swap,                 "swap",                                     mpi_comm);
     run_test(test_Matrix_tileInsert_new,       "Matrix::tileInsert(i, j, dev) ",           mpi_comm);
     run_test(test_Matrix_tileInsert_data,      "Matrix::tileInsert(i, j, dev, data, lda)", mpi_comm);
     run_test(test_Matrix_tileLife,             "Matrix::tileLife",                         mpi_comm);
     run_test(test_Matrix_tileErase,            "Matrix::tileErase",                        mpi_comm);
+    run_test(test_Matrix_tileReduceFromSet,    "Matrix::tileReduceFromSet(i, j, set,...)", mpi_comm);
     run_test(test_Matrix_insertLocalTiles,     "Matrix::insertLocalTiles()",               mpi_comm);
     run_test(test_Matrix_insertLocalTiles_dev, "Matrix::insertLocalTiles(on_devices)",     mpi_comm);
     run_test(test_Matrix_allocateBatchArrays,  "Matrix::allocateBatchArrays",              mpi_comm);
@@ -1973,9 +2137,9 @@ int main(int argc, char** argv)
         }
     }
     if (mpi_rank == 0) {
-        printf("Usage: %s [-m %d] [-n %d] [-k %d] [-nb %d] [-p %d] [-q %d] [-seed %d] [-v]\n"
+        printf("Usage: %s [-m %d] [-n %d] [-k %d] [-mb %d] [-nb %d] [-p %d] [-q %d] [-seed %d] [-v]\n"
                "num_devices = %d\n",
-               argv[0], m, n, k, nb, p, q, seed,
+               argv[0], m, n, k, mb, nb, p, q, seed,
                num_devices);
     }
 

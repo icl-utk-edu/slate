@@ -218,6 +218,7 @@ std::map<std::string, Color> function_color_ = {
     {"lapack::tpmqrt", Color::LightSkyBlue},
     {"lapack::tpqrt",  Color::DeepSkyBlue},
     {"lapack::trtri",  Color::DodgerBlue},
+    {"lapack::larft",  Color::LightBlue},
 
     {"Memory::alloc", Color::Aqua},
     {"Memory::free",  Color::Aquamarine},

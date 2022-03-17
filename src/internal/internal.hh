@@ -180,6 +180,15 @@ void hemm(Side side,
 }
 
 //-----------------------------------------
+// hemmA()
+template <Target target=Target::HostTask, typename scalar_t>
+void hemmA(Side side,
+          scalar_t alpha, HermitianMatrix<scalar_t>&& A,
+                          Matrix<scalar_t>&& B,
+          scalar_t beta,  Matrix<scalar_t>&& C,
+          int priority=0);
+
+//-----------------------------------------
 // herk()
 template <Target target=Target::HostTask, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
@@ -304,6 +313,15 @@ void trsm(Side side,
                                     Matrix<scalar_t>&& B,
           int priority=0, Layout layout=Layout::ColMajor,
           int64_t queue_index=0, Options const& opts = Options());
+
+//-----------------------------------------
+// trsmA()
+template <Target target=Target::HostTask, typename scalar_t>
+void trsmA(Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>&& A,
+                                    Matrix<scalar_t>&& B,
+          int priority=0, Layout layout=Layout::ColMajor,
+          int64_t queue_index=0);
 
 //-----------------------------------------
 // trtri()
@@ -491,6 +509,14 @@ void unmlq(Side side, Op op,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
            Matrix<scalar_t>&& W);
+
+//-----------------------------------------
+// unmtr_hb2st()
+template <Target target=Target::HostTask, typename scalar_t>
+void unmtr_hb2st(Side side, Op op,
+                 Matrix<scalar_t>& V,
+                 Matrix<scalar_t>& C,
+                 const std::map<Option, Value>& opts);
 
 //-----------------------------------------
 // potrf()

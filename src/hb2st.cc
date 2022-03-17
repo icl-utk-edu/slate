@@ -208,6 +208,8 @@ void hb2st(slate::internal::TargetType<target>,
     for (int64_t i = 0; i < n-1; ++i)
         progress.at(i).store(-1);
 
+    set(zero, V);
+
     // Insert workspace tiles needed for fill-in in bulge chasing
     // and set tile entries outside the band to 0.
     // todo: should release these tiles when done

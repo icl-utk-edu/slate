@@ -12,69 +12,6 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::getrs_nopiv from internal::specialization::getrs_nopiv
-namespace internal {
-namespace specialization {
-
-//------------------------------------------------------------------------------
-/// Distributed parallel LU solve.
-/// Generic implementation for any target.
-/// @ingroup gesv_specialization
-///
-template <Target target, typename scalar_t>
-void getrs_nopiv(slate::internal::TargetType<target>,
-           Matrix<scalar_t>& A,
-           Matrix<scalar_t>& B, int64_t lookahead)
-{
-    assert(A.mt() == A.nt());
-    assert(B.mt() == A.mt());
-
-    auto L = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, A);
-    auto U = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A);
-
-    if (A.op() == Op::NoTrans) {
-        // Forward substitution, Y = L^{-1} P B.
-        trsm(Side::Left, scalar_t(1.0), L, B,
-             {{Option::Lookahead, lookahead},
-              {Option::Target, target}});
-
-        // Backward substitution, X = U^{-1} Y.
-        trsm(Side::Left, scalar_t(1.0), U, B,
-             {{Option::Lookahead, lookahead},
-              {Option::Target, target}});
-    }
-    else {
-        // Forward substitution, Y = U^{-T} B.
-        trsm(Side::Left, scalar_t(1.0), U, B,
-             {{Option::Lookahead, lookahead},
-              {Option::Target, target}});
-
-        // Backward substitution, Xhat = L^{-T} Y.
-        trsm(Side::Left, scalar_t(1.0), L, B,
-             {{Option::Lookahead, lookahead},
-              {Option::Target, target}});
-    }
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gesv_specialization
-///
-template <Target target, typename scalar_t>
-void getrs_nopiv(Matrix<scalar_t>& A,
-           Matrix<scalar_t>& B,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::getrs_nopiv(internal::TargetType<target>(),
-                                    A, B, lookahead);
-}
-
 //------------------------------------------------------------------------------
 /// Distributed parallel LU solve.
 ///
@@ -116,22 +53,28 @@ void getrs_nopiv(Matrix<scalar_t>& A,
            Matrix<scalar_t>& B,
            Options const& opts)
 {
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+    // Constants
+    const scalar_t one  = 1;
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            getrs_nopiv<Target::HostTask>(A, B, opts);
-            break;
-        case Target::HostNest:
-            getrs_nopiv<Target::HostNest>(A, B, opts);
-            break;
-        case Target::HostBatch:
-            getrs_nopiv<Target::HostBatch>(A, B, opts);
-            break;
-        case Target::Devices:
-            getrs_nopiv<Target::Devices>(A, B, opts);
-            break;
+    assert(A.mt() == A.nt());
+    assert(B.mt() == A.mt());
+
+    auto L = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, A);
+    auto U = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A);
+
+    if (A.op() == Op::NoTrans) {
+        // Forward substitution, Y = L^{-1} P B.
+        trsm(Side::Left, one, L, B, opts);
+
+        // Backward substitution, X = U^{-1} Y.
+        trsm(Side::Left, one, U, B, opts);
+    }
+    else {
+        // Forward substitution, Y = U^{-T} B.
+        trsm(Side::Left, one, U, B, opts);
+
+        // Backward substitution, Xhat = L^{-T} Y.
+        trsm(Side::Left, one, L, B, opts);
     }
     // todo: return value for errors?
 }

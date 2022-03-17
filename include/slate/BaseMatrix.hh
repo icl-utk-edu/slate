@@ -3992,8 +3992,7 @@ std::tuple<int64_t, int64_t, int>
 }
 
 //------------------------------------------------------------------------------
-/// Erases tiles that are local to node
-/// but not local to device.
+/// Erases local workspace tiles.
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::eraseLocalWorkspace()
@@ -4007,10 +4006,10 @@ void BaseMatrix<scalar_t>::eraseLocalWorkspace()
                 LockGuard guard(tile_node.getLock());
 
                 for (int d = 0; d < this->num_devices(); ++d) {
-                    if (tile_node.existsOn(d) ) {
-                        if (d != this->tileDevice(i, j)) { // not local to device
-                            this->tileErase(i, j, d);
-                        }
+                    if (tile_node.existsOn(d)
+                        && tile_node[d].tile()->workspace()) {
+
+                        this->tileErase(i, j, d);
                     }
                 }
             }

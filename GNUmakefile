@@ -439,6 +439,7 @@ ifneq ($(only_unit),1)
         src/internal/internal_tzset.cc \
         src/internal/internal_unmqr.cc \
         src/internal/internal_unmlq.cc \
+        src/internal/internal_unmtr_hb2st.cc \
         src/internal/internal_hegst.cc \
         src/internal/internal_gescale.cc \
         src/internal/internal_tzscale.cc \
@@ -514,7 +515,6 @@ ifneq ($(only_unit),1)
         src/getrs_nopiv.cc \
         src/hb2st.cc \
         src/he2hb.cc \
-        src/unmtr_he2hb.cc \
         src/heev.cc \
         src/hemm.cc \
         src/hemmA.cc \
@@ -551,6 +551,8 @@ ifneq ($(only_unit),1)
         src/trtrm.cc \
         src/unmqr.cc \
         src/unmlq.cc \
+        src/unmtr_hb2st.cc \
+        src/unmtr_he2hb.cc \
         src/hegst.cc \
         src/scale.cc \
         src/add.cc \
@@ -606,7 +608,6 @@ tester_src += \
         test/test_gesvd.cc \
         test/test_getri.cc \
         test/test_he2hb.cc \
-        test/test_unmtr_he2hb.cc \
         test/test_heev.cc \
         test/test_hegv.cc \
         test/test_hemm.cc \
@@ -632,6 +633,8 @@ tester_src += \
         test/test_trnorm.cc \
         test/test_trsm.cc \
         test/test_trtri.cc \
+        test/test_unmtr_hb2st.cc \
+        test/test_unmtr_he2hb.cc \
         test/test_hegst.cc \
         test/matrix_generator.cc \
         test/matrix_params.cc \

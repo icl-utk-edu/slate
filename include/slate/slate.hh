@@ -67,11 +67,11 @@ void scale(
 
 template <typename scalar_t>
 void scale(
-    scalar_t value,
+    blas::real_type<scalar_t> value,
     Matrix<scalar_t>& A,
     Options const& opts = Options())
 {
-    scalar_t one = 1;
+    blas::real_type<scalar_t> one = 1.0;
     scale(value, one, A, opts);
 }
 
@@ -84,11 +84,11 @@ void scale(
 
 template <typename scalar_t>
 void scale(
-    scalar_t value,
+    blas::real_type<scalar_t> value,
     BaseTrapezoidMatrix<scalar_t>& A,
     Options const& opts = Options())
 {
-    scalar_t one = 1;
+    blas::real_type<scalar_t> one = 1.0;
     scale(value, one, A, opts);
 }
 
@@ -809,65 +809,109 @@ void bdsqr(
     Options const& opts = Options());
 
 //------------------------------------------------------------------------------
-// Eigenvalue decomposition
+// Symmetric/Hermitian eigenvalues
 
-//-----------------------------------------
-// Symmetric/hermitian
-
-//-----------------------------------------
-// heev()
 template <typename scalar_t>
 void heev(
-    Job jobz,
-    HermitianMatrix<scalar_t>& A, std::vector< blas::real_type<scalar_t> >& W,
-             Matrix<scalar_t>& Z,
+    HermitianMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Matrix<scalar_t>& Z,
     Options const& opts = Options());
 
+/// Without Z, compute only eigenvalues.
+template <typename scalar_t>
+void heev(
+    HermitianMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Options const& opts = Options())
+{
+    Matrix<scalar_t> Z;
+    heev( A, Lambda, Z, opts );
+}
+
 //-----------------------------------------
-// syev()
 // forward real-symmetric matrices to heev;
 // disabled for complex
 template <typename scalar_t>
 void syev(
-    Job jobz,
-    SymmetricMatrix<scalar_t>& A, std::vector< blas::real_type<scalar_t> >& W,
-             Matrix<scalar_t>& Z,
+    SymmetricMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Matrix<scalar_t>& Z,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    HermitianMatrix<scalar_t> AH(A);
-    heev(jobz, AH, W, Z, opts);
+    HermitianMatrix<scalar_t> AH( A );
+    heev( AH, Lambda, Z, opts );
+}
+
+/// Without Z, compute only eigenvalues.
+template <typename scalar_t>
+void syev(
+    SymmetricMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    HermitianMatrix<scalar_t> AH( A );
+    Matrix<scalar_t> Z;
+    heev( AH, Lambda, Z, opts );
+}
+
+//------------------------------------------------------------------------------
+// Generalized symmetric/hermitian
+
+template <typename scalar_t>
+void hegv(
+    int64_t itype,
+    HermitianMatrix<scalar_t>& A,
+    HermitianMatrix<scalar_t>& B,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Matrix<scalar_t>& Z,
+    Options const& opts = Options());
+
+// Without Z, compute only eigenvalues.
+template <typename scalar_t>
+void hegv(
+    int64_t itype,
+    HermitianMatrix<scalar_t>& A,
+    HermitianMatrix<scalar_t>& B,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Options const& opts = Options())
+{
+    Matrix<scalar_t> Z;
+    hegv( itype, A, B, Lambda, Z, opts );
 }
 
 //-----------------------------------------
-// Generalized symmetric/hermitian
-
-//-----------------------------------------
-// hegv()
-template <typename scalar_t>
-void hegv(
-    int64_t itype, Job jobz,
-    HermitianMatrix<scalar_t>& A,
-    HermitianMatrix<scalar_t>& B, std::vector< blas::real_type<scalar_t> >& W,
-             Matrix<scalar_t>& V,
-    Options const& opts = Options());
-
-//-----------------------------------------
-// sygv()
 // forward real-symmetric matrices to hegv;
 // disabled for complex
 template <typename scalar_t>
 void sygv(
-    int64_t itype, Job jobz,
+    int64_t itype,
     SymmetricMatrix<scalar_t>& A,
-    SymmetricMatrix<scalar_t>& B, std::vector< blas::real_type<scalar_t> >& W,
-             Matrix<scalar_t>& V,
+    SymmetricMatrix<scalar_t>& B,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Matrix<scalar_t>& Z,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    HermitianMatrix<scalar_t> AH(A);
-    HermitianMatrix<scalar_t> BH(B);
-    hegv(itype, jobz, AH, BH, W, V, opts);
+    HermitianMatrix<scalar_t> AH( A );
+    HermitianMatrix<scalar_t> BH( B );
+    hegv( itype, AH, BH, Lambda, Z, opts );
+}
+
+/// Without Z, compute only eigenvalues.
+template <typename scalar_t>
+void sygv(
+    int64_t itype,
+    SymmetricMatrix<scalar_t>& A,
+    SymmetricMatrix<scalar_t>& B,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    Matrix<scalar_t> Z;
+    sygv( itype, A, B, Lambda, Z, opts );
 }
 
 //-----------------------------------------
@@ -891,10 +935,13 @@ void sygst(
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    HermitianMatrix<scalar_t> AH(A);
-    HermitianMatrix<scalar_t> BH(B);
-    hegst(itype, AH, BH, opts);
+    HermitianMatrix<scalar_t> AH( A );
+    HermitianMatrix<scalar_t> BH( B );
+    hegst( itype, AH, BH, opts );
 }
+
+//------------------------------------------------------------------------------
+// Symmetric/Hermitian eigenvalue reductions
 
 //-----------------------------------------
 // he2hb()
@@ -920,6 +967,15 @@ template <typename scalar_t>
 void hb2st(
     HermitianBandMatrix<scalar_t>& A,
     Matrix<scalar_t>& V,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// unmtr_hb2st()
+template <typename scalar_t>
+void unmtr_hb2st(
+    Side side, Op op,
+    Matrix<scalar_t>& V,
+    Matrix<scalar_t>& C,
     Options const& opts = Options());
 
 //-----------------------------------------

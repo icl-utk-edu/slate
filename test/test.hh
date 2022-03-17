@@ -208,12 +208,13 @@ void test_gelqf  (Params& params, bool run);
 void test_unmqr  (Params& params, bool run);
 
 // symmetric/Hermitian eigenvalues
-void test_heev        (Params& params, bool run);
-void test_he2hb       (Params& params, bool run);
-void test_unmtr_he2hb (Params& params, bool run);
-void test_hb2st       (Params& params, bool run);
-void test_sterf       (Params& params, bool run);
-void test_steqr2      (Params& params, bool run);
+void test_heev   (Params& params, bool run);
+void test_he2hb  (Params& params, bool run);
+void test_hb2st  (Params& params, bool run);
+void test_sterf  (Params& params, bool run);
+void test_steqr2 (Params& params, bool run);
+void test_unmtr_he2hb(Params& params, bool run);
+void test_unmtr_hb2st(Params& params, bool run);
 
 // generalized symmetric/Hermitian eigenvalues
 void test_hegv   (Params& params, bool run);
@@ -224,6 +225,8 @@ void test_gesvd  (Params& params, bool run);
 void test_ge2tb  (Params& params, bool run);
 void test_tb2bd  (Params& params, bool run);
 void test_bdsqr  (Params& params, bool run);
+void test_unmbr_ge2tb(Params& params, bool run);
+void test_unmbr_tb2bd(Params& params, bool run);
 
 // matrix norms
 void test_gbnorm (Params& params, bool run);

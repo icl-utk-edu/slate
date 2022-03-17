@@ -77,10 +77,6 @@ void test_hegv_work(Params& params, bool run)
         params.msg() = "skipping: requires square process grid (p == q).";
         return;
     }
-    if (jobz != lapack::Job::NoVec) {
-        params.msg() = "skipping: only supports Job::NoVec.";
-        return;
-    }
 
     // Figure out local size.
     // matrix A (local input/local output), n-by-n, Hermitian
@@ -135,9 +131,8 @@ void test_hegv_work(Params& params, bool run)
                 n, n, &Z_data[0], lldZ, nb, p, q, mpi_comm);
     }
 
-    slate::generate_matrix( params.matrix, A);
-    slate::generate_matrix( params.matrixB, B);
-    slate::generate_matrix( params.matrixC, Z);
+    slate::generate_matrix( params.matrix,  A );
+    slate::generate_matrix( params.matrixB, B );
 
     if (verbose >= 1) {
         printf("%% A   %6lld-by-%6lld\n", llong( A.m() ), llong( A.n() ));
@@ -198,13 +193,15 @@ void test_hegv_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         if (jobz == slate::Job::NoVec) {
-            slate::eig_vals(itype, A, B, Lambda, opts);
+            slate::eig_vals( itype, A, B, Lambda, opts );
+            // Using traditional BLAS/LAPACK name
+            // slate::hegv( itype, A, B, Lambda, opts );
         }
-        // else {
-            // todo: slate::Job::Vec
-        // }
-        // Using traditional BLAS/LAPACK name
-        // slate::hegv(itype, jobz, A, B, Lambda, Z, opts);
+        else {
+            slate::eig( itype, A, B, Lambda, Z, opts );
+            // Using traditional BLAS/LAPACK name
+            // slate::hegv( itype, A, B, Lambda, Z, opts );
+        }
 
         time = barrier_get_wtime(mpi_comm) - time;
         if (trace) slate::trace::Trace::finish();
@@ -419,10 +416,10 @@ void test_hegv_work(Params& params, bool run)
             if (! ref_only) {
                 // Reference Scalapack was run, check reference eigenvalues
                 // Perform a local operation to get differences Lambda = Lambda - Lambda_ref
-                blas::axpy(Lambda.size(), -1.0, &Lambda_ref[0], 1, &Lambda[0], 1);
+                blas::axpy( n, -1.0, &Lambda_ref[0], 1, &Lambda[0], 1 );
                 // Relative forward error: || Lambda_ref - Lambda || / || Lambda_ref ||.
-                params.error2() = blas::asum(Lambda.size(), &Lambda[0], 1)
-                                / blas::asum(Lambda_ref.size(), &Lambda_ref[0], 1);
+                params.error2() = blas::asum( n, &Lambda[0], 1 )
+                                / blas::asum( n, &Lambda_ref[0], 1 );
                 real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
                 params.okay() = (params.error2() <= tol);
             }

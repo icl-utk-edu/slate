@@ -64,6 +64,10 @@ void he2hb(slate::internal::TargetType<target>,
     int64_t n = A.n();
     int64_t nb_A = A.tileNb(0);
     int nprow, npcol, myrow, mycol;
+    // For the workspace matrix (W) change the GPU distribution to row cyclic,
+    // by doing that, all the GPUs will be busy simultaneously,
+    // in particular when we call he2hb_hemm,
+    // which will improve the performance.
     A.gridinfo( &nprow, &npcol, &myrow, &mycol );
     std::function<int64_t (int64_t j)> tileNb = [n, nb_A] (int64_t j) {
         return (j + 1)*nb_A > n ? n%nb_A : nb_A;
@@ -92,8 +96,8 @@ void he2hb(slate::internal::TargetType<target>,
     // tracks dependencies by block-column.
     std::vector< uint8_t > block_vector(nt);
     uint8_t* block = block_vector.data();
-    std::vector< uint8_t > alloc_vector(1);
-    uint8_t* alloc = alloc_vector.data();
+    std::vector< uint8_t > alloc_workspace_vector(1);
+    uint8_t* alloc_workspace = alloc_workspace_vector.data();
     std::vector< uint8_t > alloc_trailing_vector(1);
     uint8_t* alloc_trailing = alloc_trailing_vector.data();
 
@@ -121,18 +125,17 @@ void he2hb(slate::internal::TargetType<target>,
             for (int r: panel_ranks) {
                 for (int64_t i = 0; i < A_panel.mt(); ++i) {
                     if (A_panel.tileRank(i, 0) == r) {
-                        // todo: way to get index in parent matrix, to avoid manually adding k+1?
                         first_indices.push_back(i+k+1);
                         break;
                     }
                 }
             }
             std::vector<int64_t> indices;
-            std::vector<int64_t> indices2;
+            std::vector<int64_t> indices_local_panel;
             int64_t i0;
 
             if (k == 0) {
-                #pragma omp task depend(inout:alloc[0])
+                #pragma omp task depend(inout:alloc_workspace[0])
                 {
                     if (target == Target::Devices) {
                         A.allocateBatchArrays();
@@ -161,7 +164,7 @@ void he2hb(slate::internal::TargetType<target>,
             }
 
             #pragma omp task depend(in:block[k]) \
-                             depend(in:alloc[0])
+                             depend(in:alloc_workspace[0])
             {
                 // if a trailing matrix exists.
                 if (k < nt-1) {
@@ -205,13 +208,12 @@ void he2hb(slate::internal::TargetType<target>,
                         Treduce.template listBcastMT(bcast_list_T, layout);
                     }
 
-                    //TODO: keep only this indices loop
                     for (int panel_rank: panel_ranks) {
                         // Find local indices for panel_rank.
                         indices.clear();
                         for (int64_t i = 0; i < A_panel.mt(); ++i) {
                             if (A_panel.tileRank(i, 0) == panel_rank) {
-                                // todo: global index
+                                // global index
                                 indices.push_back(i+k+1);
                             }
                         }
@@ -232,7 +234,9 @@ void he2hb(slate::internal::TargetType<target>,
                     }
                 }
             }
-            #pragma omp task depend(in:alloc[0]) depend(inout:alloc_trailing[0])
+            // computation and data-movement overlap: Fetching data to be used in he2hb_hemm
+            #pragma omp task depend(in:alloc_workspace[0]) \
+                             depend(inout:alloc_trailing[0])
             {
 
                 for (int64_t i = k+1; i < nt; ++i) {
@@ -250,7 +254,7 @@ void he2hb(slate::internal::TargetType<target>,
                             indices.clear();
                             for (int64_t i = 0; i < A_panel.mt(); ++i) {
                                 if (A_panel.tileRank(i, 0) == panel_rank) {
-                                    // todo: global index
+                                    // global index
                                     indices.push_back(i+k+1);
                                 }
                             }
@@ -303,12 +307,14 @@ void he2hb(slate::internal::TargetType<target>,
                 for (int panel_rank: panel_ranks) {
                     // Find local indices for panel_rank.
                     indices.clear();
-                    indices2.clear();
+                    indices_local_panel.clear();
                     for (int64_t i = 0; i < A_panel.mt(); ++i) {
                         if (A_panel.tileRank(i, 0) == panel_rank) {
-                            // todo: global index
+                            // global index
                             indices.push_back(i+k+1);
-                            indices2.push_back(i);
+                            // local index: indeces within the panel,
+                            // to be used in the subsequent calls
+                            indices_local_panel.push_back(i);
                         }
                     }
                     i0 = indices[0];
@@ -329,13 +335,14 @@ void he2hb(slate::internal::TargetType<target>,
                     //--------------------
                     // Apply local reflectors.
                     // Compute Wi = (sum_j Aij Vj) T, for i = k+1, ..., nt-1.
-                    #pragma omp task depend(inout:block[k])  depend(inout:alloc_trailing[0])
+                    #pragma omp task depend(inout:block[k]) \
+                                     depend(inout:alloc_trailing[0])
                     {
                         internal::he2hb_hemm<target>(
                             A.sub(k+1, nt-1),
                             A.sub(k+1, nt-1, k, k),
                             W.sub(k+1, nt-1, k, k),
-                            indices2);
+                            indices_local_panel);
                     }
 
                     int rank_lower = -1;
@@ -343,7 +350,8 @@ void he2hb(slate::internal::TargetType<target>,
 
                     // At most 2 ranks contribute to each Wi; if I am one,
                     // exchange partial sum with neighbor and both ranks sum Wi.
-                    #pragma omp task depend(inout:block[k])  depend(inout:alloc_trailing[0])
+                    #pragma omp task depend(inout:block[k]) \
+                                     depend(inout:alloc_trailing[0])
                     {
                         for (int64_t i = k+1; i < nt-1; ++i) {
                             #pragma omp task
@@ -388,14 +396,14 @@ void he2hb(slate::internal::TargetType<target>,
                         #pragma omp taskwait
                     }
 
-                    #pragma omp task depend(inout:block[k]) depend(in:alloc_trailing[0])
+                    #pragma omp task depend(inout:block[k]) \
+                                     depend(in:alloc_trailing[0])
                     {
                         internal::he2hb_trmm<target>(
-                            // todo: needed to get the rank, try replace it with W
-                            A.sub(k+1, nt-1),
+                            A.sub(k+1, nt-1), // Needed to get the rank
                             W.sub(k+1, nt-1, k, k),
                             Tlocal.sub(i0, i0, k, k),
-                            indices2);
+                            indices_local_panel);
                     }
 
                     if (A.tileIsLocal(i0, i0)) {
@@ -408,19 +416,19 @@ void he2hb(slate::internal::TargetType<target>,
                         // where
                         // W = A V T - 0.5 V (T^H V^H (A V T)).
 
-                        // 1a. W = AVT from above.
-                        // 1b. TVAVT = V^H (AVT) = V^H W.
-                        // Call internal::geset
+                        // 1a. W = A VT from above.
 
+                        // 1b. TVAVT = V^H (AVT) = V^H W.
                         #pragma omp task depend(in:block[k]) \
-                                         depend(inout:block[0]) depend(in:alloc_trailing[0])
+                                         depend(inout:block[0]) \
+                                         depend(in:alloc_trailing[0])
                         {
-                            auto AT = conjTranspose(A.sub(k+1, nt-1, k, k));
+                            auto A_panelT = conjTranspose(A.sub(k+1, nt-1, k, k));
                             W.tileGetForWriting(0, 0, W.hostNum(),
                                                 LayoutConvert(layout));
                             TVAVT(0, 0).set(zero);
                             internal::he2hb_gemm<target>(
-                                one,  std::move(AT),
+                                one,  std::move(A_panelT),
                                 W.sub(k+1, nt-1, k, k),
                                 zero, W.sub(0, 0, 0, 0),
                                 panel_rank,
@@ -460,7 +468,8 @@ void he2hb(slate::internal::TargetType<target>,
                         // 1d. W = W - 0.5 V TVAVT.
                         // Technically, could do a hemm here since TVAVT is Hermitian.
                         #pragma omp task depend(in:block[0]) \
-                                         depend(inout:block[k]) depend(inout:alloc_trailing[0])
+                                         depend(inout:block[k]) \
+                                         depend(inout:alloc_trailing[0])
                         {
                             internal::he2hb_gemm<target>(
                                 -half, A.sub(k+1, nt-1, k, k),
@@ -471,9 +480,11 @@ void he2hb(slate::internal::TargetType<target>,
                         }
 
                         // 2. Update trailing matrix.
+                        //  A = -V WT -W VT + A
                         #pragma omp task depend(in:block[k]) \
                                          depend(inout:block[k+1]) \
-                                         depend(inout:block[nt-1]) depend(inout:alloc_trailing[0])
+                                         depend(inout:block[nt-1]) \
+                                         depend(inout:alloc_trailing[0])
                         {
                             internal::her2k<target>(
                                 -one,  A.sub(k+1, nt-1, k, k),
@@ -491,16 +502,16 @@ void he2hb(slate::internal::TargetType<target>,
                         // where
                         // W = A^H V T = A V T.
 
-                        //todo: only for this one pass block dep
                         #pragma omp task depend(in:block[k]) \
                                          depend(inout:block[k+1]) \
-                                         depend(inout:block[nt-1]) depend(inout:alloc_trailing[0])
+                                         depend(inout:block[nt-1]) \
+                                         depend(inout:alloc_trailing[0])
                         {
                             internal::he2hb_gemm_outer<target>(
                                 -one, A.sub(k+1, nt-1, k, k),
                                 W.sub(k+1, nt-1, k, k),
                                 one,  A.sub(k+1, nt-1),
-                                indices2, &block[k+1]);
+                                indices_local_panel, &block[k+1]);
                         }
                     }
 
@@ -520,7 +531,8 @@ void he2hb(slate::internal::TargetType<target>,
 
                 #pragma omp task depend(in:block[k]) \
                                  depend(inout:block[k+1]) \
-                                 depend(inout:block[nt-1]) depend(inout:alloc_trailing[0])
+                                 depend(inout:block[nt-1]) \
+                                 depend(inout:alloc_trailing[0])
                 {
                     internal::hettmqr<Target::HostTask>(
                         Op::ConjTrans,
@@ -553,7 +565,7 @@ void he2hb(slate::internal::TargetType<target>,
                                 indices.clear();
                                 for (int64_t i = 0; i < A_panel.mt(); ++i) {
                                     if (A_panel.tileRank(i, 0) == panel_rank) {
-                                        // todo: global index
+                                        // global index
                                         indices.push_back(i+k+1);
                                     }
                                 }

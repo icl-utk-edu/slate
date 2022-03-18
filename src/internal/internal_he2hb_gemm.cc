@@ -10,38 +10,30 @@
 #include "internal/internal.hh"
 #include "internal/internal_batch.hh"
 
-#ifdef SLATE_WITH_MKL
-    #include <mkl_cblas.h>
-#else
-    #include <cblas.h>
-#endif
-
-
 namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// Inner product to update a tile of a matrix,
-/// where A is a single block row and B is a single block column.
-/// It also used to update one block row ,
-/// where A is a single block row and B is a single tile
+/// Inner product C = AB,
+/// where A and B are single blocks.
+/// panel_rank is one of the mpi ranks where A block resides.
+/// Loop over the tiles of A on this panel_rank to update C.
 /// Dispatches to target implementations.
 /// @ingroup he2hb_gemm_internal
+/// todo: add more details
 ///
 template <Target target, typename scalar_t>
 void he2hb_gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                 Matrix<scalar_t>&& B,
-                scalar_t beta,  Matrix<scalar_t>&& T,
+                scalar_t beta,  Matrix<scalar_t>&& C,
                 int panel_rank, uint8_t* block,
                 int priority, int64_t queue_index)
 {
     he2hb_gemm(internal::TargetType<target>(),
-               alpha, A, B, beta, T, panel_rank, block, priority, queue_index);
+               alpha, A, B, beta, C, panel_rank, block, priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
-/// Inner product to update a tile of a matrix,
-/// where A is a single block row and B is a single block column.
 /// Host OpenMP task implementation.
 /// @ingroup he2hb_gemm_internal
 ///
@@ -77,8 +69,6 @@ void he2hb_gemm(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
-/// Inner product to update a tile of a matrix,
-/// where A is a single block row and B is a single block column.
 /// Device implementation.
 /// @ingroup he2hb_gemm_internal
 ///
@@ -313,11 +303,6 @@ void he2hb_gemm(internal::TargetType<Target::Devices>,
 }
 
 //------------------------------------------------------------------------------
-/// Inner product to update a tile of a matrix,
-/// where A is a single block row and B is a single block column.
-/// Host nested OpenMP implementation.
-/// @ingroup he2hb_gemm_internal
-///
 template <typename scalar_t>
 void he2hb_gemm(internal::TargetType<Target::HostNest>,
                 scalar_t alpha, Matrix<scalar_t>& A,
@@ -330,11 +315,6 @@ void he2hb_gemm(internal::TargetType<Target::HostNest>,
 }
 
 //------------------------------------------------------------------------------
-/// Inner product to update a tile of a matrix,
-/// where A is a single block row and B is a single block column.
-/// Host batched OpenMP implementation.
-/// @ingroup he2hb_gemm_internal
-///
 template <typename scalar_t>
 void he2hb_gemm(internal::TargetType<Target::HostBatch>,
                 scalar_t alpha, Matrix<scalar_t>& A,

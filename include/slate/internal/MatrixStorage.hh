@@ -774,8 +774,8 @@ void MatrixStorage<scalar_t>::reserveDeviceWorkspace(int64_t num_tiles)
 {
     for (int device = 0; device < num_devices_; ++device) {
         int64_t n = num_tiles - memory_.allocated(device);
-            if (n > 0)
-                memory_.addDeviceBlocks(device, n);
+        if (n > 0)
+            memory_.addDeviceBlocks(device, n);
     }
 }
 

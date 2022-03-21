@@ -87,7 +87,7 @@ if [ "${host}" = "gpu_nvidia" ]; then
 fi
 
 # Run HIP, Intel MPI tests.
-if [ "${host}" = "gpu_amd" ]; then
+if [ "${host}" = "dopamine" ]; then
     run sload intel-mpi
     export FI_PROVIDER=tcp
 

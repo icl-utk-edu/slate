@@ -257,7 +257,15 @@ void potrf(slate::internal::TargetType<Target::Devices>,
             #pragma omp task depend(inout:column[k])
             {
                 auto panel = A.sub( k, A_nt-1, k, k );
+
+                // Erase remote tiles on all devices including host
                 panel.eraseRemoteWorkspace();
+
+                // Update the origin tiles before their
+                // workspace copies on devices are erased.
+                panel.tileUpdateAllOrigin();
+
+                // Erase local workspace on devices.
                 panel.eraseLocalWorkspace();
             }
         }

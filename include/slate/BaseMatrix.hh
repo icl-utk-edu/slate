@@ -3999,8 +3999,7 @@ void BaseMatrix<scalar_t>::eraseLocalWorkspace()
 {
     for (int64_t j = 0; j < this->nt(); ++j) {
         for (int64_t i = 0; i < this->mt(); ++i) {
-            if (this->tileIsLocal(i, j)) { // erase local tiles that are fetched to
-                // non-local devices
+            if (this->tileIsLocal(i, j)) {
                 auto& tile_node = this->storage_->at(this->globalIndex(i, j));
 
                 LockGuard guard(tile_node.getLock());

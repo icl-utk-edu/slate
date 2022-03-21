@@ -1069,6 +1069,10 @@ distclean: clean
 	cd blaspp      && $(MAKE) distclean
 	cd lapackpp    && $(MAKE) distclean
 
+# Install git hooks
+hooks:
+	rsync -av tools/hooks .git/hooks
+
 %.hip.o: %.hip.cc | $(hip_header)
 	$(HIPCC) $(HIPCCFLAGS) -c $< -o $@
 

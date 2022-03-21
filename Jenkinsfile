@@ -13,7 +13,7 @@ stages {
             axes {
                 axis {
                     name 'host'
-                    values 'gpu_amd', 'gpu_nvidia'
+                    values 'dopamine', 'gpu_nvidia'
                 }
             } // axes
             stages {

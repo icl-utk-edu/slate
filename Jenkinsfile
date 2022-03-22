@@ -164,7 +164,7 @@ date
                     //----------------------------------------------------------
                     post {
                         failure {
-                            mail to: 'slate-dev@icl.utk.edu',
+                            mail to: 'slate-test@icl.utk.edu',
                                 subject: "${currentBuild.fullDisplayName} >> ${STAGE_NAME} >> ${host} failed",
                                 body: "See more at ${env.BUILD_URL}"
                         }

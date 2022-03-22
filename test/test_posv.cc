@@ -72,18 +72,6 @@ void test_posv_work(Params& params, bool run)
         return;
     }
 
-    // Use only TileReleaseStrategy::Slate for potrf.
-    // Internal routines (trsm, herk, gemm) called in
-    // potrf won't release any tiles. Potrf will
-    // clean up tiles.
-    if (params.routine == "potrf" || params.routine == "potrs"
-        || params.routine == "posv") {
-        tile_release_strategy = slate::TileReleaseStrategy::Slate;
-    }
-    else {
-        tile_release_strategy = slate::TileReleaseStrategy::All;
-    }
-
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},

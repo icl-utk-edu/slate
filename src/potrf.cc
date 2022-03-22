@@ -134,10 +134,21 @@ void potrf(slate::internal::TargetType<target>,
 ///
 template <Target target, typename scalar_t>
 void potrf(slate::internal::TargetType<Target::Devices>,
-           HermitianMatrix<scalar_t> A, Options const& opts)
+           HermitianMatrix<scalar_t> A, Options const& opts2)
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
+
+    // Use only TileReleaseStrategy::Slate for potrf.
+    // Internal routines (trsm, herk, gemm) called in
+    // potrf won't release any tiles. Potrf will
+    // clean up tiles.
+    Options opts = Options(opts2);
+    auto search = opts.find(Option::TileReleaseStrategy);
+    if (search != opts.end())
+        search->second = TileReleaseStrategy::Slate;
+    else
+        opts[Option::TileReleaseStrategy] = TileReleaseStrategy::Slate;
 
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
     bool hold_local_workspace = get_option<bool>(

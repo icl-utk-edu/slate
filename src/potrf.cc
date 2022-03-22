@@ -134,7 +134,7 @@ void potrf(slate::internal::TargetType<target>,
 ///
 template <Target target, typename scalar_t>
 void potrf(slate::internal::TargetType<Target::Devices>,
-           HermitianMatrix<scalar_t> A, Options const& opts2)
+           HermitianMatrix<scalar_t> A, Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
@@ -143,16 +143,12 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     // Internal routines (trsm, herk, gemm) called in
     // potrf won't release any tiles. Potrf will
     // clean up tiles.
-    Options opts = Options(opts2);
-    auto search = opts.find(Option::TileReleaseStrategy);
-    if (search != opts.end())
-        search->second = TileReleaseStrategy::Slate;
-    else
-        opts[Option::TileReleaseStrategy] = TileReleaseStrategy::Slate;
+    Options opts2 = Options( opts );
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+    int64_t lookahead = get_option<int64_t>( opts2, Option::Lookahead, 1 );
     bool hold_local_workspace = get_option<bool>(
-            opts, Option::HoldLocalWorkspace, 1 );
+            opts2, Option::HoldLocalWorkspace, 1 );
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -206,7 +202,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                         Side::Right,
                         scalar_t(1.0), conjTranspose(Tkk),
                                        A.sub(k+1, A_nt-1, k, k),
-                        priority_zero, layout, queue_1, opts);
+                        priority_zero, layout, queue_1, opts2);
                 }
 
                 BcastListTag bcast_list_A;
@@ -234,7 +230,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     internal::herk<Target::Devices>(
                         real_t(-1.0), A.sub(k+1+lookahead, A_nt-1, k, k),
                         real_t( 1.0), A.sub(k+1+lookahead, A_nt-1),
-                        priority_zero, queue_0, layout, opts);
+                        priority_zero, queue_0, layout, opts2);
                 }
             }
 
@@ -251,7 +247,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     internal::herk<Target::Devices>(
                         real_t(-1.0), A.sub(j, j, k, k),
                         real_t( 1.0), A.sub(j, j),
-                        priority_zero, j-k+1, layout, opts);
+                        priority_zero, j-k+1, layout, opts2);
 
                     // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
                     if (j+1 <= A_nt-1) {
@@ -260,7 +256,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                             scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
                                             conjTranspose(Ajk),
                             scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j),
-                            layout, priority_zero, j-k+1, opts);
+                            layout, priority_zero, j-k+1, opts2);
                     }
                 }
             }

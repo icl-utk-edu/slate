@@ -148,7 +148,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 
     int64_t lookahead = get_option<int64_t>( opts2, Option::Lookahead, 1 );
     bool hold_local_workspace = get_option<bool>(
-            opts2, Option::HoldLocalWorkspace, 1 );
+            opts2, Option::HoldLocalWorkspace, 0 );
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;

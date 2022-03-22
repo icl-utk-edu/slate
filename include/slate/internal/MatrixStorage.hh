@@ -763,8 +763,8 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::reserveHostWorkspace(int64_t num_tiles)
 {
     int64_t n = num_tiles - memory_.allocated(host_num_);
-        if (n > 0)
-            memory_.addHostBlocks(n);
+    if (n > 0)
+        memory_.addHostBlocks(n);
 }
 
 //------------------------------------------------------------------------------

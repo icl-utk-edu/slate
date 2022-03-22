@@ -13,7 +13,7 @@ stages {
             axes {
                 axis {
                     name 'host'
-                    values 'gpu_amd', 'gpu_nvidia'
+                    values 'dopamine', 'gpu_nvidia'
                 }
             } // axes
             stages {
@@ -87,7 +87,7 @@ if [ "${host}" = "gpu_nvidia" ]; then
 fi
 
 # Run HIP, Intel MPI tests.
-if [ "${host}" = "gpu_amd" ]; then
+if [ "${host}" = "dopamine" ]; then
     run sload intel-mpi
     export FI_PROVIDER=tcp
 

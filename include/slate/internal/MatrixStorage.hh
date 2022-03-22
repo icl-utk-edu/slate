@@ -762,7 +762,9 @@ void MatrixStorage<scalar_t>::clearBatchArrays()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::reserveHostWorkspace(int64_t num_tiles)
 {
-    memory_.addHostBlocks(num_tiles);
+    int64_t n = num_tiles - memory_.allocated(host_num_);
+    if (n > 0)
+        memory_.addHostBlocks(n);
 }
 
 //------------------------------------------------------------------------------
@@ -770,8 +772,11 @@ void MatrixStorage<scalar_t>::reserveHostWorkspace(int64_t num_tiles)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::reserveDeviceWorkspace(int64_t num_tiles)
 {
-    for (int device = 0; device < num_devices_; ++device)
-        memory_.addDeviceBlocks(device, num_tiles);
+    for (int device = 0; device < num_devices_; ++device) {
+        int64_t n = num_tiles - memory_.allocated(device);
+        if (n > 0)
+            memory_.addDeviceBlocks(device, n);
+    }
 }
 
 //------------------------------------------------------------------------------

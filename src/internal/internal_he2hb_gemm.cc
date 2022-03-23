@@ -34,6 +34,7 @@ void he2hb_gemm(scalar_t alpha, Matrix<scalar_t>&& A,
 }
 
 //------------------------------------------------------------------------------
+/// Inner product C = AB,
 /// Host OpenMP task implementation.
 /// @ingroup he2hb_gemm_internal
 ///
@@ -69,6 +70,7 @@ void he2hb_gemm(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
+/// Inner product C = AB,
 /// Device implementation.
 /// @ingroup he2hb_gemm_internal
 ///

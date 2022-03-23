@@ -128,7 +128,7 @@ void he2hb_hemm(internal::TargetType<Target::HostBatch>,
 
 //------------------------------------------------------------------------------
 /// Apply local reflectors.
-/// GPU device batched cuBLAS implementation.
+/// GPU device BLAS implementation.
 /// @ingroup he2hb_hemm_internal
 ///
 template <typename scalar_t>

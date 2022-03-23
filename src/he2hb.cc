@@ -418,11 +418,12 @@ void he2hb(slate::internal::TargetType<target>,
 
                         // 1a. W = A VT from above.
 
-                        // 1b. TVAVT = V^H (AVT) = V^H W.
                         #pragma omp task depend(in:block[k]) \
                                          depend(inout:block[0]) \
-                                         depend(in:alloc_trailing[0])
+                                         depend(inout:block[k+1]) \
+                                         depend(inout:block[nt-1])
                         {
+                            // 1b. TVAVT = V^H (AVT) = V^H W.
                             auto A_panelT = conjTranspose(A.sub(k+1, nt-1, k, k));
                             W.tileGetForWriting(0, 0, W.hostNum(),
                                                 LayoutConvert(layout));
@@ -433,16 +434,10 @@ void he2hb(slate::internal::TargetType<target>,
                                 zero, W.sub(0, 0, 0, 0),
                                 panel_rank,
                                 &block[0]);
-                        }
 
-                        // 1c. TVAVT = T^H (V^H AVT)
-                        #pragma omp task depend(in:block[k]) \
-                                         depend(inout:block[0])
-                        {
+                            // 1c. TVAVT = T^H (V^H AVT)
                             auto T0    = Tlocal.sub(i0, i0, k, k);
                             auto TVAVT0  = W.sub(0, 0, 0, 0);
-                            //T0(0, 0).set(zero);
-                            //TVAVT0(0, 0).set(zero);
 
                             int64_t mb = T0.tileMb(0);
                             int64_t nb = T0.tileNb(0);
@@ -453,7 +448,6 @@ void he2hb(slate::internal::TargetType<target>,
                                 TVAVT0 = TVAVT0.slice(0, mb-1, 0, nb-1); // first mb-by-nb part
                             }
 
-                            // todo: try to call internal::trmm
                             auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper,
                                                                   Diag::NonUnit, T0);
                             Tk0.tileGetForReading(0, 0, Tk0.hostNum(),
@@ -463,29 +457,17 @@ void he2hb(slate::internal::TargetType<target>,
                             trmm(Side::Left, Diag::NonUnit,
                                  one, conjTranspose(Tk0(0, 0)),
                                  std::move(TVAVT0(0, 0)));
-                        }
 
-                        // 1d. W = W - 0.5 V TVAVT.
-                        // Technically, could do a hemm here since TVAVT is Hermitian.
-                        #pragma omp task depend(in:block[0]) \
-                                         depend(inout:block[k]) \
-                                         depend(inout:alloc_trailing[0])
-                        {
+                            // 1d. W = W - 0.5 V TVAVT.
                             internal::he2hb_gemm<target>(
                                 -half, A.sub(k+1, nt-1, k, k),
                                 W.sub(0, 0, 0, 0),
                                 one,   W.sub(k+1, nt-1, k, k),
                                 panel_rank,
                                 &block[k+1]);
-                        }
 
-                        // 2. Update trailing matrix.
-                        //  A = -V WT -W VT + A
-                        #pragma omp task depend(in:block[k]) \
-                                         depend(inout:block[k+1]) \
-                                         depend(inout:block[nt-1]) \
-                                         depend(inout:alloc_trailing[0])
-                        {
+                            // 2. Update trailing matrix.
+                            //  A = -V WT -W VT + A
                             internal::her2k<target>(
                                 -one,  A.sub(k+1, nt-1, k, k),
                                 W.sub(k+1, nt-1, k, k),

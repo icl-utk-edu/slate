@@ -72,6 +72,7 @@ void geqrf(
 
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
+    int knt;
 
     Tile<scalar_t>& diag_tile = tiles.at(0);
     int64_t diag_len = std::min( diag_tile.mb(), diag_tile.nb() );
@@ -131,14 +132,81 @@ void geqrf(
             }
             thread_barrier.wait(thread_size);
 
+            real_t safemin = std::numeric_limits<real_t>::min();
+            real_t rsafemin = 1.0 / safemin;
+            //scalar_t safemin = std::numeric_limits<scalar_t>::min();
+            //scalar_t rsafemin = one / safemin;
             if (xnorm == zero && j < diag_len) {
                 betas.at(j) = alpha;
                 taus.at(j) = zero;
             }
             else {
+                //scalar_t beta =
                 real_t beta =
                     -std::copysign(lapack::lapy3(alphr, alphi, xnorm), alphr);
-                // todo: IF( ABS( BETA ).LT.SAFMIN ) THEN
+                scalar_t beta_check = abs(beta);
+                // IF( ABS( BETA ).LT.SAFMIN )
+                knt = 0;
+                //if (beta_check < safemin) {
+                if (abs(beta) < safemin) {
+                    if (knt < 20 && abs(beta) < safemin) {
+                        knt += 1;
+                        // redo scaling of input vector
+                        for (int64_t idx = thread_rank;
+                             idx < int64_t(tiles.size());
+                             idx += thread_size)
+                        {
+                            auto tile = tiles.at(idx);
+                            auto i_index = tile_indices.at(idx);
+
+                            if (i_index == tile_indices.at(0)) {
+                                if (j+1 < tile.mb())
+                                    blas::scal(tile.mb()-j-1,
+                                               rsafemin, &tile.at(j+1, j), 1);
+                            }
+                            else {
+                                blas::scal(tile.mb(), rsafemin, &tile.at(0, j), 1);
+                            }
+                        }
+                        thread_barrier.wait(thread_size);
+                        //
+                        beta = beta*rsafemin;
+                        alpha = alpha*rsafemin;
+                        //beta_check = abs(beta);
+                    }
+                    //------------------
+                    // redo of thread local norm
+                    scale[thread_rank] = 0.0;
+                    sumsq[thread_rank] = 1.0;
+                    for (int64_t idx = thread_rank;
+                         idx < int64_t(tiles.size());
+                         idx += thread_size)
+                    {
+                        auto tile = tiles.at(idx);
+                        auto i_index = tile_indices.at(idx);
+
+                        if (i_index == tile_indices.at(0)) {
+                            if (j+1 < tile.mb())
+                                lapack::lassq(tile.mb()-j-1, &tile.at(j+1, j), 1,
+                                              &scale[thread_rank], &sumsq[thread_rank]);
+                        }
+                        else {
+                            lapack::lassq(tile.mb(), &tile.at(0, j), 1,
+                                          &scale[thread_rank], &sumsq[thread_rank]);
+                        }
+                    }
+                    thread_barrier.wait(thread_size);
+                    if (thread_rank == 0) {
+                        for (int rank = 1; rank < thread_size; ++rank) {
+                            combine_sumsq(scale[0], sumsq[0], scale[rank], sumsq[rank]);
+                        }
+                        xnorm = scale[0]*std::sqrt(sumsq[0]);
+                    }
+                    thread_barrier.wait(thread_size);
+                    alphr = real(alpha);
+                    alphi = imag(alpha);
+                    beta = -std::copysign(lapack::lapy3(alphr, alphi, xnorm), alphr);
+                }
 
                 // todo: Use overflow-safe division (see CLADIV/ZLADIV)
                 scalar_t tau = make<scalar_t>((beta-alphr)/beta, -alphi/beta);
@@ -168,6 +236,10 @@ void geqrf(
                         // off diagonal tiles
                         blas::scal(tile.mb(), scal_alpha, &tile.at(0, j), 1);
                     }
+                    for ( int64_t i = 0; i<knt; ++i) {
+                        beta = beta*safemin;
+                    }
+                    alpha = beta;
                     // thread local W
                     if (j+1 < diag_len) {
                         if (i_index == tile_indices.at(0)) {

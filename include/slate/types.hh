@@ -46,6 +46,9 @@ public:
     OptionValue(Target t) : i_(int(t))
     {}
 
+    OptionValue(TileReleaseStrategy t) : i_(int(t))
+    {}
+
     union {
         int64_t i_;
         double d_;

@@ -528,6 +528,10 @@ public:
         storage_->releaseWorkspace();
     }
 
+    void eraseLocalWorkspace();
+
+    void eraseRemoteWorkspace();
+
     /// Removes all temporary host and device workspace tiles from matrix.
     /// WARNING: currently, this clears the entire parent matrix,
     /// not just a sub-matrix.
@@ -1481,7 +1485,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 }
 
 //------------------------------------------------------------------------------
-/// Erase tile {i, j} of op(A).
+/// Erase tile {i, j} of op(A) on device (host, one device or all devices).
 /// If tile's memory was allocated by SLATE,
 /// via tileInsert(i, j, dev) or tileInsertWorkspace(i, j, dev),
 /// then the memory is released to the allocator pool.
@@ -1498,10 +1502,14 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 {
-    // todo: erase only workspace tiles? if so, rename with "Workspace"?
-    storage_->erase(globalIndex(i, j, device));
+    if (device == AllDevices) {
+        storage_->erase(globalIndex(i, j));
+    }
+    else {
+        // todo: erase only workspace tiles? if so, rename with "Workspace"?
+        storage_->erase(globalIndex(i, j, device));
+    }
 }
-
 
 //------------------------------------------------------------------------------
 /// Erase the tile {i, j}'s instance on device if it is a workspace tile
@@ -3982,6 +3990,47 @@ std::tuple<int64_t, int64_t, int>
         return { ioffset_ + i, joffset_ + j, device };
     else
         return { ioffset_ + j, joffset_ + i, device };
+}
+
+//------------------------------------------------------------------------------
+/// Erases local workspace tiles.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::eraseLocalWorkspace()
+{
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        for (int64_t i = 0; i < this->mt(); ++i) {
+            if (this->tileIsLocal(i, j)) {
+                auto& tile_node = this->storage_->at(this->globalIndex(i, j));
+
+                LockGuard guard(tile_node.getLock());
+
+                for (int d = 0; d < this->num_devices(); ++d) {
+                    if (tile_node.existsOn(d)
+                        && tile_node[d].tile()->workspace()) {
+
+                        this->tileErase(i, j, d);
+                    }
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Erases tiles that are not local to node from all devices
+/// including host.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::eraseRemoteWorkspace()
+{
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        for (int64_t i = 0; i < this->mt(); ++i) {
+            if (! this->tileIsLocal(i, j)) { // erase remote tiles
+                this->tileErase(i, j, AllDevices);
+            }
+        }
+    }
 }
 
 //------------------------------------------------------------------------------

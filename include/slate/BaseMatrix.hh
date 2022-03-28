@@ -2612,7 +2612,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             work_tile.copyData(dst_tile, *queue2, async);
 
             if (! async)
-                queue->sync();
+                queue2->sync();
         }
     }
 

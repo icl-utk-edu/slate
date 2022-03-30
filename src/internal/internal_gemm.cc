@@ -94,10 +94,12 @@ void gemm(internal::TargetType<Target::HostTask>,
     A.tileGetForReading(A_tiles_set, LayoutConvert(layout));
     B.tileGetForReading(B_tiles_set, LayoutConvert(layout));
 
+    #pragma omp taskgroup
     for (int64_t i = 0; i < C.mt(); ++i) {
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(i, j)) {
-                #pragma omp task shared(A, B, C, err, err_msg) priority(priority)
+                #pragma omp task default(none) shared(A, B, C, err, err_msg) \
+                    firstprivate(i, j, layout, alpha, beta) priority(priority)
                 {
                     try {
                         C.tileGetForWriting(i, j, LayoutConvert(layout));
@@ -116,8 +118,6 @@ void gemm(internal::TargetType<Target::HostTask>,
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         slate_error(err_msg+", line "+std::to_string(err));
@@ -147,8 +147,9 @@ void gemm(internal::TargetType<Target::HostNest>,
     std::string err_msg;
     int64_t C_mt = C.mt();
     int64_t C_nt = C.nt();
-    //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
-    #pragma omp parallel for collapse(2) schedule(dynamic, 1) shared(A, B, C, err, err_msg)
+
+    #pragma omp parallel for collapse(2) schedule(dynamic, 1) default(none) \
+        shared(A, B, C, err, err_msg) firstprivate(C_nt, C_mt, layout, alpha, beta)
     for (int64_t i = 0; i < C_mt; ++i) {
         for (int64_t j = 0; j < C_nt; ++j) {
             if (C.tileIsLocal(i, j)) {
@@ -170,8 +171,6 @@ void gemm(internal::TargetType<Target::HostNest>,
             }
         }
     }
-
-    // #pragma omp taskwait
 
     if (err)
         slate_error(err_msg+", line "+std::to_string(err));
@@ -217,19 +216,22 @@ void gemm(internal::TargetType<Target::HostBatch>,
             }
         }
     }
-    #pragma omp task default(shared)
+
+    #pragma omp taskgroup
     {
-        A.tileGetForReading(A_tiles_set, LayoutConvert(layout));
+        #pragma omp task default(none) shared(A, A_tiles_set) firstprivate(layout)
+        {
+            A.tileGetForReading(A_tiles_set, LayoutConvert(layout));
+        }
+        #pragma omp task default(none) shared(B, B_tiles_set) firstprivate(layout)
+        {
+            B.tileGetForReading(B_tiles_set, LayoutConvert(layout));
+        }
+        #pragma omp task default(none) shared(C, C_tiles_set) firstprivate(layout)
+        {
+            C.tileGetForWriting(C_tiles_set, LayoutConvert(layout));
+        }
     }
-    #pragma omp task default(shared)
-    {
-        B.tileGetForReading(B_tiles_set, LayoutConvert(layout));
-    }
-    #pragma omp task default(shared)
-    {
-        C.tileGetForWriting(C_tiles_set, LayoutConvert(layout));
-    }
-    #pragma omp taskwait
 
     if (batch_count > 0) {
         // if op(C) is NoTrans, invert opA, opB if possible
@@ -356,14 +358,12 @@ void gemm(internal::TargetType<Target::HostBatch>,
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
 /// General matrix multiply to update trailing matrix,
 /// where A is a single block column and B is a single block row.
-/// GPU device batched cuBLAS implementation.
+/// GPU device batched-BLAS implementation.
 /// GPU can use either ColMajor or RowMajor.
 /// @ingroup gemm_internal
 ///
@@ -393,8 +393,11 @@ void gemm(internal::TargetType<Target::Devices>,
     assert(C.num_devices() > 0);
 
     int err = 0;
+
+    #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared(A, B, C, err) priority(priority)
+        #pragma omp task default(none) shared(A, B, C, err) priority(priority) \
+            firstprivate(alpha, beta, layout, queue_index, device, tile_release_strategy)
         {
             // if op(C) is NoTrans, invert opA, opB if possible
             Op opA = A.op();
@@ -442,19 +445,22 @@ void gemm(internal::TargetType<Target::Devices>,
                     }
                 }
             }
-            #pragma omp task default(shared)
+
+            #pragma omp taskgroup
             {
-                A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                #pragma omp task default(none) shared(A, A_tiles_set) firstprivate(layout, device)
+                {
+                    A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                }
+                #pragma omp task default(none) shared(B, B_tiles_set) firstprivate(layout, device)
+                {
+                    B.tileGetForReading(B_tiles_set, device, LayoutConvert(layout));
+                }
+                #pragma omp task default(none) shared(C, C_tiles_set) firstprivate(layout, device)
+                {
+                    C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
+                }
             }
-            #pragma omp task default(shared)
-            {
-                B.tileGetForReading(B_tiles_set, device, LayoutConvert(layout));
-            }
-            #pragma omp task default(shared)
-            {
-                C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
-            }
-            #pragma omp taskwait
 
             int64_t batch_size = C_tiles_set.size();
 
@@ -686,8 +692,6 @@ void gemm(internal::TargetType<Target::Devices>,
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         slate_error(std::to_string(err));

@@ -96,14 +96,12 @@ void getrf(internal::TargetType<Target::HostTask>,
             omp_set_nested(1);
             // Launching new threads for the panel guarantees progression.
             // This should never deadlock, but may be detrimental to performance.
-            #pragma omp parallel for \
-                num_threads(thread_size) \
+            #pragma omp parallel for num_threads(thread_size) default(none) \
                 shared(thread_barrier, max_value, max_index, max_offset, \
                        top_block, aux_pivot)
         #else
             // Issuing panel operation as tasks may cause a deadlock.
-            #pragma omp taskloop \
-                num_tasks(thread_size) \
+            #pragma omp taskloop num_tasks(thread_size) default(none) \
                 shared(thread_barrier, max_value, max_index, max_offset, \
                        top_block, aux_pivot)
         #endif

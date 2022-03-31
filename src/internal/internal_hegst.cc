@@ -40,16 +40,15 @@ void hegst(internal::TargetType<Target::HostTask>,
     assert(B.mt() == 1);
     assert(B.nt() == 1);
 
+    #pragma omp taskgroup
     if (A.tileIsLocal(0, 0)) {
-        #pragma omp task shared(A, B)
+        #pragma omp task default(none) shared(A, B) firstprivate(itype)
         {
             A.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
             B.tileGetForReading(0, 0, LayoutConvert::ColMajor);
             hegst(itype, A(0, 0), B(0, 0));
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

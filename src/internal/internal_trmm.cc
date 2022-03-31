@@ -52,11 +52,13 @@ void trmm(internal::TargetType<Target::HostTask>,
 
     // alternatively, if (side == right), (conj)-transpose both A and B,
     // then assume side == left; see slate::trmm
+    #pragma omp taskgroup
     if (side == Side::Right) {
         assert(B.nt() == 1);
         for (int64_t i = 0; i < B.mt(); ++i) {
             if (B.tileIsLocal(i, 0)) {
-                #pragma omp task shared(A, B)
+                #pragma omp task default(none) shared(A, B) \
+                    firstprivate(i, layout, side, alpha)
                 {
                     A.tileGetForReading(0, 0, LayoutConvert(layout));
                     B.tileGetForWriting(i, 0, LayoutConvert(layout));
@@ -73,7 +75,8 @@ void trmm(internal::TargetType<Target::HostTask>,
         assert(B.mt() == 1);
         for (int64_t j = 0; j < B.nt(); ++j) {
             if (B.tileIsLocal(0, j)) {
-                #pragma omp task shared(A, B)
+                #pragma omp task default(none) shared(A, B) \
+                    firstprivate(j, layout, side, alpha)
                 {
                     A.tileGetForReading(0, 0, LayoutConvert(layout));
                     B.tileGetForWriting(0, j, LayoutConvert(layout));
@@ -86,8 +89,6 @@ void trmm(internal::TargetType<Target::HostTask>,
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -170,7 +171,8 @@ void trmm(internal::TargetType<Target::Devices>,
     }
 
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task shared(A, B) priority(priority)
+        #pragma omp task default(none) shared(A, B)  priority(priority) \
+            firstprivate(device, side, sideA, uploA, opA, diagA, alpha, queue_index)
         {
             std::set<ij_tuple> B_tiles_set;
             if (side == Side::Right) {

@@ -42,11 +42,13 @@ void set(
 {
     // trace::Block trace_block("set");
 
+    #pragma omp taskgroup
     if (A.uplo() == Uplo::Lower) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             for (int64_t i = j; i < A.mt(); ++i) {  // lower trapezoid
                 if (A.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A ) priority(priority)
+                    #pragma omp task default(none) shared(A ) priority(priority) \
+                        firstprivate(i, j, alpha, beta)
                     {
                         A.tileGetForWriting(i, j, LayoutConvert::None);
                         if (i == j)
@@ -62,7 +64,8 @@ void set(
         for (int64_t j = 0; j < A.nt(); ++j) {
             for (int64_t i = 0; i <= j && i < A.mt(); ++i) {  // upper trapezoid
                 if (A.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A ) priority(priority)
+                    #pragma omp task default(none) shared(A ) priority(priority) \
+                        firstprivate(i, j, alpha, beta)
                     {
                         A.tileGetForWriting(i, j, LayoutConvert::None);
                         if (i == j)
@@ -74,8 +77,6 @@ void set(
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -122,8 +123,10 @@ void set(internal::TargetType<Target::Devices>,
         { A.nt()-1, A.nt()   }
     };
 
+    #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task shared(A) priority(priority)
+        #pragma omp task default(none) shared(A) priority(priority) \
+            firstprivate(device, irange, jrange, queue_index, alpha, beta)
         {
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already
@@ -253,8 +256,6 @@ void set(internal::TargetType<Target::Devices>,
             queue->sync();
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

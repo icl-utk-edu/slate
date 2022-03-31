@@ -133,7 +133,8 @@ void add(internal::TargetType<Target::HostTask>,
         for (int64_t j = 0; j < A_nt; ++j) {
             for (int64_t i = j; i < A_mt; ++i) {
                 if (B.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A, B) priority(priority)
+                    #pragma omp task default(none) shared(A, B) \
+                        firstprivate(i, j, alpha, beta) priority(priority)
                     {
                         A.tileGetForReading(i, j, LayoutConvert::None);
                         B.tileGetForWriting(i, j, LayoutConvert::None);
@@ -149,12 +150,13 @@ void add(internal::TargetType<Target::HostTask>,
         for (int64_t j = 0; j < A.nt(); ++j) {
             for (int64_t i = 0; i <= j && i < A.mt(); ++i) {
                 if (A.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A, B) priority(priority)
+                    #pragma omp task default(none) shared(A, B) \
+                        firstprivate(i, j, alpha, beta) priority(priority)
                     {
                         A.tileGetForReading(i, j, LayoutConvert::None);
                         B.tileGetForWriting(i, j, LayoutConvert::None);
                         axpby(alpha, A(i, j),
-                        beta,  B(i, j));
+                              beta,  B(i, j));
                         A.tileTick(i, j);
                     }
                 }
@@ -214,7 +216,8 @@ void add(internal::TargetType<Target::Devices>,
     };
 
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task shared(A, B) priority(priority)
+        #pragma omp task default(none) shared(A, B) priority(priority) \
+            firstprivate(device, irange, jrange, queue_index, alpha, beta)
         {
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already
@@ -244,15 +247,17 @@ void add(internal::TargetType<Target::Devices>,
                 }
             }
 
-            #pragma omp task default(shared)
+            #pragma omp taskgroup
             {
-                A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                #pragma omp task default(none) shared(A, A_tiles_set) firstprivate(device, layout)
+                {
+                    A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                }
+                #pragma omp task default(none) shared(B, B_tiles_set) firstprivate(device, layout)
+                {
+                    B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
+                }
             }
-            #pragma omp task default(shared)
-            {
-                B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
-            }
-            #pragma omp taskwait
 
             int64_t batch_size = A_tiles_set.size();
             scalar_t** a_array_host = B.array_host(device);

@@ -111,7 +111,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     Side::Left,
                     alph, A.sub(k, k),
                           B.sub(k, k, 0, nt-1),
-                    priority_one, layout, queue_1);
+                    priority_one, layout, queue_1, opts);
 
                 // send A(i=k+1:mt-1, k) to ranks owning block row B(i, :)
                 BcastList bcast_list_A;
@@ -134,12 +134,11 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 #pragma omp task depend(in:row[k]) \
                                  depend(inout:row[i]) priority(1)
                 {
-                    // TODO: execute lookahead on devices
                     internal::gemm<target>(
                         scalar_t(-1.0), A.sub(i, i, k, k),
                                         B.sub(k, k, 0, nt-1),
                         alph,           B.sub(i, i, 0, nt-1),
-                        layout, priority_one, i-k+1);
+                        layout, priority_one, i-k+1, opts);
                 }
             }
 
@@ -158,7 +157,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                     A.sub(k+1+lookahead, mt-1, k, k),
                                     B.sub(k, k, 0, nt-1),
                         alph,       B.sub(k+1+lookahead, mt-1, 0, nt-1),
-                        layout, priority_zero, queue_0);
+                        layout, priority_zero, queue_0, opts);
                 }
             }
         }
@@ -181,7 +180,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     Side::Left,
                     alph, A.sub(k, k),
                           B.sub(k, k, 0, nt-1),
-                    priority_one, layout, queue_1);
+                    priority_one, layout, queue_1, opts);
 
                 // send A(i=0:k-1, k) to ranks owning block row B(i, :)
                 BcastList bcast_list_A;
@@ -201,12 +200,11 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 #pragma omp task depend(in:row[k]) \
                                  depend(inout:row[i]) priority(1)
                 {
-                    // TODO: execute lookahead on devices
-                    internal::gemm<Target::HostTask>(
+                    internal::gemm<target>(
                         scalar_t(-1.0), A.sub(i, i, k, k),
                                         B.sub(k, k, 0, nt-1),
                         alph,           B.sub(i, i, 0, nt-1),
-                        layout, priority_one);
+                        layout, priority_one, i-k+lookahead+2, opts);
                 }
             }
 
@@ -224,7 +222,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                       A.sub(0, k-1-lookahead, k, k),
                                       B.sub(k, k, 0, nt-1),
                         alph,         B.sub(0, k-1-lookahead, 0, nt-1),
-                        layout, priority_zero, queue_0);
+                        layout, priority_zero, queue_0, opts);
                 }
             }
         }

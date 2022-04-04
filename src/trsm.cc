@@ -24,11 +24,20 @@ void trsm(slate::internal::TargetType<target>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int64_t lookahead)
+          Options const& opts)
 {
+    Options opts2 = Options( opts );
+
     if (target == Target::Devices) {
+        // Use only TileReleaseStrategy::Slate for trsm.
+        // Internal routines (trsm and gemm) called here
+        // won't release any tiles. Trsm will
+        // clean up tiles.
+        opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
+
+        int64_t lookahead = get_option<int64_t>( opts2, Option::Lookahead, 1 );
+
         const int64_t batch_size_zero = 0;
-        const int64_t num_arrays_two = 2; // Number of kernels without lookahead
         // Allocate batch arrays = number of kernels without
         // lookahead + lookahead
         // number of kernels without lookahead = 2
@@ -41,9 +50,16 @@ void trsm(slate::internal::TargetType<target>,
         // and the batch_arrays_index starts from
         // the number of kernels without lookahead, and then incremented by 1
         // for every execution for the internal::gemm with lookahead
-        B.allocateBatchArrays(batch_size_zero, num_arrays_two);
+
+        // Number of device queues (num_queues):
+        // 1) trsm                            (         1 )
+        // 2) gemm for trailing matrix update (         1 )
+        // 3) lookahead number of gemm's      ( lookahead )
+        const int num_queues = 2 + lookahead;
+        B.allocateBatchArrays(batch_size_zero, num_queues);
         B.reserveDeviceWorkspace();
     }
+
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> row_vector(A.nt());
@@ -55,7 +71,7 @@ void trsm(slate::internal::TargetType<target>,
         omp_set_nested(1);
         #pragma omp task
         {
-            work::trsm<target, scalar_t>(side, alpha, A, B, row, lookahead);
+            work::trsm<target, scalar_t>(side, alpha, A, B, row, opts2);
             B.tileUpdateAllOrigin();
         }
     }
@@ -64,25 +80,6 @@ void trsm(slate::internal::TargetType<target>,
 
 } // namespace specialization
 } // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup trsm_specialization
-///
-template <Target target, typename scalar_t>
-void trsm(blas::Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::trsm(internal::TargetType<target>(),
-                                   side,
-                                   alpha, A,
-                                          B,
-                                   lookahead);
-}
 
 //------------------------------------------------------------------------------
 /// Distributed parallel triangular matrix-matrix solve.
@@ -146,16 +143,24 @@ void trsm(blas::Side side,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            trsm<Target::HostTask>(side, alpha, A, B, opts);
+            internal::specialization::trsm<Target::HostTask>(
+                internal::TargetType<Target::HostTask>(),
+                side, alpha, A, B, opts);
             break;
         case Target::HostNest:
-            trsm<Target::HostNest>(side, alpha, A, B, opts);
+            internal::specialization::trsm<Target::HostNest>(
+                internal::TargetType<Target::HostNest>(),
+                side, alpha, A, B, opts);
             break;
         case Target::HostBatch:
-            trsm<Target::HostBatch>(side, alpha, A, B, opts);
+            internal::specialization::trsm<Target::HostBatch>(
+                internal::TargetType<Target::HostBatch>(),
+                side, alpha, A, B, opts);
             break;
         case Target::Devices:
-            trsm<Target::Devices>(side, alpha, A, B, opts);
+            internal::specialization::trsm<Target::Devices>(
+                internal::TargetType<Target::Devices>(),
+                side, alpha, A, B, opts);
             break;
     }
 }

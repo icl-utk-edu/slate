@@ -137,7 +137,8 @@ void hegst(slate::internal::TargetType<target>,
                         auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
                         work::trsm<target, scalar_t>(
                             Side::Left,  one,  TBk1,
-                                               Asub, column, lookahead);
+                                               Asub, column,
+                            { {slate::Option::Lookahead, lookahead} });
                     }
                 }
             }

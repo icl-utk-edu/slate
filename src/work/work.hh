@@ -33,7 +33,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
 template <Target target=Target::HostTask, typename scalar_t>
 void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                                Matrix<scalar_t> B,
-          uint8_t* row, int64_t lookahead=1);
+          uint8_t* row, Options const& opts);
 
 //-----------------------------------------
 // trsmA()

@@ -52,10 +52,12 @@ namespace work {
 template <Target target, typename scalar_t>
 void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                                Matrix<scalar_t> B,
-          uint8_t* row, int64_t lookahead)
+          uint8_t* row, Options const& opts)
 {
     using blas::conj;
     using BcastList = typename Matrix<scalar_t>::BcastList;
+
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -84,9 +86,10 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     const int priority_one  = 1;
     const int priority_zero = 0;
 
-    // Requires 2 queues
+    // Requires 2+lookahead queues
     if (target == Target::Devices)
         assert(B.numComputeQueues() >= 2);
+
     const int64_t queue_0 = 0;
     const int64_t queue_1 = 1;
 
@@ -132,11 +135,11 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                  depend(inout:row[i]) priority(1)
                 {
                     // TODO: execute lookahead on devices
-                    internal::gemm<Target::HostTask>(
+                    internal::gemm<target>(
                         scalar_t(-1.0), A.sub(i, i, k, k),
                                         B.sub(k, k, 0, nt-1),
                         alph,           B.sub(i, i, 0, nt-1),
-                        layout, priority_one);
+                        layout, priority_one, i-k+1);
                 }
             }
 
@@ -238,28 +241,28 @@ void trsm<Target::HostTask, float>(
     Side side,
     float alpha, TriangularMatrix<float> A,
                            Matrix<float> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostNest, float>(
     Side side,
     float alpha, TriangularMatrix<float> A,
                            Matrix<float> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostBatch, float>(
     Side side,
     float alpha, TriangularMatrix<float> A,
                            Matrix<float> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::Devices, float>(
     Side side,
     float alpha, TriangularMatrix<float> A,
                            Matrix<float> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 // ----------------------------------------
 template
@@ -267,28 +270,28 @@ void trsm<Target::HostTask, double>(
     Side side,
     double alpha, TriangularMatrix<double> A,
                             Matrix<double> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostNest, double>(
     Side side,
     double alpha, TriangularMatrix<double> A,
                             Matrix<double> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostBatch, double>(
     Side side,
     double alpha, TriangularMatrix<double> A,
                             Matrix<double> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::Devices, double>(
     Side side,
     double alpha, TriangularMatrix<double> A,
                             Matrix<double> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 // ----------------------------------------
 template
@@ -296,28 +299,28 @@ void trsm<Target::HostTask, std::complex<float>>(
     Side side,
     std::complex<float> alpha, TriangularMatrix<std::complex<float>> A,
                                          Matrix<std::complex<float>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostNest, std::complex<float>>(
     Side side,
     std::complex<float> alpha, TriangularMatrix<std::complex<float>> A,
                                          Matrix<std::complex<float>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostBatch, std::complex<float>>(
     Side side,
     std::complex<float> alpha, TriangularMatrix<std::complex<float>> A,
                                          Matrix<std::complex<float>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::Devices, std::complex<float>>(
     Side side,
     std::complex<float> alpha, TriangularMatrix<std::complex<float>> A,
                                          Matrix<std::complex<float>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 // ----------------------------------------
 template
@@ -325,28 +328,28 @@ void trsm<Target::HostTask, std::complex<double>>(
     Side side,
     std::complex<double> alpha, TriangularMatrix<std::complex<double>> A,
                                           Matrix<std::complex<double>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostNest, std::complex<double>>(
     Side side,
     std::complex<double> alpha, TriangularMatrix<std::complex<double>> A,
                                           Matrix<std::complex<double>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostBatch, std::complex<double>>(
     Side side,
     std::complex<double> alpha, TriangularMatrix<std::complex<double>> A,
                                           Matrix<std::complex<double>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::Devices, std::complex<double>>(
     Side side,
     std::complex<double> alpha, TriangularMatrix<std::complex<double>> A,
                                           Matrix<std::complex<double>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 } // namespace work
 } // namespace slate

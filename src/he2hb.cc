@@ -245,24 +245,25 @@ void he2hb(slate::internal::TargetType<target>,
                 }
 
 		if (target == Target::Devices) {
-                    std::vector<int64_t> indices;
+                    std::vector<int64_t> indices_copy;
                     auto  W_panel = W.sub(k+1, nt-1, k, k);
                     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
                     if (k < nt-1) {
                         for (int panel_rank: panel_ranks) {
+
                             // Find local indices for panel_rank.
-                            indices.clear();
+                            indices_copy.clear();
                             for (int64_t i = 0; i < A_panel.mt(); ++i) {
                                 if (A_panel.tileRank(i, 0) == panel_rank) {
                                     // global index
-                                    indices.push_back(i+k+1);
+                                    //indices_copy.push_back(i+k+1);
                                 }
                             }
                             for (int device = 0; device < W_panel.num_devices(); ++device) {
                                 #pragma omp task shared(A, W)
                                 {
                                     std::set<ij_tuple> A_tiles_set, A_panel_tiles_set, W_tiles_set;
-                                    for (int64_t j: indices) {
+                                    for (int64_t j: indices_copy) {
                                         for (int64_t i = k+1; i < nt; ++i) {
                                             if (i >= j) { // lower or diagonal
                                                 if (A.tileIsLocal(i, j)) {

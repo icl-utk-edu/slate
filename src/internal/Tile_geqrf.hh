@@ -72,6 +72,7 @@ void geqrf(
 
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
+    const real_t   rone = 1.0;
     int knt;
 
     Tile<scalar_t>& diag_tile = tiles.at(0);
@@ -132,24 +133,20 @@ void geqrf(
             }
             thread_barrier.wait(thread_size);
 
-            real_t safemin = std::numeric_limits<real_t>::min();
-            real_t rsafemin = 1.0 / safemin;
-            //scalar_t safemin = std::numeric_limits<scalar_t>::min();
-            //scalar_t rsafemin = one / safemin;
+            real_t safemin = std::numeric_limits<real_t>::epsilon();
+            real_t rsafemin = rone / safemin;
             if (xnorm == zero && j < diag_len) {
                 betas.at(j) = alpha;
                 taus.at(j) = zero;
             }
             else {
-                //scalar_t beta =
                 real_t beta =
                     -std::copysign(lapack::lapy3(alphr, alphi, xnorm), alphr);
-                scalar_t beta_check = abs(beta);
                 // IF( ABS( BETA ).LT.SAFMIN )
                 knt = 0;
                 //if (beta_check < safemin) {
-                if (abs(beta) < safemin) {
-                    if (knt < 20 && abs(beta) < safemin) {
+                if (std::abs(beta) < safemin) {
+                    if (knt < 20 && std::abs(beta) < safemin) {
                         knt += 1;
                         // redo scaling of input vector
                         for (int64_t idx = thread_rank;
@@ -172,7 +169,6 @@ void geqrf(
                         //
                         beta = beta*rsafemin;
                         alpha = alpha*rsafemin;
-                        //beta_check = abs(beta);
                     }
                     //------------------
                     // redo of thread local norm
@@ -215,6 +211,9 @@ void geqrf(
                 betas.at(j) = beta;
                 taus.at(j) = tau;
 
+                for ( int64_t i = 0; i<knt; ++i) {
+                    beta = beta*safemin;
+                }
                 //----------------------------------
                 // column scaling and thread local W
                 for (int64_t idx = thread_rank;
@@ -236,10 +235,6 @@ void geqrf(
                         // off diagonal tiles
                         blas::scal(tile.mb(), scal_alpha, &tile.at(0, j), 1);
                     }
-                    for ( int64_t i = 0; i<knt; ++i) {
-                        beta = beta*safemin;
-                    }
-                    alpha = beta;
                     // thread local W
                     if (j+1 < diag_len) {
                         if (i_index == tile_indices.at(0)) {
@@ -600,6 +595,10 @@ void geqrf(
             thread_barrier.wait(thread_size);
         }
     }
+//if (thread_rank == 0) {
+//    auto tile = tiles.at(0);
+//    tile.print("tiles");
+//}
 }
 
 } // namespace internal

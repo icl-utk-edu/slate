@@ -17,4 +17,5 @@ files=`git diff --cached --name-only --diff-filter=ACMR | grep -E "\.(c|cc|cpp|c
 $script $files
 return=$?
 
+# Comment out exit in .git/hooks/pre-commit to check files but allow the commit.
 exit $return

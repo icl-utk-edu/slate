@@ -760,10 +760,10 @@ UNIT_LIBS    += -lslate -ltestsweeper
 # Rules
 .DELETE_ON_ERROR:
 .SUFFIXES:
-.PHONY: all docs lib test tester unit_test clean distclean testsweeper blaspp lapackpp
+.PHONY: all docs hooks lib test tester unit_test clean distclean testsweeper blaspp lapackpp
 .DEFAULT_GOAL := all
 
-all: lib unit_test
+all: lib unit_test hooks
 
 ifneq ($(only_unit),1)
     all: tester scalapack_api lapack_api
@@ -1074,8 +1074,15 @@ distclean: clean
 	cd lapackpp    && $(MAKE) distclean
 
 # Install git hooks
-hooks:
-	rsync -av tools/hooks .git/hooks
+hooks = .git/hooks/pre-commit
+
+hooks: ${hooks}
+
+.git/hooks/%: tools/hooks/%
+	@if [ -e .git/hooks ]; then \
+		echo cp $< $@ ; \
+		cp $< $@ ; \
+	fi
 
 %.hip.o: %.hip.cc | $(hip_header)
 	$(HIPCC) $(HIPCCFLAGS) -c $< -o $@

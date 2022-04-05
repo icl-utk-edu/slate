@@ -427,7 +427,7 @@ void her2k(internal::TargetType<Target::Devices>,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
            int priority, int queue_index, Layout layout)
 {
-    trace::Block trace_block("internal::her2k");
+    trace::Block trace_block_her2k("internal::her2k");
     using std::swap;
     using blas::conj;
     using real_t = blas::real_type<scalar_t>;

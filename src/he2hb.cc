@@ -63,12 +63,13 @@ void he2hb(slate::internal::TargetType<target>,
     slate::HermitianMatrix<scalar_t> W;
     int64_t n = A.n();
     int64_t nb_A = A.tileNb(0);
+    GridOrder order;
     int nprow, npcol, myrow, mycol;
     // For the workspace matrix (W) change the GPU distribution to row cyclic,
     // by doing that, all the GPUs will be busy simultaneously,
     // in particular when we call he2hb_hemm,
     // which will improve the performance.
-    A.gridinfo( &nprow, &npcol, &myrow, &mycol );
+    A.gridinfo( &order, &nprow, &npcol, &myrow, &mycol );
     std::function<int64_t (int64_t j)> tileNb = [n, nb_A] (int64_t j) {
         return (j + 1)*nb_A > n ? n%nb_A : nb_A;
     };

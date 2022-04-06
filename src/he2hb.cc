@@ -337,6 +337,7 @@ void he2hb(slate::internal::TargetType<target>,
                     //--------------------
                     // Apply local reflectors.
                     // Compute Wi = (sum_j Aij Vj) T, for i = k+1, ..., nt-1.
+                    // First compute Wi = (sum_j Aij Vj), for i = k+1, ..., nt-1.
                     #pragma omp task depend(inout:block[k]) \
                                      depend(inout:alloc_trailing[0])
                     {
@@ -398,13 +399,14 @@ void he2hb(slate::internal::TargetType<target>,
                         #pragma omp taskwait
                     }
 
+                    // Compute Wi = Wi T, for i = k+1, ..., nt-1.
                     #pragma omp task depend(inout:block[k]) \
                                      depend(in:alloc_trailing[0])
                     {
                         internal::he2hb_trmm<target>(
                             A.sub(k+1, nt-1), // Needed to get the rank
-                            W.sub(k+1, nt-1, k, k),
                             Tlocal.sub(i0, i0, k, k),
+                            W.sub(k+1, nt-1, k, k),
                             indices_local_panel);
                     }
 

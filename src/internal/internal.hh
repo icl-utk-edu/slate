@@ -468,9 +468,9 @@ void he2hb_hemm(HermitianMatrix<scalar_t>&& A,
 //-----------------------------------------
 // he2hb_trmm()
 template <Target target=Target::HostTask, typename scalar_t>
-void he2hb_trmm(HermitianMatrix<scalar_t>&& A,
-            Matrix<scalar_t>&& W,
-            Matrix<scalar_t>&& T,
+void he2hb_trmm(HermitianMatrix<scalar_t>&& AH,
+            Matrix<scalar_t>&& A,
+            Matrix<scalar_t>&& B,
             std::vector<int64_t>& indices,
             int priority=0, int64_t queue_index=0);
 

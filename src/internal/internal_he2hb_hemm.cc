@@ -18,7 +18,7 @@ namespace internal {
 /// of a panel of A
 /// C is the output matrix contains the Wi = sum_j Aij Vj
 /// indices contains the local indices for panel_rank,
-/// where the panel_rank is A_panel.tileRank(i, k), i = k:nt-1.
+/// where the panel_rank is B.tileRank(i, 0), i = 0:nt-1.
 /// Dispatches to target implementations.
 /// @ingroup he2hb_hemm_internal
 ///

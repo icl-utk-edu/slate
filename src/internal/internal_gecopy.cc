@@ -187,7 +187,7 @@ void copy(internal::TargetType<Target::HostTask>,
                     B.tileAcquire(i, j, A.tileLayout(i, j));
                     gecopy(A(i, j), B(i, j));
                     B.tileModified(i, j, HostNum, true);
-                    A.tileTick(i, j);// TODO is this correct here?
+                    A.tileTick(i, j);
                 }
             }
         }
@@ -253,6 +253,8 @@ void copy(internal::TargetType<Target::Devices>,
                         A_tiles_set.insert({i, j});
                         // tileAcquire() instead to avoid un-needed copy
                         B.tileAcquire(i, j, device, Layout::ColMajor);
+                        // copy local and remote tiles to CPU;
+                        B.tileModified(i, j, device, true);
                     }
                 }
             }

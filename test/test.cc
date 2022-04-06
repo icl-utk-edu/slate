@@ -74,6 +74,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "",                   nullptr,           Section::newline },
 
     { "hemm",               test_hemm,         Section::blas3 },
+    { "hemmA",              test_hemm,         Section::blas3 },
     { "hbmm",               test_hbmm,         Section::blas3 },
     { "herk",               test_herk,         Section::blas3 },
     { "her2k",              test_her2k,        Section::blas3 },
@@ -86,6 +87,7 @@ std::vector< testsweeper::routines_t > routines = {
 
     { "trmm",               test_trmm,         Section::blas3 },
     { "trsm",               test_trsm,         Section::blas3 },
+    { "trsmA",              test_trsm,         Section::blas3 },
     { "tbsm",               test_tbsm,         Section::blas3 },
 
     // -----
@@ -164,7 +166,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "gelqf",              test_gelqf,     Section::qr },
     //{ "geqlf",              test_geqlf,     Section::qr },
     //{ "gerqf",              test_gerqf,     Section::qr },
-    { "",                   nullptr,        Section::newline },
+    //{ "",                   nullptr,        Section::newline },
 
     //{ "ungqr",              test_ungqr,     Section::qr },
     //{ "unglq",              test_unglq,     Section::qr },
@@ -172,20 +174,25 @@ std::vector< testsweeper::routines_t > routines = {
     //{ "ungrq",              test_ungrq,     Section::qr },
     //{ "",                   nullptr,        Section::newline },
 
-    //{ "unmqr",              test_unmqr,     Section::qr },
+    { "unmqr",              test_unmqr,     Section::qr },
     //{ "unmlq",              test_unmlq,     Section::qr },
     //{ "unmql",              test_unmql,     Section::qr },
     //{ "unmrq",              test_unmrq,     Section::qr },
-    //{ "",                   nullptr,        Section::newline },
+    { "",                   nullptr,        Section::newline },
 
     // -----
     // symmetric/Hermitian eigenvalues
     { "heev",               test_heev,         Section::heev },
-    { "he2hb",              test_he2hb,        Section::heev },
-    { "unmtr_he2hb",        test_unmtr_he2hb,  Section::heev },
-    { "hb2st",              test_hb2st,        Section::heev },
     { "sterf",              test_sterf,        Section::heev },
     { "steqr2",             test_steqr2,       Section::heev },
+    { "",                   nullptr,           Section::newline },
+
+    { "he2hb",              test_he2hb,        Section::heev },
+    { "unmtr_he2hb",        test_unmtr_he2hb,  Section::heev },
+    { "",                   nullptr,           Section::newline },
+
+    { "hb2st",              test_hb2st,        Section::heev },
+    { "unmtr_hb2st",        test_unmtr_hb2st,  Section::heev },
     { "",                   nullptr,           Section::newline },
 
     // -----
@@ -221,9 +228,21 @@ std::vector< testsweeper::routines_t > routines = {
     // -----
     // auxiliary
     { "add",                test_add,          Section::aux },
+    { "tzadd",              test_add,          Section::aux },
+    { "tradd",              test_add,          Section::aux },
+    { "syadd",              test_add,          Section::aux },
+    { "headd",              test_add,          Section::aux },
     { "copy",               test_copy,         Section::aux },
+    { "tzcopy",             test_copy,         Section::aux },
+    { "trcopy",             test_copy,         Section::aux },
+    { "sycopy",             test_copy,         Section::aux },
+    { "hecopy",             test_copy,         Section::aux },
     { "scale",              test_scale,        Section::aux },
     { "set",                test_set,          Section::aux },
+    { "tzset",              test_set,          Section::aux },
+    { "trset",              test_set,          Section::aux },
+    { "syset",              test_set,          Section::aux },
+    { "heset",              test_set,          Section::aux },
     { "",                   nullptr,           Section::newline },
 };
 
@@ -245,6 +264,7 @@ Params::Params():
     check     ("check",   0,    ParamType::Value, 'y', "ny",  "check the results"),
     error_exit("error-exit", 0, ParamType::Value, 'n', "ny",  "check error exits"),
     ref       ("ref",     0,    ParamType::Value, 'y', "nyo", "run reference; sometimes check implies ref"),
+    hold_local_workspace("hold-local-workspace", 0, ParamType::Value, 'n', "ny",  "do not erase tiles in local workspace"),
     trace     ("trace",   0,    ParamType::Value, 'n', "ny",  "enable/disable traces"),
     trace_scale("trace-scale", 0, 0, ParamType::Value, 1000, 1e-3, 1e6, "horizontal scale for traces, in pixels per sec"),
 
@@ -275,6 +295,7 @@ Params::Params():
     datatype  ("type",    4,    ParamType::List, DataType::Double,        str2datatype, datatype2str, "s=single (float), d=double, c=complex-single, z=complex-double"),
     origin    ("origin",  9,    ParamType::List, slate::Origin::Host,     str2origin,   origin2str,   "origin: h=Host, s=ScaLAPACK, d=Devices"),
     target    ("target",  7,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNest, b=HostBatch, d=Devices"),
+    tile_release_strategy ("trs", 3, ParamType::List, slate::TileReleaseStrategy::All, str2tile_release_strategy,   tile_release_strategy2str,   "tile release strategy: n=none, i=only internal routines, s=only top-level routines in slate namespace, a=all routines"),
     dev_dist  ("dev-dist",9,    ParamType::List, slate::Dist::Col,        str2dist,     dist2str,     "matrix tiles distribution across local devices (one-dimensional block-cyclic): col=column, row=row"),
 
     //         name,      w,    type,            default,                 char2enum,         enum2char,         enum2str,         help
@@ -365,11 +386,13 @@ Params::Params():
     matrixB.kind.name( "matrixB" );
     matrixB.cond.name( "condB" );
     matrixB.condD.name( "condD_B" );
+    matrixB.seed.name( "seedB" );
 
     // change names of matrix C's params
     matrixC.kind.name( "matrixC" );
     matrixC.cond.name( "condC" );
     matrixC.condD.name( "condD_C" );
+    matrixC.seed.name( "seedC" );
 
     // mark standard set of output fields as used
     okay();

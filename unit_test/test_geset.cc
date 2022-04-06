@@ -77,8 +77,8 @@ void test_geset_dev()
     dA.copyData(&A, queue);
 
     // compute on CPU to check the results
-    for( int j = 0; j < n; ++j ) {
-        for( int i = 0; i < m; ++i ) {
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < m; ++i) {
             if (i == j) {
                 Bdata[ i + j*ldb ] = diag_value;
             }
@@ -89,8 +89,8 @@ void test_geset_dev()
     }
 
     //blas::axpy( lda*n, neg_one, B.data(), ione, A.data(), ione );
-    for( int j = 0; j < n; ++j ) {
-        for( int i = 0; i < m; ++i ) {
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < m; ++i) {
             Adata[i + j*lda] = Bdata[i + j*ldb] -  Adata[i + j*lda];
         }
     }

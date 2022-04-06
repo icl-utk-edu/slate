@@ -263,23 +263,23 @@ void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
          scalar_t beta,  BaseTrapezoidMatrix<scalar_t>& B,
          Options const& opts)
 {
-     Target target = get_option( opts, Option::Target, Target::HostTask );
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
-     switch (target) {
-         case Target::Host:
-         case Target::HostTask:
-              add<Target::HostTask>(alpha, A, beta, B, opts);
-              break;
-         case Target::HostNest:
-              add<Target::HostNest>(alpha, A, beta, B, opts);
-              break;
-         case Target::HostBatch:
-              add<Target::HostBatch>(alpha, A, beta, B, opts);
-              break;
-         case Target::Devices:
-              add<Target::Devices>(alpha, A, beta, B, opts);
-              break;
-     }
+    switch (target) {
+        case Target::Host:
+        case Target::HostTask:
+            add<Target::HostTask>(alpha, A, beta, B, opts);
+            break;
+        case Target::HostNest:
+            add<Target::HostNest>(alpha, A, beta, B, opts);
+            break;
+        case Target::HostBatch:
+            add<Target::HostBatch>(alpha, A, beta, B, opts);
+            break;
+        case Target::Devices:
+            add<Target::Devices>(alpha, A, beta, B, opts);
+            break;
+    }
 }
 
 //------------------------------------------------------------------------------

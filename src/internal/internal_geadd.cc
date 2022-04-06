@@ -136,8 +136,8 @@ void add(internal::TargetType<Target::HostTask>,
                     A.tileGetForReading(i, j, LayoutConvert::None);
                     B.tileGetForWriting(i, j, LayoutConvert::None);
                     axpby(alpha, A(i, j),
-                         beta,  B(i, j));
-                    A.tileTick(i, j);// TODO is this correct here?
+                          beta,  B(i, j));
+                    A.tileTick(i, j);
                 }
             }
         }

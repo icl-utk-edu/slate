@@ -159,12 +159,12 @@ void unmqr(internal::TargetType<target>,
         // W <- C0
         // W <- V0^H W
         internal::copy<target>(
-                std::move(C0), std::move(Wr), 
+                std::move(C0), std::move(Wr),
                 priority, queue_index);
         internal::trmm<target>(
                 Side::Left,
                 one, conjTranspose(V0tr),
-                     std::move(Wr), 
+                     std::move(Wr),
                 priority, queue_index);
 
         if (trapezoid) {
@@ -173,7 +173,7 @@ void unmqr(internal::TargetType<target>,
                     one, conjTranspose(V0b),
                          std::move(C0b),
                     one, std::move(Wr),
-                    layout, 
+                    layout,
                     priority, queue_index);
         }
 
@@ -189,7 +189,7 @@ void unmqr(internal::TargetType<target>,
                     one, conjTranspose(V.sub(row, row, 0, 0)),
                          std::move(Ci),
                     one, std::move(Wr),
-                    layout, 
+                    layout,
                     priority, queue_index);
         }
 
@@ -198,7 +198,7 @@ void unmqr(internal::TargetType<target>,
         internal::trmm<target>(
                 Side::Left,
                 one, std::move(T0tr),
-                     std::move(Wr), 
+                     std::move(Wr),
                 priority, queue_index);
 
         // --------------------
@@ -209,7 +209,7 @@ void unmqr(internal::TargetType<target>,
                     -one, V.sub(row_indices[1], mt-1, 0, 0),
                           std::move(Wr),
                     one,  C.sub(row_indices[1], mt-1, 0, nt-1),
-                    layout, 
+                    layout,
                     priority, queue_index);
         }
 
@@ -219,7 +219,7 @@ void unmqr(internal::TargetType<target>,
                     -one, std::move(V0b),
                           std::move(Wr),
                     one,  std::move(C0b),
-                    layout, 
+                    layout,
                     priority, queue_index);
         }
 
@@ -227,13 +227,13 @@ void unmqr(internal::TargetType<target>,
         internal::trmm<target>(
                 Side::Left,
                 one, std::move(V0tr),
-                     std::move(Wr), 
+                     std::move(Wr),
                 priority, queue_index);
 
         // C0 <- C0 - W
         internal::add<target>(
                 -one, std::move(Wr),
-                one,  std::move(C0), 
+                one,  std::move(C0),
                 priority, queue_index);
 
         // free workspace
@@ -341,12 +341,12 @@ void unmqr(internal::TargetType<target>,
         // W <- C0
         // W <- W V0
         internal::copy<target>(
-                std::move(C0), std::move(Wc), 
+                std::move(C0), std::move(Wc),
                 priority, queue_index);
         internal::trmm<target>(
                 Side::Right,
                 one, std::move(V0tr),
-                     std::move(Wc), 
+                     std::move(Wc),
                 priority, queue_index);
 
         if (trapezoid) {
@@ -355,7 +355,7 @@ void unmqr(internal::TargetType<target>,
                     one, std::move(C0b),
                          std::move(V0b),
                     one, std::move(Wc),
-                    layout, 
+                    layout,
                     priority, queue_index);
         }
 
@@ -371,7 +371,7 @@ void unmqr(internal::TargetType<target>,
                     one, std::move(Ci),
                          V.sub(col, col, 0, 0),
                     one, std::move(Wc),
-                    layout, 
+                    layout,
                     priority, queue_index);
         }
 
@@ -380,7 +380,7 @@ void unmqr(internal::TargetType<target>,
         internal::trmm<target>(
                 Side::Right,
                 one, std::move(T0tr),
-                     std::move(Wc), 
+                     std::move(Wc),
                 priority, queue_index);
 
         // --------------------
@@ -391,7 +391,7 @@ void unmqr(internal::TargetType<target>,
                     -one, std::move(Wc),
                           conjTranspose(V.sub(col_indices[1], nt-1, 0, 0)),
                     one,  C.sub(0, mt-1, col_indices[1], nt-1),
-                    layout, 
+                    layout,
                     priority, queue_index);
         }
 
@@ -401,7 +401,7 @@ void unmqr(internal::TargetType<target>,
                     -one, std::move(Wc),
                           conjTranspose(V0b),
                     one,  std::move(C0b),
-                    layout, 
+                    layout,
                     priority, queue_index);
         }
 
@@ -409,13 +409,13 @@ void unmqr(internal::TargetType<target>,
         internal::trmm<target>(
                 Side::Right,
                 one, conjTranspose(V0tr),
-                     std::move(Wc), 
+                     std::move(Wc),
                 priority, queue_index);
 
         // C0 <- C0 - W
         internal::add<target>(
                 -one, std::move(Wc),
-                one,  std::move(C0), 
+                one,  std::move(C0),
                 priority, queue_index);
 
         // free workspace

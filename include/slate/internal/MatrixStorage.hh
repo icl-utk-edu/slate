@@ -73,12 +73,12 @@ public:
 
     //--------------------------------------------------------------------------
     /// Get and Set tile pointer
-    Tile<scalar_t>* tile() const { return tile_;}
+    Tile<scalar_t>* tile() const { return tile_; }
     void tile(Tile<scalar_t>* tile) { tile_ = tile; }
 
     //--------------------------------------------------------------------------
     /// Returns whether this tile instance is valid (Tile instance exists)
-    bool valid() const { return tile_ != nullptr;}
+    bool valid() const { return tile_ != nullptr; }
 
     //--------------------------------------------------------------------------
     /// Initialize tile pointer and MOSI state
@@ -285,8 +285,8 @@ public:
     using ij_tuple    = std::tuple<int64_t, int64_t>;
     using TilesMap = std::map< ij_tuple, std::unique_ptr<TileNode_t> >;
 
-    MatrixStorage(int64_t m, int64_t n, int64_t mb, int64_t nb,
-                  int p, int q, MPI_Comm mpi_comm);
+    MatrixStorage( int64_t m, int64_t n, int64_t mb, int64_t nb,
+                   GridOrder order, int p, int q, MPI_Comm mpi_comm );
 
     MatrixStorage(std::function<int64_t (int64_t i)>& inTileMb,
                   std::function<int64_t (int64_t j)>& inTileNb,
@@ -496,7 +496,7 @@ private:
 template <typename scalar_t>
 MatrixStorage<scalar_t>::MatrixStorage(
     int64_t m, int64_t n, int64_t mb, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
     : tiles_(),
       memory_(sizeof(scalar_t) * mb * nb),  // block size in bytes
       batch_array_size_(0)
@@ -517,11 +517,23 @@ MatrixStorage<scalar_t>::MatrixStorage(
 
     // lambda that captures p, q for computing tile's rank,
     // assuming 2D block cyclic
-    tileRank = [p, q](ij_tuple ij) {
-        int64_t i = std::get<0>(ij);
-        int64_t j = std::get<1>(ij);
-        return int(i%p + (j%q)*p);
-    };
+    if (order == GridOrder::Col) {
+        tileRank = [p, q]( ij_tuple ij ) {
+            int64_t i = std::get<0>( ij );
+            int64_t j = std::get<1>( ij );
+            return int((i%p) + (j%q)*p);
+        };
+    }
+    else if (order == GridOrder::Row) {
+        tileRank = [p, q]( ij_tuple ij ) {
+            int64_t i = std::get<0>( ij );
+            int64_t j = std::get<1>( ij );
+            return int((i%p)*q + (j%q));
+        };
+    }
+    else {
+        slate_error( "invalid GridOrder, must be Col or Row" );
+    }
 
     // lambda that captures q, num_devices to distribute local matrix
     // in 1D column block cyclic fashion among devices
@@ -750,7 +762,9 @@ void MatrixStorage<scalar_t>::clearBatchArrays()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::reserveHostWorkspace(int64_t num_tiles)
 {
-    memory_.addHostBlocks(num_tiles);
+    int64_t n = num_tiles - memory_.allocated(host_num_);
+    if (n > 0)
+        memory_.addHostBlocks(n);
 }
 
 //------------------------------------------------------------------------------
@@ -758,8 +772,11 @@ void MatrixStorage<scalar_t>::reserveHostWorkspace(int64_t num_tiles)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::reserveDeviceWorkspace(int64_t num_tiles)
 {
-    for (int device = 0; device < num_devices_; ++device)
-        memory_.addDeviceBlocks(device, num_tiles);
+    for (int device = 0; device < num_devices_; ++device) {
+        int64_t n = num_tiles - memory_.allocated(device);
+        if (n > 0)
+            memory_.addDeviceBlocks(device, n);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -791,8 +808,7 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::clearWorkspace()
 {
     LockGuard guard(getTilesMapLock());
-    // incremented below
-    for (auto iter = begin(); iter != end();) {
+    for (auto iter = begin(); iter != end(); /* incremented below */) {
         auto& tile_node = *(iter->second);
         for (int d = host_num_; d < num_devices_; ++d) {
             if (tile_node.existsOn(d) &&
@@ -830,8 +846,7 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::releaseWorkspace()
 {
     LockGuard guard(getTilesMapLock());
-    // incremented below
-    for (auto iter = begin(); iter != end();) {
+    for (auto iter = begin(); iter != end(); /* incremented below */) {
         auto& tile_node = *(iter->second);
         for (int d = host_num_; d < num_devices_; ++d) {
             if (tile_node.existsOn(d) &&
@@ -961,8 +976,7 @@ void MatrixStorage<scalar_t>::clear()
 {
     LockGuard guard(getTilesMapLock());
 
-    // incremented below
-    for (auto iter = begin(); iter != end();) {
+    for (auto iter = begin(); iter != end(); /* incremented below */) {
         // erasing the element invalidates the iterator,
         // so use iter++ to erase the current value but increment it first.
         erase((iter++)->first); // todo: in-efficient

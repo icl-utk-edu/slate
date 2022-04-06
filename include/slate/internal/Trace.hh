@@ -107,7 +107,6 @@ public:
 private:
     Event event_;
 };
-
 } // namespace trace
 } // namespace slate
 

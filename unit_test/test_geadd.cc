@@ -106,29 +106,29 @@ void test_geadd_dev()
     dB.copyData(&B, queue);
 
     // compute on CPU to check the results
-    for( int j = 0; j < n; ++j ) {
-        for( int i = 0; i < m; ++i ) {
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < m; ++i) {
             C0data[i + j*ldb] = alpha * Adata[i + j*lda] + beta * B0data[i + j*ldb];
         }
     }
 
     //blas::axpy( B.size(), neg_one, B.data(), ione, C0.data(), ione );
-    for( int j = 0; j < n; ++j ) {
-        for( int i = 0; i < m; ++i ) {
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < m; ++i) {
             Adata[i + j*lda] = Bdata[i + j*ldb] -  C0data[i + j*ldb];
         }
     }
 
     //printf("\n C0 \n");
-    //for( int i = 0; i < m; ++i ) {
-    //    for( int j = 0; j < n; ++j ) {
+    //for (int i = 0; i < m; ++i) {
+    //    for (int j = 0; j < n; ++j) {
     //        printf("\t %e", C0data[i + j*ldb]);
     //    }
     //    printf("\n");
     //}
     //printf("\n B \n");
-    //for( int i = 0; i < m; ++i ) {
-    //    for( int j = 0; j < n; ++j ) {
+    //for (int i = 0; i < m; ++i) {
+    //    for (int j = 0; j < n; ++j) {
     //        printf("\t %e", Bdata[i + j*ldb]);
     //    }
     //    printf("\n");

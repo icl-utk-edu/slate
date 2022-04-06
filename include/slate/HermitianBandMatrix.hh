@@ -337,6 +337,7 @@ void HermitianBandMatrix<scalar_t>::he2hbGather(HermitianMatrix<scalar_t>& A)
                     }
                     else {
                         A.tileGetForReading(i, j, LayoutConvert(this->layout()));
+                        // TODO add: this->tileGetForWriting(i, j, LayoutConvert(this->layout()));
                         // copy local tiles if needed.
                         auto Aij = A(i, j);
                         auto Bij = this->at(i, j);

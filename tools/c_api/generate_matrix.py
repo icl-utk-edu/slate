@@ -35,8 +35,8 @@ file.close()
 template += '} slate_' + name + '@SUFFIX;\n'
 templates.append([name, typename, template])
 
-file_hh = open(sys.argv[2],           'w')
-file_cc = open('src/c_api/matrix.cc', 'w') # todo
+file_hh = open(sys.argv[2], 'w')
+file_cc = open(sys.argv[3], 'w')
 
 copyright = '''\
 // Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
@@ -53,7 +53,7 @@ file_hh.write('''\n\
 #define SLATE_C_API_MATRIX_H
 \n''')
 
-file_hh.write('#include "slate/internal/mpi.hh"\n')
+file_hh.write('#include "mpi.h"\n') # todo slate must be compiled with mpi
 file_hh.write('#include "slate/c_api/types.h"\n\n')
 
 file_hh.write('#include <complex.h>\n')

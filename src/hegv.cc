@@ -19,9 +19,9 @@ namespace slate {
 ///
 /// itype      |  Problem
 /// ---------- | ----------------------
-/// itype = 1  |  $A   x = \lambda B x$
-/// itype = 2  |  $A B x = \lambda   x$
-/// itype = 3  |  $B A x = \lambda   x$
+/// itype = 1  |  $A   z = \lambda B z$
+/// itype = 2  |  $A B z = \lambda   z$
+/// itype = 3  |  $B A z = \lambda   z$
 ///
 /// Here A and B are assumed to be Hermitian and B is also positive definite.
 ///
@@ -30,31 +30,26 @@ namespace slate {
 ///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in] itype
-///     - itype = 1: Compute $A   x = \lambda B x$;
-///     - itype = 2: Compute $A B x = \lambda   x$;
-///     - itype = 3: Compute $B A x = \lambda   x$.
-///
-/// @param[in] jobz
-///     - jobz = lapack::Job::NoVec: Compute eigenvalues only;
-///     - jobz = lapack::Job::Vec:   Compute eigenvalues and eigenvectors.
+///     - itype = 1: Compute $A   z = \lambda B z$;
+///     - itype = 2: Compute $A B z = \lambda   z$;
+///     - itype = 3: Compute $B A z = \lambda   z$.
 ///
 /// @param[in,out] A
-///     On entry, the n-by-n Hermitian matrix A.
-///     On exit, if jobz = Vec, then if successful, A contains the
-///     orthonormal eigenvectors of the matrix A.
-///     If jobz = NoVec, then on exit the lower triangle (if uplo=Lower)
-///     or the upper triangle (if uplo=Upper) of A, including the
-///     diagonal, is destroyed.
+///     On entry, the n-by-n Hermitian matrix $A$.
+///     On exit, contents are destroyed.
 ///
-/// @param[in, out] B
-///     On entry, the n-by-n Hermitian positive definite matrix $A$.
-///     On exit, if jobz = Vec, then if successful, the part of B containing the
-///     matrix is overwritten by the triangular factor U or L from the Cholesky
-///     factorization $B = U^H U$ or $B = L L^H$.
+/// @param[in,out] B
+///     On entry, the n-by-n Hermitian positive definite matrix $B$.
+///     On exit, B is overwritten by the triangular factor U or L from
+///     the Cholesky factorization $B = U^H U$ or $B = L L^H$.
 ///
-/// @param[out] W
-///     The vector W of length n.
+/// @param[out] Lambda
+///     The vector Lambda of length n.
 ///     If successful, the eigenvalues in ascending order.
+///
+/// @param[out] Z
+///     On entry, if Z is empty, does not compute eigenvectors.
+///     On exit, orthonormal eigenvectors of the matrix A.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -77,32 +72,41 @@ namespace slate {
 /// @ingroup hegv
 ///
 template <typename scalar_t>
-void hegv(int64_t itype,
-          lapack::Job jobz,
-          HermitianMatrix<scalar_t>& A,
-          HermitianMatrix<scalar_t>& B,
-          std::vector<blas::real_type<scalar_t>>& W,
-          Matrix<scalar_t>& V,
-          Options const& opts)
+void hegv(
+    int64_t itype,
+    HermitianMatrix<scalar_t>& A,
+    HermitianMatrix<scalar_t>& B,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Matrix<scalar_t>& Z,
+    Options const& opts)
 {
+    // Constants
+    const scalar_t one = 1.0;
+
+    bool wantz = (Z.mt() > 0);
+
     // 1. Form a Cholesky factorization of B.
-    potrf(B, opts);
+    potrf( B, opts );
 
     // 2. Transform problem to standard eigenvalue problem.
-    hegst(itype, A, B, opts);
+    hegst( itype, A, B, opts );
 
     // 3. Solve the standard eigenvalue problem and solve.
-    heev(jobz, A, W, V, opts);
+    heev( A, Lambda, Z, opts );
 
-    if (jobz == lapack::Job::Vec) {
+    if (wantz) {
         // 4. Backtransform eigenvectors to the original problem.
-        auto L = TriangularMatrix<scalar_t>(Diag::NonUnit, B);
-        scalar_t one = 1.0;
+        auto L = TriangularMatrix<scalar_t>( Diag::NonUnit, B );
         if (itype == 1 || itype == 2) {
-            trsm(Side::Left, one, L, V, opts);
+            // For A x = lambda B x and A B x = lambda x,
+            // backtransform eigenvectors: x = inv(L)^H y.
+            // todo: missing conj-transpose?
+            trsm( Side::Left, one, L, Z, opts );
         }
         else {
-            trmm(Side::Left, one, L, V, opts);
+            // For B A x = lambda x,
+            // backtransform eigenvectors: x = L y.
+            trmm( Side::Left, one, L, Z, opts );
         }
     }
 }
@@ -112,41 +116,37 @@ void hegv(int64_t itype,
 template
 void hegv<float>(
     int64_t itype,
-    lapack::Job jobz,
     HermitianMatrix<float>& A,
     HermitianMatrix<float>& B,
-    std::vector<float>& W,
-    Matrix<float>& V,
+    std::vector<float>& Lambda,
+    Matrix<float>& Z,
     Options const& opts);
 
 template
 void hegv<double>(
     int64_t itype,
-    lapack::Job jobz,
     HermitianMatrix<double>& A,
     HermitianMatrix<double>& B,
-    std::vector<double>& W,
-    Matrix<double>& V,
+    std::vector<double>& Lambda,
+    Matrix<double>& Z,
     Options const& opts);
 
 template
-void hegv<std::complex<float>>(
+void hegv< std::complex<float> >(
     int64_t itype,
-    lapack::Job jobz,
-    HermitianMatrix<std::complex<float>>& A,
-    HermitianMatrix<std::complex<float>>& B,
-    std::vector<float>& W,
-    Matrix<std::complex<float>>& V,
+    HermitianMatrix< std::complex<float> >& A,
+    HermitianMatrix< std::complex<float> >& B,
+    std::vector<float>& Lambda,
+    Matrix< std::complex<float> >& Z,
     Options const& opts);
 
 template
-void hegv<std::complex<double>>(
+void hegv< std::complex<double> >(
     int64_t itype,
-    lapack::Job jobz,
-    HermitianMatrix<std::complex<double>>& A,
-    HermitianMatrix<std::complex<double>>& B,
-    std::vector<double>& W,
-    Matrix<std::complex<double>>& V,
+    HermitianMatrix< std::complex<double> >& A,
+    HermitianMatrix< std::complex<double> >& B,
+    std::vector<double>& Lambda,
+    Matrix< std::complex<double> >& Z,
     Options const& opts);
 
 } // namespace slate

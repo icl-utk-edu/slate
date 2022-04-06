@@ -37,6 +37,13 @@ enum class Target : char {
     Devices   = 'D',    ///< computation using batch BLAS on devices (cuBLAS)
 };
 
+enum class TileReleaseStrategy : char {
+    None      = 'N',    ///< tiles are not release at all
+    Internal  = 'I',    ///< tiles are released by routines in slate::internal namespace
+    Slate     = 'S',    ///< tiles are released by routines directly in slate namespace
+    All       = 'A',    ///< tiles are released by rotines in all namespaces
+};
+
 namespace internal {
 template <Target> class TargetType {};
 } // namespace internal
@@ -53,6 +60,9 @@ enum class Option : char {
     MaxPanelThreads,    ///< max number of threads for panel, >= 1
     Tolerance,          ///< tolerance for iterative methods, default epsilon
     Target,             ///< computation method (@see Target)
+    TileReleaseStrategy,///< tile releasing strategy used by routines
+    HoldLocalWorkspace, ///< do not erase local workspace tiles for enabling
+                        ///< resue of the tiles by the next routine
     PrintVerbose,       ///< verbose, 0: no printing,
                         ///< verbose, 1: print metadata only (dimensions, uplo, etc.)
                         ///< verbose, 2: print first & last PrintEdgeItems rows & cols
@@ -86,7 +96,19 @@ enum class NormScope : char {
     Matrix  = 'M',      ///< Compute matrix norm
 };
 
+//------------------------------------------------------------------------------
+/// Order to map MPI processes to tile grid.
+/// @ingroup enum
+///
+enum class GridOrder : char {
+    Col      = 'C',     ///< Column major
+    Row      = 'R',     ///< Row major
+    Unknown  = 'U',     ///< Unknown (e.g., if using lambda functions)
+};
+
+//------------------------------------------------------------------------------
 const int HostNum = -1;
+const int AllDevices = -2;
 
 } // namespace slate
 

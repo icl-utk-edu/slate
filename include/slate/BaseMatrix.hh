@@ -49,6 +49,7 @@ public:
 
     using ReduceList =
         std::vector<std::tuple<int64_t, int64_t,
+                             BaseMatrix<scalar_t>,
                              std::list<BaseMatrix<scalar_t> > > >;
 
     using ij_tuple = typename MatrixStorage<scalar_t>::ij_tuple;
@@ -81,15 +82,23 @@ protected:
                std::function<int (ij_tuple ij)>& inTileDevice,
                MPI_Comm mpi_comm);
 
-    BaseMatrix(int64_t m, int64_t n, int64_t mb, int64_t nb,
-               int nprow, int npcol, MPI_Comm mpi_comm);
+    //----------
+    BaseMatrix( int64_t m, int64_t n, int64_t mb, int64_t nb,
+                GridOrder order, int nprow, int npcol, MPI_Comm mpi_comm );
 
-    /// With mb = nb.
-    BaseMatrix(int64_t m, int64_t n, int64_t nb,
-               int nprow, int npcol, MPI_Comm mpi_comm)
-        : BaseMatrix(m, n, nb, nb, nprow, npcol, mpi_comm)
+    /// With order = Col.
+    BaseMatrix( int64_t m, int64_t n, int64_t mb, int64_t nb,
+                int nprow, int npcol, MPI_Comm mpi_comm )
+        : BaseMatrix( m, n, mb, nb, GridOrder::Col, nprow, npcol, mpi_comm )
     {}
 
+    /// With mb = nb, order = Col.
+    BaseMatrix( int64_t m, int64_t n, int64_t nb,
+                int nprow, int npcol, MPI_Comm mpi_comm )
+        : BaseMatrix( m, n, nb, nb, GridOrder::Col, nprow, npcol, mpi_comm )
+    {}
+
+    //----------
     BaseMatrix(BaseMatrix& orig,
                int64_t i1, int64_t i2,
                int64_t j1, int64_t j2);
@@ -146,7 +155,9 @@ public:
 
     /// Returns number of devices (per MPI process) to distribute matrix to.
     int num_devices() const { return num_devices_; }
-    void gridinfo( int* nprow, int* npcol, int* myrow, int* mycol ) const;
+
+    void gridinfo( GridOrder* order, int* nprow, int* npcol,
+                   int* myrow, int* mycol ) const;
 
     /// Returns tileMb function. Useful to construct matrices with the
     /// same block size. For submatrices, this is of the parent matrix.
@@ -476,7 +487,7 @@ public:
     void tileLayoutReset(std::set<ij_tuple>& tile_set, int device, Layout layout);
     void tileLayoutReset(std::set<ij_tuple>& tile_set, Layout layout)
     {
-        tileLayoutReset(tile_set, host_num_, layout);;
+        tileLayoutReset(tile_set, host_num_, layout);
     }
     void tileLayoutReset();
 
@@ -489,12 +500,12 @@ protected:
                         int radix, int tag, Layout layout,
                         std::vector<MPI_Request>& send_requests);
 
+public:
     // todo: should this be private?
-    void tileReduceFromSet(int64_t i, int64_t j,
-                           std::set<int> const& reduce_set, int radix, int tag,
+    void tileReduceFromSet(int64_t i, int64_t j, int root_rank,
+                           std::set<int>& reduce_set, int radix, int tag,
                            Layout layout);
 
-public:
 
     void getRanks(std::set<int>* bcast_set) const;
     void getLocalDevices(std::set<int>* dev_set) const;
@@ -516,6 +527,10 @@ public:
     {
         storage_->releaseWorkspace();
     }
+
+    void eraseLocalWorkspace();
+
+    void eraseRemoteWorkspace();
 
     /// Removes all temporary host and device workspace tiles from matrix.
     /// WARNING: currently, this clears the entire parent matrix,
@@ -649,6 +664,7 @@ private:
     int64_t nt_;        ///< number of local block cols in this view
     int64_t nprow_;     ///< number of process rows if 2D block cyclic
     int64_t npcol_;     ///< number of process cols if 2D block cyclic
+    GridOrder order_;   ///< order to map MPI processes to tile grid
 
 protected:
     Uplo uplo_;         ///< upper or lower storage
@@ -684,6 +700,7 @@ BaseMatrix<scalar_t>::BaseMatrix()
       nt_(0),
       nprow_(-1),
       npcol_(-1),
+      order_( GridOrder::Col ),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
@@ -736,6 +753,7 @@ BaseMatrix<scalar_t>::BaseMatrix(
       joffset_(0),
       nprow_(-1),
       npcol_(-1),
+      order_( GridOrder::Unknown ),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
@@ -794,6 +812,10 @@ BaseMatrix<scalar_t>::BaseMatrix(
 /// @param[in] nb
 ///     Column block size in 2D block-cyclic distribution. nb > 0.
 ///
+/// @param[in] order
+///     Order to map MPI processes to tile grid,
+///     GridOrder::ColMajor (default) or GridOrder::RowMajor.
+///
 /// @param[in] nprow
 ///     Number of process rows in 2D block-cyclic distribution. nprow > 0.
 ///
@@ -807,7 +829,7 @@ BaseMatrix<scalar_t>::BaseMatrix(
 template <typename scalar_t>
 BaseMatrix<scalar_t>::BaseMatrix(
     int64_t m, int64_t n, int64_t mb, int64_t nb,
-    int nprow, int npcol, MPI_Comm mpi_comm)
+    GridOrder order, int nprow, int npcol, MPI_Comm mpi_comm)
     : row0_offset_(0),
       col0_offset_(0),
       last_mb_(m % mb == 0 ? mb : m % mb),
@@ -818,11 +840,12 @@ BaseMatrix<scalar_t>::BaseMatrix(
       nt_(ceildiv(n, nb)),
       nprow_(nprow),
       npcol_(npcol),
+      order_(order),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
       storage_(std::make_shared< MatrixStorage< scalar_t > >(
-          m, n, mb, nb, nprow, npcol, mpi_comm)),
+          m, n, mb, nb, order, nprow, npcol, mpi_comm)),
       mpi_comm_(mpi_comm)
 {
     slate_mpi_call(
@@ -1149,6 +1172,9 @@ void swap(BaseMatrix<scalar_t>& A, BaseMatrix<scalar_t>& B)
 /// If SLATE doesn't know the distribution, sets all values to -1.
 /// todo: Assumes col-major 2D block cyclic distribution, not row-major.
 ///
+/// @param[out] order
+///     Order to map MPI processes to tile grid.
+///
 /// @param[out] nprow
 ///     Number of process rows.
 ///
@@ -1163,15 +1189,23 @@ void swap(BaseMatrix<scalar_t>& A, BaseMatrix<scalar_t>& B)
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::gridinfo(
-    int* nprow, int* npcol, int* myrow, int* mycol ) const
+    GridOrder* order, int* nprow, int* npcol, int* myrow, int* mycol ) const
 {
     if (nprow_ > 0) {
+        *order = order_;
         *nprow = nprow_;
         *npcol = npcol_;
-        *myrow = mpi_rank_ % nprow_;
-        *mycol = mpi_rank_ / nprow_;
+        if (order_ == GridOrder::Col) {
+            *myrow = mpi_rank_ % nprow_;
+            *mycol = mpi_rank_ / nprow_;
+        }
+        else {
+            *myrow = mpi_rank_ / npcol_;
+            *mycol = mpi_rank_ % npcol_;
+        }
     }
     else {
+        *order = GridOrder::Unknown;
         *nprow = *npcol = *myrow = *mycol = -1;
     }
 }
@@ -1451,7 +1485,7 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 }
 
 //------------------------------------------------------------------------------
-/// Erase tile {i, j} of op(A).
+/// Erase tile {i, j} of op(A) on device (host, one device or all devices).
 /// If tile's memory was allocated by SLATE,
 /// via tileInsert(i, j, dev) or tileInsertWorkspace(i, j, dev),
 /// then the memory is released to the allocator pool.
@@ -1468,10 +1502,14 @@ Tile<scalar_t>* BaseMatrix<scalar_t>::tileInsert(
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 {
-    // todo: erase only workspace tiles? if so, rename with "Workspace"?
-    storage_->erase(globalIndex(i, j, device));
+    if (device == AllDevices) {
+        storage_->erase(globalIndex(i, j));
+    }
+    else {
+        // todo: erase only workspace tiles? if so, rename with "Workspace"?
+        storage_->erase(globalIndex(i, j, device));
+    }
 }
-
 
 //------------------------------------------------------------------------------
 /// Erase the tile {i, j}'s instance on device if it is a workspace tile
@@ -2074,27 +2112,31 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
 
         auto i = std::get<0>(reduce);
         auto j = std::get<1>(reduce);
-        auto submatrices_list = std::get<2>(reduce);
+        auto submatrices_dest = std::get<2>(reduce);
+        auto submatrices_list = std::get<3>(reduce);
 
         // Find the set of participating ranks.
         std::set<int> reduce_set;
-        reduce_set.insert(tileRank(i, j));      // Insert root.
+        int root_rank = submatrices_dest.tileRank(0, 0);
         for (auto submatrix : submatrices_list) // Insert sources.
             submatrix.getRanks(&reduce_set);
 
         // If this rank is in the set.
-        if (reduce_set.find(mpi_rank_) != reduce_set.end()) {
+        if (root_rank == mpi_rank_
+            || reduce_set.find(mpi_rank_) != reduce_set.end()) {
 
             // Reduce across MPI ranks.
             // Uses 2D hypercube p2p send.
-            tileReduceFromSet(i, j, reduce_set, 2, tag, layout);
+            tileReduceFromSet(i, j, root_rank, reduce_set, 2, tag, layout);
 
             // If not the tile owner.
             if (! tileIsLocal(i, j)) {
 
                 // todo: should we check its life count before erasing?
                 // Destroy the tile.
-                tileErase(i, j, host_num_);// todo: should it be a tileRelease()?
+                // XXX we comment the tileErase for now
+                // todo: should it be a tileRelease()?
+                //tileErase(i, j, host_num_);
             }
             else {
                 tileModified(i, j);
@@ -2314,12 +2356,14 @@ void BaseMatrix<scalar_t>::tileIbcastToSet(
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileReduceFromSet(
-    int64_t i, int64_t j, std::set<int> const& reduce_set, int radix, int tag,
-    Layout layout)
+    int64_t i, int64_t j, int root_rank, std::set<int>& reduce_set,
+    int radix, int tag, Layout layout)
 {
-    // Quit if only root in the reduction set.
-    if (reduce_set.size() == 1)
+    // Quit if the reduction set is empty
+    if (reduce_set.empty())
         return;
+
+    reduce_set.insert(root_rank);
 
     // Convert the set to a vector.
     std::vector<int> reduce_vec(reduce_set.begin(), reduce_set.end());
@@ -2328,7 +2372,6 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
     std::sort(reduce_vec.begin(), reduce_vec.end());
 
     // Find root.
-    int root_rank = tileRank(i, j);
     auto root_iter = std::find(reduce_vec.begin(), reduce_vec.end(), root_rank);
 
     // Shift root to position zero.
@@ -2350,20 +2393,23 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
         tileGetForReading(i, j, LayoutConvert(layout));
     }
 
-    std::vector<scalar_t> data(tileMb(i)*tileNb(j));
-    Tile<scalar_t> tile(tileMb(i), tileNb(j), &data[0], tileMb(i), host_num_, TileKind::Workspace);
+    auto Aij = at(i, j);
+
+    std::vector<scalar_t> data(Aij.mb() * Aij.nb());
+    int64_t lda = (Aij.op() == Op::NoTrans ? Aij.mb() : Aij.nb());
+    Tile<scalar_t> tile(Aij, &data[0], lda, TileKind::Workspace);
 
     // Receive, accumulate.
     for (int src : recv_from) {
         // Receive.
         tile.recv(new_vec[src], mpi_comm_, layout, tag);
         // Accumulate.
-        axpy(scalar_t(1.0), tile, at(i, j));
+        axpy(scalar_t(1.0), tile, Aij);
     }
 
     // Forward.
     if (! send_to.empty())
-        at(i, j).send(new_vec[send_to.front()], mpi_comm_, tag);
+        Aij.send(new_vec[send_to.front()], mpi_comm_, tag);
 }
 
 //------------------------------------------------------------------------------
@@ -2392,10 +2438,10 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
     // if (! is_square) return;
 
     // make sure dst_tile can fit the data in its target_layout
-    if (   (! is_square)                         // rectangular tile
-        && (  dst_userOwned)                     // TileKind::UserOwned
-        && (! dst_tile->extended())              // not extended
-        && (  dst_tile->layout() != target_layout) ) // but need to store a non-compatible layout
+    if (! is_square                             // rectangular tile
+        && dst_userOwned                        // TileKind::UserOwned
+        && ! dst_tile->extended()               // not extended
+        && dst_tile->layout() != target_layout) // but need to store a non-compatible layout
     {
         // extend its data storage
         storage_->tileMakeTransposable(dst_tile);
@@ -2419,9 +2465,9 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
         need_convert = true;
 
         if (! is_square) {
-            if (  (dst_userOwned && ! dst_extended)
-               || (src_userOwned && ! src_extended)
-               || (! dst_userOwned && ! src_userOwned) ) {
+            if ((dst_userOwned && ! dst_extended)
+                || (src_userOwned && ! src_extended)
+                || (! dst_userOwned && ! src_userOwned)) {
 
                 need_workspace = true;
                 if (dst_tile->device() == host_num_) {
@@ -2566,7 +2612,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             work_tile.copyData(dst_tile, *queue2, async);
 
             if (! async)
-                queue->sync();
+                queue2->sync();
         }
     }
 
@@ -2660,8 +2706,8 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
     // LockGuard guard2(storage_->getTilesMapLock());
 
     TileInstance<scalar_t>* src_tile_instance = nullptr;
-    Layout target_layout = Layout::ColMajor; // default value to silence compiler warning
-                                             // it will be ovverriden below
+    // default value to silence compiler warning will be overridden below
+    Layout target_layout = Layout::ColMajor;
 
     const int invalid_dev = host_num_-1; // invalid device number
     int src_device = invalid_dev;
@@ -3944,6 +3990,47 @@ std::tuple<int64_t, int64_t, int>
         return { ioffset_ + i, joffset_ + j, device };
     else
         return { ioffset_ + j, joffset_ + i, device };
+}
+
+//------------------------------------------------------------------------------
+/// Erases local workspace tiles.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::eraseLocalWorkspace()
+{
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        for (int64_t i = 0; i < this->mt(); ++i) {
+            if (this->tileIsLocal(i, j)) {
+                auto& tile_node = this->storage_->at(this->globalIndex(i, j));
+
+                LockGuard guard(tile_node.getLock());
+
+                for (int d = 0; d < this->num_devices(); ++d) {
+                    if (tile_node.existsOn(d)
+                        && tile_node[d].tile()->workspace()) {
+
+                        this->tileErase(i, j, d);
+                    }
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Erases tiles that are not local to node from all devices
+/// including host.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::eraseRemoteWorkspace()
+{
+    for (int64_t j = 0; j < this->nt(); ++j) {
+        for (int64_t i = 0; i < this->mt(); ++i) {
+            if (! this->tileIsLocal(i, j)) { // erase remote tiles
+                this->tileErase(i, j, AllDevices);
+            }
+        }
+    }
 }
 
 //------------------------------------------------------------------------------

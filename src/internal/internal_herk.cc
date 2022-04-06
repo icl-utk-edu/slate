@@ -29,7 +29,7 @@ namespace internal {
 template <Target target, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
-          int priority, int queue_index, Layout layout)
+          int priority, int queue_index, Layout layout, Options const& opts)
 {
     if (! ((C.uplo() == Uplo::Lower)
            &&
@@ -40,7 +40,7 @@ void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
     herk(internal::TargetType<target>(),
          alpha, A,
          beta,  C,
-         priority, queue_index, layout);
+         priority, queue_index, layout, opts);
 }
 
 //------------------------------------------------------------------------------
@@ -53,7 +53,7 @@ template <typename scalar_t>
 void herk(internal::TargetType<Target::HostTask>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix< scalar_t >& C,
-          int priority, int queue_index, Layout layout)
+          int priority, int queue_index, Layout layout, Options const& opts)
 {
     scalar_t alpha_ = scalar_t(alpha);
     scalar_t beta_  = scalar_t(beta);
@@ -128,7 +128,7 @@ template <typename scalar_t>
 void herk(internal::TargetType<Target::HostNest>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-          int priority, int queue_index, Layout layout)
+          int priority, int queue_index, Layout layout, Options const& opts)
 {
     scalar_t alpha_ = scalar_t(alpha);
     scalar_t beta_  = scalar_t(beta);
@@ -207,7 +207,7 @@ template <typename scalar_t>
 void herk(internal::TargetType<Target::HostBatch>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-          int priority, int queue_index, Layout layout)
+          int priority, int queue_index, Layout layout, Options const& opts)
 {
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::herk()
@@ -368,13 +368,15 @@ template <typename scalar_t>
 void herk(internal::TargetType<Target::Devices>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-          int priority, int queue_index, Layout layout)
+          int priority, int queue_index, Layout layout, Options const& opts)
 {
     int err = 0;
     using std::swap;
     using real_t = blas::real_type<scalar_t>;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
     assert(C.num_devices() > 0);
 
     // if single tile, avoid creating tasks for all devices
@@ -399,9 +401,13 @@ void herk(internal::TargetType<Target::Devices>,
 
                 queue->sync();
 
-                A.tileRelease(0, 0, device);
-                A.tileTick(0, 0);
-                A.tileTick(0, 0);
+                if (tile_release_strategy == TileReleaseStrategy::Internal
+                    || tile_release_strategy == TileReleaseStrategy::All) {
+
+                    A.tileRelease(0, 0, device);
+                    A.tileTick(0, 0);
+                    A.tileTick(0, 0);
+                }
             }
         }
     }
@@ -660,18 +666,21 @@ void herk(internal::TargetType<Target::Devices>,
 
                     queue->sync();
 
-                    // both off-diagonal batch gemm and diagonal herks are done
-                    for (int64_t j = 0; j < C.nt(); ++j) {
-                        for (int64_t i = j; i < C.mt(); ++i) {  // lower
-                            if (C.tileIsLocal(i, j)) {
-                                if (device == C.tileDevice(i, j)) {
-                                    // erase tmp local and remote device tiles;
-                                    A.tileRelease(i, 0, device);
-                                    A.tileRelease(j, 0, device);
-                                    // decrement life for remote tiles
-                                    // todo: should tileRelease()?
-                                    A.tileTick(i, 0);
-                                    A.tileTick(j, 0);
+                    if (tile_release_strategy == TileReleaseStrategy::Internal
+                        || tile_release_strategy == TileReleaseStrategy::All) {
+                        // both off-diagonal batch gemm and diagonal herks are done
+                        for (int64_t j = 0; j < C.nt(); ++j) {
+                            for (int64_t i = j; i < C.mt(); ++i) {  // lower
+                                if (C.tileIsLocal(i, j)) {
+                                    if (device == C.tileDevice(i, j)) {
+                                        // erase tmp local and remote device tiles;
+                                        A.tileRelease(i, 0, device);
+                                        A.tileRelease(j, 0, device);
+                                        // decrement life for remote tiles
+                                        // todo: should tileRelease()?
+                                        A.tileTick(i, 0);
+                                        A.tileTick(j, 0);
+                                    }
                                 }
                             }
                         }
@@ -697,100 +706,100 @@ template
 void herk<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
     float beta,  HermitianMatrix<float>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void herk<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
     float beta,  HermitianMatrix<float>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void herk<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
     float beta,  HermitianMatrix<float>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void herk<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
     float beta,  HermitianMatrix<float>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 // ----------------------------------------
 template
 void herk<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
     double beta,  HermitianMatrix<double>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void herk<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
     double beta,  HermitianMatrix<double>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void herk<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
     double beta,  HermitianMatrix<double>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void herk<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
     double beta,  HermitianMatrix<double>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 // ----------------------------------------
 template
 void herk< Target::HostTask, std::complex<float> >(
     float alpha, Matrix< std::complex<float> >&& A,
     float beta,  HermitianMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void herk< Target::HostNest, std::complex<float> >(
     float alpha, Matrix< std::complex<float> >&& A,
     float beta,  HermitianMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void herk< Target::HostBatch, std::complex<float> >(
     float alpha, Matrix< std::complex<float> >&& A,
     float beta,  HermitianMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void herk< Target::Devices, std::complex<float> >(
     float alpha, Matrix< std::complex<float> >&& A,
     float beta,  HermitianMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 // ----------------------------------------
 template
 void herk< Target::HostTask, std::complex<double> >(
     double alpha, Matrix< std::complex<double> >&& A,
     double beta,  HermitianMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void herk< Target::HostNest, std::complex<double> >(
     double alpha, Matrix< std::complex<double> >&& A,
     double beta,  HermitianMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void herk< Target::HostBatch, std::complex<double> >(
     double alpha, Matrix< std::complex<double> >&& A,
     double beta,  HermitianMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void herk< Target::Devices, std::complex<double> >(
     double alpha, Matrix< std::complex<double> >&& A,
     double beta,  HermitianMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 } // namespace internal
 } // namespace slate

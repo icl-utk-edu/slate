@@ -55,7 +55,7 @@ void getrf(slate::internal::TargetType<target>,
     const int queue_1 = 1;
     const int64_t batch_size_zero = 0;
     const int num_queues = 2 + lookahead;
-    bool is_shared = target==Target::Devices && lookahead > 0;
+    bool is_shared = target == Target::Devices && lookahead > 0;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);

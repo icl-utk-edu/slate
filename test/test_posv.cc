@@ -41,10 +41,12 @@ void test_posv_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
+    bool hold_local_workspace = params.hold_local_workspace() == 'y';
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::Dist dev_dist = params.dev_dist();
+    slate::TileReleaseStrategy tile_release_strategy = params.tile_release_strategy();
     params.matrix.mark();
     params.matrixB.mark();
 
@@ -72,7 +74,9 @@ void test_posv_work(Params& params, bool run)
 
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
+        {slate::Option::Target, target},
+        {slate::Option::TileReleaseStrategy, tile_release_strategy},
+        {slate::Option::HoldLocalWorkspace, hold_local_workspace}
     };
 
     // MPI variables
@@ -97,13 +101,14 @@ void test_posv_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
 
     // Matrix B: figure out local size.
     int64_t mlocB = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-    std::vector<scalar_t> B_data(lldB*nlocB);
+
+    // ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data, B_data;
 
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
@@ -164,6 +169,8 @@ void test_posv_work(Params& params, bool run)
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
+        A_data.resize( lldA * nlocA );
+        B_data.resize( lldB * nlocB );
         A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                 uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         B = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -195,10 +202,6 @@ void test_posv_work(Params& params, bool run)
 
         slate::copy( A, Aref );
         slate::copy( B, Bref );
-        if (origin != slate::Origin::ScaLAPACK) {
-            A_data = Aref_data;
-            B_data = Bref_data;
-        }
 
         if (check && ref)
             B_orig = Bref_data;

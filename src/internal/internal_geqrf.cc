@@ -72,7 +72,7 @@ void geqrf(internal::TargetType<Target::HostTask>,
             thread_size = tiles.size();
 
         T.tileInsert(tile_indices[0], 0);
-        T.tileModified(tile_indices[0], 0);// todo: is this necessary?
+        T.tileModified(tile_indices[0], 0);
         auto T00 = T(tile_indices[0], 0);
         T00.set(0);
 
@@ -83,18 +83,19 @@ void geqrf(internal::TargetType<Target::HostTask>,
         std::vector< std::vector<scalar_t> > W(thread_size);
 
         #if 1
-        omp_set_nested(1);
-        #pragma omp parallel for \
-            num_threads(thread_size) \
-            shared(thread_barrier, scale, sumsq, xnorm, W)
+            omp_set_nested(1);
+            #pragma omp parallel \
+                num_threads(thread_size) \
+                shared(thread_barrier, scale, sumsq, xnorm, W)
         #else
-        #pragma omp taskloop \
-            num_tasks(thread_size) \
-            shared(thread_barrier, scale, sumsq, xnorm, W)
+            #pragma omp taskloop \
+                num_tasks(thread_size) \
+                shared(thread_barrier, scale, sumsq, xnorm, W)
         #endif
-        for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
+        {
             // Factor the panel in parallel.
             // todo: double check the size of W.
+            int thread_rank = omp_get_thread_num();
             W.at(thread_rank).resize(ib*A.tileNb(0));
             geqrf(ib,
                   tiles, tile_indices, T00,

@@ -129,6 +129,7 @@ void add(internal::TargetType<Target::HostTask>,
     assert(A_nt == B.nt());
     slate_error_if(A.uplo() != B.uplo());
 
+    #pragma omp taskgroup
     if (B.uplo() == Uplo::Lower) {
         for (int64_t j = 0; j < A_nt; ++j) {
             for (int64_t i = j; i < A_mt; ++i) {
@@ -163,8 +164,7 @@ void add(internal::TargetType<Target::HostTask>,
             }
         }
     }
-
-    #pragma omp taskwait
+    // end omp taskgroup
 }
 
 //------------------------------------------------------------------------------
@@ -215,6 +215,7 @@ void add(internal::TargetType<Target::Devices>,
         { B.nt()-1, B.nt()   }
     };
 
+    #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task default(none) shared(A, B) priority(priority) \
             firstprivate(device, irange, jrange, queue_index, alpha, beta)
@@ -383,7 +384,7 @@ void add(internal::TargetType<Target::Devices>,
             }
         }
     }
-    #pragma omp taskwait
+    // end omp taskgroup
 }
 
 //------------------------------------------------------------------------------

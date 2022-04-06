@@ -195,8 +195,6 @@ void herk(internal::TargetType<Target::HostNest>,
         }
     }
 
-    #pragma omp taskwait
-
     if (err)
         throw std::exception();
 }
@@ -243,6 +241,7 @@ void herk(internal::TargetType<Target::HostBatch>,
             }
         }
     }
+    // end omp taskgroup
 
     // load off-diagonal tiles to host, if not there
     // also count tiles
@@ -258,6 +257,7 @@ void herk(internal::TargetType<Target::HostBatch>,
             }
         }
     }
+
     if (batch_count > 0) {
         // off-diagonal tiles by batch gemm on host
         Op opA = A.op();
@@ -357,8 +357,6 @@ void herk(internal::TargetType<Target::HostBatch>,
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         throw std::exception();

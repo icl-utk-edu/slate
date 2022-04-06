@@ -246,7 +246,9 @@ void norm(
     int64_t kut = ceildiv( ku, A.tileNb(0) );
 
     // can't collapse loops due to dependencies
-    #pragma omp parallel for schedule(dynamic, 1)
+    #pragma omp parallel for schedule(dynamic, 1) default(none) \
+        shared(A, values) firstprivate(layout, A_nt, A_mt, klt, kut) \
+        firstprivate(in_norm, tiles_maxima)
     for (int64_t j = 0; j < A_nt; ++j) {
         int64_t i_begin = max(j - kut, 0);
         int64_t i_end   = min(j + klt + 1, A_mt);

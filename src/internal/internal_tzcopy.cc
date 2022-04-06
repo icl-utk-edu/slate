@@ -190,6 +190,7 @@ void copy(internal::TargetType<Target::HostTask>,
     assert(A.mt() == B.mt());
     assert(A.nt() == B.nt());
 
+    #pragma omp taskgroup
     for (int64_t j = 0; j < B.nt(); ++j) {
         if (j < B.mt() && B.tileIsLocal(j, j)) {
             A.tileGetForReading(j, j, LayoutConvert::None);
@@ -229,8 +230,7 @@ void copy(internal::TargetType<Target::HostTask>,
             }
         }
     }
-
-    #pragma omp taskwait
+    // end omp taskgroup
 }
 
 //------------------------------------------------------------------------------

@@ -170,6 +170,7 @@ void trmm(internal::TargetType<Target::Devices>,
             alpha = conj(alpha);
     }
 
+    #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task default(none) shared(A, B)  priority(priority) \
             firstprivate(device, side, sideA, uploA, opA, diagA, alpha, queue_index)
@@ -322,8 +323,7 @@ void trmm(internal::TargetType<Target::Devices>,
             }
         }
     }
-
-    #pragma omp taskwait
+    // end omp taskgroup
 }
 
 //------------------------------------------------------------------------------

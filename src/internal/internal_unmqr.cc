@@ -426,9 +426,6 @@ void unmqr(internal::TargetType<target>,
             }
         }
     }
-
-    // todo: what does this wait for?
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

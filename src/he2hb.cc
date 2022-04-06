@@ -256,7 +256,7 @@ void he2hb(slate::internal::TargetType<target>,
                             for (int64_t i = 0; i < A_panel.mt(); ++i) {
                                 if (A_panel.tileRank(i, 0) == panel_rank) {
                                     // global index
-                                    //indices_copy.push_back(i+k+1);
+                                    indices_copy.push_back(i+k+1);
                                 }
                             }
                             for (int device = 0; device < W_panel.num_devices(); ++device) {

@@ -512,7 +512,9 @@ void permuteRows(
 
         #pragma omp taskgroup
         for (int device = 0; device < A.num_devices(); ++device) {
-            #pragma omp task default(none) shared(A, pivot) \
+            // Remove default(none) because Cray MPI wants ompi_mpi_c_float_complex defined
+            // as a task parameter.  To avoid that problem, remove default(none) here.
+            #pragma omp task shared(A, pivot) \
                 firstprivate(device, direction, tag_base, queue_index) priority(priority)
             {
                 MPI_Comm comm = A.mpiComm();

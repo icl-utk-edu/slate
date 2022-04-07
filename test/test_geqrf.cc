@@ -226,6 +226,11 @@ void test_geqrf_work(Params& params, bool run)
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
             int64_t info_ref = 0;
 
+            if (check) {
+                // Copy original A for ScaLAPACK check
+                slate::copy(Aref, A);
+            }
+
             // query for workspace size
             scalar_t dummy;
             scalapack_pgeqrf(m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
@@ -241,6 +246,56 @@ void test_geqrf_work(Params& params, bool run)
                              work.data(), lwork, &info_ref);
             slate_assert(info_ref == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+
+            if (check) {
+                //==================================================
+                // Test results by checking backwards error
+                // within ScaLAPACK implementation
+                //
+                //      || QR - A ||_1
+                //     ---------------- < tol * epsilon
+                //      || A ||_1 * m
+                //
+                //==================================================
+
+                // R is the upper part of A matrix.
+                slate::TrapezoidMatrix<scalar_t> scala_R(slate::Uplo::Upper, slate::Diag::NonUnit, Aref);
+
+                std::vector<scalar_t> scala_QR_data(Aref_data.size(), zero);
+                slate::Matrix<scalar_t> scala_QR = slate::Matrix<scalar_t>::fromScaLAPACK(
+                                                     m, n, &scala_QR_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+                slate::copy(Aref, scala_QR);
+
+                // Construct Q to apply to R-factor
+                //
+                // Query for workspace
+                scalapack_porgqr(m, n, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                                  &dummy, -1, &info_ref);
+                lwork = int64_t( real( dummy ) );
+                work.resize(lwork);
+                // Call to construct Q
+                scalapack_porgqr(m, n, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                                  work.data(), lwork, &info_ref);
+
+
+               // print_matrix("QR", QR, params);
+
+               // // QR should now have the product Q*R, which should equal the original A.
+               // // Subtract the original Aref from QR.
+               // // Form QR - A, where A is in Aref.
+               // // todo: slate::add(-one, Aref, QR);
+               // // using axpy assumes Aref_data and QR_data have same lda.
+               // blas::axpy(QR_data.size(), -one, &Aref_data[0], 1, &QR_data[0], 1);
+               // print_matrix("QR - A", QR, params);
+
+               // // Norm of backwards error: || QR - A ||_1
+               // real_t R_norm = slate::norm(slate::Norm::One, QR);
+
+               // double residual = R_norm / (m*A_norm);
+               // params.error() = residual;
+               // real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+               // params.okay() = (params.error() <= tol);
+            }
 
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;

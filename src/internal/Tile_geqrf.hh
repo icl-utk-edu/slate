@@ -135,7 +135,8 @@ void geqrf(
 
             real_t safemin = std::numeric_limits<real_t>::epsilon();
             real_t rsafemin = rone / safemin;
-            if (xnorm == zero && j < diag_len) {
+            //if (xnorm == zero && j < diag_len) {
+            if (xnorm < safemin && j < diag_len) {
                 betas.at(j) = alpha;
                 taus.at(j) = zero;
             }

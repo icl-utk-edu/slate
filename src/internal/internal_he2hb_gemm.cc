@@ -14,10 +14,11 @@ namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// Inner product C = AB,
+/// Inner product C = AB to update a single block C,
 /// where A and B are single blocks.
-/// panel_rank is one of the mpi ranks where A block resides.
-/// Loop over the tiles of A on this panel_rank to update C.
+/// panel_ranks are the mpi ranks in A block (A_panel.getRanks(&panel_ranks)),
+/// panel_rank is in panel_ranks.
+/// Loop over the local tiles of A on this panel_rank to update C = AB.
 /// Dispatches to target implementations.
 /// @ingroup he2hb_gemm_internal
 /// todo: add more details
@@ -101,39 +102,8 @@ void he2hb_gemm(internal::TargetType<Target::Devices>,
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task shared(A, B, C, err) priority(priority)
         {
-            // if op(C) is NoTrans, invert opA, opB if possible
             Op opA = A.op();
-            if (C.op() != Op::NoTrans) {
-                if (opA == Op::NoTrans)
-                    opA = C.op();
-                else if (A.op() == C.op() || C.is_real) {
-                    // A and C are both Trans or both ConjTrans;
-                    // Trans == ConjTrans if real
-                    opA = Op::NoTrans;
-                }
-                else {
-                    err = __LINE__;  // ConjNoTrans not supported
-                }
-            }
-
             Op opB = B.op();
-            if (C.op() != Op::NoTrans) {
-                if (opB == Op::NoTrans)
-                    opB = C.op();
-                else if (opB == C.op() || C.is_real) {
-                    // B and C are both Trans or both ConjTrans;
-                    // Trans == ConjTrans if real
-                    opB = Op::NoTrans;
-                }
-                else {
-                    err = __LINE__;  // ConjNoTrans not supported
-                }
-            }
-
-            if (C.op() == Op::ConjTrans) {
-                alpha = conj(alpha);
-                beta  = conj(beta);
-            }
 
             for (int64_t k = 0; k < B.mt(); ++k) {
                 std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;

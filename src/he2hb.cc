@@ -427,7 +427,7 @@ void he2hb(slate::internal::TargetType<target>,
                                          depend(inout:block[k+1]) \
                                          depend(inout:block[nt-1])
                         {
-                            // 1b. TVAVT = V^H (AVT) = V^H W.
+                            // 1b. TVAVT = V^H (A V T) = V^H W.
                             auto A_panelT = conjTranspose(A.sub(k+1, nt-1, k, k));
                             W.tileGetForWriting(0, 0, W.hostNum(),
                                                 LayoutConvert(layout));
@@ -439,7 +439,7 @@ void he2hb(slate::internal::TargetType<target>,
                                 panel_rank,
                                 &block[0]);
 
-                            // 1c. TVAVT = T^H (V^H AVT)
+                            // 1c. TVAVT = T^H (V^H A V T) = T^H W0.
                             auto T0    = Tlocal.sub(i0, i0, k, k);
                             auto TVAVT0  = W.sub(0, 0, 0, 0);
 
@@ -471,7 +471,7 @@ void he2hb(slate::internal::TargetType<target>,
                                 &block[k+1]);
 
                             // 2. Update trailing matrix.
-                            //  A = -V WT -W VT + A
+                            // A = A - V W^H - W V^H
                             internal::her2k<target>(
                                 -one,  A.sub(k+1, nt-1, k, k),
                                 W.sub(k+1, nt-1, k, k),
@@ -488,11 +488,15 @@ void he2hb(slate::internal::TargetType<target>,
                         // where
                         // W = A^H V T = A V T.
 
+                        // 1a. W = A V T from above.
+
                         #pragma omp task depend(in:block[k]) \
                                          depend(inout:block[k+1]) \
                                          depend(inout:block[nt-1]) \
                                          depend(inout:alloc_trailing[0])
                         {
+                            // 2. Update trailing matrix.
+                            // A = A - V W^H.
                             internal::he2hb_gemm_outer<target>(
                                 -one, A.sub(k+1, nt-1, k, k),
                                 W.sub(k+1, nt-1, k, k),
@@ -520,6 +524,8 @@ void he2hb(slate::internal::TargetType<target>,
                                  depend(inout:block[nt-1]) \
                                  depend(inout:alloc_trailing[0])
                 {
+                    // Distributed multiply Hermitian matrix on left and right by Q from
+                    // 3. A Q^H A Q
                     internal::hettmqr<Target::HostTask>(
                         Op::ConjTrans,
                         std::move(A_panel),

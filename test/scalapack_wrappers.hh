@@ -1092,8 +1092,8 @@ inline void scalapack_pgesv(int64_t N, int64_t NRHS, scalar_t* A, int64_t ia, in
 
 #define scalapack_psorgqr BLAS_FORTRAN_NAME( psorgqr, PSORGQR )
 #define scalapack_pdorgqr BLAS_FORTRAN_NAME( pdorgqr, PDORGQR )
-#define scalapack_pcorgqr BLAS_FORTRAN_NAME( pcorgqr, PCORGQR )
-#define scalapack_pzorgqr BLAS_FORTRAN_NAME( pzorgqr, PZORGQR )
+//#define scalapack_pcorgqr BLAS_FORTRAN_NAME( pcorgqr, PCORGQR )
+//#define scalapack_pzorgqr BLAS_FORTRAN_NAME( pzorgqr, PZORGQR )
 
 extern "C" void scalapack_psorgqr(
     blas_int* M, blas_int* N, blas_int* K,
@@ -1109,19 +1109,19 @@ extern "C" void scalapack_pdorgqr(
     double* work, blas_int* lwork,
     blas_int* info);
 
-extern "C" void scalapack_pcorgqr(
-    blas_int* M, blas_int* N, blas_int* K,
-    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
-    std::complex<float>* tau,
-    std::complex<float>* work, blas_int* lwork,
-    blas_int* info);
-
-extern "C" void scalapack_pzorgqr(
-    blas_int* M, blas_int* N, blas_int* K,
-    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
-    std::complex<double>* tau,
-    std::complex<double>* work, blas_int* lwork,
-    blas_int* info);
+//extern "C" void scalapack_pcorgqr(
+//    blas_int* M, blas_int* N, blas_int* K,
+//    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+//    std::complex<float>* tau,
+//    std::complex<float>* work, blas_int* lwork,
+//    blas_int* info);
+//
+//extern "C" void scalapack_pzorgqr(
+//    blas_int* M, blas_int* N, blas_int* K,
+//    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+//    std::complex<double>* tau,
+//    std::complex<double>* work, blas_int* lwork,
+//    blas_int* info);
 
 // -----------------------------------------------------------------------------
 
@@ -1152,7 +1152,7 @@ inline void scalapack_porgqr(
     std::complex<float>* work, blas_int* lwork,
     blas_int* info)
 {
-    scalapack_pcorgqr(M, N, K, A, ia, ja, descA, tau, work, lwork, info);
+//    scalapack_pcorgqr(M, N, K, A, ia, ja, descA, tau, work, lwork, info);
 }
 
 inline void scalapack_porgqr(
@@ -1162,7 +1162,7 @@ inline void scalapack_porgqr(
     std::complex<double>* work, blas_int* lwork,
     blas_int* info)
 {
-    scalapack_pzorgqr(M, N, K, A, ia, ja, descA, tau, work, lwork, info);
+//    scalapack_pzorgqr(M, N, K, A, ia, ja, descA, tau, work, lwork, info);
 }
 
 template <typename scalar_t>

@@ -259,7 +259,7 @@ void test_geqrf_work(Params& params, bool run)
                 //==================================================
 
                 // R is the upper part of A matrix.
-                slate::TrapezoidMatrix<scalar_t> scala_R(slate::Uplo::Upper, slate::Diag::NonUnit, Aref);
+                slate::TriangularMatrix<scalar_t> scala_R(slate::Uplo::Upper, slate::Diag::NonUnit, Aref);
 
                 std::vector<scalar_t> scala_QR_data(Aref_data.size(), zero);
                 slate::Matrix<scalar_t> scala_QR = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -269,32 +269,35 @@ void test_geqrf_work(Params& params, bool run)
                 // Construct Q to apply to R-factor
                 //
                 // Query for workspace
-                scalapack_porgqr(m, n, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                scalapack_porgqr(m, n, n, &scala_QR_data[0], 1, 1, Aref_desc, tau.data(),
                                   &dummy, -1, &info_ref);
                 lwork = int64_t( real( dummy ) );
                 work.resize(lwork);
                 // Call to construct Q
-                scalapack_porgqr(m, n, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                scalapack_porgqr(m, n, n, &scala_QR_data[0], 1, 1, Aref_desc, tau.data(),
                                   work.data(), lwork, &info_ref);
 
+                print_matrix("Q", scala_QR, params);
 
-               // print_matrix("QR", QR, params);
-
+                slate::triangular_multiply(one, scala_QR, scala_R, opts);
                // // QR should now have the product Q*R, which should equal the original A.
                // // Subtract the original Aref from QR.
                // // Form QR - A, where A is in Aref.
                // // todo: slate::add(-one, Aref, QR);
                // // using axpy assumes Aref_data and QR_data have same lda.
-               // blas::axpy(QR_data.size(), -one, &Aref_data[0], 1, &QR_data[0], 1);
+               slate::add(-one, A, one, scala_QR, opts);
+               // blas::axpy(scala_QR_data.size(), -one, &Aref_data[0], 1, &scala_QR_data[0], 1);
                // print_matrix("QR - A", QR, params);
 
                // // Norm of backwards error: || QR - A ||_1
-               // real_t R_norm = slate::norm(slate::Norm::One, QR);
+               real_t scala_R_norm = slate::norm(slate::Norm::One, scala_QR);
 
-               // double residual = R_norm / (m*A_norm);
+               double residual = scala_R_norm / (m*A_norm);
                // params.error() = residual;
                // real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
                // params.okay() = (params.error() <= tol);
+               if (mpi_rank == 0)
+                  printf("\nScaLAPACK comparision: ||A - QR|| / ||A|| = %3.2e\n",residual);
             }
 
             params.ref_time() = time;

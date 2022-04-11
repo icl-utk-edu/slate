@@ -157,7 +157,7 @@ void norm(
             for (int64_t j = j_begin; j < j_end; ++j) {
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task default(none) shared(A, tiles_sums) \
-                        firstprivate(i, j, ii, in_norm) priority(priority)
+                        firstprivate(i, j, ii, in_norm, layout) priority(priority)
                     {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
                         genorm(in_norm, NormScope::Matrix, A(i, j), &tiles_sums[A.m()*j + ii]);
@@ -193,7 +193,7 @@ void norm(
             for (int64_t i = i_begin; i < i_end; ++i) {
                 if (A.tileIsLocal(i, j)) {
                 #pragma omp task default(none) shared(A, values) \
-                    firstprivate(i, j, in_norm) priority(priority)
+                    firstprivate(i, j, in_norm, layout) priority(priority)
                     {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
                         real_t tile_values[2];

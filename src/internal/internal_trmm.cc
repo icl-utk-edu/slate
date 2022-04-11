@@ -173,7 +173,7 @@ void trmm(internal::TargetType<Target::Devices>,
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task default(none) shared(A, B)  priority(priority) \
-            firstprivate(device, side, sideA, uploA, opA, diagA, alpha, queue_index)
+            firstprivate(device, side, sideA, uploA, opA, diagA, alpha, queue_index, layout)
         {
             std::set<ij_tuple> B_tiles_set;
             if (side == Side::Right) {

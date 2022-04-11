@@ -510,7 +510,7 @@ void norm(
     for (int device = 0; device < A.num_devices(); ++device) {
         #pragma omp task default(none) priority(priority) shared(A, devices_values) \
             shared(a_host_arrays, a_dev_arrays, vals_host_arrays, vals_dev_arrays) \
-            firstprivate(device, irange, jrange, queue_index, ldv, scope, in_norm)
+            firstprivate(device, irange, jrange, queue_index, ldv, scope, in_norm, layout)
         {
             std::set<ij_tuple> A_tiles_set;
 

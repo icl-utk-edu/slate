@@ -160,6 +160,22 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         layout, priority_zero, queue_0, opts);
                 }
             }
+
+            // Erase remote or workspace tiles.
+            #pragma omp task depend(inout:row[k])
+            {
+                auto A_panel = A.sub(k, mt-1, k, k);
+                A_panel.eraseRemoteWorkspace();
+                A_panel.eraseLocalWorkspace();
+
+                auto B_panel = B.sub(k, k, 0, nt-1);
+                B_panel.eraseRemoteWorkspace();
+
+                // Copy back modifications to tiles in the B panel
+                // before they are erased.
+                B_panel.tileUpdateAllOrigin();
+                B_panel.eraseLocalWorkspace();
+            }
         }
     }
     else {
@@ -224,6 +240,22 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         alph,         B.sub(0, k-1-lookahead, 0, nt-1),
                         layout, priority_zero, queue_0, opts);
                 }
+            }
+
+            // Erase remote or workspace tiles.
+            #pragma omp task depend(inout:row[k])
+            {
+                auto A_panel = A.sub(0, k, k, k);
+                A_panel.eraseRemoteWorkspace();
+                A_panel.eraseLocalWorkspace();
+
+                auto B_panel = B.sub(k, k, 0, nt-1);
+                B_panel.eraseRemoteWorkspace();
+
+                // Copy back modifications to tiles in the B panel
+                // before they are erased.
+                B_panel.tileUpdateAllOrigin();
+                B_panel.eraseLocalWorkspace();
             }
         }
     }

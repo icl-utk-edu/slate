@@ -8,16 +8,13 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::trsm from internal::specialization::trsm
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
 /// Distributed parallel triangular matrix solve.
 /// Generic implementation for any target.
-/// @ingroup trsm_specialization
+/// @ingroup trsm_impl
 ///
 template <Target target, typename scalar_t>
 void trsm(slate::internal::TargetType<target>,
@@ -78,8 +75,7 @@ void trsm(slate::internal::TargetType<target>,
     B.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel triangular matrix-matrix solve.
@@ -143,22 +139,22 @@ void trsm(blas::Side side,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            internal::specialization::trsm<Target::HostTask>(
+            impl::trsm<Target::HostTask>(
                 internal::TargetType<Target::HostTask>(),
                 side, alpha, A, B, opts);
             break;
         case Target::HostNest:
-            internal::specialization::trsm<Target::HostNest>(
+            impl::trsm<Target::HostNest>(
                 internal::TargetType<Target::HostNest>(),
                 side, alpha, A, B, opts);
             break;
         case Target::HostBatch:
-            internal::specialization::trsm<Target::HostBatch>(
+            impl::trsm<Target::HostBatch>(
                 internal::TargetType<Target::HostBatch>(),
                 side, alpha, A, B, opts);
             break;
         case Target::Devices:
-            internal::specialization::trsm<Target::Devices>(
+            impl::trsm<Target::Devices>(
                 internal::TargetType<Target::Devices>(),
                 side, alpha, A, B, opts);
             break;

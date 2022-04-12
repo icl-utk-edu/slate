@@ -269,16 +269,16 @@ if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
         slate PRIVATE SLATE_ID="${slate_id}" )
 endif()
 
-# Use and export -std=c++17; don't allow -std=gnu++17 extensions.
-# The `target_compile_features( slate PUBLIC cxx_std_17 )` syntax
-# doesn't seem to allow setting CUDA_STANDARD separately, and slightly
-# older CMake (3.17) doesn't recognize CUDA_STANDARD=17.
+# Use and export -std=c++17.
+# CMake inexplicably allows gnu++17 or "decay" to c++11 or 14; prohibit those.
+# target_compile_features( slate PUBLIC cuda_std_11 ) doesn't seem to work:
+# CUDA nvcc gets -std=c++17, which requires CUDA >= 11.0.
+target_compile_features( slate PUBLIC cxx_std_17 )
 set_target_properties(
     slate PROPERTIES
-    CXX_STANDARD 17
     CUDA_STANDARD 11
-    CXX_STANDARD_REQUIRED true
-    CXX_EXTENSIONS false
+    CXX_STANDARD_REQUIRED true  # prohibit < c++17
+    CXX_EXTENSIONS false        # prohibit gnu++17
 )
 
 if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.15)

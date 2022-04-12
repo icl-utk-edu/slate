@@ -7,12 +7,13 @@
 # Tests require TestSweeper library from
 #     http://bitbucket.org/icl/testsweeper
 
-cmake_minimum_required( VERSION 3.15 )
+cmake_minimum_required( VERSION 3.18 )
 # 3.1  target_compile_features
 # 3.8  target_compile_features( cxx_std_11 )
 # 3.14 install( LIBRARY DESTINATION lib ) default
 # 3.15 $<$COMPILE_LANG_AND_ID  # optional
 # 3.15 message DEBUG, string REPEAT
+# 3.18 CMAKE_CUDA_ARCHITECTURES
 
 project(
     slate
@@ -98,6 +99,20 @@ endif()
 # Provide menu of options. (Why doesn't CMake do this?)
 set_property( CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
               None Debug Release RelWithDebInfo MinSizeRel )
+
+# CUDA architectures required in CMake 3.18
+# Fermi   20
+# Kepler  30 35 37
+# Maxwell 50 52 53
+# Pascal  60 61 62
+# Volta   70 72
+# Turing  75
+# Ampere  80 86
+# Also -real and -virtual suffixes.
+set( CMAKE_CUDA_ARCHITECTURES "60" CACHE STRING
+     "CUDA architectures, as semi-colon separated list of 2-digit numbers, e.g., 60;70;80 for Pascal, Volta, Ampere" )
+set_property( CACHE CMAKE_CUDA_ARCHITECTURES PROPERTY STRINGS
+              30 50 60 70 75 80 )
 
 #-----------------------------------
 # BLAS options
@@ -410,22 +425,6 @@ endif()
 if (CMAKE_CUDA_COMPILER)
     enable_language( CUDA )
     set( slate_use_cuda true )
-
-    if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.18)
-        # CUDA architectures required in CMake 3.18
-        # Fermi   20
-        # Kepler  30 35 37
-        # Maxwell 50 52 53
-        # Pascal  60 61 62
-        # Volta   70 72
-        # Turing  75
-        # Ampere  80 86
-        # Also -real and -virtual suffixes.
-        set( CMAKE_CUDA_ARCHITECTURES "60" CACHE STRING
-             "CUDA architectures, as semi-colon separated list of 2-digit numbers, e.g., 60;70;80 for Pascal, Volta, Ampere" )
-        set_property( CACHE CMAKE_CUDA_ARCHITECTURES PROPERTY STRINGS
-                      30 50 60 70 75 80 )
-    endif()
 
     file(
         GLOB libslate_cuda_src

@@ -13,15 +13,6 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::posvMixed from internal::specialization::posvMixed
-namespace internal {
-namespace specialization {
-
-//------------------------------------------------------------------------------
-/// todo: replicated in gesvMixed.cc; move to common header.
-/// @ingroup posv_specialization
-///
 template <typename scalar_t>
 bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
                       std::vector<scalar_t>& colnorms_X,
@@ -39,209 +30,6 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
     }
 
     return value;
-}
-
-//------------------------------------------------------------------------------
-/// Distributed parallel iterative-refinement Cholesky factorization and solve.
-/// Generic implementation for any target.
-/// @ingroup posv_specialization
-///
-template <Target target, typename scalar_hi, typename scalar_lo>
-void posvMixed( slate::internal::TargetType<target>,
-                HermitianMatrix<scalar_hi>& A,
-                Matrix<scalar_hi>& B,
-                Matrix<scalar_hi>& X,
-                int& iter,
-                Options const& opts)
-              //int64_t lookahead)
-{
-    // Assumes column major
-    const Layout layout = Layout::ColMajor;
-
-    bool converged = false;
-    const int itermax = 30;
-    using real_hi = blas::real_type<scalar_hi>;
-    const real_hi eps = std::numeric_limits<real_hi>::epsilon();
-    iter = 0;
-
-    assert(B.mt() == A.mt());
-
-    // workspace
-    auto R    = B.emptyLike();
-    auto A_lo = A.template emptyLike<scalar_lo>();
-    auto X_lo = X.template emptyLike<scalar_lo>();
-
-    std::vector<real_hi> colnorms_X(X.n());
-    std::vector<real_hi> colnorms_R(R.n());
-
-    // insert local tiles
-    X_lo.insertLocalTiles(target);
-    R.   insertLocalTiles(target);
-    A_lo.insertLocalTiles(target);
-
-    if (target == Target::Devices) {
-        #pragma omp parallel
-        #pragma omp master
-        {
-            #pragma omp task default(shared)
-            {
-                A.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
-            }
-            #pragma omp task default(shared)
-            {
-                B.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
-            }
-            #pragma omp task default(shared)
-            {
-                X.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
-            }
-        }
-    }
-
-    // norm of A
-    real_hi Anorm = norm(Norm::Inf, A, opts);
-//                       {{Option::Target, target}});
-
-    // stopping criteria
-    real_hi cte = Anorm * eps * std::sqrt(A.n());
-
-    // Convert B from high to low precision, store result in X_lo.
-    copy(B, X_lo, opts);
-//       {{Option::Target, target}});
-
-    // Convert A from high to low precision, store result in A_lo.
-    copy(A, A_lo, opts);
-//       {{Option::Target, target}});
-
-    // Compute the Cholesky factorization of A_lo.
-    potrf(A_lo, opts);
-//        {{Option::Lookahead, lookahead},
-//         {Option::Target, target}});
-
-    // Solve the system A_lo * X_lo = B_lo.
-    potrs(A_lo, X_lo, opts);
-//        {{Option::Lookahead, lookahead},
-//         {Option::Target, target}});
-
-    // Convert X_lo to high precision.
-    copy(X_lo, X, opts);
-//       {{Option::Target, target}});
-
-    // Compute R = B - A * X.
-    copy(B, R, opts);
-//       {{Option::Target, target}});
-    hemm<scalar_hi>(
-        Side::Left,
-        scalar_hi(-1.0), A,
-                         X,
-        scalar_hi(1.0),  R, opts);
-//      {{Option::Lookahead, lookahead},
-//       {Option::Target, target}});
-
-    // Check whether the nrhs normwise backward error satisfies the
-    // stopping criterion. If yes, set iter=0 and return.
-    colNorms( Norm::Max, X, colnorms_X.data(), opts);
-//              {{Option::Target, target}});
-    colNorms( Norm::Max, R, colnorms_R.data(), opts);
-//              {{Option::Target, target}});
-
-    if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
-        iter = 0;
-        converged = true;
-    }
-
-    // iterative refinement
-    for (int iiter = 0; iiter < itermax && ! converged; iiter++) {
-        // Convert R from high to low precision, store result in X_lo.
-        copy(R, X_lo, opts);
-//           {{Option::Target, target}});
-
-        // Solve the system A_lo * X_lo = R_lo.
-        potrs(A_lo, X_lo, opts);
-//            {{Option::Lookahead, lookahead},
-//             {Option::Target, target}});
-
-        // Convert X_lo back to double precision and update the current iterate.
-        copy(X_lo, R, opts);
-//           {{Option::Target, target}});
-        add<scalar_hi>(
-              scalar_hi(1.0), R,
-              scalar_hi(1.0), X, opts);
-//            {{Option::Target, target}});
-
-        // Compute R = B - A * X.
-        copy(B, R, opts);
-//           {{Option::Target, target}});
-        hemm<scalar_hi>(
-            Side::Left,
-            scalar_hi(-1.0), A,
-                             X,
-            scalar_hi(1.0),  R, opts);
-//          {{Option::Lookahead, lookahead},
-//           {Option::Target, target}});
-
-
-        // Check whether nrhs normwise backward error satisfies the
-        // stopping criterion. If yes, set iter = iiter > 0 and return.
-        colNorms( Norm::Max, X, colnorms_X.data(), opts);
-//                  {{Option::Target, target}});
-        colNorms( Norm::Max, R, colnorms_R.data(), opts);
-//                  {{Option::Target, target}});
-
-        if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
-            iter = iiter+1;
-            converged = true;
-        }
-    }
-
-    if (! converged) {
-        // If we are at this place of the code, this is because we have performed
-        // iter = itermax iterations and never satisfied the stopping criterion,
-        // set up the iter flag accordingly and follow up with double precision
-        // routine.
-        iter = -itermax - 1;
-
-        // Compute the Cholesky factorization of A.
-        potrf(A, opts);
-//            {{Option::Lookahead, lookahead},
-//             {Option::Target, target}});
-
-        // Solve the system A * X = B.
-        copy(B, X, opts);
-//           {{Option::Target, target}});
-        potrs(A, X, opts);
-//            {{Option::Lookahead, lookahead},
-//             {Option::Target, target}});
-    }
-
-    if (target == Target::Devices) {
-        // clear instead of release due to previous hold
-        A.clearWorkspace();
-        B.clearWorkspace();
-        X.clearWorkspace();
-    }
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup posv_specialization
-///
-template <Target target, typename scalar_hi, typename scalar_lo>
-void posvMixed( HermitianMatrix<scalar_hi>& A,
-                Matrix<scalar_hi>& B,
-                Matrix<scalar_hi>& X,
-                int& iter,
-                Options const& opts)
-{
-  //int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::posvMixed<target, scalar_hi, scalar_lo>(
-        internal::TargetType<target>(),
-        A, B, X, iter, opts);
- //     lookahead);
 }
 
 //------------------------------------------------------------------------------
@@ -334,7 +122,8 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
                 int& iter,
                 Options const& opts)
 {
-    // XXX Option?
+    // XXX This is only used for the memory management and may be inconsistent
+    // with the routines called in this routine.
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     // Assumes column major
@@ -382,50 +171,37 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
 
     // norm of A
     real_hi Anorm = norm(Norm::Inf, A, opts);
-//                       {{Option::Target, target}});
 
     // stopping criteria
     real_hi cte = Anorm * eps * std::sqrt(A.n());
 
     // Convert B from high to low precision, store result in X_lo.
     copy(B, X_lo, opts);
-//       {{Option::Target, target}});
 
     // Convert A from high to low precision, store result in A_lo.
     copy(A, A_lo, opts);
-//       {{Option::Target, target}});
 
     // Compute the Cholesky factorization of A_lo.
     potrf( A_lo, opts);
-//        {{Option::Lookahead, lookahead},
-//         {Option::Target, target}});
 
     // Solve the system A_lo * X_lo = B_lo.
     potrs(A_lo, X_lo, opts);
-//        {{Option::Lookahead, lookahead},
-//         {Option::Target, target}});
 
     // Convert X_lo to high precision.
     copy(X_lo, X, opts);
-//       {{Option::Target, target}});
 
     // Compute R = B - A * X.
-    copy(B, R, opts);
-//       {{Option::Target, target}});
+    slate::copy(B, R, opts);
     hemm<scalar_hi>(
         Side::Left,
         scalar_hi(-1.0), A,
                          X,
         scalar_hi(1.0),  R, opts);
-//      {{Option::Lookahead, lookahead},
-//       {Option::Target, target}});
 
     // Check whether the nrhs normwise backward error satisfies the
     // stopping criterion. If yes, set iter=0 and return.
     colNorms( Norm::Max, X, colnorms_X.data(), opts);
-//              {{Option::Target, target}});
     colNorms( Norm::Max, R, colnorms_R.data(), opts);
-//              {{Option::Target, target}});
 
     if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
         iter = 0;
@@ -436,39 +212,29 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
     for (int iiter = 0; iiter < itermax && ! converged; iiter++) {
         // Convert R from high to low precision, store result in X_lo.
         copy(R, X_lo, opts);
-//           {{Option::Target, target}});
 
         // Solve the system A_lo * X_lo = R_lo.
         potrs(A_lo, X_lo, opts);
-//            {{Option::Lookahead, lookahead},
-//             {Option::Target, target}});
 
         // Convert X_lo back to double precision and update the current iterate.
         copy(X_lo, R, opts);
-//           {{Option::Target, target}});
         add<scalar_hi>(
               scalar_hi(1.0), R,
               scalar_hi(1.0), X, opts);
-//            {{Option::Target, target}});
 
         // Compute R = B - A * X.
-        copy(B, R, opts);
-//           {{Option::Target, target}});
+        slate::copy(B, R, opts);
         hemm<scalar_hi>(
             Side::Left,
             scalar_hi(-1.0), A,
                              X,
             scalar_hi(1.0),  R, opts);
-//          {{Option::Lookahead, lookahead},
-//           {Option::Target, target}});
 
 
         // Check whether nrhs normwise backward error satisfies the
         // stopping criterion. If yes, set iter = iiter > 0 and return.
         colNorms( Norm::Max, X, colnorms_X.data(), opts);
-//                  {{Option::Target, target}});
         colNorms( Norm::Max, R, colnorms_R.data(), opts);
-//                  {{Option::Target, target}});
 
         if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
             iter = iiter+1;
@@ -485,15 +251,15 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
 
         // Compute the Cholesky factorization of A.
         potrf(A, opts);
-//            {{Option::Lookahead, lookahead},
-//             {Option::Target, target}});
 
         // Solve the system A * X = B.
-        copy(B, X, opts);
-//           {{Option::Target, target}});
+#if 1
+        slate::copy(B, X, opts);
+#else
+        copy(B, X,
+             {{Option::Target, target}});
+#endif
         potrs(A, X, opts);
-//            {{Option::Lookahead, lookahead},
-//             {Option::Target, target}});
     }
 
     if (target == Target::Devices) {
@@ -503,25 +269,6 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
         X.clearWorkspace();
     }
 
-//  switch (target) {
-//      case Target::Host:
-//      case Target::HostTask:
-//          posvMixed<Target::HostTask,  scalar_hi, scalar_lo>(
-//                    A, B, X, iter, opts);
-//          break;
-//      case Target::HostNest:
-//          posvMixed<Target::HostNest,  scalar_hi, scalar_lo>(
-//                    A, B, X, iter, opts);
-//          break;
-//      case Target::HostBatch:
-//          posvMixed<Target::HostBatch, scalar_hi, scalar_lo>(
-//                    A, B, X, iter, opts);
-//          break;
-//      case Target::Devices:
-//          posvMixed<Target::Devices,   scalar_hi, scalar_lo>(
-//                    A, B, X, iter, opts);
-//          break;
-//  }
     // todo: return value for errors?
 }
 

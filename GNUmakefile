@@ -674,11 +674,14 @@ unit_src = \
     unit_test/test_Tile.cc \
     unit_test/test_Tile_kernels.cc \
     unit_test/test_TrapezoidMatrix.cc \
+    unit_test/test_TriangularBandMatrix.cc \
     unit_test/test_TriangularMatrix.cc \
-    unit_test/test_norm.cc \
     unit_test/test_geadd.cc \
     unit_test/test_gecopy.cc \
     unit_test/test_geset.cc \
+    unit_test/test_internal_blas.cc \
+    unit_test/test_norm.cc \
+    # End. Add alphabetically.
 
 ifneq ($(only_unit),1)
 unit_src += \

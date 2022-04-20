@@ -59,7 +59,7 @@ void hegst(slate::internal::TargetType<target>,
         // routines use 2 queues (queue 0,1). All other
         // internal::routines here use the default queue (queue 0).
         // So 2 queues need to be allocated.
-        A.allocateBatchArrays(0, 2); // (batch size, num_queues)
+        A.allocateBatchArrays(0, 2+lookahead); // (batch size, num_queues)
         A.reserveDeviceWorkspace();
     }
 

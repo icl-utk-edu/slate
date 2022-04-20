@@ -88,7 +88,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
 
     // Requires 2+lookahead queues
     if (target == Target::Devices)
-        assert(B.numComputeQueues() >= 2);
+        assert(B.numComputeQueues() >= 2+lookahead);
 
     const int64_t queue_0 = 0;
     const int64_t queue_1 = 1;

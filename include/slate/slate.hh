@@ -571,9 +571,7 @@ int64_t gesv_mixed_gmres(
 template<typename scalar_t>
 void gesv_rbt(Matrix<scalar_t>& A,
               Matrix<scalar_t>& B,
-              const std::map<Option, Value>& opts = std::map<Option, Value>(),
-              const int64_t depth = 2,
-              const int64_t refine = 1);
+              const std::map<Option, Value>& opts = std::map<Option, Value>());
 
 //-----------------------------------------
 // gbtrf()

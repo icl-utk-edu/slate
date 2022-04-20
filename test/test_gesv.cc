@@ -150,6 +150,8 @@ void test_gesv_work(Params& params, bool run)
         {slate::Option::MethodLU, method_lu},
         {slate::Option::MethodGemm, methodGemm},
         {slate::Option::MethodTrsm, methodTrsm},
+        {slate::Option::Depth, params.routine == "gesv_rbt" ? params.depth() : 0},
+        {slate::Option::MaxIterations, params.routine == "gesv_rbt" ? params.refine() : 0},
     };
 
     int64_t info = 0;
@@ -308,9 +310,7 @@ void test_gesv_work(Params& params, bool run)
             }
         }
         else if (params.routine == "gesv_rbt") {
-            const int64_t depth = params.depth();
-            const int64_t refine = params.refine();
-            slate::gesv_rbt(A, B, opts, depth, refine);
+            slate::gesv_rbt(A, B, opts);
         }
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance

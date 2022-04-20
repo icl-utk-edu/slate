@@ -130,8 +130,7 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
     const int itermax = 30;
     using real_hi = blas::real_type<scalar_hi>;
     const real_hi eps = std::numeric_limits<real_hi>::epsilon();
-    const scalar_hi one_hi      = scalar_hi( 1.0 );
-    const scalar_hi neg_one_hi  = scalar_hi( -1.0 );
+    const scalar_hi one_hi = 1.0;
     iter = 0;
 
     assert( B.mt() == A.mt() );
@@ -193,9 +192,9 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
     // Compute R = B - A * X.
     slate::copy( B, R, opts );
     gemm<scalar_hi>(
-        neg_one_hi, A,
-                    X,
-        one_hi,     R, opts );
+        -one_hi, A,
+                 X,
+        one_hi,  R, opts );
 
     // Check whether the nrhs normwise backward error satisfies the
     // stopping criterion. If yes, set iter=0 and return.
@@ -224,9 +223,9 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
         // Compute R = B - A * X.
         slate::copy( B, R, opts );
         gemmA<scalar_hi>(
-            neg_one_hi, A,
-                        X,
-            one_hi,     R, opts );
+            -one_hi, A,
+                     X,
+            one_hi,  R, opts );
 
         // Check whether nrhs normwise backward error satisfies the
         // stopping criterion. If yes, set iter = iiter > 0 and return.

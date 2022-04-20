@@ -11,11 +11,6 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::gesvMixed from internal::specialization::gesvMixed
-//namespace internal {
-//namespace specialization {
-
 template <typename scalar_t>
 bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
                       std::vector<scalar_t>& colnorms_X,
@@ -34,9 +29,6 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
 
     return value;
 }
-
-//} // namespace specialization
-//} // namespace internal
 
 //------------------------------------------------------------------------------
 /// Distributed parallel iterative-refinement LU factorization and solve.
@@ -131,14 +123,6 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
-  //int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-  //int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
-  //int64_t max_panel_threads  = std::max( omp_get_max_threads()/2, 1 );
-  //max_panel_threads = get_option<int64_t>(
-  //    opts, Option::MaxPanelThreads, max_panel_threads );
-
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -146,6 +130,8 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
     const int itermax = 30;
     using real_hi = blas::real_type<scalar_hi>;
     const real_hi eps = std::numeric_limits<real_hi>::epsilon();
+    const scalar_hi one_hi      = scalar_hi( 1.0 );
+    const scalar_hi neg_one_hi  = scalar_hi( -1.0 );
     iter = 0;
 
     assert( B.mt() == A.mt() );
@@ -186,7 +172,7 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
     real_hi Anorm = norm( Norm::Inf, A, opts );
 
     // stopping criteria
-    real_hi cte = Anorm * eps * std::sqrt(A.n());
+    real_hi cte = Anorm * eps * std::sqrt( A.n() );
 
     // Convert B from high to low precision, store result in X_lo.
     copy( B, X_lo, opts );
@@ -196,10 +182,6 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
 
     // Compute the LU factorization of A_lo.
     getrf( A_lo, pivots, opts );
-//        {{Option::InnerBlocking, ib},
-//         {Option::Lookahead, lookahead},
-//         {Option::MaxPanelThreads, int64_t(max_panel_threads)},
-//         {Option::Target, target}});
 
 
     // Solve the system A_lo * X_lo = B_lo.
@@ -211,9 +193,9 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
     // Compute R = B - A * X.
     slate::copy( B, R, opts );
     gemm<scalar_hi>(
-        scalar_hi(-1.0), A,
-                         X,
-        scalar_hi(1.0),  R, opts );
+        neg_one_hi, A,
+                    X,
+        one_hi,     R, opts );
 
     // Check whether the nrhs normwise backward error satisfies the
     // stopping criterion. If yes, set iter=0 and return.
@@ -236,15 +218,15 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
         // Convert X_lo back to double precision and update the current iterate.
         copy( X_lo, R, opts );
         add<scalar_hi>(
-              scalar_hi(1.0), R,
-              scalar_hi(1.0), X, opts );
+              one_hi, R,
+              one_hi, X, opts );
 
         // Compute R = B - A * X.
         slate::copy( B, R, opts );
         gemmA<scalar_hi>(
-            scalar_hi(-1.0), A,
-                             X,
-            scalar_hi(1.0),  R, opts );
+            neg_one_hi, A,
+                        X,
+            one_hi,     R, opts );
 
         // Check whether nrhs normwise backward error satisfies the
         // stopping criterion. If yes, set iter = iiter > 0 and return.
@@ -266,10 +248,6 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
 
         // Compute the LU factorization of A.
         getrf( A, pivots, opts );
-            //{{Option::InnerBlocking, ib},
-            // {Option::Lookahead, lookahead},
-            // {Option::MaxPanelThreads, int64_t(max_panel_threads)},
-            // {Option::Target, target}});
 
         // Solve the system A * X = B.
         slate::copy( B, X, opts );
@@ -296,7 +274,7 @@ void gesvMixed<double>(
     int& iter,
     Options const& opts)
 {
-    gesvMixed<double, float>(A, pivots, B, X, iter, opts);
+    gesvMixed<double, float>( A, pivots, B, X, iter, opts );
 }
 
 template <>
@@ -307,7 +285,8 @@ void gesvMixed< std::complex<double> >(
     int& iter,
     Options const& opts)
 {
-    gesvMixed<std::complex<double>, std::complex<float>>(A, pivots, B, X, iter, opts);
+    gesvMixed<std::complex<double>, std::complex<float>>(
+        A, pivots, B, X, iter, opts );
 }
 
 } // namespace slate

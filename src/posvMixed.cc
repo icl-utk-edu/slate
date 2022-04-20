@@ -8,7 +8,6 @@
 #include "slate/Matrix.hh"
 #include "slate/HermitianMatrix.hh"
 #include "slate/Tile_blas.hh"
-// #include "slate/TriangularMatrix.hh"
 #include "internal/internal.hh"
 
 namespace slate {
@@ -133,17 +132,19 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
     const int itermax = 30;
     using real_hi = blas::real_type<scalar_hi>;
     const real_hi eps = std::numeric_limits<real_hi>::epsilon();
+    const scalar_hi one_hi      = scalar_hi(1.0);
+    const scalar_hi neg_one_hi  = scalar_hi(-1.0);
     iter = 0;
 
-    assert(B.mt() == A.mt());
+    assert( B.mt() == A.mt() );
 
     // workspace
     auto R    = B.emptyLike();
     auto A_lo = A.template emptyLike<scalar_lo>();
     auto X_lo = X.template emptyLike<scalar_lo>();
 
-    std::vector<real_hi> colnorms_X(X.n());
-    std::vector<real_hi> colnorms_R(R.n());
+    std::vector<real_hi> colnorms_X( X.n() );
+    std::vector<real_hi> colnorms_R( R.n() );
 
     // insert local tiles
     X_lo.insertLocalTiles( target );
@@ -156,54 +157,54 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
         {
             #pragma omp task default(shared)
             {
-                A.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
+                A.tileGetAndHoldAllOnDevices( LayoutConvert( layout ) );
             }
             #pragma omp task default(shared)
             {
-                B.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
+                B.tileGetAndHoldAllOnDevices( LayoutConvert( layout ) );
             }
             #pragma omp task default(shared)
             {
-                X.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
+                X.tileGetAndHoldAllOnDevices( LayoutConvert( layout ) );
             }
         }
     }
 
     // norm of A
-    real_hi Anorm = norm(Norm::Inf, A, opts);
+    real_hi Anorm = norm( Norm::Inf, A, opts );
 
     // stopping criteria
-    real_hi cte = Anorm * eps * std::sqrt(A.n());
+    real_hi cte = Anorm * eps * std::sqrt( A.n() );
 
     // Convert B from high to low precision, store result in X_lo.
-    copy(B, X_lo, opts);
+    copy( B, X_lo, opts );
 
     // Convert A from high to low precision, store result in A_lo.
-    copy(A, A_lo, opts);
+    copy( A, A_lo, opts );
 
     // Compute the Cholesky factorization of A_lo.
-    potrf( A_lo, opts);
+    potrf(  A_lo, opts );
 
     // Solve the system A_lo * X_lo = B_lo.
-    potrs(A_lo, X_lo, opts);
+    potrs( A_lo, X_lo, opts );
 
     // Convert X_lo to high precision.
-    copy(X_lo, X, opts);
+    copy( X_lo, X, opts );
 
     // Compute R = B - A * X.
-    slate::copy(B, R, opts);
+    slate::copy( B, R, opts );
     hemm<scalar_hi>(
         Side::Left,
-        scalar_hi(-1.0), A,
-                         X,
-        scalar_hi(1.0),  R, opts);
+        neg_one_hi, A,
+                    X,
+        one_hi,     R, opts );
 
     // Check whether the nrhs normwise backward error satisfies the
     // stopping criterion. If yes, set iter=0 and return.
-    colNorms( Norm::Max, X, colnorms_X.data(), opts);
-    colNorms( Norm::Max, R, colnorms_R.data(), opts);
+    colNorms( Norm::Max, X, colnorms_X.data(), opts );
+    colNorms( Norm::Max, R, colnorms_R.data(), opts );
 
-    if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
+    if (iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte) ) {
         iter = 0;
         converged = true;
     }
@@ -211,32 +212,32 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
     // iterative refinement
     for (int iiter = 0; iiter < itermax && ! converged; iiter++) {
         // Convert R from high to low precision, store result in X_lo.
-        copy(R, X_lo, opts);
+        copy( R, X_lo, opts );
 
         // Solve the system A_lo * X_lo = R_lo.
-        potrs(A_lo, X_lo, opts);
+        potrs( A_lo, X_lo, opts );
 
         // Convert X_lo back to double precision and update the current iterate.
-        copy(X_lo, R, opts);
+        copy( X_lo, R, opts );
         add<scalar_hi>(
-              scalar_hi(1.0), R,
-              scalar_hi(1.0), X, opts);
+              one_hi, R,
+              one_hi, X, opts );
 
         // Compute R = B - A * X.
-        slate::copy(B, R, opts);
+        slate::copy( B, R, opts );
         hemm<scalar_hi>(
             Side::Left,
-            scalar_hi(-1.0), A,
-                             X,
-            scalar_hi(1.0),  R, opts);
+            neg_one_hi, A,
+                        X,
+            one_hi,     R, opts );
 
 
         // Check whether nrhs normwise backward error satisfies the
         // stopping criterion. If yes, set iter = iiter > 0 and return.
-        colNorms( Norm::Max, X, colnorms_X.data(), opts);
-        colNorms( Norm::Max, R, colnorms_R.data(), opts);
+        colNorms( Norm::Max, X, colnorms_X.data(), opts );
+        colNorms( Norm::Max, R, colnorms_R.data(), opts );
 
-        if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
+        if (iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
             iter = iiter+1;
             converged = true;
         }
@@ -250,16 +251,11 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
         iter = -itermax - 1;
 
         // Compute the Cholesky factorization of A.
-        potrf(A, opts);
+        potrf( A, opts );
 
         // Solve the system A * X = B.
-#if 1
-        slate::copy(B, X, opts);
-#else
-        copy(B, X,
-             {{Option::Target, target}});
-#endif
-        potrs(A, X, opts);
+        slate::copy( B, X, opts );
+        potrs( A, X, opts );
     }
 
     if (target == Target::Devices) {
@@ -282,7 +278,7 @@ void posvMixed<double>(
     int& iter,
     Options const& opts)
 {
-    posvMixed<double, float>(A, B, X, iter, opts);
+    posvMixed<double, float>( A, B, X, iter, opts );
 }
 
 template <>
@@ -293,7 +289,7 @@ void posvMixed< std::complex<double> >(
     int& iter,
     Options const& opts)
 {
-    posvMixed<std::complex<double>, std::complex<float>>(A, B, X, iter, opts);
+    posvMixed<std::complex<double>, std::complex<float>>( A, B, X, iter, opts );
 }
 
 } // namespace slate

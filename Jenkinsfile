@@ -65,6 +65,9 @@ run sload gcc@7.3.0
 run spack compiler find
 run sload intel-mkl
 
+# hipcc needs /usr/sbin/lsmod
+export PATH=${PATH}:/usr/sbin
+
 print "========================================"
 date
 print "maker ${maker}"

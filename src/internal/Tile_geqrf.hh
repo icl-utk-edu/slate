@@ -48,7 +48,19 @@ namespace internal {
 /// @param[in] thread_barrier
 ///     barrier for synchronizing local threads
 ///
-/// todo: add missing params
+/// @param[in] scale
+///     component of lassq to compute Householder norm
+///     in a stable manner
+///
+/// @param[in] sumsq
+///     component of lassq to compute Householder norm
+///     in a stable manner
+///
+/// @param[in] xnorm
+///     Householder norm
+///
+/// @param[in] W
+//      Workspace for the algorithm
 ///
 /// @ingroup geqrf_tile
 ///
@@ -135,7 +147,7 @@ void geqrf(
 
             real_t safemin = std::numeric_limits<real_t>::epsilon();
             real_t rsafemin = rone / safemin;
-            //if (xnorm == zero && j < diag_len) {
+            // if Householder norm is numerically "zero", set to identity and exit
             if (xnorm < safemin && j < diag_len) {
                 betas.at(j) = alpha;
                 taus.at(j) = zero;
@@ -143,13 +155,11 @@ void geqrf(
             else {
                 real_t beta =
                     -std::copysign(lapack::lapy3(alphr, alphi, xnorm), alphr);
-                // IF( ABS( BETA ).LT.SAFMIN )
                 knt = 0;
-                //if (beta_check < safemin) {
                 if (std::abs(beta) < safemin) {
                     if (knt < 20 && std::abs(beta) < safemin) {
                         knt += 1;
-                        // redo scaling of input vector
+                        // scale input vector accordingly
                         for (int64_t idx = thread_rank;
                              idx < int64_t(tiles.size());
                              idx += thread_size)
@@ -167,12 +177,13 @@ void geqrf(
                             }
                         }
                         thread_barrier.wait(thread_size);
-                        //
+
                         beta = beta*rsafemin;
                         alpha = alpha*rsafemin;
                     }
-                    //------------------
-                    // redo of thread local norm
+                    //-------------------
+                    // thread local norm
+                    // with scaled vector
                     scale[thread_rank] = 0.0;
                     sumsq[thread_rank] = 1.0;
                     for (int64_t idx = thread_rank;
@@ -596,10 +607,6 @@ void geqrf(
             thread_barrier.wait(thread_size);
         }
     }
-//if (thread_rank == 0) {
-//    auto tile = tiles.at(0);
-//    tile.print("tiles");
-//}
 }
 
 } // namespace internal

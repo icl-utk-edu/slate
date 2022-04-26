@@ -247,7 +247,7 @@ void test_geqrf_work(Params& params, bool run)
             slate_assert(info_ref == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-            if (check) {
+            if (0) {
                 //==================================================
                 // Test results by checking backwards error
                 // within ScaLAPACK implementation
@@ -259,45 +259,41 @@ void test_geqrf_work(Params& params, bool run)
                 //==================================================
 
                 // R is the upper part of A matrix.
-                slate::TriangularMatrix<scalar_t> scala_R(slate::Uplo::Upper, slate::Diag::NonUnit, Aref);
+                slate::TrapezoidMatrix<scalar_t> scala_R(slate::Uplo::Upper, slate::Diag::NonUnit, Aref);
 
                 std::vector<scalar_t> scala_QR_data(Aref_data.size(), zero);
                 slate::Matrix<scalar_t> scala_QR = slate::Matrix<scalar_t>::fromScaLAPACK(
                                                      m, n, &scala_QR_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-                slate::copy(Aref, scala_QR);
 
-                // Construct Q to apply to R-factor
-                //
-                // Query for workspace
-                scalapack_porgqr(m, n, n, &scala_QR_data[0], 1, 1, Aref_desc, tau.data(),
-                                  &dummy, -1, &info_ref);
+                slate::TrapezoidMatrix<scalar_t> scala_R1(slate::Uplo::Upper, slate::Diag::NonUnit, scala_QR);
+
+                // Copy A's upper trapezoid R to QR's upper trapezoid R1.
+                slate::copy(scala_R, scala_R1);
+
+                // Apply Q to R-factor
+                scalapack_punmqr(side2str(blas::Side::Left), op2str(slate::Op::NoTrans), m, n, n,
+                                 &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                                 &scala_QR_data[0], 1, 1, Aref_desc,
+                                 &dummy, -1, &info_ref);
                 lwork = int64_t( real( dummy ) );
                 work.resize(lwork);
-                // Call to construct Q
-                scalapack_porgqr(m, n, n, &scala_QR_data[0], 1, 1, Aref_desc, tau.data(),
-                                  work.data(), lwork, &info_ref);
+                scalapack_punmqr(side2str(blas::Side::Left), op2str(slate::Op::NoTrans), m, n, n,
+                                 &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                                 &scala_QR_data[0], 1, 1, Aref_desc,
+                                 work.data(), lwork, &info_ref);
+                slate_assert(info_ref == 0);
 
-                print_matrix("Q", scala_QR, params);
+                print_matrix("QR", scala_QR, params);
 
-                slate::triangular_multiply(one, scala_QR, scala_R, opts);
-               // // QR should now have the product Q*R, which should equal the original A.
-               // // Subtract the original Aref from QR.
-               // // Form QR - A, where A is in Aref.
-               // // todo: slate::add(-one, Aref, QR);
-               // // using axpy assumes Aref_data and QR_data have same lda.
-               slate::add(-one, A, one, scala_QR, opts);
-               // blas::axpy(scala_QR_data.size(), -one, &Aref_data[0], 1, &scala_QR_data[0], 1);
-               // print_matrix("QR - A", QR, params);
+                slate::add(-one, A, one, scala_QR, opts);
+                print_matrix("QR - A", scala_QR, params);
 
-               // // Norm of backwards error: || QR - A ||_1
-               real_t scala_R_norm = slate::norm(slate::Norm::One, scala_QR);
+                // Norm of backwards error: || QR - A ||_1
+                real_t scala_R_norm = slate::norm(slate::Norm::One, scala_QR);
 
-               double residual = scala_R_norm / (m*A_norm);
-               // params.error() = residual;
-               // real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-               // params.okay() = (params.error() <= tol);
-               if (mpi_rank == 0)
-                  printf("\nScaLAPACK comparision: ||A - QR|| / ||A|| = %3.2e\n",residual);
+                double residual = scala_R_norm / (m*A_norm);
+                if (mpi_rank == 0)
+                    printf("\nScaLAPACK comparision: ||A - QR|| / ||A|| = %3.2e\n",residual);
             }
 
             params.ref_time() = time;

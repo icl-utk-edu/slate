@@ -3,8 +3,8 @@
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
-#ifndef SLATE_TILE_GEQR2
-#define SLATE_TILE_GEQR2
+#ifndef SLATE_TILE_HOUSEHOLDER_REFLECTION_GENERATOR
+#define SLATE_TILE_HOUSEHOLDER_REFLECTION_GENERATOR
 
 #include "internal/internal_util.hh"
 #include "slate/Tile.hh"
@@ -23,8 +23,8 @@
 namespace slate {
 namespace internal {
 
-//------------------------------------------------------------------------------
-/// Compute at the qr2 level, Householder reflections of a panel, including tau scalars.
+//--------------------------------------------------------------------------------
+/// Compute at the qr2 level, Householder reflections of a panel, with tau scalars.
 /// Additionally, one can:
 ///    Compute blocking factor T column-by-column
 ///    Compute trailing matrix update at qr2 level (for a full factorization)
@@ -57,7 +57,7 @@ namespace internal {
 /// @ingroup geqrf_tile
 ///
 template <typename scalar_t>
-void geqr2(
+void householder_reflection_generator(
     std::vector< Tile<scalar_t> >& tiles,
     std::vector<int64_t>& tile_indices,
     Tile<scalar_t>& T,
@@ -68,7 +68,7 @@ void geqr2(
     blas::real_type<scalar_t>& xnorm,
     std::vector< std::vector<scalar_t> >& W)
 {
-    trace::Block trace_block("lapack::reflection_only");
+    trace::Block trace_block("householder_reflection_generator");
 
     using blas::conj;
     using real_t = blas::real_type<scalar_t>;
@@ -301,4 +301,4 @@ void geqr2(
 } // namespace internal
 } // namespace slate
 
-#endif // SLATE_TILE_GEQRF_REFLECTION_ONLY
+#endif // SLATE_TILE_HOUSEHOLDER_REFLECTION_GENERATOR

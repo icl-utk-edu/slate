@@ -2134,9 +2134,9 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
 
                 // todo: should we check its life count before erasing?
                 // Destroy the tile.
-                // XXX we comment the tileErase for now
                 // todo: should it be a tileRelease()?
-                //tileErase(i, j, host_num_);
+                if (mpi_rank_ != root_rank)
+                    tileErase( i, j, host_num_ );
             }
             else {
                 tileModified(i, j);

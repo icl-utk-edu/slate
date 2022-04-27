@@ -51,7 +51,6 @@ void gemmA(
     std::vector<uint8_t> gemmA_vector(A.nt());
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemmA = gemmA_vector.data();
-    // printf("gemmA\n");
 
     #pragma omp parallel
     #pragma omp master

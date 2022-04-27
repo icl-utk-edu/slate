@@ -54,6 +54,23 @@ void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
 
 //------------------------------------------------------------------------------
 /// General matrix multiply for a left-looking update.
+/// This routine consists of two steps:  the management of the memory
+/// and the actual computation.
+/// Note that this routine may insert some tiles that must be erased later.
+/// The original intent was to erase them when calling the ListReduce routine.
+/// First step:
+///   It iterates over the tiles of A and gets the needed tiles of B and C.
+///   In the case where the corresponding tiles of C do not exist, it 
+///   acquires them. It means these tiles are created and inserted as workspace.
+///   It is expected that they are erased either by the calling routine or
+///   through the call to ListReduce.
+/// Second step:
+///   As soon as the data is ready, the routine calls gemm. However, the beta
+///   is used once and only in the case where the current tile of C existed
+///   prior the call to this routine. Otherwise, the beta value is replaced
+///   by zero. 
+///   In any case, the internal value beta_j is set to one to allow the 
+///   accumulation in the tile.
 /// Host OpenMP task implementation.
 /// @ingroup gemm_internal
 ///

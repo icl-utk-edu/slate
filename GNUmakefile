@@ -571,7 +571,7 @@ ifneq ($(have_fortran),)
         src/zsteqr2.f \
         # End. Add alphabetically, by base name after precision.
 else
-    $(error ERROR: set FC, currently '$(FC)', to a Fortran compiler (gfortran, ifort, xlf, ftn, ...). We hope to eventually remove this requirement.)
+    $(error ERROR: Fortran compiler FC='$(FC)' not found. Set FC to a Fortran compiler (mpif90, gfortran, ifort, xlf, ftn, ...). We hope to eventually remove this requirement.)
 endif
 
 # C API

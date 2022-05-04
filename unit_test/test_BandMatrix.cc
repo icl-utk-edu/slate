@@ -14,6 +14,7 @@
 using slate::ceildiv;
 using slate::roundup;
 using slate::GridOrder;
+using slate::HostNum;
 
 namespace test {
 
@@ -23,7 +24,6 @@ int m, n, k, kl, ku, nb, p, q;
 int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
-int host_num = slate::HostNum;
 int num_devices = 0;
 
 //------------------------------------------------------------------------------
@@ -164,7 +164,7 @@ void test_BandMatrix_tileInsert_new()
                 int ib = std::min( nb, m - ii );
                 int jb = std::min( nb, n - jj );
 
-                auto T_ptr = A.tileInsert( i, j );  //A.hostNum()
+                auto T_ptr = A.tileInsert( i, j, HostNum );
                 test_assert( T_ptr->mb() == ib );
                 test_assert( T_ptr->nb() == jb );
                 test_assert( T_ptr->op() == slate::Op::NoTrans );
@@ -471,7 +471,6 @@ int main(int argc, char** argv)
     MPI_Comm_size(mpi_comm, &mpi_size);
 
     num_devices = blas::get_device_count();
-    host_num = slate::HostNum;
 
     // globals
     m  = 200;

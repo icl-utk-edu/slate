@@ -11,6 +11,8 @@
 #include "unit_test.hh"
 #include "print_tile.hh"
 
+using slate::HostNum;
+
 namespace test {
 
 //------------------------------------------------------------------------------
@@ -20,7 +22,6 @@ char**   g_argv      = nullptr;
 int      verbose     = 0;
 int      mpi_rank    = -1;
 int      mpi_size    = 0;
-int      host_num    = slate::HostNum;
 int      num_devices = 0;
 MPI_Comm mpi_comm;
 
@@ -167,7 +168,7 @@ void test_gemm()
         int ldc = Cm + 1;
         std::vector< scalar_t > Cdata( ldc*Cn );
         lapack::larnv( 1, iseed, Cdata.size(), Cdata.data() );
-        slate::Tile< scalar_t > C( Cm, Cn, Cdata.data(), ldc, host_num,
+        slate::Tile< scalar_t > C( Cm, Cn, Cdata.data(), ldc, HostNum,
                                    slate::TileKind::UserOwned );
         C.op( ops[ic] );
         assert( C.mb() == m );
@@ -184,7 +185,7 @@ void test_gemm()
         int ldb = Bm + 1;
         std::vector< scalar_t > Bdata( ldb*Bn );
         lapack::larnv( 1, iseed, Bdata.size(), Bdata.data() );
-        slate::Tile< scalar_t > B( Bm, Bn, Bdata.data(), ldb, host_num,
+        slate::Tile< scalar_t > B( Bm, Bn, Bdata.data(), ldb, HostNum,
                                    slate::TileKind::UserOwned );
         B.op( ops[ib] );
         assert( B.mb() == k );
@@ -196,7 +197,7 @@ void test_gemm()
         int lda = Am + 1;
         std::vector< scalar_t > Adata( lda*An );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, host_num,
+        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, HostNum,
                                    slate::TileKind::UserOwned );
         A.op( ops[ia] );
         assert( A.mb() == m );
@@ -296,7 +297,7 @@ void test_syrk()
         int ldc = n + 1;
         std::vector< scalar_t > Cdata( ldc*n );
         lapack::larnv( 1, iseed, Cdata.size(), Cdata.data() );
-        slate::Tile< scalar_t > C( n, n, Cdata.data(), ldc, host_num,
+        slate::Tile< scalar_t > C( n, n, Cdata.data(), ldc, HostNum,
                                    slate::TileKind::UserOwned );
         C.uplo( uplo );
         C.op( ops[ic] );
@@ -324,7 +325,7 @@ void test_syrk()
         int lda = Am + 1;
         std::vector< scalar_t > Adata( lda*An );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, host_num,
+        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, HostNum,
                                    slate::TileKind::UserOwned );
         A.op( ops[ia] );
         assert( A.mb() == n );
@@ -427,7 +428,7 @@ void test_herk()
         int ldc = n + 1;
         std::vector< scalar_t > Cdata( ldc*n );
         lapack::larnv( 1, iseed, Cdata.size(), Cdata.data() );
-        slate::Tile< scalar_t > C( n, n, Cdata.data(), ldc, host_num,
+        slate::Tile< scalar_t > C( n, n, Cdata.data(), ldc, HostNum,
                                    slate::TileKind::UserOwned );
         C.uplo( uplo );
         C.op( ops[ic] );
@@ -455,7 +456,7 @@ void test_herk()
         int lda = Am + 1;
         std::vector< scalar_t > Adata( lda*An );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, host_num,
+        slate::Tile< scalar_t > A( Am, An, Adata.data(), lda, HostNum,
                                    slate::TileKind::UserOwned );
         A.op( ops[ia] );
         assert( A.mb() == n );
@@ -561,7 +562,7 @@ void test_trsm()
         int lda = An + 1;
         std::vector< scalar_t > Adata( lda*An );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( An, An, Adata.data(), lda, host_num,
+        slate::Tile< scalar_t > A( An, An, Adata.data(), lda, HostNum,
                                    slate::TileKind::UserOwned );
         A.uplo( uplo );
         A.op( ops[ia] );
@@ -592,7 +593,7 @@ void test_trsm()
         int ldb = Bm + 1;
         std::vector< scalar_t > Bdata( ldb*Bn );
         lapack::larnv( 1, iseed, Bdata.size(), Bdata.data() );
-        slate::Tile< scalar_t > B( Bm, Bn, Bdata.data(), ldb, host_num,
+        slate::Tile< scalar_t > B( Bm, Bn, Bdata.data(), ldb, HostNum,
                                    slate::TileKind::UserOwned );
         B.op( ops[ib] );
         assert( B.mb() == m );
@@ -681,7 +682,7 @@ void test_potrf()
         int lda = n + 1;
         std::vector< scalar_t > Adata(  lda*n );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( n, n, Adata.data(), lda, host_num,
+        slate::Tile< scalar_t > A( n, n, Adata.data(), lda, HostNum,
                                    slate::TileKind::UserOwned );
         A.uplo( uplo );
         A.op( ops[ia] );
@@ -771,7 +772,7 @@ void test_genorm()
         int lda = m + 1;
         std::vector< scalar_t > Adata( lda*n );
         lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
-        slate::Tile< scalar_t > A( m, n, Adata.data(), lda, host_num,
+        slate::Tile< scalar_t > A( m, n, Adata.data(), lda, HostNum,
                                    slate::TileKind::UserOwned );
         A.at( 3, 5 ) *= 1e6;
 
@@ -867,9 +868,9 @@ void test_convert_layout(int n)
     std::vector<scalar_t> Adata( lda*n );
     lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
     std::vector<scalar_t> Bdata = Adata;
-    slate::Tile<scalar_t> A( n, n, Adata.data(), lda, host_num,
+    slate::Tile<scalar_t> A( n, n, Adata.data(), lda, HostNum,
                              slate::TileKind::UserOwned );
-    slate::Tile<scalar_t> B( n, n, Bdata.data(), lda, host_num,
+    slate::Tile<scalar_t> B( n, n, Bdata.data(), lda, HostNum,
                              slate::TileKind::UserOwned );
 
     test_assert(A.layout() == Layout::ColMajor);
@@ -907,9 +908,9 @@ void test_convert_layout(int m, int n)
     std::vector<scalar_t> A_extData( lda*n );
     lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
     std::vector<scalar_t> Bdata = Adata;
-    slate::Tile<scalar_t> A( m, n, Adata.data(), lda, host_num,
+    slate::Tile<scalar_t> A( m, n, Adata.data(), lda, HostNum,
                              slate::TileKind::UserOwned );
-    slate::Tile<scalar_t> B( m, n, Bdata.data(), lda, host_num,
+    slate::Tile<scalar_t> B( m, n, Bdata.data(), lda, HostNum,
                              slate::TileKind::UserOwned );
 
     test_assert(A.layout() == Layout::ColMajor);
@@ -1006,8 +1007,8 @@ void test_device_convert_layout(int m, int n)
     std::vector< slate::Tile<scalar_t> > Atiles( batch_count );
     std::vector< slate::Tile<scalar_t> > Btiles( batch_count );
     for (int k = 0; k < batch_count; ++k) {
-        Atiles[k] = slate::Tile<scalar_t>( m, n, &Adata[ k*lda*n ], lda, host_num, slate::TileKind::UserOwned );
-        Btiles[k] = slate::Tile<scalar_t>( m, n, &Bdata[ k*lda*n ], lda, host_num, slate::TileKind::UserOwned );
+        Atiles[k] = slate::Tile<scalar_t>( m, n, &Adata[ k*lda*n ], lda, HostNum, slate::TileKind::UserOwned );
+        Btiles[k] = slate::Tile<scalar_t>( m, n, &Bdata[ k*lda*n ], lda, HostNum, slate::TileKind::UserOwned );
     }
 
     // copy batch A to GPU
@@ -1223,9 +1224,9 @@ void test_deepTranspose_work(int m, int n)
     lapack::larnv( idist, iseed, data.size(), data.data() );
     lapack::larnv( idist, iseed, dataT.size(), dataT.data() );
 
-    slate::Tile< scalar_t > A( m, n, data.data(), lda, host_num,
+    slate::Tile< scalar_t > A( m, n, data.data(), lda, HostNum,
                                slate::TileKind::UserOwned );
-    slate::Tile< scalar_t > AT( n, m, dataT.data(), ldat, host_num,
+    slate::Tile< scalar_t > AT( n, m, dataT.data(), ldat, HostNum,
                                 slate::TileKind::UserOwned );
 
     deepTranspose( std::move(A), std::move(AT) );
@@ -1278,9 +1279,9 @@ void test_deepConjTranspose_work(int m, int n)
     lapack::larnv( idist, iseed, data.size(), data.data() );
     lapack::larnv( idist, iseed, dataH.size(), dataH.data() );
 
-    slate::Tile< scalar_t > A( m, n, data.data(), lda, host_num,
+    slate::Tile< scalar_t > A( m, n, data.data(), lda, HostNum,
                                slate::TileKind::UserOwned );
-    slate::Tile< scalar_t > AH( n, m, dataH.data(), ldah, host_num,
+    slate::Tile< scalar_t > AH( n, m, dataH.data(), ldah, HostNum,
                                 slate::TileKind::UserOwned );
 
     deepConjTranspose( std::move(A), std::move(AH) );
@@ -1434,7 +1435,6 @@ int main(int argc, char** argv)
     MPI_Comm_size(mpi_comm, &mpi_size);
 
     num_devices = blas::get_device_count();
-    host_num = slate::HostNum;
 
     int err = unit_test_main(mpi_comm);  // which calls run_tests()
 

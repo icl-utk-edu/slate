@@ -173,7 +173,11 @@ cd ..
 print "========================================"
 date
 cd test
-./run_tests.py --origin s --target t,d --quick --ref n --xml ${top}/report-${maker}.xml
+if [ "${maker}" = "cmake" ]; then
+    # only sanity check with cmake build
+    export tests=potrf
+fi
+./run_tests.py --origin s --target t,d --quick --ref n --xml ${top}/report-${maker}.xml ${tests}
 cd ..
 
 date

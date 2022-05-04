@@ -344,7 +344,7 @@ void gemm(internal::TargetType<Target::HostBatch>,
                 }
                 // mkl_set_num_threads_local(1);
             #else
-                assert(false);
+                slate_not_implemented( "HostBatch requires Intel MKL" );
             #endif
         }
 

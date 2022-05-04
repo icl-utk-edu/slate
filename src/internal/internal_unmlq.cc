@@ -114,7 +114,7 @@ void unmlq(internal::TargetType<target>,
         //     [ C1  ]
         auto C0 = C.sub(first, first, 0, nt-1);
         // todo: issue omp tasks for copy to host
-        C0.tileGetAllForWriting(C0.hostNum(), LayoutConvert(layout));
+        C0.tileGetAllForWriting( HostNum, LayoutConvert(layout) );
 
         // Householder vectors are only first min( mb, nb ) rows in upper
         // triangular part of V. If V0 tile is tall (mb > nb), slice V to
@@ -290,7 +290,7 @@ void unmlq(internal::TargetType<target>,
         //       C0b is non-empty only if V0 is trapezoid
         auto C0 = C.sub(0, mt-1, first, first);
         // todo: issue omp tasks for copy to host
-        C0.tileGetAllForWriting(C0.hostNum(), LayoutConvert(layout));
+        C0.tileGetAllForWriting( HostNum, LayoutConvert(layout) );
 
         // Householder vectors are only first min( mb, nb ) rows in upper
         // triangular part of V. If V0 tile is tall (mb > nb), slice V to

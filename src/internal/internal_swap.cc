@@ -104,7 +104,7 @@ void permuteRows(
 
     // todo: for performance optimization, merge with the loops below,
     // at least with lookahead, probably selectively
-    A.tileGetAllForWriting(A.hostNum(), LayoutConvert(layout));
+    A.tileGetAllForWriting( HostNum, LayoutConvert(layout) );
 
     {
         trace::Block trace_block("internal::permuteRows");
@@ -204,7 +204,7 @@ void permuteRows(
 {
     // todo: for performance optimization, merge with the loops below,
     // at least with lookahead, probably selectively
-    A.tileGetAllForWriting(A.hostNum(), LayoutConvert(layout));
+    A.tileGetAllForWriting( HostNum, LayoutConvert(layout) );
 
     MPI_Comm comm = A.mpiComm();
     int comm_size;

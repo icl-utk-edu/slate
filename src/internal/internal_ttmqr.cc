@@ -229,7 +229,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                                 j_dst = k_dst;
                             }
                             int dst = C.tileRank(i_dst, j_dst);
-                            assert( (C.tileState( i, j, C.hostNum() ) & MOSI::Modified) != 0 );
+                            assert( (C.tileState( i, j, HostNum ) & MOSI::Modified) != 0 );
                             C.tileRecv(i, j, dst, layout, tag);
                         }
                     }

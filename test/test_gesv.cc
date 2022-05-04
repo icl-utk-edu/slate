@@ -356,7 +356,7 @@ void test_gesv_work(Params& params, bool run)
         params.error() = residual;
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-        params.okay() = (params.error() <= tol);
+        params.okay() = (params.error() <= tol && params.iters() >= 0);
     }
 
     if (ref) {

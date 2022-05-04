@@ -12,6 +12,8 @@
 #include "print_tile.hh"
 #include "../test/print_matrix.hh"
 
+using slate::HostNum;
+
 namespace test {
 
 //------------------------------------------------------------------------------
@@ -22,7 +24,6 @@ int      verbose     = 0;
 int      debug       = 0;
 int      mpi_rank    = -1;
 int      mpi_size    = 0;
-int      host_num    = slate::HostNum;
 int      num_devices = 0;
 MPI_Comm mpi_comm;
 
@@ -54,9 +55,9 @@ void test_tplqt_work( int m, int n, int l, int cn, int ib )
     std::vector< scalar_t >  Tdata( ib*m,   nan_ );
 
     slate::Tile< scalar_t >
-        A1( m,  m, A1data.data(), lda1, host_num, slate::TileKind::UserOwned ),
-        A2( m,  n, A2data.data(), lda2, host_num, slate::TileKind::UserOwned ),
-        T(  ib, m, Tdata.data(),  ib,   host_num, slate::TileKind::UserOwned );
+        A1( m,  m, A1data.data(), lda1, HostNum, slate::TileKind::UserOwned ),
+        A2( m,  n, A2data.data(), lda2, HostNum, slate::TileKind::UserOwned ),
+        T(  ib, m, Tdata.data(),  ib,   HostNum, slate::TileKind::UserOwned );
 
     // A1 is lower triangular, m-by-m.
     srand( 1234 );
@@ -95,7 +96,7 @@ void test_tplqt_work( int m, int n, int l, int cn, int ib )
     //---------------------
     // Error check || L Q - A ||_1 / || A ||_1 < tol.
     std::vector< scalar_t > L2data( lda2*n, zero );
-    slate::Tile< scalar_t > L2( m, n, L2data.data(), lda2, host_num, slate::TileKind::UserOwned );
+    slate::Tile< scalar_t > L2( m, n, L2data.data(), lda2, HostNum, slate::TileKind::UserOwned );
 
     // Zero out L1 (A1) above diag.
     lapack::laset( MatrixType::Upper, m-1, m-1, zero, zero,
@@ -136,8 +137,8 @@ void test_tplqt_work( int m, int n, int l, int cn, int ib )
     std::vector< scalar_t > C1data( ldc1*cn );  // m-by-cn
     std::vector< scalar_t > C2data( ldc2*cn );  // n-by-cn
     slate::Tile< scalar_t >
-        C1( m, cn, C1data.data(), ldc1, host_num, slate::TileKind::UserOwned ),
-        C2( n, cn, C2data.data(), ldc2, host_num, slate::TileKind::UserOwned );
+        C1( m, cn, C1data.data(), ldc1, HostNum, slate::TileKind::UserOwned ),
+        C2( n, cn, C2data.data(), ldc2, HostNum, slate::TileKind::UserOwned );
 
     for (int j = 0; j < cn; ++j)
         for (int i = 0; i < m; ++i)
@@ -182,8 +183,8 @@ void test_tplqt_work( int m, int n, int l, int cn, int ib )
     std::vector< scalar_t > D1data( ldd*m );  // cn-by-m
     std::vector< scalar_t > D2data( ldd*n );  // cn-by-n
     slate::Tile< scalar_t >
-        D1( cn, m, D1data.data(), ldd, host_num, slate::TileKind::UserOwned ),
-        D2( cn, n, D2data.data(), ldd, host_num, slate::TileKind::UserOwned );
+        D1( cn, m, D1data.data(), ldd, HostNum, slate::TileKind::UserOwned ),
+        D2( cn, n, D2data.data(), ldd, HostNum, slate::TileKind::UserOwned );
 
     for (int j = 0; j < m; ++j)
         for (int i = 0; i < cn; ++i)
@@ -684,7 +685,6 @@ int main(int argc, char** argv)
     MPI_Comm_size(mpi_comm, &mpi_size);
 
     num_devices = blas::get_device_count();
-    host_num = slate::HostNum;
 
     int err = unit_test_main(mpi_comm);  // which calls run_tests()
 

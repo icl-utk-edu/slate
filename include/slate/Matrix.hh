@@ -508,8 +508,8 @@ Matrix<scalar_t>::Matrix(
                     ii_local = indexGlobal2Local(ii, mb, p);
                 }
 
-                this->tileInsert(i, j, this->host_num_,
-                                 &A[ ii_local + jj_local*lda ], lda);
+                this->tileInsert( i, j, HostNum,
+                                  &A[ ii_local + jj_local*lda ], lda );
             }
             ii += ib;
         }
@@ -770,9 +770,9 @@ void Matrix<scalar_t>::gather(scalar_t* A, int64_t lda)
             if (this->mpi_rank_ == 0) {
                 if (! this->tileIsLocal(i, j)) {
                     // erase any existing non-local tile and insert new one
-                    this->tileErase(i, j, this->host_num_);
-                    this->tileInsert(i, j, this->host_num_,
-                                     &A[(size_t)lda*jj + ii], lda);
+                    this->tileErase( i, j, HostNum );
+                    this->tileInsert( i, j, HostNum,
+                                      &A[(size_t)lda*jj + ii], lda );
                     auto Aij = this->at(i, j);
                     Aij.recv(this->tileRank(i, j), this->mpi_comm_, this->layout());
                     this->tileLayout(i, j, this->layout_);
@@ -816,7 +816,7 @@ void Matrix<scalar_t>::insertLocalTiles(Target origin)
         for (int64_t i = 0; i < this->mt(); ++i) {
             if (this->tileIsLocal(i, j)) {
                 int dev = (on_devices ? this->tileDevice(i, j)
-                                      : this->host_num_);
+                                      : HostNum);
                 this->tileInsert(i, j, dev);
             }
         }

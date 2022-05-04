@@ -238,7 +238,7 @@ void test_gemm_work(Params& params, bool run)
         if (trace) slate::trace::Trace::finish();
 
         if (verbose >= 2) {
-            C.tileGetAllForReading(C.hostNum(), slate::LayoutConvert::None);
+            C.tileGetAllForReading( slate::HostNum, slate::LayoutConvert::None );
             print_matrix( "C_out", C, params );
         }
 

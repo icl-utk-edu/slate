@@ -80,7 +80,7 @@ void Debug::checkTilesLives(BaseMatrix<scalar_t> const& A)
                           << " "      << std::setw(3) << std::get<1>(it->first)
                           << " LIFE " << std::setw(3)
                           << it->second->lives();
-                for (int d = A.hostNum(); d < A.num_devices(); ++d) {
+                for (int d = HostNum; d < A.num_devices(); ++d) {
                     if (it->second->existsOn(d)) {
                         std::cout << " DEV "  << d
                                   << " data " << it->second->at(d).tile()->data() << "\n";
@@ -99,6 +99,7 @@ template <typename scalar_t>
 bool Debug::checkTilesLayout(BaseMatrix<scalar_t> const& A)
 {
     if (! debug_) return true;
+
     // i, j are tile indices
     // if (A.mpi_rank_ == 0)
     {
@@ -110,9 +111,9 @@ bool Debug::checkTilesLayout(BaseMatrix<scalar_t> const& A)
             for (int64_t j = 0; j < A.nt(); j++) {
                 index = A.globalIndex(i, j);
                 tmp_tile = A.storage_->tiles_.find(index);
-                if (tmp_tile != tile_end &&
-                    tmp_tile->second->at(A.host_num_).valid() &&
-                    tmp_tile->second->at(A.host_num_).tile()->layout() != A.layout()) {
+                if (tmp_tile != tile_end
+                    && tmp_tile->second->at( HostNum ).valid()
+                    && tmp_tile->second->at( HostNum ).tile()->layout() != A.layout()) {
                     return false;
                 }
             }
@@ -198,13 +199,14 @@ template <typename scalar_t>
 void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
 {
     if (! debug_) return;
+
     // i, j are tile indices
     printf("host\n");
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
-            auto it = A.storage_->find(A.globalIndex(i, j, A.host_num_));
+            auto it = A.storage_->find( A.globalIndex( i, j, HostNum ) );
             if (it != A.storage_->end()) {
-                auto tile = it->second->at(A.host_num_).tile();
+                auto tile = it->second->at( HostNum ).tile();
                 if (tile->origin())
                     printf("o");
                 else
@@ -267,22 +269,22 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name,
     printf("%s on host, rank %d, %s, %s, %d\n", name, A.mpiRank(), func, file, line);
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
-            auto it = A.storage_->find(A.globalIndex(i, j, A.host_num_));
+            auto it = A.storage_->find( A.globalIndex( i, j, HostNum ) );
             if (it != A.storage_->end()) {
-                auto tile = it->second->at(A.host_num_).tile();
+                auto tile = it->second->at( HostNum ).tile();
                 if (tile->origin())
                     printf("o");
                 else
                     printf("w");
 
-                auto mosi = it->second->at(A.host_num_).getState();
+                auto mosi = it->second->at( HostNum ).getState();
                 switch (mosi) {
                     case MOSI::Modified:  printf("m"); break;
                     case MOSI::Shared:    printf("s"); break;
                     case MOSI::Invalid:   printf("i"); break;
                     case MOSI::OnHold: break;  // below
                 }
-                if (it->second->at(A.host_num_).stateOn(MOSI::OnHold))
+                if (it->second->at( HostNum ).stateOn( MOSI::OnHold ))
                     printf("h");
                 else
                     printf(" ");
@@ -364,17 +366,17 @@ void Debug::checkHostMemoryLeaks(Memory const& m)
 {
     using llu = long long unsigned;
     if (! debug_) return;
-    if (m.free_blocks_.at(m.host_num_).size() < m.capacity_.at(m.host_num_)) {
+    if (m.free_blocks_.at( HostNum ).size() < m.capacity_.at( HostNum )) {
         fprintf(stderr,
                 "Error: memory leak: freed %llu of %llu blocks on host\n",
-                (llu) m.free_blocks_.at(m.host_num_).size(),
-                (llu) m.capacity_.at(m.host_num_));
+                (llu) m.free_blocks_.at( HostNum ).size(),
+                (llu) m.capacity_.at( HostNum ));
     }
-    else if (m.free_blocks_.at(m.host_num_).size() > m.capacity_.at(m.host_num_)) {
+    else if (m.free_blocks_.at( HostNum ).size() > m.capacity_.at( HostNum )) {
         fprintf(stderr,
                 "Error: freed too many: %llu of %llu blocks on host\n",
-                (llu) m.free_blocks_.at(m.host_num_).size(),
-                (llu) m.capacity_.at(m.host_num_));
+                (llu) m.free_blocks_.at( HostNum ).size(),
+                (llu) m.capacity_.at( HostNum ));
     }
 }
 

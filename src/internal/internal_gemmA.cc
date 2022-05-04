@@ -93,7 +93,7 @@ void gemmA(internal::TargetType<Target::HostTask>,
                                     c_tile_acquired = 1;
                                     #pragma omp critical
                                     {
-                                        C.tileAcquire(i, k, C.hostNum(), layout);
+                                        C.tileAcquire( i, k, HostNum, layout );
                                     }
                                 }
                             }

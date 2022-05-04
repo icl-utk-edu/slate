@@ -91,9 +91,7 @@ void test_posv_work(Params& params, bool run)
 
     if (params.routine == "posvMixed"
         && ! std::is_same<real_t, double>::value) {
-        if (mpi_rank == 0) {
-            printf("Unsupported mixed precision\n");
-        }
+        params.msg() = "skipping: unsupported mixed precision; must be type=d or z";
         return;
     }
 

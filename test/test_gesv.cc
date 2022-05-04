@@ -88,10 +88,8 @@ void test_gesv_work(Params& params, bool run)
 
     if (nonuniform_nb) {
         if (ref || origin == slate::Origin::ScaLAPACK) {
-            if (mpi_rank == 0) {
-                printf("Unsupported to test nonuniform tile size using scalapack\n");
-                return;
-            }
+            params.msg() = "skipping: nonuniform tile not supported with ScaLAPACK";
+            return;
         }
         params.ref() = 'n';
         params.origin() = slate::Origin::Host;
@@ -101,9 +99,7 @@ void test_gesv_work(Params& params, bool run)
 
     if (params.routine == "gesvMixed"
         && ! std::is_same<real_t, double>::value) {
-        if (mpi_rank == 0) {
-            printf("Unsupported mixed precision\n");
-        }
+        params.msg() = "skipping: unsupported mixed precision; must be type=d or z";
         return;
     }
 

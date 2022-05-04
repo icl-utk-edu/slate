@@ -200,6 +200,7 @@ void test_gesv_work(Params& params, bool run)
 
     // If check/ref is required, copy test data.
     slate::Matrix<scalar_t> Aref, Bref;
+    std::vector<scalar_t> Aref_data, Bref_data;
     if (check || ref) {
         if (nonuniform_nb) {
             Aref = slate::Matrix<scalar_t>(m, n, tileNb, tileNb, tileRank,
@@ -208,8 +209,14 @@ void test_gesv_work(Params& params, bool run)
                                            tileDevice, MPI_COMM_WORLD);
         }
         else {
-            Aref = slate::Matrix<scalar_t>(m, n, nb, nb, grid_order, p, q, MPI_COMM_WORLD);
-            Bref = slate::Matrix<scalar_t>(n, nrhs, nb, nb, grid_order, p, q, MPI_COMM_WORLD);
+            Aref_data.resize( lldA* nlocA );
+            Bref_data.resize( lldB* nlocB );
+            Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                       m, n, &Aref_data[0], lldA, nb, nb,
+                       grid_order, p, q, MPI_COMM_WORLD );
+            Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                       n, nrhs, &Bref_data[0], lldB, nb, nb,
+                       grid_order, p, q, MPI_COMM_WORLD );
         }
         Aref.insertLocalTiles(origin2target(origin));
         Bref.insertLocalTiles(origin2target(origin));
@@ -401,14 +408,8 @@ void test_gesv_work(Params& params, bool run)
             scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
-            // ScaLAPACK data for the reference matrix
-            std::vector<scalar_t> Aref_data( lldA * nlocA );
-            std::vector<scalar_t> Bref_data( lldB * nlocB );
+            // ScaLAPACK data for pivots.
             std::vector<int> ipiv_ref(lldA + nb);
-
-            // Copy test data.
-            copy(Aref, &Aref_data[0], Aref_desc);
-            copy(Bref, &Bref_data[0], Bref_desc);
 
             if (params.routine == "getrs" || params.routine == "getrs_nopiv") {
                 // Factor matrix A.

@@ -166,9 +166,12 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     }
                 }
 
-                for (int64_t j = 0; j < nt; ++j)
-                    if (B.tileExists(k, j) && ! B.tileIsLocal(k, j))
-                        B.tileErase(k, j);
+                for (int64_t j = 0; j < nt; ++j) {
+                    if (B.tileExists(k, j) && ! B.tileIsLocal(k, j)) {
+                        int device = B.tileDevice(k, j);
+                        B.tileErase(k, j, device);
+                    }
+                }
 
                 // Bcast the result of the solve, B(k,:) to
                 // ranks owning block row A(k + 1 : mt, k)
@@ -309,9 +312,12 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     }
                 }
 
-                for (int64_t j = 0; j < nt; ++j)
-                    if (B.tileExists(k, j) && ! B.tileIsLocal(k, j))
-                        B.tileErase(k, j);
+                for (int64_t j = 0; j < nt; ++j) {
+                    if (B.tileExists(k, j) && ! B.tileIsLocal(k, j)) {
+                        int device = B.tileDevice(k, j);
+                        B.tileErase(k, j, device);
+                    }
+                }
 
                 // Bcast the result of the solve, B(k,:) to
                 // ranks owning block row A(k + 1 : mt, k)

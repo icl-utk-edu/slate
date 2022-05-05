@@ -237,10 +237,10 @@ void unmqr(internal::TargetType<target>,
                 priority, queue_index);
 
         // free workspace
-        // todo: Wr.clear();
         for (int64_t j = 0; j < Wr.nt(); ++j) {
             if (Wr.tileIsLocal(0, j)) {
-                Wr.tileErase(0, j);
+                int device = Wr.tileDevice(0, j);
+                Wr.tileErase(0, j, device);
             }
         }
     }
@@ -422,7 +422,8 @@ void unmqr(internal::TargetType<target>,
         // todo: Wc.clear();
         for (int64_t i = 0; i < Wc.mt(); ++i) {
             if (Wc.tileIsLocal(i, 0)) {
-                Wc.tileErase(i, 0);
+                int device = Wc.tileDevice(i, 0);
+                Wc.tileErase(i, 0, device);
             }
         }
     }

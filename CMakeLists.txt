@@ -468,8 +468,6 @@ if (NOT CMAKE_CUDA_COMPILER
     endif()
 endif()
 if (HIP_FOUND)
-    # NOTE: We assume some features from HIP >= 3.5
-
     # In their official docs, they have 'hip' and 'HIP' as different packages,
     # which both need to be found
     # https://github.com/ROCm-Developer-Tools/HIP/issues/1029
@@ -493,7 +491,7 @@ if (HIP_FOUND)
         src/cuda/*.cuh
     )
 
-    # Make the generated source directory
+    # Make the object directory
     file( MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/src/hip" )
 
     # Generate BLAS++ and LAPACK++ include flags
@@ -524,49 +522,41 @@ if (HIP_FOUND)
     message( DEBUG "defs__ = '${defs__}'" )
 
     # Iterate over CUDA files
-    foreach (src_cu_ ${libslate_hip_src_cuda})
-        # First, generate source in the build folder (since it is generated)
-        STRING( REGEX REPLACE "^.*src/cuda" "${CMAKE_BINARY_DIR}/src/hip"
-                src_hip_ ${src_cu_} )
+    foreach (src_cu ${libslate_hip_src_cuda})
+        # Get name without directory, and replace extension.
+        get_filename_component( name ${src_cu} NAME )
+        string( REGEX REPLACE ".cu$"  ".hip.cc" name ${name} )
+        string( REGEX REPLACE ".cuh$" ".hip.hh" name ${name} )
+        set( src_hip "${CMAKE_SOURCE_DIR}/src/hip/${name}" )
+        set( obj_hip "${CMAKE_BINARY_DIR}/src/hip/${name}.o" )
 
-        # Now, replace the file extensions to match HIP ones
-        STRING( REGEX REPLACE ".cu$"  ".hip.cc" src_hip_ ${src_hip_} )
-        # Just allow the headers to keep '.cuh' so we don't have to string
-        # replace contents of the file
-        #STRING( REGEX REPLACE ".cuh$" ".hip.hh" src_hip_ ${src_hip_} )
-
-        # Now, add a rule to automatically generate it
+        # Rule to automatically generate it.
         add_custom_command(
-            OUTPUT "${src_hip_}"
-            DEPENDS "${src_cu_}"
-            COMMAND "hipify-perl" ${src_cu_} > ${src_hip_}
+            OUTPUT  "${src_hip}"
+            DEPENDS "${src_cu}"
+            COMMAND "hipify-perl" ${src_cu} > ${src_hip}
+            COMMAND sed -i -e "s/\.cuh/.hip.hh/g" ${src_hip}
         )
 
-        # And, add a rule to compile it (if it is actual code, and not a header)
-        if (${src_hip_} MATCHES ".hip.cc$")
-            # Generate output file
-            STRING( REGEX REPLACE ".cc$" ".o" src_o_ ${src_hip_} )
-
-            # Compilation rule
-            # TODO: Figure out how to generically find
+        # Rule to compile it (if it is actual code, and not a header)
+        if (${src_hip} MATCHES ".hip.cc$")
             add_custom_command(
-                OUTPUT "${src_o_}"
-                # Just keep .cuh, see above
-                DEPENDS "${src_hip_}" "${CMAKE_BINARY_DIR}/src/hip/device_util.cuh"
+                OUTPUT  "${obj_hip}"
+                DEPENDS "${src_hip}"
+                        "${CMAKE_SOURCE_DIR}/src/hip/device_util.hip.hh"
                 COMMAND "hipcc"
                     ${defs__}
                     ${inc_}
                     "-I${CMAKE_SOURCE_DIR}/include"
-                    ${src_hip_} -fPIC -c -o ${src_o_}
+                    ${src_hip} -fPIC -c -o ${obj_hip}
             )
 
             # Add the .o as a 'source' (even though it is already compiled)
             target_sources(
                 slate
                 PRIVATE
-                ${src_o_}
+                ${obj_hip}
             )
-
         endif()
     endforeach()
     message( STATUS "Building HIP/ROCm support in SLATE" )

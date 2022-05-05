@@ -80,8 +80,8 @@ __global__ void gesetKernel(
 /// @param[in] batch_count
 ///     Size of Aarray and Barray. batch_count >= 0.
 ///
-/// @param[in] stream
-///     CUDA stream to execute in.
+/// @param[in] queue
+///     BLAS++ queue to execute in.
 ///
 template <typename scalar_t>
 void geset(

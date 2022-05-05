@@ -280,8 +280,8 @@ __global__ void synormFroKernel(
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.
 ///
-/// @param[in] stream
-///     CUDA stream to execute in.
+/// @param[in] queue
+///     BLAS++ queue to execute in.
 ///
 template <typename scalar_t>
 void synorm(
@@ -472,8 +472,8 @@ __global__ void synormOffdiagOneKernel(
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.
 ///
-/// @param[in] stream
-///     CUDA stream to execute in.
+/// @param[in] queue
+///     BLAS++ queue to execute in.
 ///
 template <typename scalar_t>
 void synormOffdiag(

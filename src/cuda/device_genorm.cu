@@ -365,8 +365,8 @@ __global__ void geColNormsMaxKernel(
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.
 ///
-/// @param[in] stream
-///     CUDA stream to execute in.
+/// @param[in] queue
+///     BLAS++ queue to execute in.
 ///
 template <typename scalar_t>
 void genorm(

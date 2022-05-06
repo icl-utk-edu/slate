@@ -48,18 +48,18 @@ namespace internal {
 /// @param[in] thread_barrier
 ///     barrier for synchronizing local threads
 ///
-/// @param[in] scale
+/// @param[out] scale
 ///     component of lassq to compute Householder norm
 ///     in a stable manner
 ///
-/// @param[in] sumsq
+/// @param[out] sumsq
 ///     component of lassq to compute Householder norm
 ///     in a stable manner
 ///
-/// @param[in] xnorm
+/// @param[out] xnorm
 ///     Householder norm
 ///
-/// @param[in] W
+/// @param[out] W
 //      Workspace for the algorithm
 ///
 /// @ingroup geqrf_tile

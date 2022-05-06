@@ -73,6 +73,8 @@ template<Target target, typename scalar_t>
 void gesv_rbt(slate::internal::TargetType<target>,
               Matrix<scalar_t>& A,
               Matrix<scalar_t>& B,
+              Matrix<scalar_t>& X,
+              int& iter,
               const std::map<Option, Value>& opts)
 {
 
@@ -94,17 +96,17 @@ void gesv_rbt(slate::internal::TargetType<target>,
 
     // Workspace
     Matrix<scalar_t> A_copy = A.emptyLike();
-    Matrix<scalar_t> B_copy = B.emptyLike();
     Matrix<scalar_t> R = B.emptyLike();
 
     A_copy.insertLocalTiles(Target::Host);
-    B_copy.insertLocalTiles(Target::Host);
     R.insertLocalTiles(Target::Host);
 
-    copy<Matrix<scalar_t>, Matrix<scalar_t>>(B, B_copy, {{Option::Target, Target::HostTask}});
-    copy<Matrix<scalar_t>, Matrix<scalar_t>>(A, A_copy, {{Option::Target, Target::HostTask}});
+    copy(B, X,
+         {{Option::Target, target}});
+    copy(A, A_copy,
+         {{Option::Target, Target::HostTask}});
 
-    std::vector<real_t> colnorms_X(B.n());
+    std::vector<real_t> colnorms_X(X.n());
     std::vector<real_t> colnorms_R(R.n());
 
     // norm of A
@@ -118,24 +120,27 @@ void gesv_rbt(slate::internal::TargetType<target>,
     getrf_nopiv(A, opts);
 
     // Solve
-    gerbt(U, B);
-    getrs_nopiv(A, B, opts);
-    gerbt(V, B);
+    gerbt(U, X);
+    getrs_nopiv(A, X, opts);
+    gerbt(V, X);
 
 
     // refine
-    copy<Matrix<scalar_t>, Matrix<scalar_t>>(B_copy, R, {{Option::Target, Target::HostTask}});
-    gemm(-one, A_copy, B, one, R, {{Option::Target, Target::HostTask}});
+    copy(B, R,
+         {{Option::Target, Target::HostTask}});
+    gemm(-one, A_copy, X,
+          one, R,
+         {{Option::Target, Target::HostTask}});
 
     // Check whether the nrhs normwise backward error satisfies the
     // stopping criterion. If yes, set iter=0 and return.
-    colNorms( Norm::Max, B, colnorms_X.data(),
+    colNorms( Norm::Max, X, colnorms_X.data(),
                 {{Option::Target, target}});
     colNorms( Norm::Max, R, colnorms_R.data(),
                 {{Option::Target, target}});
 
     if (iterRefConverged<real_t>(colnorms_R, colnorms_X, cte)) {
-        //iter = 0;
+        iter = 0;
         converged = true;
     }
 
@@ -143,19 +148,23 @@ void gesv_rbt(slate::internal::TargetType<target>,
         gerbt(U, R);
         getrs_nopiv(A, R, opts);
         gerbt(V, R);
-        add(one, R, one, B, {{Option::Target, Target::HostTask}});
-        copy<Matrix<scalar_t>, Matrix<scalar_t>>(B_copy, R, {{Option::Target, Target::HostTask}});
-        gemm(-one, A_copy, B, one, R, {{Option::Target, Target::HostTask}});
+        add(one, R, one, X,
+            {{Option::Target, Target::HostTask}});
+        copy(B, R,
+             {{Option::Target, Target::HostTask}});
+        gemm(-one, A_copy, X,
+              one, R,
+             {{Option::Target, Target::HostTask}});
 
         // Check whether nrhs normwise backward error satisfies the
         // stopping criterion. If yes, set iter = iiter > 0 and return.
-        colNorms( Norm::Max, B, colnorms_X.data(),
+        colNorms( Norm::Max, X, colnorms_X.data(),
                     {{Option::Target, target}});
         colNorms( Norm::Max, R, colnorms_R.data(),
                     {{Option::Target, target}});
 
         if (iterRefConverged<real_t>(colnorms_R, colnorms_X, cte)) {
-            //iter = iiter+1;
+            iter = iiter+1;
             converged = true;
         }
     }
@@ -165,12 +174,14 @@ void gesv_rbt(slate::internal::TargetType<target>,
         // iter = itermax iterations and never satisfied the stopping criterion,
         // set up the iter flag accordingly and follow up with double precision
         // routine.
-        //iter = -itermax - 1;
+        iter = -itermax - 1;
 
-        copy<Matrix<scalar_t>, Matrix<scalar_t>>(B_copy, B, {{Option::Target, Target::HostTask}});
-        copy<Matrix<scalar_t>, Matrix<scalar_t>>(A_copy, A, {{Option::Target, Target::HostTask}});
+        copy(B, X,
+             {{Option::Target, target}});
+        copy(A_copy, A,
+             {{Option::Target, Target::HostTask}});
         Pivots pivots;
-        gesv(A_copy, pivots, B, opts);
+        gesv(A_copy, pivots, X, opts);
     }
 
     // todo: return value for errors?
@@ -247,6 +258,8 @@ void gesv_rbt(slate::internal::TargetType<target>,
 template <typename scalar_t>
 void gesv_rbt(Matrix<scalar_t>& A,
               Matrix<scalar_t>& B,
+              Matrix<scalar_t>& X,
+              int& iter,
               std::map<Option, Value> const& opts)
 {
     Target target;
@@ -260,16 +273,20 @@ void gesv_rbt(Matrix<scalar_t>& A,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            internal::gesv_rbt(internal::TargetType<Target::HostTask>(), A, B, opts);
+            internal::gesv_rbt(internal::TargetType<Target::HostTask>(),
+                               A, B, X, iter, opts);
             break;
         case Target::HostNest:
-            internal::gesv_rbt(internal::TargetType<Target::HostNest>(), A, B, opts);
+            internal::gesv_rbt(internal::TargetType<Target::HostNest>(),
+                               A, B, X, iter, opts);
             break;
         case Target::HostBatch:
-            internal::gesv_rbt(internal::TargetType<Target::HostBatch>(), A, B, opts);
+            internal::gesv_rbt(internal::TargetType<Target::HostBatch>(),
+                               A, B, X, iter, opts);
             break;
         case Target::Devices:
-            internal::gesv_rbt(internal::TargetType<Target::Devices>(), A, B, opts);
+            internal::gesv_rbt(internal::TargetType<Target::Devices>(),
+                               A, B, X, iter, opts);
             break;
     }
 }
@@ -280,24 +297,32 @@ template
 void gesv_rbt<float>(
     Matrix<float>& A,
     Matrix<float>& B,
+    Matrix<float>& X,
+    int& iter,
     const std::map<Option, Value>& opts);
 
 template
 void gesv_rbt<double>(
     Matrix<double>& A,
     Matrix<double>& B,
+    Matrix<double>& X,
+    int& iter,
     const std::map<Option, Value>& opts);
 
 template
 void gesv_rbt< std::complex<float> >(
     Matrix< std::complex<float> >& A,
     Matrix< std::complex<float> >& B,
+    Matrix< std::complex<float> >& X,
+    int& iter,
     const std::map<Option, Value>& opts);
 
 template
 void gesv_rbt< std::complex<double> >(
     Matrix< std::complex<double> >& A,
     Matrix< std::complex<double> >& B,
+    Matrix< std::complex<double> >& X,
+    int& iter,
     const std::map<Option, Value>& opts);
 
 } // namespace slate

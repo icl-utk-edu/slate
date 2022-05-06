@@ -112,14 +112,10 @@ std::vector< testsweeper::routines_t > routines = {
     // LU
     { "gesv",               test_gesv,         Section::gesv },
     { "gesv_nopiv",         test_gesv,         Section::gesv },
-<<<<<<< HEAD
     { "gesv_tntpiv",        test_gesv,         Section::gesv },
     { "gesv_mixed",         test_gesv,         Section::gesv },
     { "gesv_mixed_gmres",   test_gesv,         Section::gesv },
-=======
-    { "gesvMixed",          test_gesv,         Section::gesv },
     { "gesv_rbt",           test_gesv,         Section::gesv },
->>>>>>> 79194bd2 (Create gesv_rbt)
     { "gbsv",               test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 

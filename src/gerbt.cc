@@ -1,3 +1,7 @@
+// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// This program is free software: you can redistribute it and/or modify it under
+// the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
 #include "slate/types.hh"
@@ -19,11 +23,12 @@ void gerbt_send_transform(Side side, Matrix<scalar_t> A, Matrix<scalar_t> U,
 
     if (side == Side::Left) {
         for (int64_t ii = 0; ii < U.mt(); ++ii) {
-            bcast_list.push_back({ii, 0, {A.sub(ii, ii, 0, A.nt()-1)}, tag+ii});
+            bcast_list.push_back( {ii, 0, {A.sub(ii, ii, 0, A.nt()-1)}, tag+ii} );
         }
-    } else {
+    }
+    else {
         for (int64_t jj = 0; jj < U.mt(); ++jj) {
-            bcast_list.push_back({jj, 0, {A.sub(0, A.mt()-1, jj, jj)}, tag+jj});
+            bcast_list.push_back( {jj, 0, {A.sub(0, A.mt()-1, jj, jj)}, tag+jj} );
         }
     }
 
@@ -95,25 +100,34 @@ void gerbt(Matrix<scalar_t>& U_in,
                             auto V1 = V.sub(j1, j2-1, 0, 0);
                             auto V2 = V.sub(j2, j3-1, 0, 0);
 
-                            internal::gerbt_send_transform(Side::Left,  A11, U1, tag_base+0);
-                            internal::gerbt_send_transform(Side::Left,  A11, U2, tag_base+1);
-                            internal::gerbt_send_transform(Side::Right, A11, V1, tag_base+2);
-                            internal::gerbt_send_transform(Side::Right, A11, V2, tag_base+3);
+                            internal::gerbt_send_transform( Side::Left,  A11, U1,
+                                                            tag_base+0 );
+                            internal::gerbt_send_transform( Side::Left,  A11, U2,
+                                                            tag_base+1 );
+                            internal::gerbt_send_transform( Side::Right, A11, V1,
+                                                            tag_base+2 );
+                            internal::gerbt_send_transform( Side::Right, A11, V2,
+                                                            tag_base+3 );
 
-                            internal::gerbt(A11, A12, A21, A22, U1, U2, V1, V2);
-                        } else {
+                            internal::gerbt( A11, A12, A21, A22, U1, U2, V1, V2 );
+                        }
+                        else {
                             auto A11 = A.sub(i1, nt-1, j1, j2-1);
                             auto A12 = A.sub(i1, nt-1, j2, j3-1);
 
                             auto V1 = V.sub(j1, j2-1, 0, 0);
                             auto V2 = V.sub(j2, j3-1, 0, 0);
 
-                            internal::gerbt_send_transform(Side::Right, A11, V1, tag_base+0);
-                            internal::gerbt_send_transform(Side::Right, A11, V2, tag_base+1);
+                            internal::gerbt_send_transform( Side::Right, A11, V1,
+                                                            tag_base+0 );
+                            internal::gerbt_send_transform( Side::Right, A11, V2,
+                                                            tag_base+1 );
 
-                            internal::gerbt(Side::Right, Op::NoTrans, A11, A12, V1, V2);
+                            internal::gerbt( Side::Right, Op::NoTrans,
+                                             A11, A12, V1, V2 );
                         }
-                    } else {
+                    }
+                    else {
                         if (i2 < i3) {
                             auto A11 = A.sub(i1, i2-1, j1, nt-1);
                             auto A21 = A.sub(i2, i3-1, j1, nt-1);
@@ -121,11 +135,13 @@ void gerbt(Matrix<scalar_t>& U_in,
                             auto U1 = U.sub(i1, i2-1, 0, 0);
                             auto U2 = U.sub(i2, i3-1, 0, 0);
 
-                            internal::gerbt_send_transform(Side::Left,  A11, U1, tag_base+0);
-                            internal::gerbt_send_transform(Side::Left,  A11, U2, tag_base+0);
+                            internal::gerbt_send_transform( Side::Left,  A11, U1,
+                                                            tag_base+0 );
+                            internal::gerbt_send_transform( Side::Left,  A11, U2,
+                                                            tag_base+0 );
 
-                            internal::gerbt(Side::Left, Op::Trans,
-                                            A11, A21, U1, U2);
+                            internal::gerbt( Side::Left, Op::Trans,
+                                             A11, A21, U1, U2 );
                         }
                     }
                 }
@@ -207,10 +223,12 @@ void gerbt(Matrix<scalar_t>& Uin,
                     auto U1 = U.sub(i1, i2-1, 0, 0);
                     auto U2 = U.sub(i2, i3-1, 0, 0);
 
-                    internal::gerbt_send_transform(Side::Left, B1, U1, tag_base+1);
-                    internal::gerbt_send_transform(Side::Left, B1, U2, tag_base+2);
+                    internal::gerbt_send_transform( Side::Left, B1, U1,
+                                                    tag_base+1 );
+                    internal::gerbt_send_transform( Side::Left, B1, U2,
+                                                    tag_base+2 );
 
-                    internal::gerbt(Side::Left, trans, B1, B2, U1, U2);
+                    internal::gerbt( Side::Left, trans, B1, B2, U1, U2 );
                 }
             }
         }

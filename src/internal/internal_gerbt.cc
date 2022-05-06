@@ -1,3 +1,7 @@
+// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// This program is free software: you can redistribute it and/or modify it under
+// the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/types.hh"
 #include "internal/internal.hh"
@@ -39,23 +43,25 @@ void gerbt(Matrix<scalar_t> A11,
     {
         for (int64_t ii = 0; ii < mt; ++ii) {
             for (int64_t jj = 0; jj < nt; ++jj) {
-                if (!A11.tileIsLocal(ii, jj)) {
+                if (! A11.tileIsLocal(ii, jj)) {
                     const int64_t tag = 4*(ii*nt_full + jj);
                     const int64_t compute_rank = A11.tileRank(ii, jj);
                     if (A12.tileIsLocal(ii, jj)) {
                         MPI_Request r;
-                        A12.tileIsend(ii, jj, compute_rank, tag+1, &r);
+                        A12.tileIsend( ii, jj, compute_rank, tag+1, &r );
                         MPI_Request_free(&r);
 
-                        A12.tileIrecv(ii, jj, compute_rank, Layout::ColMajor, tag+1, &r);
+                        A12.tileIrecv( ii, jj, compute_rank, Layout::ColMajor,
+                                       tag+1, &r );
                         requests.push_back(r);
                     }
                     if (A21.tileIsLocal(ii, jj)) {
                         MPI_Request r;
-                        A21.tileIsend(ii, jj, compute_rank, tag+2, &r);
+                        A21.tileIsend( ii, jj, compute_rank, tag+2, &r );
                         MPI_Request_free(&r);
 
-                        A21.tileIrecv(ii, jj, compute_rank, Layout::ColMajor, tag+2, &r);
+                        A21.tileIrecv( ii, jj, compute_rank, Layout::ColMajor,
+                                       tag+2, &r );
                         requests.push_back(r);
                     }
                     if (A22.tileIsLocal(ii, jj)) {
@@ -63,7 +69,8 @@ void gerbt(Matrix<scalar_t> A11,
                         A22.tileIsend(ii, jj, compute_rank, tag+3, &r);
                         MPI_Request_free(&r);
 
-                        A22.tileIrecv(ii, jj, compute_rank, Layout::ColMajor, tag+3, &r);
+                        A22.tileIrecv( ii, jj, compute_rank, Layout::ColMajor,
+                                       tag+3, &r );
                         requests.push_back(r);
                     }
                 }
@@ -72,7 +79,7 @@ void gerbt(Matrix<scalar_t> A11,
 
         for (int64_t ii = 0; ii < mt; ++ii) {
             for (int64_t jj = nt; jj < nt_full; ++jj) {
-                if (!A11.tileIsLocal(ii, jj) && A21.tileIsLocal(ii, jj)) {
+                if (! A11.tileIsLocal(ii, jj) && A21.tileIsLocal(ii, jj)) {
                     const int64_t tag = 4*(ii*nt_full + jj);
                     const int64_t compute_rank = A11.tileRank(ii, jj);
 
@@ -80,7 +87,8 @@ void gerbt(Matrix<scalar_t> A11,
                     A21.tileIsend(ii, jj, compute_rank, tag+2, &r);
                     MPI_Request_free(&r);
 
-                    A21.tileIrecv(ii, jj, compute_rank, Layout::ColMajor, tag+2, &r);
+                    A21.tileIrecv( ii, jj, compute_rank, Layout::ColMajor,
+                                   tag+2, &r );
                     requests.push_back(r);
                 }
             }
@@ -88,7 +96,7 @@ void gerbt(Matrix<scalar_t> A11,
 
         for (int64_t ii = mt; ii < mt_full; ++ii) {
             for (int64_t jj = 0; jj < nt; ++jj) {
-                if (!A11.tileIsLocal(ii, jj) && A12.tileIsLocal(ii, jj)) {
+                if (! A11.tileIsLocal(ii, jj) && A12.tileIsLocal(ii, jj)) {
                     const int64_t tag = 4*(ii*nt_full + jj);
                     const int64_t compute_rank = A11.tileRank(ii, jj);
 
@@ -96,7 +104,8 @@ void gerbt(Matrix<scalar_t> A11,
                     A12.tileIsend(ii, jj, compute_rank, tag+1, &r);
                     MPI_Request_free(&r);
 
-                    A12.tileIrecv(ii, jj, compute_rank, Layout::ColMajor, tag+1, &r);
+                    A12.tileIrecv( ii, jj, compute_rank, Layout::ColMajor,
+                                   tag+1, &r );
                     requests.push_back(r);
                 }
             }
@@ -110,16 +119,19 @@ void gerbt(Matrix<scalar_t> A11,
                                  firstprivate(ii, jj) priority(1)
                 {
                     const int64_t tag = 4*(ii*nt_full + jj);
-                    A12.tileRecv(ii, jj, A12.tileRank(ii, jj), Layout::ColMajor, tag+1);
-                    A21.tileRecv(ii, jj, A21.tileRank(ii, jj), Layout::ColMajor, tag+2);
-                    A22.tileRecv(ii, jj, A22.tileRank(ii, jj), Layout::ColMajor, tag+3);
+                    A12.tileRecv( ii, jj, A12.tileRank(ii, jj),
+                                  Layout::ColMajor, tag+1 );
+                    A21.tileRecv( ii, jj, A21.tileRank(ii, jj),
+                                  Layout::ColMajor, tag+2 );
+                    A22.tileRecv( ii, jj, A22.tileRank(ii, jj),
+                                  Layout::ColMajor, tag+3 );
 
-                    gerbt(A11(ii, jj), A12(ii, jj), A21(ii, jj), A22(ii, jj),
-                          U1(ii, 0), U2(ii, 0), V1(jj, 0), V2(jj, 0));
+                    gerbt( A11(ii, jj), A12(ii, jj), A21(ii, jj), A22(ii, jj),
+                           U1(ii, 0), U2(ii, 0), V1(jj, 0), V2(jj, 0) );
 
-                    A12.tileSend(ii, jj, A12.tileRank(ii, jj), tag+1);
-                    A21.tileSend(ii, jj, A21.tileRank(ii, jj), tag+2);
-                    A22.tileSend(ii, jj, A22.tileRank(ii, jj), tag+3);
+                    A12.tileSend( ii, jj, A12.tileRank(ii, jj), tag+1 );
+                    A21.tileSend( ii, jj, A21.tileRank(ii, jj), tag+2 );
+                    A22.tileSend( ii, jj, A22.tileRank(ii, jj), tag+3 );
 
                     A12.tileRelease(ii, jj);
                     A21.tileRelease(ii, jj);
@@ -140,11 +152,12 @@ void gerbt(Matrix<scalar_t> A11,
                                  priority(1)
                 {
                     const int64_t tag = 4*(ii*nt_full + jj);
-                    A21.tileRecv(ii, jj, A21.tileRank(ii, jj), Layout::ColMajor, tag+2);
-                    gerbt_left_trans(A11(ii, jj),
-                                     A21(ii, jj),
-                                     U1(ii, 0),
-                                     U2(ii, 0));
+                    A21.tileRecv( ii, jj, A21.tileRank(ii, jj),
+                                  Layout::ColMajor, tag+2 );
+                    gerbt_left_trans( A11(ii, jj),
+                                      A21(ii, jj),
+                                      U1(ii, 0),
+                                      U2(ii, 0) );
 
                     A21.tileSend(ii, jj, A21.tileRank(ii, jj), tag+2);
                     A21.tileRelease(ii, jj);
@@ -162,13 +175,12 @@ void gerbt(Matrix<scalar_t> A11,
                                  priority(1)
                 {
                     const int64_t tag = 4*(ii*nt_full + jj);
-                    A12.tileRecv(ii, jj, A12.tileRank(ii, jj), Layout::ColMajor, tag+1);
-                    gerbt_right_notrans(A11(ii, jj),
-                                        A12(ii, jj),
-                                        V1(jj, 0),
-                                        V2(jj, 0));
+                    A12.tileRecv( ii, jj, A12.tileRank(ii, jj),
+                                  Layout::ColMajor, tag+1 );
+                    gerbt_right_notrans( A11(ii, jj), A12(ii, jj),
+                                         V1(jj, 0), V2(jj, 0) );
 
-                    A12.tileSend(ii, jj, A12.tileRank(ii, jj), tag+1);
+                    A12.tileSend( ii, jj, A12.tileRank(ii, jj), tag+1 );
                     A12.tileRelease(ii, jj);
                     V1.tileTick(jj, 0);
                     V2.tileTick(jj, 0);
@@ -241,14 +253,14 @@ void gerbt(Side side,
                      firstprivate(B1, B2) shared(requests)
     for (int64_t ii = 0; ii < mt; ++ii) {
         for (int64_t jj = 0; jj < nt; ++jj) {
-            if (!B1.tileIsLocal(ii, jj) && B2.tileIsLocal(ii, jj)) {
+            if (! B1.tileIsLocal(ii, jj) && B2.tileIsLocal(ii, jj)) {
                 const int64_t tag = ii*nt + jj;
                 const int64_t compute_rank = B1.tileRank(ii, jj);
                 MPI_Request r;
-                B2.tileIsend(ii, jj, compute_rank, tag, &r);
+                B2.tileIsend( ii, jj, compute_rank, tag, &r );
                 MPI_Request_free(&r);
 
-                B2.tileIrecv(ii, jj, compute_rank, Layout::ColMajor, tag, &r);
+                B2.tileIrecv( ii, jj, compute_rank, Layout::ColMajor, tag, &r );
                 requests.push_back(r);
             }
         }
@@ -262,38 +274,42 @@ void gerbt(Side side,
                                  priority(1)
                 {
                     const int64_t tag = ii*nt + jj;
-                    B2.tileRecv(ii, jj, B2.tileRank(ii, jj), Layout::ColMajor, tag);
+                    B2.tileRecv( ii, jj, B2.tileRank(ii, jj),
+                                 Layout::ColMajor, tag );
 
                     if (leftp) {
                         if (transp) {
-                            gerbt_left_trans(B1(ii, jj),
-                                             B2(ii, jj),
-                                             U1(ii, 0),
-                                             U2(ii, 0));
-                        } else {
-                            gerbt_left_notrans(B1(ii, jj),
-                                               B2(ii, jj),
-                                               U1(ii, 0),
-                                               U2(ii, 0));
+                            gerbt_left_trans( B1(ii, jj),
+                                              B2(ii, jj),
+                                              U1(ii, 0),
+                                              U2(ii, 0) );
+                        }
+                        else {
+                            gerbt_left_notrans( B1(ii, jj),
+                                                B2(ii, jj),
+                                                U1(ii, 0),
+                                                U2(ii, 0) );
                         }
                         U1.tileTick(ii, 0);
                         U2.tileTick(ii, 0);
-                    } else {
+                    }
+                    else {
                         if (transp) {
-                            gerbt_right_trans(B1(ii, jj),
-                                              B2(ii, jj),
-                                              U1(jj, 0),
-                                              U2(jj, 0));
-                        } else {
-                            gerbt_right_notrans(B1(ii, jj),
-                                                B2(ii, jj),
-                                                U1(jj, 0),
-                                                U2(jj, 0));
+                            gerbt_right_trans( B1(ii, jj),
+                                               B2(ii, jj),
+                                               U1(jj, 0),
+                                               U2(jj, 0) );
+                        }
+                        else {
+                            gerbt_right_notrans( B1(ii, jj),
+                                                 B2(ii, jj),
+                                                 U1(jj, 0),
+                                                 U2(jj, 0) );
                         }
                         U1.tileTick(jj, 0);
                         U2.tileTick(jj, 0);
                     }
-                    B2.tileSend(ii, jj, B2.tileRank(ii, jj), tag);
+                    B2.tileSend( ii, jj, B2.tileRank(ii, jj), tag );
                     B2.tileRelease(ii, jj);
                 }
             }
@@ -301,7 +317,8 @@ void gerbt(Side side,
     }
 
     #pragma omp task depend(inout:requests) shared(requests)
-    slate_mpi_call(MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE));
+    slate_mpi_call(MPI_Waitall(requests.size(), requests.data(),
+                               MPI_STATUSES_IGNORE));
 
     #pragma omp taskwait
 }

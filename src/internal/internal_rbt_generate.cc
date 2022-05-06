@@ -1,3 +1,7 @@
+// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// This program is free software: you can redistribute it and/or modify it under
+// the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "internal/internal.hh"
 #include "slate/Matrix.hh"
@@ -18,23 +22,25 @@ void rbt_fill(Matrix<scalar_t>& U, const int64_t seed) {
     slate_assert(d == U.tileNb(0));
     slate_assert(U.nt() == 1);
     const scalar_t inv_sqrt_2 = scalar_t(1)/sqrt(scalar_t(2));
+    const scalar_t scale_20 = 20.0;
 
-    U.insertLocalTiles(Target::Host);
+    U.insertLocalTiles( Target::Host );
     for (int64_t i = 0; i < U.mt(); i++) {
         if (U.tileIsLocal(i, 0)) {
-            U.tileGetForWriting(i, 0, LayoutConvert::None);
-            Tile<scalar_t> U_tile = U(i, 0);
+            U.tileGetForWriting( i, 0, LayoutConvert::None );
+            Tile<scalar_t> U_i = U(i, 0);
 
-            const int64_t mb = U_tile.mb();
+            const int64_t mb = U_i.mb();
 
             #pragma omp task
             {
                 int64_t iseed[4] = {(seed + i) % 4096, 578, 361, 115};
-                lapack::larnv(1, iseed, mb*d, U_tile.data());
+                lapack::larnv( 1, iseed, mb*d, U_i.data() );
 
                 for(int64_t k = 0; k < d; k++) {
-                    for (int64_t j = 0; j < mb; j++) {
-                        U_tile.at(j, k) = inv_sqrt_2*std::exp(U_tile.at(j, k)/scalar_t(20));
+                    for (int64_t jj = 0; jj < mb; jj++) {
+                        U_i.at(jj, k) = inv_sqrt_2
+                                        *std::exp(U_i.at(jj, k)/scale_20);
                     }
                 }
             }
@@ -90,21 +96,23 @@ std::pair<Matrix<scalar_t>, Matrix<scalar_t>> rbt_generate(
         return HostNum;
     };
 
-    Matrix<scalar_t> U(m, d, tileMb_lambda, d_lambda, tileRank_lambda, tileDevice_lambda, mpi_comm);
-    Matrix<scalar_t> V(n, d, tileNb_lambda, d_lambda, tileRank_lambda, tileDevice_lambda, mpi_comm);
+    Matrix<scalar_t> U( m, d, tileMb_lambda, d_lambda, tileRank_lambda,
+                        tileDevice_lambda, mpi_comm );
+    Matrix<scalar_t> V( n, d, tileNb_lambda, d_lambda, tileRank_lambda,
+                        tileDevice_lambda, mpi_comm );
 
     if (d > 0) {
         #pragma omp parallel
         #pragma omp master
         {
-            rbt_fill(U, seed);
-            rbt_fill(V, seed+mt);
+            rbt_fill( U, seed );
+            rbt_fill( V, seed+mt );
 
             #pragma omp taskwait
         }
     }
 
-    return std::make_pair(transpose(U), V);
+    return std::make_pair( transpose(U), V );
 }
 
 template

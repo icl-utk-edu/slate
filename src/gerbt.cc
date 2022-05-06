@@ -59,7 +59,7 @@ void gerbt(Matrix<scalar_t>& U_in,
     }
 
     int64_t log2_nt = int64_t(std::ceil(std::log2(nt)));
-    slate_assert(log2_nt > d);
+    slate_assert(log2_nt >= d);
 
 
     #pragma omp parallel

@@ -60,7 +60,8 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
     int64_t size = colnorms_X.size();
 
     for (int64_t i = 0; i < size; i++) {
-        if (colnorms_R[i] > colnorms_X[i] * cte) {
+        // Use negated condition for correct NaN behavior
+        if (!(colnorms_R[i] <= colnorms_X[i] * cte)) {
             value = false;
             break;
         }

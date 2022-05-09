@@ -303,10 +303,8 @@ void hemmA(slate::internal::TargetType<target>,
                         C.template listReduce<target>(reduce_list_C, layout);
                         reduce_list_C.clear();
                         // Release the memory
-                        if (C.tileExists(i, j) && ! C.tileIsLocal(i, j)) {
-                            int device = C.tileDevice(i, j);
-                            C.tileErase(i, j, device);
-                        }
+                        if (C.tileExists(i, j) && ! C.tileIsLocal(i, j))
+                            C.tileErase(i, j);
                     }
                 }
             }
@@ -538,10 +536,8 @@ void hemmA(slate::internal::TargetType<target>,
                         C.template listReduce<target>(reduce_list_C, layout);
                         reduce_list_C.clear();
                         // Release the memory
-                        if (C.tileExists(i, j) && ! C.tileIsLocal(i, j)) {
-                            int device = C.tileDevice(i, j);
-                            C.tileErase(i, j, device);
-                        }
+                        if (C.tileExists(i, j) && ! C.tileIsLocal(i, j))
+                            C.tileErase(i, j);
                     }
                 }
             }

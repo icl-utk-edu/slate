@@ -51,7 +51,7 @@ __global__ void genormMaxKernel(
     scalar_t const* tile = tiles[blockIdx.x];
 
     // Save partial results in shared memory.
-    extern __shared__ char dynamic_data[];
+    HIP_DYNAMIC_SHARED( char, dynamic_data)
     real_t* row_max = (real_t*) dynamic_data;
     int chunk;
     if (threadIdx.x < blockDim.x) {
@@ -120,7 +120,7 @@ __global__ void genormOneKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    extern __shared__ char dynamic_data[];
+    HIP_DYNAMIC_SHARED( char, dynamic_data)
     real_t* shmem_tile = (real_t*)dynamic_data;
     const int idx = threadIdx.x;
 
@@ -238,7 +238,7 @@ __global__ void genormFroKernel(
     int chunk;
 
     // Save partial results in shared memory.
-    extern __shared__ char dynamic_data[];
+    HIP_DYNAMIC_SHARED( char, dynamic_data)
     real_t* row_scale = (real_t*) &dynamic_data[0];
     real_t* row_sumsq = &row_scale[blockDim.x];
 
@@ -290,7 +290,7 @@ __global__ void geColNormsMaxKernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    extern __shared__ char dynamic_data[];
+    HIP_DYNAMIC_SHARED( char, dynamic_data)
     real_t* shmem_tile = (real_t*)dynamic_data;
     const int idx = threadIdx.x;
 
@@ -394,8 +394,7 @@ void genorm(
             }
             else {
                 assert(ldv == 1);
-                genormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, queue.stream()>>>
-                    (m, n, Aarray, lda, values);
+                hipLaunchKernelGGL(genormMaxKernel, dim3(batch_count), dim3(nb), sizeof(real_t) * nb, queue.stream(), m, n, Aarray, lda, values);
             }
         }
         //---------
@@ -406,8 +405,7 @@ void genorm(
             }
             else {
                 assert(ldv >= n);
-                genormOneKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, queue.stream()>>>
-                    (m, n, Aarray, lda, values, ldv);
+                hipLaunchKernelGGL(genormOneKernel, dim3(batch_count), dim3(one_ib), sizeof(real_t)*one_ib*one_ib1, queue.stream(), m, n, Aarray, lda, values, ldv);
             }
         }
         //---------
@@ -418,8 +416,7 @@ void genorm(
             }
             else {
                 assert(ldv >= m);
-                genormInfKernel<<<batch_count, nb, 0, queue.stream()>>>
-                    (m, n, Aarray, lda, values, ldv);
+                hipLaunchKernelGGL(genormInfKernel, dim3(batch_count), dim3(nb), 0, queue.stream(), m, n, Aarray, lda, values, ldv);
             }
         }
         //---------
@@ -431,8 +428,7 @@ void genorm(
             else {
                 assert(ldv == 2);
 
-                genormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
-                    (m, n, Aarray, lda, values);
+                hipLaunchKernelGGL(genormFroKernel, dim3(batch_count), dim3(nb), sizeof(real_t) * nb * 2, queue.stream(), m, n, Aarray, lda, values);
             }
         }
     }
@@ -445,8 +441,7 @@ void genorm(
             }
             else {
                 assert(ldv >= n);
-                geColNormsMaxKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, queue.stream()>>>
-                    (m, n, Aarray, lda, values, ldv);
+                hipLaunchKernelGGL(geColNormsMaxKernel, dim3(batch_count), dim3(one_ib), sizeof(real_t)*one_ib*one_ib1, queue.stream(), m, n, Aarray, lda, values, ldv);
             }
         }
         else {

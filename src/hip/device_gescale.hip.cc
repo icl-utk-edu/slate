@@ -98,7 +98,7 @@ void gescale(
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
-    gescaleKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    hipLaunchKernelGGL(gescaleKernel, dim3(batch_count), dim3(nthreads), 0, queue.stream(), 
         m, n,
         numer, denom, Aarray, lda);
 

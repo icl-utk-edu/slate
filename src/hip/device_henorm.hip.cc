@@ -51,7 +51,7 @@ __global__ void henormMaxKernel(
     int chunk;
 
     // Save partial results in shared memory.
-    extern __shared__ char dynamic_data[];
+    HIP_DYNAMIC_SHARED( char, dynamic_data)
     real_t* row_max = (real_t*) dynamic_data;
     if (threadIdx.x < blockDim.x) {
         row_max[threadIdx.x] = 0;
@@ -195,7 +195,7 @@ __global__ void henormFroKernel(
     int chunk;
 
     // Save partial results in shared memory.
-    extern __shared__ char dynamic_data[];
+    HIP_DYNAMIC_SHARED( char, dynamic_data)
     real_t* row_scale = (real_t*) &dynamic_data[0];
     real_t* row_sumsq = &row_scale[blockDim.x];
 
@@ -318,8 +318,7 @@ void henorm(
         }
         else {
             assert(ldv == 1);
-            henormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, queue.stream()>>>
-                (uplo, n, Aarray, lda, values);
+            hipLaunchKernelGGL(henormMaxKernel, dim3(batch_count), dim3(nb), sizeof(real_t) * nb, queue.stream(), uplo, n, Aarray, lda, values);
         }
     }
     //---------
@@ -330,8 +329,7 @@ void henorm(
         }
         else {
             assert(ldv >= n);
-            henormOneKernel<<<batch_count, nb, 0, queue.stream()>>>
-                (uplo, n, Aarray, lda, values, ldv);
+            hipLaunchKernelGGL(henormOneKernel, dim3(batch_count), dim3(nb), 0, queue.stream(), uplo, n, Aarray, lda, values, ldv);
         }
     }
     //---------
@@ -342,8 +340,7 @@ void henorm(
         }
         else {
             assert(ldv == 2);
-            henormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
-                (uplo, n, Aarray, lda, values);
+            hipLaunchKernelGGL(henormFroKernel, dim3(batch_count), dim3(nb), sizeof(real_t) * nb * 2, queue.stream(), uplo, n, Aarray, lda, values);
         }
     }
 

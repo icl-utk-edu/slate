@@ -115,7 +115,7 @@ void tzadd(
 
     hipSetDevice( queue.device() );
 
-    tzaddKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    hipLaunchKernelGGL(tzaddKernel, dim3(batch_count), dim3(nthreads), 0, queue.stream(), 
         uplo,
         m, n,
         alpha, Aarray, lda,

@@ -53,7 +53,7 @@ __global__ void trnormMaxKernel(
     int chunk;
 
     // Save partial results in shared memory.
-    extern __shared__ char dynamic_data[];
+    HIP_DYNAMIC_SHARED( char, dynamic_data)
     real_t* row_max = (real_t*) dynamic_data;
 
     if (threadIdx.x < blockDim.x) {
@@ -294,7 +294,7 @@ __global__ void trnormFroKernel(
     int chunk;
 
     // Save partial results in shared memory.
-    extern __shared__ char dynamic_data[];
+    HIP_DYNAMIC_SHARED( char, dynamic_data)
     real_t* row_scale = (real_t*) &dynamic_data[0];
     real_t* row_sumsq = &row_scale[blockDim.x];
 
@@ -431,8 +431,7 @@ void trnorm(
         }
         else {
             assert(ldv == 1);
-            trnormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, queue.stream()>>>
-                (uplo, diag, m, n, Aarray, lda, values);
+            hipLaunchKernelGGL(trnormMaxKernel, dim3(batch_count), dim3(nb), sizeof(real_t) * nb, queue.stream(), uplo, diag, m, n, Aarray, lda, values);
         }
     }
     //---------
@@ -443,8 +442,7 @@ void trnorm(
         }
         else {
             assert(ldv >= n);
-            trnormOneKernel<<<batch_count, nb, 0, queue.stream()>>>
-                (uplo, diag, m, n, Aarray, lda, values, ldv);
+            hipLaunchKernelGGL(trnormOneKernel, dim3(batch_count), dim3(nb), 0, queue.stream(), uplo, diag, m, n, Aarray, lda, values, ldv);
         }
     }
     //---------
@@ -455,8 +453,7 @@ void trnorm(
         }
         else {
             assert(ldv >= m);
-            trnormInfKernel<<<batch_count, nb, 0, queue.stream()>>>
-                (uplo, diag, m, n, Aarray, lda, values, ldv);
+            hipLaunchKernelGGL(trnormInfKernel, dim3(batch_count), dim3(nb), 0, queue.stream(), uplo, diag, m, n, Aarray, lda, values, ldv);
         }
     }
     //---------
@@ -467,8 +464,7 @@ void trnorm(
         }
         else {
             assert(ldv == 2);
-            trnormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
-                (uplo, diag, m, n, Aarray, lda, values);
+            hipLaunchKernelGGL(trnormFroKernel, dim3(batch_count), dim3(nb), sizeof(real_t) * nb * 2, queue.stream(), uplo, diag, m, n, Aarray, lda, values);
         }
     }
 

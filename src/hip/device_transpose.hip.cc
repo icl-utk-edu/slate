@@ -281,8 +281,7 @@ void transpose(
     }
     dim3 threads( ib, ib );
 
-    transpose_kernel<<< blocks, threads, 0, queue.stream() >>>
-        (n, A, lda);
+    hipLaunchKernelGGL(transpose_kernel, dim3(blocks), dim3(threads), 0, queue.stream() , n, A, lda);
 
     hipError_t error = hipGetLastError();
     slate_assert(error == hipSuccess);
@@ -337,8 +336,7 @@ void transpose_batch(
     }
     dim3 threads( ib, ib );
 
-    transpose_batch_kernel<<< blocks, threads, 0, queue.stream() >>>
-        (n, Aarray, lda);
+    hipLaunchKernelGGL(transpose_batch_kernel, dim3(blocks), dim3(threads), 0, queue.stream() , n, Aarray, lda);
 
     hipError_t error = hipGetLastError();
     slate_assert(error == hipSuccess);
@@ -391,8 +389,7 @@ void transpose(
 
     dim3 grid( 1, mt, nt );
     dim3 threads( NX, NY );
-    transpose_kernel<scalar_t, NX><<< grid, threads, 0, queue.stream() >>>
-        ( m, n, dA, lda, dAT, ldat );
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(transpose_kernel<scalar_t, NX>), dim3(grid), dim3(threads), 0, queue.stream() ,  m, n, dA, lda, dAT, ldat );
 
     hipError_t error = hipGetLastError();
     slate_assert(error == hipSuccess);
@@ -451,8 +448,7 @@ void transpose_batch(
 
     dim3 grid( uint(batch_count), mt, nt );
     dim3 threads( NX, NY, 1 );
-    transpose_batch_kernel<scalar_t, NX><<< grid, threads, 0, queue.stream() >>>
-        ( m, n, dA_array, lda, dAT_array, ldat );
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(transpose_batch_kernel<scalar_t, NX>), dim3(grid), dim3(threads), 0, queue.stream() ,  m, n, dA_array, lda, dAT_array, ldat );
 
     hipError_t error = hipGetLastError();
     slate_assert(error == hipSuccess);

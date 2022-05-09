@@ -105,7 +105,7 @@ void geadd(
 
     hipSetDevice( queue.device() );
 
-    geaddKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    hipLaunchKernelGGL(geaddKernel, dim3(batch_count), dim3(nthreads), 0, queue.stream(), 
         m, n,
         alpha, Aarray, lda,
         beta, Barray, ldb);

@@ -97,7 +97,7 @@ void geset(
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
-    gesetKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    hipLaunchKernelGGL(gesetKernel, dim3(batch_count), dim3(nthreads), 0, queue.stream(), 
         m, n,
         diag_value, offdiag_value, Aarray, lda);
 

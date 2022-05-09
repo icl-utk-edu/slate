@@ -106,7 +106,7 @@ void gecopy(
 
     hipSetDevice( queue.device() );
 
-    gecopyKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    hipLaunchKernelGGL(gecopyKernel, dim3(batch_count), dim3(nthreads), 0, queue.stream(), 
           m, n,
           Aarray, lda,
           Barray, ldb);

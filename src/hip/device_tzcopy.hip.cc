@@ -114,7 +114,7 @@ void tzcopy(
 
     hipSetDevice( queue.device() );
 
-    tzcopyKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    hipLaunchKernelGGL(tzcopyKernel, dim3(batch_count), dim3(nthreads), 0, queue.stream(), 
           uplo,
           m, n,
           Aarray, lda,

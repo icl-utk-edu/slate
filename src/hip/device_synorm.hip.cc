@@ -50,7 +50,7 @@ __global__ void synormMaxKernel(
     int chunk;
 
     // Save partial results in shared memory.
-    extern __shared__ char dynamic_data[];
+    HIP_DYNAMIC_SHARED( char, dynamic_data)
     real_t* row_max = (real_t*) dynamic_data;
     if (threadIdx.x < blockDim.x) {
         row_max[threadIdx.x] = 0;
@@ -185,7 +185,7 @@ __global__ void synormFroKernel(
     int chunk;
 
     // Save partial results in shared memory.
-    extern __shared__ char dynamic_data[];
+    HIP_DYNAMIC_SHARED( char, dynamic_data)
     real_t* row_scale = (real_t*) &dynamic_data[0];
     real_t* row_sumsq = &row_scale[blockDim.x];
 
@@ -307,8 +307,7 @@ void synorm(
         }
         else {
             assert(ldv == 1);
-            synormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, queue.stream()>>>
-                (uplo, n, Aarray, lda, values);
+            hipLaunchKernelGGL(synormMaxKernel, dim3(batch_count), dim3(nb), sizeof(real_t) * nb, queue.stream(), uplo, n, Aarray, lda, values);
         }
     }
     //---------
@@ -319,8 +318,7 @@ void synorm(
         }
         else {
             assert(ldv >= n);
-            synormOneKernel<<<batch_count, nb, 0, queue.stream()>>>
-                (uplo, n, Aarray, lda, values, ldv);
+            hipLaunchKernelGGL(synormOneKernel, dim3(batch_count), dim3(nb), 0, queue.stream(), uplo, n, Aarray, lda, values, ldv);
         }
     }
     //---------
@@ -331,8 +329,7 @@ void synorm(
         }
         else {
             assert(ldv == 2);
-            synormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
-                (uplo, n, Aarray, lda, values);
+            hipLaunchKernelGGL(synormFroKernel, dim3(batch_count), dim3(nb), sizeof(real_t) * nb * 2, queue.stream(), uplo, n, Aarray, lda, values);
         }
     }
 
@@ -385,7 +382,7 @@ __global__ void synormOffdiagOneKernel(
     // ceil(m/ib) entries; in total it is ceil(m/ib)*ib entries.
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    extern __shared__ char dynamic_data[];
+    HIP_DYNAMIC_SHARED( char, dynamic_data)
     real_t* shmem_tile = (real_t*)dynamic_data;
     real_t* row_sums = &shmem_tile[one_ib1*one_ib];
     const int idx = threadIdx.x;
@@ -497,8 +494,7 @@ void synormOffdiag(
         assert(ldv >= n);
         size_t lwork = sizeof(real_t) * (one_ib*one_ib1 + roundup(m, int64_t(one_ib)));
         assert(lwork <= 48*1024); // max 48 KiB
-        synormOffdiagOneKernel<<<batch_count, 32, lwork, queue.stream()>>>
-            (m, n, Aarray, lda, values, ldv);
+        hipLaunchKernelGGL(synormOffdiagOneKernel, dim3(batch_count), dim3(32), lwork, queue.stream(), m, n, Aarray, lda, values, ldv);
     }
     else {
         slate_not_implemented("Only Norm::One and Norm::Inf is supported.");

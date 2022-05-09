@@ -87,7 +87,8 @@ fortran_api     ?= 0
 
 NVCC            ?= nvcc
 HIPCC           ?= hipcc
-HIPIFY          ?= hipify-perl
+hipify          ?= hipify-perl
+md5sum          ?= tools/md5sum.pl
 
 gpu_backend     ?= auto
 cuda_arch       ?= pascal
@@ -449,43 +450,33 @@ ifneq ($(only_unit),1)
 endif
 
 # device
-ifeq ($(cuda),1)
-    libslate_src += \
-            src/cuda/device_geadd.cu \
-            src/cuda/device_gecopy.cu \
-            src/cuda/device_genorm.cu \
-            src/cuda/device_geset.cu \
-            src/cuda/device_henorm.cu \
-            src/cuda/device_synorm.cu \
-            src/cuda/device_transpose.cu \
-            src/cuda/device_trnorm.cu \
-            src/cuda/device_tzcopy.cu \
-            src/cuda/device_gescale.cu \
-            src/cuda/device_tzscale.cu \
-            src/cuda/device_tzadd.cu \
+cuda_src := \
+        src/cuda/device_geadd.cu \
+        src/cuda/device_gecopy.cu \
+        src/cuda/device_genorm.cu \
+        src/cuda/device_gescale.cu \
+        src/cuda/device_geset.cu \
+        src/cuda/device_henorm.cu \
+        src/cuda/device_synorm.cu \
+        src/cuda/device_transpose.cu \
+        src/cuda/device_trnorm.cu \
+        src/cuda/device_tzadd.cu \
+        src/cuda/device_tzcopy.cu \
+        src/cuda/device_tzscale.cu \
+        # End. Add alphabetically.
 
+cuda_hdr := \
+        src/cuda/device_util.cuh
+
+hip_src := $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(cuda_src))
+hip_hdr := $(patsubst src/cuda/%.cuh,src/hip/%.hip.hh,$(cuda_hdr))
+
+ifeq ($(cuda),1)
+    libslate_src += $(cuda_src)
 endif
 
 ifeq ($(hip),1)
-    libslate_src += \
-            src/hip/device_geadd.hip.cc \
-            src/hip/device_gecopy.hip.cc \
-            src/hip/device_genorm.hip.cc \
-            src/hip/device_geset.hip.cc \
-            src/hip/device_henorm.hip.cc \
-            src/hip/device_synorm.hip.cc \
-            src/hip/device_transpose.hip.cc \
-            src/hip/device_trnorm.hip.cc \
-            src/hip/device_tzcopy.hip.cc \
-            src/hip/device_gescale.hip.cc \
-            src/hip/device_tzscale.hip.cc \
-            src/hip/device_tzadd.hip.cc \
-
-    hip_src = \
-        $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(wildcard src/cuda/*.cu))
-
-    hip_header = \
-        $(patsubst src/cuda/%.cuh,src/hip/%.hip.hh,$(wildcard src/cuda/*.cuh))
+    libslate_src += ${hip_src}
 endif
 
 # driver
@@ -1052,6 +1043,57 @@ $(lapack_api_so): $(lapack_api_obj) $(libslate)
 		$(LAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
+# HIP sources converted from CUDA sources.
+
+# if_md5_outdated applies the given build rule ($1) only if the md5 sums
+# of the target's dependency ($<) doesn't match that stored in the
+# target's dep file ($@.dep). If the target ($@) is already up-to-date
+# based on md5 sums, its timestamp is updated so make will recognize it
+# as up-to-date. Otherwise, the target is built and its dep file
+# updated. Instead of depending on the src file, the target depends on
+# the md5 file of the src file. This can be adapted for multiple dependencies.
+# Example usage:
+#
+# %: %.c.md5
+#     ${call if_md5_outdated,\
+#            gcc -o $@ ${basename $<}}
+#
+define if_md5_outdated
+    if [ -e $@ ] && diff $< $@.dep > /dev/null 2>&1; then \
+        echo "  make: '$@' is up-to-date based on md5sum."; \
+        echo "  touch $@"; \
+                touch $@; \
+    else \
+        echo "  make: '$@' is out-of-date based on md5sum."; \
+        echo "  ${strip $1}"; \
+        $1; \
+        cp $< $@.dep; \
+    fi
+endef
+
+# Convert CUDA => HIP code.
+# Explicitly mention ${hip_src}, ${hip_hdr}, ${md5_files}
+# to prevent them from being intermediate files,
+# so they are _always_ generated and never removed.
+${hip_src}: src/hip/%.hip.cc: src/cuda/%.cu.md5 | src/hip
+	@${call if_md5_outdated, \
+	        ${hipify} ${basename $<} > $@; \
+	        sed -i -e "s/\.cuh/.hip.hh/g" $@}
+
+${hip_hdr}: src/hip/%.hip.hh: src/cuda/%.cuh.md5 | src/hip
+	@${call if_md5_outdated, \
+	        ${hipify} ${basename $<} > $@; \
+	        sed -i -e "s/\.cuh/.hip.hh/g" $@}
+
+md5_files := ${addsuffix .md5, ${cuda_src} ${cuda_hdr}}
+
+${md5_files}: %.md5: %
+	${md5sum} $< > $@
+
+src/hip:
+	mkdir -p $@
+
+#-------------------------------------------------------------------------------
 # general rules
 
 lib: $(libslate)
@@ -1084,20 +1126,8 @@ hooks: ${hooks}
 		cp $< $@ ; \
 	fi
 
-%.hip.o: %.hip.cc | $(hip_header)
+%.hip.o: %.hip.cc | $(hip_hdr)
 	$(HIPCC) $(HIPCCFLAGS) -c $< -o $@
-
-# Convert CUDA => HIP code.
-src/hip/%.hip.cc: src/cuda/%.cu | src/hip
-	$(HIPIFY) $< > $@
-	sed -i -e "s/\.cuh/.hip.hh/g" $@
-
-src/hip/%.hip.hh: src/cuda/%.cuh | src/hip
-	$(HIPIFY) $< > $@
-	sed -i -e "s/\.cuh/.hip.hh/g" $@
-
-src/hip:
-	mkdir -p $@
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -1210,6 +1240,12 @@ echo:
 	@echo "ROCM_DIR      = $(ROCM_DIR)"
 	@echo "HIPCCFLAGS    = $(HIPCCFLAGS)"
 	@echo "amdgpu_targets = $(amdgpu_targets)"
+	@echo "hipify        = ${hipify}"
+	@echo "cuda_src      = ${cuda_src}"
+	@echo "cuda_hdr      = ${cuda_hdr}"
+	@echo "hip_src       = ${hip_src}"
+	@echo "hip_hdr       = ${hip_hdr}"
+	@echo "md5_files     = $(md5_files)"
 	@echo
 	@echo "---------- Fortran compiler"
 	@echo "FC            = $(FC)"

@@ -468,6 +468,8 @@ if (NOT CMAKE_CUDA_COMPILER
     endif()
 endif()
 if (HIP_FOUND)
+    message( STATUS "Building HIP/ROCm support in SLATE" )
+
     # In their official docs, they have 'hip' and 'HIP' as different packages,
     # which both need to be found
     # https://github.com/ROCm-Developer-Tools/HIP/issues/1029
@@ -490,6 +492,7 @@ if (HIP_FOUND)
         src/cuda/*.cu
         src/cuda/*.cuh
     )
+    message( DEBUG "libslate_hip_src_cuda ${libslate_hip_src_cuda}" )
 
     # Make the object directory
     file( MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/src/hip" )
@@ -514,52 +517,95 @@ if (HIP_FOUND)
 
     # Generate definitions list
     get_target_property( defs_ slate COMPILE_DEFINITIONS )
-    set( defs__ "" )
+    set( Ddefs_ "" )
     foreach (def_ ${defs_})
-        list( APPEND defs__ "-D${def_}" )
+        list( APPEND Ddefs_ "-D${def_}" )
     endforeach()
     message( DEBUG "defs_  = '${defs_}'" )
-    message( DEBUG "defs__ = '${defs__}'" )
+    message( DEBUG "Ddefs_ = '${Ddefs_}'" )
 
     # Iterate over CUDA files
     foreach (src_cu ${libslate_hip_src_cuda})
         # Get name without directory, and replace extension.
-        get_filename_component( name ${src_cu} NAME )
-        string( REGEX REPLACE ".cu$"  ".hip.cc" name ${name} )
-        string( REGEX REPLACE ".cuh$" ".hip.hh" name ${name} )
-        set( src_hip "${CMAKE_SOURCE_DIR}/src/hip/${name}" )
-        set( obj_hip "${CMAKE_BINARY_DIR}/src/hip/${name}.o" )
+        get_filename_component( name "${src_cu}" NAME )
+        set( src_cu_relative  "src/cuda/${name}" )
+        string( REGEX REPLACE ".cu$"  ".hip.cc" name "${name}"  )
+        string( REGEX REPLACE ".cuh$" ".hip.hh" name "${name}" )
+        set( src_hip "${CMAKE_SOURCE_DIR}/src/hip/${name}"   )
+        set( obj_hip "src/hip/${name}.o" )  # in binary dir
 
-        # Rule to automatically generate it.
+        message( DEBUG "src_cu_relative ${src_cu_relative}" )
+        message( DEBUG "src_cu  ${src_cu}" )
+        message( DEBUG "src_hip ${src_hip}" )
+        message( DEBUG "obj_hip ${obj_hip}" )
+        message( DEBUG "" )
+
+        # Automatically generate HIP source from CUDA source.
+        # As in the Makefile, this applies the given build rule ($cmd)
+        # only if the md5 sums of the target's dependency ($src_cu.md5)
+        # doesn't match that stored in the target's dep file
+        # ($src_hip.dep). If the target ($src_hip) is already up-to-date
+        # based on md5 sums, its timestamp is updated so make will
+        # recognize it as up-to-date. Otherwise, the target is built and
+        # its dep file updated. Instead of depending on the src file,
+        # the target depends on the md5 file of the src file.
+        string(
+            CONCAT cmd
+            "if [ -e ${src_hip} ]"
+            "   && diff ${src_cu}.md5 ${src_hip}.dep > /dev/null 2>&1; then"
+            "    echo '${src_hip} is up-to-date based on md5sum.';"
+            "    touch ${src_hip};"
+            "else"
+            "    echo '${src_hip} is out-of-date based on md5sum.';"
+            "    echo 'hipify-perl ${src_cu} > ${src_hip}';"
+            "          hipify-perl ${src_cu} > ${src_hip};"
+            "    sed -i -e 's/\.cuh/.hip.hh/g' ${src_hip};"
+            "    cp ${src_cu}.md5 ${src_hip}.dep;"
+            "fi"
+        )
+        message( DEBUG "cmd <${cmd}>" )
+
+        message( "cu  ${src_cu}\n => ${src_hip}" )
         add_custom_command(
-            OUTPUT  "${src_hip}"
-            DEPENDS "${src_cu}"
-            COMMAND "hipify-perl" ${src_cu} > ${src_hip}
-            COMMAND sed -i -e "s/\.cuh/.hip.hh/g" ${src_hip}
+            OUTPUT   "${src_hip}"
+            DEPENDS  "${src_cu}.md5"
+            VERBATIM
+            COMMAND  sh -c "${cmd}"
         )
 
-        # Rule to compile it (if it is actual code, and not a header)
+        message( "md5 ${src_cu}\n => ${src_cu}.md5\n in ${CMAKE_SOURCE_DIR}" )
+        add_custom_command(
+            OUTPUT   "${src_cu}.md5"
+            DEPENDS  "${src_cu}"
+            VERBATIM
+            # md5sum needs ${src_cu_relative} to be relative to
+            # CMAKE_SOURCE_DIR to match .dep files.
+            COMMAND  md5sum "${src_cu_relative}" > "${src_cu}.md5"
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        )
+
+        # Compile hip.cc source (not hip.hh headers).
         if (${src_hip} MATCHES ".hip.cc$")
+            message( "hcc ${src_hip}\n && src/hip/device_util.hip.hh\n => ${obj_hip}" )
             add_custom_command(
                 OUTPUT  "${obj_hip}"
                 DEPENDS "${src_hip}"
-                        "${CMAKE_SOURCE_DIR}/src/hip/device_util.hip.hh"
-                COMMAND "hipcc"
-                    ${defs__}
-                    ${inc_}
-                    "-I${CMAKE_SOURCE_DIR}/include"
-                    ${src_hip} -fPIC -c -o ${obj_hip}
+                        "src/hip/device_util.hip.hh"
+                VERBATIM
+                COMMAND pwd
+                COMMAND hipcc ${Ddefs_} ${inc_}
+                        "-I${CMAKE_SOURCE_DIR}/include"
+                        -fPIC -c -o ${obj_hip} ${src_hip}
             )
 
             # Add the .o as a 'source' (even though it is already compiled)
             target_sources(
                 slate
                 PRIVATE
-                ${obj_hip}
+                "${obj_hip}"
             )
         endif()
     endforeach()
-    message( STATUS "Building HIP/ROCm support in SLATE" )
 else()
     message( STATUS "Not building HIP/ROCm support in SLATE" )
     target_compile_definitions( slate PUBLIC "-DSLATE_NO_HIP" )

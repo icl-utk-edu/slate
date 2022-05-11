@@ -996,6 +996,82 @@ void steqr2(
     Matrix<scalar_t>& Z,
     Options const& opts = Options());
 
+//-----------------------------------------
+template <typename real_t>
+struct stevx2_stein_array_t
+{
+    std::vector< lapack_int > iblock;
+    std::vector< lapack_int > isplit;
+    std::vector< real_t > work;
+    std::vector< lapack_int > iwork;
+    std::vector< lapack_int > ifail;
+};
+
+//-----------------------------------------
+template <typename real_t>
+struct stevx2_control_t
+{
+    int64_t   n;
+    const real_t* diag;
+    const real_t* offd;
+    lapack::Range range;        // Value or Index.
+    lapack::Job jobtype;        // NoVec or Vec.
+    int64_t   il;               // For Range Index least index desired.
+    int64_t   iu;               // For Range index max index desired.
+    stevx2_stein_array_t<real_t>* stein_arrays; // workspaces.
+    int64_t base_idx;           // Number of EV less than user's low threshold.
+    int64_t error;              // first error, if non-zero.
+    real_t* pval;               // where to store eigenvalues.
+    real_t* pvec;               // where to store eigenvectors.
+    int64_t* pmul;              // where to store Multiplicity.
+};
+
+//-----------------------------------------
+template <typename real_t>
+void stevx2_bisection(
+    stevx2_control_t<real_t>* control,
+    real_t lower_bound,
+    real_t upper_bound,
+    int64_t n_lt_low,
+    int64_t n_lt_hi,
+    int64_t num_ev);
+
+//-----------------------------------------
+template <typename scalar_t>
+void stevx2_get_col_vector(
+    Matrix<scalar_t>& source,
+    std::vector<scalar_t>& v,
+    int col);
+
+//-----------------------------------------
+template <typename scalar_t>
+void stevx2_put_col_vector(
+    std::vector<scalar_t>& v,
+    Matrix<scalar_t>& dest,
+    int col);
+
+//-----------------------------------------
+template <typename scalar_t>
+void stevx2_stmv(
+    const scalar_t* diag, const scalar_t* offd, const int64_t n,
+    std::vector< scalar_t >& X, std::vector< scalar_t >& Y);
+
+//-----------------------------------------
+template <typename scalar_t>
+scalar_t stevx2_stepe(
+    const scalar_t* diag,  const scalar_t* offd, int64_t n,
+    scalar_t u, std::vector< scalar_t >& v);
+
+//-----------------------------------------
+// stevx2()
+template <typename scalar_t>
+void stevx2(
+    const lapack::Job jobtype, const lapack::Range range,
+    const std::vector< scalar_t >& diag, const std::vector< scalar_t >& offd,
+    scalar_t vl, scalar_t vu, int64_t il, int64_t iu,
+    std::vector< scalar_t >& eig_val, std::vector< int64_t >& eig_mult,
+    Matrix< scalar_t >& eig_vec, MPI_Comm mpi_comm);
+
 } // namespace slate
 
 //-----------------------------------------

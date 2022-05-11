@@ -219,6 +219,7 @@ void test_unmtr_hb2st(Params& params, bool run);
 // generalized symmetric/Hermitian eigenvalues
 void test_hegv   (Params& params, bool run);
 void test_hegst  (Params& params, bool run);
+void test_stevx2 (Params& params, bool run);
 
 // SVD
 void test_gesvd  (Params& params, bool run);

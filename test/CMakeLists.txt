@@ -73,7 +73,13 @@ add_executable(
 )
 
 # C++17 is inherited from slate, but disabling extensions is not.
-set_target_properties( ${tester} PROPERTIES CXX_EXTENSIONS false )
+set_target_properties(
+    slate PROPERTIES
+    CXX_STANDARD 17
+    CUDA_STANDARD 11
+    CXX_STANDARD_REQUIRED true
+    CXX_EXTENSIONS false
+)
 
 target_link_libraries(
     ${tester}

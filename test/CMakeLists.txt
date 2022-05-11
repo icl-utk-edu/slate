@@ -73,7 +73,7 @@ add_executable(
 )
 
 # Use and export -std=c++17.
-# CMake inexplicably allows gnu++17 to "decay" to c++11 or 14; prohibit those.
+# CMake inexplicably allows gnu++17 or "decay" to c++11 or 14; prohibit those.
 target_compile_features( ${tester} PUBLIC cxx_std_17 )
 set_target_properties(
     ${tester} PROPERTIES

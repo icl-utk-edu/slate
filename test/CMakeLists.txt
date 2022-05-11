@@ -77,7 +77,6 @@ add_executable(
 target_compile_features( ${tester} PUBLIC cxx_std_17 )
 set_target_properties(
     ${tester} PROPERTIES
-    CUDA_STANDARD 11
     CXX_STANDARD_REQUIRED true  # prohibit < c++17
     CXX_EXTENSIONS false        # prohibit gnu++17
 )

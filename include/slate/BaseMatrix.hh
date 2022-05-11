@@ -1781,7 +1781,6 @@ void BaseMatrix<scalar_t>::tileRecv(
 
         // Copy to devices.
         if (target == Target::Devices) {
-            // todo: is there a reason for this to be a task
             #pragma omp task default(none) firstprivate(i, j)
             {
                 tileGetForReading(i, j, tileDevice(i, j), LayoutConvert::None);

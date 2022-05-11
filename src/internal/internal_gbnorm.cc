@@ -119,8 +119,8 @@ void norm(
             int64_t i_end   = min(j + klt + 1, A.mt());
             for (int64_t i = i_begin; i < i_end; ++i) {
                 if (A.tileIsLocal(i, j)) {
-                #pragma omp task default(none) shared(A, tiles_sums) \
-                    firstprivate(i, j, layout, jj, in_norm) priority(priority)
+                    #pragma omp task default(none) shared(A, tiles_sums) \
+                        firstprivate(i, j, layout, jj, in_norm) priority(priority)
                     {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
                         genorm(in_norm, NormScope::Matrix, A(i, j), &tiles_sums[A.n()*i+jj]);
@@ -173,11 +173,12 @@ void norm(
         // todo: Eventually this needs to be done like in the device code,
         // by summing up local contributions only.
         std::fill_n(values, A.m(), 0.0);
-        for (int64_t j = 0; j < A.nt(); ++j)
-        #pragma omp taskloop default(none) shared(A, tiles_sums, values) \
-            firstprivate(j) priority(priority)
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            #pragma omp taskloop default(none) shared(A, tiles_sums, values) \
+                firstprivate(j) priority(priority)
             for (int64_t ii_ = 0; ii_ < A.m(); ++ii_)
                 values[ii_] += tiles_sums[A.m()*j + ii_];
+        }
     }
     //---------
     // Frobenius norm
@@ -192,8 +193,8 @@ void norm(
             int64_t i_end   = min(j + klt + 1, A.mt());
             for (int64_t i = i_begin; i < i_end; ++i) {
                 if (A.tileIsLocal(i, j)) {
-                #pragma omp task default(none) shared(A, values) \
-                    firstprivate(i, j, in_norm, layout) priority(priority)
+                    #pragma omp task default(none) shared(A, values) \
+                        firstprivate(i, j, in_norm, layout) priority(priority)
                     {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
                         real_t tile_values[2];

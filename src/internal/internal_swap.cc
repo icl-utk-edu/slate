@@ -696,7 +696,8 @@ void permuteRows(
                                     auto tile_offset = pivot[i].elementOffset();
 
                                     if (remote_idx >= count) {
-                                        blas::copy(nb,
+                                        blas::copy(
+                                            nb,
                                             &A(tile_index, j, device).at(tile_offset, 0), 1,
                                             remote_rows_dev + nb*remote_idx, 1,
                                             *compute_queue);

@@ -479,8 +479,8 @@ void her2k(internal::TargetType<Target::Devices>,
         // off-diagonal tiles by batch gemm on device
         // diagonal tiles by BLAS++ her2k on device
         for (int device = 0; device < C.num_devices(); ++device) {
-             #pragma omp task default(none) shared(A, B, C, err) priority(priority) \
-                 firstprivate(device, layout, alpha, beta, queue_index)
+            #pragma omp task default(none) shared(A, B, C, err) priority(priority) \
+                firstprivate(device, layout, alpha, beta, queue_index)
             {
                 try {
                     // if op(C) is NoTrans, invert opA, opB if possible

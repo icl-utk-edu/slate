@@ -81,7 +81,6 @@ void posvMixed( slate::internal::TargetType<target>,
     if (target == Target::Devices) {
         #pragma omp parallel
         #pragma omp master
-        #pragma omp taskgroup
         {
             #pragma omp task default(none) shared(A) firstprivate(layout)
             {

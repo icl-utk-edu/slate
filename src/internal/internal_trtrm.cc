@@ -37,11 +37,10 @@ void trtrm(internal::TargetType<Target::HostTask>,
     assert(A.mt() == 1);
     assert(A.nt() == 1);
 
-    if (A.tileIsLocal(0, 0))
-        {
-            A.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
-            trtrm(A(0, 0));
-        }
+    if (A.tileIsLocal(0, 0)) {
+        A.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
+        trtrm(A(0, 0));
+    }
 }
 
 //------------------------------------------------------------------------------

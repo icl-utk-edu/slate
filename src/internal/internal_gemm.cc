@@ -396,7 +396,7 @@ void gemm(internal::TargetType<Target::Devices>,
 
     #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task default(none) shared(A, B, C, err) priority(priority) \
+        #pragma omp task shared(A, B, C, err) priority(priority) \
             firstprivate(alpha, beta, layout, queue_index, device, tile_release_strategy)
         {
             // if op(C) is NoTrans, invert opA, opB if possible

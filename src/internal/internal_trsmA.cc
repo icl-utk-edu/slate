@@ -179,7 +179,7 @@ void trsmA(internal::TargetType<Target::Devices>,
 
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task default(none) shared(A, B) priority(priority) \
+        #pragma omp task shared(A, B) priority(priority) \
             firstprivate(device, side, layout, sideA, uploA, opA, diagA) \
             firstprivate(alpha, queue_index)
         {

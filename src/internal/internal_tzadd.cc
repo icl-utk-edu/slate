@@ -217,7 +217,7 @@ void add(internal::TargetType<Target::Devices>,
 
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task default(none) shared(A, B) priority(priority) \
+        #pragma omp task shared(A, B) priority(priority) \
             firstprivate(device, irange, jrange, queue_index, alpha, beta)
         {
             // temporarily, convert both into same layout

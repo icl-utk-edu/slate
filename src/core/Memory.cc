@@ -8,7 +8,6 @@
 
 namespace slate {
 
-int Memory::host_num_;
 int Memory::num_devices_;
 Memory::StaticConstructor Memory::static_constructor_;
 
@@ -19,8 +18,8 @@ Memory::Memory(size_t block_size):
 {
     // touch maps to create entries;
     // this allows available() and capacity() to be const by using at()
-    free_blocks_[host_num_];
-    capacity_[host_num_] = 0;
+    free_blocks_[ HostNum ];
+    capacity_[ HostNum ] = 0;
     for (int device = 0; device < num_devices_; ++device) {
         free_blocks_[device];
         capacity_[device] = 0;
@@ -42,17 +41,17 @@ Memory::~Memory()
 /// Allocates num_blocks in host memory
 /// and adds them to the pool of free blocks.
 ///
-// todo: merge with addDeviceBlocks by recognizing host_num_?
+// todo: merge with addDeviceBlocks by recognizing HostNum?
 void Memory::addHostBlocks(int64_t num_blocks)
 {
 /*
     // or std::byte* (C++17)
     uint8_t* host_mem;
     host_mem = (uint8_t*) allocHostMemory(block_size_*num_blocks);
-    capacity_[host_num_] += num_blocks;
+    capacity_[ HostNum ] += num_blocks;
 
     for (int64_t i = 0; i < num_blocks; ++i)
-        free_blocks_[host_num_].push(host_mem + i*block_size_);
+        free_blocks_[ HostNum ].push(host_mem + i*block_size_);
 */
 }
 
@@ -74,21 +73,21 @@ void Memory::addDeviceBlocks(int device, int64_t num_blocks)
 //------------------------------------------------------------------------------
 /// Empties the pool of free blocks of host memory and frees the allocations.
 ///
-// todo: merge with clearDeviceBlocks by recognizing host_num_?
+// todo: merge with clearDeviceBlocks by recognizing HostNum?
 void Memory::clearHostBlocks()
 {
 /*
     Debug::checkHostMemoryLeaks(*this);
 
-    while (! free_blocks_[host_num_].empty())
-        free_blocks_[host_num_].pop();
+    while (! free_blocks_[ HostNum ].empty())
+        free_blocks_[ HostNum ].pop();
 
-    while (! allocated_mem_[host_num_].empty()) {
-        void* host_mem = allocated_mem_[host_num_].top();
-        freeHostMemory(host_mem);
-        allocated_mem_[host_num_].pop();
+    while (! allocated_mem_[ HostNum ].empty()) {
+        void* host_mem = allocated_mem_[ HostNum ].top();
+        freeHostMemory( host_mem );
+        allocated_mem_[ HostNum ].pop();
     }
-    capacity_[host_num_] = 0;
+    capacity_[ HostNum ] = 0;
 */
 }
 
@@ -119,7 +118,7 @@ void* Memory::alloc(int device, size_t size)
 {
     void* block;
 
-    if (device == host_num_) {
+    if (device == HostNum) {
         //block = malloc(size);
         block = new char[size];
     }
@@ -145,7 +144,7 @@ void* Memory::alloc(int device, size_t size)
 ///
 void Memory::free(void* block, int device)
 {
-    if (device == host_num_) {
+    if (device == HostNum) {
         //std::free(block);
         delete[] (char*)block;
     }
@@ -163,7 +162,7 @@ void Memory::free(void* block, int device)
 void* Memory::allocBlock(int device)
 {
     void* block;
-    if (device == host_num_)
+    if (device == HostNum)
         block = allocHostMemory(block_size_);
     else
         block = allocDeviceMemory(device, block_size_);
@@ -180,7 +179,7 @@ void* Memory::allocHostMemory(size_t size)
     void* host_mem;
     host_mem = malloc(size);
     assert(host_mem != nullptr);
-    allocated_mem_[host_num_].push(host_mem);
+    allocated_mem_[ HostNum ].push( host_mem );
 
     return host_mem;
 }

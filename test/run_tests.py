@@ -555,12 +555,19 @@ if (opts.aux):
     [ 'tradd',  gen + dtype + n  + ab + uplo ],
     [ 'syadd',  gen + dtype + n  + ab + uplo ],
     [ 'headd',  gen + dtype + n  + ab + uplo ],
+
     [ 'copy',   gen + dtype + mn             ],
     [ 'tzcopy', gen + dtype + mn      + uplo ],
     [ 'trcopy', gen + dtype + n       + uplo ],
     [ 'sycopy', gen + dtype + n       + uplo ],
     [ 'hecopy', gen + dtype + n       + uplo ],
-    [ 'scale',  gen + dtype + mn + ab        ],
+
+    [ 'scale',   gen + dtype + mn + ab        ],
+    [ 'tzscale', gen + dtype + mn + ab + uplo ],
+    [ 'trscale', gen + dtype + n  + ab + uplo ],
+    [ 'syscale', gen + dtype + n  + ab + uplo ],
+    [ 'hescale', gen + dtype + n  + ab + uplo ],
+
     [ 'set',    gen + dtype + mn + ab        ],
     [ 'tzset',  gen + dtype + mn + ab + uplo ],
     [ 'trset',  gen + dtype +  n + ab + uplo ],
@@ -585,6 +592,7 @@ def print_tee( *args ):
 
 # ------------------------------------------------------------------------------
 # cmd is a pair of strings: (function, args)
+
 def run_test( cmd ):
     print( '-' * 80 )
     cmd = opts.test +' '+ cmd[1] +' '+ cmd[0]

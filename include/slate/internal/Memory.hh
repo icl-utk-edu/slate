@@ -34,7 +34,6 @@ public:
         StaticConstructor()
         {
             num_devices_ = blas::get_device_count();
-            host_num_ = HostNum;
         }
     } static_constructor_;
 
@@ -74,7 +73,6 @@ public:
 
     // ----------------------------------------
     // public static variables
-    static int host_num_;
     static int num_devices_;
 
 private:

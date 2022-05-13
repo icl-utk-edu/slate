@@ -100,9 +100,11 @@ void test_gesvd_work(Params& params, bool run)
     slate::Matrix<scalar_t> U; // (m, min_mn);
     slate::Matrix<scalar_t> VT; // (min_mn, n);
 
-    bool wantu  = (jobu  == slate::Job::Vec || jobu  == slate::Job::AllVec
+    bool wantu  = (jobu  == slate::Job::Vec
+                   || jobu  == slate::Job::AllVec
                    || jobu  == slate::Job::SomeVec);
-    bool wantvt = (jobvt == slate::Job::Vec || jobvt == slate::Job::AllVec
+    bool wantvt = (jobvt == slate::Job::Vec
+                   || jobvt == slate::Job::AllVec
                    || jobvt == slate::Job::SomeVec);
 
     if (origin != slate::Origin::ScaLAPACK) {
@@ -153,14 +155,15 @@ void test_gesvd_work(Params& params, bool run)
     slate::generate_matrix( params.matrix, A);
     print_matrix( "A0",  A, params );
 
-    std::vector<real_t> Sigma_ref;
     slate::Matrix<scalar_t> Aref;
+    std::vector<real_t> Sigma_ref;
+    std::vector<scalar_t> Aref_data;
     if (check || ref) {
-        Sigma_ref.resize(Sigma.size());
-        Aref = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
-        slate::Target origin_target = origin2target(origin);
-        Aref.insertLocalTiles(origin_target);
-        slate::copy(A, Aref);
+        Sigma_ref.resize( min_mn );
+        Aref_data.resize( lldA * nlocA );
+        Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                   m, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
+        slate::copy( A, Aref );
     }
 
     if (! ref_only) {
@@ -211,8 +214,6 @@ void test_gesvd_work(Params& params, bool run)
             int A_desc[9];
             scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
-            std::vector<scalar_t> Aref_data(lldA*nlocA);
-            copy(Aref, &Aref_data[0], A_desc);
 
             int U_desc[9];
             scalapack_descinit(U_desc, m, min_mn, nb, nb, 0, 0, ictxt, mlocU, &info);
@@ -221,6 +222,14 @@ void test_gesvd_work(Params& params, bool run)
             int VT_desc[9];
             scalapack_descinit(VT_desc, min_mn, n, nb, nb, 0, 0, ictxt, mlocVT, &info);
             slate_assert(info == 0);
+
+            // Allocate if not already allocated.
+            if (wantu) {
+                U_data.resize( lldU * nlocU );
+            }
+            if (wantvt) {
+                VT_data.resize( lldVT * nlocVT );
+            }
 
             // set MKL num threads appropriately for parallel BLAS
             int omp_num_threads = 1;

@@ -26,7 +26,6 @@ int  g_mpi_rank    = -1;
 int  g_mpi_size    = -1;
 bool g_verbose     = false;
 int  g_num_devices = omp_get_num_devices();
-int  g_host_num    = omp_get_initial_device();
 
 // -----------------------------------------------------------------------------
 // type_name<T>() returns string describing type of T.

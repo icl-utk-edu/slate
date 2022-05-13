@@ -91,9 +91,7 @@ void test_posv_work(Params& params, bool run)
 
     if (params.routine == "posvMixed"
         && ! std::is_same<real_t, double>::value) {
-        if (mpi_rank == 0) {
-            printf("Unsupported mixed precision\n");
-        }
+        params.msg() = "skipping: unsupported mixed precision; must be type=d or z";
         return;
     }
 
@@ -313,6 +311,8 @@ void test_posv_work(Params& params, bool run)
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
+        if (params.routine == "posvMixed")
+            params.okay() = params.okay() && params.iters() >= 0;
     }
 
     if (ref) {

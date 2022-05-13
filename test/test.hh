@@ -82,6 +82,7 @@ public:
     testsweeper::ParamEnum< testsweeper::DataType > datatype;
     testsweeper::ParamEnum< slate::Origin >         origin;
     testsweeper::ParamEnum< slate::Target >         target;
+    testsweeper::ParamEnum< slate::GridOrder >      grid_order;
     testsweeper::ParamEnum< slate::TileReleaseStrategy > tile_release_strategy;
     testsweeper::ParamEnum< slate::Dist >           dev_dist;
     testsweeper::ParamEnum< slate::Layout >         layout;
@@ -339,6 +340,30 @@ inline const char* target2str(slate::Target target)
         case slate::Target::HostBatch: return "batch";
         case slate::Target::Devices:   return "devices";
         case slate::Target::Host:      return "host";
+    }
+    return "?";
+}
+
+// -----------------------------------------------------------------------------
+inline slate::GridOrder str2grid_order( const char* grid_order )
+{
+    std::string grid_order_ = grid_order;
+    std::transform( grid_order_.begin(), grid_order_.end(),
+                    grid_order_.begin(), ::tolower );
+    if (grid_order_ == "c" || grid_order_ == "col")
+        return slate::GridOrder::Col;
+    else if (grid_order_ == "r" || grid_order_ == "row")
+        return slate::GridOrder::Row;
+    else
+        throw slate::Exception("unknown grid_order");
+}
+
+inline const char* grid_order2str( slate::GridOrder grid_order )
+{
+    switch (grid_order) {
+        case slate::GridOrder::Col:     return "col";
+        case slate::GridOrder::Row:     return "row";
+        case slate::GridOrder::Unknown: return "un";
     }
     return "?";
 }

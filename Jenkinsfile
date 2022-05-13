@@ -12,6 +12,10 @@ stages {
         matrix {
             axes {
                 axis {
+                    name 'maker'
+                    values 'make', 'cmake'
+                }
+                axis {
                     name 'host'
                     values 'dopamine', 'gpu_nvidia'
                 }
@@ -61,12 +65,20 @@ run sload gcc@7.3.0
 run spack compiler find
 run sload intel-mkl
 
+# hipcc needs /usr/sbin/lsmod
+export PATH=${PATH}:/usr/sbin
+
 print "========================================"
 date
+print "maker ${maker}"
+
+# For simplicity, create make.inc regardless of ${maker}
+export color=no
 cat > make.inc << END
-CXX  = mpicxx
-FC   = mpif90
-blas = mkl
+CXX    = mpicxx
+FC     = mpif90
+blas   = mkl
+prefix = ${top}/install
 END
 
 print "========================================"
@@ -105,7 +117,19 @@ if [ "${host}" = "dopamine" ]; then
     perl -pi -e 's/-pedantic//' GNUmakefile
 fi
 
-export color=no
+if [ "${maker}" = "make" ]; then
+    print "========================================"
+    make echo
+fi
+
+if [ "${maker}" = "cmake" ]; then
+    print "========================================"
+    sload cmake
+    rm -rf build && mkdir build && cd build
+    cmake -Dcolor=no -DCMAKE_CXX_FLAGS="-Werror" \
+          -DCMAKE_INSTALL_PREFIX=${top}/install \
+          ..
+fi
 
 print "========================================"
 # Check what is loaded.
@@ -129,18 +153,11 @@ env
 
 print "========================================"
 date
-make distclean
-
-print "========================================"
-make echo
-
-print "========================================"
-date
 make -j8
 
 print "========================================"
 date
-make -j8 install prefix=${top}/install
+make -j8 install
 ls -R ${top}/install
 
 print "========================================"
@@ -149,13 +166,19 @@ ldd test/tester
 print "========================================"
 date
 export OMP_NUM_THREADS=8
-cd ${top}/unit_test
-./run_tests.py --xml ../report_unit.xml
+cd unit_test
+./run_tests.py --xml ${top}/report-unit-${maker}.xml
+cd ..
 
 print "========================================"
 date
-cd ${top}/test
-./run_tests.py --origin s --target t,d --quick --ref n --xml ${top}/report_test.xml
+cd test
+if [ "${maker}" = "cmake" ]; then
+    # only sanity check with cmake build
+    export tests=potrf
+fi
+./run_tests.py --origin s --target t,d --quick --ref n --xml ${top}/report-${maker}.xml ${tests}
+cd ..
 
 date
 '''

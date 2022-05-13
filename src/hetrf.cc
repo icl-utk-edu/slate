@@ -310,7 +310,7 @@ void hetrf(slate::internal::TargetType<target>,
                             ReduceList reduce_list;
                             for (int i = k+1; i < A_mt; ++i) {
                                 reduce_list.push_back({i, k,
-                                                        A.sub(i, i, 0, k-2),
+                                                        A.sub(i, i, k, k),
                                                         {A.sub(i, i, 0, k-2)}
                                                       });
                             }

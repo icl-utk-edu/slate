@@ -6,6 +6,8 @@
 #ifndef SLATE_GRID_UTILS_HH
 #define SLATE_GRID_UTILS_HH
 
+#include "slate/slate.hh"
+
 #include <stdint.h>
 
 //------------------------------------------------------------------------------
@@ -29,10 +31,29 @@ inline int64_t num_local_rows_cols(int64_t n, int64_t nb, int iproc, int nprocs)
 //------------------------------------------------------------------------------
 // Similar to BLACS gridinfo
 // (local row ID and column ID in 2D block cyclic distribution).
-inline void gridinfo(int mpi_rank, int p, int q, int*  my_row, int*  my_col)
+inline void gridinfo(
+    int mpi_rank, slate::GridOrder order, int p, int q,
+    int*  my_row, int*  my_col)
 {
-    *my_row = mpi_rank % p;
-    *my_col = mpi_rank / p;
+    if (order == slate::GridOrder::Col) {
+        *my_row = mpi_rank % p;
+        *my_col = mpi_rank / p;
+    }
+    else if (order == slate::GridOrder::Row) {
+        *my_row = mpi_rank / q;
+        *my_col = mpi_rank % q;
+    }
+    else {
+        slate_error( "Unknown GridOrder" );
+    }
+}
+
+// Overload with grid order == Col.
+inline void gridinfo(
+    int mpi_rank, int p, int q,
+    int*  my_row, int*  my_col)
+{
+    gridinfo( mpi_rank, slate::GridOrder::Col, p, q, my_row, my_col );
 }
 
 #endif // SLATE_GRID_UTILS_HH

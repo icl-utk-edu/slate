@@ -23,7 +23,7 @@ void trsm(slate::internal::TargetType<target>,
                                     Matrix<scalar_t>& B,
           Options const& opts)
 {
-    Options opts2 = Options( opts );
+    Options opts2 = opts;
 
     if (target == Target::Devices) {
         // Use only TileReleaseStrategy::Slate for trsm.

@@ -182,6 +182,138 @@ void stevx2_put_col_vector(
 }
 
 //------------------------------------------------------------------------------
+// mpi_apportion: Given a caller's value range and panel_width, this produces a
+// vector of "dividing values", such that each 'slice' of the eigenvalue range
+// contains no more than panel_width eigenvalues. Note the values themselves are
+// not necessarily eigenvalues; we just want to distribute the work equally in
+// panel_width chunks. The size of the vector will be L=slice_count + 1, the
+// first and last values will be the caller's min and max value range. (If the
+// caller provides an index range, this must be converted to min and max values
+// before calling).
+
+// One issue we must deal with is eigenvalue multiplicity. In any precision,
+// theoretically distinct eigenvalues can be so close arithmetically that they
+// are represented by the same floating point number. In such cases, we might
+// not be able to find a perfect slice value; for example if sturm() reports
+// there are 400 eigenvalues in the range [caller_min, caller_max), and
+// panel_width = 100, it is possible that at one value X, sturm(X) reports 99
+// values < X. and sturm(X+ulp) reports 101 values < X+ulp. There is no
+// midpoint between sturm(X) and sturm(X+ulp) to make a better slice value; we
+// have a multiplicity and must include it in one slice or the other; we cannot
+// divide it. The choice we make in such circumstances is to NOT create a slice
+// with MORE than panel_width eigenvalues.
+
+// Note as well, given a slice to process, an MPI rank may find that although
+// there are X theoretical eigenvalues contained in the range, due to
+// multiplicity, there are less than X *distinct* eigenvalues in the range, and
+// it must return with a panel-wide slice with fewer than panel_width columns
+// populated. This will slightly complicate stitching these together for
+// orthogonalization.
+//
+// After eigenvalue discovery, each rank can compress their slice and return
+// the width.
+//
+// The returns are the vectors count<int>; count.size() = #panels found; and
+// boundary<scalar_t>.size() = #panels + 1.
+//
+// The caller can use the boundary[] vector as:
+// [v[0],v[1]) theoretically contains count[0] eigenvalues.
+// [v[1],v[2]) theoretically contains count[1] eigenvalues, etc.
+//
+// The panel_width provided can be anything > 0; probably the desired matrix
+// tile width, or a multiple thereof.
+//
+// This has been tested successfully with many values of panel_width and n.
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void stevx2_mpi_apportion(
+    const lapack_int n, const std::vector<scalar_t>& diag,
+    const std::vector<scalar_t>offd, const int panel_width,
+    const scalar_t& caller_min, const scalar_t& caller_max,
+    std::vector<scalar_t>& boundary, std::vector<int>& count)
+{
+    // error if min >= max.
+    int v_less_than_min = lapack::sturm(n, &diag[0], &offd[0], caller_min);
+    int v_less_than_max = lapack::sturm(n, &diag[0], &offd[0], caller_max);
+    int v_found = (v_less_than_max - v_less_than_min);
+
+    if (v_found < 1) {
+        slate_error("Illegal values of max and min in stevx2_mpi_apportion().");
+        return;
+    }
+
+    // compute number of panels required.
+    boundary.resize(2);             // resized as panels are found.
+    std::vector<int> b_sturm(2);    // resized as panels are found.
+    int panels=1;
+    boundary[0] = caller_min;
+    boundary[1] = caller_max;
+    b_sturm[0] = lapack::sturm(n, &diag[0], &offd[0], boundary[0]);
+    b_sturm[1] = lapack::sturm(n, &diag[0], &offd[0], boundary[1]);
+
+    // Until we come up short. Find new boundary for panel=panels-1.
+    for (;;) {
+        int cnt = b_sturm[panels]-b_sturm[panels-1];
+        if (cnt <= panel_width)
+            break; // exit the loop.
+
+        scalar_t cp_low = boundary[panels-1];
+        scalar_t cp_hi = boundary[panels];
+        scalar_t cp;
+        int cp_sturm;
+        // Zero in on max(cp) that yields <= panel_width.
+        for (;;) {
+            cp = (cp_low + cp_hi) * 0.5;
+            if (cp == cp_low
+                || cp == cp_hi) {
+                // We reached max resolution without landing on panel_width. We
+                // must have a multiplicity. cp_low is a range with less than
+                // panel_width eigenvalues, cp_hi has more than panel_width
+                // eigenvalues, so we choose cp_low.
+                ++panels;
+                boundary.resize(panels+1, boundary[panels-1]);
+                boundary[panels-1] = cp_low;
+                b_sturm.resize(panels+1, b_sturm[panels-1]);
+                b_sturm[panels-1] = lapack::sturm(n, &diag[0], &offd[0], cp_low);
+                break;
+            }
+
+            cp_sturm = lapack::sturm(n, &diag[0], &offd[0], cp);
+            int cp_cnt = cp_sturm - b_sturm[panels-1];
+            // If too much, reduce upper bound of search range.
+            if (cp_cnt > panel_width) {
+                cp_hi = cp;
+                continue;
+            }
+
+            // If too little, it is safe to change the lower bound.
+            if (cp_cnt < panel_width) {
+                cp_low = cp;
+                continue;
+            }
+
+            // We found a cutpoint that gives exactly panel_width.
+            ++panels;
+            boundary.resize(panels+1, boundary[panels-1]);
+            boundary[panels-1] = cp;
+            b_sturm.resize(panels+1, b_sturm[panels-1]);
+            b_sturm[panels-1] = cp_sturm;
+            break;
+        } // end bisection to cut the range.
+    } // continue until final panel <= panel_width.
+
+    // Now produce the counts per panel.
+    count.resize(panels);
+    for (int i = 0; i < panels; ++i) {
+        count[i] = b_sturm[i+1]-b_sturm[i];
+        if (0) { // DEBUG for testing; can be deleted.
+            fprintf(stderr, "%s:%i Panel %i=[%.8e,%.8e] count=%i.\n",
+            __func__, __LINE__, i, boundary[i], boundary[i+1], count[i]);
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
 // STELG: Symmetric Tridiagonal Eigenvalue Least Greatest (Min and Max).
 // Finds the least and largest signed eigenvalues (not least magnitude).
 // begins with bounds by Gerschgorin disc. These may be over or under
@@ -436,6 +568,27 @@ void stevx2(
     control.pvec = &pvec[0];
     int64_t int_one=1;
 
+    // NOTES: stevx2_mpi_apportion divides the range into tile-sized chunks.
+    // this is a step in getting ready for MPI operation. Nothing is currently
+    // done with these results; I only coded this first step.  To continue,
+    // this should be conditional on the number of MPI ranks available; each
+    // rank would also call stevx2() to process their panel, find eigenvalues
+    // and eigenvectors. After that, the panels of each rank must be stitched
+    // together, but don't forget that due to multiplicity each may have fewer
+    // columns than we set in panel_width. We also need a single eigenvalue
+    // vector. Then we need a geqrf/unmqr to orthogonalize the full eigenvector
+    // matrix. After that we must do checks for vector_swapping operation on
+    // the full matrix.
+
+    std::vector<int> count;
+    std::vector<scalar_t> boundary;
+    if (0) { // DEBUG for testing, can be deleted.
+        fprintf(stderr, "%s:%i n_eig_vals=%ld, Range[%.8e,%.8e] \n",
+                __func__, __LINE__, n_eig_vals, vl, vu);
+    }
+
+    stevx2_mpi_apportion(n, diag, offd, 256, vl, vu, boundary, count);
+
     // We launch the root task: The full range to subdivide.
     #pragma omp parallel
     {
@@ -601,6 +754,14 @@ void stevx2(
 
     return;
 }
+
+template
+void stevx2_get_col_vector<float>(
+        Matrix<float>& source, std::vector<float>& v, int col);
+
+template
+void stevx2_get_col_vector<double>(
+        Matrix<double>& source, std::vector<double>& v, int col);
 
 template
 void stevx2_stelg<float>(

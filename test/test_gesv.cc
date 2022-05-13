@@ -104,7 +104,7 @@ void test_gesv_work(Params& params, bool run)
     }
 
     if (params.routine == "gesvMixed"
-        && target == slate::Target::Devices ) {
+        && target == slate::Target::Devices) {
         params.msg() = "skipping: unsupported mixed precision; no devices support";
         return;
     }

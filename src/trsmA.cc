@@ -17,7 +17,7 @@ namespace specialization {
 /// @internal
 /// Distributed parallel triangular matrix solve.
 /// Generic implementation for any target.
-/// @ingroup trsm_specialization
+/// @ingroup trsm_impl
 ///
 template <Target target, typename scalar_t>
 void trsmA(slate::internal::TargetType<target>,
@@ -67,7 +67,7 @@ void trsmA(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup trsm_specialization
+/// @ingroup trsm_impl
 ///
 template <Target target, typename scalar_t>
 void trsmA(blas::Side side,

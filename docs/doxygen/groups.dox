@@ -277,7 +277,7 @@
             @defgroup syrk_specialization   syrk:  Symmetric rank k update
             @defgroup syr2k_specialization  syr2k: Symmetric rank 2k update
             @defgroup trmm_specialization   trmm:  Triangular matrix multiply
-            @defgroup trsm_specialization   trsm:  Triangular solve matrix
+            @defgroup trsm_impl             trsm:  Triangular solve matrix
             @defgroup tbsm_specialization   tbsm:  Triangular solve band matrix
         @}
 

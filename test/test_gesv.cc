@@ -103,6 +103,12 @@ void test_gesv_work(Params& params, bool run)
         return;
     }
 
+    if (params.routine == "gesvMixed"
+        && target == slate::Target::Devices ) {
+        params.msg() = "skipping: unsupported mixed precision; no devices support";
+        return;
+    }
+
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},

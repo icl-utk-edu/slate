@@ -1110,7 +1110,7 @@ distclean: clean
 	rm -f include/slate/c_api/matrix.h
 	rm -f include/slate/c_api/util.hh
 	rm -f src/fortran/slate_module.f90
-	rm -rf src/hip
+	rm -f ${md5_files}
 	cd testsweeper && $(MAKE) distclean
 	cd blaspp      && $(MAKE) distclean
 	cd lapackpp    && $(MAKE) distclean

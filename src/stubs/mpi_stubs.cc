@@ -17,6 +17,11 @@ int* MPI_STATUS_IGNORE;
 extern "C" {
 #endif
 
+int MPI_Type_contiguous(int count, MPI_Datatype oldtype, MPI_Datatype* newtype)
+{
+    assert(0);
+}
+
 int MPI_Allreduce(const void* sendbuf, void* recvbuf, int count,
                   MPI_Datatype datatype, MPI_Op op, MPI_Comm comm)
 {

@@ -170,7 +170,8 @@ void hbmm(slate::internal::TargetType<target>,
                     for (int64_t i = i_end; i < C.mt(); ++i) {
                         for (int64_t j = 0; j < C.nt(); ++j) {
                             if (C.tileIsLocal(i, j)) {
-                                #pragma omp task shared(C)
+                                #pragma omp task default(none) shared(C) \
+                                    firstprivate(i, j, layout, beta)
                                 {
                                     C.tileGetForWriting(i, j, LayoutConvert(layout));
                                     scale(beta, C(i, j));
@@ -328,7 +329,8 @@ void hbmm(slate::internal::TargetType<target>,
                     for (int64_t i = i_end; i < C.mt(); ++i) {
                         for (int64_t j = 0; j < C.nt(); ++j) {
                             if (C.tileIsLocal(i, j)) {
-                                #pragma omp task shared(C)
+                                #pragma omp task default(none) shared(C) \
+                                    firstprivate(i, j, layout, beta)
                                 {
                                     C.tileGetForWriting(i, j, LayoutConvert(layout));
                                     scale(beta, C(i, j));

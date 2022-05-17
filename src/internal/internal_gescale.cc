@@ -109,11 +109,12 @@ void scale(
     Matrix<scalar_t>& A, int priority, int queue_index)
 {
     // trace::Block trace_block("scale");
-
+    #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal(i, j)) {
-                #pragma omp task shared(A ) priority(priority)
+                #pragma omp task default(none) shared(A ) \
+                    firstprivate(i, j, numer, denom) priority(priority)
                 {
                     A.tileGetForWriting(i, j, LayoutConvert::None);
                     scale(numer, denom, A(i, j));
@@ -121,8 +122,6 @@ void scale(
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -169,8 +168,10 @@ void scale(internal::TargetType<Target::Devices>,
         { A.nt()-1, A.nt()   }
     };
 
+    #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task shared(A) priority(priority)
+        #pragma omp task default(none) shared(A) \
+            firstprivate(device, irange, jrange, queue_index, denom, numer) priority(priority)
         {
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already
@@ -229,8 +230,6 @@ void scale(internal::TargetType<Target::Devices>,
             queue->sync();
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

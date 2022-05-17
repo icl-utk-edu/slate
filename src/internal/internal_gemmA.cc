@@ -90,10 +90,12 @@ void gemmA(internal::TargetType<Target::HostTask>,
     // have to be acquired
     // TODO make it a matrix of the C tiles involved c.TileAcquire(i, k)
     int c_tile_acquired = 0;
+    #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal(i, j)) {
-                #pragma omp task shared(A, B, C, err, c_tile_acquired) priority(priority)
+                #pragma omp task default(none) shared(A, B, C, err, c_tile_acquired) \
+                    firstprivate(i, j, layout) priority(priority)
                 {
                     try {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
@@ -122,10 +124,10 @@ void gemmA(internal::TargetType<Target::HostTask>,
         }
     }
 
-    #pragma omp taskwait
-
+    #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
-        #pragma omp task shared(A, B, C, err) priority(priority)
+        #pragma omp task default(none) shared(A, B, C, err) \
+            firstprivate(i, alpha, beta, c_tile_acquired) priority(priority)
         {
             try {
 
@@ -161,8 +163,6 @@ void gemmA(internal::TargetType<Target::HostTask>,
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         slate_error(std::string("Error in omp-task line: ")+std::to_string(err));

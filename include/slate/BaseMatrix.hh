@@ -1644,7 +1644,7 @@ void BaseMatrix<scalar_t>::tileUnsetHoldAll(int device)
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileUnsetHoldAllOnDevices()
 {
-    #pragma omp parallel for
+    #pragma omp parallel for default(none)
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
@@ -1938,6 +1938,7 @@ void BaseMatrix<scalar_t>::listBcast(
                     tile_set[device].insert({i, j});
             }
             else {
+                #pragma omp taskgroup
                 for (auto device : dev_set) {
                     // note: dev_set structure is released after the if-target block
                     #pragma omp task default(none) firstprivate(i, j, device, is_shared)
@@ -1956,6 +1957,7 @@ void BaseMatrix<scalar_t>::listBcast(
 
     if (target == Target::Devices) {
         if (mpi_size == 1) {
+            #pragma omp taskgroup
             for (int d = 0; d < num_devices(); ++d) {
                 if (! tile_set[d].empty()) {
                     #pragma omp task default(none) firstprivate(d, is_shared) shared(tile_set)
@@ -1973,7 +1975,6 @@ void BaseMatrix<scalar_t>::listBcast(
     }
     slate_mpi_call(
         MPI_Waitall(send_requests.size(), send_requests.data(), MPI_STATUSES_IGNORE));
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -2092,6 +2093,7 @@ void BaseMatrix<scalar_t>::listBcastMT(
                 for (auto submatrix : submatrices_list)
                     submatrix.getLocalDevices(&dev_set);
 
+                // #pragma omp taskgroup
                 for (auto dev : dev_set) {
                     //todo: test #pragma omp task default(none) firstprivate(i,j,dev,is_shared) if (mpi_size == 1)
                     if (is_shared)
@@ -2102,7 +2104,6 @@ void BaseMatrix<scalar_t>::listBcastMT(
             } // paren added for the trace_block label
         }
     }
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -2146,8 +2147,6 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -3524,6 +3523,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
     std::set<ij_tuple>& tile_set, int device, Layout layout, bool reset)
 {
     if (device == HostNum) {
+        #pragma omp taskgroup
         for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
             int64_t i = std::get<0>(*iter);
             int64_t j = std::get<1>(*iter);
@@ -3532,7 +3532,6 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
                 tileLayoutConvert(i, j, device, layout, reset);
             }
         }
-        #pragma omp taskwait
     }
     else {
         // todo: this is not an optimal lock,

@@ -154,15 +154,15 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
         #pragma omp parallel
         #pragma omp master
         {
-            #pragma omp task default(shared)
+            #pragma omp task default(none) shared(A) firstprivate(layout)
             {
                 A.tileGetAndHoldAllOnDevices( LayoutConvert( layout ) );
             }
-            #pragma omp task default(shared)
+            #pragma omp task default(none) shared(B) firstprivate(layout)
             {
                 B.tileGetAndHoldAllOnDevices( LayoutConvert( layout ) );
             }
-            #pragma omp task default(shared)
+            #pragma omp task default(none) shared(X) firstprivate(layout)
             {
                 X.tileGetAndHoldAllOnDevices( LayoutConvert( layout ) );
             }

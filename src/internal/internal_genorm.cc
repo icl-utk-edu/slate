@@ -138,10 +138,12 @@ void norm(
 
             // Find max of each tile, append to tiles_maxima.
             std::vector<real_t> tiles_maxima;
+            #pragma omp taskgroup
             for (int64_t i = 0; i < A.mt(); ++i) {
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task shared(A, tiles_maxima) priority(priority)
+                        #pragma omp task default(none) shared(A, tiles_maxima) \
+                            firstprivate(i, j, layout, in_norm, scope) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_max;
@@ -154,8 +156,6 @@ void norm(
                     }
                 }
             }
-
-            #pragma omp taskwait
 
             // Find max of tiles_maxima.
             *values = lapack::lange(in_norm,
@@ -170,11 +170,13 @@ void norm(
 
             // Sum each column within a tile.
             std::vector<real_t> tiles_sums(A.n()*A.mt(), 0.0);
+            #pragma omp taskgroup
             for (int64_t i = 0; i < A.mt(); ++i) {
                 int64_t jj = 0;
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task shared(A, tiles_sums) priority(priority)
+                        #pragma omp task default(none) shared(A, tiles_sums) \
+                            firstprivate(i, j, layout, in_norm, scope, jj) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             genorm(in_norm, scope, A(i, j), &tiles_sums[A.n()*i+jj]);
@@ -183,8 +185,6 @@ void norm(
                     jj += A.tileNb(j);
                 }
             }
-
-            #pragma omp taskwait
 
             // Sum tile results into local results.
             // Summing up local contributions only.
@@ -215,11 +215,13 @@ void norm(
             // Sum each row within a tile.
             std::vector<real_t> tiles_sums(A.m()*A.nt(), 0.0);
             trace::Block trace_block("slate::Rows_sum");
+            #pragma omp taskgroup
             for (int64_t j = 0; j < A.nt(); ++j) {
                 int64_t ii = 0;
                 for (int64_t i = 0; i < A.mt(); ++i) {
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task shared(A, tiles_sums) priority(priority)
+                        #pragma omp task default(none) shared(A, tiles_sums) \
+                            firstprivate(i, j, layout, in_norm, scope, ii) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             genorm(in_norm, scope, A(i, j), &tiles_sums[A.m()*j + ii]);
@@ -228,8 +230,6 @@ void norm(
                 ii += A.tileMb(i);
                 }
             }
-
-            #pragma omp taskwait
 
             // Sum tile results into local results.
             // Summing up local contributions only.
@@ -263,7 +263,8 @@ void norm(
             for (int64_t i = 0; i < A.mt(); ++i) {
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task shared(A, values) priority(priority)
+                        #pragma omp task default(none) shared(A, values) \
+                            firstprivate(i, j, layout, in_norm, scope) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_values[2];
@@ -284,11 +285,13 @@ void norm(
         if (in_norm == Norm::Max) {
             // Find max of each column in each tile.
             std::vector<real_t> cols_maxima(A.n()*A.mt(), 0.0);
+            #pragma omp taskgroup
             for (int64_t i = 0; i < A.mt(); ++i) {
                 int64_t jj = 0;
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task shared(A, cols_maxima) priority(priority)
+                        #pragma omp task default(none) shared(A, cols_maxima) \
+                            firstprivate(i, j, layout, in_norm, scope, jj) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             genorm(in_norm, scope, A(i, j), &cols_maxima[A.n()*i+jj]);
@@ -297,8 +300,6 @@ void norm(
                     jj += A.tileNb(j);
                 }
             }
-
-            #pragma omp taskwait
 
             // Find max of each column.
             // we are looking for absolute value, thus it is safe to initialize to 0.
@@ -353,7 +354,8 @@ void norm(
 
         std::vector<real_t> tiles_maxima;
 
-        #pragma omp parallel for collapse(2) schedule(dynamic, 1)
+        #pragma omp parallel for collapse(2) schedule(dynamic, 1) default(none) \
+            shared(A, tiles_maxima) firstprivate(A_mt, A_nt, scope, in_norm)
         for (int64_t i = 0; i < A_mt; ++i) {
             for (int64_t j = 0; j < A_nt; ++j) {
                 if (A.tileIsLocal(i, j)) {
@@ -368,8 +370,6 @@ void norm(
             }
         }
 
-        #pragma omp taskwait
-
         *values = lapack::lange(in_norm,
                                 1, tiles_maxima.size(),
                                 tiles_maxima.data(), 1);
@@ -380,7 +380,8 @@ void norm(
         // Find max of each column in each tile.
         std::vector<real_t> cols_maxima(A.n()*A.mt(), 0.0);
 
-        #pragma omp parallel for collapse(1) schedule(dynamic, 1)
+        #pragma omp parallel for collapse(1) schedule(dynamic, 1) default(none) \
+            shared(A, cols_maxima) firstprivate(A_mt, A_nt, layout, scope, in_norm)
         for (int64_t i = 0; i < A_mt; ++i) {
             int64_t jj = 0;
             for (int64_t j = 0; j < A_nt; ++j) {
@@ -391,8 +392,6 @@ void norm(
                 jj += A.tileNb(j);
             }
         }
-
-        #pragma omp taskwait
 
         // Find max of each column.
         // we are looking for absolute value, thus it is safe to initialize to 0.
@@ -507,9 +506,11 @@ void norm(
         { A.nt()-1, A.nt()   }
     };
 
+    #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task shared(A, devices_values, vals_host_arrays) \
-                         priority(priority)
+        #pragma omp task default(none) priority(priority) shared(A, devices_values) \
+            shared(a_host_arrays, a_dev_arrays, vals_host_arrays, vals_dev_arrays) \
+            firstprivate(device, irange, jrange, queue_index, ldv, scope, in_norm, layout)
         {
             std::set<ij_tuple> A_tiles_set;
 
@@ -600,8 +601,6 @@ void norm(
             }
         }
     }
-
-    #pragma omp taskwait
 
     for (int device = 0; device < A.num_devices(); ++device) {
         blas::set_device(device);

@@ -39,15 +39,15 @@ void geqrf(internal::TargetType<Target::HostTask>,
     assert(A.nt() == 1);
 
     // Move the panel to the host.
+    #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
         if (A.tileIsLocal(i, 0)) {
-            #pragma omp task shared(A) priority(priority)
+            #pragma omp task default(none) shared(A) firstprivate(i) priority(priority)
             {
                 A.tileGetForWriting(i, 0, LayoutConvert::ColMajor);
             }
         }
     }
-    #pragma omp taskwait
 
     // todo: What about coherency protocol for T?
     // Should be invalidated in device memory if exists.
@@ -84,13 +84,17 @@ void geqrf(internal::TargetType<Target::HostTask>,
 
         #if 1
             omp_set_nested(1);
-            #pragma omp parallel \
+            #pragma omp parallel default(none) \
                 num_threads(thread_size) \
-                shared(thread_barrier, scale, sumsq, xnorm, W)
+                shared(thread_barrier, scale, sumsq, xnorm, W, A, T00)  \
+                shared(tile_indices, tiles) \
+                firstprivate(ib, thread_size)
         #else
-            #pragma omp taskloop \
+             #pragma omp taskloop default(none) \
                 num_tasks(thread_size) \
-                shared(thread_barrier, scale, sumsq, xnorm, W)
+                shared(thread_barrier, scale, sumsq, xnorm, W, A, T00)  \
+                shared(tile_indices, tiles) \
+                firstprivate(ib, thread_size)
         #endif
         {
             // Factor the panel in parallel.

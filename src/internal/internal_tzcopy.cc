@@ -190,6 +190,7 @@ void copy(internal::TargetType<Target::HostTask>,
     assert(A.mt() == B.mt());
     assert(A.nt() == B.nt());
 
+    #pragma omp taskgroup
     for (int64_t j = 0; j < B.nt(); ++j) {
         if (j < B.mt() && B.tileIsLocal(j, j)) {
             A.tileGetForReading(j, j, LayoutConvert::None);
@@ -201,13 +202,14 @@ void copy(internal::TargetType<Target::HostTask>,
         if (lower) {
             for (int64_t i = j+1; i < B.mt(); ++i) {
                 if (B.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A, B) priority(priority)
+                    #pragma omp task default(none) shared(A, B) priority(priority) \
+                        firstprivate(i, j)
                     {
                         A.tileGetForReading(i, j, LayoutConvert::None);
                         B.tileGetForWriting(i, j, LayoutConvert::None);
                         gecopy(A(i, j), B(i, j));
                         B.tileLayout(i, j, A.tileLayout(i, j));
-                        A.tileTick(i, j);// TODO is this correct here?
+                        A.tileTick(i, j);
                     }
                 }
             }
@@ -215,20 +217,20 @@ void copy(internal::TargetType<Target::HostTask>,
         else { // Uplo::Upper
             for (int64_t i = 0; i < j && i < B.mt(); ++i) {
                 if (B.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A, B) priority(priority)
+                    #pragma omp task default(none) shared(A, B) priority(priority) \
+                        firstprivate(i, j)
                     {
                         A.tileGetForReading(i, j, LayoutConvert::None);
                         B.tileGetForWriting(i, j, LayoutConvert::None);
                         gecopy(A(i, j), B(i, j));
                         B.tileLayout(i, j, A.tileLayout(i, j));
-                        A.tileTick(i, j);// TODO is this correct here?
+                        A.tileTick(i, j);
                     }
                 }
             }
         }
     }
-
-    #pragma omp taskwait
+    // end omp taskgroup
 }
 
 //------------------------------------------------------------------------------
@@ -271,8 +273,10 @@ void copy(internal::TargetType<Target::Devices>,
         { std::min(B.mt(), B.nt())-1, std::min(B.mt(), B.nt())   }
     };
 
+    #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task shared(A, B) priority(priority)
+        #pragma omp task default(none) shared(A, B) priority(priority) \
+            firstprivate(device, irange, jrange, lower, queue_index)
         {
             std::set<ij_tuple> A_tiles_set;
             for (int64_t i = 0; i < B.mt(); ++i) {
@@ -285,6 +289,8 @@ void copy(internal::TargetType<Target::Devices>,
                         A_tiles_set.insert({i, j});
                         // no need to convert layout
                         B.tileAcquire(i, j, device, A(i, j).layout());
+                        // copy local and remote tiles to CPU;
+                        B.tileModified(i, j, device, true);
                     }
                 }
             }
@@ -400,8 +406,6 @@ void copy(internal::TargetType<Target::Devices>,
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

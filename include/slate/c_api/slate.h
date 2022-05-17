@@ -6,8 +6,6 @@
 #ifndef SLATE_C_API_SLATE_H
 #define SLATE_C_API_SLATE_H
 
-#include "slate/internal/mpi.hh"
-
 #include "slate/c_api/wrappers.h"
 #include "slate/c_api/matrix.h"
 #include "slate/c_api/types.h"

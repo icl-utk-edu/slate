@@ -131,7 +131,7 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
         int64_t l_numrows = scalapack_numroc(An, nb, myprow, isrcproc0, nprow);
         // l_ipiv_rindx local ipiv row index (Scalapack 1-index)
         // for each local ipiv entry, find corresponding local-pivot and swap-pivot
-        for (int l_ipiv_rindx=1; l_ipiv_rindx<=l_numrows; ++l_ipiv_rindx) {
+        for (int l_ipiv_rindx=1; l_ipiv_rindx <= l_numrows; ++l_ipiv_rindx) {
             // for ipiv index, convert to global indexing
             int64_t g_ipiv_rindx = scalapack_indxl2g(&l_ipiv_rindx, &nb, &myprow, &isrcproc0, &nprow);
             // assuming uniform nb from scalapack (note 1-indexing)

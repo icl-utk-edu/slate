@@ -4,6 +4,10 @@
 # the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 #
 # See INSTALL.md for documentation.
+#
+# Set only_unit=1 to avoid compiling most of the SLATE library,
+# which isn't needed by most unit testers (except test_lq, test_qr).
+# Useful to avoid expensive recompilation when debugging headers.
 
 -include make.inc
 
@@ -383,16 +387,18 @@ libslate_src += \
         src/auxiliary/Debug.cc \
         src/auxiliary/Trace.cc \
         src/core/Memory.cc \
+        src/core/types.cc \
         src/version.cc \
-
-# work
-libslate_src += \
-        src/work/work_trsm.cc \
-        src/work/work_trmm.cc \
 
 # internal
 libslate_src += \
         src/internal/internal_comm.cc \
+        src/internal/internal_transpose.cc \
+        src/internal/internal_util.cc \
+
+# Most unit testers don't need the whole library, only the above subset.
+ifneq ($(only_unit),1)
+    libslate_src += \
         src/internal/internal_copyhb2st.cc \
         src/internal/internal_copytb2bd.cc \
         src/internal/internal_gecopy.cc \
@@ -408,6 +414,7 @@ libslate_src += \
         src/internal/internal_getrf_nopiv.cc \
         src/internal/internal_hebr.cc \
         src/internal/internal_hemm.cc \
+        src/internal/internal_hemmA.cc \
         src/internal/internal_hbnorm.cc \
         src/internal/internal_henorm.cc \
         src/internal/internal_her2k.cc \
@@ -419,10 +426,10 @@ libslate_src += \
         src/internal/internal_synorm.cc \
         src/internal/internal_syr2k.cc \
         src/internal/internal_syrk.cc \
-        src/internal/internal_transpose.cc \
         src/internal/internal_trmm.cc \
         src/internal/internal_trnorm.cc \
         src/internal/internal_trsm.cc \
+        src/internal/internal_trsmA.cc \
         src/internal/internal_trtri.cc \
         src/internal/internal_trtrm.cc \
         src/internal/internal_ttmqr.cc \
@@ -433,12 +440,13 @@ libslate_src += \
         src/internal/internal_tzset.cc \
         src/internal/internal_unmqr.cc \
         src/internal/internal_unmlq.cc \
-        src/internal/internal_util.cc \
+        src/internal/internal_unmtr_hb2st.cc \
         src/internal/internal_hegst.cc \
         src/internal/internal_gescale.cc \
         src/internal/internal_tzscale.cc \
         src/internal/internal_tzadd.cc \
 
+endif
 
 # device
 ifeq ($(cuda),1)
@@ -481,7 +489,8 @@ ifeq ($(hip),1)
 endif
 
 # driver
-libslate_src += \
+ifneq ($(only_unit),1)
+    libslate_src += \
         src/bdsqr.cc \
         src/colNorms.cc \
         src/copy.cc \
@@ -507,9 +516,9 @@ libslate_src += \
         src/getrs_nopiv.cc \
         src/hb2st.cc \
         src/he2hb.cc \
-        src/unmtr_he2hb.cc \
         src/heev.cc \
         src/hemm.cc \
+        src/hemmA.cc \
         src/hbmm.cc \
         src/her2k.cc \
         src/herk.cc \
@@ -521,6 +530,7 @@ libslate_src += \
         src/pbsv.cc \
         src/pbtrf.cc \
         src/pbtrs.cc \
+        src/print.cc \
         src/posv.cc \
         src/posvMixed.cc \
         src/potrf.cc \
@@ -537,13 +547,21 @@ libslate_src += \
         src/tbsmPivots.cc \
         src/trmm.cc \
         src/trsm.cc \
+        src/trsmA.cc \
         src/trtri.cc \
         src/trtrm.cc \
         src/unmqr.cc \
         src/unmlq.cc \
+        src/unmtr_hb2st.cc \
+        src/unmtr_he2hb.cc \
         src/hegst.cc \
         src/scale.cc \
         src/add.cc \
+        src/work/work_trmm.cc \
+        src/work/work_trsm.cc \
+        src/work/work_trsmA.cc \
+
+endif
 
 ifneq ($(have_fortran),)
     libslate_src += \
@@ -585,12 +603,12 @@ tester_src += \
         test/test_gemm.cc \
         test/test_genorm.cc \
         test/test_geqrf.cc \
+        test/test_unmqr.cc \
         test/test_gelqf.cc \
         test/test_gesv.cc \
         test/test_gesvd.cc \
         test/test_getri.cc \
         test/test_he2hb.cc \
-        test/test_unmtr_he2hb.cc \
         test/test_heev.cc \
         test/test_hegv.cc \
         test/test_hemm.cc \
@@ -616,6 +634,8 @@ tester_src += \
         test/test_trnorm.cc \
         test/test_trsm.cc \
         test/test_trtri.cc \
+        test/test_unmtr_hb2st.cc \
+        test/test_unmtr_he2hb.cc \
         test/test_hegst.cc \
         test/matrix_generator.cc \
         test/matrix_params.cc \
@@ -654,13 +674,21 @@ unit_src = \
     unit_test/test_Tile.cc \
     unit_test/test_Tile_kernels.cc \
     unit_test/test_TrapezoidMatrix.cc \
+    unit_test/test_TriangularBandMatrix.cc \
     unit_test/test_TriangularMatrix.cc \
-    unit_test/test_lq.cc \
-    unit_test/test_norm.cc \
-    unit_test/test_qr.cc \
     unit_test/test_geadd.cc \
     unit_test/test_gecopy.cc \
     unit_test/test_geset.cc \
+    unit_test/test_internal_blas.cc \
+    unit_test/test_norm.cc \
+    # End. Add alphabetically.
+
+ifneq ($(only_unit),1)
+unit_src += \
+    unit_test/test_lq.cc \
+    unit_test/test_qr.cc \
+    # End. Add alphabetically.
+endif
 
 # unit test framework
 unit_test_obj = \
@@ -732,12 +760,16 @@ UNIT_LIBS    += -lslate -ltestsweeper
 # Rules
 .DELETE_ON_ERROR:
 .SUFFIXES:
-.PHONY: all docs lib test tester unit_test clean distclean testsweeper blaspp lapackpp
+.PHONY: all docs hooks lib test tester unit_test clean distclean testsweeper blaspp lapackpp
 .DEFAULT_GOAL := all
 
-all: lib tester unit_test scalapack_api lapack_api
+all: lib unit_test hooks
 
-install: lib
+ifneq ($(only_unit),1)
+    all: tester scalapack_api lapack_api
+endif
+
+install: lib scalapack_api lapack_api
 	cd blaspp   && $(MAKE) install prefix=${prefix}
 	@echo
 	cd lapackpp && $(MAKE) install prefix=${prefix}
@@ -774,13 +806,16 @@ docs:
 # C API
 ifeq ($(c_api),1)
     include/slate/c_api/wrappers.h: src/c_api/wrappers.cc
-		python tools/c_api/generate_wrappers.py $< $@
+		python tools/c_api/generate_wrappers.py $< $@ \
+			src/c_api/wrappers_precisions.cc
 
     include/slate/c_api/matrix.h: include/slate/Tile.hh
-		python tools/c_api/generate_matrix.py $< $@
+		python tools/c_api/generate_matrix.py $< $@ \
+			src/c_api/matrix.cc
 
     include/slate/c_api/util.hh: include/slate/c_api/types.h
-		python tools/c_api/generate_util.py $< $@
+		python tools/c_api/generate_util.py $< $@ \
+			src/c_api/util.cc
 
     src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h
     src/c_api/matrix.cc: include/slate/c_api/matrix.h
@@ -1019,7 +1054,7 @@ $(lapack_api_so): $(lapack_api_obj) $(libslate)
 #-------------------------------------------------------------------------------
 # general rules
 
-lib: $(libslate) $(scalapack_api) $(lapack_api)
+lib: $(libslate)
 
 clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/clean
 	rm -f $(libslate_a) $(libslate_so) $(libslate_obj) $(dep)
@@ -1037,6 +1072,17 @@ distclean: clean
 	cd testsweeper && $(MAKE) distclean
 	cd blaspp      && $(MAKE) distclean
 	cd lapackpp    && $(MAKE) distclean
+
+# Install git hooks
+hooks = .git/hooks/pre-commit
+
+hooks: ${hooks}
+
+.git/hooks/%: tools/hooks/%
+	@if [ -e .git/hooks ]; then \
+		echo cp $< $@ ; \
+		cp $< $@ ; \
+	fi
 
 %.hip.o: %.hip.cc | $(hip_header)
 	$(HIPCC) $(HIPCCFLAGS) -c $< -o $@
@@ -1115,6 +1161,8 @@ echo:
 	@echo "libslate      = $(libslate)"
 	@echo
 	@echo "---------- Files"
+	@echo "libslate_src  = $(libslate_src)"
+	@echo
 	@echo "libslate_obj  = $(libslate_obj)"
 	@echo
 	@echo "tester_src    = $(tester_src)"

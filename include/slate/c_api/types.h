@@ -32,6 +32,13 @@ typedef enum slate_Target {
     slate_Target_Devices     = 'D',   ///< slate::Target::Devices
 } slate_Target;                       ///< slate::Target
 
+typedef enum slate_TileReleaseStrategy {
+    slate_TileReleaseStrategy_None     = 'N', ///< slate::TileReleaseStrategy::None
+    slate_TileReleaseStrategy_Internal = 'I', ///< slate::TileReleaseStrategy::Internal
+    slate_TileReleaseStrategy_Slate    = 'S', ///< slate::TileReleaseStrategy::Slate
+    slate_TileReleaseStrategy_All      = 'A', ///< slate::TileReleaseStrategy::All
+} slate_TileReleaseStrategy;                  ///< slate::TileReleaseStrategy
+
 typedef enum slate_Option {
     slate_Option_ChunkSize,           ///< slate::Option::ChunkSize
     slate_Option_Lookahead,           ///< slate::Option::Lookahead
@@ -40,6 +47,7 @@ typedef enum slate_Option {
     slate_Option_MaxPanelThreads,     ///< slate::Option::MaxPanelThreads
     slate_Option_Tolerance,           ///< slate::Option::Tolerance
     slate_Option_Target,              ///< slate::Option::Target
+    slate_Option_TileReleaseStrategy, ///< slate::Option::TileReleaseStrategy
 } slate_Option;                       ///< slate::Option
 
 //------------------------------------------------------------------------------
@@ -53,6 +61,7 @@ typedef union slate_OptionValue {
     int64_t       max_panel_threads;
     double        tolerance;
     slate_Target  target;
+    slate_TileReleaseStrategy tile_release_strategy;
 } slate_OptionValue;                  ///< slate::OptionValue
 
 typedef struct slate_Options {

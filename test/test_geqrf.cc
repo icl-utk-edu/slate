@@ -226,6 +226,11 @@ void test_geqrf_work(Params& params, bool run)
             int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
             int64_t info_ref = 0;
 
+            if (check) {
+                // Copy original A for ScaLAPACK check
+                slate::copy(Aref, A);
+            }
+
             // query for workspace size
             scalar_t dummy;
             scalapack_pgeqrf(m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
@@ -241,6 +246,55 @@ void test_geqrf_work(Params& params, bool run)
                              work.data(), lwork, &info_ref);
             slate_assert(info_ref == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+
+            if (0) {
+                //==================================================
+                // Test results by checking backwards error
+                // within ScaLAPACK implementation
+                //
+                //      || QR - A ||_1
+                //     ---------------- < tol * epsilon
+                //      || A ||_1 * m
+                //
+                //==================================================
+
+                // R is the upper part of A matrix.
+                slate::TrapezoidMatrix<scalar_t> scala_R(slate::Uplo::Upper, slate::Diag::NonUnit, Aref);
+
+                std::vector<scalar_t> scala_QR_data(Aref_data.size(), zero);
+                slate::Matrix<scalar_t> scala_QR = slate::Matrix<scalar_t>::fromScaLAPACK(
+                                                     m, n, &scala_QR_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+
+                slate::TrapezoidMatrix<scalar_t> scala_R1(slate::Uplo::Upper, slate::Diag::NonUnit, scala_QR);
+
+                // Copy A's upper trapezoid R to QR's upper trapezoid R1.
+                slate::copy(scala_R, scala_R1);
+
+                // Apply Q to R-factor
+                scalapack_punmqr(side2str(blas::Side::Left), op2str(slate::Op::NoTrans), m, n, n,
+                                 &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                                 &scala_QR_data[0], 1, 1, Aref_desc,
+                                 &dummy, -1, &info_ref);
+                lwork = int64_t( real( dummy ) );
+                work.resize(lwork);
+                scalapack_punmqr(side2str(blas::Side::Left), op2str(slate::Op::NoTrans), m, n, n,
+                                 &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                                 &scala_QR_data[0], 1, 1, Aref_desc,
+                                 work.data(), lwork, &info_ref);
+                slate_assert(info_ref == 0);
+
+                print_matrix("QR", scala_QR, params);
+
+                slate::add(-one, A, one, scala_QR, opts);
+                print_matrix("QR - A", scala_QR, params);
+
+                // Norm of backwards error: || QR - A ||_1
+                real_t scala_R_norm = slate::norm(slate::Norm::One, scala_QR);
+
+                double residual = scala_R_norm / (m*A_norm);
+                if (mpi_rank == 0)
+                    printf("\nScaLAPACK comparision: ||A - QR|| / ||A|| = %3.2e\n",residual);
+            }
 
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;

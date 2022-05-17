@@ -344,6 +344,7 @@ if (opts.blas3):
     [ 'tbsm',  gen_no_nb + ' --nb 32' + dtype + la + side + uplo + transA + diag + mn + a + kd ],
     [ 'trmm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
     [ 'trsm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
+    [ 'trsmA', gen + dtype + la + side + uplo + transA + diag + mn + a ],
     ]
 
 # LU
@@ -441,6 +442,7 @@ if (opts.least_squares):
 if (opts.qr):
     cmds += [
     [ 'geqrf', gen + dtype + la + mn ],
+    [ 'unmqr', gen + dtype + la + mn ],
     #[ 'ggqrf', gen + dtype + la + mnk ],
     #[ 'ungqr', gen + dtype + la + mn ],  # m >= n
     #[ 'unmqr', gen + dtype_real    + la + mnk + side + trans    ],  # real does trans = N, T, C
@@ -480,30 +482,25 @@ if (opts.rq):
 # symmetric/Hermitian eigenvalues
 if (opts.syev):
     cmds += [
-    # todo nb, uplo, jobz
+    # todo: uplo, jobz
     [ 'heev',  gen + dtype + la + n ],
     #[ 'ungtr', gen + dtype + la + n + uplo ],
-    #[ 'unmtr', gen + dtype_real    + la + mn + uplo + side + trans    ],  # real does trans = N, T, C
-    #[ 'unmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],  # complex does trans = N, C, not T
-    # todo nb, uplo, origin
-    [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_real    + ' --nb 50' + ' --origin s' + side + trans    ],  # real does trans = N, T, C
-    # todo: include (side=l and trans=c) as well as (side=r and trans=n)
-    # [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + side + trans_nc ],  # complex does trans = N, C, not T
-    [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side l' + ' --trans n' ],
-    [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side r' + ' --trans c' ],
-    # todo nb, uplo
+
+    # todo uplo, nk
+    [ 'unmtr_he2hb', gen + dtype_real    + side + trans    + n ],  # real does trans = N, T, C
+    [ 'unmtr_he2hb', gen + dtype_complex + side + trans_nc + n ],  # complex does trans = N, C
+
+    # todo: uplo, side, trans, nk
+    [ 'unmtr_hb2st', gen_no_target + dtype_real    + n ],
+    [ 'unmtr_hb2st', gen_no_target + dtype_complex + n ],
+
+    # todo: uplo
     [ 'he2hb', gen_no_target + dtype + n ],
     [ 'hb2st', gen_no_target + dtype + n ],
-    # sterf doesn't take origin, target, nb, uplo
-    [ 'sterf', grid + check + ref + tol + repeat + dtype + n ],
-    [ 'steqr2', grid + check + ref + tol + repeat + dtype + n ],
-    # todo: hb2st
 
-    # Banded
-    #[ 'hbev',  gen + dtype + la + n + jobz + uplo ],
-    #[ 'ubgtr', gen + dtype + la + n + uplo ],
-    #[ 'ubmtr', gen + dtype_real    + la + mn + uplo + side + trans    ],
-    #[ 'ubmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],
+    # sterf doesn't take origin, target, nb, uplo
+    [ 'sterf',  grid + check + ref + tol + repeat + dtype + n ],
+    [ 'steqr2', grid + check + ref + tol + repeat + dtype + n ],
     ]
 
 # generalized symmetric/Hermitian eigenvalues
@@ -555,10 +552,29 @@ if (opts.norms):
 # aux
 if (opts.aux):
     cmds += [
-    [ 'add',   gen + dtype + mn + ab ],
-    [ 'copy',  gen + dtype + mn      ],
-    [ 'scale', gen + dtype + mn + ab ],
-    [ 'set',   gen + dtype + mn + ab ],
+    [ 'add',    gen + dtype + mn + ab        ],
+    [ 'tzadd',  gen + dtype + mn + ab + uplo ],
+    [ 'tradd',  gen + dtype + n  + ab + uplo ],
+    [ 'syadd',  gen + dtype + n  + ab + uplo ],
+    [ 'headd',  gen + dtype + n  + ab + uplo ],
+
+    [ 'copy',   gen + dtype + mn             ],
+    [ 'tzcopy', gen + dtype + mn      + uplo ],
+    [ 'trcopy', gen + dtype + n       + uplo ],
+    [ 'sycopy', gen + dtype + n       + uplo ],
+    [ 'hecopy', gen + dtype + n       + uplo ],
+
+    [ 'scale',   gen + dtype + mn + ab        ],
+    [ 'tzscale', gen + dtype + mn + ab + uplo ],
+    [ 'trscale', gen + dtype + n  + ab + uplo ],
+    [ 'syscale', gen + dtype + n  + ab + uplo ],
+    [ 'hescale', gen + dtype + n  + ab + uplo ],
+
+    [ 'set',    gen + dtype + mn + ab        ],
+    [ 'tzset',  gen + dtype + mn + ab + uplo ],
+    [ 'trset',  gen + dtype +  n + ab + uplo ],
+    [ 'syset',  gen + dtype +  n + ab + uplo ],
+    [ 'heset',  gen + dtype +  n + ab + uplo ],
     ]
 
 # ------------------------------------------------------------------------------
@@ -578,6 +594,7 @@ def print_tee( *args ):
 
 # ------------------------------------------------------------------------------
 # cmd is a pair of strings: (function, args)
+
 def run_test( cmd ):
     print( '-' * 80 )
     cmd = opts.test +' '+ cmd[1] +' '+ cmd[0]

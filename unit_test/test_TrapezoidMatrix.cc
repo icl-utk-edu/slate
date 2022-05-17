@@ -15,6 +15,7 @@
 
 using slate::ceildiv;
 using slate::roundup;
+using slate::GridOrder;
 
 namespace test {
 
@@ -24,7 +25,6 @@ int m, n, k, mb, nb, p, q;
 int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
-int host_num = slate::HostNum;
 int num_devices = 0;
 int verbose = 0;
 
@@ -61,8 +61,10 @@ void test_TrapezoidMatrix_empty()
     test_assert(L.uplo() == blas::Uplo::Lower);
     test_assert(L.diag() == blas::Diag::NonUnit);
 
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    L.gridinfo( &myp, &myq, &myrow, &mycol );
+    L.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
     test_assert( myp == p );
     test_assert( myq == q );
     test_assert( myrow == mpi_rank % p );
@@ -298,8 +300,10 @@ void test_TrapezoidMatrix_fromScaLAPACK()
     test_assert(L.uplo() == blas::Uplo::Lower);
     test_assert(L.diag() == blas::Diag::NonUnit);
 
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    L.gridinfo( &myp, &myq, &myrow, &mycol );
+    L.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
     test_assert( myp == p );
     test_assert( myq == q );
     test_assert( myrow == mpi_rank % p );
@@ -1830,9 +1834,9 @@ void run_tests()
     run_test(test_Trapezoid_sub_offdiag_trans, "TrapezoidMatrix::sub(i1, i2, j1, j2), A^T", mpi_comm);
 
     run_test(test_Trapezoid_slice,               "TrapezoidMatrix::slice(i1, i2, j2)",          mpi_comm);
-  //run_test(test_Trapezoid_slice_trans,         "TrapezoidMatrix::slice(i1, i2, j2), A^T",     mpi_comm);  // todo
     run_test(test_Trapezoid_slice_offdiag,       "TrapezoidMatrix::slice(i1, i2, j1, j2)",      mpi_comm);
-  //run_test(test_Trapezoid_slice_offdiag_trans, "TrapezoidMatrix::slice(i1, i2, j1, j2), A^T", mpi_comm);  // todo
+    //run_test(test_Trapezoid_slice_trans,         "TrapezoidMatrix::slice(i1, i2, j2), A^T",     mpi_comm);  // todo
+    //run_test(test_Trapezoid_slice_offdiag_trans, "TrapezoidMatrix::slice(i1, i2, j1, j2), A^T", mpi_comm);  // todo
 
     if (mpi_rank == 0)
         printf("\nConversion to Trapezoid\n");
@@ -1857,7 +1861,6 @@ int main(int argc, char** argv)
     MPI_Comm_size(mpi_comm, &mpi_size);
 
     num_devices = blas::get_device_count();
-    host_num = slate::HostNum;
 
     // globals
     m  = 200;

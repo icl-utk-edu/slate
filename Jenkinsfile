@@ -1,6 +1,10 @@
 pipeline {
 
 agent none
+options {
+    // Required to clean before build
+    skipDefaultCheckout( true )
+}
 triggers { pollSCM 'H/10 * * * *' }
 stages {
     //======================================================================
@@ -8,8 +12,12 @@ stages {
         matrix {
             axes {
                 axis {
+                    name 'maker'
+                    values 'make', 'cmake'
+                }
+                axis {
                     name 'host'
-                    values 'gpu_amd', 'gpu_nvidia'
+                    values 'dopamine', 'gpu_nvidia'
                 }
             } // axes
             stages {
@@ -18,8 +26,14 @@ stages {
 
                     //----------------------------------------------------------
                     steps {
+                        cleanWs()
+                        checkout scm
                         sh '''
-#!/bin/sh +x
+#!/bin/sh
+
+set +e  # errors are not fatal (e.g., Spack sometimes has spurious failures)
+set -x  # echo commands
+
 date
 hostname && pwd
 export top=`pwd`
@@ -27,14 +41,15 @@ export top=`pwd`
 date
 git submodule update --init
 
-# Suppress trace output of commands executed with `run`. Useful for Spack.
+# Suppress echo (-x) output of commands executed with `run`. Useful for Spack.
+# set +x, set -x are not echo'd.
 run() {
     { set +x; } 2> /dev/null;
     $@;
     set -x
 }
 
-# Suppress trace output of `print` commands. https://superuser.com/a/1141026
+# Suppress echo (-x) output of `print` commands. https://superuser.com/a/1141026
 # aliasing `echo` causes issues with spack_setup, so use `print` instead.
 echo_and_restore() {
     builtin echo "$*"
@@ -50,12 +65,20 @@ run sload gcc@7.3.0
 run spack compiler find
 run sload intel-mkl
 
+# hipcc needs /usr/sbin/lsmod
+export PATH=${PATH}:/usr/sbin
+
 print "========================================"
 date
+print "maker ${maker}"
+
+# For simplicity, create make.inc regardless of ${maker}
+export color=no
 cat > make.inc << END
-CXX  = mpicxx
-FC   = mpif90
-blas = mkl
+CXX    = mpicxx
+FC     = mpif90
+blas   = mkl
+prefix = ${top}/install
 END
 
 print "========================================"
@@ -76,8 +99,8 @@ if [ "${host}" = "gpu_nvidia" ]; then
 fi
 
 # Run HIP, Intel MPI tests.
-if [ "${host}" = "gpu_amd" ]; then
-    sload intel-mpi
+if [ "${host}" = "dopamine" ]; then
+    run sload intel-mpi
     export FI_PROVIDER=tcp
 
     #echo "CXXFLAGS  = -Werror"  >> make.inc  # HIP headers have many errors; ignore.
@@ -94,17 +117,39 @@ if [ "${host}" = "gpu_amd" ]; then
     perl -pi -e 's/-pedantic//' GNUmakefile
 fi
 
-export color=no
+if [ "${maker}" = "make" ]; then
+    print "========================================"
+    make echo
+fi
+
+if [ "${maker}" = "cmake" ]; then
+    print "========================================"
+    sload cmake
+    rm -rf build && mkdir build && cd build
+    cmake -Dcolor=no -DCMAKE_CXX_FLAGS="-Werror" \
+          -DCMAKE_INSTALL_PREFIX=${top}/install \
+          ..
+fi
+
+print "========================================"
+# Check what is loaded.
+run spack find --loaded
+
+which mpicxx
+which mpif90
+mpicxx --version
+mpif90 --version
+
+which nvcc
+nvcc --version
+
+which hipcc
+hipcc --version
+
+echo "MKLROOT ${MKLROOT}"
 
 print "========================================"
 env
-
-print "========================================"
-date
-make distclean
-
-print "========================================"
-make echo
 
 print "========================================"
 date
@@ -112,7 +157,7 @@ make -j8
 
 print "========================================"
 date
-make -j8 install prefix=${top}/install
+make -j8 install
 ls -R ${top}/install
 
 print "========================================"
@@ -121,13 +166,19 @@ ldd test/tester
 print "========================================"
 date
 export OMP_NUM_THREADS=8
-cd ${top}/unit_test
-./run_tests.py --xml ../report_unit.xml
+cd unit_test
+./run_tests.py --xml ${top}/report-unit-${maker}.xml
+cd ..
 
 print "========================================"
 date
-cd ${top}/test
-./run_tests.py --quick --ref n --xml ${top}/report_test.xml
+cd test
+if [ "${maker}" = "cmake" ]; then
+    # only sanity check with cmake build
+    export tests=potrf
+fi
+./run_tests.py --origin s --target t,d --quick --ref n --xml ${top}/report-${maker}.xml ${tests}
+cd ..
 
 date
 '''
@@ -136,7 +187,7 @@ date
                     //----------------------------------------------------------
                     post {
                         failure {
-                            mail to: 'slate-dev@icl.utk.edu',
+                            mail to: 'slate-test@icl.utk.edu',
                                 subject: "${currentBuild.fullDisplayName} >> ${STAGE_NAME} >> ${host} failed",
                                 body: "See more at ${env.BUILD_URL}"
                         }

@@ -164,6 +164,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                 }
             }
 
+            #pragma omp taskgroup
             for (int64_t k = 0; k < k_end; ++k) {
                 if (side == Side::Left) {
                     i = rank_ind;
@@ -185,25 +186,25 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                             j1 = k_src;
                         }
 
-                        #pragma omp task shared(A, T, C)
+                        #pragma omp task default(none) shared(A, T, C) \
+                            firstprivate(i, j, layout, rank_ind, side, op, i1, j1)
                         {
-                        A.tileGetForReading(rank_ind, 0, LayoutConvert(layout));
-                        T.tileGetForReading(rank_ind, 0, LayoutConvert(layout));
-                        C.tileGetForWriting(i, j, LayoutConvert(layout));
+                            A.tileGetForReading(rank_ind, 0, LayoutConvert(layout));
+                            T.tileGetForReading(rank_ind, 0, LayoutConvert(layout));
+                            C.tileGetForWriting(i, j, LayoutConvert(layout));
 
-                        // Apply Q.
-                        tpmqrt(side, op, std::min(A.tileMb(rank_ind), A.tileNb(0)),
-                               A(rank_ind, 0), T(rank_ind, 0),
-                               C(i1, j1), C(i, j));
+                            // Apply Q.
+                            tpmqrt(side, op, std::min(A.tileMb(rank_ind), A.tileNb(0)),
+                                   A(rank_ind, 0), T(rank_ind, 0),
+                                   C(i1, j1), C(i, j));
 
-                        // todo: should tileRelease()?
-                        A.tileTick(rank_ind, 0);
-                        T.tileTick(rank_ind, 0);
+                            // todo: should tileRelease()?
+                            A.tileTick(rank_ind, 0);
+                            T.tileTick(rank_ind, 0);
                         }
                     }
                 }
             }
-            #pragma omp taskwait
 
             for (int64_t k = 0; k < k_end; ++k) {
                 if (side == Side::Left) {
@@ -228,7 +229,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                                 j_dst = k_dst;
                             }
                             int dst = C.tileRank(i_dst, j_dst);
-                            assert( (C.tileState( i, j, C.hostNum() ) & MOSI::Modified) != 0 );
+                            assert( (C.tileState( i, j, HostNum ) & MOSI::Modified) != 0 );
                             C.tileRecv(i, j, dst, layout, tag);
                         }
                     }

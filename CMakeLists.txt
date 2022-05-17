@@ -7,12 +7,13 @@
 # Tests require TestSweeper library from
 #     http://bitbucket.org/icl/testsweeper
 
-cmake_minimum_required( VERSION 3.15 )
+cmake_minimum_required( VERSION 3.18 )
 # 3.1  target_compile_features
 # 3.8  target_compile_features( cxx_std_11 )
 # 3.14 install( LIBRARY DESTINATION lib ) default
 # 3.15 $<$COMPILE_LANG_AND_ID  # optional
 # 3.15 message DEBUG, string REPEAT
+# 3.18 CMAKE_CUDA_ARCHITECTURES
 
 project(
     slate
@@ -47,7 +48,7 @@ option( build_tests "Build test suite" "${slate_is_project}" )
 option( color "Use ANSI color output" true )
 option( use_mpi "Use MPI, if available" true )
 option( use_openmp "Use OpenMP, if available" true )
-# todo: option( c_api "Build C API" false )
+option( c_api "Build C API" false )
 # todo: option( fortran_api "Build Fortran API. Requires C API." false )
 
 set( gpu_backend "auto" CACHE STRING "GPU backend to use" )
@@ -99,6 +100,20 @@ endif()
 set_property( CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
               None Debug Release RelWithDebInfo MinSizeRel )
 
+# CUDA architectures required in CMake 3.18
+# Fermi   20
+# Kepler  30 35 37
+# Maxwell 50 52 53
+# Pascal  60 61 62
+# Volta   70 72
+# Turing  75
+# Ampere  80 86
+# Also -real and -virtual suffixes.
+set( CMAKE_CUDA_ARCHITECTURES "60" CACHE STRING
+     "CUDA architectures, as semi-colon separated list of 2-digit numbers, e.g., 60;70;80 for Pascal, Volta, Ampere" )
+set_property( CACHE CMAKE_CUDA_ARCHITECTURES PROPERTY STRINGS
+              30 50 60 70 75 80 )
+
 #-----------------------------------
 # BLAS options
 # SLATE defaults to single-threaded BLAS.
@@ -143,8 +158,41 @@ endif()
 # Build library.
 
 # todo: these need generation
-# src/c_api/*.cc
 # src/fortran_api/*.f90
+
+message( "---------------------------------------- C API: c_api = ${c_api}" )
+if (c_api)
+    find_package(Python COMPONENTS Interpreter)
+    set( cmd ${Python_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_api/generate_util.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/types.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/util.hh
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api/util.cc )
+    execute_process( COMMAND ${cmd} )
+
+    set( cmd ${Python_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_api/generate_matrix.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/Tile.hh
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/matrix.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api/matrix.cc )
+    execute_process( COMMAND ${cmd} )
+
+    set( cmd ${Python_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_api/generate_wrappers.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api/wrappers.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/wrappers.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api/wrappers_precisions.cc )
+    execute_process( COMMAND ${cmd} )
+
+    file(
+        GLOB c_api_src
+        CONFIGURE_DEPENDS  # glob at build time
+        src/c_api/util.cc
+        src/c_api/matrix.cc
+        src/c_api/wrappers.cc
+        src/c_api/wrappers_precisions.cc
+        )
+endif()
 
 file(
     GLOB libslate_src
@@ -155,6 +203,7 @@ file(
     src/core/*.cc
     src/internal/*.cc
     src/work/*.cc
+    ${c_api_src}
 )
 message( DEBUG "libslate_src = ${libslate_src}" )
 
@@ -220,16 +269,16 @@ if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
         slate PRIVATE SLATE_ID="${slate_id}" )
 endif()
 
-# Use and export -std=c++17; don't allow -std=gnu++17 extensions.
-# The `target_compile_features( slate PUBLIC cxx_std_17 )` syntax
-# doesn't seem to allow setting CUDA_STANDARD separately, and slightly
-# older CMake (3.17) doesn't recognize CUDA_STANDARD=17.
+# Use and export -std=c++17.
+# CMake inexplicably allows gnu++17 or "decay" to c++11 or 14; prohibit those.
+# target_compile_features( slate PUBLIC cuda_std_11 ) doesn't seem to work:
+# CUDA nvcc gets -std=c++17, which requires CUDA >= 11.0.
+target_compile_features( slate PUBLIC cxx_std_17 )
 set_target_properties(
     slate PROPERTIES
-    CXX_STANDARD 17
     CUDA_STANDARD 11
-    CXX_STANDARD_REQUIRED true
-    CXX_EXTENSIONS false
+    CXX_STANDARD_REQUIRED true  # prohibit < c++17
+    CXX_EXTENSIONS false        # prohibit gnu++17
 )
 
 if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.15)
@@ -376,22 +425,6 @@ endif()
 if (CMAKE_CUDA_COMPILER)
     enable_language( CUDA )
     set( slate_use_cuda true )
-
-    if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.18)
-        # CUDA architectures required in CMake 3.18
-        # Fermi   20
-        # Kepler  30 35 37
-        # Maxwell 50 52 53
-        # Pascal  60 61 62
-        # Volta   70 72
-        # Turing  75
-        # Ampere  80 86
-        # Also -real and -virtual suffixes.
-        set( CMAKE_CUDA_ARCHITECTURES "60" CACHE STRING
-             "CUDA architectures, as semi-colon separated list of 2-digit numbers, e.g., 60;70;80 for Pascal, Volta, Ampere" )
-        set_property( CACHE CMAKE_CUDA_ARCHITECTURES PROPERTY STRINGS
-                      30 50 60 70 75 80 )
-    endif()
 
     file(
         GLOB libslate_cuda_src
@@ -545,6 +578,7 @@ endif()
 #-------------------------------------------------------------------------------
 if (build_tests)
     add_subdirectory( test )
+    add_subdirectory( unit_test )
 endif()
 
 #-------------------------------------------------------------------------------

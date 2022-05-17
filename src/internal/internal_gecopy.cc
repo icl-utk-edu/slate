@@ -177,23 +177,23 @@ void copy(internal::TargetType<Target::HostTask>,
     assert(A_mt == B.mt());
     assert(A_nt == B.nt());
 
+    #pragma omp taskgroup
     for (int64_t i = 0; i < A_mt; ++i) {
         for (int64_t j = 0; j < A_nt; ++j) {
             if (B.tileIsLocal(i, j)) {
-                #pragma omp task shared(A, B) priority(priority)
+                #pragma omp task default(none) shared(A, B) firstprivate(i, j, HostNum) \
+                    priority(priority)
                 {
                     A.tileGetForReading(i, j, LayoutConvert::None);
                     // tileAcquire() to avoid un-needed copy
                     B.tileAcquire(i, j, A.tileLayout(i, j));
                     gecopy(A(i, j), B(i, j));
                     B.tileModified(i, j, HostNum, true);
-                    A.tileTick(i, j);// TODO is this correct here?
+                    A.tileTick(i, j);
                 }
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -243,8 +243,10 @@ void copy(internal::TargetType<Target::Devices>,
         { B.nt()-1, B.nt()   }
     };
 
+    #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task shared(A, B) priority(priority)
+        #pragma omp task default(none) shared(A, B) \
+            firstprivate(device, irange, jrange, queue_index) priority(priority)
         {
             std::set<ij_tuple> A_tiles_set;
             for (int64_t i = 0; i < B.mt(); ++i) {
@@ -253,6 +255,8 @@ void copy(internal::TargetType<Target::Devices>,
                         A_tiles_set.insert({i, j});
                         // tileAcquire() instead to avoid un-needed copy
                         B.tileAcquire(i, j, device, Layout::ColMajor);
+                        // copy local and remote tiles to CPU;
+                        B.tileModified(i, j, device, true);
                     }
                 }
             }
@@ -333,8 +337,6 @@ void copy(internal::TargetType<Target::Devices>,
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

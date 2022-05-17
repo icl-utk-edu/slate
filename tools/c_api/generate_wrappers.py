@@ -61,8 +61,8 @@ for header in headers:
     contents2 += gen_precisions(header)
     contents2 += header + '\n'
 
-file_hh = open(sys.argv[2],                        'w')
-file_cc = open('src/c_api/wrappers_precisions.cc', 'w') # todo
+file_hh = open(sys.argv[2], 'w')
+file_cc = open(sys.argv[3], 'w')
 
 copyright = '''\
 // Copyright (c) 2017-2020, University of Tennessee. All rights reserved.

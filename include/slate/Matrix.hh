@@ -37,14 +37,23 @@ public:
            std::function<int (ij_tuple ij)>& inTileDevice,
            MPI_Comm mpi_comm);
 
-    Matrix(int64_t m, int64_t n, int64_t mb, int64_t nb,
-           int p, int q, MPI_Comm mpi_comm);
+    //----------
+    Matrix( int64_t m, int64_t n, int64_t mb, int64_t nb,
+            GridOrder order, int p, int q, MPI_Comm mpi_comm );
 
-    /// With mb = nb.
-    Matrix(int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
-        : Matrix( m, n, nb, nb, p, q, mpi_comm )
+    /// With order = Col.
+    Matrix( int64_t m, int64_t n, int64_t mb, int64_t nb,
+            int p, int q, MPI_Comm mpi_comm )
+        : Matrix( m, n, mb, nb, GridOrder::Col, p, q, mpi_comm )
     {}
 
+    /// With mb = nb, order = Col.
+    Matrix( int64_t m, int64_t n, int64_t nb,
+            int p, int q, MPI_Comm mpi_comm )
+        : Matrix( m, n, nb, nb, GridOrder::Col, p, q, mpi_comm )
+    {}
+
+    //----------
     static
     Matrix fromLAPACK(int64_t m, int64_t n,
                       scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
@@ -59,20 +68,36 @@ public:
         return fromLAPACK(m, n, A, lda, nb, nb, p, q, mpi_comm);
     }
 
+    //----------
     static
-    Matrix fromScaLAPACK(int64_t m, int64_t n,
-                         scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-                         int p, int q, MPI_Comm mpi_comm);
+    Matrix fromScaLAPACK(
+        int64_t m, int64_t n,
+        scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
+        GridOrder order, int p, int q, MPI_Comm mpi_comm );
 
-    /// With mb = nb.
+    /// With order = Col.
     static
-    Matrix fromScaLAPACK(int64_t m, int64_t n,
-                         scalar_t* A, int64_t lda, int64_t nb,
-                         int p, int q, MPI_Comm mpi_comm)
+    Matrix fromScaLAPACK(
+        int64_t m, int64_t n,
+        scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
+        int p, int q, MPI_Comm mpi_comm )
     {
-        return fromScaLAPACK(m, n, A, lda, nb, nb, p, q, mpi_comm);
+        return fromScaLAPACK( m, n, A, lda, mb, nb,
+                              GridOrder::Col, p, q, mpi_comm );
     }
 
+    /// With mb = nb, order = Col.
+    static
+    Matrix fromScaLAPACK(
+        int64_t m, int64_t n,
+        scalar_t* A, int64_t lda, int64_t nb,
+        int p, int q, MPI_Comm mpi_comm )
+    {
+        return fromScaLAPACK( m, n, A, lda, nb, nb,
+                              GridOrder::Col, p, q, mpi_comm );
+    }
+
+    //----------
     static
     Matrix fromDevices(int64_t m, int64_t n,
                        scalar_t** Aarray, int num_devices, int64_t lda,
@@ -87,6 +112,7 @@ public:
         return fromDevices(m, n, Aarray, num_devices, lda, nb, nb, p, q, mpi_comm);
     }
 
+    //----------
     template <typename out_scalar_t=scalar_t>
     Matrix<out_scalar_t> emptyLike(int64_t mb=0, int64_t nb=0,
                                    Op deepOp=Op::NoTrans);
@@ -117,7 +143,7 @@ protected:
     // used by fromLAPACK and fromScaLAPACK
     Matrix(int64_t m, int64_t n,
            scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-           int p, int q, MPI_Comm mpi_comm, bool is_scalapack);
+           GridOrder order, int p, int q, MPI_Comm mpi_comm, bool is_scalapack);
 
     // used by fromDevices
     Matrix(int64_t m, int64_t n, scalar_t** Aarray,
@@ -202,6 +228,10 @@ Matrix<scalar_t>::Matrix(
 /// @param[in] nb
 ///     Column block size in 2D block-cyclic distribution. nb > 0.
 ///
+/// @param[in] order
+///     Order to map MPI processes to tile grid,
+///     GridOrder::ColMajor (default) or GridOrder::RowMajor.
+///
 /// @param[in] p
 ///     Number of block rows in 2D block-cyclic distribution. p > 0.
 ///
@@ -214,8 +244,9 @@ Matrix<scalar_t>::Matrix(
 ///
 template <typename scalar_t>
 Matrix<scalar_t>::Matrix(
-    int64_t m, int64_t n, int64_t mb, int64_t nb, int p, int q, MPI_Comm mpi_comm)
-    : BaseMatrix<scalar_t>(m, n, mb, nb, p, q, mpi_comm)
+    int64_t m, int64_t n, int64_t mb, int64_t nb,
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
+    : BaseMatrix<scalar_t>( m, n, mb, nb, order, p, q, mpi_comm )
 {}
 
 //------------------------------------------------------------------------------
@@ -262,7 +293,8 @@ Matrix<scalar_t> Matrix<scalar_t>::fromLAPACK(
     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    return Matrix<scalar_t>(m, n, A, lda, mb, nb, p, q, mpi_comm, false);
+    return Matrix<scalar_t>( m, n, A, lda, mb, nb,
+                             GridOrder::Col, p, q, mpi_comm, false );
 }
 
 //------------------------------------------------------------------------------
@@ -295,6 +327,10 @@ Matrix<scalar_t> Matrix<scalar_t>::fromLAPACK(
 /// @param[in] nb
 ///     Column block size in 2D block-cyclic distribution. nb > 0.
 ///
+/// @param[in] order
+///     Order to map MPI processes to tile grid,
+///     GridOrder::ColMajor (default) or GridOrder::RowMajor.
+///
 /// @param[in] p
 ///     Number of block rows in 2D block-cyclic distribution. p > 0.
 ///
@@ -309,9 +345,9 @@ template <typename scalar_t>
 Matrix<scalar_t> Matrix<scalar_t>::fromScaLAPACK(
     int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
 {
-    return Matrix<scalar_t>(m, n, A, lda, mb, nb, p, q, mpi_comm, true);
+    return Matrix<scalar_t>( m, n, A, lda, mb, nb, order, p, q, mpi_comm, true );
 }
 
 //------------------------------------------------------------------------------
@@ -448,8 +484,8 @@ template <typename scalar_t>
 Matrix<scalar_t>::Matrix(
     int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t mb, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
-    : BaseMatrix<scalar_t>(m, n, mb, nb, p, q, mpi_comm)
+    GridOrder order, int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
+    : BaseMatrix<scalar_t>( m, n, mb, nb, order, p, q, mpi_comm )
 {
     // ii, jj are row, col indices
     // ii_local and jj_local are the local array indices in A
@@ -472,8 +508,8 @@ Matrix<scalar_t>::Matrix(
                     ii_local = indexGlobal2Local(ii, mb, p);
                 }
 
-                this->tileInsert(i, j, this->host_num_,
-                                 &A[ ii_local + jj_local*lda ], lda);
+                this->tileInsert( i, j, HostNum,
+                                  &A[ ii_local + jj_local*lda ], lda );
             }
             ii += ib;
         }
@@ -734,9 +770,9 @@ void Matrix<scalar_t>::gather(scalar_t* A, int64_t lda)
             if (this->mpi_rank_ == 0) {
                 if (! this->tileIsLocal(i, j)) {
                     // erase any existing non-local tile and insert new one
-                    this->tileErase(i, j, this->host_num_);
-                    this->tileInsert(i, j, this->host_num_,
-                                     &A[(size_t)lda*jj + ii], lda);
+                    this->tileErase( i, j, HostNum );
+                    this->tileInsert( i, j, HostNum,
+                                      &A[(size_t)lda*jj + ii], lda );
                     auto Aij = this->at(i, j);
                     Aij.recv(this->tileRank(i, j), this->mpi_comm_, this->layout());
                     this->tileLayout(i, j, this->layout_);
@@ -780,7 +816,7 @@ void Matrix<scalar_t>::insertLocalTiles(Target origin)
         for (int64_t i = 0; i < this->mt(); ++i) {
             if (this->tileIsLocal(i, j)) {
                 int dev = (on_devices ? this->tileDevice(i, j)
-                                      : this->host_num_);
+                                      : HostNum);
                 this->tileInsert(i, j, dev);
             }
         }

@@ -52,10 +52,17 @@ cmds = [
     'test_Memory',
     'test_SymmetricMatrix',
     'test_TrapezoidMatrix',
+    'test_TriangularBandMatrix',
     'test_TriangularMatrix',
     'test_Tile',
     'test_Tile_kernels',
+    'test_geadd',
+    'test_gecopy',
+    'test_geset',
+    'test_internal_blas',
+    'test_lq',
     'test_norm',
+    #'test_qr',  # todo: failing
 ]
 
 # ------------------------------------------------------------------------------

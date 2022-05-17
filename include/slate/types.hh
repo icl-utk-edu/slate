@@ -46,6 +46,9 @@ public:
     OptionValue(Target t) : i_(int(t))
     {}
 
+    OptionValue(TileReleaseStrategy t) : i_(int(t))
+    {}
+
     union {
         int64_t i_;
         double d_;
@@ -100,25 +103,25 @@ class mpi_type {};
 template<>
 class mpi_type<float> {
 public:
-    static constexpr MPI_Datatype value = MPI_FLOAT;
+    static MPI_Datatype value; // = MPI_FLOAT
 };
 
 template<>
 class mpi_type<double> {
 public:
-    static constexpr MPI_Datatype value = MPI_DOUBLE;
+    static MPI_Datatype value; // = MPI_DOUBLE
 };
 
 template<>
 class mpi_type< std::complex<float> > {
 public:
-    static constexpr MPI_Datatype value = MPI_C_COMPLEX;
+    static MPI_Datatype value; // = MPI_C_COMPLEX
 };
 
 template<>
 class mpi_type< std::complex<double> > {
 public:
-    static constexpr MPI_Datatype value = MPI_C_DOUBLE_COMPLEX;
+    static MPI_Datatype value; // = MPI_C_DOUBLE_COMPLEX
 };
 
 // for type-generic maxloc operations
@@ -128,13 +131,13 @@ struct max_loc_type { real_t x; int i; };
 template<>
 class mpi_type< max_loc_type<float> > {
 public:
-    static constexpr MPI_Datatype value = MPI_FLOAT_INT;
+    static MPI_Datatype value; // = MPI_FLOAT_INT
 };
 
 template<>
 class mpi_type< max_loc_type<double> > {
 public:
-    static constexpr MPI_Datatype value = MPI_DOUBLE_INT;
+    static MPI_Datatype value; // = MPI_DOUBLE_INT
 };
 
 //------------------------------------------------------------------------------

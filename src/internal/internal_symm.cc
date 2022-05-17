@@ -79,10 +79,12 @@ void symm(internal::TargetType<Target::HostTask>,
     const Layout layout = Layout::ColMajor;
 
     int err = 0;
+    #pragma omp taskgroup
     if (side == Side::Left) {
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(0, j)) {
-                #pragma omp task shared(A, B, C, err) priority(priority)
+                #pragma omp task default(none) shared(A, B, C, err) \
+                    firstprivate(j, layout, side, alpha, beta) priority(priority)
                 {
                     try {
                         A.tileGetForReading(0, 0, LayoutConvert(layout));
@@ -107,7 +109,8 @@ void symm(internal::TargetType<Target::HostTask>,
         // side == Right
         for (int64_t i = 0; i < C.mt(); ++i) {
             if (C.tileIsLocal(i, 0)) {
-                #pragma omp task shared(A, B, C, err) priority(priority)
+                #pragma omp task default(none) shared(A, B, C, err) \
+                    firstprivate(i, layout, side, alpha, beta) priority(priority)
                 {
                     try {
                         A.tileGetForReading(0, 0, LayoutConvert(layout));
@@ -128,8 +131,6 @@ void symm(internal::TargetType<Target::HostTask>,
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         throw std::exception();
@@ -156,7 +157,8 @@ void symm(internal::TargetType<Target::HostNest>,
 
     int err = 0;
     if (side == Side::Left) {
-        #pragma omp parallel for schedule(dynamic, 1) shared(err)
+        #pragma omp parallel for schedule(dynamic, 1) default(none) \
+            shared(A, B, C, err) firstprivate(layout, side, alpha, beta)
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(0, j)) {
                 try {
@@ -179,32 +181,28 @@ void symm(internal::TargetType<Target::HostNest>,
     }
     else {
         // side == Right
-        #pragma omp parallel for schedule(dynamic, 1) shared(err)
+        #pragma omp parallel for schedule(dynamic, 1) default(none) \
+            shared(A, B, C, err) firstprivate(layout, side, alpha, beta)
         for (int64_t i = 0; i < C.mt(); ++i) {
             if (C.tileIsLocal(i, 0)) {
-                #pragma omp task shared(A, B, C, err) priority(priority)
-                {
-                    try {
-                        A.tileGetForReading(0, 0, LayoutConvert(layout));
-                        B.tileGetForReading(i, 0, LayoutConvert(layout));
-                        C.tileGetForWriting(i, 0, LayoutConvert(layout));
-                        symm(side,
-                             alpha, A(0, 0),
-                                    B(i, 0),
-                             beta,  C(i, 0));
-                        // todo: should tileRelease()?
-                        A.tileTick(0, 0);
-                        B.tileTick(i, 0);
-                    }
-                    catch (std::exception& e) {
-                        err = __LINE__;
-                    }
+                try {
+                    A.tileGetForReading(0, 0, LayoutConvert(layout));
+                    B.tileGetForReading(i, 0, LayoutConvert(layout));
+                    C.tileGetForWriting(i, 0, LayoutConvert(layout));
+                    symm(side,
+                         alpha, A(0, 0),
+                                B(i, 0),
+                         beta,  C(i, 0));
+                    // todo: should tileRelease()?
+                    A.tileTick(0, 0);
+                    B.tileTick(i, 0);
+                }
+                catch (std::exception& e) {
+                    err = __LINE__;
                 }
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         throw std::exception();

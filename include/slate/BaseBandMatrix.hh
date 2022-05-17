@@ -299,9 +299,9 @@ void BaseBandMatrix<scalar_t>::tileUpdateAllOrigin()
                 auto& tile_node = this->storage_->at(this->globalIndex(i, j));
 
                 // find on host
-                if (tile_node.existsOn(this->hostNum()) &&
-                    tile_node[this->hostNum()].tile()->origin()) {
-                    if (tile_node[this->hostNum()].stateOn(MOSI::Invalid)) {
+                if (tile_node.existsOn( HostNum )
+                    && tile_node[ HostNum ].tile()->origin()) {
+                    if (tile_node[ HostNum ].stateOn( MOSI::Invalid )) {
                         // tileGetForReading(i, j, LayoutConvert::None);
                         for (int d = 0; d < this->num_devices(); ++d) {
                             if (tile_node.existsOn(d)

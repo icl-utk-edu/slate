@@ -20,7 +20,6 @@
 
 namespace slate {
 
-
 //==============================================================================
 /// Hermitian, n-by-n, distributed, tiled matrices.
 template <typename scalar_t>
@@ -37,19 +36,39 @@ public:
                     std::function<int (ij_tuple ij)>& inTileDevice,
                     MPI_Comm mpi_comm);
 
-    HermitianMatrix(Uplo uplo, int64_t n, int64_t nb,
-                    int p, int q, MPI_Comm mpi_comm);
+    //----------
+    HermitianMatrix( Uplo uplo, int64_t n, int64_t nb,
+                     GridOrder order, int p, int q, MPI_Comm mpi_comm );
 
+    /// With order = Col.
+    HermitianMatrix( Uplo uplo, int64_t n, int64_t nb,
+                     int p, int q, MPI_Comm mpi_comm )
+        : HermitianMatrix( uplo, n, nb, GridOrder::Col, p, q, mpi_comm )
+    {}
+
+    //----------
     static
     HermitianMatrix fromLAPACK(Uplo uplo, int64_t n,
                                scalar_t* A, int64_t lda, int64_t nb,
                                int p, int q, MPI_Comm mpi_comm);
 
+    //----------
     static
-    HermitianMatrix fromScaLAPACK(Uplo uplo, int64_t n,
-                                  scalar_t* A, int64_t lda, int64_t nb,
-                                  int p, int q, MPI_Comm mpi_comm);
+    HermitianMatrix fromScaLAPACK(
+        Uplo uplo, int64_t n, scalar_t* A, int64_t lda, int64_t nb,
+        GridOrder order, int p, int q, MPI_Comm mpi_comm);
 
+    /// With order = Col.
+    static
+    HermitianMatrix fromScaLAPACK(
+        Uplo uplo, int64_t n, scalar_t* A, int64_t lda, int64_t nb,
+        int p, int q, MPI_Comm mpi_comm)
+    {
+        return fromScaLAPACK( uplo, n, A, lda, nb,
+                              GridOrder::Col, p, q, mpi_comm );
+    }
+
+    //----------
     static
     HermitianMatrix fromDevices(Uplo uplo, int64_t n,
                                 scalar_t** Aarray, int num_devices, int64_t lda,
@@ -81,9 +100,10 @@ public:
 
 protected:
     // used by fromLAPACK and fromScaLAPACK
-    HermitianMatrix(Uplo uplo, int64_t n,
-                    scalar_t* A, int64_t lda, int64_t nb,
-                    int p, int q, MPI_Comm mpi_comm, bool is_scalapack);
+    HermitianMatrix( Uplo uplo, int64_t n,
+                     scalar_t* A, int64_t lda, int64_t nb,
+                     GridOrder order, int p, int q, MPI_Comm mpi_comm,
+                     bool is_scalapack );
 
     // used by fromDevices
     HermitianMatrix(Uplo uplo, int64_t n,
@@ -133,8 +153,9 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
 ///
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
-    Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, nb, p, q, mpi_comm)
+    Uplo uplo, int64_t n, int64_t nb,
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>( uplo, n, n, nb, order, p, q, mpi_comm )
 {}
 
 //------------------------------------------------------------------------------
@@ -175,7 +196,8 @@ HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromLAPACK(
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    return HermitianMatrix<scalar_t>(uplo, n, A, lda, nb, p, q, mpi_comm, false);
+    return HermitianMatrix<scalar_t>( uplo, n, A, lda, nb,
+                                      GridOrder::Col, p, q, mpi_comm, false );
 }
 
 //------------------------------------------------------------------------------
@@ -202,6 +224,10 @@ HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromLAPACK(
 /// @param[in] nb
 ///     Block size in 2D block-cyclic distribution. nb > 0.
 ///
+/// @param[in] order
+///     Order to map MPI processes to tile grid,
+///     GridOrder::ColMajor (default) or GridOrder::RowMajor.
+///
 /// @param[in] p
 ///     Number of block rows in 2D block-cyclic distribution. p > 0.
 ///
@@ -216,9 +242,10 @@ template <typename scalar_t>
 HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::fromScaLAPACK(
     Uplo uplo, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
 {
-    return HermitianMatrix<scalar_t>(uplo, n, A, lda, nb, p, q, mpi_comm, true);
+    return HermitianMatrix<scalar_t>( uplo, n, A, lda, nb,
+                                      order, p, q, mpi_comm, true );
 }
 
 //------------------------------------------------------------------------------
@@ -282,9 +309,9 @@ template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
     Uplo uplo, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, A, lda, nb, p, q, mpi_comm,
-                                    is_scalapack)
+    GridOrder order, int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
+    : BaseTrapezoidMatrix<scalar_t>( uplo, n, n, A, lda, nb,
+                                     order, p, q, mpi_comm, is_scalapack )
 {}
 
 //------------------------------------------------------------------------------
@@ -354,7 +381,7 @@ HermitianMatrix<scalar_t>::HermitianMatrix(
 ///
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
-    HermitianMatrix& orig,
+    HermitianMatrix<scalar_t>& orig,
     int64_t i1, int64_t i2)
     : BaseTrapezoidMatrix<scalar_t>(orig, i1, i2, i1, i2)
 {}
@@ -482,8 +509,9 @@ template <typename scalar_t>
 HermitianMatrix<scalar_t> HermitianMatrix<scalar_t>::slice(
     int64_t index1, int64_t index2)
 {
-    return HermitianMatrix<scalar_t>(*this,
-        typename BaseMatrix<scalar_t>::Slice(index1, index2, index1, index2));
+    return HermitianMatrix<scalar_t>(
+               *this, typename BaseMatrix<scalar_t>::Slice( index1, index2,
+                                                            index1, index2 ));
 }
 
 //------------------------------------------------------------------------------
@@ -511,8 +539,9 @@ Matrix<scalar_t> HermitianMatrix<scalar_t>::slice(
     int64_t row1, int64_t row2,
     int64_t col1, int64_t col2)
 {
-    return Matrix<scalar_t>(*this,
-        typename BaseMatrix<scalar_t>::Slice(row1, row2, col1, col2));
+    return Matrix<scalar_t>(
+               *this, typename BaseMatrix<scalar_t>::Slice( row1, row2,
+                                                            col1, col2 ));
 }
 
 //------------------------------------------------------------------------------

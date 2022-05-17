@@ -11,11 +11,6 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::gesvMixed from internal::specialization::gesvMixed
-namespace internal {
-namespace specialization {
-
 template <typename scalar_t>
 bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
                       std::vector<scalar_t>& colnorms_X,
@@ -33,216 +28,6 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
     }
 
     return value;
-}
-
-//------------------------------------------------------------------------------
-/// Distributed parallel LU factorization and solve.
-/// Generic implementation for any target.
-/// @ingroup gesv_specialization
-///
-template <Target target, typename scalar_hi, typename scalar_lo>
-void gesvMixed( slate::internal::TargetType<target>,
-                Matrix<scalar_hi>& A, Pivots& pivots,
-                Matrix<scalar_hi>& B,
-                Matrix<scalar_hi>& X,
-                int& iter,
-                int64_t ib, int max_panel_threads, int64_t lookahead)
-{
-    // Assumes column major
-    const Layout layout = Layout::ColMajor;
-
-    bool converged = false;
-    const int itermax = 30;
-    using real_hi = blas::real_type<scalar_hi>;
-    const real_hi eps = std::numeric_limits<real_hi>::epsilon();
-    iter = 0;
-
-    assert(B.mt() == A.mt());
-
-    // workspace
-    auto R    = B.emptyLike();
-    auto A_lo = A.template emptyLike<scalar_lo>();
-    auto X_lo = X.template emptyLike<scalar_lo>();
-
-    std::vector<real_hi> colnorms_X(X.n());
-    std::vector<real_hi> colnorms_R(R.n());
-
-    // insert local tiles
-    X_lo.insertLocalTiles(target);
-    R.   insertLocalTiles(target);
-    A_lo.insertLocalTiles(target);
-
-    if (target == Target::Devices) {
-        #pragma omp parallel
-        #pragma omp master
-        {
-            #pragma omp task default(shared)
-            {
-                A.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
-            }
-            #pragma omp task default(shared)
-            {
-                B.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
-            }
-            #pragma omp task default(shared)
-            {
-                X.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
-            }
-        }
-    }
-
-    // norm of A
-    real_hi Anorm = norm(Norm::Inf, A,
-                         {{Option::Target, target}});
-
-    // stopping criteria
-    real_hi cte = Anorm * eps * std::sqrt(A.n());
-
-    // Convert B from high to low precision, store result in X_lo.
-    copy(B, X_lo,
-         {{Option::Target, target}});
-
-    // Convert A from high to low precision, store result in A_lo.
-    copy(A, A_lo,
-         {{Option::Target, target}});
-
-    // Compute the LU factorization of A_lo.
-    getrf(A_lo, pivots,
-          {{Option::InnerBlocking, ib},
-           {Option::Lookahead, lookahead},
-           {Option::MaxPanelThreads, int64_t(max_panel_threads)},
-           {Option::Target, target}});
-
-
-    // Solve the system A_lo * X_lo = B_lo.
-    getrs(A_lo, pivots, X_lo,
-          {{Option::Lookahead, lookahead},
-           {Option::Target, target}});
-
-    // Convert X_lo to high precision.
-    copy(X_lo, X,
-         {{Option::Target, target}});
-
-    // Compute R = B - A * X.
-    copy(B, R,
-         {{Option::Target, target}});
-    gemm<scalar_hi>(
-        scalar_hi(-1.0), A,
-                         X,
-        scalar_hi(1.0),  R,
-        {{Option::Lookahead, lookahead},
-         {Option::Target, target}});
-
-    // Check whether the nrhs normwise backward error satisfies the
-    // stopping criterion. If yes, set iter=0 and return.
-    colNorms( Norm::Max, X, colnorms_X.data(),
-                {{Option::Target, target}});
-    colNorms( Norm::Max, R, colnorms_R.data(),
-                {{Option::Target, target}});
-
-    if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
-        iter = 0;
-        converged = true;
-    }
-
-    // iterative refinement
-    for (int iiter = 0; iiter < itermax && ! converged; iiter++) {
-        // Convert R from high to low precision, store result in X_lo.
-        copy(R, X_lo,
-             {{Option::Target, target}});
-
-        // Solve the system A_lo * X_lo = R_lo.
-        getrs(A_lo, pivots, X_lo,
-              {{Option::Lookahead, lookahead},
-               {Option::Target, target}});
-
-        // Convert X_lo back to double precision and update the current iterate.
-        copy(X_lo, R,
-             {{Option::Target, target}});
-        add<scalar_hi>(
-              scalar_hi(1.0), R,
-              scalar_hi(1.0), X,
-              {{Option::Target, target}});
-
-        // Compute R = B - A * X.
-        copy(B, R,
-             {{Option::Target, target}});
-        gemmA<scalar_hi>(
-            scalar_hi(-1.0), A,
-                             X,
-            scalar_hi(1.0),  R,
-            {{Option::Lookahead, lookahead},
-             {Option::Target, Target::HostTask}});
-
-
-        // Check whether nrhs normwise backward error satisfies the
-        // stopping criterion. If yes, set iter = iiter > 0 and return.
-        colNorms( Norm::Max, X, colnorms_X.data(),
-                    {{Option::Target, target}});
-        colNorms( Norm::Max, R, colnorms_R.data(),
-                    {{Option::Target, target}});
-
-        if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
-            iter = iiter+1;
-            converged = true;
-        }
-    }
-
-    if (! converged) {
-        // If we are at this place of the code, this is because we have performed
-        // iter = itermax iterations and never satisfied the stopping criterion,
-        // set up the iter flag accordingly and follow up with double precision
-        // routine.
-        iter = -itermax - 1;
-
-        // Compute the LU factorization of A.
-        getrf(A, pivots,
-              {{Option::InnerBlocking, ib},
-               {Option::Lookahead, lookahead},
-               {Option::MaxPanelThreads, int64_t(max_panel_threads)},
-               {Option::Target, target}});
-
-        // Solve the system A * X = B.
-        copy(B, X,
-             {{Option::Target, target}});
-        getrs(A, pivots, X,
-              {{Option::Lookahead, lookahead},
-               {Option::Target, target}});
-    }
-
-    if (target == Target::Devices) {
-        // clear instead of release due to previous hold
-        A.clearWorkspace();
-        B.clearWorkspace();
-        X.clearWorkspace();
-    }
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gesv_specialization
-///
-template <Target target, typename scalar_hi, typename scalar_lo>
-void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
-                Matrix<scalar_hi>& B,
-                Matrix<scalar_hi>& X,
-                int& iter,
-                Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
-    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
-
-    internal::specialization::gesvMixed<target, scalar_hi, scalar_lo>(
-                                        internal::TargetType<target>(),
-                                        A, pivots, B, X, iter,
-                                        ib, max_panel_threads, lookahead);
 }
 
 //------------------------------------------------------------------------------
@@ -338,25 +123,144 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            gesvMixed<Target::HostTask,  scalar_hi, scalar_lo>(
-                     A, pivots, B, X, iter, opts);
-            break;
-        case Target::HostNest:
-            gesvMixed<Target::HostNest,  scalar_hi, scalar_lo>(
-                     A, pivots, B, X, iter, opts);
-            break;
-        case Target::HostBatch:
-            gesvMixed<Target::HostBatch, scalar_hi, scalar_lo>(
-                     A, pivots, B, X, iter, opts);
-            break;
-        case Target::Devices:
-            gesvMixed<Target::Devices,   scalar_hi, scalar_lo>(
-                     A, pivots, B, X, iter, opts);
-            break;
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
+    bool converged = false;
+    const int itermax = 30;
+    using real_hi = blas::real_type<scalar_hi>;
+    const real_hi eps = std::numeric_limits<real_hi>::epsilon();
+    const scalar_hi one_hi = 1.0;
+    iter = 0;
+
+    assert( B.mt() == A.mt() );
+
+    // workspace
+    auto R    = B.emptyLike();
+    auto A_lo = A.template emptyLike<scalar_lo>();
+    auto X_lo = X.template emptyLike<scalar_lo>();
+
+    std::vector<real_hi> colnorms_X( X.n() );
+    std::vector<real_hi> colnorms_R( R.n() );
+
+    // insert local tiles
+    X_lo.insertLocalTiles( target );
+    R.   insertLocalTiles( target );
+    A_lo.insertLocalTiles( target );
+
+    if (target == Target::Devices) {
+        #pragma omp parallel
+        #pragma omp master
+        #pragma omp taskgroup
+        {
+            #pragma omp task default(none) shared(A) firstprivate(layout)
+            {
+                A.tileGetAndHoldAllOnDevices( LayoutConvert( layout ) );
+            }
+            #pragma omp task default(none) shared(B) firstprivate(layout)
+            {
+                B.tileGetAndHoldAllOnDevices( LayoutConvert( layout ) );
+            }
+            #pragma omp task default(none) shared(X) firstprivate(layout)
+            {
+                X.tileGetAndHoldAllOnDevices( LayoutConvert( layout ) );
+            }
+        }
     }
+
+    // norm of A
+    real_hi Anorm = norm( Norm::Inf, A, opts );
+
+    // stopping criteria
+    real_hi cte = Anorm * eps * std::sqrt( A.n() );
+
+    // Convert B from high to low precision, store result in X_lo.
+    copy( B, X_lo, opts );
+
+    // Convert A from high to low precision, store result in A_lo.
+    copy( A, A_lo, opts );
+
+    // Compute the LU factorization of A_lo.
+    getrf( A_lo, pivots, opts );
+
+
+    // Solve the system A_lo * X_lo = B_lo.
+    getrs( A_lo, pivots, X_lo, opts );
+
+    // Convert X_lo to high precision.
+    copy( X_lo, X, opts );
+
+    // Compute R = B - A * X.
+    slate::copy( B, R, opts );
+    gemm<scalar_hi>(
+        -one_hi, A,
+                 X,
+        one_hi,  R, opts );
+
+    // Check whether the nrhs normwise backward error satisfies the
+    // stopping criterion. If yes, set iter=0 and return.
+    colNorms( Norm::Max, X, colnorms_X.data(), opts );
+    colNorms( Norm::Max, R, colnorms_R.data(), opts );
+
+    if (iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
+        iter = 0;
+        converged = true;
+    }
+
+    // iterative refinement
+    for (int iiter = 0; iiter < itermax && ! converged; iiter++) {
+        // Convert R from high to low precision, store result in X_lo.
+        copy( R, X_lo, opts );
+
+        // Solve the system A_lo * X_lo = R_lo.
+        getrs( A_lo, pivots, X_lo, opts );
+
+        // Convert X_lo back to double precision and update the current iterate.
+        copy( X_lo, R, opts );
+        add<scalar_hi>(
+              one_hi, R,
+              one_hi, X, opts );
+
+        // Compute R = B - A * X.
+        slate::copy( B, R, opts );
+        gemmA<scalar_hi>(
+            -one_hi, A,
+                     X,
+            one_hi,  R, opts );
+
+        // Check whether nrhs normwise backward error satisfies the
+        // stopping criterion. If yes, set iter = iiter > 0 and return.
+        colNorms( Norm::Max, X, colnorms_X.data(), opts );
+        colNorms( Norm::Max, R, colnorms_R.data(), opts );
+
+        if (iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
+            iter = iiter+1;
+            converged = true;
+        }
+    }
+
+    if (! converged) {
+        // If we are at this place of the code, this is because we have performed
+        // iter = itermax iterations and never satisfied the stopping criterion,
+        // set up the iter flag accordingly and follow up with double precision
+        // routine.
+        iter = -itermax - 1;
+
+        // Compute the LU factorization of A.
+        getrf( A, pivots, opts );
+
+        // Solve the system A * X = B.
+        slate::copy( B, X, opts );
+        getrs( A, pivots, X, opts );
+    }
+
+    if (target == Target::Devices) {
+        // clear instead of release due to previous hold
+        A.clearWorkspace();
+        B.clearWorkspace();
+        X.clearWorkspace();
+    }
+
     // todo: return value for errors?
 }
 
@@ -370,7 +274,7 @@ void gesvMixed<double>(
     int& iter,
     Options const& opts)
 {
-    gesvMixed<double, float>(A, pivots, B, X, iter, opts);
+    gesvMixed<double, float>( A, pivots, B, X, iter, opts );
 }
 
 template <>
@@ -381,7 +285,8 @@ void gesvMixed< std::complex<double> >(
     int& iter,
     Options const& opts)
 {
-    gesvMixed<std::complex<double>, std::complex<float>>(A, pivots, B, X, iter, opts);
+    gesvMixed<std::complex<double>, std::complex<float>>(
+        A, pivots, B, X, iter, opts );
 }
 
 } // namespace slate

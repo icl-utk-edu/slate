@@ -20,7 +20,7 @@ extern "C" void Cblacs_get(int icontxt, int what, int* val);
 namespace slate {
 namespace scalapack_api {
 
-#define logprintf(fmt, ...)                                             \
+#define logprintf(fmt, ...) \
     do { fprintf(stderr, "%s:%d %s(): " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__); } while (0)
 
 enum slate_scalapack_dtype {BLOCK_CYCLIC_2D=1, BLOCK_CYCLIC_2D_INB=2};
@@ -65,9 +65,9 @@ inline void check_and_assert_blacs_grid_is_column_major()
     Cblacs_get( imone, izero, &icontxt );
     Cblacs_pcoord( icontxt, pnum_1, &prow, &pcol );
     if (nprocs == 1) return;    // only one process, so grid-layout is good
-    if (prow==0 && pcol==1) return; // col-major grid layout is good
-    if (!(prow==0 && pcol==1)) {
-        if (mypnum==0) {
+    if (prow == 0 && pcol == 1) return; // col-major grid layout is good
+    if (!(prow == 0 && pcol == 1)) {
+        if (mypnum == 0) {
             printf("SLATE only supports ScaLAPACK \"Col-major\" process-grid\n");
             printf("Use blacs_gridinit( ictxt, \"Col-major\", nprow, npcol )\n");
             assert("Error: Col-major process-grid required");

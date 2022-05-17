@@ -43,16 +43,17 @@ protected:
                         std::function<int (ij_tuple ij)>& inTileDevice,
                         MPI_Comm mpi_comm);
 
-    BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n, int64_t nb,
-                        int p, int q, MPI_Comm mpi_comm);
+    BaseTrapezoidMatrix( Uplo uplo, int64_t m, int64_t n, int64_t nb,
+                         GridOrder order, int p, int q, MPI_Comm mpi_comm );
 
     // conversion
     BaseTrapezoidMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig);
 
     // used by sub-classes' fromLAPACK and fromScaLAPACK
-    BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
-                        scalar_t* A, int64_t lda, int64_t nb,
-                        int p, int q, MPI_Comm mpi_comm, bool is_scalapack);
+    BaseTrapezoidMatrix( Uplo uplo, int64_t m, int64_t n,
+                         scalar_t* A, int64_t lda, int64_t nb,
+                         GridOrder order, int p, int q, MPI_Comm mpi_comm,
+                         bool is_scalapack );
 
     // used by sub-classes' fromDevices
     BaseTrapezoidMatrix(Uplo uplo, int64_t m, int64_t n,
@@ -105,11 +106,10 @@ public:
     void tileGetAllForWritingOnDevices(LayoutConvert layout);
     void tileGetAndHoldAll(int device, LayoutConvert layout);
     void tileGetAndHoldAllOnDevices(LayoutConvert layout);
-    void tileUnsetHoldAll(int device = BaseTrapezoidMatrix::host_num_);
+    void tileUnsetHoldAll( int device = HostNum );
     void tileUnsetHoldAllOnDevices();
     void tileUpdateAllOrigin();
     void tileLayoutReset();
-    int  hostNum()  const { return this->host_num_; }
 };
 
 //--------------------------------------------------------------------------
@@ -147,8 +147,9 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 ///
 template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
-    Uplo uplo, int64_t m, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
-    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
+    Uplo uplo, int64_t m, int64_t n, int64_t nb,
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
+    : BaseMatrix<scalar_t>( m, n, nb, nb, order, p, q, mpi_comm )
 {
     slate_error_if(uplo == Uplo::General);
     this->uplo_ = uplo;
@@ -180,6 +181,10 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 /// @param[in] lda
 ///     Local leading dimension of the array A. lda >= local number of rows.
 ///
+/// @param[in] order
+///     Order to map MPI processes to tile grid,
+///     GridOrder::ColMajor (default) or GridOrder::RowMajor.
+///
 /// @param[in] nb
 ///     Block size in 2D block-cyclic distribution. nb > 0.
 ///
@@ -201,8 +206,8 @@ template <typename scalar_t>
 BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     Uplo uplo, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
-    : BaseMatrix<scalar_t>(m, n, nb, p, q, mpi_comm)
+    GridOrder order, int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
+    : BaseMatrix<scalar_t>( m, n, nb, nb, order, p, q, mpi_comm )
 {
     slate_error_if(uplo == Uplo::General);
     this->uplo_ = uplo;
@@ -227,8 +232,8 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
                 }
 
                 if (this->tileIsLocal(i, j)) {
-                    this->tileInsert(i, j, this->host_num_,
-                                     &A[ii_local + jj_local*lda], lda);
+                    this->tileInsert( i, j, HostNum,
+                                      &A[ii_local + jj_local*lda], lda );
                 }
                 ii += ib;
             }
@@ -253,8 +258,8 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
                 }
 
                 if (this->tileIsLocal(i, j)) {
-                    this->tileInsert(i, j, this->host_num_,
-                                     &A[ii_local + jj_local*lda], lda);
+                    this->tileInsert( i, j, HostNum,
+                                      &A[ii_local + jj_local*lda], lda );
                 }
                 ii += ib;
             }
@@ -659,9 +664,9 @@ void BaseTrapezoidMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
                 if (this->mpi_rank_ == 0) {
                     if (! this->tileIsLocal(i, j)) {
                         // erase any existing non-local tile and insert new one
-                        this->tileErase(i, j, this->host_num_);
-                        this->tileInsert(i, j, this->host_num_,
-                                         &A[(size_t)lda*jj + ii], lda);
+                        this->tileErase( i, j, HostNum );
+                        this->tileInsert( i, j, HostNum,
+                                          &A[(size_t)lda*jj + ii], lda );
                         auto Aij = this->at(i, j);
                         Aij.recv(this->tileRank(i, j), this->mpi_comm_, this->layout());
                         this->tileLayout(i, j, this->layout_);
@@ -774,9 +779,9 @@ void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
                 auto& tile_node = this->storage_->at(this->globalIndex(i, j));
 
                 // find on host
-                if (tile_node.existsOn(this->hostNum()) &&
-                    tile_node[this->hostNum()].tile()->origin()) {
-                    if (tile_node[this->hostNum()].stateOn(MOSI::Invalid)) {
+                if (tile_node.existsOn( HostNum )
+                    && tile_node[ HostNum ].tile()->origin()) {
+                    if (tile_node[ HostNum ].stateOn( MOSI::Invalid )) {
                         // tileGetForReading(i, j, LayoutConvert::None);
                         for (int d = 0; d < this->num_devices(); ++d) {
                             if (tile_node.existsOn(d)
@@ -842,7 +847,7 @@ void BaseTrapezoidMatrix<scalar_t>::insertLocalTiles(Target origin)
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j)) {
                 int dev = (on_devices ? this->tileDevice(i, j)
-                                      : this->host_num_);
+                                      : HostNum);
                 this->tileInsert(i, j, dev);
             }
         }
@@ -1130,7 +1135,7 @@ void BaseTrapezoidMatrix<scalar_t>::tileLayoutReset()
                     assert(tile->isTransposable());
                 }
 
-                if (tile->device() == hostNum()) {
+                if (tile->device() == HostNum) {
                     tiles_set_host.insert({i, j});
                 }
                 else {
@@ -1146,7 +1151,7 @@ void BaseTrapezoidMatrix<scalar_t>::tileLayoutReset()
             auto layout = this->layout();
             #pragma omp task default(none) firstprivate(layout) shared(tiles_set_host)
             {
-                this->tileLayoutReset(tiles_set_host, hostNum(), layout);
+                this->tileLayoutReset( tiles_set_host, HostNum, layout );
             }
         }
         for (int d = 0; d < this->num_devices(); ++d) {

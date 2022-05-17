@@ -79,7 +79,7 @@ void hetrf(slate::internal::TargetType<target>,
         // i.e., H(k, 0:k-1) := L(k, 1:k) * T(0:k-1, 1:k)
         // H(1, k) not needed, and thus not computed
         if (k > 1) {
-            #pragma omp task depend(in:columnT[k])   \
+            #pragma omp task depend(in:columnT[k]) \
                              depend(in:columnL[k-1]) \
                              depend(out:columnH1[k]) \
                              priority(1)
@@ -141,7 +141,7 @@ void hetrf(slate::internal::TargetType<target>,
         }
 
         if (k > 1) {
-            #pragma omp task depend(in:columnH1[k])   \
+            #pragma omp task depend(in:columnH1[k]) \
                              depend(inout:columnT[k]) \
                              priority(1)
             {
@@ -163,7 +163,10 @@ void hetrf(slate::internal::TargetType<target>,
                 #endif
 
                 ReduceList reduce_list;
-                reduce_list.push_back({k, k, {A.sub(k, k, 0, k-2)}});
+                reduce_list.push_back({k, k,
+                                        T.sub(k, k, k, k),
+                                        {A.sub(k, k, 0, k-2)}
+                                      });
                 T.template listReduce<target>(reduce_list, layout, tag);
 
                 // T(k, k) -= L(k, k)*T(k, k-1)* L(k,k-1)'
@@ -189,7 +192,7 @@ void hetrf(slate::internal::TargetType<target>,
         }
 
         if (k > 0) {
-            #pragma omp task depend(in:columnL[k-1])  \
+            #pragma omp task depend(in:columnL[k-1]) \
                              depend(inout:columnT[k]) \
                              priority(1)
             {
@@ -228,21 +231,21 @@ void hetrf(slate::internal::TargetType<target>,
             }
 
             if (k+1 < A_mt) {
-                #pragma omp task depend(in:columnT[k])    \
+                #pragma omp task depend(in:columnT[k]) \
                                  depend(out:columnT[k+1]) \
                                  priority(1)
                 {
-                   // send T(k, k) that are needed to compute H(k+1:mt-1, k-1)
-                   //printf( " %d: Bcast( T(%ld,%ld) )\n",rank,k,k ); fflush(stdout);
-                   T.tileBcast(k, k, H.sub(k+1, A_mt-1, k-1, k-1), layout, tag2);
+                    // send T(k, k) that are needed to compute H(k+1:mt-1, k-1)
+                    //printf( " %d: Bcast( T(%ld,%ld) )\n",rank,k,k ); fflush(stdout);
+                    T.tileBcast(k, k, H.sub(k+1, A_mt-1, k-1, k-1), layout, tag2);
                 }
             }
         }
 
         if (k+1 < A_mt) {
             if (k > 0) {
-                #pragma omp task depend(in:columnT[k])     \
-                                 depend(in:columnL[k-1])   \
+                #pragma omp task depend(in:columnT[k]) \
+                                 depend(in:columnL[k-1]) \
                                  depend(inout:columnH2[k]) \
                                  priority(1)
                 {
@@ -270,8 +273,8 @@ void hetrf(slate::internal::TargetType<target>,
 
                 // Big left-looking Gemm: A(k+1:mt, k) -= L(k+1:mt, 1:k-2) * H(k, 2:k-2)^T
                 if (k > 1) {
-                    #pragma omp task depend(in:columnH1[k])   \
-                                     depend(in:columnL[k-1])  \
+                    #pragma omp task depend(in:columnH1[k]) \
+                                     depend(in:columnL[k-1]) \
                                      depend(inout:columnL[k]) \
                                      priority(1)
                     {
@@ -306,7 +309,10 @@ void hetrf(slate::internal::TargetType<target>,
 
                             ReduceList reduce_list;
                             for (int i = k+1; i < A_mt; ++i) {
-                                reduce_list.push_back({i, k, {A.sub(i, i, 0, k-2)}});
+                                reduce_list.push_back({i, k,
+                                                        A.sub(i, i, k, k),
+                                                        {A.sub(i, i, 0, k-2)}
+                                                      });
                             }
                             A.template listReduce<target>(reduce_list, layout, tag1);
                         }
@@ -330,7 +336,7 @@ void hetrf(slate::internal::TargetType<target>,
                     }
                 }
                 // Big left-looking Gemm: A(k+1:mt, k) -= L(k+1:mt, k-1) * H(k, k-1)^T
-                #pragma omp task depend(in:columnH2[k])   \
+                #pragma omp task depend(in:columnH2[k]) \
                                  depend(inout:columnL[k]) \
                                  priority(1)
                 {

@@ -19,8 +19,11 @@ namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// General matrix multiply for a left-looking update,
-/// where B and C are single block columns.
+/// General matrix multiply for a left-looking update.
+/// Does computation where the A tiles are local.
+/// If needed (e.g., not local), inserts C tiles and sets beta to 0.
+/// On output, partial products Cik exist distributed wherever Aij is local,
+/// for all i = 0 : A.mt, j = 0 : A.nt, k=.
 /// Dispatches to target implementations.
 /// In the complex case,
 /// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conjTranspose;
@@ -43,15 +46,31 @@ void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
     }
 
     gemmA(internal::TargetType<target>(),
-           alpha, A,
-                  B,
-           beta,  C,
-           layout, priority);
+          alpha, A,
+                 B,
+          beta,  C,
+          layout, priority);
 }
 
 //------------------------------------------------------------------------------
-/// General matrix multiply for a left-looking update,
-/// where B and C are single block columns.
+/// General matrix multiply for a left-looking update.
+/// This routine consists of two steps:  the management of the memory
+/// and the actual computation.
+/// Note that this routine may insert some tiles that must be erased later.
+/// The original intent was to erase them when calling the ListReduce routine.
+/// First step:
+///   It iterates over the tiles of A and gets the needed tiles of B and C.
+///   In the case where the corresponding tiles of C do not exist, it 
+///   acquires them. It means these tiles are created and inserted as workspace.
+///   It is expected that they are erased either by the calling routine or
+///   through the call to ListReduce.
+/// Second step:
+///   As soon as the data is ready, the routine calls gemm. However, the beta
+///   is used once and only in the case where the current tile of C existed
+///   prior the call to this routine. Otherwise, the beta value is replaced
+///   by zero. 
+///   In any case, the internal value beta_j is set to one to allow the 
+///   accumulation in the tile.
 /// Host OpenMP task implementation.
 /// @ingroup gemm_internal
 ///
@@ -63,28 +82,37 @@ void gemmA(internal::TargetType<Target::HostTask>,
            Layout layout, int priority)
 {
     // check dimensions
-    assert(B.nt() == 1);
-    assert(C.nt() == 1);
     assert(A.nt() == B.mt());
     assert(A.mt() == C.mt());
 
-    int err = 0;
+    int err   = 0;
+    // This assumes that if a tile has to be acquired, then all tiles
+    // have to be acquired
+    // TODO make it a matrix of the C tiles involved c.TileAcquire(i, k)
+    int c_tile_acquired = 0;
+    #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal(i, j)) {
-                #pragma omp task shared(A, B, C, err) priority(priority)
+                #pragma omp task default(none) shared(A, B, C, err, c_tile_acquired) \
+                    firstprivate(i, j, layout) priority(priority)
                 {
                     try {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
-                        B.tileGetForReading(j, 0, LayoutConvert(layout));
+                        for (int64_t k = 0; k < B.nt(); ++k) {
+                            B.tileGetForReading(j, k, LayoutConvert(layout));
 
-                        if (C.tileIsLocal(i, 0)) {
-                            C.tileGetForWriting(i, 0, LayoutConvert(layout));
-                        }
-                        else {
-                            #pragma omp critical
-                            {
-                                C.tileAcquire(i, 0, C.hostNum(), layout);
+                            if (C.tileIsLocal(i, k)) {
+                                C.tileGetForWriting(i, k, LayoutConvert(layout));
+                            }
+                            else {
+                                if (! C.tileExists(i, k)) {
+                                    c_tile_acquired = 1;
+                                    #pragma omp critical
+                                    {
+                                        C.tileAcquire( i, k, HostNum, layout );
+                                    }
+                                }
                             }
                         }
                     }
@@ -96,43 +124,45 @@ void gemmA(internal::TargetType<Target::HostTask>,
         }
     }
 
-    #pragma omp taskwait
-
+    #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
-        #pragma omp task shared(A, B, C, err) priority(priority)
+        #pragma omp task default(none) shared(A, B, C, err) \
+            firstprivate(i, alpha, beta, c_tile_acquired) priority(priority)
         {
             try {
 
                 scalar_t beta_j;
-                if (C.tileIsLocal(i, 0))
-                    beta_j = beta;
-                else
-                    beta_j = scalar_t(0.0);
-                bool Ci0_modified = false;
-                for (int64_t j = 0; j < A.nt(); ++j) {
-                    if (A.tileIsLocal(i, j)) {
-                        gemm(alpha,  A(i, j),
-                                     B(j, 0),
-                             beta_j, C(i, 0));
-
-                        beta_j = scalar_t(1.0);
-
-                        A.tileTick(i, j);
-                        B.tileTick(j, 0);
-                        Ci0_modified = true;
+                for (int64_t k = 0; k < B.nt(); ++k) {
+                    if (! c_tile_acquired || C.tileIsLocal(i, k)) {
+                        beta_j = beta;
                     }
+                    else {
+                        beta_j = scalar_t(0.0);
+                    }
+                    bool Cik_modified = false;
+                    for (int64_t j = 0; j < A.nt(); ++j) {
+                        if (A.tileIsLocal(i, j)) {
+                            gemm(alpha,  A(i, j),
+                                         B(j, k),
+                                 beta_j, C(i, k));
+
+                            beta_j = scalar_t(1.0);
+
+                            A.tileTick(i, j);
+                            B.tileTick(j, k);
+                            Cik_modified = true;
+                        }
+                    }
+                    if (Cik_modified)
+                        // mark this tile modified
+                        C.tileModified(i, k);
                 }
-                if (Ci0_modified)
-                    // mark this tile modified
-                    C.tileModified(i, 0);
             }
             catch (std::exception& e) {
                 err = __LINE__;
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         slate_error(std::string("Error in omp-task line: ")+std::to_string(err));

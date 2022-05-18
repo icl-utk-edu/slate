@@ -26,12 +26,6 @@ void trsm(slate::internal::TargetType<target>,
     Options opts2 = opts;
 
     if (target == Target::Devices) {
-        // Use only TileReleaseStrategy::Slate for trsm.
-        // Internal routines (trsm and gemm) called here
-        // won't release any tiles. Trsm will
-        // clean up tiles.
-        opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
         int64_t lookahead = get_option<int64_t>( opts2, Option::Lookahead, 1 );
 
         const int64_t batch_size_zero = 0;

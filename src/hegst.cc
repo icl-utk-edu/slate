@@ -59,7 +59,7 @@ void hegst(slate::internal::TargetType<target>,
         // routines use 2 queues (queue 0,1). All other
         // internal::routines here use the default queue (queue 0).
         // So 2 queues need to be allocated.
-        A.allocateBatchArrays(0, 2); // (batch size, num_queues)
+        A.allocateBatchArrays(0, 2+lookahead); // (batch size, num_queues)
         A.reserveDeviceWorkspace();
     }
 
@@ -137,7 +137,8 @@ void hegst(slate::internal::TargetType<target>,
                         auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
                         work::trsm<target, scalar_t>(
                             Side::Left,  one,  TBk1,
-                                               Asub, column, lookahead);
+                                               Asub, column,
+                            { {slate::Option::Lookahead, lookahead} });
                     }
                 }
             }

@@ -35,7 +35,7 @@ void rbt_fill(Matrix<scalar_t>& U, const int64_t seed) {
             #pragma omp task
             {
                 int64_t iseed[4] = {(seed + i) % 4096, 578, 361, 115};
-                lapack::larnv( 1, iseed, mb*d, U_i.data() );
+                lapack::larnv( 2, iseed, mb*d, U_i.data() );
 
                 for(int64_t k = 0; k < d; k++) {
                     for (int64_t jj = 0; jj < mb; jj++) {

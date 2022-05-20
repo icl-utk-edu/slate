@@ -50,8 +50,8 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
 /// factorizes the transformed matrix using getrf_nopiv, and uses this
 /// factorization within an iterative refinement procedure to produce a
 /// solution with full normwise backward error quality (see below).  If the
-/// approach fails, the method falls back to a partial pivoted factorization
-/// and solve.
+/// approach fails and the UseFallbackSolver is true, the problem is re-solved
+/// with a partial pivoted factorization.
 ///
 /// The iterative refinement process is stopped if iter > itermax or
 /// for all the RHS, $1 \le j \le nrhs$, we have:
@@ -83,8 +83,9 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
 ///
 /// @param[out] iter
 ///     The number of the iterations in the iterative refinement
-///     process, needed for the convergence. If failed, it is set
-///     to be -(1+itermax).
+///     process, needed for the convergence. If iterative refinement failed,
+///     it is set to -(1+itermax), regardless of whether the fallback solver
+///     was used.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -104,7 +105,10 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
 ///     - Option::Tolerance:
 ///       Iterative refinement tolerance. Default epsilon * sqrt(m)
 ///     - Option::MaxIterations:
-///       Maximum number of refinement iterations.  Default 30
+///       Maximum number of refinement iterations. Default 30
+///     - Option::UseFallbackSolver:
+///       If true and iterative refinement fails to convergene, the problem is
+///       resolved with partial-pivoted LU. Default true
 ///
 /// TODO: return value
 /// @retval 0 successful exit
@@ -131,6 +135,7 @@ void gesv_rbt(Matrix<scalar_t>& A,
     int64_t depth = get_option<int64_t>( opts, Option::Depth, 2 );
     int64_t itermax = get_option<int64_t>( opts, Option::MaxIterations, 30 );
     double tol = get_option<double>( opts, Option::Tolerance, eps*std::sqrt(A.m()) );
+    bool use_fallback = get_option<int64_t>( opts, Option::UseFallbackSolver, true );
 
     slate_assert(A.mt() == A.nt());  // square
     slate_assert(B.mt() == A.mt());
@@ -221,12 +226,14 @@ void gesv_rbt(Matrix<scalar_t>& A,
         // routine.
         iter = -itermax - 1;
 
-        copy( B, X,
-              {{Option::Target, target}} );
-        copy( A_copy, A,
-              {{Option::Target, Target::HostTask}} );
-        Pivots pivots;
-        gesv( A_copy, pivots, X, opts );
+        if (use_fallback) {
+            copy( B, X,
+                  {{Option::Target, target}} );
+            copy( A_copy, A,
+                  {{Option::Target, Target::HostTask}} );
+            Pivots pivots;
+            gesv( A_copy, pivots, X, opts );
+        }
     }
 
     // todo: return value for errors?

@@ -79,6 +79,7 @@ enum class Option : char {
                         ///< resue of the tiles by the next routine
     Depth,              ///< depth for the RBT solver
     MaxIterations,      ///< maximum iteration count
+    UseFallbackSolver,  ///< whether to fallback to a robust solver if iterations do not converge
     PrintVerbose,       ///< verbose, 0: no printing,
                         ///< verbose, 1: print metadata only (dimensions, uplo, etc.)
                         ///< verbose, 2: print first & last PrintEdgeItems rows & cols

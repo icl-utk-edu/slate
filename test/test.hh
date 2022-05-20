@@ -142,6 +142,7 @@ public:
     testsweeper::ParamDouble pivot_threshold;
     testsweeper::ParamString deflate;
     testsweeper::ParamInt    itermax;
+    testsweeper::ParamChar   fallback;
     testsweeper::ParamInt    depth;
 
     // ----- output parameters

@@ -116,7 +116,9 @@ void test_gesv_work(Params& params, bool run)
 
     int64_t itermax = 0,
             depth = 0;
+    bool fallback = true;
     if (params.routine == "gesv_rbt") {
+        fallback = params.fallback() == 'y';
         itermax = params.itermax();
         depth = params.depth();
     }
@@ -157,6 +159,7 @@ void test_gesv_work(Params& params, bool run)
         {slate::Option::MethodTrsm, methodTrsm},
         {slate::Option::Depth, depth},
         {slate::Option::MaxIterations, itermax},
+        {slate::Option::UseFallbackSolver, fallback},
     };
 
     int64_t info = 0;

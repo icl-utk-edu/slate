@@ -178,9 +178,9 @@ void gesv_rbt(Matrix<scalar_t>& A,
     // refine
     copy( B, R,
           {{Option::Target, Target::HostTask}} );
-    gemm( -one, A_copy, X,
-           one, R,
-          {{Option::Target, Target::HostTask}} );
+    gemmA( -one, A_copy, X,
+            one, R,
+           {{Option::Target, Target::HostTask}} );
 
     // Check whether the nrhs normwise backward error satisfies the
     // stopping criterion. If yes, set iter=0 and return.
@@ -202,9 +202,9 @@ void gesv_rbt(Matrix<scalar_t>& A,
              {{Option::Target, Target::HostTask}} );
         copy( B, R,
               {{Option::Target, Target::HostTask}} );
-        gemm( -one, A_copy, X,
-               one, R,
-              {{Option::Target, Target::HostTask}} );
+        gemmA( -one, A_copy, X,
+                one, R,
+               {{Option::Target, Target::HostTask}} );
 
         // Check whether nrhs normwise backward error satisfies the
         // stopping criterion. If yes, set iter = iiter > 0 and return.

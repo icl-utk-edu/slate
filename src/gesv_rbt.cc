@@ -123,11 +123,14 @@ void gesv_rbt(Matrix<scalar_t>& A,
               Matrix<scalar_t>& B,
               Matrix<scalar_t>& X,
               int& iter,
-              const std::map<Option, Value>& opts)
+              Options const& opts)
 {
 
     using real_t = blas::real_type<scalar_t>;
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+
+    // gemmA and rbt are currently only implemented on the host
+    Options host_opts = opts;
+    host_opts.insert_or_assign( Option::Target, Target::Host );
 
     const scalar_t one = 1.0;
     const real_t eps = std::numeric_limits<real_t>::epsilon();
@@ -151,17 +154,14 @@ void gesv_rbt(Matrix<scalar_t>& A,
     A_copy.insertLocalTiles( Target::Host );
     R.insertLocalTiles( Target::Host );
 
-    copy( B, X,
-          {{Option::Target, target}} );
-    copy( A, A_copy,
-         {{Option::Target, Target::HostTask}} );
+    slate::copy( B, X, opts );
+    slate::copy( A, A_copy, host_opts );
 
     std::vector<real_t> colnorms_X( X.n() );
     std::vector<real_t> colnorms_R( R.n() );
 
     // norm of A
-    real_t Anorm = norm( Norm::Inf, A,
-                         {{Option::Target, target}} );
+    real_t Anorm = norm( Norm::Inf, A, opts );
     real_t cte = Anorm*tol;
     bool converged = false;
 
@@ -176,18 +176,14 @@ void gesv_rbt(Matrix<scalar_t>& A,
 
 
     // refine
-    copy( B, R,
-          {{Option::Target, Target::HostTask}} );
+    slate::copy( B, R, host_opts );
     gemmA( -one, A_copy, X,
-            one, R,
-           {{Option::Target, Target::HostTask}} );
+            one, R, host_opts );
 
     // Check whether the nrhs normwise backward error satisfies the
     // stopping criterion. If yes, set iter=0 and return.
-    colNorms( Norm::Max, X, colnorms_X.data(),
-                {{Option::Target, target}} );
-    colNorms( Norm::Max, R, colnorms_R.data(),
-                {{Option::Target, target}} );
+    colNorms( Norm::Max, X, colnorms_X.data(), opts );
+    colNorms( Norm::Max, R, colnorms_R.data(), opts );
 
     if (internal::iterRefConverged<real_t>( colnorms_R, colnorms_X, cte )) {
         iter = 0;
@@ -198,20 +194,15 @@ void gesv_rbt(Matrix<scalar_t>& A,
         gerbt( U, R );
         getrs_nopiv( A, R, opts );
         gerbt( V, R );
-        add( one, R, one, X,
-             {{Option::Target, Target::HostTask}} );
-        copy( B, R,
-              {{Option::Target, Target::HostTask}} );
+        add( one, R, one, X, host_opts );
+        slate::copy( B, R, host_opts );
         gemmA( -one, A_copy, X,
-                one, R,
-               {{Option::Target, Target::HostTask}} );
+                one, R, host_opts );
 
         // Check whether nrhs normwise backward error satisfies the
         // stopping criterion. If yes, set iter = iiter > 0 and return.
-        colNorms( Norm::Max, X, colnorms_X.data(),
-                    {{Option::Target, target}} );
-        colNorms( Norm::Max, R, colnorms_R.data(),
-                    {{Option::Target, target}} );
+        colNorms( Norm::Max, X, colnorms_X.data(), opts );
+        colNorms( Norm::Max, R, colnorms_R.data(), opts );
 
         if (internal::iterRefConverged<real_t>( colnorms_R, colnorms_X, cte )) {
             iter = iiter+1;
@@ -227,10 +218,8 @@ void gesv_rbt(Matrix<scalar_t>& A,
         iter = -itermax - 1;
 
         if (use_fallback) {
-            copy( B, X,
-                  {{Option::Target, target}} );
-            copy( A_copy, A,
-                  {{Option::Target, Target::HostTask}} );
+            slate::copy( B, X, opts );
+            slate::copy( A_copy, A, host_opts );
             Pivots pivots;
             gesv( A_copy, pivots, X, opts );
         }

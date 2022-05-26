@@ -21,7 +21,7 @@ namespace slate {
 namespace scalapack_api {
 
 #define logprintf(fmt, ...) \
-    do { fprintf(stderr, "%s:%d %s(): " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__); } while (0)
+    do { fprintf(stderr, "%s:%d %s(): " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__); fflush(0); } while (0)
 
 enum slate_scalapack_dtype {BLOCK_CYCLIC_2D=1, BLOCK_CYCLIC_2D_INB=2};
 enum slate_scalapack_desc {DTYPE_=0, CTXT_, M_, N_, MB_, NB_, RSRC_, CSRC_, LLD_};
@@ -59,17 +59,17 @@ inline int desc_LLD(int* desca)
 
 inline slate::GridOrder slate_scalapack_blacs_grid_order()
 {
-    // if nprocs==1, the grid layout is irrelevant, all-OK
-    // if nprocs>1 check the grid location of process-number-1 pnum(1).
+    // if nprocs == 1, the grid layout is irrelevant, all-OK
+    // if nprocs > 1 check the grid location of process-number-1 pnum(1).
     // if pnum(1) is at grid-coord(0, 1) then grid is col-major
     // else if pnum(1) is not at grid-coord(0, 1) then grid is row-major
     int mypnum, nprocs, prow, pcol, icontxt=-1, imone=-1, izero=0, pnum_1=1;
     Cblacs_pinfo( &mypnum, &nprocs );
-    Cblacs_get( imone, izero, &icontxt );
-    Cblacs_pcoord( icontxt, pnum_1, &prow, &pcol );
     if (nprocs == 1) // only one process, so col-major grid-layout
         return slate::GridOrder::Col;
-    if (prow==0 && pcol==1) { // col-major grid-layout
+    Cblacs_get( imone, izero, &icontxt );
+    Cblacs_pcoord( icontxt, pnum_1, &prow, &pcol );
+    if (prow == 0 && pcol == 1) { // col-major grid-layout
         return slate::GridOrder::Col;
     }
     else { // row-major grid-layout
@@ -80,7 +80,7 @@ inline slate::GridOrder slate_scalapack_blacs_grid_order()
 template< typename scalar_t >
 inline slate::Matrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::Matrix<scalar_t>& A, int ia, int ja, int* desca)
 {
-    //logprintf("Am %d An %d ia %d ja %d desc_MB(desca) %d desc_NB(desca) %d A.m() %d A.n() %d LLD_ %d %d \n", Am, An, ia, ja, desc_MB(desca), desc_NB(desca), A.m(), A.n());
+    // logprintf("Am %d An %d ia %d ja %d desc_MB(desca) %d desc_NB(desca) %d A.m() %ld A.n() %ld \n", Am, An, ia, ja, desc_MB(desca), desc_NB(desca), A.m(), A.n());
     if (ia == 1 && ja == 1 && Am == A.m() && An == A.n()) return A;
     assert((ia-1) % desc_MB(desca) == 0);
     assert((ja-1) % desc_NB(desca) == 0);
@@ -140,6 +140,7 @@ inline slate::HermitianMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An
 inline slate::Target slate_scalapack_set_target()
 {
     // set the SLATE default computational target
+    // 5th character from: hostTask hostNest hostBatch deviCes
     slate::Target target = slate::Target::HostTask;
     char* targetstr = std::getenv("SLATE_SCALAPACK_TARGET");
     if (targetstr) {

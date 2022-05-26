@@ -223,7 +223,7 @@ void geqrf(
                 betas.at(j) = beta;
                 taus.at(j) = tau;
 
-                for ( int64_t i = 0; i<knt; ++i) {
+                for (int64_t i = 0; i < knt; ++i) {
                     beta = beta*safemin;
                 }
                 //----------------------------------

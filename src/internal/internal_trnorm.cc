@@ -143,7 +143,7 @@ void norm(
         for (int64_t j = 0; j < A.nt(); ++j) {
             // diagonal tile
             if (j < A.mt() && A.tileIsLocal(j, j)) {
-                #pragma omp task default(none) shared(A, tiles_maxima)                  \
+                #pragma omp task default(none) shared(A, tiles_maxima) \
                     firstprivate(j, layout, in_norm) priority(priority)
                 {
                     A.tileGetForReading(j, j, LayoutConvert(layout));

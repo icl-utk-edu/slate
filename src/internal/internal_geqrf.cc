@@ -86,13 +86,13 @@ void geqrf(internal::TargetType<Target::HostTask>,
             omp_set_nested(1);
             #pragma omp parallel default(none) \
                 num_threads(thread_size) \
-                shared(thread_barrier, scale, sumsq, xnorm, W, A, T00)  \
+                shared(thread_barrier, scale, sumsq, xnorm, W, A, T00) \
                 shared(tile_indices, tiles) \
                 firstprivate(ib, thread_size)
         #else
-             #pragma omp taskloop default(none) \
+            #pragma omp taskloop default(none) \
                 num_tasks(thread_size) \
-                shared(thread_barrier, scale, sumsq, xnorm, W, A, T00)  \
+                shared(thread_barrier, scale, sumsq, xnorm, W, A, T00) \
                 shared(tile_indices, tiles) \
                 firstprivate(ib, thread_size)
         #endif

@@ -275,9 +275,9 @@ void scale(internal::TargetType<Target::Devices>,
                                 ++batch_count;
                             }
                         }
-                   }
-               }
-               else { // upper
+                    }
+                }
+                else { // upper
                     for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
                         for (int64_t i = irange[q-4][0]; i < irange[q-4][1] && i <= j; ++i) {
                             if (i == j && A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {

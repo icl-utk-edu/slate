@@ -443,8 +443,8 @@ void her2k(internal::TargetType<Target::Devices>,
     // if single tile, avoid creating tasks for all devices
     if (C.nt() == 1) {
         if (C.tileIsLocal(0, 0)) {
-             #pragma omp task default(none) shared(A, B, C, err) \
-                 firstprivate(layout, alpha, beta, queue_index) priority(priority)
+            #pragma omp task default(none) shared(A, B, C, err) \
+                firstprivate(layout, alpha, beta, queue_index) priority(priority)
             {
                 int device = C.tileDevice(0, 0);
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));

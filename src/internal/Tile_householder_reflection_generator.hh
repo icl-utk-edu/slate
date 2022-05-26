@@ -286,7 +286,7 @@ void householder_reflection_generator(
                                   ger_alpha, &tile.at(0, k), 1,
                                              W.at(0).data(), 1,
                                              &tile.at(0, k+1), tile.stride());
-             	       }
+                    }
                 }
             }
             thread_barrier.wait(thread_size);

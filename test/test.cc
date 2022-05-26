@@ -277,7 +277,7 @@ Params::Params():
     //         name,       w,    type,        default, valid, help
     check     ("check",   0,    ParamType::Value, 'y', "ny",  "check the results"),
     error_exit("error-exit", 0, ParamType::Value, 'n', "ny",  "check error exits"),
-    ref       ("ref",     0,    ParamType::Value, 'y', "nyo", "run reference; sometimes check implies ref"),
+    ref       ("ref",     0,    ParamType::Value, 'n', "nyo", "run reference; sometimes check implies ref"),
     hold_local_workspace("hold-local-workspace", 0, ParamType::Value, 'n', "ny",  "do not erase tiles in local workspace"),
     trace     ("trace",   0,    ParamType::Value, 'n', "ny",  "enable/disable traces"),
     trace_scale("trace-scale", 0, 0, ParamType::Value, 1000, 1e-3, 1e6, "horizontal scale for traces, in pixels per sec"),
@@ -358,8 +358,8 @@ Params::Params():
     itype     ("itype",   6,    ParamType::List,   1,     1,       3, "generalized eigenvalue problem type (1:Ax=lBx, 2:ABx=lx 3:BAx=lx)"),
 
     // SLATE options
-    nb        ("nb",      5,    ParamType::List, 50,      0, 1000000, "nb"),
-    ib        ("ib",      4,    ParamType::List, 16,      0, 1000000, "ib"),
+    nb        ("nb",      4,    ParamType::List, 384,     0, 1000000, "block size"),
+    ib        ("ib",      2,    ParamType::List, 32,      0, 1000000, "inner blocking"),
     grid      ("grid",    6,    ParamType::List, "1x1",   0, 1000000, "p x q dimensions"),
     lookahead ("lookahead", 2,  ParamType::List, 1,       0, 1000000, "(la) number of lookahead panels"),
     panel_threads("panel-threads",

@@ -23,6 +23,13 @@ using testsweeper::ansi_bold;
 using testsweeper::ansi_red;
 using testsweeper::ansi_normal;
 
+using slate::MethodGemm::str2methodGemm;
+using slate::MethodHemm::str2methodHemm;
+using slate::MethodTrsm::str2methodTrsm;
+using slate::MethodGemm::methodGemm2str;
+using slate::MethodHemm::methodHemm2str;
+using slate::MethodTrsm::methodTrsm2str;
+
 // -----------------------------------------------------------------------------
 // each section must have a corresponding entry in section_names
 enum Section {
@@ -302,6 +309,11 @@ Params::Params():
     datatype  ("type",    4,    ParamType::List, DataType::Double,        str2datatype, datatype2str, "s=single (float), d=double, c=complex-single, z=complex-double"),
     origin    ("origin",  9,    ParamType::List, slate::Origin::Host,     str2origin,   origin2str,   "origin: h=Host, s=ScaLAPACK, d=Devices"),
     target    ("target",  7,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNest, b=HostBatch, d=Devices"),
+
+    method_gemm ("method-gemm", 4, ParamType::List, 0, str2methodGemm,   methodGemm2str,   "method-gemm: auto=auto, A=gemmA, C=gemmC"),
+    method_hemm ("method-hemm", 4, ParamType::List, 0, str2methodHemm,   methodHemm2str,   "method-hemm: auto=auto, A=hemmA, C=hemmC"),
+    method_trsm ("method-trsm", 4, ParamType::List, 0, str2methodTrsm,   methodTrsm2str,   "method-trsm: auto=auto, A=trsmA, B=trsmB"),
+
     grid_order("grid-order", 3, ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) grid order: c=Col, r=Row"),
     tile_release_strategy ("trs", 3, ParamType::List, slate::TileReleaseStrategy::All, str2tile_release_strategy,   tile_release_strategy2str,   "tile release strategy: n=none, i=only internal routines, s=only top-level routines in slate namespace, a=all routines"),
     dev_dist  ("dev-dist",9,    ParamType::List, slate::Dist::Col,        str2dist,     dist2str,     "matrix tiles distribution across local devices (one-dimensional block-cyclic): col=column, row=row"),
@@ -392,6 +404,11 @@ Params::Params():
     lookahead.name("la", "lookahead");
     panel_threads.name("pt", "panel-threads");
     grid_order.name("go", "grid-order");
+
+    // Change name for the methods to use less space in the stdout
+    method_gemm.name("gemm", "method-gemm");
+    method_hemm.name("hemm", "method-hemm");
+    method_trsm.name("trsm", "method-trsm");
 
     // change names of matrix B's params
     matrixB.kind.name( "matrixB" );

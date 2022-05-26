@@ -150,6 +150,8 @@ void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
           Layout layout, int priority=0, int64_t queue_index=0,
           Options const& opts = Options());
 
+//-----------------------------------------
+// gemmA()
 template <Target target=Target::HostTask, typename scalar_t>
 void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
                            Matrix<scalar_t>&& B,

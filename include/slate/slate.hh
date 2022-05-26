@@ -15,6 +15,8 @@
 #include "slate/TriangularBandMatrix.hh"
 #include "slate/HermitianBandMatrix.hh"
 
+#include "slate/method.hh"
+
 #include "slate/types.hh"
 #include "slate/print.hh"
 
@@ -157,6 +159,15 @@ void gemmA(
     Options const& opts = Options());
 
 //-----------------------------------------
+// gemmC()
+template <typename scalar_t>
+void gemmC(
+    scalar_t alpha, Matrix<scalar_t>& A,
+                    Matrix<scalar_t>& B,
+    scalar_t beta,  Matrix<scalar_t>& C,
+    Options const& opts = Options());
+
+//-----------------------------------------
 // hbmm()
 template <typename scalar_t>
 void hbmm(
@@ -195,6 +206,16 @@ void hemm(
 // hemmA()
 template <typename scalar_t>
 void hemmA(
+    Side side,
+    scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                             Matrix<scalar_t>& B,
+    scalar_t beta,           Matrix<scalar_t>& C,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// hemmC()
+template <typename scalar_t>
+void hemmC(
     Side side,
     scalar_t alpha, HermitianMatrix<scalar_t>& A,
                              Matrix<scalar_t>& B,
@@ -264,6 +285,15 @@ void trsm(
 // trsmA()
 template <typename scalar_t>
 void trsmA(
+    Side side,
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// trsmB()
+template <typename scalar_t>
+void trsmB(
     Side side,
     scalar_t alpha, TriangularMatrix<scalar_t>& A,
                               Matrix<scalar_t>& B,

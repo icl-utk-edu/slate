@@ -493,6 +493,7 @@ ifneq ($(only_unit),1)
         src/gels.cc \
         src/gemm.cc \
         src/gemmA.cc \
+        src/gemmC.cc \
         src/geqrf.cc \
         src/gelqf.cc \
         src/gesv.cc \
@@ -510,6 +511,7 @@ ifneq ($(only_unit),1)
         src/heev.cc \
         src/hemm.cc \
         src/hemmA.cc \
+        src/hemmC.cc \
         src/hbmm.cc \
         src/her2k.cc \
         src/herk.cc \
@@ -539,6 +541,7 @@ ifneq ($(only_unit),1)
         src/trmm.cc \
         src/trsm.cc \
         src/trsmA.cc \
+        src/trsmB.cc \
         src/trtri.cc \
         src/trtrm.cc \
         src/unmqr.cc \

@@ -49,6 +49,8 @@ void test_posv_work(Params& params, bool run)
     slate::TileReleaseStrategy tile_release_strategy = params.tile_release_strategy();
     params.matrix.mark();
     params.matrixB.mark();
+    slate::Method methodTrsm = params.method_trsm();
+    slate::Method methodHemm = params.method_hemm();
 
     // mark non-standard output values
     params.time();
@@ -76,7 +78,9 @@ void test_posv_work(Params& params, bool run)
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::TileReleaseStrategy, tile_release_strategy},
-        {slate::Option::HoldLocalWorkspace, hold_local_workspace}
+        {slate::Option::HoldLocalWorkspace, hold_local_workspace},
+        {slate::Option::MethodTrsm, methodTrsm},
+        {slate::Option::MethodHemm, methodHemm},
     };
 
     // MPI variables

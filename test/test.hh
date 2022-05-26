@@ -82,6 +82,11 @@ public:
     testsweeper::ParamEnum< testsweeper::DataType > datatype;
     testsweeper::ParamEnum< slate::Origin >         origin;
     testsweeper::ParamEnum< slate::Target >         target;
+
+    testsweeper::ParamEnum< slate::Method >         method_gemm;
+    testsweeper::ParamEnum< slate::Method >         method_hemm;
+    testsweeper::ParamEnum< slate::Method >         method_trsm;
+
     testsweeper::ParamEnum< slate::GridOrder >      grid_order;
     testsweeper::ParamEnum< slate::TileReleaseStrategy > tile_release_strategy;
     testsweeper::ParamEnum< slate::Dist >           dev_dist;

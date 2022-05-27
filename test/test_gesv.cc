@@ -75,9 +75,10 @@ void test_gesv_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
     params.time2();
-    params.time2.name( "trs_time(s)" );
+    params.time2.name( "trs time (s)" );
+    params.time2.width( 12 );
     params.gflops2();
-    params.gflops2.name( "trs_gflops" );
+    params.gflops2.name( "trs gflop/s" );
 
     bool do_getrs = (
         (check && (params.routine == "getrf" || params.routine == "getrf_nopiv"))

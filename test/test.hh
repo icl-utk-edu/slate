@@ -272,7 +272,7 @@ inline const char* dist2str(slate::Dist dist)
 {
     switch (dist) {
         case slate::Dist::Row: return "row";
-        case slate::Dist::Col: return "column";
+        case slate::Dist::Col: return "col";
     }
     return "?";
 }
@@ -282,12 +282,12 @@ inline slate::Origin str2origin(const char* origin)
 {
     std::string origin_ = origin;
     std::transform(origin_.begin(), origin_.end(), origin_.begin(), ::tolower);
-    if (origin_ == "d" || origin_ == "dev" || origin_ == "device" ||
-        origin_ == "devices")
+    if (origin_ == "d" || origin_ == "dev" || origin_ == "device"
+        || origin_ == "devices")
         return slate::Origin::Devices;
     else if (origin_ == "h" || origin_ == "host")
         return slate::Origin::Host;
-    else if (origin_ == "s" || origin_ == "scalapack")
+    else if (origin_ == "s" || origin_ == "scalapack" || origin_ == "scalpk")
         return slate::Origin::ScaLAPACK;
     else
         throw slate::Exception("unknown origin");
@@ -296,9 +296,9 @@ inline slate::Origin str2origin(const char* origin)
 inline const char* origin2str(slate::Origin origin)
 {
     switch (origin) {
-        case slate::Origin::Devices:   return "devices";
+        case slate::Origin::Devices:   return "dev";
         case slate::Origin::Host:      return "host";
-        case slate::Origin::ScaLAPACK: return "scalapack";
+        case slate::Origin::ScaLAPACK: return "scalpk";
     }
     return "?";
 }
@@ -344,7 +344,7 @@ inline const char* target2str(slate::Target target)
         case slate::Target::HostTask:  return "task";
         case slate::Target::HostNest:  return "nest";
         case slate::Target::HostBatch: return "batch";
-        case slate::Target::Devices:   return "devices";
+        case slate::Target::Devices:   return "dev";
         case slate::Target::Host:      return "host";
     }
     return "?";

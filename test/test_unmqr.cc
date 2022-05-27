@@ -49,9 +49,10 @@ void test_unmqr_work(Params& params, bool run)
     params.time();
     params.gflops();
     params.time2();
-    params.time2.name( "qr_time(s)" );
+    params.time2.name( "QR time (s)" );
+    params.time2.width( 12 );
     params.gflops2();
-    params.gflops2.name( "qr_gflops" );
+    params.gflops2.name( "QR gflop/s" );
 
     if (! run)
         return;

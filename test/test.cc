@@ -30,6 +30,8 @@ using slate::MethodGemm::methodGemm2str;
 using slate::MethodHemm::methodHemm2str;
 using slate::MethodTrsm::methodTrsm2str;
 
+using testsweeper::no_data_flag;
+
 // -----------------------------------------------------------------------------
 // each section must have a corresponding entry in section_names
 enum Section {
@@ -272,7 +274,6 @@ Params::Params():
 
     // w = width
     // p = precision
-    // def = default
     // ----- test framework parameters
     //         name,       w,    type,        default, valid, help
     check     ("check",   0,    ParamType::Value, 'y', "ny",  "check the results"),
@@ -307,14 +308,14 @@ Params::Params():
     // ----- routine parameters
     //         name,      w,    type,            default,                 str2enum,     enum2str,     help
     datatype  ("type",    4,    ParamType::List, DataType::Double,        str2datatype, datatype2str, "s=single (float), d=double, c=complex-single, z=complex-double"),
-    origin    ("origin",  9,    ParamType::List, slate::Origin::Host,     str2origin,   origin2str,   "origin: h=Host, s=ScaLAPACK, d=Devices"),
-    target    ("target",  7,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNest, b=HostBatch, d=Devices"),
+    origin    ("origin",  6,    ParamType::List, slate::Origin::Host,     str2origin,   origin2str,   "origin: h=Host, s=ScaLAPACK, d=Devices"),
+    target    ("target",  6,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNest, b=HostBatch, d=Devices"),
 
     method_gemm ("method-gemm", 4, ParamType::List, 0, str2methodGemm,   methodGemm2str,   "method-gemm: auto=auto, A=gemmA, C=gemmC"),
     method_hemm ("method-hemm", 4, ParamType::List, 0, str2methodHemm,   methodHemm2str,   "method-hemm: auto=auto, A=hemmA, C=hemmC"),
     method_trsm ("method-trsm", 4, ParamType::List, 0, str2methodTrsm,   methodTrsm2str,   "method-trsm: auto=auto, A=trsmA, B=trsmB"),
 
-    grid_order("grid-order", 3, ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) grid order: c=Col, r=Row"),
+    grid_order("grid-order", 3, ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) MPI grid order: c=Col, r=Row"),
     tile_release_strategy ("trs", 3, ParamType::List, slate::TileReleaseStrategy::All, str2tile_release_strategy,   tile_release_strategy2str,   "tile release strategy: n=none, i=only internal routines, s=only top-level routines in slate namespace, a=all routines"),
     dev_dist  ("dev-dist",9,    ParamType::List, slate::Dist::Col,        str2dist,     dist2str,     "matrix tiles distribution across local devices (one-dimensional block-cyclic): col=column, row=row"),
 
@@ -326,7 +327,7 @@ Params::Params():
     jobu      ("jobu",    9,    ParamType::List, lapack::Job::NoVec, lapack::char2job, lapack::job2char, lapack::job2str, "left singular vectors (U): n=no vectors, s=some vectors, o=overwrite, a=all vectors"),
     jobvt     ("jobvt",   9,    ParamType::List, lapack::Job::NoVec, lapack::char2job, lapack::job2char, lapack::job2str, "right singular vectors (V^T): n=no vectors, s=some vectors, o=overwrite, a=all vectors"),
     range     ("range",   9,    ParamType::List, lapack::Range::All, lapack::char2range, lapack::range2char, lapack::range2str, "find: a=all eigen/singular values, v=values in (vl, vu], i=il-th through iu-th values"),
-    norm      ("norm",    7,    ParamType::List, slate::Norm::One,        lapack::char2norm, lapack::norm2char, lapack::norm2str, "norm: o=one, 2=two, i=inf, f=fro, m=max"),
+    norm      ("norm",    4,    ParamType::List, slate::Norm::One,        lapack::char2norm, lapack::norm2char, lapack::norm2str, "norm: o=one, 2=two, i=inf, f=fro, m=max"),
     scope     ("scope",   7,    ParamType::List, slate::NormScope::Matrix, str2scope, scope2str, "norm scope: m=matrix, r=rows, c=columns"),
     side      ("side",    6,    ParamType::List, slate::Side::Left,       blas::char2side,   blas::side2char,   blas::side2str,   "side: l=left, r=right"),
     uplo      ("uplo",    6,    ParamType::List, slate::Uplo::Lower,      blas::char2uplo,   blas::uplo2char,   blas::uplo2str,   "triangle: l=lower, u=upper"),
@@ -351,50 +352,52 @@ Params::Params():
     vu        ("vu",      6, 3, ParamType::List, 100,     0, 1000000, "upper bound of eigen/singular values to find; default 100.0"),
     il        ("il",      6,    ParamType::List,  10,     0, 1000000, "1-based index of smallest eigen/singular value to find; default 10"),
     iu        ("iu",      6,    ParamType::List, 100,     0, 1000000, "1-based index of largest  eigen/singular value to find; default 100"),
-    alpha     ( "alpha",  4, 2, ParamType::List, "3.141592653589793+1.414213562373095i",   -inf, inf, "alpha value" ),
-    beta      ( "beta",   4, 2, ParamType::List, "2.718281828459045+1.732050807568877i",   -inf, inf, "beta value" ),
-    incx      ("incx",    6,    ParamType::List,   1, -1000,    1000, "stride of x vector"),
-    incy      ("incy",    6,    ParamType::List,   1, -1000,    1000, "stride of y vector"),
-    itype     ("itype",   6,    ParamType::List,   1,     1,       3, "generalized eigenvalue problem type (1:Ax=lBx, 2:ABx=lx 3:BAx=lx)"),
+    alpha     ("alpha",   3, 1, ParamType::List, "3.141592653589793+1.414213562373095i", -inf, inf, "alpha value"),
+    beta      ("beta",    3, 1, ParamType::List, "2.718281828459045+1.732050807568877i", -inf, inf, "beta value"),
+    incx      ("incx",    4,    ParamType::List,   1, -1000,    1000, "stride of x vector"),
+    incy      ("incy",    4,    ParamType::List,   1, -1000,    1000, "stride of y vector"),
+    itype     ("itype",   5,    ParamType::List,   1,     1,       3, "generalized eigenvalue problem type (1:Ax=lBx, 2:ABx=lx 3:BAx=lx)"),
 
     // SLATE options
     nb        ("nb",      4,    ParamType::List, 384,     0, 1000000, "block size"),
     ib        ("ib",      2,    ParamType::List, 32,      0, 1000000, "inner blocking"),
-    grid      ("grid",    6,    ParamType::List, "1x1",   0, 1000000, "p x q dimensions"),
+    grid      ("grid",    3,    ParamType::List, "1x1",   0, 1000000, "MPI grid p x q dimensions"),
     lookahead ("lookahead", 2,  ParamType::List, 1,       0, 1000000, "(la) number of lookahead panels"),
     panel_threads("panel-threads",
                           2,    ParamType::List, std::max( omp_get_max_threads() / 2, 1 ),
                                                           0, 1000000, "(pt) max number of threads used in panel; default omp_num_threads / 2"),
-    align     ("align",   6,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
+    align     ("align",   5,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
     nonuniform_nb("nonuniform_nb",
                           0,    ParamType::Value, 'n', "ny", "generate matrix with nonuniform tile sizes"),
     debug     ("debug",   0,    ParamType::Value, -1,     0, 1000000,
                "given rank waits for debugger (gdb/lldb) to attach"),
-    pivot_threshold("piv-thresh",
-                         15, 2, ParamType::List, 1.0,   0.0,     1.0, "threshold for pivoting a remote row"),
+    pivot_threshold(
+               "thresh",  6, 2, ParamType::List, 1.0,   0.0,     1.0, "threshold for pivoting a remote row"),
 
     // ----- output parameters
     // min, max are ignored
-    //          name,                    w, p, type,              default,               min, max, help
-    error      ("error",                 9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "numerical error"),
-    error2     ("error2",                9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "numerical error"),
-    error3     ("error3",                9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "numerical error"),
-    error4     ("error4",                9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "numerical error"),
-    error5     ("error5",                9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "numerical error"),
-    ortho      ("orth_error",            9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "orthogonality error"),
-    ortho_U    ("U_orth.",               9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "U orthogonality error"),
-    ortho_V    ("V_orth.",               9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "V orthogonality error"),
-    error_sigma("Sigma_error",           9, 2, ParamType::Output, testsweeper::no_data_flag,   0,   0, "Sigma error"),
+    //          name,           w, p, type,              default,      min, max, help
+    error      ("error",        9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),
+    error2     ("error2",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),
+    error3     ("error3",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),
+    error4     ("error4",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),
+    error5     ("error5",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),
+    ortho      ("orth.",        9, 2, ParamType::Output, no_data_flag,   0,   0, "orthogonality error"),
+    ortho_U    ("U orth.",      9, 2, ParamType::Output, no_data_flag,   0,   0, "U orthogonality error"),
+    ortho_V    ("V orth.",      9, 2, ParamType::Output, no_data_flag,   0,   0, "V orthogonality error"),
+    error_sigma("Sigma err",    9, 2, ParamType::Output, no_data_flag,   0,   0, "Sigma error"),
 
-    time      ("time(s)",               12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "time to solution"),
-    gflops    ("gflops",                12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "Gflop/s rate"),
-    time2     ("time(s)",               12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "time to solution"),
-    gflops2   ("gflops",                12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "Gflop/s rate"),
-    iters     ("iters",                  9,    ParamType::Output,                         0,   0,   0, "iterations to solution"),
+    //  9.3 allows 99999.999 s = 2.9 days
+    // 12.3 allows 99999999.999 Gflop/s = 100 Pflop/s
+    time      ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "time to solution"),
+    gflops    ("gflop/s",      12, 3, ParamType::Output, no_data_flag,   0,   0, "Gflop/s rate"),
+    time2     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "time to solution"),
+    gflops2   ("gflop/s",      12, 3, ParamType::Output, no_data_flag,   0,   0, "Gflop/s rate"),
+    iters     ("iters",         5,    ParamType::Output,            0,   0,   0, "iterations to solution"),
 
-    ref_time  ("ref_time(s)",           12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "reference time to solution"),
-    ref_gflops("ref_gflops",            12, 3, ParamType::Output, testsweeper::no_data_flag,   0,   0, "reference Gflop/s rate"),
-    ref_iters ("ref_iters",              9,    ParamType::Output,                         0,   0,   0, "reference iterations to solution"),
+    ref_time  ("ref time (s)", 12, 3, ParamType::Output, no_data_flag,   0,   0, "reference time to solution"),
+    ref_gflops("ref gflop/s",  12, 3, ParamType::Output, no_data_flag,   0,   0, "reference Gflop/s rate"),
+    ref_iters ("ref iters",     9,    ParamType::Output,            0,   0,   0, "reference iterations to solution"),
 
     // default -1 means "no check"
     //         name,     w, type,          default, min, max, help

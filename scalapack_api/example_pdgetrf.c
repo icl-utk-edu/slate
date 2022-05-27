@@ -70,8 +70,8 @@ int main(int argc, char* argv[])
     double* A = (double*)malloc(localma * localna * sizeof(double));
     descinit_(descA, &n, &n, &nb, &nb, &izero, &izero, &ictxt, &localma, &info);
     // seed random generator (do not use 1 => reset)
-    int srand_seed = mpi_rank*13+17
-                     srand(srand_seed);
+    int srand_seed = mpi_rank*13+17;
+    srand(srand_seed);
     for (int j=0; j<localma*localna; j++)
         A[j] = 1+ 0.5 - (double)rand() / RAND_MAX;
 

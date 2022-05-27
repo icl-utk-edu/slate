@@ -59,6 +59,9 @@ void test_tbsm_work(Params& params, bool run)
     params.ref_time();
     //params.ref_gflops();
 
+    // Suppress norm from output; it's only for checks.
+    params.norm.width( 0 );
+
     if (! run) {
         // Note is printed before table header.
         printf("%% Note this does NOT test pivoting in tbsm. See gbtrs for that.\n");

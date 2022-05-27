@@ -57,6 +57,9 @@ void test_trsm_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
+    // Suppress norm from output; it's only for checks.
+    params.norm.width( 0 );
+
     if (! run) {
         params.matrix.kind.set_default( "rand_dominant" );
         return;

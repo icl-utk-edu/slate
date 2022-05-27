@@ -57,6 +57,10 @@ void test_herk_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
+    // Suppress norm, nrhs from output; they're only for checks.
+    params.norm.width( 0 );
+    params.nrhs.width( 0 );
+
     if (! run)
         return;
 

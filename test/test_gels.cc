@@ -54,11 +54,11 @@ void test_gels_work(Params& params, bool run)
     params.matrixC.mark();
 
     // mark non-standard output values
-    params.error.name("leastsqr\n" "error");
+    params.error.name("leastsqr");
     params.error2();
-    params.error2.name("min. norm\n" "error");
+    params.error2.name("min norm");
     params.error3();
-    params.error3.name("residual\n" "error");
+    params.error3.name("residual");
     params.time();
     params.gflops();
     params.ref_time();

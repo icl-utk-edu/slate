@@ -4,72 +4,8 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "work/work.hh"
 
 namespace slate {
-
-namespace impl {
-
-//------------------------------------------------------------------------------
-/// @internal
-/// Distributed parallel triangular matrix solve.
-/// Generic implementation for any target.
-/// @ingroup trsm_impl
-///
-template <Target target, typename scalar_t>
-void trsm(slate::internal::TargetType<target>,
-          Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          Options const& opts)
-{
-    Options opts2 = opts;
-
-    if (target == Target::Devices) {
-        int64_t lookahead = get_option<int64_t>( opts2, Option::Lookahead, 1 );
-
-        const int64_t batch_size_zero = 0;
-        // Allocate batch arrays = number of kernels without
-        // lookahead + lookahead
-        // number of kernels without lookahead = 2
-        // (internal::gemm & internal::trsm)
-        // TODO
-        // whereas internal::gemm with lookahead will be executed as many as
-        // lookaheads, thus
-        // internal::gemm with lookahead needs batch arrays equal to the
-        // number of lookaheads
-        // and the batch_arrays_index starts from
-        // the number of kernels without lookahead, and then incremented by 1
-        // for every execution for the internal::gemm with lookahead
-
-        // Number of device queues (num_queues):
-        // 1) trsm                            (         1 )
-        // 2) gemm for trailing matrix update (         1 )
-        // 3) lookahead number of gemm's      ( lookahead )
-        const int num_queues = 2 + lookahead;
-        B.allocateBatchArrays(batch_size_zero, num_queues);
-        B.reserveDeviceWorkspace();
-    }
-
-
-    // OpenMP needs pointer types, but vectors are exception safe
-    std::vector<uint8_t> row_vector(A.nt());
-    uint8_t* row = row_vector.data();
-
-    #pragma omp parallel
-    #pragma omp master
-    {
-        omp_set_nested(1);
-        #pragma omp task
-        {
-            work::trsm<target, scalar_t>(side, alpha, A, B, row, opts2);
-            B.tileUpdateAllOrigin();
-        }
-    }
-    B.releaseWorkspace();
-}
-
-} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel triangular matrix-matrix solve.
@@ -113,6 +49,11 @@ void trsm(slate::internal::TargetType<target>,
 ///         - Option::Lookahead:
 ///           Number of panels to overlap with matrix updates.
 ///           lookahead >= 0. Default 1.
+///         - Option::MethodTrsm:
+///           Select the right routine to call. Possible values:
+///           - Auto: let the routine decides [default]
+///           - trsmA: select trsmA routine
+///           - trsmB: select trsmB routine
 ///         - Option::Target:
 ///           Implementation to target. Possible values:
 ///           - HostTask:  OpenMP tasks on CPU host [default].
@@ -128,29 +69,18 @@ void trsm(blas::Side side,
                                     Matrix<scalar_t>& B,
           Options const& opts)
 {
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+    Method method = get_option(
+        opts, Option::MethodTrsm, MethodTrsm::Auto );
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            impl::trsm<Target::HostTask>(
-                internal::TargetType<Target::HostTask>(),
-                side, alpha, A, B, opts);
+    if (method == MethodTrsm::Auto)
+        method = MethodTrsm::select_algo( A, B );
+
+    switch (method) {
+        case MethodTrsm::TrsmA:
+            trsmA( side, alpha, A, B, opts );
             break;
-        case Target::HostNest:
-            impl::trsm<Target::HostNest>(
-                internal::TargetType<Target::HostNest>(),
-                side, alpha, A, B, opts);
-            break;
-        case Target::HostBatch:
-            impl::trsm<Target::HostBatch>(
-                internal::TargetType<Target::HostBatch>(),
-                side, alpha, A, B, opts);
-            break;
-        case Target::Devices:
-            impl::trsm<Target::Devices>(
-                internal::TargetType<Target::Devices>(),
-                side, alpha, A, B, opts);
+        case MethodTrsm::TrsmB:
+            trsmB( side, alpha, A, B, opts );
             break;
     }
 }

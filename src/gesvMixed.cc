@@ -223,7 +223,7 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
 
         // Compute R = B - A * X.
         slate::copy( B, R, opts );
-        gemmA<scalar_hi>(
+        gemm<scalar_hi>(
             -one_hi, A,
                      X,
             one_hi,  R, opts );

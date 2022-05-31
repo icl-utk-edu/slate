@@ -109,6 +109,9 @@ def copyright():
                    stdout=PIPE, text=True ).rstrip().split( '\n' )
     print( '\n>> Updating copyright in:', end=' ' )
     for file in files:
+        if (re.search( r'^(old/|src/hip/)', file ) or os.path.isdir( file )):
+            continue
+
         print( file, end=', ' )
         file_sub( file,
                   r'Copyright \(c\) (\d+)(-\d+)?, University of Tennessee',

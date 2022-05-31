@@ -1,3 +1,17 @@
+2022.05.00
+  - Improved performance, including:
+    LU, Cholesky, QR, mixed-precision LU and Cholesky, trsm, hemm, gemm,
+    eigenvalues
+  - Added LU threshold pivoting
+  - Added scale, add, print
+  - Added row-major MPI grid order; fixes ScaLAPACK API
+  - Included HIP sources in repo, to eliminate build requirement of hipify-perl
+  - Fixed OpenMP issues
+  - Fixed QR with low-rank local blocks
+  - Added C API in CMake
+  - Rewrote testers to use less memory and reduce ScaLAPACK dependency
+  - Use fast residual test for BLAS routines
+
 2021.05.02
   - CMake: fix include paths with HIP for Spack
 

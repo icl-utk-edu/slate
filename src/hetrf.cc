@@ -56,6 +56,8 @@ void hetrf(slate::internal::TargetType<target>,
     //uint8_t* ind1 = Ind1.data();
     //uint8_t* ind2 = Ind2.data();
 
+    const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
     int64_t ione  = 1;
     int64_t izero = 0;
     int priority_one = 1;
@@ -96,13 +98,12 @@ void hetrf(slate::internal::TargetType<target>,
                         #pragma omp task
                         {
                             H.tileInsert(k, i-1);
-                            scalar_t beta = scalar_t(0.0);
+                            scalar_t beta = zero;
                             for (int64_t j = std::max(i-1, ione); j <= std::min(i+1, k); j++) {
-                                slate::gemm<scalar_t>(
-                                    scalar_t(1.0), A(k, j-1),
-                                                   T(j, i),
-                                    beta,          H(k, i-1));
-                                beta = scalar_t(1.0);
+                                tile::gemm<scalar_t>(
+                                    one,  A(k, j-1), T(j, i),
+                                    beta, H(k, i-1) );
+                                beta = one;
                             }
                         }
                     }
@@ -179,14 +180,14 @@ void hetrf(slate::internal::TargetType<target>,
                     H.tileInsert(k, k);
                     auto Lkj = A.sub(k, k, k-2, k-2);
                     Lkj = conjTranspose(Lkj);
-                    slate::gemm<scalar_t>(
-                        scalar_t(1.0), T(k,   k-1),
-                                       Lkj(0, 0),
-                        scalar_t(0.0), H(k,   k));
-                    slate::gemm<scalar_t>(
-                        scalar_t(-1.0), A(k, k-1),
-                                        H(k, k),
-                        scalar_t( 1.0), T(k, k));
+                    tile::gemm<scalar_t>(
+                        one,  T(k,   k-1),
+                              Lkj(0, 0),
+                        zero, H(k,   k) );
+                    tile::gemm<scalar_t>(
+                        -one, A(k, k-1),
+                              H(k, k),
+                        one,  T(k, k) );
                 }
             }
         }
@@ -254,19 +255,19 @@ void hetrf(slate::internal::TargetType<target>,
                     //T.tileBcast(k, k, H.sub(k, k, k-1, k-1), tag);
                     if (H.tileIsLocal(k, k-1)) {
                         H.tileInsert(k, k-1);
-                        slate::gemm<scalar_t>(
-                            scalar_t(1.0), A(k, k-1),
-                                           T(k, k),
-                            scalar_t(0.0), H(k, k-1));
+                        tile::gemm<scalar_t>(
+                            one,  A(k, k-1),
+                                  T(k, k),
+                            zero, H(k, k-1) );
                     }
                     if (k > 1) {
                         // compute H(k, k) += T(k, k-1) * L(k, k-1)^T
                         A.tileBcast(k, k-2, H.sub(k, k, k-1, k-1), layout, tag);
                         if (H.tileIsLocal(k, k-1)) {
-                            slate::gemm<scalar_t>(
-                                scalar_t(1.0), A(k,   k-2),
-                                               T(k-1, k),
-                                scalar_t(1.0), H(k,   k-1));
+                            tile::gemm<scalar_t>(
+                                one, A(k,   k-2),
+                                     T(k-1, k),
+                                one, H(k,   k-1) );
                         }
                     }
                 }
@@ -402,10 +403,9 @@ void hetrf(slate::internal::TargetType<target>,
                         auto Lkk = TriangularMatrix< scalar_t >(Uplo::Lower, Diag::NonUnit, Akk);
 
                         Lkk = conjTranspose(Lkk);
-                        slate::trsm<scalar_t>(
+                        tile::trsm(
                             Side::Right, Diag::Unit,
-                            scalar_t(1.0), Lkk(0, 0),
-                                           T(k+1, k));
+                            one, Lkk(0, 0), T(k+1, k) );
                     }
                 }
                 // copy T(k+1, k)^T into T(k, k+1)

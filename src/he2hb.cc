@@ -33,15 +33,17 @@ void he2hb(slate::internal::TargetType<target>,
 {
     using BcastList = typename HermitianMatrix<scalar_t>::BcastList;
     using blas::real;
+    using real_t = blas::real_type<scalar_t>;
 
     assert(A.uplo() == Uplo::Lower);  // for now
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
-    const scalar_t zero = 0;
-    const scalar_t one  = 1;
-    const scalar_t neg_half = -0.5;
+    const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
+    const scalar_t half = 0.5;
+    const real_t r_one  = 1.0;
 
     int64_t nt = A.nt();
 
@@ -218,20 +220,26 @@ void he2hb(slate::internal::TargetType<target>,
                             rank_lower = A.tileRank(i, j);
                             if (rank_lower == my_rank) { // A.tileIsLocal(i, j)
                                 if (i == j) {
-                                    hemm(Side::Left, one, A(i, j), A(j, k),
-                                                     one, W(i, k));
+                                    tile::hemm(
+                                        Side::Left,
+                                        one, A(i, j), A(j, k),
+                                        one, W(i, k) );
                                 }
                                 else {
-                                    // todo: if HeMatrix returned conjTrans tiles, could merge this with one below.
-                                    gemm(one, A(i, j), A(j, k), one, W(i, k));
+                                    // todo: if HeMatrix returned conjTrans tiles,
+                                    // could merge this with one below.
+                                    tile::gemm(
+                                        one, A(i, j), A(j, k),
+                                        one, W(i, k) );
                                 }
                             }
                         }
                         else { // upper
                             rank_upper = A.tileRank(j, i);
                             if (rank_upper == my_rank) { // A.tileIsLocal(j, i)
-                                gemm(one, conjTranspose(A(j, i)), A(j, k),
-                                     one, W(i, k));
+                                tile::gemm(
+                                    one, conj_transpose( A(j, i) ), A(j, k),
+                                    one, W(i, k) );
                             }
                         }
                     }
@@ -253,7 +261,7 @@ void he2hb(slate::internal::TargetType<target>,
                             Wtmp.tileRecv(i, k, neighbor, layout);
                             W   .tileSend(i, k, neighbor);
                         }
-                        axpy(one, Wtmp(i, k), W(i, k));
+                        tile::add( one, Wtmp(i, k), W(i, k) );
                         Wtmp.tileErase(i, k);
                     }
 
@@ -273,8 +281,9 @@ void he2hb(slate::internal::TargetType<target>,
                         }
 
                         auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
-                        trmm(Side::Right, Diag::NonUnit,
-                             one, std::move(Tk0(0, 0)), TVAVT0(0, 0));
+                        tile::trmm(
+                            Side::Right, Diag::NonUnit,
+                            one, std::move( Tk0(0, 0) ), TVAVT0(0, 0) );
                     }
                 }
 
@@ -292,8 +301,9 @@ void he2hb(slate::internal::TargetType<target>,
                     // 1b. TVAVT = V^H (AVT) = V^H W.
                     TVAVT.set(zero);
                     for (int64_t i: indices) {
-                        gemm(one, conjTranspose(A(i, k)), W(i, k),
-                             one, std::move(TVAVT));
+                        tile::gemm(
+                            one, conj_transpose( A(i, k) ), W(i, k),
+                            one, std::move( TVAVT ) );
                     }
                     // 1c. TVAVT = T^H (V^H AVT)
                     auto T0    = Tlocal.sub(i0, i0, k, k);
@@ -309,13 +319,17 @@ void he2hb(slate::internal::TargetType<target>,
                     }
 
                     auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
-                    trmm(Side::Left, Diag::NonUnit,
-                         one, conjTranspose(Tk0(0, 0)), std::move(TVAVT0(0, 0)));
+                    tile::trmm(
+                        Side::Left, Diag::NonUnit,
+                        one, conj_transpose( Tk0(0, 0) ),
+                             std::move( TVAVT0(0, 0) ) );
 
                     // 1d. W = W - 0.5 V TVAVT.
                     // Technically, could do a hemm here since TVAVT is Hermitian.
                     for (int64_t i: indices) {
-                        gemm(neg_half, A(i, k), std::move(TVAVT), one, W(i, k));
+                        tile::gemm(
+                            -half, A(i, k), std::move( TVAVT ),
+                            one,   W(i, k) );
                     }
 
                     // 2. Update trailing matrix.
@@ -324,15 +338,19 @@ void he2hb(slate::internal::TargetType<target>,
                             assert(A.tileIsLocal(i, j));
                             if (i == j) {  // diag
                                 // A = A - Vik Wjk^H - Wjk Vik^H
-                                her2k(-one, A(i, k), W(j, k), 1.0, A(i, j));
+                                tile::her2k(
+                                    -one, A(i, k), W(j, k),
+                                    r_one, A(i, j) );
                             }
                             else if (i > j) {  // lower
                                 // A = A - Vik Wjk^H
-                                gemm(-one, A(i, k), conjTranspose(W(j, k)),
-                                      one, A(i, j));
+                                tile::gemm(
+                                    -one, A(i, k), conj_transpose( W(j, k) ),
+                                    one,  A(i, j) );
                                 // A = A - Wik Vjk^H
-                                gemm(-one, W(i, k), conjTranspose(A(j, k)),
-                                      one, A(i, j));
+                                tile::gemm(
+                                    -one, W(i, k), conj_transpose( A(j, k) ),
+                                    one,  A(i, j) );
                             }
                             // Skip tiles in upper triangle (i < j) that are
                             // known by symmetry.
@@ -355,15 +373,17 @@ void he2hb(slate::internal::TargetType<target>,
                             if (i > j) {
                                 if (A.tileIsLocal(i, j)) {
                                     // Aij -= Vik Wjk^H
-                                    gemm(-one, A(i, k), conjTranspose(W(j, k)),
-                                          one, A(i, j));
+                                    tile::gemm(
+                                        -one, A(i, k), conj_transpose( W(j, k) ),
+                                        one,  A(i, j) );
                                 }
                             }
                             else if (i < j) {
                                 if (A.tileIsLocal(j, i)) {
                                     // Aji -= Wjk Vik^H
-                                    gemm(-one, W(j, k), conjTranspose(A(i, k)),
-                                          one, A(j, i));
+                                    tile::gemm(
+                                        -one, W(j, k), conj_transpose( A(i, k) ),
+                                        one, A(j, i) );
                                 }
                             }
                             else { // i == j

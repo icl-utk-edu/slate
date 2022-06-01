@@ -82,9 +82,9 @@ void syr2k(internal::TargetType<Target::HostTask>,
                             A.tileGetForReading(j, 0, LayoutConvert(layout));
                             B.tileGetForReading(j, 0, LayoutConvert(layout));
                             C.tileGetForWriting(j, j, LayoutConvert(layout));
-                            syr2k(alpha, A(j, 0),
-                                         B(j, 0),
-                                  beta,  C(j, j));
+                            tile::syr2k(
+                                alpha, A(j, 0), B(j, 0),
+                                beta,  C(j, j) );
                             // todo: should tileRelease()?
                             A.tileTick(j, 0);
                             B.tileTick(j, 0);
@@ -100,6 +100,8 @@ void syr2k(internal::TargetType<Target::HostTask>,
                         firstprivate(i, j, layout, alpha, beta) priority(priority)
                     {
                         try {
+                            const scalar_t one = 1.0;
+
                             A.tileGetForReading(i, 0, LayoutConvert(layout));
                             A.tileGetForReading(j, 0, LayoutConvert(layout));
                             B.tileGetForReading(i, 0, LayoutConvert(layout));
@@ -107,12 +109,12 @@ void syr2k(internal::TargetType<Target::HostTask>,
                             C.tileGetForWriting(i, j, LayoutConvert(layout));
                             auto Aj0 = A(j, 0);
                             auto Bj0 = B(j, 0);
-                            gemm(alpha, A(i, 0),
-                                        transpose(Bj0),
-                                 beta,  C(i, j));
-                            gemm(alpha, B(i, 0),
-                                        transpose(Aj0),
-                                 scalar_t(1.0), C(i, j));
+                            tile::gemm(
+                                alpha, A(i, 0), transpose( Bj0 ),
+                                beta,  C(i, j) );
+                            tile::gemm(
+                                alpha, B(i, 0), transpose( Aj0 ),
+                                one,   C(i, j) );
                             // todo: should tileRelease()?
                             A.tileTick(i, 0);
                             A.tileTick(j, 0);
@@ -164,9 +166,9 @@ void syr2k(internal::TargetType<Target::HostNest>,
                     A.tileGetForReading(j, 0, LayoutConvert(layout));
                     B.tileGetForReading(j, 0, LayoutConvert(layout));
                     C.tileGetForWriting(j, j, LayoutConvert(layout));
-                    syr2k(alpha, A(j, 0),
-                                 B(j, 0),
-                          beta,  C(j, j));
+                    tile::syr2k(
+                        alpha, A(j, 0), B(j, 0),
+                        beta,  C(j, j) );
                     // todo: should tileRelease()?
                     A.tileTick(j, 0);
                     B.tileTick(j, 0);
@@ -189,17 +191,19 @@ void syr2k(internal::TargetType<Target::HostNest>,
             if (i >= j+1) {                     // strictly lower
                 if (C.tileIsLocal(i, j)) {
                     try {
+                        const scalar_t one = 1.0;
+
                         A.tileGetForReading(i, 0, LayoutConvert(layout));
                         B.tileGetForReading(j, 0, LayoutConvert(layout));
                         C.tileGetForWriting(i, j, LayoutConvert(layout));
                         auto Aj0 = A(j, 0);
                         auto Bj0 = B(j, 0);
-                        gemm(alpha, A(i, 0),
-                                    transpose(Bj0),
-                             beta,  C(i, j));
-                        gemm(alpha, B(i, 0),
-                                    transpose(Aj0),
-                             scalar_t(1.0), C(i, j));
+                        tile::gemm(
+                            alpha, A(i, 0), transpose( Bj0 ),
+                            beta,  C(i, j) );
+                        tile::gemm(
+                            alpha, B(i, 0), transpose( Aj0 ),
+                            one,   C(i, j) );
                         // todo: should tileRelease()?
                         A.tileTick(i, 0);
                         A.tileTick(j, 0);
@@ -251,9 +255,9 @@ void syr2k(internal::TargetType<Target::HostBatch>,
                     A.tileGetForReading(j, 0, LayoutConvert(layout));
                     B.tileGetForReading(j, 0, LayoutConvert(layout));
                     C.tileGetForWriting(j, j, LayoutConvert(layout));
-                    syr2k(alpha, A(j, 0),
-                                 B(j, 0),
-                          beta,  C(j, j));
+                    tile::syr2k(
+                        alpha, A(j, 0), B(j, 0),
+                        beta,  C(j, j) );
                     // todo: should tileRelease()?
                     A.tileTick(j, 0);
                     B.tileTick(j, 0);

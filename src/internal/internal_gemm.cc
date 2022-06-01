@@ -104,9 +104,9 @@ void gemm(internal::TargetType<Target::HostTask>,
                 {
                     try {
                         C.tileGetForWriting(i, j, LayoutConvert(layout));
-                        gemm(alpha, A(i, 0),
-                                    B(0, j),
-                             beta,  C(i, j));
+                        tile::gemm(
+                            alpha, A(i, 0), B(0, j),
+                            beta,  C(i, j) );
                         // todo: shouldn't tileRelease()?
                         A.tileTick(i, 0);
                         B.tileTick(0, j);
@@ -158,9 +158,9 @@ void gemm(internal::TargetType<Target::HostNest>,
                     A.tileGetForReading(i, 0, LayoutConvert(layout));
                     B.tileGetForReading(0, j, LayoutConvert(layout));
                     C.tileGetForWriting(i, j, LayoutConvert(layout));
-                    gemm(alpha, A(i, 0),
-                                B(0, j),
-                         beta,  C(i, j));
+                    tile::gemm(
+                        alpha, A(i, 0), B(0, j),
+                        beta,  C(i, j) );
                     // todo: shouldn't tileRelease()?
                     A.tileTick(i, 0);
                     B.tileTick(0, j);

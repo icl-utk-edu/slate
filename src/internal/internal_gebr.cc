@@ -98,7 +98,7 @@ void gerf(int64_t n, scalar_t* v, Matrix<scalar_t>& A)
         scalar_t* vj = v;
         scalar_t beta = zero;
         for (int64_t j = 0; j < AH.nt(); ++j) {
-            gemv(one, AH(i, j), vj, beta, wi);
+            tile::gemv( one, AH(i, j), vj, beta, wi );
             beta = one;
             vj += AH.tileNb(j);
         }
@@ -110,7 +110,7 @@ void gerf(int64_t n, scalar_t* v, Matrix<scalar_t>& A)
     for (int64_t i = 0; i < A.mt(); ++i) {
         scalar_t* wj = w.data();
         for (int64_t j = 0; j < A.nt(); ++j) {
-            ger(-tau, vi, wj, A(i, j));
+            tile::ger( -tau, vi, wj, A(i, j) );
             wj += A.tileNb(j);
         }
         vi += A.tileMb(i);

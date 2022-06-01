@@ -179,7 +179,7 @@ std::vector<std::vector<Event>> Trace::events_ =
 
 std::map<std::string, Color> function_color_ = {
 
-    {"blas::axpy",  Color::LightSkyBlue},
+    {"blas::add",   Color::LightSkyBlue},
     {"blas::gemm",  Color::MediumAquamarine},
     {"blas::hemm",  Color::MediumAquamarine},
     {"blas::her2k", Color::MediumAquamarine},

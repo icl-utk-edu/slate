@@ -68,9 +68,9 @@ void trsm(internal::TargetType<Target::HostTask>,
                     firstprivate(i, layout, side, alpha) priority(priority)
                 {
                     B.tileGetForWriting(i, 0, LayoutConvert(layout));
-                    trsm(side, A.diag(),
-                         alpha, A(0, 0),
-                                B(i, 0));
+                    tile::trsm(
+                        side, A.diag(),
+                        alpha, A(0, 0), B(i, 0) );
                     // todo: should tileRelease()?
                     A.tileTick(0, 0);
                 }
@@ -86,9 +86,9 @@ void trsm(internal::TargetType<Target::HostTask>,
                     firstprivate(j, layout, side, alpha) priority(priority)
                 {
                     B.tileGetForWriting(0, j, LayoutConvert(layout));
-                    trsm(side, A.diag(),
-                         alpha, A(0, 0),
-                                B(0, j));
+                    tile::trsm(
+                        side, A.diag(),
+                        alpha, A(0, 0), B(0, j) );
                     // todo: should tileRelease()?
                     A.tileTick(0, 0);
                 }

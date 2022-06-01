@@ -2365,6 +2365,8 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
     int64_t i, int64_t j, int root_rank, std::set<int>& reduce_set,
     int radix, int tag, Layout layout)
 {
+    const scalar_t one = 1.0;
+
     // Quit if the reduction set is empty
     if (reduce_set.empty())
         return;
@@ -2410,7 +2412,7 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
         // Receive.
         tile.recv(new_vec[src], mpi_comm_, layout, tag);
         // Accumulate.
-        axpy(scalar_t(1.0), tile, Aij);
+        tile::add( one, tile, Aij );
     }
 
     // Forward.

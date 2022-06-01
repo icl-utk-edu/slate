@@ -1518,7 +1518,7 @@ void generate_matrix(
                         // Scale the matrix
                         if (sigma_max != 1) {
                             scalar_t s = sigma_max;
-                            scale(s, Aij);
+                            tile::scale( s, Aij );
                         }
                     }
                 }
@@ -1718,7 +1718,7 @@ void generate_matrix(
                             // Scale the matrix
                             if (sigma_max != 1) {
                                 scalar_t s = sigma_max;
-                                scale(s, Aij);
+                                tile::scale( s, Aij );
                             }
                         }
                     }
@@ -1767,7 +1767,7 @@ void generate_matrix(
                             // Scale the matrix
                             if (sigma_max != 1) {
                                 scalar_t s = sigma_max;
-                                scale(s, Aij);
+                                tile::scale( s, Aij );
                             }
                         }
                     }

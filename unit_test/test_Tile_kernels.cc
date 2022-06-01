@@ -216,7 +216,7 @@ void test_gemm()
 
         // run test
         try {
-            gemm( alpha, A, B, beta, C );
+            slate::tile::gemm( alpha, A, B, beta, C );
 
             // It should throw error if and only if
             // C is complex and
@@ -345,7 +345,7 @@ void test_syrk()
         try {
             if (C.op() == blas::Op::ConjTrans)  // TODO
                 conjugate( C );
-            syrk( alpha, A, beta, C );
+            slate::tile::syrk( alpha, A, beta, C );
             if (C.op() == blas::Op::ConjTrans)  // TODO
                 conjugate( C );
 
@@ -476,7 +476,7 @@ void test_herk()
         try {
             if (C.op() == blas::Op::Trans)  // TODO
                 conjugate( C );
-            herk( alpha, A, beta, C );
+            slate::tile::herk( alpha, A, beta, C );
             if (C.op() == blas::Op::Trans)  // TODO
                 conjugate( C );
 
@@ -617,7 +617,7 @@ void test_trsm()
 
         // run test
         try {
-            trsm( side, diag, alpha, A, B );
+            slate::tile::trsm( side, diag, alpha, A, B );
 
             // It should throw error if and only if
             // B is complex and

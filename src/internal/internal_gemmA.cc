@@ -144,9 +144,9 @@ void gemmA(internal::TargetType<Target::HostTask>,
                     bool Cik_modified = false;
                     for (int64_t j = 0; j < A.nt(); ++j) {
                         if (A.tileIsLocal(i, j)) {
-                            gemm(alpha,  A(i, j),
-                                         B(j, k),
-                                 beta_j, C(i, k));
+                            tile::gemm(
+                                alpha,  A(i, j), B(j, k),
+                                beta_j, C(i, k) );
 
                             beta_j = scalar_t(1.0);
 

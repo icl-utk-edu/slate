@@ -60,13 +60,13 @@ void herf(int64_t n, scalar_t* v, HermitianMatrix<scalar_t>& A)
         scalar_t beta = zero;
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (i == j) {
-                hemv(one, A(i, j), vj, beta, wi);
+                tile::hemv( one, A(i, j), vj, beta, wi );
             }
             else {
                 auto Aij = i > j
                          ? A(i, j)
                          : conjTranspose(A(j, i));
-                gemv(one, Aij, vj, beta, wi);
+                tile::gemv( one, Aij, vj, beta, wi );
             }
             beta = one;
             vj += A.tileNb(j);
@@ -87,11 +87,11 @@ void herf(int64_t n, scalar_t* v, HermitianMatrix<scalar_t>& A)
         scalar_t* wj = w;
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (i > j) {  // lower
-                ger(-tau, vi, wj, A(i, j));
-                ger(-conj(tau), wi, vj, A(i, j));
+                tile::ger( -tau,       vi, wj, A(i, j) );
+                tile::ger( -conj(tau), wi, vj, A(i, j) );
             }
             else if (i == j) {  // diag
-                her2(-tau, vi, wj, A(i, j));
+                tile::her2( -tau, vi, wj, A(i, j) );
             }
             vj += A.tileNb(j);
             wj += A.tileNb(j);

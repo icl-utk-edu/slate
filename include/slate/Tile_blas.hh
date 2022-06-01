@@ -16,6 +16,8 @@
 
 namespace slate {
 
+namespace tile {
+
 //------------------------------------------------------------------------------
 /// General matrix multiply: $op(C) = \alpha op(A) op(B) + \beta C$.
 /// Use transpose() or conjTranspose() to set $op(A)$, $op(B)$, and $op(C)$.
@@ -784,9 +786,10 @@ void scale(
 ///
 // todo: rename add?
 template <typename scalar_t>
-void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
+void add(
+    scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y )
 {
-    trace::Block trace_block("blas::axpy");
+    trace::Block trace_block("blas::add");
 
     // todo: relax these assumptions, by adjusting the loops below
     assert(X.op() == Y.op());
@@ -803,16 +806,20 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
     if (y_col_inc == 1) {
         // one column of y at a time
         int64_t m = std::min(X.mb(), Y.mb());
-        for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j)
-            blas::axpy(m, alpha, &X00[j*x_row_inc], x_col_inc,
-                                 &Y00[j*y_row_inc], y_col_inc);
+        for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j) {
+            blas::axpy( m, alpha,
+                        &X00[j*x_row_inc], x_col_inc,
+                        &Y00[j*y_row_inc], y_col_inc );
+        }
     }
     else {
         // one row of y at a time
         int64_t n = std::min(X.nb(), Y.nb());
-        for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i)
-            blas::axpy(n, alpha, &X00[i*x_col_inc], x_row_inc,
-                                 &Y00[i*y_col_inc], y_row_inc);
+        for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i) {
+            blas::axpy( n, alpha,
+                        &X00[i*x_col_inc], x_row_inc,
+                        &Y00[i*y_col_inc], y_row_inc );
+        }
     }
 }
 
@@ -822,9 +829,10 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>& Y)
 ///
 // todo: rename add?
 template <typename scalar_t>
-void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>&& Y)
+void add(
+    scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>&& Y )
 {
-    axpy(alpha, X, Y);
+    add( alpha, X, Y );
 }
 
 //------------------------------------------------------------------------------
@@ -833,10 +841,11 @@ void axpy(scalar_t alpha, Tile<scalar_t> const& X, Tile<scalar_t>&& Y)
 ///
 // todo: rename add?
 template <typename scalar_t>
-void axpby(scalar_t alpha, Tile<scalar_t> const& X,
-           scalar_t beta,  Tile<scalar_t>& Y)
+void add(
+    scalar_t alpha, Tile<scalar_t> const& X,
+    scalar_t beta,  Tile<scalar_t>& Y )
 {
-    // trace::Block trace_block("blas::axpby");
+    // trace::Block trace_block("blas::add");
 
     assert(X.op() == Y.op() && X.mb() == Y.mb() && X.nb() == Y.nb());
     assert(X.uploPhysical() == Y.uploPhysical());
@@ -854,18 +863,22 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
             // one column of y at a time
             int64_t m = std::min(X.mb(), Y.mb());
             for (int64_t j = 0; j < std::min(X.nb(), Y.nb()); ++j) {
-                blas::scal(m, beta,  &Y00[j*y_row_inc], y_col_inc);
-                blas::axpy(m, alpha, &X00[j*x_row_inc], x_col_inc,
-                                     &Y00[j*y_row_inc], y_col_inc);
+                blas::scal( m, beta,
+                            &Y00[j*y_row_inc], y_col_inc );
+                blas::axpy( m, alpha,
+                            &X00[j*x_row_inc], x_col_inc,
+                            &Y00[j*y_row_inc], y_col_inc );
             }
         }
         else {
             // one row of y at a time
             int64_t n = std::min(X.nb(), Y.nb());
             for (int64_t i = 0; i < std::min(X.mb(), Y.mb()); ++i) {
-                blas::scal(n, beta,  &Y00[i*y_col_inc], y_row_inc);
-                blas::axpy(n, alpha, &X00[i*x_col_inc], x_row_inc,
-                                     &Y00[i*y_col_inc], y_row_inc);
+                blas::scal( n, beta,
+                            &Y00[i*y_col_inc], y_row_inc );
+                blas::axpy( n, alpha,
+                            &X00[i*x_col_inc], x_row_inc,
+                            &Y00[i*y_col_inc], y_row_inc );
             }
         }
     }
@@ -882,7 +895,7 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
         }
         else {
             // one row of y at a time
-            slate_not_implemented("axpby uplo == Lower cannot process by row, only by column");
+            slate_not_implemented("add uplo == Lower cannot process by row, only by column");
         }
     }
     else if (X.uploPhysical() == Uplo::Upper) {
@@ -907,7 +920,7 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
         }
         else {
             // one row of y at a time
-            slate_not_implemented("axpby uplo == Upper cannot process by row, only by column");
+            slate_not_implemented("add uplo == Upper cannot process by row, only by column");
         }
     }
 }
@@ -918,11 +931,14 @@ void axpby(scalar_t alpha, Tile<scalar_t> const& X,
 ///
 // todo: rename add?
 template <typename scalar_t>
-void axpby(scalar_t alpha, Tile<scalar_t> const& X,
-           scalar_t beta,  Tile<scalar_t>&& Y)
+void add(
+    scalar_t alpha, Tile<scalar_t> const& X,
+    scalar_t beta,  Tile<scalar_t>&& Y )
 {
-    axpby(alpha, X, beta, Y);
+    add( alpha, X, beta, Y );
 }
+
+} // namespace tile
 
 } // namespace slate
 

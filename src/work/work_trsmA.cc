@@ -109,7 +109,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     for (int64_t i = 0; i < mt; ++i) {
                         for (int64_t j = 0; j < nt; ++j) {
                             if (B.tileIsLocal(i, j)) {
-                                scale(alpha, B(i, j));
+                                tile::scale( alpha, B(i, j) );
                             }
                         }
                     }
@@ -252,7 +252,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     for (int64_t i = 0; i < mt; ++i) {
                         for (int64_t j = 0; j < nt; ++j) {
                             if (B.tileIsLocal(i, j)) {
-                                scale(alpha, B(i, j));
+                                tile::scale( alpha, B(i, j) );
                             }
                         }
                     }

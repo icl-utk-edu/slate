@@ -96,7 +96,7 @@ void tbsm(slate::internal::TargetType<target>,
                     for (int64_t j = 0; j < B_nt; ++j) {
                         if (B.tileIsLocal(i, j)) {
                             B.tileGetForWriting(i, j, LayoutConvert(layout));
-                            scale(alpha, B(i, j));
+                            tile::scale( alpha, B(i, j) );
                         }
                     }
                     #pragma omp taskwait

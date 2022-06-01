@@ -159,7 +159,7 @@ void test_he2hb_work(Params& params, bool run)
                     auto Bij = B(i, j);
                     // if i == j, Aij was Lower; set it to General for axpy.
                     Aij.uplo(slate::Uplo::General);
-                    axpy(-one, Aij, Bij);
+                    slate::tile::add( -one, Aij, Bij );
                 }
             }
         }

@@ -96,10 +96,10 @@ void hemmA(internal::TargetType<Target::HostTask>,
                         for (int64_t k = 0; k < B.nt(); ++k) {
                             B.tileGetForReading(j, k, LayoutConvert(layout));
                             C.tileGetForWriting(i, k, LayoutConvert(layout));
-                            hemm(side,
-                                 alpha, A(i, j),
-                                        B(j, k),
-                                 beta,  C(i, k));
+                            tile::hemm(
+                                side,
+                                alpha, A(i, j), B(j, k),
+                                beta,  C(i, k) );
 
                             // todo: should tileRelease()?
                             A.tileTick(i, j);
@@ -147,10 +147,10 @@ void hemmA(internal::TargetType<Target::HostNest>,
                     A.tileGetForReading(0, 0, LayoutConvert(layout));
                     B.tileGetForReading(0, j, LayoutConvert(layout));
                     C.tileGetForWriting(0, j, LayoutConvert(layout));
-                    hemm(side,
-                         alpha, A(0, 0),
-                                B(0, j),
-                         beta,  C(0, j));
+                    tile::hemm(
+                        side,
+                        alpha, A(0, 0), B(0, j),
+                        beta,  C(0, j) );
                     // todo: should tileRelease()?
                     A.tileTick(0, 0);
                     B.tileTick(0, j);
@@ -171,10 +171,10 @@ void hemmA(internal::TargetType<Target::HostNest>,
                     A.tileGetForReading(0, 0, LayoutConvert(layout));
                     B.tileGetForReading(i, 0, LayoutConvert(layout));
                     C.tileGetForWriting(i, 0, LayoutConvert(layout));
-                    hemm(side,
-                         alpha, A(0, 0),
-                                B(i, 0),
-                         beta,  C(i, 0));
+                    tile::hemm(
+                        side,
+                        alpha, A(0, 0), B(i, 0),
+                        beta,  C(i, 0) );
                     // todo: should tileRelease()?
                     A.tileTick(0, 0);
                     B.tileTick(i, 0);

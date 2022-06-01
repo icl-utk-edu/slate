@@ -79,8 +79,9 @@ void herk(internal::TargetType<Target::HostTask>,
                         try {
                             A.tileGetForReading(j, 0, LayoutConvert(layout));
                             C.tileGetForWriting(j, j, LayoutConvert(layout));
-                            herk(alpha, A(j, 0),
-                                 beta,  C(j, j));
+                            tile::herk(
+                                alpha, A(j, 0),
+                                beta,  C(j, j) );
                             // todo: should tileRelease()?
                             A.tileTick(j, 0);
                             // todo: why the second tick?
@@ -101,9 +102,9 @@ void herk(internal::TargetType<Target::HostTask>,
                             A.tileGetForReading(j, 0, LayoutConvert(layout));
                             C.tileGetForWriting(i, j, LayoutConvert(layout));
                             auto Aj0 = A(j, 0);
-                            gemm(alpha_, A(i, 0),
-                                         conjTranspose(Aj0),
-                                 beta_,  C(i, j));
+                            tile::gemm(
+                                alpha_, A(i, 0), conj_transpose( Aj0 ),
+                                beta_,  C(i, j) );
                             // todo: should tileRelease()?
                             A.tileTick(i, 0);
                             A.tileTick(j, 0);
@@ -155,8 +156,9 @@ void herk(internal::TargetType<Target::HostNest>,
                 try {
                     A.tileGetForReading(j, 0, LayoutConvert(layout));
                     C.tileGetForWriting(j, j, LayoutConvert(layout));
-                    herk(alpha, A(j, 0),
-                         beta,  C(j, j));
+                    tile::herk(
+                        alpha, A(j, 0),
+                        beta,  C(j, j) );
                     // todo: should tileRelease()?
                     A.tileTick(j, 0);
                     A.tileTick(j, 0);
@@ -183,9 +185,9 @@ void herk(internal::TargetType<Target::HostNest>,
                         A.tileGetForReading(j, 0, LayoutConvert(layout));
                         C.tileGetForWriting(i, j, LayoutConvert(layout));
                         auto Aj0 = A(j, 0);
-                        gemm(alpha_, A(i, 0),
-                                     conjTranspose(Aj0),
-                             beta_,  C(i, j));
+                        tile::gemm(
+                            alpha_, A(i, 0), conj_transpose( Aj0 ),
+                            beta_,  C(i, j) );
                         // todo: should tileRelease()?
                         A.tileTick(i, 0);
                         A.tileTick(j, 0);
@@ -233,8 +235,9 @@ void herk(internal::TargetType<Target::HostBatch>,
                 try {
                     A.tileGetForReading(j, 0, LayoutConvert(layout));
                     C.tileGetForWriting(j, j, LayoutConvert(layout));
-                    herk(alpha, A(j, 0),
-                         beta,  C(j, j));
+                    tile::herk(
+                        alpha, A(j, 0),
+                        beta,  C(j, j) );
                     // todo: should tileRelease()?
                     A.tileTick(j, 0);
                     A.tileTick(j, 0);

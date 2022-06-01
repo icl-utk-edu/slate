@@ -76,8 +76,9 @@ void syrk(internal::TargetType<Target::HostTask>,
                         try {
                             A.tileGetForReading(j, 0, LayoutConvert(layout));
                             C.tileGetForWriting(j, j, LayoutConvert(layout));
-                            syrk(alpha, A(j, 0),
-                                 beta,  C(j, j));
+                            tile::syrk(
+                                alpha, A(j, 0),
+                                beta,  C(j, j) );
                             // todo: should tileRelease()?
                             A.tileTick(j, 0);
                             A.tileTick(j, 0);
@@ -97,9 +98,9 @@ void syrk(internal::TargetType<Target::HostTask>,
                             A.tileGetForReading(j, 0, LayoutConvert(layout));
                             C.tileGetForWriting(i, j, LayoutConvert(layout));
                             auto Aj0 = A(j, 0);
-                            gemm(alpha, A(i, 0),
-                                        transpose(Aj0),
-                                 beta,  C(i, j));
+                            tile::gemm(
+                                alpha, A(i, 0), transpose( Aj0 ),
+                                beta,  C(i, j) );
                             // todo: should tileRelease()?
                             A.tileTick(i, 0);
                             A.tileTick(j, 0);
@@ -148,8 +149,9 @@ void syrk(internal::TargetType<Target::HostNest>,
                 try {
                     A.tileGetForReading(j, 0, LayoutConvert(layout));
                     C.tileGetForWriting(j, j, LayoutConvert(layout));
-                    syrk(alpha, A(j, 0),
-                         beta,  C(j, j));
+                    tile::syrk(
+                        alpha, A(j, 0),
+                        beta,  C(j, j) );
                     // todo: should tileRelease()?
                     A.tileTick(j, 0);
                     A.tileTick(j, 0);
@@ -176,9 +178,9 @@ void syrk(internal::TargetType<Target::HostNest>,
                         A.tileGetForReading(j, 0, LayoutConvert(layout));
                         C.tileGetForWriting(i, j, LayoutConvert(layout));
                         auto Aj0 = A(j, 0);
-                        gemm(alpha, A(i, 0),
-                                    transpose(Aj0),
-                             beta,  C(i, j));
+                        tile::gemm(
+                            alpha, A(i, 0), transpose( Aj0 ),
+                            beta,  C(i, j) );
                         // todo: should tileRelease()?
                         A.tileTick(i, 0);
                         A.tileTick(j, 0);
@@ -226,8 +228,9 @@ void syrk(internal::TargetType<Target::HostBatch>,
                 try {
                     A.tileGetForReading(j, 0, LayoutConvert(layout));
                     C.tileGetForWriting(j, j, LayoutConvert(layout));
-                    syrk(alpha, A(j, 0),
-                         beta,  C(j, j));
+                    tile::syrk(
+                        alpha, A(j, 0),
+                        beta,  C(j, j) );
                     // todo: should tileRelease()?
                     A.tileTick(j, 0);
                     A.tileTick(j, 0);

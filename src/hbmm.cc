@@ -175,7 +175,7 @@ void hbmm(slate::internal::TargetType<target>,
                                     firstprivate(i, j, layout, beta)
                                 {
                                     C.tileGetForWriting(i, j, LayoutConvert(layout));
-                                    scale(beta, C(i, j));
+                                    tile::scale( beta, C(i, j) );
                                 }
                             }
                         }
@@ -335,7 +335,7 @@ void hbmm(slate::internal::TargetType<target>,
                                     firstprivate(i, j, layout, beta)
                                 {
                                     C.tileGetForWriting(i, j, LayoutConvert(layout));
-                                    scale(beta, C(i, j));
+                                    tile::scale( beta, C(i, j) );
                                 }
                             }
                         }

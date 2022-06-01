@@ -115,8 +115,10 @@ void test_trtri_work(Params& params, bool run)
 
     // Create SLATE matrix from the ScaLAPACK layouts
     slate::Matrix<scalar_t> C;
-    C = slate::Matrix<scalar_t>::fromScaLAPACK(
-            n, n, &Cchk_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+    if (check) {
+        C = slate::Matrix<scalar_t>::fromScaLAPACK(
+                n, n, &Cchk_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+    }
 
     // trtri flop count
     double gflop = lapack::Gflop<scalar_t>::trtri(n);

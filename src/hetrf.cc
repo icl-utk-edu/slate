@@ -158,9 +158,9 @@ void hetrf(slate::internal::TargetType<target>,
                               ind1, std::move(W1));
                 #else
                 slate::internal::gemmA<Target::HostTask>(
-                    scalar_t(-1.0), A.sub(k, k,   0, k-2),
-                                    Hj.sub(0, k-2, 0, 0),
-                    scalar_t( 1.0), T.sub(k, k,   k, k), layout);
+                    -one, A.sub(k, k,   0, k-2),
+                          Hj.sub(0, k-2, 0, 0),
+                    one,  T.sub(k, k,   k, k), layout);
                 #endif
 
                 ReduceList reduce_list;
@@ -289,9 +289,9 @@ void hetrf(slate::internal::TargetType<target>,
 
                             #if 1
                                 slate::internal::gemmA<Target::HostTask>(
-                                    scalar_t(-1.0), A.sub(k+1, A_mt-1, 0, k-2),
-                                                    Hj.sub(0, k-2, 0, 0),
-                                    scalar_t( 1.0), A.sub(k+1, A_mt-1, k, k), layout);
+                                    -one, A.sub(k+1, A_mt-1, 0, k-2),
+                                          Hj.sub(0, k-2, 0, 0),
+                                    one,  A.sub(k+1, A_mt-1, k, k), layout);
                             #else
                                 if (A_mt - (k+1) > max_panel_threads) {
                                     slate::internal::gemmA<Target::HostTask>(
@@ -328,9 +328,9 @@ void hetrf(slate::internal::TargetType<target>,
                                 auto Hj = H.sub(k, k, j, j);
                                 Hj = conjTranspose(Hj);
                                 slate::internal::gemm<target>(
-                                    scalar_t(-1.0), A.sub(k+1, A_mt-1, j, j),
-                                                    Hj.sub(0, 0, 0, 0),
-                                    scalar_t( 1.0), A.sub(k+1, A_mt-1, k, k),
+                                    -one, A.sub(k+1, A_mt-1, j, j),
+                                          Hj.sub(0, 0, 0, 0),
+                                    one,  A.sub(k+1, A_mt-1, k, k),
                                     layout, priority_one);
                             }
                         }
@@ -350,9 +350,9 @@ void hetrf(slate::internal::TargetType<target>,
                     auto Hj = H.sub(k, k, k-1, k-1);
                     Hj = conjTranspose(Hj);
                     slate::internal::gemm<target>(
-                        scalar_t(-1.0), A.sub(k+1, A_mt-1, k-1, k-1),
-                                        Hj.sub(0,   0,     0, 0),
-                        scalar_t( 1.0), A.sub(k+1, A_mt-1, k, k),
+                        -one, A.sub(k+1, A_mt-1, k-1, k-1),
+                              Hj.sub(0,   0,     0, 0),
+                        one,  A.sub(k+1, A_mt-1, k, k),
                         layout, priority_one);
                 }
             }
@@ -370,22 +370,25 @@ void hetrf(slate::internal::TargetType<target>,
                 //printf( " >> compute T(%ld,%ld) on rank-%d <<\n", k+1, k, rank); fflush(stdout);
                 if (T.tileIsLocal(k+1, k)) {
                     T.tileInsert(k+1, k);
-                    lapack::lacpy(lapack::MatrixType::Upper,
+                    lapack::lacpy(
+                        lapack::MatrixType::Upper,
                         A(k+1, k).mb(), A(k+1, k).nb(),
                         A(k+1, k).data(), A(k+1, k).stride(),
                         T(k+1, k).data(), T(k+1, k).stride() );
-                    lapack::laset(lapack::MatrixType::Lower,
+                    lapack::laset(
+                        lapack::MatrixType::Lower,
                         T(k+1, k).mb()-1, T(k+1, k).nb()-1,
-                        scalar_t(0.0), scalar_t(0.0),
+                        zero, zero,
                         T(k+1, k).data()+1, T(k+1, k).stride());
                     T.tileModified(k+1, k);
 
                     // zero out upper-triangular of L(k, k)
                     // and set diagonal to one.
-                    lapack::laset(lapack::MatrixType::Upper,
-                          A(k+1, k).mb(), A(k+1, k).nb(),
-                          scalar_t(0.0), scalar_t(1.0),
-                          A(k+1, k).data(), A(k+1, k).stride());
+                    lapack::laset(
+                        lapack::MatrixType::Upper,
+                        A(k+1, k).mb(), A(k+1, k).nb(),
+                        zero, one,
+                        A(k+1, k).data(), A(k+1, k).stride());
                     A.tileModified(k+1, k);
                 }
             }

@@ -53,12 +53,15 @@ void getri(Matrix<scalar_t>& A, Pivots& pivots,
            Matrix<scalar_t>& B,
            Options const& opts)
 {
+    const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
+
     slate_assert(A.mt() == A.nt());  // square
     slate_assert(B.mt() == B.nt());  // square
     slate_assert(B.mt() == A.mt());  // same size
 
-    // factorization
-    set(scalar_t(0.0), scalar_t(1.0), B, opts);
+    // B = Identity.
+    set( zero, one, B, opts );
 
     // solve
     getrs(A, pivots, B, opts);

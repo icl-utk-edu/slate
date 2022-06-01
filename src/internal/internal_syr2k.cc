@@ -365,6 +365,8 @@ void syr2k(internal::TargetType<Target::HostBatch>,
         {
             trace::Block trace_block("cblas_gemm_batch");
             #ifdef SLATE_WITH_MKL
+                const scalar_t one = 1.0;
+
                 // mkl_set_num_threads_local(...);
                 cblas_gemm_batch(CblasColMajor,
                                  opA_array.data(), opB_array.data(),
@@ -377,7 +379,7 @@ void syr2k(internal::TargetType<Target::HostBatch>,
                                  batch_count, group_size.data());
 
                 // ai => bi, bj => aj, set beta = 1
-                std::fill(beta_array.begin(), beta_array.end(), scalar_t(1.0));
+                std::fill( beta_array.begin(), beta_array.end(), one );
                 cblas_gemm_batch(CblasColMajor,
                                  opA_array.data(), opB_array.data(),
                                  m_array.data(), n_array.data(), k_array.data(),
@@ -477,6 +479,8 @@ void syr2k(internal::TargetType<Target::Devices>,
                 firstprivate(device, layout, alpha, beta, queue_index) priority(priority)
             {
                 try {
+                    const scalar_t one = 1.0;
+
                     // if op(C) is NoTrans, invert opA, opB if possible
                     Op opA = A.op();
                     if (C.op() != Op::NoTrans) {
@@ -707,7 +711,7 @@ void syr2k(internal::TargetType<Target::Devices>,
 
                     {
                         trace::Block trace_block("blas::batch::gemm");
-                        std::vector<scalar_t> one_(1, scalar_t(1));
+                        std::vector<scalar_t> one_( 1, one );
 
                         if (c_array_gemm00.size() > 0) {
                             std::vector<int64_t>    m(1,  mb00);

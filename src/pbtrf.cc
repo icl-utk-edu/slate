@@ -31,6 +31,9 @@ void pbtrf(slate::internal::TargetType<target>,
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename HermitianBandMatrix<scalar_t>::BcastList;
 
+    const scalar_t one = 1.0;
+    const real_t r_one = 1.0;
+
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -71,7 +74,7 @@ void pbtrf(slate::internal::TargetType<target>,
                 auto Tkk = TriangularMatrix< scalar_t >(Diag::NonUnit, Akk);
                 internal::trsm<Target::HostTask>(
                     Side::Right,
-                    scalar_t(1.0), conjTranspose(Tkk),
+                    one, conj_transpose( Tkk ),
                     A.sub(k+1, ij_end-1, k, k), 1);
             }
 
@@ -92,8 +95,8 @@ void pbtrf(slate::internal::TargetType<target>,
                              depend(inout:column[A_nt-1])
             {
                 internal::herk<Target::HostTask>(
-                    real_t(-1.0), A.sub(k+1+lookahead, ij_end-1, k, k),
-                    real_t( 1.0), A.sub(k+1+lookahead, ij_end-1));
+                    -r_one, A.sub(k+1+lookahead, ij_end-1, k, k),
+                    r_one,  A.sub(k+1+lookahead, ij_end-1) );
             }
         }
 
@@ -103,15 +106,15 @@ void pbtrf(slate::internal::TargetType<target>,
                              depend(inout:column[j])
             {
                 internal::herk<Target::HostTask>(
-                    real_t(-1.0), A.sub(j, j, k, k),
-                    real_t( 1.0), A.sub(j, j));
+                    -r_one, A.sub(j, j, k, k),
+                    r_one,  A.sub(j, j) );
 
                 if (j+1 <= A_nt-1) {
                     auto Ajk = A.sub(j, j, k, k);
                     internal::gemm<Target::HostTask>(
-                        scalar_t(-1.0), A.sub(j+1, ij_end-1, k, k),
-                                        conjTranspose(Ajk),
-                        scalar_t( 1.0), A.sub(j+1, ij_end-1, j, j), layout);
+                        -one, A.sub(j+1, ij_end-1, k, k),
+                              conj_transpose( Ajk ),
+                        one,  A.sub(j+1, ij_end-1, j, j), layout );
                 }
             }
         }

@@ -84,7 +84,7 @@ void geqrf(
 
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
-    const real_t   rone = 1.0;
+    const real_t r_one  = 1.0;
     int knt;
 
     Tile<scalar_t>& diag_tile = tiles.at(0);
@@ -141,12 +141,12 @@ void geqrf(
                     combine_sumsq(scale[0], sumsq[0], scale[rank], sumsq[rank]);
                 }
                 xnorm = scale[0]*std::sqrt(sumsq[0]);
-                diag_tile.at(j, j) = scalar_t(1.0);
+                diag_tile.at(j, j) = one;
             }
             thread_barrier.wait(thread_size);
 
             real_t safemin = std::numeric_limits<real_t>::epsilon();
-            real_t rsafemin = rone / safemin;
+            real_t rsafemin = r_one / safemin;
             // if Householder norm is numerically "zero", set to identity and exit
             if (xnorm < safemin && j < diag_len) {
                 betas.at(j) = alpha;
@@ -218,7 +218,7 @@ void geqrf(
 
                 // todo: Use overflow-safe division (see CLADIV/ZLADIV)
                 scalar_t tau = make<scalar_t>((beta-alphr)/beta, -alphi/beta);
-                scalar_t scal_alpha = scalar_t(1.0) / (alpha-beta);
+                scalar_t scal_alpha = one / (alpha-beta);
                 scalar_t ger_alpha = -conj(tau);
                 betas.at(j) = beta;
                 taus.at(j) = tau;
@@ -273,9 +273,9 @@ void geqrf(
                 // global W reduction
                 if (thread_rank == 0) {
                     for (int rank = 1; rank < thread_size; ++rank)
-                        blas::axpy(k+kb-j-1,
-                                   scalar_t(1.0), W.at(rank).data(), 1,
-                                                  W.at(0).data(), 1);
+                        blas::axpy( k+kb-j-1,
+                                    one, W.at(rank).data(), 1,
+                                         W.at(0).data(), 1 );
                 }
                 thread_barrier.wait(thread_size);
 
@@ -386,7 +386,7 @@ void geqrf(
             if (thread_rank == 0) {
                 for (int64_t j = k; j < k+kb; ++j) {
                     auto& tile = diag_tile;
-                    tile.at(j, j) = scalar_t(1.0);
+                    tile.at(j, j) = one;
                     blas::gemv(Layout::ColMajor, Op::ConjTrans,
                                k+kb-j, k,
                                -taus.at(j), &tile.at(j, 0), tile.stride(),
@@ -541,9 +541,9 @@ void geqrf(
             if (thread_rank == 0) {
                 // W reduction
                 for (int rank = 1; rank < thread_size; ++rank)
-                    blas::axpy((nb-k-kb)*kb,
-                               scalar_t(1.0), W.at(rank).data(), 1,
-                                              W.at(0).data(), 1);
+                    blas::axpy( (nb-k-kb)*kb,
+                                one, W.at(rank).data(), 1,
+                                     W.at(0).data(), 1 );
 
                 // trmm
                 blas::trmm(Layout::ColMajor,

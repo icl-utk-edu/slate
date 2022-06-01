@@ -31,6 +31,8 @@ void gemmC(scalar_t alpha, Matrix<scalar_t>& A,
 {
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
+    const scalar_t one = 1.0;
+
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // Assumes column major
@@ -143,9 +145,9 @@ void gemmC(scalar_t alpha, Matrix<scalar_t>& A,
                              depend(out:gemm[k])
             {
                 internal::gemm<target>(
-                    alpha,         A.sub(0, A.mt()-1, k, k),
-                                   B.sub(k, k, 0, B.nt()-1),
-                    scalar_t(1.0), std::move(C),
+                    alpha, A.sub(0, A.mt()-1, k, k),
+                           B.sub(k, k, 0, B.nt()-1),
+                    one,   std::move( C ),
                     layout);
             }
         }

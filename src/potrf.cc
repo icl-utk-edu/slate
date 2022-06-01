@@ -29,6 +29,8 @@ void potrf(slate::internal::TargetType<target>,
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
+    const scalar_t one = 1.0;
+
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // Assumes column major
@@ -67,7 +69,7 @@ void potrf(slate::internal::TargetType<target>,
                     auto Tkk = TriangularMatrix< scalar_t >(Diag::NonUnit, Akk);
                     internal::trsm<Target::HostTask>(
                         Side::Right,
-                        scalar_t(1.0), conjTranspose(Tkk),
+                        one, conj_transpose( Tkk ),
                         A.sub(k+1, A_nt-1, k, k), 1);
                 }
 
@@ -95,9 +97,9 @@ void potrf(slate::internal::TargetType<target>,
                     if (j+1 <= A_nt-1) {
                         auto Ajk = A.sub(j, j, k, k);
                         internal::gemm<Target::HostTask>(
-                            scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
-                                            conjTranspose(Ajk),
-                            scalar_t(1.0), A.sub(j+1, A_nt-1, j, j),
+                            -one, A.sub(j+1, A_nt-1, k, k),
+                                  conj_transpose( Ajk ),
+                            one,  A.sub(j+1, A_nt-1, j, j),
                             layout, 1);
                     }
                 }
@@ -140,6 +142,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
+
+    const scalar_t one = 1.0;
 
     // Use only TileReleaseStrategy::Slate for potrf.
     // Internal routines (trsm, herk, gemm) called in
@@ -204,8 +208,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     auto Tkk = TriangularMatrix< scalar_t >(Diag::NonUnit, Akk);
                     internal::trsm<Target::Devices>(
                         Side::Right,
-                        scalar_t(1.0), conjTranspose(Tkk),
-                                       A.sub(k+1, A_nt-1, k, k),
+                        one, conj_transpose( Tkk ),
+                        A.sub(k+1, A_nt-1, k, k),
                         priority_zero, layout, queue_1, opts2);
                 }
 
@@ -257,9 +261,9 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     if (j+1 <= A_nt-1) {
                         auto Ajk = A.sub(j, j, k, k);
                         internal::gemm<Target::Devices>(
-                            scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
-                                            conjTranspose(Ajk),
-                            scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j),
+                            -one, A.sub(j+1, A_nt-1, k, k),
+                                  conj_transpose( Ajk ),
+                            one,  A.sub(j+1, A_nt-1, j, j),
                             layout, priority_zero, j-k+1, opts2);
                     }
                 }

@@ -123,17 +123,17 @@ void householder_reflection_generator(
                 combine_sumsq(scale[0], sumsq[0], scale[rank], sumsq[rank]);
             }
             xnorm = scale[0]*std::sqrt(sumsq[0]);
-            diag_tile.at(k, k) = scalar_t(1.0);
+            diag_tile.at(k, k) = one;
             // Setting upper-diagonal to zero
             //for (int64_t i = 0; i < k; ++i)
-            //    diag_tile.at(i,k) = scalar_t(0.0);
+            //    diag_tile.at(i,k) = zero;
         }
         thread_barrier.wait(thread_size);
 
         real_t beta =
             -std::copysign(lapack::lapy3(alphr, alphi, xnorm), alphr);
 
-        scalar_t scal_alpha = scalar_t(1.0) / (alpha-beta);
+        scalar_t scal_alpha = one / (alpha-beta);
         scalar_t tau = make<scalar_t>((beta-alphr)/beta, -alphi/beta);
         betas.at(k) = beta; // only need beta for correct QR-factorization
         taus.at(k) = tau;
@@ -180,18 +180,20 @@ void householder_reflection_generator(
                     // T(1:k-1,k) = - T(1:k-1,1:k-1) * V(k:m,1:k-1)^T
                     //                               * V(k:m,k) * T(k,k)
                     if (i_index == tile_indices.at(0)) {
-                        blas::gemv(Layout::ColMajor, Op::ConjTrans,
-                                   tile.mb()-k, k,
-                                   scalar_t(1.0), &tile.at(k, 0), tile.stride(),
-                                                  &tile.at(k, k), 1,
-                                   gemv_beta,     gemv_c, 1);
+                        blas::gemv(
+                            Layout::ColMajor, Op::ConjTrans,
+                            tile.mb()-k, k,
+                            one,       &tile.at(k, 0), tile.stride(),
+                                       &tile.at(k, k), 1,
+                            gemv_beta, gemv_c, 1 );
                     }
                     else {
-                        blas::gemv(Layout::ColMajor, Op::ConjTrans,
-                                   tile.mb(), k,
-                                   scalar_t(1.0), &tile.at(0, 0), tile.stride(),
-                                                  &tile.at(0, k), 1,
-                                   gemv_beta,     gemv_c, 1);
+                        blas::gemv(
+                            Layout::ColMajor, Op::ConjTrans,
+                            tile.mb(), k,
+                            one,       &tile.at(0, 0), tile.stride(),
+                                       &tile.at(0, k), 1,
+                            gemv_beta, gemv_c, 1 );
                     }
                 }
             }
@@ -227,7 +229,7 @@ void householder_reflection_generator(
         if (update_trailing_submatrix) {
             int64_t nb = diag_tile.nb();
             for (int64_t j = 0; j < nb; ++j)
-                W.at(thread_rank).data()[j] = scalar_t(0.0);
+                W.at(thread_rank).data()[j] = zero;
 
             scalar_t ger_alpha = -conj(tau);
             for (int64_t idx = thread_rank;
@@ -240,18 +242,20 @@ void householder_reflection_generator(
 
                 if (k+1 < diag_len) {
                     if (i_index == tile_indices.at(0)) {
-                        blas::gemv(Layout::ColMajor, Op::ConjTrans,
-                                   tile.mb()-k, nb-k-1,
-                                   scalar_t(1.0), &tile.at(k, k+1), tile.stride(),
-                                                  &tile.at(k, k), 1,
-                                   gemv_beta,     W.at(thread_rank).data(), 1);
+                        blas::gemv(
+                            Layout::ColMajor, Op::ConjTrans,
+                            tile.mb()-k, nb-k-1,
+                            one,       &tile.at(k, k+1), tile.stride(),
+                                       &tile.at(k, k), 1,
+                            gemv_beta, W.at(thread_rank).data(), 1 );
                     }
                     else {
-                        blas::gemv(Layout::ColMajor, Op::ConjTrans,
-                                   tile.mb(), nb-k-1,
-                                   scalar_t(1.0), &tile.at(0, k+1), tile.stride(),
-                                                  &tile.at(0, k), 1,
-                                   gemv_beta,     W.at(thread_rank).data(), 1);
+                        blas::gemv(
+                            Layout::ColMajor, Op::ConjTrans,
+                            tile.mb(), nb-k-1,
+                            one,       &tile.at(0, k+1), tile.stride(),
+                                       &tile.at(0, k), 1,
+                            gemv_beta, W.at(thread_rank).data(), 1 );
                     }
                 }
             }
@@ -259,9 +263,9 @@ void householder_reflection_generator(
 
             if (thread_rank == 0) {
                 for (int rank = 1; rank < thread_size; ++rank)
-                    blas::axpy(nb-k-1,
-                               scalar_t(1.0), W.at(rank).data(), 1,
-                                              W.at(0).data(), 1);
+                    blas::axpy( nb-k-1,
+                                one, W.at(rank).data(), 1,
+                                     W.at(0).data(), 1 );
             }
             thread_barrier.wait(thread_size);
 

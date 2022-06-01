@@ -37,6 +37,8 @@ void syr2k(slate::internal::TargetType<target>,
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    const scalar_t one = 1.0;
+
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -110,8 +112,8 @@ void syr2k(slate::internal::TargetType<target>,
         {
             internal::syr2k<target>(
                 alpha, A.sub(0, A.mt()-1, 0, 0),
-                B.sub(0, B.mt()-1, 0, 0),
-                beta,  std::move(C));
+                       B.sub(0, B.mt()-1, 0, 0),
+                beta,  std::move( C ) );
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -145,9 +147,9 @@ void syr2k(slate::internal::TargetType<target>,
                              depend(out:gemm[k])
             {
                 internal::syr2k<target>(
-                    alpha,         A.sub(0, A.mt()-1, k, k),
-                                   B.sub(0, B.mt()-1, k, k),
-                    scalar_t(1.0), std::move(C));
+                    alpha, A.sub(0, A.mt()-1, k, k),
+                           B.sub(0, B.mt()-1, k, k),
+                    one,   std::move( C ) );
             }
         }
 

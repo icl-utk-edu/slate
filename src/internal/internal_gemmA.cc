@@ -132,6 +132,8 @@ void gemmA(internal::TargetType<Target::HostTask>,
             firstprivate(i, alpha, beta, c_tile_acquired) priority(priority)
         {
             try {
+                const scalar_t zero = 0.0;
+                const scalar_t one  = 1.0;
 
                 scalar_t beta_j;
                 for (int64_t k = 0; k < B.nt(); ++k) {
@@ -139,7 +141,7 @@ void gemmA(internal::TargetType<Target::HostTask>,
                         beta_j = beta;
                     }
                     else {
-                        beta_j = scalar_t(0.0);
+                        beta_j = zero;
                     }
                     bool Cik_modified = false;
                     for (int64_t j = 0; j < A.nt(); ++j) {
@@ -148,7 +150,7 @@ void gemmA(internal::TargetType<Target::HostTask>,
                                 alpha,  A(i, j), B(j, k),
                                 beta_j, C(i, k) );
 
-                            beta_j = scalar_t(1.0);
+                            beta_j = one;
 
                             A.tileTick(i, j);
                             B.tileTick(j, k);

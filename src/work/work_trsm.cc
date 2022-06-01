@@ -57,6 +57,8 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     using blas::conj;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    const scalar_t one = 1.0;
+
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // Assumes column major
@@ -107,7 +109,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
         // Lower/NoTrans or Upper/Trans, Left case
         // Forward sweep
         for (int64_t k = 0; k < mt; ++k) {
-            scalar_t alph = k == 0 ? alpha : scalar_t(1.0);
+            scalar_t alph = k == 0 ? alpha : one;
 
             // panel (Akk tile)
             #pragma omp task depend(inout:row[k]) priority(1)
@@ -144,9 +146,9 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                  depend(inout:row[i]) priority(1)
                 {
                     internal::gemm<target>(
-                        scalar_t(-1.0), A.sub(i, i, k, k),
-                                        B.sub(k, k, 0, nt-1),
-                        alph,           B.sub(i, i, 0, nt-1),
+                        -one, A.sub(i, i, k, k),
+                              B.sub(k, k, 0, nt-1),
+                        alph, B.sub(i, i, 0, nt-1),
                         layout, priority_one, i-k+1, opts2);
                 }
             }
@@ -162,10 +164,9 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                  depend(inout:row[mt-1])
                 {
                     internal::gemm<target>(
-                        scalar_t(-1.0),
-                                    A.sub(k+1+lookahead, mt-1, k, k),
-                                    B.sub(k, k, 0, nt-1),
-                        alph,       B.sub(k+1+lookahead, mt-1, 0, nt-1),
+                        -one, A.sub(k+1+lookahead, mt-1, k, k),
+                              B.sub(k, k, 0, nt-1),
+                        alph, B.sub(k+1+lookahead, mt-1, 0, nt-1),
                         layout, priority_zero, queue_0, opts2);
                 }
             }
@@ -192,7 +193,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
         // Upper/NoTrans or Lower/Trans, Left case
         // Backward sweep
         for (int64_t k = mt-1; k >= 0; --k) {
-            scalar_t alph = k == (mt-1) ? alpha : scalar_t(1.0);
+            scalar_t alph = k == (mt-1) ? alpha : one;
 
             // panel (Akk tile)
             #pragma omp task depend(inout:row[k]) priority(1)
@@ -226,9 +227,9 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                  depend(inout:row[i]) priority(1)
                 {
                     internal::gemm<target>(
-                        scalar_t(-1.0), A.sub(i, i, k, k),
-                                        B.sub(k, k, 0, nt-1),
-                        alph,           B.sub(i, i, 0, nt-1),
+                        -one, A.sub(i, i, k, k),
+                              B.sub(k, k, 0, nt-1),
+                        alph, B.sub(i, i, 0, nt-1),
                         layout, priority_one, i-k+lookahead+2, opts2);
                 }
             }
@@ -243,10 +244,9 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                  depend(inout:row[0])
                 {
                     internal::gemm<target>(
-                        scalar_t(-1.0),
-                                      A.sub(0, k-1-lookahead, k, k),
-                                      B.sub(k, k, 0, nt-1),
-                        alph,         B.sub(0, k-1-lookahead, 0, nt-1),
+                        -one, A.sub(0, k-1-lookahead, k, k),
+                              B.sub(k, k, 0, nt-1),
+                        alph, B.sub(0, k-1-lookahead, 0, nt-1),
                         layout, priority_zero, queue_0, opts2);
                 }
             }

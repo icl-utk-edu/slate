@@ -28,6 +28,8 @@ void trtri(slate::internal::TargetType<target>,
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    const scalar_t one = 1.0;
+
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -66,8 +68,7 @@ void trtri(slate::internal::TargetType<target>,
                 // A(1:nt-1, 0) * A(0, 0)^{-H}
                 internal::trsm<Target::HostTask>(
                     Side::Right,
-                    scalar_t(-1.0), A.sub(0, 0),
-                                    A.sub(1, A_nt-1, 0, 0));
+                    -one, A.sub(0, 0), A.sub(1, A_nt-1, 0, 0) );
             }
             ++tag;
         }
@@ -100,8 +101,7 @@ void trtri(slate::internal::TargetType<target>,
                 // leading column trsm, A(k+1:nt-1, k) * A(k, k)^{-H}
                 internal::trsm<Target::HostTask>(
                     Side::Right,
-                    scalar_t(-1.0), A.sub(k, k),
-                                    A.sub(k+1, A_nt-1, k, k));
+                    -one, A.sub(k, k), A.sub(k+1, A_nt-1, k, k) );
 
                 // send leading column to the left
                 BcastList bcast_list_A;
@@ -131,9 +131,9 @@ void trtri(slate::internal::TargetType<target>,
                     // A(k+1+la:nt-1, k+la) * A(k+la, k+la)^{-H}
                     internal::trsm<Target::HostTask>(
                         Side::Right,
-                        scalar_t(-1.0), A.sub(k+lookahead, k+lookahead),
-                                        A.sub(k+1+lookahead, A_nt-1,
-                                              k+lookahead, k+lookahead));
+                        -one, A.sub(k+lookahead, k+lookahead),
+                              A.sub(k+1+lookahead, A_nt-1,
+                                    k+lookahead, k+lookahead) );
 
                     // send leading column to the left
                     BcastList bcast_list_A;
@@ -155,9 +155,9 @@ void trtri(slate::internal::TargetType<target>,
                 {
                     // A(i, 0:k-1) += A(i, k) * A(k, 0:k-1)
                     internal::gemm<Target::HostTask>(
-                        scalar_t(1.0), A.sub(i, i, k, k),
-                                       A.sub(k, k, 0, k-1),
-                        scalar_t(1.0), A.sub(i, i, 0, k-1),
+                        one, A.sub(i, i, k, k),
+                             A.sub(k, k, 0, k-1),
+                        one, A.sub(i, i, 0, k-1),
                         layout);
 
                     if (i+1 < A_nt) {
@@ -183,9 +183,9 @@ void trtri(slate::internal::TargetType<target>,
                 if (k+1+lookahead < A_nt) {
                     // A(k+1+la:nt-1) += A(k+1+la:nt-1, k) * A(k, 0:k-1)
                     internal::gemm<target>(
-                        scalar_t(1.0), A.sub(k+1+lookahead, A_nt-1, k, k),
-                                       A.sub(k, k, 0, k-1),
-                        scalar_t(1.0), A.sub(k+1+lookahead, A_nt-1, 0, k-1),
+                        one, A.sub(k+1+lookahead, A_nt-1, k, k),
+                             A.sub(k, k, 0, k-1),
+                        one, A.sub(k+1+lookahead, A_nt-1, 0, k-1),
                         layout);
                 }
 
@@ -213,8 +213,7 @@ void trtri(slate::internal::TargetType<target>,
                 // solve A(k, k) A(k, :) = A(k, 0:k-1)
                 internal::trsm<Target::HostTask>(
                     Side::Left,
-                    scalar_t(1.0), A.sub(k, k),
-                                   A.sub(k, k, 0, k-1));
+                    one, A.sub(k, k), A.sub(k, k, 0, k-1) );
 
                 // invert A(k, k)
                 internal::trtri<Target::HostTask>(A.sub(k, k));

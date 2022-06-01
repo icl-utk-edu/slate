@@ -65,6 +65,8 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     using blas::conj;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    const scalar_t one = 1.0;
+
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -184,9 +186,9 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                              depend(out:gemm[k])
             {
                 internal::gemm<target>(
-                    alpha,         A.sub(0, k-1, k, k),
-                                   B.sub(k, k, 0, nt-1),
-                    scalar_t(1.0), B.sub(0, k-1, 0, nt-1),
+                    alpha, A.sub(0, k-1, k, k),
+                           B.sub(k, k, 0, nt-1),
+                    one,   B.sub(0, k-1, 0, nt-1),
                     layout, priority_0, queue_0);
 
                 internal::trmm<target>(
@@ -287,9 +289,9 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                              depend(out:gemm[k])
             {
                 internal::gemm<target>(
-                    alpha,         A.sub(k+1, mt-1, k, k),
-                                   B.sub(k, k, 0, nt-1),
-                    scalar_t(1.0), B.sub(k+1, mt-1, 0, nt-1),
+                    alpha, A.sub(k+1, mt-1, k, k),
+                           B.sub(k, k, 0, nt-1),
+                    one,   B.sub(k+1, mt-1, 0, nt-1),
                     layout, priority_0, queue_0);
 
                 // todo: target? needs batch trmm

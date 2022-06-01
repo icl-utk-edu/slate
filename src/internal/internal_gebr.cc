@@ -82,8 +82,8 @@ void gerf(int64_t n, scalar_t* v, Matrix<scalar_t>& A)
 {
     using blas::conj;
 
-    const scalar_t one  = 1.0;
     const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
 
     // Replace tau with 1.0 in v[0].
     scalar_t tau = v[0];

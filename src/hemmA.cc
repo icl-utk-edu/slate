@@ -40,6 +40,8 @@ void hemmA(slate::internal::TargetType<target>,
     //using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    const scalar_t one = 1.0;
+
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -260,22 +262,22 @@ void hemmA(slate::internal::TargetType<target>,
                     auto Arow_k = A.sub(k, k, 0, k-1);
 
                     internal::gemmA<target>(
-                        alpha,         conjTranspose(Arow_k),
-                                       B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1),
+                        alpha, conj_transpose( Arow_k ),
+                               B.sub(k, k, 0, B.nt()-1),
+                        one,   C.sub(0, k-1, 0, C.nt()-1),
                         layout);
 
                     internal::hemmA<Target::HostTask>(
                         Side::Left,
-                        alpha,         A.sub(k, k),
-                                       B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(k, k, 0, C.nt()-1));
+                        alpha, A.sub(k, k),
+                               B.sub(k, k, 0, B.nt()-1),
+                        one,   C.sub(k, k, 0, C.nt()-1));
 
                     if (A.mt()-1 > k) {
                         internal::gemmA<target>(
-                            alpha,         A.sub(k+1, A.mt()-1, k, k),
-                                           B.sub(k, k, 0, B.nt()-1),
-                            scalar_t(1.0), C.sub(k+1, C.mt()-1, 0, C.nt()-1),
+                            alpha, A.sub(k+1, A.mt()-1, k, k),
+                                   B.sub(k, k, 0, B.nt()-1),
+                            one,   C.sub(k+1, C.mt()-1, 0, C.nt()-1),
                             layout);
                     }
                 }
@@ -492,23 +494,23 @@ void hemmA(slate::internal::TargetType<target>,
                                  depend(out:gemm[k])
                 {
                     internal::gemmA<target>(
-                        alpha,         A.sub(0, k-1, k, k),
-                                       B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1),
+                        alpha, A.sub(0, k-1, k, k),
+                               B.sub(k, k, 0, B.nt()-1),
+                        one,   C.sub(0, k-1, 0, C.nt()-1),
                         layout);
 
                     internal::hemmA<Target::HostTask>(
                         Side::Left,
-                        alpha,         A.sub(k, k),
-                                       B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(k, k, 0, C.nt()-1));
+                        alpha, A.sub(k, k),
+                               B.sub(k, k, 0, B.nt()-1),
+                        one,   C.sub(k, k, 0, C.nt()-1));
 
                     if (A.nt()-1 > k) {
                         auto Arow_k = A.sub(k, k, k+1, A.nt()-1);
                         internal::gemmA<target>(
-                            alpha,         conjTranspose(Arow_k),
-                                           B.sub(k, k, 0, B.nt()-1),
-                            scalar_t(1.0), C.sub(k+1, C.mt()-1, 0, C.nt()-1),
+                            alpha, conj_transpose( Arow_k ),
+                                   B.sub(k, k, 0, B.nt()-1),
+                            one,   C.sub(k+1, C.mt()-1, 0, C.nt()-1),
                             layout);
                     }
                 }

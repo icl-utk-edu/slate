@@ -37,6 +37,7 @@ void getri(slate::internal::TargetType<target>,
     using ReduceList = typename Matrix<scalar_t>::ReduceList;
 
     const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -70,7 +71,7 @@ void getri(slate::internal::TargetType<target>,
             auto Wkk = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, W);
             internal::trsm<Target::HostTask>(
                 Side::Right,
-                scalar_t(1.0), std::move(Wkk), A.sub(0, A.nt()-1, k, k));
+                one, std::move( Wkk ), A.sub(0, A.nt()-1, k, k) );
         }
         --k;
 
@@ -106,9 +107,9 @@ void getri(slate::internal::TargetType<target>,
 
             // A(:, k) -= A(:, k+1:nt-1) * W
             internal::gemmA<Target::HostTask>(
-                scalar_t(-1.0), A.sub(0, A.nt()-1, k+1, A.nt()-1),
-                                W.sub(1, W.mt()-1, 0, 0),
-                scalar_t(1.0),  A.sub(0, A.nt()-1, k, k), layout);
+                -one, A.sub(0, A.nt()-1, k+1, A.nt()-1),
+                      W.sub(1, W.mt()-1, 0, 0),
+                one,  A.sub(0, A.nt()-1, k, k), layout);
 
             // reduce A(0:nt-1, k)
             ReduceList reduce_list_A;
@@ -128,7 +129,7 @@ void getri(slate::internal::TargetType<target>,
             auto Tkk = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Wkk);
             internal::trsm<Target::HostTask>(
                 Side::Right,
-                scalar_t(1.0), std::move(Tkk), A.sub(0, A.nt()-1, k, k));
+                one, std::move( Tkk ), A.sub(0, A.nt()-1, k, k) );
         }
 
         // Apply column pivoting.

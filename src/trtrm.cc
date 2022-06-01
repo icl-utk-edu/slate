@@ -32,6 +32,8 @@ void trtrm(slate::internal::TargetType<target>,
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    const scalar_t one = 1.0;
+
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -103,8 +105,7 @@ void trtrm(slate::internal::TargetType<target>,
                 Akk = conjTranspose(Akk);
                 internal::trmm<Target::HostTask>(
                     Side::Left,
-                    scalar_t(1.0), std::move(Akk),
-                                   A.sub(k, k, 0, k-1));
+                    one, std::move( Akk ), A.sub(k, k, 0, k-1) );
             }
 
             // diagonal block, L = L^H L

@@ -32,6 +32,8 @@ void getrf(slate::internal::TargetType<target>,
     // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    const scalar_t one = 1.0;
+
     // Host can use Col/RowMajor for row swapping,
     // RowMajor is slightly more efficient.
     // Layout host_layout = Layout::RowMajor;
@@ -126,8 +128,7 @@ void getrf(slate::internal::TargetType<target>,
                     // solve A(k, k) A(k, j) = A(k, j)
                     internal::trsm<target>(
                         Side::Left,
-                        scalar_t(1.0), std::move(Tkk),
-                                       A.sub(k, k, j, j),
+                        one, std::move( Tkk ), A.sub(k, k, j, j),
                         priority_one, Layout::ColMajor, j-k+1);
 
                     // send A(k, j) across column A(k+1:mt-1, j)
@@ -136,9 +137,9 @@ void getrf(slate::internal::TargetType<target>,
 
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                     internal::gemm<target>(
-                        scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
-                                        A.sub(k, k, j, j),
-                        scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
+                        -one, A.sub(k+1, A_mt-1, k, k),
+                              A.sub(k, k, j, j),
+                        one,  A.sub(k+1, A_mt-1, j, j),
                         target_layout, priority_one, j-k+1);
                 }
             }
@@ -176,8 +177,8 @@ void getrf(slate::internal::TargetType<target>,
                     // todo: target
                     internal::trsm<target>(
                         Side::Left,
-                        scalar_t(1.0), std::move(Tkk),
-                                       A.sub(k, k, k+1+lookahead, A_nt-1),
+                        one, std::move( Tkk ),
+                             A.sub(k, k, k+1+lookahead, A_nt-1),
                         priority_zero, Layout::ColMajor, queue_1);
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
@@ -192,9 +193,9 @@ void getrf(slate::internal::TargetType<target>,
 
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
-                        scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
-                                        A.sub(k, k, k+1+lookahead, A_nt-1),
-                        scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
+                        -one, A.sub(k+1, A_mt-1, k, k),
+                              A.sub(k, k, k+1+lookahead, A_nt-1),
+                        one,  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
                         target_layout, priority_zero, queue_1);
                 }
             }

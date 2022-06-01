@@ -27,6 +27,7 @@ void hegst(slate::internal::TargetType<target>,
            int64_t lookahead)
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
+    using real_t = blas::real_type<scalar_t>;
 
     if (itype != 1 && itype != 2 && itype != 3) {
         throw Exception("itype must be: 1, 2, or 3");
@@ -43,7 +44,7 @@ void hegst(slate::internal::TargetType<target>,
 
     const scalar_t half = 0.5;
     const scalar_t one  = 1.0;
-    const double   rone = 1.0;
+    const real_t r_one  = 1.0;
 
     const int tag_zero        = 0;
     const int life_factor_two = 2;
@@ -126,14 +127,15 @@ void hegst(slate::internal::TargetType<target>,
                         A.template listBcast<target>(bcast_list, layout);
 
                         internal::her2k<target>(
-                                         -one,  std::move(Asub),
-                                                std::move(Bsub),
-                                          rone, A.sub(k+1, nt-1));
+                            -one,  std::move( Asub ),
+                                   std::move( Bsub ),
+                            r_one, A.sub(k+1, nt-1) );
 
                         internal::hemm<Target::HostTask>(
-                            Side::Right, -half, std::move(Akk),
-                                                std::move(Bsub),
-                                          one,  std::move(Asub));
+                            Side::Right,
+                            -half, std::move( Akk  ),
+                                   std::move( Bsub ),
+                            one,   std::move( Asub ) );
 
                         auto Bk1  = B.sub(k+1, nt-1);
                         auto TBk1 = TriangularMatrix<scalar_t>(Diag::NonUnit, Bk1);
@@ -186,9 +188,9 @@ void hegst(slate::internal::TargetType<target>,
                         A.template listBcast<target>(bcast_list, layout);
 
                         internal::her2k<Target::HostTask>(
-                                        one,  conjTranspose(Asub),
-                                              conjTranspose(Bsub),
-                                        rone, A.sub(0, k-1));
+                            one,   conj_transpose( Asub ),
+                                   conj_transpose( Bsub ),
+                            r_one, A.sub(0, k-1) );
 
                         internal::hemm<Target::HostTask>(
                             Side::Left, half, std::move(Akk),

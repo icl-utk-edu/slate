@@ -170,8 +170,8 @@ void getrf(
 
     using real_t = blas::real_type<scalar_t>;
 
-    const scalar_t one  = 1.0;
     const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
 
     bool root = mpi_rank == mpi_root;
     int64_t nb = tiles[0].nb();

@@ -36,6 +36,8 @@ void getri(slate::internal::TargetType<target>,
     using BcastList = typename Matrix<scalar_t>::BcastList;
     using ReduceList = typename Matrix<scalar_t>::ReduceList;
 
+    const scalar_t zero = 0.0;
+
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -58,7 +60,7 @@ void getri(slate::internal::TargetType<target>,
             // Zero L(k, k).
             if (L.tileIsLocal(k, k)) {
                 auto Lkk = L(k, k);
-                tzset(scalar_t(0.0), Lkk);
+                tile::tzset( zero, Lkk );
             }
 
             // send W down col A(0:nt-1, k)
@@ -84,7 +86,7 @@ void getri(slate::internal::TargetType<target>,
             // Zero L(k, k).
             if (L.tileIsLocal(k, k)) {
                 auto Lkk = L(k, k);
-                tzset(scalar_t(0.0), Lkk);
+                tile::tzset( zero, Lkk );
             }
 
             // Zero L(k+1:A_nt-1, k).

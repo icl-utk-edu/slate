@@ -389,7 +389,7 @@ void generate_svd(
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
                     lapack::larnv(idist_randn, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
-                gecopy(Tmp(i, j), U(i, j));
+                slate::tile::gecopy( Tmp(i, j), U(i, j) );
                 Tmp.tileErase(i, j);
             }
         }
@@ -426,7 +426,7 @@ void generate_svd(
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
                     lapack::larnv(idist_randn, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
-                gecopy(Tmp(i, j), V(i, j));
+                slate::tile::gecopy( Tmp(i, j), V(i, j) );
                 Tmp.tileErase(i, j);
             }
         }
@@ -534,7 +534,7 @@ void generate_heev(
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
                     lapack::larnv(idist_rand, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
-                gecopy(Tmp(i, j), U(i, j));
+                slate::tile::gecopy( Tmp(i, j), U(i, j) );
                 Tmp.tileErase(i, j);
             }
         }

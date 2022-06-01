@@ -239,13 +239,13 @@ void hb2st(slate::internal::TargetType<target>,
                 if (i == j) {
                     auto Aij = A(i, j);
                     Aij.uplo(Uplo::Upper);
-                    tzset(zero, Aij);
+                    tile::tzset( zero, Aij );
                 }
 
                 if (i == j + 1) {
                     auto Aij = A(i, j);
                     Aij.uplo(Uplo::Lower);
-                    tzset(zero, Aij);
+                    tile::tzset( zero, Aij );
                 }
             }
             ii += A.tileMb(i);

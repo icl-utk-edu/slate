@@ -314,7 +314,7 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
             auto TTi0 = TT( i, 0 );
             Ai0 .uplo( slate::Uplo::Upper );
             TTi0.uplo( slate::Uplo::Upper );
-            tzcopy( Ai0, TTi0 );
+            slate::tile::tzcopy( Ai0, TTi0 );
         }
     }
 
@@ -352,7 +352,7 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
         auto A00 = A( 0, 0 );
         R00.uplo( slate::Uplo::Upper );
         A00.uplo( slate::Uplo::Upper );
-        tzcopy( A00, R00 );
+        slate::tile::tzcopy( A00, R00 );
     }
     if (verbose > 1) {
         slate::print( "R", R );

@@ -50,7 +50,7 @@ void test_geadd_dev()
 
     double* B0data = new double[ ldb * n ];
     slate::Tile<double> B0(m, n, B0data, ldb, -1, slate::TileKind::UserOwned);
-    gecopy( B, B0 );
+    slate::tile::gecopy( B, B0 );
 
     double* C0data = new double[ ldb * n ];
     slate::Tile<double> C0(m, n, C0data, ldb, -1, slate::TileKind::UserOwned);

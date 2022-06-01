@@ -209,6 +209,8 @@ template <Target target, typename scalar_t>
 void tb2bd(slate::internal::TargetType<target>,
            TriangularBandMatrix<scalar_t>& A)
 {
+    const scalar_t zero = 0.0;
+
     int64_t diag_len = std::min(A.m(), A.n());
     int64_t band = A.bandwidth();
 
@@ -249,13 +251,13 @@ void tb2bd(slate::internal::TargetType<target>,
                 if (i == j) {
                     auto Aij = A(i, j);
                     Aij.uplo(Uplo::Lower);
-                    tzset(scalar_t(0), Aij);
+                    tile::tzset( zero, Aij );
                 }
 
                 if (i == (j - 1)) {
                     auto Aij = A(i, j);
                     Aij.uplo(Uplo::Upper);
-                    tzset(scalar_t(0), Aij);
+                    tile::tzset( zero, Aij );
                 }
             }
             ii += A.tileMb(i);

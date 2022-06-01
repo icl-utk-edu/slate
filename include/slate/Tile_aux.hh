@@ -16,6 +16,8 @@ namespace slate {
 template <typename scalar_t>
 class Tile;
 
+namespace tile {
+
 //------------------------------------------------------------------------------
 /// Copy and precision conversion.
 /// @ingroup copy_tile
@@ -383,6 +385,8 @@ void copyRow(int64_t n,
 {
     copyRow(n, V, A, i_offs, j_offs);
 }
+
+} // namespace tile
 
 } // namespace slate
 

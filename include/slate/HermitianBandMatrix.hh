@@ -342,7 +342,7 @@ void HermitianBandMatrix<scalar_t>::he2hbGather(HermitianMatrix<scalar_t>& A)
                         auto Aij = A(i, j);
                         auto Bij = this->at(i, j);
                         if (Aij.data() != Bij.data() ) {
-                            gecopy(A(i, j), Bij );
+                            tile::gecopy( A(i, j), Bij );
                         }
                     }
                 }

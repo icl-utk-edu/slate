@@ -356,7 +356,7 @@ void TriangularBandMatrix<scalar_t>::ge2tbGather(Matrix<scalar_t>& A)
                         auto Aij = A(i, j);
                         auto Bij = this->at(i, j);
                         if (Aij.data() != Bij.data() ) {
-                            gecopy(A(i, j), Bij );
+                            tile::gecopy( A(i, j), Bij );
                         }
                     }
                 }

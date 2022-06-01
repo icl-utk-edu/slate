@@ -843,7 +843,7 @@ void Matrix<scalar_t>::redistribute(Matrix<scalar_t>& A)
                     auto Aij = A(i, j);
                     auto Bij = this->at(i, j);
                     if (Aij.data() != Bij.data() ) {
-                        gecopy(Aij, Bij );
+                        tile::gecopy( Aij, Bij );
                     }
                 }
             }

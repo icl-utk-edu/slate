@@ -139,7 +139,7 @@ void test_ge2tb_work(Params& params, bool run)
                 auto Bii = B(i, i);
                 Aii.uplo(slate::Uplo::Upper);
                 Bii.uplo(slate::Uplo::Upper);
-                tzcopy(Aii, Bii);
+                slate::tile::tzcopy( Aii, Bii );
             }
             if (i+1 < min_mtnt && B.tileIsLocal(i, i+1)) {
                 // super-diagonal tile
@@ -147,7 +147,7 @@ void test_ge2tb_work(Params& params, bool run)
                 auto Bii1 = B(i, i+1);
                 Aii1.uplo(slate::Uplo::Lower);
                 Bii1.uplo(slate::Uplo::Lower);
-                tzcopy(Aii1, Bii1);
+                slate::tile::tzcopy( Aii1, Bii1 );
             }
         }
         print_matrix("B", B, params);

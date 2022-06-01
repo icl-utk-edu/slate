@@ -202,7 +202,7 @@ void he2hb(slate::internal::TargetType<target>,
                     // Save V0 and set upper(V0) to identity, to avoid trmm's.
                     Asave.tileInsert(i0, k);
                     auto Aik = A(i0, k);
-                    gecopy(std::move(Aik), Asave(i0, k));
+                    tile::gecopy( std::move( Aik ), Asave(i0, k) );
                     Aik.uplo(Uplo::Upper);
                     Aik.set(zero, one);
                 }
@@ -396,7 +396,7 @@ void he2hb(slate::internal::TargetType<target>,
 
                 if (A.tileExists(i0, k)) {
                     // Restore V0.
-                    gecopy(Asave(i0, k), A(i0, k));
+                    tile::gecopy( Asave(i0, k), A(i0, k) );
                     Asave.tileErase(i0, k);
                 }
             }

@@ -188,7 +188,7 @@ void copy(internal::TargetType<Target::HostTask>,
                     A.tileGetForReading(i, j, LayoutConvert::None);
                     // tileAcquire() to avoid un-needed copy
                     B.tileAcquire(i, j, A.tileLayout(i, j));
-                    gecopy(A(i, j), B(i, j));
+                    tile::gecopy( A(i, j), B(i, j) );
                     B.tileModified(i, j, HostNum, true);
                     A.tileTick(i, j);
                 }

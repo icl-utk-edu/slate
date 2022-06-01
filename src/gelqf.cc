@@ -121,7 +121,7 @@ void gelqf(slate::internal::TargetType<target>,
                 // better cache efficiency.
                 for (int64_t j = 0; j < A_panel.nt(); ++j) {
                     if (A_panel.tileIsLocal(0, j)) {
-                        deepConjTranspose(A_panel(0, j), AT_panel(j, 0));
+                        tile::deepConjTranspose( A_panel(0, j), AT_panel(j, 0) );
                     }
                 }
 
@@ -136,7 +136,7 @@ void gelqf(slate::internal::TargetType<target>,
                 for (int64_t i = 0; i < TlT_panel.mt(); ++i) {
                     if (Tl_panel.tileIsLocal(0, i)) {
                         Tl_panel.tileInsert(0, i);
-                        gecopy(TlT_panel(i, 0), Tl_panel(0, i));
+                        tile::gecopy( TlT_panel(i, 0), Tl_panel(0, i) );
                         break;
                     }
                 }
@@ -144,7 +144,7 @@ void gelqf(slate::internal::TargetType<target>,
                 // Copy result back.
                 for (int64_t j = 0; j < A_panel.nt(); ++j) {
                     if (A_panel.tileIsLocal(0, j)) {
-                        deepConjTranspose(AT_panel(j, 0), A_panel(0, j));
+                        tile::deepConjTranspose( AT_panel(j, 0), A_panel(0, j) );
                     }
                 }
                 // todo: AT_panel.clear();

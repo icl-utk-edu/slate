@@ -28,7 +28,7 @@ void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
             auto Bii = B(i, i);
             Aii.uplo(slate::Uplo::Lower);
             Bii.uplo(slate::Uplo::Lower);
-            tzcopy(Aii, Bii);
+            slate::tile::tzcopy( Aii, Bii );
             // Symmetrize the tile.
             for (int64_t jj = 0; jj < Bii.nb(); ++jj)
                 for (int64_t ii = jj; ii < Bii.mb(); ++ii)
@@ -40,7 +40,7 @@ void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
             auto Bi1i = B(i+1, i);
             Ai1i.uplo(slate::Uplo::Upper);
             Bi1i.uplo(slate::Uplo::Upper);
-            tzcopy(Ai1i, Bi1i);
+            slate::tile::tzcopy( Ai1i, Bi1i );
             if (! B.tileIsLocal(i, i+1))
                 B.tileSend(i+1, i, B.tileRank(i, i+1));
         }
@@ -49,11 +49,11 @@ void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
                 // Remote copy-transpose B(i+1, i) => B(i, i+1);
                 // assumes square tiles!
                 B.tileRecv(i, i+1, B.tileRank(i+1, i), slate::Layout::ColMajor);
-                deepConjTranspose(B(i, i+1));
+                slate::tile::deepConjTranspose( B(i, i+1) );
             }
             else {
                 // Local copy-transpose B(i+1, i) => B(i, i+1).
-                deepConjTranspose(B(i+1, i), B(i, i+1));
+                slate::tile::deepConjTranspose( B(i+1, i), B(i, i+1) );
             }
         }
     }
@@ -81,7 +81,7 @@ inline void he2ge(slate::HermitianMatrix<scalar_t> A, slate::Matrix<scalar_t> B)
                     auto Bij = B(i, j);
                     Aij.uplo(slate::Uplo::Lower);
                     Bij.uplo(slate::Uplo::Lower);
-                    tzcopy(Aij, Bij);
+                    slate::tile::tzcopy( Aij, Bij );
                     for (int64_t jj = 0; jj < Bij.nb(); ++jj) {
                         for (int64_t ii = jj; ii < Bij.mb(); ++ii) {
                             Bij.at(jj, ii) = conj(Bij(ii, jj));
@@ -93,7 +93,7 @@ inline void he2ge(slate::HermitianMatrix<scalar_t> A, slate::Matrix<scalar_t> B)
                 if (B.tileIsLocal(i, j)) {
                     auto Aij = A(i, j);
                     auto Bij = B(i, j);
-                    gecopy(Aij, Bij);
+                    slate::tile::gecopy( Aij, Bij );
                     if (! B.tileIsLocal(j, i)) {
                         B.tileSend(i, j, B.tileRank(j, i));
                     }
@@ -102,10 +102,10 @@ inline void he2ge(slate::HermitianMatrix<scalar_t> A, slate::Matrix<scalar_t> B)
                     if (! B.tileIsLocal(i, j)) {
                         B.tileRecv(
                             j, i, B.tileRank(i, j), slate::Layout::ColMajor);
-                        deepConjTranspose(B(j, i));
+                        slate::tile::deepConjTranspose( B(j, i) );
                     }
                     else {
-                        deepConjTranspose(B(i, j), B(j, i));
+                        slate::tile::deepConjTranspose( B(i, j), B(j, i) );
                     }
                 }
             }

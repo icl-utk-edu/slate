@@ -1229,7 +1229,7 @@ void test_deepTranspose_work(int m, int n)
     slate::Tile< scalar_t > AT( n, m, dataT.data(), ldat, HostNum,
                                 slate::TileKind::UserOwned );
 
-    deepTranspose( std::move(A), std::move(AT) );
+    slate::tile::deepTranspose( std::move( A ), std::move( AT ) );
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < m; ++i)
             test_assert( A(i, j) == AT(j, i) );
@@ -1237,7 +1237,7 @@ void test_deepTranspose_work(int m, int n)
     // deepTranspose( std::move(A), std::move(A) );  // error
 
     if (m == n) {
-        deepTranspose( std::move(A) );
+        slate::tile::deepTranspose( std::move( A ) );
         // Check that A == A^T.
         for (int j = 0; j < n; ++j)
             for (int i = 0; i < m; ++i)
@@ -1284,7 +1284,7 @@ void test_deepConjTranspose_work(int m, int n)
     slate::Tile< scalar_t > AH( n, m, dataH.data(), ldah, HostNum,
                                 slate::TileKind::UserOwned );
 
-    deepConjTranspose( std::move(A), std::move(AH) );
+    slate::tile::deepConjTranspose( std::move( A ), std::move( AH ) );
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < m; ++i)
             test_assert( A(i, j) == conj(AH(j, i)) );
@@ -1292,7 +1292,7 @@ void test_deepConjTranspose_work(int m, int n)
     // deepConjTranspose( std::move(A), std::move(A) );  // error
 
     if (m == n) {
-        deepConjTranspose( std::move(A) );
+        slate::tile::deepConjTranspose( std::move( A ) );
         // Check that A == A^H.
         for (int j = 0; j < n; ++j)
             for (int i = 0; i < m; ++i)

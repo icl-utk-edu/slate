@@ -195,7 +195,7 @@ void copy(internal::TargetType<Target::HostTask>,
         if (j < B.mt() && B.tileIsLocal(j, j)) {
             A.tileGetForReading(j, j, LayoutConvert::None);
             B.tileGetForWriting(j, j, LayoutConvert::None);
-            tzcopy(A(j, j), B(j, j));
+            tile::tzcopy( A(j, j), B(j, j) );
             B.tileLayout(j, j, A.tileLayout(j, j));
             A.tileTick(j, j);
         }
@@ -208,7 +208,7 @@ void copy(internal::TargetType<Target::HostTask>,
                     {
                         A.tileGetForReading(i, j, LayoutConvert::None);
                         B.tileGetForWriting(i, j, LayoutConvert::None);
-                        gecopy(A(i, j), B(i, j));
+                        tile::gecopy( A(i, j), B(i, j) );
                         B.tileLayout(i, j, A.tileLayout(i, j));
                         A.tileTick(i, j);
                     }
@@ -224,7 +224,7 @@ void copy(internal::TargetType<Target::HostTask>,
                     {
                         A.tileGetForReading(i, j, LayoutConvert::None);
                         B.tileGetForWriting(i, j, LayoutConvert::None);
-                        gecopy(A(i, j), B(i, j));
+                        tile::gecopy( A(i, j), B(i, j) );
                         B.tileLayout(i, j, A.tileLayout(i, j));
                         A.tileTick(i, j);
                     }

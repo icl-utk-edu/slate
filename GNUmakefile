@@ -699,6 +699,10 @@ dep          = $(addsuffix .d, $(basename $(libslate_src) $(tester_src) \
 tester    = test/tester
 unit_test = $(basename $(unit_src))
 
+# For `tester --debug`, lldb may need test.o compiled with -O0 (after -O3)
+# to see variable `i`.
+test/test.o: CXXFLAGS += -O0
+
 #-------------------------------------------------------------------------------
 # Get Mercurial id, and make version.o depend on it via .id file.
 

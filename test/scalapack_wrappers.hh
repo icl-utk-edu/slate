@@ -124,6 +124,8 @@ inline blas::real_type<scalar_t> scalapack_plange(const char* norm, int64_t m, i
     return scalapack_plange(norm, &m_, &n_, A, &ia_, &ja_, descA, work);
 }
 
+//------------------------------------------------------------------------------
+// Fortran prototypes
 #define scalapack_psgeadd BLAS_FORTRAN_NAME( psgeadd, PSGEADD )
 #define scalapack_pdgeadd BLAS_FORTRAN_NAME( pdgeadd, PDGEADD )
 #define scalapack_pcgeadd BLAS_FORTRAN_NAME( pcgeadd, PCGEADD )
@@ -137,6 +139,8 @@ extern "C" float scalapack_pcgeadd(const char* transa, blas_int* m, blas_int* n,
 
 extern "C" double scalapack_pzgeadd(const char* transa, blas_int* m, blas_int* n, std::complex<double>* alpha, std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA, std::complex<double>* beta, std::complex<double>* B, blas_int* ib, blas_int* jb, blas_int* descB, blas_int* info);
 
+//----------------------------------------
+// Intermediate overloaded wrappers
 inline void scalapack_pgeadd(const char* transa, blas_int* m, blas_int* n, float* alpha, float* A, blas_int* ia, blas_int* ja, blas_int* descA, float* beta, float* B, blas_int* ib, blas_int* jb, blas_int* descB, blas_int* info)
 {
    scalapack_psgeadd(transa, m, n, alpha, A, ia, ja, descA, beta, B, ib, jb, descB, info);
@@ -154,6 +158,8 @@ inline void scalapack_pgeadd(const char* transa, blas_int* m, blas_int* n, std::
     scalapack_pzgeadd(transa, m, n, alpha, A, ia, ja, descA, beta, B, ib, jb, descB, info);
 }
 
+//----------------------------------------
+// Templated wrapper
 template <typename scalar_t>
 inline void scalapack_pgeadd(const char* transa, int64_t m, int64_t n, scalar_t alpha, scalar_t* A, int64_t ia, int64_t ja, blas_int* descA, scalar_t beta, scalar_t* B, int64_t ib, int64_t jb, blas_int* descB, blas_int* info)
 {
@@ -164,6 +170,116 @@ inline void scalapack_pgeadd(const char* transa, int64_t m, int64_t n, scalar_t 
     int ib_ = int64_to_int(ib);
     int jb_ = int64_to_int(jb);
     scalapack_pgeadd(transa, &m_, &n_, &alpha, A, &ia_, &ja_, descA, &beta, B, &ib_, &jb_, descB, info);
+}
+
+//------------------------------------------------------------------------------
+// Fortran prototypes
+#define scalapack_pstradd BLAS_FORTRAN_NAME( pstradd, PSGEADD )
+#define scalapack_pdtradd BLAS_FORTRAN_NAME( pdtradd, PDGEADD )
+#define scalapack_pctradd BLAS_FORTRAN_NAME( pctradd, PCGEADD )
+#define scalapack_pztradd BLAS_FORTRAN_NAME( pztradd, PZGEADD )
+
+extern "C" float scalapack_pstradd(
+    const char* uplo, const char* transA, blas_int* m, blas_int* n,
+    float* alpha, float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* beta,  float* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    blas_int* info );
+
+extern "C" double scalapack_pdtradd(
+    const char* uplo, const char* transA, blas_int* m, blas_int* n,
+    double* alpha, double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* beta,  double* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    blas_int* info );
+
+extern "C" float scalapack_pctradd(
+    const char* uplo, const char* transA, blas_int* m, blas_int* n,
+    std::complex<float>* alpha,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<float>* beta,
+    std::complex<float>* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    blas_int* info );
+
+extern "C" double scalapack_pztradd(
+    const char* uplo, const char* transA, blas_int* m, blas_int* n,
+    std::complex<double>* alpha,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<double>* beta,
+    std::complex<double>* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    blas_int* info );
+
+//----------------------------------------
+// Intermediate overloaded wrappers
+inline void scalapack_ptradd(
+    const char* uplo, const char* transA, blas_int* m, blas_int* n,
+    float* alpha, float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* beta,  float* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    blas_int* info)
+{
+    scalapack_pstradd(
+        uplo, transA, m, n,
+        alpha, A, ia, ja, descA,
+        beta,  B, ib, jb, descB, info);
+}
+
+inline void scalapack_ptradd(
+    const char* uplo, const char* transA, blas_int* m, blas_int* n,
+    double* alpha, double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* beta,  double* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    blas_int* info)
+{
+    scalapack_pdtradd(
+        uplo, transA, m, n,
+        alpha, A, ia, ja, descA,
+        beta,  B, ib, jb, descB, info );
+}
+
+inline void scalapack_ptradd(
+    const char* uplo, const char* transA, blas_int* m, blas_int* n,
+    std::complex<float>* alpha,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<float>* beta,
+    std::complex<float>* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    blas_int* info)
+{
+    scalapack_pctradd(
+        uplo, transA, m, n,
+        alpha, A, ia, ja, descA,
+        beta,  B, ib, jb, descB, info);
+}
+
+inline void scalapack_ptradd(
+    const char* uplo, const char* transA, blas_int* m, blas_int* n,
+    std::complex<double>* alpha,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    std::complex<double>* beta,
+    std::complex<double>* B, blas_int* ib, blas_int* jb, blas_int* descB,
+    blas_int* info)
+{
+    scalapack_pztradd(
+        uplo, transA, m, n,
+        alpha, A, ia, ja, descA,
+        beta,  B, ib, jb, descB, info);
+}
+
+//----------------------------------------
+// Templated wrapper
+template <typename scalar_t>
+inline void scalapack_ptradd(
+    const char* uplo, const char* transA, int64_t m, int64_t n,
+    scalar_t alpha, scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
+    scalar_t beta,  scalar_t* B, int64_t ib, int64_t jb, blas_int* descB,
+    blas_int* info)
+{
+    int m_  = int64_to_int( m  );
+    int n_  = int64_to_int( n  );
+    int ia_ = int64_to_int( ia );
+    int ja_ = int64_to_int( ja );
+    int ib_ = int64_to_int( ib );
+    int jb_ = int64_to_int( jb );
+    scalapack_ptradd(
+        uplo, transA, &m_, &n_,
+        &alpha, A, &ia_, &ja_, descA,
+        &beta,  B, &ib_, &jb_, descB, info);
 }
 
 // -----------------------------------------------------------------------------

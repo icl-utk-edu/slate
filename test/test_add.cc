@@ -339,9 +339,16 @@ void test_add_work(Params& params, bool run)
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-            scalapack_pgeadd( op2str(trans), m, n,
-                              alpha, &Aref_data[0], 1, 1, A_desc,
-                              beta,  &Bref_data[0], 1, 1, B_desc, &info );
+            if (uplo == slate::Uplo::General) {
+                scalapack_pgeadd( op2str( trans ), m, n,
+                                  alpha, &Aref_data[0], 1, 1, A_desc,
+                                  beta,  &Bref_data[0], 1, 1, B_desc, &info );
+            }
+            else {
+                scalapack_ptradd( uplo2str( uplo ), op2str( trans ), m, n,
+                                  alpha, &Aref_data[0], 1, 1, A_desc,
+                                  beta,  &Bref_data[0], 1, 1, B_desc, &info );
+            }
             slate_assert(info == 0);
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;

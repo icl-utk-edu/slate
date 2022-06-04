@@ -40,7 +40,7 @@ namespace device {
 ///     Leading dimension of each tile in Btiles. ldb >= m.
 ///
 template <typename scalar_t>
-__global__ void geaddKernel(
+__global__ void geadd_kernel(
     int64_t m, int64_t n,
     scalar_t alpha, scalar_t** tilesA, int64_t lda,
     scalar_t beta, scalar_t** tilesB, int64_t ldb)
@@ -104,7 +104,7 @@ void geadd(
 
     cudaSetDevice( queue.device() );
 
-    geaddKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    geadd_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         m, n,
         alpha, Aarray, lda,
         beta, Barray, ldb);

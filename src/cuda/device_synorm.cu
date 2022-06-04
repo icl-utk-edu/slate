@@ -38,7 +38,7 @@ namespace device {
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void synormMaxKernel(
+__global__ void synorm_max_kernel(
     lapack::Uplo uplo,
     int64_t n,
     scalar_t const* const* tiles, int64_t lda,
@@ -113,7 +113,7 @@ __global__ void synormMaxKernel(
 ///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
-__global__ void synormOneKernel(
+__global__ void synorm_one_kernel(
     lapack::Uplo uplo,
     int64_t n,
     scalar_t const* const* tiles, int64_t lda,
@@ -173,7 +173,7 @@ __global__ void synormOneKernel(
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void synormFroKernel(
+__global__ void synorm_fro_kernel(
     lapack::Uplo uplo,
     int64_t n,
     scalar_t const* const* tiles, int64_t lda,
@@ -298,6 +298,8 @@ void synorm(
     if (batch_count == 0)
         return;
 
+    cudaSetDevice( queue.device() );
+
     //---------
     // max norm
     if (norm == lapack::Norm::Max) {
@@ -306,7 +308,8 @@ void synorm(
         }
         else {
             assert(ldv == 1);
-            synormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, queue.stream()>>>
+            size_t shared_mem = sizeof(real_t) * nb;
+            synorm_max_kernel<<<batch_count, nb, shared_mem, queue.stream()>>>
                 (uplo, n, Aarray, lda, values);
         }
     }
@@ -318,7 +321,7 @@ void synorm(
         }
         else {
             assert(ldv >= n);
-            synormOneKernel<<<batch_count, nb, 0, queue.stream()>>>
+            synorm_one_kernel<<<batch_count, nb, 0, queue.stream()>>>
                 (uplo, n, Aarray, lda, values, ldv);
         }
     }
@@ -330,7 +333,8 @@ void synorm(
         }
         else {
             assert(ldv == 2);
-            synormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
+            size_t shared_mem = sizeof(real_t) * nb * 2;
+            synorm_fro_kernel<<<batch_count, nb, shared_mem, queue.stream()>>>
                 (uplo, n, Aarray, lda, values);
         }
     }
@@ -374,7 +378,7 @@ const int one_ib1 = 33;
 ///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
-__global__ void synormOffdiagOneKernel(
+__global__ void synorm_offdiag_one_kernel(
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
     blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
@@ -490,13 +494,17 @@ void synormOffdiag(
     if (batch_count == 0)
         return;
 
+    cudaSetDevice( queue.device() );
+
     //---------
     // one norm
     if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
         assert(ldv >= n);
-        size_t lwork = sizeof(real_t) * (one_ib*one_ib1 + roundup(m, int64_t(one_ib)));
-        assert(lwork <= 48*1024); // max 48 KiB
-        synormOffdiagOneKernel<<<batch_count, 32, lwork, queue.stream()>>>
+        size_t shared_mem
+            = sizeof(real_t) * (one_ib*one_ib1 + roundup(m, int64_t(one_ib)));
+        assert( shared_mem <= 48*1024 ); // max 48 KiB
+        synorm_offdiag_one_kernel
+            <<<batch_count, 32, shared_mem, queue.stream()>>>
             (m, n, Aarray, lda, values, ldv);
     }
     else {

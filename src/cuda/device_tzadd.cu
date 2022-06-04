@@ -40,7 +40,7 @@ namespace device {
 ///     Leading dimension of each tile in Btiles. ldb >= m.
 ///
 template <typename scalar_t>
-__global__ void tzaddKernel(
+__global__ void tzadd_kernel(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
     scalar_t alpha, scalar_t** tilesA, int64_t lda,
@@ -114,7 +114,7 @@ void tzadd(
 
     cudaSetDevice( queue.device() );
 
-    tzaddKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    tzadd_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         uplo,
         m, n,
         alpha, Aarray, lda,

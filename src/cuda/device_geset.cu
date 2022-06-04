@@ -39,7 +39,7 @@ namespace device {
 ///     Leading dimension of each tile in Atiles. lda >= m.
 ///
 template <typename scalar_t>
-__global__ void gesetKernel(
+__global__ void geset_kernel(
     int64_t m, int64_t n,
     scalar_t offdiag_value, scalar_t diag_value, scalar_t** tilesA, int64_t lda)
 {
@@ -93,10 +93,12 @@ void geset(
     if (batch_count == 0)
         return;
 
+    cudaSetDevice( queue.device() );
+
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
-    gesetKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    geset_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         m, n,
         diag_value, offdiag_value, Aarray, lda);
 

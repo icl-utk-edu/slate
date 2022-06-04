@@ -39,7 +39,7 @@ namespace device {
 ///     Leading dimension of each tile in Atiles. lda >= m.
 ///
 template <typename scalar_t>
-__global__ void tzscaleKernel(
+__global__ void tzscale_kernel(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
     blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
@@ -104,10 +104,12 @@ void tzscale(
     if (batch_count == 0)
         return;
 
+    cudaSetDevice( queue.device() );
+
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
-    tzscaleKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    tzscale_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         uplo, m, n,
         numer, denom, Aarray, lda);
 

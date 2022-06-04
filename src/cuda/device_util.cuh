@@ -454,7 +454,7 @@ operator / (const cuDoubleComplex x, const cuDoubleComplex y)
     double c = real(y);
     double d = imag(y);
     double e, f, p, q;
-    if ( abs( d ) < abs( c ) ) {
+    if (abs( d ) < abs( c )) {
         e = d / c;
         f = c + d*e;
         p = ( a + b*e ) / f;
@@ -482,7 +482,7 @@ operator / (const double a, const cuDoubleComplex y)
     double c = real(y);
     double d = imag(y);
     double e, f, p, q;
-    if ( abs( d ) < abs( c ) ) {
+    if (abs( d ) < abs( c )) {
         e = d / c;
         f = c + d*e;
         p =  a   / f;
@@ -655,7 +655,7 @@ operator / (const cuFloatComplex x, const cuFloatComplex y)
     float c = real(y);
     float d = imag(y);
     float e, f, p, q;
-    if ( abs( d ) < abs( c ) ) {
+    if (abs( d ) < abs( c )) {
         e = d / c;
         f = c + d*e;
         p = ( a + b*e ) / f;
@@ -683,7 +683,7 @@ operator / (const float a, const cuFloatComplex y)
     float c = real(y);
     float d = imag(y);
     float e, f, p, q;
-    if ( abs( d ) < abs( c ) ) {
+    if (abs( d ) < abs( c )) {
         e = d / c;
         f = c + d*e;
         p =  a   / f;

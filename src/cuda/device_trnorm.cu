@@ -41,7 +41,7 @@ namespace device {
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void trnormMaxKernel(
+__global__ void trnorm_max_kernel(
     lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
@@ -133,7 +133,7 @@ __global__ void trnormMaxKernel(
 ///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
-__global__ void trnormOneKernel(
+__global__ void trnorm_one_kernel(
     lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
@@ -207,7 +207,7 @@ __global__ void trnormOneKernel(
 ///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
-__global__ void trnormInfKernel(
+__global__ void trnorm_inf_kernel(
     lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
@@ -282,7 +282,7 @@ __global__ void trnormInfKernel(
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void trnormFroKernel(
+__global__ void trnorm_fro_kernel(
     lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
@@ -422,6 +422,8 @@ void trnorm(
     if (batch_count == 0)
         return;
 
+    cudaSetDevice( queue.device() );
+
     //---------
     // max norm
     if (norm == lapack::Norm::Max) {
@@ -430,7 +432,8 @@ void trnorm(
         }
         else {
             assert(ldv == 1);
-            trnormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, queue.stream()>>>
+            size_t shared_mem = sizeof(real_t) * nb;
+            trnorm_max_kernel<<<batch_count, nb, shared_mem, queue.stream()>>>
                 (uplo, diag, m, n, Aarray, lda, values);
         }
     }
@@ -442,7 +445,7 @@ void trnorm(
         }
         else {
             assert(ldv >= n);
-            trnormOneKernel<<<batch_count, nb, 0, queue.stream()>>>
+            trnorm_one_kernel<<<batch_count, nb, 0, queue.stream()>>>
                 (uplo, diag, m, n, Aarray, lda, values, ldv);
         }
     }
@@ -454,7 +457,7 @@ void trnorm(
         }
         else {
             assert(ldv >= m);
-            trnormInfKernel<<<batch_count, nb, 0, queue.stream()>>>
+            trnorm_inf_kernel<<<batch_count, nb, 0, queue.stream()>>>
                 (uplo, diag, m, n, Aarray, lda, values, ldv);
         }
     }
@@ -466,7 +469,8 @@ void trnorm(
         }
         else {
             assert(ldv == 2);
-            trnormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
+            size_t shared_mem = sizeof(real_t) * nb * 2;
+            trnorm_fro_kernel<<<batch_count, nb, shared_mem, queue.stream()>>>
                 (uplo, diag, m, n, Aarray, lda, values);
         }
     }

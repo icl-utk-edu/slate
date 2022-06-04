@@ -40,7 +40,7 @@ namespace device {
 ///     Leading dimension of each tile in Btiles. ldb >= m.
 ///
 template <typename src_scalar_t, typename dst_scalar_t>
-__global__ void tzcopyKernel(
+__global__ void tzcopy_kernel(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
     src_scalar_t** tilesA, int64_t lda,
@@ -113,7 +113,7 @@ void tzcopy(
 
     cudaSetDevice( queue.device() );
 
-    tzcopyKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    tzcopy_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
           uplo,
           m, n,
           Aarray, lda,

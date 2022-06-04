@@ -41,7 +41,7 @@ namespace device {
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void genormMaxKernel(
+__global__ void genorm_max_kernel(
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
     blas::real_type<scalar_t>* tiles_maxima)
@@ -112,7 +112,7 @@ const int one_ib1 = 33;
 ///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
-__global__ void genormOneKernel(
+__global__ void genorm_one_kernel(
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
     blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
@@ -175,7 +175,7 @@ __global__ void genormOneKernel(
 ///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
-__global__ void genormInfKernel(
+__global__ void genorm_inf_kernel(
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
     blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
@@ -227,7 +227,7 @@ __global__ void genormInfKernel(
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void genormFroKernel(
+__global__ void genorm_fro_kernel(
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
     blas::real_type<scalar_t>* tiles_values)
@@ -282,7 +282,7 @@ __global__ void genormFroKernel(
 
 
 template <typename scalar_t>
-__global__ void geColNormsMaxKernel(
+__global__ void ge_col_norms_max_kernel(
     int64_t m, int64_t n,
     scalar_t const* const* tiles, int64_t lda,
     blas::real_type<scalar_t>* col_max, int64_t ldv)
@@ -383,6 +383,8 @@ void genorm(
     if (batch_count == 0)
         return;
 
+    cudaSetDevice( queue.device() );
+
     if (scope == NormScope::Matrix) {
 
         //---------
@@ -393,7 +395,9 @@ void genorm(
             }
             else {
                 assert(ldv == 1);
-                genormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, queue.stream()>>>
+                size_t shared_mem = sizeof(real_t) * nb;
+                genorm_max_kernel
+                    <<<batch_count, nb, shared_mem, queue.stream()>>>
                     (m, n, Aarray, lda, values);
             }
         }
@@ -405,7 +409,9 @@ void genorm(
             }
             else {
                 assert(ldv >= n);
-                genormOneKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, queue.stream()>>>
+                size_t shared_mem = sizeof(real_t) * one_ib * one_ib1;
+                genorm_one_kernel
+                    <<<batch_count, one_ib, shared_mem, queue.stream()>>>
                     (m, n, Aarray, lda, values, ldv);
             }
         }
@@ -417,7 +423,7 @@ void genorm(
             }
             else {
                 assert(ldv >= m);
-                genormInfKernel<<<batch_count, nb, 0, queue.stream()>>>
+                genorm_inf_kernel<<<batch_count, nb, 0, queue.stream()>>>
                     (m, n, Aarray, lda, values, ldv);
             }
         }
@@ -429,8 +435,9 @@ void genorm(
             }
             else {
                 assert(ldv == 2);
-
-                genormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
+                size_t shared_mem = sizeof(real_t) * nb * 2;
+                genorm_fro_kernel
+                    <<<batch_count, nb, shared_mem, queue.stream()>>>
                     (m, n, Aarray, lda, values);
             }
         }
@@ -444,7 +451,9 @@ void genorm(
             }
             else {
                 assert(ldv >= n);
-                geColNormsMaxKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, queue.stream()>>>
+                size_t shared_mem = sizeof(real_t) * one_ib * one_ib1;
+                ge_col_norms_max_kernel
+                    <<<batch_count, one_ib, shared_mem, queue.stream()>>>
                     (m, n, Aarray, lda, values, ldv);
             }
         }

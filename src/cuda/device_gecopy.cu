@@ -41,7 +41,7 @@ namespace device {
 ///     Leading dimension of each tile in Btiles. ldb >= m.
 ///
 template <typename src_scalar_t, typename dst_scalar_t>
-__global__ void gecopyKernel(
+__global__ void gecopy_kernel(
     int64_t m, int64_t n,
     src_scalar_t** tilesA, int64_t lda,
     dst_scalar_t** tilesB, int64_t ldb)
@@ -105,7 +105,7 @@ void gecopy(
 
     cudaSetDevice( queue.device() );
 
-    gecopyKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    gecopy_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
           m, n,
           Aarray, lda,
           Barray, ldb);

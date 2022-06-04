@@ -264,6 +264,8 @@ void transpose(
         return;
     assert(lda >= n);
 
+    cudaSetDevice( queue.device() );
+
     int nt = ceildiv( n, int64_t(ib) );
     assert(nt <= 65535);                // CUDA limitation
 
@@ -318,6 +320,8 @@ void transpose_batch(
     if (batch_count < 0 || n <= 1)
         return;
     assert(lda >= n);
+
+    cudaSetDevice( queue.device() );
 
     int nt = ceildiv( n, int64_t(ib) );
     assert(nt <= 65535);                // CUDA limitation
@@ -383,6 +387,8 @@ void transpose(
     assert(lda >= m);
     assert(ldat >= n);
 
+    cudaSetDevice( queue.device() );
+
     int mt = ceildiv( m, int64_t(NB) );
     assert(mt <= 65535);                // CUDA limitation
     int nt = ceildiv( n, int64_t(NB) );
@@ -441,6 +447,8 @@ void transpose_batch(
         return;
     assert(lda >= m);
     assert(ldat >= n);
+
+    cudaSetDevice( queue.device() );
 
     int mt = ceildiv( m, int64_t(NB) );
     assert(mt <= 65535);                // CUDA limitation

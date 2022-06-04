@@ -39,7 +39,7 @@ namespace device {
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void henormMaxKernel(
+__global__ void henorm_max_kernel(
     lapack::Uplo uplo,
     int64_t n,
     scalar_t const* const* tiles, int64_t lda,
@@ -118,7 +118,7 @@ __global__ void henormMaxKernel(
 ///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
-__global__ void henormOneKernel(
+__global__ void henorm_one_kernel(
     lapack::Uplo uplo,
     int64_t n,
     scalar_t const* const* tiles, int64_t lda,
@@ -183,7 +183,7 @@ __global__ void henormOneKernel(
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void henormFroKernel(
+__global__ void henorm_fro_kernel(
     lapack::Uplo uplo,
     int64_t n,
     scalar_t const* const* tiles, int64_t lda,
@@ -309,6 +309,8 @@ void henorm(
     if (batch_count == 0)
         return;
 
+    cudaSetDevice( queue.device() );
+
     //---------
     // max norm
     if (norm == lapack::Norm::Max) {
@@ -317,7 +319,8 @@ void henorm(
         }
         else {
             assert(ldv == 1);
-            henormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, queue.stream()>>>
+            size_t shared_mem = sizeof(real_t) * nb;
+            henorm_max_kernel<<<batch_count, nb, shared_mem, queue.stream()>>>
                 (uplo, n, Aarray, lda, values);
         }
     }
@@ -329,7 +332,7 @@ void henorm(
         }
         else {
             assert(ldv >= n);
-            henormOneKernel<<<batch_count, nb, 0, queue.stream()>>>
+            henorm_one_kernel<<<batch_count, nb, 0, queue.stream()>>>
                 (uplo, n, Aarray, lda, values, ldv);
         }
     }
@@ -341,7 +344,8 @@ void henorm(
         }
         else {
             assert(ldv == 2);
-            henormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
+            size_t shared_mem = sizeof(real_t) * nb * 2;
+            henorm_fro_kernel<<<batch_count, nb, shared_mem, queue.stream()>>>
                 (uplo, n, Aarray, lda, values);
         }
     }

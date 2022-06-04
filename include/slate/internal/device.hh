@@ -108,15 +108,29 @@ void tzscale(
 template <typename scalar_t>
 void geset(
     int64_t m, int64_t n,
-    scalar_t alpha, scalar_t beta, scalar_t** Aarray, int64_t lda,
+    scalar_t offdiag_value, scalar_t diag_value, scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void tzset(
+    Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t alpha, scalar_t beta, scalar_t** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue);
+    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t* A, int64_t lda,
+    blas::Queue& queue );
+
+namespace batch {
+
+template <typename scalar_t>
+void tzset(
+    Uplo uplo,
+    int64_t m, int64_t n,
+    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue );
+
+} // namespace batch
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
@@ -164,12 +178,12 @@ void trnorm(
     int64_t batch_count, blas::Queue& queue);
 
 //------------------------------------------------------------------------------
+// In-place, square.
 template <typename scalar_t>
 void transpose(
     int64_t n,
     scalar_t* A, int64_t lda, blas::Queue& queue);
 
-//------------------------------------------------------------------------------
 template <typename scalar_t>
 void transpose_batch(
     int64_t n,
@@ -177,13 +191,13 @@ void transpose_batch(
     int64_t batch_count, blas::Queue& queue);
 
 //------------------------------------------------------------------------------
+// Out-of-place.
 template <typename scalar_t>
 void transpose(
     int64_t m, int64_t n,
     scalar_t* dA,  int64_t lda,
     scalar_t* dAT, int64_t ldat, blas::Queue& queue);
 
-//------------------------------------------------------------------------------
 template <typename scalar_t>
 void transpose_batch(
     int64_t m, int64_t n,

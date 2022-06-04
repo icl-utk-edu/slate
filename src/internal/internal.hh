@@ -116,18 +116,19 @@ void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
            int priority=0, int queue_index=0);
 
 //-----------------------------------------
-//
 // set()
 template <Target target=Target::HostTask, typename scalar_t>
-void set(scalar_t alpha, scalar_t beta,
+void set(scalar_t offdiag_value, scalar_t diag_value,
          Matrix<scalar_t>&& A,
          int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void set(scalar_t alpha, scalar_t beta,
+void set(scalar_t offdiag_value, scalar_t diag_value,
          BaseTrapezoidMatrix<scalar_t>&& A,
          int priority=0, int queue_index=0);
 
+//-----------------------------------------
+// copytb2bd, copyhb2st
 template <Target target=Target::HostTask, typename scalar_t>
 void copytb2bd(TriangularBandMatrix<scalar_t>& A,
                std::vector< blas::real_type<scalar_t> >& D,

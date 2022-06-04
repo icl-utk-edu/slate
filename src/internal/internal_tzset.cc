@@ -12,6 +12,88 @@
 #include "slate/types.hh"
 
 namespace slate {
+namespace device {
+namespace batch {
+
+template <>
+void tzset(
+    Uplo uplo,
+    int64_t m, int64_t n,
+    std::complex<float> offdiag_value, std::complex<float> diag_value,
+    std::complex<float>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+#if ! defined(SLATE_NO_CUDA)
+    batch::tzset(
+        uplo, m, n,
+        make_cuFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
+        make_cuFloatComplex( diag_value.real(), diag_value.imag() ),
+        (cuFloatComplex**) Aarray, lda,
+        batch_count, queue);
+
+#elif ! defined(SLATE_NO_HIP)
+    batch::tzset(
+        uplo, m, n,
+        make_hipFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
+        make_hipFloatComplex( diag_value.real(), diag_value.imag() ),
+        (hipFloatComplex**) Aarray, lda,
+        batch_count, queue);
+#endif
+}
+
+template <>
+void tzset(
+    Uplo uplo,
+    int64_t m, int64_t n,
+    std::complex<double> offdiag_value, std::complex<double> diag_value,
+    std::complex<double>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+#if ! defined(SLATE_NO_CUDA)
+    batch::tzset(
+        uplo, m, n,
+        make_cuDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
+        make_cuDoubleComplex( diag_value.real(), diag_value.imag() ),
+        (cuDoubleComplex**) Aarray, lda,
+        batch_count, queue);
+
+#elif ! defined(SLATE_NO_HIP)
+    batch::tzset(
+        uplo, m, n,
+        make_hipDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
+        make_hipDoubleComplex( diag_value.real(), diag_value.imag() ),
+        (hipDoubleComplex**) Aarray, lda,
+        batch_count, queue);
+#endif
+}
+
+#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+// Specializations to allow compilation without CUDA or HIP.
+template <>
+void tzset(
+    Uplo uplo,
+    int64_t m, int64_t n,
+    double offdiag_value, double diag_value,
+    double** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+}
+
+template <>
+void tzset(
+    Uplo uplo,
+    int64_t m, int64_t n,
+    float offdiag_value, float diag_value,
+    float** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+}
+#endif // not SLATE_WITH_CUDA
+
+} // namespace batch
+} // namespace device
+
+
 namespace internal {
 
 //------------------------------------------------------------------------------
@@ -118,6 +200,14 @@ void set(
 {
     using ij_tuple = typename BaseTrapezoidMatrix<scalar_t>::ij_tuple;
 
+    // Quadrants
+    // Ranges are [ begin, end ).
+    // 0 is interior          [ 0 : mt-2, 0 : nt-2 ]
+    // 1 is bottom row        [ mt-1,     0 : nt-2 ]
+    // 2 is right  col        [ 0 : mt-2, nt-1     ]
+    // 3 is bottom-right tile [ mt-1,     nt-1     ]
+    // 0-3 are for off-diagonal tiles.
+    // 4-7 are the same as 0-3, respectively, but for diagonal tiles.
     int64_t irange[4][2] = {
         { 0,        A.mt()-1 },
         { A.mt()-1, A.mt()   },
@@ -164,7 +254,8 @@ void set(
             }
             A.tileGetForWriting(A_tiles_set, device, LayoutConvert(layout));
 
-            scalar_t** a_array_host = A.array_host(device);
+            scalar_t** a_array_host = A.array_host( device );
+            scalar_t** a_array_dev  = A.array_device( device );
 
             int64_t batch_count = 0;
             int64_t mb[8], nb[8], lda[8], group_count[8];
@@ -176,13 +267,14 @@ void set(
                 if (A.uplo() == Uplo::Lower) {
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         for (int64_t i = std::max(j, irange[q][0]); i < irange[q][1]; ++i) {
-                            if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
-                                if (i != j) {
-                                    a_array_host[batch_count] = A(i, j, device).data();
-                                    lda[q] = A(i, j, device).stride();
-                                    ++group_count[q];
-                                    ++batch_count;
-                                }
+                            if (i != j
+                                && A.tileIsLocal(i, j)
+                                && device == A.tileDevice(i, j)) {
+
+                                a_array_host[batch_count] = A(i, j, device).data();
+                                lda[q] = A(i, j, device).stride();
+                                ++group_count[q];
+                                ++batch_count;
                             }
                         }
                     }
@@ -190,13 +282,14 @@ void set(
                 else { // upper
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         for (int64_t i = irange[q][0]; i < irange[q][1] && i <= j; ++i) {
-                            if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
-                                if (i != j) {
-                                    a_array_host[batch_count] = A(i, j, device).data();
-                                    lda[q] = A(i, j, device).stride();
-                                    ++group_count[q];
-                                    ++batch_count;
-                                }
+                            if (i != j
+                                && A.tileIsLocal(i, j)
+                                && device == A.tileDevice(i, j)) {
+
+                                a_array_host[batch_count] = A(i, j, device).data();
+                                lda[q] = A(i, j, device).stride();
+                                ++group_count[q];
+                                ++batch_count;
                             }
                         }
                     }
@@ -210,13 +303,14 @@ void set(
                 if (A.uplo() == Uplo::Lower) {
                     for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
                         for (int64_t i = std::max(j, irange[q-4][0]); i < irange[q-4][1]; ++i) {
-                            if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
-                                if (i == j) {
-                                    a_array_host[batch_count] = A(i, j, device).data();
-                                    lda[q] = A(i, j, device).stride();
-                                    ++group_count[q];
-                                    ++batch_count;
-                                }
+                            if (i == j
+                                && A.tileIsLocal(i, j)
+                                && device == A.tileDevice(i, j)) {
+
+                                a_array_host[batch_count] = A(i, j, device).data();
+                                lda[q] = A(i, j, device).stride();
+                                ++group_count[q];
+                                ++batch_count;
                             }
                         }
                     }
@@ -224,20 +318,19 @@ void set(
                 else { // upper
                     for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
                         for (int64_t i = irange[q-4][0]; i < irange[q-4][1] && i <= j; ++i) {
-                            if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
-                                if (i == j) {
-                                    a_array_host[batch_count] = A(i, j, device).data();
-                                    lda[q] = A(i, j, device).stride();
-                                    ++group_count[q];
-                                    ++batch_count;
-                                }
+                            if (i == j
+                                && A.tileIsLocal(i, j)
+                                && device == A.tileDevice(i, j)) {
+
+                                a_array_host[batch_count] = A(i, j, device).data();
+                                lda[q] = A(i, j, device).stride();
+                                ++group_count[q];
+                                ++batch_count;
                             }
                         }
                     }
                 }
             }
-
-            scalar_t** a_array_dev = A.array_device(device);
 
             blas::Queue* queue = A.compute_queue(device, queue_index);
 
@@ -249,16 +342,18 @@ void set(
                 if (group_count[q] > 0) {
                     device::geset(
                         mb[q], nb[q],
-                        offdiag_value, offdiag_value, a_array_dev, lda[q],
+                        offdiag_value, offdiag_value,
+                        a_array_dev, lda[q],
                         group_count[q], *queue);
                     a_array_dev += group_count[q];
                 }
             }
             for (int q = 4; q < 8; ++q) {
                 if (group_count[q] > 0) {
-                    device::geset(
-                        mb[q], nb[q],
-                        offdiag_value, diag_value, a_array_dev, lda[q],
+                    device::batch::tzset(
+                        A.uplo(), mb[q], nb[q],
+                        offdiag_value, diag_value,
+                        a_array_dev, lda[q],
                         group_count[q], *queue);
                     a_array_dev += group_count[q];
                 }

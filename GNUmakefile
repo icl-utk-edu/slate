@@ -463,6 +463,7 @@ cuda_src := \
         src/cuda/device_tzadd.cu \
         src/cuda/device_tzcopy.cu \
         src/cuda/device_tzscale.cu \
+        src/cuda/device_tzset.cu \
         # End. Add alphabetically.
 
 cuda_hdr := \

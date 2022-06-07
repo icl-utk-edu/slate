@@ -77,7 +77,7 @@ void hemm(Side side,
         opts, Option::MethodHemm, MethodHemm::Auto );
 
     if (method == MethodHemm::Auto)
-        method = MethodHemm::select_algo( A, B );
+        method = MethodHemm::select_algo( A, B, opts );
 
     switch (method) {
         case MethodHemm::HemmA:

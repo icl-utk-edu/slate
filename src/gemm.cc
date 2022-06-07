@@ -70,7 +70,7 @@ void gemm(scalar_t alpha, Matrix<scalar_t>& A,
         opts, Option::MethodGemm, MethodGemm::Auto );
 
     if (method == MethodGemm::Auto)
-        method = MethodGemm::select_algo( A, B );
+        method = MethodGemm::select_algo( A, B, opts );
 
     switch (method) {
         case MethodGemm::GemmA:

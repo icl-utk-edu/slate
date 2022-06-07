@@ -73,7 +73,7 @@ void trsm(blas::Side side,
         opts, Option::MethodTrsm, MethodTrsm::Auto );
 
     if (method == MethodTrsm::Auto)
-        method = MethodTrsm::select_algo( A, B );
+        method = MethodTrsm::select_algo( A, B, opts );
 
     switch (method) {
         case MethodTrsm::TrsmA:

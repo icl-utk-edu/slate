@@ -32,8 +32,17 @@ namespace MethodTrsm {
     const Method TrsmB  = 2;  ///< Select trsmB algorithm
 
     template <typename TA, typename TB>
-    inline Method select_algo(TA& A, TB& B) {
-        return (B.nt() < 2 ? TrsmA : TrsmB);
+    inline Method select_algo(TA& A, TB& B, Options const& opts) {
+        // TODO replace the default value by a unique value located elsewhere
+        Target target = get_option( opts, Option::Target, Target::HostTask );
+
+        Method method = (B.nt() < 2 ? TrsmA : TrsmB);
+
+        // XXX For now, when target == device, we fallback to trsmB on device
+        if (target == Target::Devices && method == TrsmA)
+            method = TrsmB;
+
+        return method;
     }
 
     inline Method str2methodTrsm(const char* method)
@@ -76,8 +85,17 @@ namespace MethodGemm {
     const Method GemmC  = 2;  ///< Select gemmC algorithm
 
     template <typename TA, typename TB>
-    inline Method select_algo(TA& A, TB& B) {
-        return (B.nt() < 2 ? GemmA : GemmC);
+    inline Method select_algo(TA& A, TB& B, Options const& opts) {
+        // TODO replace the default value by a unique value located elsewhere
+        Target target = get_option( opts, Option::Target, Target::HostTask );
+
+        Method method = (B.nt() < 2 ? GemmA : GemmC);
+
+        // XXX For now, when target == device, we fallback to gemmC on device
+        if (target == Target::Devices && method == GemmA)
+            method = GemmC;
+
+        return method;
     }
 
     inline Method str2methodGemm(const char* method)
@@ -120,8 +138,17 @@ namespace MethodHemm {
     const Method HemmC  = 2;  ///< Select hemmC algorithm
 
     template <typename TA, typename TB>
-    inline Method select_algo(TA& A, TB& B) {
-        return (B.nt() < 2 ? HemmA : HemmC);
+    inline Method select_algo(TA& A, TB& B, Options const& opts) {
+        // TODO replace the default value by a unique value located elsewhere
+        Target target = get_option( opts, Option::Target, Target::HostTask );
+
+        Method method = (B.nt() < 2 ? HemmA : HemmC);
+
+        // XXX For now, when target == device, we fallback to HemmC on device
+        if (target == Target::Devices && method == HemmA)
+            method = HemmC;
+
+        return method;
     }
 
     inline Method str2methodHemm(const char* method)

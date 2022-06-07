@@ -664,6 +664,7 @@ unit_src = \
     unit_test/test_LockGuard.cc \
     unit_test/test_Matrix.cc \
     unit_test/test_Memory.cc \
+    unit_test/test_OmpSetMaxActiveLevels.cc \
     unit_test/test_SymmetricMatrix.cc \
     unit_test/test_Tile.cc \
     unit_test/test_Tile_kernels.cc \

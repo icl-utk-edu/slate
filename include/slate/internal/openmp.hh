@@ -3,6 +3,7 @@
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
+
 //------------------------------------------------------------------------------
 /// @file
 ///
@@ -46,3 +47,7 @@ void omp_unset_nest_lock(omp_nest_lock_t* lock);
 #endif // not _OPENMP
 
 #endif // SLATE_OPENMP_HH
+
+
+// Defines a small class to wrap omp_set_max_active_levels()
+#include "slate/internal/OmpSetMaxActiveLevels.hh"

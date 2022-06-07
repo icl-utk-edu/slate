@@ -50,10 +50,12 @@ void trtri(slate::internal::TargetType<target>,
         A.reserveDeviceWorkspace();
     }
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         // trsm the first column
         if (A_nt > 1) {
             #pragma omp task depend(inout:col[0]) firstprivate(tag)

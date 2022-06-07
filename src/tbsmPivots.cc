@@ -75,10 +75,12 @@ void tbsm(slate::internal::TargetType<target>,
 
     const scalar_t one = 1.0;
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         if (alpha != one) {
             // Scale B = alpha B.
             // Due to the band, this can't be done in trsm & gemm tasks

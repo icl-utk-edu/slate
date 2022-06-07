@@ -73,10 +73,12 @@ void symm(slate::internal::TargetType<target>,
         C.reserveDeviceWorkspace();
     }
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         if (A.uplo() == Uplo::Lower) {
             // ----------------------------------------
             // Left, Lower/NoTrans or Upper/Trans case

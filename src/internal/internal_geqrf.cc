@@ -83,7 +83,6 @@ void geqrf(internal::TargetType<Target::HostTask>,
         std::vector< std::vector<scalar_t> > W(thread_size);
 
         #if 1
-            omp_set_nested(1);
             #pragma omp parallel default(none) \
                 num_threads(thread_size) \
                 shared(thread_barrier, scale, sumsq, xnorm, W, A, T00) \

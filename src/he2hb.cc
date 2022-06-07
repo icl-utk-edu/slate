@@ -78,10 +78,12 @@ void he2hb(slate::internal::TargetType<target>,
 
     // bool debug = true;
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < nt-1; ++k) {
             //----------------------------------------
             // Q panel and update.

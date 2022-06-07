@@ -96,7 +96,6 @@ void getrf(internal::TargetType<Target::HostTask>,
         std::vector< AuxPivot<scalar_t> > aux_pivot(diag_len);
 
         #if 1
-            omp_set_nested(1);
             // Launching new threads for the panel guarantees progression.
             // This should never deadlock, but may be detrimental to performance.
             #pragma omp parallel for num_threads(thread_size) default(none) \

@@ -55,11 +55,12 @@ void gemm(slate::internal::TargetType<target>,
         C.reserveDeviceWorkspace();
     }
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
-
         if (target == Target::Devices) {
             // fetch C matrix tiles into devices in parallel with first MPI broadcast
             #pragma omp task depend(out:c[0])
@@ -195,11 +196,12 @@ void gemm(slate::internal::TargetType<Target::Devices>,
                     lookahead+1,
                     GemmBatchArrays<scalar_t>(A.num_devices()));
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
-
         C.reserveDeviceWorkspace();
 
         // send first block col of A and block row of B

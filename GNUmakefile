@@ -490,6 +490,7 @@ ifneq ($(only_unit),1)
     libslate_src += \
         src/add.cc \
         src/bdsqr.cc \
+        src/cholqr.cc \
         src/colNorms.cc \
         src/copy.cc \
         src/gbmm.cc \

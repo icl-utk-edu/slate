@@ -83,6 +83,7 @@ public:
     testsweeper::ParamEnum< slate::Origin >         origin;
     testsweeper::ParamEnum< slate::Target >         target;
 
+    testsweeper::ParamEnum< slate::Method >         method_cholQR;
     testsweeper::ParamEnum< slate::Method >         method_gemm;
     testsweeper::ParamEnum< slate::Method >         method_hemm;
     testsweeper::ParamEnum< slate::Method >         method_trsm;

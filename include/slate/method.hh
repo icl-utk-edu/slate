@@ -178,6 +178,59 @@ namespace MethodHemm {
 
 } // namespace MethodHemm
 
+//------------------------------------------------------------------------------
+/// Select the right algorithm to perform the AH * A in CholQR
+namespace MethodCholQR {
+    static constexpr char HerkC_str[] = "herkC";
+    static constexpr char GemmA_str[] = "gemmA";
+    static constexpr char GemmC_str[] = "gemmC";
+    static const Method Error = baseMethodError; ///< Error flag
+    static const Method Auto  = baseMethodAuto;  ///< Let the algorithm decide
+    static const Method HerkC = 1;  ///< Select herkC algorithm
+    static const Method GemmA = 2;  ///< Select gemmA algorithm
+    static const Method GemmC = 3;  ///< Select gemmC algorithm
+
+    template <typename TA, typename TB>
+    inline Method select_algo(TA& A, TB& B, Options const& opts) {
+
+        Target target = get_option( opts, Option::Target, Target::HostTask );
+
+        Method method = (target == Target::Devices ? HerkC : GemmA);
+
+        return method;
+    }
+
+    inline Method str2methodCholQR(const char* method)
+    {
+        std::string method_ = method;
+        std::transform(
+            method_.begin(), method_.end(), method_.begin(), ::tolower );
+
+        if (method_ == "auto")
+            return Auto;
+        else if (method_ == "herkc")
+            return HerkC;
+        else if (method_ == "gemmc")
+            return GemmC;
+        else if (method_ == "gemma")
+            return GemmA;
+        else
+            throw slate::Exception("unknown cholQR method");
+    }
+
+    inline const char* methodCholQR2str(Method method)
+    {
+        switch (method) {
+            case Auto:   return baseMethodAuto_str;
+            case HerkC:  return HerkC_str;
+            case GemmA:  return GemmA_str;
+            case GemmC:  return GemmC_str;
+            default:     return baseMethodError_str;
+        }
+    }
+
+} // namespace MethodCholQR
+
 } // namespace slate
 
 #endif // SLATE_METHOD_HH

@@ -780,6 +780,14 @@ void unmqr(
     Options const& opts = Options());
 
 //-----------------------------------------
+// cholQR
+template <typename scalar_t>
+void cholqr(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& R,
+    Options const& opts = Options());
+
+//-----------------------------------------
 // LQ
 
 //-----------------------------------------

@@ -21,11 +21,12 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void set(
-    scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>&& A,
+    scalar_t offdiag_value, scalar_t diag_value,
+    BaseTrapezoidMatrix<scalar_t>&& A,
     int priority, int queue_index)
 {
     set(internal::TargetType<target>(),
-        alpha, beta, A, priority, queue_index);
+        offdiag_value, diag_value, A, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -37,7 +38,8 @@ void set(
 template <typename scalar_t>
 void set(
     internal::TargetType<Target::HostTask>,
-    scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
+    scalar_t offdiag_value, scalar_t diag_value,
+    BaseTrapezoidMatrix<scalar_t>& A,
     int priority, int queue_index)
 {
     // trace::Block trace_block("set");
@@ -48,13 +50,13 @@ void set(
             for (int64_t i = j; i < A.mt(); ++i) {  // lower trapezoid
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task default(none) shared(A ) priority(priority) \
-                        firstprivate(i, j, alpha, beta)
+                        firstprivate( i, j, offdiag_value, diag_value )
                     {
                         A.tileGetForWriting(i, j, LayoutConvert::None);
                         if (i == j)
-                            A.at(i, j).set(alpha, beta);
+                            A.at(i, j).set( offdiag_value, diag_value );
                         else
-                            A.at(i, j).set(alpha, alpha);
+                            A.at(i, j).set( offdiag_value, offdiag_value );
                     }
                 }
             }
@@ -65,13 +67,13 @@ void set(
             for (int64_t i = 0; i <= j && i < A.mt(); ++i) {  // upper trapezoid
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task default(none) shared(A ) priority(priority) \
-                        firstprivate(i, j, alpha, beta)
+                        firstprivate( i, j, offdiag_value, diag_value )
                     {
                         A.tileGetForWriting(i, j, LayoutConvert::None);
                         if (i == j)
-                            A.at(i, j).set(alpha, beta);
+                            A.at(i, j).set( offdiag_value, diag_value );
                         else
-                            A.at(i, j).set(alpha, alpha);
+                            A.at(i, j).set( offdiag_value, offdiag_value );
                     }
                 }
             }
@@ -81,18 +83,22 @@ void set(
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void set(internal::TargetType<Target::HostNest>,
-         scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
-         int priority, int queue_index)
+void set(
+    internal::TargetType<Target::HostNest>,
+    scalar_t offdiag_value, scalar_t diag_value,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    int priority, int queue_index)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void set(internal::TargetType<Target::HostBatch>,
-         scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
-         int priority, int queue_index)
+void set(
+    internal::TargetType<Target::HostBatch>,
+    scalar_t offdiag_value, scalar_t diag_value,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    int priority, int queue_index)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
@@ -104,9 +110,11 @@ void set(internal::TargetType<Target::HostBatch>,
 /// @ingroup set_internal
 ///
 template <typename scalar_t>
-void set(internal::TargetType<Target::Devices>,
-         scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
-         int priority, int queue_index)
+void set(
+    internal::TargetType<Target::Devices>,
+    scalar_t offdiag_value, scalar_t diag_value,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    int priority, int queue_index)
 {
     using ij_tuple = typename BaseTrapezoidMatrix<scalar_t>::ij_tuple;
 
@@ -126,7 +134,8 @@ void set(internal::TargetType<Target::Devices>,
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
         #pragma omp task default(none) shared(A) priority(priority) \
-            firstprivate(device, irange, jrange, queue_index, alpha, beta)
+            firstprivate( device, irange, jrange, queue_index ) \
+            firstprivate( offdiag_value, diag_value )
         {
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already
@@ -238,17 +247,19 @@ void set(internal::TargetType<Target::Devices>,
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
-                    device::geset(mb[q], nb[q],
-                                  alpha, alpha, a_array_dev, lda[q],
-                                  group_count[q], *queue);
+                    device::geset(
+                        mb[q], nb[q],
+                        offdiag_value, offdiag_value, a_array_dev, lda[q],
+                        group_count[q], *queue);
                     a_array_dev += group_count[q];
                 }
             }
             for (int q = 4; q < 8; ++q) {
                 if (group_count[q] > 0) {
-                    device::geset(mb[q], nb[q],
-                                  alpha, beta, a_array_dev, lda[q],
-                                  group_count[q], *queue);
+                    device::geset(
+                        mb[q], nb[q],
+                        offdiag_value, diag_value, a_array_dev, lda[q],
+                        group_count[q], *queue);
                     a_array_dev += group_count[q];
                 }
             }
@@ -263,92 +274,100 @@ void set(internal::TargetType<Target::Devices>,
 // ----------------------------------------
 template
 void set<Target::HostTask, float>(
-    float alpha, float beta, BaseTrapezoidMatrix<float>&& A,
+    float offdiag_value, float diag_value,
+    BaseTrapezoidMatrix<float>&& A,
     int priority, int queue_index);
 
 template
 void set<Target::HostNest, float>(
-    float alpha, float beta, BaseTrapezoidMatrix<float>&& A,
+    float offdiag_value, float diag_value,
+    BaseTrapezoidMatrix<float>&& A,
     int priority, int queue_index);
 
 template
 void set<Target::HostBatch, float>(
-    float alpha, float beta, BaseTrapezoidMatrix<float>&& A,
+    float offdiag_value, float diag_value,
+    BaseTrapezoidMatrix<float>&& A,
     int priority, int queue_index);
 
 template
 void set<Target::Devices, float>(
-    float alpha, float beta, BaseTrapezoidMatrix<float>&& A,
+    float offdiag_value, float diag_value,
+    BaseTrapezoidMatrix<float>&& A,
     int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set<Target::HostTask, double>(
-    double alpha, double beta, BaseTrapezoidMatrix<double>&& A,
+    double offdiag_value, double diag_value,
+    BaseTrapezoidMatrix<double>&& A,
     int priority, int queue_index);
 
 template
 void set<Target::HostNest, double>(
-    double alpha, double beta, BaseTrapezoidMatrix<double>&& A,
+    double offdiag_value, double diag_value,
+    BaseTrapezoidMatrix<double>&& A,
     int priority, int queue_index);
 
 template
 void set<Target::HostBatch, double>(
-    double alpha, double beta, BaseTrapezoidMatrix<double>&& A,
+    double offdiag_value, double diag_value,
+    BaseTrapezoidMatrix<double>&& A,
     int priority, int queue_index);
 
 template
 void set<Target::Devices, double>(
-    double alpha, double beta, BaseTrapezoidMatrix<double>&& A,
+    double offdiag_value, double diag_value,
+    BaseTrapezoidMatrix<double>&& A,
     int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set< Target::HostTask, std::complex<float> >(
-    std::complex<float> alpha, std::complex<float>  beta,
+    std::complex<float> offdiag_value, std::complex<float>  diag_value,
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     int priority, int queue_index);
 
 template
 void set< Target::HostNest, std::complex<float> >(
-    std::complex<float> alpha, std::complex<float>  beta,
+    std::complex<float> offdiag_value, std::complex<float>  diag_value,
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     int priority, int queue_index);
 
 template
 void set< Target::HostBatch, std::complex<float> >(
-    std::complex<float> alpha, std::complex<float>  beta,
+    std::complex<float> offdiag_value, std::complex<float>  diag_value,
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     int priority, int queue_index);
 
 template
 void set< Target::Devices, std::complex<float> >(
-    std::complex<float> alpha, std::complex<float>  beta,
+    std::complex<float> offdiag_value, std::complex<float>  diag_value,
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set< Target::HostTask, std::complex<double> >(
-    std::complex<double> alpha, std::complex<double> beta,
+    std::complex<double> offdiag_value, std::complex<double> diag_value,
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     int priority, int queue_index);
 
 template
 void set< Target::HostNest, std::complex<double> >(
-    std::complex<double> alpha, std::complex<double> beta,
+    std::complex<double> offdiag_value, std::complex<double> diag_value,
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     int priority, int queue_index);
 
 template
 void set< Target::HostBatch, std::complex<double> >(
-    std::complex<double> alpha, std::complex<double> beta,
+    std::complex<double> offdiag_value, std::complex<double> diag_value,
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     int priority, int queue_index);
 
 template
 void set< Target::Devices, std::complex<double> >(
-    std::complex<double> alpha, std::complex<double> beta,
+    std::complex<double> offdiag_value, std::complex<double> diag_value,
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     int priority, int queue_index);
 

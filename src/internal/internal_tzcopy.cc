@@ -281,23 +281,30 @@ void copy(internal::TargetType<Target::Devices>,
             shared( A, B ) priority( priority ) \
             firstprivate(device, irange, jrange, lower, queue_index)
         {
-            std::set<ij_tuple> A_tiles_set;
+            std::set<ij_tuple> A_tiles, B_diag_tiles;
             for (int64_t i = 0; i < B.mt(); ++i) {
                 for (int64_t j = 0; j < B.nt(); ++j) {
-                    if (B.tileIsLocal(i, j) &&
-                        device == B.tileDevice(i, j) &&
-                        ( (  lower && i >= j) ||
-                          (! lower && i <= j) ) )
+                    if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)
+                        && (   (  lower && i >= j)
+                            || (! lower && i <= j) ) )
                     {
-                        A_tiles_set.insert({i, j});
-                        // no need to convert layout
-                        B.tileAcquire(i, j, device, A(i, j).layout());
-                        // copy local and remote tiles to CPU;
-                        B.tileModified(i, j, device, true);
+                        A_tiles.insert( { i, j } );
+                        if (i == j) {
+                            B_diag_tiles.insert( { i, j } );
+                        }
+                        else {
+                            // no need to convert layout
+                            B.tileAcquire(  i, j, device, A(i, j).layout() );
+                            B.tileModified( i, j, device, true );
+                        }
                     }
                 }
             }
-            A.tileGetForReading(A_tiles_set, device, LayoutConvert::None);
+            // For B, diagonal tiles must be fetched for writing;
+            // off-diagonal tiles can be fetched for over-writing
+            // (tileAcquire above).
+            A.tileGetForReading( A_tiles, device, LayoutConvert::None );
+            B.tileGetForWriting( B_diag_tiles, device, LayoutConvert::None );
 
             // Usually the output matrix (B) provides all the batch arrays.
             // Here we are using A, because of the different types.

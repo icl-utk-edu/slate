@@ -18,7 +18,7 @@ namespace device {
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    std::complex<float>** Aarray, int64_t lda,
+    std::complex<float> const* const* Aarray, int64_t lda,
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -39,7 +39,7 @@ void gecopy(
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    std::complex<float>** Aarray, int64_t lda,
+    std::complex<float> const* const* Aarray, int64_t lda,
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -60,7 +60,7 @@ void gecopy(
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    std::complex<double>** Aarray, int64_t lda,
+    std::complex<double> const* const* Aarray, int64_t lda,
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -81,7 +81,7 @@ void gecopy(
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    std::complex<double>** Aarray, int64_t lda,
+    std::complex<double> const* const* Aarray, int64_t lda,
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -105,7 +105,7 @@ void gecopy(
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    double** Aarray, int64_t lda,
+    double const* const* Aarray, int64_t lda,
     double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -114,7 +114,7 @@ void gecopy(
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    double** Aarray, int64_t lda,
+    double const* const* Aarray, int64_t lda,
     float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -123,7 +123,7 @@ void gecopy(
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    float** Aarray, int64_t lda,
+    float const* const* Aarray, int64_t lda,
     float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -131,7 +131,7 @@ void gecopy(
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    float** Aarray, int64_t lda,
+    float const* const* Aarray, int64_t lda,
     double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {

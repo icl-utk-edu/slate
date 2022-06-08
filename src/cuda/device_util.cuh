@@ -196,6 +196,7 @@ inline cuDoubleComplex axpby(cuDoubleComplex alpha, cuDoubleComplex x,
 
 //------------------------------------------------------------------------------
 /// Overloaded copy and precision conversion.
+/// Sets b = a, converting from type TA to type TB.
 template <typename TA, typename TB>
 __host__ __device__
 inline void copy(TA a, TB& b)
@@ -203,6 +204,7 @@ inline void copy(TA a, TB& b)
     b = a;
 }
 
+/// Sets b = a, converting from complex-float to complex-double.
 __host__ __device__
 inline void copy(cuFloatComplex a, cuDoubleComplex& b)
 {
@@ -210,6 +212,7 @@ inline void copy(cuFloatComplex a, cuDoubleComplex& b)
     b.y = a.y;
 }
 
+/// Sets b = a, converting from complex-double to complex-float.
 __host__ __device__
 inline void copy(cuDoubleComplex a, cuFloatComplex& b)
 {

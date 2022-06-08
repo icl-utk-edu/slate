@@ -9,14 +9,11 @@
 
 #include "device_util.hip.hh"
 
-#include <cstdio>
-#include <algorithm>
-
 namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
-/// Kernel implementing copy and precision conversions.
+/// Kernel implementing copy and precision conversions, copying A to B.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row.
 /// Launched by gecopy().
@@ -44,16 +41,16 @@ namespace device {
 template <typename src_scalar_t, typename dst_scalar_t>
 __global__ void gecopy_kernel(
     int64_t m, int64_t n,
-    src_scalar_t** Aarray, int64_t lda,
+    src_scalar_t const* const* Aarray, int64_t lda,
     dst_scalar_t** Barray, int64_t ldb)
 {
-    src_scalar_t* tileA = Aarray[ blockIdx.x ];
-    dst_scalar_t* tileB = Barray[ blockIdx.x ];
+    src_scalar_t const* tileA = Aarray[ blockIdx.x ];
+    dst_scalar_t*       tileB = Barray[ blockIdx.x ];
 
     // thread per row, if more rows than threads, loop by blockDim.x
     for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
-        src_scalar_t* rowA = &tileA[ i ];
-        dst_scalar_t* rowB = &tileB[ i ];
+        src_scalar_t const* rowA = &tileA[ i ];
+        dst_scalar_t*       rowB = &tileB[ i ];
 
         for (int64_t j = 0; j < n; ++j)
             copy(rowA[j*lda], rowB[j*ldb]);
@@ -61,8 +58,8 @@ __global__ void gecopy_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine for element-wise copy and precision conversion.
-/// Sets
+/// Batched routine for element-wise copy and precision conversion,
+/// copying A to B. Sets
 /// \[
 ///     Barray[k] = Aarray[k].
 /// \]
@@ -96,7 +93,7 @@ __global__ void gecopy_kernel(
 template <typename src_scalar_t, typename dst_scalar_t>
 void gecopy(
     int64_t m, int64_t n,
-    src_scalar_t** Aarray, int64_t lda,
+    src_scalar_t const* const* Aarray, int64_t lda,
     dst_scalar_t** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -123,56 +120,56 @@ void gecopy(
 template
 void gecopy(
     int64_t m, int64_t n,
-    float** Aarray, int64_t lda,
+    float const* const* Aarray, int64_t lda,
     float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void gecopy(
     int64_t m, int64_t n,
-    float** Aarray, int64_t lda,
+    float const* const* Aarray, int64_t lda,
     double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void gecopy(
     int64_t m, int64_t n,
-    double** Aarray, int64_t lda,
+    double const* const* Aarray, int64_t lda,
     double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void gecopy(
     int64_t m, int64_t n,
-    double** Aarray, int64_t lda,
+    double const* const* Aarray, int64_t lda,
     float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void gecopy(
     int64_t m, int64_t n,
-    hipFloatComplex** Aarray, int64_t lda,
+    hipFloatComplex const* const* Aarray, int64_t lda,
     hipFloatComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void gecopy(
     int64_t m, int64_t n,
-    hipFloatComplex** Aarray, int64_t lda,
+    hipFloatComplex const* const* Aarray, int64_t lda,
     hipDoubleComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void gecopy(
     int64_t m, int64_t n,
-    hipDoubleComplex** Aarray, int64_t lda,
+    hipDoubleComplex const* const* Aarray, int64_t lda,
     hipDoubleComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void gecopy(
     int64_t m, int64_t n,
-    hipDoubleComplex** Aarray, int64_t lda,
+    hipDoubleComplex const* const* Aarray, int64_t lda,
     hipFloatComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 

@@ -8,13 +8,11 @@
 
 #include "device_util.cuh"
 
-#include <cstdio>
-
 namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
-/// Kernel implementing copy and precision conversions.
+/// Kernel implementing copy and precision conversions, copying A to B.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row.
 /// Launched by tzcopy().
@@ -43,16 +41,16 @@ template <typename src_scalar_t, typename dst_scalar_t>
 __global__ void tzcopy_kernel(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    src_scalar_t** Aarray, int64_t lda,
+    src_scalar_t const* const* Aarray, int64_t lda,
     dst_scalar_t** Barray, int64_t ldb)
 {
-    src_scalar_t* tileA = Aarray[blockIdx.x];
-    dst_scalar_t* tileB = Barray[blockIdx.x];
+    src_scalar_t const* tileA = Aarray[ blockIdx.x ];
+    dst_scalar_t*       tileB = Barray[ blockIdx.x ];
 
     // thread per row, if more rows than threads, loop by blockDim.x
     for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
-        src_scalar_t* rowA = &tileA[ i ];
-        dst_scalar_t* rowB = &tileB[ i ];
+        src_scalar_t const* rowA = &tileA[ i ];
+        dst_scalar_t*       rowB = &tileB[ i ];
 
         if (uplo == lapack::Uplo::Lower) {
             for (int64_t j = 0; j <= i && j < n; ++j) { // lower
@@ -68,8 +66,8 @@ __global__ void tzcopy_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine for element-wise trapezoidal copy and precision conversion.
-/// Sets upper or lower part of
+/// Batched routine for element-wise trapezoidal copy and precision conversion,
+/// copying A to B. Sets upper or lower part of
 /// \[
 ///     Barray[k] = Aarray[k].
 /// \]
@@ -107,7 +105,7 @@ template <typename src_scalar_t, typename dst_scalar_t>
 void tzcopy(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    src_scalar_t** Aarray, int64_t lda,
+    src_scalar_t const* const* Aarray, int64_t lda,
     dst_scalar_t** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -136,7 +134,7 @@ template
 void tzcopy(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    float** Aarray, int64_t lda,
+    float const* const* Aarray, int64_t lda,
     float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
@@ -144,7 +142,7 @@ template
 void tzcopy(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    float** Aarray, int64_t lda,
+    float const* const* Aarray, int64_t lda,
     double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
@@ -152,7 +150,7 @@ template
 void tzcopy(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    double** Aarray, int64_t lda,
+    double const* const* Aarray, int64_t lda,
     double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
@@ -160,7 +158,7 @@ template
 void tzcopy(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    double** Aarray, int64_t lda,
+    double const* const* Aarray, int64_t lda,
     float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
@@ -168,7 +166,7 @@ template
 void tzcopy(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    cuFloatComplex** Aarray, int64_t lda,
+    cuFloatComplex const* const* Aarray, int64_t lda,
     cuFloatComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
@@ -176,7 +174,7 @@ template
 void tzcopy(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    cuFloatComplex** Aarray, int64_t lda,
+    cuFloatComplex const* const* Aarray, int64_t lda,
     cuDoubleComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
@@ -184,7 +182,7 @@ template
 void tzcopy(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    cuDoubleComplex** Aarray, int64_t lda,
+    cuDoubleComplex const* const* Aarray, int64_t lda,
     cuDoubleComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
@@ -192,7 +190,7 @@ template
 void tzcopy(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    cuDoubleComplex** Aarray, int64_t lda,
+    cuDoubleComplex const* const* Aarray, int64_t lda,
     cuFloatComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 

@@ -113,4 +113,87 @@ inline void he2ge(slate::HermitianMatrix<scalar_t> A, slate::Matrix<scalar_t> B)
     }
 }
 
+//------------------------------------------------------------------------------
+// Class to carry matrix_type for overloads with return type, in lieu of
+// partial specialization. See
+// https://www.fluentcpp.com/2017/08/15/function-templates-partial-specialization-cpp/
+template <typename T>
+struct MatrixType {};
+
+//------------------------------------------------------------------------------
+// Overloads for each matrix type. dummy carries the return type.
+
+/// Cast to General m-by-n matrix. Nothing to do. uplo and diag unused.
+template <typename scalar_t>
+slate::Matrix<scalar_t> matrix_cast_impl(
+    MatrixType< slate::Matrix<scalar_t> > dummy,
+    slate::Matrix<scalar_t>& A,
+    slate::Uplo uplo,
+    slate::Diag diag )
+{
+    return A;
+}
+
+/// Cast to Trapezoid m-by-n matrix.
+template <typename scalar_t>
+slate::TrapezoidMatrix<scalar_t> matrix_cast_impl(
+    MatrixType< slate::TrapezoidMatrix<scalar_t> > dummy,
+    slate::Matrix<scalar_t>& A,
+    slate::Uplo uplo,
+    slate::Diag diag )
+{
+    return slate::TrapezoidMatrix<scalar_t>( uplo, diag, A );
+}
+
+/// Cast to Triangular n-by-n matrix.
+template <typename scalar_t>
+slate::TriangularMatrix<scalar_t> matrix_cast_impl(
+    MatrixType< slate::TriangularMatrix<scalar_t> > dummy,
+    slate::Matrix<scalar_t>& A,
+    slate::Uplo uplo,
+    slate::Diag diag )
+{
+    slate_assert( A.m() == A.n() );  // must be square
+    return slate::TriangularMatrix<scalar_t>( uplo, diag, A );
+}
+
+/// Cast to Symmetric n-by-n matrix. diag unused.
+template <typename scalar_t>
+slate::SymmetricMatrix<scalar_t> matrix_cast_impl(
+    MatrixType< slate::SymmetricMatrix<scalar_t> > dummy,
+    slate::Matrix<scalar_t>& A,
+    slate::Uplo uplo,
+    slate::Diag diag )
+{
+    slate_assert( A.m() == A.n() );  // must be square
+    return slate::SymmetricMatrix<scalar_t>( uplo, A );
+}
+
+/// Cast to Hermitian n-by-n matrix. diag unused.
+template <typename scalar_t>
+slate::HermitianMatrix<scalar_t> matrix_cast_impl(
+    MatrixType< slate::HermitianMatrix<scalar_t> > dummy,
+    slate::Matrix<scalar_t>& A,
+    slate::Uplo uplo,
+    slate::Diag diag )
+{
+    slate_assert( A.m() == A.n() );  // must be square
+    return slate::HermitianMatrix<scalar_t>( uplo, A );
+}
+
+//------------------------------------------------------------------------------
+/// Casts general m-by-n matrix to matrix_type, which can be
+/// Matrix, Trapezoid, Triangular*, Symmetric*, or Hermitian*.
+/// uplo and diag are ignored when not applicable.
+/// * types require input A to be square.
+///
+template <typename matrix_type>
+matrix_type matrix_cast(
+    slate::Matrix< typename matrix_type::value_type >& A,
+    slate::Uplo uplo,
+    slate::Diag diag )
+{
+    return matrix_cast_impl( MatrixType< matrix_type >(), A, uplo, diag );
+}
+
 #endif // SLATE_MATRIX_UTILS_HH

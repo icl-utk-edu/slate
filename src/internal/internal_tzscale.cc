@@ -15,7 +15,6 @@ namespace slate {
 namespace device {
 
 template <>
-
 void tzscale(
     Uplo uplo,
     int64_t m, int64_t n,
@@ -90,7 +89,7 @@ namespace internal {
 //------------------------------------------------------------------------------
 /// Scale Trapezoid matrix entries by the real scalar numer/denom.
 /// Dispatches to target implementations.
-/// @ingroup set_internal
+/// @ingroup scale_internal
 ///
 template <Target target, typename scalar_t>
 void scale(
@@ -106,7 +105,7 @@ void scale(
 /// Scale Trapezoid matrix entries by the real scalar numer/denom.
 /// TODO handle transpose A case
 /// Host OpenMP task implementation.
-/// @ingroup set_internal
+/// @ingroup scale_internal
 ///
 template <typename scalar_t>
 void scale(
@@ -115,7 +114,7 @@ void scale(
     BaseTrapezoidMatrix<scalar_t>& A,
     int priority, int queue_index)
 {
-    // trace::Block trace_block("set");
+    // trace::Block trace_block("scale");
     #pragma omp taskgroup
     if (A.uplo() == Uplo::Lower) {
         for (int64_t j = 0; j < A.nt(); ++j) {
@@ -173,7 +172,7 @@ void scale(internal::TargetType<Target::HostBatch>,
 /// Scale Trapezoid matrix entries by the real scalar numer/denom.
 /// TODO handle transpose A case
 /// GPU device implementation.
-/// @ingroup set_internal
+/// @ingroup scale_internal
 ///
 template <typename scalar_t>
 void scale(internal::TargetType<Target::Devices>,

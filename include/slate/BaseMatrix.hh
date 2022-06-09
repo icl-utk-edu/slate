@@ -1780,7 +1780,8 @@ void BaseMatrix<scalar_t>::tileIsend(
         //todo: need to qcquire read access lock to TileNode(i, j)
         tileGetForReading(i, j, LayoutConvert::None);
         at(i, j).isend(dst_rank, mpiComm(), tag, request);
-    } else {
+    }
+    else {
         *request = MPI_REQUEST_NULL;
     }
 }
@@ -1890,7 +1891,8 @@ void BaseMatrix<scalar_t>::tileIrecv(
 
         tileLayout(i, j, layout);
         tileModified(i, j, HostNum, true);
-    } else {
+    }
+    else {
         *request = MPI_REQUEST_NULL;
     }
 }

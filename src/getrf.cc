@@ -70,6 +70,7 @@ void getrf(slate::internal::TargetType<target>,
         A.reserveDeviceWorkspace();
     }
 
+    // set min number for omp nested active parallel regions
     slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
 
     #pragma omp parallel

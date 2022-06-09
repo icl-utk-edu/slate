@@ -12,9 +12,97 @@
 #include "slate/types.hh"
 
 namespace slate {
+
+//==============================================================================
+// Specializations of device kernels to map std::complex => cuComplex, etc.,
+// and define float, double versions if compiled without CUDA or HIP.
 namespace device {
+
+//------------------------------------------------------------------------------
+// device single tile routine
+template <>
+void tzset(
+    Uplo uplo,
+    int64_t m, int64_t n,
+    std::complex<float> offdiag_value, std::complex<float> diag_value,
+    std::complex<float>* A, int64_t lda,
+    blas::Queue& queue)
+{
+#if ! defined(SLATE_NO_CUDA)
+    tzset(
+        uplo, m, n,
+        make_cuFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
+        make_cuFloatComplex( diag_value.real(), diag_value.imag() ),
+        (cuFloatComplex*) A, lda,
+        queue);
+
+#elif ! defined(SLATE_NO_HIP)
+    tzset(
+        uplo, m, n,
+        make_hipFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
+        make_hipFloatComplex( diag_value.real(), diag_value.imag() ),
+        (hipFloatComplex*) A, lda,
+        queue);
+#endif
+}
+
+//----------------------------------------
+template <>
+void tzset(
+    Uplo uplo,
+    int64_t m, int64_t n,
+    std::complex<double> offdiag_value, std::complex<double> diag_value,
+    std::complex<double>* A, int64_t lda,
+    blas::Queue& queue)
+{
+#if ! defined(SLATE_NO_CUDA)
+    tzset(
+        uplo, m, n,
+        make_cuDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
+        make_cuDoubleComplex( diag_value.real(), diag_value.imag() ),
+        (cuDoubleComplex*) A, lda,
+        queue);
+
+#elif ! defined(SLATE_NO_HIP)
+    tzset(
+        uplo, m, n,
+        make_hipDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
+        make_hipDoubleComplex( diag_value.real(), diag_value.imag() ),
+        (hipDoubleComplex*) A, lda,
+        queue);
+#endif
+}
+
+#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+//----------------------------------------
+// Specializations to allow compilation without CUDA or HIP.
+template <>
+void tzset(
+    Uplo uplo,
+    int64_t m, int64_t n,
+    double offdiag_value, double diag_value,
+    double* A, int64_t lda,
+    blas::Queue& queue)
+{
+}
+
+//----------------------------------------
+template <>
+void tzset(
+    Uplo uplo,
+    int64_t m, int64_t n,
+    float offdiag_value, float diag_value,
+    float* A, int64_t lda,
+    blas::Queue& queue)
+{
+}
+#endif // not SLATE_WITH_CUDA
+
+//==============================================================================
 namespace batch {
 
+//------------------------------------------------------------------------------
+// device::batch routine
 template <>
 void tzset(
     Uplo uplo,
@@ -41,6 +129,7 @@ void tzset(
 #endif
 }
 
+//----------------------------------------
 template <>
 void tzset(
     Uplo uplo,
@@ -68,6 +157,7 @@ void tzset(
 }
 
 #if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+//----------------------------------------
 // Specializations to allow compilation without CUDA or HIP.
 template <>
 void tzset(
@@ -79,6 +169,7 @@ void tzset(
 {
 }
 
+//----------------------------------------
 template <>
 void tzset(
     Uplo uplo,
@@ -94,6 +185,7 @@ void tzset(
 } // namespace device
 
 
+//==============================================================================
 namespace internal {
 
 //------------------------------------------------------------------------------

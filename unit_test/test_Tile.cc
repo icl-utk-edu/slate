@@ -6,6 +6,7 @@
 #include "slate/Tile.hh"
 #include "slate/Tile_blas.hh"
 #include "slate/internal/util.hh"
+#include "slate/print.hh"
 
 #include "unit_test.hh"
 
@@ -716,6 +717,54 @@ void test_copyData_ss()
 }
 
 //------------------------------------------------------------------------------
+/// Tests slate::print( "label", Tile )
+template <typename scalar_t>
+void test_print()
+{
+    const int m = 4;
+    const int n = 5;
+    const int lda = roundup( m, 32 );
+    scalar_t data[ lda * n ];
+
+    int device = 0;
+    blas::Queue queue( device, 0 );
+
+    // with device = -1, kind = UserOwned
+    slate::Tile<scalar_t> A( m, n, data, lda, -1, slate::TileKind::UserOwned );
+    setup_data( A );
+
+    //==================================================
+    // Run SLATE test
+    printf( "\n" );
+    slate::print( "A", A, queue );
+
+    if (num_devices > 0) {
+        scalar_t* Adata_dev = blas::device_malloc<scalar_t>( lda * n );
+        test_assert( Adata_dev != nullptr );
+
+        slate::Tile<scalar_t> dA( m, n, Adata_dev, lda, 0,
+                                  slate::TileKind::UserOwned );
+        A.copyData( &dA, queue );
+
+        //==================================================
+        // Run SLATE test
+        slate::print( "dA", dA, queue );
+
+        blas::device_free( Adata_dev );
+    }
+}
+
+void test_print_double()
+{
+    test_print< double >();
+}
+
+void test_print_complex()
+{
+    test_print< std::complex<double> >();
+}
+
+//------------------------------------------------------------------------------
 /// Runs all tests. Called by unit test main().
 void run_tests()
 {
@@ -765,6 +814,12 @@ void run_tests()
         run_test(
             test_copyData_ss,
             "copyData: (H2D, D2D, D2H, H2H) strided => strided");
+        run_test(
+            test_print_double,
+            "print, double");
+        run_test(
+            test_print_complex,
+            "print, complex");
     }
     run_test(
         test_send_recv_cc,

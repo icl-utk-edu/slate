@@ -59,24 +59,9 @@ int snprintf_value(
 }
 
 //------------------------------------------------------------------------------
-// Explicit instantiations.
-// ----------------------------------------
-template
-int snprintf_value(
-    char* buf, size_t buf_len,
-    int width, int precision,
-    float value);
-
-template
-int snprintf_value(
-    char* buf, size_t buf_len,
-    int width, int precision,
-    double value);
-
-//------------------------------------------------------------------------------
-/// Print complex values as " <real> + <imag>i".
+/// Overload to print complex values as " <real> + <imag>i".
 template <typename real_t>
-void snprintf_value(
+int snprintf_value(
     char* buf, size_t buf_len,
     int width, int precision,
     std::complex<real_t> value)
@@ -90,36 +75,150 @@ void snprintf_value(
     real_t im = std::imag( value );
     if (im == 0) {
         // blank padding
-        snprintf( buf, buf_len, "   %*s ", width, "" );
+        len += snprintf( buf, buf_len, "   %*s ", width, "" );
     }
     else {
         // " + imagi"
-        len = snprintf( buf, buf_len, " +" );
+        int l = snprintf( buf, buf_len, " +" );
+        len     += l;
+        buf     += l;
+        buf_len -= l;
+
+        l = snprintf_value( buf, buf_len, width, precision, im );
+        len     += l;
         buf     += len;
         buf_len -= len;
 
-        len = snprintf_value( buf, buf_len, width, precision, im );
-        buf     += len;
-        buf_len -= len;
-
-        snprintf( buf, buf_len, "i" );
+        l = snprintf( buf, buf_len, "i" );
+        len += l;
     }
+    return len;
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
-// ----------------------------------------
 template
-void snprintf_value(
+int snprintf_value(
+    char* buf, size_t buf_len,
+    int width, int precision,
+    float value);
+
+template
+int snprintf_value(
+    char* buf, size_t buf_len,
+    int width, int precision,
+    double value);
+
+template
+int snprintf_value(
     char* buf, size_t buf_len,
     int width, int precision,
     std::complex<float> value);
 
 template
-void snprintf_value(
+int snprintf_value(
     char* buf, size_t buf_len,
     int width, int precision,
     std::complex<double> value);
+
+//------------------------------------------------------------------------------
+/// Print a SLATE tile, on either CPU or GPU.
+/// Does not change MSI status. No MPI is involved.
+///
+template <typename scalar_t>
+void print(
+    const char* label,
+    slate::Tile<scalar_t>& A,
+    blas::Queue& queue,
+    slate::Options const& opts)
+{
+    using std::to_string;
+
+    int precision
+        = slate::get_option<int>( opts, slate::Option::PrintPrecision, 4 );
+    int width = precision + 6;
+    int verbose
+        = slate::get_option<int>( opts, slate::Option::PrintVerbose,   4 );
+    if (verbose == 0)
+        return;
+
+    int64_t mb  = A.mb();
+    int64_t nb  = A.nb();
+    int64_t lda = A.stride();
+
+    std::vector<scalar_t> data_vector;
+    scalar_t* data = A.data();
+
+    // Copy GPU tile data to CPU.
+    if (A.device() != HostNum) {
+        assert( A.device() == queue.device() );
+        lda = mb;
+        data_vector.resize( lda * nb );
+        data = data_vector.data();
+        blas::device_getmatrix(
+            mb, nb,
+            A.data(), A.stride(),
+            data, lda, queue );
+    }
+
+    // todo: kind, MSI
+    std::string msg
+        = std::string( "% " ) + label + ": slate::Tile "
+        + to_string( mb ) + "-by-" + to_string( nb )
+        + ", stride = "    + to_string( A.stride() )
+        + ", device = "    + to_string( A.device() )
+        + ", uplo = "      + uplo2str( A.uplo() )
+        + ", op = "        + op2str( A.op() )
+        + ", origin = "    + to_string( A.origin() )
+        + ", workspace = " + to_string( A.workspace() )
+        + ", layout = "    + layout2str( A.layout() )
+        + "\n" + label + " = [\n";
+
+    // RowMajor not yet implemented
+    slate_assert( A.layout() == Layout::ColMajor );
+
+    char buf[ 80 ];
+    for (int64_t i = 0; i < mb; ++i) {
+        for (int64_t j = 0; j < nb; ++j) {
+            snprintf_value( buf, sizeof(buf), width, precision,
+                            data[ i + j*lda ] );
+            msg += buf;
+        }
+        msg += "\n";
+    }
+    msg += "];\n";
+    printf( "%s", msg.c_str() );
+}
+
+//------------------------------------------------------------------------------
+// Explicit instantiations.
+template
+void print(
+    const char* label,
+    slate::Tile<float>& A,
+    blas::Queue& queue,
+    slate::Options const& opts);
+
+template
+void print(
+    const char* label,
+    slate::Tile<double>& A,
+    blas::Queue& queue,
+    slate::Options const& opts);
+
+template
+void print(
+    const char* label,
+    slate::Tile<std::complex<float>>& A,
+    blas::Queue& queue,
+    slate::Options const& opts);
+
+template
+void print(
+    const char* label,
+    slate::Tile<std::complex<double>>& A,
+    blas::Queue& queue,
+    slate::Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Sends tiles A(i, j) and receives it on rank 0.
@@ -568,7 +667,6 @@ void print(
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
-// ----------------------------------------
 template
 void print(
     const char* label,
@@ -631,7 +729,6 @@ void print(
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
-// ----------------------------------------
 template
 void print(
     const char* label,
@@ -711,7 +808,6 @@ void print(
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
-// ----------------------------------------
 template
 void print(
     const char* label,
@@ -789,7 +885,6 @@ void print(
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
-// ----------------------------------------
 template
 void print(
     const char* label,
@@ -863,7 +958,6 @@ void print(
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
-// ----------------------------------------
 template
 void print(
     const char* label,
@@ -938,7 +1032,6 @@ void print(
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
-// ----------------------------------------
 template
 void print(
     const char* label,
@@ -1013,7 +1106,6 @@ void print(
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
-// ----------------------------------------
 template
 void print(
     const char* label,
@@ -1071,7 +1163,6 @@ void print(
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
-// ----------------------------------------
 template
 void print(
     const char* label,
@@ -1112,7 +1203,6 @@ void print(
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
-// ----------------------------------------
 template
 void print(
     const char* label,

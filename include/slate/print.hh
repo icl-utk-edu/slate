@@ -17,20 +17,31 @@
 
 namespace slate {
 
+//------------------------------------------------------------------------------
 template <typename real_t>
 int snprintf_value(
     char* buf, size_t buf_len,
     int width, int precision,
     real_t value);
 
-//------------------------------------------------------------------------------
+// Overload for complex.
 template <typename real_t>
-void snprintf_value(
+int snprintf_value(
     char* buf, size_t buf_len,
     int width, int precision,
     std::complex<real_t> value);
 
 //------------------------------------------------------------------------------
+// Tile
+template <typename scalar_t>
+void print(
+    const char* label,
+    slate::Tile<scalar_t>& A,
+    blas::Queue& queue,
+    slate::Options const& opts = Options());
+
+//------------------------------------------------------------------------------
+// Matrix
 template <typename scalar_t>
 void print(
     const char* label,
@@ -80,6 +91,7 @@ void print(
     slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
+// Vector (array)
 template <typename scalar_t>
 void print(
     const char* label,
@@ -87,6 +99,7 @@ void print(
     slate::Options const& opts = Options());
 
 //------------------------------------------------------------------------------
+// std::vector
 template <typename scalar_type>
 void print(
     const char* label,

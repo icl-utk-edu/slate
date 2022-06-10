@@ -253,6 +253,9 @@ void hb2st(slate::internal::TargetType<target>,
         jj += A.tileNb(j);
     }
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
@@ -261,7 +264,6 @@ void hb2st(slate::internal::TargetType<target>,
         #if 1
             // Launching new threads for the band reduction guarantees progress.
             // This should never deadlock, but may be detrimental to performance.
-            omp_set_nested(1);
             #pragma omp parallel for \
                         num_threads(thread_size) \
                         shared(V, progress)

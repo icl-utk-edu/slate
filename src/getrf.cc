@@ -70,10 +70,12 @@ void getrf(slate::internal::TargetType<target>,
         A.reserveDeviceWorkspace();
     }
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < min_mt_nt; ++k) {
 
             int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));

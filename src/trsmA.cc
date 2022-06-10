@@ -49,10 +49,12 @@ void trsmA(slate::internal::TargetType<target>,
     std::vector<uint8_t> row_vector(A.nt());
     uint8_t* row = row_vector.data();
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         #pragma omp task
         {
             work::trsmA<target, scalar_t>(side, alpha, A, B, row, lookahead);

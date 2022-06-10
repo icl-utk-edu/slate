@@ -49,11 +49,12 @@ void gemmC(scalar_t alpha, Matrix<scalar_t>& A,
         C.reserveDeviceWorkspace();
     }
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
-
         if (target == Target::Devices) {
             // fetch C matrix tiles into devices in parallel with first MPI broadcast
             #pragma omp task depend(out:c[0])

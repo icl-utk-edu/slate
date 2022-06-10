@@ -52,11 +52,12 @@ void gemmA(
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemmA = gemmA_vector.data();
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
-
         // broadcast 0th block col of B
         #pragma omp task depend(out:bcast[0])
         {

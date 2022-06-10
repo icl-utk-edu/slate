@@ -39,10 +39,12 @@ void trmm(slate::internal::TargetType<target>,
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         #pragma omp task
         {
             work::trmm<target, scalar_t>(side, alpha, A, B, bcast, gemm, lookahead);

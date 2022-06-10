@@ -64,10 +64,12 @@ void gbmm(slate::internal::TargetType<target>,
         C.reserveDeviceWorkspace();
     }
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         // send first block col of A and block row of B
         #pragma omp task depend(out:bcast[0])
         {

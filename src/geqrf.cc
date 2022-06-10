@@ -112,10 +112,12 @@ void geqrf(slate::internal::TargetType<target>,
     std::vector< uint8_t > block_vector(A_nt);
     uint8_t* block = block_vector.data();
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < A_min_mtnt; ++k) {
             auto  A_panel =       A.sub(k, A_mt-1, k, k);
             auto Tl_panel =  Tlocal.sub(k, A_mt-1, k, k);

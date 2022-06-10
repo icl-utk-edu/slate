@@ -44,10 +44,12 @@ void potrf(slate::internal::TargetType<target>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < A_nt; ++k) {
             // panel, high priority
             #pragma omp task depend(inout:column[k]) priority(1)
@@ -179,10 +181,12 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     A.allocateBatchArrays(batch_size_zero, num_queues);
     A.reserveDeviceWorkspace();
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < A_nt; ++k) {
             // Panel, normal priority
             #pragma omp task depend(inout:column[k])

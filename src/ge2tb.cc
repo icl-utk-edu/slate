@@ -82,10 +82,12 @@ void ge2tb(slate::internal::TargetType<target>,
     // No lookahead is possible, so no need to track dependencies --
     // just execute tasks in order. Also, priority isn't needed.
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < A_min_mtnt; ++k) {
             //----------------------------------------
             // U panel and update.

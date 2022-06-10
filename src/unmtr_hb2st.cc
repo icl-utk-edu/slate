@@ -34,10 +34,13 @@ void unmtr_hb2st(slate::internal::TargetType<target>,
         const int64_t num_queues = omp_get_max_threads();
         C.allocateBatchArrays(batch_size_zero, num_queues);
     }
+
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         #pragma omp task
         {
             internal::unmtr_hb2st<target>(side, op, V, C, opts);

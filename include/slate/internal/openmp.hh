@@ -45,4 +45,7 @@ void omp_unset_nest_lock(omp_nest_lock_t* lock);
 
 #endif // not _OPENMP
 
+// Defines a small class to wrap omp_set_max_active_levels()
+#include "slate/internal/OmpSetMaxActiveLevels.hh"
+
 #endif // SLATE_OPENMP_HH

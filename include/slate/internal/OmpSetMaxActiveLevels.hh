@@ -35,11 +35,11 @@ public:
     ///     Ensure that OpenMP max-active-levels-var ICV has this minimum.
     OmpSetMaxActiveLevels(int min_active_levels)
     {
+        int curr_max_active_levels = omp_get_max_active_levels();
         #if defined(_OPENMP) && _OPENMP < 201811
             // if OpenMP version < 5.0 then enable omp_set_nested
             omp_set_nested(1);
         #endif
-        int curr_max_active_levels = omp_get_max_active_levels();
         if (min_active_levels > curr_max_active_levels) {
             // record the original value
             orig_max_active_levels_ = curr_max_active_levels;

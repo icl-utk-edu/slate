@@ -45,6 +45,9 @@ void test_OmpSetMaxActiveLevels()
                     omp_set_num_threads( 4 );
                     #pragma omp single
                     {
+                        // Even though this is the 3rd parallel level (omp_get_level() = 3)
+                        // the set_active_levels( 2 ) call should restrict omp_get_active_level() to 2.
+                        // The assertion below check that omp_get_active_level() is 2.
 
                         // The following would print:
                         //     Inner-2: max_act_lev=2, num_thds=1, max_thds=4, curr_lvl 3, cur_active_lvl 2

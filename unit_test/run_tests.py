@@ -48,6 +48,7 @@ cmds = [
     'test_BandMatrix',
     'test_HermitianMatrix',
     'test_LockGuard',
+    'test_OmpSetMaxActiveLevels',
     'test_Matrix',
     'test_Memory',
     'test_SymmetricMatrix',

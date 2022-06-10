@@ -919,7 +919,8 @@ void permuteRowsCols(
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j <= i; ++j) {
             if (A.tileIsLocal(i, j)) {
-                #pragma omp task default(none) shared(A) firstprivate(i, j) priority(priority)
+                #pragma omp task slate_omp_default_none \
+                    shared( A ) firstprivate( i, j ) priority( priority )
                 {
                     A.tileGetForWriting(i, j, LayoutConvert::ColMajor);
                 }

@@ -74,7 +74,8 @@ void syr2k(internal::TargetType<Target::HostTask>,
         for (int64_t i = j; i < C.mt(); ++i) {  // lower
             if (C.tileIsLocal(i, j)) {
                 if (i == j) {
-                    #pragma omp task default(none) shared(A, B, C, err) \
+                    #pragma omp task slate_omp_default_none \
+                        shared( A, B, C, err ) \
                         firstprivate(j, layout, alpha, beta) priority(priority)
                     {
                         try {
@@ -94,7 +95,8 @@ void syr2k(internal::TargetType<Target::HostTask>,
                     }
                 }
                 else {
-                    #pragma omp task default(none) shared(A, B, C, err) \
+                    #pragma omp task slate_omp_default_none \
+                        shared( A, B, C, err ) \
                         firstprivate(i, j, layout, alpha, beta) priority(priority)
                     {
                         try {
@@ -154,7 +156,8 @@ void syr2k(internal::TargetType<Target::HostNest>,
     #pragma omp taskgroup
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
-            #pragma omp task default(none) shared(A, B, C, err) \
+            #pragma omp task slate_omp_default_none \
+                shared( A, B, C, err ) \
                 firstprivate(j, layout, alpha, beta)
             {
                 try {
@@ -179,7 +182,7 @@ void syr2k(internal::TargetType<Target::HostNest>,
     int64_t C_nt = C.nt();
 
 //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...) default(none)
-    #pragma omp parallel for collapse(2) schedule(dynamic, 1) default(none) \
+    #pragma omp parallel for collapse(2) schedule(dynamic, 1) slate_omp_default_none \
         shared(A, B, C, err) firstprivate(C_mt, C_nt, layout, alpha, beta)
     for (int64_t j = 0; j < C_nt; ++j) {
         for (int64_t i = 0; i < C_mt; ++i) {  // full
@@ -240,7 +243,8 @@ void syr2k(internal::TargetType<Target::HostBatch>,
     #pragma omp taskgroup
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
-            #pragma omp task default(none) shared(A, B, C, err) \
+            #pragma omp task slate_omp_default_none \
+                shared( A, B, C, err ) \
                 firstprivate(j, layout, alpha, beta)
             {
                 try {
@@ -427,7 +431,8 @@ void syr2k(internal::TargetType<Target::Devices>,
     #pragma omp taskgroup
     if (C.nt() == 1) {
         if (C.tileIsLocal(0, 0)) {
-            #pragma omp task default(none) shared(A, B, C, err) \
+            #pragma omp task slate_omp_default_none \
+                shared( A, B, C, err ) \
                 firstprivate(layout, alpha, beta, queue_index) priority(priority)
             {
                 int device = C.tileDevice(0, 0);
@@ -463,7 +468,8 @@ void syr2k(internal::TargetType<Target::Devices>,
         // off-diagonal tiles by batch gemm on device
         // diagonal tiles by BLAS++ syr2k on device
         for (int device = 0; device < C.num_devices(); ++device) {
-            #pragma omp task default(none) shared(A, B, C, err) \
+            #pragma omp task slate_omp_default_none \
+                shared( A, B, C, err ) \
                 firstprivate(device, layout, alpha, beta, queue_index) priority(priority)
             {
                 try {
@@ -507,17 +513,20 @@ void syr2k(internal::TargetType<Target::Devices>,
 
                     #pragma omp taskgroup
                     {
-                        #pragma omp task default(none) shared(A, A_tiles_gemm) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, A_tiles_gemm ) \
                             firstprivate(device, layout)
                         {
                             A.tileGetForReading(A_tiles_gemm, device, LayoutConvert(layout));
                         }
-                        #pragma omp task default(none) shared(B, B_tiles_gemm) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( B, B_tiles_gemm ) \
                             firstprivate(device, layout)
                         {
                             B.tileGetForReading(B_tiles_gemm, device, LayoutConvert(layout));
                         }
-                        #pragma omp task default(none) shared(C, C_tiles_gemm) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( C, C_tiles_gemm ) \
                             firstprivate(device, layout)
                         {
                             C.tileGetForWriting(C_tiles_gemm, device, LayoutConvert(layout));
@@ -729,17 +738,20 @@ void syr2k(internal::TargetType<Target::Devices>,
 
                     #pragma omp taskgroup
                     {
-                        #pragma omp task default(none) shared(A, A_tiles_syr2k) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, A_tiles_syr2k ) \
                             firstprivate(device, layout)
                         {
                             A.tileGetForReading(A_tiles_syr2k, device, LayoutConvert(layout));
                         }
-                        #pragma omp task default(none) shared(B, B_tiles_syr2k) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( B, B_tiles_syr2k ) \
                             firstprivate(device, layout)
                         {
                             B.tileGetForReading(B_tiles_syr2k, device, LayoutConvert(layout));
                         }
-                        #pragma omp task default(none) shared(C, C_tiles_syr2k) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( C, C_tiles_syr2k ) \
                             firstprivate(device, layout)
                         {
                             C.tileGetForWriting(C_tiles_syr2k, device, LayoutConvert(layout));

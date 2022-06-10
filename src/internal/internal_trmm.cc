@@ -57,7 +57,8 @@ void trmm(internal::TargetType<Target::HostTask>,
         assert(B.nt() == 1);
         for (int64_t i = 0; i < B.mt(); ++i) {
             if (B.tileIsLocal(i, 0)) {
-                #pragma omp task default(none) shared(A, B) \
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B ) \
                     firstprivate(i, layout, side, alpha)
                 {
                     A.tileGetForReading(0, 0, LayoutConvert(layout));
@@ -75,7 +76,8 @@ void trmm(internal::TargetType<Target::HostTask>,
         assert(B.mt() == 1);
         for (int64_t j = 0; j < B.nt(); ++j) {
             if (B.tileIsLocal(0, j)) {
-                #pragma omp task default(none) shared(A, B) \
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B ) \
                     firstprivate(j, layout, side, alpha)
                 {
                     A.tileGetForReading(0, 0, LayoutConvert(layout));

@@ -42,7 +42,8 @@ void geqrf(internal::TargetType<Target::HostTask>,
     #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
         if (A.tileIsLocal(i, 0)) {
-            #pragma omp task default(none) shared(A) firstprivate(i) priority(priority)
+            #pragma omp task slate_omp_default_none \
+                shared( A ) firstprivate( i ) priority( priority )
             {
                 A.tileGetForWriting(i, 0, LayoutConvert::ColMajor);
             }
@@ -83,13 +84,13 @@ void geqrf(internal::TargetType<Target::HostTask>,
         std::vector< std::vector<scalar_t> > W(thread_size);
 
         #if 1
-            #pragma omp parallel default(none) \
+            #pragma omp parallel slate_omp_default_none \
                 num_threads(thread_size) \
                 shared(thread_barrier, scale, sumsq, xnorm, W, A, T00) \
                 shared(tile_indices, tiles) \
                 firstprivate(ib, thread_size)
         #else
-            #pragma omp taskloop default(none) \
+            #pragma omp taskloop slate_omp_default_none \
                 num_tasks(thread_size) \
                 shared(thread_barrier, scale, sumsq, xnorm, W, A, T00) \
                 shared(tile_indices, tiles) \

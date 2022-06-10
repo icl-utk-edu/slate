@@ -117,7 +117,8 @@ void set(
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal(i, j)) {
-                #pragma omp task default(none)  shared(A) \
+                #pragma omp task slate_omp_default_none \
+                    shared( A ) \
                     firstprivate(i, j, offdiag_value, diag_value) priority(priority)
                 {
                     A.tileGetForWriting(i, j, LayoutConvert::None);
@@ -177,7 +178,8 @@ void set(internal::TargetType<Target::Devices>,
 
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task default(none) shared(A) priority(priority) \
+        #pragma omp task slate_omp_default_none \
+            shared( A ) priority( priority ) \
             firstprivate(device, irange, jrange, queue_index, offdiag_value, diag_value)
         {
             // temporarily, convert both into same layout

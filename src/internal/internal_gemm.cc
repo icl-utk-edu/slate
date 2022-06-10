@@ -98,7 +98,8 @@ void gemm(internal::TargetType<Target::HostTask>,
     for (int64_t i = 0; i < C.mt(); ++i) {
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(i, j)) {
-                #pragma omp task default(none) shared(A, B, C, err, err_msg) \
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B, C, err, err_msg ) \
                     firstprivate(i, j, layout, alpha, beta) priority(priority)
                 {
                     try {
@@ -148,7 +149,7 @@ void gemm(internal::TargetType<Target::HostNest>,
     int64_t C_mt = C.mt();
     int64_t C_nt = C.nt();
 
-    #pragma omp parallel for collapse(2) schedule(dynamic, 1) default(none) \
+    #pragma omp parallel for collapse(2) schedule(dynamic, 1) slate_omp_default_none \
         shared(A, B, C, err, err_msg) firstprivate(C_nt, C_mt, layout, alpha, beta)
     for (int64_t i = 0; i < C_mt; ++i) {
         for (int64_t j = 0; j < C_nt; ++j) {
@@ -219,15 +220,18 @@ void gemm(internal::TargetType<Target::HostBatch>,
 
     #pragma omp taskgroup
     {
-        #pragma omp task default(none) shared(A, A_tiles_set) firstprivate(layout)
+        #pragma omp task slate_omp_default_none \
+            shared( A, A_tiles_set ) firstprivate( layout )
         {
             A.tileGetForReading(A_tiles_set, LayoutConvert(layout));
         }
-        #pragma omp task default(none) shared(B, B_tiles_set) firstprivate(layout)
+        #pragma omp task slate_omp_default_none \
+            shared( B, B_tiles_set ) firstprivate( layout )
         {
             B.tileGetForReading(B_tiles_set, LayoutConvert(layout));
         }
-        #pragma omp task default(none) shared(C, C_tiles_set) firstprivate(layout)
+        #pragma omp task slate_omp_default_none \
+            shared( C, C_tiles_set ) firstprivate( layout )
         {
             C.tileGetForWriting(C_tiles_set, LayoutConvert(layout));
         }
@@ -448,15 +452,18 @@ void gemm(internal::TargetType<Target::Devices>,
 
             #pragma omp taskgroup
             {
-                #pragma omp task default(none) shared(A, A_tiles_set) firstprivate(layout, device)
+                #pragma omp task slate_omp_default_none \
+                    shared( A, A_tiles_set ) firstprivate( layout, device )
                 {
                     A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
                 }
-                #pragma omp task default(none) shared(B, B_tiles_set) firstprivate(layout, device)
+                #pragma omp task slate_omp_default_none \
+                    shared( B, B_tiles_set ) firstprivate( layout, device )
                 {
                     B.tileGetForReading(B_tiles_set, device, LayoutConvert(layout));
                 }
-                #pragma omp task default(none) shared(C, C_tiles_set) firstprivate(layout, device)
+                #pragma omp task slate_omp_default_none \
+                    shared( C, C_tiles_set ) firstprivate( layout, device )
                 {
                     C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
                 }

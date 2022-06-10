@@ -9,6 +9,10 @@
 #ifndef SLATE_OPENMP_HH
 #define SLATE_OPENMP_HH
 
+#ifndef slate_omp_default_none
+#define slate_omp_default_none
+#endif
+
 #ifdef _OPENMP
     #include <omp.h>
 #else

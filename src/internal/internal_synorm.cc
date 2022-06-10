@@ -207,7 +207,8 @@ void norm(
         for (int64_t j = 0; j < A.nt(); ++j) {
             // diagonal tile
             if (j < A.mt() && A.tileIsLocal(j, j)) {
-                #pragma omp task default(none) shared(A, tiles_maxima) \
+                #pragma omp task slate_omp_default_none \
+                    shared( A, tiles_maxima ) \
                     firstprivate(j, layout, in_norm) priority(priority)
                 {
                     A.tileGetForReading(j, j, LayoutConvert(layout));
@@ -223,7 +224,8 @@ void norm(
             if (lower) {
                 for (int64_t i = j+1; i < A.mt(); ++i) {  // strictly lower
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task default(none) shared(A, tiles_maxima) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, tiles_maxima ) \
                             firstprivate(i, j, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
@@ -240,7 +242,8 @@ void norm(
             else { // Uplo::Upper
                 for (int64_t i = 0; i < j && i < A.mt(); ++i) {  // strictly upper
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task default(none) shared(A, tiles_maxima) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, tiles_maxima ) \
                             firstprivate(i, j, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
@@ -273,7 +276,8 @@ void norm(
         for (int64_t j = 0; j < A.nt(); ++j) {
             // diagonal tile
             if (j < A.mt() && A.tileIsLocal(j, j)) {
-                #pragma omp task default(none) shared(A, tiles_sums) \
+                #pragma omp task slate_omp_default_none \
+                    shared( A, tiles_sums ) \
                     firstprivate(j, jj, layout, in_norm) priority(priority)
                 {
                     A.tileGetForReading(j, j, LayoutConvert(layout));
@@ -285,7 +289,8 @@ void norm(
                 int64_t ii = jj + A.tileNb(j);
                 for (int64_t i = j+1; i < A.mt(); ++i) { // strictly lower
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task default(none) shared(A, tiles_sums) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, tiles_sums ) \
                             firstprivate(i, j, ii, jj, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
@@ -301,7 +306,8 @@ void norm(
                 int64_t ii = 0;
                 for (int64_t i = 0; i < j && i < A.mt(); ++i) { // strictly upper
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task default(none) shared(A, tiles_sums) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, tiles_sums ) \
                             firstprivate(i, j, ii, jj, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
@@ -380,7 +386,8 @@ void norm(
             if (lower) {
                 for (int64_t i = j+1; i < A.mt(); ++i) { // strictly lower
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task default(none) shared(A, values) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, values ) \
                             firstprivate(i, j, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
@@ -400,7 +407,8 @@ void norm(
             else { // Uplo::Upper
                 for (int64_t i = 0; i < j && i < A.mt(); ++i) { // strictly upper
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task default(none) shared(A, values) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, values ) \
                             firstprivate(i, j, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
@@ -520,7 +528,8 @@ void norm(internal::TargetType<Target::Devices>,
 
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task default(none) shared(A, devices_values) \
+        #pragma omp task slate_omp_default_none \
+            shared( A, devices_values ) \
             shared(vals_host_arrays, vals_dev_arrays, a_host_arrays, a_dev_arrays) \
             firstprivate(device, lower, irange, jrange, queue_index, in_norm, ldv, layout) \
             priority(priority)

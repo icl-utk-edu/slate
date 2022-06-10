@@ -186,7 +186,8 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                             j1 = k_src;
                         }
 
-                        #pragma omp task default(none) shared(A, T, C) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, T, C ) \
                             firstprivate(i, j, layout, rank_ind, side, op, i1, j1)
                         {
                             A.tileGetForReading(rank_ind, 0, LayoutConvert(layout));

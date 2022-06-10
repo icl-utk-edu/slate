@@ -142,7 +142,8 @@ void norm(
             for (int64_t i = 0; i < A.mt(); ++i) {
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task default(none) shared(A, tiles_maxima) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, tiles_maxima ) \
                             firstprivate(i, j, layout, in_norm, scope) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
@@ -175,7 +176,8 @@ void norm(
                 int64_t jj = 0;
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task default(none) shared(A, tiles_sums) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, tiles_sums ) \
                             firstprivate(i, j, layout, in_norm, scope, jj) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
@@ -220,7 +222,8 @@ void norm(
                 int64_t ii = 0;
                 for (int64_t i = 0; i < A.mt(); ++i) {
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task default(none) shared(A, tiles_sums) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, tiles_sums ) \
                             firstprivate(i, j, layout, in_norm, scope, ii) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
@@ -263,7 +266,8 @@ void norm(
             for (int64_t i = 0; i < A.mt(); ++i) {
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task default(none) shared(A, values) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, values ) \
                             firstprivate(i, j, layout, in_norm, scope) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
@@ -290,7 +294,8 @@ void norm(
                 int64_t jj = 0;
                 for (int64_t j = 0; j < A.nt(); ++j) {
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task default(none) shared(A, cols_maxima) \
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, cols_maxima ) \
                             firstprivate(i, j, layout, in_norm, scope, jj) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
@@ -354,8 +359,10 @@ void norm(
 
         std::vector<real_t> tiles_maxima;
 
-        #pragma omp parallel for collapse(2) schedule(dynamic, 1) default(none) \
-            shared(A, tiles_maxima) firstprivate(A_mt, A_nt, scope, in_norm)
+        #pragma omp parallel for collapse(2) schedule(dynamic, 1) \
+            slate_omp_default_none \
+            shared( A, tiles_maxima ) \
+            firstprivate( A_mt, A_nt, scope, in_norm )
         for (int64_t i = 0; i < A_mt; ++i) {
             for (int64_t j = 0; j < A_nt; ++j) {
                 if (A.tileIsLocal(i, j)) {
@@ -380,8 +387,10 @@ void norm(
         // Find max of each column in each tile.
         std::vector<real_t> cols_maxima(A.n()*A.mt(), 0.0);
 
-        #pragma omp parallel for collapse(1) schedule(dynamic, 1) default(none) \
-            shared(A, cols_maxima) firstprivate(A_mt, A_nt, layout, scope, in_norm)
+        #pragma omp parallel for collapse(1) schedule(dynamic, 1) \
+            slate_omp_default_none \
+            shared( A, cols_maxima ) \
+            firstprivate( A_mt, A_nt, layout, scope, in_norm )
         for (int64_t i = 0; i < A_mt; ++i) {
             int64_t jj = 0;
             for (int64_t j = 0; j < A_nt; ++j) {
@@ -508,7 +517,8 @@ void norm(
 
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task default(none) priority(priority) shared(A, devices_values) \
+        #pragma omp task slate_omp_default_none \
+            priority( priority ) shared( A, devices_values ) \
             shared(a_host_arrays, a_dev_arrays, vals_host_arrays, vals_dev_arrays) \
             firstprivate(device, irange, jrange, queue_index, ldv, scope, in_norm, layout)
         {

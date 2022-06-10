@@ -98,14 +98,14 @@ void getrf(internal::TargetType<Target::HostTask>,
         #if 1
             // Launching new threads for the panel guarantees progression.
             // This should never deadlock, but may be detrimental to performance.
-            #pragma omp parallel for num_threads(thread_size) default(none) \
+            #pragma omp parallel for num_threads(thread_size) slate_omp_default_none \
                 shared(thread_barrier, max_value, max_index, max_offset) \
                 shared(top_block, aux_pivot, tiles, bcast_comm) \
                 firstprivate( tile_indices, bcast_root, bcast_rank, ib, \
                               diag_len, thread_size, pivot_threshold )
         #else
             // Issuing panel operation as tasks may cause a deadlock.
-            #pragma omp taskloop num_tasks(thread_size) default(none) \
+            #pragma omp taskloop num_tasks(thread_size) slate_omp_default_none \
                 shared(thread_barrier, max_value, max_index, max_offset) \
                 shared(top_block, aux_pivot, tiles, bcast_comm) \
                 firstprivate( tile_indices, bcast_root, bcast_rank, ib, \

@@ -132,7 +132,8 @@ void add(internal::TargetType<Target::HostTask>,
     for (int64_t i = 0; i < A_mt; ++i) {
         for (int64_t j = 0; j < A_nt; ++j) {
             if (B.tileIsLocal(i, j)) {
-                #pragma omp task default(none) shared(A, B) \
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B ) \
                     firstprivate(i, j, alpha, beta)  priority(priority)
                 {
                     A.tileGetForReading(i, j, LayoutConvert::None);
@@ -219,12 +220,14 @@ void add(internal::TargetType<Target::Devices>,
             }
             #pragma omp taskgroup
             {
-                #pragma omp task default(none) shared(A, A_tiles_set) \
+                #pragma omp task slate_omp_default_none \
+                    shared( A, A_tiles_set ) \
                     firstprivate(device, layout)
                 {
                     A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
                 }
-                #pragma omp task default(none) shared(B, B_tiles_set) \
+                #pragma omp task slate_omp_default_none \
+                    shared( B, B_tiles_set ) \
                     firstprivate(device, layout)
                 {
                     B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));

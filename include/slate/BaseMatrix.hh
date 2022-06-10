@@ -1644,7 +1644,7 @@ void BaseMatrix<scalar_t>::tileUnsetHoldAll(int device)
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileUnsetHoldAllOnDevices()
 {
-    #pragma omp parallel for default(none)
+    #pragma omp parallel for slate_omp_default_none
     for (int64_t j = 0; j < nt(); ++j)
         for (int64_t i = 0; i < mt(); ++i)
             if (tileIsLocal(i, j))
@@ -1781,7 +1781,8 @@ void BaseMatrix<scalar_t>::tileRecv(
 
         // Copy to devices.
         if (target == Target::Devices) {
-            #pragma omp task default(none) firstprivate(i, j)
+            #pragma omp task slate_omp_default_none \
+                firstprivate( i, j )
             {
                 tileGetForReading(i, j, tileDevice(i, j), LayoutConvert::None);
             }
@@ -1941,7 +1942,8 @@ void BaseMatrix<scalar_t>::listBcast(
                 #pragma omp taskgroup
                 for (auto device : dev_set) {
                     // note: dev_set structure is released after the if-target block
-                    #pragma omp task default(none) firstprivate(i, j, device, is_shared)
+                    #pragma omp task slate_omp_default_none \
+                        firstprivate( i, j, device, is_shared )
                     {
                         if (is_shared) {
                             tileGetAndHold(i, j, device, LayoutConvert::None);
@@ -1960,7 +1962,8 @@ void BaseMatrix<scalar_t>::listBcast(
             #pragma omp taskgroup
             for (int d = 0; d < num_devices(); ++d) {
                 if (! tile_set[d].empty()) {
-                    #pragma omp task default(none) firstprivate(d, is_shared) shared(tile_set)
+                    #pragma omp task slate_omp_default_none \
+                        firstprivate( d, is_shared ) shared( tile_set )
                     {
                         if (is_shared) {
                             tileGetAndHold(tile_set[d], d, LayoutConvert::None);
@@ -2034,7 +2037,8 @@ void BaseMatrix<scalar_t>::listBcastMT(
     using BcastTag =
         std::tuple< int64_t, int64_t, std::list<BaseMatrix<scalar_t> >, int64_t >;
 
-    #pragma omp taskloop default(none) shared(bcast_list) \
+    #pragma omp taskloop slate_omp_default_none \
+        shared( bcast_list ) \
         firstprivate(life_factor, layout, mpi_size, is_shared)
     for (size_t bcastnum = 0; bcastnum < bcast_list.size(); ++bcastnum) {
 
@@ -3226,7 +3230,8 @@ void BaseMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert layout)
     {
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set)
+                #pragma omp task slate_omp_default_none \
+                    firstprivate( d, layout ) shared( tiles_set )
                 {
                     tileGetForReading(tiles_set[d], d, layout);
                 }
@@ -3261,7 +3266,8 @@ void BaseMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert layout)
     {
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set)
+                #pragma omp task slate_omp_default_none \
+                    firstprivate( d, layout ) shared( tiles_set )
                 {
                     tileGetForWriting(tiles_set[d], d, layout);
                 }
@@ -3296,7 +3302,8 @@ void BaseMatrix<scalar_t>::tileGetAndHoldAllOnDevices(LayoutConvert layout)
     {
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set)
+                #pragma omp task slate_omp_default_none \
+                    firstprivate( d, layout ) shared( tiles_set )
                 {
                     tileGetAndHold(tiles_set[d], d, layout);
                 }
@@ -3399,13 +3406,15 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
     {
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set_host[d].empty()) {
-                #pragma omp task default(none) firstprivate(d) shared(tiles_set_host)
+                #pragma omp task slate_omp_default_none \
+                    firstprivate( d ) shared( tiles_set_host )
                 {
                     tileGetForReading(tiles_set_host[d], LayoutConvert::None, d);
                 }
             }
             if (! tiles_set_dev[d].empty()) {
-                #pragma omp task default(none) firstprivate(d) shared(tiles_set_dev)
+                #pragma omp task slate_omp_default_none \
+                    firstprivate( d ) shared( tiles_set_dev )
                 {
                     tileGetForReading(tiles_set_dev[d], d, LayoutConvert::None);
                 }
@@ -3527,7 +3536,8 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
         for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
             int64_t i = std::get<0>(*iter);
             int64_t j = std::get<1>(*iter);
-            #pragma omp task default(none) firstprivate(i, j, device, layout, reset)
+            #pragma omp task slate_omp_default_none \
+                firstprivate( i, j, device, layout, reset )
             {
                 tileLayoutConvert(i, j, device, layout, reset);
             }
@@ -3763,7 +3773,8 @@ void BaseMatrix<scalar_t>::tileLayoutConvertOnDevices(Layout layout, bool reset)
     {
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(none) firstprivate(d, layout, reset) shared(tiles_set)
+                #pragma omp task slate_omp_default_none \
+                    firstprivate( d, layout, reset ) shared( tiles_set )
                 {
                     tileLayoutConvert(tiles_set[d], d, layout, reset);
                 }
@@ -3850,7 +3861,8 @@ void BaseMatrix<scalar_t>::tileLayoutReset()
     {
         if (! tiles_set_host.empty()) {
             auto layout = this->layout();
-            #pragma omp task default(none) firstprivate(layout) shared(tiles_set_host)
+            #pragma omp task slate_omp_default_none \
+                firstprivate( layout ) shared( tiles_set_host )
             {
                 tileLayoutReset( tiles_set_host, HostNum, layout );
             }
@@ -3858,7 +3870,8 @@ void BaseMatrix<scalar_t>::tileLayoutReset()
         for (int d = 0; d < num_devices(); ++d) {
             if (! tiles_set_dev[d].empty()) {
                 auto layout = this->layout();
-                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set_dev)
+                #pragma omp task slate_omp_default_none \
+                    firstprivate( d, layout ) shared( tiles_set_dev )
                 {
                     tileLayoutReset(tiles_set_dev[d], d, layout);
                 }

@@ -87,7 +87,8 @@ void hemmA(internal::TargetType<Target::HostTask>,
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal(i, j)) {
-                #pragma omp task default(none) shared(A, B, C, err) \
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B, C, err ) \
                     firstprivate(i, j, layout, side, alpha, beta) priority(priority)
                 {
                     try {
@@ -138,7 +139,7 @@ void hemmA(internal::TargetType<Target::HostNest>,
 
     int err = 0;
     if (side == Side::Left) {
-        #pragma omp parallel for schedule(dynamic, 1) default(none) \
+        #pragma omp parallel for schedule(dynamic, 1) slate_omp_default_none \
             shared(A, B, C, err) firstprivate(side, layout, alpha, beta)
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(0, j)) {
@@ -162,7 +163,7 @@ void hemmA(internal::TargetType<Target::HostNest>,
     }
     else {
         // side == Right
-        #pragma omp parallel for schedule(dynamic, 1) default(none) \
+        #pragma omp parallel for schedule(dynamic, 1) slate_omp_default_none \
             shared(A, B, C, err) firstprivate(side, layout, alpha, beta)
         for (int64_t i = 0; i < C.mt(); ++i) {
             if (C.tileIsLocal(i, 0)) {

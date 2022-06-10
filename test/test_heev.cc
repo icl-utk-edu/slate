@@ -201,7 +201,8 @@ void test_heev_work(Params& params, bool run)
             int64_t nt = Z.nt();
             int64_t jj = 0;
             for (int64_t j = 0; j < nt; ++j) {
-                #pragma omp parallel for default(none) firstprivate(mt, j, jj) shared(Z_Lambda, Lambda)
+                #pragma omp parallel for slate_omp_default_none \
+                    firstprivate( mt, j, jj ) shared( Z_Lambda, Lambda )
                 for (int64_t i = 0; i < mt; ++i) {
                     if (Z_Lambda.tileIsLocal( i, j )) {
                         auto T = Z_Lambda( i, j );

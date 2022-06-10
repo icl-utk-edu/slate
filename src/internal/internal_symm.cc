@@ -83,7 +83,8 @@ void symm(internal::TargetType<Target::HostTask>,
     if (side == Side::Left) {
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(0, j)) {
-                #pragma omp task default(none) shared(A, B, C, err) \
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B, C, err ) \
                     firstprivate(j, layout, side, alpha, beta) priority(priority)
                 {
                     try {
@@ -109,7 +110,8 @@ void symm(internal::TargetType<Target::HostTask>,
         // side == Right
         for (int64_t i = 0; i < C.mt(); ++i) {
             if (C.tileIsLocal(i, 0)) {
-                #pragma omp task default(none) shared(A, B, C, err) \
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B, C, err ) \
                     firstprivate(i, layout, side, alpha, beta) priority(priority)
                 {
                     try {
@@ -157,7 +159,7 @@ void symm(internal::TargetType<Target::HostNest>,
 
     int err = 0;
     if (side == Side::Left) {
-        #pragma omp parallel for schedule(dynamic, 1) default(none) \
+        #pragma omp parallel for schedule(dynamic, 1) slate_omp_default_none \
             shared(A, B, C, err) firstprivate(layout, side, alpha, beta)
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(0, j)) {
@@ -181,7 +183,7 @@ void symm(internal::TargetType<Target::HostNest>,
     }
     else {
         // side == Right
-        #pragma omp parallel for schedule(dynamic, 1) default(none) \
+        #pragma omp parallel for schedule(dynamic, 1) slate_omp_default_none \
             shared(A, B, C, err) firstprivate(layout, side, alpha, beta)
         for (int64_t i = 0; i < C.mt(); ++i) {
             if (C.tileIsLocal(i, 0)) {

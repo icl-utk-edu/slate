@@ -1215,7 +1215,8 @@ void generate_matrix(
                 for (int64_t j = 0; j < nt; ++j) {
                     int64_t ii = 0;
                     for (int64_t i = 0; i < mt; ++i) {
-                        #pragma omp task default( none ) firstprivate( i, j, ii, jj, s ) shared( A )
+                        #pragma omp task slate_omp_default_none \
+                            firstprivate( i, j, ii, jj, s ) shared( A )
                         {
                             if (A.tileIsLocal( i, j )) {
                                 A.tileGetForWriting( i, j, LayoutConvert::ColMajor );

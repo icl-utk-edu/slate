@@ -153,15 +153,18 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
         #pragma omp master
         #pragma omp taskgroup
         {
-            #pragma omp task default(none) shared(A) firstprivate(layout)
+            #pragma omp task slate_omp_default_none \
+                shared( A ) firstprivate( layout )
             {
                 A.tileGetAndHoldAllOnDevices( LayoutConvert( layout ) );
             }
-            #pragma omp task default(none) shared(B) firstprivate(layout)
+            #pragma omp task slate_omp_default_none \
+                shared( B ) firstprivate( layout )
             {
                 B.tileGetAndHoldAllOnDevices( LayoutConvert( layout ) );
             }
-            #pragma omp task default(none) shared(X) firstprivate(layout)
+            #pragma omp task slate_omp_default_none \
+                shared( X ) firstprivate( layout )
             {
                 X.tileGetAndHoldAllOnDevices( LayoutConvert( layout ) );
             }

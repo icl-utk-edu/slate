@@ -88,6 +88,7 @@ if [ "${host}" = "gpu_nvidia" ]; then
     export OMPI_CXX=${CXX}
 
     echo "CXXFLAGS  = -Werror" >> make.inc
+    echo "CXXFLAGS += -Dslate_omp_default_none='default(none)'" >> make.inc
     echo "mkl_blacs = openmpi" >> make.inc
     echo "cuda_arch = kepler"  >> make.inc
     echo "gpu_backend = cuda"  >> make.inc

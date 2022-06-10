@@ -181,7 +181,8 @@ void copy(internal::TargetType<Target::HostTask>,
     for (int64_t i = 0; i < A_mt; ++i) {
         for (int64_t j = 0; j < A_nt; ++j) {
             if (B.tileIsLocal(i, j)) {
-                #pragma omp task default(none) shared(A, B) firstprivate(i, j, HostNum) \
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B ) firstprivate( i, j, HostNum ) \
                     priority(priority)
                 {
                     A.tileGetForReading(i, j, LayoutConvert::None);
@@ -245,7 +246,8 @@ void copy(internal::TargetType<Target::Devices>,
 
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task default(none) shared(A, B) \
+        #pragma omp task slate_omp_default_none \
+            shared( A, B ) \
             firstprivate(device, irange, jrange, queue_index) priority(priority)
         {
             std::set<ij_tuple> A_tiles_set;

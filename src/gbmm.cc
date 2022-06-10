@@ -131,7 +131,8 @@ void gbmm(slate::internal::TargetType<target>,
                 for (int64_t i = i_end; i < C.mt(); ++i) {
                     for (int64_t j = 0; j < C.nt(); ++j) {
                         if (C.tileIsLocal(i, j)) {
-                            #pragma omp task default(none) shared(C) \
+                            #pragma omp task slate_omp_default_none \
+                                shared( C ) \
                                 firstprivate(i, j, layout, beta)
                             {
                                 C.tileGetForWriting(i, j, LayoutConvert(layout));

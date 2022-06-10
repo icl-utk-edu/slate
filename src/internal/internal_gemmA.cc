@@ -94,7 +94,8 @@ void gemmA(internal::TargetType<Target::HostTask>,
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal(i, j)) {
-                #pragma omp task default(none) shared(A, B, C, err, c_tile_acquired) \
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B, C, err, c_tile_acquired ) \
                     firstprivate(i, j, layout) priority(priority)
                 {
                     try {
@@ -126,7 +127,8 @@ void gemmA(internal::TargetType<Target::HostTask>,
 
     #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
-        #pragma omp task default(none) shared(A, B, C, err) \
+        #pragma omp task slate_omp_default_none \
+            shared( A, B, C, err ) \
             firstprivate(i, alpha, beta, c_tile_acquired) priority(priority)
         {
             try {

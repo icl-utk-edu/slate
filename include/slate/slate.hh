@@ -569,11 +569,12 @@ int64_t gesv_mixed_gmres(
 //-----------------------------------------
 // gesv_rbt
 template<typename scalar_t>
-void gesv_rbt(Matrix<scalar_t>& A,
-              Matrix<scalar_t>& B,
-              Matrix<scalar_t>& X,
-              int& iter,
-              const std::map<Option, Value>& opts = std::map<Option, Value>());
+void gesv_rbt(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Matrix<scalar_t>& X,
+    int& iter,
+    Options const& opts = Options());
 
 //-----------------------------------------
 // gbtrf()

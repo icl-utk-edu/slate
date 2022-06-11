@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2020-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -7,8 +7,6 @@
 #include "internal/internal.hh"
 
 namespace slate {
-
-namespace internal {
 
 //------------------------------------------------------------------------------
 /// todo: replicated in gesvMixed.cc; move to common header.
@@ -33,8 +31,6 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
 
     return value;
 }
-
-} //namespace internal
 
 
 //------------------------------------------------------------------------------
@@ -144,8 +140,8 @@ void gesv_rbt(Matrix<scalar_t>& A,
     slate_assert(B.mt() == A.mt());
 
     auto transforms = internal::rbt_generate( A, depth, 42 );
-	Matrix<scalar_t> U = transforms.first;
-	Matrix<scalar_t> V = transforms.second;
+    Matrix<scalar_t> U = transforms.first;
+    Matrix<scalar_t> V = transforms.second;
 
     // Workspace
     Matrix<scalar_t> A_copy = A.emptyLike();
@@ -185,7 +181,7 @@ void gesv_rbt(Matrix<scalar_t>& A,
     colNorms( Norm::Max, X, colnorms_X.data(), opts );
     colNorms( Norm::Max, R, colnorms_R.data(), opts );
 
-    if (internal::iterRefConverged<real_t>( colnorms_R, colnorms_X, cte )) {
+    if (iterRefConverged<real_t>( colnorms_R, colnorms_X, cte )) {
         iter = 0;
         converged = true;
     }
@@ -204,7 +200,7 @@ void gesv_rbt(Matrix<scalar_t>& A,
         colNorms( Norm::Max, X, colnorms_X.data(), opts );
         colNorms( Norm::Max, R, colnorms_R.data(), opts );
 
-        if (internal::iterRefConverged<real_t>( colnorms_R, colnorms_X, cte )) {
+        if (iterRefConverged<real_t>( colnorms_R, colnorms_X, cte )) {
             iter = iiter+1;
             converged = true;
         }
@@ -236,7 +232,7 @@ void gesv_rbt<float>(
     Matrix<float>& B,
     Matrix<float>& X,
     int& iter,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gesv_rbt<double>(
@@ -244,7 +240,7 @@ void gesv_rbt<double>(
     Matrix<double>& B,
     Matrix<double>& X,
     int& iter,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gesv_rbt< std::complex<float> >(
@@ -252,7 +248,7 @@ void gesv_rbt< std::complex<float> >(
     Matrix< std::complex<float> >& B,
     Matrix< std::complex<float> >& X,
     int& iter,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 template
 void gesv_rbt< std::complex<double> >(
@@ -260,6 +256,6 @@ void gesv_rbt< std::complex<double> >(
     Matrix< std::complex<double> >& B,
     Matrix< std::complex<double> >& X,
     int& iter,
-    const std::map<Option, Value>& opts);
+    Options const& opts);
 
 } // namespace slate

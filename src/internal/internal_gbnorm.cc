@@ -115,6 +115,7 @@ void norm(
         // j needs to be outer loop to get jj correct.
         std::vector<real_t> tiles_sums(A.n()*A.mt(), 0.0);
         int64_t jj = 0;
+        #pragma omp taskgroup
         for (int64_t j = 0; j < A.nt(); ++j) {
             int64_t i_begin = max(j - kut, 0);
             int64_t i_end   = min(j + klt + 1, A.mt());

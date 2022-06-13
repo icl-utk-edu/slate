@@ -36,7 +36,7 @@ void pdgemm_(const char* transa, const char* transb, const int* m, const int* n,
 double pdlange_(const char* norm, const int* m, const int* n,
                 double* a, const int* ia, const int* ja, const int* desca, double* work);
 void pdsgesv_(const int* n, const int* nrhs, double* a, const int* ia, const int* ja, const int* desca,
-              const int* ipiv, double* b, const int* ib, const int* jb, const int* descb,
+              int* ipiv, double* b, const int* ib, const int* jb, const int* descb,
               double* x, const int* ix, const int* jx, const int* descx, int* iter, int* info);
 #ifdef __cplusplus
 }
@@ -90,10 +90,6 @@ int main(int argc, char* argv[])
 
     // Allocate space for pivots
     int* ipiv = (int*)malloc(n * sizeof(int));
-
-    // LU factor A
-    if (mypnum == 0) { printf("Calling pdgetrf_ to factor matrix A\n"); fflush(0); }
-    pdgetrf_(&n, &n, A, &ione, &ione, descA, ipiv, &info);
 
     // Setup B
     if (mypnum == 0) { printf("Setup B to be %d x %d\n", n, nrhs); fflush(0); }

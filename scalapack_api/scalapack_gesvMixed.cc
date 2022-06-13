@@ -92,7 +92,7 @@ void slate_pgesvMixed(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, 
     B = slate_scalapack_submatrix(Bm, Bn, B, ib, jb, descb);
 
     Cblacs_gridinfo(desc_CTXT(descx), &nprow, &npcol, &myprow, &mypcol);
-    auto X = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descx), desc_N(descx), x, desc_LLD(descx), desc_MB(descx), grid_order, nprow, npcol, MPI_COMM_WORLD);
+    auto X = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descx), desc_N(descx), x, desc_LLD(descx), desc_MB(descx), desc_NB(descb), grid_order, nprow, npcol, MPI_COMM_WORLD);
     X = slate_scalapack_submatrix(Xm, Xn, X, ix, jx, descx);
 
     if (verbose && myprow == 0 && mypcol == 0)

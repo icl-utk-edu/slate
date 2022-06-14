@@ -139,6 +139,8 @@ def make( project, version_h, version_c ):
     month = today.month
     release = 0
 
+    top_dir = os.getcwd()
+
     # Search for latest tag this month and increment release if found.
     tags = myrun( 'git tag', stdout=PIPE, text=True ).rstrip().split( '\n' )
     tags.sort( reverse=True )
@@ -162,7 +164,6 @@ def make( project, version_h, version_c ):
 
     #--------------------
     # Update version in version_h.
-    # TODO update in CMakeLists.txt?
     print( '\n>> Updating version in:', version_h )
     file_sub( version_h,
               r'// Version \d\d\d\d.\d\d.\d\d\n(#define \w+_VERSION) \d+',
@@ -232,4 +233,33 @@ def make( project, version_h, version_c ):
     tar = dir + '.tar.gz'
     print( '\n>> Creating tar file', tar )
     myrun( 'tar -zcvf '+ tar +' '+ dir )
+
+    #--------------------
+    # Update online docs.
+    myrun( ['rsync', '-av', '--delete',
+            '--exclude', 'artwork',  # keep artwork on icl.bitbucket.io
+            dir + '/docs/html/',
+            'icl.bitbucket.io/' + project + '/'] )
+
+    os.chdir( 'icl.bitbucket.io' )
+    myrun( 'git add ' + project )
+    myrun( 'git status' )
+    print( '>> Do changes look good? Commit docs [yn]? ', end='' )
+    response = input()
+    if (response != 'y'):
+        print( '>> Doc update aborted. Please revert changes as desired.' )
+        exit(1)
+
+    # Commit staged files.
+    myrun( ['git', 'commit', '-m', project + ' version ' + tag] )
+
+    print( '>> Run `git push` to make changes live [yn]? ', end='' )
+    response = input()
+    if (response == 'y'):
+        myrun( 'git push' )
+    else:
+        print( '>> Doc update aborted. Please revert changes as desired.' )
+        exit(1)
+
+    os.chdir( top_dir )
 # end

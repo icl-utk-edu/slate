@@ -1,3 +1,11 @@
+2022.06.00
+  - Fixed algorithm selection (issue #41)
+  - Fixed set for triangular, trapezoid, symmetric, Hermitian matrices (tzset)
+  - Fixed ScaLAPACK pdsgesv wrapper (issue #42)
+  - Fixed norm for general band matrix (gbnorm)
+  - Added macro for OpenMP `default(none)`; by default empty since it
+    causes unpredictable errors for some compilers or libraries
+
 2022.05.00
   - Improved performance, including:
     LU, Cholesky, QR, mixed-precision LU and Cholesky, trsm, hemm, gemm,

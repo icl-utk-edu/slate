@@ -215,20 +215,20 @@ options include:
         requires MPI, so testers will fail.
 
     cuda_arch
-        With the CUDA backend, by default SLATE will compile for
-        CUDA architecture Pascal. To use a different architecture, set
-        `cuda_arch` to one or more of:
-        `kepler maxwell pascal volta turing sm_XY`
-        where XY is a valid CUDA architecture (see `nvcc -h | grep sm_`).
+        By default, SLATE uses nvcc's default architecture.
+        To use a different architecture, set `cuda_arch` to one or more of:
+        `kepler maxwell pascal volta turing ampere hopper sm_XY`
+        where XY is a valid CUDA architecture (see `nvcc -h | grep sm_`),
+        separated by space.
 
     hip_arch
-        With the HIP backend, by default SLATE will compile for
-        HIP architectures gfx900 gfx906 gfx908. To use a different architecture,
-        set `hip_arch` to one or more of:
-        `gfx900`  for AMD Radeon Instinct MI25 / Vega 10
-        `gfx906`  for AMD Radeon Instinct MI50 / Vega 20
-        `gfx908`  for AMD Instinct MI100
-        or other valid HIP architecture.
+        By default, SLATE uses hipcc's default architecture.
+        To use a different architecture, set `hip_arch` to one or more of:
+        `gfx900` or `mi25`  for AMD Radeon Instinct MI25 / Vega 10
+        `gfx906` or `mi50`  for AMD Radeon Instinct MI50 / Vega 20
+        `gfx908` or `mi100` for AMD Instinct MI100
+        `gfx90a` or `mi200` for AMD Instinct MI200 series (MI250)
+        or other valid HIP architecture, separated by space.
         See https://llvm.org/docs/AMDGPUUsage.html
 
     openmp

@@ -101,18 +101,19 @@ set_property( CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
               None Debug Release RelWithDebInfo MinSizeRel )
 
 # CUDA architectures required in CMake 3.18
-# Fermi   20
-# Kepler  30 35 37
-# Maxwell 50 52 53
-# Pascal  60 61 62
-# Volta   70 72
-# Turing  75
-# Ampere  80 86
+# Fermi   20        # CUDA 3.2 to 8
+# Kepler  30 35 37  # CUDA 5 to 10; sm_35 and sm_37 deprecated in CUDA 11
+# Maxwell 50 52 53  # CUDA 6 to 11
+# Pascal  60 61 62  # CUDA >= 8
+# Volta   70 72     # CUDA >= 9
+# Turing  75        # CUDA >= 10
+# Ampere  80 86 87  # CUDA >= 11.1
+# Hopper  90        # CUDA >= 12
 # Also -real and -virtual suffixes.
 set( CMAKE_CUDA_ARCHITECTURES "60" CACHE STRING
-     "CUDA architectures, as semi-colon separated list of 2-digit numbers, e.g., 60;70;80 for Pascal, Volta, Ampere" )
+     "CUDA architectures, as semi-colon separated list of numbers, e.g., 60;70;80 for Pascal, Volta, Ampere" )
 set_property( CACHE CMAKE_CUDA_ARCHITECTURES PROPERTY STRINGS
-              30 50 60 70 75 80 )
+              30 35 50 60 70 75 80 90 )
 
 #-----------------------------------
 # BLAS options

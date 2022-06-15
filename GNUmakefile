@@ -68,8 +68,6 @@ hipify          ?= hipify-perl
 md5sum          ?= tools/md5sum.pl
 
 gpu_backend     ?= auto
-cuda_arch       ?= pascal
-hip_arch        ?= gfx900 gfx906 gfx908
 
 # Strip whitespace from variables, in case make.inc had trailing spaces.
 mpi             := $(strip $(mpi))
@@ -305,20 +303,23 @@ ifeq ($(cuda),1)
     ifneq ($(findstring ampere, $(cuda_arch_)),)
         cuda_arch_ += sm_80
     endif
+    ifneq ($(findstring hopper, $(cuda_arch_)),)
+        cuda_arch_ += sm_90
+    endif
 
-    # CUDA architectures that nvcc supports
-    sms = 30 32 35 37 50 52 53 60 61 62 70 72 75 80
+    # Extract CUDA sm architectures.
+    sms = $(sort $(patsubst sm_%, %, $(filter sm_%, $(cuda_arch_))))
 
+    # Generate nvcc gencode options for all sm_XY in cuda_arch_.
     # code=sm_XX is binary, code=compute_XX is PTX
-    gencode_sm      = -gencode arch=compute_$(sm),code=sm_$(sm)
-    gencode_compute = -gencode arch=compute_$(sm),code=compute_$(sm)
+    nv_sm      = $(foreach sm, $(sms),-gencode arch=compute_$(sm),code=sm_$(sm))
+    nv_compute = $(foreach sm, $(sms),-gencode arch=compute_$(sm),code=compute_$(sm))
 
-    # Get gencode options for all sm_XX in cuda_arch_.
-    nv_sm      = $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_sm)))
-    nv_compute = $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_compute)))
-
-    ifeq ($(nv_sm),)
-        $(error ERROR: unknown `cuda_arch=$(cuda_arch)`. Set cuda_arch to one of kepler, maxwell, pascal, volta, turing, ampere, or valid sm_XX from nvcc -h)
+    ifeq ($(sms),)
+        # Error if cuda_arch is not empty and sms is empty.
+        ifneq ($(cuda_arch),)
+            $(error ERROR: unknown `cuda_arch=$(cuda_arch)`. Set cuda_arch to one or more of kepler, maxwell, pascal, volta, turing, ampere, hopper, or valid sm_XY from nvcc -h)
+        endif
     else
         # Get last option (last 2 words) of nv_compute.
         nwords := $(words $(nv_compute))
@@ -336,7 +337,32 @@ endif
 #-------------------------------------------------------------------------------
 # if HIP
 ifeq ($(hip),1)
-    gfx = $(sort $(filter gfx%, $(hip_arch)))
+    # Generate flags for which HIP architectures to build.
+    # hip_arch_ is a local copy to modify.
+    hip_arch_ = $(hip_arch)
+    ifneq ($(findstring mi25, $(hip_arch_)),)
+        hip_arch_ += gfx900
+    endif
+    ifneq ($(findstring mi50, $(hip_arch_)),)
+        hip_arch_ += gfx906
+    endif
+    ifneq ($(findstring mi100, $(hip_arch_)),)
+        hip_arch_ += gfx908
+    endif
+    ifneq ($(findstring mi200, $(hip_arch_)),)
+        hip_arch_ += gfx90a
+    endif
+
+    # Extract AMD gfx architectures.
+    gfx = $(sort $(filter gfx%, $(hip_arch_)))
+    ifeq ($(gfx),)
+        # Error if hip_arch is not empty and gfx is empty.
+        ifneq ($(hip_arch),)
+            $(error ERROR: unknown `hip_arch=$(hip_arch)`. Set hip_arch to one or more of mi25, mi50, mi100, or valid gfxXYZ. See https://llvm.org/docs/AMDGPUUsage.html)
+        endif
+    endif
+
+    # Generate hipcc target options for all gfx in hip_arch_.
     amdgpu_targets = $(foreach arch, $(gfx),--amdgpu-target=$(arch))
     HIPCCFLAGS += $(amdgpu_targets)
     FLAGS += -D__HIP_PLATFORM_HCC__
@@ -1207,13 +1233,12 @@ echo:
 	@echo
 	@echo "---------- CUDA options"
 	@echo "cuda          = '$(cuda)'"
-	@echo "cuda_arch     = '$(cuda_arch)'"
+	@echo "cuda_arch     = $(cuda_arch)"
+	@echo "cuda_arch_    = $(cuda_arch_)"
 	@echo "NVCC          = $(NVCC)"
 	@echo "NVCC_which    = $(NVCC_which)"
 	@echo "CUDA_DIR      = $(CUDA_DIR)"
 	@echo "NVCCFLAGS     = $(NVCCFLAGS)"
-	@echo "cuda_arch     = $(cuda_arch)"
-	@echo "cuda_arch_    = $(cuda_arch_)"
 	@echo "sms           = $(sms)"
 	@echo "nv_sm         = $(nv_sm)"
 	@echo "nv_compute    = $(nv_compute)"
@@ -1224,6 +1249,7 @@ echo:
 	@echo "---------- HIP options"
 	@echo "hip           = '$(hip)'"
 	@echo "hip_arch      = '$(hip_arch)'"
+	@echo "hip_arch_     = '$(hip_arch_)'"
 	@echo "gfx           = $(gfx)"
 	@echo "HIPCC         = $(HIPCC)"
 	@echo "HIPCC_which   = $(HIPCC_which)"

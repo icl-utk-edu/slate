@@ -8,6 +8,9 @@
 # Set only_unit=1 to avoid compiling most of the SLATE library,
 # which isn't needed by most unit testers (except test_lq, test_qr).
 # Useful to avoid expensive recompilation when debugging headers.
+#
+# Sort lists alphabetically and end with \ to avoid merge conflicts.
+# The "# End." comment avoids the next line being appended accidentally.
 
 -include make.inc
 
@@ -390,33 +393,37 @@ libslate_src += \
         src/core/Memory.cc \
         src/core/types.cc \
         src/version.cc \
+        # End. Add alphabetically.
 
 # internal
 libslate_src += \
         src/internal/internal_comm.cc \
         src/internal/internal_transpose.cc \
         src/internal/internal_util.cc \
+        # End. Add alphabetically.
 
 # Most unit testers don't need the whole library, only the above subset.
 ifneq ($(only_unit),1)
     libslate_src += \
         src/internal/internal_copyhb2st.cc \
         src/internal/internal_copytb2bd.cc \
-        src/internal/internal_gecopy.cc \
         src/internal/internal_gbnorm.cc \
         src/internal/internal_geadd.cc \
+        src/internal/internal_gebr.cc \
+        src/internal/internal_gecopy.cc \
         src/internal/internal_gemm.cc \
         src/internal/internal_gemmA.cc \
         src/internal/internal_genorm.cc \
-        src/internal/internal_gebr.cc \
         src/internal/internal_geqrf.cc \
+        src/internal/internal_gescale.cc \
         src/internal/internal_geset.cc \
         src/internal/internal_getrf.cc \
         src/internal/internal_getrf_nopiv.cc \
+        src/internal/internal_hbnorm.cc \
         src/internal/internal_hebr.cc \
+        src/internal/internal_hegst.cc \
         src/internal/internal_hemm.cc \
         src/internal/internal_hemmA.cc \
-        src/internal/internal_hbnorm.cc \
         src/internal/internal_henorm.cc \
         src/internal/internal_her2k.cc \
         src/internal/internal_herk.cc \
@@ -433,20 +440,18 @@ ifneq ($(only_unit),1)
         src/internal/internal_trsmA.cc \
         src/internal/internal_trtri.cc \
         src/internal/internal_trtrm.cc \
-        src/internal/internal_ttmqr.cc \
-        src/internal/internal_ttmlq.cc \
-        src/internal/internal_ttqrt.cc \
         src/internal/internal_ttlqt.cc \
-        src/internal/internal_tzcopy.cc \
-        src/internal/internal_tzset.cc \
-        src/internal/internal_unmqr.cc \
-        src/internal/internal_unmlq.cc \
-        src/internal/internal_unmtr_hb2st.cc \
-        src/internal/internal_hegst.cc \
-        src/internal/internal_gescale.cc \
-        src/internal/internal_tzscale.cc \
+        src/internal/internal_ttmlq.cc \
+        src/internal/internal_ttmqr.cc \
+        src/internal/internal_ttqrt.cc \
         src/internal/internal_tzadd.cc \
-
+        src/internal/internal_tzcopy.cc \
+        src/internal/internal_tzscale.cc \
+        src/internal/internal_tzset.cc \
+        src/internal/internal_unmlq.cc \
+        src/internal/internal_unmqr.cc \
+        src/internal/internal_unmtr_hb2st.cc \
+        # End. Add alphabetically.
 endif
 
 # device
@@ -483,6 +488,7 @@ endif
 # driver
 ifneq ($(only_unit),1)
     libslate_src += \
+        src/add.cc \
         src/bdsqr.cc \
         src/colNorms.cc \
         src/copy.cc \
@@ -491,16 +497,16 @@ ifneq ($(only_unit),1)
         src/gbtrf.cc \
         src/gbtrs.cc \
         src/ge2tb.cc \
+        src/gelqf.cc \
         src/gels.cc \
         src/gemm.cc \
         src/gemmA.cc \
         src/gemmC.cc \
         src/geqrf.cc \
-        src/gelqf.cc \
         src/gesv.cc \
+        src/gesvMixed.cc \
         src/gesv_nopiv.cc \
         src/gesvd.cc \
-        src/gesvMixed.cc \
         src/getrf.cc \
         src/getrf_nopiv.cc \
         src/getri.cc \
@@ -508,31 +514,33 @@ ifneq ($(only_unit),1)
         src/getrs.cc \
         src/getrs_nopiv.cc \
         src/hb2st.cc \
+        src/hbmm.cc \
         src/he2hb.cc \
         src/heev.cc \
+        src/hegst.cc \
+        src/hegv.cc \
         src/hemm.cc \
         src/hemmA.cc \
         src/hemmC.cc \
-        src/hbmm.cc \
         src/her2k.cc \
         src/herk.cc \
         src/hesv.cc \
         src/hetrf.cc \
         src/hetrs.cc \
-        src/hegv.cc \
         src/norm.cc \
         src/pbsv.cc \
         src/pbtrf.cc \
         src/pbtrs.cc \
-        src/print.cc \
         src/posv.cc \
         src/posvMixed.cc \
         src/potrf.cc \
         src/potri.cc \
         src/potrs.cc \
+        src/print.cc \
+        src/scale.cc \
         src/set.cc \
-        src/sterf.cc \
         src/steqr2.cc \
+        src/sterf.cc \
         src/symm.cc \
         src/syr2k.cc \
         src/syrk.cc \
@@ -545,17 +553,14 @@ ifneq ($(only_unit),1)
         src/trsmB.cc \
         src/trtri.cc \
         src/trtrm.cc \
-        src/unmqr.cc \
         src/unmlq.cc \
+        src/unmqr.cc \
         src/unmtr_hb2st.cc \
         src/unmtr_he2hb.cc \
-        src/hegst.cc \
-        src/scale.cc \
-        src/add.cc \
         src/work/work_trmm.cc \
         src/work/work_trsm.cc \
         src/work/work_trsmA.cc \
-
+        # End. Add alphabetically.
 endif
 
 ifneq ($(have_fortran),)
@@ -564,7 +569,7 @@ ifneq ($(have_fortran),)
         src/dsteqr2.f \
         src/csteqr2.f \
         src/zsteqr2.f \
-
+        # End. Add alphabetically, by base name after precision.
 else
     $(error ERROR: set FC, currently '$(FC)', to a Fortran compiler (gfortran, ifort, xlf, ftn, ...). We hope to eventually remove this requirement.)
 endif
@@ -572,73 +577,73 @@ endif
 # C API
 ifeq ($(c_api),1)
     libslate_src += \
-        src/c_api/util.cc \
         src/c_api/matrix.cc \
+        src/c_api/util.cc \
         src/c_api/wrappers.cc \
         src/c_api/wrappers_precisions.cc \
-
+        # End. Add alphabetically.
 endif
 
 # Fortran module
 ifeq ($(fortran_api),1)
     libslate_src += \
         src/fortran/slate_module.f90 \
-
+        # End. Add alphabetically.
 endif
 
 # main tester
 tester_src += \
+        test/matrix_generator.cc \
+        test/matrix_params.cc \
         test/test.cc \
+        test/test_add.cc \
         test/test_bdsqr.cc \
+        test/test_copy.cc \
         test/test_gbmm.cc \
         test/test_gbnorm.cc \
         test/test_gbsv.cc \
         test/test_ge2tb.cc \
+        test/test_gelqf.cc \
         test/test_gels.cc \
         test/test_gemm.cc \
         test/test_genorm.cc \
         test/test_geqrf.cc \
-        test/test_unmqr.cc \
-        test/test_gelqf.cc \
         test/test_gesv.cc \
         test/test_gesvd.cc \
         test/test_getri.cc \
-        test/test_he2hb.cc \
-        test/test_heev.cc \
-        test/test_hegv.cc \
-        test/test_hemm.cc \
         test/test_hb2st.cc \
         test/test_hbmm.cc \
         test/test_hbnorm.cc \
+        test/test_he2hb.cc \
+        test/test_heev.cc \
+        test/test_hegst.cc \
+        test/test_hegv.cc \
+        test/test_hemm.cc \
         test/test_henorm.cc \
         test/test_her2k.cc \
         test/test_herk.cc \
         test/test_hesv.cc \
-        test/test_posv.cc \
         test/test_pbsv.cc \
+        test/test_posv.cc \
         test/test_potri.cc \
+        test/test_scale.cc \
+        test/test_set.cc \
+        test/test_steqr2.cc \
+        test/test_sterf.cc \
         test/test_symm.cc \
         test/test_synorm.cc \
         test/test_syr2k.cc \
         test/test_syrk.cc \
-        test/test_sterf.cc \
-        test/test_steqr2.cc \
         test/test_tb2bd.cc \
         test/test_tbsm.cc \
         test/test_trmm.cc \
         test/test_trnorm.cc \
         test/test_trsm.cc \
         test/test_trtri.cc \
+        test/test_unmqr.cc \
         test/test_unmtr_hb2st.cc \
         test/test_unmtr_he2hb.cc \
-        test/test_hegst.cc \
-        test/matrix_generator.cc \
-        test/matrix_params.cc \
-        test/test_add.cc \
-        test/test_copy.cc \
-        test/test_scale.cc \
-        test/test_set.cc \
-
+        # End. Add alphabetically.
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
 ifneq ($(have_fortran),)
@@ -655,7 +660,7 @@ ifneq ($(have_fortran),)
         test/pdlantr.f \
         test/pclantr.f \
         test/pzlantr.f \
-
+        # End. Add alphabetically, by base name after precision.
 endif
 
 # unit testers
@@ -959,25 +964,26 @@ scalapack_api    = lib/libslate_scalapack_api.$(lib_ext)
 scalapack_api_src += \
         scalapack_api/scalapack_gels.cc \
         scalapack_api/scalapack_gemm.cc \
-        scalapack_api/scalapack_getrf.cc \
-        scalapack_api/scalapack_getrs.cc \
         scalapack_api/scalapack_gesv.cc \
         scalapack_api/scalapack_gesvMixed.cc \
+        scalapack_api/scalapack_getrf.cc \
+        scalapack_api/scalapack_getrs.cc \
         scalapack_api/scalapack_hemm.cc \
         scalapack_api/scalapack_her2k.cc \
         scalapack_api/scalapack_herk.cc \
-        scalapack_api/scalapack_lanhe.cc \
         scalapack_api/scalapack_lange.cc \
+        scalapack_api/scalapack_lanhe.cc \
         scalapack_api/scalapack_lansy.cc \
         scalapack_api/scalapack_lantr.cc \
+        scalapack_api/scalapack_posv.cc \
         scalapack_api/scalapack_potrf.cc \
         scalapack_api/scalapack_potri.cc \
-        scalapack_api/scalapack_posv.cc \
         scalapack_api/scalapack_symm.cc \
         scalapack_api/scalapack_syr2k.cc \
         scalapack_api/scalapack_syrk.cc \
         scalapack_api/scalapack_trmm.cc \
         scalapack_api/scalapack_trsm.cc \
+        # End. Add alphabetically.
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 
@@ -1029,7 +1035,7 @@ lapack_api_src += \
         lapack_api/lapack_syrk.cc \
         lapack_api/lapack_trmm.cc \
         lapack_api/lapack_trsm.cc \
-
+        # End. Add alphabetically.
 
 lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))
 

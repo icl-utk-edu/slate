@@ -15,60 +15,34 @@
 -include make.inc
 
 #-------------------------------------------------------------------------------
-# Error for obsolete settings.
-ifneq ($(openmpi),)
-    $(error ERROR: Variable `openmpi=$(openmpi)` is obsolete; use `mkl_blacs=openmpi`)
+# Error for obsolete settings. Remove 2023-06.
+ifneq ($(spectrum),)
+    $(error ERROR: Variable `spectrum=$(spectrum)` is obsolete; use `mpi = spectrum`)
 endif
-ifneq ($(intelmpi),)
-    $(error ERROR: Variable `intelmpi=$(intelmpi)` is obsolete; use `mkl_blacs=intelmpi`)
-endif
-
-# Warn about deprecated settings.
-spectrum := $(strip $(spectrum))
-ifeq ($(spectrum),1)
-    $(warning WARNING: Variable `spectrum=$(spectrum)` is deprecated; setting `mpi ?= spectrum`)
-    mpi ?= spectrum
-endif
-
 ifneq ($(mkl),)
-    $(warning WARNING: Variable `mkl=$(mkl)` is deprecated; setting `blas ?= mkl`)
-    blas ?= mkl
+    $(error ERROR: Variable `mkl=$(mkl)` is obsolete; use `blas = mkl`)
 endif
 ifneq ($(essl),)
-    $(warning WARNING: Variable `essl=$(essl)` is deprecated; setting `blas ?= essl`)
-    blas ?= essl
+    $(error ERROR: Variable `essl=$(essl)` is obsolete; use `blas = essl`)
 endif
 ifneq ($(openblas),)
-    $(warning WARNING: Variable `openblas=$(openblas)` is deprecated; setting `blas ?= openblas`)
-    blas ?= openblas
+    $(error ERROR: Variable `openblas=$(openblas)` is obsolete; use `blas = openblas`)
 endif
 ifneq ($(mkl_threaded),)
-    $(warning WARNING: Variable `mkl_threaded=$(mkl_threaded)` is deprecated; setting `blas_threaded ?= $(mkl_threaded)`)
-    blas_threaded ?= $(mkl_threaded)
+    $(error ERROR: Variable `mkl_threaded=$(mkl_threaded)` is obsolete; use `blas_threaded = $(mkl_threaded)`)
 endif
-
-mkl_intel := $(strip $(mkl_intel))
 ifeq ($(mkl_intel),1)
-    $(warning WARNING: Variable `mkl_intel=$(mkl_intel)` is deprecated; setting `blas_fortran ?= ifort`)
-    blas_fortran ?= ifort
+    $(error ERROR: Variable `mkl_intel=$(mkl_intel)` is obsolete; use `blas_fortran = ifort`)
 endif
-
-ilp64 := $(strip $(ilp64))
 ifeq ($(ilp64),1)
-    $(warning WARNING: Variable `ilp64=$(ilp64)` is deprecated; setting `blas_int ?= int64`)
+    $(error ERROR: Variable `ilp64=$(ilp64)` is obsolete; setting `blas_int = int64`)
     blas_int ?= int64
 endif
-
-cuda := $(strip $(cuda))
 ifeq ($(cuda),1)
-    $(warning WARNING: Variable `cuda=$(cuda)` is deprecated; setting `gpu_backend ?= cuda`)
-    gpu_backend ?= cuda
+    $(error ERROR: Variable `cuda=$(cuda)` is obsolete; setting `gpu_backend = cuda`)
 endif
-
-hip := $(strip $(hip))
 ifeq ($(hip),1)
-    $(warning WARNING: Variable `hip=$(hip)` is deprecated; setting `gpu_backend ?= hip`)
-    gpu_backend ?= hip
+    $(error ERROR: Variable `hip=$(hip)` is obsolete; setting `gpu_backend = hip`)
 endif
 
 #-------------------------------------------------------------------------------

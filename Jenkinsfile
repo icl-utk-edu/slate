@@ -5,7 +5,11 @@ options {
     // Required to clean before build
     skipDefaultCheckout( true )
 }
-triggers { pollSCM 'H/10 * * * *' }
+
+// cron syntax: minute hour day-of-month month day-of-week
+// run hourly
+triggers { pollSCM 'H * * * *' }
+
 stages {
     //======================================================================
     stage('Parallel Build') {
@@ -60,10 +64,8 @@ echo_and_restore() {
 alias print='{ save_flags="$-"; set +x; } 2> /dev/null; echo_and_restore'
 
 date
-run source /home/jenkins/spack_setup
-run sload gcc@7.3.0
-run spack compiler find
-run sload intel-mkl
+module load gcc/7.3.0
+module load intel-oneapi-mkl/2022
 
 # hipcc needs /usr/sbin/lsmod
 export PATH=${PATH}:/usr/sbin
@@ -84,24 +86,24 @@ END
 print "========================================"
 # Run CUDA, OpenMPI tests.
 if [ "${host}" = "gpu_nvidia" ]; then
-    run sload openmpi%gcc@7.3.0
+    module load openmpi/4
     export OMPI_CXX=${CXX}
 
     echo "CXXFLAGS  = -Werror" >> make.inc
     echo "CXXFLAGS += -Dslate_omp_default_none='default(none)'" >> make.inc
     echo "mkl_blacs = openmpi" >> make.inc
-    echo "cuda_arch = kepler"  >> make.inc
+    echo "cuda_arch = sm_35"   >> make.inc  # kepler sm_35 works in CUDA 11
     echo "gpu_backend = cuda"  >> make.inc
 
     # Load CUDA. LD_LIBRARY_PATH set by Spack.
-    run sload cuda@10.2.89
+    module load cuda/11
     export CPATH=${CPATH}:${CUDA_HOME}/include
     export LIBRARY_PATH=${LIBRARY_PATH}:${CUDA_HOME}/lib64
 fi
 
 # Run HIP, Intel MPI tests.
 if [ "${host}" = "dopamine" ]; then
-    run sload intel-mpi
+    module load intel-mpi
     export FI_PROVIDER=tcp
 
     #echo "CXXFLAGS  = -Werror"  >> make.inc  # HIP headers have many errors; ignore.
@@ -125,7 +127,7 @@ fi
 
 if [ "${maker}" = "cmake" ]; then
     print "========================================"
-    sload cmake
+    module load cmake/3.18
     rm -rf build && mkdir build && cd build
     cmake -Dcolor=no -DCMAKE_CXX_FLAGS="-Werror" \
           -DCMAKE_INSTALL_PREFIX=${top}/install \
@@ -134,7 +136,7 @@ fi
 
 print "========================================"
 # Check what is loaded.
-run spack find --loaded
+module list
 
 which mpicxx
 which mpif90

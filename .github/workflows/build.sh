@@ -16,15 +16,16 @@ date
 module load gcc@7.3.0
 module load intel-mkl
 
+if [[ "${gpu}" = "none" ]]; then
+    module load openmpi
+    export OMPI_CXX=${CXX}
+fi
+
 echo "======================================== load CUDA or ROCm"
 # Load CUDA.
 if [ "${gpu}" = "nvidia" ]; then
     module load openmpi
     export OMPI_CXX=${CXX}
-    which mpicxx
-    which mpif90
-    mpicxx --version
-    mpif90 --version
 
     echo "CXXFLAGS  = -Werror" >> make.inc
     echo "CXXFLAGS += -Dslate_omp_default_none='default(none)'" >> make.inc
@@ -65,6 +66,10 @@ echo "======================================== verify dependencies"
 # Check what is loaded.
 module list
 echo "MKLROOT ${MKLROOT}"
+which mpicxx
+which mpif90
+mpicxx --version
+mpif90 --version
 
 echo "======================================== env"
 env

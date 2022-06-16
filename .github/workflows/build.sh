@@ -124,7 +124,7 @@ cd unit_test
 ./run_tests.py --xml ${top}/report-unit-${maker}.xml
 cd ..
 
-print "========================================"
+echo "========================================"
 date
 cd test
 if [ "${maker}" = "cmake" ]; then
@@ -132,7 +132,6 @@ if [ "${maker}" = "cmake" ]; then
     export tests=potrf
 fi
 ./run_tests.py --origin s --target t,d --quick --ref n --xml ${top}/report-${maker}.xml ${tests}
-cd ..
 
 date
 

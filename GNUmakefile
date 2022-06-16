@@ -35,14 +35,14 @@ ifeq ($(mkl_intel),1)
     $(error ERROR: Variable `mkl_intel=$(mkl_intel)` is obsolete; use `blas_fortran = ifort`)
 endif
 ifeq ($(ilp64),1)
-    $(error ERROR: Variable `ilp64=$(ilp64)` is obsolete; setting `blas_int = int64`)
+    $(error ERROR: Variable `ilp64=$(ilp64)` is obsolete; use `blas_int = int64`)
     blas_int ?= int64
 endif
 ifeq ($(cuda),1)
-    $(error ERROR: Variable `cuda=$(cuda)` is obsolete; setting `gpu_backend = cuda`)
+    $(error ERROR: Variable `cuda=$(cuda)` is obsolete; use `gpu_backend = cuda`)
 endif
 ifeq ($(hip),1)
-    $(error ERROR: Variable `hip=$(hip)` is obsolete; setting `gpu_backend = hip`)
+    $(error ERROR: Variable `hip=$(hip)` is obsolete; use `gpu_backend = hip`)
 endif
 
 #-------------------------------------------------------------------------------

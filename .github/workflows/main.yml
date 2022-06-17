@@ -17,39 +17,35 @@ on:
 jobs:          
   ICL_NVIDIA:
     runs-on: [self-hosted, gpu_nvidia]
-#    strategy:
-#      matrix:
-#        maker: [make, cmake]
-#        gpu: [nogpu, nvidia]
-#      fail-fast: false
+    strategy:
+      matrix:
+        maker: [make, cmake]
+        gpu: [nogpu, nvidia]
+      fail-fast: false
   
     steps:
       - uses: actions/checkout@v3
-        with:
-          submodules: 'true'
-#      - name: Configure
-#        run: .github/workflows/configure.sh ${{matrix.maker}} ${{matrix.gpu}}
-      - name: Temp
-        run: .github/workflows/make_nogpu.sh
-#      - name: Build
-#        run: .github/workflows/build.sh ${{matrix.maker}} ${{matrix.gpu}}
-#      - name: Test
-#        run: .github/workflows/test.sh ${{matrix.maker}} ${{matrix.gpu}}
+      - name: Configure
+        run: .github/workflows/configure.sh ${{matrix.maker}} ${{matrix.gpu}}
+      - name: Build
+        run: .github/workflows/build.sh ${{matrix.maker}} ${{matrix.gpu}}
+      - name: Test
+        run: .github/workflows/test.sh ${{matrix.maker}} ${{matrix.gpu}}
 
-#  ICL_AMD:
-#    runs-on: [self-hosted, gpu_amd]
-#    strategy:
-#      matrix:
-#        maker: [make, cmake]
-#        gpu: [amd]
-#      fail-fast: false
-#  
-#    steps:
-#      - uses: actions/checkout@v2
-#      - name: Configure
-#        run: .github/workflows/configure.sh ${{matrix.maker}} ${{matrix.gpu}}
-#      - name: Build
-#        run: .github/workflows/build.sh ${{matrix.maker}} ${{matrix.gpu}}
-#      - name: Test
-#        run: .github/workflows/test.sh ${{matrix.maker}} ${{matrix.gpu}}
+  ICL_AMD:
+    runs-on: [self-hosted, gpu_amd]
+    strategy:
+      matrix:
+        maker: [make, cmake]
+        gpu: [amd]
+      fail-fast: false
+  
+    steps:
+      - uses: actions/checkout@v2
+      - name: Configure
+        run: .github/workflows/configure.sh ${{matrix.maker}} ${{matrix.gpu}}
+      - name: Build
+        run: .github/workflows/build.sh ${{matrix.maker}} ${{matrix.gpu}}
+      - name: Test
+        run: .github/workflows/test.sh ${{matrix.maker}} ${{matrix.gpu}}
 

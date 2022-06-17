@@ -11,6 +11,7 @@ fi
 mydir=`dirname $0`
 source $mydir/setup.sh
 
+rm -rf blaspp lapackpp testsweeper
 git submodule update --init
 
 if [ "${maker}" = "make" ]; then

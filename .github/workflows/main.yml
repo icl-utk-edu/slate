@@ -20,7 +20,7 @@ jobs:
     strategy:
       matrix:
         maker: [make, cmake]
-        gpu: [none, nvidia]
+        gpu: [nogpu, nvidia]
       fail-fast: false
   
     steps:

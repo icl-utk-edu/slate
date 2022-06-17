@@ -27,6 +27,8 @@ jobs:
       - uses: actions/checkout@v2
       - name: Configure
         run: .github/workflows/configure.sh ${{matrix.maker}} ${{matrix.gpu}}
+      - name: Temp
+        run: ls blaspp
       - name: Build
         run: .github/workflows/build.sh ${{matrix.maker}} ${{matrix.gpu}}
       - name: Test

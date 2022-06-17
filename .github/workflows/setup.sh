@@ -6,7 +6,7 @@ if [[ "x$maker" = "x" || "x$gpu" = "x" ]]; then
 fi
 
 shopt -s expand_aliases
-set +x
+set -x
 source /etc/profile
 export top=`pwd`
 

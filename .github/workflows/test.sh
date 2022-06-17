@@ -16,5 +16,6 @@ cd unit_test
 
 section "======================================== Tests"
 cd ../test
-./run_tests.py --origin s --target t,d --quick --ref n --xml ${top}/report-${maker}.xml
+# Temporarily limiting tests to potrf to save time
+./run_tests.py --origin s --target t,d --quick --ref n --xml ${top}/report-${maker}.xml potrf
 

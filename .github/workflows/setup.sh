@@ -41,7 +41,7 @@ blas   = mkl
 prefix = ${top}/install
 END
 
-mydir=`basedir $0`
+mydir=`dirname $0`
 source ${mydir}/setup_${gpu}.sh
 
 section "======================================== Verify MPI"

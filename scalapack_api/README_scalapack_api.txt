@@ -9,8 +9,9 @@ data.  If desired, SLATE can transparently use available GPUs to
 execute the available routines.  Any calls that are missing in this
 API should fall through to the ScaLAPACK implementation.
 
-NOTE: The ScaLAPACK BLACS grid needs to be Column-major.
 CALL BLACS_GRIDINIT( ICTXT, 'Col-major', NPROW, NPCOL )
+or
+CALL BLACS_GRIDINIT( ICTXT, 'Row-major', NPROW, NPCOL )
 
 NOTE: The ScaLAPACK blocking (NB_,MB_) is used as the SLATE block size
 nb.  However, SLATE may require larger block sizes than ScaLAPACK to

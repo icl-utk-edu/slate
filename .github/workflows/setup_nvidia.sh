@@ -14,7 +14,8 @@ gpu_backend = cuda
 END
 
 # Load CUDA. LD_LIBRARY_PATH set by Spack.
-module load cuda
+export CUDA_HOME=/usr/local/cuda
+export PATH=${PATH}:${CUDA_HOME}/bin
 export CPATH=${CPATH}:${CUDA_HOME}/include
 export LIBRARY_PATH=${LIBRARY_PATH}:${CUDA_HOME}/lib64
 

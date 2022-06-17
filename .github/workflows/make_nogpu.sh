@@ -8,6 +8,12 @@ set -x
 source /etc/profile
 export top=`pwd`
 
+git status
+
+ls testsweeper
+
+find | wc
+
 print_section() {
     builtin echo "$*"
     date

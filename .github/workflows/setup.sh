@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-if [[ "x$maker" = "x" || "x$gpu" = "x" ]]; then
+if [[ "$maker" = "" || "$gpu" = "" ]]; then
    echo "$0 <make|cmake> <amd|nvidia|nogpu>"
    exit 1
 fi

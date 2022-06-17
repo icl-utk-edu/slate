@@ -16,6 +16,14 @@ cd unit_test
 
 section "======================================== Tests"
 cd ../test
-# Temporarily limiting tests to potrf to save time
-./run_tests.py --origin s --target t,d --quick --ref n --xml ${top}/report-${maker}.xml potrf
+target="d"
+if [ "$gpu" = "nogpu" ]; then
+   target="t"
+fi
+tests=""
+if [ "$maker" = "cmake" ]; then
+   # Limit cmake to running a minimal sanity test, and use "make" builds for all tests.
+   tests="potrf"
+fi
+./run_tests.py --origin s --target $target --quick --ref n --xml ${top}/report-${maker}.xml $tests
 

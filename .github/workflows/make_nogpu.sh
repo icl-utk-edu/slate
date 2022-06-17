@@ -8,11 +8,7 @@ set -x
 source /etc/profile
 export top=`pwd`
 
-git status
-
-ls testsweeper
-
-find | wc
+rm -rf blaspp lapackpp testsweeper
 
 print_section() {
     builtin echo "$*"

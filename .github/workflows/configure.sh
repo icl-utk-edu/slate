@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 maker=$1
-gpu=$2
+device=$2
 
 rm -rf blaspp lapackpp testsweeper
 git submodule update --init

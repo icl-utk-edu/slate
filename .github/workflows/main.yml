@@ -15,39 +15,21 @@ on:
 
 # A workflow run is made up of one or more jobs that can run sequentially or in parallel
 jobs:          
-  ICL_NVIDIA:
-    runs-on: [self-hosted, gpu_nvidia]
+  icl_slate:
     timeout-minutes: 60
     strategy:
       matrix:
         maker: [make, cmake]
-        gpu: [nogpu, nvidia]
+        device: [cpu, gpu_nvidia, gpu_amd]
       fail-fast: false
+    runs-on: ${{ matrix.device }}
   
     steps:
       - uses: actions/checkout@v3
       - name: Configure
-        run: .github/workflows/configure.sh ${{matrix.maker}} ${{matrix.gpu}}
+        run: .github/workflows/configure.sh ${{matrix.maker}} ${{matrix.device}}
       - name: Build
-        run: .github/workflows/build.sh ${{matrix.maker}} ${{matrix.gpu}}
+        run: .github/workflows/build.sh ${{matrix.maker}} ${{matrix.device}}
       - name: Test
-        run: .github/workflows/test.sh ${{matrix.maker}} ${{matrix.gpu}}
-
-  ICL_AMD:
-    runs-on: [self-hosted, gpu_amd]
-    timeout-minutes: 60
-    strategy:
-      matrix:
-        maker: [make, cmake]
-        gpu: [amd]
-      fail-fast: false
-  
-    steps:
-      - uses: actions/checkout@v2
-      - name: Configure
-        run: .github/workflows/configure.sh ${{matrix.maker}} ${{matrix.gpu}}
-      - name: Build
-        run: .github/workflows/build.sh ${{matrix.maker}} ${{matrix.gpu}}
-      - name: Test
-        run: .github/workflows/test.sh ${{matrix.maker}} ${{matrix.gpu}}
+        run: .github/workflows/test.sh ${{matrix.maker}} ${{matrix.device}}
 

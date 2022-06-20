@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 maker=$1
-gpu=$2
+device=$2
 
 mydir=`dirname $0`
 source $mydir/setup.sh
@@ -17,7 +17,7 @@ cd unit_test
 section "======================================== Tests"
 cd ../test
 target="d"
-if [ "$gpu" = "nogpu" ]; then
+if [ "$device" = "cpu" ]; then
    target="t"
 fi
 tests=""

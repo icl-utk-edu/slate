@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
-if [[ "$maker" = "" || "$gpu" = "" ]]; then
-   echo "$0 <make|cmake> <amd|nvidia|nogpu>"
+if [[ "$maker" = "" || "$device" = "" ]]; then
+   echo "$0 <make|cmake> <cpu|gpu_nvidia|gpu_amd>"
    exit 1
 fi
 
@@ -42,7 +42,7 @@ prefix = ${top}/install
 END
 
 mydir=`dirname $0`
-source ${mydir}/setup_${gpu}.sh
+source ${mydir}/setup_${device}.sh
 
 section "======================================== Verify MPI"
 

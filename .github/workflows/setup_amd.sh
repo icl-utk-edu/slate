@@ -23,3 +23,5 @@ perl -pi -e 's/-pedantic//' GNUmakefile
 
 which hipcc
 
+# set gpu_backend for cmake
+gpu_backend=hip

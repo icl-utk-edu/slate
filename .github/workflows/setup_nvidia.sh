@@ -20,4 +20,5 @@ export CPATH=${CPATH}:${CUDA_HOME}/include
 export LIBRARY_PATH=${LIBRARY_PATH}:${CUDA_HOME}/lib64
 
 which nvcc
-
+# set gpu_backend for cmake
+gpu_backend=cuda

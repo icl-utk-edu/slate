@@ -17,6 +17,7 @@ on:
 jobs:          
   ICL_NVIDIA:
     runs-on: [self-hosted, gpu_nvidia]
+    timeout-minutes: 60
     strategy:
       matrix:
         maker: [make, cmake]
@@ -34,6 +35,7 @@ jobs:
 
   ICL_AMD:
     runs-on: [self-hosted, gpu_amd]
+    timeout-minutes: 60
     strategy:
       matrix:
         maker: [make, cmake]

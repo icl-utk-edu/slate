@@ -48,7 +48,6 @@ __global__ void gescale_kernel(
     blas::real_type<scalar_t> mul = numer / denom;
     // thread per row, if more rows than threads, loop by blockDim.x
     for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
-        // todo: should the increment be i += 1024?
         scalar_t* rowA = &tileA[ i ];
         for (int64_t j = 0; j < n; ++j)
             rowA[j*lda] = rowA[j*lda] * mul;

@@ -51,7 +51,6 @@ __global__ void tzadd_kernel(
 
     // thread per row, if more rows than threads, loop by blockDim.x
     for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
-        // todo: should the increment be i += 1024?
         scalar_t* rowA = &tileA[ i ];
         scalar_t* rowB = &tileB[ i ];
 

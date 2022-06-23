@@ -50,17 +50,17 @@ __global__ void tzcopy_kernel(
     dst_scalar_t* tileB = tilesB[blockIdx.x];
 
     // thread per row, if more rows than threads, loop by blockDim.x
-    for (int ridx = threadIdx.x; ridx < m; ridx += blockDim.x) {
-        src_scalar_t* rowA = &tileA[ridx];
-        dst_scalar_t* rowB = &tileB[ridx];
+    for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
+        src_scalar_t* rowA = &tileA[ i ];
+        dst_scalar_t* rowB = &tileB[ i ];
 
         if (uplo == lapack::Uplo::Lower) {
-            for (int64_t j = 0; j <= ridx && j < n; ++j) { // lower
+            for (int64_t j = 0; j <= i && j < n; ++j) { // lower
                 copy(rowA[j*lda], rowB[j*ldb]);
             }
         }
         else {
-            for (int64_t j = n-1; j >= ridx; --j) { // upper
+            for (int64_t j = n-1; j >= i; --j) { // upper
                 copy(rowA[j*lda], rowB[j*ldb]);
             }
         }

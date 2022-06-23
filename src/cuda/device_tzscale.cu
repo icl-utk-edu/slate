@@ -49,16 +49,16 @@ __global__ void tzscale_kernel(
     blas::real_type<scalar_t> mul = numer / denom;
 
     // thread per row, if more rows than threads, loop by blockDim.x
-    for (int ridx = threadIdx.x; ridx < m; ridx += blockDim.x) {
-        scalar_t* rowA = &tileA[ridx];
+    for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
+        scalar_t* rowA = &tileA[ i ];
 
         if (uplo == lapack::Uplo::Lower) {
-            for (int64_t j = 0; j <= ridx && j < n; ++j) { // lower
+            for (int64_t j = 0; j <= i && j < n; ++j) { // lower
                 rowA[j*lda] = rowA[j*lda] * mul;
             }
         }
         else {
-            for (int64_t j = n-1; j >= ridx; --j) // upper
+            for (int64_t j = n-1; j >= i; --j) // upper
                 rowA[j*lda] = rowA[j*lda] * mul;
         }
     }

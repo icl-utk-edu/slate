@@ -50,10 +50,9 @@ __global__ void gecopy_kernel(
     dst_scalar_t* tileB = tilesB[blockIdx.x];
 
     // thread per row, if more rows than threads, loop by blockDim.x
-    for (int64_t ridx = threadIdx.x; ridx < m; ridx += blockDim.x) {
-
-        src_scalar_t* rowA = &tileA[ridx];
-        dst_scalar_t* rowB = &tileB[ridx];
+    for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
+        src_scalar_t* rowA = &tileA[ i ];
+        dst_scalar_t* rowB = &tileB[ i ];
 
         for (int64_t j = 0; j < n; ++j)
             copy(rowA[j*lda], rowB[j*ldb]);

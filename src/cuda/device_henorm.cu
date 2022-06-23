@@ -13,7 +13,6 @@
 namespace slate {
 namespace device {
 
-
 //------------------------------------------------------------------------------
 /// Finds the largest absolute value of elements, for each tile in tiles.
 /// Each thread block deals with one tile.
@@ -58,26 +57,26 @@ __global__ void henorm_max_kernel(
 
     // Each thread finds max of one row.
     // This does coalesced reads of one column at a time in parallel.
-    for (int idx = threadIdx.x; idx < n; idx += blockDim.x) {
-        chunk = idx % blockDim.x;
+    for (int i = threadIdx.x; i < n; i += blockDim.x) {
+        chunk = i % blockDim.x;
 
-        scalar_t const* row = &tile[idx];
-        if (idx < blockDim.x) {
+        scalar_t const* row = &tile[ i ];
+        if (i < blockDim.x) {
             row_max[chunk] = 0;
         }
 
         real_t max = 0;
         if (uplo == lapack::Uplo::Lower) {
-            for (int64_t j = 0; j < idx && j < n; ++j) // strictly lower
+            for (int64_t j = 0; j < i && j < n; ++j) // strictly lower
                 max = max_nan(max, abs(row[j*lda]));
-            int64_t j = idx;
+            int64_t j = i;
             max = max_nan(max, abs( real( row[j*lda] )));  // diag (real)
         }
         else {
             // Loop backwards (n-1 down to i) to maintain coalesced reads.
-            for (int64_t j = n-1; j > idx; --j) // strictly upper
+            for (int64_t j = n-1; j > i; --j) // strictly upper
                 max = max_nan(max, abs(row[j*lda]));
-            int64_t j = idx;
+            int64_t j = i;
             max = max_nan(max, abs( real( row[j*lda] )));  // diag (real)
         }
         row_max[chunk] = max_nan(max, row_max[chunk]);
@@ -129,30 +128,29 @@ __global__ void henorm_one_kernel(
 
     // Each thread sums one row/column.
     // todo: the row reads are coalesced, but the col reads are not coalesced
-    for (int idx = threadIdx.x; idx < n; idx += blockDim.x) {
-
-        scalar_t const* row    = &tile[idx];
-        scalar_t const* column = &tile[lda*idx];
+    for (int k = threadIdx.x; k < n; k += blockDim.x) {
+        scalar_t const* row    = &tile[ k ];
+        scalar_t const* column = &tile[ lda*k ];
         real_t sum = 0;
 
         if (uplo == lapack::Uplo::Lower) {
-            for (int64_t j = 0; j < idx; ++j) // strictly lower
+            for (int64_t j = 0; j < k; ++j) // strictly lower
                 sum += abs(row[j*lda]);
-            int64_t j = idx;
+            int64_t j = k;
             sum += abs( real( row[j*lda] )); // diag (real)
-            for (int64_t i = idx + 1; i < n; ++i) // strictly lower
+            for (int64_t i = k + 1; i < n; ++i) // strictly lower
                 sum += abs(column[i]);
         }
         else {
             // Loop backwards (n-1 down to i) to maintain coalesced reads.
-            for (int64_t j = n-1; j > idx; --j) // strictly upper
+            for (int64_t j = n-1; j > k; --j) // strictly upper
                 sum += abs(row[j*lda]);
-            int64_t j = idx;
+            int64_t j = k;
             sum += abs( real( row[j*lda] )); // diag (real)
-            for (int64_t i = 0; i < idx && i < n; ++i) // strictly upper
+            for (int64_t i = 0; i < k && i < n; ++i) // strictly upper
                 sum += abs(column[i]);
         }
-        tiles_sums[blockIdx.x*ldv + idx] = sum;
+        tiles_sums[ blockIdx.x*ldv + k ] = sum;
     }
 }
 
@@ -200,31 +198,31 @@ __global__ void henorm_fro_kernel(
 
     // Each thread finds sum-of-squares of one row.
     // This does coalesced reads of one column at a time in parallel.
-    for (int idx = threadIdx.x; idx < n; idx += blockDim.x) {
+    for (int i = threadIdx.x; i < n; i += blockDim.x) {
         real_t scale = 0;
         real_t sumsq = 1;
-        chunk = idx % blockDim.x;
-        scalar_t const* row = &tile[idx];
+        chunk = i % blockDim.x;
+        scalar_t const* row = &tile[ i ];
 
         if (uplo == lapack::Uplo::Lower) {
-            for (int64_t j = 0; j < idx && j < n; ++j) // strictly lower
+            for (int64_t j = 0; j < i && j < n; ++j) // strictly lower
                 add_sumsq(scale, sumsq, abs(row[j*lda]));
             // double for symmetric entries
             sumsq *= 2;
             // diagonal (real)
-            add_sumsq(scale, sumsq, abs( real( row[idx*lda] )));
+            add_sumsq( scale, sumsq, abs( real( row[ i*lda ] ) ) );
         }
         else {
             // Loop backwards (n-1 down to i) to maintain coalesced reads.
-            for (int64_t j = n-1; j > idx; --j) // strictly upper
-                add_sumsq(scale, sumsq, abs(row[j*lda]));
+            for (int64_t j = n-1; j > i; --j) // strictly upper
+                add_sumsq( scale, sumsq, abs( row[ j*lda ] ) );
             // double for symmetric entries
             sumsq *= 2;
             // diagonal (real)
-            add_sumsq(scale, sumsq, abs( real( row[idx*lda] )));
+            add_sumsq( scale, sumsq, abs( real( row[ i*lda ] ) ) );
         }
 
-        if (idx < blockDim.x) {
+        if (i < blockDim.x) {
             row_scale[chunk] = 0;
             row_sumsq[chunk] = 1;
         }

@@ -58,9 +58,9 @@ __global__ void genorm_max_kernel(
     }
 
     // This does coalesced reads of one column at a time in parallel.
-    for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
-        chunk = idx % blockDim.x;
-        scalar_t const* row = &tile[idx];
+    for (int i = threadIdx.x; i < m; i += blockDim.x) {
+        chunk = i % blockDim.x;
+        scalar_t const* row = &tile[ i ];
         real_t max = 0;
 
         // Each thread finds max of one row.
@@ -121,7 +121,7 @@ __global__ void genorm_one_kernel(
     scalar_t const* tile = tiles[blockIdx.x];
     extern __shared__ char dynamic_data[];
     real_t* shmem_tile = (real_t*)dynamic_data;
-    const int idx = threadIdx.x;
+    const int k = threadIdx.x;
 
     for (int64_t jj = 0; jj < n; jj += one_ib) {
         real_t sum = 0.0;
@@ -129,19 +129,19 @@ __global__ void genorm_one_kernel(
             // Read 32x32 sub-tile into shared memory.
             // This does coalesced reads of one column at a time in parallel.
             for (int64_t j = 0; j < one_ib; ++j)
-                if (jj+j < n && ii+idx < m)
-                    shmem_tile[j*one_ib1 + idx] = abs(tile[(jj+j)*lda + ii+idx]);
+                if (jj+j < n && ii+k < m)
+                    shmem_tile[ j*one_ib1 + k ] = abs( tile[ (jj+j)*lda + ii+k ] );
             __syncthreads();  // shmem_tile loaded
 
             // Each thread sums one column.
             for (int64_t i = 0; i < one_ib; ++i)
-                if (jj+idx < n && ii+i < m)
-                    sum += shmem_tile[idx*one_ib1 + i];
+                if (jj+k < n && ii+i < m)
+                    sum += shmem_tile[ k*one_ib1 + i ];
             __syncthreads();  // done with shmem_tile
         }
 
-        if (jj+idx < n)
-            tiles_sums[blockIdx.x*ldv + jj+idx] = sum;
+        if (jj+k < n)
+            tiles_sums[ blockIdx.x*ldv + jj+k ] = sum;
     }
 }
 
@@ -182,10 +182,9 @@ __global__ void genorm_inf_kernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = tiles[blockIdx.x];
-    int idx = threadIdx.x;
 
-    for (idx = threadIdx.x; idx < m; idx += blockDim.x) {
-        scalar_t const* row = &tile[idx];
+    for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
+        scalar_t const* row = &tile[ i ];
 
         // Each thread sums one row.
         // This does coalesced reads of one column at a time in parallel.
@@ -193,7 +192,7 @@ __global__ void genorm_inf_kernel(
         for (int64_t j = 1; j < n; ++j)
             sum += abs(row[j*lda]);
 
-        tiles_sums[blockIdx.x*ldv + idx] = sum;
+        tiles_sums[ blockIdx.x*ldv + i ] = sum;
     }
 }
 
@@ -246,17 +245,17 @@ __global__ void genorm_fro_kernel(
 
     // Each thread finds sum-of-squares of one row.
     // This does coalesced reads of one column at a time in parallel.
-    for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
-        scalar_t const* row = &tile[idx];
+    for (int i = threadIdx.x; i < m; i += blockDim.x) {
+        scalar_t const* row = &tile[ i ];
         real_t scale = 0;
         real_t sumsq = 1;
-        chunk = idx % blockDim.x;
+        chunk = i % blockDim.x;
 
         for (int64_t j = 0; j < n; ++j) {
             add_sumsq(scale, sumsq, abs(row[j*lda]));
         }
 
-        if (idx < blockDim.x) {
+        if (i < blockDim.x) {
             row_scale[chunk] = 0;
             row_sumsq[chunk] = 1;
         }
@@ -291,7 +290,7 @@ __global__ void ge_col_norms_max_kernel(
     scalar_t const* tile = tiles[blockIdx.x];
     extern __shared__ char dynamic_data[];
     real_t* shmem_tile = (real_t*)dynamic_data;
-    const int idx = threadIdx.x;
+    const int k = threadIdx.x;
 
     for (int64_t jj = 0; jj < n; jj += one_ib) {
         real_t max = 0.0;
@@ -299,19 +298,19 @@ __global__ void ge_col_norms_max_kernel(
             // Read 32x32 sub-tile into shared memory.
             // This does coalesced reads of one column at a time in parallel.
             for (int64_t j = 0; j < one_ib; ++j)
-                if (jj+j < n && ii+idx < m)
-                    shmem_tile[j*one_ib1 + idx] = abs(tile[(jj+j)*lda + ii+idx]);
+                if (jj+j < n && ii+k < m)
+                    shmem_tile[ j*one_ib1 + k ] = abs( tile[ (jj+j)*lda + ii+k ] );
             __syncthreads();  // shmem_tile loaded
 
             // Each thread compute max of one column.
             for (int64_t i = 0; i < one_ib; ++i)
-                if (jj+idx < n && ii+i < m)
-                    max = max_nan(shmem_tile[idx*one_ib1 + i], max);
+                if (jj+k < n && ii+i < m)
+                    max = max_nan( shmem_tile[ k*one_ib1 + i ], max );
             __syncthreads();  // done with shmem_tile
         }
 
-        if (jj+idx < n)
-            col_max[blockIdx.x*ldv + jj+idx] = max;
+        if (jj+k < n)
+            col_max[ blockIdx.x*ldv + jj+k ] = max;
     }
 }
 

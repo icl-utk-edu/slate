@@ -50,18 +50,18 @@ __global__ void tzadd_kernel(
     scalar_t* tileB = tilesB[blockIdx.x];
 
     // thread per row, if more rows than threads, loop by blockDim.x
-    for (int64_t ridx = threadIdx.x; ridx < m; ridx += blockDim.x) {
-        // todo: should the increment be ridx += 1024?
-        scalar_t* rowA = &tileA[ridx];
-        scalar_t* rowB = &tileB[ridx];
+    for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
+        // todo: should the increment be i += 1024?
+        scalar_t* rowA = &tileA[ i ];
+        scalar_t* rowB = &tileB[ i ];
 
         if (uplo == lapack::Uplo::Lower) {
-            for (int64_t j = 0; j <= ridx && j < n; ++j) { // lower
+            for (int64_t j = 0; j <= i && j < n; ++j) { // lower
                 rowB[j*ldb] = axpby(alpha, rowA[j*lda], beta, rowB[j*ldb]);
             }
         }
         else {
-            for (int64_t j = n-1; j >= ridx; --j) { // upper
+            for (int64_t j = n-1; j >= i; --j) { // upper
                  rowB[j*ldb] = axpby(alpha, rowA[j*lda], beta, rowB[j*ldb]);
             }
         }

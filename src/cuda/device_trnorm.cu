@@ -60,34 +60,34 @@ __global__ void trnorm_max_kernel(
     }
     // Each thread finds max of one row.
     // This does coalesced reads of one column at a time in parallel.
-    for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
-        chunk = idx % blockDim.x;
+    for (int i = threadIdx.x; i < m; i += blockDim.x) {
+        chunk = i % blockDim.x;
 
-        scalar_t const* row = &tile[idx];
+        scalar_t const* row = &tile[ i ];
 
         real_t max = 0;
         if (uplo == lapack::Uplo::Lower) {
             if (diag == lapack::Diag::Unit) {
-                if (idx < n) // diag
+                if (i < n) // diag
                     max = 1;
-                for (int64_t j = 0; j < idx && j < n; ++j) // strictly lower
+                for (int64_t j = 0; j < i && j < n; ++j) // strictly lower
                     max = max_nan(max, abs(row[j*lda]));
             }
             else {
-                for (int64_t j = 0; j <= idx && j < n; ++j) // lower
+                for (int64_t j = 0; j <= i && j < n; ++j) // lower
                     max = max_nan(max, abs(row[j*lda]));
             }
         }
         else {
             // Loop backwards (n-1 down to i) to maintain coalesced reads.
             if (diag == lapack::Diag::Unit) {
-                if (idx < n) // diag
+                if (i < n) // diag
                     max = 1;
-                for (int64_t j = n-1; j > idx; --j) // strictly upper
+                for (int64_t j = n-1; j > i; --j) // strictly upper
                     max = max_nan(max, abs(row[j*lda]));
             }
             else {
-                for (int64_t j = n-1; j >= idx; --j) // upper
+                for (int64_t j = n-1; j >= i; --j) // upper
                     max = max_nan(max, abs(row[j*lda]));
             }
         }
@@ -144,36 +144,36 @@ __global__ void trnorm_one_kernel(
 
     // Each thread sums one column.
     // todo: this doesn't do coalesced reads
-    for (int idx = threadIdx.x; idx < n; idx += blockDim.x) {
+    for (int j = threadIdx.x; j < n; j += blockDim.x) {
 
-        scalar_t const* column = &tile[lda*idx];
+        scalar_t const* column = &tile[ lda*j ];
         real_t sum = 0;
 
         if (uplo == lapack::Uplo::Lower) {
             if (diag == lapack::Diag::Unit) {
-                if (idx < m) // diag
+                if (j < m) // diag
                     sum += 1;
-                for (int64_t i = idx+1; i < m; ++i) // strictly lower
+                for (int64_t i = j+1; i < m; ++i) // strictly lower
                     sum += abs(column[i]);
             }
             else {
-                for (int64_t i = idx; i < m; ++i) // lower
+                for (int64_t i = j; i < m; ++i) // lower
                     sum += abs(column[i]);
             }
         }
         else {
             if (diag == lapack::Diag::Unit) {
-                if (idx < m) // diag
+                if (j < m) // diag
                     sum += 1;
-                for (int64_t i = 0; i < idx && i < m; ++i) // strictly upper
+                for (int64_t i = 0; i < j && i < m; ++i) // strictly upper
                     sum += abs(column[i]);
             }
             else {
-                for (int64_t i = 0; i <= idx && i < m; ++i) // upper
+                for (int64_t i = 0; i <= j && i < m; ++i) // upper
                     sum += abs(column[i]);
             }
         }
-        tiles_sums[blockIdx.x*ldv + idx] = sum;
+        tiles_sums[ blockIdx.x*ldv + j ] = sum;
     }
 }
 
@@ -219,36 +219,36 @@ __global__ void trnorm_inf_kernel(
 
     // Each thread sums one row.
     // This does coalesced reads of one column at a time in parallel.
-    for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
-        // chunk = idx % blockDim.x; // silent compiler unused warnings
-        scalar_t const* row = &tile[idx];
+    for (int i = threadIdx.x; i < m; i += blockDim.x) {
+        // chunk = i % blockDim.x; // silent compiler unused warnings
+        scalar_t const* row = &tile[ i ];
         real_t sum = 0;
         if (uplo == lapack::Uplo::Lower) {
             if (diag == lapack::Diag::Unit) {
-                if (idx < n) // diag
+                if (i < n) // diag
                     sum += 1;
-                for (int64_t j = 0; j < idx && j < n; ++j) // strictly lower
+                for (int64_t j = 0; j < i && j < n; ++j) // strictly lower
                     sum += abs(row[j*lda]);
             }
             else {
-                for (int64_t j = 0; j <= idx && j < n; ++j) // lower
+                for (int64_t j = 0; j <= i && j < n; ++j) // lower
                     sum += abs(row[j*lda]);
             }
         }
         else {
             // Loop backwards (n-1 down to i) to maintain coalesced reads.
             if (diag == lapack::Diag::Unit) {
-                if (idx < n) // diag
+                if (i < n) // diag
                     sum += 1;
-                for (int64_t j = n-1; j > idx; --j) // strictly upper
+                for (int64_t j = n-1; j > i; --j) // strictly upper
                     sum += abs(row[j*lda]);
             }
             else {
-                for (int64_t j = n-1; j >= idx; --j) // upper
+                for (int64_t j = n-1; j >= i; --j) // upper
                     sum += abs(row[j*lda]);
             }
         }
-        tiles_sums[blockIdx.x*ldv + idx] = sum;
+        tiles_sums[ blockIdx.x*ldv + i ] = sum;
     }
 }
 
@@ -299,39 +299,39 @@ __global__ void trnorm_fro_kernel(
 
     // Each thread finds sum-of-squares of one row.
     // This does coalesced reads of one column at a time in parallel.
-    for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
+    for (int i = threadIdx.x; i < m; i += blockDim.x) {
         real_t scale = 0;
         real_t sumsq = 1;
-        chunk = idx % blockDim.x;
-        scalar_t const* row = &tile[idx];
+        chunk = i % blockDim.x;
+        scalar_t const* row = &tile[ i ];
 
         if (uplo == lapack::Uplo::Lower) {
             if (diag == lapack::Diag::Unit) {
-                if (idx < n) // diag
+                if (i < n) // diag
                     add_sumsq(scale, sumsq, real_t(1));
-                for (int64_t j = 0; j < idx && j < n; ++j) // strictly lower
+                for (int64_t j = 0; j < i && j < n; ++j) // strictly lower
                     add_sumsq(scale, sumsq, abs(row[j*lda]));
             }
             else {
-                for (int64_t j = 0; j <= idx && j < n; ++j) // lower
+                for (int64_t j = 0; j <= i && j < n; ++j) // lower
                     add_sumsq(scale, sumsq, abs(row[j*lda]));
             }
         }
         else {
             // Loop backwards (n-1 down to i) to maintain coalesced reads.
             if (diag == lapack::Diag::Unit) {
-                if (idx < n) // diag
+                if (i < n) // diag
                     add_sumsq(scale, sumsq, real_t(1));
-                for (int64_t j = n-1; j > idx; --j) // strictly upper
+                for (int64_t j = n-1; j > i; --j) // strictly upper
                     add_sumsq(scale, sumsq, abs(row[j*lda]));
             }
             else {
-                for (int64_t j = n-1; j >= idx; --j) // upper
+                for (int64_t j = n-1; j >= i; --j) // upper
                     add_sumsq(scale, sumsq, abs(row[j*lda]));
             }
         }
 
-        if (idx < blockDim.x) {
+        if (i < blockDim.x) {
             row_scale[chunk] = 0;
             row_sumsq[chunk] = 1;
         }

@@ -20,6 +20,7 @@ typedef blas::Diag Diag;
 typedef blas::Side Side;
 typedef blas::Layout Layout;
 
+using lapack::Equed;
 typedef lapack::Norm Norm;
 typedef lapack::Direction Direction;
 

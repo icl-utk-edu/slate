@@ -105,6 +105,15 @@ void tzscale(
     int64_t batch_count, blas::Queue& queue);
 
 //------------------------------------------------------------------------------
+template <typename scalar_t, typename scalar_t2>
+void gescale_row_col_batch(
+    Equed equed, int64_t m, int64_t n,
+    scalar_t2 const* const* Rarray,
+    scalar_t2 const* const* Carray,
+    scalar_t** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue);
+
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void geset(
     int64_t m, int64_t n,

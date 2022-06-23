@@ -405,6 +405,7 @@ libslate_src += \
 # Most unit testers don't need the whole library, only the above subset.
 ifneq ($(only_unit),1)
     libslate_src += \
+        src/device/dev_gescale_row_col.cc \
         src/internal/internal_copyhb2st.cc \
         src/internal/internal_copytb2bd.cc \
         src/internal/internal_gbnorm.cc \
@@ -460,6 +461,7 @@ cuda_src := \
         src/cuda/device_gecopy.cu \
         src/cuda/device_genorm.cu \
         src/cuda/device_gescale.cu \
+        src/cuda/device_gescale_row_col.cu \
         src/cuda/device_geset.cu \
         src/cuda/device_henorm.cu \
         src/cuda/device_synorm.cu \

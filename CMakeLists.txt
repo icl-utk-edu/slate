@@ -202,6 +202,7 @@ file(
     src/*.f
     src/auxiliary/*.cc
     src/core/*.cc
+    src/device/*.cc
     src/internal/*.cc
     src/work/*.cc
     ${c_api_src}

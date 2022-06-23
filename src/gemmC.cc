@@ -38,7 +38,7 @@ void gemmC(scalar_t alpha, Matrix<scalar_t>& A,
     // Internal gemm routine called here won't release
     // any tiles. This routine will clean up tiles.
     Options opts2 = opts;
-    //opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     int64_t lookahead = get_option<int64_t>( opts2, Option::Lookahead, 1 );
 
@@ -120,6 +120,17 @@ void gemmC(scalar_t alpha, Matrix<scalar_t>& A,
                            B.sub(0, 0, 0, B.nt()-1),
                     beta,  std::move(C),
                     layout, default_priority, default_queue, opts2);
+
+            auto A_rowblock = A.sub(0, A.mt()-1, 0, 0);
+            auto B_colblock = B.sub(0, 0, 0, B.nt()-1);
+
+            // Erase remote tiles on all devices including host
+            A_rowblock.eraseRemoteWorkspace();
+            B_colblock.eraseRemoteWorkspace();
+
+            // Erase local workspace on devices.
+            A_rowblock.eraseLocalWorkspace();
+            B_colblock.eraseLocalWorkspace();
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -158,6 +169,17 @@ void gemmC(scalar_t alpha, Matrix<scalar_t>& A,
                            B.sub(k, k, 0, B.nt()-1),
                     one,   std::move( C ),
                     layout, default_priority, default_queue, opts2);
+
+                auto A_rowblock = A.sub(0, A.mt()-1, k, k);
+                auto B_colblock = B.sub(k, k, 0, B.nt()-1);
+
+                // Erase remote tiles on all devices including host
+                A_rowblock.eraseRemoteWorkspace();
+                B_colblock.eraseRemoteWorkspace();
+
+                // Erase local workspace on devices.
+                A_rowblock.eraseLocalWorkspace();
+                B_colblock.eraseLocalWorkspace();
             }
         }
         #pragma omp taskwait

@@ -79,8 +79,8 @@ __global__ void genorm_max_kernel(
     }
 }
 
-const int one_ib = 32;
-const int one_ib1 = 33;
+const int ib  = 32;
+const int ib1 = 33;
 
 //------------------------------------------------------------------------------
 /// Sum of absolute values of each column of elements, for each tile in tiles.
@@ -123,20 +123,20 @@ __global__ void genorm_one_kernel(
     real_t* shmem_tile = (real_t*)dynamic_data;
     const int k = threadIdx.x;
 
-    for (int64_t jj = 0; jj < n; jj += one_ib) {
+    for (int64_t jj = 0; jj < n; jj += ib) {
         real_t sum = 0.0;
-        for (int64_t ii = 0; ii < m; ii += one_ib) {
+        for (int64_t ii = 0; ii < m; ii += ib) {
             // Read 32x32 sub-tile into shared memory.
             // This does coalesced reads of one column at a time in parallel.
-            for (int64_t j = 0; j < one_ib; ++j)
+            for (int64_t j = 0; j < ib; ++j)
                 if (jj+j < n && ii+k < m)
-                    shmem_tile[ j*one_ib1 + k ] = abs( tile[ (jj+j)*lda + ii+k ] );
+                    shmem_tile[ j*ib1 + k ] = abs( tile[ (jj+j)*lda + ii+k ] );
             __syncthreads();  // shmem_tile loaded
 
             // Each thread sums one column.
-            for (int64_t i = 0; i < one_ib; ++i)
+            for (int64_t i = 0; i < ib; ++i)
                 if (jj+k < n && ii+i < m)
-                    sum += shmem_tile[ k*one_ib1 + i ];
+                    sum += shmem_tile[ k*ib1 + i ];
             __syncthreads();  // done with shmem_tile
         }
 
@@ -292,20 +292,20 @@ __global__ void ge_col_norms_max_kernel(
     real_t* shmem_tile = (real_t*)dynamic_data;
     const int k = threadIdx.x;
 
-    for (int64_t jj = 0; jj < n; jj += one_ib) {
+    for (int64_t jj = 0; jj < n; jj += ib) {
         real_t max = 0.0;
-        for (int64_t ii = 0; ii < m; ii += one_ib) {
+        for (int64_t ii = 0; ii < m; ii += ib) {
             // Read 32x32 sub-tile into shared memory.
             // This does coalesced reads of one column at a time in parallel.
-            for (int64_t j = 0; j < one_ib; ++j)
+            for (int64_t j = 0; j < ib; ++j)
                 if (jj+j < n && ii+k < m)
-                    shmem_tile[ j*one_ib1 + k ] = abs( tile[ (jj+j)*lda + ii+k ] );
+                    shmem_tile[ j*ib1 + k ] = abs( tile[ (jj+j)*lda + ii+k ] );
             __syncthreads();  // shmem_tile loaded
 
             // Each thread compute max of one column.
-            for (int64_t i = 0; i < one_ib; ++i)
+            for (int64_t i = 0; i < ib; ++i)
                 if (jj+k < n && ii+i < m)
-                    max = max_nan( shmem_tile[ k*one_ib1 + i ], max );
+                    max = max_nan( shmem_tile[ k*ib1 + i ], max );
             __syncthreads();  // done with shmem_tile
         }
 
@@ -408,9 +408,9 @@ void genorm(
             }
             else {
                 assert(ldv >= n);
-                size_t shared_mem = sizeof(real_t) * one_ib * one_ib1;
+                size_t shared_mem = sizeof(real_t) * ib * ib1;
                 genorm_one_kernel
-                    <<<batch_count, one_ib, shared_mem, queue.stream()>>>
+                    <<<batch_count, ib, shared_mem, queue.stream()>>>
                     (m, n, Aarray, lda, values, ldv);
             }
         }
@@ -450,9 +450,9 @@ void genorm(
             }
             else {
                 assert(ldv >= n);
-                size_t shared_mem = sizeof(real_t) * one_ib * one_ib1;
+                size_t shared_mem = sizeof(real_t) * ib * ib1;
                 ge_col_norms_max_kernel
-                    <<<batch_count, one_ib, shared_mem, queue.stream()>>>
+                    <<<batch_count, ib, shared_mem, queue.stream()>>>
                     (m, n, Aarray, lda, values, ldv);
             }
         }

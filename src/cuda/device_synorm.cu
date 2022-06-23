@@ -344,8 +344,8 @@ void synorm(
     slate_assert(error == cudaSuccess);
 }
 
-const int one_ib = 32;
-const int one_ib1 = 33;
+const int ib  = 32;
+const int ib1 = 33;
 
 //------------------------------------------------------------------------------
 /// Sum of absolute values of each row and each column of elements,
@@ -391,33 +391,33 @@ __global__ void synorm_offdiag_one_kernel(
     scalar_t const* tile = tiles[blockIdx.x];
     extern __shared__ char dynamic_data[];
     real_t* shmem_tile = (real_t*)dynamic_data;
-    real_t* row_sums = &shmem_tile[one_ib1*one_ib];
+    real_t* row_sums = &shmem_tile[ ib1*ib ];
     const int k = threadIdx.x;
 
     // Initialize row sums.
-    for (int64_t ii = 0; ii < m; ii += one_ib) {
+    for (int64_t ii = 0; ii < m; ii += ib) {
         row_sums[ ii+k ] = 0;
     }
 
-    for (int64_t jj = 0; jj < n; jj += one_ib) {
+    for (int64_t jj = 0; jj < n; jj += ib) {
         real_t sum = 0.0;
-        for (int64_t ii = 0; ii < m; ii += one_ib) {
+        for (int64_t ii = 0; ii < m; ii += ib) {
             // Read 32 x 32 (ib x ib) sub-tile into shared memory.
             // This does coalesced reads of one column at a time in parallel.
-            for (int64_t j = 0; j < one_ib; ++j)
+            for (int64_t j = 0; j < ib; ++j)
                 if (jj+j < n && ii+k < m)
-                    shmem_tile[ j*one_ib1 + k ] = abs( tile[ (jj+j)*lda + ii+k ] );
+                    shmem_tile[ j*ib1 + k ] = abs( tile[ (jj+j)*lda + ii+k ] );
             __syncthreads();  // shmem_tile loaded
 
             // Each thread sums one column.
-            for (int64_t i = 0; i < one_ib; ++i)
+            for (int64_t i = 0; i < ib; ++i)
                 if (ii+i < m)
-                    sum += shmem_tile[ k*one_ib1 + i ];
+                    sum += shmem_tile[ k*ib1 + i ];
 
             // Each thread sums one row.
-            for (int64_t j = 0; j < one_ib; ++j)
+            for (int64_t j = 0; j < ib; ++j)
                 if (jj+j < n)
-                    row_sums[ ii+k ] += shmem_tile[ j*one_ib1 + k ];
+                    row_sums[ ii+k ] += shmem_tile[ j*ib1 + k ];
             __syncthreads();  // done with shmem_tile
         }
 
@@ -426,7 +426,7 @@ __global__ void synorm_offdiag_one_kernel(
     }
 
     // Save row sums.
-    for (int64_t ii = 0; ii < m; ii += one_ib) {
+    for (int64_t ii = 0; ii < m; ii += ib) {
         if (ii+k < m)
             tiles_sums[ blockIdx.x*ldv + ii+k + n ] = row_sums[ ii+k ];
     }
@@ -502,7 +502,7 @@ void synormOffdiag(
     if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
         assert(ldv >= n);
         size_t shared_mem
-            = sizeof(real_t) * (one_ib*one_ib1 + roundup(m, int64_t(one_ib)));
+            = sizeof(real_t) * (ib*ib1 + roundup( m, int64_t(ib) ));
         assert( shared_mem <= 48*1024 ); // max 48 KiB
         synorm_offdiag_one_kernel
             <<<batch_count, 32, shared_mem, queue.stream()>>>

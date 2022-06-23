@@ -15,7 +15,7 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
-/// Finds the largest absolute value of elements, for each tile in tiles.
+/// Finds the largest absolute value of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row, followed by a reduction.
 /// Uses dynamic shared memory array of length sizeof(real_t) * m.
@@ -29,9 +29,9 @@ namespace device {
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -42,14 +42,14 @@ namespace device {
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void trnormMaxKernel(
+__global__ void trnorm_max_kernel(
     lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_maxima)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
     int chunk;
 
     // Save partial results in shared memory.
@@ -61,34 +61,34 @@ __global__ void trnormMaxKernel(
     }
     // Each thread finds max of one row.
     // This does coalesced reads of one column at a time in parallel.
-    for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
-        chunk = idx % blockDim.x;
+    for (int i = threadIdx.x; i < m; i += blockDim.x) {
+        chunk = i % blockDim.x;
 
-        scalar_t const* row = &tile[idx];
+        scalar_t const* row = &tile[ i ];
 
         real_t max = 0;
         if (uplo == lapack::Uplo::Lower) {
             if (diag == lapack::Diag::Unit) {
-                if (idx < n) // diag
+                if (i < n) // diag
                     max = 1;
-                for (int64_t j = 0; j < idx && j < n; ++j) // strictly lower
+                for (int64_t j = 0; j < i && j < n; ++j) // strictly lower
                     max = max_nan(max, abs(row[j*lda]));
             }
             else {
-                for (int64_t j = 0; j <= idx && j < n; ++j) // lower
+                for (int64_t j = 0; j <= i && j < n; ++j) // lower
                     max = max_nan(max, abs(row[j*lda]));
             }
         }
         else {
             // Loop backwards (n-1 down to i) to maintain coalesced reads.
             if (diag == lapack::Diag::Unit) {
-                if (idx < n) // diag
+                if (i < n) // diag
                     max = 1;
-                for (int64_t j = n-1; j > idx; --j) // strictly upper
+                for (int64_t j = n-1; j > i; --j) // strictly upper
                     max = max_nan(max, abs(row[j*lda]));
             }
             else {
-                for (int64_t j = n-1; j >= idx; --j) // upper
+                for (int64_t j = n-1; j >= i; --j) // upper
                     max = max_nan(max, abs(row[j*lda]));
             }
         }
@@ -105,7 +105,7 @@ __global__ void trnormMaxKernel(
 }
 
 //------------------------------------------------------------------------------
-/// Sum of absolute values of each column of elements, for each tile in tiles.
+/// Sum of absolute values of each column of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one column.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
@@ -118,9 +118,9 @@ __global__ void trnormMaxKernel(
 ///     Number of columns of each tile. n >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -134,52 +134,52 @@ __global__ void trnormMaxKernel(
 ///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
-__global__ void trnormOneKernel(
+__global__ void trnorm_one_kernel(
     lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
 
     // Each thread sums one column.
     // todo: this doesn't do coalesced reads
-    for (int idx = threadIdx.x; idx < n; idx += blockDim.x) {
+    for (int j = threadIdx.x; j < n; j += blockDim.x) {
 
-        scalar_t const* column = &tile[lda*idx];
+        scalar_t const* column = &tile[ lda*j ];
         real_t sum = 0;
 
         if (uplo == lapack::Uplo::Lower) {
             if (diag == lapack::Diag::Unit) {
-                if (idx < m) // diag
+                if (j < m) // diag
                     sum += 1;
-                for (int64_t i = idx+1; i < m; ++i) // strictly lower
+                for (int64_t i = j+1; i < m; ++i) // strictly lower
                     sum += abs(column[i]);
             }
             else {
-                for (int64_t i = idx; i < m; ++i) // lower
+                for (int64_t i = j; i < m; ++i) // lower
                     sum += abs(column[i]);
             }
         }
         else {
             if (diag == lapack::Diag::Unit) {
-                if (idx < m) // diag
+                if (j < m) // diag
                     sum += 1;
-                for (int64_t i = 0; i < idx && i < m; ++i) // strictly upper
+                for (int64_t i = 0; i < j && i < m; ++i) // strictly upper
                     sum += abs(column[i]);
             }
             else {
-                for (int64_t i = 0; i <= idx && i < m; ++i) // upper
+                for (int64_t i = 0; i <= j && i < m; ++i) // upper
                     sum += abs(column[i]);
             }
         }
-        tiles_sums[blockIdx.x*ldv + idx] = sum;
+        tiles_sums[ blockIdx.x*ldv + j ] = sum;
     }
 }
 
 //------------------------------------------------------------------------------
-/// Sum of absolute values of each row of elements, for each tile in tiles.
+/// Sum of absolute values of each row of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
@@ -192,9 +192,9 @@ __global__ void trnormOneKernel(
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -208,53 +208,51 @@ __global__ void trnormOneKernel(
 ///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
-__global__ void trnormInfKernel(
+__global__ void trnorm_inf_kernel(
     lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
-    // int chunk; // silent compiler unused warnings
+    scalar_t const* tile = Aarray[ blockIdx.x ];
 
     // Each thread sums one row.
     // This does coalesced reads of one column at a time in parallel.
-    for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
-        // chunk = idx % blockDim.x; // silent compiler unused warnings
-        scalar_t const* row = &tile[idx];
+    for (int i = threadIdx.x; i < m; i += blockDim.x) {
+        scalar_t const* row = &tile[ i ];
         real_t sum = 0;
         if (uplo == lapack::Uplo::Lower) {
             if (diag == lapack::Diag::Unit) {
-                if (idx < n) // diag
+                if (i < n) // diag
                     sum += 1;
-                for (int64_t j = 0; j < idx && j < n; ++j) // strictly lower
+                for (int64_t j = 0; j < i && j < n; ++j) // strictly lower
                     sum += abs(row[j*lda]);
             }
             else {
-                for (int64_t j = 0; j <= idx && j < n; ++j) // lower
+                for (int64_t j = 0; j <= i && j < n; ++j) // lower
                     sum += abs(row[j*lda]);
             }
         }
         else {
             // Loop backwards (n-1 down to i) to maintain coalesced reads.
             if (diag == lapack::Diag::Unit) {
-                if (idx < n) // diag
+                if (i < n) // diag
                     sum += 1;
-                for (int64_t j = n-1; j > idx; --j) // strictly upper
+                for (int64_t j = n-1; j > i; --j) // strictly upper
                     sum += abs(row[j*lda]);
             }
             else {
-                for (int64_t j = n-1; j >= idx; --j) // upper
+                for (int64_t j = n-1; j >= i; --j) // upper
                     sum += abs(row[j*lda]);
             }
         }
-        tiles_sums[blockIdx.x*ldv + idx] = sum;
+        tiles_sums[ blockIdx.x*ldv + i ] = sum;
     }
 }
 
 //------------------------------------------------------------------------------
-/// Sum of squares, in scaled representation, for each tile in tiles.
+/// Sum of squares, in scaled representation, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row, followed by a reduction.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
@@ -267,9 +265,9 @@ __global__ void trnormInfKernel(
 ///     Number of columns of each tile. n >= 1.
 ///     Also the number of threads per block, hence,
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension blockDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -283,14 +281,14 @@ __global__ void trnormInfKernel(
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void trnormFroKernel(
+__global__ void trnorm_fro_kernel(
     lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_values)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
     int chunk;
 
     // Save partial results in shared memory.
@@ -300,39 +298,39 @@ __global__ void trnormFroKernel(
 
     // Each thread finds sum-of-squares of one row.
     // This does coalesced reads of one column at a time in parallel.
-    for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
+    for (int i = threadIdx.x; i < m; i += blockDim.x) {
         real_t scale = 0;
         real_t sumsq = 1;
-        chunk = idx % blockDim.x;
-        scalar_t const* row = &tile[idx];
+        chunk = i % blockDim.x;
+        scalar_t const* row = &tile[ i ];
 
         if (uplo == lapack::Uplo::Lower) {
             if (diag == lapack::Diag::Unit) {
-                if (idx < n) // diag
+                if (i < n) // diag
                     add_sumsq(scale, sumsq, real_t(1));
-                for (int64_t j = 0; j < idx && j < n; ++j) // strictly lower
+                for (int64_t j = 0; j < i && j < n; ++j) // strictly lower
                     add_sumsq(scale, sumsq, abs(row[j*lda]));
             }
             else {
-                for (int64_t j = 0; j <= idx && j < n; ++j) // lower
+                for (int64_t j = 0; j <= i && j < n; ++j) // lower
                     add_sumsq(scale, sumsq, abs(row[j*lda]));
             }
         }
         else {
             // Loop backwards (n-1 down to i) to maintain coalesced reads.
             if (diag == lapack::Diag::Unit) {
-                if (idx < n) // diag
+                if (i < n) // diag
                     add_sumsq(scale, sumsq, real_t(1));
-                for (int64_t j = n-1; j > idx; --j) // strictly upper
+                for (int64_t j = n-1; j > i; --j) // strictly upper
                     add_sumsq(scale, sumsq, abs(row[j*lda]));
             }
             else {
-                for (int64_t j = n-1; j >= idx; --j) // upper
+                for (int64_t j = n-1; j >= i; --j) // upper
                     add_sumsq(scale, sumsq, abs(row[j*lda]));
             }
         }
 
-        if (idx < blockDim.x) {
+        if (i < blockDim.x) {
             row_scale[chunk] = 0;
             row_sumsq[chunk] = 1;
         }
@@ -356,14 +354,18 @@ __global__ void trnormFroKernel(
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine that returns the largest absolute value of elements for
-/// each tile in Aarray. Sets
-///     tiles_maxima[k] = max_{i, j}( abs( A^(k)_(i, j) )),
-/// for each tile A^(k), where
-/// A^(k) = Aarray[k],
-/// k = 0, ..., blockDim.x-1,
-/// i = 0, ..., m-1,
-/// j = 0, ..., n-1.
+/// Batched routine that computes a partial norm for each trapezoidal tile.
+///
+/// todo: rename to tznorm for consistency with other tz routines.
+///
+/// @param[in] norm
+///     Norm to compute. See values for description.
+///
+/// @param[in] uplo
+///     Whether each Aarray[k] is upper or lower trapezoidal.
+///
+/// @param[in] diag
+///     Whether or not each Aarray[k] has unit diagonal.
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 0.
@@ -400,7 +402,7 @@ __global__ void trnormFroKernel(
 ///         for 0 <= k < batch_count.
 ///
 /// @param[in] ldv
-///     Leading dimension of tiles_sums (values) array.
+///     Leading dimension of values array.
 ///
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.
@@ -423,6 +425,8 @@ void trnorm(
     if (batch_count == 0)
         return;
 
+    hipSetDevice( queue.device() );
+
     //---------
     // max norm
     if (norm == lapack::Norm::Max) {
@@ -431,7 +435,8 @@ void trnorm(
         }
         else {
             assert(ldv == 1);
-            hipLaunchKernelGGL(trnormMaxKernel, dim3(batch_count), dim3(nb), sizeof(real_t) * nb, queue.stream(), uplo, diag, m, n, Aarray, lda, values);
+            size_t shared_mem = sizeof(real_t) * nb;
+            hipLaunchKernelGGL(trnorm_max_kernel, dim3(batch_count), dim3(nb), shared_mem, queue.stream(), uplo, diag, m, n, Aarray, lda, values);
         }
     }
     //---------
@@ -442,7 +447,7 @@ void trnorm(
         }
         else {
             assert(ldv >= n);
-            hipLaunchKernelGGL(trnormOneKernel, dim3(batch_count), dim3(nb), 0, queue.stream(), uplo, diag, m, n, Aarray, lda, values, ldv);
+            hipLaunchKernelGGL(trnorm_one_kernel, dim3(batch_count), dim3(nb), 0, queue.stream(), uplo, diag, m, n, Aarray, lda, values, ldv);
         }
     }
     //---------
@@ -453,7 +458,7 @@ void trnorm(
         }
         else {
             assert(ldv >= m);
-            hipLaunchKernelGGL(trnormInfKernel, dim3(batch_count), dim3(nb), 0, queue.stream(), uplo, diag, m, n, Aarray, lda, values, ldv);
+            hipLaunchKernelGGL(trnorm_inf_kernel, dim3(batch_count), dim3(nb), 0, queue.stream(), uplo, diag, m, n, Aarray, lda, values, ldv);
         }
     }
     //---------
@@ -464,7 +469,8 @@ void trnorm(
         }
         else {
             assert(ldv == 2);
-            hipLaunchKernelGGL(trnormFroKernel, dim3(batch_count), dim3(nb), sizeof(real_t) * nb * 2, queue.stream(), uplo, diag, m, n, Aarray, lda, values);
+            size_t shared_mem = sizeof(real_t) * nb * 2;
+            hipLaunchKernelGGL(trnorm_fro_kernel, dim3(batch_count), dim3(nb), shared_mem, queue.stream(), uplo, diag, m, n, Aarray, lda, values);
         }
     }
 

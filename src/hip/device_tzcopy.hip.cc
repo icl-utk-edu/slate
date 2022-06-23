@@ -26,42 +26,42 @@ namespace device {
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///
-/// @param[in] Atiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each Atiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
-///     Leading dimension of each tile in Atiles. lda >= m.
+///     Leading dimension of each tile in Aarray. lda >= m.
 ///
-/// @param[in,out] Btiles
+/// @param[out] Barray
 ///     Array of tiles of dimension gridDim.x,
-///     where each Btiles[k] is an m-by-n matrix stored in an ldb-by-n array.
+///     where each Barray[k] is an m-by-n matrix stored in an ldb-by-n array.
 ///
 /// @param[in] ldb
-///     Leading dimension of each tile in Btiles. ldb >= m.
+///     Leading dimension of each tile in Barray. ldb >= m.
 ///
 template <typename src_scalar_t, typename dst_scalar_t>
-__global__ void tzcopyKernel(
+__global__ void tzcopy_kernel(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    src_scalar_t** tilesA, int64_t lda,
-    dst_scalar_t** tilesB, int64_t ldb)
+    src_scalar_t** Aarray, int64_t lda,
+    dst_scalar_t** Barray, int64_t ldb)
 {
-    src_scalar_t* tileA = tilesA[blockIdx.x];
-    dst_scalar_t* tileB = tilesB[blockIdx.x];
+    src_scalar_t* tileA = Aarray[blockIdx.x];
+    dst_scalar_t* tileB = Barray[blockIdx.x];
 
     // thread per row, if more rows than threads, loop by blockDim.x
-    for (int ridx = threadIdx.x; ridx < m; ridx += blockDim.x) {
-        src_scalar_t* rowA = &tileA[ridx];
-        dst_scalar_t* rowB = &tileB[ridx];
+    for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
+        src_scalar_t* rowA = &tileA[ i ];
+        dst_scalar_t* rowB = &tileB[ i ];
 
         if (uplo == lapack::Uplo::Lower) {
-            for (int64_t j = 0; j <= ridx && j < n; ++j) { // lower
+            for (int64_t j = 0; j <= i && j < n; ++j) { // lower
                 copy(rowA[j*lda], rowB[j*ldb]);
             }
         }
         else {
-            for (int64_t j = n-1; j >= ridx; --j) { // upper
+            for (int64_t j = n-1; j >= i; --j) { // upper
                 copy(rowA[j*lda], rowB[j*ldb]);
             }
         }
@@ -69,7 +69,14 @@ __global__ void tzcopyKernel(
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine for element-wise copy and precision conversion.
+/// Batched routine for element-wise trapezoidal copy and precision conversion.
+/// Sets upper or lower part of
+/// \[
+///     Barray[k] = Aarray[k].
+/// \]
+///
+/// @param[in] uplo
+///     Whether each Aarray[k] is upper or lower trapezoidal.
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 0.
@@ -114,7 +121,7 @@ void tzcopy(
 
     hipSetDevice( queue.device() );
 
-    hipLaunchKernelGGL(tzcopyKernel, dim3(batch_count), dim3(nthreads), 0, queue.stream(), 
+    hipLaunchKernelGGL(tzcopy_kernel, dim3(batch_count), dim3(nthreads), 0, queue.stream(),
           uplo,
           m, n,
           Aarray, lda,

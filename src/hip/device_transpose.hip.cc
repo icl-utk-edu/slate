@@ -14,9 +14,9 @@
 namespace slate {
 namespace device {
 
-// internal blocking
-// 16 x 16 thread block = 256 threads
-// 32 x 32 thread block = 1024 threads
+/// internal blocking
+/// 16 x 16 thread block = 256 threads
+/// 32 x 32 thread block = 1024 threads
 static const int ib = 16;
 
 //------------------------------------------------------------------------------
@@ -115,9 +115,8 @@ __device__ void transpose_func(
 }
 
 //------------------------------------------------------------------------------
-
-static const int NB = 32;
-static const int NY = 8;
+static const int NB = 32;  ///< block size for transpose_func
+static const int NY = 8;   ///< y dim of thread block size for transpose_func
 // static const int NX = 32; handled as template parameter, look below
 
 
@@ -265,6 +264,8 @@ void transpose(
         return;
     assert(lda >= n);
 
+    hipSetDevice( queue.device() );
+
     int nt = ceildiv( n, int64_t(ib) );
     assert(nt <= 65535);                // CUDA limitation
 
@@ -281,7 +282,7 @@ void transpose(
     }
     dim3 threads( ib, ib );
 
-    hipLaunchKernelGGL(transpose_kernel, dim3(blocks), dim3(threads), 0, queue.stream() , n, A, lda);
+    hipLaunchKernelGGL(transpose_kernel, dim3(blocks), dim3(threads), 0, queue.stream(), n, A, lda);
 
     hipError_t error = hipGetLastError();
     slate_assert(error == hipSuccess);
@@ -319,6 +320,8 @@ void transpose_batch(
         return;
     assert(lda >= n);
 
+    hipSetDevice( queue.device() );
+
     int nt = ceildiv( n, int64_t(ib) );
     assert(nt <= 65535);                // CUDA limitation
     assert(batch_count <= 2147483647);  // CUDA limitation, 2^31 - 1
@@ -336,7 +339,7 @@ void transpose_batch(
     }
     dim3 threads( ib, ib );
 
-    hipLaunchKernelGGL(transpose_batch_kernel, dim3(blocks), dim3(threads), 0, queue.stream() , n, Aarray, lda);
+    hipLaunchKernelGGL(transpose_batch_kernel, dim3(blocks), dim3(threads), 0, queue.stream(), n, Aarray, lda);
 
     hipError_t error = hipGetLastError();
     slate_assert(error == hipSuccess);
@@ -364,9 +367,6 @@ void transpose_batch(
 /// @param[in] ldat
 ///     Leading dimension of dAT. ldat >= n.
 ///
-/// @param[in] batch_count
-///     Size of Aarray. batch_count >= 0.
-///
 /// @param[in] queue
 ///     BLAS++ queue to execute in.
 ///
@@ -382,6 +382,8 @@ void transpose(
     assert(lda >= m);
     assert(ldat >= n);
 
+    hipSetDevice( queue.device() );
+
     int mt = ceildiv( m, int64_t(NB) );
     assert(mt <= 65535);                // CUDA limitation
     int nt = ceildiv( n, int64_t(NB) );
@@ -389,7 +391,7 @@ void transpose(
 
     dim3 grid( 1, mt, nt );
     dim3 threads( NX, NY );
-    hipLaunchKernelGGL(HIP_KERNEL_NAME(transpose_kernel<scalar_t, NX>), dim3(grid), dim3(threads), 0, queue.stream() ,  m, n, dA, lda, dAT, ldat );
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(transpose_kernel<scalar_t, NX>), dim3(grid), dim3(threads), 0, queue.stream(),  m, n, dA, lda, dAT, ldat );
 
     hipError_t error = hipGetLastError();
     slate_assert(error == hipSuccess);
@@ -418,7 +420,7 @@ void transpose(
 ///     ldat-by-m array in GPU memory.
 ///     On output, each dAT_array[k] is the transpose of dA_array[k].
 ///
-/// @param[in] lda
+/// @param[in] ldat
 ///     Leading dimension of each dAT_array[k] tile. ldat >= n.
 ///
 /// @param[in] batch_count
@@ -440,6 +442,8 @@ void transpose_batch(
     assert(lda >= m);
     assert(ldat >= n);
 
+    hipSetDevice( queue.device() );
+
     int mt = ceildiv( m, int64_t(NB) );
     assert(mt <= 65535);                // CUDA limitation
     int nt = ceildiv( n, int64_t(NB) );
@@ -448,7 +452,7 @@ void transpose_batch(
 
     dim3 grid( uint(batch_count), mt, nt );
     dim3 threads( NX, NY, 1 );
-    hipLaunchKernelGGL(HIP_KERNEL_NAME(transpose_batch_kernel<scalar_t, NX>), dim3(grid), dim3(threads), 0, queue.stream() ,  m, n, dA_array, lda, dAT_array, ldat );
+    hipLaunchKernelGGL(HIP_KERNEL_NAME(transpose_batch_kernel<scalar_t, NX>), dim3(grid), dim3(threads), 0, queue.stream(),  m, n, dA_array, lda, dAT_array, ldat );
 
     hipError_t error = hipGetLastError();
     slate_assert(error == hipSuccess);

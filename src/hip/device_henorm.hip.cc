@@ -14,9 +14,8 @@
 namespace slate {
 namespace device {
 
-
 //------------------------------------------------------------------------------
-/// Finds the largest absolute value of elements, for each tile in tiles.
+/// Finds the largest absolute value of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row, followed by a reduction.
 /// Uses dynamic shared memory array of length sizeof(real_t) * n.
@@ -27,9 +26,9 @@ namespace device {
 ///     Number of rows and columns of each tile. n >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an n-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an n-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= n.
@@ -40,14 +39,14 @@ namespace device {
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void henormMaxKernel(
+__global__ void henorm_max_kernel(
     lapack::Uplo uplo,
     int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_maxima)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
     int chunk;
 
     // Save partial results in shared memory.
@@ -59,26 +58,26 @@ __global__ void henormMaxKernel(
 
     // Each thread finds max of one row.
     // This does coalesced reads of one column at a time in parallel.
-    for (int idx = threadIdx.x; idx < n; idx += blockDim.x) {
-        chunk = idx % blockDim.x;
+    for (int i = threadIdx.x; i < n; i += blockDim.x) {
+        chunk = i % blockDim.x;
 
-        scalar_t const* row = &tile[idx];
-        if (idx < blockDim.x) {
+        scalar_t const* row = &tile[ i ];
+        if (i < blockDim.x) {
             row_max[chunk] = 0;
         }
 
         real_t max = 0;
         if (uplo == lapack::Uplo::Lower) {
-            for (int64_t j = 0; j < idx && j < n; ++j) // strictly lower
+            for (int64_t j = 0; j < i && j < n; ++j) // strictly lower
                 max = max_nan(max, abs(row[j*lda]));
-            int64_t j = idx;
+            int64_t j = i;
             max = max_nan(max, abs( real( row[j*lda] )));  // diag (real)
         }
         else {
             // Loop backwards (n-1 down to i) to maintain coalesced reads.
-            for (int64_t j = n-1; j > idx; --j) // strictly upper
+            for (int64_t j = n-1; j > i; --j) // strictly upper
                 max = max_nan(max, abs(row[j*lda]));
-            int64_t j = idx;
+            int64_t j = i;
             max = max_nan(max, abs( real( row[j*lda] )));  // diag (real)
         }
         row_max[chunk] = max_nan(max, row_max[chunk]);
@@ -93,7 +92,7 @@ __global__ void henormMaxKernel(
 }
 
 //------------------------------------------------------------------------------
-/// Sum of absolute values of each column of elements, for each tile in tiles.
+/// Sum of absolute values of each column of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one column.
 /// Kernel assumes non-trivial tiles (n >= 1).
@@ -103,9 +102,9 @@ __global__ void henormMaxKernel(
 ///     Number of rows and columns of each tile. n >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an n-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an n-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= n.
@@ -119,46 +118,45 @@ __global__ void henormMaxKernel(
 ///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
-__global__ void henormOneKernel(
+__global__ void henorm_one_kernel(
     lapack::Uplo uplo,
     int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
 
     // Each thread sums one row/column.
     // todo: the row reads are coalesced, but the col reads are not coalesced
-    for (int idx = threadIdx.x; idx < n; idx += blockDim.x) {
-
-        scalar_t const* row    = &tile[idx];
-        scalar_t const* column = &tile[lda*idx];
+    for (int k = threadIdx.x; k < n; k += blockDim.x) {
+        scalar_t const* row    = &tile[ k ];
+        scalar_t const* column = &tile[ lda*k ];
         real_t sum = 0;
 
         if (uplo == lapack::Uplo::Lower) {
-            for (int64_t j = 0; j < idx; ++j) // strictly lower
+            for (int64_t j = 0; j < k; ++j) // strictly lower
                 sum += abs(row[j*lda]);
-            int64_t j = idx;
+            int64_t j = k;
             sum += abs( real( row[j*lda] )); // diag (real)
-            for (int64_t i = idx + 1; i < n; ++i) // strictly lower
+            for (int64_t i = k + 1; i < n; ++i) // strictly lower
                 sum += abs(column[i]);
         }
         else {
             // Loop backwards (n-1 down to i) to maintain coalesced reads.
-            for (int64_t j = n-1; j > idx; --j) // strictly upper
+            for (int64_t j = n-1; j > k; --j) // strictly upper
                 sum += abs(row[j*lda]);
-            int64_t j = idx;
+            int64_t j = k;
             sum += abs( real( row[j*lda] )); // diag (real)
-            for (int64_t i = 0; i < idx && i < n; ++i) // strictly upper
+            for (int64_t i = 0; i < k && i < n; ++i) // strictly upper
                 sum += abs(column[i]);
         }
-        tiles_sums[blockIdx.x*ldv + idx] = sum;
+        tiles_sums[ blockIdx.x*ldv + k ] = sum;
     }
 }
 
 //------------------------------------------------------------------------------
-/// Sum of squares, in scaled representation, for each tile in tiles.
+/// Sum of squares, in scaled representation, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row, followed by a reduction.
 /// Kernel assumes non-trivial tiles (n >= 1).
@@ -168,9 +166,9 @@ __global__ void henormOneKernel(
 ///     Number of rows and columns of each tile. n >= 1.
 ///     Also the number of threads per block, hence,
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension blockDim.x,
-///     where each tiles[k] is an n-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an n-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= n.
@@ -184,14 +182,14 @@ __global__ void henormOneKernel(
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void henormFroKernel(
+__global__ void henorm_fro_kernel(
     lapack::Uplo uplo,
     int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_values)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
     int chunk;
 
     // Save partial results in shared memory.
@@ -201,31 +199,31 @@ __global__ void henormFroKernel(
 
     // Each thread finds sum-of-squares of one row.
     // This does coalesced reads of one column at a time in parallel.
-    for (int idx = threadIdx.x; idx < n; idx += blockDim.x) {
+    for (int i = threadIdx.x; i < n; i += blockDim.x) {
         real_t scale = 0;
         real_t sumsq = 1;
-        chunk = idx % blockDim.x;
-        scalar_t const* row = &tile[idx];
+        chunk = i % blockDim.x;
+        scalar_t const* row = &tile[ i ];
 
         if (uplo == lapack::Uplo::Lower) {
-            for (int64_t j = 0; j < idx && j < n; ++j) // strictly lower
+            for (int64_t j = 0; j < i && j < n; ++j) // strictly lower
                 add_sumsq(scale, sumsq, abs(row[j*lda]));
             // double for symmetric entries
             sumsq *= 2;
             // diagonal (real)
-            add_sumsq(scale, sumsq, abs( real( row[idx*lda] )));
+            add_sumsq( scale, sumsq, abs( real( row[ i*lda ] ) ) );
         }
         else {
             // Loop backwards (n-1 down to i) to maintain coalesced reads.
-            for (int64_t j = n-1; j > idx; --j) // strictly upper
-                add_sumsq(scale, sumsq, abs(row[j*lda]));
+            for (int64_t j = n-1; j > i; --j) // strictly upper
+                add_sumsq( scale, sumsq, abs( row[ j*lda ] ) );
             // double for symmetric entries
             sumsq *= 2;
             // diagonal (real)
-            add_sumsq(scale, sumsq, abs( real( row[idx*lda] )));
+            add_sumsq( scale, sumsq, abs( real( row[ i*lda ] ) ) );
         }
 
-        if (idx < blockDim.x) {
+        if (i < blockDim.x) {
             row_scale[chunk] = 0;
             row_sumsq[chunk] = 1;
         }
@@ -248,14 +246,13 @@ __global__ void henormFroKernel(
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine that returns the largest absolute value of elements for
-/// each tile in Aarray. Sets
-///     tiles_maxima[k] = max_{i, j}( abs( A^(k)_(i, j) )),
-/// for each tile A^(k), where
-/// A^(k) = Aarray[k],
-/// k = 0, ..., blockDim.x-1,
-/// i = 0, ..., n-1,
-/// j = 0, ..., n-1.
+/// Batched routine that computes a partial norm for each tile.
+///
+/// @param[in] norm
+///     Norm to compute. See values for description.
+///
+/// @param[in] uplo
+///     Whether each Aarray[k] is stored in the upper or lower triangle.
 ///
 /// @param[in] n
 ///     Number of rows and columns of each tile. n >= 0.
@@ -287,7 +284,7 @@ __global__ void henormFroKernel(
 ///         for 0 <= k < batch_count.
 ///
 /// @param[in] ldv
-///     Leading dimension of tiles_sums (values) array.
+///     Leading dimension of values array.
 ///
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.
@@ -310,6 +307,8 @@ void henorm(
     if (batch_count == 0)
         return;
 
+    hipSetDevice( queue.device() );
+
     //---------
     // max norm
     if (norm == lapack::Norm::Max) {
@@ -318,7 +317,8 @@ void henorm(
         }
         else {
             assert(ldv == 1);
-            hipLaunchKernelGGL(henormMaxKernel, dim3(batch_count), dim3(nb), sizeof(real_t) * nb, queue.stream(), uplo, n, Aarray, lda, values);
+            size_t shared_mem = sizeof(real_t) * nb;
+            hipLaunchKernelGGL(henorm_max_kernel, dim3(batch_count), dim3(nb), shared_mem, queue.stream(), uplo, n, Aarray, lda, values);
         }
     }
     //---------
@@ -329,7 +329,7 @@ void henorm(
         }
         else {
             assert(ldv >= n);
-            hipLaunchKernelGGL(henormOneKernel, dim3(batch_count), dim3(nb), 0, queue.stream(), uplo, n, Aarray, lda, values, ldv);
+            hipLaunchKernelGGL(henorm_one_kernel, dim3(batch_count), dim3(nb), 0, queue.stream(), uplo, n, Aarray, lda, values, ldv);
         }
     }
     //---------
@@ -340,7 +340,8 @@ void henorm(
         }
         else {
             assert(ldv == 2);
-            hipLaunchKernelGGL(henormFroKernel, dim3(batch_count), dim3(nb), sizeof(real_t) * nb * 2, queue.stream(), uplo, n, Aarray, lda, values);
+            size_t shared_mem = sizeof(real_t) * nb * 2;
+            hipLaunchKernelGGL(henorm_fro_kernel, dim3(batch_count), dim3(nb), shared_mem, queue.stream(), uplo, n, Aarray, lda, values);
         }
     }
 

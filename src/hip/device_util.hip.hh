@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -454,7 +454,7 @@ operator / (const hipDoubleComplex x, const hipDoubleComplex y)
     double c = real(y);
     double d = imag(y);
     double e, f, p, q;
-    if ( abs( d ) < abs( c ) ) {
+    if (abs( d ) < abs( c )) {
         e = d / c;
         f = c + d*e;
         p = ( a + b*e ) / f;
@@ -482,7 +482,7 @@ operator / (const double a, const hipDoubleComplex y)
     double c = real(y);
     double d = imag(y);
     double e, f, p, q;
-    if ( abs( d ) < abs( c ) ) {
+    if (abs( d ) < abs( c )) {
         e = d / c;
         f = c + d*e;
         p =  a   / f;
@@ -655,7 +655,7 @@ operator / (const hipFloatComplex x, const hipFloatComplex y)
     float c = real(y);
     float d = imag(y);
     float e, f, p, q;
-    if ( abs( d ) < abs( c ) ) {
+    if (abs( d ) < abs( c )) {
         e = d / c;
         f = c + d*e;
         p = ( a + b*e ) / f;
@@ -683,7 +683,7 @@ operator / (const float a, const hipFloatComplex y)
     float c = real(y);
     float d = imag(y);
     float e, f, p, q;
-    if ( abs( d ) < abs( c ) ) {
+    if (abs( d ) < abs( c )) {
         e = d / c;
         f = c + d*e;
         p =  a   / f;

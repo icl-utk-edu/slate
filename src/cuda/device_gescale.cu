@@ -26,12 +26,12 @@ namespace device {
 ///     Number of columns of each tile. n >= 1.
 ///
 /// @param[in] numer
-///     Scale value on the numerator.
+///     Scale value numerator.
 ///
 /// @param[in] denom
-///     Scale value on the denominator.
+///     Scale value denominator.
 ///
-/// @param[in] Aarray
+/// @param[in,out] Aarray
 ///     Array of tiles of dimension gridDim.x,
 ///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
@@ -55,7 +55,11 @@ __global__ void gescale_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine for element-wise tile scale.
+/// Batched routine for element-wise tile scale. Sets
+/// \[
+///     Aarray[k] *= (numer / denom).
+/// \]
+/// This does NOT currently take extra care to avoid over/underflow.
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 0.
@@ -64,12 +68,12 @@ __global__ void gescale_kernel(
 ///     Number of columns of each tile. n >= 0.
 ///
 /// @param[in] numer
-///     Scale value on the numerator.
+///     Scale value numerator.
 ///
 /// @param[in] denom
-///     Scale value on the denominator.
+///     Scale value denominator.
 ///
-/// @param[in] Aarray
+/// @param[in,out] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
 ///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
 ///
@@ -77,7 +81,7 @@ __global__ void gescale_kernel(
 ///     Leading dimension of each tile in A. lda >= m.
 ///
 /// @param[in] batch_count
-///     Size of Aarray and Barray. batch_count >= 0.
+///     Size of Aarray. batch_count >= 0.
 ///
 /// @param[in] queue
 ///     BLAS++ queue to execute in.

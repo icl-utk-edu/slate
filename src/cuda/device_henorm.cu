@@ -245,14 +245,13 @@ __global__ void henorm_fro_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine that returns the largest absolute value of elements for
-/// each tile in Aarray. Sets
-///     tiles_maxima[k] = max_{i, j}( abs( A^(k)_(i, j) )),
-/// for each tile A^(k), where
-/// A^(k) = Aarray[k],
-/// k = 0, ..., blockDim.x-1,
-/// i = 0, ..., n-1,
-/// j = 0, ..., n-1.
+/// Batched routine that computes a partial norm for each tile.
+///
+/// @param[in] norm
+///     Norm to compute. See values for description.
+///
+/// @param[in] uplo
+///     Whether each Aarray[k] is stored in the upper or lower triangle.
 ///
 /// @param[in] n
 ///     Number of rows and columns of each tile. n >= 0.
@@ -284,7 +283,7 @@ __global__ void henorm_fro_kernel(
 ///         for 0 <= k < batch_count.
 ///
 /// @param[in] ldv
-///     Leading dimension of tiles_sums (values) array.
+///     Leading dimension of values array.
 ///
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.

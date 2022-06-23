@@ -71,8 +71,12 @@ __global__ void tzset_batch_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Initializes an m-by-n upper or lower trapezoidal matrix A to
-/// diag_value on the diagonal and offdiag_value on the off-diagonals,
+/// Element-wise trapezoidal tile set.
+/// Sets upper or lower part of Aarray[k] to
+/// diag_value on the diagonal and offdiag_value on the off-diagonals.
+///
+/// @param[in] uplo
+///     Whether each Aarray[k] is upper or lower trapezoidal.
 ///
 /// @param[in] m
 ///     Number of rows of A. m >= 0.
@@ -86,7 +90,7 @@ __global__ void tzset_batch_kernel(
 /// @param[in] diag_value
 ///     Constant to set diagonal entries to.
 ///
-/// @param[in,out] A
+/// @param[out] A
 ///     An m-by-n matrix stored in an lda-by-n array in GPU memory.
 ///
 /// @param[in] lda
@@ -154,7 +158,9 @@ void tzset(
 namespace batch {
 
 //------------------------------------------------------------------------------
-/// Batched routine for element-wise tile set.
+/// Batched routine for element-wise trapezoidal tile set.
+/// Sets upper or lower part of Aarray[k] to
+/// diag_value on the diagonal and offdiag_value on the off-diagonals.
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 0.
@@ -168,7 +174,7 @@ namespace batch {
 /// @param[in] diag_value
 ///     Constant to set diagonal entries to.
 ///
-/// @param[in,out] Aarray
+/// @param[out] Aarray
 ///     Array in GPU memory of dimension batch_count, containing
 ///     pointers to tiles, where each Aarray[k] is an m-by-n matrix
 ///     stored in an lda-by-n array in GPU memory.

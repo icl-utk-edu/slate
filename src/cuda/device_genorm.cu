@@ -79,8 +79,8 @@ __global__ void genorm_max_kernel(
     }
 }
 
-const int ib  = 32;
-const int ib1 = 33;
+const int ib  = 32;  ///< block size for genorm_one_kernel
+const int ib1 = 33;  ///< ib + 1 for stride to avoid GPU bank conflicts
 
 //------------------------------------------------------------------------------
 /// Sum of absolute values of each column of elements, for each tile in Aarray.
@@ -279,7 +279,8 @@ __global__ void genorm_fro_kernel(
     }
 }
 
-
+//------------------------------------------------------------------------------
+// todo docs
 template <typename scalar_t>
 __global__ void ge_col_norms_max_kernel(
     int64_t m, int64_t n,
@@ -315,14 +316,15 @@ __global__ void ge_col_norms_max_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine that returns the largest absolute value of elements for
-/// each tile in Aarray. Sets
-///     tiles_maxima[k] = max_{i, j}( abs( A^(k)_(i, j) )),
-/// for each tile A^(k), where
-/// A^(k) = Aarray[k],
-/// k = 0, ..., blockDim.x-1,
-/// i = 0, ..., m-1,
-/// j = 0, ..., n-1.
+/// Batched routine that computes a partial norm for each tile.
+///
+/// @param[in] norm
+///     Norm to compute. See values for description.
+///
+/// @param[in] scope
+///     Scope of the norm.
+///     - NormScope::Matrix  computes partial norm of each tile.
+///     - NormScope::Columns computes norm of each column.
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 0.
@@ -359,7 +361,7 @@ __global__ void ge_col_norms_max_kernel(
 ///         for 0 <= k < batch_count.
 ///
 /// @param[in] ldv
-///     Leading dimension of tiles_sums (values) array.
+///     Leading dimension of values array.
 ///
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.

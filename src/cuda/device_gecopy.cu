@@ -33,7 +33,7 @@ namespace device {
 /// @param[in] lda
 ///     Leading dimension of each tile in Aarray. lda >= m.
 ///
-/// @param[in,out] Barray
+/// @param[out] Barray
 ///     Array of tiles of dimension gridDim.x,
 ///     where each Barray[k] is an m-by-n matrix stored in an ldb-by-n array.
 ///
@@ -61,6 +61,10 @@ __global__ void gecopy_kernel(
 
 //------------------------------------------------------------------------------
 /// Batched routine for element-wise copy and precision conversion.
+/// Sets
+/// \[
+///     Barray[k] = Aarray[k].
+/// \]
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 0.

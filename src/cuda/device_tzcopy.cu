@@ -32,7 +32,7 @@ namespace device {
 /// @param[in] lda
 ///     Leading dimension of each tile in Aarray. lda >= m.
 ///
-/// @param[in,out] Barray
+/// @param[out] Barray
 ///     Array of tiles of dimension gridDim.x,
 ///     where each Barray[k] is an m-by-n matrix stored in an ldb-by-n array.
 ///
@@ -68,7 +68,14 @@ __global__ void tzcopy_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine for element-wise copy and precision conversion.
+/// Batched routine for element-wise trapezoidal copy and precision conversion.
+/// Sets upper or lower part of
+/// \[
+///     Barray[k] = Aarray[k].
+/// \]
+///
+/// @param[in] uplo
+///     Whether each Aarray[k] is upper or lower trapezoidal.
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 0.

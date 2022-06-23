@@ -13,9 +13,9 @@
 namespace slate {
 namespace device {
 
-// internal blocking
-// 16 x 16 thread block = 256 threads
-// 32 x 32 thread block = 1024 threads
+/// internal blocking
+/// 16 x 16 thread block = 256 threads
+/// 32 x 32 thread block = 1024 threads
 static const int ib = 16;
 
 //------------------------------------------------------------------------------
@@ -114,9 +114,8 @@ __device__ void transpose_func(
 }
 
 //------------------------------------------------------------------------------
-
-static const int NB = 32;
-static const int NY = 8;
+static const int NB = 32;  ///< block size for transpose_func
+static const int NY = 8;   ///< y dim of thread block size for transpose_func
 // static const int NX = 32; handled as template parameter, look below
 
 
@@ -369,9 +368,6 @@ void transpose_batch(
 /// @param[in] ldat
 ///     Leading dimension of dAT. ldat >= n.
 ///
-/// @param[in] batch_count
-///     Size of Aarray. batch_count >= 0.
-///
 /// @param[in] queue
 ///     BLAS++ queue to execute in.
 ///
@@ -426,7 +422,7 @@ void transpose(
 ///     ldat-by-m array in GPU memory.
 ///     On output, each dAT_array[k] is the transpose of dA_array[k].
 ///
-/// @param[in] lda
+/// @param[in] ldat
 ///     Leading dimension of each dAT_array[k] tile. ldat >= n.
 ///
 /// @param[in] batch_count

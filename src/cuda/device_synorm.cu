@@ -237,14 +237,13 @@ __global__ void synorm_fro_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine that returns the largest absolute value of elements for
-/// each tile in Aarray. Sets
-///     tiles_maxima[k] = max_{i, j}( abs( A^(k)_(i, j) )),
-/// for each tile A^(k), where
-/// A^(k) = Aarray[k],
-/// k = 0, ..., blockDim.x-1,
-/// i = 0, ..., n-1,
-/// j = 0, ..., n-1.
+/// Batched routine that computes a partial norm for each tile.
+///
+/// @param[in] norm
+///     Norm to compute. See values for description.
+///
+/// @param[in] uplo
+///     Whether each Aarray[k] is stored in the upper or lower triangle.
 ///
 /// @param[in] n
 ///     Number of rows and columns of each tile. n >= 0.
@@ -276,7 +275,7 @@ __global__ void synorm_fro_kernel(
 ///         for 0 <= k < batch_count.
 ///
 /// @param[in] ldv
-///     Leading dimension of tiles_sums (values) array.
+///     Leading dimension of values array.
 ///
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.
@@ -433,24 +432,25 @@ __global__ void synorm_offdiag_one_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine that returns the largest absolute value of elements for
-/// each tile in Aarray. Sets
-///     tiles_maxima[k] = max_{i, j}( abs( A^(k)_(i, j) )),
-/// for each tile A^(k), where
-/// A^(k) = Aarray[k],
-/// k = 0, ..., blockDim.x-1,
-/// i = 0, ..., n-1,
-/// j = 0, ..., n-1.
+/// Batched routine that computes a partial norm for each tile.
+/// Used for full, off-diagonal tiles within a symmetric matrix,
+/// where element Aij contributes to both column i and j.
+///
+/// @param[in] norm
+///     Norm to compute. See values for description.
+///
+/// @param[in] m
+///     Number of rows of each tile. m >= 0.
 ///
 /// @param[in] n
-///     Number of rows and columns of each tile. n >= 0.
+///     Number of columns of each tile. n >= 0.
 ///
 /// @param[in] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
-///     where each Aarray[k] is an n-by-n matrix stored in an lda-by-n array in GPU memory.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
 ///
 /// @param[in] lda
-///     Leading dimension of each tile. lda >= n.
+///     Leading dimension of each tile. lda >= m.
 ///
 /// @param[out] values
 ///     Array in GPU memory, dimension batch_count * ldv.
@@ -472,7 +472,7 @@ __global__ void synorm_offdiag_one_kernel(
 ///         for 0 <= k < batch_count.
 ///
 /// @param[in] ldv
-///     Leading dimension of tiles_sums (values) array.
+///     Leading dimension of values array.
 ///
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.

@@ -31,7 +31,7 @@ namespace device {
 /// @param[in] diag_value
 ///     The value to set on the diagonal.
 ///
-/// @param[in] Aarray
+/// @param[out] Aarray
 ///     Array of tiles of dimension gridDim.x,
 ///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
@@ -55,7 +55,8 @@ __global__ void geset_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine for element-wise tile set.
+/// Initializes a batch of m-by-n matrices Aarray[k]
+/// to diag_value on the diagonal and offdiag_value on the off-diagonals.
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 0.
@@ -69,7 +70,7 @@ __global__ void geset_kernel(
 /// @param[in] offdiag_value
 ///     The value to set outside of the diagonal.
 ///
-/// @param[in] Aarray
+/// @param[out] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
 ///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
 ///
@@ -77,7 +78,7 @@ __global__ void geset_kernel(
 ///     Leading dimension of each tile in A. lda >= m.
 ///
 /// @param[in] batch_count
-///     Size of Aarray and Barray. batch_count >= 0.
+///     Size of Aarray. batch_count >= 0.
 ///
 /// @param[in] queue
 ///     BLAS++ queue to execute in.

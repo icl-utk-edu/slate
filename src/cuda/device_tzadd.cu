@@ -32,7 +32,7 @@ namespace device {
 /// @param[in] lda
 ///     Leading dimension of each tile in Aarray. lda >= m.
 ///
-/// @param[in] Barray
+/// @param[in,out] Barray
 ///     Array of tiles of dimension gridDim.x,
 ///     where each Barray[k] is an m-by-n matrix stored in an ldb-by-n array.
 ///
@@ -68,13 +68,23 @@ __global__ void tzadd_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine for element-wise tile addition.
+/// Batched routine for element-wise trapezoidal tile addition.
+/// Sets upper or lower part of
+/// \[
+///     Barray[k] = \alpha Aarray[k] + \beta Barray[k].
+/// \]
+///
+/// @param[in] uplo
+///     Whether each Aarray[k] is upper or lower trapezoidal.
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 0.
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 0.
+///
+/// @param[in] alpha
+///     The scalar alpha.
 ///
 /// @param[in] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
@@ -83,9 +93,12 @@ __global__ void tzadd_kernel(
 /// @param[in] lda
 ///     Leading dimension of each tile in A. lda >= m.
 ///
-/// @param[out] Barray
+/// @param[in] beta
+///     The scalar beta.
+///
+/// @param[in,out] Barray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
-///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
+///     where each Barray[k] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
 ///
 /// @param[in] ldb
 ///     Leading dimension of each tile in B. ldb >= m.

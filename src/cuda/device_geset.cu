@@ -31,19 +31,19 @@ namespace device {
 /// @param[in] diag_value
 ///     The value to set on the diagonal.
 ///
-/// @param[in] Atiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each Atiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
-///     Leading dimension of each tile in Atiles. lda >= m.
+///     Leading dimension of each tile in Aarray. lda >= m.
 ///
 template <typename scalar_t>
 __global__ void geset_kernel(
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value, scalar_t** tilesA, int64_t lda)
+    scalar_t offdiag_value, scalar_t diag_value, scalar_t** Aarray, int64_t lda)
 {
-    scalar_t* tileA = tilesA[blockIdx.x];
+    scalar_t* tileA = Aarray[ blockIdx.x ];
 
     // thread per row, if more rows than threads, loop by blockDim.x
     for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {

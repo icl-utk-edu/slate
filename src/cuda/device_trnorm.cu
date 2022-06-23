@@ -14,7 +14,7 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
-/// Finds the largest absolute value of elements, for each tile in tiles.
+/// Finds the largest absolute value of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row, followed by a reduction.
 /// Uses dynamic shared memory array of length sizeof(real_t) * m.
@@ -28,9 +28,9 @@ namespace device {
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -44,11 +44,11 @@ template <typename scalar_t>
 __global__ void trnorm_max_kernel(
     lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_maxima)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
     int chunk;
 
     // Save partial results in shared memory.
@@ -104,7 +104,7 @@ __global__ void trnorm_max_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Sum of absolute values of each column of elements, for each tile in tiles.
+/// Sum of absolute values of each column of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one column.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
@@ -117,9 +117,9 @@ __global__ void trnorm_max_kernel(
 ///     Number of columns of each tile. n >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -136,11 +136,11 @@ template <typename scalar_t>
 __global__ void trnorm_one_kernel(
     lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
 
     // Each thread sums one column.
     // todo: this doesn't do coalesced reads
@@ -178,7 +178,7 @@ __global__ void trnorm_one_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Sum of absolute values of each row of elements, for each tile in tiles.
+/// Sum of absolute values of each row of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
@@ -191,9 +191,9 @@ __global__ void trnorm_one_kernel(
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -210,17 +210,15 @@ template <typename scalar_t>
 __global__ void trnorm_inf_kernel(
     lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
-    // int chunk; // silent compiler unused warnings
+    scalar_t const* tile = Aarray[ blockIdx.x ];
 
     // Each thread sums one row.
     // This does coalesced reads of one column at a time in parallel.
     for (int i = threadIdx.x; i < m; i += blockDim.x) {
-        // chunk = i % blockDim.x; // silent compiler unused warnings
         scalar_t const* row = &tile[ i ];
         real_t sum = 0;
         if (uplo == lapack::Uplo::Lower) {
@@ -253,7 +251,7 @@ __global__ void trnorm_inf_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Sum of squares, in scaled representation, for each tile in tiles.
+/// Sum of squares, in scaled representation, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row, followed by a reduction.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
@@ -266,9 +264,9 @@ __global__ void trnorm_inf_kernel(
 ///     Number of columns of each tile. n >= 1.
 ///     Also the number of threads per block, hence,
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension blockDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -285,11 +283,11 @@ template <typename scalar_t>
 __global__ void trnorm_fro_kernel(
     lapack::Uplo uplo, lapack::Diag diag,
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_values)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
     int chunk;
 
     // Save partial results in shared memory.

@@ -31,20 +31,20 @@ namespace device {
 /// @param[in] denom
 ///     Scale value on the denominator.
 ///
-/// @param[in] Atiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each Atiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
-///     Leading dimension of each tile in Atiles. lda >= m.
+///     Leading dimension of each tile in Aarray. lda >= m.
 ///
 template <typename scalar_t>
 __global__ void gescale_kernel(
     int64_t m, int64_t n,
     blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
-    scalar_t** tilesA, int64_t lda)
+    scalar_t** Aarray, int64_t lda)
 {
-    scalar_t* tileA = tilesA[blockIdx.x];
+    scalar_t* tileA = Aarray[ blockIdx.x ];
     blas::real_type<scalar_t> mul = numer / denom;
     // thread per row, if more rows than threads, loop by blockDim.x
     for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {

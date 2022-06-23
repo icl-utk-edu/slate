@@ -25,29 +25,29 @@ namespace device {
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///
-/// @param[in] Atiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each Atiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
-///     Leading dimension of each tile in Atiles. lda >= m.
+///     Leading dimension of each tile in Aarray. lda >= m.
 ///
-/// @param[in,out] Btiles
+/// @param[in,out] Barray
 ///     Array of tiles of dimension gridDim.x,
-///     where each Btiles[k] is an m-by-n matrix stored in an ldb-by-n array.
+///     where each Barray[k] is an m-by-n matrix stored in an ldb-by-n array.
 ///
 /// @param[in] ldb
-///     Leading dimension of each tile in Btiles. ldb >= m.
+///     Leading dimension of each tile in Barray. ldb >= m.
 ///
 template <typename src_scalar_t, typename dst_scalar_t>
 __global__ void tzcopy_kernel(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    src_scalar_t** tilesA, int64_t lda,
-    dst_scalar_t** tilesB, int64_t ldb)
+    src_scalar_t** Aarray, int64_t lda,
+    dst_scalar_t** Barray, int64_t ldb)
 {
-    src_scalar_t* tileA = tilesA[blockIdx.x];
-    dst_scalar_t* tileB = tilesB[blockIdx.x];
+    src_scalar_t* tileA = Aarray[blockIdx.x];
+    dst_scalar_t* tileB = Barray[blockIdx.x];
 
     // thread per row, if more rows than threads, loop by blockDim.x
     for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {

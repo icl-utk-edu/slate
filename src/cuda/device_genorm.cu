@@ -14,7 +14,7 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
-/// Finds the largest absolute value of elements, for each tile in tiles.
+/// Finds the largest absolute value of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row, followed by a reduction.
 /// Uses dynamic shared memory array of length sizeof(real_t) * m.
@@ -28,9 +28,9 @@ namespace device {
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -43,11 +43,11 @@ namespace device {
 template <typename scalar_t>
 __global__ void genorm_max_kernel(
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_maxima)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
 
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
@@ -83,7 +83,7 @@ const int ib  = 32;
 const int ib1 = 33;
 
 //------------------------------------------------------------------------------
-/// Sum of absolute values of each column of elements, for each tile in tiles.
+/// Sum of absolute values of each column of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one column.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
@@ -96,9 +96,9 @@ const int ib1 = 33;
 ///     Number of columns of each tile. n >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -114,11 +114,11 @@ const int ib1 = 33;
 template <typename scalar_t>
 __global__ void genorm_one_kernel(
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
     extern __shared__ char dynamic_data[];
     real_t* shmem_tile = (real_t*)dynamic_data;
     const int k = threadIdx.x;
@@ -146,7 +146,7 @@ __global__ void genorm_one_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Sum of absolute values of each row of elements, for each tile in tiles.
+/// Sum of absolute values of each row of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
@@ -159,9 +159,9 @@ __global__ void genorm_one_kernel(
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -177,11 +177,11 @@ __global__ void genorm_one_kernel(
 template <typename scalar_t>
 __global__ void genorm_inf_kernel(
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
 
     for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
         scalar_t const* row = &tile[ i ];
@@ -197,7 +197,7 @@ __global__ void genorm_inf_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Sum of squares, in scaled representation, for each tile in tiles.
+/// Sum of squares, in scaled representation, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row, followed by a reduction.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
@@ -210,9 +210,9 @@ __global__ void genorm_inf_kernel(
 ///     Number of columns of each tile. n >= 1.
 ///     Also the number of threads per block, hence,
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension blockDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -228,11 +228,11 @@ __global__ void genorm_inf_kernel(
 template <typename scalar_t>
 __global__ void genorm_fro_kernel(
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_values)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
     int chunk;
 
     // Save partial results in shared memory.
@@ -283,11 +283,11 @@ __global__ void genorm_fro_kernel(
 template <typename scalar_t>
 __global__ void ge_col_norms_max_kernel(
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* col_max, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
     extern __shared__ char dynamic_data[];
     real_t* shmem_tile = (real_t*)dynamic_data;
     const int k = threadIdx.x;

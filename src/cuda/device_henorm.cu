@@ -14,7 +14,7 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
-/// Finds the largest absolute value of elements, for each tile in tiles.
+/// Finds the largest absolute value of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row, followed by a reduction.
 /// Uses dynamic shared memory array of length sizeof(real_t) * n.
@@ -25,9 +25,9 @@ namespace device {
 ///     Number of rows and columns of each tile. n >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an n-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an n-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= n.
@@ -41,11 +41,11 @@ template <typename scalar_t>
 __global__ void henorm_max_kernel(
     lapack::Uplo uplo,
     int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_maxima)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
     int chunk;
 
     // Save partial results in shared memory.
@@ -91,7 +91,7 @@ __global__ void henorm_max_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Sum of absolute values of each column of elements, for each tile in tiles.
+/// Sum of absolute values of each column of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one column.
 /// Kernel assumes non-trivial tiles (n >= 1).
@@ -101,9 +101,9 @@ __global__ void henorm_max_kernel(
 ///     Number of rows and columns of each tile. n >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an n-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an n-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= n.
@@ -120,11 +120,11 @@ template <typename scalar_t>
 __global__ void henorm_one_kernel(
     lapack::Uplo uplo,
     int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
 
     // Each thread sums one row/column.
     // todo: the row reads are coalesced, but the col reads are not coalesced
@@ -155,7 +155,7 @@ __global__ void henorm_one_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Sum of squares, in scaled representation, for each tile in tiles.
+/// Sum of squares, in scaled representation, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row, followed by a reduction.
 /// Kernel assumes non-trivial tiles (n >= 1).
@@ -165,9 +165,9 @@ __global__ void henorm_one_kernel(
 ///     Number of rows and columns of each tile. n >= 1.
 ///     Also the number of threads per block, hence,
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension blockDim.x,
-///     where each tiles[k] is an n-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an n-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= n.
@@ -184,11 +184,11 @@ template <typename scalar_t>
 __global__ void henorm_fro_kernel(
     lapack::Uplo uplo,
     int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_values)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
     int chunk;
 
     // Save partial results in shared memory.

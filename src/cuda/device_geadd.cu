@@ -25,28 +25,28 @@ namespace device {
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///
-/// @param[in] Atiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each Atiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
-///     Leading dimension of each tile in Atiles. lda >= m.
+///     Leading dimension of each tile in Aarray. lda >= m.
 ///
-/// @param[in] Btiles
+/// @param[in] Barray
 ///     Array of tiles of dimension gridDim.x,
-///     where each Btiles[k] is an m-by-n matrix stored in an ldb-by-n array.
+///     where each Barray[k] is an m-by-n matrix stored in an ldb-by-n array.
 ///
 /// @param[in] ldb
-///     Leading dimension of each tile in Btiles. ldb >= m.
+///     Leading dimension of each tile in Barray. ldb >= m.
 ///
 template <typename scalar_t>
 __global__ void geadd_kernel(
     int64_t m, int64_t n,
-    scalar_t alpha, scalar_t** tilesA, int64_t lda,
-    scalar_t beta, scalar_t** tilesB, int64_t ldb)
+    scalar_t alpha, scalar_t** Aarray, int64_t lda,
+    scalar_t beta,  scalar_t** Barray, int64_t ldb)
 {
-    scalar_t* tileA = tilesA[blockIdx.x];
-    scalar_t* tileB = tilesB[blockIdx.x];
+    scalar_t* tileA = Aarray[ blockIdx.x ];
+    scalar_t* tileB = Barray[ blockIdx.x ];
 
     // thread per row, if more rows than threads, loop by blockDim.x
     for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {

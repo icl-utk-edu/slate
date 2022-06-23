@@ -1087,19 +1087,26 @@ define if_md5_outdated
     fi
 endef
 
+# From GNU manual: Commas ... cannot appear in an argument as written.
+# The[y] can be put into the argument value by variable substitution.
+comma := ,
+
 # Convert CUDA => HIP code.
 # Explicitly mention ${hip_src}, ${hip_hdr}, ${md5_files}
 # to prevent them from being intermediate files,
 # so they are _always_ generated and never removed.
+# Perl updates includes and removes excess spaces that fail style hook.
 ${hip_src}: src/hip/%.hip.cc: src/cuda/%.cu.md5 | src/hip
 	@${call if_md5_outdated, \
 	        ${hipify} ${basename $<} > $@; \
-	        sed -i -e "s/\.cuh/.hip.hh/g" $@}
+	        perl -pi -e 's/\.cuh/.hip.hh/g; s/ +(${comma}|;|$$)/$$1/g;' $@}
 
 ${hip_hdr}: src/hip/%.hip.hh: src/cuda/%.cuh.md5 | src/hip
 	@${call if_md5_outdated, \
 	        ${hipify} ${basename $<} > $@; \
-	        sed -i -e "s/\.cuh/.hip.hh/g" $@}
+	        perl -pi -e 's/\.cuh/.hip.hh/g; s/ +(${comma}|;|$$)/$$1/g;' $@}
+
+hipify: ${hip_src} ${hip_hdr}
 
 md5_files := ${addsuffix .md5, ${cuda_src} ${cuda_hdr}}
 

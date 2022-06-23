@@ -119,6 +119,8 @@ def copyright():
     # end
     print()
 
+    myrun( 'make hipify' )
+
     myrun( 'git diff' )
     print( '>> Commit changes [yn]? ', end='' )
     response = input()

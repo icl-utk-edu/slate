@@ -231,6 +231,49 @@ namespace MethodCholQR {
 
 } // namespace MethodCholQR
 
+//------------------------------------------------------------------------------
+/// Select the right algorithm to solve least squares problems
+namespace MethodGels {
+    static constexpr char Cholqr_str[]  = "cholqr";
+    static constexpr char Geqrf_str[]   = "qr";
+    static const Method Error   = baseMethodError; ///< Error flag
+    static const Method Auto    = baseMethodAuto;  ///< Let the algorithm decide
+    static const Method Cholqr  = 1;  ///< Select cholqr algorithm
+    static const Method Geqrf   = 2;  ///< Select geqrf algorithm
+
+    template <typename TA, typename TB>
+    inline Method select_algo(TA& A, TB& B, Options const& opts) {
+        return Geqrf;
+    }
+
+    inline Method str2methodGels(const char* method)
+    {
+        std::string method_ = method;
+        std::transform(
+            method_.begin(), method_.end(), method_.begin(), ::tolower );
+
+        if (method_ == "auto")
+            return Auto;
+        else if (method_ == "qr")
+            return Geqrf;
+        else if (method_ == "cholqr")
+            return Cholqr;
+        else
+            throw slate::Exception("unknown gels method");
+    }
+
+    static const char* methodGels2str(Method method)
+    {
+        switch (method) {
+            case Auto:   return baseMethodAuto_str;
+            case Geqrf:  return Geqrf_str;
+            case Cholqr: return Cholqr_str;
+            default:     return baseMethodError_str;
+        }
+    }
+
+} // namespace MethodGels
+
 } // namespace slate
 
 #endif // SLATE_METHOD_HH

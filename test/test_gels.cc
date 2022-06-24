@@ -48,6 +48,8 @@ void test_gels_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    slate::Method methodGels = params.method_gels();
+    slate::Method methodCholqr = params.method_cholQR();
     bool consistent = true;
     params.matrix.mark();
     params.matrixB.mark();
@@ -71,7 +73,9 @@ void test_gels_work(Params& params, bool run)
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
-        {slate::Option::InnerBlocking, ib}
+        {slate::Option::InnerBlocking, ib},
+        {slate::Option::MethodCholQR, methodCholqr},
+        {slate::Option::MethodGels, methodGels}
     };
 
     // A is m-by-n, BX is max(m, n)-by-nrhs.

@@ -74,7 +74,8 @@ enum class Option : char {
     PrintWidth,         ///< width print format specifier
     PrintPrecision,     ///< precision print format specifier
                         ///< For correct printing, PrintWidth = PrintPrecision + 6.
-    MethodCholQR,       ///< Select the algorithm to compute At * A
+    MethodCholQR,       ///< Select the algorithm to compute A^H * A
+    MethodGels,         ///< Select the gels algorithm
     MethodGemm,         ///< Select the gemm algorithm
     MethodHemm,         ///< Select the hemm algorithm
     MethodTrsm,         ///< Select the trsm algorithm

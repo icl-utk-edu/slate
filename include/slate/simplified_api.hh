@@ -617,8 +617,7 @@ void least_squares_solve(
     Matrix<scalar_t>& BX,
     Options const& opts = Options())
 {
-    TriangularFactors<scalar_t> T;
-    gels(A, T, BX, opts);
+    gels( A, BX, opts );
 }
 
 //-----------------------------------------

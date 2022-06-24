@@ -101,9 +101,7 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
     else if (trans == slate::Op::ConjTrans)
         opA = conjTranspose(A);
 
-    slate::TriangularFactors<scalar_t> T;
-
-    slate::gels(opA, T, B, {
+    slate::gels(opA, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},

@@ -24,10 +24,12 @@ using testsweeper::ansi_red;
 using testsweeper::ansi_normal;
 
 using slate::MethodCholQR::str2methodCholQR;
+using slate::MethodGels::str2methodGels;
 using slate::MethodGemm::str2methodGemm;
 using slate::MethodHemm::str2methodHemm;
 using slate::MethodTrsm::str2methodTrsm;
 using slate::MethodCholQR::methodCholQR2str;
+using slate::MethodGels::methodGels2str;
 using slate::MethodGemm::methodGemm2str;
 using slate::MethodHemm::methodHemm2str;
 using slate::MethodTrsm::methodTrsm2str;
@@ -314,7 +316,8 @@ Params::Params():
     origin    ("origin",  6,    ParamType::List, slate::Origin::Host,     str2origin,   origin2str,   "origin: h=Host, s=ScaLAPACK, d=Devices"),
     target    ("target",  6,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNest, b=HostBatch, d=Devices"),
 
-    method_cholQR ("method-cholQR", 4, ParamType::List, 0, str2methodCholQR, methodCholQR2str, "method-cholQR: auto=auto, herkC, gemmA, gemmC"),
+    method_cholQR ("method-cholQR", 6, ParamType::List, 0, str2methodCholQR, methodCholQR2str, "method-cholQR: auto=auto, herkC, gemmA, gemmC"),
+    method_gels   ("method-gels",   4, ParamType::List, 0, str2methodGels,   methodGels2str,   "method-gels: auto=auto, qr, cholqr"),
     method_gemm   ("method-gemm",   4, ParamType::List, 0, str2methodGemm,   methodGemm2str,   "method-gemm: auto=auto, A=gemmA, C=gemmC"),
     method_hemm   ("method-hemm",   4, ParamType::List, 0, str2methodHemm,   methodHemm2str,   "method-hemm: auto=auto, A=hemmA, C=hemmC"),
     method_trsm   ("method-trsm",   4, ParamType::List, 0, str2methodTrsm,   methodTrsm2str,   "method-trsm: auto=auto, A=trsmA, B=trsmB"),
@@ -415,6 +418,7 @@ Params::Params():
 
     // Change name for the methods to use less space in the stdout
     method_cholQR.name("cholQR", "method-cholQR");
+    method_gels.name("gels", "method-gels");
     method_gemm.name("gemm", "method-gemm");
     method_hemm.name("hemm", "method-hemm");
     method_trsm.name("trsm", "method-trsm");

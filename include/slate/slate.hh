@@ -754,9 +754,36 @@ using TriangularFactors = std::vector< Matrix<scalar_t> >;
 
 //-----------------------------------------
 // gels()
+
+// Using QR
 template <typename scalar_t>
+void gels_qr(
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Matrix<scalar_t>& BX,
+    Options const& opts = Options());
+
+// Using CholeskyQR
+template <typename scalar_t>
+void gels_cholqr(
+    Matrix<scalar_t>& A, Matrix<scalar_t>& R,
+    Matrix<scalar_t>& BX,
+    Options const& opts = Options());
+
+// Backward compatibility
+template <typename scalar_t>
+[[deprecated( "Use gels( A, BX[, opts] ) instead." )]]
 void gels(
     Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Matrix<scalar_t>& BX,
+    Options const& opts = Options())
+{
+    gels_qr( A, T, BX, opts );
+}
+
+// Routine selection
+template <typename scalar_t>
+void gels(
+    Matrix<scalar_t>& A,
     Matrix<scalar_t>& BX,
     Options const& opts = Options());
 

@@ -121,16 +121,16 @@ void gemmC(scalar_t alpha, Matrix<scalar_t>& A,
                     beta,  std::move(C),
                     layout, default_priority, default_queue, opts2);
 
-            auto A_rowblock = A.sub(0, A.mt()-1, 0, 0);
-            auto B_colblock = B.sub(0, 0, 0, B.nt()-1);
+            auto A_colblock = A.sub(0, A.mt()-1, 0, 0);
+            auto B_rowblock = B.sub(0, 0, 0, B.nt()-1);
 
             // Erase remote tiles on all devices including host
-            A_rowblock.eraseRemoteWorkspace();
-            B_colblock.eraseRemoteWorkspace();
+            A_colblock.eraseRemoteWorkspace();
+            B_rowblock.eraseRemoteWorkspace();
 
             // Erase local workspace on devices.
-            A_rowblock.eraseLocalWorkspace();
-            B_colblock.eraseLocalWorkspace();
+            A_colblock.eraseLocalWorkspace();
+            B_rowblock.eraseLocalWorkspace();
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -170,16 +170,16 @@ void gemmC(scalar_t alpha, Matrix<scalar_t>& A,
                     one,   std::move( C ),
                     layout, default_priority, default_queue, opts2);
 
-                auto A_rowblock = A.sub(0, A.mt()-1, k, k);
-                auto B_colblock = B.sub(k, k, 0, B.nt()-1);
+                auto A_colblock = A.sub(0, A.mt()-1, k, k);
+                auto B_rowblock = B.sub(k, k, 0, B.nt()-1);
 
                 // Erase remote tiles on all devices including host
-                A_rowblock.eraseRemoteWorkspace();
-                B_colblock.eraseRemoteWorkspace();
+                A_colblock.eraseRemoteWorkspace();
+                B_rowblock.eraseRemoteWorkspace();
 
                 // Erase local workspace on devices.
-                A_rowblock.eraseLocalWorkspace();
-                B_colblock.eraseLocalWorkspace();
+                A_colblock.eraseLocalWorkspace();
+                B_rowblock.eraseLocalWorkspace();
             }
         }
         #pragma omp taskwait

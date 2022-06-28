@@ -55,6 +55,7 @@ void test_gemm_work(Params& params, bool run)
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::GridOrder grid_order = params.grid_order();
+    slate::Method method_gemm = params.method_gemm();
     params.matrix.mark();
     params.matrixB.mark();
     params.matrixC.mark();
@@ -72,14 +73,9 @@ void test_gemm_work(Params& params, bool run)
     if (! run)
         return;
 
-    // skip invalid or unimplemented options
-    if (params.routine == "gemmA" && target != slate::Target::HostTask) {
-        params.msg() = "skipping: currently gemmA is only implemented for HostTask";
-        return;
-    }
-
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
+        {slate::Option::MethodGemm, method_gemm},
         {slate::Option::Target, target}
     };
 

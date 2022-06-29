@@ -41,7 +41,7 @@ void test_herk_work(Params& params, bool run)
     int64_t lookahead = params.lookahead();
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
-    bool ref = params.ref() == 'y';
+    bool ref = params.ref() == 'y' || check;
     #ifndef SLATE_HAVE_SCALAPACK
         ref = false;
     #endif

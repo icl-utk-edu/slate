@@ -41,7 +41,7 @@ void test_herk_work(Params& params, bool run)
     int64_t lookahead = params.lookahead();
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
-    bool ref = params.ref() == 'y' || check;
+    bool ref = params.ref() == 'y';
     #ifndef SLATE_HAVE_SCALAPACK
         ref = false;
     #endif
@@ -62,7 +62,10 @@ void test_herk_work(Params& params, bool run)
 
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
+        {slate::Option::Target, target},
+        // TODO multiply() fails for some cases since gemmA has a bug.
+        // So gemmC is used temporarily.
+        {slate::Option::MethodGemm, slate::MethodGemm::GemmC}
     };
 
     // Error analysis applies in these norms.

@@ -194,7 +194,7 @@ void test_herk_work(Params& params, bool run)
         // Y = C * X - Y
         slate::multiply( one, C, X, -one, Y );
         // error = norm( Y ) / y_norm
-        real_t error = slate::norm( slate::Norm::One, Y, opts )/y_norm;
+        real_t error = slate::norm( norm, Y, opts )/y_norm;
         params.error() = error;
 
         // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.

@@ -271,7 +271,7 @@
             @defgroup gbmm_specialization   gbmm:  General band matrix multiply
             @defgroup hemm_specialization   hemm:  Hermitian matrix multiply
             @defgroup hbmm_specialization   hbmm:  Hermitian band matrix multiply
-            @defgroup herk_specialization   herk:  Hermitian rank k update
+            @defgroup herk_impl             herk:  Hermitian rank k update
             @defgroup her2k_specialization  her2k: Hermitian rank 2k update
             @defgroup symm_specialization   symm:  Symmetric matrix multiply
             @defgroup syrk_specialization   syrk:  Symmetric rank k update

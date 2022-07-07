@@ -43,11 +43,11 @@ void herk(slate::internal::TargetType<target>,
     // A is mt-by-nt, C is mt-by-mt
     assert(A.mt() == C.mt());
 
-	// Use only TileReleaseStrategy::Slate for herk.
-	// Internal herk routine called here won't release
-	// any tiles. This routine will clean up tiles.
-	Options opts2 = opts;
-	opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
+    // Use only TileReleaseStrategy::Slate for herk.
+    // Internal herk routine called here won't release
+    // any tiles. This routine will clean up tiles.
+    Options opts2 = opts;
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     int64_t lookahead = get_option<int64_t>( opts2, Option::Lookahead, 1 );
 
@@ -57,7 +57,7 @@ void herk(slate::internal::TargetType<target>,
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
     const int default_priority = 0;
-	const int default_queue = 0;
+    const int default_queue = 0;
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -107,15 +107,15 @@ void herk(slate::internal::TargetType<target>,
             internal::herk<target>(
                 alpha, A.sub(0, A.mt()-1, 0, 0),
                 beta,  std::move(C),
-				default_priority, default_queue, layout, opts2);
+                default_priority, default_queue, layout, opts2);
 
-			auto A_colblock = A.sub(0, A.mt()-1, 0, 0);
+            auto A_colblock = A.sub(0, A.mt()-1, 0, 0);
 
-			// Erase remote tiles on all devices including host
-			A_colblock.eraseRemoteWorkspace();
+            // Erase remote tiles on all devices including host
+            A_colblock.eraseRemoteWorkspace();
 
-			// Erase local workspace on devices.
-			A_colblock.eraseLocalWorkspace();
+            // Erase local workspace on devices.
+            A_colblock.eraseLocalWorkspace();
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -146,7 +146,7 @@ void herk(slate::internal::TargetType<target>,
                 internal::herk<target>(
                     alpha,       A.sub(0, A.mt()-1, k, k),
                     real_t(1.0), std::move(C),
-					default_priority, default_queue, layout, opts2);
+                    default_priority, default_queue, layout, opts2);
 
                 auto A_colblock = A.sub(0, A.mt()-1, k, k);
 

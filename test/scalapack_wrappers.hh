@@ -2379,4 +2379,101 @@ inline void scalapack_phegst(int64_t itype, const char* uplo, int64_t n, scalar_
     scalapack_phegst(&itype_, uplo, &n_, a, &ia_, &ja_, desca, b, &ib_, &jb_, descb, scale, info);
 }
 
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_pslaqge BLAS_FORTRAN_NAME( pslaqge, PSlaqge )
+#define scalapack_pdlaqge BLAS_FORTRAN_NAME( pdlaqge, PDlaqge )
+#define scalapack_pclaqge BLAS_FORTRAN_NAME( pclaqge, PClaqge )
+#define scalapack_pzlaqge BLAS_FORTRAN_NAME( pzlaqge, PZlaqge )
+
+extern "C" {
+
+void scalapack_pslaqge(
+    blas_int* m, blas_int* n,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* R, float* C,
+    float* rowcnd, float* colcnd, float* Amax, char* equed);
+
+void scalapack_pdlaqge(
+    blas_int* m, blas_int* n,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* R, double* C,
+    double* rowcnd, double* colcnd, double* Amax, char* equed);
+
+void scalapack_pclaqge(
+    blas_int* m, blas_int* n,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* R, float* C,
+    float* rowcnd, float* colcnd, float* Amax, char* equed);
+
+void scalapack_pzlaqge(
+    blas_int* m, blas_int* n,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* R, double* C,
+    double* rowcnd, double* colcnd, double* Amax, char* equed);
+
+} // extern C
+
+// -----------------------------------------------------------------------------
+inline void scalapack_plaqge(
+    blas_int* m, blas_int* n,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* R, float* C,
+    float* rowcnd, float* colcnd, float* Amax, char* equed)
+{
+    scalapack_pslaqge( m, n, A, ia, ja, descA,
+                       R, C, rowcnd, colcnd, Amax, equed );
+}
+
+inline void scalapack_plaqge(
+    blas_int* m, blas_int* n,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* R, double* C,
+    double* rowcnd, double* colcnd, double* Amax, char* equed)
+{
+    scalapack_pdlaqge( m, n, A, ia, ja, descA,
+                       R, C, rowcnd, colcnd, Amax, equed );
+}
+
+inline void scalapack_plaqge(
+    blas_int* m, blas_int* n,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* R, float* C,
+    float* rowcnd, float* colcnd, float* Amax, char* equed)
+{
+    scalapack_pclaqge( m, n, A, ia, ja, descA,
+                       R, C, rowcnd, colcnd, Amax, equed );
+}
+
+inline void scalapack_plaqge(
+    blas_int* m, blas_int* n,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* R, double* C,
+    double* rowcnd, double* colcnd, double* Amax, char* equed)
+{
+    scalapack_pzlaqge( m, n, A, ia, ja, descA,
+                       R, C, rowcnd, colcnd, Amax, equed );
+}
+
+// -----------------------------------------------------------------------------
+// equed is an output, hence not const.
+template <typename scalar_t>
+inline void scalapack_plaqge(
+    int64_t m, int64_t n,
+    scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
+    blas::real_type<scalar_t>* R,
+    blas::real_type<scalar_t>* C,
+    blas::real_type<scalar_t> rowcnd,
+    blas::real_type<scalar_t> colcnd,
+    blas::real_type<scalar_t> Amax, char* equed)
+{
+    blas_int m_  = int64_to_int( m  );
+    blas_int n_  = int64_to_int( n  );
+    blas_int ia_ = int64_to_int( ia );
+    blas_int ja_ = int64_to_int( ja );
+    scalapack_plaqge( &m_, &n_, A, &ia_, &ja_, descA,
+                      R, C, &rowcnd, &colcnd, &Amax, equed );
+}
+
 #endif // SLATE_SCALAPACK_WRAPPERS_HH

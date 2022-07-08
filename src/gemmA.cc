@@ -78,7 +78,7 @@ void gemmA(
                 for (int64_t i = 0; i < B.mt(); ++i)
                     bcast_list_B.push_back(
                         {i, k, {A.sub(0, A.mt()-1, i, i)}});
-                B.template listBcast<target>(bcast_list_B, layout);
+                B.template listBcast<target>(bcast_list_B, layout, k);
             }
         }
 
@@ -121,7 +121,7 @@ void gemmA(
                     for (int64_t i = 0; i < B.mt(); ++i)
                         bcast_list_B.push_back(
                             {i, k+lookahead, {A.sub(0, A.mt()-1, i, i)}});
-                    B.template listBcast<target>(bcast_list_B, layout);
+                    B.template listBcast<target>(bcast_list_B, layout, k+lookahead);
                 }
             }
 

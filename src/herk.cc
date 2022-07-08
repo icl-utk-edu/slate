@@ -223,20 +223,20 @@ void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::herk<Target::HostTask>(TargetType<Target::HostTask>(),
-                                         alpha, A, beta, C, opts);
+            impl::herk( TargetType<Target::HostTask>(),
+                        alpha, A, beta, C, opts );
             break;
         case Target::HostNest:
-            impl::herk<Target::HostNest>(TargetType<Target::HostNest>(),
-                                        alpha, A, beta, C, opts);
+            impl::herk( TargetType<Target::HostNest>(),
+                        alpha, A, beta, C, opts );
             break;
         case Target::HostBatch:
-            impl::herk<Target::HostBatch>(TargetType<Target::HostBatch>(),
-                                          alpha, A, beta, C, opts);
+            impl::herk( TargetType<Target::HostBatch>(),
+                        alpha, A, beta, C, opts );
             break;
         case Target::Devices:
-            impl::herk<Target::Devices>(TargetType<Target::Devices>(),
-                                        alpha, A, beta, C, opts);
+            impl::herk( TargetType<Target::Devices>(),
+                        alpha, A, beta, C, opts );
             break;
     }
 }

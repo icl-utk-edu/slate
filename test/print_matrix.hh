@@ -201,9 +201,9 @@ void print_matrix(
         return;
 
     const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintVerbose,   params.verbose() },
+        { slate::Option::PrintWidth,     params.print_width() },
         { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
     };
 
@@ -226,9 +226,9 @@ void print_matrix(
         return;
 
     const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintVerbose,   params.verbose() },
+        { slate::Option::PrintWidth,     params.print_width() },
         { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
     };
     print( label, mlocal, nlocal, A, lda, p, q, comm, opts );
@@ -240,19 +240,19 @@ void print_matrix(
 /// block row of the matrix.
 /// For block-sparse matrices, missing tiles are print as "nan".
 ///
-template <typename scalar_t>
+template <typename matrix_type>
 void print_matrix(
     const char* label,
-    slate::Matrix<scalar_t>& A,
+    matrix_type& A,
     Params& params)
 {
     if (params.verbose() == 0)
         return;
 
     const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintVerbose,   params.verbose() },
+        { slate::Option::PrintWidth,     params.print_width() },
         { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
     };
 
@@ -260,100 +260,14 @@ void print_matrix(
 }
 
 //------------------------------------------------------------------------------
-/// Print a SLATE distributed band matrix.
-/// Rank 0 does the printing, and must have enough memory to fit one entire
-/// block row of the matrix.
-/// Tiles outside the bandwidth are printed as "0", with no trailing decimals.
-/// For block-sparse matrices, missing tiles are print as "nan".
+/// Print a vector.
+/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
+/// as desired.
 ///
 template <typename scalar_t>
-void print_matrix(
+void print_vector(
     const char* label,
-    slate::BandMatrix<scalar_t>& A,
-    Params& params)
-{
-    if (params.verbose() == 0)
-        return;
-
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-    };
-
-    slate::print( label, A, opts );
-}
-
-//------------------------------------------------------------------------------
-/// Print a SLATE distributed BaseTriangular (triangular, symmetric, and
-/// Hermitian) band matrix.
-/// Rank 0 does the printing, and must have enough memory to fit one entire
-/// block row of the matrix.
-/// Tiles outside the bandwidth are printed as "0", with no trailing decimals.
-/// For block-sparse matrices, missing tiles are print as "nan".
-///
-/// Entries in the A.uplo triangle are printed; entries in the opposite
-/// triangle are printed as "nan".
-///
-/// Having said that, if the printed matrix is a lower triangular matrix,
-/// then the routine will print the tiles of upper part of the matrix as "nan",
-/// and the lower part tiles that are inside the bandwidth will be printed
-/// as they are, whereas the non existing tiles, tiles outside the bandwidth,
-/// will be printed as "0", with no trailing decimals.
-/// This is to follow MATLAB convention and to make it easier for debugging.
-///
-template <typename scalar_t>
-void print_matrix(
-    const char* label,
-    slate::BaseTriangularBandMatrix<scalar_t>& A,
-    Params& params)
-{
-    if (params.verbose() == 0)
-        return;
-
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-    };
-
-    slate::print( label, A, opts );
-}
-
-//------------------------------------------------------------------------------
-/// Print a SLATE distributed Hermitian matrix.
-/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
-/// todo: fix complex diag in Matlab? (Sca)LAPACK ignores imag part.
-///
-template <typename scalar_t>
-void print_matrix(
-    const char* label,
-    slate::HermitianMatrix<scalar_t>& A,
-    Params& params)
-{
-    if (params.verbose() == 0)
-        return;
-
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-    };
-
-    slate::print( label, A, opts );
-}
-
-//------------------------------------------------------------------------------
-/// Print a SLATE distributed symmetric matrix.
-/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
-///
-template <typename scalar_t>
-void print_matrix(
-    const char* label,
-    slate::SymmetricMatrix<scalar_t>& A,
+    std::vector<scalar_t>& x,
     Params& params)
 {
     if (params.verbose() == 0)
@@ -367,57 +281,7 @@ void print_matrix(
         { slate::Option::PrintEdgeItems, params.print_edgeitems() },
     };
 
-    slate::print( label, A, opts );
-}
-
-//------------------------------------------------------------------------------
-/// Print a SLATE distributed trapezoid matrix.
-/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
-/// todo: fix unit diag in Matlab.
-///
-template <typename scalar_t>
-void print_matrix(
-    const char* label,
-    slate::TrapezoidMatrix<scalar_t>& A,
-    Params& params)
-{
-    if (params.verbose() == 0)
-        return;
-
-    // Set defaults
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-    };
-
-    slate::print( label, A, opts );
-}
-
-//------------------------------------------------------------------------------
-/// Print a SLATE distributed triangular matrix.
-/// Also prints Matlab tril or triu command to fix entries in opposite triangle.
-/// todo: fix unit diag in Matlab.
-///
-template <typename scalar_t>
-void print_matrix(
-    const char* label,
-    slate::TriangularMatrix<scalar_t>& A,
-    Params& params)
-{
-    if (params.verbose() == 0)
-        return;
-
-    // Set defaults
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, params.print_width() },
-        { slate::Option::PrintPrecision, params.print_precision() },
-        { slate::Option::PrintVerbose, params.verbose() },
-        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
-    };
-
-    slate::print( label, A, opts );
+    slate::print( label, x, opts );
 }
 
 #endif // SLATE_PRINT_MATRIX_HH

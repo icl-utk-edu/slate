@@ -86,6 +86,7 @@ group_opt.add_argument( '--trans',  action='store', help='default=%(default)s', 
 group_opt.add_argument( '--uplo',   action='store', help='default=%(default)s', default='l,u' )
 group_opt.add_argument( '--diag',   action='store', help='default=%(default)s', default='n,u' )
 group_opt.add_argument( '--side',   action='store', help='default=%(default)s', default='l,r' )
+group_opt.add_argument( '--equed',  action='store', help='default=%(default)s', default='b,r,c,n' )
 group_opt.add_argument( '--alpha',  action='store', help='', default='' )
 group_opt.add_argument( '--beta',   action='store', help='', default='' )
 group_opt.add_argument( '--incx',   action='store', help='default=%(default)s', default='1,2,-1,-2' )
@@ -255,6 +256,7 @@ trans  = ' --trans '  + opts.trans  if (opts.trans)  else ''
 uplo   = ' --uplo '   + opts.uplo   if (opts.uplo)   else ''
 diag   = ' --diag '   + opts.diag   if (opts.diag)   else ''
 side   = ' --side '   + opts.side   if (opts.side)   else ''
+equed  = ' --equed '  + opts.equed  if (opts.equed)  else ''
 a      = ' --alpha '  + opts.alpha  if (opts.alpha)  else ''
 ab     = a+' --beta ' + opts.beta   if (opts.beta)   else a
 incx   = ' --incx '   + opts.incx   if (opts.incx)   else ''
@@ -569,6 +571,8 @@ if (opts.aux):
     [ 'trscale', gen + dtype + n  + ab + uplo ],
     [ 'syscale', gen + dtype + n  + ab + uplo ],
     [ 'hescale', gen + dtype + n  + ab + uplo ],
+
+    [ 'scale_row_col', gen + dtype + mn + equed ],
 
     [ 'set',    gen + dtype + mn + ab        ],
     [ 'tzset',  gen + dtype + mn + ab + uplo ],

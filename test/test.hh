@@ -106,6 +106,7 @@ public:
     testsweeper::ParamEnum< slate::Op >             transB;
     testsweeper::ParamEnum< slate::Diag >           diag;
     testsweeper::ParamEnum< slate::Direction >      direction;
+    testsweeper::ParamEnum< slate::Equed >          equed;
     testsweeper::ParamEnum< lapack::StoreV >        storev;
     testsweeper::ParamEnum< lapack::MatrixType >    matrixtype;
 
@@ -249,6 +250,7 @@ void test_trnorm (Params& params, bool run);
 void test_add    (Params& params, bool run);
 void test_copy   (Params& params, bool run);
 void test_scale  (Params& params, bool run);
+void test_scale_row_col(Params& params, bool run);
 void test_set    (Params& params, bool run);
 
 // -----------------------------------------------------------------------------

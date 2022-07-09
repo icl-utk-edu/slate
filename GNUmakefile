@@ -631,6 +631,7 @@ tester_src += \
         test/test_posv.cc \
         test/test_potri.cc \
         test/test_scale.cc \
+        test/test_scale_row_col.cc \
         test/test_set.cc \
         test/test_steqr2.cc \
         test/test_sterf.cc \

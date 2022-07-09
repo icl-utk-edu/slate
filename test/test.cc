@@ -234,6 +234,7 @@ std::vector< testsweeper::routines_t > routines = {
 
     { "trnorm",             test_trnorm,       Section::aux_norm },
     { "",                   nullptr,           Section::newline },
+
     // -----
     // auxiliary
     { "add",                test_add,          Section::aux },
@@ -241,18 +242,24 @@ std::vector< testsweeper::routines_t > routines = {
     { "tradd",              test_add,          Section::aux },
     { "syadd",              test_add,          Section::aux },
     { "headd",              test_add,          Section::aux },
+    { "",                   nullptr,           Section::newline },
 
     { "copy",               test_copy,         Section::aux },
     { "tzcopy",             test_copy,         Section::aux },
     { "trcopy",             test_copy,         Section::aux },
     { "sycopy",             test_copy,         Section::aux },
     { "hecopy",             test_copy,         Section::aux },
+    { "",                   nullptr,           Section::newline },
 
     { "scale",              test_scale,        Section::aux },
     { "tzscale",            test_scale,        Section::aux },
     { "trscale",            test_scale,        Section::aux },
     { "syscale",            test_scale,        Section::aux },
     { "hescale",            test_scale,        Section::aux },
+    { "",                   nullptr,           Section::newline },
+
+    { "scale_row_col",      test_scale_row_col, Section::aux },
+    { "",                   nullptr,           Section::newline },
 
     { "set",                test_set,          Section::aux },
     { "tzset",              test_set,          Section::aux },
@@ -336,6 +343,7 @@ Params::Params():
     transB    ("transB",  7,    ParamType::List, slate::Op::NoTrans,      blas::char2op,     blas::op2char,     blas::op2str,     "transpose of B: n=no-trans, t=trans, c=conj-trans"),
     diag      ("diag",    7,    ParamType::List, slate::Diag::NonUnit,    blas::char2diag,   blas::diag2char,   blas::diag2str,   "diagonal: n=non-unit, u=unit"),
     direction ("direction", 8,  ParamType::List, slate::Direction::Forward, lapack::char2direction, lapack::direction2char, lapack::direction2str, "direction: f=forward, b=backward"),
+    equed     ("equed",   5,    ParamType::List, slate::Equed::Both, lapack::char2equed, lapack::equed2char, lapack::equed2str, "row & col scaling (equilibration): b=both, r=row, c=col, n=none"),
     storev    ("storev", 10,    ParamType::List, lapack::StoreV::Columnwise, lapack::char2storev, lapack::storev2char, lapack::storev2str, "store vectors: c=columnwise, r=rowwise"),
 
     matrixtype( "matrixtype", 10, ParamType::List, lapack::MatrixType::General,

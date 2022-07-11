@@ -117,6 +117,15 @@ void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
            int priority=0, int queue_index=0);
 
 //-----------------------------------------
+// scale_row_col
+template <Target target=Target::HostTask, typename scalar_t, typename scalar_t2>
+void scale_row_col(
+    Equed equed,
+    std::vector< scalar_t2 > const& R,
+    std::vector< scalar_t2 > const& C,
+    Matrix<scalar_t>&& A );
+
+//-----------------------------------------
 // set()
 template <Target target=Target::HostTask, typename scalar_t>
 void set(scalar_t offdiag_value, scalar_t diag_value,

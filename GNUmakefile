@@ -417,6 +417,7 @@ ifneq ($(only_unit),1)
         src/internal/internal_genorm.cc \
         src/internal/internal_geqrf.cc \
         src/internal/internal_gescale.cc \
+        src/internal/internal_gescale_row_col.cc \
         src/internal/internal_geset.cc \
         src/internal/internal_getrf.cc \
         src/internal/internal_getrf_nopiv.cc \
@@ -540,6 +541,7 @@ ifneq ($(only_unit),1)
         src/potrs.cc \
         src/print.cc \
         src/scale.cc \
+        src/scale_row_col.cc \
         src/set.cc \
         src/steqr2.cc \
         src/sterf.cc \

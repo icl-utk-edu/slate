@@ -60,6 +60,7 @@ void copy(
 
 //-----------------------------------------
 // scale()
+// General matrix.
 template <typename scalar_t>
 void scale(
     blas::real_type<scalar_t> numer,
@@ -67,6 +68,7 @@ void scale(
     Matrix<scalar_t>& A,
     Options const& opts = Options());
 
+/// General matrix, version with denom = 1.0.
 template <typename scalar_t>
 void scale(
     blas::real_type<scalar_t> value,
@@ -77,6 +79,7 @@ void scale(
     scale(value, one, A, opts);
 }
 
+// BaseTrapezoid matrix.
 template <typename scalar_t>
 void scale(
     blas::real_type<scalar_t> numer,
@@ -84,6 +87,7 @@ void scale(
     BaseTrapezoidMatrix<scalar_t>& A,
     Options const& opts = Options());
 
+/// BaseTrapezoid matrix, version with denom = 1.0.
 template <typename scalar_t>
 void scale(
     blas::real_type<scalar_t> value,
@@ -93,6 +97,17 @@ void scale(
     blas::real_type<scalar_t> one = 1.0;
     scale(value, one, A, opts);
 }
+
+//-----------------------------------------
+// scale_row_col
+// General matrix.
+template <typename scalar_t, typename scalar_t2>
+void scale_row_col(
+    Equed equed,
+    std::vector< scalar_t2 > const& R,
+    std::vector< scalar_t2 > const& C,
+    Matrix<scalar_t>& A,
+    Options const& opts = Options());
 
 //-----------------------------------------
 // set()

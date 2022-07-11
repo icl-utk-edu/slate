@@ -62,10 +62,7 @@ void test_herk_work(Params& params, bool run)
 
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target},
-        // TODO multiply() fails for some cases since gemmA has a bug.
-        // So gemmC is used temporarily.
-        {slate::Option::MethodGemm, slate::MethodGemm::GemmC}
+        {slate::Option::Target, target}
     };
 
     // Error analysis applies in these norms.

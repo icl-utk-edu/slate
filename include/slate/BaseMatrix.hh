@@ -2146,8 +2146,8 @@ void BaseMatrix<scalar_t>::listReduce(ReduceList& reduce_list, Layout layout, in
                 if (mpi_rank_ != root_rank)
                     tileErase( i, j, HostNum );
             }
-            else {
-                tileModified(i, j);
+            else if (root_rank == mpi_rank_ && reduce_set.size() > 1) {
+                tileModified( i, j );
             }
         }
     }

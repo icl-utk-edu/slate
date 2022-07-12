@@ -85,15 +85,14 @@ namespace MethodGemm {
     const Method GemmC  = 2;  ///< Select gemmC algorithm
 
     template <typename TA, typename TB>
-    inline Method select_algo(TA& A, TB& B, Options const& opts) {
+    inline Method select_algo(TA& A, TB& B, Options& opts) {
         // TODO replace the default value by a unique value located elsewhere
         Target target = get_option( opts, Option::Target, Target::HostTask );
 
         Method method = (B.nt() < 2 ? GemmA : GemmC);
 
-        // XXX For now, when target == device, we fallback to gemmC on device
-        if (target == Target::Devices && method == GemmA)
-            method = GemmC;
+        if (target == Target::Devices && method == GemmA && A.num_devices() > 1)
+            opts[ Option::Target ] = Target::HostTask;
 
         return method;
     }

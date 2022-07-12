@@ -55,7 +55,7 @@ __global__ void gescale_row_col_batch_kernel(
         scalar_t* rowA = &tileA[ i ];
         scalar_t2 ri = R[ i ];
         for (int64_t j = 0; j < n; ++j)
-            rowA[ j*lda ] *= ri * C[ j ];
+            rowA[ j*lda ] = rowA[ j*lda ] * (ri * C[ j ]);
     }
 }
 
@@ -94,7 +94,7 @@ __global__ void gescale_col_batch_kernel(
     for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
         scalar_t* rowA = &tileA[ i ];
         for (int64_t j = 0; j < n; ++j)
-            rowA[ j*lda ] *= C[ j ];
+            rowA[ j*lda ] = rowA[ j*lda ] * C[ j ];
     }
 }
 
@@ -134,7 +134,7 @@ __global__ void gescale_row_batch_kernel(
         scalar_t* rowA = &tileA[ i ];
         scalar_t2 ri = R[ i ];
         for (int64_t j = 0; j < n; ++j)
-            rowA[ j*lda ] *= ri;
+            rowA[ j*lda ] = rowA[ j*lda ] * ri;
     }
 }
 

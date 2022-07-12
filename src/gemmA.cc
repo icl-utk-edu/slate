@@ -110,10 +110,12 @@ void gemmA(
             C.template listReduce( reduce_list_C, layout );
         }
         // Clean the memory introduced by internal::gemmA on Devices
-        #pragma omp task depend( in:gemmA[ 0 ] ) \
-                          shared( C )
-        {
-            C.sub( 0, C.mt() - 1, 0, 0 ).releaseWorkspace();
+        if (target == Target::Devices) {
+            #pragma omp task depend( in:gemmA[ 0 ] ) \
+                              shared( C )
+            {
+                C.sub( 0, C.mt() - 1, 0, 0 ).releaseWorkspace();
+            }
         }
 
         // broadcast (with lookahead) and multiply the rest of the columns
@@ -161,11 +163,13 @@ void gemmA(
                 C.template listReduce( reduce_list_C, layout );
             }
             // Clean the memory introduced by internal::gemmA on Devices
-            #pragma omp task depend( in:gemmA[ k ] ) \
-                              shared( C ) \
-                              firstprivate( k )
-            {
-                C.sub( 0, C.mt() - 1, k, k ).releaseWorkspace();
+            if (target == Target::Devices) {
+                #pragma omp task depend( in:gemmA[ k ] ) \
+                                  shared( C ) \
+                                  firstprivate( k )
+                {
+                    C.sub( 0, C.mt() - 1, k, k ).releaseWorkspace();
+                }
             }
         }
         #pragma omp taskwait

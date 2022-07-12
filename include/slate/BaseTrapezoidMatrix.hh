@@ -1157,7 +1157,8 @@ void BaseTrapezoidMatrix<scalar_t>::tileLayoutReset()
             #pragma omp task slate_omp_default_none \
                 firstprivate( layout ) shared( tiles_set_host )
             {
-                this->tileLayoutReset( tiles_set_host, HostNum, layout );
+                this->BaseMatrix<scalar_t>::tileLayoutReset(
+                    tiles_set_host, HostNum, layout );
             }
         }
         for (int d = 0; d < this->num_devices(); ++d) {
@@ -1166,7 +1167,8 @@ void BaseTrapezoidMatrix<scalar_t>::tileLayoutReset()
                 #pragma omp task slate_omp_default_none \
                     firstprivate( d, layout ) shared( tiles_set_dev )
                 {
-                    this->tileLayoutReset(tiles_set_dev[d], d, layout);
+                    this->BaseMatrix<scalar_t>::tileLayoutReset(
+                        tiles_set_dev[d], d, layout );
                 }
             }
         }

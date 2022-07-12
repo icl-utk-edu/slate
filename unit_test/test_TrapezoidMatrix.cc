@@ -776,6 +776,17 @@ void test_TrapezoidMatrix_allocateBatchArrays()
     }
 }
 
+//------------------------------------------------------------------------------
+/// Tests A.tileLayoutReset().
+/// Incomplete testing; currently only calls it to check for linking, per
+/// https://bitbucket.org/icl/slate/issues/45
+///
+void test_Trapezoid_tileLayoutReset()
+{
+    slate::TrapezoidMatrix<double> A;
+    A.tileLayoutReset();
+}
+
 //==============================================================================
 // Sub-matrices
 
@@ -1825,6 +1836,8 @@ void run_tests()
     run_test(test_TrapezoidMatrix_emptyLikeOp,         "TrapezoidMatrix::emptyLike(..., Trans)", mpi_comm);
     run_test(test_TrapezoidMatrix_insertLocalTiles,    "TrapezoidMatrix::insertLocalTiles",      mpi_comm);
     run_test(test_TrapezoidMatrix_allocateBatchArrays, "TrapezoidMatrix::allocateBatchArrays",   mpi_comm);
+    run_test( test_Trapezoid_tileLayoutReset,
+              "TrapezoidMatrix::tileLayoutReset()", mpi_comm );
 
     if (mpi_rank == 0)
         printf("\nSub-matrices\n");

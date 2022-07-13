@@ -15,6 +15,7 @@
 #include "slate/types.hh"
 
 #include "lapack.hh"
+#include "lapack/device.hh"
 
 #include <algorithm>
 #include <memory>
@@ -604,7 +605,7 @@ public:
     /// @param[in] device
     ///     Tile's device ID.
     ///
-    blas::Queue* comm_queue(int device)
+    lapack::Queue* comm_queue(int device)
     {
         return storage_->comm_queues_.at(device);
     }
@@ -618,7 +619,7 @@ public:
     /// @param[in] queue_index
     ///     The index of a specific set of queues
     ///
-    blas::Queue* compute_queue(int device, int queue_index=0)
+    lapack::Queue* compute_queue(int device, int queue_index=0)
     {
         assert((queue_index >= 0) &&
                (queue_index < int(storage_->compute_queues_.size())));
@@ -2554,7 +2555,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
         work_data = storage_->allocWorkspaceBuffer(work_device);
     }
 
-    blas::Queue* queue = comm_queue( dst_tile->device() == HostNum
+    lapack::Queue* queue = comm_queue( dst_tile->device() == HostNum
                                      ? src_tile->device()
                                      : dst_tile->device() );
 
@@ -2567,7 +2568,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             dst_tile->layoutConvert(*queue, async);
         }
         else if (copy_first) {
-            blas::Queue* queue2 = comm_queue(work_device);
+            lapack::Queue* queue2 = comm_queue(work_device);
 
             int64_t work_stride = src_tile->stride();
 
@@ -2595,7 +2596,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
                 queue2->sync();
         }
         else {
-            blas::Queue* queue2 = comm_queue(work_device);
+            lapack::Queue* queue2 = comm_queue(work_device);
 
             int64_t work_stride = src_tile->layout() == Layout::ColMajor ?
                                   src_tile->nb() :
@@ -3492,7 +3493,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
             tile->layoutConvert(work_data);
         }
         else {
-            blas::Queue* queue = comm_queue(tile->device());
+            lapack::Queue* queue = comm_queue(tile->device());
             tile->layoutConvert(work_data, *queue, async && (! need_workspace));
         }
 
@@ -3624,7 +3625,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
                 std::max(batch_count, int64_t(bucket->second.first.size()));
         }
 
-        blas::Queue* queue = comm_queue(device);
+        lapack::Queue* queue = comm_queue(device);
         blas::set_device(device);
 
         // for each bucket

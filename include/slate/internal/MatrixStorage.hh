@@ -13,6 +13,7 @@
 
 #include "blas.hh"
 #include "lapack.hh"
+#include "lapack/device.hh"
 
 #include <algorithm>
 #include <functional>
@@ -480,9 +481,9 @@ private:
     int64_t batch_array_size_;
 
     // BLAS++ communication queues
-    std::vector< blas::Queue* > comm_queues_;
+    std::vector< lapack::Queue* > comm_queues_;
     // BLAS++ compute queues
-    std::vector< std::vector< blas::Queue* > > compute_queues_;
+    std::vector< std::vector< lapack::Queue* > > compute_queues_;
 
     // host pointers arrays for batch GEMM
     std::vector< std::vector< scalar_t** > > array_host_;
@@ -612,8 +613,8 @@ void MatrixStorage<scalar_t>::initQueues()
 
     compute_queues_.at(0).resize(num_devices_, nullptr);
     for (int device = 0; device < num_devices_; ++device) {
-        comm_queues_         [device] = new blas::Queue(device, 0);
-        compute_queues_.at(0)[device] = new blas::Queue(device, 0);
+        comm_queues_         [device] = new lapack::Queue(device, 0);
+        compute_queues_.at(0)[device] = new lapack::Queue(device, 0);
     }
 
     array_host_.resize(1);
@@ -719,7 +720,7 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
                 delete compute_queues_[i][device];
 
                 // Allocate queues.
-                compute_queues_[i][device] = new blas::Queue(device, batch_size);
+                compute_queues_[i][device] = new lapack::Queue(device, batch_size);
             }
         }
 

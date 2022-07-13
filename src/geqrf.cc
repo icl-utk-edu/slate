@@ -69,7 +69,7 @@ void geqrf(slate::internal::TargetType<target>,
            int64_t ib, int max_panel_threads, int64_t lookahead)
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
-
+    using device_info_t = lapack::device_info_int;
     using blas::real;
 
     // Assumes column major
@@ -93,6 +93,13 @@ void geqrf(slate::internal::TargetType<target>,
     // workspace
     auto W = A.emptyLike();
 
+    // setting up dummy variables for case the when target == host
+    int64_t num_devices  = A.num_devices();
+    int     panel_device = -1;
+    size_t  work_size    = 0;
+
+    std::vector< scalar_t* > dwork_array( num_devices, nullptr );
+
     if (target == Target::Devices) {
         const int64_t batch_size_zero = 0; // use default batch size
         const int64_t num_queues = 3 + lookahead;
@@ -105,6 +112,56 @@ void geqrf(slate::internal::TargetType<target>,
         // thus limiting the matrix size that can be processed
         // For now, allocate workspace tiles 1-by-1.
         //W.reserveDeviceWorkspace();
+
+        // Find largest panel size and device for copying to
+        // contiguous memory within internal geqrf routine
+        int64_t mlocal = 0;
+        int64_t first_panel_seen = -1;
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            for (int64_t i = j; i < A.mt(); ++i) {
+                if (A.tileIsLocal(i, j)) {
+                    if (first_panel_seen < 0) {
+                        first_panel_seen = j;
+                    }
+                    if (first_panel_seen == j) {
+                        if (panel_device < 0) {
+                            panel_device = A.tileDevice(i, j);
+                        }
+                        mlocal += A.tileMb(i);
+                        // Asserting 1-D distribution for device
+                        assert( panel_device == A.tileDevice(i, j) );
+                    }
+                }
+            }
+            if (first_panel_seen >= 0) {
+                break;
+            }
+        }
+
+        if (panel_device >= 0) {
+
+            blas::set_device( panel_device );
+
+            lapack::Queue* queue = A.compute_queue(panel_device, 0);
+
+            int64_t nb       = A.tileNb(0);
+            size_t  size_tau = (size_t) std::min( mlocal, nb );
+            size_t  size_A   = (size_t) blas::max( 1, mlocal ) * nb;
+            size_t  hsize, dsize;
+
+            // Find size of the workspace needed
+            lapack::geqrf_work_size_bytes( mlocal, nb, dwork_array[0], mlocal,
+                                           &dsize, &hsize, *queue );
+
+            // Size of dA, dtau, dwork and dinfo
+            work_size = size_A + size_tau + ceildiv(dsize, sizeof(scalar_t))
+                        + ceildiv(sizeof(device_info_t), sizeof(scalar_t));
+
+            for (int64_t dev = 0; dev < num_devices; ++dev) {
+                blas::set_device(dev);
+                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size);
+            }
+        }
     }
 
     // QR tracks dependencies by block-column.
@@ -131,9 +188,10 @@ void geqrf(slate::internal::TargetType<target>,
             #pragma omp task depend(inout:block[k]) priority(priority_one)
             {
                 // local panel factorization
-                internal::geqrf<Target::HostTask>(
+                internal::geqrf<target>(
                                 std::move(A_panel),
                                 std::move(Tl_panel),
+                                dwork_array, work_size,
                                 ib, max_panel_threads, priority_one);
 
                 // triangle-triangle reductions
@@ -292,6 +350,14 @@ void geqrf(slate::internal::TargetType<target>,
     }
 
     A.releaseWorkspace();
+
+    if (target == Target::Devices) {
+        for (int64_t dev = 0; dev < num_devices; ++dev) {
+            blas::set_device(dev);
+            blas::device_free( dwork_array[dev] );
+            dwork_array[dev] = nullptr;
+        }
+    }
 }
 
 } // namespace specialization

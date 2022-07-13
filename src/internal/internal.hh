@@ -24,6 +24,7 @@
 #include "slate/TriangularMatrix.hh"
 #include "slate/TriangularBandMatrix.hh"
 #include "slate/BandMatrix.hh"
+#include "lapack.hh"
 
 namespace slate {
 
@@ -457,8 +458,23 @@ void getrf_nopiv(Matrix<scalar_t>&& A,
 //-----------------------------------------
 // geqrf()
 template <Target target=Target::HostTask, typename scalar_t>
-void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T, int64_t ib,
-           int max_panel_threads, int priority=0);
+void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T,
+           std::vector< scalar_t* > dwork_array, size_t work_size,
+           int64_t ib, int max_panel_threads, int priority=0);
+
+//-----------------------------------------
+// For backwards compatibility of
+// ge2tb, gelqf, he2hb
+// geqrf()
+template <Target target=Target::HostTask, typename scalar_t>
+void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T,
+           int64_t ib, int max_panel_threads, int priority=0)
+{
+    std::vector< scalar_t* > dwork_array(1);
+    dwork_array[0] = nullptr;
+    geqrf( std::move(A), std::move(T),
+           dwork_array, 0, ib, max_panel_threads, priority);
+}
 
 //-----------------------------------------
 // ttqrt()

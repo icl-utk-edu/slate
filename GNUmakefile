@@ -329,7 +329,7 @@ ifeq ($(cuda),1)
 
     # Use all sm_XX (binary), and the last compute_XX (PTX) for forward compatibility.
     NVCCFLAGS += $(nv_sm) $(nv_compute_last)
-    LIBS += -lcublas -lcudart
+    LIBS += -lcusolver -lcublas -lcudart
 else
     FLAGS += -DSLATE_NO_CUDA
 endif
@@ -366,7 +366,7 @@ ifeq ($(hip),1)
     amdgpu_targets = $(foreach arch, $(gfx),--amdgpu-target=$(arch))
     HIPCCFLAGS += $(amdgpu_targets)
     FLAGS += -D__HIP_PLATFORM_HCC__
-    LIBS += -L$(ROCM_DIR)/lib -lrocblas -lamdhip64
+    LIBS += -L$(ROCM_DIR)/lib -lrocsolver -lrocblas -lamdhip64
 
     # ROCm 4.0 has errors in its headers that produce excessive warnings.
     CXXFLAGS := $(filter-out -pedantic, $(CXXFLAGS))

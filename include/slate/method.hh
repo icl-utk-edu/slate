@@ -262,7 +262,7 @@ namespace MethodGels {
             throw slate::Exception("unknown gels method");
     }
 
-    static const char* methodGels2str(Method method)
+    inline const char* methodGels2str(Method method)
     {
         switch (method) {
             case Auto:   return baseMethodAuto_str;

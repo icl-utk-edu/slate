@@ -177,6 +177,12 @@ void cholqr(Matrix<scalar_t>& A,
             Matrix<scalar_t>& R,
             Options const& opts)
 {
+    int64_t m = A.m();
+    int64_t n = A.n();
+    if (m < n) {
+        slate_error( "Cholesky QR requires m >= n" );
+    }
+
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     // Test whether to call hemmA instead of hemm

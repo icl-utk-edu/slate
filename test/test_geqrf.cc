@@ -57,6 +57,11 @@ void test_geqrf_work(Params& params, bool run)
     if (! run)
         return;
 
+    if (params.routine == "cholqr" && m < n) {
+        params.msg() = "skipping: cholqr requires m >= n";
+        return;
+    }
+
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},

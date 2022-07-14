@@ -437,6 +437,7 @@ if (opts.least_squares):
 # QR
 if (opts.qr):
     cmds += [
+    [ 'cholqr', gen + dtype + la + n + tall ],  # not wide
     [ 'geqrf', gen + dtype + la + mn ],
     [ 'unmqr', gen + dtype + la + mn ],
     #[ 'ggqrf', gen + dtype + la + mnk ],

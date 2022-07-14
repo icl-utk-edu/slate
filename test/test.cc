@@ -317,7 +317,7 @@ Params::Params():
     target    ("target",  6,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNest, b=HostBatch, d=Devices"),
 
     method_cholQR ("method-cholQR", 6, ParamType::List, 0, str2methodCholQR, methodCholQR2str, "method-cholQR: auto=auto, herkC, gemmA, gemmC"),
-    method_gels   ("method-gels",   4, ParamType::List, 0, str2methodGels,   methodGels2str,   "method-gels: auto=auto, qr, cholqr"),
+    method_gels   ("method-gels",   6, ParamType::List, 0, str2methodGels,   methodGels2str,   "method-gels: auto=auto, qr, cholqr"),
     method_gemm   ("method-gemm",   4, ParamType::List, 0, str2methodGemm,   methodGemm2str,   "method-gemm: auto=auto, A=gemmA, C=gemmC"),
     method_hemm   ("method-hemm",   4, ParamType::List, 0, str2methodHemm,   methodHemm2str,   "method-hemm: auto=auto, A=hemmA, C=hemmC"),
     method_trsm   ("method-trsm",   4, ParamType::List, 0, str2methodTrsm,   methodTrsm2str,   "method-trsm: auto=auto, A=trsmA, B=trsmB"),

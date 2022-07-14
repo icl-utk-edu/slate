@@ -127,9 +127,7 @@ void gels_cholqr( Matrix<scalar_t>& A,
     auto B_tmp  = B_tmp_.slice( 0, n-1, 0, nrhs-1 );
     B_tmp.insertLocalTiles();
 
-    Matrix<scalar_t> QH;
-
-    QH = transpose( A );
+    Matrix<scalar_t> QH = conj_transpose( A );
 
     int64_t A0_M = (A.op() == Op::NoTrans ? m : n);
     int64_t A0_N = (A.op() == Op::NoTrans ? n : m);

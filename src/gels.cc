@@ -88,26 +88,27 @@ namespace slate {
 /// @ingroup gels
 ///
 template <typename scalar_t>
-void gels(Matrix<scalar_t>& A,
-          Matrix<scalar_t>& BX,
-          Options const& opts)
+void gels(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& BX,
+    Options const& opts)
 {
-
-    TriangularFactors<scalar_t> T;
-    Matrix<scalar_t> R;
-
     Method method = get_option( opts, Option::MethodGels, MethodGels::Cholqr );
 
     if (method == MethodGels::Auto)
         method = MethodGels::select_algo( A, BX, opts );
 
     switch (method) {
-        case MethodGels::Geqrf:
+        case MethodGels::Geqrf: {
+            TriangularFactors<scalar_t> T;
             gels_qr( A, T, BX, opts );
             break;
-        case MethodGels::Cholqr:
+        }
+        case MethodGels::Cholqr: {
+            Matrix<scalar_t> R;
             gels_cholqr( A, R, BX, opts );
             break;
+        }
     }
 }
 

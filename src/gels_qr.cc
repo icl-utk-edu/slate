@@ -92,39 +92,41 @@ namespace slate {
 /// @ingroup gels
 ///
 template <typename scalar_t>
-void gels_qr(Matrix<scalar_t>& A,
-          TriangularFactors<scalar_t>& T,
-          Matrix<scalar_t>& BX,
-          Options const& opts)
+void gels_qr(
+    Matrix<scalar_t>& A,
+    TriangularFactors<scalar_t>& T,
+    Matrix<scalar_t>& BX,
+    Options const& opts)
 {
     // m, n of op(A) as in docs above.
     int64_t m = A.m();
     int64_t n = A.n();
     int64_t nrhs = BX.n();
 
-    scalar_t one  = 1;
-    scalar_t zero = 0;
+    const scalar_t one  = 1.0;
+    const scalar_t zero = 0.0;
 
     // Get original, un-transposed matrix A0.
     slate::Matrix<scalar_t> A0;
     if (A.op() == Op::NoTrans)
         A0 = A;
     else if (A.op() == Op::ConjTrans)
-        A0 = conjTranspose(A);
+        A0 = conj_transpose( A );
     else if (A.op() == Op::Trans && A.is_real)
-        A0 = transpose(A);
+        A0 = transpose( A );
     else
-        slate_error("Unsupported op(A)");
+        slate_error( "Unsupported op(A)" );
 
     int64_t A0_M = (A.op() == Op::NoTrans ? m : n);
     int64_t A0_N = (A.op() == Op::NoTrans ? n : m);
     if (A0_M >= A0_N) {
-        assert(A0.m() >= A0.n());
-        // A0 itself is tall: QR factorization
-        geqrf(A0, T, opts);
+        assert( A0.m() >= A0.n() );
 
-        int64_t min_mn = std::min(m, n);
-        auto R_ = A0.slice(0, min_mn-1, 0, min_mn-1);
+        // A0 itself is tall: QR factorization
+        geqrf( A0, T, opts );
+
+        int64_t min_mn = std::min( m, n );
+        auto R_ = A0.slice( 0, min_mn-1, 0, min_mn-1 );
         auto R = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, R_);
 
         if (A.op() == Op::NoTrans) {
@@ -133,39 +135,39 @@ void gels_qr(Matrix<scalar_t>& A,
 
             // Y = Q^H B
             // B is all m rows of BX.
-            unmqr(Side::Left, Op::ConjTrans, A0, T, BX, opts);
+            unmqr( Side::Left, Op::ConjTrans, A0, T, BX, opts );
 
-            // X is only first n rows of BX.
-            auto X = BX.slice(0, n-1, 0, nrhs-1);
+            // X is first n rows of BX.
+            auto X = BX.slice( 0, n-1, 0, nrhs-1 );
 
             // X = R^{-1} Y
-            trsm(Side::Left, one, R, X, opts);
+            trsm( Side::Left, one, R, X, opts );
         }
         else {
-            // Solve A0^H X = (QR)^H X = B.
+            // Solve A X = A0^H X = (QR)^H X = B.
             // Minimum norm solution X = Q Y = Q (R^{-H} B).
 
-            // B is only first m rows of BX.
-            auto B = BX.slice(0, m-1, 0, nrhs-1);
+            // B is first m rows of BX.
+            auto B = BX.slice( 0, m-1, 0, nrhs-1 );
 
             // Y = R^{-H} B
-            auto RH = conjTranspose(R);
-            trsm(Side::Left, one, RH, B, opts);
+            auto RH = conj_transpose( R );
+            trsm( Side::Left, one, RH, B, opts );
 
             // X is all n rows of BX.
             // Zero out rows m:n-1 of BX.
             if (m < n) {
-                auto Z = BX.slice(m, n-1, 0, nrhs-1);
-                set(zero, Z);
+                auto Z = BX.slice( m, n-1, 0, nrhs-1 );
+                set( zero, Z );
             }
 
             // X = Q Y
-            unmqr(Side::Left, Op::NoTrans, A0, T, BX, opts);
+            unmqr( Side::Left, Op::NoTrans, A0, T, BX, opts );
         }
     }
     else {
         // todo: LQ factorization
-        slate_assert(false);
+        slate_not_implemented( "least squares using LQ" );
     }
     // todo: return value for errors?
     // R or L is singular => A is not full rank

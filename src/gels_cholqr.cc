@@ -92,93 +92,90 @@ namespace slate {
 /// @ingroup gels
 ///
 template <typename scalar_t>
-void gels_cholqr( Matrix<scalar_t>& A,
-                  Matrix<scalar_t>& R,
-                  Matrix<scalar_t>& BX,
-                  Options const& opts)
+void gels_cholqr(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& R,
+    Matrix<scalar_t>& BX,
+    Options const& opts)
 {
     // m, n of op(A) as in docs above.
     int64_t m = A.m();
     int64_t n = A.n();
     int64_t nrhs = BX.n();
 
-    scalar_t one  = 1;
-    scalar_t zero = 0;
+    const scalar_t one  = 1.0;
+    const scalar_t zero = 0.0;
 
     // Get original, un-transposed matrix A0.
     slate::Matrix<scalar_t> A0;
     if (A.op() == Op::NoTrans)
         A0 = A;
     else if (A.op() == Op::ConjTrans)
-        A0 = conjTranspose(A);
+        A0 = conj_transpose( A );
     else if (A.op() == Op::Trans && A.is_real)
-        A0 = transpose(A);
+        A0 = transpose( A );
     else
-        slate_error("Unsupported op(A)");
-
-    R = A.emptyLike();
-    R = R.slice( 0, n-1, 0, n-1 );
-    R.insertLocalTiles();
-
-    cholqr( A, R, opts );
-
-    auto R_U = TriangularMatrix( Uplo::Upper, Diag::NonUnit, R );
-    auto B_tmp_ = BX.emptyLike();
-    auto B_tmp  = B_tmp_.slice( 0, n-1, 0, nrhs-1 );
-    B_tmp.insertLocalTiles();
-
-    Matrix<scalar_t> QH = conj_transpose( A );
+        slate_error( "Unsupported op(A)" );
 
     int64_t A0_M = (A.op() == Op::NoTrans ? m : n);
     int64_t A0_N = (A.op() == Op::NoTrans ? n : m);
     if (A0_M >= A0_N) {
-        assert(A0.m() >= A0.n());
+        assert( A0.m() >= A0.n() );
+
+        // A0 itself is tall: QR factorization
+        R = A0.emptyLike();
+        R = R.slice( 0, A0_N-1, 0, A0_N-1 );
+        R.insertLocalTiles();
+
+        cholqr( A0, R, opts );
+
+        auto R_U = TriangularMatrix( Uplo::Upper, Diag::NonUnit, R );
 
         if (A.op() == Op::NoTrans) {
             // Solve A X = (QR) X = B.
             // Least squares solution X = R^{-1} Y = R^{-1} (Q^H B).
+            // A and Q are m-by-n, R is n-by-n, X and Y are n-by-nrhs,
+            // B is m-by-nrhs, m >= n.
+
+            Matrix<scalar_t> QH = conj_transpose( A );
+
+            // X is first n rows of BX. Y is also n rows.
+            auto X = BX.slice( 0, n-1, 0, nrhs-1 );
+            auto Y = X.emptyLike();
+            Y.insertLocalTiles();
 
             // Y = Q^H B
-            // B is all m rows of BX.
-            gemm( one, QH, BX, zero, B_tmp );
-
-            // X is only first n rows of BX.
-            auto X = BX.slice( 0, n-1, 0, nrhs-1 );
+            gemm( one, QH, BX, zero, Y );
 
             // Copy back the result
-            copy( B_tmp, X );
+            copy( Y, X );
 
             // X = R^{-1} Y
             trsm( Side::Left, one, R_U, X, opts );
         }
         else {
-            slate_error( "Not impl yet." );
-#if 0
-            // Solve A^H X = (QR)^H X = B.
+            // Solve A X = A0^H X = (QR)^H X = B.
             // Minimum norm solution X = Q Y = Q (R^{-H} B).
+            // A is m-by-n, A0 and Q are n-by-m, R is m-by-m, X is n-by-nrhs,
+            // B and Y are m-by-nrhs, m < n.
 
-            // B is only first m rows of BX.
+            // B is first m rows of BX. Y is also m rows.
             auto B = BX.slice( 0, m-1, 0, nrhs-1 );
+            auto Y = B.emptyLike();
+            Y.insertLocalTiles();
+            copy( B, Y );
 
             // Y = R^{-H} B
-            auto RH = conjTranspose( R );
-            trsm( Side::Left, one, RH, B, opts );
+            auto RH = conj_transpose( R_U );
+            trsm( Side::Left, one, RH, Y, opts );
 
-            // X is all n rows of BX.
-            // Zero out rows m:n-1 of BX.
-            if (m < n) {
-                auto Z = BX.slice( m, n-1, 0, nrhs-1 );
-                set( zero, Z );
-            }
-
-            // X = Q Y
-            unmqr( Side::Left, Op::NoTrans, A, T, BX, opts );
-#endif
+            // X = Q Y, with Q stored in A0.
+            gemm( one, A0, Y, zero, BX );
         }
     }
     else {
         // todo: LQ factorization
-        slate_assert(false);
+        slate_not_implemented( "least squares using LQ" );
     }
     // todo: return value for errors?
     // R or L is singular => A is not full rank

@@ -2334,24 +2334,25 @@ void BaseMatrix<scalar_t>::tileIbcastToSet(
     internal::cubeBcastPattern(new_vec.size(), new_rank, radix,
                                recv_from, send_to);
 
+    auto device = tileDevice(i, j); 
     // Receive.
     if (! recv_from.empty()) {
         // read tile on host memory
-        tileAcquire(i, j, layout);
+        tileAcquire(i, j, device, layout);
 
-        at(i, j).recv(new_vec[recv_from.front()], mpi_comm_, layout, tag);
-        tileLayout(i, j, layout);
-        tileModified(i, j);
+        at(i, j, device).recv(new_vec[recv_from.front()], mpi_comm_, layout, tag);
+        tileLayout(i, j, device, layout);
+        tileModified(i, j, device);
     }
 
     if (! send_to.empty()) {
         // read tile on host memory
-        tileGetForReading(i, j, LayoutConvert(layout));
+        tileGetForReading(i, j, device, LayoutConvert(layout));
 
         // Forward using multiple mpi_isend() calls
         for (int dst : send_to) {
             MPI_Request request;
-            at(i, j).isend(new_vec[dst], mpi_comm_, tag, &request);
+            at(i, j, device).isend(new_vec[dst], mpi_comm_, tag, &request);
             send_requests.push_back(request);
         }
     }

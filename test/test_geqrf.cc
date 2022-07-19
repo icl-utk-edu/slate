@@ -45,6 +45,7 @@ void test_geqrf_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    slate::Method methodCholQR = params.method_cholQR();
     params.matrix.mark();
 
     // mark non-standard output values
@@ -56,11 +57,17 @@ void test_geqrf_work(Params& params, bool run)
     if (! run)
         return;
 
+    if (params.routine == "cholqr" && m < n) {
+        params.msg() = "skipping: cholqr requires m >= n";
+        return;
+    }
+
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
-        {slate::Option::InnerBlocking, ib}
+        {slate::Option::InnerBlocking, ib},
+        {slate::Option::MethodCholQR, methodCholQR}
     };
 
     // MPI variables
@@ -110,6 +117,8 @@ void test_geqrf_work(Params& params, bool run)
 
     double gflop = lapack::Gflop<scalar_t>::geqrf(m, n);
 
+    slate::Matrix<scalar_t> R_chol;
+
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
@@ -119,7 +128,17 @@ void test_geqrf_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::qr_factor(A, T, opts);
+        if (params.routine == "cholqr") {
+            slate::Target origin_target = origin2target( origin );
+            R_chol = slate::Matrix<scalar_t>(
+                n, n, nb, p, q, MPI_COMM_WORLD );
+            R_chol.insertLocalTiles( origin_target );
+
+            slate::cholqr( A, R_chol, opts );
+        }
+        else {
+            slate::qr_factor( A, T, opts );
+        }
         // Using traditional BLAS/LAPACK name
         // slate::geqrf(A, T, opts);
 
@@ -146,28 +165,38 @@ void test_geqrf_work(Params& params, bool run)
         //
         //==================================================
 
-        // R is the upper part of A matrix.
-        slate::TrapezoidMatrix<scalar_t> R(slate::Uplo::Upper, slate::Diag::NonUnit, A);
-
         std::vector<scalar_t> QR_data(Aref_data.size(), zero);
         slate::Matrix<scalar_t> QR = slate::Matrix<scalar_t>::fromScaLAPACK(
                                          m, n, &QR_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
-        // R1 is the upper part of QR matrix.
-        slate::TrapezoidMatrix<scalar_t> R1(slate::Uplo::Upper, slate::Diag::NonUnit, QR);
+        if (params.routine == "cholqr") {
+            // Copy A in QR that will be overwritten by the Q matrix
+            slate::copy(A, QR);
 
-        // Copy A's upper trapezoid R to QR's upper trapezoid R1.
-        slate::copy(R, R1);
+            auto R = slate::TriangularMatrix<scalar_t>(
+                slate::Uplo::Upper, slate::Diag::NonUnit, R_chol );
+            slate::triangular_multiply(one, QR, R, opts);
+        }
+        else {
+            // R is the upper part of A matrix.
+            slate::TrapezoidMatrix<scalar_t> R(slate::Uplo::Upper, slate::Diag::NonUnit, A);
 
-        print_matrix("R", QR, params);
+            // R1 is the upper part of QR matrix.
+            slate::TrapezoidMatrix<scalar_t> R1(slate::Uplo::Upper, slate::Diag::NonUnit, QR);
 
-        // Multiply QR by Q (implicitly stored in A and T).
-        // Form QR, where Q's representation is in A and T, and R is in QR.
-        slate::qr_multiply_by_q(
-            slate::Side::Left, slate::Op::NoTrans, A, T, QR, opts);
-        // Using traditional BLAS/LAPACK name
-        // slate::unmqr(
-        //     slate::Side::Left, slate::Op::NoTrans, A, T, QR, opts);
+            // Copy A's upper trapezoid R to QR's upper trapezoid R1.
+            slate::copy(R, R1);
+
+            print_matrix("R", QR, params);
+
+            // Multiply QR by Q (implicitly stored in A and T).
+            // Form QR, where Q's representation is in A and T, and R is in QR.
+            slate::qr_multiply_by_q(
+                slate::Side::Left, slate::Op::NoTrans, A, T, QR, opts);
+            // Using traditional BLAS/LAPACK name
+            // slate::unmqr(
+            //     slate::Side::Left, slate::Op::NoTrans, A, T, QR, opts);
+        }
 
         print_matrix("QR", QR, params);
 

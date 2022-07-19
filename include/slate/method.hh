@@ -85,15 +85,14 @@ namespace MethodGemm {
     const Method GemmC  = 2;  ///< Select gemmC algorithm
 
     template <typename TA, typename TB>
-    inline Method select_algo(TA& A, TB& B, Options const& opts) {
+    inline Method select_algo(TA& A, TB& B, Options& opts) {
         // TODO replace the default value by a unique value located elsewhere
         Target target = get_option( opts, Option::Target, Target::HostTask );
 
         Method method = (B.nt() < 2 ? GemmA : GemmC);
 
-        // XXX For now, when target == device, we fallback to gemmC on device
-        if (target == Target::Devices && method == GemmA)
-            method = GemmC;
+        if (target == Target::Devices && method == GemmA && A.num_devices() > 1)
+            opts[ Option::Target ] = Target::HostTask;
 
         return method;
     }
@@ -178,6 +177,102 @@ namespace MethodHemm {
     }
 
 } // namespace MethodHemm
+
+//------------------------------------------------------------------------------
+/// Select the right algorithm to perform the AH * A in CholQR
+namespace MethodCholQR {
+    static constexpr char HerkC_str[] = "herkC";
+    static constexpr char GemmA_str[] = "gemmA";
+    static constexpr char GemmC_str[] = "gemmC";
+    static const Method Error = baseMethodError; ///< Error flag
+    static const Method Auto  = baseMethodAuto;  ///< Let the algorithm decide
+    static const Method HerkC = 1;  ///< Select herkC algorithm
+    static const Method GemmA = 2;  ///< Select gemmA algorithm
+    static const Method GemmC = 3;  ///< Select gemmC algorithm
+
+    template <typename TA, typename TB>
+    inline Method select_algo(TA& A, TB& B, Options const& opts) {
+
+        Target target = get_option( opts, Option::Target, Target::HostTask );
+
+        Method method = (target == Target::Devices ? HerkC : GemmA);
+
+        return method;
+    }
+
+    inline Method str2methodCholQR(const char* method)
+    {
+        std::string method_ = method;
+        std::transform(
+            method_.begin(), method_.end(), method_.begin(), ::tolower );
+
+        if (method_ == "auto")
+            return Auto;
+        else if (method_ == "herkc")
+            return HerkC;
+        else if (method_ == "gemmc")
+            return GemmC;
+        else if (method_ == "gemma")
+            return GemmA;
+        else
+            throw slate::Exception("unknown cholQR method");
+    }
+
+    inline const char* methodCholQR2str(Method method)
+    {
+        switch (method) {
+            case Auto:   return baseMethodAuto_str;
+            case HerkC:  return HerkC_str;
+            case GemmA:  return GemmA_str;
+            case GemmC:  return GemmC_str;
+            default:     return baseMethodError_str;
+        }
+    }
+
+} // namespace MethodCholQR
+
+//------------------------------------------------------------------------------
+/// Select the right algorithm to solve least squares problems
+namespace MethodGels {
+    static constexpr char Cholqr_str[]  = "cholqr";
+    static constexpr char Geqrf_str[]   = "qr";
+    static const Method Error   = baseMethodError; ///< Error flag
+    static const Method Auto    = baseMethodAuto;  ///< Let the algorithm decide
+    static const Method Cholqr  = 1;  ///< Select cholqr algorithm
+    static const Method Geqrf   = 2;  ///< Select geqrf algorithm
+
+    template <typename TA, typename TB>
+    inline Method select_algo(TA& A, TB& B, Options const& opts) {
+        return Geqrf;
+    }
+
+    inline Method str2methodGels(const char* method)
+    {
+        std::string method_ = method;
+        std::transform(
+            method_.begin(), method_.end(), method_.begin(), ::tolower );
+
+        if (method_ == "auto")
+            return Auto;
+        else if (method_ == "qr")
+            return Geqrf;
+        else if (method_ == "cholqr")
+            return Cholqr;
+        else
+            throw slate::Exception("unknown gels method");
+    }
+
+    inline const char* methodGels2str(Method method)
+    {
+        switch (method) {
+            case Auto:   return baseMethodAuto_str;
+            case Geqrf:  return Geqrf_str;
+            case Cholqr: return Cholqr_str;
+            default:     return baseMethodError_str;
+        }
+    }
+
+} // namespace MethodGels
 
 } // namespace slate
 

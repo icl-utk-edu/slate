@@ -167,7 +167,8 @@ template <Target target=Target::HostTask, typename scalar_t>
 void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
                            Matrix<scalar_t>&& B,
            scalar_t beta,  Matrix<scalar_t>&& C,
-           Layout layout, int priority=0);
+           Layout layout, int priority=0, int64_t queue_index=0,
+           Options const& opts = Options());
 
 //-----------------------------------------
 // hemm()

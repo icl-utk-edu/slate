@@ -141,9 +141,7 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
     if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "gels");
 
-    slate::TriangularFactors<scalar_t> T;
-
-    slate::gels(opA, T, B, {
+    slate::gels(opA, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},

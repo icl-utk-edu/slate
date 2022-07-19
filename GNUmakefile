@@ -493,6 +493,7 @@ ifneq ($(only_unit),1)
     libslate_src += \
         src/add.cc \
         src/bdsqr.cc \
+        src/cholqr.cc \
         src/colNorms.cc \
         src/copy.cc \
         src/gbmm.cc \
@@ -502,6 +503,8 @@ ifneq ($(only_unit),1)
         src/ge2tb.cc \
         src/gelqf.cc \
         src/gels.cc \
+        src/gels_cholqr.cc \
+        src/gels_qr.cc \
         src/gemm.cc \
         src/gemmA.cc \
         src/gemmC.cc \

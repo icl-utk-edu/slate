@@ -429,11 +429,7 @@ if (opts.hesv):
 if (opts.least_squares):
     cmds += [
     # todo: mn (i.e., add wide)
-    [ 'gels',   gen + dtype + la + n + tall + trans_nc ],
-    #[ 'gelsy',  gen + dtype + la + mn ],
-    #[ 'gelsd',  gen + dtype + la + mn ],
-    #[ 'gelss',  gen + dtype + la + mn ],
-    #[ 'getsls', gen + dtype + la + mn + trans_nc ],
+    [ 'gels',   gen + dtype + la + n + tall + trans_nc + ' --method-gels qr,cholqr' ],
 
     # Generalized
     #[ 'gglse', gen + dtype + la + mnk ],
@@ -443,6 +439,7 @@ if (opts.least_squares):
 # QR
 if (opts.qr):
     cmds += [
+    [ 'cholqr', gen + dtype + la + n + tall ],  # not wide
     [ 'geqrf', gen + dtype + la + mn ],
     [ 'unmqr', gen + dtype + la + mn ],
     #[ 'ggqrf', gen + dtype + la + mnk ],

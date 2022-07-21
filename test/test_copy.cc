@@ -191,12 +191,6 @@ void test_copy_work(Params& params, bool run)
             real_t A_norm = slate::norm( slate::Norm::Max, A );
             real_t B_norm = slate::norm( slate::Norm::Max, B );
 
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
             print_matrix( "Aref_full", Aref_full, params );
             print_matrix( "Bref_full", Bref_full, params );
 
@@ -234,7 +228,6 @@ void test_copy_work(Params& params, bool run)
             params.error() = errorA + errorB;
             params.okay() = (params.error() == 0); // Copy should be exact
 
-            slate_set_num_blas_threads(saved_num_threads);
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #endif

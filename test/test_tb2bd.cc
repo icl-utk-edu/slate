@@ -91,20 +91,12 @@ void test_tb2bd_work(Params& params, bool run)
         //==================================================
         // For checking results, compute SVD of original matrix A.
         //==================================================
-        // set MKL num threads appropriately for parallel BLAS
-        int omp_num_threads;
-        #pragma omp parallel
-        { omp_num_threads = omp_get_num_threads(); }
-        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
         std::vector<scalar_t> Afull_copy = Afull_data;
         scalar_t dummy[1];  // U, VT not needed for NoVec
         info = lapack::gesvd(lapack::Job::NoVec, lapack::Job::NoVec,
                              m, n, &Afull_copy[0], lda, &Sigma1[0],
                              dummy, 1, dummy, 1);
         assert(info == 0);
-
-        slate_set_num_blas_threads(saved_num_threads);
     }
 
     if (trace) slate::trace::Trace::on();
@@ -151,12 +143,6 @@ void test_tb2bd_work(Params& params, bool run)
             }
             params.error2() = max_value / sqrt(n);
 
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
             // Check that the singular values of updated Aband
             // match the singular values of the original Aband.
             real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
@@ -192,7 +178,6 @@ void test_tb2bd_work(Params& params, bool run)
             info = lapack::bdsqr(lapack::Uplo::Upper, min_mn, 0, 0, 0,
                                  &Sigma2[0], &E[0], dummy, 1, dummy, 1, dummy, 1);
             assert(info == 0);
-            slate_set_num_blas_threads(saved_num_threads);
 
             if (verbose) {
                 printf( "%% first and last 20 rows of Sigma1 and Sigma2\n" );

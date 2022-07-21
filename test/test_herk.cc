@@ -236,12 +236,6 @@ void test_herk_work(Params& params, bool run)
             copy( A, &A_data[0], A_desc );
             copy( C, &C_data[0], C_desc );
 
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
             // allocate workspace for norms
             size_t ldw = nb*ceil(ceil(mlocC / (double) nb) / (scalapack_ilcm(&p, &q) / p));
             std::vector<real_t> worklansy(2*nlocC + mlocC + ldw);
@@ -278,8 +272,6 @@ void test_herk_work(Params& params, bool run)
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
             params.error() = error;
-
-            slate_set_num_blas_threads(saved_num_threads);
 
             real_t eps = std::numeric_limits<real_t>::epsilon();
             params.okay() = (params.error() <= 3*eps);

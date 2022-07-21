@@ -359,12 +359,6 @@ void test_posv_work(Params& params, bool run)
             scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
             if (check) {
                 // restore Bref_data
                 Bref_data = B_orig;
@@ -396,8 +390,6 @@ void test_posv_work(Params& params, bool run)
 
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
-
-            slate_set_num_blas_threads(saved_num_threads);
 
             if (verbose > 2) {
                 if (origin == slate::Origin::ScaLAPACK) {

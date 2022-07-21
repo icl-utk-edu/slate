@@ -158,12 +158,6 @@ void test_hegst_work(Params& params, bool run)
             copy( Aref, &Aref_data[0], A_desc );
             copy( B, &B_data[0], B_desc );
 
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
@@ -181,8 +175,6 @@ void test_hegst_work(Params& params, bool run)
             // params.ref_gflops() = gflop / time;
 
             print_matrix("Aref_hegst", Aref, params);
-
-            slate_set_num_blas_threads(saved_num_threads);
 
             if (! ref_only) {
                 // Local operation: error = Aref - A

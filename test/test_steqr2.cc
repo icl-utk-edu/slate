@@ -115,12 +115,6 @@ void test_steqr2_work(Params& params, bool run)
         //==================================================
         // Test results
         //==================================================
-        // set MKL num threads appropriately for parallel BLAS
-        int omp_num_threads;
-        #pragma omp parallel
-        { omp_num_threads = omp_get_num_threads(); }
-        int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
 
         //==================================================
@@ -132,7 +126,6 @@ void test_steqr2_work(Params& params, bool run)
 
         params.ref_time() = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
-        slate_set_num_blas_threads(saved_num_threads);
         if (verbose) {
             // Print first 20 and last 20 rows.
             printf( "%9s  %9s\n", "D", "Dref" );

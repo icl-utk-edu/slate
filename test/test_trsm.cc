@@ -246,12 +246,6 @@ void test_trsm_work(Params& params, bool run)
 
             copy( A, &A_data[0], A_desc );
 
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
@@ -266,8 +260,6 @@ void test_trsm_work(Params& params, bool run)
 
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
-
-            slate_set_num_blas_threads(saved_num_threads);
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering.

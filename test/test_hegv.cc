@@ -341,12 +341,6 @@ void test_hegv_work(Params& params, bool run)
             scalapack_descinit(Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
             slate_assert(info == 0);
 
-            // set num threads appropriately for parallel BLAS if possible
-            int omp_num_threads = 1;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
             const char* range = "A";
             int64_t vl=0, vu=0, il=0, iu=0;
             real_t abstol=0;
@@ -409,9 +403,6 @@ void test_hegv_work(Params& params, bool run)
             time = barrier_get_wtime(mpi_comm) - time;
 
             params.ref_time() = time;
-
-            // Reset omp thread number
-            slate_set_num_blas_threads(saved_num_threads);
 
             if (! ref_only) {
                 // Reference Scalapack was run, check reference eigenvalues

@@ -20,6 +20,8 @@ namespace slate {
 /// Hermitian matrix $A$ using the factorization $A = U^H T U$ or
 /// $A = L T L^H$ computed by hetrf.
 ///
+/// Complexity (in real): $2 n^{2} r$ flops.
+///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.

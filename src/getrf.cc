@@ -267,6 +267,10 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
 ///
 /// This is the right-looking Level 3 BLAS version of the algorithm.
 ///
+/// Complexity (in real):
+/// - $\approx m n^{2} - \frac{1}{3} n^{3}$ flops;
+/// - $\approx \frac{2}{3} n^{3}$ flops for $m = n$.
+/// .
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.

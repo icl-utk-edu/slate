@@ -166,6 +166,8 @@ void getri(Matrix<scalar_t>& A, Pivots& pivots,
 /// Computes the inverse of a matrix $A$ using the LU factorization $A = L*U$
 /// computed by `getrf`.
 ///
+/// Complexity (in real): $\approx \frac{4}{3} n^{3}$ flops.
+///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.

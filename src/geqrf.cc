@@ -395,6 +395,11 @@ void geqrf(Matrix<scalar_t>& A,
 /// where $Q$ is a matrix with orthonormal columns and $R$ is upper triangular
 /// (or upper trapezoidal if m < n).
 ///
+/// Complexity (in real):
+/// - for $m \ge n$, $\approx 2 m n^{2} - \frac{2}{3} n^{3}$ flops;
+/// - for $m \le n$, $\approx 2 m^{2} n - \frac{2}{3} m^{3}$ flops;
+/// - for $m = n$,   $\approx \frac{4}{3} n^{3}$ flops.
+/// .
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.

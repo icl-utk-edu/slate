@@ -249,6 +249,9 @@ void trtri(TriangularMatrix<scalar_t>& A,
 /// Distributed parallel inverse of a triangular matrix.
 ///
 /// Computes the inverse of an upper or lower triangular matrix $A$.
+///
+/// Complexity (in real): $\approx \frac{1}{3} n^{3}$ flops.
+///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.

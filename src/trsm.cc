@@ -24,6 +24,8 @@ namespace slate {
 ///     auto AT = slate::transpose( A );
 ///     slate::trsm( Side::Left, alpha, AT, B );
 ///
+/// Complexity (in real): $m^{2} n$ flops.
+///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///         One of float, double, std::complex<float>, std::complex<double>.

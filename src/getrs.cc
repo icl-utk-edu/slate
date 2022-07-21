@@ -22,6 +22,8 @@ namespace slate {
 /// with a general n-by-n matrix $A$ using the LU factorization computed
 /// by getrf. $A$ can be transposed or conjugate-transposed.
 ///
+/// Complexity (in real): $\approx 2 n^{2} r$ flops.
+///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.

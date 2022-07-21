@@ -21,6 +21,8 @@ namespace slate {
 ///     auto BT = slate::conjTranspose( B );
 ///     slate::gemm( alpha, AT, BT, beta, C );
 ///
+/// Complexity (in real): $2 m n k$ flops.
+///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///         One of float, double, std::complex<float>, std::complex<double>.

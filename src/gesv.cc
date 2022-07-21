@@ -30,6 +30,8 @@ namespace slate {
 /// upper triangular.  The factored form of $A$ is then used to solve the
 /// system of equations $A X = B$.
 ///
+/// Complexity (in real): $\approx \frac{2}{3} n^{3} + 2 n^{2} r$ flops.
+///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.

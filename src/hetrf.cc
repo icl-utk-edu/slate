@@ -547,6 +547,8 @@ void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 /// upper triangular matrices.
 /// $T$ is a Hermitian band matrix that is LU factorized with partial pivoting.
 ///
+/// Complexity (in real): $\approx \frac{1}{3} n^{3}$ flops.
+///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.

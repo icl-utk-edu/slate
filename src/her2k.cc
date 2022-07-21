@@ -194,6 +194,8 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
 ///     auto BT = slate::conjTranspose( B );
 ///     slate::her2k( alpha, AT, BT, beta, C );
 ///
+/// Complexity (in real): $\approx 2 k n^{2}$ flops.
+///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///         One of float, double, std::complex<float>, std::complex<double>.

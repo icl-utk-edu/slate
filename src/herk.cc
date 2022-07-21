@@ -180,6 +180,8 @@ void herk(slate::internal::TargetType<target>,
 ///     auto AT = slate::conjTranspose( A );
 ///     slate::herk( alpha, AT, beta, C );
 ///
+/// Complexity (in real): $\approx k n^{2}$ flops.
+///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///         One of float, double, std::complex<float>, std::complex<double>.

@@ -310,6 +310,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 /// \]
 /// if $A$ is stored upper, where $U$ is an upper triangular matrix.
 ///
+/// Complexity (in real): $\approx \frac{1}{3} n^{3}$ flops.
+///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.

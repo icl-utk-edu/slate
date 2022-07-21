@@ -23,6 +23,8 @@ namespace slate {
 /// with a Hermitian positive definite matrix $A$ using the Cholesky
 /// factorization $A = U^H U$ or $A = L L^H$ computed by potrf.
 ///
+/// Complexity (in real): $2 n^{2} r$ flops.
+///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.

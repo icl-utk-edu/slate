@@ -20,6 +20,8 @@ namespace slate {
 /// where alpha and beta are scalars, A is a Hermitian matrix and B and
 /// C are m-by-n matrices.
 ///
+/// Complexity (in real): $2 m^{2} n$ flops.
+///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///         One of float, double, std::complex<float>, std::complex<double>.

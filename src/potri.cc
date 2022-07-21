@@ -19,10 +19,12 @@ namespace slate {
 /// using the Cholesky factorization $A = U^H U$ or $A = L L^H$  computed by
 /// `potrf`.
 ///
-///-----------------------------------------------------------------------------
+/// Complexity (in real): $\approx \frac{2}{3} n^{3}$ flops.
+///
+//------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
-///-----------------------------------------------------------------------------
+//------------------------------------------------------------------------------
 /// @param[in,out] A
 ///     On entry, the triangular factor $U$ or $L$ from the Cholesky
 ///     factorization $A = U^H U$ or $A = L L^H$, as computed by `potrf`.

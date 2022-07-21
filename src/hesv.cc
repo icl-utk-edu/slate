@@ -39,6 +39,8 @@ namespace slate {
 ///
 /// This is the blocked version of the algorithm, calling Level 3 BLAS.
 ///
+/// Complexity (in real): $\approx \frac{1}{3} n^{3} + 2 n^{2} r$ flops.
+///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.

@@ -26,10 +26,10 @@ void transpose(
     std::complex<float>* A, int64_t lda,
     blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     transpose(n, (cuFloatComplex*) A, lda, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     transpose(n, (hipFloatComplex*) A, lda, queue);
 #endif
 }
@@ -40,10 +40,10 @@ void transpose(
     std::complex<double>* A, int64_t lda,
     blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     transpose(n, (cuDoubleComplex*) A, lda, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     transpose(n, (hipDoubleComplex*) A, lda, queue);
 #endif
 }
@@ -56,10 +56,10 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     transpose_batch(n, (cuFloatComplex**) Aarray, lda, batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     transpose_batch(n, (hipFloatComplex**) Aarray, lda, batch_count, queue);
 #endif
 }
@@ -71,10 +71,10 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     transpose_batch(n, (cuDoubleComplex**) Aarray, lda, batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     transpose_batch(n, (hipDoubleComplex**) Aarray, lda, batch_count, queue);
 #endif
 }
@@ -87,12 +87,12 @@ void transpose(
     std::complex<float>* AT, int64_t ldat,
     blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     transpose(m, n,
               (cuFloatComplex*) A, lda,
               (cuFloatComplex*) AT, ldat, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     transpose(m, n,
               (hipFloatComplex*) A, lda,
               (hipFloatComplex*) AT, ldat, queue);
@@ -106,12 +106,12 @@ void transpose(
     std::complex<double>* AT, int64_t ldat,
     blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     transpose(m, n,
               (cuDoubleComplex*) A, lda,
               (cuDoubleComplex*) AT, ldat, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     transpose(m, n,
               (hipDoubleComplex*) A, lda,
               (hipDoubleComplex*) AT, ldat, queue);
@@ -127,12 +127,12 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     transpose_batch(m, n,
                     (cuFloatComplex**) Aarray, lda,
                     (cuFloatComplex**) ATarray, ldat, batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     transpose_batch(m, n,
                     (hipFloatComplex**) Aarray, lda,
                     (hipFloatComplex**) ATarray, ldat, batch_count, queue);
@@ -147,12 +147,12 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     transpose_batch(m, n,
                     (cuDoubleComplex**) Aarray, lda,
                     (cuDoubleComplex**) ATarray, ldat, batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     transpose_batch(m, n,
                     (hipDoubleComplex**) Aarray, lda,
                     (hipDoubleComplex**) ATarray, ldat, batch_count, queue);
@@ -161,7 +161,7 @@ void transpose_batch(
 
 
 //------------------------------------------------------------------------------
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA.
 template <>
 void transpose(
@@ -237,7 +237,7 @@ void transpose_batch(
     blas::Queue& queue)
 {
 }
-#endif // not SLATE_NO_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 } // namespace slate

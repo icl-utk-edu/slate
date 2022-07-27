@@ -330,8 +330,6 @@ ifeq ($(cuda),1)
     # Use all sm_XX (binary), and the last compute_XX (PTX) for forward compatibility.
     NVCCFLAGS += $(nv_sm) $(nv_compute_last)
     LIBS += -lcusolver -lcublas -lcudart
-else
-    FLAGS += -DSLATE_NO_CUDA
 endif
 
 #-------------------------------------------------------------------------------
@@ -371,8 +369,6 @@ ifeq ($(hip),1)
     # ROCm 4.0 has errors in its headers that produce excessive warnings.
     CXXFLAGS := $(filter-out -pedantic, $(CXXFLAGS))
     CXXFLAGS += -Wno-unused-result
-else
-    FLAGS += -DSLATE_NO_HIP
 endif
 
 #-------------------------------------------------------------------------------

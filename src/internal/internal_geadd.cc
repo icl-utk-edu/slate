@@ -22,7 +22,7 @@ void geadd(
     std::complex<float> beta, std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     geadd(m, n,
           make_cuFloatComplex(alpha.real(), alpha.imag()),
           (cuFloatComplex**) Aarray, lda,
@@ -30,7 +30,7 @@ void geadd(
           (cuFloatComplex**) Barray, ldb,
           batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     geadd(m, n,
           make_hipFloatComplex(alpha.real(), alpha.imag()),
           (hipFloatComplex**) Aarray, lda,
@@ -47,7 +47,7 @@ void geadd(
     std::complex<double> beta, std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     geadd(m, n,
           make_cuDoubleComplex(alpha.real(), alpha.imag()),
           (cuDoubleComplex**) Aarray, lda,
@@ -55,7 +55,7 @@ void geadd(
           (cuDoubleComplex**) Barray, ldb,
           batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     geadd(m, n,
           make_hipDoubleComplex(alpha.real(), alpha.imag()),
           (hipDoubleComplex**) Aarray, lda,
@@ -65,7 +65,7 @@ void geadd(
 #endif
 }
 
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
 void geadd(
@@ -84,7 +84,7 @@ void geadd(
     int64_t batch_count, blas::Queue &queue)
 {
 }
-#endif // not SLATE_WITH_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 

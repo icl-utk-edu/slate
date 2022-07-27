@@ -31,11 +31,11 @@ void synorm(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     synorm(in_norm, uplo, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     synorm(in_norm, uplo, n, (hipFloatComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
@@ -50,11 +50,11 @@ void synorm(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     synorm(in_norm, uplo, n, (cuDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     synorm(in_norm, uplo, n, (hipDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
@@ -69,11 +69,11 @@ void synormOffdiag(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     synormOffdiag(in_norm, m, n, (cuFloatComplex**) Aarray, lda,
                   values, ldv, batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     synormOffdiag(in_norm, m, n, (hipFloatComplex**) Aarray, lda,
                   values, ldv, batch_count, queue);
 #endif
@@ -88,17 +88,17 @@ void synormOffdiag(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     synormOffdiag(in_norm, m, n, (cuDoubleComplex**) Aarray, lda,
                   values, ldv, batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     synormOffdiag(in_norm, m, n, (hipDoubleComplex**) Aarray, lda,
                   values, ldv, batch_count, queue);
 #endif
 }
 
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
 void synorm(
@@ -143,7 +143,7 @@ void synormOffdiag(
     blas::Queue &queue)
 {
 }
-#endif // not SLATE_NO_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 

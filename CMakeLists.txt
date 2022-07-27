@@ -453,7 +453,6 @@ if (CMAKE_CUDA_COMPILER)
     message( STATUS "Building CUDA support in SLATE" )
 else()
     message( STATUS "Not building CUDA support in SLATE" )
-    target_compile_definitions( slate PUBLIC "-DSLATE_NO_CUDA" )
 endif()
 
 #-------------------------------------------------------------------------------
@@ -482,9 +481,6 @@ if (HIP_FOUND)
     # For ROCm >= 3.5, wipe hip-clang specific interface options which are propagated
     set_target_properties( hip::device PROPERTIES INTERFACE_COMPILE_OPTIONS "-fPIC" )
     set_target_properties( hip::device PROPERTIES INTERFACE_LINK_LIBRARIES "hip::host" )
-
-    # Propagate flags to HIP code.
-    set_target_properties( hip::device PROPERTIES INTERFACE_COMPILE_OPTIONS "-DSLATE_NO_CUDA")
 
     # First, get the HIP source's base files (which are CUDA sources, needing
     # to be hipified)
@@ -610,7 +606,6 @@ if (HIP_FOUND)
     endforeach()
 else()
     message( STATUS "Not building HIP/ROCm support in SLATE" )
-    target_compile_definitions( slate PUBLIC "-DSLATE_NO_HIP" )
 endif()
 
 #-------------------------------------------------------------------------------

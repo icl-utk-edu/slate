@@ -12,7 +12,7 @@
 // Extend BLAS real_type to cover cuComplex and hipComplex.
 // todo: should we move it to BLAS++?
 //
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     #include <cuComplex.h>
 
     namespace blas {
@@ -29,7 +29,7 @@
 
     } // namespace blas
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     #include <hip/hip_complex.h>
 
     namespace blas {
@@ -45,13 +45,18 @@
     };
 
     } // namespace blas
-#endif // #elif ! defined(SLATE_NO_HIP)
+#endif // #elif defined( BLAS_HAVE_ROCBLAS )
 
 namespace slate {
 
 /// @namespace slate::device
 /// GPU device implementations of kernels.
 namespace device {
+
+// Simplify checking for GPU device support (CUDA or ROCm).
+#if defined( BLAS_HAVE_CUBLAS ) || defined( BLAS_HAVE_ROCBLAS )
+    #define SLATE_HAVE_DEVICE
+#endif
 
 //------------------------------------------------------------------------------
 template <typename src_scalar_t, typename dst_scalar_t>

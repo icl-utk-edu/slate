@@ -23,13 +23,13 @@ void tzcopy(
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     tzcopy(uplo,
            m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
            batch_count, queue);
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     tzcopy(uplo,
            m, n,
            (hipFloatComplex**) Aarray, lda,
@@ -46,13 +46,13 @@ void tzcopy(
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     tzcopy(uplo,
            m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
            batch_count, queue);
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     tzcopy(uplo,
            m, n,
            (hipFloatComplex**) Aarray, lda,
@@ -69,13 +69,13 @@ void tzcopy(
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     tzcopy(uplo,
            m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
            batch_count, queue);
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     tzcopy(uplo,
            m, n,
            (hipDoubleComplex**) Aarray, lda,
@@ -92,13 +92,13 @@ void tzcopy(
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     tzcopy(uplo,
            m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
            batch_count, queue);
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     tzcopy(uplo,
            m, n,
            (hipDoubleComplex**) Aarray, lda,
@@ -108,7 +108,7 @@ void tzcopy(
 }
 
 //---------------------------------------------------
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
 void tzcopy(
@@ -148,7 +148,7 @@ void tzcopy(
     int64_t batch_count, blas::Queue &queue)
 {
 }
-#endif // not SLATE_NO_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 

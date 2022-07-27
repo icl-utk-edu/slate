@@ -28,7 +28,7 @@ void tzset(
     std::complex<float>* A, int64_t lda,
     blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     tzset(
         uplo, m, n,
         make_cuFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
@@ -36,7 +36,7 @@ void tzset(
         (cuFloatComplex*) A, lda,
         queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     tzset(
         uplo, m, n,
         make_hipFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
@@ -55,7 +55,7 @@ void tzset(
     std::complex<double>* A, int64_t lda,
     blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     tzset(
         uplo, m, n,
         make_cuDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
@@ -63,7 +63,7 @@ void tzset(
         (cuDoubleComplex*) A, lda,
         queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     tzset(
         uplo, m, n,
         make_hipDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
@@ -73,7 +73,7 @@ void tzset(
 #endif
 }
 
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 //----------------------------------------
 // Specializations to allow compilation without CUDA or HIP.
 template <>
@@ -96,7 +96,7 @@ void tzset(
     blas::Queue& queue)
 {
 }
-#endif // not SLATE_WITH_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 //==============================================================================
 namespace batch {
@@ -111,7 +111,7 @@ void tzset(
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     batch::tzset(
         uplo, m, n,
         make_cuFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
@@ -119,7 +119,7 @@ void tzset(
         (cuFloatComplex**) Aarray, lda,
         batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     batch::tzset(
         uplo, m, n,
         make_hipFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
@@ -138,7 +138,7 @@ void tzset(
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     batch::tzset(
         uplo, m, n,
         make_cuDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
@@ -146,7 +146,7 @@ void tzset(
         (cuDoubleComplex**) Aarray, lda,
         batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     batch::tzset(
         uplo, m, n,
         make_hipDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
@@ -156,7 +156,7 @@ void tzset(
 #endif
 }
 
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 //----------------------------------------
 // Specializations to allow compilation without CUDA or HIP.
 template <>
@@ -179,7 +179,7 @@ void tzset(
     int64_t batch_count, blas::Queue& queue)
 {
 }
-#endif // not SLATE_WITH_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace batch
 } // namespace device

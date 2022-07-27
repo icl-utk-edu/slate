@@ -22,14 +22,14 @@ void geset(
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     geset(m, n,
           make_cuFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
           make_cuFloatComplex( diag_value.real(), diag_value.imag() ),
           (cuFloatComplex**) Aarray, lda,
           batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     geset(m, n,
           make_hipFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
           make_hipFloatComplex( diag_value.real(), diag_value.imag() ),
@@ -45,14 +45,14 @@ void geset(
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     geset(m, n,
           make_cuDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
           make_cuDoubleComplex( diag_value.real(), diag_value.imag() ),
           (cuDoubleComplex**) Aarray, lda,
           batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     geset(m, n,
           make_hipDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
           make_hipDoubleComplex( diag_value.real(), diag_value.imag() ),
@@ -61,7 +61,7 @@ void geset(
 #endif
 }
 
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
 void geset(
@@ -80,7 +80,7 @@ void geset(
     int64_t batch_count, blas::Queue &queue)
 {
 }
-#endif // not SLATE_WITH_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 

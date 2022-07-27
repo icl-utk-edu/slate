@@ -32,11 +32,11 @@ void henorm(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     henorm(in_norm, uplo, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     henorm(in_norm, uplo, n, (hipFloatComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
@@ -51,17 +51,17 @@ void henorm(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     henorm(in_norm, uplo, n, (cuDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     henorm(in_norm, uplo, n, (hipDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
 }
 
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA.
 template <>
 void henorm(
@@ -84,7 +84,7 @@ void henorm(
     blas::Queue &queue)
 {
 }
-#endif // not SLATE_NO_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 

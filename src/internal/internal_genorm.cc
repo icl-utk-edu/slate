@@ -30,11 +30,11 @@ void genorm(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     genorm(in_norm, scope, m, n, (cuFloatComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     genorm(in_norm, scope, m, n, (hipFloatComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
@@ -49,17 +49,17 @@ void genorm(
     int64_t batch_count,
     blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     genorm(in_norm, scope, m, n, (cuDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     genorm(in_norm, scope, m, n, (hipDoubleComplex**) Aarray, lda,
            values, ldv, batch_count, queue);
 #endif
 }
 
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
 void genorm(
@@ -82,7 +82,7 @@ void genorm(
     blas::Queue &queue)
 {
 }
-#endif // not SLATE_NO_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 

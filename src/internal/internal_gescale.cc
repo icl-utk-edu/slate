@@ -22,13 +22,13 @@ void gescale(
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     gescale(m, n,
             numer, denom,
             (cuFloatComplex**) Aarray, lda,
             batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     gescale(m, n,
             numer, denom,
             (hipFloatComplex**) Aarray, lda,
@@ -43,13 +43,13 @@ void gescale(
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     gescale(m, n,
             numer, denom,
             (cuDoubleComplex**) Aarray, lda,
             batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     gescale(m, n,
             numer, denom,
             (hipDoubleComplex**) Aarray, lda,
@@ -57,7 +57,7 @@ void gescale(
 #endif
 }
 
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
 void gescale(
@@ -76,7 +76,7 @@ void gescale(
     int64_t batch_count, blas::Queue& queue)
 {
 }
-#endif // not SLATE_WITH_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 

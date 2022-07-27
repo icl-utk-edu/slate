@@ -22,13 +22,13 @@ void gecopy(
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     gecopy(m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
            batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     gecopy(m, n,
            (hipFloatComplex**) Aarray, lda,
            (hipFloatComplex**) Barray, ldb,
@@ -43,13 +43,13 @@ void gecopy(
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     gecopy(m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
            batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     gecopy(m, n,
            (hipFloatComplex**) Aarray, lda,
            (hipDoubleComplex**) Barray, ldb,
@@ -64,13 +64,13 @@ void gecopy(
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     gecopy(m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
            batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     gecopy(m, n,
            (hipDoubleComplex**) Aarray, lda,
            (hipDoubleComplex**) Barray, ldb,
@@ -85,13 +85,13 @@ void gecopy(
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     gecopy(m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
            batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     gecopy(m, n,
            (hipDoubleComplex**) Aarray, lda,
            (hipFloatComplex**) Barray, ldb,
@@ -100,7 +100,7 @@ void gecopy(
 }
 
 //---------------------------------------------------
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
 void gecopy(
@@ -136,7 +136,7 @@ void gecopy(
     int64_t batch_count, blas::Queue &queue)
 {
 }
-#endif // not SLATE_NO_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 

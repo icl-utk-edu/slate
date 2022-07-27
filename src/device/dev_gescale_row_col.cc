@@ -10,7 +10,7 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 
 // Stubs to allow compilation without CUDA or HIP.
 template <>
@@ -33,15 +33,15 @@ void gescale_row_col_batch(
 {
 }
 
-#endif // SLATE_NO_CUDA && SLATE_NO_HIP
+#endif // not SLATE_HAVE_DEVICE
 
 //------------------------------------------------------------------------------
 // Wrappers to map std::complex to cuComplex and hipComplex.
 
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     typedef cuFloatComplex devFloatComplex;
     typedef cuDoubleComplex devDoubleComplex;
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     typedef hipFloatComplex devFloatComplex;
     typedef hipDoubleComplex devDoubleComplex;
 #endif
@@ -56,7 +56,7 @@ void gescale_row_col_batch(
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA) || ! defined(SLATE_NO_HIP)
+#if defined( SLATE_WITH_DEVICE )
     gescale_row_col_batch(
         equed, m, n,
         Rarray,
@@ -74,7 +74,7 @@ void gescale_row_col_batch(
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA) || ! defined(SLATE_NO_HIP)
+#if defined( SLATE_WITH_DEVICE )
     gescale_row_col_batch(
         equed, m, n,
         Rarray,
@@ -94,7 +94,7 @@ void gescale_row_col_batch(
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA) || ! defined(SLATE_NO_HIP)
+#if defined( SLATE_WITH_DEVICE )
     gescale_row_col_batch(
         equed, m, n,
         (devFloatComplex**) Rarray,
@@ -112,7 +112,7 @@ void gescale_row_col_batch(
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA) || ! defined(SLATE_NO_HIP)
+#if defined( SLATE_WITH_DEVICE )
     gescale_row_col_batch(
         equed, m, n,
         (devDoubleComplex**) Rarray,

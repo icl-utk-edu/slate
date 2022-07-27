@@ -22,13 +22,13 @@ void tzscale(
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     tzscale(uplo, m, n,
             numer, denom,
             (cuFloatComplex**) Aarray, lda,
             batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     tzscale(uplo, m, n,
             numer, denom,
             (hipFloatComplex**) Aarray, lda,
@@ -44,13 +44,13 @@ void tzscale(
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     tzscale(uplo, m, n,
             numer, denom,
             (cuDoubleComplex**) Aarray, lda,
             batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     tzscale(uplo, m, n,
             numer, denom,
             (hipDoubleComplex**) Aarray, lda,
@@ -58,7 +58,7 @@ void tzscale(
 #endif
 }
 
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
 void tzscale(
@@ -79,7 +79,7 @@ void tzscale(
     int64_t batch_count, blas::Queue& queue)
 {
 }
-#endif // not SLATE_WITH_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 

@@ -5,17 +5,17 @@
 
 //------------------------------------------------------------------------------
 /// @file
-/// Provides simple precision-independent wrappers around MKL and cuBLAS batch
-/// routines. Eventually to be replaced by blaspp batch routines.
+/// Provides simple precision-independent wrappers around MKL batch
+/// routines. Eventually to be replaced by BLAS++ batch routines.
 #ifndef SLATE_INTERNAL_BATCH_HH
 #define SLATE_INTERNAL_BATCH_HH
 
 #include "slate/Exception.hh"
 
-#ifdef SLATE_WITH_MKL
+#include <blas.hh>
+
+#ifdef BLAS_HAVE_MKL
     #include <mkl_cblas.h>
-#else
-    #include <cblas.h>
 #endif
 
 #include <complex>
@@ -23,6 +23,8 @@
 
 namespace slate {
 namespace internal {
+
+#ifdef BLAS_HAVE_MKL
 
 //------------------------------------------------------------------------------
 inline CBLAS_TRANSPOSE cblas_trans_const(Op op)
@@ -35,7 +37,6 @@ inline CBLAS_TRANSPOSE cblas_trans_const(Op op)
     }
 }
 
-#ifdef SLATE_WITH_MKL
 //------------------------------------------------------------------------------
 inline void cblas_gemm_batch(
     const CBLAS_LAYOUT layout,
@@ -143,7 +144,7 @@ inline void cblas_gemm_batch(
                       beta_array,  (void**)       C_array, ldc_array,
                       group_count, group_size);
 }
-#endif // SLATE_WITH_MKL
+#endif // BLAS_HAVE_MKL
 
 } // namespace slate
 } // namespace internal

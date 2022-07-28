@@ -201,7 +201,6 @@ scalapack = -lscalapack
 
 ifeq ($(blas),mkl)
     # Intel MKL
-    FLAGS += -DSLATE_WITH_MKL
     # Auto-detect whether to use Intel or GNU conventions.
     # Won't detect if CXX = mpicxx.
     ifeq ($(CXX),icpc)
@@ -262,17 +261,14 @@ ifeq ($(blas),mkl)
     endif
 else ifeq ($(blas),essl)
     # IBM ESSL
-    FLAGS += -DSLATE_WITH_ESSL
     # todo threaded, int64
     # hmm... likely LAPACK won't be int64 even if ESSL is.
     LIBS += -lessl -llapack
 else ifeq ($(blas),openblas)
     # OpenBLAS
-    FLAGS += -DSLATE_WITH_OPENBLAS
     LIBS += -lopenblas
 else ifeq ($(blas),libsci)
     # Cray LibSci
-    FLAGS += -DSLATE_WITH_LIBSCI
     # no LIBS to add
     scalapack =
 else

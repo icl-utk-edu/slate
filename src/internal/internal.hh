@@ -10,13 +10,6 @@
 #define SLATE_INTERNAL_HH
 
 #include "slate/types.hh"
-
-#ifdef SLATE_WITH_MKL
-    #include <mkl_cblas.h>
-#else
-    #include <cblas.h>
-#endif
-
 #include "slate/Matrix.hh"
 #include "slate/HermitianMatrix.hh"
 #include "slate/HermitianBandMatrix.hh"

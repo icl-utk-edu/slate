@@ -56,7 +56,7 @@ void gescale_row_col_batch(
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if defined( SLATE_WITH_DEVICE )
+#if defined( SLATE_HAVE_DEVICE )
     gescale_row_col_batch(
         equed, m, n,
         Rarray,
@@ -74,7 +74,7 @@ void gescale_row_col_batch(
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if defined( SLATE_WITH_DEVICE )
+#if defined( SLATE_HAVE_DEVICE )
     gescale_row_col_batch(
         equed, m, n,
         Rarray,
@@ -94,7 +94,7 @@ void gescale_row_col_batch(
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if defined( SLATE_WITH_DEVICE )
+#if defined( SLATE_HAVE_DEVICE )
     gescale_row_col_batch(
         equed, m, n,
         (devFloatComplex**) Rarray,
@@ -112,7 +112,7 @@ void gescale_row_col_batch(
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if defined( SLATE_WITH_DEVICE )
+#if defined( SLATE_HAVE_DEVICE )
     gescale_row_col_batch(
         equed, m, n,
         (devDoubleComplex**) Rarray,

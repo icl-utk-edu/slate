@@ -406,10 +406,6 @@ message( STATUS "LAPACK++ done" )
 
 target_link_libraries( slate PUBLIC blaspp lapackpp )
 
-if ("${blaspp_defines}" MATCHES "HAVE_MKL")
-    target_compile_definitions( slate PUBLIC "-DSLATE_WITH_MKL" )
-endif()
-
 #-------------------------------------------------------------------------------
 # CUDA support.
 message( "" )

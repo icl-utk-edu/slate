@@ -101,10 +101,6 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
         return;
     }
 
-    // make blas single threaded
-    // todo: does this set the omp num threads correctly
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
-
     blas::Op trans = blas::char2op(transstr[0]);
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
@@ -147,8 +143,6 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, inner_blocking}
     });
-
-    slate_set_num_blas_threads(saved_num_blas_threads);
 
     // todo: extract the real info
     *info = 0;

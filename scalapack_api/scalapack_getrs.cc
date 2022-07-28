@@ -91,10 +91,6 @@ extern "C" void pzgetrs_(const char* trans, int* n, int* nrhs, std::complex<doub
 template< typename scalar_t >
 void slate_pgetrs(const char* transstr, int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* b, int ib, int jb, int* descb, int* info)
 {
-    // make blas single threaded
-    // todo: does this set the omp num threads correctly
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
-
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     int64_t lookahead = slate_scalapack_set_lookahead();
@@ -189,9 +185,6 @@ void slate_pgetrs(const char* transstr, int n, int nrhs, scalar_t* a, int ia, in
 
     // todo: extract the real info from getrs
     *info = 0;
-
-    // reset blas threading
-    slate_set_num_blas_threads(saved_num_blas_threads);
 }
 
 } // namespace scalapack_api

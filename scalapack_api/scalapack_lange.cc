@@ -91,10 +91,6 @@ extern "C" double pzlange_(const char* norm, int* m, int* n, std::complex<double
 template< typename scalar_t >
 blas::real_type<scalar_t> slate_plange(const char* normstr, int m, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t>* work)
 {
-    // make blas single threaded
-    // todo: does this set the omp num threads correctly
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
-
     lapack::Norm norm = lapack::char2norm(normstr[0]);
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
@@ -119,9 +115,6 @@ blas::real_type<scalar_t> slate_plange(const char* normstr, int m, int n, scalar
         {slate::Option::Target, target},
         {slate::Option::Lookahead, lookahead}
     });
-
-    // omp_set_num_threads(saved_num_omp_threads);
-    slate_set_num_blas_threads(saved_num_blas_threads);
 
     return A_norm;
 }

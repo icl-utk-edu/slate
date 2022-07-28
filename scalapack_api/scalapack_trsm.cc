@@ -96,10 +96,6 @@ extern "C" void pztrsm_(const char* side, const char* uplo, const char* transa, 
 template< typename scalar_t >
 void slate_ptrsm(const char* sidestr, const char* uplostr, const char* transastr, const char* diagstr, int m, int n, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb)
 {
-    // make blas single threaded
-    // todo: does this set the omp num threads correctly
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
-
     blas::Side side = blas::char2side(sidestr[0]);
     blas::Uplo uplo = blas::char2uplo(uplostr[0]);
     blas::Op transA = blas::char2op(transastr[0]);
@@ -137,8 +133,6 @@ void slate_ptrsm(const char* sidestr, const char* uplostr, const char* transastr
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
-
-    slate_set_num_blas_threads(saved_num_blas_threads);
 }
 
 } // namespace scalapack_api

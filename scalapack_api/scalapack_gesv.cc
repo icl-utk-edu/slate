@@ -91,10 +91,6 @@ extern "C" void pzgesv_(int* n, int* nrhs, std::complex<double>* a, int* ia, int
 template< typename scalar_t >
 void slate_pgesv(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* b, int ib, int jb, int* descb, int* info)
 {
-    // make blas single threaded
-    // todo: does this set the omp num threads correctly
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
-
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     int64_t lookahead = 1;
@@ -153,8 +149,6 @@ void slate_pgesv(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* 
             ipiv[l_ipiv_rindx-1] = ((tileIndexSwap+g_ipiv_tile_indx) * nb) + (elementOffsetSwap + 1);
         }
     }
-
-    slate_set_num_blas_threads(saved_num_blas_threads);
 
     // todo: extract the real info
     *info = 0;

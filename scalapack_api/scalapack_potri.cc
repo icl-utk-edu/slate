@@ -94,10 +94,6 @@ extern "C" void pzpotri_(const char* uplo, int* n, std::complex<double>* a, int*
 template< typename scalar_t >
 void slate_ppotri(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, int* info)
 {
-    // make blas single threaded
-    // todo: does this set the omp num threads correctly
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
-
     blas::Uplo uplo = blas::char2uplo(uplostr[0]);
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
@@ -120,8 +116,6 @@ void slate_ppotri(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* 
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
-
-    slate_set_num_blas_threads(saved_num_blas_threads);
 
     // todo: extract the real info from potri
     *info = 0;

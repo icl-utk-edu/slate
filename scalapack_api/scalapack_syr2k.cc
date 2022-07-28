@@ -96,10 +96,6 @@ extern "C" void pzsyr2k_(const char* uplo, const char* trans, int* n, int* k, st
 template< typename scalar_t >
 void slate_psyr2k(const char* uplostr, const char* transstr, int n, int k, scalar_t alpha, scalar_t* a, int ia, int ja, int* desca, scalar_t* b, int ib, int jb, int* descb, scalar_t beta, scalar_t* c, int ic, int jc, int* descc)
 {
-    // make blas single threaded
-    // todo: does this set the omp num threads correctly
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
-
     blas::Uplo uplo = blas::char2uplo(uplostr[0]);
     blas::Op trans = blas::char2op(transstr[0]);
     static slate::Target target = slate_scalapack_set_target();
@@ -147,8 +143,6 @@ void slate_psyr2k(const char* uplostr, const char* transstr, int n, int k, scala
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
-
-    slate_set_num_blas_threads(saved_num_blas_threads);
 }
 
 } // namespace scalapack_api

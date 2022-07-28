@@ -59,10 +59,6 @@ extern "C" double pzlanhe_(const char* norm, const char* uplo, int* n, std::comp
 template< typename scalar_t >
 blas::real_type<scalar_t> slate_planhe(const char* normstr, const char* uplostr, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t>* work)
 {
-    // make blas single threaded
-    // todo: does this set the omp num threads correctly
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
-
     blas::Uplo uplo = blas::char2uplo(uplostr[0]);
     lapack::Norm norm = lapack::char2norm(normstr[0]);
     static slate::Target target = slate_scalapack_set_target();
@@ -88,8 +84,6 @@ blas::real_type<scalar_t> slate_planhe(const char* normstr, const char* uplostr,
         {slate::Option::Target, target},
         {slate::Option::Lookahead, lookahead}
     });
-
-    slate_set_num_blas_threads(saved_num_blas_threads);
 
     return A_norm;
 }

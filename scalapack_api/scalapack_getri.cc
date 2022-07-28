@@ -91,10 +91,6 @@ extern "C" void pzgetri_(int* n, std::complex<double>* a, int* ia, int* ja, int*
 template< typename scalar_t >
 void slate_pgetri(int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* work, int lwork, int* iwork, int liwork, int* info)
 {
-    // make blas single threaded
-    // todo: does this set the omp num threads correctly
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
-
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     int64_t lookahead = slate_scalapack_set_lookahead();
@@ -171,8 +167,6 @@ void slate_pgetri(int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, sca
     }
 
     slate::getri(A, pivots, opts);
-
-    slate_set_num_blas_threads(saved_num_blas_threads);
 
     // todo: extract the real info from getri
     *info = 0;

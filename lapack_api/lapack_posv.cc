@@ -61,9 +61,6 @@ void slate_posv(const char* uplostr, const int n, const int nrhs, scalar_t* a, c
     if (! initialized)
         MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
 
-    // todo: does this set the omp num threads correctly in all circumstances
-    int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);
-
     blas::Uplo uplo = blas::char2uplo(uplostr[0]);
     int64_t lookahead = 1;
     int64_t p = 1;
@@ -81,8 +78,6 @@ void slate_posv(const char* uplostr, const int n, const int nrhs, scalar_t* a, c
             {slate::Option::Lookahead, lookahead},
             {slate::Option::Target, target}
         });
-
-    slate_lapack_set_num_blas_threads(saved_num_blas_threads);
 
     // todo:  get a real value for info
     *info = 0;

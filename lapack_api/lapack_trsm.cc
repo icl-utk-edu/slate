@@ -59,9 +59,6 @@ void slate_trsm(const char* sidestr, const char* uplostr, const char* transastr,
     if (! initialized)
         MPI_Init_thread(nullptr, nullptr, MPI_THREAD_SERIALIZED, &provided);
 
-    // todo: does this set the omp num threads correctly in all circumstances
-    int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);
-
     int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;
@@ -90,8 +87,6 @@ void slate_trsm(const char* sidestr, const char* uplostr, const char* transastr,
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
-
-    slate_lapack_set_num_blas_threads(saved_num_blas_threads);
 
     if (verbose) std::cout << "slate_lapack_api: " << slate_lapack_scalar_t_to_char(a) << "trsm(" << sidestr[0] << "," << uplostr[0] << "," << transastr[0] <<  "," << diagstr[0] <<  "," << m << "," << n << "," << alpha << "," << (void*)a << "," << lda << "," << (void*)b << "," << ldb << ") " << (omp_get_wtime()-timestart) << " sec " << "nb:" << nb << " max_threads:" << omp_get_max_threads() << "\n";
 }

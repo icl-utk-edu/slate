@@ -13,10 +13,6 @@
 
 #include <complex>
 
-#ifdef SLATE_WITH_MKL
-    extern "C" int MKL_Set_Num_Threads(int nt);
-#endif
-
 namespace slate {
 namespace lapack_api {
 
@@ -24,14 +20,6 @@ namespace lapack_api {
     do { fprintf(stdout, "slate_lapack_api: " fmt, __VA_ARGS__); } while (0)
 
 //    do { fprintf(stdout, "%s:%d %s(): " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__); } while (0)
-
-inline int slate_lapack_set_num_blas_threads(const int nt)
-{
-    #ifdef SLATE_WITH_MKL
-    return MKL_Set_Num_Threads(nt);
-    #endif
-    return 1;
-}
 
 inline char slate_lapack_scalar_t_to_char(int* a) { return 'i'; }
 inline char slate_lapack_scalar_t_to_char(float* a) { return 's'; }

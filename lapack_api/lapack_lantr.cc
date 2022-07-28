@@ -62,9 +62,6 @@ blas::real_type<scalar_t> slate_lantr(const char* normstr, const char* uplostr, 
     if (! initialized)
         MPI_Init_thread(nullptr, nullptr, MPI_THREAD_SERIALIZED, &provided);
 
-    // todo: does this set the omp num threads correctly in all circumstances
-    int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);
-
     int64_t Am = m;
     int64_t An = n;
     lapack::Norm norm = lapack::char2norm(normstr[0]);
@@ -84,8 +81,6 @@ blas::real_type<scalar_t> slate_lantr(const char* normstr, const char* uplostr, 
         {slate::Option::Target, target},
         {slate::Option::Lookahead, lookahead}
     });
-
-    slate_lapack_set_num_blas_threads(saved_num_blas_threads);
 
     // if (verbose) std::cout << "slate_lapack_api: " << slate_lapack_scalar_t_to_char(a) << "lantr(" << normstr[0] << "," << uplostr[0] <<  "," << diagstr[0] << "," << m << "," << n << "," <<  (void*)a << "," <<  lda << "," <<  (void*)work << ") " <<  (omp_get_wtime()-timestart) << " sec " << "nb:" << nb << " max_threads:" << omp_get_max_threads() << "\n";
 

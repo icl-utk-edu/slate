@@ -47,9 +47,6 @@ void slate_her2k(const char* uplostr, const char* transastr, const int n, const 
     if (! initialized)
         MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
 
-    // todo: does this set the omp num threads correctly in all circumstances
-    int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);
-
     blas::Uplo uplo = blas::char2uplo(uplostr[0]);
     blas::Op trans = blas::char2op(transastr[0]);
     int64_t lookahead = 1;
@@ -86,8 +83,6 @@ void slate_her2k(const char* uplostr, const char* transastr, const int n, const 
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
-
-    slate_lapack_set_num_blas_threads(saved_num_blas_threads);
 
     if (verbose) std::cout << "slate_lapack_api: " << slate_lapack_scalar_t_to_char(a) << "her2k(" << uplostr[0] << "," << transastr[0] << "," <<  n << "," <<  k << "," <<  alpha << "," << (void*)a << "," <<  lda << "," << (void*)b << "," << ldb << "," << beta << "," << (void*)c << "," << ldc << ") " << (omp_get_wtime()-timestart) << " sec " << "nb:" << nb << " max_threads:" << omp_get_max_threads() << "\n";
 }

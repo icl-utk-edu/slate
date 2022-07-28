@@ -73,9 +73,6 @@ void slate_getrf(const int m, const int n, scalar_t* a, const int lda, int* ipiv
     if (m == 0 || n == 0)
         return;
 
-    // todo: does this set the omp num threads correctly in all circumstances
-    int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);
-
     int64_t p = 1;
     int64_t q = 1;
     int64_t lookahead = 1;
@@ -111,8 +108,6 @@ void slate_getrf(const int m, const int n, scalar_t* a, const int lda, int* ipiv
             t_iter_add += nb;
         }
     }
-
-    slate_lapack_set_num_blas_threads(saved_num_blas_threads);
 
     // todo: get a real value for info
     *info = 0;

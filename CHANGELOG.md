@@ -1,3 +1,16 @@
+2022.07.00
+  - Improved performance of QR factorization on GPUs by moving panel to GPU:
+    5.5x faster on tall-skinny problem
+  - Added Cholesky QR `cholqr`; added as option in least squares solver, `gels`
+  - Added GPU implementation of `gemmA`, used when n is small (e.g., n <= nb)
+  - Added row and column scaling, `scale_row_col`
+  - Added print of individual tile
+  - Removed use of life counter in `gemm`, `herk`
+  - Removed setting MKL threads, which is no longer needed
+  - Removed `SLATE_NO_{HIP, CUDA}` macros in favor of
+    `BLAS_HAVE_{CUBLAS, ROCBLAS}` macros from BLAS++
+  - Introduced `tile` namespace
+
 2022.06.00
   - Fixed algorithm selection (issue #41)
   - Fixed set for triangular, trapezoid, symmetric, Hermitian matrices (tzset)

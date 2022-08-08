@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -64,10 +64,12 @@ void gbmm(slate::internal::TargetType<target>,
         C.reserveDeviceWorkspace();
     }
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         // send first block col of A and block row of B
         #pragma omp task depend(out:bcast[0])
         {
@@ -129,10 +131,12 @@ void gbmm(slate::internal::TargetType<target>,
                 for (int64_t i = i_end; i < C.mt(); ++i) {
                     for (int64_t j = 0; j < C.nt(); ++j) {
                         if (C.tileIsLocal(i, j)) {
-                            #pragma omp task shared(C)
+                            #pragma omp task slate_omp_default_none \
+                                shared( C ) \
+                                firstprivate(i, j, layout, beta)
                             {
                                 C.tileGetForWriting(i, j, LayoutConvert(layout));
-                                scale(beta, C(i, j));
+                                tile::scale( beta, C(i, j) );
                             }
                         }
                     }

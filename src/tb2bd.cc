@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -209,6 +209,8 @@ template <Target target, typename scalar_t>
 void tb2bd(slate::internal::TargetType<target>,
            TriangularBandMatrix<scalar_t>& A)
 {
+    const scalar_t zero = 0.0;
+
     int64_t diag_len = std::min(A.m(), A.n());
     int64_t band = A.bandwidth();
 
@@ -249,19 +251,22 @@ void tb2bd(slate::internal::TargetType<target>,
                 if (i == j) {
                     auto Aij = A(i, j);
                     Aij.uplo(Uplo::Lower);
-                    tzset(scalar_t(0), Aij);
+                    tile::tzset( zero, Aij );
                 }
 
                 if (i == (j - 1)) {
                     auto Aij = A(i, j);
                     Aij.uplo(Uplo::Upper);
-                    tzset(scalar_t(0), Aij);
+                    tile::tzset( zero, Aij );
                 }
             }
             ii += A.tileMb(i);
         }
         jj += A.tileNb(j);
     }
+
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
 
     #pragma omp parallel
     #pragma omp master
@@ -272,7 +277,6 @@ void tb2bd(slate::internal::TargetType<target>,
         #if 1
             // Launching new threads for the band reduction guarantees progression.
             // This should never deadlock, but may be detrimental to performance.
-            omp_set_nested(1);
             #pragma omp parallel for \
                 num_threads(thread_size) \
                 shared(reflectors, lock, progress)

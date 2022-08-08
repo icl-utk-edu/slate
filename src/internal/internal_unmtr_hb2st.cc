@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -183,11 +183,13 @@ void unmtr_hb2st( internal::TargetType<target>,
                                     }
                                 }
                                 if (target == Target::Devices) {
-                                    #pragma omp task default(none) firstprivate(r, device) shared(V_)
+                                    #pragma omp task slate_omp_default_none \
+                                        firstprivate( r, device ) shared( V_ )
                                     {
                                         V_.tileGetForReading(0, r, device, LayoutConvert::None);
                                     }
-                                    #pragma omp task default(none) firstprivate(i, device) shared(VT)
+                                    #pragma omp task slate_omp_default_none \
+                                        firstprivate( i, device ) shared( VT )
                                     {
                                         // VT is only written so use tileAcquire
                                         VT.tileAcquire(i/2, 0, device, Layout::ColMajor);
@@ -233,7 +235,8 @@ void unmtr_hb2st( internal::TargetType<target>,
                                     for (int d = 0; d < C.num_devices(); ++d)
                                     {
                                         // prefetch VT on all devices for C -= VT VC operation
-                                        #pragma omp task default(none) firstprivate(d, i) shared(VT)
+                                        #pragma omp task slate_omp_default_none \
+                                            firstprivate( d, i ) shared( VT )
                                         {
                                             VT.tileGetForReading(i/2, 0, d, LayoutConvert::None);
                                         }
@@ -244,7 +247,8 @@ void unmtr_hb2st( internal::TargetType<target>,
                         if (target == Target::Devices) {
                             // prefetch V on all devices for VC += V^H C
                             for (int d = 0; d < C.num_devices(); ++d) {
-                                #pragma omp task default(none) firstprivate(d, r) shared(V_)
+                                #pragma omp task slate_omp_default_none \
+                                    firstprivate( d, r ) shared( V_ )
                                 {
                                     V_.tileGetForReading(0, r, d, LayoutConvert::None);
                                 }
@@ -253,12 +257,14 @@ void unmtr_hb2st( internal::TargetType<target>,
                             for (int64_t k = 0; k < nt; ++k) {
                                 if (C.tileIsLocal(i, k)) {
                                     int device = C.tileDevice(i, k);
-                                    #pragma omp task default(none) firstprivate(i, k, device) shared(C)
+                                    #pragma omp task slate_omp_default_none \
+                                        firstprivate( i, k, device ) shared( C )
                                     {
                                         C.tileGetForWriting(i, k, device, LayoutConvert::None);
                                     }
                                     if (i+1 < mt) {
-                                        #pragma omp task default(none) firstprivate(i, k, device) shared(C)
+                                        #pragma omp task slate_omp_default_none \
+                                            firstprivate( i, k, device ) shared( C )
                                         {
                                             // Device of C(i+1, k) is equal to C(i, k) since 1D column
                                             // cyclic distribution is used.

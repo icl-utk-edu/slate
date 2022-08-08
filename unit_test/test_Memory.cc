@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -9,6 +9,7 @@
 #include "slate/Exception.hh"
 
 using std::max;
+using slate::HostNum;
 
 namespace test {
 
@@ -22,8 +23,8 @@ void test_Memory()
 {
     slate::Memory mem(sizeof(double) * nb * nb);
 
-    test_assert(int(mem.available(mem.host_num_)) == 0);
-    test_assert(int(mem.capacity (mem.host_num_)) == 0);
+    test_assert( int( mem.available( HostNum ) ) == 0 );
+    test_assert( int( mem.capacity(  HostNum ) ) == 0 );
 
     for (int dev = 0; dev < mem.num_devices_; ++dev) {
         test_assert(int(mem.available(dev)) == 0);
@@ -40,10 +41,10 @@ void test_addHostBlocks()
     const int cnt = 5;
     mem.addHostBlocks(cnt);
     // Memory class no longer reserves CPU blocks, it allocates on-the-fly.
-    //test_assert(int(mem.available(mem.host_num_)) == cnt);
-    //test_assert(int(mem.capacity (mem.host_num_)) == cnt);
-    test_assert(int(mem.available(mem.host_num_)) == 0);
-    test_assert(int(mem.capacity (mem.host_num_)) == 0);
+    //test_assert( int( mem.available( HostNum ) ) == cnt );
+    //test_assert( int( mem.capacity(  HostNum ) ) == cnt );
+    test_assert( int( mem.available( HostNum ) ) == 0 );
+    test_assert( int( mem.capacity(  HostNum ) ) == 0 );
 
     // Devices still 0.
     for (int dev = 0; dev < mem.num_devices_; ++dev) {
@@ -74,8 +75,8 @@ void test_addDeviceBlocks()
         }
     }
 
-    test_assert(int(mem.available(mem.host_num_)) == 0);
-    test_assert(int(mem.capacity (mem.host_num_)) == 0);
+    test_assert( int( mem.available( HostNum ) ) == 0 );
+    test_assert( int( mem.capacity(  HostNum ) ) == 0 );
 }
 
 //------------------------------------------------------------------------------
@@ -91,13 +92,13 @@ void test_alloc_host()
     // First cnt blocks come from reserve, next cnt blocks malloc'd 1-by-1.
     double* hx[ 2*cnt ];
     for (int i = 0; i < 2*cnt; ++i) {
-        hx[i] = (double*) mem.alloc(mem.host_num_, sizeof(double) * nb * nb);
+        hx[i] = (double*) mem.alloc( HostNum, sizeof(double) * nb * nb );
         test_assert(hx[i] != nullptr);
         // Memory class no longer reserves CPU blocks, it allocates on-the-fly.
-        //test_assert(int(mem.available(mem.host_num_)) == max(cnt - (i+1), 0));
-        //test_assert(int(mem.capacity (mem.host_num_)) == max(cnt, i+1));
-        test_assert(int(mem.available(mem.host_num_)) == 0);
-        test_assert(int(mem.capacity (mem.host_num_)) == 0);
+        //test_assert( int( mem.available( HostNum ) ) == max( cnt-(i+1), 0 ) );
+        //test_assert( int( mem.capacity(  HostNum ) ) == max( cnt, i+1 ) );
+        test_assert( int( mem.available( HostNum ) ) == 0 );
+        test_assert( int( mem.capacity(  HostNum ) ) == 0 );
 
         // Touch memory to verify it is valid.
         for (int j = 0; j < nb*nb; ++j) {
@@ -108,22 +109,22 @@ void test_alloc_host()
     // Free some.
     int some = cnt/2;
     for (int i = 0; i < some; ++i) {
-        mem.free(hx[i], mem.host_num_);
+        mem.free( hx[i], HostNum );
         hx[i] = nullptr;
-        //test_assert(int(mem.available(mem.host_num_)) == i+1);
-        //test_assert(int(mem.capacity (mem.host_num_)) == 2*cnt);
-        test_assert(int(mem.available(mem.host_num_)) == 0);
-        test_assert(int(mem.capacity (mem.host_num_)) == 0);
+        //test_assert( int( mem.available( HostNum ) ) == i+1 );
+        //test_assert( int( mem.capacity(  HostNum ) ) == 2*cnt );
+        test_assert( int( mem.available( HostNum ) ) == 0 );
+        test_assert( int( mem.capacity(  HostNum ) ) == 0 );
     }
 
     // Re-alloc some.
     for (int i = 0; i < some; ++i) {
-        hx[i] = (double*) mem.alloc(mem.host_num_, sizeof(double) * nb * nb);
+        hx[i] = (double*) mem.alloc( HostNum, sizeof(double) * nb * nb );
         test_assert(hx[i] != nullptr);
-        //test_assert(int(mem.available(mem.host_num_)) == some - (i+1));
-        //test_assert(int(mem.capacity (mem.host_num_)) == 2*cnt);
-        test_assert(int(mem.available(mem.host_num_)) == 0);
-        test_assert(int(mem.capacity (mem.host_num_)) == 0);
+        //test_assert( int( mem.available( HostNum ) ) == some - ( i+1 ) );
+        //test_assert( int( mem.capacity(  HostNum ) ) == 2*cnt );
+        test_assert( int( mem.available( HostNum ) ) == 0 );
+        test_assert( int( mem.capacity(  HostNum ) ) == 0 );
     }
 }
 
@@ -189,24 +190,24 @@ void test_clearHostBlocks()
 
     const int cnt = 5;
     mem.addHostBlocks(cnt);
-    //test_assert(int(mem.available(mem.host_num_)) == cnt);
-    //test_assert(int(mem.capacity (mem.host_num_)) == cnt);
-    test_assert(int(mem.available(mem.host_num_)) == 0);
-    test_assert(int(mem.capacity (mem.host_num_)) == 0);
+    //test_assert( int( mem.available( HostNum ) ) == cnt );
+    //test_assert( int( mem.capacity(  HostNum ) ) == cnt );
+    test_assert( int( mem.available( HostNum ) ) == 0 );
+    test_assert( int( mem.capacity(  HostNum ) ) == 0 );
 
     // Allocate 2*cnt blocks.
     for (int i = 0; i < 2*cnt; ++i) {
-        mem.alloc(mem.host_num_, sizeof(double) * nb * nb);
+        mem.alloc( HostNum, sizeof(double) * nb * nb );
     }
 
-    test_assert(int(mem.available(mem.host_num_)) == 0);
-    //test_assert(int(mem.capacity (mem.host_num_)) == 2*cnt);
-    test_assert(int(mem.capacity (mem.host_num_)) == 0);
+    test_assert( int( mem.available( HostNum ) ) == 0 );
+    //test_assert( int( mem.capacity(  HostNum ) ) == 2*cnt );
+    test_assert( int( mem.capacity(  HostNum ) ) == 0 );
 
     mem.clearHostBlocks();
 
-    test_assert(int(mem.available(mem.host_num_)) == 0);
-    test_assert(int(mem.capacity (mem.host_num_)) == 0);
+    test_assert( int( mem.available( HostNum ) ) == 0 );
+    test_assert( int( mem.capacity(  HostNum ) ) == 0 );
 }
 
 //------------------------------------------------------------------------------

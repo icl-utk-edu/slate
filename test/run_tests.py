@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+# Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -86,6 +86,7 @@ group_opt.add_argument( '--trans',  action='store', help='default=%(default)s', 
 group_opt.add_argument( '--uplo',   action='store', help='default=%(default)s', default='l,u' )
 group_opt.add_argument( '--diag',   action='store', help='default=%(default)s', default='n,u' )
 group_opt.add_argument( '--side',   action='store', help='default=%(default)s', default='l,r' )
+group_opt.add_argument( '--equed',  action='store', help='default=%(default)s', default='b,r,c,n' )
 group_opt.add_argument( '--alpha',  action='store', help='', default='' )
 group_opt.add_argument( '--beta',   action='store', help='', default='' )
 group_opt.add_argument( '--incx',   action='store', help='default=%(default)s', default='1,2,-1,-2' )
@@ -119,6 +120,7 @@ group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', 
 group_opt.add_argument( '--np',     action='store', help='number of MPI processes; default=%(default)s', default='1' )
 group_opt.add_argument( '--grid',   action='store', help='use p-by-q MPI process grid', default='' )
 group_opt.add_argument( '--repeat', action='store', help='times to repeat each test', default='' )
+group_opt.add_argument( '--thresh', action='store', help='default=%(default)s', default='1,0.5')
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -254,6 +256,7 @@ trans  = ' --trans '  + opts.trans  if (opts.trans)  else ''
 uplo   = ' --uplo '   + opts.uplo   if (opts.uplo)   else ''
 diag   = ' --diag '   + opts.diag   if (opts.diag)   else ''
 side   = ' --side '   + opts.side   if (opts.side)   else ''
+equed  = ' --equed '  + opts.equed  if (opts.equed)  else ''
 a      = ' --alpha '  + opts.alpha  if (opts.alpha)  else ''
 ab     = a+' --beta ' + opts.beta   if (opts.beta)   else a
 incx   = ' --incx '   + opts.incx   if (opts.incx)   else ''
@@ -284,8 +287,9 @@ la     = ' --lookahead ' + opts.lookahead if (opts.lookahead) else ''
 ddist  = ' --dev-dist  ' + opts.dev_dist  if (opts.dev_dist)  else ''
 nb     = ' --nb '     + opts.nb     if (opts.nb)     else ''
 nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
-grid   = ' --grid '    + opts.grid   if (opts.grid)   else ''
+grid   = ' --grid '   + opts.grid   if (opts.grid)   else ''
 repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
+thresh = ' --thresh ' + opts.thresh if (opts.thresh) else ''
 
 # general options for all routines
 gen       = origin + target + grid + check + ref + tol + repeat + nb
@@ -348,11 +352,11 @@ if (opts.blas3):
 # LU
 if (opts.lu):
     cmds += [
-    [ 'gesv',  gen + dtype + la + n],
+    [ 'gesv',  gen + dtype + la + n + thresh],
     [ 'gesv_nopiv',  gen + dtype + la + n + ' --matrix rand_dominant' + ' --nonuniform_nb n'],
-    [ 'getrf', gen + dtype + la + n],  # todo: mn
+    [ 'getrf', gen + dtype + la + n + thresh],  # todo: mn
     [ 'getrf_nopiv', target + grid + ref + check + repeat + nb + dtype + la + n + ' --matrix rand_dominant'+ ' --nonuniform_nb n'],
-    [ 'getrs', gen + dtype + la + n + trans],
+    [ 'getrs', gen + dtype + la + n + trans + thresh],
     [ 'getrs_nopiv', gen + dtype + la + n + trans + ' --matrix rand_dominant' + ' --nonuniform_nb n'],
     [ 'getri', gen + dtype + la + n ],
     [ 'getriOOP', gen + dtype + la + n ],
@@ -425,11 +429,7 @@ if (opts.hesv):
 if (opts.least_squares):
     cmds += [
     # todo: mn (i.e., add wide)
-    [ 'gels',   gen + dtype + la + n + tall + trans_nc ],
-    #[ 'gelsy',  gen + dtype + la + mn ],
-    #[ 'gelsd',  gen + dtype + la + mn ],
-    #[ 'gelss',  gen + dtype + la + mn ],
-    #[ 'getsls', gen + dtype + la + mn + trans_nc ],
+    [ 'gels',   gen + dtype + la + n + tall + trans_nc + ' --method-gels qr,cholqr' ],
 
     # Generalized
     #[ 'gglse', gen + dtype + la + mnk ],
@@ -439,6 +439,7 @@ if (opts.least_squares):
 # QR
 if (opts.qr):
     cmds += [
+    [ 'cholqr', gen + dtype + la + n + tall ],  # not wide
     [ 'geqrf', gen + dtype + la + mn ],
     [ 'unmqr', gen + dtype + la + mn ],
     #[ 'ggqrf', gen + dtype + la + mnk ],
@@ -555,12 +556,21 @@ if (opts.aux):
     [ 'tradd',  gen + dtype + n  + ab + uplo ],
     [ 'syadd',  gen + dtype + n  + ab + uplo ],
     [ 'headd',  gen + dtype + n  + ab + uplo ],
+
     [ 'copy',   gen + dtype + mn             ],
     [ 'tzcopy', gen + dtype + mn      + uplo ],
     [ 'trcopy', gen + dtype + n       + uplo ],
     [ 'sycopy', gen + dtype + n       + uplo ],
     [ 'hecopy', gen + dtype + n       + uplo ],
-    [ 'scale',  gen + dtype + mn + ab        ],
+
+    [ 'scale',   gen + dtype + mn + ab        ],
+    [ 'tzscale', gen + dtype + mn + ab + uplo ],
+    [ 'trscale', gen + dtype + n  + ab + uplo ],
+    [ 'syscale', gen + dtype + n  + ab + uplo ],
+    [ 'hescale', gen + dtype + n  + ab + uplo ],
+
+    [ 'scale_row_col', gen + dtype + mn + equed ],
+
     [ 'set',    gen + dtype + mn + ab        ],
     [ 'tzset',  gen + dtype + mn + ab + uplo ],
     [ 'trset',  gen + dtype +  n + ab + uplo ],
@@ -585,6 +595,7 @@ def print_tee( *args ):
 
 # ------------------------------------------------------------------------------
 # cmd is a pair of strings: (function, args)
+
 def run_test( cmd ):
     print( '-' * 80 )
     cmd = opts.test +' '+ cmd[1] +' '+ cmd[0]

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -18,21 +18,21 @@ namespace device {
 template <>
 void geset(
     int64_t m, int64_t n,
-    std::complex<float> alpha, std::complex<float> beta,
+    std::complex<float> offdiag_value, std::complex<float> diag_value,
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     geset(m, n,
-          make_cuFloatComplex(alpha.real(), alpha.imag()),
-          make_cuFloatComplex(beta.real(), beta.imag()),
+          make_cuFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
+          make_cuFloatComplex( diag_value.real(), diag_value.imag() ),
           (cuFloatComplex**) Aarray, lda,
           batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     geset(m, n,
-          make_hipFloatComplex(alpha.real(), alpha.imag()),
-          make_hipFloatComplex(beta.real(), beta.imag()),
+          make_hipFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
+          make_hipFloatComplex( diag_value.real(), diag_value.imag() ),
           (hipFloatComplex**) Aarray, lda,
           batch_count, queue);
 #endif
@@ -41,32 +41,32 @@ void geset(
 template <>
 void geset(
     int64_t m, int64_t n,
-    std::complex<double> alpha, std::complex<double> beta,
+    std::complex<double> offdiag_value, std::complex<double> diag_value,
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     geset(m, n,
-          make_cuDoubleComplex(alpha.real(), alpha.imag()),
-          make_cuDoubleComplex(beta.real(), beta.imag()),
+          make_cuDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
+          make_cuDoubleComplex( diag_value.real(), diag_value.imag() ),
           (cuDoubleComplex**) Aarray, lda,
           batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     geset(m, n,
-          make_hipDoubleComplex(alpha.real(), alpha.imag()),
-          make_hipDoubleComplex(beta.real(), beta.imag()),
+          make_hipDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
+          make_hipDoubleComplex( diag_value.real(), diag_value.imag() ),
           (hipDoubleComplex**) Aarray, lda,
           batch_count, queue);
 #endif
 }
 
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
 void geset(
     int64_t m, int64_t n,
-    double alpha, double beta,
+    double offdiag_value, double diag_value,
     double** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -75,12 +75,12 @@ void geset(
 template <>
 void geset(
     int64_t m, int64_t n,
-    float alpha, float beta,
+    float offdiag_value, float diag_value,
     float** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
 }
-#endif // not SLATE_WITH_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 
@@ -93,11 +93,11 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void set(
-    scalar_t alpha, scalar_t beta, Matrix<scalar_t>&& A,
+    scalar_t offdiag_value, scalar_t diag_value, Matrix<scalar_t>&& A,
     int priority, int queue_index)
 {
     set(internal::TargetType<target>(),
-        alpha, beta, A, priority, queue_index);
+        offdiag_value, diag_value, A, priority, queue_index);
 }
 
 //------------------------------------------------------------------------------
@@ -109,33 +109,33 @@ void set(
 template <typename scalar_t>
 void set(
     internal::TargetType<Target::HostTask>,
-    scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
+    scalar_t offdiag_value, scalar_t diag_value, Matrix<scalar_t>& A,
     int priority, int queue_index)
 {
     // trace::Block trace_block("set");
-
+    #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal(i, j)) {
-                #pragma omp task shared(A ) priority(priority)
+                #pragma omp task slate_omp_default_none \
+                    shared( A ) \
+                    firstprivate(i, j, offdiag_value, diag_value) priority(priority)
                 {
                     A.tileGetForWriting(i, j, LayoutConvert::None);
                     if (i == j)
-                        A.at(i, j).set(alpha, beta);
+                        A.at(i, j).set( offdiag_value, diag_value );
                     else
-                        A.at(i, j).set(alpha, alpha);
+                        A.at(i, j).set( offdiag_value, offdiag_value );
                 }
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void set(internal::TargetType<Target::HostNest>,
-         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
+         scalar_t offdiag_value, scalar_t diag_value, Matrix<scalar_t>& A,
          int priority, int queue_index)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
@@ -144,7 +144,7 @@ void set(internal::TargetType<Target::HostNest>,
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void set(internal::TargetType<Target::HostBatch>,
-         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
+         scalar_t offdiag_value, scalar_t diag_value, Matrix<scalar_t>& A,
          int priority, int queue_index)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
@@ -158,7 +158,7 @@ void set(internal::TargetType<Target::HostBatch>,
 ///
 template <typename scalar_t>
 void set(internal::TargetType<Target::Devices>,
-         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
+         scalar_t offdiag_value, scalar_t diag_value, Matrix<scalar_t>& A,
          int priority, int queue_index)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
@@ -176,8 +176,11 @@ void set(internal::TargetType<Target::Devices>,
         { A.nt()-1, A.nt()   }
     };
 
+    #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task shared(A) priority(priority)
+        #pragma omp task slate_omp_default_none \
+            shared( A ) priority( priority ) \
+            firstprivate(device, irange, jrange, queue_index, offdiag_value, diag_value)
         {
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already
@@ -247,7 +250,7 @@ void set(internal::TargetType<Target::Devices>,
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
                     device::geset(mb[q], nb[q],
-                                  alpha, alpha, a_array_dev, lda[q],
+                                  offdiag_value, offdiag_value, a_array_dev, lda[q],
                                   group_count[q], *queue);
                     a_array_dev += group_count[q];
                 }
@@ -255,7 +258,7 @@ void set(internal::TargetType<Target::Devices>,
             for (int q = 4; q < 8; ++q) {
                 if (group_count[q] > 0) {
                     device::geset(mb[q], nb[q],
-                                  alpha, beta, a_array_dev, lda[q],
+                                  offdiag_value, diag_value, a_array_dev, lda[q],
                                   group_count[q], *queue);
                     a_array_dev += group_count[q];
                 }
@@ -264,8 +267,6 @@ void set(internal::TargetType<Target::Devices>,
             queue->sync();
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -273,92 +274,100 @@ void set(internal::TargetType<Target::Devices>,
 // ----------------------------------------
 template
 void set<Target::HostTask, float>(
-    float alpha, float beta, Matrix<float>&& A,
+    float offdiag_value, float diag_value,
+    Matrix<float>&& A,
     int priority, int queue_index);
 
 template
 void set<Target::HostNest, float>(
-    float alpha, float beta, Matrix<float>&& A,
+    float offdiag_value, float diag_value,
+    Matrix<float>&& A,
     int priority, int queue_index);
 
 template
 void set<Target::HostBatch, float>(
-    float alpha, float beta, Matrix<float>&& A,
+    float offdiag_value, float diag_value,
+    Matrix<float>&& A,
     int priority, int queue_index);
 
 template
 void set<Target::Devices, float>(
-    float alpha, float beta, Matrix<float>&& A,
+    float offdiag_value, float diag_value,
+    Matrix<float>&& A,
     int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set<Target::HostTask, double>(
-    double alpha, double beta, Matrix<double>&& A,
+    double offdiag_value, double diag_value,
+    Matrix<double>&& A,
     int priority, int queue_index);
 
 template
 void set<Target::HostNest, double>(
-    double alpha, double beta, Matrix<double>&& A,
+    double offdiag_value, double diag_value,
+    Matrix<double>&& A,
     int priority, int queue_index);
 
 template
 void set<Target::HostBatch, double>(
-    double alpha, double beta, Matrix<double>&& A,
+    double offdiag_value, double diag_value,
+    Matrix<double>&& A,
     int priority, int queue_index);
 
 template
 void set<Target::Devices, double>(
-    double alpha, double beta, Matrix<double>&& A,
+    double offdiag_value, double diag_value,
+    Matrix<double>&& A,
     int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set< Target::HostTask, std::complex<float> >(
-    std::complex<float> alpha, std::complex<float>  beta,
+    std::complex<float> offdiag_value, std::complex<float>  diag_value,
     Matrix< std::complex<float> >&& A,
     int priority, int queue_index);
 
 template
 void set< Target::HostNest, std::complex<float> >(
-    std::complex<float> alpha, std::complex<float>  beta,
+    std::complex<float> offdiag_value, std::complex<float>  diag_value,
     Matrix< std::complex<float> >&& A,
     int priority, int queue_index);
 
 template
 void set< Target::HostBatch, std::complex<float> >(
-    std::complex<float> alpha, std::complex<float>  beta,
+    std::complex<float> offdiag_value, std::complex<float>  diag_value,
     Matrix< std::complex<float> >&& A,
     int priority, int queue_index);
 
 template
 void set< Target::Devices, std::complex<float> >(
-    std::complex<float> alpha, std::complex<float>  beta,
+    std::complex<float> offdiag_value, std::complex<float>  diag_value,
     Matrix< std::complex<float> >&& A,
     int priority, int queue_index);
 
 // ----------------------------------------
 template
 void set< Target::HostTask, std::complex<double> >(
-    std::complex<double> alpha, std::complex<double> beta,
+    std::complex<double> offdiag_value, std::complex<double> diag_value,
     Matrix< std::complex<double> >&& A,
     int priority, int queue_index);
 
 template
 void set< Target::HostNest, std::complex<double> >(
-    std::complex<double> alpha, std::complex<double> beta,
+    std::complex<double> offdiag_value, std::complex<double> diag_value,
     Matrix< std::complex<double> >&& A,
     int priority, int queue_index);
 
 template
 void set< Target::HostBatch, std::complex<double> >(
-    std::complex<double> alpha, std::complex<double> beta,
+    std::complex<double> offdiag_value, std::complex<double> diag_value,
     Matrix< std::complex<double> >&& A,
     int priority, int queue_index);
 
 template
 void set< Target::Devices, std::complex<double> >(
-    std::complex<double> alpha, std::complex<double> beta,
+    std::complex<double> offdiag_value, std::complex<double> diag_value,
     Matrix< std::complex<double> >&& A,
     int priority, int queue_index);
 

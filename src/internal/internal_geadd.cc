@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -22,7 +22,7 @@ void geadd(
     std::complex<float> beta, std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     geadd(m, n,
           make_cuFloatComplex(alpha.real(), alpha.imag()),
           (cuFloatComplex**) Aarray, lda,
@@ -30,7 +30,7 @@ void geadd(
           (cuFloatComplex**) Barray, ldb,
           batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     geadd(m, n,
           make_hipFloatComplex(alpha.real(), alpha.imag()),
           (hipFloatComplex**) Aarray, lda,
@@ -47,7 +47,7 @@ void geadd(
     std::complex<double> beta, std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     geadd(m, n,
           make_cuDoubleComplex(alpha.real(), alpha.imag()),
           (cuDoubleComplex**) Aarray, lda,
@@ -55,7 +55,7 @@ void geadd(
           (cuDoubleComplex**) Barray, ldb,
           batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     geadd(m, n,
           make_hipDoubleComplex(alpha.real(), alpha.imag()),
           (hipDoubleComplex**) Aarray, lda,
@@ -65,7 +65,7 @@ void geadd(
 #endif
 }
 
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
 void geadd(
@@ -84,7 +84,7 @@ void geadd(
     int64_t batch_count, blas::Queue &queue)
 {
 }
-#endif // not SLATE_WITH_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 
@@ -128,22 +128,24 @@ void add(internal::TargetType<Target::HostTask>,
     assert(A_mt == B.mt());
     assert(A_nt == B.nt());
 
+    #pragma omp taskgroup
     for (int64_t i = 0; i < A_mt; ++i) {
         for (int64_t j = 0; j < A_nt; ++j) {
             if (B.tileIsLocal(i, j)) {
-                #pragma omp task shared(A, B) priority(priority)
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B ) \
+                    firstprivate(i, j, alpha, beta)  priority(priority)
                 {
                     A.tileGetForReading(i, j, LayoutConvert::None);
                     B.tileGetForWriting(i, j, LayoutConvert::None);
-                    axpby(alpha, A(i, j),
-                          beta,  B(i, j));
+                    tile::add(
+                        alpha, A(i, j),
+                        beta,  B(i, j) );
                     A.tileTick(i, j);
                 }
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -197,8 +199,10 @@ void add(internal::TargetType<Target::Devices>,
         { B.nt()-1, B.nt()   }
     };
 
+    #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task shared(A, B) priority(priority)
+        #pragma omp task shared(A, B) \
+            firstprivate(device, irange, jrange, queue_index, beta, alpha) priority(priority)
         {
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already
@@ -215,15 +219,21 @@ void add(internal::TargetType<Target::Devices>,
                     }
                 }
             }
-            #pragma omp task default(shared)
+            #pragma omp taskgroup
             {
-                A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                #pragma omp task slate_omp_default_none \
+                    shared( A, A_tiles_set ) \
+                    firstprivate(device, layout)
+                {
+                    A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                }
+                #pragma omp task slate_omp_default_none \
+                    shared( B, B_tiles_set ) \
+                    firstprivate(device, layout)
+                {
+                    B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
+                }
             }
-            #pragma omp task default(shared)
-            {
-                B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
-            }
-            #pragma omp taskwait
 
             int64_t batch_size = A_tiles_set.size();
             scalar_t** a_array_host = B.array_host(device, queue_index);
@@ -288,8 +298,6 @@ void add(internal::TargetType<Target::Devices>,
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

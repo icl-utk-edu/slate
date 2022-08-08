@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -106,11 +106,10 @@ public:
     void tileGetAllForWritingOnDevices(LayoutConvert layout);
     void tileGetAndHoldAll(int device, LayoutConvert layout);
     void tileGetAndHoldAllOnDevices(LayoutConvert layout);
-    void tileUnsetHoldAll(int device = BaseTrapezoidMatrix::host_num_);
+    void tileUnsetHoldAll( int device = HostNum );
     void tileUnsetHoldAllOnDevices();
     void tileUpdateAllOrigin();
     void tileLayoutReset();
-    int  hostNum()  const { return this->host_num_; }
 };
 
 //--------------------------------------------------------------------------
@@ -233,8 +232,8 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
                 }
 
                 if (this->tileIsLocal(i, j)) {
-                    this->tileInsert(i, j, this->host_num_,
-                                     &A[ii_local + jj_local*lda], lda);
+                    this->tileInsert( i, j, HostNum,
+                                      &A[ii_local + jj_local*lda], lda );
                 }
                 ii += ib;
             }
@@ -259,8 +258,8 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
                 }
 
                 if (this->tileIsLocal(i, j)) {
-                    this->tileInsert(i, j, this->host_num_,
-                                     &A[ii_local + jj_local*lda], lda);
+                    this->tileInsert( i, j, HostNum,
+                                      &A[ii_local + jj_local*lda], lda );
                 }
                 ii += ib;
             }
@@ -665,9 +664,9 @@ void BaseTrapezoidMatrix<scalar_t>::gather(scalar_t* A, int64_t lda)
                 if (this->mpi_rank_ == 0) {
                     if (! this->tileIsLocal(i, j)) {
                         // erase any existing non-local tile and insert new one
-                        this->tileErase(i, j, this->host_num_);
-                        this->tileInsert(i, j, this->host_num_,
-                                         &A[(size_t)lda*jj + ii], lda);
+                        this->tileErase( i, j, HostNum );
+                        this->tileInsert( i, j, HostNum,
+                                          &A[(size_t)lda*jj + ii], lda );
                         auto Aij = this->at(i, j);
                         Aij.recv(this->tileRank(i, j), this->mpi_comm_, this->layout());
                         this->tileLayout(i, j, this->layout_);
@@ -780,9 +779,9 @@ void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
                 auto& tile_node = this->storage_->at(this->globalIndex(i, j));
 
                 // find on host
-                if (tile_node.existsOn(this->hostNum()) &&
-                    tile_node[this->hostNum()].tile()->origin()) {
-                    if (tile_node[this->hostNum()].stateOn(MOSI::Invalid)) {
+                if (tile_node.existsOn( HostNum )
+                    && tile_node[ HostNum ].tile()->origin()) {
+                    if (tile_node[ HostNum ].stateOn( MOSI::Invalid )) {
                         // tileGetForReading(i, j, LayoutConvert::None);
                         for (int d = 0; d < this->num_devices(); ++d) {
                             if (tile_node.existsOn(d)
@@ -815,13 +814,15 @@ void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
     {
         for (int d = 0; d < this->num_devices(); ++d) {
             if (! tiles_set_host[d].empty()) {
-                #pragma omp task default(none) firstprivate(d) shared(tiles_set_host)
+                #pragma omp task slate_omp_default_none \
+                    firstprivate( d ) shared( tiles_set_host )
                 {
                     this->tileGetForReading(tiles_set_host[d], LayoutConvert::None, d);
                 }
             }
             if (! tiles_set_dev[d].empty()) {
-                #pragma omp task default(none) firstprivate(d) shared(tiles_set_dev)
+                #pragma omp task slate_omp_default_none \
+                    firstprivate( d ) shared( tiles_set_dev )
                 {
                     this->tileGetForReading(tiles_set_dev[d], d, LayoutConvert::None);
                 }
@@ -848,7 +849,7 @@ void BaseTrapezoidMatrix<scalar_t>::insertLocalTiles(Target origin)
         for (int64_t i = istart; i < iend; ++i) {
             if (this->tileIsLocal(i, j)) {
                 int dev = (on_devices ? this->tileDevice(i, j)
-                                      : this->host_num_);
+                                      : HostNum);
                 this->tileInsert(i, j, dev);
             }
         }
@@ -992,7 +993,8 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAllForReadingOnDevices(LayoutConvert 
     {
         for (int d = 0; d < this->num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set)
+                #pragma omp task slate_omp_default_none \
+                    firstprivate( d, layout ) shared( tiles_set )
                 {
                     this->tileGetForReading(tiles_set[d], d, layout);
                 }
@@ -1030,7 +1032,8 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAllForWritingOnDevices(LayoutConvert 
     {
         for (int d = 0; d < this->num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set)
+                #pragma omp task slate_omp_default_none \
+                    firstprivate( d, layout ) shared( tiles_set )
                 {
                     this->tileGetForWriting(tiles_set[d], d, layout);
                 }
@@ -1068,7 +1071,8 @@ void BaseTrapezoidMatrix<scalar_t>::tileGetAndHoldAllOnDevices(LayoutConvert lay
     {
         for (int d = 0; d < this->num_devices(); ++d) {
             if (! tiles_set[d].empty()) {
-                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set)
+                #pragma omp task slate_omp_default_none \
+                    firstprivate( d, layout ) shared( tiles_set )
                 {
                     this->tileGetAndHold(tiles_set[d], d, layout);
                 }
@@ -1136,7 +1140,7 @@ void BaseTrapezoidMatrix<scalar_t>::tileLayoutReset()
                     assert(tile->isTransposable());
                 }
 
-                if (tile->device() == hostNum()) {
+                if (tile->device() == HostNum) {
                     tiles_set_host.insert({i, j});
                 }
                 else {
@@ -1150,17 +1154,21 @@ void BaseTrapezoidMatrix<scalar_t>::tileLayoutReset()
     {
         if (! tiles_set_host.empty()) {
             auto layout = this->layout();
-            #pragma omp task default(none) firstprivate(layout) shared(tiles_set_host)
+            #pragma omp task slate_omp_default_none \
+                firstprivate( layout ) shared( tiles_set_host )
             {
-                this->tileLayoutReset(tiles_set_host, hostNum(), layout);
+                this->BaseMatrix<scalar_t>::tileLayoutReset(
+                    tiles_set_host, HostNum, layout );
             }
         }
         for (int d = 0; d < this->num_devices(); ++d) {
             if (! tiles_set_dev[d].empty()) {
                 auto layout = this->layout();
-                #pragma omp task default(none) firstprivate(d, layout) shared(tiles_set_dev)
+                #pragma omp task slate_omp_default_none \
+                    firstprivate( d, layout ) shared( tiles_set_dev )
                 {
-                    this->tileLayoutReset(tiles_set_dev[d], d, layout);
+                    this->BaseMatrix<scalar_t>::tileLayoutReset(
+                        tiles_set_dev[d], d, layout );
                 }
             }
         }

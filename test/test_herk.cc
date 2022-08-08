@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -56,6 +56,10 @@ void test_herk_work(Params& params, bool run)
     params.gflops();
     params.ref_time();
     params.ref_gflops();
+
+    // Suppress norm, nrhs from output; they're only for checks.
+    params.norm.width( 0 );
+    params.nrhs.width( 0 );
 
     if (! run)
         return;
@@ -191,7 +195,7 @@ void test_herk_work(Params& params, bool run)
         // Y = C * X - Y
         slate::multiply( one, C, X, -one, Y );
         // error = norm( Y ) / y_norm
-        real_t error = slate::norm( slate::Norm::One, Y, opts )/y_norm;
+        real_t error = slate::norm( norm, Y, opts )/y_norm;
         params.error() = error;
 
         // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
@@ -232,12 +236,6 @@ void test_herk_work(Params& params, bool run)
             copy( A, &A_data[0], A_desc );
             copy( C, &C_data[0], C_desc );
 
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
             // allocate workspace for norms
             size_t ldw = nb*ceil(ceil(mlocC / (double) nb) / (scalapack_ilcm(&p, &q) / p));
             std::vector<real_t> worklansy(2*nlocC + mlocC + ldw);
@@ -274,8 +272,6 @@ void test_herk_work(Params& params, bool run)
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
             params.error() = error;
-
-            slate_set_num_blas_threads(saved_num_threads);
 
             real_t eps = std::numeric_limits<real_t>::epsilon();
             params.okay() = (params.error() <= 3*eps);

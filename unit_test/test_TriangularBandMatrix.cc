@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -16,6 +16,7 @@
 
 using slate::ceildiv;
 using slate::roundup;
+using slate::GridOrder;
 
 namespace test {
 
@@ -25,7 +26,6 @@ int m, n, k, mb, nb, kd, p, q;
 int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
-int host_num = slate::HostNum;
 int num_devices = 0;
 int verbose = 0;
 
@@ -63,8 +63,9 @@ void test_TriangularBandMatrix_empty()
     test_assert(L.uplo() == blas::Uplo::Lower);
     test_assert(L.diag() == blas::Diag::NonUnit);
 
+    GridOrder order;
     int myp, myq, myrow, mycol;
-    L.gridinfo( &myp, &myq, &myrow, &mycol );
+    L.gridinfo( &order, &myp, &myq, &myrow, &mycol );
     test_assert( myp == p );
     test_assert( myq == q );
     test_assert( myrow == mpi_rank % p );
@@ -323,7 +324,6 @@ int main(int argc, char** argv)
     MPI_Comm_size(mpi_comm, &mpi_size);
 
     num_devices = blas::get_device_count();
-    host_num = slate::HostNum;
 
     // globals
     m  = 200;

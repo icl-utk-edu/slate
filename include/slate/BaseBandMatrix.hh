@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -299,9 +299,9 @@ void BaseBandMatrix<scalar_t>::tileUpdateAllOrigin()
                 auto& tile_node = this->storage_->at(this->globalIndex(i, j));
 
                 // find on host
-                if (tile_node.existsOn(this->hostNum()) &&
-                    tile_node[this->hostNum()].tile()->origin()) {
-                    if (tile_node[this->hostNum()].stateOn(MOSI::Invalid)) {
+                if (tile_node.existsOn( HostNum )
+                    && tile_node[ HostNum ].tile()->origin()) {
+                    if (tile_node[ HostNum ].stateOn( MOSI::Invalid )) {
                         // tileGetForReading(i, j, LayoutConvert::None);
                         for (int d = 0; d < this->num_devices(); ++d) {
                             if (tile_node.existsOn(d)
@@ -334,13 +334,15 @@ void BaseBandMatrix<scalar_t>::tileUpdateAllOrigin()
     {
         for (int d = 0; d < this->num_devices(); ++d) {
             if (! tiles_set_host[d].empty()) {
-                #pragma omp task default(none) firstprivate(d) shared(tiles_set_host)
+                #pragma omp task slate_omp_default_none \
+                    firstprivate( d ) shared( tiles_set_host )
                 {
                     this->tileGetForReading(tiles_set_host[d], LayoutConvert::None, d);
                 }
             }
             if (! tiles_set_dev[d].empty()) {
-                #pragma omp task default(none) firstprivate(d) shared(tiles_set_dev)
+                #pragma omp task slate_omp_default_none \
+                    firstprivate( d ) shared( tiles_set_dev )
                 {
                     this->tileGetForReading(tiles_set_dev[d], d, LayoutConvert::None);
                 }

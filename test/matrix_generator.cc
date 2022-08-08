@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -389,7 +389,7 @@ void generate_svd(
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
                     lapack::larnv(idist_randn, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
-                gecopy(Tmp(i, j), U(i, j));
+                slate::tile::gecopy( Tmp(i, j), U(i, j) );
                 Tmp.tileErase(i, j);
             }
         }
@@ -426,7 +426,7 @@ void generate_svd(
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
                     lapack::larnv(idist_randn, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
-                gecopy(Tmp(i, j), V(i, j));
+                slate::tile::gecopy( Tmp(i, j), V(i, j) );
                 Tmp.tileErase(i, j);
             }
         }
@@ -534,7 +534,7 @@ void generate_heev(
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
                     lapack::larnv(idist_rand, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
-                gecopy(Tmp(i, j), U(i, j));
+                slate::tile::gecopy( Tmp(i, j), U(i, j) );
                 Tmp.tileErase(i, j);
             }
         }
@@ -1215,7 +1215,8 @@ void generate_matrix(
                 for (int64_t j = 0; j < nt; ++j) {
                     int64_t ii = 0;
                     for (int64_t i = 0; i < mt; ++i) {
-                        #pragma omp task default( none ) firstprivate( i, j, ii, jj, s ) shared( A )
+                        #pragma omp task slate_omp_default_none \
+                            firstprivate( i, j, ii, jj, s ) shared( A )
                         {
                             if (A.tileIsLocal( i, j )) {
                                 A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
@@ -1517,7 +1518,7 @@ void generate_matrix(
                         // Scale the matrix
                         if (sigma_max != 1) {
                             scalar_t s = sigma_max;
-                            scale(s, Aij);
+                            tile::scale( s, Aij );
                         }
                     }
                 }
@@ -1717,7 +1718,7 @@ void generate_matrix(
                             // Scale the matrix
                             if (sigma_max != 1) {
                                 scalar_t s = sigma_max;
-                                scale(s, Aij);
+                                tile::scale( s, Aij );
                             }
                         }
                     }
@@ -1766,7 +1767,7 @@ void generate_matrix(
                             // Scale the matrix
                             if (sigma_max != 1) {
                                 scalar_t s = sigma_max;
-                                scale(s, Aij);
+                                tile::scale( s, Aij );
                             }
                         }
                     }

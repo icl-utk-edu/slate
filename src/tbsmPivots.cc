@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -75,10 +75,12 @@ void tbsm(slate::internal::TargetType<target>,
 
     const scalar_t one = 1.0;
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         if (alpha != one) {
             // Scale B = alpha B.
             // Due to the band, this can't be done in trsm & gemm tasks
@@ -94,7 +96,7 @@ void tbsm(slate::internal::TargetType<target>,
                     for (int64_t j = 0; j < B_nt; ++j) {
                         if (B.tileIsLocal(i, j)) {
                             B.tileGetForWriting(i, j, LayoutConvert(layout));
-                            scale(alpha, B(i, j));
+                            tile::scale( alpha, B(i, j) );
                         }
                     }
                     #pragma omp taskwait

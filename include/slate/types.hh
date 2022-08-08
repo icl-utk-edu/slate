@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -103,25 +103,25 @@ class mpi_type {};
 template<>
 class mpi_type<float> {
 public:
-    static constexpr MPI_Datatype value = MPI_FLOAT;
+    static MPI_Datatype value; // = MPI_FLOAT
 };
 
 template<>
 class mpi_type<double> {
 public:
-    static constexpr MPI_Datatype value = MPI_DOUBLE;
+    static MPI_Datatype value; // = MPI_DOUBLE
 };
 
 template<>
 class mpi_type< std::complex<float> > {
 public:
-    static constexpr MPI_Datatype value = MPI_C_COMPLEX;
+    static MPI_Datatype value; // = MPI_C_COMPLEX
 };
 
 template<>
 class mpi_type< std::complex<double> > {
 public:
-    static constexpr MPI_Datatype value = MPI_C_DOUBLE_COMPLEX;
+    static MPI_Datatype value; // = MPI_C_DOUBLE_COMPLEX
 };
 
 // for type-generic maxloc operations
@@ -131,13 +131,13 @@ struct max_loc_type { real_t x; int i; };
 template<>
 class mpi_type< max_loc_type<float> > {
 public:
-    static constexpr MPI_Datatype value = MPI_FLOAT_INT;
+    static MPI_Datatype value; // = MPI_FLOAT_INT
 };
 
 template<>
 class mpi_type< max_loc_type<double> > {
 public:
-    static constexpr MPI_Datatype value = MPI_DOUBLE_INT;
+    static MPI_Datatype value; // = MPI_DOUBLE_INT
 };
 
 //------------------------------------------------------------------------------

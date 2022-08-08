@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -79,10 +79,12 @@ void gelqf(slate::internal::TargetType<target>,
     std::vector< uint8_t > block_vector(A_mt);
     uint8_t* block = block_vector.data();
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < A_min_mtnt; ++k) {
             auto  A_panel =       A.sub(k, k, k, A_nt-1);
             auto Tl_panel =  Tlocal.sub(k, k, k, A_nt-1);
@@ -119,7 +121,7 @@ void gelqf(slate::internal::TargetType<target>,
                 // better cache efficiency.
                 for (int64_t j = 0; j < A_panel.nt(); ++j) {
                     if (A_panel.tileIsLocal(0, j)) {
-                        deepConjTranspose(A_panel(0, j), AT_panel(j, 0));
+                        tile::deepConjTranspose( A_panel(0, j), AT_panel(j, 0) );
                     }
                 }
 
@@ -134,7 +136,7 @@ void gelqf(slate::internal::TargetType<target>,
                 for (int64_t i = 0; i < TlT_panel.mt(); ++i) {
                     if (Tl_panel.tileIsLocal(0, i)) {
                         Tl_panel.tileInsert(0, i);
-                        gecopy(TlT_panel(i, 0), Tl_panel(0, i));
+                        tile::gecopy( TlT_panel(i, 0), Tl_panel(0, i) );
                         break;
                     }
                 }
@@ -142,7 +144,7 @@ void gelqf(slate::internal::TargetType<target>,
                 // Copy result back.
                 for (int64_t j = 0; j < A_panel.nt(); ++j) {
                     if (A_panel.tileIsLocal(0, j)) {
-                        deepConjTranspose(AT_panel(j, 0), A_panel(0, j));
+                        tile::deepConjTranspose( AT_panel(j, 0), A_panel(0, j) );
                     }
                 }
                 // todo: AT_panel.clear();

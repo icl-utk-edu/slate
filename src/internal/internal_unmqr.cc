@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -237,10 +237,9 @@ void unmqr(internal::TargetType<target>,
                 priority, queue_index);
 
         // free workspace
-        // todo: Wr.clear();
         for (int64_t j = 0; j < Wr.nt(); ++j) {
             if (Wr.tileIsLocal(0, j)) {
-                Wr.tileErase(0, j);
+                Wr.tileErase(0, j, AllDevices);
             }
         }
     }
@@ -422,13 +421,10 @@ void unmqr(internal::TargetType<target>,
         // todo: Wc.clear();
         for (int64_t i = 0; i < Wc.mt(); ++i) {
             if (Wc.tileIsLocal(i, 0)) {
-                Wc.tileErase(i, 0);
+                Wc.tileErase(i, 0, AllDevices);
             }
         }
     }
-
-    // todo: what does this wait for?
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

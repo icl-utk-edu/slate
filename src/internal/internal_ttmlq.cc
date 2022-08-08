@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -162,6 +162,7 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                 }
             }
 
+            #pragma omp taskgroup
             for (int64_t k = 0; k < k_end; ++k) {
                 if (side == Side::Left) {
                     i = rank_ind;
@@ -183,7 +184,9 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                             j1 = k_src;
                         }
 
-                        #pragma omp task shared(A, T, C)
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, T, C ) \
+                            firstprivate(i, j, layout, rank_ind, i1, j1, side, op)
                         {
                         A.tileGetForReading(0, rank_ind, LayoutConvert(layout));
                         T.tileGetForReading(0, rank_ind, LayoutConvert(layout));
@@ -201,7 +204,6 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                     }
                 }
             }
-            #pragma omp taskwait
 
             for (int64_t k = 0; k < k_end; ++k) {
                 if (side == Side::Left) {

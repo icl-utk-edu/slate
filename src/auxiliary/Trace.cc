@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -179,7 +179,7 @@ std::vector<std::vector<Event>> Trace::events_ =
 
 std::map<std::string, Color> function_color_ = {
 
-    {"blas::axpy",  Color::LightSkyBlue},
+    {"blas::add",   Color::LightSkyBlue},
     {"blas::gemm",  Color::MediumAquamarine},
     {"blas::hemm",  Color::MediumAquamarine},
     {"blas::her2k", Color::MediumAquamarine},

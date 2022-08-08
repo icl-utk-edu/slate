@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -56,8 +56,18 @@ void test_gesv_work(Params& params, bool run)
     SLATE_UNUSED(verbose);
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    slate::GridOrder grid_order = params.grid_order();
     params.matrix.mark();
     params.matrixB.mark();
+
+    double pivot_threshold;
+    if (params.routine == "gesv_nopiv" || params.routine == "getrf_nopiv"
+        || params.routine == "getrs_nopiv") {
+        pivot_threshold = 0.0;
+    }
+    else {
+        pivot_threshold = params.pivot_threshold();
+    }
 
     // mark non-standard output values
     params.time();
@@ -65,9 +75,10 @@ void test_gesv_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
     params.time2();
-    params.time2.name( "trs_time(s)" );
+    params.time2.name( "trs time (s)" );
+    params.time2.width( 12 );
     params.gflops2();
-    params.gflops2.name( "trs_gflops" );
+    params.gflops2.name( "trs gflop/s" );
 
     bool do_getrs = (
         (check && (params.routine == "getrf" || params.routine == "getrf_nopiv"))
@@ -83,14 +94,12 @@ void test_gesv_work(Params& params, bool run)
     // MPI variables
     int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    gridinfo(mpi_rank, p, q, &myrow, &mycol);
+    gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
 
     if (nonuniform_nb) {
         if (ref || origin == slate::Origin::ScaLAPACK) {
-            if (mpi_rank == 0) {
-                printf("Unsupported to test nonuniform tile size using scalapack\n");
-                return;
-            }
+            params.msg() = "skipping: nonuniform tile not supported with ScaLAPACK";
+            return;
         }
         params.ref() = 'n';
         params.origin() = slate::Origin::Host;
@@ -100,9 +109,13 @@ void test_gesv_work(Params& params, bool run)
 
     if (params.routine == "gesvMixed"
         && ! std::is_same<real_t, double>::value) {
-        if (mpi_rank == 0) {
-            printf("Unsupported mixed precision\n");
-        }
+        params.msg() = "skipping: unsupported mixed precision; must be type=d or z";
+        return;
+    }
+
+    if (params.routine == "gesvMixed"
+        && target == slate::Target::Devices) {
+        params.msg() = "skipping: unsupported mixed precision; no devices support";
         return;
     }
 
@@ -110,7 +123,8 @@ void test_gesv_work(Params& params, bool run)
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
-        {slate::Option::InnerBlocking, ib}
+        {slate::Option::InnerBlocking, ib},
+        {slate::Option::PivotThreshold, pivot_threshold}
     };
 
     // Matrix A: figure out local size.
@@ -158,8 +172,10 @@ void test_gesv_work(Params& params, bool run)
                                         tileDevice, MPI_COMM_WORLD);
         }
         else {
-            A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
-            B = slate::Matrix<scalar_t>(n, nrhs, nb, p, q, MPI_COMM_WORLD);
+            A = slate::Matrix<scalar_t>(
+                m, n,    nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+            B = slate::Matrix<scalar_t>(
+                n, nrhs, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
         }
         A.insertLocalTiles(origin_target);
         B.insertLocalTiles(origin_target);
@@ -171,7 +187,8 @@ void test_gesv_work(Params& params, bool run)
                                             tileDevice, MPI_COMM_WORLD);
             }
             else {
-                X = slate::Matrix<scalar_t>(n, nrhs, nb, p, q, MPI_COMM_WORLD);
+                X = slate::Matrix<scalar_t>(
+                    n, nrhs, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
             }
             X.insertLocalTiles(origin_target);
         }
@@ -180,14 +197,16 @@ void test_gesv_work(Params& params, bool run)
         // Create SLATE matrix from the ScaLAPACK layouts
         A_data.resize( lldA * nlocA );
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
-                m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+            m, n, &A_data[0], lldA, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+
         B_data.resize( lldB * nlocB );
         B = slate::Matrix<scalar_t>::fromScaLAPACK(
-                n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+            n, nrhs, &B_data[0], lldB, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+
         if (params.routine == "gesvMixed") {
             X_data.resize(lldB*nlocB);
             X = slate::Matrix<scalar_t>::fromScaLAPACK(
-                    n, nrhs, &X_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+                n, nrhs, &X_data[0], lldB, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
         }
     }
 
@@ -198,6 +217,7 @@ void test_gesv_work(Params& params, bool run)
 
     // If check/ref is required, copy test data.
     slate::Matrix<scalar_t> Aref, Bref;
+    std::vector<scalar_t> Aref_data, Bref_data;
     if (check || ref) {
         if (nonuniform_nb) {
             Aref = slate::Matrix<scalar_t>(m, n, tileNb, tileNb, tileRank,
@@ -206,8 +226,14 @@ void test_gesv_work(Params& params, bool run)
                                            tileDevice, MPI_COMM_WORLD);
         }
         else {
-            Aref = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
-            Bref = slate::Matrix<scalar_t>(n, nrhs, nb, p, q, MPI_COMM_WORLD);
+            Aref_data.resize( lldA* nlocA );
+            Bref_data.resize( lldB* nlocB );
+            Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                       m, n, &Aref_data[0], lldA, nb, nb,
+                       grid_order, p, q, MPI_COMM_WORLD );
+            Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                       n, nrhs, &Bref_data[0], lldB, nb, nb,
+                       grid_order, p, q, MPI_COMM_WORLD );
         }
         Aref.insertLocalTiles(origin2target(origin));
         Bref.insertLocalTiles(origin2target(origin));
@@ -357,6 +383,8 @@ void test_gesv_work(Params& params, bool run)
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
+        if (params.routine == "gesvMixed")
+            params.okay() = params.okay() && params.iters() >= 0;
     }
 
     if (ref) {
@@ -374,18 +402,13 @@ void test_gesv_work(Params& params, bool run)
             Cblacs_pinfo(&mpi_rank_, &nprocs);
             slate_assert(p*q <= nprocs);
             Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit(&ictxt, "Col", p, q);
+            Cblacs_gridinit( &ictxt, grid_order2str( grid_order ), p, q );
             Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
             slate_assert( p == p_ );
             slate_assert( q == q_ );
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
             int64_t info_ref = 0;
 
             // ScaLAPACK descriptor for the reference matrix
@@ -397,14 +420,8 @@ void test_gesv_work(Params& params, bool run)
             scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
-            // ScaLAPACK data for the reference matrix
-            std::vector<scalar_t> Aref_data( lldA * nlocA );
-            std::vector<scalar_t> Bref_data( lldB * nlocB );
+            // ScaLAPACK data for pivots.
             std::vector<int> ipiv_ref(lldA + nb);
-
-            // Copy test data.
-            copy(Aref, &Aref_data[0], Aref_desc);
-            copy(Bref, &Bref_data[0], Bref_desc);
 
             if (params.routine == "getrs" || params.routine == "getrs_nopiv") {
                 // Factor matrix A.
@@ -436,8 +453,6 @@ void test_gesv_work(Params& params, bool run)
 
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
-
-            slate_set_num_blas_threads(saved_num_threads);
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering

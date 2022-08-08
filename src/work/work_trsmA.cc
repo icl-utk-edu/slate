@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -109,7 +109,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     for (int64_t i = 0; i < mt; ++i) {
                         for (int64_t j = 0; j < nt; ++j) {
                             if (B.tileIsLocal(i, j)) {
-                                scale(alpha, B(i, j));
+                                tile::scale( alpha, B(i, j) );
                             }
                         }
                     }
@@ -252,7 +252,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     for (int64_t i = 0; i < mt; ++i) {
                         for (int64_t j = 0; j < nt; ++j) {
                             if (B.tileIsLocal(i, j)) {
-                                scale(alpha, B(i, j));
+                                tile::scale( alpha, B(i, j) );
                             }
                         }
                     }

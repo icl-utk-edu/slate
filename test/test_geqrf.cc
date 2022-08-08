@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -45,6 +45,7 @@ void test_geqrf_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    slate::Method methodCholQR = params.method_cholQR();
     params.matrix.mark();
 
     // mark non-standard output values
@@ -56,11 +57,17 @@ void test_geqrf_work(Params& params, bool run)
     if (! run)
         return;
 
+    if (params.routine == "cholqr" && m < n) {
+        params.msg() = "skipping: cholqr requires m >= n";
+        return;
+    }
+
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
-        {slate::Option::InnerBlocking, ib}
+        {slate::Option::InnerBlocking, ib},
+        {slate::Option::MethodCholQR, methodCholQR}
     };
 
     // MPI variables
@@ -110,6 +117,8 @@ void test_geqrf_work(Params& params, bool run)
 
     double gflop = lapack::Gflop<scalar_t>::geqrf(m, n);
 
+    slate::Matrix<scalar_t> R_chol;
+
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
@@ -119,7 +128,17 @@ void test_geqrf_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::qr_factor(A, T, opts);
+        if (params.routine == "cholqr") {
+            slate::Target origin_target = origin2target( origin );
+            R_chol = slate::Matrix<scalar_t>(
+                n, n, nb, p, q, MPI_COMM_WORLD );
+            R_chol.insertLocalTiles( origin_target );
+
+            slate::cholqr( A, R_chol, opts );
+        }
+        else {
+            slate::qr_factor( A, T, opts );
+        }
         // Using traditional BLAS/LAPACK name
         // slate::geqrf(A, T, opts);
 
@@ -146,28 +165,38 @@ void test_geqrf_work(Params& params, bool run)
         //
         //==================================================
 
-        // R is the upper part of A matrix.
-        slate::TrapezoidMatrix<scalar_t> R(slate::Uplo::Upper, slate::Diag::NonUnit, A);
-
         std::vector<scalar_t> QR_data(Aref_data.size(), zero);
         slate::Matrix<scalar_t> QR = slate::Matrix<scalar_t>::fromScaLAPACK(
                                          m, n, &QR_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
 
-        // R1 is the upper part of QR matrix.
-        slate::TrapezoidMatrix<scalar_t> R1(slate::Uplo::Upper, slate::Diag::NonUnit, QR);
+        if (params.routine == "cholqr") {
+            // Copy A in QR that will be overwritten by the Q matrix
+            slate::copy(A, QR);
 
-        // Copy A's upper trapezoid R to QR's upper trapezoid R1.
-        slate::copy(R, R1);
+            auto R = slate::TriangularMatrix<scalar_t>(
+                slate::Uplo::Upper, slate::Diag::NonUnit, R_chol );
+            slate::triangular_multiply(one, QR, R, opts);
+        }
+        else {
+            // R is the upper part of A matrix.
+            slate::TrapezoidMatrix<scalar_t> R(slate::Uplo::Upper, slate::Diag::NonUnit, A);
 
-        print_matrix("R", QR, params);
+            // R1 is the upper part of QR matrix.
+            slate::TrapezoidMatrix<scalar_t> R1(slate::Uplo::Upper, slate::Diag::NonUnit, QR);
 
-        // Multiply QR by Q (implicitly stored in A and T).
-        // Form QR, where Q's representation is in A and T, and R is in QR.
-        slate::qr_multiply_by_q(
-            slate::Side::Left, slate::Op::NoTrans, A, T, QR, opts);
-        // Using traditional BLAS/LAPACK name
-        // slate::unmqr(
-        //     slate::Side::Left, slate::Op::NoTrans, A, T, QR, opts);
+            // Copy A's upper trapezoid R to QR's upper trapezoid R1.
+            slate::copy(R, R1);
+
+            print_matrix("R", QR, params);
+
+            // Multiply QR by Q (implicitly stored in A and T).
+            // Form QR, where Q's representation is in A and T, and R is in QR.
+            slate::qr_multiply_by_q(
+                slate::Side::Left, slate::Op::NoTrans, A, T, QR, opts);
+            // Using traditional BLAS/LAPACK name
+            // slate::unmqr(
+            //     slate::Side::Left, slate::Op::NoTrans, A, T, QR, opts);
+        }
 
         print_matrix("QR", QR, params);
 
@@ -219,12 +248,12 @@ void test_geqrf_work(Params& params, bool run)
             std::vector<scalar_t> work(1);
             //---------------
 
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
             int64_t info_ref = 0;
+
+            if (check) {
+                // Copy original A for ScaLAPACK check
+                slate::copy(Aref, A);
+            }
 
             // query for workspace size
             scalar_t dummy;
@@ -242,10 +271,58 @@ void test_geqrf_work(Params& params, bool run)
             slate_assert(info_ref == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
+            if (0) {
+                //==================================================
+                // Test results by checking backwards error
+                // within ScaLAPACK implementation
+                //
+                //      || QR - A ||_1
+                //     ---------------- < tol * epsilon
+                //      || A ||_1 * m
+                //
+                //==================================================
+
+                // R is the upper part of A matrix.
+                slate::TrapezoidMatrix<scalar_t> scala_R(slate::Uplo::Upper, slate::Diag::NonUnit, Aref);
+
+                std::vector<scalar_t> scala_QR_data(Aref_data.size(), zero);
+                slate::Matrix<scalar_t> scala_QR = slate::Matrix<scalar_t>::fromScaLAPACK(
+                                                     m, n, &scala_QR_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+
+                slate::TrapezoidMatrix<scalar_t> scala_R1(slate::Uplo::Upper, slate::Diag::NonUnit, scala_QR);
+
+                // Copy A's upper trapezoid R to QR's upper trapezoid R1.
+                slate::copy(scala_R, scala_R1);
+
+                // Apply Q to R-factor
+                scalapack_punmqr(side2str(blas::Side::Left), op2str(slate::Op::NoTrans), m, n, n,
+                                 &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                                 &scala_QR_data[0], 1, 1, Aref_desc,
+                                 &dummy, -1, &info_ref);
+                lwork = int64_t( real( dummy ) );
+                work.resize(lwork);
+                scalapack_punmqr(side2str(blas::Side::Left), op2str(slate::Op::NoTrans), m, n, n,
+                                 &Aref_data[0], 1, 1, Aref_desc, tau.data(),
+                                 &scala_QR_data[0], 1, 1, Aref_desc,
+                                 work.data(), lwork, &info_ref);
+                slate_assert(info_ref == 0);
+
+                print_matrix("QR", scala_QR, params);
+
+                slate::add(-one, A, one, scala_QR, opts);
+                print_matrix("QR - A", scala_QR, params);
+
+                // Norm of backwards error: || QR - A ||_1
+                real_t scala_R_norm = slate::norm(slate::Norm::One, scala_QR);
+
+                double residual = scala_R_norm / (m*A_norm);
+                if (mpi_rank == 0)
+                    printf("\nScaLAPACK comparision: ||A - QR|| / ||A|| = %3.2e\n",residual);
+            }
+
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
 
-            slate_set_num_blas_threads(saved_num_threads);
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
         #else

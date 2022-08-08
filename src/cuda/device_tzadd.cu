@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -25,43 +25,42 @@ namespace device {
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///
-/// @param[in] Atiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each Atiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
-///     Leading dimension of each tile in Atiles. lda >= m.
+///     Leading dimension of each tile in Aarray. lda >= m.
 ///
-/// @param[in] Btiles
+/// @param[in,out] Barray
 ///     Array of tiles of dimension gridDim.x,
-///     where each Btiles[k] is an m-by-n matrix stored in an ldb-by-n array.
+///     where each Barray[k] is an m-by-n matrix stored in an ldb-by-n array.
 ///
 /// @param[in] ldb
-///     Leading dimension of each tile in Btiles. ldb >= m.
+///     Leading dimension of each tile in Barray. ldb >= m.
 ///
 template <typename scalar_t>
-__global__ void tzaddKernel(
+__global__ void tzadd_kernel(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t alpha, scalar_t** tilesA, int64_t lda,
-    scalar_t beta, scalar_t** tilesB, int64_t ldb)
+    scalar_t alpha, scalar_t** Aarray, int64_t lda,
+    scalar_t beta,  scalar_t** Barray, int64_t ldb)
 {
-    scalar_t* tileA = tilesA[blockIdx.x];
-    scalar_t* tileB = tilesB[blockIdx.x];
+    scalar_t* tileA = Aarray[ blockIdx.x ];
+    scalar_t* tileB = Barray[ blockIdx.x ];
 
     // thread per row, if more rows than threads, loop by blockDim.x
-    for (int64_t ridx = threadIdx.x; ridx < m; ridx += blockDim.x) {
-        // todo: should the increment be ridx += 1024?
-        scalar_t* rowA = &tileA[ridx];
-        scalar_t* rowB = &tileB[ridx];
+    for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
+        scalar_t* rowA = &tileA[ i ];
+        scalar_t* rowB = &tileB[ i ];
 
         if (uplo == lapack::Uplo::Lower) {
-            for (int64_t j = 0; j <= ridx && j < n; ++j) { // lower
+            for (int64_t j = 0; j <= i && j < n; ++j) { // lower
                 rowB[j*ldb] = axpby(alpha, rowA[j*lda], beta, rowB[j*ldb]);
             }
         }
         else {
-            for (int64_t j = n-1; j >= ridx; --j) { // upper
+            for (int64_t j = n-1; j >= i; --j) { // upper
                  rowB[j*ldb] = axpby(alpha, rowA[j*lda], beta, rowB[j*ldb]);
             }
         }
@@ -69,13 +68,23 @@ __global__ void tzaddKernel(
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine for element-wise tile addition.
+/// Batched routine for element-wise trapezoidal tile addition.
+/// Sets upper or lower part of
+/// \[
+///     Barray[k] = \alpha Aarray[k] + \beta Barray[k].
+/// \]
+///
+/// @param[in] uplo
+///     Whether each Aarray[k] is upper or lower trapezoidal.
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 0.
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 0.
+///
+/// @param[in] alpha
+///     The scalar alpha.
 ///
 /// @param[in] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
@@ -84,9 +93,12 @@ __global__ void tzaddKernel(
 /// @param[in] lda
 ///     Leading dimension of each tile in A. lda >= m.
 ///
-/// @param[out] Barray
+/// @param[in] beta
+///     The scalar beta.
+///
+/// @param[in,out] Barray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
-///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
+///     where each Barray[k] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
 ///
 /// @param[in] ldb
 ///     Leading dimension of each tile in B. ldb >= m.
@@ -94,8 +106,8 @@ __global__ void tzaddKernel(
 /// @param[in] batch_count
 ///     Size of Aarray and Barray. batch_count >= 0.
 ///
-/// @param[in] stream
-///     CUDA stream to execute in.
+/// @param[in] queue
+///     BLAS++ queue to execute in.
 ///
 template <typename scalar_t>
 void tzadd(
@@ -114,7 +126,7 @@ void tzadd(
 
     cudaSetDevice( queue.device() );
 
-    tzaddKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    tzadd_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         uplo,
         m, n,
         alpha, Aarray, lda,

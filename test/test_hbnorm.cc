@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -124,12 +124,6 @@ void test_hbnorm_work(Params& params, bool run)
             scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, lldA, &info);
             slate_assert(info == 0);
 
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
             // allocate work space
             int lcm = scalapack_ilcm(&p, &q);
             int ldw = nb*slate::ceildiv(int(slate::ceildiv(nlocA, nb)), (lcm / p));
@@ -173,8 +167,6 @@ void test_hbnorm_work(Params& params, bool run)
 
             params.ref_time() = time;
             params.error() = error;
-
-            slate_set_num_blas_threads(saved_num_threads);
 
             // Allow for difference
             params.okay() = (params.error() <= tol);

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -13,11 +13,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::gemm from internal::specialization::gemm
-namespace internal {
-namespace specialization {
-
+namespace impl {
 //------------------------------------------------------------------------------
 /// @internal
 /// Distributed parallel general matrix-matrix multiplication.
@@ -35,37 +31,44 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void gemmA(
-    slate::internal::TargetType<target>,
     scalar_t alpha, Matrix<scalar_t>& A,
                     Matrix<scalar_t>& B,
     scalar_t beta,  Matrix<scalar_t>& C,
-    int64_t lookahead)
+    Options const& opts)
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+
     // OpenMP needs pointer types, but vectors are exception safe
-    std::vector<uint8_t> bcast_vector(A.nt());
-    std::vector<uint8_t> gemmA_vector(A.nt());
+    std::vector<uint8_t> bcast_vector( A.nt() );
+    std::vector<uint8_t> gemmA_vector( A.nt() );
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemmA = gemmA_vector.data();
-    // printf("gemmA\n");
+
+    if (target == Target::Devices) {
+        A.allocateBatchArrays();
+        A.reserveDeviceWorkspace();
+    }
+
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
 
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
-
         // broadcast 0th block col of B
         #pragma omp task depend(out:bcast[0])
         {
             // broadcast block B(i, 0) to ranks owning block col A(:, i)
             BcastList bcast_list_B;
             for (int64_t i = 0; i < B.mt(); ++i)
-                bcast_list_B.push_back({i, 0, {A.sub(0, A.mt()-1, i, i)}});
-            B.template listBcast<target>(bcast_list_B, layout);
+                bcast_list_B.push_back(
+                    {i, 0, {A.sub( 0, A.mt()-1, i, i )}} );
+            B.template listBcast<target>( bcast_list_B, layout );
         }
 
         // broadcast lookahead block cols of B
@@ -77,8 +80,8 @@ void gemmA(
                 BcastList bcast_list_B;
                 for (int64_t i = 0; i < B.mt(); ++i)
                     bcast_list_B.push_back(
-                        {i, k, {A.sub(0, A.mt()-1, i, i)}});
-                B.template listBcast<target>(bcast_list_B, layout);
+                        {i, k, {A.sub( 0, A.mt()-1, i, i )}} );
+                B.template listBcast<target>( bcast_list_B, layout, k );
             }
         }
 
@@ -91,20 +94,28 @@ void gemmA(
             // some temporary tiles of C that need to be reduced
             internal::gemmA<target>(
                 alpha, std::move(A),
-                       B.sub(0, B.mt()-1, 0, 0),
-                beta,  C.sub(0, C.mt()-1, 0, 0),
-                layout);
+                       B.sub( 0, B.mt()-1, 0, 0 ),
+                beta,  C.sub( 0, C.mt()-1, 0, 0 ),
+                layout );
 
             // reduce C(:, 0)
             using ReduceList = typename Matrix<scalar_t>::ReduceList;
             ReduceList reduce_list_C;
             for (int64_t i = 0; i < C.mt(); ++i)
                 // reduce C(i, 0) across i_th row of A
-                reduce_list_C.push_back({i, 0,
-                                          C.sub(i, i, 0, 0),
-                                          {A.sub(i, i, 0, A.nt()-1)}
-                                        });
-            C.template listReduce(reduce_list_C, layout);
+                reduce_list_C.push_back( {i, 0,
+                                          C.sub( i, i, 0, 0 ),
+                                          {A.sub( i, i, 0, A.nt()-1 )}
+                                        } );
+            C.template listReduce( reduce_list_C, layout );
+        }
+        // Clean the memory introduced by internal::gemmA on Devices
+        if (target == Target::Devices) {
+            #pragma omp task depend( in:gemmA[ 0 ] ) \
+                              shared( C )
+            {
+                C.sub( 0, C.mt() - 1, 0, 0 ).releaseWorkspace();
+            }
         }
 
         // broadcast (with lookahead) and multiply the rest of the columns
@@ -120,8 +131,9 @@ void gemmA(
                     BcastList bcast_list_B;
                     for (int64_t i = 0; i < B.mt(); ++i)
                         bcast_list_B.push_back(
-                            {i, k+lookahead, {A.sub(0, A.mt()-1, i, i)}});
-                    B.template listBcast<target>(bcast_list_B, layout);
+                            {i, k+lookahead, {A.sub( 0, A.mt()-1, i, i )}} );
+                    B.template listBcast<target>(
+                        bcast_list_B, layout, k+lookahead );
                 }
             }
 
@@ -135,20 +147,29 @@ void gemmA(
                 // some temporary tiles of C that need to be reduced
                 internal::gemmA<target>(
                     alpha, std::move(A),
-                           B.sub(0, B.mt()-1, k, k),
-                    beta,  C.sub(0, C.mt()-1, k, k),
-                    layout);
+                           B.sub( 0, B.mt()-1, k, k ),
+                    beta,  C.sub( 0, C.mt()-1, k, k ),
+                    layout );
 
                 // reduce C(:, k)
                 using ReduceList = typename Matrix<scalar_t>::ReduceList;
                 ReduceList reduce_list_C;
                 for (int64_t i = 0; i < C.mt(); ++i)
                     // reduce C(i, 0) across i_th row of A
-                    reduce_list_C.push_back({i, k,
-                                              C.sub(i, i, k, k),
-                                              {A.sub(i, i, 0, A.nt()-1)}
-                                            });
-                C.template listReduce(reduce_list_C, layout);
+                    reduce_list_C.push_back( {i, k,
+                                              C.sub( i, i, k, k ),
+                                              {A.sub( i, i, 0, A.nt()-1 )}
+                                            } );
+                C.template listReduce( reduce_list_C, layout );
+            }
+            // Clean the memory introduced by internal::gemmA on Devices
+            if (target == Target::Devices) {
+                #pragma omp task depend( in:gemmA[ k ] ) \
+                                  shared( C ) \
+                                  firstprivate( k )
+                {
+                    C.sub( 0, C.mt() - 1, k, k ).releaseWorkspace();
+                }
             }
         }
         #pragma omp taskwait
@@ -157,28 +178,7 @@ void gemmA(
     }
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gemm_specialization
-///
-template <Target target, typename scalar_t>
-void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::gemmA(
-        internal::TargetType<target>(),
-        alpha, A,
-               B,
-        beta,  C,
-        lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel general matrix-matrix multiplication.
@@ -243,12 +243,12 @@ void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            gemmA<Target::HostTask>(alpha, A, B, beta, C, opts);
-            break;
-        case Target::HostNest: // todo: not yet implemented
+        case Target::HostNest:
         case Target::HostBatch:
+            impl::gemmA<Target::HostTask>( alpha, A, B, beta, C, opts );
+            break;
         case Target::Devices:
-            slate_not_implemented("target not yet supported");
+            impl::gemmA<Target::Devices>( alpha, A, B, beta, C, opts );
             break;
 
     }

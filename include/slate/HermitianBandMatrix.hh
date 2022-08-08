@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -289,11 +289,11 @@ void HermitianBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag, 
                 // Create tile to receive data, with life span.
                 // If tile already exists, add to its life span.
                 LockGuard guard(this->storage_->getTilesMapLock()); // todo: accessor
-                auto iter = this->storage_->find(this->globalIndex(i, j, this->hostNum()));
+                auto iter = this->storage_->find( this->globalIndex( i, j, HostNum ) );
 
                 int64_t life = life_factor;
                 if (iter == this->storage_->end())
-                    this->tileInsertWorkspace(i, j, this->hostNum());
+                    this->tileInsertWorkspace( i, j, HostNum );
                 else
                     life += this->tileLife(i, j); // todo: use temp tile to receive
                 this->tileLife(i, j, life);
@@ -331,7 +331,7 @@ void HermitianBandMatrix<scalar_t>::he2hbGather(HermitianMatrix<scalar_t>& A)
             if (i >= istart && i <= iend) {
                 if (this->mpi_rank_ == 0) {
                     if (! A.tileIsLocal(i, j)) {
-                        this->tileInsert(i, j, this->host_num_);
+                        this->tileInsert( i, j, HostNum );
                         auto Bij = this->at(i, j);
                         Bij.recv(A.tileRank(i, j), this->mpi_comm_, this->layout());
                     }
@@ -342,7 +342,7 @@ void HermitianBandMatrix<scalar_t>::he2hbGather(HermitianMatrix<scalar_t>& A)
                         auto Aij = A(i, j);
                         auto Bij = this->at(i, j);
                         if (Aij.data() != Bij.data() ) {
-                            gecopy(A(i, j), Bij );
+                            tile::gecopy( A(i, j), Bij );
                         }
                     }
                 }

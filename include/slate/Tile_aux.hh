@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -15,6 +15,8 @@ namespace slate {
 // forward declaration
 template <typename scalar_t>
 class Tile;
+
+namespace tile {
 
 //------------------------------------------------------------------------------
 /// Copy and precision conversion.
@@ -383,6 +385,8 @@ void copyRow(int64_t n,
 {
     copyRow(n, V, A, i_offs, j_offs);
 }
+
+} // namespace tile
 
 } // namespace slate
 

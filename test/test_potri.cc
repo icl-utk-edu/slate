@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -53,6 +53,9 @@ void test_potri_work(Params& params, bool run)
     params.gflops();
     params.ref_time();
     params.ref_gflops();
+
+    // Suppress nrhs from output; it's only for checks.
+    params.nrhs.width( 0 );
 
     if (! run) {
         params.matrix.kind.set_default( "rand_dominant" );

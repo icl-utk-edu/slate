@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -25,7 +25,6 @@ int m, n, k, mb, nb, p, q;
 int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
-int host_num = slate::HostNum;
 int num_devices = 0;
 int verbose = 0;
 
@@ -1249,7 +1248,6 @@ int main(int argc, char** argv)
     MPI_Comm_size(mpi_comm, &mpi_size);
 
     num_devices = blas::get_device_count();
-    host_num = slate::HostNum;
 
     // globals
     m  = 200;

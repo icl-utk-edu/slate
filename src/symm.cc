@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -46,6 +46,8 @@ void symm(slate::internal::TargetType<target>,
 
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    const scalar_t one = 1.0;
+
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     // if on right, change to left by transposing A, B, C to get
@@ -73,10 +75,12 @@ void symm(slate::internal::TargetType<target>,
         C.reserveDeviceWorkspace();
     }
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         if (A.uplo() == Uplo::Lower) {
             // ----------------------------------------
             // Left, Lower/NoTrans or Upper/Trans case
@@ -188,22 +192,22 @@ void symm(slate::internal::TargetType<target>,
                 {
                     auto Arow_k = A.sub(k, k, 0, k-1);
                     internal::gemm<target>(
-                        alpha,         transpose(Arow_k),
-                                       B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1),
+                        alpha, transpose( Arow_k ),
+                               B.sub(k, k, 0, B.nt()-1),
+                        one,   C.sub(0, k-1, 0, C.nt()-1),
                         layout);
 
                     internal::symm<Target::HostTask>(
                         Side::Left,
-                        alpha,         A.sub(k, k),
-                                       B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(k, k, 0, C.nt()-1));
+                        alpha, A.sub(k, k),
+                               B.sub(k, k, 0, B.nt()-1),
+                        one,   C.sub(k, k, 0, C.nt()-1) );
 
                     if (A.mt()-1 > k) {
                         internal::gemm<target>(
-                            alpha,         A.sub(k+1, A.mt()-1, k, k),
-                                           B.sub(k, k, 0, B.nt()-1),
-                            scalar_t(1.0), C.sub(k+1, C.mt()-1, 0, C.nt()-1),
+                            alpha, A.sub(k+1, A.mt()-1, k, k),
+                                   B.sub(k, k, 0, B.nt()-1),
+                            one,   C.sub(k+1, C.mt()-1, 0, C.nt()-1),
                             layout);
                     }
                 }
@@ -320,23 +324,23 @@ void symm(slate::internal::TargetType<target>,
                                  depend(out:gemm[k])
                 {
                     internal::gemm<target>(
-                        alpha,         A.sub(0, k-1, k, k),
-                                       B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(0, k-1, 0, C.nt()-1),
+                        alpha, A.sub(0, k-1, k, k),
+                               B.sub(k, k, 0, B.nt()-1),
+                        one,   C.sub(0, k-1, 0, C.nt()-1),
                         layout);
 
                     internal::symm<Target::HostTask>(
                         Side::Left,
-                        alpha,         A.sub(k, k),
-                                       B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(k, k, 0, C.nt()-1));
+                        alpha, A.sub(k, k),
+                               B.sub(k, k, 0, B.nt()-1),
+                        one,   C.sub(k, k, 0, C.nt()-1) );
 
                     if (A.mt()-1 > k) {
                         auto Arow_k = A.sub(k, k, k+1, A.mt()-1);
                         internal::gemm<target>(
-                            alpha,         transpose(Arow_k),
-                                           B.sub(k, k, 0, B.nt()-1),
-                            scalar_t(1.0), C.sub(k+1, C.mt()-1, 0, C.nt()-1),
+                            alpha, transpose( Arow_k ),
+                                   B.sub(k, k, 0, B.nt()-1),
+                            one,   C.sub(k+1, C.mt()-1, 0, C.nt()-1),
                             layout);
                     }
                 }

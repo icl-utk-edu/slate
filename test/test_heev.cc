@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -201,7 +201,8 @@ void test_heev_work(Params& params, bool run)
             int64_t nt = Z.nt();
             int64_t jj = 0;
             for (int64_t j = 0; j < nt; ++j) {
-                #pragma omp parallel for default(none) firstprivate(mt, j, jj) shared(Z_Lambda, Lambda)
+                #pragma omp parallel for slate_omp_default_none \
+                    firstprivate( mt, j, jj ) shared( Z_Lambda, Lambda )
                 for (int64_t i = 0; i < mt; ++i) {
                     if (Z_Lambda.tileIsLocal( i, j )) {
                         auto T = Z_Lambda( i, j );
@@ -271,12 +272,6 @@ void test_heev_work(Params& params, bool run)
             scalapack_descinit(Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
             slate_assert(info == 0);
 
-            // set num threads appropriately for parallel BLAS if possible
-            int omp_num_threads = 1;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
             // query for workspace size
             int64_t info_tst = 0;
             int64_t lwork = -1, lrwork = -1;
@@ -309,9 +304,6 @@ void test_heev_work(Params& params, bool run)
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             params.ref_time() = time;
-
-            // Reset omp thread number
-            slate_set_num_blas_threads(saved_num_threads);
 
             // Reference Scalapack was run, check reference against test
             // Perform a local operation to get differences Lambda = Lambda - Lambda_ref

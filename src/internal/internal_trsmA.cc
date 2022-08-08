@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -56,16 +56,19 @@ void trsmA(internal::TargetType<Target::HostTask>,
     }
     // alternatively, if (side == right), (conj)-transpose both A and B,
     // then assume side == left; see slate::trsm
+    #pragma omp taskgroup
     if (side == Side::Right) {
         assert(B.nt() == 1);
         for (int64_t i = 0; i < B.mt(); ++i) {
             if (B.tileIsLocal(i, 0)) {
-                #pragma omp task shared(A, B) priority(priority)
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B ) \
+                    firstprivate(i, layout, side, alpha) priority(priority)
                 {
                     B.tileGetForWriting(i, 0, LayoutConvert(layout));
-                    trsm(side, A.diag(),
-                         alpha, A(0, 0),
-                                B(i, 0));
+                    tile::trsm(
+                        side, A.diag(),
+                        alpha, A(0, 0), B(i, 0) );
                     // todo: should tileRelease()?
                     A.tileTick(0, 0);
                 }
@@ -76,20 +79,20 @@ void trsmA(internal::TargetType<Target::HostTask>,
         assert(B.mt() == 1);
         if (A.tileIsLocal(0, 0)) {
             for (int64_t j = 0; j < B.nt(); ++j) {
-                #pragma omp task shared(A, B) priority(priority)
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B ) \
+                    firstprivate(j, layout, side, alpha) priority(priority)
                 {
                     B.tileGetForWriting(0, j, LayoutConvert(layout));
-                    trsm(side, A.diag(),
-                         alpha, A(0, 0),
-                                B(0, j));
+                    tile::trsm(
+                        side, A.diag(),
+                        alpha, A(0, 0), B(0, j) );
                     // todo: should tileRelease()?
                     //A.tileTick(0, 0);
                 }
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -176,8 +179,11 @@ void trsmA(internal::TargetType<Target::Devices>,
             alpha = conj(alpha);
     }
 
+    #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task shared(A, B) priority(priority)
+        #pragma omp task shared(A, B) priority(priority) \
+            firstprivate(device, side, layout, sideA, uploA, opA, diagA) \
+            firstprivate(alpha, queue_index)
         {
             std::set<ij_tuple> B_tiles_set;
             if (side == Side::Right) {
@@ -327,8 +333,6 @@ void trsmA(internal::TargetType<Target::Devices>,
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

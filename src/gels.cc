@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -62,10 +62,6 @@ namespace slate {
 ///     $A$ is overwritten by details of its LQ factorization
 ///     as returned by gelqf (todo: not currently supported).
 ///
-/// @param[out] T
-///     The triangular matrices of the block reflectors from the
-///     QR or LQ factorization, as returned by geqrf or gelqf.
-///
 /// @param[in,out] BX
 ///     Matrix of size max(m,n)-by-nrhs.
 ///     On entry, the m-by-nrhs right hand side matrix $B$.
@@ -92,83 +88,28 @@ namespace slate {
 /// @ingroup gels
 ///
 template <typename scalar_t>
-void gels(Matrix<scalar_t>& A,
-          TriangularFactors<scalar_t>& T,
-          Matrix<scalar_t>& BX,
-          Options const& opts)
+void gels(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& BX,
+    Options const& opts)
 {
-    // m, n of op(A) as in docs above.
-    int64_t m = A.m();
-    int64_t n = A.n();
-    int64_t nrhs = BX.n();
+    Method method = get_option( opts, Option::MethodGels, MethodGels::Cholqr );
 
-    scalar_t one  = 1;
-    scalar_t zero = 0;
+    if (method == MethodGels::Auto)
+        method = MethodGels::select_algo( A, BX, opts );
 
-    // Get original, un-transposed matrix A0.
-    slate::Matrix<scalar_t> A0;
-    if (A.op() == Op::NoTrans)
-        A0 = A;
-    else if (A.op() == Op::ConjTrans)
-        A0 = conjTranspose(A);
-    else if (A.op() == Op::Trans && A.is_real)
-        A0 = transpose(A);
-    else
-        slate_error("Unsupported op(A)");
-
-    int64_t A0_M = (A.op() == Op::NoTrans ? m : n);
-    int64_t A0_N = (A.op() == Op::NoTrans ? n : m);
-    if (A0_M >= A0_N) {
-        assert(A0.m() >= A0.n());
-        // A0 itself is tall: QR factorization
-        geqrf(A0, T, opts);
-
-        int64_t min_mn = std::min(m, n);
-        auto R_ = A0.slice(0, min_mn-1, 0, min_mn-1);
-        auto R = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, R_);
-
-        if (A.op() == Op::NoTrans) {
-            // Solve A0 X = (QR) X = B.
-            // Least squares solution X = R^{-1} Y = R^{-1} (Q^H B).
-
-            // Y = Q^H B
-            // B is all m rows of BX.
-            unmqr(Side::Left, Op::ConjTrans, A0, T, BX, opts);
-
-            // X is only first n rows of BX.
-            auto X = BX.slice(0, n-1, 0, nrhs-1);
-
-            // X = R^{-1} Y
-            trsm(Side::Left, one, R, X, opts);
+    switch (method) {
+        case MethodGels::Geqrf: {
+            TriangularFactors<scalar_t> T;
+            gels_qr( A, T, BX, opts );
+            break;
         }
-        else {
-            // Solve A0^H X = (QR)^H X = B.
-            // Minimum norm solution X = Q Y = Q (R^{-H} B).
-
-            // B is only first m rows of BX.
-            auto B = BX.slice(0, m-1, 0, nrhs-1);
-
-            // Y = R^{-H} B
-            auto RH = conjTranspose(R);
-            trsm(Side::Left, one, RH, B, opts);
-
-            // X is all n rows of BX.
-            // Zero out rows m:n-1 of BX.
-            if (m < n) {
-                auto Z = BX.slice(m, n-1, 0, nrhs-1);
-                set(zero, Z);
-            }
-
-            // X = Q Y
-            unmqr(Side::Left, Op::NoTrans, A0, T, BX, opts);
+        case MethodGels::Cholqr: {
+            Matrix<scalar_t> R;
+            gels_cholqr( A, R, BX, opts );
+            break;
         }
     }
-    else {
-        // todo: LQ factorization
-        slate_assert(false);
-    }
-    // todo: return value for errors?
-    // R or L is singular => A is not full rank
 }
 
 //------------------------------------------------------------------------------
@@ -176,28 +117,24 @@ void gels(Matrix<scalar_t>& A,
 template
 void gels<float>(
     Matrix<float>& A,
-    TriangularFactors<float>& T,
     Matrix<float>& B,
     Options const& opts);
 
 template
 void gels<double>(
     Matrix<double>& A,
-    TriangularFactors<double>& T,
     Matrix<double>& B,
     Options const& opts);
 
 template
 void gels< std::complex<float> >(
     Matrix< std::complex<float> >& A,
-    TriangularFactors< std::complex<float> >& T,
     Matrix< std::complex<float> >& B,
     Options const& opts);
 
 template
 void gels< std::complex<double> >(
     Matrix< std::complex<double> >& A,
-    TriangularFactors< std::complex<double> >& T,
     Matrix< std::complex<double> >& B,
     Options const& opts);
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -20,10 +20,12 @@ namespace internal {
 template <Target target, typename scalar_t>
 void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
            std::vector<Pivot>& pivot,
+           blas::real_type<scalar_t> pivot_threshold,
            int max_panel_threads, int priority, int tag)
 {
     getrf(internal::TargetType<target>(),
-          A, diag_len, ib, pivot, max_panel_threads, priority, tag);
+          A, diag_len, ib, pivot,
+          pivot_threshold, max_panel_threads, priority, tag);
 }
 
 //------------------------------------------------------------------------------
@@ -34,6 +36,7 @@ template <typename scalar_t>
 void getrf(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A, int64_t diag_len, int64_t ib,
            std::vector<Pivot>& pivot,
+           blas::real_type<scalar_t> pivot_threshold,
            int max_panel_threads, int priority, int tag)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
@@ -93,19 +96,20 @@ void getrf(internal::TargetType<Target::HostTask>,
         std::vector< AuxPivot<scalar_t> > aux_pivot(diag_len);
 
         #if 1
-            omp_set_nested(1);
             // Launching new threads for the panel guarantees progression.
             // This should never deadlock, but may be detrimental to performance.
-            #pragma omp parallel for \
-                num_threads(thread_size) \
-                shared(thread_barrier, max_value, max_index, max_offset, \
-                       top_block, aux_pivot)
+            #pragma omp parallel for num_threads(thread_size) slate_omp_default_none \
+                shared(thread_barrier, max_value, max_index, max_offset) \
+                shared(top_block, aux_pivot, tiles, bcast_comm) \
+                firstprivate( tile_indices, bcast_root, bcast_rank, ib, \
+                              diag_len, thread_size, pivot_threshold )
         #else
             // Issuing panel operation as tasks may cause a deadlock.
-            #pragma omp taskloop \
-                num_tasks(thread_size) \
-                shared(thread_barrier, max_value, max_index, max_offset, \
-                       top_block, aux_pivot)
+            #pragma omp taskloop num_tasks(thread_size) slate_omp_default_none \
+                shared(thread_barrier, max_value, max_index, max_offset) \
+                shared(top_block, aux_pivot, tiles, bcast_comm) \
+                firstprivate( tile_indices, bcast_root, bcast_rank, ib, \
+                              diag_len, thread_size, pivot_threshold )
         #endif
         for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
             // Factor the panel in parallel.
@@ -115,7 +119,8 @@ void getrf(internal::TargetType<Target::HostTask>,
                   bcast_rank, bcast_root, bcast_comm,
                   thread_rank, thread_size,
                   thread_barrier,
-                  max_value, max_index, max_offset, top_block);
+                  max_value, max_index, max_offset, top_block,
+                  pivot_threshold);
         }
         #pragma omp taskwait
 
@@ -137,6 +142,7 @@ template
 void getrf<Target::HostTask, float>(
     Matrix<float>&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
+    blas::real_type<float> pivot_threshold,
     int max_panel_threads, int priority, int tag);
 
 // ----------------------------------------
@@ -144,6 +150,7 @@ template
 void getrf<Target::HostTask, double>(
     Matrix<double>&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
+    blas::real_type<double> pivot_threshold,
     int max_panel_threads, int priority, int tag);
 
 // ----------------------------------------
@@ -151,6 +158,7 @@ template
 void getrf< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
+    blas::real_type<std::complex<float>> pivot_threshold,
     int max_panel_threads, int priority, int tag);
 
 // ----------------------------------------
@@ -158,6 +166,7 @@ template
 void getrf< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
+    blas::real_type<std::complex<double>> pivot_threshold,
     int max_panel_threads, int priority, int tag);
 
 } // namespace internal

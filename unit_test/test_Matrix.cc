@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -12,6 +12,7 @@
 using slate::ceildiv;
 using slate::roundup;
 using slate::GridOrder;
+using slate::HostNum;
 
 namespace test {
 
@@ -21,7 +22,6 @@ int m, n, k, mb, nb, p, q;
 int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
-int host_num = slate::HostNum;
 int num_devices = 0;
 int verbose = 0;
 
@@ -890,7 +890,7 @@ void test_Matrix_tileInsert_new()
             int ib = std::min( mb, m - i*mb );
             int jb = std::min( nb, n - j*nb );
 
-            auto T_ptr = A.tileInsert( i, j );  //, A.hostNum() );
+            auto T_ptr = A.tileInsert( i, j, HostNum );
             test_assert( T_ptr->mb() == ib );
             test_assert( T_ptr->nb() == jb );
             test_assert( T_ptr->op() == slate::Op::NoTrans );
@@ -967,8 +967,7 @@ void test_Matrix_tileInsert_data()
                 else
                     Td = A22;
             }
-            //auto T_ptr = A.tileInsert( i, j, A.hostNum(), Td, ib );
-            auto T_ptr = A.tileInsert( i, j, Td, ib );
+            auto T_ptr = A.tileInsert( i, j, HostNum, Td, ib );
             test_assert( T_ptr->data() == Td );
             test_assert( T_ptr->mb() == ib );
             test_assert( T_ptr->nb() == jb );
@@ -1051,15 +1050,15 @@ void test_Matrix_tileErase()
     int i = rand() % A.mt();
     int j = rand() % A.nt();
 
-    A.tileInsert( i, j, Td.data(), mb );  //A.hostNum()
+    A.tileInsert( i, j, HostNum, Td.data(), mb );
     test_assert_no_throw( T = A( i, j ) );
-    A.tileErase( i, j, A.hostNum() );
+    A.tileErase( i, j, HostNum );
     test_assert_throw_std( T = A( i, j ) );
 
     // TODO: hard to tell if memory is actually deleted.
-    A.tileInsert( i, j ); //A.hostNum()
+    A.tileInsert( i, j, HostNum );
     test_assert_no_throw( T = A( i, j ) );
-    A.tileErase( i, j, A.hostNum() );
+    A.tileErase( i, j, HostNum );
     test_assert_throw_std( T = A( i, j ) );
 }
 
@@ -1781,7 +1780,7 @@ void test_Matrix_MOSI()
 
     A.releaseWorkspace();
 
-    A.tileGetAllForReading(A.hostNum(), slate::LayoutConvert::RowMajor);
+    A.tileGetAllForReading( HostNum, slate::LayoutConvert::RowMajor );
 
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
@@ -1804,7 +1803,7 @@ void test_Matrix_MOSI()
         }
     }
 
-    A.tileGetAllForWriting(A.hostNum(), slate::LayoutConvert::ColMajor);
+    A.tileGetAllForWriting( HostNum, slate::LayoutConvert::ColMajor );
 
     for (int j = 0; j < A.nt(); ++j) {
         for (int i = 0; i < A.mt(); ++i) {
@@ -1886,7 +1885,7 @@ void test_Matrix_tileLayoutConvert()
             }
         }
 
-        A.tileGetAllForReading(A.hostNum(), slate::LayoutConvert::None);
+        A.tileGetAllForReading( HostNum, slate::LayoutConvert::None );
 
         for (int j = 0; j < A.nt(); ++j) {
             for (int i = 0; i < A.mt(); ++i) {
@@ -2099,7 +2098,6 @@ int main(int argc, char** argv)
     MPI_Comm_size(mpi_comm, &mpi_size);
 
     num_devices = blas::get_device_count();
-    host_num = slate::HostNum;
 
     // globals
     m  = 200;

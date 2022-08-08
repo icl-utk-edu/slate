@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -60,6 +60,10 @@ void test_gbmm_work(Params& params, bool run)
     params.gflops();
     params.ref_time();
     params.ref_gflops();
+
+    // Suppress norm, nrhs from output; they're only for checks.
+    params.norm.width( 0 );
+    params.nrhs.width( 0 );
 
     if (! run)
         return;

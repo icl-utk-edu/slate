@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -18,6 +18,7 @@
 
 using slate::ceildiv;
 using slate::roundup;
+using slate::HostNum;
 
 //------------------------------------------------------------------------------
 // global variables
@@ -27,7 +28,7 @@ extern int p, q;
 extern int mpi_rank;
 extern int mpi_size;
 extern MPI_Comm mpi_comm;
-extern int host_num, num_devices;
+extern int num_devices;
 
 }
 
@@ -61,7 +62,7 @@ void verify_tile_lapack(
         test_assert(tile.op()     == blas::Op::NoTrans);
         test_assert(tile.uplo()   == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.device() == host_num);
+        test_assert(tile.device() == HostNum);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
 
@@ -124,7 +125,7 @@ void verify_tile_lapack(
         else
             test_assert(tile.uplo() == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.device() == host_num);
+        test_assert(tile.device() == HostNum);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
 
@@ -233,7 +234,7 @@ void verify_tile_scalapack(
         test_assert(tile.op()     == blas::Op::NoTrans);
         test_assert(tile.uplo()   == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.device() == host_num);
+        test_assert(tile.device() == HostNum);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
 
@@ -296,7 +297,7 @@ void verify_tile_scalapack(
         else
             test_assert(tile.uplo() == blas::Uplo::General);
         test_assert(tile.origin() == true);
-        test_assert(tile.device() == host_num);
+        test_assert(tile.device() == HostNum);
         test_assert(tile.size()   == size_t(ib * jb));
         test_assert(tile.bytes()  == sizeof(double) * ib * jb);
 

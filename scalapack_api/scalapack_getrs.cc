@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -91,15 +91,10 @@ extern "C" void pzgetrs_(const char* trans, int* n, int* nrhs, std::complex<doub
 template< typename scalar_t >
 void slate_pgetrs(const char* transstr, int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* b, int ib, int jb, int* descb, int* info)
 {
-    check_and_assert_blacs_grid_is_column_major();
-
-    // make blas single threaded
-    // todo: does this set the omp num threads correctly
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
-
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     int64_t lookahead = slate_scalapack_set_lookahead();
+    slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
@@ -116,11 +111,11 @@ void slate_pgetrs(const char* transstr, int n, int nrhs, scalar_t* a, int ia, in
     // create SLATE matrices from the ScaLAPACK layouts
     int nprow, npcol, myprow, mypcol;
     Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
 
     Cblacs_gridinfo(desc_CTXT(descb), &nprow, &npcol, &myprow, &mypcol);
-    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descb), desc_N(descb), b, desc_LLD(descb), desc_MB(descb), nprow, npcol, MPI_COMM_WORLD);
+    auto B = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(descb), desc_N(descb), b, desc_LLD(descb), desc_MB(descb), desc_NB(descb), grid_order, nprow, npcol, MPI_COMM_WORLD);
     B = slate_scalapack_submatrix(Bm, Bn, B, ib, jb, descb);
 
     if (verbose && myprow == 0 && mypcol == 0)
@@ -190,9 +185,6 @@ void slate_pgetrs(const char* transstr, int n, int nrhs, scalar_t* a, int ia, in
 
     // todo: extract the real info from getrs
     *info = 0;
-
-    // reset blas threading
-    slate_set_num_blas_threads(saved_num_blas_threads);
 }
 
 } // namespace scalapack_api

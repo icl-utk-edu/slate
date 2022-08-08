@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -33,16 +33,18 @@ void he2hb(slate::internal::TargetType<target>,
 {
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
     using blas::real;
+    using real_t = blas::real_type<scalar_t>;
 
     assert(A.uplo() == Uplo::Lower);  // for now
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
-    const scalar_t zero = 0;
-    const scalar_t one  = 1;
-    const scalar_t half = 0.5;
     const int priority_one = 1;
+    const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
+    const scalar_t half = 0.5;
+    const real_t r_one  = 1.0;
 
     int64_t nt = A.nt();
 
@@ -102,10 +104,12 @@ void he2hb(slate::internal::TargetType<target>,
     std::vector< uint8_t > alloc_trailing_vector(1);
     uint8_t* alloc_trailing = alloc_trailing_vector.data();
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < nt-1; ++k) {
             //----------------------------------------
             // Q panel and update.
@@ -397,6 +401,7 @@ void he2hb(slate::internal::TargetType<target>,
                             }
                         }
                         #pragma omp taskwait
+
                     }
 
                     // Compute Wi = Wi T, for i = k+1, ..., nt-1.

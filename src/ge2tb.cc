@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -82,10 +82,12 @@ void ge2tb(slate::internal::TargetType<target>,
     // No lookahead is possible, so no need to track dependencies --
     // just execute tasks in order. Also, priority isn't needed.
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < A_min_mtnt; ++k) {
             //----------------------------------------
             // U panel and update.
@@ -236,9 +238,9 @@ void ge2tb(slate::internal::TargetType<target>,
                 // much better cache efficiency.
                 for (int64_t j = 0; j < V_panel.nt(); ++j) {
                     if (V_panel.tileIsLocal(0, j)) {
-                        V_panel.tileGetForReading( 0, j, A.hostNum(), LayoutConvert(layout));
-                        VT_panel.tileGetForWriting( j, 0, A.hostNum(), LayoutConvert(layout) );
-                        deepConjTranspose(V_panel(0, j), VT_panel(j, 0));
+                        V_panel.tileGetForReading( 0, j, HostNum, LayoutConvert(layout) );
+                        VT_panel.tileGetForWriting( j, 0, HostNum, LayoutConvert(layout) );
+                        tile::deepConjTranspose( V_panel(0, j), VT_panel(j, 0) );
                     }
                 }
 
@@ -253,9 +255,9 @@ void ge2tb(slate::internal::TargetType<target>,
                 for (int64_t i = 0; i < TVlT_panel.mt(); ++i) {
                     if (TVl_panel.tileIsLocal(0, i)) {
                         TVl_panel.tileInsert(0, i);
-                        TVlT_panel.tileGetForReading( i, 0, A.hostNum(), LayoutConvert(layout));
-                        TVl_panel.tileGetForWriting( 0, i, A.hostNum(), LayoutConvert(layout) );
-                        gecopy(TVlT_panel(i, 0), TVl_panel(0, i));
+                        TVlT_panel.tileGetForReading( i, 0, HostNum, LayoutConvert(layout) );
+                        TVl_panel.tileGetForWriting( 0, i, HostNum, LayoutConvert(layout) );
+                        tile::gecopy( TVlT_panel(i, 0), TVl_panel(0, i) );
                         break;
                     }
                 }
@@ -263,9 +265,9 @@ void ge2tb(slate::internal::TargetType<target>,
                 // Copy result back.
                 for (int64_t j = 0; j < V_panel.nt(); ++j) {
                     if (V_panel.tileIsLocal(0, j)) {
-                        VT_panel.tileGetForReading( j, 0, A.hostNum(), LayoutConvert(layout));
-                        V_panel.tileGetForWriting( 0, j, A.hostNum(), LayoutConvert(layout) );
-                        deepConjTranspose(VT_panel(j, 0), V_panel(0, j));
+                        VT_panel.tileGetForReading( j, 0, HostNum, LayoutConvert(layout) );
+                        V_panel.tileGetForWriting( 0, j, HostNum, LayoutConvert(layout) );
+                        tile::deepConjTranspose( VT_panel(j, 0), V_panel(0, j) );
                     }
                 }
                 // todo: VT_panel.clear();

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -80,10 +80,14 @@ void norm(
         // Note: same code in slate::internal::trnorm( Norm::Max ).
         // Find max of each tile, append to tiles_maxima.
         std::vector<real_t> tiles_maxima;
+
+        #pragma omp taskgroup
         for (int64_t j = 0; j < A.nt(); ++j) {
             // diagonal tile
             if (j < A.mt() && A.tileIsLocal(j, j)) {
-                #pragma omp task shared(A, tiles_maxima) priority(priority)
+                #pragma omp task slate_omp_default_none \
+                    shared( A, tiles_maxima ) \
+                    firstprivate(j, layout, in_norm) priority(priority)
                 {
                     A.tileGetForReading(j, j, LayoutConvert(layout));
                     real_t tile_max;
@@ -99,7 +103,9 @@ void norm(
                 int64_t i_end = min(j + kdt + 1, A.mt());
                 for (int64_t i = j+1; i < i_end; ++i) {  // strictly lower
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task shared(A, tiles_maxima) priority(priority)
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, tiles_maxima ) \
+                            firstprivate(i, j, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_max;
@@ -116,7 +122,9 @@ void norm(
                 int64_t i_begin = max(j - kdt, 0);
                 for (int64_t i = i_begin; i < j && i < A.mt(); ++i) {  // strictly upper
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task shared(A, tiles_maxima) priority(priority)
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, tiles_maxima ) \
+                            firstprivate(i, j, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_max;
@@ -130,8 +138,7 @@ void norm(
                 }
             }
         }
-
-        #pragma omp taskwait
+        // end omp taskgroup
 
         // Find max of tiles_maxima.
         *values = lapack::lange(in_norm,
@@ -145,10 +152,14 @@ void norm(
         // Sum each column within a tile.
         std::vector<real_t> tiles_sums(A.n()*A.mt(), 0.0);
         int64_t jj = 0;
+
+        #pragma omp taskgroup
         for (int64_t j = 0; j < A.nt(); ++j) {
             // diagonal tile
             if (j < A.mt() && A.tileIsLocal(j, j)) {
-                #pragma omp task shared(A, tiles_sums) priority(priority)
+                #pragma omp task slate_omp_default_none \
+                    shared( A, tiles_sums ) \
+                    firstprivate(j, jj, layout, in_norm) priority(priority)
                 {
                     A.tileGetForReading(j, j, LayoutConvert(layout));
                     henorm(in_norm, A(j, j), &tiles_sums[A.n()*j + jj]);
@@ -160,7 +171,9 @@ void norm(
                 int64_t i_end = min(j + kdt + 1, A.mt());
                 for (int64_t i = j+1; i < i_end; ++i) {  // strictly lower
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task shared(A, tiles_sums) priority(priority)
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, tiles_sums ) \
+                            firstprivate(i, j, ii, jj, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             synormOffdiag(in_norm, A(i, j),
@@ -179,7 +192,9 @@ void norm(
                 for (int64_t i = 0; i < j && i < i_end; ++i) {  // strictly upper
                     if (i >= i_begin) {
                         if (A.tileIsLocal(i, j)) {
-                            #pragma omp task shared(A, tiles_sums) priority(priority)
+                            #pragma omp task slate_omp_default_none \
+                                shared( A, tiles_sums ) \
+                                firstprivate(i, j, ii, jj, layout, in_norm) priority(priority)
                             {
                                 A.tileGetForReading(i, j, LayoutConvert(layout));
                                 synormOffdiag(in_norm, A(i, j),
@@ -194,8 +209,8 @@ void norm(
             }
             jj += A.tileNb(j);
         }
+        // end omp taskgroup
 
-        #pragma omp taskwait
 
         // Sum tile results into local results.
         // Summing up local contributions only.
@@ -244,6 +259,8 @@ void norm(
     else if (in_norm == Norm::Fro) {
         values[0] = 0;  // scale
         values[1] = 1;  // sumsq
+
+        #pragma omp taskgroup
         for (int64_t j = 0; j < A.nt(); ++j) {
             // diagonal tile
             if (j < A.mt() && A.tileIsLocal(j, j)) {
@@ -261,7 +278,9 @@ void norm(
                 int64_t i_end = min(j + kdt + 1, A.mt());
                 for (int64_t i = j+1; i < i_end; ++i) {  // strictly lower
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task shared(A, values) priority(priority)
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, values ) \
+                            firstprivate(i, j, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_values[2];
@@ -281,7 +300,9 @@ void norm(
                 int64_t i_begin = max(j - kdt, 0);
                 for (int64_t i = i_begin; i < j && i < A.mt(); ++i) {  // strictly upper
                     if (A.tileIsLocal(i, j)) {
-                        #pragma omp task shared(A, values) priority(priority)
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, values ) \
+                            firstprivate(i, j, layout, in_norm) priority(priority)
                         {
                             A.tileGetForReading(i, j, LayoutConvert(layout));
                             real_t tile_values[2];
@@ -298,6 +319,7 @@ void norm(
                 }
             }
         }
+        // end omp taskgroup
     }
 }
 
@@ -408,9 +430,13 @@ void norm(
     int64_t i_begin = 0;
     int64_t i_end   = 0;
 
+    #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task shared(A, devices_values, vals_host_arrays) \
-                         priority(priority)
+        #pragma omp task slate_omp_default_none \
+            shared( A, devices_values, vals_host_arrays ) \
+            shared(a_host_arrays, a_dev_arrays, vals_dev_arrays) \
+            firstprivate(device, irange, jrange, layout, in_norm, lower) \
+            firstprivate(i_begin, i_end, kdt, queue_index, ldv) priority(priority)
         {
             std::set<ij_tuple> A_tiles_set;
 
@@ -571,8 +597,7 @@ void norm(
             }
         }
     }
-
-    #pragma omp taskwait
+    // end omp taskgroup
 
     for (int device = 0; device < A.num_devices(); ++device) {
         blas::set_device(device);

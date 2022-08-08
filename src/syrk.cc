@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -36,6 +36,8 @@ void syrk(slate::internal::TargetType<target>,
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    const scalar_t one = 1.0;
+
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -57,10 +59,12 @@ void syrk(slate::internal::TargetType<target>,
         C.reserveDeviceWorkspace();
     }
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         // Lower/NoTrans or Upper/Trans case
         // send 1st block col of A
         #pragma omp task depend(out:bcast[0])
@@ -97,7 +101,7 @@ void syrk(slate::internal::TargetType<target>,
         {
             internal::syrk<target>(
                 alpha, A.sub(0, A.mt()-1, 0, 0),
-                beta,  std::move(C));
+                beta,  std::move( C ) );
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -126,8 +130,8 @@ void syrk(slate::internal::TargetType<target>,
                              depend(out:gemm[k])
             {
                 internal::syrk<target>(
-                    alpha,         A.sub(0, A.mt()-1, k, k),
-                    scalar_t(1.0), std::move(C));
+                    alpha, A.sub(0, A.mt()-1, k, k),
+                    one,   std::move( C ) );
             }
         }
 

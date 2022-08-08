@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -79,12 +79,15 @@ void norm(
 
         // Find max of each tile, append to tiles_maxima.
         std::vector<real_t> tiles_maxima;
+        #pragma omp taskgroup
         for (int64_t j = 0; j < A.nt(); ++j) {
             int64_t i_begin = max(j - kut, 0);
             int64_t i_end   = min(j + klt + 1, A.mt());
             for (int64_t i = i_begin; i < i_end; ++i) {
                 if (A.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A, tiles_maxima) priority(priority)
+                    #pragma omp task slate_omp_default_none \
+                        shared( A, tiles_maxima ) \
+                        priority(priority) firstprivate(i, j, layout, in_norm)
                     {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
                         real_t tile_max;
@@ -97,8 +100,6 @@ void norm(
                 }
             }
         }
-
-        #pragma omp taskwait
 
         // Find max of tiles_maxima.
         *values = lapack::lange(in_norm,
@@ -114,12 +115,15 @@ void norm(
         // j needs to be outer loop to get jj correct.
         std::vector<real_t> tiles_sums(A.n()*A.mt(), 0.0);
         int64_t jj = 0;
+        #pragma omp taskgroup
         for (int64_t j = 0; j < A.nt(); ++j) {
             int64_t i_begin = max(j - kut, 0);
             int64_t i_end   = min(j + klt + 1, A.mt());
             for (int64_t i = i_begin; i < i_end; ++i) {
                 if (A.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A, tiles_sums) priority(priority)
+                    #pragma omp task slate_omp_default_none \
+                        shared( A, tiles_sums ) \
+                        firstprivate(i, j, layout, jj, in_norm) priority(priority)
                     {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
                         genorm(in_norm, NormScope::Matrix, A(i, j), &tiles_sums[A.n()*i+jj]);
@@ -129,15 +133,15 @@ void norm(
             jj += A.tileNb(j);
         }
 
-        #pragma omp taskwait
-
         // Sum tile results into local results.
         // todo: This is currently a performance bottleneck.
         // Perhaps omp taskloop could be applied here.
         // Perhaps with chunking of A.nb().
         std::fill_n(values, A.n(), 0.0);
         for (int64_t i = 0; i < A.mt(); ++i)
-            #pragma omp taskloop shared(A, tiles_sums, values) priority(priority)
+            #pragma omp taskloop slate_omp_default_none \
+                shared( A, tiles_sums, values ) \
+                firstprivate(i) priority(priority)
             for (int64_t jj_ = 0; jj_ < A.n(); ++jj_)
                 values[jj_] += tiles_sums[A.n()*i + jj_];
     }
@@ -150,12 +154,15 @@ void norm(
         // i needs to be outer loop to get ii correct.
         std::vector<real_t> tiles_sums(A.m()*A.nt(), 0.0);
         int64_t ii = 0;
+        #pragma omp taskgroup
         for (int64_t i = 0; i < A.mt(); ++i) {
             int64_t j_begin = max(i - klt, 0);
             int64_t j_end   = min(i + kut + 1, A.nt());
             for (int64_t j = j_begin; j < j_end; ++j) {
                 if (A.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A, tiles_sums) priority(priority)
+                    #pragma omp task slate_omp_default_none \
+                        shared( A, tiles_sums ) \
+                        firstprivate(i, j, ii, in_norm, layout) priority(priority)
                     {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
                         genorm(in_norm, NormScope::Matrix, A(i, j), &tiles_sums[A.m()*j + ii]);
@@ -165,18 +172,19 @@ void norm(
             ii += A.tileMb(i);
         }
 
-        #pragma omp taskwait
-
         // Sum tile results into local results.
         // Right now it goes over the partial sums of the entire matrix,
         // with all the non-local sums being zero.
         // todo: Eventually this needs to be done like in the device code,
         // by summing up local contributions only.
         std::fill_n(values, A.m(), 0.0);
-        for (int64_t j = 0; j < A.nt(); ++j)
-            #pragma omp taskloop shared(A, tiles_sums, values) priority(priority)
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            #pragma omp taskloop slate_omp_default_none \
+                shared( A, tiles_sums, values ) \
+                firstprivate(j) priority(priority)
             for (int64_t ii_ = 0; ii_ < A.m(); ++ii_)
                 values[ii_] += tiles_sums[A.m()*j + ii_];
+        }
     }
     //---------
     // Frobenius norm
@@ -191,7 +199,9 @@ void norm(
             int64_t i_end   = min(j + klt + 1, A.mt());
             for (int64_t i = i_begin; i < i_end; ++i) {
                 if (A.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A, values) priority(priority)
+                    #pragma omp task slate_omp_default_none \
+                        shared( A, values ) \
+                        firstprivate(i, j, in_norm, layout) priority(priority)
                     {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
                         real_t tile_values[2];
@@ -244,7 +254,9 @@ void norm(
     int64_t kut = ceildiv( ku, A.tileNb(0) );
 
     // can't collapse loops due to dependencies
-    #pragma omp parallel for schedule(dynamic, 1)
+    #pragma omp parallel for schedule(dynamic, 1) slate_omp_default_none \
+        shared(A, values) firstprivate(layout, A_nt, A_mt, klt, kut) \
+        firstprivate(in_norm, tiles_maxima)
     for (int64_t j = 0; j < A_nt; ++j) {
         int64_t i_begin = max(j - kut, 0);
         int64_t i_end   = min(j + klt + 1, A_mt);
@@ -260,8 +272,6 @@ void norm(
             }
         }
     }
-
-    #pragma omp taskwait
 
     *values = lapack::lange(in_norm,
                             1, tiles_maxima.size(),
@@ -353,9 +363,13 @@ void norm(
     int64_t i_begin = 0;
     int64_t i_end   = 0;
 
+    #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task shared(A, devices_values, vals_host_arrays) \
-                         priority(priority)
+        #pragma omp task slate_omp_default_none \
+            shared(A, devices_values, vals_host_arrays, \
+            vals_dev_arrays, jrange, irange, a_dev_arrays, a_host_arrays) \
+            firstprivate(layout, in_norm, ldv, queue_index, device, i_end, i_begin, kut, klt) \
+            priority(priority)
         {
             std::set<ij_tuple> A_tiles_set;
 
@@ -450,8 +464,6 @@ void norm(
             }
         }
     }
-
-    #pragma omp taskwait
 
     for (int device = 0; device < A.num_devices(); ++device) {
         blas::set_device(device);

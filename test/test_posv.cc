@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -49,6 +49,8 @@ void test_posv_work(Params& params, bool run)
     slate::TileReleaseStrategy tile_release_strategy = params.tile_release_strategy();
     params.matrix.mark();
     params.matrixB.mark();
+    slate::Method methodTrsm = params.method_trsm();
+    slate::Method methodHemm = params.method_hemm();
 
     // mark non-standard output values
     params.time();
@@ -56,9 +58,10 @@ void test_posv_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
     params.time2();
-    params.time2.name( "trs_time(s)" );
+    params.time2.name( "trs time (s)" );
+    params.time2.width( 12 );
     params.gflops2();
-    params.gflops2.name( "trs_gflops" );
+    params.gflops2.name( "trs gflop/s" );
 
     bool do_potrs = (
         (check && params.routine == "potrf") || params.routine == "potrs");
@@ -76,7 +79,9 @@ void test_posv_work(Params& params, bool run)
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::TileReleaseStrategy, tile_release_strategy},
-        {slate::Option::HoldLocalWorkspace, hold_local_workspace}
+        {slate::Option::HoldLocalWorkspace, hold_local_workspace},
+        {slate::Option::MethodTrsm, methodTrsm},
+        {slate::Option::MethodHemm, methodHemm},
     };
 
     // MPI variables
@@ -91,9 +96,13 @@ void test_posv_work(Params& params, bool run)
 
     if (params.routine == "posvMixed"
         && ! std::is_same<real_t, double>::value) {
-        if (mpi_rank == 0) {
-            printf("Unsupported mixed precision\n");
-        }
+        params.msg() = "skipping: unsupported mixed precision; must be type=d or z";
+        return;
+    }
+
+    if (params.routine == "posvMixed"
+        && target == slate::Target::Devices) {
+        params.msg() = "skipping: unsupported mixed precision; no devices support";
         return;
     }
 
@@ -313,6 +322,8 @@ void test_posv_work(Params& params, bool run)
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
+        if (params.routine == "posvMixed")
+            params.okay() = params.okay() && params.iters() >= 0;
     }
 
     if (ref) {
@@ -348,12 +359,6 @@ void test_posv_work(Params& params, bool run)
             scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
             if (check) {
                 // restore Bref_data
                 Bref_data = B_orig;
@@ -385,8 +390,6 @@ void test_posv_work(Params& params, bool run)
 
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
-
-            slate_set_num_blas_threads(saved_num_threads);
 
             if (verbose > 2) {
                 if (origin == slate::Origin::ScaLAPACK) {

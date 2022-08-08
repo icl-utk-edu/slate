@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -25,7 +25,6 @@ int m, n, k, mb, nb, p, q;
 int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
-int host_num = slate::HostNum;
 int num_devices = 0;
 int verbose = 0;
 
@@ -775,6 +774,17 @@ void test_TrapezoidMatrix_allocateBatchArrays()
         test_assert( U.array_host(device) == nullptr );
         test_assert( U.array_device(device) == nullptr );
     }
+}
+
+//------------------------------------------------------------------------------
+/// Tests A.tileLayoutReset().
+/// Incomplete testing; currently only calls it to check for linking, per
+/// https://bitbucket.org/icl/slate/issues/45
+///
+void test_Trapezoid_tileLayoutReset()
+{
+    slate::TrapezoidMatrix<double> A;
+    A.tileLayoutReset();
 }
 
 //==============================================================================
@@ -1826,6 +1836,8 @@ void run_tests()
     run_test(test_TrapezoidMatrix_emptyLikeOp,         "TrapezoidMatrix::emptyLike(..., Trans)", mpi_comm);
     run_test(test_TrapezoidMatrix_insertLocalTiles,    "TrapezoidMatrix::insertLocalTiles",      mpi_comm);
     run_test(test_TrapezoidMatrix_allocateBatchArrays, "TrapezoidMatrix::allocateBatchArrays",   mpi_comm);
+    run_test( test_Trapezoid_tileLayoutReset,
+              "TrapezoidMatrix::tileLayoutReset()", mpi_comm );
 
     if (mpi_rank == 0)
         printf("\nSub-matrices\n");
@@ -1862,7 +1874,6 @@ int main(int argc, char** argv)
     MPI_Comm_size(mpi_comm, &mpi_size);
 
     num_devices = blas::get_device_count();
-    host_num = slate::HostNum;
 
     // globals
     m  = 200;

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -26,7 +26,6 @@ int  g_mpi_rank    = -1;
 int  g_mpi_size    = -1;
 bool g_verbose     = false;
 int  g_num_devices = omp_get_num_devices();
-int  g_host_num    = omp_get_initial_device();
 
 // -----------------------------------------------------------------------------
 // type_name<T>() returns string describing type of T.

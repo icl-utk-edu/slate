@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -31,6 +31,8 @@ void gbtrf(slate::internal::TargetType<target>,
 {
     // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename BandMatrix<scalar_t>::BcastList;
+
+    const scalar_t one = 1.0;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -73,10 +75,12 @@ void gbtrf(slate::internal::TargetType<target>,
         }
     }
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < min_mt_nt; ++k) {
 
             int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
@@ -134,17 +138,16 @@ void gbtrf(slate::internal::TargetType<target>,
                     // solve A(k, k) A(k, j) = A(k, j)
                     internal::trsm<Target::HostTask>(
                         Side::Left,
-                        scalar_t(1.0), std::move(Tkk),
-                                       A.sub(k, k, j, j), priority_one);
+                        one, std::move( Tkk ), A.sub(k, k, j, j), priority_one );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     A.tileBcast(k, j, A.sub(k+1, i_end-1, j, j), layout, tag_j);
 
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                     internal::gemm<Target::HostTask>(
-                        scalar_t(-1.0), A.sub(k+1, i_end-1, k, k),
-                                        A.sub(k, k, j, j),
-                        scalar_t(1.0),  A.sub(k+1, i_end-1, j, j),
+                        -one, A.sub(k+1, i_end-1, k, k),
+                              A.sub(k, k, j, j),
+                        one,  A.sub(k+1, i_end-1, j, j),
                         layout, priority_one);
                 }
             }
@@ -169,8 +172,8 @@ void gbtrf(slate::internal::TargetType<target>,
                     // solve A(k, k) A(k, kl+1:nt-1) = A(k, kl+1:nt-1)
                     internal::trsm<Target::HostTask>(
                         Side::Left,
-                        scalar_t(1.0), std::move(Tkk),
-                                       A.sub(k, k, k+1+lookahead, j_end-1));
+                        one, std::move( Tkk ),
+                             A.sub(k, k, k+1+lookahead, j_end-1));
 
                     // send A(k, kl+1:j_end-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastList bcast_list_A;
@@ -182,9 +185,9 @@ void gbtrf(slate::internal::TargetType<target>,
 
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<Target::HostTask>(
-                        scalar_t(-1.0), A.sub(k+1, i_end-1, k, k),
-                                        A.sub(k, k, k+1+lookahead, j_end-1),
-                        scalar_t(1.0),  A.sub(k+1, i_end-1, k+1+lookahead, j_end-1),
+                        -one, A.sub(k+1, i_end-1, k, k),
+                              A.sub(k, k, k+1+lookahead, j_end-1),
+                        one,  A.sub(k+1, i_end-1, k+1+lookahead, j_end-1),
                         layout);
                 }
             }

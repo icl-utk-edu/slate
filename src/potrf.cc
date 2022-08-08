@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -29,6 +29,8 @@ void potrf(slate::internal::TargetType<target>,
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
+    const scalar_t one = 1.0;
+
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // Assumes column major
@@ -44,10 +46,12 @@ void potrf(slate::internal::TargetType<target>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < A_nt; ++k) {
             // panel, high priority
             #pragma omp task depend(inout:column[k]) priority(1)
@@ -65,7 +69,7 @@ void potrf(slate::internal::TargetType<target>,
                     auto Tkk = TriangularMatrix< scalar_t >(Diag::NonUnit, Akk);
                     internal::trsm<Target::HostTask>(
                         Side::Right,
-                        scalar_t(1.0), conjTranspose(Tkk),
+                        one, conj_transpose( Tkk ),
                         A.sub(k+1, A_nt-1, k, k), 1);
                 }
 
@@ -93,9 +97,9 @@ void potrf(slate::internal::TargetType<target>,
                     if (j+1 <= A_nt-1) {
                         auto Ajk = A.sub(j, j, k, k);
                         internal::gemm<Target::HostTask>(
-                            scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
-                                            conjTranspose(Ajk),
-                            scalar_t(1.0), A.sub(j+1, A_nt-1, j, j),
+                            -one, A.sub(j+1, A_nt-1, k, k),
+                                  conj_transpose( Ajk ),
+                            one,  A.sub(j+1, A_nt-1, j, j),
                             layout, 1);
                     }
                 }
@@ -139,6 +143,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
+    const scalar_t one = 1.0;
+
     // Use only TileReleaseStrategy::Slate for potrf.
     // Internal routines (trsm, herk, gemm) called in
     // potrf won't release any tiles. Potrf will
@@ -179,10 +185,12 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     A.allocateBatchArrays(batch_size_zero, num_queues);
     A.reserveDeviceWorkspace();
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < A_nt; ++k) {
             // Panel, normal priority
             #pragma omp task depend(inout:column[k])
@@ -200,8 +208,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     auto Tkk = TriangularMatrix< scalar_t >(Diag::NonUnit, Akk);
                     internal::trsm<Target::Devices>(
                         Side::Right,
-                        scalar_t(1.0), conjTranspose(Tkk),
-                                       A.sub(k+1, A_nt-1, k, k),
+                        one, conj_transpose( Tkk ),
+                        A.sub(k+1, A_nt-1, k, k),
                         priority_zero, layout, queue_1, opts2);
                 }
 
@@ -253,9 +261,9 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     if (j+1 <= A_nt-1) {
                         auto Ajk = A.sub(j, j, k, k);
                         internal::gemm<Target::Devices>(
-                            scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
-                                            conjTranspose(Ajk),
-                            scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j),
+                            -one, A.sub(j+1, A_nt-1, k, k),
+                                  conj_transpose( Ajk ),
+                            one,  A.sub(j+1, A_nt-1, j, j),
                             layout, priority_zero, j-k+1, opts2);
                     }
                 }

@@ -1,88 +1,11 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "work/work.hh"
 
 namespace slate {
-
-// specialization namespace differentiates, e.g.,
-// internal::trsm from internal::specialization::trsm
-namespace internal {
-namespace specialization {
-
-//------------------------------------------------------------------------------
-/// @internal
-/// Distributed parallel triangular matrix solve.
-/// Generic implementation for any target.
-/// @ingroup trsm_specialization
-///
-template <Target target, typename scalar_t>
-void trsm(slate::internal::TargetType<target>,
-          Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          int64_t lookahead)
-{
-    if (target == Target::Devices) {
-        const int64_t batch_size_zero = 0;
-        const int64_t num_arrays_two = 2; // Number of kernels without lookahead
-        // Allocate batch arrays = number of kernels without
-        // lookahead + lookahead
-        // number of kernels without lookahead = 2
-        // (internal::gemm & internal::trsm)
-        // TODO
-        // whereas internal::gemm with lookahead will be executed as many as
-        // lookaheads, thus
-        // internal::gemm with lookahead needs batch arrays equal to the
-        // number of lookaheads
-        // and the batch_arrays_index starts from
-        // the number of kernels without lookahead, and then incremented by 1
-        // for every execution for the internal::gemm with lookahead
-        B.allocateBatchArrays(batch_size_zero, num_arrays_two);
-        B.reserveDeviceWorkspace();
-    }
-
-    // OpenMP needs pointer types, but vectors are exception safe
-    std::vector<uint8_t> row_vector(A.nt());
-    uint8_t* row = row_vector.data();
-
-    #pragma omp parallel
-    #pragma omp master
-    {
-        omp_set_nested(1);
-        #pragma omp task
-        {
-            work::trsm<target, scalar_t>(side, alpha, A, B, row, lookahead);
-            B.tileUpdateAllOrigin();
-        }
-    }
-    B.releaseWorkspace();
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup trsm_specialization
-///
-template <Target target, typename scalar_t>
-void trsm(blas::Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::trsm(internal::TargetType<target>(),
-                                   side,
-                                   alpha, A,
-                                          B,
-                                   lookahead);
-}
 
 //------------------------------------------------------------------------------
 /// Distributed parallel triangular matrix-matrix solve.
@@ -126,6 +49,11 @@ void trsm(blas::Side side,
 ///         - Option::Lookahead:
 ///           Number of panels to overlap with matrix updates.
 ///           lookahead >= 0. Default 1.
+///         - Option::MethodTrsm:
+///           Select the right routine to call. Possible values:
+///           - Auto: let the routine decides [default]
+///           - trsmA: select trsmA routine
+///           - trsmB: select trsmB routine
 ///         - Option::Target:
 ///           Implementation to target. Possible values:
 ///           - HostTask:  OpenMP tasks on CPU host [default].
@@ -141,21 +69,18 @@ void trsm(blas::Side side,
                                     Matrix<scalar_t>& B,
           Options const& opts)
 {
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+    Method method = get_option(
+        opts, Option::MethodTrsm, MethodTrsm::Auto );
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            trsm<Target::HostTask>(side, alpha, A, B, opts);
+    if (method == MethodTrsm::Auto)
+        method = MethodTrsm::select_algo( A, B, opts );
+
+    switch (method) {
+        case MethodTrsm::TrsmA:
+            trsmA( side, alpha, A, B, opts );
             break;
-        case Target::HostNest:
-            trsm<Target::HostNest>(side, alpha, A, B, opts);
-            break;
-        case Target::HostBatch:
-            trsm<Target::HostBatch>(side, alpha, A, B, opts);
-            break;
-        case Target::Devices:
-            trsm<Target::Devices>(side, alpha, A, B, opts);
+        case MethodTrsm::TrsmB:
+            trsmB( side, alpha, A, B, opts );
             break;
     }
 }

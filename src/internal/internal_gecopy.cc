@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -18,17 +18,17 @@ namespace device {
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    std::complex<float>** Aarray, int64_t lda,
+    std::complex<float> const* const* Aarray, int64_t lda,
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     gecopy(m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
            batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     gecopy(m, n,
            (hipFloatComplex**) Aarray, lda,
            (hipFloatComplex**) Barray, ldb,
@@ -39,17 +39,17 @@ void gecopy(
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    std::complex<float>** Aarray, int64_t lda,
+    std::complex<float> const* const* Aarray, int64_t lda,
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     gecopy(m, n,
            (cuFloatComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
            batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     gecopy(m, n,
            (hipFloatComplex**) Aarray, lda,
            (hipDoubleComplex**) Barray, ldb,
@@ -60,17 +60,17 @@ void gecopy(
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    std::complex<double>** Aarray, int64_t lda,
+    std::complex<double> const* const* Aarray, int64_t lda,
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     gecopy(m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuDoubleComplex**) Barray, ldb,
            batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     gecopy(m, n,
            (hipDoubleComplex**) Aarray, lda,
            (hipDoubleComplex**) Barray, ldb,
@@ -81,17 +81,17 @@ void gecopy(
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    std::complex<double>** Aarray, int64_t lda,
+    std::complex<double> const* const* Aarray, int64_t lda,
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     gecopy(m, n,
            (cuDoubleComplex**) Aarray, lda,
            (cuFloatComplex**) Barray, ldb,
            batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     gecopy(m, n,
            (hipDoubleComplex**) Aarray, lda,
            (hipFloatComplex**) Barray, ldb,
@@ -100,12 +100,12 @@ void gecopy(
 }
 
 //---------------------------------------------------
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    double** Aarray, int64_t lda,
+    double const* const* Aarray, int64_t lda,
     double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -114,7 +114,7 @@ void gecopy(
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    double** Aarray, int64_t lda,
+    double const* const* Aarray, int64_t lda,
     float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -123,7 +123,7 @@ void gecopy(
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    float** Aarray, int64_t lda,
+    float const* const* Aarray, int64_t lda,
     float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -131,12 +131,12 @@ void gecopy(
 template <>
 void gecopy(
     int64_t m, int64_t n,
-    float** Aarray, int64_t lda,
+    float const* const* Aarray, int64_t lda,
     double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
 }
-#endif // not SLATE_NO_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 
@@ -177,23 +177,24 @@ void copy(internal::TargetType<Target::HostTask>,
     assert(A_mt == B.mt());
     assert(A_nt == B.nt());
 
+    #pragma omp taskgroup
     for (int64_t i = 0; i < A_mt; ++i) {
         for (int64_t j = 0; j < A_nt; ++j) {
             if (B.tileIsLocal(i, j)) {
-                #pragma omp task shared(A, B) priority(priority)
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B ) firstprivate( i, j, HostNum ) \
+                    priority(priority)
                 {
                     A.tileGetForReading(i, j, LayoutConvert::None);
                     // tileAcquire() to avoid un-needed copy
                     B.tileAcquire(i, j, A.tileLayout(i, j));
-                    gecopy(A(i, j), B(i, j));
+                    tile::gecopy( A(i, j), B(i, j) );
                     B.tileModified(i, j, HostNum, true);
                     A.tileTick(i, j);
                 }
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -243,8 +244,11 @@ void copy(internal::TargetType<Target::Devices>,
         { B.nt()-1, B.nt()   }
     };
 
+    #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task shared(A, B) priority(priority)
+        #pragma omp task slate_omp_default_none \
+            shared( A, B ) \
+            firstprivate(device, irange, jrange, queue_index) priority(priority)
         {
             std::set<ij_tuple> A_tiles_set;
             for (int64_t i = 0; i < B.mt(); ++i) {
@@ -335,8 +339,6 @@ void copy(internal::TargetType<Target::Devices>,
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

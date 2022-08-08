@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -17,7 +17,7 @@ namespace specialization {
 /// @internal
 /// Distributed parallel triangular matrix solve.
 /// Generic implementation for any target.
-/// @ingroup trsm_specialization
+/// @ingroup trsm_impl
 ///
 template <Target target, typename scalar_t>
 void trsmA(slate::internal::TargetType<target>,
@@ -49,10 +49,12 @@ void trsmA(slate::internal::TargetType<target>,
     std::vector<uint8_t> row_vector(A.nt());
     uint8_t* row = row_vector.data();
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         #pragma omp task
         {
             work::trsmA<target, scalar_t>(side, alpha, A, B, row, lookahead);
@@ -67,7 +69,7 @@ void trsmA(slate::internal::TargetType<target>,
 
 //------------------------------------------------------------------------------
 /// Version with target as template parameter.
-/// @ingroup trsm_specialization
+/// @ingroup trsm_impl
 ///
 template <Target target, typename scalar_t>
 void trsmA(blas::Side side,

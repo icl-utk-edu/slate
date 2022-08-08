@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -170,10 +170,12 @@ void hbmm(slate::internal::TargetType<target>,
                     for (int64_t i = i_end; i < C.mt(); ++i) {
                         for (int64_t j = 0; j < C.nt(); ++j) {
                             if (C.tileIsLocal(i, j)) {
-                                #pragma omp task shared(C)
+                                #pragma omp task slate_omp_default_none \
+                                    shared( C ) \
+                                    firstprivate(i, j, layout, beta)
                                 {
                                     C.tileGetForWriting(i, j, LayoutConvert(layout));
-                                    scale(beta, C(i, j));
+                                    tile::scale( beta, C(i, j) );
                                 }
                             }
                         }
@@ -230,22 +232,22 @@ void hbmm(slate::internal::TargetType<target>,
                 {
                     auto Arow_k = A.sub(k, k, i_begin, k-1);
                     internal::gemm<target>(
-                        alpha,         conjTranspose(Arow_k),
-                                       B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(i_begin, k-1, 0, C.nt()-1),
+                        alpha, conj_transpose( Arow_k ),
+                               B.sub(k, k, 0, B.nt()-1),
+                        one,   C.sub(i_begin, k-1, 0, C.nt()-1),
                         layout);
 
                     internal::hemm<Target::HostTask>(
                         Side::Left,
-                        alpha,         A.sub(k, k),
-                                       B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(k, k, 0, C.nt()-1));
+                        alpha, A.sub(k, k),
+                               B.sub(k, k, 0, B.nt()-1),
+                        one,   C.sub(k, k, 0, C.nt()-1));
 
                     if (i_end-1 > k) {
                         internal::gemm<target>(
-                            alpha,         A.sub(k+1, i_end-1, k, k),
-                                           B.sub(k, k, 0, B.nt()-1),
-                            scalar_t(1.0), C.sub(k+1, i_end-1, 0, C.nt()-1),
+                            alpha, A.sub(k+1, i_end-1, k, k),
+                                   B.sub(k, k, 0, B.nt()-1),
+                            one,   C.sub(k+1, i_end-1, 0, C.nt()-1),
                             layout);
                     }
                 }
@@ -328,10 +330,12 @@ void hbmm(slate::internal::TargetType<target>,
                     for (int64_t i = i_end; i < C.mt(); ++i) {
                         for (int64_t j = 0; j < C.nt(); ++j) {
                             if (C.tileIsLocal(i, j)) {
-                                #pragma omp task shared(C)
+                                #pragma omp task slate_omp_default_none \
+                                    shared( C ) \
+                                    firstprivate(i, j, layout, beta)
                                 {
                                     C.tileGetForWriting(i, j, LayoutConvert(layout));
-                                    scale(beta, C(i, j));
+                                    tile::scale( beta, C(i, j) );
                                 }
                             }
                         }
@@ -386,23 +390,23 @@ void hbmm(slate::internal::TargetType<target>,
                                  depend(out:gemm[k])
                 {
                     internal::gemm<target>(
-                        alpha,         A.sub(i_begin, k-1, k, k),
-                                       B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(i_begin, k-1, 0, C.nt()-1),
+                        alpha, A.sub(i_begin, k-1, k, k),
+                               B.sub(k, k, 0, B.nt()-1),
+                        one,   C.sub(i_begin, k-1, 0, C.nt()-1),
                         layout);
 
                     internal::hemm<Target::HostTask>(
                         Side::Left,
-                        alpha,         A.sub(k, k),
-                                       B.sub(k, k, 0, B.nt()-1),
-                        scalar_t(1.0), C.sub(k, k, 0, C.nt()-1));
+                        alpha, A.sub(k, k),
+                               B.sub(k, k, 0, B.nt()-1),
+                        one,   C.sub(k, k, 0, C.nt()-1));
 
                     if (i_end-1 > k) {
                         auto Arow_k = A.sub(k, k, k+1, i_end-1);
                         internal::gemm<target>(
-                            alpha,         conjTranspose(Arow_k),
-                                           B.sub(k, k, 0, B.nt()-1),
-                            scalar_t(1.0), C.sub(k+1, i_end-1, 0, C.nt()-1),
+                            alpha, conj_transpose( Arow_k ),
+                                   B.sub(k, k, 0, B.nt()-1),
+                            one,   C.sub(k+1, i_end-1, 0, C.nt()-1),
                             layout);
                     }
                 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -91,17 +91,12 @@ extern "C" void pzgetri_(int* n, std::complex<double>* a, int* ia, int* ja, int*
 template< typename scalar_t >
 void slate_pgetri(int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* work, int lwork, int* iwork, int liwork, int* info)
 {
-    check_and_assert_blacs_grid_is_column_major();
-
-    // make blas single threaded
-    // todo: does this set the omp num threads correctly
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
-
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     int64_t lookahead = slate_scalapack_set_lookahead();
     int64_t panel_threads = slate_scalapack_set_panelthreads();
     int64_t ib = slate_scalapack_set_ib();
+    slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     slate::Options const opts = {
         {slate::Option::Lookahead, lookahead},
@@ -113,7 +108,7 @@ void slate_pgetri(int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, sca
     // create SLATE matrices from the ScaLAPACK layouts
     int nprow, npcol, myprow, mypcol;
     Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(n, n, A, ia, ja, desca);
 
     if (verbose && myprow == 0 && mypcol == 0)
@@ -172,8 +167,6 @@ void slate_pgetri(int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, sca
     }
 
     slate::getri(A, pivots, opts);
-
-    slate_set_num_blas_threads(saved_num_blas_threads);
 
     // todo: extract the real info from getri
     *info = 0;

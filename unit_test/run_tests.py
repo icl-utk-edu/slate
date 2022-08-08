@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+# Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -48,14 +48,22 @@ cmds = [
     'test_BandMatrix',
     'test_HermitianMatrix',
     'test_LockGuard',
+    'test_OmpSetMaxActiveLevels',
     'test_Matrix',
     'test_Memory',
     'test_SymmetricMatrix',
     'test_TrapezoidMatrix',
+    'test_TriangularBandMatrix',
     'test_TriangularMatrix',
     'test_Tile',
     'test_Tile_kernels',
+    'test_geadd',
+    'test_gecopy',
+    'test_geset',
+    'test_internal_blas',
+    'test_lq',
     'test_norm',
+    #'test_qr',  # todo: failing
 ]
 
 # ------------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2009-2022, University of Tennessee. All rights reserved.
 // Copyright (c) 2010,      University of Denver, Colorado.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
@@ -189,19 +189,5 @@ static void scalapack_pplghe(scalar_t* A,
         }
     }
 }
-
-//------------------------------------------------------------------------------
-// BLAS thread management
-#ifdef SLATE_WITH_MKL
-#include <mkl_service.h>
-inline int slate_set_num_blas_threads(const int nt)
-{
-    int old = mkl_get_max_threads();
-    mkl_set_num_threads(nt);
-    return old;
-}
-#else
-inline int slate_set_num_blas_threads(const int nt) { return -1; }
-#endif
 
 #endif // SLATE_SCALAPACK_SUPPORT_HH

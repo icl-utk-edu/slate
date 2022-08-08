@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -58,9 +58,6 @@ void slate_getrs(const char* transstr, const int n, const int nrhs, scalar_t* a,
     if (! initialized)
         MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided);
 
-    // todo: does this set the omp num threads correctly in all circumstances
-    int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);
-
     int64_t lookahead = 1;
     int64_t p = 1;
     int64_t q = 1;
@@ -112,8 +109,6 @@ void slate_getrs(const char* transstr, const int n, const int nrhs, scalar_t* a,
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target}
     });
-
-    slate_lapack_set_num_blas_threads(saved_num_blas_threads);
 
     // todo:  get a real value for info
     *info = 0;

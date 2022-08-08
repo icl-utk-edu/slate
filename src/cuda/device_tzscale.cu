@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -26,46 +26,54 @@ namespace device {
 ///     Number of columns of each tile. n >= 1.
 ///
 /// @param[in] numer
-///     Scale value on the numerator.
+///     Scale value numerator.
 ///
 /// @param[in] denom
-///     Scale value on the denominator.
+///     Scale value denominator.
 ///
-/// @param[in] Atiles
+/// @param[in,out] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each Atiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
-///     Leading dimension of each tile in Atiles. lda >= m.
+///     Leading dimension of each tile in Aarray. lda >= m.
 ///
 template <typename scalar_t>
-__global__ void tzscaleKernel(
+__global__ void tzscale_kernel(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
     blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
-    scalar_t** tilesA, int64_t lda)
+    scalar_t** Aarray, int64_t lda)
 {
-    scalar_t* tileA = tilesA[blockIdx.x];
+    scalar_t* tileA = Aarray[ blockIdx.x ];
     blas::real_type<scalar_t> mul = numer / denom;
 
     // thread per row, if more rows than threads, loop by blockDim.x
-    for (int ridx = threadIdx.x; ridx <= m; ridx += blockDim.x) {
-        scalar_t* rowA = &tileA[ridx];
+    for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
+        scalar_t* rowA = &tileA[ i ];
 
         if (uplo == lapack::Uplo::Lower) {
-            for (int64_t j = 0; j <= ridx && j < n; ++j) { // lower
+            for (int64_t j = 0; j <= i && j < n; ++j) { // lower
                 rowA[j*lda] = rowA[j*lda] * mul;
             }
         }
         else {
-            for (int64_t j = n-1; j >= ridx; --j) // upper
+            for (int64_t j = n-1; j >= i; --j) // upper
                 rowA[j*lda] = rowA[j*lda] * mul;
         }
     }
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine for element-wise tile scale.
+/// Batched routine for element-wise trapezoidal tile scale.
+/// Sets upper or lower part of
+/// \[
+///     Aarray[k] *= (numer / denom).
+/// \]
+/// This does NOT currently take extra care to avoid over/underflow.
+///
+/// @param[in] uplo
+///     Whether each Aarray[k] is upper or lower trapezoidal.
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 0.
@@ -74,12 +82,12 @@ __global__ void tzscaleKernel(
 ///     Number of columns of each tile. n >= 0.
 ///
 /// @param[in] numer
-///     Scale value on the numerator.
+///     Scale value numerator.
 ///
 /// @param[in] denom
-///     Scale value on the denominator.
+///     Scale value denominator.
 ///
-/// @param[in] Aarray
+/// @param[in,out] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
 ///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
 ///
@@ -87,10 +95,10 @@ __global__ void tzscaleKernel(
 ///     Leading dimension of each tile in A. lda >= m.
 ///
 /// @param[in] batch_count
-///     Size of Aarray and Barray. batch_count >= 0.
+///     Size of Aarray. batch_count >= 0.
 ///
-/// @param[in] stream
-///     CUDA stream to execute in.
+/// @param[in] queue
+///     BLAS++ queue to execute in.
 ///
 template <typename scalar_t>
 void tzscale(
@@ -104,10 +112,12 @@ void tzscale(
     if (batch_count == 0)
         return;
 
+    cudaSetDevice( queue.device() );
+
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
-    tzscaleKernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    tzscale_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         uplo, m, n,
         numer, denom, Aarray, lda);
 

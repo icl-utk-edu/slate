@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -13,6 +13,7 @@
 
 #include "blas.hh"
 #include "lapack.hh"
+#include "lapack/device.hh"
 
 #include <algorithm>
 #include <functional>
@@ -475,15 +476,14 @@ private:
     bool own;
 
     int mpi_rank_;
-    static int host_num_;
     static int num_devices_;
 
     int64_t batch_array_size_;
 
     // BLAS++ communication queues
-    std::vector< blas::Queue* > comm_queues_;
+    std::vector< lapack::Queue* > comm_queues_;
     // BLAS++ compute queues
-    std::vector< std::vector< blas::Queue* > > compute_queues_;
+    std::vector< std::vector< lapack::Queue* > > compute_queues_;
 
     // host pointers arrays for batch GEMM
     std::vector< std::vector< scalar_t** > > array_host_;
@@ -506,7 +506,6 @@ MatrixStorage<scalar_t>::MatrixStorage(
 
     // todo: these are static, but we (re-)initialize with each matrix.
     // todo: similar code in BaseMatrix(...) and MatrixStorage(...)
-    host_num_    = memory_.host_num_;
     num_devices_ = memory_.num_devices_;
 
     // TODO: these all assume 2D block cyclic with fixed size tiles (mb x nb)
@@ -545,9 +544,8 @@ MatrixStorage<scalar_t>::MatrixStorage(
         };
     }
     else {
-        int host_num = host_num_;  // local copy to capture
-        tileDevice = [host_num](ij_tuple ij) {
-            return host_num;
+        tileDevice = []( ij_tuple ij ) {
+            return HostNum;
         };
     }
 
@@ -577,7 +575,6 @@ MatrixStorage<scalar_t>::MatrixStorage(
 
     // todo: these are static, but we (re-)initialize with each matrix.
     // todo: similar code in BaseMatrix(...) and MatrixStorage(...)
-    host_num_    = memory_.host_num_;
     num_devices_ = memory_.num_devices_;
 
     initQueues();
@@ -616,8 +613,8 @@ void MatrixStorage<scalar_t>::initQueues()
 
     compute_queues_.at(0).resize(num_devices_, nullptr);
     for (int device = 0; device < num_devices_; ++device) {
-        comm_queues_         [device] = new blas::Queue(device, 0);
-        compute_queues_.at(0)[device] = new blas::Queue(device, 0);
+        comm_queues_         [device] = new lapack::Queue(device, 0);
+        compute_queues_.at(0)[device] = new lapack::Queue(device, 0);
     }
 
     array_host_.resize(1);
@@ -723,7 +720,7 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
                 delete compute_queues_[i][device];
 
                 // Allocate queues.
-                compute_queues_[i][device] = new blas::Queue(device, batch_size);
+                compute_queues_[i][device] = new lapack::Queue(device, batch_size);
             }
         }
 
@@ -762,7 +759,7 @@ void MatrixStorage<scalar_t>::clearBatchArrays()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::reserveHostWorkspace(int64_t num_tiles)
 {
-    int64_t n = num_tiles - memory_.allocated(host_num_);
+    int64_t n = num_tiles - memory_.allocated( HostNum );
     if (n > 0)
         memory_.addHostBlocks(n);
 }
@@ -810,7 +807,7 @@ void MatrixStorage<scalar_t>::clearWorkspace()
     LockGuard guard(getTilesMapLock());
     for (auto iter = begin(); iter != end(); /* incremented below */) {
         auto& tile_node = *(iter->second);
-        for (int d = host_num_; d < num_devices_; ++d) {
+        for (int d = HostNum; d < num_devices_; ++d) {
             if (tile_node.existsOn(d) &&
                 tile_node[d].tile()->workspace())
             {
@@ -828,7 +825,7 @@ void MatrixStorage<scalar_t>::clearWorkspace()
     }
     // Free host & device memory only if there are no unallocated blocks
     // from non-workspace (SlateOwned) tiles.
-    if (memory_.allocated(host_num_) == 0) {
+    if (memory_.allocated( HostNum ) == 0) {
         memory_.clearHostBlocks();
     }
 
@@ -848,7 +845,7 @@ void MatrixStorage<scalar_t>::releaseWorkspace()
     LockGuard guard(getTilesMapLock());
     for (auto iter = begin(); iter != end(); /* incremented below */) {
         auto& tile_node = *(iter->second);
-        for (int d = host_num_; d < num_devices_; ++d) {
+        for (int d = HostNum; d < num_devices_; ++d) {
             if (tile_node.existsOn(d) &&
                 tile_node[d].tile()->workspace() &&
                 ! (tile_node[d].stateOn(MOSI::OnHold) ||
@@ -869,7 +866,7 @@ void MatrixStorage<scalar_t>::releaseWorkspace()
     }
     // Free host & device memory only if there are no unallocated blocks
     // from non-workspace (SlateOwned) tiles.
-    if (memory_.allocated(host_num_) == 0) {
+    if (memory_.allocated( HostNum ) == 0) {
         memory_.clearHostBlocks();
     }
     for (int device = 0; device < num_devices_; ++device) {
@@ -959,7 +956,7 @@ void MatrixStorage<scalar_t>::erase(ij_tuple ij)
 
         auto& tile_node = iter->second;
 
-        for (int d = host_num_; (! tile_node->empty()) && d < num_devices_; ++d) {
+        for (int d = HostNum; (! tile_node->empty()) && d < num_devices_; ++d) {
             if (tile_node->existsOn(d)) {
                 freeTileMemory(tile_node->at(d).tile());
                 tile_node->eraseOn(d);
@@ -1117,7 +1114,7 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     int64_t i  = std::get<0>(ijdev);
     int64_t j  = std::get<1>(ijdev);
     int device = std::get<2>(ijdev);
-    slate_assert(host_num_ <= device && device < num_devices_);
+    slate_assert( HostNum <= device && device < num_devices_ );
 
     LockGuard guard(getTilesMapLock());
 
@@ -1197,9 +1194,6 @@ void MatrixStorage<scalar_t>::tileTick(ij_tuple ij)
 }
 
 //------------------------------------------------------------------------------
-template <typename scalar_t>
-int MatrixStorage<scalar_t>::host_num_ = HostNum;
-
 template <typename scalar_t>
 int MatrixStorage<scalar_t>::num_devices_ = 0;
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -50,7 +50,7 @@ void test_geadd_dev()
 
     double* B0data = new double[ ldb * n ];
     slate::Tile<double> B0(m, n, B0data, ldb, -1, slate::TileKind::UserOwned);
-    gecopy( B, B0 );
+    slate::tile::gecopy( B, B0 );
 
     double* C0data = new double[ ldb * n ];
     slate::Tile<double> C0(m, n, C0data, ldb, -1, slate::TileKind::UserOwned);

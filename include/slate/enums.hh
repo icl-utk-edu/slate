@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -20,6 +20,7 @@ typedef blas::Diag Diag;
 typedef blas::Side Side;
 typedef blas::Layout Layout;
 
+using lapack::Equed;
 typedef lapack::Norm Norm;
 typedef lapack::Direction Direction;
 
@@ -74,6 +75,12 @@ enum class Option : char {
     PrintWidth,         ///< width print format specifier
     PrintPrecision,     ///< precision print format specifier
                         ///< For correct printing, PrintWidth = PrintPrecision + 6.
+    MethodCholQR,       ///< Select the algorithm to compute A^H * A
+    MethodGels,         ///< Select the gels algorithm
+    MethodGemm,         ///< Select the gemm algorithm
+    MethodHemm,         ///< Select the hemm algorithm
+    MethodTrsm,         ///< Select the trsm algorithm
+    PivotThreshold,     ///< threshold for pivoting, >= 0, <= 1
 };
 
 //------------------------------------------------------------------------------

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -711,7 +711,7 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
 
     if (mb() == nb()) {
         // square tile, in-place conversion
-        transpose(nb(), data_, stride_);
+        tile::transpose( nb(), data_, stride_ );
     }
     else {
         // rectangular tile, out-of-place conversion
@@ -736,10 +736,11 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
                 stride_    = user_stride_;
             }
 
-            transpose(layout() == Layout::ColMajor ? mb_ : nb_,
-                      layout() == Layout::ColMajor ? nb_ : mb_,
-                      src_data, src_stride,
-                      data_, stride_);
+            tile::transpose(
+                layout() == Layout::ColMajor ? mb_ : nb_,
+                layout() == Layout::ColMajor ? nb_ : mb_,
+                src_data, src_stride,
+                data_, stride_ );
         }
         else {
             // tile already Convertible
@@ -749,10 +750,11 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
 
             int64_t work_stride = layout() == Layout::ColMajor ? nb() : mb();
 
-            transpose(layout() == Layout::ColMajor ? mb_ : nb_,
-                      layout() == Layout::ColMajor ? nb_ : mb_,
-                      data_, stride_,
-                      work_data, work_stride);
+            tile::transpose(
+                layout() == Layout::ColMajor ? mb_ : nb_,
+                layout() == Layout::ColMajor ? nb_ : mb_,
+                data_, stride_,
+                work_data, work_stride );
             std::memcpy(data_, work_data, bytes());
 
             stride_ = work_stride;
@@ -876,7 +878,7 @@ void Tile<scalar_t>::copyData(Tile<scalar_t>* dst_tile) const
         dst_tile->stride_ = this->layout() == Layout::ColMajor ? mb_ : nb_;
     }
 
-    gecopy(*this, *dst_tile);
+    tile::gecopy( *this, *dst_tile );
 
     dst_tile->layout(this->layout());
 }

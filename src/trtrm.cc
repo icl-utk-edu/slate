@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -32,6 +32,8 @@ void trtrm(slate::internal::TargetType<target>,
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    const scalar_t one = 1.0;
+
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -50,10 +52,12 @@ void trtrm(slate::internal::TargetType<target>,
         A.reserveDeviceWorkspace();
     }
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         // diagonal block, L = L^H L
         #pragma omp task depend(inout:row[0])
         {
@@ -101,8 +105,7 @@ void trtrm(slate::internal::TargetType<target>,
                 Akk = conjTranspose(Akk);
                 internal::trmm<Target::HostTask>(
                     Side::Left,
-                    scalar_t(1.0), std::move(Akk),
-                                   A.sub(k, k, 0, k-1));
+                    one, std::move( Akk ), A.sub(k, k, 0, k-1) );
             }
 
             // diagonal block, L = L^H L

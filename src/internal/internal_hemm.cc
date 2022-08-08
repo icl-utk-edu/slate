@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -9,12 +9,6 @@
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
 #include "internal/internal_batch.hh"
-
-#ifdef SLATE_WITH_MKL
-    #include <mkl_cblas.h>
-#else
-    #include <cblas.h>
-#endif
 
 namespace slate {
 namespace internal {
@@ -53,8 +47,7 @@ void hemm(Side side,
 
     hemm(internal::TargetType<target>(),
          side,
-         alpha, A,
-                B,
+         alpha, A, B,
          beta,  C,
          priority);
 }
@@ -79,19 +72,22 @@ void hemm(internal::TargetType<Target::HostTask>,
     const Layout layout = Layout::ColMajor;
 
     int err = 0;
+    #pragma omp taskgroup
     if (side == Side::Left) {
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(0, j)) {
-                #pragma omp task shared(A, B, C, err) priority(priority)
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B, C, err ) \
+                    firstprivate(j, layout, side, alpha, beta) priority(priority)
                 {
                     try {
                         A.tileGetForReading(0, 0, LayoutConvert(layout));
                         B.tileGetForReading(0, j, LayoutConvert(layout));
                         C.tileGetForWriting(0, j, LayoutConvert(layout));
-                        hemm(side,
-                             alpha, A(0, 0),
-                                    B(0, j),
-                             beta,  C(0, j));
+                        tile::hemm(
+                            side,
+                            alpha, A(0, 0), B(0, j),
+                            beta,  C(0, j) );
                         // todo: should tileRelease()?
                         A.tileTick(0, 0);
                         B.tileTick(0, j);
@@ -107,16 +103,18 @@ void hemm(internal::TargetType<Target::HostTask>,
         // side == Right
         for (int64_t i = 0; i < C.mt(); ++i) {
             if (C.tileIsLocal(i, 0)) {
-                #pragma omp task shared(A, B, C, err) priority(priority)
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B, C, err ) \
+                    firstprivate(i, layout, side, alpha, beta) priority(priority)
                 {
                     try {
                         A.tileGetForReading(0, 0, LayoutConvert(layout));
                         B.tileGetForReading(i, 0, LayoutConvert(layout));
                         C.tileGetForWriting(i, 0, LayoutConvert(layout));
-                        hemm(side,
-                             alpha, A(0, 0),
-                                    B(i, 0),
-                             beta,  C(i, 0));
+                        tile::hemm(
+                            side,
+                            alpha, A(0, 0), B(i, 0),
+                            beta,  C(i, 0) );
                         // todo: should tileRelease()?
                         A.tileTick(0, 0);
                         B.tileTick(i, 0);
@@ -128,8 +126,6 @@ void hemm(internal::TargetType<Target::HostTask>,
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         throw std::exception();
@@ -155,18 +151,20 @@ void hemm(internal::TargetType<Target::HostNest>,
     const Layout layout = Layout::ColMajor;
 
     int err = 0;
+    #pragma omp taskgroup
     if (side == Side::Left) {
-        #pragma omp parallel for schedule(dynamic, 1) shared(err)
+        #pragma omp parallel for schedule(dynamic, 1) slate_omp_default_none \
+            shared(A, B, C, err) firstprivate(side, alpha, beta)
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(0, j)) {
                 try {
                     A.tileGetForReading(0, 0, LayoutConvert(layout));
                     B.tileGetForReading(0, j, LayoutConvert(layout));
                     C.tileGetForWriting(0, j, LayoutConvert(layout));
-                    hemm(side,
-                         alpha, A(0, 0),
-                                B(0, j),
-                         beta,  C(0, j));
+                    tile::hemm(
+                        side,
+                        alpha, A(0, 0), B(0, j),
+                        beta,  C(0, j) );
                     // todo: should tileRelease()?
                     A.tileTick(0, 0);
                     B.tileTick(0, j);
@@ -179,32 +177,28 @@ void hemm(internal::TargetType<Target::HostNest>,
     }
     else {
         // side == Right
-        #pragma omp parallel for schedule(dynamic, 1) shared(err)
+        #pragma omp parallel for schedule(dynamic, 1) slate_omp_default_none \
+            shared(A, B, C, err) firstprivate(side, alpha, beta)
         for (int64_t i = 0; i < C.mt(); ++i) {
             if (C.tileIsLocal(i, 0)) {
-                #pragma omp task shared(A, B, C, err) priority(priority)
-                {
-                    try {
-                        A.tileGetForReading(0, 0, LayoutConvert(layout));
-                        B.tileGetForReading(i, 0, LayoutConvert(layout));
-                        C.tileGetForWriting(i, 0, LayoutConvert(layout));
-                        hemm(side,
-                             alpha, A(0, 0),
-                                    B(i, 0),
-                             beta,  C(i, 0));
-                        // todo: should tileRelease()?
-                        A.tileTick(0, 0);
-                        B.tileTick(i, 0);
-                    }
-                    catch (std::exception& e) {
-                        err = __LINE__;
-                    }
+                try {
+                    A.tileGetForReading(0, 0, LayoutConvert(layout));
+                    B.tileGetForReading(i, 0, LayoutConvert(layout));
+                    C.tileGetForWriting(i, 0, LayoutConvert(layout));
+                    tile::hemm(
+                        side,
+                        alpha, A(0, 0), B(i, 0),
+                        beta,  C(i, 0) );
+                    // todo: should tileRelease()?
+                    A.tileTick(0, 0);
+                    B.tileTick(i, 0);
+                }
+                catch (std::exception& e) {
+                    err = __LINE__;
                 }
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         throw std::exception();

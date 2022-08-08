@@ -5,12 +5,20 @@ options {
     // Required to clean before build
     skipDefaultCheckout( true )
 }
-triggers { pollSCM 'H/10 * * * *' }
+
+// cron syntax: minute hour day-of-month month day-of-week
+// run hourly
+triggers { pollSCM 'H * * * *' }
+
 stages {
     //======================================================================
     stage('Parallel Build') {
         matrix {
             axes {
+                axis {
+                    name 'maker'
+                    values 'make', 'cmake'
+                }
                 axis {
                     name 'host'
                     values 'dopamine', 'gpu_nvidia'
@@ -56,39 +64,46 @@ echo_and_restore() {
 alias print='{ save_flags="$-"; set +x; } 2> /dev/null; echo_and_restore'
 
 date
-run source /home/jenkins/spack_setup
-run sload gcc@7.3.0
-run spack compiler find
-run sload intel-mkl
+module load gcc/7.3.0
+module load intel-oneapi-mkl/2022
+
+# hipcc needs /usr/sbin/lsmod
+export PATH=${PATH}:/usr/sbin
 
 print "========================================"
 date
+print "maker ${maker}"
+
+# For simplicity, create make.inc regardless of ${maker}
+export color=no
 cat > make.inc << END
-CXX  = mpicxx
-FC   = mpif90
-blas = mkl
+CXX    = mpicxx
+FC     = mpif90
+blas   = mkl
+prefix = ${top}/install
 END
 
 print "========================================"
 # Run CUDA, OpenMPI tests.
 if [ "${host}" = "gpu_nvidia" ]; then
-    run sload openmpi%gcc@7.3.0
+    module load openmpi/4
     export OMPI_CXX=${CXX}
 
     echo "CXXFLAGS  = -Werror" >> make.inc
+    echo "CXXFLAGS += -Dslate_omp_default_none='default(none)'" >> make.inc
     echo "mkl_blacs = openmpi" >> make.inc
-    echo "cuda_arch = kepler"  >> make.inc
+    echo "cuda_arch = sm_35"   >> make.inc  # kepler sm_35 works in CUDA 11
     echo "gpu_backend = cuda"  >> make.inc
 
     # Load CUDA. LD_LIBRARY_PATH set by Spack.
-    run sload cuda@10.2.89
+    module load cuda/11
     export CPATH=${CPATH}:${CUDA_HOME}/include
     export LIBRARY_PATH=${LIBRARY_PATH}:${CUDA_HOME}/lib64
 fi
 
 # Run HIP, Intel MPI tests.
 if [ "${host}" = "dopamine" ]; then
-    run sload intel-mpi
+    module load intel-mpi
     export FI_PROVIDER=tcp
 
     #echo "CXXFLAGS  = -Werror"  >> make.inc  # HIP headers have many errors; ignore.
@@ -105,11 +120,23 @@ if [ "${host}" = "dopamine" ]; then
     perl -pi -e 's/-pedantic//' GNUmakefile
 fi
 
-export color=no
+if [ "${maker}" = "make" ]; then
+    print "========================================"
+    make echo
+fi
+
+if [ "${maker}" = "cmake" ]; then
+    print "========================================"
+    module load cmake/3.18
+    rm -rf build && mkdir build && cd build
+    cmake -Dcolor=no -DCMAKE_CXX_FLAGS="-Werror" \
+          -DCMAKE_INSTALL_PREFIX=${top}/install \
+          ..
+fi
 
 print "========================================"
 # Check what is loaded.
-run spack find --loaded
+module list
 
 which mpicxx
 which mpif90
@@ -129,18 +156,11 @@ env
 
 print "========================================"
 date
-make distclean
-
-print "========================================"
-make echo
-
-print "========================================"
-date
 make -j8
 
 print "========================================"
 date
-make -j8 install prefix=${top}/install
+make -j8 install
 ls -R ${top}/install
 
 print "========================================"
@@ -149,13 +169,19 @@ ldd test/tester
 print "========================================"
 date
 export OMP_NUM_THREADS=8
-cd ${top}/unit_test
-./run_tests.py --xml ../report_unit.xml
+cd unit_test
+./run_tests.py --xml ${top}/report-unit-${maker}.xml
+cd ..
 
 print "========================================"
 date
-cd ${top}/test
-./run_tests.py --origin s --target t,d --quick --ref n --xml ${top}/report_test.xml
+cd test
+if [ "${maker}" = "cmake" ]; then
+    # only sanity check with cmake build
+    export tests=potrf
+fi
+./run_tests.py --origin s --target t,d --quick --ref n --xml ${top}/report-${maker}.xml ${tests}
+cd ..
 
 date
 '''

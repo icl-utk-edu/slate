@@ -156,7 +156,7 @@ void he2hb(slate::internal::TargetType<target>,
             // local panel factorization
             #pragma omp task depend(inout:block[k])
             {
-                internal::geqrf<Target::HostTask>(
+                internal::geqrf<target>(
                     std::move(A_panel),
                     std::move(Tlocal_panel),
                     ib, max_panel_threads, priority_one);
@@ -249,7 +249,7 @@ void he2hb(slate::internal::TargetType<target>,
                     W(i, k).set(zero);
                 }
 
-		if (target == Target::Devices) {
+                if (target == Target::Devices) {
                     std::vector<int64_t> indices_copy;
                     auto  W_panel = W.sub(k+1, nt-1, k, k);
                     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
@@ -333,7 +333,7 @@ void he2hb(slate::internal::TargetType<target>,
                             // Save V0 and set upper(V0) to identity, to avoid trmm's.
                             Asave.tileInsert(i0, k);
                             auto Aik = A(i0, k);
-                            gecopy(std::move(Aik), Asave(i0, k));
+                            tile::gecopy(std::move(Aik), Asave(i0, k));
                             Aik.uplo(Uplo::Upper);
                             Aik.set(zero, one);
                         }
@@ -394,7 +394,7 @@ void he2hb(slate::internal::TargetType<target>,
                                         W   .tileSend(i, k, neighbor, tag_i_);
                                     }
                                     {
-                                        axpy(one, Wtmp(i, k), W(i, k));
+                                        blas::axpy(Wtmp(i, k).nb()*Wtmp(i, k).nb(), one, Wtmp(i, k).data(), 1, W(i, k).data(), 1);
                                         Wtmp.tileErase(i, k);
                                     }
                                 }
@@ -463,7 +463,7 @@ void he2hb(slate::internal::TargetType<target>,
                                                   LayoutConvert(layout));
                             TVAVT0.tileGetForWriting(0, 0, TVAVT0.hostNum(),
                                                      LayoutConvert(layout));
-                            trmm(Side::Left, Diag::NonUnit,
+                            tile::trmm(Side::Left, Diag::NonUnit,
                                  one, conjTranspose(Tk0(0, 0)),
                                  std::move(TVAVT0(0, 0)));
 
@@ -516,7 +516,7 @@ void he2hb(slate::internal::TargetType<target>,
                             // Restore V0.
                             #pragma omp task
                             {
-                                gecopy(Asave(i0, k), A(i0, k));
+                                tile::gecopy(Asave(i0, k), A(i0, k));
                                 Asave.tileErase(i0, k);
                             }
                             #pragma omp taskwait
@@ -540,7 +540,7 @@ void he2hb(slate::internal::TargetType<target>,
 
                 // Unhold and release tiles in A_panel and Tlocal
                 if (target == Target::Devices) {
-                    if ( k < nt-1) {
+                    if (k < nt-1) {
                         #pragma omp task depend(in:block[k])
                         {
                             for (int64_t i = k; i < nt; ++i) {

@@ -263,7 +263,7 @@ void hettmqr(internal::TargetType<Target::HostTask>,
                     }
                     else {
                         C.tileRecv(j, i1, dst, layout, tag);
-                        deepConjTranspose(C(j, i1));
+                        tile::deepConjTranspose(C(j, i1));
                     }
                 }
                 else if (C.tileIsLocal(i2, j)) {

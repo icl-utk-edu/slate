@@ -63,7 +63,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostTask>,
                     B.tileGetForReading(j, 0, LayoutConvert(layout));
                     C.tileGetForWriting(i, j, LayoutConvert(layout));
                     // Aij -= Vik Wjk^H
-                    gemm(alpha, A(i, 0), conjTranspose(B(j, 0)),
+                    tile::gemm(alpha, A(i, 0), conjTranspose(B(j, 0)),
                          beta, C(i, j));
                     A.tileTick(i, 0);
                     B.tileTick(j, 0);
@@ -75,7 +75,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostTask>,
                     A.tileGetForReading(i, 0, LayoutConvert(layout));
                     C.tileGetForWriting(j, i, LayoutConvert(layout));
                     // Aji -= Wjk Vik^H
-                    gemm(alpha, B(j, 0), conjTranspose(A(i, 0)),
+                    tile::gemm(alpha, B(j, 0), conjTranspose(A(i, 0)),
                          beta, C(j, i));
                     B.tileTick(j, 0);
                     A.tileTick(i, 0);

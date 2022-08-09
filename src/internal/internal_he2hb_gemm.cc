@@ -58,7 +58,7 @@ void he2hb_gemm(internal::TargetType<Target::HostTask>,
                     A.tileGetForReading(i, k, LayoutConvert(layout));
                     B.tileGetForReading(k, 0, LayoutConvert(layout));
                     C.tileGetForWriting(i, 0, LayoutConvert(layout));
-                    gemm(alpha, A(i, k), B(k, 0),
+                    tile::gemm(alpha, A(i, k), B(k, 0),
                          beta, C(i, 0));
                     A.tileTick(i, k);
                     B.tileTick(k, 0);

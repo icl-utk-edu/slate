@@ -64,13 +64,13 @@ void he2hb_hemm(internal::TargetType<Target::HostTask>,
                         B.tileGetForReading(j, 0, LayoutConvert(layout));
                         C.tileGetForWriting(i, 0, LayoutConvert(layout));
                         if (i == j) {
-                            hemm(Side::Left, one, A(i, j), B(j, 0),
+                            tile::hemm(Side::Left, one, A(i, j), B(j, 0),
                                  one, C(i, 0));
                         }
                         else {
                             // todo: if HeMatrix returned conjTrans tiles,
                             // could merge this with one below.
-                            gemm(one, A(i, j), B(j, 0), one, C(i, 0));
+                            tile::gemm(one, A(i, j), B(j, 0), one, C(i, 0));
                         }
                         A.tileTick(i, j);
                         B.tileTick(j, 0);
@@ -81,7 +81,7 @@ void he2hb_hemm(internal::TargetType<Target::HostTask>,
                         A.tileGetForReading(j, i, LayoutConvert(layout));
                         B.tileGetForReading(j, 0, LayoutConvert(layout));
                         C.tileGetForWriting(i, 0, LayoutConvert(layout));
-                        gemm(one, conjTranspose(A(j, i)), B(j, 0),
+                        tile::gemm(one, conjTranspose(A(j, i)), B(j, 0),
                              one, C(i, 0));
                         A.tileTick(j, i);
                         B.tileTick(j, 0);
@@ -328,7 +328,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
 
     Op opA = A.op();
     Op opB = B.op();
-    Op opA_upper = Op::ConjTrans;;
+    Op opA_upper = Op::ConjTrans;
 
     int err = 0;
     for (int device = 0; device < C.num_devices(); ++device) {
@@ -537,7 +537,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                     int cuerror;
 
                 {
-		    trace::Block trace_block("blas::batch::he2hb_hemm_gemm");
+                    trace::Block trace_block("blas::batch::he2hb_hemm_gemm");
                     if (c_array00_lower.size() > 0) {
                         std::vector<int64_t>    m(1,  mb00);
                         std::vector<int64_t>    n(1,  nb00);
@@ -662,7 +662,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                 }
 
                 {
-		    trace::Block trace_block("blas::batch::he2hb_hemm_hemm");
+                    trace::Block trace_block("blas::batch::he2hb_hemm_hemm");
                     if (c_array00_diag.size() > 0) {
                         std::vector<int64_t>    m(1,  mb00);
                         std::vector<int64_t>    n(1,  nb00);

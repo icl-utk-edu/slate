@@ -49,8 +49,8 @@ void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
             if (! B.tileIsLocal(i+1, i)) {
                 // Remote copy-transpose B(i+1, i) => B(i, i+1);
                 // assumes square tiles!
-                B.tileRecv(i, i+1, B.tileRank(i+1, i), slate::Layout::ColMajor);
-                slate::tile::deepConjTranspose( B(i, i+1) );
+                B.tileRecv(i+1, i, B.tileRank(i+1, i), slate::Layout::ColMajor, tag_i);
+                slate::tile::deepConjTranspose( B(i+1, i), B(i, i+1) );
             }
             else {
                 // Local copy-transpose B(i+1, i) => B(i, i+1).

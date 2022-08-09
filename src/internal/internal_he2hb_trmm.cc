@@ -87,7 +87,7 @@ void he2hb_trmm(internal::TargetType<Target::HostTask>,
                 }
 
                 auto T = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A0);
-                trmm(Side::Right, Diag::NonUnit,
+                tile::trmm(Side::Right, Diag::NonUnit,
                      one, std::move(T(0, 0)), Bi(0, 0));
 
                 B.tileTick(i, 0);

@@ -156,7 +156,7 @@ void he2hb(slate::internal::TargetType<target>,
             // local panel factorization
             #pragma omp task depend(inout:block[k])
             {
-                internal::geqrf<target>(
+                internal::geqrf<Target::HostTask>(
                     std::move(A_panel),
                     std::move(Tlocal_panel),
                     ib, max_panel_threads, priority_one);

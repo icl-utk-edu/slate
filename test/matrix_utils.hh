@@ -25,6 +25,7 @@ void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
         int tag_i = i+1;
         if (B.tileIsLocal(i, i)) {
             // diagonal tile
+            A.tileGetForReading(i, i, slate::LayoutConvert::ColMajor);
             auto Aii = A(i, i);
             auto Bii = B(i, i);
             Aii.uplo(slate::Uplo::Lower);
@@ -37,6 +38,7 @@ void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
         }
         if (i+1 < nt && B.tileIsLocal(i+1, i)) {
             // sub-diagonal tile
+            A.tileGetForReading(i+1, i, slate::LayoutConvert::ColMajor);
             auto Ai1i = A(i+1, i);
             auto Bi1i = B(i+1, i);
             Ai1i.uplo(slate::Uplo::Upper);

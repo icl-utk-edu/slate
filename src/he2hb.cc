@@ -516,6 +516,7 @@ void he2hb(slate::internal::TargetType<target>,
                             // Restore V0.
                             #pragma omp task
                             {
+                                A.tileGetForWriting(i0, k, slate::LayoutConvert::ColMajor);
                                 tile::gecopy(Asave(i0, k), A(i0, k));
                                 Asave.tileErase(i0, k);
                             }

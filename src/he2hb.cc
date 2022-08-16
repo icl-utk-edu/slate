@@ -33,7 +33,6 @@ void he2hb(slate::internal::TargetType<target>,
 {
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
     using blas::real;
-    using real_t = blas::real_type<scalar_t>;
 
     assert(A.uplo() == Uplo::Lower);  // for now
 
@@ -44,7 +43,6 @@ void he2hb(slate::internal::TargetType<target>,
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
     const scalar_t half = 0.5;
-    const real_t r_one  = 1.0;
 
     int64_t nt = A.nt();
 
@@ -328,7 +326,7 @@ void he2hb(slate::internal::TargetType<target>,
                     #pragma omp task depend(inout:block[k])
                     {
                         if (A.tileExists(i0, k)) {
-                            A.tileGetForWriting(i0, k, A.hostNum(),
+                            A.tileGetForWriting(i0, k, slate::HostNum,
                                                 LayoutConvert(layout));
                             // Save V0 and set upper(V0) to identity, to avoid trmm's.
                             Asave.tileInsert(i0, k);
@@ -382,13 +380,13 @@ void he2hb(slate::internal::TargetType<target>,
                                     int tag_i = i;
                                     int tag_i_ = i+1;
                                     if (neighbor < my_rank) {
-                                        W.tileGetForWriting(i, k, W.hostNum(),
+                                        W.tileGetForWriting(i, k, slate::HostNum,
                                                             LayoutConvert(layout));
                                         W   .tileSend(i, k, neighbor, tag_i);
                                         Wtmp.tileRecv(i, k, neighbor, layout, tag_i_);
                                     }
                                     else {
-                                        W.tileGetForWriting(i, k, W.hostNum(),
+                                        W.tileGetForWriting(i, k, slate::HostNum,
                                                             LayoutConvert(layout));
                                         Wtmp.tileRecv(i, k, neighbor, layout, tag_i);
                                         W   .tileSend(i, k, neighbor, tag_i_);
@@ -434,7 +432,7 @@ void he2hb(slate::internal::TargetType<target>,
                         {
                             // 1b. TVAVT = V^H (A V T) = V^H W.
                             auto A_panelT = conjTranspose(A.sub(k+1, nt-1, k, k));
-                            W.tileGetForWriting(0, 0, W.hostNum(),
+                            W.tileGetForWriting(0, 0, slate::HostNum,
                                                 LayoutConvert(layout));
                             TVAVT(0, 0).set(zero);
                             internal::he2hb_gemm<target>(
@@ -459,9 +457,9 @@ void he2hb(slate::internal::TargetType<target>,
 
                             auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper,
                                                                   Diag::NonUnit, T0);
-                            Tk0.tileGetForReading(0, 0, Tk0.hostNum(),
+                            Tk0.tileGetForReading(0, 0, slate::HostNum,
                                                   LayoutConvert(layout));
-                            TVAVT0.tileGetForWriting(0, 0, TVAVT0.hostNum(),
+                            TVAVT0.tileGetForWriting(0, 0, slate::HostNum,
                                                      LayoutConvert(layout));
                             tile::trmm(Side::Left, Diag::NonUnit,
                                  one, conjTranspose(Tk0(0, 0)),

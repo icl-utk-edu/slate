@@ -196,7 +196,7 @@ void potrf(slate::internal::TargetType<Target::Devices>,
             #pragma omp task depend(inout:column[k])
             {
                 // factor A(k, k)
-                internal::potrf<Target::HostTask>(A.sub(k, k));
+                internal::potrf<Target::Devices>(A.sub(k, k));
 
                 // send A(k, k) down col A(k+1:nt-1, k)
                 if (k+1 <= A_nt-1)

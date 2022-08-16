@@ -17,42 +17,127 @@ namespace device {
 /// Kernel implementing element-wise tile set.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row.
-/// Launched by geset().
+/// Launched by geset_kernel() and geset_batch_kernel().
+///
+/// @copydoc geset
+///
+template <typename scalar_t>
+__device__ void geset_func(
+    int64_t m, int64_t n,
+    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t* A, int64_t lda)
+{
+    // thread per row, if more rows than threads, loop by blockDim.x
+    for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
+        scalar_t* rowA = &A[ i ];
+
+        for (int64_t j = 0; j < n; ++j)
+            rowA[ j*lda ] = (j != i) ? offdiag_value : diag_value;
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Kernel implementing element-wise tile set.
+/// @copydoc geset
+template <typename scalar_t>
+__global__ void geset_kernel(
+    int64_t m, int64_t n,
+    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t* A, int64_t lda)
+{
+    geset_func( m, n, offdiag_value, diag_value, A, lda );
+}
+
+//------------------------------------------------------------------------------
+/// Kernel implementing element-wise tile set.
+/// @copydoc geset_batch
+template <typename scalar_t>
+__global__ void geset_batch_kernel(
+    int64_t m, int64_t n,
+    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t** Aarray, int64_t lda)
+{
+    geset_func( m, n, offdiag_value, diag_value,
+                Aarray[ blockIdx.x ], lda );
+}
+
+//------------------------------------------------------------------------------
+/// Element-wise m-by-n matrix Aarray[k]
+/// to diag_value on the diagonal and offdiag_value on the off-diagonals.
 ///
 /// @param[in] m
-///     Number of rows of each tile. m >= 1.
+///     Number of rows of A. m >= 0.
 ///
 /// @param[in] n
-///     Number of columns of each tile. n >= 1.
-///
-/// @param[in] offdiag_value
-///     The value to set outside of the diagonal.
+///     Number of columns of A. n >= 0.
 ///
 /// @param[in] diag_value
 ///     The value to set on the diagonal.
 ///
-/// @param[out] Aarray
-///     Array of tiles of dimension gridDim.x,
-///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
+/// @param[in] offdiag_value
+///     The value to set outside of the diagonal.
+///
+/// @param[out] A
+///     An m-by-n matrix stored in an lda-by-n array in GPU memory.
 ///
 /// @param[in] lda
-///     Leading dimension of each tile in Aarray. lda >= m.
+///     Leading dimension of A. lda >= m.
+///
+/// @param[in] queue
+///     BLAS++ queue to execute in.
 ///
 template <typename scalar_t>
-__global__ void geset_kernel(
+void geset(
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value, scalar_t** Aarray, int64_t lda)
+    scalar_t diag_value, scalar_t offdiag_value,
+    scalar_t* A, int64_t lda,
+    blas::Queue &queue)
 {
-    scalar_t* tileA = Aarray[ blockIdx.x ];
+    cudaSetDevice( queue.device() );
 
-    // thread per row, if more rows than threads, loop by blockDim.x
-    for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
-        scalar_t* rowA = &tileA[ i ];
+    // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
+    int64_t nthreads = std::min( int64_t( 1024 ), m );
 
-        for (int64_t j = 0; j < n; ++j)
-            rowA[j*lda] = (j != i) ? offdiag_value : diag_value;
-    }
+    geset_kernel<<<1, nthreads, 0, queue.stream()>>>(
+        m, n,
+        diag_value, offdiag_value, A, lda);
+
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
+
+//------------------------------------------------------------------------------
+// Explicit instantiations.
+template
+void geset(
+    int64_t m, int64_t n,
+    float diag_value, float offdiag_value,
+    float* A, int64_t lda,
+    blas::Queue &queue);
+
+template
+void geset(
+    int64_t m, int64_t n,
+    double diag_value, double offdiag_value,
+    double* A, int64_t lda,
+    blas::Queue &queue);
+
+template
+void geset(
+    int64_t m, int64_t n,
+    cuFloatComplex diag_value, cuFloatComplex offdiag_value,
+    cuFloatComplex* A, int64_t lda,
+    blas::Queue &queue);
+
+template
+void geset(
+    int64_t m, int64_t n,
+    cuDoubleComplex diag_value, cuDoubleComplex offdiag_value,
+    cuDoubleComplex* A, int64_t lda,
+    blas::Queue &queue);
+
+//==============================================================================
+namespace batch {
 
 //------------------------------------------------------------------------------
 /// Initializes a batch of m-by-n matrices Aarray[k]
@@ -86,7 +171,8 @@ __global__ void geset_kernel(
 template <typename scalar_t>
 void geset(
     int64_t m, int64_t n,
-    scalar_t diag_value, scalar_t offdiag_value, scalar_t** Aarray, int64_t lda,
+    scalar_t diag_value, scalar_t offdiag_value,
+    scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
     // quick return
@@ -98,7 +184,7 @@ void geset(
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
-    geset_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    geset_batch_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         m, n,
         diag_value, offdiag_value, Aarray, lda);
 
@@ -111,13 +197,15 @@ void geset(
 template
 void geset(
     int64_t m, int64_t n,
-    float diag_value, float offdiag_value, float** Aarray, int64_t lda,
+    float diag_value, float offdiag_value,
+    float** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
-    double diag_value, double offdiag_value, double** Aarray, int64_t lda,
+    double diag_value, double offdiag_value,
+    double** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 
 template
@@ -134,5 +222,6 @@ void geset(
     cuDoubleComplex** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 
+} // namespace batch
 } // namespace device
 } // namespace slate

@@ -13,8 +13,86 @@
 
 namespace slate {
 
+//==============================================================================
+// Specializations of device kernels to map std::complex => cuComplex, etc.,
+// and define float, double versions if compiled without CUDA or HIP.
 namespace device {
 
+//------------------------------------------------------------------------------
+// device single tile routine
+template <>
+void geset(
+    int64_t m, int64_t n,
+    std::complex<float> offdiag_value, std::complex<float> diag_value,
+    std::complex<float>* A, int64_t lda,
+    blas::Queue &queue)
+{
+#if defined( BLAS_HAVE_CUBLAS )
+    geset(m, n,
+          make_cuFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
+          make_cuFloatComplex( diag_value.real(), diag_value.imag() ),
+          (cuFloatComplex*) A, lda,
+          queue);
+
+#elif defined( BLAS_HAVE_ROCBLAS )
+    geset(m, n,
+          make_hipFloatComplex( offdiag_value.real(), offdiag_value.imag() ),
+          make_hipFloatComplex( diag_value.real(), diag_value.imag() ),
+          (hipFloatComplex*) A, lda,
+          queue);
+#endif
+}
+
+//----------------------------------------
+template <>
+void geset(
+    int64_t m, int64_t n,
+    std::complex<double> offdiag_value, std::complex<double> diag_value,
+    std::complex<double>* A, int64_t lda,
+    blas::Queue &queue)
+{
+#if defined( BLAS_HAVE_CUBLAS )
+    geset(m, n,
+          make_cuDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
+          make_cuDoubleComplex( diag_value.real(), diag_value.imag() ),
+          (cuDoubleComplex*) A, lda,
+          queue);
+
+#elif defined( BLAS_HAVE_ROCBLAS )
+    geset(m, n,
+          make_hipDoubleComplex( offdiag_value.real(), offdiag_value.imag() ),
+          make_hipDoubleComplex( diag_value.real(), diag_value.imag() ),
+          (hipDoubleComplex*) A, lda,
+          queue);
+#endif
+}
+
+#if ! defined( SLATE_HAVE_DEVICE )
+// Specializations to allow compilation without CUDA or HIP.
+template <>
+void geset(
+    int64_t m, int64_t n,
+    double offdiag_value, double diag_value,
+    double* A, int64_t lda,
+    blas::Queue &queue)
+{
+}
+
+template <>
+void geset(
+    int64_t m, int64_t n,
+    float offdiag_value, float diag_value,
+    float* A, int64_t lda,
+    blas::Queue &queue)
+{
+}
+#endif // not SLATE_HAVE_DEVICE
+
+//==============================================================================
+namespace batch {
+
+//------------------------------------------------------------------------------
+// device::batch routine
 template <>
 void geset(
     int64_t m, int64_t n,
@@ -38,6 +116,7 @@ void geset(
 #endif
 }
 
+//----------------------------------------
 template <>
 void geset(
     int64_t m, int64_t n,
@@ -82,8 +161,11 @@ void geset(
 }
 #endif // not SLATE_HAVE_DEVICE
 
+} // namespace batch
 } // namespace device
 
+
+//==============================================================================
 namespace internal {
 
 //------------------------------------------------------------------------------
@@ -158,11 +240,13 @@ void set(internal::TargetType<Target::HostBatch>,
 ///
 template <typename scalar_t>
 void set(internal::TargetType<Target::Devices>,
-         scalar_t offdiag_value, scalar_t diag_value, Matrix<scalar_t>& A,
+         scalar_t offdiag_value, scalar_t diag_value,
+         Matrix<scalar_t>& A,
          int priority, int queue_index)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
+    // TODO Should I copy the comments from internal/internal_tzset.cc?
     int64_t irange[4][2] = {
         { 0,        A.mt()-1 },
         { A.mt()-1, A.mt()   },
@@ -249,7 +333,7 @@ void set(internal::TargetType<Target::Devices>,
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
-                    device::geset(mb[q], nb[q],
+                    device::batch::geset(mb[q], nb[q],
                                   offdiag_value, offdiag_value, a_array_dev, lda[q],
                                   group_count[q], *queue);
                     a_array_dev += group_count[q];
@@ -257,7 +341,7 @@ void set(internal::TargetType<Target::Devices>,
             }
             for (int q = 4; q < 8; ++q) {
                 if (group_count[q] > 0) {
-                    device::geset(mb[q], nb[q],
+                    device::batch::geset(mb[q], nb[q],
                                   offdiag_value, diag_value, a_array_dev, lda[q],
                                   group_count[q], *queue);
                     a_array_dev += group_count[q];

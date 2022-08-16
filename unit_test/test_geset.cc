@@ -65,7 +65,7 @@ void test_geset_dev()
                         blas::MemcpyKind::HostToDevice,
                         queue);
 
-    slate::device::geset( m, n,
+    slate::device::batch::geset( m, n,
                           offdiag_value, diag_value, dAarray, lda,
                           batch_count, queue );
 

@@ -436,7 +436,7 @@ void set(
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
-                    device::geset(
+                    device::batch::geset(
                         mb[q], nb[q],
                         offdiag_value, offdiag_value,
                         a_array_dev, lda[q],

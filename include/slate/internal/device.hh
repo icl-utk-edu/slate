@@ -122,8 +122,9 @@ void gescale_row_col_batch(
 template <typename scalar_t>
 void geset(
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value, scalar_t** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue& queue);
+    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t* A, int64_t lda,
+    blas::Queue& queue);
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
@@ -136,6 +137,15 @@ void tzset(
 
 namespace batch {
 
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void geset(
+    int64_t m, int64_t n,
+    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue);
+
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void tzset(
     Uplo uplo,

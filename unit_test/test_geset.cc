@@ -22,6 +22,7 @@ int mpi_rank;
 int mpi_size;
 int verbose;
 int num_devices;
+int batch_count;
 
 //------------------------------------------------------------------------------
 void test_geset_dev()
@@ -33,48 +34,37 @@ void test_geset_dev()
     double eps = std::numeric_limits<double>::epsilon();
     int m = 20;
     int n = 30;
-    int lda = roundup(m, 8);
+    int lda = roundup( m, 8 );
     int ldb = lda;
     double diag_value = 0.5;
     double offdiag_value  = 0.3;
 
     double* Adata = new double[ lda * n ];
-    slate::Tile<double> A(m, n, Adata, lda, -1, slate::TileKind::UserOwned);
+    slate::Tile<double> A( m, n, Adata, lda,
+        slate::HostNum, slate::TileKind::UserOwned );
 
     double* Bdata = new double[ ldb * n ];
-    slate::Tile<double> B(m, n, Bdata, ldb, -1, slate::TileKind::UserOwned);
+    slate::Tile<double> B( m, n, Bdata, ldb,
+        slate::HostNum, slate::TileKind::UserOwned );
 
     int device_idx;
-    blas::get_device(&device_idx);
+    blas::get_device( &device_idx );
     const int batch_arrays_index = 0;
-    blas::Queue queue(device_idx, batch_arrays_index);
+    blas::Queue queue( device_idx, batch_arrays_index );
 
     double* dAdata;
-    dAdata = blas::device_malloc<double>(lda * n);
-    test_assert(dAdata != nullptr);
-    slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
+    dAdata = blas::device_malloc<double>( lda * n );
+    test_assert( dAdata != nullptr );
+    slate::Tile<double> dA( m, n, dAdata, lda,
+        device_idx, slate::TileKind::UserOwned );
 
-    const int batch_count = 1;
-    double* Aarray[batch_count];
-    double** dAarray;
-    dAarray = blas::device_malloc<double*>(batch_count);
-    test_assert(dAarray != nullptr);
-    Aarray[0] = dA.data();
-    blas::device_memcpy<double*>(dAarray, Aarray,
-                        batch_count,
-                        blas::MemcpyKind::HostToDevice,
-                        queue);
-
-    slate::device::batch::geset( m, n,
-                          offdiag_value, diag_value, dAarray, lda,
-                          batch_count, queue );
+    slate::device::geset( m, n,
+                          offdiag_value, diag_value,
+                          dA.data(), lda,
+                          queue );
 
     queue.sync();
-    blas::device_memcpy<double*>(Aarray, dAarray,
-                        batch_count,
-                        blas::MemcpyKind::DeviceToHost,
-                        queue);
-    dA.copyData(&A, queue);
+    dA.copyData( &A, queue );
 
     // compute on CPU to check the results
     for (int j = 0; j < n; ++j) {
@@ -104,11 +94,116 @@ void test_geset_dev()
                 result );
     }
 
-    blas::device_free(dAdata);
-    blas::device_free(dAarray);
+    blas::device_free( dAdata );
     delete[] Adata;
 
     test_assert( result < 3*eps );
+}
+
+//------------------------------------------------------------------------------
+void test_geset_batch_dev() {
+    if (num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
+    double eps = std::numeric_limits<double>::epsilon();
+    int m = 20;
+    int n = 30;
+    int lda = roundup(m, 8);
+    int ldb = lda;
+    double diag_value = 0.5;
+    double offdiag_value  = 0.3;
+    std::vector< slate::Tile< double > > list_A( 0 );
+    std::vector< slate::Tile< double > > list_dA( 0 );
+
+    for (int m_i = 0; m_i < batch_count; ++m_i) {
+        double* tmp_data = new double[ lda * n ];
+        test_assert( tmp_data != nullptr );
+        list_A.push_back( slate::Tile<double>( m, n, tmp_data, lda,
+            slate::HostNum, slate::TileKind::UserOwned ) );
+    }
+
+    double* Bdata = new double[ ldb * n ];
+    slate::Tile<double> B( m, n, Bdata, ldb,
+        slate::HostNum, slate::TileKind::UserOwned );
+
+    int device_idx;
+    blas::get_device( &device_idx );
+    const int batch_arrays_index = 0;
+    blas::Queue queue( device_idx, batch_arrays_index );
+
+    for (int m_i = 0; m_i < batch_count; ++m_i) {
+        double* dtmp_data;
+        dtmp_data = blas::device_malloc<double>( lda * n );
+        test_assert( dtmp_data != nullptr );
+        list_dA.push_back( slate::Tile<double>( m, n, dtmp_data, lda,
+            device_idx, slate::TileKind::UserOwned ) );
+    }
+
+    double** Aarray = new double*[ batch_count ];
+    double** dAarray;
+    dAarray = blas::device_malloc<double*>( batch_count );
+    test_assert( dAarray != nullptr );
+    for (int m_i = 0; m_i < batch_count; ++m_i) {
+      auto dA = list_dA[ m_i ];
+      Aarray[m_i] = dA.data();
+    }
+    blas::device_memcpy<double*>( dAarray, Aarray,
+                        batch_count,
+                        blas::MemcpyKind::HostToDevice,
+                        queue );
+
+    slate::device::batch::geset( m, n,
+                          offdiag_value, diag_value, dAarray, lda,
+                          batch_count, queue );
+
+    queue.sync();
+    for (int m_i = 0; m_i < batch_count; ++m_i) {
+        auto dA = list_dA[ m_i ];
+        auto A = list_A[ m_i ];
+        dA.copyData( &A, queue );
+    }
+
+    // compute on CPU to check the results
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < m; ++i) {
+            if (i == j) {
+                Bdata[ i + j*ldb ] = diag_value;
+            }
+            else {
+                Bdata[ i + j*ldb ] = offdiag_value;
+            }
+        }
+    }
+
+    for (int m_i = 0; m_i < batch_count; ++m_i) {
+        auto dA = list_dA[ m_i ];
+        auto A  = list_A[ m_i ];
+        double *Adata = A.data();
+
+        //blas::axpy( lda*n, neg_one, B.data(), ione, A.data(), ione );
+        for (int j = 0; j < n; ++j) {
+            for (int i = 0; i < m; ++i) {
+                Adata[i + j*lda] = Bdata[i + j*ldb] -  Adata[i + j*lda];
+            }
+        }
+
+        // check final norm result
+        double result = lapack::lange(
+            lapack::Norm::Fro, A.mb(), A.nb(), A.data(), A.stride() );
+
+        if (verbose) {
+            printf( "\nerror %.2e ",
+                    result );
+        }
+
+        blas::device_free( dA.data() );
+        delete[] A.data();
+
+        test_assert( result < 3*eps );
+    }
+    blas::device_free( dAarray );
+
 }
 
 //------------------------------------------------------------------------------
@@ -116,10 +211,16 @@ void test_geset_dev()
 void run_tests()
 {
     if (mpi_rank == 0) {
-        //-------------------- genorm_dev
+        //-------------------- geset_dev
         for (int i = 0; i < 10; i++)
-        run_test(
-            test_geset_dev, "geset_dev");
+            run_test(
+                test_geset_dev, "geset_dev" );
+        //-------------------- geset_batch_dev
+        for (int i = 0; i < 10; i++) {
+            batch_count = i + 1;
+            run_test(
+                test_geset_batch_dev, "geset_batch_dev" );
+        }
     }
 }
 

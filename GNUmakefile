@@ -681,6 +681,7 @@ unit_src = \
     unit_test/test_TriangularMatrix.cc \
     unit_test/test_geadd.cc \
     unit_test/test_gecopy.cc \
+    unit_test/test_gescale.cc \
     unit_test/test_geset.cc \
     unit_test/test_internal_blas.cc \
     unit_test/test_norm.cc \

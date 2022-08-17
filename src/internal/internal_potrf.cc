@@ -66,8 +66,9 @@ void potrf(internal::TargetType<Target::Devices>,
         A.tileGetForWriting(0, 0, device, LayoutConvert::ColMajor);
         lapack::Queue* queue = A.compute_queue( device, 0 );
         lapack::potrf(
-            A(0, 0).uplo(), A(0, 0).mb(), A(0, 0, device).data(),
-            A(0, 0, device).stride(), device_info, *queue );
+            A(0, 0, device).uploPhysical(), A(0, 0).mb(),
+            A(0, 0, device).data(), A(0, 0, device).stride(),
+            device_info, *queue );
         queue->sync();
     }
 }

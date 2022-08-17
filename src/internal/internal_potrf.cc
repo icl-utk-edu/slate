@@ -18,9 +18,12 @@ namespace internal {
 /// @ingroup posv_internal
 ///
 template <Target target, typename scalar_t>
-void potrf(HermitianMatrix< scalar_t >&& A, int priority)
+void potrf(HermitianMatrix< scalar_t >&& A,
+           int priority,
+           lapack::device_info_int* device_info)
 {
-    potrf(internal::TargetType<target>(), A, priority);
+    potrf(internal::TargetType<target>(), A, priority,
+          device_info);
 }
 
 //------------------------------------------------------------------------------
@@ -29,7 +32,9 @@ void potrf(HermitianMatrix< scalar_t >&& A, int priority)
 ///
 template <typename scalar_t>
 void potrf(internal::TargetType<Target::HostTask>,
-           HermitianMatrix<scalar_t>& A, int priority)
+           HermitianMatrix<scalar_t>& A,
+           int priority,
+           lapack::device_info_int* device_info)
 {
     assert(A.mt() == 1);
     assert(A.nt() == 1);
@@ -47,12 +52,12 @@ void potrf(internal::TargetType<Target::HostTask>,
 ///
 template <typename scalar_t>
 void potrf(internal::TargetType<Target::Devices>,
-           HermitianMatrix<scalar_t>& A, int priority)
+           HermitianMatrix<scalar_t>& A,
+           int priority,
+           lapack::device_info_int* device_info)
 {
     assert(A.mt() == 1);
     assert(A.nt() == 1);
-    using lapack::device_info_int;
-    typedef long long lld;
 
     if (A.tileIsLocal(0, 0))
     {
@@ -60,23 +65,10 @@ void potrf(internal::TargetType<Target::Devices>,
         blas::set_device(device);
         A.tileGetForWriting(0, 0, device, LayoutConvert::ColMajor);
         lapack::Queue* queue = A.compute_queue( device, 0 );
-        device_info_int* d_info = blas::device_malloc< device_info_int >( 1 ); // todo Kadir avoid this allocation
         lapack::potrf(
             A(0, 0).uplo(), A(0, 0).mb(), A(0, 0, device).data(),
-            A(0, 0, device).stride(), d_info, *queue );
+            A(0, 0, device).stride(), device_info, *queue );
         queue->sync();
-
-        // Copy result back to CPU.
-        device_info_int info_tst;
-        blas::device_memcpy( &info_tst, d_info, 1, *queue );
-        queue->sync();
-
-        if (info_tst != 0) {
-            fprintf( stderr, "lapack::potrf returned error %lld\n", (lld) info_tst );
-        }
-
-        // Cleanup GPU memory.
-        blas::device_free( d_info );
     }
 }
 
@@ -86,48 +78,56 @@ void potrf(internal::TargetType<Target::Devices>,
 template
 void potrf<Target::HostTask, float>(
     HermitianMatrix<float>&& A,
-    int priority);
+    int priority,
+    lapack::device_info_int* device_info);
 
 // ----------------------------------------
 template
 void potrf<Target::HostTask, double>(
     HermitianMatrix<double>&& A,
-    int priority);
+    int priority,
+    lapack::device_info_int* device_info);
 
 // ----------------------------------------
 template
 void potrf< Target::HostTask, std::complex<float> >(
     HermitianMatrix< std::complex<float> >&& A,
-    int priority);
+    int priority,
+    lapack::device_info_int* device_info);
 
 // ----------------------------------------
 template
 void potrf< Target::HostTask, std::complex<double> >(
     HermitianMatrix< std::complex<double> >&& A,
-    int priority);
+    int priority,
+    lapack::device_info_int* device_info);
 
 template
 void potrf<Target::Devices, float>(
     HermitianMatrix<float>&& A,
-    int priority);
+    int priority,
+    lapack::device_info_int* device_info);
 
 // ----------------------------------------
 template
 void potrf<Target::Devices, double>(
     HermitianMatrix<double>&& A,
-    int priority);
+    int priority,
+    lapack::device_info_int* device_info);
 
 // ----------------------------------------
 template
 void potrf< Target::Devices, std::complex<float> >(
     HermitianMatrix< std::complex<float> >&& A,
-    int priority);
+    int priority,
+    lapack::device_info_int* device_info);
 
 // ----------------------------------------
 template
 void potrf< Target::Devices, std::complex<double> >(
     HermitianMatrix< std::complex<double> >&& A,
-    int priority);
+    int priority,
+    lapack::device_info_int* device_info);
 
 } // namespace internal
 } // namespace slate

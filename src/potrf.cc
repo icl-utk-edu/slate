@@ -185,6 +185,14 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     A.allocateBatchArrays(batch_size_zero, num_queues);
     A.reserveDeviceWorkspace();
 
+    // Allocate
+    using lapack::device_info_int;
+    std::vector< device_info_int* > device_info_array( A.num_devices(), nullptr );
+    for (int64_t dev = 0; dev < A.num_devices(); ++dev) {
+        blas::set_device(dev);
+        device_info_array[dev] = blas::device_malloc<device_info_int>( 1 );
+    }
+
     // set min number for omp nested active parallel regions
     slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
 
@@ -289,6 +297,10 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     }
     if (hold_local_workspace == false) {
         A.releaseWorkspace();
+    }
+    for (int64_t dev = 0; dev < A.num_devices(); ++dev) {
+        blas::set_device(dev);
+        blas::device_free( device_info_array[dev] );
     }
 }
 

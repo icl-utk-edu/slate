@@ -81,8 +81,8 @@ public:
     scalar_t value() { return value_; }
     int rank() { return rank_; }
 
-    void set_tileIndex(int i) {tile_index_=i;}
-    void set_elementOffset(int i) {element_offset_=i;}
+    void set_tileIndex(int i) { tile_index_=i; }
+    void set_elementOffset(int i) { element_offset_=i; }
     void set_localTileIndex(int i) { local_tile_index_=i; }
     void set_localOffset(int i) { local_offset_=i; }
     void set_value(scalar_t v) { value_=v; }

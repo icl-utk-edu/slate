@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -7,6 +7,7 @@
 #define SLATE_BAND_UTILS_HH
 
 #include "slate/BandMatrix.hh"
+#include "slate/HermitianBandMatrix.hh"
 
 //------------------------------------------------------------------------------
 // Returns local index for element i, or the next element after i if this rank
@@ -173,8 +174,8 @@ slate::BandMatrix<scalar_t> BandFromScaLAPACK(
             if (A.tileIsLocal(i, j) && i >= j - kut && i <= j + klt) {
                 // Using Scalapack indxg2l
                 int64_t ii_local = nb*(ii / (nb*p)) + (ii % nb);
-                A.tileInsert(i, j, A.hostNum(),
-                             &Adata[ ii_local + jj_local*lldA ], lldA);
+                A.tileInsert( i, j, slate::HostNum,
+                              &Adata[ ii_local + jj_local*lldA ], lldA );
             }
             ii += ib;
         }
@@ -182,8 +183,6 @@ slate::BandMatrix<scalar_t> BandFromScaLAPACK(
     }
     return A;
 }
-
-#include "slate/HermitianBandMatrix.hh"
 
 //------------------------------------------------------------------------------
 // Given a full ScaLAPACK matrix, sets data outside the hermitian band to zero.
@@ -273,8 +272,8 @@ slate::HermitianBandMatrix<scalar_t> HermitianBandFromScaLAPACK(
                     (A.uplo() == slate::Uplo::Upper && i >= j - kdt && j >= i)) {
                     // Using Scalapack indxg2l
                     int64_t ii_local = nb*(ii / (nb*p)) + (ii % nb);
-                    A.tileInsert(i, j, A.hostNum(),
-                                 &Adata[ ii_local + jj_local*lldA ], lldA);
+                    A.tileInsert( i, j, slate::HostNum,
+                                  &Adata[ ii_local + jj_local*lldA ], lldA );
                 }
             }
             ii += ib;

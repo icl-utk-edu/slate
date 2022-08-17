@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+# Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -48,14 +48,22 @@ cmds = [
     'test_BandMatrix',
     'test_HermitianMatrix',
     'test_LockGuard',
+    'test_OmpSetMaxActiveLevels',
     'test_Matrix',
     'test_Memory',
     'test_SymmetricMatrix',
     'test_TrapezoidMatrix',
+    'test_TriangularBandMatrix',
     'test_TriangularMatrix',
     'test_Tile',
     'test_Tile_kernels',
+    'test_geadd',
+    'test_gecopy',
+    'test_geset',
+    'test_internal_blas',
+    'test_lq',
     'test_norm',
+    #'test_qr',  # todo: failing
 ]
 
 # ------------------------------------------------------------------------------
@@ -64,10 +72,21 @@ cmds = [
 output_redirected = not sys.stdout.isatty()
 
 # ------------------------------------------------------------------------------
+# if output is redirected, prints to both stderr and stdout;
+# otherwise prints to just stdout.
+def print_tee( *args ):
+    global output_redirected
+    print( *args )
+    if (output_redirected):
+        print( *args, file=sys.stderr )
+# end
+
+# ------------------------------------------------------------------------------
+# cmd is a string: tester
 def run_test( cmd ):
     print( '-' * 80 )
     cmd = opts.test +' ./' + cmd
-    print( cmd, file=sys.stderr )
+    print_tee( cmd )
     output = ''
     p = subprocess.Popen( cmd.split(), stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT )
@@ -79,35 +98,42 @@ def run_test( cmd ):
         print( line, end='' )
         output += line
     err = p.wait()
-    if (err < 0):
-        print( 'FAILED: exit with signal', -err )
+    if (err != 0):
+        print_tee( 'FAILED: exit code', err )
+    else:
+        print_tee( 'pass' )
     return (err, output)
 # end
 
 # ------------------------------------------------------------------------------
+# run each test
 failed_tests = []
 passed_tests = []
 ntests = len(opts.tests)
 run_all = (ntests == 0)
 
+seen = set()
 for cmd in cmds:
     if (run_all or cmd in opts.tests):
-        if (not run_all):
-            opts.tests.remove( cmd )
+        seen.add( cmd )
         (err, output) = run_test( cmd )
         if (err):
             failed_tests.append( (cmd, err, output) )
         else:
             passed_tests.append( cmd )
-if (opts.tests):
-    print( 'Warning: unknown tests:', ' '.join( opts.tests ))
+print( '-' * 80 )
+
+not_seen = list( filter( lambda x: x not in seen, opts.tests ) )
+if (not_seen):
+    print_tee( 'Warning: unknown unit tests:', ' '.join( not_seen ))
 
 # print summary of failures
 nfailed = len( failed_tests )
 if (nfailed > 0):
-    print( '\n' + str(nfailed) + ' tests FAILED:',
-           ', '.join( [x[0] for x in failed_tests] ),
-           file=sys.stderr )
+    print_tee( str(nfailed) + ' unit tests FAILED:',
+               ', '.join( [x[0] for x in failed_tests] ) )
+else:
+    print_tee( 'All unit tests passed' )
 
 # generate jUnit compatible test report
 if opts.xml:

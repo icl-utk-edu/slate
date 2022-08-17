@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -174,6 +174,8 @@ void printf_gather(int root, MPI_Comm comm, const std::string& str);
 void printf_gather(int root, MPI_Comm comm, const char* format, ...);
 
 /// To be implemented by user; called by unit_test_main().
+namespace test {
 void run_tests();
+}
 
 #endif // SLATE_UNIT_TEST_HH

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -23,7 +23,7 @@ void tzadd(
     std::complex<float> beta, std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     tzadd(uplo, m, n,
           make_cuFloatComplex(alpha.real(), alpha.imag()),
           (cuFloatComplex**) Aarray, lda,
@@ -31,7 +31,7 @@ void tzadd(
           (cuFloatComplex**) Barray, ldb,
           batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     tzadd(uplo, m, n,
           make_hipFloatComplex(alpha.real(), alpha.imag()),
           (hipFloatComplex**) Aarray, lda,
@@ -49,7 +49,7 @@ void tzadd(
     std::complex<double> beta, std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     tzadd(uplo, m, n,
           make_cuDoubleComplex(alpha.real(), alpha.imag()),
           (cuDoubleComplex**) Aarray, lda,
@@ -57,7 +57,7 @@ void tzadd(
           (cuDoubleComplex**) Barray, ldb,
           batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     tzadd(uplo, m, n,
           make_hipDoubleComplex(alpha.real(), alpha.imag()),
           (hipDoubleComplex**) Aarray, lda,
@@ -67,7 +67,7 @@ void tzadd(
 #endif
 }
 
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
 void tzadd(
@@ -88,18 +88,16 @@ void tzadd(
     int64_t batch_count, blas::Queue &queue)
 {
 }
-#endif // not SLATE_WITH_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// General matrix add.
+/// Trapezoidal matrix add.
 /// Dispatches to target implementations.
 /// @ingroup add_internal
-///
-/// todo: this function should just be named "add".
 template <Target target, typename scalar_t>
 void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>&& A,
          scalar_t beta, BaseTrapezoidMatrix<scalar_t>&& B,
@@ -112,13 +110,11 @@ void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>&& A,
 }
 
 //------------------------------------------------------------------------------
-/// General matrix add.
+/// Trapezoidal matrix add.
 /// assumes A & B have same tile layout and dimensions, and have same distribution
 /// TODO handle transpose A case
 /// Host OpenMP task implementation.
 /// @ingroup add_internal
-///
-/// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::HostTask>,
            scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
@@ -133,44 +129,49 @@ void add(internal::TargetType<Target::HostTask>,
     assert(A_nt == B.nt());
     slate_error_if(A.uplo() != B.uplo());
 
+    #pragma omp taskgroup
     if (B.uplo() == Uplo::Lower) {
         for (int64_t j = 0; j < A_nt; ++j) {
             for (int64_t i = j; i < A_mt; ++i) {
                 if (B.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A, B) priority(priority)
+                    #pragma omp task slate_omp_default_none \
+                        shared( A, B ) \
+                        firstprivate(i, j, alpha, beta) priority(priority)
                     {
                         A.tileGetForReading(i, j, LayoutConvert::None);
                         B.tileGetForWriting(i, j, LayoutConvert::None);
-                        axpby(alpha, A(i, j),
-                              beta,  B(i, j));
-                        A.tileTick(i, j);// TODO is this correct here?
-                    }
-                }
-            }
-        }
-     }
-    else { //upper
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            for (int64_t i = 0; i <= j && i < A.mt(); ++i) {
-                if (A.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A, B) priority(priority)
-                    {
-                        A.tileGetForReading(i, j, LayoutConvert::None);
-                        B.tileGetForWriting(i, j, LayoutConvert::None);
-                        axpby(alpha, A(i, j),
-                        beta,  B(i, j));
-                        A.tileTick(i, j);// TODO is this correct here?
+                        tile::add(
+                            alpha, A(i, j),
+                            beta,  B(i, j) );
+                        A.tileTick(i, j);
                     }
                 }
             }
         }
     }
-
-    #pragma omp taskwait
+    else { // upper
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            for (int64_t i = 0; i <= j && i < A.mt(); ++i) {
+                if (A.tileIsLocal(i, j)) {
+                    #pragma omp task slate_omp_default_none \
+                        shared( A, B ) \
+                        firstprivate(i, j, alpha, beta) priority(priority)
+                    {
+                        A.tileGetForReading(i, j, LayoutConvert::None);
+                        B.tileGetForWriting(i, j, LayoutConvert::None);
+                        tile::add(
+                            alpha, A(i, j),
+                            beta,  B(i, j) );
+                        A.tileTick(i, j);
+                    }
+                }
+            }
+        }
+    }
+    // end omp taskgroup
 }
 
 //------------------------------------------------------------------------------
-/// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::HostNest>,
            scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
@@ -181,7 +182,6 @@ void add(internal::TargetType<Target::HostNest>,
 }
 
 //------------------------------------------------------------------------------
-/// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::HostBatch>,
            scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
@@ -192,13 +192,11 @@ void add(internal::TargetType<Target::HostBatch>,
 }
 
 //------------------------------------------------------------------------------
-/// General matrix add.
+/// Trapezoidal matrix add.
 /// assumes A & B have same tile layout and dimensions, and have same distribution
 /// TODO handle transpose A case
 /// GPU device implementation.
 /// @ingroup add_internal
-///
-/// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::Devices>,
            scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
@@ -221,8 +219,10 @@ void add(internal::TargetType<Target::Devices>,
         { B.nt()-1, B.nt()   }
     };
 
+    #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task shared(A, B) priority(priority)
+        #pragma omp task shared(A, B) priority(priority) \
+            firstprivate(device, irange, jrange, queue_index, alpha, beta)
         {
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already
@@ -233,7 +233,7 @@ void add(internal::TargetType<Target::Devices>,
 
             if (B.uplo() == Uplo::Lower) {
                 for (int64_t j = 0; j < B.nt(); ++j) {
-                    for (int64_t i = j; j < B.mt(); ++i) {
+                    for (int64_t i = j; i < B.mt(); ++i) {
                         if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                             A_tiles_set.insert({i, j});
                             B_tiles_set.insert({i, j});
@@ -243,7 +243,7 @@ void add(internal::TargetType<Target::Devices>,
             }
             else { // upper
                 for (int64_t j = 0; j < B.nt(); ++j) {
-                    for (int64_t i = 0; i <= j && i < B.mt(); ++i){
+                    for (int64_t i = 0; i <= j && i < B.mt(); ++i) {
                         if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                             A_tiles_set.insert({i, j});
                             B_tiles_set.insert({i, j});
@@ -252,15 +252,19 @@ void add(internal::TargetType<Target::Devices>,
                 }
             }
 
-            #pragma omp task default(shared)
+            #pragma omp taskgroup
             {
-                A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                #pragma omp task slate_omp_default_none \
+                    shared( A, A_tiles_set ) firstprivate( device, layout )
+                {
+                    A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                }
+                #pragma omp task slate_omp_default_none \
+                    shared( B, B_tiles_set ) firstprivate( device, layout )
+                {
+                    B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
+                }
             }
-            #pragma omp task default(shared)
-            {
-                B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
-            }
-            #pragma omp taskwait
 
             int64_t batch_size = A_tiles_set.size();
             scalar_t** a_array_host = B.array_host(device);
@@ -284,24 +288,24 @@ void add(internal::TargetType<Target::Devices>,
                                 ldb[q] = B(i, j, device).stride();
                                 ++group_count[q];
                                 ++batch_count;
-                           }
-                       }
+                            }
+                        }
                     }
                 }
                 else { // upper
-                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                         for (int64_t i = irange[q][0]; i < irange[q][1] && i <= j; ++i) {
-                             if (i != j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
-                                 a_array_host[batch_count] = A(i, j, device).data();
-                                 b_array_host[batch_count] = B(i, j, device).data();
-                                 lda[q] = A(i, j, device).stride();
-                                 ldb[q] = B(i, j, device).stride();
-                                 ++group_count[q];
-                                 ++batch_count;
-                             }
-                         }
-                     }
-               }
+                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
+                        for (int64_t i = irange[q][0]; i < irange[q][1] && i <= j; ++i) {
+                            if (i != j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
+                                a_array_host[batch_count] = A(i, j, device).data();
+                                b_array_host[batch_count] = B(i, j, device).data();
+                                lda[q] = A(i, j, device).stride();
+                                ldb[q] = B(i, j, device).stride();
+                                ++group_count[q];
+                                ++batch_count;
+                            }
+                        }
+                    }
+                }
             }
             for (int q = 4; q < 8; ++q) {
                 group_count[q] = 0;
@@ -315,6 +319,8 @@ void add(internal::TargetType<Target::Devices>,
                             if (i == j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                                a_array_host[batch_count] = A(i, j, device).data();
                                b_array_host[batch_count] = B(i, j, device).data();
+                               lda[q] = A(i, j, device).stride();
+                               ldb[q] = B(i, j, device).stride();
                                ++group_count[q];
                                ++batch_count;
                             }
@@ -324,9 +330,11 @@ void add(internal::TargetType<Target::Devices>,
                 else { //upper
                     for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
                         for (int64_t i = irange[q-4][0]; i < irange[q-4][1] && i <= j; ++i) {
-                            if (i ==j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
+                            if (i == j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                                a_array_host[batch_count] = A(i, j, device).data();
                                b_array_host[batch_count] = B(i, j, device).data();
+                               lda[q] = A(i, j, device).stride();
+                               ldb[q] = B(i, j, device).stride();
                                ++group_count[q];
                                ++batch_count;
                             }
@@ -357,7 +365,7 @@ void add(internal::TargetType<Target::Devices>,
                     b_array_dev += group_count[q];
                 }
             }
-            for (int q=4; q < 8; ++q){
+            for (int q = 4; q < 8; ++q) {
                 if (group_count[q] > 0) {
                     device::tzadd(B.uplo(), mb[q], nb[q],
                                   alpha, a_array_dev, lda[q],
@@ -382,13 +390,11 @@ void add(internal::TargetType<Target::Devices>,
             }
         }
     }
-
-    #pragma omp taskwait
+    // end omp taskgroup
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
-/// todo: these functions should just be named "add".
 // ----------------------------------------
 template
 void add<Target::HostTask, float>(

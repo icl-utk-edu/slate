@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -17,12 +17,12 @@ public:
     void mark();
 
     int64_t verbose;
-    int64_t iseed[4];
 
     // ---- test matrix generation parameters
     testsweeper::ParamString kind;
     testsweeper::ParamScientific cond, cond_used;
     testsweeper::ParamScientific condD;
+    testsweeper::ParamInt seed;
 };
 
 #endif // SLATE_MATRIX_PARAMS_HH

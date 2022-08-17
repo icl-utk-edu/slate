@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -69,9 +69,6 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
     if (! initialized)
         MPI_Init_thread(nullptr, nullptr, MPI_THREAD_SERIALIZED, &provided);
 
-    // todo: does this set the omp num threads correctly in all circumstances
-    int saved_num_blas_threads = slate_lapack_set_num_blas_threads(1);
-
     int64_t p = 1;
     int64_t q = 1;
     int64_t lookahead = 1;
@@ -101,16 +98,12 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
     else if (trans == slate::Op::ConjTrans)
         opA = conjTranspose(A);
 
-    slate::TriangularFactors<scalar_t> T;
-
-    slate::gels(opA, T, B, {
+    slate::gels(opA, B, {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, inner_blocking}
     });
-
-    slate_lapack_set_num_blas_threads(saved_num_blas_threads);
 
     if (verbose) std::cout << "slate_lapack_api: " << slate_lapack_scalar_t_to_char(a) << "gels(" << transstr[0] << "," <<  m << "," <<  n << "," << nrhs << "," <<  (void*)a << "," <<  lda << "," << (void*)b << "," << ldb << "," << (void*)work << "," << lwork << "," << *info << ") " << (omp_get_wtime()-timestart) << " sec " << "nb:" << nb << " max_threads:" << omp_get_max_threads() << "\n";
 

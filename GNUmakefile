@@ -1,67 +1,48 @@
-# Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+# Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 #
 # See INSTALL.md for documentation.
+#
+# Set only_unit=1 to avoid compiling most of the SLATE library,
+# which isn't needed by most unit testers (except test_lq, test_qr).
+# Useful to avoid expensive recompilation when debugging headers.
+#
+# Sort lists alphabetically and end with \ to avoid merge conflicts.
+# The "# End." comment avoids the next line being appended accidentally.
 
 -include make.inc
 
 #-------------------------------------------------------------------------------
-# Error for obsolete settings.
-ifneq ($(openmpi),)
-    $(error ERROR: Variable `openmpi=$(openmpi)` is obsolete; use `mkl_blacs=openmpi`)
+# Error for obsolete settings. Remove 2023-06.
+ifneq ($(spectrum),)
+    $(error ERROR: Variable `spectrum=$(spectrum)` is obsolete; use `mpi = spectrum`)
 endif
-ifneq ($(intelmpi),)
-    $(error ERROR: Variable `intelmpi=$(intelmpi)` is obsolete; use `mkl_blacs=intelmpi`)
-endif
-
-# Warn about deprecated settings.
-spectrum := $(strip $(spectrum))
-ifeq ($(spectrum),1)
-    $(warning WARNING: Variable `spectrum=$(spectrum)` is deprecated; setting `mpi ?= spectrum`)
-    mpi ?= spectrum
-endif
-
 ifneq ($(mkl),)
-    $(warning WARNING: Variable `mkl=$(mkl)` is deprecated; setting `blas ?= mkl`)
-    blas ?= mkl
+    $(error ERROR: Variable `mkl=$(mkl)` is obsolete; use `blas = mkl`)
 endif
 ifneq ($(essl),)
-    $(warning WARNING: Variable `essl=$(essl)` is deprecated; setting `blas ?= essl`)
-    blas ?= essl
+    $(error ERROR: Variable `essl=$(essl)` is obsolete; use `blas = essl`)
 endif
 ifneq ($(openblas),)
-    $(warning WARNING: Variable `openblas=$(openblas)` is deprecated; setting `blas ?= openblas`)
-    blas ?= openblas
+    $(error ERROR: Variable `openblas=$(openblas)` is obsolete; use `blas = openblas`)
 endif
 ifneq ($(mkl_threaded),)
-    $(warning WARNING: Variable `mkl_threaded=$(mkl_threaded)` is deprecated; setting `blas_threaded ?= $(mkl_threaded)`)
-    blas_threaded ?= $(mkl_threaded)
+    $(error ERROR: Variable `mkl_threaded=$(mkl_threaded)` is obsolete; use `blas_threaded = $(mkl_threaded)`)
 endif
-
-mkl_intel := $(strip $(mkl_intel))
 ifeq ($(mkl_intel),1)
-    $(warning WARNING: Variable `mkl_intel=$(mkl_intel)` is deprecated; setting `blas_fortran ?= ifort`)
-    blas_fortran ?= ifort
+    $(error ERROR: Variable `mkl_intel=$(mkl_intel)` is obsolete; use `blas_fortran = ifort`)
 endif
-
-ilp64 := $(strip $(ilp64))
 ifeq ($(ilp64),1)
-    $(warning WARNING: Variable `ilp64=$(ilp64)` is deprecated; setting `blas_int ?= int64`)
+    $(error ERROR: Variable `ilp64=$(ilp64)` is obsolete; use `blas_int = int64`)
     blas_int ?= int64
 endif
-
-cuda := $(strip $(cuda))
 ifeq ($(cuda),1)
-    $(warning WARNING: Variable `cuda=$(cuda)` is deprecated; setting `gpu_backend ?= cuda`)
-    gpu_backend ?= cuda
+    $(error ERROR: Variable `cuda=$(cuda)` is obsolete; use `gpu_backend = cuda`)
 endif
-
-hip := $(strip $(hip))
 ifeq ($(hip),1)
-    $(warning WARNING: Variable `hip=$(hip)` is deprecated; setting `gpu_backend ?= hip`)
-    gpu_backend ?= hip
+    $(error ERROR: Variable `hip=$(hip)` is obsolete; use `gpu_backend = hip`)
 endif
 
 #-------------------------------------------------------------------------------
@@ -83,11 +64,10 @@ fortran_api     ?= 0
 
 NVCC            ?= nvcc
 HIPCC           ?= hipcc
-HIPIFY          ?= hipify-perl
+hipify          ?= hipify-perl
+md5sum          ?= tools/md5sum.pl
 
 gpu_backend     ?= auto
-cuda_arch       ?= pascal
-hip_arch        ?= gfx900 gfx906 gfx908
 
 # Strip whitespace from variables, in case make.inc had trailing spaces.
 mpi             := $(strip $(mpi))
@@ -109,7 +89,7 @@ fortran_api     := $(strip $(fortran_api))
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX blas blas_int blas_threaded openmp static gpu_backend
 
-CXXFLAGS   += -O3 -std=c++17 -Wall -pedantic -MMD
+CXXFLAGS   += -O3 -std=c++17 -Wall -Wshadow -pedantic -MMD
 NVCCFLAGS  += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
 HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
 
@@ -221,7 +201,6 @@ scalapack = -lscalapack
 
 ifeq ($(blas),mkl)
     # Intel MKL
-    FLAGS += -DSLATE_WITH_MKL
     # Auto-detect whether to use Intel or GNU conventions.
     # Won't detect if CXX = mpicxx.
     ifeq ($(CXX),icpc)
@@ -282,17 +261,14 @@ ifeq ($(blas),mkl)
     endif
 else ifeq ($(blas),essl)
     # IBM ESSL
-    FLAGS += -DSLATE_WITH_ESSL
     # todo threaded, int64
     # hmm... likely LAPACK won't be int64 even if ESSL is.
     LIBS += -lessl -llapack
 else ifeq ($(blas),openblas)
     # OpenBLAS
-    FLAGS += -DSLATE_WITH_OPENBLAS
     LIBS += -lopenblas
 else ifeq ($(blas),libsci)
     # Cray LibSci
-    FLAGS += -DSLATE_WITH_LIBSCI
     # no LIBS to add
     scalapack =
 else
@@ -323,20 +299,23 @@ ifeq ($(cuda),1)
     ifneq ($(findstring ampere, $(cuda_arch_)),)
         cuda_arch_ += sm_80
     endif
+    ifneq ($(findstring hopper, $(cuda_arch_)),)
+        cuda_arch_ += sm_90
+    endif
 
-    # CUDA architectures that nvcc supports
-    sms = 30 32 35 37 50 52 53 60 61 62 70 72 75 80
+    # Extract CUDA sm architectures.
+    sms = $(sort $(patsubst sm_%, %, $(filter sm_%, $(cuda_arch_))))
 
+    # Generate nvcc gencode options for all sm_XY in cuda_arch_.
     # code=sm_XX is binary, code=compute_XX is PTX
-    gencode_sm      = -gencode arch=compute_$(sm),code=sm_$(sm)
-    gencode_compute = -gencode arch=compute_$(sm),code=compute_$(sm)
+    nv_sm      = $(foreach sm, $(sms),-gencode arch=compute_$(sm),code=sm_$(sm))
+    nv_compute = $(foreach sm, $(sms),-gencode arch=compute_$(sm),code=compute_$(sm))
 
-    # Get gencode options for all sm_XX in cuda_arch_.
-    nv_sm      = $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_sm)))
-    nv_compute = $(foreach sm, $(sms),$(if $(findstring sm_$(sm), $(cuda_arch_)),$(gencode_compute)))
-
-    ifeq ($(nv_sm),)
-        $(error ERROR: unknown `cuda_arch=$(cuda_arch)`. Set cuda_arch to one of kepler, maxwell, pascal, volta, turing, ampere, or valid sm_XX from nvcc -h)
+    ifeq ($(sms),)
+        # Error if cuda_arch is not empty and sms is empty.
+        ifneq ($(cuda_arch),)
+            $(error ERROR: unknown `cuda_arch=$(cuda_arch)`. Set cuda_arch to one or more of kepler, maxwell, pascal, volta, turing, ampere, hopper, or valid sm_XY from nvcc -h)
+        endif
     else
         # Get last option (last 2 words) of nv_compute.
         nwords := $(words $(nv_compute))
@@ -346,25 +325,46 @@ ifeq ($(cuda),1)
 
     # Use all sm_XX (binary), and the last compute_XX (PTX) for forward compatibility.
     NVCCFLAGS += $(nv_sm) $(nv_compute_last)
-    LIBS += -lcublas -lcudart
-else
-    FLAGS += -DSLATE_NO_CUDA
+    LIBS += -lcusolver -lcublas -lcudart
 endif
 
 #-------------------------------------------------------------------------------
 # if HIP
 ifeq ($(hip),1)
-    gfx = $(sort $(filter gfx%, $(hip_arch)))
+    # Generate flags for which HIP architectures to build.
+    # hip_arch_ is a local copy to modify.
+    hip_arch_ = $(hip_arch)
+    ifneq ($(findstring mi25, $(hip_arch_)),)
+        hip_arch_ += gfx900
+    endif
+    ifneq ($(findstring mi50, $(hip_arch_)),)
+        hip_arch_ += gfx906
+    endif
+    ifneq ($(findstring mi100, $(hip_arch_)),)
+        hip_arch_ += gfx908
+    endif
+    ifneq ($(findstring mi200, $(hip_arch_)),)
+        hip_arch_ += gfx90a
+    endif
+
+    # Extract AMD gfx architectures.
+    gfx = $(sort $(filter gfx%, $(hip_arch_)))
+    ifeq ($(gfx),)
+        # Error if hip_arch is not empty and gfx is empty.
+        ifneq ($(hip_arch),)
+            $(error ERROR: unknown `hip_arch=$(hip_arch)`. Set hip_arch to one or more of mi25, mi50, mi100, or valid gfxXYZ. See https://llvm.org/docs/AMDGPUUsage.html)
+        endif
+    endif
+
+    # Generate hipcc target options for all gfx in hip_arch_.
     amdgpu_targets = $(foreach arch, $(gfx),--amdgpu-target=$(arch))
     HIPCCFLAGS += $(amdgpu_targets)
     FLAGS += -D__HIP_PLATFORM_HCC__
-    LIBS += -L$(ROCM_DIR)/lib -lrocblas -lamdhip64
+    LIBS += -L$(ROCM_DIR)/lib -lrocsolver -lrocblas -lamdhip64
 
     # ROCm 4.0 has errors in its headers that produce excessive warnings.
     CXXFLAGS := $(filter-out -pedantic, $(CXXFLAGS))
     CXXFLAGS += -Wno-unused-result
-else
-    FLAGS += -DSLATE_NO_HIP
 endif
 
 #-------------------------------------------------------------------------------
@@ -383,33 +383,42 @@ libslate_src += \
         src/auxiliary/Debug.cc \
         src/auxiliary/Trace.cc \
         src/core/Memory.cc \
+        src/core/types.cc \
         src/version.cc \
-
-# work
-libslate_src += \
-        src/work/work_trsm.cc \
-        src/work/work_trmm.cc \
+        # End. Add alphabetically.
 
 # internal
 libslate_src += \
         src/internal/internal_comm.cc \
+        src/internal/internal_transpose.cc \
+        src/internal/internal_util.cc \
+        # End. Add alphabetically.
+
+# Most unit testers don't need the whole library, only the above subset.
+ifneq ($(only_unit),1)
+    libslate_src += \
+        src/device/dev_gescale_row_col.cc \
         src/internal/internal_copyhb2st.cc \
         src/internal/internal_copytb2bd.cc \
-        src/internal/internal_gecopy.cc \
         src/internal/internal_gbnorm.cc \
         src/internal/internal_geadd.cc \
+        src/internal/internal_gebr.cc \
+        src/internal/internal_gecopy.cc \
         src/internal/internal_gemm.cc \
         src/internal/internal_gemmA.cc \
         src/internal/internal_genorm.cc \
-        src/internal/internal_gebr.cc \
         src/internal/internal_geqrf.cc \
+        src/internal/internal_gescale.cc \
+        src/internal/internal_gescale_row_col.cc \
         src/internal/internal_geset.cc \
         src/internal/internal_getrf.cc \
         src/internal/internal_getrf_nopiv.cc \
         src/internal/internal_getrf_tntpiv.cc \
-        src/internal/internal_hebr.cc \
-        src/internal/internal_hemm.cc \
         src/internal/internal_hbnorm.cc \
+        src/internal/internal_hebr.cc \
+        src/internal/internal_hegst.cc \
+        src/internal/internal_hemm.cc \
+        src/internal/internal_hemmA.cc \
         src/internal/internal_henorm.cc \
         src/internal/internal_her2k.cc \
         src/internal/internal_herk.cc \
@@ -420,70 +429,64 @@ libslate_src += \
         src/internal/internal_synorm.cc \
         src/internal/internal_syr2k.cc \
         src/internal/internal_syrk.cc \
-        src/internal/internal_transpose.cc \
         src/internal/internal_trmm.cc \
         src/internal/internal_trnorm.cc \
         src/internal/internal_trsm.cc \
+        src/internal/internal_trsmA.cc \
         src/internal/internal_trtri.cc \
         src/internal/internal_trtrm.cc \
-        src/internal/internal_ttmqr.cc \
-        src/internal/internal_ttmlq.cc \
-        src/internal/internal_ttqrt.cc \
         src/internal/internal_ttlqt.cc \
-        src/internal/internal_tzcopy.cc \
-        src/internal/internal_tzset.cc \
-        src/internal/internal_unmqr.cc \
-        src/internal/internal_unmlq.cc \
-        src/internal/internal_util.cc \
-        src/internal/internal_hegst.cc \
-        src/internal/internal_gescale.cc \
-        src/internal/internal_tzscale.cc \
+        src/internal/internal_ttmlq.cc \
+        src/internal/internal_ttmqr.cc \
+        src/internal/internal_ttqrt.cc \
         src/internal/internal_tzadd.cc \
-
+        src/internal/internal_tzcopy.cc \
+        src/internal/internal_tzscale.cc \
+        src/internal/internal_tzset.cc \
+        src/internal/internal_unmlq.cc \
+        src/internal/internal_unmqr.cc \
+        src/internal/internal_unmtr_hb2st.cc \
+        # End. Add alphabetically.
+endif
 
 # device
-ifeq ($(cuda),1)
-    libslate_src += \
-            src/cuda/device_geadd.cu \
-            src/cuda/device_gecopy.cu \
-            src/cuda/device_genorm.cu \
-            src/cuda/device_geset.cu \
-            src/cuda/device_henorm.cu \
-            src/cuda/device_synorm.cu \
-            src/cuda/device_transpose.cu \
-            src/cuda/device_trnorm.cu \
-            src/cuda/device_tzcopy.cu \
-            src/cuda/device_gescale.cu \
-            src/cuda/device_tzscale.cu \
-            src/cuda/device_tzadd.cu \
+cuda_src := \
+        src/cuda/device_geadd.cu \
+        src/cuda/device_gecopy.cu \
+        src/cuda/device_genorm.cu \
+        src/cuda/device_gescale.cu \
+        src/cuda/device_gescale_row_col.cu \
+        src/cuda/device_geset.cu \
+        src/cuda/device_henorm.cu \
+        src/cuda/device_synorm.cu \
+        src/cuda/device_transpose.cu \
+        src/cuda/device_trnorm.cu \
+        src/cuda/device_tzadd.cu \
+        src/cuda/device_tzcopy.cu \
+        src/cuda/device_tzscale.cu \
+        src/cuda/device_tzset.cu \
+        # End. Add alphabetically.
 
+cuda_hdr := \
+        src/cuda/device_util.cuh
+
+hip_src := $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(cuda_src))
+hip_hdr := $(patsubst src/cuda/%.cuh,src/hip/%.hip.hh,$(cuda_hdr))
+
+ifeq ($(cuda),1)
+    libslate_src += $(cuda_src)
 endif
 
 ifeq ($(hip),1)
-    libslate_src += \
-            src/hip/device_geadd.hip.cc \
-            src/hip/device_gecopy.hip.cc \
-            src/hip/device_genorm.hip.cc \
-            src/hip/device_geset.hip.cc \
-            src/hip/device_henorm.hip.cc \
-            src/hip/device_synorm.hip.cc \
-            src/hip/device_transpose.hip.cc \
-            src/hip/device_trnorm.hip.cc \
-            src/hip/device_tzcopy.hip.cc \
-            src/hip/device_gescale.hip.cc \
-            src/hip/device_tzscale.hip.cc \
-            src/hip/device_tzadd.hip.cc \
-
-    hip_src = \
-        $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(wildcard src/cuda/*.cu))
-
-    hip_header = \
-        $(patsubst src/cuda/%.cuh,src/hip/%.hip.hh,$(wildcard src/cuda/*.cuh))
+    libslate_src += ${hip_src}
 endif
 
 # driver
-libslate_src += \
+ifneq ($(only_unit),1)
+    libslate_src += \
+        src/add.cc \
         src/bdsqr.cc \
+        src/cholqr.cc \
         src/colNorms.cc \
         src/copy.cc \
         src/gbmm.cc \
@@ -491,15 +494,18 @@ libslate_src += \
         src/gbtrf.cc \
         src/gbtrs.cc \
         src/ge2tb.cc \
+        src/gelqf.cc \
         src/gels.cc \
+        src/gels_cholqr.cc \
+        src/gels_qr.cc \
         src/gemm.cc \
         src/gemmA.cc \
+        src/gemmC.cc \
         src/geqrf.cc \
-        src/gelqf.cc \
         src/gesv.cc \
+        src/gesvMixed.cc \
         src/gesv_nopiv.cc \
         src/gesvd.cc \
-        src/gesvMixed.cc \
         src/getrf.cc \
         src/getrf_tntpiv.cc \
         src/getrf_nopiv.cc \
@@ -508,17 +514,19 @@ libslate_src += \
         src/getrs.cc \
         src/getrs_nopiv.cc \
         src/hb2st.cc \
-        src/he2hb.cc \
-        src/unmtr_he2hb.cc \
-        src/heev.cc \
-        src/hemm.cc \
         src/hbmm.cc \
+        src/he2hb.cc \
+        src/heev.cc \
+        src/hegst.cc \
+        src/hegv.cc \
+        src/hemm.cc \
+        src/hemmA.cc \
+        src/hemmC.cc \
         src/her2k.cc \
         src/herk.cc \
         src/hesv.cc \
         src/hetrf.cc \
         src/hetrs.cc \
-        src/hegv.cc \
         src/norm.cc \
         src/pbsv.cc \
         src/pbtrf.cc \
@@ -528,9 +536,12 @@ libslate_src += \
         src/potrf.cc \
         src/potri.cc \
         src/potrs.cc \
+        src/print.cc \
+        src/scale.cc \
+        src/scale_row_col.cc \
         src/set.cc \
-        src/sterf.cc \
         src/steqr2.cc \
+        src/sterf.cc \
         src/symm.cc \
         src/syr2k.cc \
         src/syrk.cc \
@@ -539,13 +550,19 @@ libslate_src += \
         src/tbsmPivots.cc \
         src/trmm.cc \
         src/trsm.cc \
+        src/trsmA.cc \
+        src/trsmB.cc \
         src/trtri.cc \
         src/trtrm.cc \
-        src/unmqr.cc \
         src/unmlq.cc \
-        src/hegst.cc \
-        src/scale.cc \
-        src/add.cc \
+        src/unmqr.cc \
+        src/unmtr_hb2st.cc \
+        src/unmtr_he2hb.cc \
+        src/work/work_trmm.cc \
+        src/work/work_trsm.cc \
+        src/work/work_trsmA.cc \
+        # End. Add alphabetically.
+endif
 
 ifneq ($(have_fortran),)
     libslate_src += \
@@ -553,79 +570,82 @@ ifneq ($(have_fortran),)
         src/dsteqr2.f \
         src/csteqr2.f \
         src/zsteqr2.f \
-
+        # End. Add alphabetically, by base name after precision.
 else
-    $(error ERROR: set FC, currently '$(FC)', to a Fortran compiler (gfortran, ifort, xlf, ftn, ...). We hope to eventually remove this requirement.)
+    $(error ERROR: Fortran compiler FC='$(FC)' not found. Set FC to a Fortran compiler (mpif90, gfortran, ifort, xlf, ftn, ...). We hope to eventually remove this requirement.)
 endif
 
 # C API
 ifeq ($(c_api),1)
     libslate_src += \
-        src/c_api/util.cc \
         src/c_api/matrix.cc \
+        src/c_api/util.cc \
         src/c_api/wrappers.cc \
         src/c_api/wrappers_precisions.cc \
-
+        # End. Add alphabetically.
 endif
 
 # Fortran module
 ifeq ($(fortran_api),1)
     libslate_src += \
         src/fortran/slate_module.f90 \
-
+        # End. Add alphabetically.
 endif
 
 # main tester
 tester_src += \
+        test/matrix_generator.cc \
+        test/matrix_params.cc \
         test/test.cc \
+        test/test_add.cc \
         test/test_bdsqr.cc \
+        test/test_copy.cc \
         test/test_gbmm.cc \
         test/test_gbnorm.cc \
         test/test_gbsv.cc \
         test/test_ge2tb.cc \
+        test/test_gelqf.cc \
         test/test_gels.cc \
         test/test_gemm.cc \
         test/test_genorm.cc \
         test/test_geqrf.cc \
-        test/test_gelqf.cc \
         test/test_gesv.cc \
         test/test_gesvd.cc \
         test/test_getri.cc \
-        test/test_he2hb.cc \
-        test/test_unmtr_he2hb.cc \
-        test/test_heev.cc \
-        test/test_hegv.cc \
-        test/test_hemm.cc \
         test/test_hb2st.cc \
         test/test_hbmm.cc \
         test/test_hbnorm.cc \
+        test/test_he2hb.cc \
+        test/test_heev.cc \
+        test/test_hegst.cc \
+        test/test_hegv.cc \
+        test/test_hemm.cc \
         test/test_henorm.cc \
         test/test_her2k.cc \
         test/test_herk.cc \
         test/test_hesv.cc \
-        test/test_posv.cc \
         test/test_pbsv.cc \
+        test/test_posv.cc \
         test/test_potri.cc \
+        test/test_scale.cc \
+        test/test_scale_row_col.cc \
+        test/test_set.cc \
+        test/test_steqr2.cc \
+        test/test_sterf.cc \
         test/test_symm.cc \
         test/test_synorm.cc \
         test/test_syr2k.cc \
         test/test_syrk.cc \
-        test/test_sterf.cc \
-        test/test_steqr2.cc \
         test/test_tb2bd.cc \
         test/test_tbsm.cc \
         test/test_trmm.cc \
         test/test_trnorm.cc \
         test/test_trsm.cc \
         test/test_trtri.cc \
-        test/test_hegst.cc \
-        test/matrix_generator.cc \
-        test/matrix_params.cc \
-        test/test_add.cc \
-        test/test_copy.cc \
-        test/test_scale.cc \
-        test/test_set.cc \
-
+        test/test_unmqr.cc \
+        test/test_unmtr_hb2st.cc \
+        test/test_unmtr_he2hb.cc \
+        # End. Add alphabetically.
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
 ifneq ($(have_fortran),)
@@ -642,7 +662,7 @@ ifneq ($(have_fortran),)
         test/pdlantr.f \
         test/pclantr.f \
         test/pzlantr.f \
-
+        # End. Add alphabetically, by base name after precision.
 endif
 
 # unit testers
@@ -652,17 +672,26 @@ unit_src = \
     unit_test/test_LockGuard.cc \
     unit_test/test_Matrix.cc \
     unit_test/test_Memory.cc \
+    unit_test/test_OmpSetMaxActiveLevels.cc \
     unit_test/test_SymmetricMatrix.cc \
     unit_test/test_Tile.cc \
     unit_test/test_Tile_kernels.cc \
     unit_test/test_TrapezoidMatrix.cc \
+    unit_test/test_TriangularBandMatrix.cc \
     unit_test/test_TriangularMatrix.cc \
-    unit_test/test_lq.cc \
-    unit_test/test_norm.cc \
-    unit_test/test_qr.cc \
     unit_test/test_geadd.cc \
     unit_test/test_gecopy.cc \
     unit_test/test_geset.cc \
+    unit_test/test_internal_blas.cc \
+    unit_test/test_norm.cc \
+    # End. Add alphabetically.
+
+ifneq ($(only_unit),1)
+unit_src += \
+    unit_test/test_lq.cc \
+    unit_test/test_qr.cc \
+    # End. Add alphabetically.
+endif
 
 # unit test framework
 unit_test_obj = \
@@ -676,6 +705,10 @@ dep          = $(addsuffix .d, $(basename $(libslate_src) $(tester_src) \
 
 tester    = test/tester
 unit_test = $(basename $(unit_src))
+
+# For `tester --debug`, lldb may need test.o compiled with -O0 (after -O3)
+# to see variable `i`.
+test/test.o: CXXFLAGS += -O0
 
 #-------------------------------------------------------------------------------
 # Get Mercurial id, and make version.o depend on it via .id file.
@@ -734,12 +767,16 @@ UNIT_LIBS    += -lslate -ltestsweeper
 # Rules
 .DELETE_ON_ERROR:
 .SUFFIXES:
-.PHONY: all docs lib test tester unit_test clean distclean testsweeper blaspp lapackpp
+.PHONY: all docs hooks lib test tester unit_test clean distclean testsweeper blaspp lapackpp
 .DEFAULT_GOAL := all
 
-all: lib tester unit_test scalapack_api lapack_api
+all: lib unit_test hooks
 
-install: lib
+ifneq ($(only_unit),1)
+    all: tester scalapack_api lapack_api
+endif
+
+install: lib scalapack_api lapack_api
 	cd blaspp   && $(MAKE) install prefix=${prefix}
 	@echo
 	cd lapackpp && $(MAKE) install prefix=${prefix}
@@ -776,13 +813,16 @@ docs:
 # C API
 ifeq ($(c_api),1)
     include/slate/c_api/wrappers.h: src/c_api/wrappers.cc
-		python tools/c_api/generate_wrappers.py $< $@
+		python tools/c_api/generate_wrappers.py $< $@ \
+			src/c_api/wrappers_precisions.cc
 
     include/slate/c_api/matrix.h: include/slate/Tile.hh
-		python tools/c_api/generate_matrix.py $< $@
+		python tools/c_api/generate_matrix.py $< $@ \
+			src/c_api/matrix.cc
 
     include/slate/c_api/util.hh: include/slate/c_api/types.h
-		python tools/c_api/generate_util.py $< $@
+		python tools/c_api/generate_util.py $< $@ \
+			src/c_api/util.cc
 
     src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h
     src/c_api/matrix.cc: include/slate/c_api/matrix.h
@@ -926,24 +966,26 @@ scalapack_api    = lib/libslate_scalapack_api.$(lib_ext)
 scalapack_api_src += \
         scalapack_api/scalapack_gels.cc \
         scalapack_api/scalapack_gemm.cc \
+        scalapack_api/scalapack_gesv.cc \
+        scalapack_api/scalapack_gesvMixed.cc \
         scalapack_api/scalapack_getrf.cc \
         scalapack_api/scalapack_getrs.cc \
-        scalapack_api/scalapack_gesv.cc \
         scalapack_api/scalapack_hemm.cc \
         scalapack_api/scalapack_her2k.cc \
         scalapack_api/scalapack_herk.cc \
-        scalapack_api/scalapack_lanhe.cc \
         scalapack_api/scalapack_lange.cc \
+        scalapack_api/scalapack_lanhe.cc \
         scalapack_api/scalapack_lansy.cc \
         scalapack_api/scalapack_lantr.cc \
+        scalapack_api/scalapack_posv.cc \
         scalapack_api/scalapack_potrf.cc \
         scalapack_api/scalapack_potri.cc \
-        scalapack_api/scalapack_posv.cc \
         scalapack_api/scalapack_symm.cc \
         scalapack_api/scalapack_syr2k.cc \
         scalapack_api/scalapack_syrk.cc \
         scalapack_api/scalapack_trmm.cc \
         scalapack_api/scalapack_trsm.cc \
+        # End. Add alphabetically.
 
 scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 
@@ -995,7 +1037,7 @@ lapack_api_src += \
         lapack_api/lapack_syrk.cc \
         lapack_api/lapack_trmm.cc \
         lapack_api/lapack_trsm.cc \
-
+        # End. Add alphabetically.
 
 lapack_api_obj = $(addsuffix .o, $(basename $(lapack_api_src)))
 
@@ -1019,9 +1061,67 @@ $(lapack_api_so): $(lapack_api_obj) $(libslate)
 		$(LAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
 
 #-------------------------------------------------------------------------------
+# HIP sources converted from CUDA sources.
+
+# if_md5_outdated applies the given build rule ($1) only if the md5 sums
+# of the target's dependency ($<) doesn't match that stored in the
+# target's dep file ($@.dep). If the target ($@) is already up-to-date
+# based on md5 sums, its timestamp is updated so make will recognize it
+# as up-to-date. Otherwise, the target is built and its dep file
+# updated. Instead of depending on the src file, the target depends on
+# the md5 file of the src file. This can be adapted for multiple dependencies.
+# Example usage:
+#
+# %: %.c.md5
+#     ${call if_md5_outdated,\
+#            gcc -o $@ ${basename $<}}
+#
+define if_md5_outdated
+    if [ -e $@ ] && diff $< $@.dep > /dev/null 2>&1; then \
+        echo "  make: '$@' is up-to-date based on md5sum."; \
+        echo "  touch $@"; \
+                touch $@; \
+    else \
+        echo "  make: '$@' is out-of-date based on md5sum."; \
+        echo "  ${strip $1}"; \
+        $1; \
+        cp $< $@.dep; \
+    fi
+endef
+
+# From GNU manual: Commas ... cannot appear in an argument as written.
+# The[y] can be put into the argument value by variable substitution.
+comma := ,
+
+# Convert CUDA => HIP code.
+# Explicitly mention ${hip_src}, ${hip_hdr}, ${md5_files}
+# to prevent them from being intermediate files,
+# so they are _always_ generated and never removed.
+# Perl updates includes and removes excess spaces that fail style hook.
+${hip_src}: src/hip/%.hip.cc: src/cuda/%.cu.md5 | src/hip
+	@${call if_md5_outdated, \
+	        ${hipify} ${basename $<} > $@; \
+	        perl -pi -e 's/\.cuh/.hip.hh/g; s/ +(${comma}|;|$$)/$$1/g;' $@}
+
+${hip_hdr}: src/hip/%.hip.hh: src/cuda/%.cuh.md5 | src/hip
+	@${call if_md5_outdated, \
+	        ${hipify} ${basename $<} > $@; \
+	        perl -pi -e 's/\.cuh/.hip.hh/g; s/ +(${comma}|;|$$)/$$1/g;' $@}
+
+hipify: ${hip_src} ${hip_hdr}
+
+md5_files := ${addsuffix .md5, ${cuda_src} ${cuda_hdr}}
+
+${md5_files}: %.md5: %
+	${md5sum} $< > $@
+
+src/hip:
+	mkdir -p $@
+
+#-------------------------------------------------------------------------------
 # general rules
 
-lib: $(libslate) $(scalapack_api) $(lapack_api)
+lib: $(libslate)
 
 clean: test/clean unit_test/clean scalapack_api/clean lapack_api/clean include/clean
 	rm -f $(libslate_a) $(libslate_so) $(libslate_obj) $(dep)
@@ -1035,25 +1135,24 @@ distclean: clean
 	rm -f include/slate/c_api/matrix.h
 	rm -f include/slate/c_api/util.hh
 	rm -f src/fortran/slate_module.f90
-	rm -rf src/hip
+	rm -f ${md5_files}
 	cd testsweeper && $(MAKE) distclean
 	cd blaspp      && $(MAKE) distclean
 	cd lapackpp    && $(MAKE) distclean
 
-%.hip.o: %.hip.cc | $(hip_header)
+# Install git hooks
+hooks = .git/hooks/pre-commit
+
+hooks: ${hooks}
+
+.git/hooks/%: tools/hooks/%
+	@if [ -e .git/hooks ]; then \
+		echo cp $< $@ ; \
+		cp $< $@ ; \
+	fi
+
+%.hip.o: %.hip.cc | $(hip_hdr)
 	$(HIPCC) $(HIPCCFLAGS) -c $< -o $@
-
-# Convert CUDA => HIP code.
-src/hip/%.hip.cc: src/cuda/%.cu | src/hip
-	$(HIPIFY) $< > $@
-	sed -i -e "s/\.cuh/.hip.hh/g" $@
-
-src/hip/%.hip.hh: src/cuda/%.cuh | src/hip
-	$(HIPIFY) $< > $@
-	sed -i -e "s/\.cuh/.hip.hh/g" $@
-
-src/hip:
-	mkdir -p $@
 
 %.o: %.cc
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -1117,6 +1216,8 @@ echo:
 	@echo "libslate      = $(libslate)"
 	@echo
 	@echo "---------- Files"
+	@echo "libslate_src  = $(libslate_src)"
+	@echo
 	@echo "libslate_obj  = $(libslate_obj)"
 	@echo
 	@echo "tester_src    = $(tester_src)"
@@ -1141,13 +1242,12 @@ echo:
 	@echo
 	@echo "---------- CUDA options"
 	@echo "cuda          = '$(cuda)'"
-	@echo "cuda_arch     = '$(cuda_arch)'"
+	@echo "cuda_arch     = $(cuda_arch)"
+	@echo "cuda_arch_    = $(cuda_arch_)"
 	@echo "NVCC          = $(NVCC)"
 	@echo "NVCC_which    = $(NVCC_which)"
 	@echo "CUDA_DIR      = $(CUDA_DIR)"
 	@echo "NVCCFLAGS     = $(NVCCFLAGS)"
-	@echo "cuda_arch     = $(cuda_arch)"
-	@echo "cuda_arch_    = $(cuda_arch_)"
 	@echo "sms           = $(sms)"
 	@echo "nv_sm         = $(nv_sm)"
 	@echo "nv_compute    = $(nv_compute)"
@@ -1158,12 +1258,19 @@ echo:
 	@echo "---------- HIP options"
 	@echo "hip           = '$(hip)'"
 	@echo "hip_arch      = '$(hip_arch)'"
+	@echo "hip_arch_     = '$(hip_arch_)'"
 	@echo "gfx           = $(gfx)"
 	@echo "HIPCC         = $(HIPCC)"
 	@echo "HIPCC_which   = $(HIPCC_which)"
 	@echo "ROCM_DIR      = $(ROCM_DIR)"
 	@echo "HIPCCFLAGS    = $(HIPCCFLAGS)"
 	@echo "amdgpu_targets = $(amdgpu_targets)"
+	@echo "hipify        = ${hipify}"
+	@echo "cuda_src      = ${cuda_src}"
+	@echo "cuda_hdr      = ${cuda_hdr}"
+	@echo "hip_src       = ${hip_src}"
+	@echo "hip_hdr       = ${hip_hdr}"
+	@echo "md5_files     = $(md5_files)"
 	@echo
 	@echo "---------- Fortran compiler"
 	@echo "FC            = $(FC)"

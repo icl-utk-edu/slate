@@ -215,20 +215,20 @@ options include:
         requires MPI, so testers will fail.
 
     cuda_arch
-        With the CUDA backend, by default SLATE will compile for
-        CUDA architecture Pascal. To use a different architecture, set
-        `cuda_arch` to one or more of:
-        `kepler maxwell pascal volta turing sm_XY`
-        where XY is a valid CUDA architecture (see `nvcc -h | grep sm_`).
+        By default, SLATE uses nvcc's default architecture.
+        To use a different architecture, set `cuda_arch` to one or more of:
+        `kepler maxwell pascal volta turing ampere hopper sm_XY`
+        where XY is a valid CUDA architecture (see `nvcc -h | grep sm_`),
+        separated by space.
 
     hip_arch
-        With the HIP backend, by default SLATE will compile for
-        HIP architectures gfx900 gfx906 gfx908. To use a different architecture,
-        set `hip_arch` to one or more of:
-        `gfx900`  for AMD Radeon Instinct MI25 / Vega 10
-        `gfx906`  for AMD Radeon Instinct MI50 / Vega 20
-        `gfx908`  for AMD Instinct MI100
-        or other valid HIP architecture.
+        By default, SLATE uses hipcc's default architecture.
+        To use a different architecture, set `hip_arch` to one or more of:
+        `gfx900` or `mi25`  for AMD Radeon Instinct MI25 / Vega 10
+        `gfx906` or `mi50`  for AMD Radeon Instinct MI50 / Vega 20
+        `gfx908` or `mi100` for AMD Instinct MI100
+        `gfx90a` or `mi200` for AMD Instinct MI200 series (MI250)
+        or other valid HIP architecture, separated by space.
         See https://llvm.org/docs/AMDGPUUsage.html
 
     openmp
@@ -236,7 +236,7 @@ options include:
         OpenMP, set `openmp = 0`.
 
     c_api
-        Whether to build C API. One of:
+        Whether to build C API. Python is required. One of:
         1                   build C API
         0                   don't build C API
 
@@ -294,7 +294,7 @@ so the user does not have to install them beforehand. If CMake finds already
 installed versions, it will use those instead of compiling new versions.
 
 
-### CMake Otions
+### CMake Options
 
 Besides the Environment variables and Options listed above, additional
 options include:
@@ -307,6 +307,9 @@ options include:
         Each number can take optional `-real` or `-virtual` suffix.
         Default is `60`, for Pascal architecture. For description, see:
         https://cmake.org/cmake/help/latest/prop_tgt/CUDA_ARCHITECTURES.html
+        For other architectures, CMAKE_CUDA_ARCHITECTURES **should be defined**.
+        For example, `-DCMAKE_CUDA_ARCHITECTURES=70` should be added for
+        the Volta architecture.
 
     use_mpi
         Whether to use MPI, if available. One of:
@@ -315,7 +318,8 @@ options include:
 
         NOTE: SLATE compiles without MPI, but not all routines operate
         correctly. Also, the testers currently require ScaLAPACK, which
-        requires MPI, so testers will fail.
+        requires MPI, so testers will fail. The C API definitely requires
+        MPI.
 
     use_openmp
         Whether to use OpenMP, if available. One of:
@@ -327,6 +331,11 @@ options include:
         Requires ScaLAPACK. One of:
         yes (default)
         no
+
+    c_api
+        Whether to build C API. Python is required. One of:
+        yes
+        no (default)
 
 BLAS++ options include:
 

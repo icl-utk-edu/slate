@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -9,12 +9,6 @@
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
 #include "internal/internal_batch.hh"
-
-#ifdef SLATE_WITH_MKL
-    #include <mkl_cblas.h>
-#else
-    #include <cblas.h>
-#endif
 
 namespace slate {
 namespace internal {
@@ -72,19 +66,23 @@ void her2k(internal::TargetType<Target::HostTask>,
 
     scalar_t beta_ = beta;
     int err = 0;
+
+    #pragma omp taskgroup
     for (int64_t j = 0; j < C.nt(); ++j) {
         for (int64_t i = j; i < C.mt(); ++i) { // lower
             if (C.tileIsLocal(i, j)) {
                 if (i == j) {
-                    #pragma omp task shared(A, B, C, err) priority(priority)
+                    #pragma omp task slate_omp_default_none \
+                        shared( A, B, C, err ) \
+                        firstprivate(i, j, layout, alpha, beta) priority(priority)
                     {
                         try {
                             A.tileGetForReading(j, 0, LayoutConvert(layout));
                             B.tileGetForReading(j, 0, LayoutConvert(layout));
                             C.tileGetForWriting(j, j, LayoutConvert(layout));
-                            her2k(alpha, A(j, 0),
-                                         B(j, 0),
-                                  beta,  C(j, j));
+                            tile::her2k(
+                                alpha, A(j, 0), B(j, 0),
+                                beta,  C(j, j) );
                             // todo: should tileRelease()?
                             A.tileTick(j, 0);
                             B.tileTick(j, 0);
@@ -95,9 +93,13 @@ void her2k(internal::TargetType<Target::HostTask>,
                     }
                 }
                 else {
-                    #pragma omp task shared(A, B, C, err) priority(priority)
+                    #pragma omp task slate_omp_default_none \
+                        shared( A, B, C, err ) \
+                        firstprivate(i, j, layout, alpha, beta_) priority(priority)
                     {
                         try {
+                            const scalar_t one = 1.0;
+
                             A.tileGetForReading(i, 0, LayoutConvert(layout));
                             A.tileGetForReading(j, 0, LayoutConvert(layout));
                             B.tileGetForReading(i, 0, LayoutConvert(layout));
@@ -105,12 +107,12 @@ void her2k(internal::TargetType<Target::HostTask>,
                             C.tileGetForWriting(i, j, LayoutConvert(layout));
                             auto Aj0 = A(j, 0);
                             auto Bj0 = B(j, 0);
-                            gemm(alpha, A(i, 0),
-                                        conjTranspose(Bj0),
-                                 beta_, C(i, j));
-                            gemm(conj(alpha),   B(i, 0),
-                                                conjTranspose(Aj0),
-                                 scalar_t(1.0), C(i, j));
+                            tile::gemm(
+                                alpha, A(i, 0), conj_transpose( Bj0 ),
+                                beta_, C(i, j) );
+                            tile::gemm(
+                                conj(alpha), B(i, 0), conj_transpose( Aj0 ),
+                                one,         C(i, j) );
                             // todo: should tileRelease()?
                             A.tileTick(i, 0);
                             A.tileTick(j, 0);
@@ -125,8 +127,6 @@ void her2k(internal::TargetType<Target::HostTask>,
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         throw std::exception();
@@ -156,17 +156,20 @@ void her2k(internal::TargetType<Target::HostNest>,
 
     scalar_t beta_ = beta;
     int err = 0;
+    #pragma omp taskgroup
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
-            #pragma omp task shared(A, B, C, err)
+            #pragma omp task slate_omp_default_none \
+                shared( A, B, C, err ) \
+                firstprivate(j, layout, alpha, beta)
             {
                 try {
                     A.tileGetForReading(j, 0, LayoutConvert(layout));
                     B.tileGetForReading(j, 0, LayoutConvert(layout));
                     C.tileGetForWriting(j, j, LayoutConvert(layout));
-                    her2k(alpha, A(j, 0),
-                                 B(j, 0),
-                          beta,  C(j, j));
+                    tile::her2k(
+                        alpha, A(j, 0), B(j, 0),
+                        beta,  C(j, j) );
                     // todo: should tileRelease()?
                     A.tileTick(j, 0);
                     B.tileTick(j, 0);
@@ -181,24 +184,27 @@ void her2k(internal::TargetType<Target::HostNest>,
     int64_t C_mt = C.mt();
     int64_t C_nt = C.nt();
 
-    //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
-    #pragma omp parallel for collapse(2) schedule(dynamic, 1)
+    //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...) default(none)
+    #pragma omp parallel for collapse(2) schedule(dynamic, 1) slate_omp_default_none \
+        shared(A, B, C, err) firstprivate(C_nt, C_mt, layout, alpha, beta_)
     for (int64_t j = 0; j < C_nt; ++j) {
         for (int64_t i = 0; i < C_mt; ++i) {  // full
             if (i >= j+1) {                     // strictly lower
                 if (C.tileIsLocal(i, j)) {
                     try {
+                        const scalar_t one = 1.0;
+
                         A.tileGetForReading(i, 0, LayoutConvert(layout));
                         B.tileGetForReading(j, 0, LayoutConvert(layout));
                         C.tileGetForWriting(i, j, LayoutConvert(layout));
                         auto Aj0 = A(j, 0);
                         auto Bj0 = B(j, 0);
-                        gemm(alpha, A(i, 0),
-                                    conjTranspose(Bj0),
-                             beta_, C(i, j));
-                        gemm(conj(alpha),   B(i, 0),
-                                            conjTranspose(Aj0),
-                             scalar_t(1.0), C(i, j));
+                        tile::gemm(
+                            alpha, A(i, 0), conj_transpose( Bj0 ),
+                            beta_, C(i, j) );
+                        tile::gemm(
+                            conj(alpha), B(i, 0), conj_transpose( Aj0 ),
+                            one,         C(i, j) );
                         // todo: should tileRelease()?
                         A.tileTick(i, 0);
                         A.tileTick(j, 0);
@@ -212,8 +218,6 @@ void her2k(internal::TargetType<Target::HostNest>,
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         throw std::exception();
@@ -232,6 +236,7 @@ void her2k(internal::TargetType<Target::HostBatch>,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
            int priority, int queue_index, Layout layout)
 {
+#ifdef BLAS_HAVE_MKL
     using blas::conj;
 
     // CPU assumes column major
@@ -245,15 +250,17 @@ void her2k(internal::TargetType<Target::HostBatch>,
     int err = 0;
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
-            #pragma omp task shared(A, B, C, err)
+            #pragma omp task slate_omp_default_none \
+                shared( A, B, C, err ) \
+                firstprivate(j, layout, alpha, beta)
             {
                 try {
                     A.tileGetForReading(j, 0, LayoutConvert(layout));
                     B.tileGetForReading(j, 0, LayoutConvert(layout));
                     C.tileGetForWriting(j, j, LayoutConvert(layout));
-                    her2k(alpha, A(j, 0),
-                                 B(j, 0),
-                          beta,  C(j, j));
+                    tile::her2k(
+                        alpha, A(j, 0), B(j, 0),
+                        beta,  C(j, j) );
                     // todo: should tileRelease()?
                     A.tileTick(j, 0);
                     B.tileTick(j, 0);
@@ -361,38 +368,35 @@ void her2k(internal::TargetType<Target::HostBatch>,
 
         {
             trace::Block trace_block("cblas_gemm_batch");
-            #ifdef SLATE_WITH_MKL
-                // mkl_set_num_threads_local(...);
-                cblas_gemm_batch(CblasColMajor,
-                                 opA_array.data(), opB_array.data(),
-                                 m_array.data(), n_array.data(), k_array.data(),
-                                 alpha_array.data(),
-                                 ai_array.data(), ldai_array.data(),
-                                 bj_array.data(), ldbj_array.data(),
-                                 beta_array.data(),
-                                 c_array.data(), ldc_array.data(),
-                                 batch_count, group_size.data());
+            const scalar_t one = 1.0;
 
-                // ai => bi, bj => aj, conjugate alpha, set beta = 1
-                if (is_complex<scalar_t>::value) {
-                    std::fill(alpha_array.begin(),
-                              alpha_array.end(), conj(alpha));
-                }
-                std::fill(beta_array.begin(), beta_array.end(), scalar_t(1.0));
-                cblas_gemm_batch(CblasColMajor,
-                                 opA_array.data(), opB_array.data(),
-                                 m_array.data(), n_array.data(), k_array.data(),
-                                 alpha_array.data(),
-                                 bi_array.data(), ldbi_array.data(),
-                                 aj_array.data(), ldaj_array.data(),
-                                 beta_array.data(),
-                                 c_array.data(), ldc_array.data(),
-                                 batch_count, group_size.data());
-                // mkl_set_num_threads_local(1);
-            #else
-                slate_not_implemented(
-                    "slate::Target::HostBatch needs Intel MKL.");
-            #endif
+            // mkl_set_num_threads_local(...);
+            cblas_gemm_batch(CblasColMajor,
+                             opA_array.data(), opB_array.data(),
+                             m_array.data(), n_array.data(), k_array.data(),
+                             alpha_array.data(),
+                             ai_array.data(), ldai_array.data(),
+                             bj_array.data(), ldbj_array.data(),
+                             beta_array.data(),
+                             c_array.data(), ldc_array.data(),
+                             batch_count, group_size.data());
+
+            // ai => bi, bj => aj, conjugate alpha, set beta = 1
+            if (is_complex<scalar_t>::value) {
+                std::fill(alpha_array.begin(),
+                          alpha_array.end(), conj(alpha));
+            }
+            std::fill( beta_array.begin(), beta_array.end(), one );
+            cblas_gemm_batch(CblasColMajor,
+                             opA_array.data(), opB_array.data(),
+                             m_array.data(), n_array.data(), k_array.data(),
+                             alpha_array.data(),
+                             bi_array.data(), ldbi_array.data(),
+                             aj_array.data(), ldaj_array.data(),
+                             beta_array.data(),
+                             c_array.data(), ldc_array.data(),
+                             batch_count, group_size.data());
+            // mkl_set_num_threads_local(1);
         }
 
         for (int64_t j = 0; j < C.nt(); ++j) {
@@ -412,6 +416,10 @@ void her2k(internal::TargetType<Target::HostBatch>,
 
     if (err)
         throw std::exception();
+#else
+    slate_not_implemented(
+        "slate::Target::HostBatch needs Intel MKL.");
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -439,7 +447,9 @@ void her2k(internal::TargetType<Target::Devices>,
     // if single tile, avoid creating tasks for all devices
     if (C.nt() == 1) {
         if (C.tileIsLocal(0, 0)) {
-            #pragma omp task shared(A, B, C, err) priority(priority)
+            #pragma omp task slate_omp_default_none \
+                shared( A, B, C, err ) \
+                firstprivate(layout, alpha, beta, queue_index) priority(priority)
             {
                 int device = C.tileDevice(0, 0);
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
@@ -474,9 +484,13 @@ void her2k(internal::TargetType<Target::Devices>,
         // off-diagonal tiles by batch gemm on device
         // diagonal tiles by BLAS++ her2k on device
         for (int device = 0; device < C.num_devices(); ++device) {
-            #pragma omp task shared(A, B, C, err) priority(priority)
+            #pragma omp task slate_omp_default_none \
+                shared( A, B, C, err ) priority( priority ) \
+                firstprivate(device, layout, alpha, beta, queue_index)
             {
                 try {
+                    const scalar_t one = 1.0;
+
                     // if op(C) is NoTrans, invert opA, opB if possible
                     Op opA = A.op();
                     if (C.op() != Op::NoTrans) {
@@ -515,19 +529,28 @@ void her2k(internal::TargetType<Target::Devices>,
                             }
                         }
                     }
-                    #pragma omp task default(shared)
+
+                    #pragma omp taskgroup
                     {
-                        A.tileGetForReading(A_tiles_gemm, device, LayoutConvert(layout));
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, A_tiles_gemm ) \
+                            firstprivate( device, layout )
+                        {
+                            A.tileGetForReading(A_tiles_gemm, device, LayoutConvert(layout));
+                        }
+                        #pragma omp task slate_omp_default_none \
+                            shared( B, B_tiles_gemm ) \
+                            firstprivate( device, layout )
+                        {
+                            B.tileGetForReading(B_tiles_gemm, device, LayoutConvert(layout));
+                        }
+                        #pragma omp task slate_omp_default_none \
+                            shared( C, C_tiles_gemm ) \
+                            firstprivate( device, layout )
+                        {
+                            C.tileGetForWriting(C_tiles_gemm, device, LayoutConvert(layout));
+                        }
                     }
-                    #pragma omp task default(shared)
-                    {
-                        B.tileGetForReading(B_tiles_gemm, device, LayoutConvert(layout));
-                    }
-                    #pragma omp task default(shared)
-                    {
-                        C.tileGetForWriting(C_tiles_gemm, device, LayoutConvert(layout));
-                    }
-                    #pragma omp taskwait
 
                     int64_t batch_size_gemm = C_tiles_gemm.size();
 
@@ -702,7 +725,7 @@ void her2k(internal::TargetType<Target::Devices>,
                         trace::Block trace_block("blas::batch::gemm");
 
                         std::vector<scalar_t> conj_alpha_(1, conj(alpha));
-                        std::vector<scalar_t> one_(1, scalar_t(1));
+                        std::vector<scalar_t> one_( 1, one );
 
                         if (c_array_gemm00.size() > 0) {
                             std::vector<int64_t>    m(1,  mb00);
@@ -735,19 +758,27 @@ void her2k(internal::TargetType<Target::Devices>,
                         }
                     }
 
-                    #pragma omp task default(shared)
+                    #pragma omp taskgroup
                     {
-                        A.tileGetForReading(A_tiles_her2k, device, LayoutConvert(layout));
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, A_tiles_her2k ) \
+                            firstprivate( device, layout )
+                        {
+                            A.tileGetForReading(A_tiles_her2k, device, LayoutConvert(layout));
+                        }
+                        #pragma omp task slate_omp_default_none \
+                            shared( B, B_tiles_her2k ) \
+                            firstprivate( device, layout )
+                        {
+                            B.tileGetForReading(B_tiles_her2k, device, LayoutConvert(layout));
+                        }
+                        #pragma omp task slate_omp_default_none \
+                            shared( C, C_tiles_her2k ) \
+                            firstprivate( device, layout )
+                        {
+                            C.tileGetForWriting(C_tiles_her2k, device, LayoutConvert(layout));
+                        }
                     }
-                    #pragma omp task default(shared)
-                    {
-                        B.tileGetForReading(B_tiles_her2k, device, LayoutConvert(layout));
-                    }
-                    #pragma omp task default(shared)
-                    {
-                        C.tileGetForWriting(C_tiles_her2k, device, LayoutConvert(layout));
-                    }
-                    #pragma omp taskwait
 
                     int64_t batch_size_her2k = C_tiles_her2k.size();
 

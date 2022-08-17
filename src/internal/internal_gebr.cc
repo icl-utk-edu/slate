@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -82,8 +82,8 @@ void gerf(int64_t n, scalar_t* v, Matrix<scalar_t>& A)
 {
     using blas::conj;
 
-    const scalar_t one  = 1.0;
     const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
 
     // Replace tau with 1.0 in v[0].
     scalar_t tau = v[0];
@@ -98,7 +98,7 @@ void gerf(int64_t n, scalar_t* v, Matrix<scalar_t>& A)
         scalar_t* vj = v;
         scalar_t beta = zero;
         for (int64_t j = 0; j < AH.nt(); ++j) {
-            gemv(one, AH(i, j), vj, beta, wi);
+            tile::gemv( one, AH(i, j), vj, beta, wi );
             beta = one;
             vj += AH.tileNb(j);
         }
@@ -110,7 +110,7 @@ void gerf(int64_t n, scalar_t* v, Matrix<scalar_t>& A)
     for (int64_t i = 0; i < A.mt(); ++i) {
         scalar_t* wj = w.data();
         for (int64_t j = 0; j < A.nt(); ++j) {
-            ger(-tau, vi, wj, A(i, j));
+            tile::ger( -tau, vi, wj, A(i, j) );
             wj += A.tileNb(j);
         }
         vi += A.tileMb(i);

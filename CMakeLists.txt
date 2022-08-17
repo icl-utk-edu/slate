@@ -7,16 +7,17 @@
 # Tests require TestSweeper library from
 #     http://bitbucket.org/icl/testsweeper
 
-cmake_minimum_required( VERSION 3.15 )
+cmake_minimum_required( VERSION 3.18 )
 # 3.1  target_compile_features
 # 3.8  target_compile_features( cxx_std_11 )
 # 3.14 install( LIBRARY DESTINATION lib ) default
 # 3.15 $<$COMPILE_LANG_AND_ID  # optional
 # 3.15 message DEBUG, string REPEAT
+# 3.18 CMAKE_CUDA_ARCHITECTURES
 
 project(
     slate
-    VERSION 2021.05.02
+    VERSION 2022.07.00
     LANGUAGES CXX Fortran
 )
 
@@ -47,7 +48,7 @@ option( build_tests "Build test suite" "${slate_is_project}" )
 option( color "Use ANSI color output" true )
 option( use_mpi "Use MPI, if available" true )
 option( use_openmp "Use OpenMP, if available" true )
-# todo: option( c_api "Build C API" false )
+option( c_api "Build C API" false )
 # todo: option( fortran_api "Build Fortran API. Requires C API." false )
 
 set( gpu_backend "auto" CACHE STRING "GPU backend to use" )
@@ -99,6 +100,21 @@ endif()
 set_property( CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS
               None Debug Release RelWithDebInfo MinSizeRel )
 
+# CUDA architectures required in CMake 3.18
+# Fermi   20        # CUDA 3.2 to 8
+# Kepler  30 35 37  # CUDA 5 to 10; sm_35 and sm_37 deprecated in CUDA 11
+# Maxwell 50 52 53  # CUDA 6 to 11
+# Pascal  60 61 62  # CUDA >= 8
+# Volta   70 72     # CUDA >= 9
+# Turing  75        # CUDA >= 10
+# Ampere  80 86 87  # CUDA >= 11.1
+# Hopper  90        # CUDA >= 12
+# Also -real and -virtual suffixes.
+set( CMAKE_CUDA_ARCHITECTURES "60" CACHE STRING
+     "CUDA architectures, as semi-colon separated list of numbers, e.g., 60;70;80 for Pascal, Volta, Ampere" )
+set_property( CACHE CMAKE_CUDA_ARCHITECTURES PROPERTY STRINGS
+              30 35 50 60 70 75 80 90 )
+
 #-----------------------------------
 # BLAS options
 # SLATE defaults to single-threaded BLAS.
@@ -143,8 +159,41 @@ endif()
 # Build library.
 
 # todo: these need generation
-# src/c_api/*.cc
 # src/fortran_api/*.f90
+
+message( "---------------------------------------- C API: c_api = ${c_api}" )
+if (c_api)
+    find_package(Python COMPONENTS Interpreter)
+    set( cmd ${Python_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_api/generate_util.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/types.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/util.hh
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api/util.cc )
+    execute_process( COMMAND ${cmd} )
+
+    set( cmd ${Python_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_api/generate_matrix.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/Tile.hh
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/matrix.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api/matrix.cc )
+    execute_process( COMMAND ${cmd} )
+
+    set( cmd ${Python_EXECUTABLE}
+        ${CMAKE_CURRENT_SOURCE_DIR}/tools/c_api/generate_wrappers.py
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api/wrappers.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/include/slate/c_api/wrappers.h
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/c_api/wrappers_precisions.cc )
+    execute_process( COMMAND ${cmd} )
+
+    file(
+        GLOB c_api_src
+        CONFIGURE_DEPENDS  # glob at build time
+        src/c_api/util.cc
+        src/c_api/matrix.cc
+        src/c_api/wrappers.cc
+        src/c_api/wrappers_precisions.cc
+        )
+endif()
 
 file(
     GLOB libslate_src
@@ -153,8 +202,10 @@ file(
     src/*.f
     src/auxiliary/*.cc
     src/core/*.cc
+    src/device/*.cc
     src/internal/*.cc
     src/work/*.cc
+    ${c_api_src}
 )
 message( DEBUG "libslate_src = ${libslate_src}" )
 
@@ -220,16 +271,16 @@ if (EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/.git")
         slate PRIVATE SLATE_ID="${slate_id}" )
 endif()
 
-# Use and export -std=c++17; don't allow -std=gnu++17 extensions.
-# The `target_compile_features( slate PUBLIC cxx_std_17 )` syntax
-# doesn't seem to allow setting CUDA_STANDARD separately, and slightly
-# older CMake (3.17) doesn't recognize CUDA_STANDARD=17.
+# Use and export -std=c++17.
+# CMake inexplicably allows gnu++17 or "decay" to c++11 or 14; prohibit those.
+# target_compile_features( slate PUBLIC cuda_std_11 ) doesn't seem to work:
+# CUDA nvcc gets -std=c++17, which requires CUDA >= 11.0.
+target_compile_features( slate PUBLIC cxx_std_17 )
 set_target_properties(
     slate PROPERTIES
-    CXX_STANDARD 17
     CUDA_STANDARD 11
-    CXX_STANDARD_REQUIRED true
-    CXX_EXTENSIONS false
+    CXX_STANDARD_REQUIRED true  # prohibit < c++17
+    CXX_EXTENSIONS false        # prohibit gnu++17
 )
 
 if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.15)
@@ -355,10 +406,6 @@ message( STATUS "LAPACK++ done" )
 
 target_link_libraries( slate PUBLIC blaspp lapackpp )
 
-if ("${blaspp_defines}" MATCHES "HAVE_MKL")
-    target_compile_definitions( slate PUBLIC "-DSLATE_WITH_MKL" )
-endif()
-
 #-------------------------------------------------------------------------------
 # CUDA support.
 message( "" )
@@ -376,22 +423,6 @@ endif()
 if (CMAKE_CUDA_COMPILER)
     enable_language( CUDA )
     set( slate_use_cuda true )
-
-    if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.18)
-        # CUDA architectures required in CMake 3.18
-        # Fermi   20
-        # Kepler  30 35 37
-        # Maxwell 50 52 53
-        # Pascal  60 61 62
-        # Volta   70 72
-        # Turing  75
-        # Ampere  80 86
-        # Also -real and -virtual suffixes.
-        set( CMAKE_CUDA_ARCHITECTURES "60" CACHE STRING
-             "CUDA architectures, as semi-colon separated list of 2-digit numbers, e.g., 60;70;80 for Pascal, Volta, Ampere" )
-        set_property( CACHE CMAKE_CUDA_ARCHITECTURES PROPERTY STRINGS
-                      30 50 60 70 75 80 )
-    endif()
 
     file(
         GLOB libslate_cuda_src
@@ -418,7 +449,6 @@ if (CMAKE_CUDA_COMPILER)
     message( STATUS "Building CUDA support in SLATE" )
 else()
     message( STATUS "Not building CUDA support in SLATE" )
-    target_compile_definitions( slate PUBLIC "-DSLATE_NO_CUDA" )
 endif()
 
 #-------------------------------------------------------------------------------
@@ -435,7 +465,7 @@ if (NOT CMAKE_CUDA_COMPILER
     endif()
 endif()
 if (HIP_FOUND)
-    # NOTE: We assume some features from HIP >= 3.5
+    message( STATUS "Building HIP/ROCm support in SLATE" )
 
     # In their official docs, they have 'hip' and 'HIP' as different packages,
     # which both need to be found
@@ -448,9 +478,6 @@ if (HIP_FOUND)
     set_target_properties( hip::device PROPERTIES INTERFACE_COMPILE_OPTIONS "-fPIC" )
     set_target_properties( hip::device PROPERTIES INTERFACE_LINK_LIBRARIES "hip::host" )
 
-    # Propagate flags to HIP code.
-    set_target_properties( hip::device PROPERTIES INTERFACE_COMPILE_OPTIONS "-DSLATE_NO_CUDA")
-
     # First, get the HIP source's base files (which are CUDA sources, needing
     # to be hipified)
     file(
@@ -459,8 +486,9 @@ if (HIP_FOUND)
         src/cuda/*.cu
         src/cuda/*.cuh
     )
+    message( DEBUG "libslate_hip_src_cuda ${libslate_hip_src_cuda}" )
 
-    # Make the generated source directory
+    # Make the object directory
     file( MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/src/hip" )
 
     # Generate BLAS++ and LAPACK++ include flags
@@ -483,68 +511,103 @@ if (HIP_FOUND)
 
     # Generate definitions list
     get_target_property( defs_ slate COMPILE_DEFINITIONS )
-    set( defs__ "" )
+    set( Ddefs_ "" )
     foreach (def_ ${defs_})
-        list( APPEND defs__ "-D${def_}" )
+        list( APPEND Ddefs_ "-D${def_}" )
     endforeach()
     message( DEBUG "defs_  = '${defs_}'" )
-    message( DEBUG "defs__ = '${defs__}'" )
+    message( DEBUG "Ddefs_ = '${Ddefs_}'" )
 
     # Iterate over CUDA files
-    foreach (src_cu_ ${libslate_hip_src_cuda})
-        # First, generate source in the build folder (since it is generated)
-        STRING( REGEX REPLACE "^.*src/cuda" "${CMAKE_BINARY_DIR}/src/hip"
-                src_hip_ ${src_cu_} )
+    foreach (src_cu ${libslate_hip_src_cuda})
+        # Get name without directory, and replace extension.
+        get_filename_component( name "${src_cu}" NAME )
+        set( src_cu_relative  "src/cuda/${name}" )
+        string( REGEX REPLACE ".cu$"  ".hip.cc" name "${name}"  )
+        string( REGEX REPLACE ".cuh$" ".hip.hh" name "${name}" )
+        set( src_hip "${CMAKE_SOURCE_DIR}/src/hip/${name}"   )
+        set( obj_hip "src/hip/${name}.o" )  # in binary dir
 
-        # Now, replace the file extensions to match HIP ones
-        STRING( REGEX REPLACE ".cu$"  ".hip.cc" src_hip_ ${src_hip_} )
-        # Just allow the headers to keep '.cuh' so we don't have to string
-        # replace contents of the file
-        #STRING( REGEX REPLACE ".cuh$" ".hip.hh" src_hip_ ${src_hip_} )
+        message( DEBUG "src_cu_relative ${src_cu_relative}" )
+        message( DEBUG "src_cu  ${src_cu}" )
+        message( DEBUG "src_hip ${src_hip}" )
+        message( DEBUG "obj_hip ${obj_hip}" )
+        message( DEBUG "" )
 
-        # Now, add a rule to automatically generate it
+        # Automatically generate HIP source from CUDA source.
+        # As in the Makefile, this applies the given build rule ($cmd)
+        # only if the md5 sums of the target's dependency ($src_cu.md5)
+        # doesn't match that stored in the target's dep file
+        # ($src_hip.dep). If the target ($src_hip) is already up-to-date
+        # based on md5 sums, its timestamp is updated so make will
+        # recognize it as up-to-date. Otherwise, the target is built and
+        # its dep file updated. Instead of depending on the src file,
+        # the target depends on the md5 file of the src file.
+        string(
+            CONCAT cmd
+            "if [ -e ${src_hip} ]"
+            "   && diff ${src_cu}.md5 ${src_hip}.dep > /dev/null 2>&1; then"
+            "    echo '${src_hip} is up-to-date based on md5sum.';"
+            "    touch ${src_hip};"
+            "else"
+            "    echo '${src_hip} is out-of-date based on md5sum.';"
+            "    echo 'hipify-perl ${src_cu} > ${src_hip}';"
+            "          hipify-perl ${src_cu} > ${src_hip};"
+            "    sed -i -e 's/\.cuh/.hip.hh/g' ${src_hip};"
+            "    cp ${src_cu}.md5 ${src_hip}.dep;"
+            "fi"
+        )
+        message( DEBUG "cmd <${cmd}>" )
+
+        message( "cu  ${src_cu}\n => ${src_hip}" )
         add_custom_command(
-            OUTPUT "${src_hip_}"
-            DEPENDS "${src_cu_}"
-            COMMAND "hipify-perl" ${src_cu_} > ${src_hip_}
+            OUTPUT   "${src_hip}"
+            DEPENDS  "${src_cu}.md5"
+            VERBATIM
+            COMMAND  sh -c "${cmd}"
         )
 
-        # And, add a rule to compile it (if it is actual code, and not a header)
-        if (${src_hip_} MATCHES ".hip.cc$")
-            # Generate output file
-            STRING( REGEX REPLACE ".cc$" ".o" src_o_ ${src_hip_} )
+        message( "md5 ${src_cu}\n => ${src_cu}.md5\n in ${CMAKE_SOURCE_DIR}" )
+        add_custom_command(
+            OUTPUT   "${src_cu}.md5"
+            DEPENDS  "${src_cu}"
+            VERBATIM
+            # md5sum needs ${src_cu_relative} to be relative to
+            # CMAKE_SOURCE_DIR to match .dep files.
+            COMMAND  md5sum "${src_cu_relative}" > "${src_cu}.md5"
+            WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
+        )
 
-            # Compilation rule
-            # TODO: Figure out how to generically find
+        # Compile hip.cc source (not hip.hh headers).
+        if (${src_hip} MATCHES ".hip.cc$")
+            message( "hcc ${src_hip}\n && src/hip/device_util.hip.hh\n => ${obj_hip}" )
             add_custom_command(
-                OUTPUT "${src_o_}"
-                # Just keep .cuh, see above
-                DEPENDS "${src_hip_}" "${CMAKE_BINARY_DIR}/src/hip/device_util.cuh"
-                COMMAND "hipcc"
-                    ${defs__}
-                    ${inc_}
-                    "-I${CMAKE_SOURCE_DIR}/include"
-                    ${src_hip_} -fPIC -c -o ${src_o_}
+                OUTPUT  "${obj_hip}"
+                DEPENDS "${src_hip}"
+                        "src/hip/device_util.hip.hh"
+                VERBATIM
+                COMMAND pwd
+                COMMAND hipcc ${Ddefs_} ${inc_}
+                        "-I${CMAKE_SOURCE_DIR}/include"
+                        -fPIC -c -o ${obj_hip} ${src_hip}
             )
 
             # Add the .o as a 'source' (even though it is already compiled)
             target_sources(
                 slate
                 PRIVATE
-                ${src_o_}
+                "${obj_hip}"
             )
-
         endif()
     endforeach()
-    message( STATUS "Building HIP/ROCm support in SLATE" )
 else()
     message( STATUS "Not building HIP/ROCm support in SLATE" )
-    target_compile_definitions( slate PUBLIC "-DSLATE_NO_HIP" )
 endif()
 
 #-------------------------------------------------------------------------------
 if (build_tests)
     add_subdirectory( test )
+    add_subdirectory( unit_test )
 endif()
 
 #-------------------------------------------------------------------------------

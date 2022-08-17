@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -195,7 +195,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
                         auto Bij = B(i, j);
                         // if i == j, Aij was Lower; set it to General for axpy.
                         Aref_ij.uplo(slate::Uplo::General);
-                        axpy(-one, Bij, Aref_ij);
+                        slate::tile::add( -one, Bij, Aref_ij );
                     }
                 }
             }
@@ -237,7 +237,7 @@ void test_unmtr_he2hb_work(Params& params, bool run)
             for (int64_t i = 0; i < Afull.nt(); ++i) {
                 for (int64_t j = 0; j < Afull.mt(); ++j) {
                     if (Afull.tileIsLocal(i, j)) {
-                        axpy(-one, B(i, j), Afull(i, j));
+                        slate::tile::add( -one, B(i, j), Afull(i, j) );
                     }
                 }
             }

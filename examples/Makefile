@@ -41,7 +41,6 @@ grep_cuda := ${shell ${LDD} ${slate_dir}/lib/libslate.so | grep cublas}
 ifeq (${grep_cuda},)
     ${info SLATE was compiled without CUDA}
     ${info}
-    CXXFLAGS += -DSLATE_NO_CUDA
 else
     cuda_nvcc := ${shell which nvcc}
     CUDA_ROOT ?= $(cuda_nvcc:/bin/nvcc=)

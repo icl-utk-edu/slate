@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -629,8 +629,7 @@ void least_squares_solve(
     Matrix<scalar_t>& BX,
     Options const& opts = Options())
 {
-    TriangularFactors<scalar_t> T;
-    gels(A, T, BX, opts);
+    gels( A, BX, opts );
 }
 
 //-----------------------------------------
@@ -708,15 +707,8 @@ void svd_vals(
 }
 
 //------------------------------------------------------------------------------
-// Eigenvalue decomposition
+// Symmetric/Hermitian Eigenvalues
 
-//-----------------------------------------
-// eig_vals()
-
-//-----------------------------------------
-// Symmetric/hermitian
-
-// heev
 template <typename scalar_t>
 void eig_vals(
     HermitianMatrix<scalar_t>& A,
@@ -724,12 +716,32 @@ void eig_vals(
     Options const& opts = Options())
 {
     Matrix<scalar_t> Z;
-    heev(Job::NoVec, A, Lambda, Z, opts);
+    heev( A, Lambda, Z, opts );
 }
 
-// syev
-// forward real-symmetric matrices to heev;
-// disabled for complex
+/// Without Z, compute only eigenvalues. Same as eig_vals.
+template <typename scalar_t>
+void eig(
+    HermitianMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Options const& opts = Options())
+{
+    eig_vals( A, Lambda, opts );
+}
+
+/// With Z, compute eigenvalues & eigenvectors.
+template <typename scalar_t>
+void eig(
+    HermitianMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Matrix<scalar_t>& Z,
+    Options const& opts = Options())
+{
+    heev( A, Lambda, Z, opts );
+}
+
+//-----------------------------------------
+// Real-symmetric matrices; disabled for complex
 template <typename scalar_t>
 void eig_vals(
     SymmetricMatrix<scalar_t>& A,
@@ -738,13 +750,35 @@ void eig_vals(
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     Matrix<scalar_t> Z;
-    syev(Job::NoVec, A, Lambda, Z, opts);
+    syev( A, Lambda, Z, opts );
 }
 
-//-----------------------------------------
-// Generalized symmetric/hermitian
+/// Without Z, compute only eigenvalues. Same as eig_vals.
+template <typename scalar_t>
+void eig(
+    SymmetricMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    eig_vals( A, Lambda, opts );
+}
 
-// hegv
+/// With Z, compute eigenvalues & eigenvectors.
+template <typename scalar_t>
+void eig(
+    SymmetricMatrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Matrix<scalar_t>& Z,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    syev( A, Lambda, Z, opts );
+}
+
+//------------------------------------------------------------------------------
+// Generalized symmetric/Hermitian eigenvalues
+
 template <typename scalar_t>
 void eig_vals(
     int64_t itype,
@@ -753,13 +787,37 @@ void eig_vals(
     std::vector< blas::real_type<scalar_t> >& Lambda,
     Options const& opts = Options())
 {
-    Matrix<scalar_t> V;
-    hegv(itype, Job::NoVec, A, B, Lambda, V, opts);
+    Matrix<scalar_t> Z;
+    hegv( itype, A, B, Lambda, Z, opts );
 }
 
-// sygv
-// forward real-symmetric matrices to hegv;
-// disabled for complex
+/// Without Z, compute only eigenvalues. Same as eig_vals.
+template <typename scalar_t>
+void eig(
+    int64_t itype,
+    HermitianMatrix<scalar_t>& A,
+    HermitianMatrix<scalar_t>& B,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Options const& opts = Options())
+{
+    eig_vals( itype, A, B, Lambda, opts );
+}
+
+/// With Z, compute eigenvalues & eigenvectors.
+template <typename scalar_t>
+void eig(
+    int64_t itype,
+    HermitianMatrix<scalar_t>& A,
+    HermitianMatrix<scalar_t>& B,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Matrix<scalar_t>& Z,
+    Options const& opts = Options())
+{
+    hegv( itype, A, B, Lambda, Z, opts );
+}
+
+//-----------------------------------------
+// Real-symmetric matrices; disabled for complex
 template <typename scalar_t>
 void eig_vals(
     int64_t itype,
@@ -769,8 +827,35 @@ void eig_vals(
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    Matrix<scalar_t> V;
-    sygv(itype, Job::NoVec, A, B, Lambda, V, opts);
+    Matrix<scalar_t> Z;
+    sygv( itype, A, B, Lambda, Z, opts );
+}
+
+/// Without Z, compute only eigenvalues. Same as eig_vals.
+template <typename scalar_t>
+void eig(
+    int64_t itype,
+    SymmetricMatrix<scalar_t>& A,
+    SymmetricMatrix<scalar_t>& B,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    eig_vals( itype, A, B, Lambda, opts );
+}
+
+/// With Z, compute eigenvalues & eigenvectors.
+template <typename scalar_t>
+void eig(
+    int64_t itype,
+    SymmetricMatrix<scalar_t>& A,
+    SymmetricMatrix<scalar_t>& B,
+    std::vector< blas::real_type<scalar_t> >& Lambda,
+    Matrix<scalar_t>& Z,
+    Options const& opts = Options(),
+    enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
+{
+    sygv( itype, A, B, Lambda, Z, opts );
 }
 
 } // namespace slate

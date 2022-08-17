@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -41,12 +41,16 @@ void test_posv_work(Params& params, bool run)
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
+    bool hold_local_workspace = params.hold_local_workspace() == 'y';
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::Dist dev_dist = params.dev_dist();
+    slate::TileReleaseStrategy tile_release_strategy = params.tile_release_strategy();
     params.matrix.mark();
     params.matrixB.mark();
+    slate::Method methodTrsm = params.method_trsm();
+    slate::Method methodHemm = params.method_hemm();
 
     // mark non-standard output values
     params.time();
@@ -54,9 +58,10 @@ void test_posv_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
     params.time2();
-    params.time2.name( "trs_time(s)" );
+    params.time2.name( "trs time (s)" );
+    params.time2.width( 12 );
     params.gflops2();
-    params.gflops2.name( "trs_gflops" );
+    params.gflops2.name( "trs gflop/s" );
 
     bool do_potrs = (
         (check && params.routine == "potrf") || params.routine == "potrs");
@@ -72,7 +77,11 @@ void test_posv_work(Params& params, bool run)
 
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
+        {slate::Option::Target, target},
+        {slate::Option::TileReleaseStrategy, tile_release_strategy},
+        {slate::Option::HoldLocalWorkspace, hold_local_workspace},
+        {slate::Option::MethodTrsm, methodTrsm},
+        {slate::Option::MethodHemm, methodHemm},
     };
 
     // MPI variables
@@ -87,9 +96,13 @@ void test_posv_work(Params& params, bool run)
 
     if (params.routine == "posvMixed"
         && ! std::is_same<real_t, double>::value) {
-        if (mpi_rank == 0) {
-            printf("Unsupported mixed precision\n");
-        }
+        params.msg() = "skipping: unsupported mixed precision; must be type=d or z";
+        return;
+    }
+
+    if (params.routine == "posvMixed"
+        && target == slate::Target::Devices) {
+        params.msg() = "skipping: unsupported mixed precision; no devices support";
         return;
     }
 
@@ -97,13 +110,14 @@ void test_posv_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
 
     // Matrix B: figure out local size.
     int64_t mlocB = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-    std::vector<scalar_t> B_data(lldB*nlocB);
+
+    // ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data, B_data;
 
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
@@ -164,6 +178,8 @@ void test_posv_work(Params& params, bool run)
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
+        A_data.resize( lldA * nlocA );
+        B_data.resize( lldB * nlocB );
         A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                 uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         B = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -195,10 +211,6 @@ void test_posv_work(Params& params, bool run)
 
         slate::copy( A, Aref );
         slate::copy( B, Bref );
-        if (origin != slate::Origin::ScaLAPACK) {
-            A_data = Aref_data;
-            B_data = Bref_data;
-        }
 
         if (check && ref)
             B_orig = Bref_data;
@@ -310,6 +322,8 @@ void test_posv_work(Params& params, bool run)
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
+        if (params.routine == "posvMixed")
+            params.okay() = params.okay() && params.iters() >= 0;
     }
 
     if (ref) {
@@ -345,12 +359,6 @@ void test_posv_work(Params& params, bool run)
             scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
             if (check) {
                 // restore Bref_data
                 Bref_data = B_orig;
@@ -382,8 +390,6 @@ void test_posv_work(Params& params, bool run)
 
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
-
-            slate_set_num_blas_threads(saved_num_threads);
 
             if (verbose > 2) {
                 if (origin == slate::Origin::ScaLAPACK) {

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -14,7 +14,7 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
-/// Finds the largest absolute value of elements, for each tile in tiles.
+/// Finds the largest absolute value of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row, followed by a reduction.
 /// Uses dynamic shared memory array of length sizeof(real_t) * m.
@@ -28,9 +28,9 @@ namespace device {
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -41,13 +41,13 @@ namespace device {
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void genormMaxKernel(
+__global__ void genorm_max_kernel(
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_maxima)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
 
     // Save partial results in shared memory.
     extern __shared__ char dynamic_data[];
@@ -58,9 +58,9 @@ __global__ void genormMaxKernel(
     }
 
     // This does coalesced reads of one column at a time in parallel.
-    for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
-        chunk = idx % blockDim.x;
-        scalar_t const* row = &tile[idx];
+    for (int i = threadIdx.x; i < m; i += blockDim.x) {
+        chunk = i % blockDim.x;
+        scalar_t const* row = &tile[ i ];
         real_t max = 0;
 
         // Each thread finds max of one row.
@@ -79,11 +79,11 @@ __global__ void genormMaxKernel(
     }
 }
 
-const int one_ib = 32;
-const int one_ib1 = 33;
+const int ib  = 32;  ///< block size for genorm_one_kernel
+const int ib1 = 33;  ///< ib + 1 for stride to avoid GPU bank conflicts
 
 //------------------------------------------------------------------------------
-/// Sum of absolute values of each column of elements, for each tile in tiles.
+/// Sum of absolute values of each column of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one column.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
@@ -96,9 +96,9 @@ const int one_ib1 = 33;
 ///     Number of columns of each tile. n >= 1.
 ///     Also the number of threads per block (blockDim.x), hence,
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -112,41 +112,41 @@ const int one_ib1 = 33;
 ///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
-__global__ void genormOneKernel(
+__global__ void genorm_one_kernel(
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
     extern __shared__ char dynamic_data[];
     real_t* shmem_tile = (real_t*)dynamic_data;
-    const int idx = threadIdx.x;
+    const int k = threadIdx.x;
 
-    for (int64_t jj = 0; jj < n; jj += one_ib) {
+    for (int64_t jj = 0; jj < n; jj += ib) {
         real_t sum = 0.0;
-        for (int64_t ii = 0; ii < m; ii += one_ib) {
+        for (int64_t ii = 0; ii < m; ii += ib) {
             // Read 32x32 sub-tile into shared memory.
             // This does coalesced reads of one column at a time in parallel.
-            for (int64_t j = 0; j < one_ib; ++j)
-                if (jj+j < n && ii+idx < m)
-                    shmem_tile[j*one_ib1 + idx] = abs(tile[(jj+j)*lda + ii+idx]);
+            for (int64_t j = 0; j < ib; ++j)
+                if (jj+j < n && ii+k < m)
+                    shmem_tile[ j*ib1 + k ] = abs( tile[ (jj+j)*lda + ii+k ] );
             __syncthreads();  // shmem_tile loaded
 
             // Each thread sums one column.
-            for (int64_t i = 0; i < one_ib; ++i)
-                if (jj+idx < n && ii+i < m)
-                    sum += shmem_tile[idx*one_ib1 + i];
+            for (int64_t i = 0; i < ib; ++i)
+                if (jj+k < n && ii+i < m)
+                    sum += shmem_tile[ k*ib1 + i ];
             __syncthreads();  // done with shmem_tile
         }
 
-        if (jj+idx < n)
-            tiles_sums[blockIdx.x*ldv + jj+idx] = sum;
+        if (jj+k < n)
+            tiles_sums[ blockIdx.x*ldv + jj+k ] = sum;
     }
 }
 
 //------------------------------------------------------------------------------
-/// Sum of absolute values of each row of elements, for each tile in tiles.
+/// Sum of absolute values of each row of elements, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
@@ -159,9 +159,9 @@ __global__ void genormOneKernel(
 /// @param[in] n
 ///     Number of columns of each tile. n >= 1.
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension gridDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -175,17 +175,16 @@ __global__ void genormOneKernel(
 ///     Leading dimension of tiles_sums (values) array.
 ///
 template <typename scalar_t>
-__global__ void genormInfKernel(
+__global__ void genorm_inf_kernel(
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_sums, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
-    int idx = threadIdx.x;
+    scalar_t const* tile = Aarray[ blockIdx.x ];
 
-    for (idx = threadIdx.x; idx < m; idx += blockDim.x) {
-        scalar_t const* row = &tile[idx];
+    for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
+        scalar_t const* row = &tile[ i ];
 
         // Each thread sums one row.
         // This does coalesced reads of one column at a time in parallel.
@@ -193,12 +192,12 @@ __global__ void genormInfKernel(
         for (int64_t j = 1; j < n; ++j)
             sum += abs(row[j*lda]);
 
-        tiles_sums[blockIdx.x*ldv + idx] = sum;
+        tiles_sums[ blockIdx.x*ldv + i ] = sum;
     }
 }
 
 //------------------------------------------------------------------------------
-/// Sum of squares, in scaled representation, for each tile in tiles.
+/// Sum of squares, in scaled representation, for each tile in Aarray.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row, followed by a reduction.
 /// Kernel assumes non-trivial tiles (m, n >= 1).
@@ -211,9 +210,9 @@ __global__ void genormInfKernel(
 ///     Number of columns of each tile. n >= 1.
 ///     Also the number of threads per block, hence,
 ///
-/// @param[in] tiles
+/// @param[in] Aarray
 ///     Array of tiles of dimension blockDim.x,
-///     where each tiles[k] is an m-by-n matrix stored in an lda-by-n array.
+///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile. lda >= m.
@@ -227,13 +226,13 @@ __global__ void genormInfKernel(
 ///     for tile A^(k).
 ///
 template <typename scalar_t>
-__global__ void genormFroKernel(
+__global__ void genorm_fro_kernel(
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* tiles_values)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
     int chunk;
 
     // Save partial results in shared memory.
@@ -246,17 +245,17 @@ __global__ void genormFroKernel(
 
     // Each thread finds sum-of-squares of one row.
     // This does coalesced reads of one column at a time in parallel.
-    for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
-        scalar_t const* row = &tile[idx];
+    for (int i = threadIdx.x; i < m; i += blockDim.x) {
+        scalar_t const* row = &tile[ i ];
         real_t scale = 0;
         real_t sumsq = 1;
-        chunk = idx % blockDim.x;
+        chunk = i % blockDim.x;
 
         for (int64_t j = 0; j < n; ++j) {
             add_sumsq(scale, sumsq, abs(row[j*lda]));
         }
 
-        if (idx < blockDim.x) {
+        if (i < blockDim.x) {
             row_scale[chunk] = 0;
             row_sumsq[chunk] = 1;
         }
@@ -280,50 +279,52 @@ __global__ void genormFroKernel(
     }
 }
 
-
+//------------------------------------------------------------------------------
+// todo docs
 template <typename scalar_t>
-__global__ void geColNormsMaxKernel(
+__global__ void ge_col_norms_max_kernel(
     int64_t m, int64_t n,
-    scalar_t const* const* tiles, int64_t lda,
+    scalar_t const* const* Aarray, int64_t lda,
     blas::real_type<scalar_t>* col_max, int64_t ldv)
 {
     using real_t = blas::real_type<scalar_t>;
-    scalar_t const* tile = tiles[blockIdx.x];
+    scalar_t const* tile = Aarray[ blockIdx.x ];
     extern __shared__ char dynamic_data[];
     real_t* shmem_tile = (real_t*)dynamic_data;
-    const int idx = threadIdx.x;
+    const int k = threadIdx.x;
 
-    for (int64_t jj = 0; jj < n; jj += one_ib) {
+    for (int64_t jj = 0; jj < n; jj += ib) {
         real_t max = 0.0;
-        for (int64_t ii = 0; ii < m; ii += one_ib) {
+        for (int64_t ii = 0; ii < m; ii += ib) {
             // Read 32x32 sub-tile into shared memory.
             // This does coalesced reads of one column at a time in parallel.
-            for (int64_t j = 0; j < one_ib; ++j)
-                if (jj+j < n && ii+idx < m)
-                    shmem_tile[j*one_ib1 + idx] = abs(tile[(jj+j)*lda + ii+idx]);
+            for (int64_t j = 0; j < ib; ++j)
+                if (jj+j < n && ii+k < m)
+                    shmem_tile[ j*ib1 + k ] = abs( tile[ (jj+j)*lda + ii+k ] );
             __syncthreads();  // shmem_tile loaded
 
             // Each thread compute max of one column.
-            for (int64_t i = 0; i < one_ib; ++i)
-                if (jj+idx < n && ii+i < m)
-                    max = max_nan(shmem_tile[idx*one_ib1 + i], max);
+            for (int64_t i = 0; i < ib; ++i)
+                if (jj+k < n && ii+i < m)
+                    max = max_nan( shmem_tile[ k*ib1 + i ], max );
             __syncthreads();  // done with shmem_tile
         }
 
-        if (jj+idx < n)
-            col_max[blockIdx.x*ldv + jj+idx] = max;
+        if (jj+k < n)
+            col_max[ blockIdx.x*ldv + jj+k ] = max;
     }
 }
 
 //------------------------------------------------------------------------------
-/// Batched routine that returns the largest absolute value of elements for
-/// each tile in Aarray. Sets
-///     tiles_maxima[k] = max_{i, j}( abs( A^(k)_(i, j) )),
-/// for each tile A^(k), where
-/// A^(k) = Aarray[k],
-/// k = 0, ..., blockDim.x-1,
-/// i = 0, ..., m-1,
-/// j = 0, ..., n-1.
+/// Batched routine that computes a partial norm for each tile.
+///
+/// @param[in] norm
+///     Norm to compute. See values for description.
+///
+/// @param[in] scope
+///     Scope of the norm.
+///     - NormScope::Matrix  computes partial norm of each tile.
+///     - NormScope::Columns computes norm of each column.
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 0.
@@ -360,13 +361,13 @@ __global__ void geColNormsMaxKernel(
 ///         for 0 <= k < batch_count.
 ///
 /// @param[in] ldv
-///     Leading dimension of tiles_sums (values) array.
+///     Leading dimension of values array.
 ///
 /// @param[in] batch_count
 ///     Size of Aarray. batch_count >= 0.
 ///
-/// @param[in] stream
-///     CUDA stream to execute in.
+/// @param[in] queue
+///     BLAS++ queue to execute in.
 ///
 template <typename scalar_t>
 void genorm(
@@ -383,6 +384,8 @@ void genorm(
     if (batch_count == 0)
         return;
 
+    cudaSetDevice( queue.device() );
+
     if (scope == NormScope::Matrix) {
 
         //---------
@@ -393,7 +396,9 @@ void genorm(
             }
             else {
                 assert(ldv == 1);
-                genormMaxKernel<<<batch_count, nb, sizeof(real_t) * nb, queue.stream()>>>
+                size_t shared_mem = sizeof(real_t) * nb;
+                genorm_max_kernel
+                    <<<batch_count, nb, shared_mem, queue.stream()>>>
                     (m, n, Aarray, lda, values);
             }
         }
@@ -405,7 +410,9 @@ void genorm(
             }
             else {
                 assert(ldv >= n);
-                genormOneKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, queue.stream()>>>
+                size_t shared_mem = sizeof(real_t) * ib * ib1;
+                genorm_one_kernel
+                    <<<batch_count, ib, shared_mem, queue.stream()>>>
                     (m, n, Aarray, lda, values, ldv);
             }
         }
@@ -417,7 +424,7 @@ void genorm(
             }
             else {
                 assert(ldv >= m);
-                genormInfKernel<<<batch_count, nb, 0, queue.stream()>>>
+                genorm_inf_kernel<<<batch_count, nb, 0, queue.stream()>>>
                     (m, n, Aarray, lda, values, ldv);
             }
         }
@@ -429,8 +436,9 @@ void genorm(
             }
             else {
                 assert(ldv == 2);
-
-                genormFroKernel<<<batch_count, nb, sizeof(real_t) * nb * 2, queue.stream()>>>
+                size_t shared_mem = sizeof(real_t) * nb * 2;
+                genorm_fro_kernel
+                    <<<batch_count, nb, shared_mem, queue.stream()>>>
                     (m, n, Aarray, lda, values);
             }
         }
@@ -444,7 +452,9 @@ void genorm(
             }
             else {
                 assert(ldv >= n);
-                geColNormsMaxKernel<<<batch_count, one_ib, sizeof(real_t)*one_ib*one_ib1, queue.stream()>>>
+                size_t shared_mem = sizeof(real_t) * ib * ib1;
+                ge_col_norms_max_kernel
+                    <<<batch_count, ib, shared_mem, queue.stream()>>>
                     (m, n, Aarray, lda, values, ldv);
             }
         }

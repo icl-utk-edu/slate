@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -114,7 +114,7 @@ void unmlq(internal::TargetType<target>,
         //     [ C1  ]
         auto C0 = C.sub(first, first, 0, nt-1);
         // todo: issue omp tasks for copy to host
-        C0.tileGetAllForWriting(C0.hostNum(), LayoutConvert(layout));
+        C0.tileGetAllForWriting( HostNum, LayoutConvert(layout) );
 
         // Householder vectors are only first min( mb, nb ) rows in upper
         // triangular part of V. If V0 tile is tall (mb > nb), slice V to
@@ -232,7 +232,7 @@ void unmlq(internal::TargetType<target>,
         // todo: Wr.clear();
         for (int64_t j = 0; j < Wr.nt(); ++j) {
             if (Wr.tileIsLocal(0, j)) {
-                Wr.tileErase(0, j);
+                Wr.tileErase(0, j, AllDevices);
             }
         }
     }
@@ -290,7 +290,7 @@ void unmlq(internal::TargetType<target>,
         //       C0b is non-empty only if V0 is trapezoid
         auto C0 = C.sub(0, mt-1, first, first);
         // todo: issue omp tasks for copy to host
-        C0.tileGetAllForWriting(C0.hostNum(), LayoutConvert(layout));
+        C0.tileGetAllForWriting( HostNum, LayoutConvert(layout) );
 
         // Householder vectors are only first min( mb, nb ) rows in upper
         // triangular part of V. If V0 tile is tall (mb > nb), slice V to
@@ -408,13 +408,10 @@ void unmlq(internal::TargetType<target>,
         // todo: Wc.clear();
         for (int64_t i = 0; i < Wc.mt(); ++i) {
             if (Wc.tileIsLocal(i, 0)) {
-                Wc.tileErase(i, 0);
+                Wc.tileErase(i, 0, AllDevices);
             }
         }
     }
-
-    // todo: what does this wait for?
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

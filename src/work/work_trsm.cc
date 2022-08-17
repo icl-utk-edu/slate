@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -52,10 +52,14 @@ namespace work {
 template <Target target, typename scalar_t>
 void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                                Matrix<scalar_t> B,
-          uint8_t* row, int64_t lookahead)
+          uint8_t* row, Options const& opts)
 {
     using blas::conj;
     using BcastList = typename Matrix<scalar_t>::BcastList;
+
+    const scalar_t one = 1.0;
+
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -84,9 +88,19 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     const int priority_one  = 1;
     const int priority_zero = 0;
 
-    // Requires 2 queues
-    if (target == Target::Devices)
-        assert(B.numComputeQueues() >= 2);
+    Options opts2 = opts;
+
+    // Requires 2+lookahead queues
+    if (target == Target::Devices) {
+        assert(B.numComputeQueues() >= 2+lookahead);
+
+        // Use only TileReleaseStrategy::Slate for trsm.
+        // Internal routines (trsm and gemm) called here
+        // won't release any tiles. Trsm will
+        // clean up tiles.
+        opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
+    }
+
     const int64_t queue_0 = 0;
     const int64_t queue_1 = 1;
 
@@ -95,7 +109,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
         // Lower/NoTrans or Upper/Trans, Left case
         // Forward sweep
         for (int64_t k = 0; k < mt; ++k) {
-            scalar_t alph = k == 0 ? alpha : scalar_t(1.0);
+            scalar_t alph = k == 0 ? alpha : one;
 
             // panel (Akk tile)
             #pragma omp task depend(inout:row[k]) priority(1)
@@ -108,7 +122,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     Side::Left,
                     alph, A.sub(k, k),
                           B.sub(k, k, 0, nt-1),
-                    priority_one, layout, queue_1);
+                    priority_one, layout, queue_1, opts2);
 
                 // send A(i=k+1:mt-1, k) to ranks owning block row B(i, :)
                 BcastList bcast_list_A;
@@ -131,12 +145,11 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 #pragma omp task depend(in:row[k]) \
                                  depend(inout:row[i]) priority(1)
                 {
-                    // TODO: execute lookahead on devices
-                    internal::gemm<Target::HostTask>(
-                        scalar_t(-1.0), A.sub(i, i, k, k),
-                                        B.sub(k, k, 0, nt-1),
-                        alph,           B.sub(i, i, 0, nt-1),
-                        layout, priority_one);
+                    internal::gemm<target>(
+                        -one, A.sub(i, i, k, k),
+                              B.sub(k, k, 0, nt-1),
+                        alph, B.sub(i, i, 0, nt-1),
+                        layout, priority_one, i-k+1, opts2);
                 }
             }
 
@@ -151,12 +164,27 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                  depend(inout:row[mt-1])
                 {
                     internal::gemm<target>(
-                        scalar_t(-1.0),
-                                    A.sub(k+1+lookahead, mt-1, k, k),
-                                    B.sub(k, k, 0, nt-1),
-                        alph,       B.sub(k+1+lookahead, mt-1, 0, nt-1),
-                        layout, priority_zero, queue_0);
+                        -one, A.sub(k+1+lookahead, mt-1, k, k),
+                              B.sub(k, k, 0, nt-1),
+                        alph, B.sub(k+1+lookahead, mt-1, 0, nt-1),
+                        layout, priority_zero, queue_0, opts2);
                 }
+            }
+
+            // Erase remote or workspace tiles.
+            #pragma omp task depend(inout:row[k])
+            {
+                auto A_panel = A.sub(k, mt-1, k, k);
+                A_panel.eraseRemoteWorkspace();
+                A_panel.eraseLocalWorkspace();
+
+                auto B_panel = B.sub(k, k, 0, nt-1);
+                B_panel.eraseRemoteWorkspace();
+
+                // Copy back modifications to tiles in the B panel
+                // before they are erased.
+                B_panel.tileUpdateAllOrigin();
+                B_panel.eraseLocalWorkspace();
             }
         }
     }
@@ -165,7 +193,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
         // Upper/NoTrans or Lower/Trans, Left case
         // Backward sweep
         for (int64_t k = mt-1; k >= 0; --k) {
-            scalar_t alph = k == (mt-1) ? alpha : scalar_t(1.0);
+            scalar_t alph = k == (mt-1) ? alpha : one;
 
             // panel (Akk tile)
             #pragma omp task depend(inout:row[k]) priority(1)
@@ -178,7 +206,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     Side::Left,
                     alph, A.sub(k, k),
                           B.sub(k, k, 0, nt-1),
-                    priority_one, layout, queue_1);
+                    priority_one, layout, queue_1, opts2);
 
                 // send A(i=0:k-1, k) to ranks owning block row B(i, :)
                 BcastList bcast_list_A;
@@ -198,12 +226,11 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 #pragma omp task depend(in:row[k]) \
                                  depend(inout:row[i]) priority(1)
                 {
-                    // TODO: execute lookahead on devices
-                    internal::gemm<Target::HostTask>(
-                        scalar_t(-1.0), A.sub(i, i, k, k),
-                                        B.sub(k, k, 0, nt-1),
-                        alph,           B.sub(i, i, 0, nt-1),
-                        layout, priority_one);
+                    internal::gemm<target>(
+                        -one, A.sub(i, i, k, k),
+                              B.sub(k, k, 0, nt-1),
+                        alph, B.sub(i, i, 0, nt-1),
+                        layout, priority_one, i-k+lookahead+2, opts2);
                 }
             }
 
@@ -217,12 +244,27 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                  depend(inout:row[0])
                 {
                     internal::gemm<target>(
-                        scalar_t(-1.0),
-                                      A.sub(0, k-1-lookahead, k, k),
-                                      B.sub(k, k, 0, nt-1),
-                        alph,         B.sub(0, k-1-lookahead, 0, nt-1),
-                        layout, priority_zero, queue_0);
+                        -one, A.sub(0, k-1-lookahead, k, k),
+                              B.sub(k, k, 0, nt-1),
+                        alph, B.sub(0, k-1-lookahead, 0, nt-1),
+                        layout, priority_zero, queue_0, opts2);
                 }
+            }
+
+            // Erase remote or workspace tiles.
+            #pragma omp task depend(inout:row[k])
+            {
+                auto A_panel = A.sub(0, k, k, k);
+                A_panel.eraseRemoteWorkspace();
+                A_panel.eraseLocalWorkspace();
+
+                auto B_panel = B.sub(k, k, 0, nt-1);
+                B_panel.eraseRemoteWorkspace();
+
+                // Copy back modifications to tiles in the B panel
+                // before they are erased.
+                B_panel.tileUpdateAllOrigin();
+                B_panel.eraseLocalWorkspace();
             }
         }
     }
@@ -238,28 +280,28 @@ void trsm<Target::HostTask, float>(
     Side side,
     float alpha, TriangularMatrix<float> A,
                            Matrix<float> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostNest, float>(
     Side side,
     float alpha, TriangularMatrix<float> A,
                            Matrix<float> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostBatch, float>(
     Side side,
     float alpha, TriangularMatrix<float> A,
                            Matrix<float> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::Devices, float>(
     Side side,
     float alpha, TriangularMatrix<float> A,
                            Matrix<float> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 // ----------------------------------------
 template
@@ -267,28 +309,28 @@ void trsm<Target::HostTask, double>(
     Side side,
     double alpha, TriangularMatrix<double> A,
                             Matrix<double> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostNest, double>(
     Side side,
     double alpha, TriangularMatrix<double> A,
                             Matrix<double> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostBatch, double>(
     Side side,
     double alpha, TriangularMatrix<double> A,
                             Matrix<double> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::Devices, double>(
     Side side,
     double alpha, TriangularMatrix<double> A,
                             Matrix<double> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 // ----------------------------------------
 template
@@ -296,28 +338,28 @@ void trsm<Target::HostTask, std::complex<float>>(
     Side side,
     std::complex<float> alpha, TriangularMatrix<std::complex<float>> A,
                                          Matrix<std::complex<float>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostNest, std::complex<float>>(
     Side side,
     std::complex<float> alpha, TriangularMatrix<std::complex<float>> A,
                                          Matrix<std::complex<float>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostBatch, std::complex<float>>(
     Side side,
     std::complex<float> alpha, TriangularMatrix<std::complex<float>> A,
                                          Matrix<std::complex<float>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::Devices, std::complex<float>>(
     Side side,
     std::complex<float> alpha, TriangularMatrix<std::complex<float>> A,
                                          Matrix<std::complex<float>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 // ----------------------------------------
 template
@@ -325,28 +367,28 @@ void trsm<Target::HostTask, std::complex<double>>(
     Side side,
     std::complex<double> alpha, TriangularMatrix<std::complex<double>> A,
                                           Matrix<std::complex<double>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostNest, std::complex<double>>(
     Side side,
     std::complex<double> alpha, TriangularMatrix<std::complex<double>> A,
                                           Matrix<std::complex<double>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::HostBatch, std::complex<double>>(
     Side side,
     std::complex<double> alpha, TriangularMatrix<std::complex<double>> A,
                                           Matrix<std::complex<double>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 template
 void trsm<Target::Devices, std::complex<double>>(
     Side side,
     std::complex<double> alpha, TriangularMatrix<std::complex<double>> A,
                                           Matrix<std::complex<double>> B,
-    uint8_t* row, int64_t lookahead);
+    uint8_t* row, Options const& opts);
 
 } // namespace work
 } // namespace slate

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -20,8 +20,8 @@ extern "C" void Cblacs_get(int icontxt, int what, int* val);
 namespace slate {
 namespace scalapack_api {
 
-#define logprintf(fmt, ...)                                             \
-    do { fprintf(stderr, "%s:%d %s(): " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__); } while (0)
+#define logprintf(fmt, ...) \
+    do { fprintf(stderr, "%s:%d %s(): " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__); fflush(0); } while (0)
 
 enum slate_scalapack_dtype {BLOCK_CYCLIC_2D=1, BLOCK_CYCLIC_2D_INB=2};
 enum slate_scalapack_desc {DTYPE_=0, CTXT_, M_, N_, MB_, NB_, RSRC_, CSRC_, LLD_};
@@ -57,29 +57,30 @@ inline int desc_LLD(int* desca)
     return (desca[0] == BLOCK_CYCLIC_2D) ? desca[LLD_] : desca[LLD_INB];
 }
 
-inline void check_and_assert_blacs_grid_is_column_major()
+inline slate::GridOrder slate_scalapack_blacs_grid_order()
 {
-    // if nprocs>1 and proc(1) is not at grid-coord(0, 1) then grid is row-major
+    // if nprocs == 1, the grid layout is irrelevant, all-OK
+    // if nprocs > 1 check the grid location of process-number-1 pnum(1).
+    // if pnum(1) is at grid-coord(0, 1) then grid is col-major
+    // else if pnum(1) is not at grid-coord(0, 1) then grid is row-major
     int mypnum, nprocs, prow, pcol, icontxt=-1, imone=-1, izero=0, pnum_1=1;
     Cblacs_pinfo( &mypnum, &nprocs );
+    if (nprocs == 1) // only one process, so col-major grid-layout
+        return slate::GridOrder::Col;
     Cblacs_get( imone, izero, &icontxt );
     Cblacs_pcoord( icontxt, pnum_1, &prow, &pcol );
-    if (nprocs == 1) return;    // only one process, so grid-layout is good
-    if (prow==0 && pcol==1) return; // col-major grid layout is good
-    if (!(prow==0 && pcol==1)) {
-        if (mypnum==0) {
-            printf("SLATE only supports ScaLAPACK \"Col-major\" process-grid\n");
-            printf("Use blacs_gridinit( ictxt, \"Col-major\", nprow, npcol )\n");
-            assert("Error: Col-major process-grid required");
-        }
+    if (prow == 0 && pcol == 1) { // col-major grid-layout
+        return slate::GridOrder::Col;
+    }
+    else { // row-major grid-layout
+        return slate::GridOrder::Row;
     }
 }
-
 
 template< typename scalar_t >
 inline slate::Matrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::Matrix<scalar_t>& A, int ia, int ja, int* desca)
 {
-    //logprintf("Am %d An %d ia %d ja %d desc_MB(desca) %d desc_NB(desca) %d A.m() %d A.n() %d LLD_ %d %d \n", Am, An, ia, ja, desc_MB(desca), desc_NB(desca), A.m(), A.n());
+    // logprintf("Am %d An %d ia %d ja %d desc_MB(desca) %d desc_NB(desca) %d A.m() %ld A.n() %ld \n", Am, An, ia, ja, desc_MB(desca), desc_NB(desca), A.m(), A.n());
     if (ia == 1 && ja == 1 && Am == A.m() && An == A.n()) return A;
     assert((ia-1) % desc_MB(desca) == 0);
     assert((ja-1) % desc_NB(desca) == 0);
@@ -139,6 +140,7 @@ inline slate::HermitianMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An
 inline slate::Target slate_scalapack_set_target()
 {
     // set the SLATE default computational target
+    // 5th character from: hostTask hostNest hostBatch deviCes
     slate::Target target = slate::Target::HostTask;
     char* targetstr = std::getenv("SLATE_SCALAPACK_TARGET");
     if (targetstr) {
@@ -222,23 +224,6 @@ inline int64_t scalapack_numroc(int64_t n, int64_t nb, int iproc, int isrcproc, 
 
 #define scalapack_indxl2g BLAS_FORTRAN_NAME(indxl2g,INDXL2G)
 extern "C" int scalapack_indxl2g(int* indxloc, int* nb, int* iproc, int* isrcproc, int* nprocs);
-
-
-//------------------------------------------------------------------------------
-// BLAS thread management.
-// Note this is duplicated in the testing module
-#ifdef SLATE_WITH_MKL
-#include <mkl_service.h>
-inline int slate_set_num_blas_threads(const int nt)
-{
-    int old = mkl_get_max_threads();
-    mkl_set_num_threads(nt);
-    return old;
-}
-#else
-inline int slate_set_num_blas_threads(const int nt) { return -1; }
-#endif
-
 
 } // namespace scalapack_api
 } // namespace slate

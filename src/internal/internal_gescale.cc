@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -22,13 +22,13 @@ void gescale(
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     gescale(m, n,
             numer, denom,
             (cuFloatComplex**) Aarray, lda,
             batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     gescale(m, n,
             numer, denom,
             (hipFloatComplex**) Aarray, lda,
@@ -43,13 +43,13 @@ void gescale(
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     gescale(m, n,
             numer, denom,
             (cuDoubleComplex**) Aarray, lda,
             batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     gescale(m, n,
             numer, denom,
             (hipDoubleComplex**) Aarray, lda,
@@ -57,7 +57,7 @@ void gescale(
 #endif
 }
 
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
 void gescale(
@@ -76,7 +76,7 @@ void gescale(
     int64_t batch_count, blas::Queue& queue)
 {
 }
-#endif // not SLATE_WITH_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 
@@ -109,11 +109,13 @@ void scale(
     Matrix<scalar_t>& A, int priority, int queue_index)
 {
     // trace::Block trace_block("scale");
-
+    #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal(i, j)) {
-                #pragma omp task shared(A ) priority(priority)
+                #pragma omp task slate_omp_default_none \
+                    shared( A ) \
+                    firstprivate(i, j, numer, denom) priority(priority)
                 {
                     A.tileGetForWriting(i, j, LayoutConvert::None);
                     scale(numer, denom, A(i, j));
@@ -121,8 +123,6 @@ void scale(
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -169,8 +169,11 @@ void scale(internal::TargetType<Target::Devices>,
         { A.nt()-1, A.nt()   }
     };
 
+    #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task shared(A) priority(priority)
+        #pragma omp task slate_omp_default_none \
+            shared( A ) \
+            firstprivate(device, irange, jrange, queue_index, denom, numer) priority(priority)
         {
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already
@@ -229,8 +232,6 @@ void scale(internal::TargetType<Target::Devices>,
             queue->sync();
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

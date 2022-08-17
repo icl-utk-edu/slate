@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -13,9 +13,8 @@
 namespace slate {
 
 // specialization namespace differentiates, e.g.,
-// internal::potrf from internal::specialization::potrf
-namespace internal {
-namespace specialization {
+// internal::potrf from impl::potrf
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
@@ -25,10 +24,14 @@ namespace specialization {
 ///
 template <Target target, typename scalar_t>
 void potrf(slate::internal::TargetType<target>,
-           HermitianMatrix<scalar_t> A, int64_t lookahead)
+           HermitianMatrix<scalar_t> A, Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
+
+    const scalar_t one = 1.0;
+
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -43,10 +46,12 @@ void potrf(slate::internal::TargetType<target>,
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < A_nt; ++k) {
             // panel, high priority
             #pragma omp task depend(inout:column[k]) priority(1)
@@ -64,7 +69,7 @@ void potrf(slate::internal::TargetType<target>,
                     auto Tkk = TriangularMatrix< scalar_t >(Diag::NonUnit, Akk);
                     internal::trsm<Target::HostTask>(
                         Side::Right,
-                        scalar_t(1.0), conjTranspose(Tkk),
+                        one, conj_transpose( Tkk ),
                         A.sub(k+1, A_nt-1, k, k), 1);
                 }
 
@@ -92,9 +97,9 @@ void potrf(slate::internal::TargetType<target>,
                     if (j+1 <= A_nt-1) {
                         auto Ajk = A.sub(j, j, k, k);
                         internal::gemm<Target::HostTask>(
-                            scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
-                                            conjTranspose(Ajk),
-                            scalar_t(1.0), A.sub(j+1, A_nt-1, j, j),
+                            -one, A.sub(j+1, A_nt-1, k, k),
+                                  conj_transpose( Ajk ),
+                            one,  A.sub(j+1, A_nt-1, j, j),
                             layout, 1);
                     }
                 }
@@ -127,53 +132,29 @@ void potrf(slate::internal::TargetType<target>,
 }
 
 //------------------------------------------------------------------------------
-/// An auxiliary routine to release the panel tiles that are broadcasted. Since
-/// the broadcasted tiles are flagged to be hold on the devices memories to be
-/// accessed by multiple internal kernels while preventing the tileRelease call
-/// in these routine to release them before the others finish accessing
-/// them. Note: this function update the tiles origin to make sure that
-/// the origin memory is up-to-date and the coherency is kept consistent
-/// across multiple address spaces.
-/// @param[in] A
-///     The n-by-n Hermitian positive definite matrix $A$, which is
-///     a sub of the input matrix $A$.
-///
-/// @param[in] k
-///     Current column k of the input matrix $A$.
-///
-/// @ingroup posv_computational
-///
-template <typename scalar_t>
-void potrfReleasePanel(HermitianMatrix<scalar_t> A, int64_t k)
-{
-    int64_t A_nt = A.nt();
-    for (int64_t i = k+1; i < A_nt; ++i) {
-        if (A.tileIsLocal(i, k)) {
-            A.tileUpdateOrigin(i, k);
-
-            std::set<int> dev_set;
-            A.sub(i, i, k+1, i).getLocalDevices(&dev_set);
-            A.sub(i, A_nt-1, i, i).getLocalDevices(&dev_set);
-
-            for (auto device : dev_set) {
-                A.tileUnsetHold(i, k, device);
-                A.tileRelease(i, k, device);
-            }
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
 /// GPU device batched cuBLAS implementation.
 /// @ingroup posv_specialization
 ///
-template <typename scalar_t>
+template <Target target, typename scalar_t>
 void potrf(slate::internal::TargetType<Target::Devices>,
-           HermitianMatrix<scalar_t> A, int64_t lookahead)
+           HermitianMatrix<scalar_t> A, Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
+
+    const scalar_t one = 1.0;
+
+    // Use only TileReleaseStrategy::Slate for potrf.
+    // Internal routines (trsm, herk, gemm) called in
+    // potrf won't release any tiles. Potrf will
+    // clean up tiles.
+    Options opts2 = Options( opts );
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
+
+    int64_t lookahead = get_option<int64_t>( opts2, Option::Lookahead, 1 );
+    bool hold_local_workspace = get_option<bool>(
+            opts2, Option::HoldLocalWorkspace, 0 );
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -189,11 +170,10 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     uint8_t* column = column_vector.data();
 
     const int priority_zero = 0;
-    const int life_factor_one = 1;
+    const int queue_0 = 0;
     const int queue_1 = 1;
     const int64_t batch_size_zero = 0;
     const int num_queues = 2 + lookahead;  // Number of kernels with lookahead
-    const bool is_shared = lookahead > 0;  // Do tileGetAndHold in the bcast
 
     // Allocate batch arrays = number of kernels without lookahead + lookahead
     // number of kernels without lookahead = 2 (internal::gemm & internal::trsm)
@@ -205,10 +185,12 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     A.allocateBatchArrays(batch_size_zero, num_queues);
     A.reserveDeviceWorkspace();
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < A_nt; ++k) {
             // Panel, normal priority
             #pragma omp task depend(inout:column[k])
@@ -226,9 +208,9 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     auto Tkk = TriangularMatrix< scalar_t >(Diag::NonUnit, Akk);
                     internal::trsm<Target::Devices>(
                         Side::Right,
-                        scalar_t(1.0), conjTranspose(Tkk),
-                                       A.sub(k+1, A_nt-1, k, k),
-                        priority_zero, layout, queue_1);
+                        one, conj_transpose( Tkk ),
+                        A.sub(k+1, A_nt-1, k, k),
+                        priority_zero, layout, queue_1, opts2);
                 }
 
                 BcastListTag bcast_list_A;
@@ -240,12 +222,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                                             i});
                 }
 
-                // "is_shared" is to request copying the tiles to the devices,
-                // and set them on-hold, which avoids releasing them by either
-                // internal::gemm or internal::herk
-                // (avoiding possible race condition)
                 A.template listBcastMT<Target::Devices>(
-                  bcast_list_A, layout, life_factor_one, is_shared);
+                  bcast_list_A, layout);
             }
 
             // update trailing submatrix, normal priority
@@ -259,7 +237,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     // where kl = k + lookahead
                     internal::herk<Target::Devices>(
                         real_t(-1.0), A.sub(k+1+lookahead, A_nt-1, k, k),
-                        real_t( 1.0), A.sub(k+1+lookahead, A_nt-1));
+                        real_t( 1.0), A.sub(k+1+lookahead, A_nt-1),
+                        priority_zero, queue_0, layout, opts2);
                 }
             }
 
@@ -275,58 +254,45 @@ void potrf(slate::internal::TargetType<Target::Devices>,
                     // A(j, j) -= A(j, k) * A(j, k)^H
                     internal::herk<Target::Devices>(
                         real_t(-1.0), A.sub(j, j, k, k),
-                        real_t( 1.0), A.sub(j, j));
+                        real_t( 1.0), A.sub(j, j),
+                        priority_zero, j-k+1, layout, opts2);
 
                     // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
                     if (j+1 <= A_nt-1) {
                         auto Ajk = A.sub(j, j, k, k);
                         internal::gemm<Target::Devices>(
-                            scalar_t(-1.0), A.sub(j+1, A_nt-1, k, k),
-                                            conjTranspose(Ajk),
-                            scalar_t( 1.0), A.sub(j+1, A_nt-1, j, j),
-                            layout, priority_zero, j-k+1);
+                            -one, A.sub(j+1, A_nt-1, k, k),
+                                  conj_transpose( Ajk ),
+                            one,  A.sub(j+1, A_nt-1, j, j),
+                            layout, priority_zero, j-k+1, opts2);
                     }
                 }
             }
 
-            // update the status of the on-hold tiles held by the invocation of
-            // the tileBcast routine, and then release them to free up memory
-            // the origin must be updated with the latest modified copy.
-            // for memory consistency
-            // TODO: find better solution to handle tile release, and
-            //       investigate the correctness of the task dependency
-            if (lookahead > 0 && k >= lookahead) {
-                #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[k+1])
-                {
-                    potrfReleasePanel(A, k - lookahead);
-                }
+            #pragma omp task depend(inout:column[k])
+            {
+                auto panel = A.sub( k, A_nt-1, k, k );
+
+                // Erase remote tiles on all devices including host
+                panel.eraseRemoteWorkspace();
+
+                // Update the origin tiles before their
+                // workspace copies on devices are erased.
+                panel.tileUpdateAllOrigin();
+
+                // Erase local workspace on devices.
+                panel.eraseLocalWorkspace();
             }
         }
-
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
-
-    A.releaseWorkspace();
+    if (hold_local_workspace == false) {
+        A.releaseWorkspace();
+    }
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup posv_specialization
-///
-template <Target target, typename scalar_t>
-void potrf(HermitianMatrix<scalar_t>& A,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::potrf(internal::TargetType<target>(),
-                                    A, lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
@@ -378,21 +344,26 @@ template <typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>& A,
            Options const& opts)
 {
+    using internal::TargetType;
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            potrf<Target::HostTask>(A, opts);
+            impl::potrf<Target::HostTask>( TargetType<Target::HostTask>(),
+                                           A, opts);
             break;
         case Target::HostNest:
-            potrf<Target::HostNest>(A, opts);
+            impl::potrf<Target::HostNest>( TargetType<Target::HostNest>(),
+                                           A, opts);
             break;
         case Target::HostBatch:
-            potrf<Target::HostBatch>(A, opts);
+            impl::potrf<Target::HostBatch>( TargetType<Target::HostBatch>(),
+                                            A, opts);
             break;
         case Target::Devices:
-            potrf<Target::Devices>(A, opts);
+            impl::potrf<Target::Devices>( TargetType<Target::Devices>(),
+                                          A, opts);
             break;
     }
     // todo: return value for errors?

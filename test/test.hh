@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -58,13 +58,13 @@ public:
     testsweeper::ParamChar   check;
     testsweeper::ParamChar   error_exit;
     testsweeper::ParamChar   ref;
+    testsweeper::ParamChar   hold_local_workspace;
     testsweeper::ParamChar   trace;
     testsweeper::ParamDouble trace_scale;
     testsweeper::ParamDouble tol;
     testsweeper::ParamInt    repeat;
     testsweeper::ParamInt    verbose;
     testsweeper::ParamInt    print_edgeitems;
-    testsweeper::ParamInt    print_threshold;
     testsweeper::ParamInt    print_width;
     testsweeper::ParamInt    print_precision;
     testsweeper::ParamInt    extended;
@@ -82,6 +82,15 @@ public:
     testsweeper::ParamEnum< testsweeper::DataType > datatype;
     testsweeper::ParamEnum< slate::Origin >         origin;
     testsweeper::ParamEnum< slate::Target >         target;
+
+    testsweeper::ParamEnum< slate::Method >         method_cholQR;
+    testsweeper::ParamEnum< slate::Method >         method_gels;
+    testsweeper::ParamEnum< slate::Method >         method_gemm;
+    testsweeper::ParamEnum< slate::Method >         method_hemm;
+    testsweeper::ParamEnum< slate::Method >         method_trsm;
+
+    testsweeper::ParamEnum< slate::GridOrder >      grid_order;
+    testsweeper::ParamEnum< slate::TileReleaseStrategy > tile_release_strategy;
     testsweeper::ParamEnum< slate::Dist >           dev_dist;
     testsweeper::ParamEnum< slate::Layout >         layout;
     testsweeper::ParamEnum< lapack::Job >           jobz;   // heev
@@ -99,6 +108,7 @@ public:
     testsweeper::ParamEnum< slate::Op >             transB;
     testsweeper::ParamEnum< slate::Diag >           diag;
     testsweeper::ParamEnum< slate::Direction >      direction;
+    testsweeper::ParamEnum< slate::Equed >          equed;
     testsweeper::ParamEnum< lapack::StoreV >        storev;
     testsweeper::ParamEnum< lapack::MatrixType >    matrixtype;
 
@@ -126,6 +136,7 @@ public:
     testsweeper::ParamInt    align;
     testsweeper::ParamChar   nonuniform_nb;
     testsweeper::ParamInt    debug;
+    testsweeper::ParamDouble pivot_threshold;
 
     // ----- output parameters
     testsweeper::ParamScientific error;
@@ -206,14 +217,16 @@ void test_hetrs  (Params& params, bool run);
 void test_gels   (Params& params, bool run);
 void test_geqrf  (Params& params, bool run);
 void test_gelqf  (Params& params, bool run);
+void test_unmqr  (Params& params, bool run);
 
 // symmetric/Hermitian eigenvalues
-void test_heev        (Params& params, bool run);
-void test_he2hb       (Params& params, bool run);
-void test_unmtr_he2hb (Params& params, bool run);
-void test_hb2st       (Params& params, bool run);
-void test_sterf       (Params& params, bool run);
-void test_steqr2      (Params& params, bool run);
+void test_heev   (Params& params, bool run);
+void test_he2hb  (Params& params, bool run);
+void test_hb2st  (Params& params, bool run);
+void test_sterf  (Params& params, bool run);
+void test_steqr2 (Params& params, bool run);
+void test_unmtr_he2hb(Params& params, bool run);
+void test_unmtr_hb2st(Params& params, bool run);
 
 // generalized symmetric/Hermitian eigenvalues
 void test_hegv   (Params& params, bool run);
@@ -224,6 +237,8 @@ void test_gesvd  (Params& params, bool run);
 void test_ge2tb  (Params& params, bool run);
 void test_tb2bd  (Params& params, bool run);
 void test_bdsqr  (Params& params, bool run);
+void test_unmbr_ge2tb(Params& params, bool run);
+void test_unmbr_tb2bd(Params& params, bool run);
 
 // matrix norms
 void test_gbnorm (Params& params, bool run);
@@ -237,6 +252,7 @@ void test_trnorm (Params& params, bool run);
 void test_add    (Params& params, bool run);
 void test_copy   (Params& params, bool run);
 void test_scale  (Params& params, bool run);
+void test_scale_row_col(Params& params, bool run);
 void test_set    (Params& params, bool run);
 
 // -----------------------------------------------------------------------------
@@ -260,7 +276,7 @@ inline const char* dist2str(slate::Dist dist)
 {
     switch (dist) {
         case slate::Dist::Row: return "row";
-        case slate::Dist::Col: return "column";
+        case slate::Dist::Col: return "col";
     }
     return "?";
 }
@@ -270,12 +286,12 @@ inline slate::Origin str2origin(const char* origin)
 {
     std::string origin_ = origin;
     std::transform(origin_.begin(), origin_.end(), origin_.begin(), ::tolower);
-    if (origin_ == "d" || origin_ == "dev" || origin_ == "device" ||
-        origin_ == "devices")
+    if (origin_ == "d" || origin_ == "dev" || origin_ == "device"
+        || origin_ == "devices")
         return slate::Origin::Devices;
     else if (origin_ == "h" || origin_ == "host")
         return slate::Origin::Host;
-    else if (origin_ == "s" || origin_ == "scalapack")
+    else if (origin_ == "s" || origin_ == "scalapack" || origin_ == "scalpk")
         return slate::Origin::ScaLAPACK;
     else
         throw slate::Exception("unknown origin");
@@ -284,9 +300,9 @@ inline slate::Origin str2origin(const char* origin)
 inline const char* origin2str(slate::Origin origin)
 {
     switch (origin) {
-        case slate::Origin::Devices:   return "devices";
+        case slate::Origin::Devices:   return "dev";
         case slate::Origin::Host:      return "host";
-        case slate::Origin::ScaLAPACK: return "scalapack";
+        case slate::Origin::ScaLAPACK: return "scalpk";
     }
     return "?";
 }
@@ -332,8 +348,60 @@ inline const char* target2str(slate::Target target)
         case slate::Target::HostTask:  return "task";
         case slate::Target::HostNest:  return "nest";
         case slate::Target::HostBatch: return "batch";
-        case slate::Target::Devices:   return "devices";
+        case slate::Target::Devices:   return "dev";
         case slate::Target::Host:      return "host";
+    }
+    return "?";
+}
+
+// -----------------------------------------------------------------------------
+inline slate::GridOrder str2grid_order( const char* grid_order )
+{
+    std::string grid_order_ = grid_order;
+    std::transform( grid_order_.begin(), grid_order_.end(),
+                    grid_order_.begin(), ::tolower );
+    if (grid_order_ == "c" || grid_order_ == "col")
+        return slate::GridOrder::Col;
+    else if (grid_order_ == "r" || grid_order_ == "row")
+        return slate::GridOrder::Row;
+    else
+        throw slate::Exception("unknown grid_order");
+}
+
+inline const char* grid_order2str( slate::GridOrder grid_order )
+{
+    switch (grid_order) {
+        case slate::GridOrder::Col:     return "col";
+        case slate::GridOrder::Row:     return "row";
+        case slate::GridOrder::Unknown: return "un";
+    }
+    return "?";
+}
+
+// -----------------------------------------------------------------------------
+inline slate::TileReleaseStrategy str2tile_release_strategy(const char* tile_release_strategy)
+{
+    std::string tile_release_strategy_ = tile_release_strategy;
+    std::transform(tile_release_strategy_.begin(), tile_release_strategy_.end(), tile_release_strategy_.begin(), ::tolower);
+    if (tile_release_strategy_ == "n" || tile_release_strategy_ == "none")
+        return slate::TileReleaseStrategy::None;
+    else if (tile_release_strategy_ == "i" || tile_release_strategy_ == "internal")
+        return slate::TileReleaseStrategy::Internal;
+    else if (tile_release_strategy_ == "s" || tile_release_strategy_ == "src")
+        return slate::TileReleaseStrategy::Slate;
+    else if (tile_release_strategy_ == "a" || tile_release_strategy_ == "all")
+        return slate::TileReleaseStrategy::All;
+    else
+        throw slate::Exception("unknown tile_release_strategy");
+}
+
+inline const char* tile_release_strategy2str(slate::TileReleaseStrategy tile_release_strategy)
+{
+    switch (tile_release_strategy) {
+        case slate::TileReleaseStrategy::None:     return "none";
+        case slate::TileReleaseStrategy::Internal: return "int";
+        case slate::TileReleaseStrategy::Slate:    return "src";
+        case slate::TileReleaseStrategy::All:      return "all";
     }
     return "?";
 }

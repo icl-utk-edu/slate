@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -68,11 +68,12 @@ void unmlq(
     std::vector< uint8_t > block_vector(A_mt);
     uint8_t* block = block_vector.data();
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
-
         int64_t k_begin, k_end, k_step;
         if ((side == Side::Left) != (op == Op::NoTrans)) {
             // Left, (Conj)Trans: multiply Q^H C = Q1^H ... QK^H C, or

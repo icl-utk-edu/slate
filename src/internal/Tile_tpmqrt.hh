@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -107,7 +107,7 @@ void tpmqrt(
     int64_t k = V2.nb();
     int64_t m = C2.mb();
     int64_t n = C2.nb();
-    if ((n >= k) && (m > n)){
+    if ((n >= k) && (m > n)) {
         m = std::min( C2.mb(), C2.nb() );
     }
 

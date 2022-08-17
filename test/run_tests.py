@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+# Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -86,6 +86,7 @@ group_opt.add_argument( '--trans',  action='store', help='default=%(default)s', 
 group_opt.add_argument( '--uplo',   action='store', help='default=%(default)s', default='l,u' )
 group_opt.add_argument( '--diag',   action='store', help='default=%(default)s', default='n,u' )
 group_opt.add_argument( '--side',   action='store', help='default=%(default)s', default='l,r' )
+group_opt.add_argument( '--equed',  action='store', help='default=%(default)s', default='b,r,c,n' )
 group_opt.add_argument( '--alpha',  action='store', help='', default='' )
 group_opt.add_argument( '--beta',   action='store', help='', default='' )
 group_opt.add_argument( '--incx',   action='store', help='default=%(default)s', default='1,2,-1,-2' )
@@ -119,6 +120,7 @@ group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', 
 group_opt.add_argument( '--np',     action='store', help='number of MPI processes; default=%(default)s', default='1' )
 group_opt.add_argument( '--grid',   action='store', help='use p-by-q MPI process grid', default='' )
 group_opt.add_argument( '--repeat', action='store', help='times to repeat each test', default='' )
+group_opt.add_argument( '--thresh', action='store', help='default=%(default)s', default='1,0.5')
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -254,6 +256,7 @@ trans  = ' --trans '  + opts.trans  if (opts.trans)  else ''
 uplo   = ' --uplo '   + opts.uplo   if (opts.uplo)   else ''
 diag   = ' --diag '   + opts.diag   if (opts.diag)   else ''
 side   = ' --side '   + opts.side   if (opts.side)   else ''
+equed  = ' --equed '  + opts.equed  if (opts.equed)  else ''
 a      = ' --alpha '  + opts.alpha  if (opts.alpha)  else ''
 ab     = a+' --beta ' + opts.beta   if (opts.beta)   else a
 incx   = ' --incx '   + opts.incx   if (opts.incx)   else ''
@@ -284,8 +287,9 @@ la     = ' --lookahead ' + opts.lookahead if (opts.lookahead) else ''
 ddist  = ' --dev-dist  ' + opts.dev_dist  if (opts.dev_dist)  else ''
 nb     = ' --nb '     + opts.nb     if (opts.nb)     else ''
 nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
-grid   = ' --grid '    + opts.grid   if (opts.grid)   else ''
+grid   = ' --grid '   + opts.grid   if (opts.grid)   else ''
 repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
+thresh = ' --thresh ' + opts.thresh if (opts.thresh) else ''
 
 # general options for all routines
 gen       = origin + target + grid + check + ref + tol + repeat + nb
@@ -342,17 +346,18 @@ if (opts.blas3):
     [ 'tbsm',  gen_no_nb + ' --nb 32' + dtype + la + side + uplo + transA + diag + mn + a + kd ],
     [ 'trmm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
     [ 'trsm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
+    [ 'trsmA', gen + dtype + la + side + uplo + transA + diag + mn + a ],
     ]
 
 # LU
 if (opts.lu):
     cmds += [
-    [ 'gesv',  gen + dtype + la + n],
+    [ 'gesv',  gen + dtype + la + n + thresh],
     [ 'gesv_nopiv',  gen + dtype + la + n + ' --matrix rand_dominant' + ' --nonuniform_nb n'],
-    [ 'getrf', gen + dtype + la + n],  # todo: mn
+    [ 'getrf', gen + dtype + la + n + thresh],  # todo: mn
     [ 'getrf_tntpiv', gen + dtype + la + n],  # todo: mn
     [ 'getrf_nopiv', target + grid + ref + check + repeat + nb + dtype + la + n + ' --matrix rand_dominant'+ ' --nonuniform_nb n'],
-    [ 'getrs', gen + dtype + la + n + trans],
+    [ 'getrs', gen + dtype + la + n + trans + thresh],
     [ 'getrs_nopiv', gen + dtype + la + n + trans + ' --matrix rand_dominant' + ' --nonuniform_nb n'],
     [ 'getri', gen + dtype + la + n ],
     [ 'getriOOP', gen + dtype + la + n ],
@@ -425,11 +430,7 @@ if (opts.hesv):
 if (opts.least_squares):
     cmds += [
     # todo: mn (i.e., add wide)
-    [ 'gels',   gen + dtype + la + n + tall + trans_nc ],
-    #[ 'gelsy',  gen + dtype + la + mn ],
-    #[ 'gelsd',  gen + dtype + la + mn ],
-    #[ 'gelss',  gen + dtype + la + mn ],
-    #[ 'getsls', gen + dtype + la + mn + trans_nc ],
+    [ 'gels',   gen + dtype + la + n + tall + trans_nc + ' --method-gels qr,cholqr' ],
 
     # Generalized
     #[ 'gglse', gen + dtype + la + mnk ],
@@ -439,7 +440,9 @@ if (opts.least_squares):
 # QR
 if (opts.qr):
     cmds += [
+    [ 'cholqr', gen + dtype + la + n + tall ],  # not wide
     [ 'geqrf', gen + dtype + la + mn ],
+    [ 'unmqr', gen + dtype + la + mn ],
     #[ 'ggqrf', gen + dtype + la + mnk ],
     #[ 'ungqr', gen + dtype + la + mn ],  # m >= n
     #[ 'unmqr', gen + dtype_real    + la + mnk + side + trans    ],  # real does trans = N, T, C
@@ -479,30 +482,25 @@ if (opts.rq):
 # symmetric/Hermitian eigenvalues
 if (opts.syev):
     cmds += [
-    # todo nb, uplo, jobz
+    # todo: uplo, jobz
     [ 'heev',  gen + dtype + la + n ],
     #[ 'ungtr', gen + dtype + la + n + uplo ],
-    #[ 'unmtr', gen + dtype_real    + la + mn + uplo + side + trans    ],  # real does trans = N, T, C
-    #[ 'unmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],  # complex does trans = N, C, not T
-    # todo nb, uplo, origin
-    [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_real    + ' --nb 50' + ' --origin s' + side + trans    ],  # real does trans = N, T, C
-    # todo: include (side=l and trans=c) as well as (side=r and trans=n)
-    # [ 'unmtr_he2hb', target + p + q + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + side + trans_nc ],  # complex does trans = N, C, not T
-    [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side l' + ' --trans n' ],
-    [ 'unmtr_he2hb', target + grid + check + ref + tol + repeat + dtype_complex + ' --nb 50' + ' --origin s' + ' --side r' + ' --trans c' ],
-    # todo nb, uplo
+
+    # todo uplo, nk
+    [ 'unmtr_he2hb', gen + dtype_real    + side + trans    + n ],  # real does trans = N, T, C
+    [ 'unmtr_he2hb', gen + dtype_complex + side + trans_nc + n ],  # complex does trans = N, C
+
+    # todo: uplo, side, trans, nk
+    [ 'unmtr_hb2st', gen_no_target + dtype_real    + n ],
+    [ 'unmtr_hb2st', gen_no_target + dtype_complex + n ],
+
+    # todo: uplo
     [ 'he2hb', gen_no_target + dtype + n ],
     [ 'hb2st', gen_no_target + dtype + n ],
-    # sterf doesn't take origin, target, nb, uplo
-    [ 'sterf', grid + check + ref + tol + repeat + dtype + n ],
-    [ 'steqr2', grid + check + ref + tol + repeat + dtype + n ],
-    # todo: hb2st
 
-    # Banded
-    #[ 'hbev',  gen + dtype + la + n + jobz + uplo ],
-    #[ 'ubgtr', gen + dtype + la + n + uplo ],
-    #[ 'ubmtr', gen + dtype_real    + la + mn + uplo + side + trans    ],
-    #[ 'ubmtr', gen + dtype_complex + la + mn + uplo + side + trans_nc ],
+    # sterf doesn't take origin, target, nb, uplo
+    [ 'sterf',  grid + check + ref + tol + repeat + dtype + n ],
+    [ 'steqr2', grid + check + ref + tol + repeat + dtype + n ],
     ]
 
 # generalized symmetric/Hermitian eigenvalues
@@ -554,10 +552,31 @@ if (opts.norms):
 # aux
 if (opts.aux):
     cmds += [
-    [ 'add',   gen + dtype + mn + ab ],
-    [ 'copy',  gen + dtype + mn      ],
-    [ 'scale', gen + dtype + mn + ab ],
-    [ 'set',   gen + dtype + mn + ab ],
+    [ 'add',    gen + dtype + mn + ab        ],
+    [ 'tzadd',  gen + dtype + mn + ab + uplo ],
+    [ 'tradd',  gen + dtype + n  + ab + uplo ],
+    [ 'syadd',  gen + dtype + n  + ab + uplo ],
+    [ 'headd',  gen + dtype + n  + ab + uplo ],
+
+    [ 'copy',   gen + dtype + mn             ],
+    [ 'tzcopy', gen + dtype + mn      + uplo ],
+    [ 'trcopy', gen + dtype + n       + uplo ],
+    [ 'sycopy', gen + dtype + n       + uplo ],
+    [ 'hecopy', gen + dtype + n       + uplo ],
+
+    [ 'scale',   gen + dtype + mn + ab        ],
+    [ 'tzscale', gen + dtype + mn + ab + uplo ],
+    [ 'trscale', gen + dtype + n  + ab + uplo ],
+    [ 'syscale', gen + dtype + n  + ab + uplo ],
+    [ 'hescale', gen + dtype + n  + ab + uplo ],
+
+    [ 'scale_row_col', gen + dtype + mn + equed ],
+
+    [ 'set',    gen + dtype + mn + ab        ],
+    [ 'tzset',  gen + dtype + mn + ab + uplo ],
+    [ 'trset',  gen + dtype +  n + ab + uplo ],
+    [ 'syset',  gen + dtype +  n + ab + uplo ],
+    [ 'heset',  gen + dtype +  n + ab + uplo ],
     ]
 
 # ------------------------------------------------------------------------------
@@ -579,6 +598,7 @@ def print_tee( *args ):
 # cmd is a pair of strings: (function, args)
 
 def run_test( cmd ):
+    print( '-' * 80 )
     cmd = opts.test +' '+ cmd[1] +' '+ cmd[0]
     print_tee( cmd )
     output = ''
@@ -615,16 +635,19 @@ for cmd in cmds:
             failed_tests.append( (cmd[0], err, output) )
         else:
             passed_tests.append( cmd[0] )
-not_seen = list( filter( lambda x: x not in seen, opts.tests ) )
+print( '-' * 80 )
 
+not_seen = list( filter( lambda x: x not in seen, opts.tests ) )
 if (not_seen):
     print_tee( 'Warning: unknown routines:', ' '.join( not_seen ))
 
 # print summary of failures
 nfailed = len( failed_tests )
 if (nfailed > 0):
-    print_tee( '\n' + str(nfailed) + ' routines FAILED:',
+    print_tee( str(nfailed) + ' routines FAILED:',
                ', '.join( [x[0] for x in failed_tests] ) )
+else:
+    print_tee( 'All routines passed' )
 
 # generate jUnit compatible test report
 if opts.xml:

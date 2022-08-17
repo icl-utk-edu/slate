@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -40,19 +40,43 @@ public:
                      std::function<int (ij_tuple ij)>& inTileDevice,
                      MPI_Comm mpi_comm);
 
-    TriangularMatrix(Uplo uplo, Diag diag, int64_t n, int64_t nb,
-                     int p, int q, MPI_Comm mpi_comm);
+    //----------
+    TriangularMatrix(
+        Uplo uplo, Diag diag, int64_t n, int64_t nb,
+        GridOrder order, int p, int q, MPI_Comm mpi_comm );
 
+    // With order = Col.
+    TriangularMatrix(
+        Uplo uplo, Diag diag, int64_t n, int64_t nb,
+        int p, int q, MPI_Comm mpi_comm )
+        : TriangularMatrix( uplo, diag, n, nb, GridOrder::Col, p, q, mpi_comm )
+    {}
+
+    //----------
     static
     TriangularMatrix fromLAPACK(Uplo uplo, Diag diag, int64_t n,
                                 scalar_t* A, int64_t lda, int64_t nb,
                                 int p, int q, MPI_Comm mpi_comm);
 
+    //----------
     static
-    TriangularMatrix fromScaLAPACK(Uplo uplo, Diag diag, int64_t n,
-                                   scalar_t* A, int64_t lda, int64_t nb,
-                                   int p, int q, MPI_Comm mpi_comm);
+    TriangularMatrix fromScaLAPACK(
+        Uplo uplo, Diag diag, int64_t n,
+        scalar_t* A, int64_t lda, int64_t nb,
+        GridOrder order, int p, int q, MPI_Comm mpi_comm);
 
+    /// With order = Col.
+    static
+    TriangularMatrix fromScaLAPACK(
+        Uplo uplo, Diag diag, int64_t n,
+        scalar_t* A, int64_t lda, int64_t nb,
+        int p, int q, MPI_Comm mpi_comm)
+    {
+        return fromScaLAPACK( uplo, diag, n, A, lda, nb,
+                              GridOrder::Col, p, q, mpi_comm );
+    }
+
+    //----------
     static
     TriangularMatrix fromDevices(Uplo uplo, Diag diag, int64_t n,
                                  scalar_t** Aarray, int num_devices, int64_t lda,
@@ -92,9 +116,10 @@ public:
 
 protected:
     // used by fromLAPACK and fromScaLAPACK
-    TriangularMatrix(Uplo uplo, Diag diag, int64_t n,
-                     scalar_t* A, int64_t lda, int64_t nb,
-                     int p, int q, MPI_Comm mpi_comm, bool is_scalapack);
+    TriangularMatrix( Uplo uplo, Diag diag, int64_t n,
+                      scalar_t* A, int64_t lda, int64_t nb,
+                      GridOrder order, int p, int q, MPI_Comm mpi_comm,
+                      bool is_scalapack );
 
     // used by fromDevices
     TriangularMatrix(Uplo uplo, Diag diag, int64_t n,
@@ -144,8 +169,9 @@ TriangularMatrix<scalar_t>::TriangularMatrix(
 ///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
-    Uplo uplo, Diag diag, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
-    : TrapezoidMatrix<scalar_t>(uplo, diag, n, n, nb, p, q, mpi_comm)
+    Uplo uplo, Diag diag, int64_t n, int64_t nb,
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
+    : TrapezoidMatrix<scalar_t>( uplo, diag, n, n, nb, order, p, q, mpi_comm )
 {}
 
 //------------------------------------------------------------------------------
@@ -191,8 +217,8 @@ TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromLAPACK(
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    return TriangularMatrix<scalar_t>(uplo, diag, n, A, lda, nb, p, q, mpi_comm,
-                                      false);
+    return TriangularMatrix<scalar_t>( uplo, diag, n, A, lda, nb,
+                                       GridOrder::Col, p, q, mpi_comm, false );
 }
 
 //------------------------------------------------------------------------------
@@ -224,6 +250,10 @@ TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromLAPACK(
 /// @param[in] nb
 ///     Block size in 2D block-cyclic distribution. nb > 0.
 ///
+/// @param[in] order
+///     Order to map MPI processes to tile grid,
+///     GridOrder::ColMajor (default) or GridOrder::RowMajor.
+///
 /// @param[in] p
 ///     Number of block rows in 2D block-cyclic distribution. p > 0.
 ///
@@ -238,10 +268,10 @@ template <typename scalar_t>
 TriangularMatrix<scalar_t> TriangularMatrix<scalar_t>::fromScaLAPACK(
     Uplo uplo, Diag diag, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
 {
-    return TriangularMatrix<scalar_t>(uplo, diag, n, A, lda, nb, p, q, mpi_comm,
-                                      true);
+    return TriangularMatrix<scalar_t>( uplo, diag, n, A, lda, nb,
+                                       order, p, q, mpi_comm, true);
 }
 
 //------------------------------------------------------------------------------
@@ -310,9 +340,9 @@ template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
     Uplo uplo, Diag diag, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
-    : TrapezoidMatrix<scalar_t>(uplo, diag, n, n, A, lda, nb, p, q, mpi_comm,
-                                is_scalapack)
+    GridOrder order, int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
+    : TrapezoidMatrix<scalar_t>( uplo, diag, n, n, A, lda, nb,
+                                 order, p, q, mpi_comm, is_scalapack )
 {}
 
 //------------------------------------------------------------------------------

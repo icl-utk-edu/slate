@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -15,6 +15,9 @@
 
 using slate::ceildiv;
 using slate::roundup;
+using slate::GridOrder;
+
+namespace test {
 
 //------------------------------------------------------------------------------
 // global variables
@@ -22,7 +25,6 @@ int m, n, k, mb, nb, p, q;
 int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
-int host_num = slate::HostNum;
 int num_devices = 0;
 int verbose = 0;
 
@@ -58,6 +60,26 @@ void test_TrapezoidMatrix_empty()
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
     test_assert(L.diag() == blas::Diag::NonUnit);
+
+    GridOrder order;
+    int myp, myq, myrow, mycol;
+    L.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
+
+    auto tileMb_     = L.tileMbFunc();
+    auto tileNb_     = L.tileNbFunc();
+    auto tileRank_   = L.tileRankFunc();
+    auto tileDevice_ = L.tileDeviceFunc();
+    test_assert( tileMb_(0) == nb );  // square
+    test_assert( tileNb_(0) == nb );
+    test_assert( tileRank_( {0, 0} ) == 0 );
+    // todo: What is reasonable if num_devices == 0? Currently divides by zero.
+    if (num_devices > 0)
+        test_assert( tileDevice_( {0, 0} ) == 0 );
 
     // ----------
     // upper
@@ -277,6 +299,15 @@ void test_TrapezoidMatrix_fromScaLAPACK()
     test_assert(L.op() == blas::Op::NoTrans);
     test_assert(L.uplo() == blas::Uplo::Lower);
     test_assert(L.diag() == blas::Diag::NonUnit);
+
+    GridOrder order;
+    int myp, myq, myrow, mycol;
+    L.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
 
     for (int j = 0; j < L.nt(); ++j) {
         for (int i = j; i < L.mt(); ++i) {  // lower
@@ -743,6 +774,17 @@ void test_TrapezoidMatrix_allocateBatchArrays()
         test_assert( U.array_host(device) == nullptr );
         test_assert( U.array_device(device) == nullptr );
     }
+}
+
+//------------------------------------------------------------------------------
+/// Tests A.tileLayoutReset().
+/// Incomplete testing; currently only calls it to check for linking, per
+/// https://bitbucket.org/icl/slate/issues/45
+///
+void test_Trapezoid_tileLayoutReset()
+{
+    slate::TrapezoidMatrix<double> A;
+    A.tileLayoutReset();
 }
 
 //==============================================================================
@@ -1794,6 +1836,8 @@ void run_tests()
     run_test(test_TrapezoidMatrix_emptyLikeOp,         "TrapezoidMatrix::emptyLike(..., Trans)", mpi_comm);
     run_test(test_TrapezoidMatrix_insertLocalTiles,    "TrapezoidMatrix::insertLocalTiles",      mpi_comm);
     run_test(test_TrapezoidMatrix_allocateBatchArrays, "TrapezoidMatrix::allocateBatchArrays",   mpi_comm);
+    run_test( test_Trapezoid_tileLayoutReset,
+              "TrapezoidMatrix::tileLayoutReset()", mpi_comm );
 
     if (mpi_rank == 0)
         printf("\nSub-matrices\n");
@@ -1803,9 +1847,9 @@ void run_tests()
     run_test(test_Trapezoid_sub_offdiag_trans, "TrapezoidMatrix::sub(i1, i2, j1, j2), A^T", mpi_comm);
 
     run_test(test_Trapezoid_slice,               "TrapezoidMatrix::slice(i1, i2, j2)",          mpi_comm);
-  //run_test(test_Trapezoid_slice_trans,         "TrapezoidMatrix::slice(i1, i2, j2), A^T",     mpi_comm);  // todo
     run_test(test_Trapezoid_slice_offdiag,       "TrapezoidMatrix::slice(i1, i2, j1, j2)",      mpi_comm);
-  //run_test(test_Trapezoid_slice_offdiag_trans, "TrapezoidMatrix::slice(i1, i2, j1, j2), A^T", mpi_comm);  // todo
+    //run_test(test_Trapezoid_slice_trans,         "TrapezoidMatrix::slice(i1, i2, j2), A^T",     mpi_comm);  // todo
+    //run_test(test_Trapezoid_slice_offdiag_trans, "TrapezoidMatrix::slice(i1, i2, j1, j2), A^T", mpi_comm);  // todo
 
     if (mpi_rank == 0)
         printf("\nConversion to Trapezoid\n");
@@ -1815,9 +1859,13 @@ void run_tests()
     run_test(test_Trapezoid_from_Triangular,   "TrapezoidMatrix( TriangularMatrix )",      mpi_comm);
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     MPI_Init(&argc, &argv);
 
     mpi_comm = MPI_COMM_WORLD;
@@ -1826,7 +1874,6 @@ int main(int argc, char** argv)
     MPI_Comm_size(mpi_comm, &mpi_size);
 
     num_devices = blas::get_device_count();
-    host_num = slate::HostNum;
 
     // globals
     m  = 200;

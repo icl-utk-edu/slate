@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -73,7 +73,7 @@ void test_gelqf_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
+    std::vector<scalar_t> A_data;
 
     slate::Matrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
@@ -84,6 +84,7 @@ void test_gelqf_work(Params& params, bool run)
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
+        A_data.resize( lldA * nlocA );
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
                 m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
@@ -222,12 +223,6 @@ void test_gelqf_work(Params& params, bool run)
             // workspace for ScaLAPACK
             int64_t lwork;
             std::vector<scalar_t> work(1);
-
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
             int64_t info_ref = 0;
 
             // query for workspace size
@@ -249,8 +244,6 @@ void test_gelqf_work(Params& params, bool run)
 
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
-
-            slate_set_num_blas_threads(saved_num_threads);
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -8,10 +8,9 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::herk from internal::specialization::herk
-namespace internal {
-namespace specialization {
+// impl namespace differentiates, e.g.,
+// internal::herk from impl::herk
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
@@ -23,13 +22,13 @@ namespace specialization {
 /// - bcasts can get ahead of herks by the value of lookahead.
 /// Note A and C are passed by value, so we can transpose if needed
 /// (for uplo = Upper) without affecting caller.
-/// @ingroup herk_specialization
+/// @ingroup herk_impl
 ///
 template <Target target, typename scalar_t>
 void herk(slate::internal::TargetType<target>,
           blas::real_type<scalar_t> alpha, Matrix<scalar_t> A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t> C,
-          int64_t lookahead)
+          Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
@@ -44,21 +43,33 @@ void herk(slate::internal::TargetType<target>,
     // A is mt-by-nt, C is mt-by-mt
     assert(A.mt() == C.mt());
 
+    // Use only TileReleaseStrategy::Slate for herk.
+    // Internal herk routine called here won't release
+    // any tiles. This routine will clean up tiles.
+    Options opts2 = opts;
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
+
+    int64_t lookahead = get_option<int64_t>( opts2, Option::Lookahead, 1 );
+
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
     std::vector<uint8_t>  gemm_vector(A.nt());
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
+    const int default_priority = 0;
+    const int default_queue = 0;
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
         C.reserveDeviceWorkspace();
     }
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         // Lower/NoTrans or Upper/ConjTrans case
         // send 1st block col of A
         #pragma omp task depend(out:bcast[0])
@@ -95,7 +106,16 @@ void herk(slate::internal::TargetType<target>,
         {
             internal::herk<target>(
                 alpha, A.sub(0, A.mt()-1, 0, 0),
-                beta,  std::move(C));
+                beta,  std::move(C),
+                default_priority, default_queue, layout, opts2);
+
+            auto A_colblock = A.sub(0, A.mt()-1, 0, 0);
+
+            // Erase remote tiles on all devices including host
+            A_colblock.eraseRemoteWorkspace();
+
+            // Erase local workspace on devices.
+            A_colblock.eraseLocalWorkspace();
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -125,7 +145,16 @@ void herk(slate::internal::TargetType<target>,
             {
                 internal::herk<target>(
                     alpha,       A.sub(0, A.mt()-1, k, k),
-                    real_t(1.0), std::move(C));
+                    real_t(1.0), std::move(C),
+                    default_priority, default_queue, layout, opts2);
+
+                auto A_colblock = A.sub(0, A.mt()-1, k, k);
+
+                // Erase remote tiles on all devices including host
+                A_colblock.eraseRemoteWorkspace();
+
+                // Erase local workspace on devices.
+                A_colblock.eraseLocalWorkspace();
             }
         }
 
@@ -136,25 +165,7 @@ void herk(slate::internal::TargetType<target>,
     C.clearWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup herk_specialization
-///
-template <Target target, typename scalar_t>
-void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
-          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-          Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::herk(internal::TargetType<target>(),
-                                   alpha, A,
-                                   beta,  C,
-                                   lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Hermitian rank k update.
@@ -206,21 +217,26 @@ void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
           Options const& opts)
 {
+    using internal::TargetType;
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            herk<Target::HostTask>(alpha, A, beta, C, opts);
+            impl::herk( TargetType<Target::HostTask>(),
+                        alpha, A, beta, C, opts );
             break;
         case Target::HostNest:
-            herk<Target::HostNest>(alpha, A, beta, C, opts);
+            impl::herk( TargetType<Target::HostNest>(),
+                        alpha, A, beta, C, opts );
             break;
         case Target::HostBatch:
-            herk<Target::HostBatch>(alpha, A, beta, C, opts);
+            impl::herk( TargetType<Target::HostBatch>(),
+                        alpha, A, beta, C, opts );
             break;
         case Target::Devices:
-            herk<Target::Devices>(alpha, A, beta, C, opts);
+            impl::herk( TargetType<Target::Devices>(),
+                        alpha, A, beta, C, opts );
             break;
     }
 }

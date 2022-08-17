@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -71,8 +71,12 @@ void test_getri_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
 
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data;
+    if (check || ref || origin == slate::Origin::ScaLAPACK) {
+        A_data.resize( lldA * nlocA );
+    }
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::Matrix<scalar_t> A0(n, n, nb, p, q, MPI_COMM_WORLD);
 

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -65,7 +65,12 @@ void test_henorm_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
+
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data;
+    if (origin == slate::Origin::ScaLAPACK || check || ref || extended ) {
+        A_data.resize( lldA * nlocA );
+    }
 
     // todo: work-around to initialize BaseMatrix::num_devices_
     slate::HermitianMatrix<scalar_t> A0(uplo, n, nb, p, q, MPI_COMM_WORLD);
@@ -125,16 +130,13 @@ void test_henorm_work(Params& params, bool run)
 
         scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, lldA, &info);
         slate_assert(info == 0);
-        copy( A, &A_data[0], A_desc );
+
+        if (origin != slate::Origin::ScaLAPACK && (check || ref || extended)) {
+            copy( A, &A_data[0], A_desc );
+        }
 
         if (check || ref) {
             // comparison with reference routine from ScaLAPACK
-
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
             // allocate work space
             int lcm = scalapack_ilcm(&p, &q);
@@ -179,8 +181,6 @@ void test_henorm_work(Params& params, bool run)
 
             params.ref_time() = time;
             params.error() = error;
-
-            slate_set_num_blas_threads(saved_num_threads);
 
             // Allow for difference
             params.okay() = (params.error() <= tol);

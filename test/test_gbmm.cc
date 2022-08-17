@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -16,7 +16,6 @@
 #include <cstdlib>
 #include <utility>
 
-#undef PIN_MATRICES
 //------------------------------------------------------------------------------
 template<typename scalar_t>
 void test_gbmm_work(Params& params, bool run)
@@ -61,6 +60,10 @@ void test_gbmm_work(Params& params, bool run)
     params.gflops();
     params.ref_time();
     params.ref_gflops();
+
+    // Suppress norm, nrhs from output; they're only for checks.
+    params.norm.width( 0 );
+    params.nrhs.width( 0 );
 
     if (! run)
         return;
@@ -107,13 +110,6 @@ void test_gbmm_work(Params& params, bool run)
     int64_t lldC  = blas::max(1, mlocC); // local leading dimension of C
     std::vector<scalar_t> C_data(lldC*nlocC);
 
-    #ifdef PIN_MATRICES
-        int cuerror;
-        cuerror = cudaHostRegister(&A_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
-        cuerror = cudaHostRegister(&B_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
-        cuerror = cudaHostRegister(&C_data[0], (size_t)size_A*sizeof(scalar_t), cudaHostRegisterDefault);
-    #endif
-
     auto A = slate::Matrix<scalar_t>::fromScaLAPACK(
                  Am, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -137,12 +133,11 @@ void test_gbmm_work(Params& params, bool run)
         slate::copy( C, Cref );
     }
 
+    print_matrix("A_band", A_band, params);
+    print_matrix("B", B, params);
+    print_matrix("C", C, params);
+
     if (verbose > 1) {
-        //printf("%% rank %d A2 kl %lld, ku %lld\n",
-        //       A_band.mpiRank(), A_band.lowerBandwidth(), A_band.upperBandwidth());
-        print_matrix("A_band", A_band);
-        print_matrix("B", B, params);
-        print_matrix("C", C, params);
         printf("alpha = %.4f + %.4fi;\nbeta  = %.4f + %.4fi;\n",
                real(alpha), imag(alpha),
                real(beta), imag(beta));
@@ -228,12 +223,6 @@ void test_gbmm_work(Params& params, bool run)
         params.okay() = (params.error() <= 3*eps);
     }
     //printf("%% done\n");
-
-    #ifdef PIN_MATRICES
-        cuerror = cudaHostUnregister(&A_data[0]);
-        cuerror = cudaHostUnregister(&B_data[0]);
-        cuerror = cudaHostUnregister(&C_data[0]);
-    #endif
 }
 
 // -----------------------------------------------------------------------------

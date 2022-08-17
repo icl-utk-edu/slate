@@ -1,0 +1,21 @@
+#!/bin/sh
+#
+# Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
+#
+# Does style checks before committing code.
+# Unfortunately, at the moment astyle does not properly parse all the
+# C++ 11, 14, 17 syntax, so it formats things weirdly. Instead, this
+# hook uses a simple Perl script to check for a subset of errors to fix.
+
+script="tools/slate-style-reject.pl"
+return=0
+
+files=`git diff --cached --name-only --diff-filter=ACMR | grep -E "\.(c|cc|cpp|cxx|h|hh|hpp|hxx)$"`
+$script $files
+return=$?
+
+# Comment out exit in .git/hooks/pre-commit to check files but allow the commit.
+exit $return

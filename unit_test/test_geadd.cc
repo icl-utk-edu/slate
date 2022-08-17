@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -13,6 +13,8 @@
 #include "unit_test.hh"
 
 using slate::roundup;
+
+namespace test {
 
 //------------------------------------------------------------------------------
 // global variables
@@ -48,7 +50,7 @@ void test_geadd_dev()
 
     double* B0data = new double[ ldb * n ];
     slate::Tile<double> B0(m, n, B0data, ldb, -1, slate::TileKind::UserOwned);
-    gecopy( B, B0 );
+    slate::tile::gecopy( B, B0 );
 
     double* C0data = new double[ ldb * n ];
     slate::Tile<double> C0(m, n, C0data, ldb, -1, slate::TileKind::UserOwned);
@@ -104,29 +106,29 @@ void test_geadd_dev()
     dB.copyData(&B, queue);
 
     // compute on CPU to check the results
-    for( int j = 0; j < n; ++j ) {
-        for( int i = 0; i < m; ++i ) {
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < m; ++i) {
             C0data[i + j*ldb] = alpha * Adata[i + j*lda] + beta * B0data[i + j*ldb];
         }
     }
 
     //blas::axpy( B.size(), neg_one, B.data(), ione, C0.data(), ione );
-    for( int j = 0; j < n; ++j ) {
-        for( int i = 0; i < m; ++i ) {
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < m; ++i) {
             Adata[i + j*lda] = Bdata[i + j*ldb] -  C0data[i + j*ldb];
         }
     }
 
     //printf("\n C0 \n");
-    //for( int i = 0; i < m; ++i ) {
-    //    for( int j = 0; j < n; ++j ) {
+    //for (int i = 0; i < m; ++i) {
+    //    for (int j = 0; j < n; ++j) {
     //        printf("\t %e", C0data[i + j*ldb]);
     //    }
     //    printf("\n");
     //}
     //printf("\n B \n");
-    //for( int i = 0; i < m; ++i ) {
-    //    for( int j = 0; j < n; ++j ) {
+    //for (int i = 0; i < m; ++i) {
+    //    for (int j = 0; j < n; ++j) {
     //        printf("\t %e", Bdata[i + j*ldb]);
     //    }
     //    printf("\n");
@@ -165,9 +167,13 @@ void run_tests()
     }
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);

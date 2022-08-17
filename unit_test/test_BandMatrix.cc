@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -13,6 +13,10 @@
 
 using slate::ceildiv;
 using slate::roundup;
+using slate::GridOrder;
+using slate::HostNum;
+
+namespace test {
 
 //------------------------------------------------------------------------------
 // global variables
@@ -20,7 +24,6 @@ int m, n, k, kl, ku, nb, p, q;
 int mpi_rank;
 int mpi_size;
 MPI_Comm mpi_comm;
-int host_num = slate::HostNum;
 int num_devices = 0;
 
 //------------------------------------------------------------------------------
@@ -47,6 +50,26 @@ void test_BandMatrix_empty()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.lowerBandwidth() == kl);
     test_assert(A.upperBandwidth() == ku);
+
+    GridOrder order;
+    int myp, myq, myrow, mycol;
+    A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
+    test_assert( order == GridOrder::Col );
+    test_assert( myp == p );
+    test_assert( myq == q );
+    test_assert( myrow == mpi_rank % p );
+    test_assert( mycol == mpi_rank / p );
+
+    auto tileMb_     = A.tileMbFunc();
+    auto tileNb_     = A.tileNbFunc();
+    auto tileRank_   = A.tileRankFunc();
+    auto tileDevice_ = A.tileDeviceFunc();
+    test_assert( tileMb_(0) == nb );  // square
+    test_assert( tileNb_(0) == nb );
+    test_assert( tileRank_( {0, 0} ) == 0 );
+    // todo: What is reasonable if num_devices == 0? Currently divides by zero.
+    if (num_devices > 0)
+        test_assert( tileDevice_( {0, 0} ) == 0 );
 }
 
 //==============================================================================
@@ -141,7 +164,7 @@ void test_BandMatrix_tileInsert_new()
                 int ib = std::min( nb, m - ii );
                 int jb = std::min( nb, n - jj );
 
-                auto T_ptr = A.tileInsert( i, j );  //A.hostNum()
+                auto T_ptr = A.tileInsert( i, j, HostNum );
                 test_assert( T_ptr->mb() == ib );
                 test_assert( T_ptr->nb() == jb );
                 test_assert( T_ptr->op() == slate::Op::NoTrans );
@@ -433,9 +456,13 @@ void run_tests()
     run_test(test_TriangularBandMatrix_gatherAll, "TriangularBandMatrix::gatherAll()",  mpi_comm);
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, m, n, k, etc.
+
     MPI_Init(&argc, &argv);
 
     mpi_comm = MPI_COMM_WORLD;
@@ -444,7 +471,6 @@ int main(int argc, char** argv)
     MPI_Comm_size(mpi_comm, &mpi_size);
 
     num_devices = blas::get_device_count();
-    host_num = slate::HostNum;
 
     // globals
     m  = 200;

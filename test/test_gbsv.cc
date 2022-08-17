@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -130,11 +130,12 @@ void test_gbsv_work(Params& params, bool run)
     }
 
     if (verbose > 1) {
-        printf("%% rank %d A kl %lld, ku %lld\n",
-               A.mpiRank(), llong( A.lowerBandwidth() ), llong( A.upperBandwidth() ));
-        print_matrix("A", A);
-        print_matrix("B", B, params);
+        printf("%% rank %d A\n", A.mpiRank());
+        //printf("%% rank %d A kl %lld, ku %lld\n",
+        //       A.mpiRank(), llong( A.lowerBandwidth() ), llong( A.upperBandwidth() ));
     }
+    print_matrix("A", A, params);
+    print_matrix("B", B, params);
 
     // if check is required, copy test data
     slate::Matrix<scalar_t> Bref;
@@ -204,11 +205,10 @@ void test_gbsv_work(Params& params, bool run)
         ///params.gflops() = gflop / time;
 
         if (verbose > 1) {
-            printf("%% rank %d A2 kl %lld, ku %lld\n",
-                   A.mpiRank(), llong( A.lowerBandwidth() ), llong( A.upperBandwidth() ));
-            print_matrix("A2", A);
-            print_matrix("B2", B, params);
-            printf( "nb = %lld;\n", llong( nb ) );
+            //printf("%% rank %d A2 kl %lld, ku %lld\n",
+            //       A.mpiRank(), llong( A.lowerBandwidth() ), llong( A.upperBandwidth() ));
+            printf("%% rank %d A2\n", A.mpiRank());
+            //printf( "nb = %lld;\n", llong( nb ) );
             printf( "pivots = [\n" );
             int ii = 0;
             for (auto pivot: pivots) {
@@ -222,6 +222,8 @@ void test_gbsv_work(Params& params, bool run)
             }
             printf( "] + 1;\n" );
         }
+        print_matrix("A2", A, params);
+        print_matrix("B2", B, params);
     }
 
     if (check) {
@@ -272,9 +274,7 @@ void test_gbsv_work(Params& params, bool run)
             printf("Anorm = %.4e; Xnorm = %.4e; Rnorm = %.4e; error = %.4e;\n",
                    A_norm, X_norm, R_norm, residual);
         }
-        if (verbose > 1) {
-            print_matrix("Residual", Bref, params);
-        }
+        print_matrix("Residual", Bref, params);
     }
 
     // todo: reference solution requires setting up band matrix in ScaLAPACK's

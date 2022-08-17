@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -11,85 +11,6 @@
 #include "internal/internal.hh"
 
 namespace slate {
-
-// specialization namespace differentiates, e.g.,
-// internal::getrs from internal::specialization::getrs
-namespace internal {
-namespace specialization {
-
-//------------------------------------------------------------------------------
-/// Distributed parallel LU solve.
-/// Generic implementation for any target.
-/// @ingroup gesv_specialization
-///
-template <Target target, typename scalar_t>
-void getrs(slate::internal::TargetType<target>,
-           Matrix<scalar_t>& A, Pivots& pivots,
-           Matrix<scalar_t>& B, int64_t lookahead)
-{
-    assert(A.mt() == A.nt());
-    assert(B.mt() == A.mt());
-
-    auto L = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, A);
-    auto U = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A);
-
-    if (A.op() == Op::NoTrans) {
-        // Pivot the right hand side matrix.
-        for (int64_t k = 0; k < B.mt(); ++k) {
-            // swap rows in B(k:mt-1, 0:nt-1)
-            internal::permuteRows<Target::HostTask>(
-                Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1),
-                pivots.at(k), Layout::ColMajor);
-        }
-
-        // Forward substitution, Y = L^{-1} P B.
-        trsm(Side::Left, scalar_t(1.0), L, B,
-             {{Option::Lookahead, lookahead},
-              {Option::Target, target}});
-
-        // Backward substitution, X = U^{-1} Y.
-        trsm(Side::Left, scalar_t(1.0), U, B,
-             {{Option::Lookahead, lookahead},
-              {Option::Target, target}});
-    }
-    else {
-        // Forward substitution, Y = U^{-T} B.
-        trsm(Side::Left, scalar_t(1.0), U, B,
-             {{Option::Lookahead, lookahead},
-              {Option::Target, target}});
-
-        // Backward substitution, Xhat = L^{-T} Y.
-        trsm(Side::Left, scalar_t(1.0), L, B,
-             {{Option::Lookahead, lookahead},
-              {Option::Target, target}});
-
-        // Pivot the right hand side matrix, X = P^T Xhat
-        for (int64_t k = B.mt()-1; k >= 0; --k) {
-            // swap rows in B(k:mt-1, 0:nt-1)
-            internal::permuteRows<Target::HostTask>(
-                Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
-                pivots.at(k), Layout::ColMajor);
-        }
-    }
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gesv_specialization
-///
-template <Target target, typename scalar_t>
-void getrs(Matrix<scalar_t>& A, Pivots& pivots,
-           Matrix<scalar_t>& B,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::getrs(internal::TargetType<target>(),
-                                    A, pivots, B, lookahead);
-}
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU solve.
@@ -136,22 +57,44 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
            Matrix<scalar_t>& B,
            Options const& opts)
 {
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+    // Constants
+    const scalar_t one  = 1;
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            getrs<Target::HostTask>(A, pivots, B, opts);
-            break;
-        case Target::HostNest:
-            getrs<Target::HostNest>(A, pivots, B, opts);
-            break;
-        case Target::HostBatch:
-            getrs<Target::HostBatch>(A, pivots, B, opts);
-            break;
-        case Target::Devices:
-            getrs<Target::Devices>(A, pivots, B, opts);
-            break;
+    assert(A.mt() == A.nt());
+    assert(B.mt() == A.mt());
+
+    auto L = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, A);
+    auto U = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A);
+
+    if (A.op() == Op::NoTrans) {
+        // Pivot the right hand side matrix.
+        for (int64_t k = 0; k < B.mt(); ++k) {
+            // swap rows in B(k:mt-1, 0:nt-1)
+            internal::permuteRows<Target::HostTask>(
+                Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1),
+                pivots.at(k), Layout::ColMajor);
+        }
+
+        // Forward substitution, Y = L^{-1} P B.
+        trsm(Side::Left, one, L, B, opts);
+
+        // Backward substitution, X = U^{-1} Y.
+        trsm(Side::Left, one, U, B, opts);
+    }
+    else {
+        // Forward substitution, Y = U^{-T} B.
+        trsm(Side::Left, one, U, B, opts);
+
+        // Backward substitution, Xhat = L^{-T} Y.
+        trsm(Side::Left, one, L, B, opts);
+
+        // Pivot the right hand side matrix, X = P^T Xhat
+        for (int64_t k = B.mt()-1; k >= 0; --k) {
+            // swap rows in B(k:mt-1, 0:nt-1)
+            internal::permuteRows<Target::HostTask>(
+                Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
+                pivots.at(k), Layout::ColMajor);
+        }
     }
     // todo: return value for errors?
 }

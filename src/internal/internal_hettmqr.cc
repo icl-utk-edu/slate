@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -166,7 +166,7 @@ void hettmqr(internal::TargetType<Target::HostTask>,
 
                 // Workspace C(i1, i2) = C(i2, i1)^H.
                 C.tileInsert(i1, i2);
-                deepConjTranspose(C(i2, i1), C(i1, i2));
+                tile::deepConjTranspose( C(i2, i1), C(i1, i2) );
 
                 int64_t nb = std::min(V.tileMb(i2), V.tileNb(0));
                 tpmqrt(Side::Left, op, nb,
@@ -208,10 +208,10 @@ void hettmqr(internal::TargetType<Target::HostTask>,
                     }
                     else {
                         // Send transposed tile.
-                        deepConjTranspose(C(j, i1));
+                        tile::deepConjTranspose( C(j, i1) );
                         C.tileSend(j, i1, dst, tag);
                         C.tileRecv(j, i1, dst, layout, tag);
-                        deepConjTranspose(C(j, i1));
+                        tile::deepConjTranspose( C(j, i1) );
                     }
                 }
                 else if (C.tileIsLocal(i2, j)) {

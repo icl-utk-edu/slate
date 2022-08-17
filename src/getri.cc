@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -36,6 +36,9 @@ void getri(slate::internal::TargetType<target>,
     using BcastList = typename Matrix<scalar_t>::BcastList;
     using ReduceList = typename Matrix<scalar_t>::ReduceList;
 
+    const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
+
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -58,7 +61,7 @@ void getri(slate::internal::TargetType<target>,
             // Zero L(k, k).
             if (L.tileIsLocal(k, k)) {
                 auto Lkk = L(k, k);
-                tzset(scalar_t(0.0), Lkk);
+                tile::tzset( zero, Lkk );
             }
 
             // send W down col A(0:nt-1, k)
@@ -68,7 +71,7 @@ void getri(slate::internal::TargetType<target>,
             auto Wkk = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, W);
             internal::trsm<Target::HostTask>(
                 Side::Right,
-                scalar_t(1.0), std::move(Wkk), A.sub(0, A.nt()-1, k, k));
+                one, std::move( Wkk ), A.sub(0, A.nt()-1, k, k) );
         }
         --k;
 
@@ -84,7 +87,7 @@ void getri(slate::internal::TargetType<target>,
             // Zero L(k, k).
             if (L.tileIsLocal(k, k)) {
                 auto Lkk = L(k, k);
-                tzset(scalar_t(0.0), Lkk);
+                tile::tzset( zero, Lkk );
             }
 
             // Zero L(k+1:A_nt-1, k).
@@ -104,15 +107,18 @@ void getri(slate::internal::TargetType<target>,
 
             // A(:, k) -= A(:, k+1:nt-1) * W
             internal::gemmA<Target::HostTask>(
-                scalar_t(-1.0), A.sub(0, A.nt()-1, k+1, A.nt()-1),
-                                W.sub(1, W.mt()-1, 0, 0),
-                scalar_t(1.0),  A.sub(0, A.nt()-1, k, k), layout);
+                -one, A.sub(0, A.nt()-1, k+1, A.nt()-1),
+                      W.sub(1, W.mt()-1, 0, 0),
+                one,  A.sub(0, A.nt()-1, k, k), layout);
 
             // reduce A(0:nt-1, k)
             ReduceList reduce_list_A;
             for (int64_t i = 0; i < A.nt(); ++i) {
                 // recude A(i, k) across A(i, k+1:nt-1)
-                reduce_list_A.push_back({i, k, {A.sub(i, i, k+1, A.nt()-1)}});
+                reduce_list_A.push_back({i, k,
+                                          A.sub(i, i, k, k),
+                                          {A.sub(i, i, k+1, A.nt()-1)}
+                                        });
             }
             A.template listReduce(reduce_list_A, layout);
 
@@ -123,14 +129,14 @@ void getri(slate::internal::TargetType<target>,
             auto Tkk = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Wkk);
             internal::trsm<Target::HostTask>(
                 Side::Right,
-                scalar_t(1.0), std::move(Tkk), A.sub(0, A.nt()-1, k, k));
+                one, std::move( Tkk ), A.sub(0, A.nt()-1, k, k) );
         }
 
         // Apply column pivoting.
-        for (int64_t k = A.nt()-1; k >= 0; --k) {
+        for (int64_t j = A.nt()-1; j >= 0; --j) {
             internal::permuteRows<Target::HostTask>(
-                Direction::Backward, transpose(A).sub(k, A.nt()-1, 0, A.nt()-1),
-                pivots.at(k), Layout::ColMajor);
+                Direction::Backward, transpose(A).sub(j, A.nt()-1, 0, A.nt()-1),
+                pivots.at(j), Layout::ColMajor);
         }
     }
 }

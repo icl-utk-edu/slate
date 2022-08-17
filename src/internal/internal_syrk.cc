@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -9,12 +9,6 @@
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
 #include "internal/internal_batch.hh"
-
-#ifdef SLATE_WITH_MKL
-    #include <mkl_cblas.h>
-#else
-    #include <cblas.h>
-#endif
 
 namespace slate {
 namespace internal {
@@ -64,17 +58,21 @@ void syrk(internal::TargetType<Target::HostTask>,
 
     // Lower, NoTrans
     int err = 0;
+    #pragma omp taskgroup
     for (int64_t j = 0; j < C.nt(); ++j) {
         for (int64_t i = j; i < C.mt(); ++i) {  // lower
             if (C.tileIsLocal(i, j)) {
                 if (i == j) {
-                    #pragma omp task shared(A, C, err) priority(priority)
+                    #pragma omp task slate_omp_default_none \
+                        shared( A, C, err ) \
+                        firstprivate(j, layout, alpha, beta) priority(priority)
                     {
                         try {
                             A.tileGetForReading(j, 0, LayoutConvert(layout));
                             C.tileGetForWriting(j, j, LayoutConvert(layout));
-                            syrk(alpha, A(j, 0),
-                                 beta,  C(j, j));
+                            tile::syrk(
+                                alpha, A(j, 0),
+                                beta,  C(j, j) );
                             // todo: should tileRelease()?
                             A.tileTick(j, 0);
                             A.tileTick(j, 0);
@@ -85,16 +83,18 @@ void syrk(internal::TargetType<Target::HostTask>,
                     }
                 }
                 else {
-                    #pragma omp task shared(A, C, err) priority(priority)
+                    #pragma omp task slate_omp_default_none \
+                        shared( A, C, err ) \
+                        firstprivate(i, j, layout, alpha, beta) priority(priority)
                     {
                         try {
                             A.tileGetForReading(i, 0, LayoutConvert(layout));
                             A.tileGetForReading(j, 0, LayoutConvert(layout));
                             C.tileGetForWriting(i, j, LayoutConvert(layout));
                             auto Aj0 = A(j, 0);
-                            gemm(alpha, A(i, 0),
-                                        transpose(Aj0),
-                                 beta,  C(i, j));
+                            tile::gemm(
+                                alpha, A(i, 0), transpose( Aj0 ),
+                                beta,  C(i, j) );
                             // todo: should tileRelease()?
                             A.tileTick(i, 0);
                             A.tileTick(j, 0);
@@ -107,8 +107,6 @@ void syrk(internal::TargetType<Target::HostTask>,
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         throw std::exception();
@@ -135,15 +133,19 @@ void syrk(internal::TargetType<Target::HostNest>,
 
     // Lower, NoTrans
     int err = 0;
+    #pragma omp taskgroup
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
-            #pragma omp task shared(A, C, err)
+            #pragma omp task slate_omp_default_none \
+                shared( A, C, err ) \
+                firstprivate(j, layout, alpha, beta)
             {
                 try {
                     A.tileGetForReading(j, 0, LayoutConvert(layout));
                     C.tileGetForWriting(j, j, LayoutConvert(layout));
-                    syrk(alpha, A(j, 0),
-                         beta,  C(j, j));
+                    tile::syrk(
+                        alpha, A(j, 0),
+                        beta,  C(j, j) );
                     // todo: should tileRelease()?
                     A.tileTick(j, 0);
                     A.tileTick(j, 0);
@@ -158,8 +160,9 @@ void syrk(internal::TargetType<Target::HostNest>,
     int64_t C_nt = C.nt();
     int64_t C_mt = C.mt();
 
-//  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
-    #pragma omp parallel for collapse(2) schedule(dynamic, 1)
+//  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...) default(none)
+    #pragma omp parallel for collapse(2) schedule(dynamic, 1) slate_omp_default_none \
+        shared(A, C, err) firstprivate(C_nt, C_mt, layout, alpha, beta)
     for (int64_t j = 0; j < C_nt; ++j) {
         for (int64_t i = 0; i < C_mt; ++i) {  // full
             if (i >= j+1) {                     // strictly lower
@@ -169,9 +172,9 @@ void syrk(internal::TargetType<Target::HostNest>,
                         A.tileGetForReading(j, 0, LayoutConvert(layout));
                         C.tileGetForWriting(i, j, LayoutConvert(layout));
                         auto Aj0 = A(j, 0);
-                        gemm(alpha, A(i, 0),
-                                    transpose(Aj0),
-                             beta,  C(i, j));
+                        tile::gemm(
+                            alpha, A(i, 0), transpose( Aj0 ),
+                            beta,  C(i, j) );
                         // todo: should tileRelease()?
                         A.tileTick(i, 0);
                         A.tileTick(j, 0);
@@ -183,8 +186,6 @@ void syrk(internal::TargetType<Target::HostNest>,
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         throw std::exception();
@@ -202,6 +203,7 @@ void syrk(internal::TargetType<Target::HostBatch>,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
           int priority, int queue_index, Layout layout)
 {
+#ifdef BLAS_HAVE_MKL
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::syrk()
     //       to take layout param
@@ -211,15 +213,19 @@ void syrk(internal::TargetType<Target::HostBatch>,
 
     // diagonal tiles by syrk on host
     int err = 0;
+    #pragma omp taskgroup
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
-            #pragma omp task shared(A, C, err)
+            #pragma omp task slate_omp_default_none \
+                shared( A, C, err ) \
+                firstprivate(j, layout, alpha, beta)
             {
                 try {
                     A.tileGetForReading(j, 0, LayoutConvert(layout));
                     C.tileGetForWriting(j, j, LayoutConvert(layout));
-                    syrk(alpha, A(j, 0),
-                         beta,  C(j, j));
+                    tile::syrk(
+                        alpha, A(j, 0),
+                        beta,  C(j, j) );
                     // todo: should tileRelease()?
                     A.tileTick(j, 0);
                     A.tileTick(j, 0);
@@ -316,22 +322,17 @@ void syrk(internal::TargetType<Target::HostBatch>,
 
         {
             trace::Block trace_block("cblas_gemm_batch");
-            #ifdef SLATE_WITH_MKL
-                // mkl_set_num_threads_local(...);
-                cblas_gemm_batch(CblasColMajor,
-                                 opA_array.data(), opB_array.data(),
-                                 m_array.data(), n_array.data(), k_array.data(),
-                                 alpha_array.data(),
-                                 a_array.data(), lda_array.data(),
-                                 b_array.data(), ldb_array.data(),
-                                 beta_array.data(),
-                                 c_array.data(), ldc_array.data(),
-                                 batch_count, group_size.data());
-                // mkl_set_num_threads_local(1);
-            #else
-                slate_not_implemented(
-                    "slate::Target::HostBatch needs Intel MKL.");
-            #endif
+            // mkl_set_num_threads_local(...);
+            cblas_gemm_batch(CblasColMajor,
+                             opA_array.data(), opB_array.data(),
+                             m_array.data(), n_array.data(), k_array.data(),
+                             alpha_array.data(),
+                             a_array.data(), lda_array.data(),
+                             b_array.data(), ldb_array.data(),
+                             beta_array.data(),
+                             c_array.data(), ldc_array.data(),
+                             batch_count, group_size.data());
+            // mkl_set_num_threads_local(1);
         }
 
         for (int64_t j = 0; j < C.nt(); ++j) {
@@ -345,10 +346,12 @@ void syrk(internal::TargetType<Target::HostBatch>,
         }
     }
 
-    #pragma omp taskwait
-
     if (err)
         throw std::exception();
+#else
+    slate_not_implemented(
+        "slate::Target::HostBatch needs Intel MKL.");
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -370,9 +373,12 @@ void syrk(internal::TargetType<Target::Devices>,
     assert(C.num_devices() > 0);
 
     // if single tile, avoid creating tasks for all devices
+    #pragma omp taskgroup
     if (C.nt() == 1) {
         if (C.tileIsLocal(0, 0)) {
-            #pragma omp task shared(A, C, err) priority(priority)
+            #pragma omp task slate_omp_default_none \
+                shared( A, C, err ) priority( priority ) \
+                firstprivate(layout, queue_index, alpha, beta)
             {
                 int device = C.tileDevice(0, 0);
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
@@ -401,7 +407,9 @@ void syrk(internal::TargetType<Target::Devices>,
         // off-diagonal tiles by batch gemm on device
         // diagonal tiles by syrk on device
         for (int device = 0; device < C.num_devices(); ++device) {
-            #pragma omp task shared(A, C, err) priority(priority)
+            #pragma omp task slate_omp_default_none \
+                shared( A, C, err ) priority( priority ) \
+                firstprivate(device, layout, alpha, beta, queue_index)
             {
                 try {
                     // if op(C) is NoTrans, invert opA, opB if possible
@@ -438,15 +446,22 @@ void syrk(internal::TargetType<Target::Devices>,
                             }
                         }
                     }
-                    #pragma omp task default(shared)
+
+                    #pragma omp taskgroup
                     {
-                        A.tileGetForReading(A_tiles_gemm, device, LayoutConvert(layout));
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, A_tiles_gemm ) \
+                            firstprivate(device, layout)
+                        {
+                            A.tileGetForReading(A_tiles_gemm, device, LayoutConvert(layout));
+                        }
+                        #pragma omp task slate_omp_default_none \
+                            shared( C, C_tiles_gemm ) \
+                            firstprivate(device, layout)
+                        {
+                            C.tileGetForWriting(C_tiles_gemm, device, LayoutConvert(layout));
+                        }
                     }
-                    #pragma omp task default(shared)
-                    {
-                        C.tileGetForWriting(C_tiles_gemm, device, LayoutConvert(layout));
-                    }
-                    #pragma omp taskwait
 
                     int64_t batch_size_gemm = C_tiles_gemm.size();
 
@@ -564,15 +579,21 @@ void syrk(internal::TargetType<Target::Devices>,
                         }
                     }
 
-                    #pragma omp task default(shared)
+                    #pragma omp taskgroup
                     {
-                        A.tileGetForReading(A_tiles_syrk, device, LayoutConvert(layout));
+                        #pragma omp task slate_omp_default_none \
+                            shared( A, A_tiles_syrk ) \
+                            firstprivate(device, layout)
+                        {
+                            A.tileGetForReading(A_tiles_syrk, device, LayoutConvert(layout));
+                        }
+                        #pragma omp task slate_omp_default_none \
+                            shared( C, C_tiles_syrk ) \
+                            firstprivate(device, layout)
+                        {
+                            C.tileGetForWriting(C_tiles_syrk, device, LayoutConvert(layout));
+                        }
                     }
-                    #pragma omp task default(shared)
-                    {
-                        C.tileGetForWriting(C_tiles_syrk, device, LayoutConvert(layout));
-                    }
-                    #pragma omp taskwait
 
                     int64_t batch_size_syrk = C_tiles_syrk.size();
 
@@ -672,8 +693,6 @@ void syrk(internal::TargetType<Target::Devices>,
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         slate_error(std::to_string(err));

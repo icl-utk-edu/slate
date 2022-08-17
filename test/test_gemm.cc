@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -54,6 +54,8 @@ void test_gemm_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    slate::GridOrder grid_order = params.grid_order();
+    slate::Method method_gemm = params.method_gemm();
     params.matrix.mark();
     params.matrixB.mark();
     params.matrixC.mark();
@@ -64,17 +66,16 @@ void test_gemm_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
+    // Suppress norm, nrhs from output; they're only for checks.
+    params.norm.width( 0 );
+    params.nrhs.width( 0 );
+
     if (! run)
         return;
 
-    // skip invalid or unimplemented options
-    if (params.routine == "gemmA" && target != slate::Target::HostTask) {
-        params.msg() = "skipping: currently gemmA is only implemented for HostTask";
-        return;
-    }
-
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
+        {slate::Option::MethodGemm, method_gemm},
         {slate::Option::Target, target}
     };
 
@@ -92,7 +93,7 @@ void test_gemm_work(Params& params, bool run)
     // MPI variables
     int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    gridinfo(mpi_rank, p, q, &myrow, &mycol);
+    gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
 
     // Matrix A: figure out local size.
     int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
@@ -114,6 +115,7 @@ void test_gemm_work(Params& params, bool run)
     if (ref || origin == slate::Origin::ScaLAPACK) {
         A_data.resize( lldA * nlocA );
         B_data.resize( lldB * nlocB );
+        // todo: C_data only if origin == ScaLAPACK?
         C_data.resize( lldC * nlocC );
     }
 
@@ -121,23 +123,26 @@ void test_gemm_work(Params& params, bool run)
     slate::Target origin_target = origin2target(origin);
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
-        A = slate::Matrix<scalar_t>(Am, An, nb, p, q, MPI_COMM_WORLD);
-        A.insertLocalTiles(origin_target);
+        A = slate::Matrix<scalar_t>(
+            Am, An, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+        A.insertLocalTiles( origin_target );
 
-        B = slate::Matrix<scalar_t>(Bm, Bn, nb, p, q, MPI_COMM_WORLD);
-        B.insertLocalTiles(origin_target);
+        B = slate::Matrix<scalar_t>(
+            Bm, Bn, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+        B.insertLocalTiles( origin_target );
 
-        C = slate::Matrix<scalar_t>(Cm, Cn, nb, p, q, MPI_COMM_WORLD);
-        C.insertLocalTiles(origin_target);
+        C = slate::Matrix<scalar_t>(
+            Cm, Cn, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+        C.insertLocalTiles( origin_target );
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
-            Am, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+            Am, An, &A_data[0], lldA, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
         B = slate::Matrix<scalar_t>::fromScaLAPACK(
-            Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+            Bm, Bn, &B_data[0], lldB, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
         C = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m,  n, &C_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+            Cm, Cn, &C_data[0], lldC, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
     }
 
     slate::generate_matrix(params.matrix, A);
@@ -152,7 +157,7 @@ void test_gemm_work(Params& params, bool run)
             // For simplicity, always use ScaLAPACK format for ref matrices.
             Cref_data.resize( lldC * nlocC );
             Cref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                       m,  n, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
+                       m,  n, &Cref_data[0], lldC, nb, nb, grid_order, p, q, MPI_COMM_WORLD);
             slate::copy( C, Cref );
         }
     #endif
@@ -238,7 +243,7 @@ void test_gemm_work(Params& params, bool run)
         if (trace) slate::trace::Trace::finish();
 
         if (verbose >= 2) {
-            C.tileGetAllForReading(C.hostNum(), slate::LayoutConvert::None);
+            C.tileGetAllForReading( slate::HostNum, slate::LayoutConvert::None );
             print_matrix( "C_out", C, params );
         }
 
@@ -276,7 +281,7 @@ void test_gemm_work(Params& params, bool run)
             slate_assert( mpi_rank == mpi_rank_ );
             slate_assert(p*q <= nprocs);
             Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit(&ictxt, "Col", p, q);
+            Cblacs_gridinit( &ictxt, grid_order2str( grid_order ), p, q );
             Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
             slate_assert( p == p_ );
             slate_assert( q == q_ );
@@ -297,14 +302,9 @@ void test_gemm_work(Params& params, bool run)
                 // Copy SLATE result back from GPU or CPU tiles.
                 copy(A, &A_data[0], A_desc);
                 copy(B, &B_data[0], B_desc);
+                // todo: C_data not needed anymore?
                 copy(C, &C_data[0], C_desc);
             }
-
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
             print_matrix( "Cref", Cref, params );
 
@@ -337,8 +337,6 @@ void test_gemm_work(Params& params, bool run)
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
             params.error() = error;
-
-            slate_set_num_blas_threads(saved_num_threads);
 
             // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
             real_t eps = std::numeric_limits<real_t>::epsilon();

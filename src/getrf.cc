@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -26,10 +26,13 @@ namespace specialization {
 template <Target target, typename scalar_t>
 void getrf(slate::internal::TargetType<target>,
            Matrix<scalar_t>& A, Pivots& pivots,
+           blas::real_type<scalar_t> pivot_threshold,
            int64_t ib, int max_panel_threads, int64_t lookahead)
 {
     // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
+
+    const scalar_t one = 1.0;
 
     // Host can use Col/RowMajor for row swapping,
     // RowMajor is slightly more efficient.
@@ -55,7 +58,7 @@ void getrf(slate::internal::TargetType<target>,
     const int queue_1 = 1;
     const int64_t batch_size_zero = 0;
     const int num_queues = 2 + lookahead;
-    bool is_shared = target==Target::Devices && lookahead > 0;
+    bool is_shared = target == Target::Devices && lookahead > 0;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -69,10 +72,12 @@ void getrf(slate::internal::TargetType<target>,
         A.reserveDeviceWorkspace();
     }
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < min_mt_nt; ++k) {
 
             int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
@@ -83,8 +88,8 @@ void getrf(slate::internal::TargetType<target>,
             {
                 // factor A(k:mt-1, k)
                 internal::getrf<Target::HostTask>(
-                    A.sub(k, A_mt-1, k, k), diag_len, ib,
-                    pivots.at(k), max_panel_threads, priority_one, k);
+                    A.sub(k, A_mt-1, k, k), diag_len, ib, pivots.at(k),
+                    pivot_threshold, max_panel_threads, priority_one, k);
 
                 BcastList bcast_list_A;
                 int tag_k = k;
@@ -123,8 +128,7 @@ void getrf(slate::internal::TargetType<target>,
                     // solve A(k, k) A(k, j) = A(k, j)
                     internal::trsm<target>(
                         Side::Left,
-                        scalar_t(1.0), std::move(Tkk),
-                                       A.sub(k, k, j, j),
+                        one, std::move( Tkk ), A.sub(k, k, j, j),
                         priority_one, Layout::ColMajor, j-k+1);
 
                     // send A(k, j) across column A(k+1:mt-1, j)
@@ -133,9 +137,9 @@ void getrf(slate::internal::TargetType<target>,
 
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                     internal::gemm<target>(
-                        scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
-                                        A.sub(k, k, j, j),
-                        scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
+                        -one, A.sub(k+1, A_mt-1, k, k),
+                              A.sub(k, k, j, j),
+                        one,  A.sub(k+1, A_mt-1, j, j),
                         target_layout, priority_one, j-k+1);
                 }
             }
@@ -173,8 +177,8 @@ void getrf(slate::internal::TargetType<target>,
                     // todo: target
                     internal::trsm<target>(
                         Side::Left,
-                        scalar_t(1.0), std::move(Tkk),
-                                       A.sub(k, k, k+1+lookahead, A_nt-1),
+                        one, std::move( Tkk ),
+                             A.sub(k, k, k+1+lookahead, A_nt-1),
                         priority_zero, Layout::ColMajor, queue_1);
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
@@ -189,9 +193,9 @@ void getrf(slate::internal::TargetType<target>,
 
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
-                        scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
-                                        A.sub(k, k, k+1+lookahead, A_nt-1),
-                        scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
+                        -one, A.sub(k+1, A_mt-1, k, k),
+                              A.sub(k, k, k+1+lookahead, A_nt-1),
+                        one,  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
                         target_layout, priority_zero, queue_1);
                 }
             }
@@ -232,6 +236,8 @@ template <Target target, typename scalar_t>
 void getrf(Matrix<scalar_t>& A, Pivots& pivots,
            Options const& opts)
 {
+    blas::real_type<scalar_t> pivot_threshold = get_option<double>( opts, Option::PivotThreshold, 1.0 );
+
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
@@ -241,6 +247,7 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
 
     internal::specialization::getrf(internal::TargetType<target>(),
                                     A, pivots,
+                                    pivot_threshold,
                                     ib, max_panel_threads, lookahead);
 }
 
@@ -287,6 +294,9 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
 ///       - HostNest:  nested OpenMP parallel for loop on CPU host.
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
+///    - Option::PivotThreshold:
+///      Strictness of the pivot selection.  Between 0 and 1 with 1 giving
+///      partial pivoting and 0 giving no pivoting.  Default 1.
 ///
 /// TODO: return value
 /// @retval 0 successful exit

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -104,7 +104,7 @@ void permuteRows(
 
     // todo: for performance optimization, merge with the loops below,
     // at least with lookahead, probably selectively
-    A.tileGetAllForWriting(A.hostNum(), LayoutConvert(layout));
+    A.tileGetAllForWriting( HostNum, LayoutConvert(layout) );
 
     {
         trace::Block trace_block("internal::permuteRows");
@@ -204,7 +204,7 @@ void permuteRows(
 {
     // todo: for performance optimization, merge with the loops below,
     // at least with lookahead, probably selectively
-    A.tileGetAllForWriting(A.hostNum(), LayoutConvert(layout));
+    A.tileGetAllForWriting( HostNum, LayoutConvert(layout) );
 
     MPI_Comm comm = A.mpiComm();
     int comm_size;
@@ -326,11 +326,11 @@ void permuteRows(
                         }
                     }
                     else {
-                        auto remote_index = remote_pivot_table[pivot[i]];
+                        auto remote_idx = remote_pivot_table[pivot[i]];
                         blas::swap(
                             A.tileNb(j),
                             &A(0, j).at(i, 0), stride_0j,
-                            remote_rows + nb*remote_index, 1);
+                            remote_rows + nb*remote_idx, 1);
                     }
                 }
 
@@ -372,16 +372,16 @@ void permuteRows(
                     for (int64_t i = begin; i != end; i += inc) {
                         int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
                         if (pivot_rank == A.mpiRank()) {
-                            auto remote_index = remote_pivot_table[pivot[i]];
+                            auto remote_idx = remote_pivot_table[pivot[i]];
                             auto tile_index = pivot[i].tileIndex();
                             auto tile_offset = pivot[i].elementOffset();
 
-                            if (remote_index >= count) {
+                            if (remote_idx >= count) {
                                 int64_t stride_idxj = A(tile_index, j).rowIncrement();
                                 blas::copy(
                                     A.tileNb(j),
                                     &A(tile_index, j).at(tile_offset, 0), stride_idxj,
-                                    remote_rows + nb*remote_index, 1);
+                                    remote_rows + nb*remote_idx, 1);
                                 ++count;
                             }
                         }
@@ -398,15 +398,15 @@ void permuteRows(
                     for (int64_t i = begin; i != end; i += inc) {
                         int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
                         if (pivot_rank == A.mpiRank()) {
-                            auto remote_index = remote_pivot_table[pivot[i]];
+                            auto remote_idx = remote_pivot_table[pivot[i]];
                             auto tile_index = pivot[i].tileIndex();
                             auto tile_offset = pivot[i].elementOffset();
 
-                            if (remote_index >= count) {
+                            if (remote_idx >= count) {
                                 int64_t stride_idxj = A(tile_index, j).rowIncrement();
                                 blas::copy(
                                     A.tileNb(j),
-                                    remote_rows + nb*remote_index, 1,
+                                    remote_rows + nb*remote_idx, 1,
                                     &A(tile_index, j).at(tile_offset, 0), stride_idxj);
                                 ++count;
                             }
@@ -507,18 +507,21 @@ void permuteRows(
     // at least with lookahead, probably selectively
     A.tileGetAllForWritingOnDevices(LayoutConvert(layout));
 
-    MPI_Comm comm = A.mpiComm();
-    int comm_size;
-    MPI_Comm_size(comm, &comm_size);
-
     {
         trace::Block trace_block("internal::permuteRows");
 
-        MPI_Datatype mpi_scalar = mpi_type<scalar_t>::value;
-
+        #pragma omp taskgroup
         for (int device = 0; device < A.num_devices(); ++device) {
-            #pragma omp task
+            // Remove default(none) because Cray MPI wants ompi_mpi_c_float_complex defined
+            // as a task parameter.  To avoid that problem, remove default(none) here.
+            #pragma omp task shared(A, pivot) \
+                firstprivate(device, direction, tag_base, queue_index) priority(priority)
             {
+                MPI_Comm comm = A.mpiComm();
+                int comm_size;
+                MPI_Comm_size(comm, &comm_size);
+                MPI_Datatype mpi_scalar = mpi_type<scalar_t>::value;
+
                 blas::set_device(device);
                 blas::Queue* compute_queue = A.compute_queue(device, queue_index);
 
@@ -529,7 +532,7 @@ void permuteRows(
                 }
 
                 scalar_t* remote_rows_dev
-                            = A.allocWorkspaceBuffer(device, A.tileMb(0)*max_nb);
+                    = A.allocWorkspaceBuffer(device, A.tileMb(0)*max_nb);
 
                 // Apply pivots forward (0, ..., k-1) or reverse (k-1, ..., 0)
                 int64_t begin, end, inc;
@@ -544,12 +547,12 @@ void permuteRows(
                     inc   = -1;
                 }
 
-        for (int64_t j = 0; j < A.nt(); ++j) {
+                for (int64_t j = 0; j < A.nt(); ++j) {
                     int root_rank = A.tileRank(0, j);
-            bool root = A.mpiRank() == A.tileRank(0, j);
+                    bool root = A.mpiRank() == A.tileRank(0, j);
                     int tag = tag_base + j;
 
-            // todo: relax the assumption of 1-D block cyclic distribution on devices
+                    // todo: relax the assumption of 1-D block cyclic distribution on devices
                     if (device != A.tileDevice(0, j)) {
                         continue;
                     }
@@ -617,33 +620,33 @@ void permuteRows(
                                                       remote_rows_size, *compute_queue);
 
                         // Swap rows locally.
-            for (int64_t i = begin; i != end; i += inc) {
-                int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
+                        for (int64_t i = begin; i != end; i += inc) {
+                            int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
 
                             if (pivot_rank == root_rank) {
-                        // If pivot not on the diagonal.
-                        if (pivot[i].tileIndex() > 0 ||
-                            pivot[i].elementOffset() > i)
-                        {
-                            // todo: assumes 1-D block cyclic
-                            assert(A(0, j, device).layout() == Layout::RowMajor);
-                            int64_t i1 = i;
-                            int64_t i2 = pivot[i].elementOffset();
-                            int64_t idx2 = pivot[i].tileIndex();
-                            blas::swap(
-                                A.tileNb(j),
-                                &A(0,    j, device).at(i1, 0), 1,
-                                &A(idx2, j, device).at(i2, 0), 1,
-                                        *compute_queue);
-                                }
+                                // If pivot not on the diagonal.
+                                if (pivot[i].tileIndex() > 0 ||
+                                    pivot[i].elementOffset() > i)
+                                    {
+                                        // todo: assumes 1-D block cyclic
+                                        assert(A(0, j, device).layout() == Layout::RowMajor);
+                                        int64_t i1 = i;
+                                        int64_t i2 = pivot[i].elementOffset();
+                                        int64_t idx2 = pivot[i].tileIndex();
+                                        blas::swap(
+                                                   A.tileNb(j),
+                                                   &A(0,    j, device).at(i1, 0), 1,
+                                                   &A(idx2, j, device).at(i2, 0), 1,
+                                                   *compute_queue);
+                                    }
                             }
                             else {
-                                auto remote_index = remote_pivot_table[pivot[i]];
+                                auto remote_idx = remote_pivot_table[pivot[i]];
                                 blas::swap(
-                                    A.tileNb(j),
-                                    &A(0, j, device).at(i, 0), 1,
-                                    remote_rows_dev + nb*remote_index, 1,
-                                    *compute_queue);
+                                           A.tileNb(j),
+                                           &A(0, j, device).at(i, 0), 1,
+                                           remote_rows_dev + nb*remote_idx, 1,
+                                           *compute_queue);
                             }
                         }
                         compute_queue->sync();
@@ -688,15 +691,15 @@ void permuteRows(
                             for (int64_t i = begin; i != end; i += inc) {
                                 int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
                                 if (pivot_rank == A.mpiRank()) {
-                                    auto remote_index = remote_pivot_table[pivot[i]];
+                                    auto remote_idx = remote_pivot_table[pivot[i]];
                                     auto tile_index = pivot[i].tileIndex();
                                     auto tile_offset = pivot[i].elementOffset();
 
-                                    if (remote_index >= count) {
+                                    if (remote_idx >= count) {
                                         blas::copy(
                                             nb,
                                             &A(tile_index, j, device).at(tile_offset, 0), 1,
-                                            remote_rows_dev + nb*remote_index, 1,
+                                            remote_rows_dev + nb*remote_idx, 1,
                                             *compute_queue);
                                         ++count; // only swap the first time
                                     }
@@ -724,14 +727,14 @@ void permuteRows(
                             for (int64_t i = begin; i != end; i += inc) {
                                 int pivot_rank = A.tileRank(pivot[i].tileIndex(), j);
                                 if (pivot_rank == A.mpiRank()) {
-                                    auto remote_index = remote_pivot_table[pivot[i]];
+                                    auto remote_idx = remote_pivot_table[pivot[i]];
                                     auto tile_index = pivot[i].tileIndex();
                                     auto tile_offset = pivot[i].elementOffset();
 
-                                    if (remote_index >= count) {
+                                    if (remote_idx >= count) {
                                         blas::copy(
                                             A.tileNb(j),
-                                            remote_rows_dev + nb*remote_index, 1,
+                                            remote_rows_dev + nb*remote_idx, 1,
                                             &A(tile_index, j, device).at(tile_offset, 0), 1,
                                             *compute_queue);
                                         ++count; // only swap the first time
@@ -748,7 +751,6 @@ void permuteRows(
                 A.freeWorkspaceBuffer(device, remote_rows_dev);
             }
         }
-        #pragma omp taskwait
     }
 }
 
@@ -913,17 +915,18 @@ void permuteRowsCols(
 
     assert(A.uplo() == Uplo::Lower);
 
+    #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
         for (int64_t j = 0; j <= i; ++j) {
             if (A.tileIsLocal(i, j)) {
-                #pragma omp task shared(A) priority(priority)
+                #pragma omp task slate_omp_default_none \
+                    shared( A ) firstprivate( i, j ) priority( priority )
                 {
                     A.tileGetForWriting(i, j, LayoutConvert::ColMajor);
                 }
             }
         }
     }
-    #pragma omp taskwait
 
     {
         trace::Block trace_block("internal::permuteRowsCols");

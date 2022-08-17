@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -208,6 +208,8 @@ void hb2st(slate::internal::TargetType<target>,
     for (int64_t i = 0; i < n-1; ++i)
         progress.at(i).store(-1);
 
+    set(zero, V);
+
     // Insert workspace tiles needed for fill-in in bulge chasing
     // and set tile entries outside the band to 0.
     // todo: should release these tiles when done
@@ -237,19 +239,22 @@ void hb2st(slate::internal::TargetType<target>,
                 if (i == j) {
                     auto Aij = A(i, j);
                     Aij.uplo(Uplo::Upper);
-                    tzset(zero, Aij);
+                    tile::tzset( zero, Aij );
                 }
 
                 if (i == j + 1) {
                     auto Aij = A(i, j);
                     Aij.uplo(Uplo::Lower);
-                    tzset(zero, Aij);
+                    tile::tzset( zero, Aij );
                 }
             }
             ii += A.tileMb(i);
         }
         jj += A.tileNb(j);
     }
+
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
 
     #pragma omp parallel
     #pragma omp master
@@ -259,7 +264,6 @@ void hb2st(slate::internal::TargetType<target>,
         #if 1
             // Launching new threads for the band reduction guarantees progress.
             // This should never deadlock, but may be detrimental to performance.
-            omp_set_nested(1);
             #pragma omp parallel for \
                         num_threads(thread_size) \
                         shared(V, progress)

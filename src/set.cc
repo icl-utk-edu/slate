@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -20,8 +20,10 @@ namespace specialization {
 /// @ingroup set_specialization
 ///
 template <Target target, typename scalar_t>
-void set(slate::internal::TargetType<target>,
-         scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A)
+void set(
+    slate::internal::TargetType<target>,
+    scalar_t offdiag_value, scalar_t diag_value,
+    Matrix<scalar_t>& A )
 {
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -32,7 +34,7 @@ void set(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
-        internal::set<target>(alpha, beta, std::move(A));
+        internal::set<target>( offdiag_value, diag_value, std::move( A ) );
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
@@ -48,11 +50,13 @@ void set(slate::internal::TargetType<target>,
 /// @ingroup set_specialization
 ///
 template <Target target, typename scalar_t>
-void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
-         Options const& opts)
+void set(
+    scalar_t offdiag_value, scalar_t diag_value,
+    Matrix<scalar_t>& A,
+    Options const& opts )
 {
     internal::specialization::set(internal::TargetType<target>(),
-                                  alpha, beta, A);
+                                  offdiag_value, diag_value, A);
 }
 
 //------------------------------------------------------------------------------
@@ -78,8 +82,10 @@ void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
 /// @ingroup set
 ///
 template <typename scalar_t>
-void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
-         Options const& opts)
+void set(
+    scalar_t offdiag_value, scalar_t diag_value,
+    Matrix<scalar_t>& A,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
@@ -87,16 +93,16 @@ void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
         case Target::Host:
         case Target::HostTask:
         default: // todo: this is to silence a warning, should err otherwise
-            set<Target::HostTask>(alpha, beta, A, opts);
+            set<Target::HostTask>( offdiag_value, diag_value, A, opts );
             break;
 //      case Target::HostNest:
-//          set<Target::HostNest>(alpha, beta, A, opts);
+//          set<Target::HostNest>( offdiag_value, diag_value, A, opts );
 //          break;
 //      case Target::HostBatch:
-//          set<Target::HostBatch>(alpha, beta, A, opts);
+//          set<Target::HostBatch>( offdiag_value, diag_value, A, opts );
 //          break;
         case Target::Devices:
-            set<Target::Devices>(alpha, beta, A, opts);
+            set<Target::Devices>( offdiag_value, diag_value, A, opts );
             break;
     }
 }
@@ -105,23 +111,25 @@ void set(scalar_t alpha, scalar_t beta, Matrix<scalar_t>& A,
 // Explicit instantiations.
 template
 void set(
-    float alpha, float beta, Matrix<float>& A,
+    float offdiag_value, float diag_value,
+    Matrix<float>& A,
     Options const& opts);
 
 template
 void set(
-    double alpha, double beta, Matrix<double>& A,
+    double offdiag_value, double diag_value,
+    Matrix<double>& A,
     Options const& opts);
 
 template
 void set(
-    std::complex<float> alpha, std::complex<float> beta,
+    std::complex<float> offdiag_value, std::complex<float> diag_value,
     Matrix<std::complex<float> >& A,
     Options const& opts);
 
 template
 void set(
-    std::complex<double> alpha, std::complex<double> beta,
+    std::complex<double> offdiag_value, std::complex<double> diag_value,
     Matrix<std::complex<double> >& A,
     Options const& opts);
 
@@ -140,8 +148,10 @@ namespace specialization {
 /// @ingroup set_specialization
 ///
 template <Target target, typename scalar_t>
-void set(slate::internal::TargetType<target>,
-         scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A)
+void set(
+    slate::internal::TargetType<target>,
+    scalar_t offdiag_value, scalar_t diag_value,
+    BaseTrapezoidMatrix<scalar_t>& A)
 {
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -152,7 +162,7 @@ void set(slate::internal::TargetType<target>,
     #pragma omp parallel
     #pragma omp master
     {
-        internal::set<target>(alpha, beta, std::move(A));
+        internal::set<target>( offdiag_value, diag_value, std::move( A ) );
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
@@ -168,11 +178,13 @@ void set(slate::internal::TargetType<target>,
 /// @ingroup set_specialization
 ///
 template <Target target, typename scalar_t>
-void set(scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
-         Options const& opts)
+void set(
+    scalar_t offdiag_value, scalar_t diag_value,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts )
 {
     internal::specialization::set(internal::TargetType<target>(),
-                                  alpha, beta, A);
+                                  offdiag_value, diag_value, A);
 }
 
 //------------------------------------------------------------------------------
@@ -198,8 +210,10 @@ void set(scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
 /// @ingroup set
 ///
 template <typename scalar_t>
-void set(scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
-         Options const& opts)
+void set(
+    scalar_t offdiag_value, scalar_t diag_value,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
@@ -207,16 +221,16 @@ void set(scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
         case Target::Host:
         case Target::HostTask:
         default: // todo: this is to silence a warning, should err otherwise
-            set<Target::HostTask>(alpha, beta, A, opts);
+            set<Target::HostTask>( offdiag_value, diag_value, A, opts );
             break;
 //      case Target::HostNest:
-//          set<Target::HostNest>(alpha, beta, A, opts);
+//          set<Target::HostNest>( offdiag_value, diag_value, A, opts );
 //          break;
 //      case Target::HostBatch:
-//          set<Target::HostBatch>(alpha, beta, A, opts);
+//          set<Target::HostBatch>( offdiag_value, diag_value, A, opts );
 //          break;
         case Target::Devices:
-            set<Target::Devices>(alpha, beta, A, opts);
+            set<Target::Devices>( offdiag_value, diag_value, A, opts );
             break;
     }
 }
@@ -225,23 +239,25 @@ void set(scalar_t alpha, scalar_t beta, BaseTrapezoidMatrix<scalar_t>& A,
 // Explicit instantiations.
 template
 void set(
-    float alpha, float beta, BaseTrapezoidMatrix<float>& A,
+    float offdiag_value, float diag_value,
+    BaseTrapezoidMatrix<float>& A,
     Options const& opts);
 
 template
 void set(
-    double alpha, double beta, BaseTrapezoidMatrix<double>& A,
+    double offdiag_value, double diag_value,
+    BaseTrapezoidMatrix<double>& A,
     Options const& opts);
 
 template
 void set(
-    std::complex<float> alpha, std::complex<float> beta,
+    std::complex<float> offdiag_value, std::complex<float> diag_value,
     BaseTrapezoidMatrix<std::complex<float> >& A,
     Options const& opts);
 
 template
 void set(
-    std::complex<double> alpha, std::complex<double> beta,
+    std::complex<double> offdiag_value, std::complex<double> diag_value,
     BaseTrapezoidMatrix<std::complex<double> >& A,
     Options const& opts);
 

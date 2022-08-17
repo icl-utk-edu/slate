@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -134,6 +134,8 @@ public:
     Tile(int64_t mb, int64_t nb,
          scalar_t* A, int64_t lda, int device, TileKind kind, Layout layout=Layout::ColMajor);
 
+    Tile(Tile<scalar_t> src_tile, scalar_t* A, int64_t lda, TileKind kind);
+
     // defaults okay (tile doesn't own data, doesn't allocate/deallocate data)
     // 1. destructor
     // 2. copy & move constructors
@@ -188,7 +190,7 @@ public:
     /// element in the row, accounting for row-or-column major layout
     /// and transposed tiles.
     int64_t rowIncrement() const {
-        if ( (op_ == Op::NoTrans) == (layout_ == Layout::ColMajor) )
+        if ((op_ == Op::NoTrans) == (layout_ == Layout::ColMajor))
             // (NoTrans && ColMajor) || (Trans   && RowMajor)
             return stride_;
         else
@@ -199,7 +201,7 @@ public:
     /// element in the column, accounting for row-or-column major
     /// layout and transposed tiles.
     int64_t colIncrement() const {
-        if ( (op_ == Op::NoTrans) == (layout_ == Layout::ColMajor) )
+        if ((op_ == Op::NoTrans) == (layout_ == Layout::ColMajor))
             // (NoTrans && ColMajor) || (Trans   && RowMajor)
             return 1;
         else
@@ -423,6 +425,46 @@ Tile<scalar_t>::Tile(
     slate_assert(A != nullptr);
     slate_assert( (layout == Layout::ColMajor && lda >= mb)
                || (layout == Layout::RowMajor && lda >= nb));
+}
+
+//------------------------------------------------------------------------------
+/// Create tile based on an existing tile and use existing memory buffer.
+///
+/// @param[in] src_tile
+///     Tile to copy metadata from
+///
+/// @param[in,out] A
+///     The mb-by-nb tile A, stored in an
+///     lda-by-nb array if ColMajor, or
+///     lda-by-mb array if RowMajor.
+///
+/// @param[in] kind
+///     The kind of tile:
+///     - Workspace:  temporary tile, allocated by SLATE
+///     - SlateOwned: origin tile, allocated by SLATE
+///     - UserOwned:  origin tile, allocated by user
+///
+///
+template <typename scalar_t>
+Tile<scalar_t>::Tile(
+    Tile<scalar_t> src_tile, scalar_t* A, int64_t lda, TileKind kind)
+    : mb_(src_tile.mb_),
+      nb_(src_tile.nb_),
+      stride_(lda),
+      user_stride_(lda),
+      op_(src_tile.op_),
+      uplo_(src_tile.uplo_),
+      data_(A),
+      user_data_(nullptr),
+      ext_data_(nullptr),
+      kind_(kind),
+      layout_(src_tile.layout_),
+      user_layout_(src_tile.user_layout_),
+      device_(src_tile.device_)
+{
+    slate_assert(A != nullptr);
+    slate_assert( (src_tile.layout_ == Layout::ColMajor && lda >= src_tile.mb_)
+               || (src_tile.layout_ == Layout::RowMajor && lda >= src_tile.nb_));
 }
 
 //------------------------------------------------------------------------------
@@ -669,7 +711,7 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
 
     if (mb() == nb()) {
         // square tile, in-place conversion
-        transpose(nb(), data_, stride_);
+        tile::transpose( nb(), data_, stride_ );
     }
     else {
         // rectangular tile, out-of-place conversion
@@ -694,10 +736,11 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
                 stride_    = user_stride_;
             }
 
-            transpose(layout() == Layout::ColMajor ? mb_ : nb_,
-                      layout() == Layout::ColMajor ? nb_ : mb_,
-                      src_data, src_stride,
-                      data_, stride_);
+            tile::transpose(
+                layout() == Layout::ColMajor ? mb_ : nb_,
+                layout() == Layout::ColMajor ? nb_ : mb_,
+                src_data, src_stride,
+                data_, stride_ );
         }
         else {
             // tile already Convertible
@@ -707,10 +750,11 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
 
             int64_t work_stride = layout() == Layout::ColMajor ? nb() : mb();
 
-            transpose(layout() == Layout::ColMajor ? mb_ : nb_,
-                      layout() == Layout::ColMajor ? nb_ : mb_,
-                      data_, stride_,
-                      work_data, work_stride);
+            tile::transpose(
+                layout() == Layout::ColMajor ? mb_ : nb_,
+                layout() == Layout::ColMajor ? nb_ : mb_,
+                data_, stride_,
+                work_data, work_stride );
             std::memcpy(data_, work_data, bytes());
 
             stride_ = work_stride;
@@ -834,7 +878,7 @@ void Tile<scalar_t>::copyData(Tile<scalar_t>* dst_tile) const
         dst_tile->stride_ = this->layout() == Layout::ColMajor ? mb_ : nb_;
     }
 
-    gecopy(*this, *dst_tile);
+    tile::gecopy( *this, *dst_tile );
 
     dst_tile->layout(this->layout());
 }
@@ -1158,8 +1202,9 @@ void Tile<scalar_t>::bcast(int bcast_root, MPI_Comm mpi_comm)
 template <typename scalar_t>
 void Tile<scalar_t>::set(scalar_t offdiag_value, scalar_t diag_value)
 {
-    lapack::MatrixType mtype = (lapack::MatrixType)uplo_;// TODO is this safe?
-    lapack::laset(mtype, mb(), nb(),
+    // MatrixType is superset of Uplo, so this cast is okay.
+    lapack::MatrixType mtype = lapack::MatrixType( uplo_ );
+    lapack::laset(mtype, mb_, nb_,
                   offdiag_value, diag_value,
                   data(), stride());
 }

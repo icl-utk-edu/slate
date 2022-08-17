@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -10,13 +10,6 @@
 #define SLATE_INTERNAL_HH
 
 #include "slate/types.hh"
-
-#ifdef SLATE_WITH_MKL
-    #include <mkl_cblas.h>
-#else
-    #include <cblas.h>
-#endif
-
 #include "slate/Matrix.hh"
 #include "slate/HermitianMatrix.hh"
 #include "slate/HermitianBandMatrix.hh"
@@ -24,6 +17,7 @@
 #include "slate/TriangularMatrix.hh"
 #include "slate/TriangularBandMatrix.hh"
 #include "slate/BandMatrix.hh"
+#include "lapack.hh"
 
 namespace slate {
 
@@ -139,18 +133,28 @@ void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
            int priority=0, int queue_index=0);
 
 //-----------------------------------------
-//
+// scale_row_col
+template <Target target=Target::HostTask, typename scalar_t, typename scalar_t2>
+void scale_row_col(
+    Equed equed,
+    std::vector< scalar_t2 > const& R,
+    std::vector< scalar_t2 > const& C,
+    Matrix<scalar_t>&& A );
+
+//-----------------------------------------
 // set()
 template <Target target=Target::HostTask, typename scalar_t>
-void set(scalar_t alpha, scalar_t beta,
+void set(scalar_t offdiag_value, scalar_t diag_value,
          Matrix<scalar_t>&& A,
          int priority=0, int queue_index=0);
 
 template <Target target=Target::HostTask, typename scalar_t>
-void set(scalar_t alpha, scalar_t beta,
+void set(scalar_t offdiag_value, scalar_t diag_value,
          BaseTrapezoidMatrix<scalar_t>&& A,
          int priority=0, int queue_index=0);
 
+//-----------------------------------------
+// copytb2bd, copyhb2st
 template <Target target=Target::HostTask, typename scalar_t>
 void copytb2bd(TriangularBandMatrix<scalar_t>& A,
                std::vector< blas::real_type<scalar_t> >& D,
@@ -170,13 +174,17 @@ template <Target target=Target::HostTask, typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          Layout layout, int priority=0, int64_t queue_index=0);
+          Layout layout, int priority=0, int64_t queue_index=0,
+          Options const& opts = Options());
 
+//-----------------------------------------
+// gemmA()
 template <Target target=Target::HostTask, typename scalar_t>
 void gemmA(scalar_t alpha, Matrix<scalar_t>&& A,
                            Matrix<scalar_t>&& B,
            scalar_t beta,  Matrix<scalar_t>&& C,
-           Layout layout, int priority=0);
+           Layout layout, int priority=0, int64_t queue_index=0,
+           Options const& opts = Options());
 
 //-----------------------------------------
 // hemm()
@@ -202,11 +210,21 @@ void hemm(Side side,
 }
 
 //-----------------------------------------
+// hemmA()
+template <Target target=Target::HostTask, typename scalar_t>
+void hemmA(Side side,
+          scalar_t alpha, HermitianMatrix<scalar_t>&& A,
+                          Matrix<scalar_t>&& B,
+          scalar_t beta,  Matrix<scalar_t>&& C,
+          int priority=0);
+
+//-----------------------------------------
 // herk()
 template <Target target=Target::HostTask, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>&& C,
-          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor);
+          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
+          Options const& opts = Options());
 
 // forward real-symmetric matrices to herk;
 // disabled for complex
@@ -214,11 +232,12 @@ template <Target target=Target::HostTask, typename scalar_t>
 void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>&& A,
           blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>&& C,
           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
+          Options const& opts = Options(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     herk<target>(alpha, std::move(A),
                  beta, HermitianMatrix<scalar_t>(C),
-                 priority, queue_index, layout);
+                 priority, queue_index, layout, opts);
 }
 
 //-----------------------------------------
@@ -320,6 +339,15 @@ void trmm(Side side,
 // trsm()
 template <Target target=Target::HostTask, typename scalar_t>
 void trsm(Side side,
+          scalar_t alpha, TriangularMatrix<scalar_t>&& A,
+                                    Matrix<scalar_t>&& B,
+          int priority=0, Layout layout=Layout::ColMajor,
+          int64_t queue_index=0, Options const& opts = Options());
+
+//-----------------------------------------
+// trsmA()
+template <Target target=Target::HostTask, typename scalar_t>
+void trsmA(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
           int priority=0, Layout layout=Layout::ColMajor,
@@ -444,6 +472,7 @@ void norm(Norm in_norm, NormScope scope, HermitianBandMatrix<scalar_t>&& A,
 template <Target target=Target::HostTask, typename scalar_t>
 void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
            std::vector<Pivot>& pivot,
+           blas::real_type<scalar_t> remote_pivot_threshold,
            int max_panel_threads, int priority=0, int tag=0);
 
 //-----------------------------------------
@@ -463,8 +492,23 @@ void getrf_tntpiv(Matrix<scalar_t>&& A, Matrix<scalar_t>&& Awork,
 //-----------------------------------------
 // geqrf()
 template <Target target=Target::HostTask, typename scalar_t>
-void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T, int64_t ib,
-           int max_panel_threads, int priority=0);
+void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T,
+           std::vector< scalar_t* > dwork_array, size_t work_size,
+           int64_t ib, int max_panel_threads, int priority=0);
+
+//-----------------------------------------
+// For backwards compatibility of
+// ge2tb, gelqf, he2hb
+// geqrf()
+template <Target target=Target::HostTask, typename scalar_t>
+void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T,
+           int64_t ib, int max_panel_threads, int priority=0)
+{
+    std::vector< scalar_t* > dwork_array(1);
+    dwork_array[0] = nullptr;
+    geqrf( std::move(A), std::move(T),
+           dwork_array, 0, ib, max_panel_threads, priority);
+}
 
 //-----------------------------------------
 // ttqrt()
@@ -519,6 +563,14 @@ void unmlq(Side side, Op op,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
            Matrix<scalar_t>&& W);
+
+//-----------------------------------------
+// unmtr_hb2st()
+template <Target target=Target::HostTask, typename scalar_t>
+void unmtr_hb2st(Side side, Op op,
+                 Matrix<scalar_t>& V,
+                 Matrix<scalar_t>& C,
+                 const std::map<Option, Value>& opts);
 
 //-----------------------------------------
 // potrf()

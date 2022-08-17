@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -91,17 +91,12 @@ extern "C" void pzgetrf_(int* m, int* n, std::complex<double>* a, int* ia, int* 
 template< typename scalar_t >
 void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ipiv, int* info)
 {
-    check_and_assert_blacs_grid_is_column_major();
-
-    // make blas single threaded
-    // todo: does this set the omp num threads correctly
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
-
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     int64_t lookahead = 1;
     int64_t panel_threads = slate_scalapack_set_panelthreads();
     int64_t ib = slate_scalapack_set_ib();
+    slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     // Matrix sizes
     int64_t Am = m;
@@ -111,7 +106,7 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
     // create SLATE matrices from the ScaLAPACK layouts
     int nprow, npcol, myprow, mypcol;
     Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
 
     if (verbose && myprow == 0 && mypcol == 0)
@@ -131,7 +126,7 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
         int64_t l_numrows = scalapack_numroc(An, nb, myprow, isrcproc0, nprow);
         // l_ipiv_rindx local ipiv row index (Scalapack 1-index)
         // for each local ipiv entry, find corresponding local-pivot and swap-pivot
-        for (int l_ipiv_rindx=1; l_ipiv_rindx<=l_numrows; ++l_ipiv_rindx) {
+        for (int l_ipiv_rindx=1; l_ipiv_rindx <= l_numrows; ++l_ipiv_rindx) {
             // for ipiv index, convert to global indexing
             int64_t g_ipiv_rindx = scalapack_indxl2g(&l_ipiv_rindx, &nb, &myprow, &isrcproc0, &nprow);
             // assuming uniform nb from scalapack (note 1-indexing)
@@ -148,8 +143,6 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
             ipiv[l_ipiv_rindx-1] = ((tileIndexSwap+g_ipiv_tile_indx) * nb) + (elementOffsetSwap + 1);
         }
     }
-
-    slate_set_num_blas_threads(saved_num_blas_threads);
 
     // todo: extract the real info from getrf
     *info = 0;

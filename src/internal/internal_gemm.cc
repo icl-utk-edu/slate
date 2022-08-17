@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -8,12 +8,6 @@
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
 #include "internal/internal_batch.hh"
-
-#ifdef SLATE_WITH_MKL
-    #include <mkl_cblas.h>
-#else
-    #include <cblas.h>
-#endif
 
 namespace slate {
 namespace internal {
@@ -37,7 +31,8 @@ template <Target target, typename scalar_t>
 void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          Layout layout, int priority, int64_t queue_index)
+          Layout layout, int priority, int64_t queue_index,
+          Options const& opts )
 {
     if (C.is_complex &&
         ((C.op() == Op::Trans &&
@@ -52,7 +47,7 @@ void gemm(scalar_t alpha, Matrix<scalar_t>&& A,
          alpha, A,
                 B,
          beta,  C,
-         layout, priority, queue_index);
+         layout, priority, queue_index, opts);
 }
 
 //------------------------------------------------------------------------------
@@ -66,7 +61,8 @@ void gemm(internal::TargetType<Target::HostTask>,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          Layout layout, int priority, int64_t queue_index)
+          Layout layout, int priority, int64_t queue_index,
+          Options const& opts )
 {
     // todo: optimize for the number of layout conversions,
     //       by watching 'layout' and 'C(i, j).layout()'
@@ -92,16 +88,19 @@ void gemm(internal::TargetType<Target::HostTask>,
     A.tileGetForReading(A_tiles_set, LayoutConvert(layout));
     B.tileGetForReading(B_tiles_set, LayoutConvert(layout));
 
+    #pragma omp taskgroup
     for (int64_t i = 0; i < C.mt(); ++i) {
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(i, j)) {
-                #pragma omp task shared(A, B, C, err, err_msg) priority(priority)
+                #pragma omp task slate_omp_default_none \
+                    shared( A, B, C, err, err_msg ) \
+                    firstprivate(i, j, layout, alpha, beta) priority(priority)
                 {
                     try {
                         C.tileGetForWriting(i, j, LayoutConvert(layout));
-                        gemm(alpha, A(i, 0),
-                                    B(0, j),
-                             beta,  C(i, j));
+                        tile::gemm(
+                            alpha, A(i, 0), B(0, j),
+                            beta,  C(i, j) );
                         // todo: shouldn't tileRelease()?
                         A.tileTick(i, 0);
                         B.tileTick(0, j);
@@ -114,8 +113,6 @@ void gemm(internal::TargetType<Target::HostTask>,
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         slate_error(err_msg+", line "+std::to_string(err));
@@ -132,7 +129,8 @@ void gemm(internal::TargetType<Target::HostNest>,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          Layout layout, int priority, int64_t queue_index)
+          Layout layout, int priority, int64_t queue_index,
+          Options const& opts )
 {
     // check dimensions
     assert(A.nt() == 1);
@@ -144,8 +142,9 @@ void gemm(internal::TargetType<Target::HostNest>,
     std::string err_msg;
     int64_t C_mt = C.mt();
     int64_t C_nt = C.nt();
-    //  #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...)
-    #pragma omp parallel for collapse(2) schedule(dynamic, 1) shared(A, B, C, err, err_msg)
+
+    #pragma omp parallel for collapse(2) schedule(dynamic, 1) slate_omp_default_none \
+        shared(A, B, C, err, err_msg) firstprivate(C_nt, C_mt, layout, alpha, beta)
     for (int64_t i = 0; i < C_mt; ++i) {
         for (int64_t j = 0; j < C_nt; ++j) {
             if (C.tileIsLocal(i, j)) {
@@ -153,9 +152,9 @@ void gemm(internal::TargetType<Target::HostNest>,
                     A.tileGetForReading(i, 0, LayoutConvert(layout));
                     B.tileGetForReading(0, j, LayoutConvert(layout));
                     C.tileGetForWriting(i, j, LayoutConvert(layout));
-                    gemm(alpha, A(i, 0),
-                                B(0, j),
-                         beta,  C(i, j));
+                    tile::gemm(
+                        alpha, A(i, 0), B(0, j),
+                        beta,  C(i, j) );
                     // todo: shouldn't tileRelease()?
                     A.tileTick(i, 0);
                     B.tileTick(0, j);
@@ -167,8 +166,6 @@ void gemm(internal::TargetType<Target::HostNest>,
             }
         }
     }
-
-    // #pragma omp taskwait
 
     if (err)
         slate_error(err_msg+", line "+std::to_string(err));
@@ -187,8 +184,10 @@ void gemm(internal::TargetType<Target::HostBatch>,
           scalar_t alpha, Matrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          Layout layout, int priority, int64_t queue_index)
+          Layout layout, int priority, int64_t queue_index,
+          Options const& opts )
 {
+#ifdef BLAS_HAVE_MKL
     using blas::conj;
     using std::swap;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
@@ -213,19 +212,25 @@ void gemm(internal::TargetType<Target::HostBatch>,
             }
         }
     }
-    #pragma omp task default(shared)
+
+    #pragma omp taskgroup
     {
-        A.tileGetForReading(A_tiles_set, LayoutConvert(layout));
+        #pragma omp task slate_omp_default_none \
+            shared( A, A_tiles_set ) firstprivate( layout )
+        {
+            A.tileGetForReading(A_tiles_set, LayoutConvert(layout));
+        }
+        #pragma omp task slate_omp_default_none \
+            shared( B, B_tiles_set ) firstprivate( layout )
+        {
+            B.tileGetForReading(B_tiles_set, LayoutConvert(layout));
+        }
+        #pragma omp task slate_omp_default_none \
+            shared( C, C_tiles_set ) firstprivate( layout )
+        {
+            C.tileGetForWriting(C_tiles_set, LayoutConvert(layout));
+        }
     }
-    #pragma omp task default(shared)
-    {
-        B.tileGetForReading(B_tiles_set, LayoutConvert(layout));
-    }
-    #pragma omp task default(shared)
-    {
-        C.tileGetForWriting(C_tiles_set, LayoutConvert(layout));
-    }
-    #pragma omp taskwait
 
     if (batch_count > 0) {
         // if op(C) is NoTrans, invert opA, opB if possible
@@ -314,32 +319,28 @@ void gemm(internal::TargetType<Target::HostBatch>,
 
         {
             trace::Block trace_block("cblas_gemm_batch");
-            #ifdef SLATE_WITH_MKL
-                // mkl_set_num_threads_local(...);
-                if (layout == Layout::ColMajor) {
-                    cblas_gemm_batch(
-                        CblasColMajor,
-                        opA_array.data(), opB_array.data(),
-                        m_array.data(), n_array.data(), k_array.data(),
-                        alpha_array.data(), a_array.data(), lda_array.data(),
-                                            b_array.data(), ldb_array.data(),
-                        beta_array.data(),  c_array.data(), ldc_array.data(),
-                        batch_count, group_size.data());
-                }
-                else {
-                    cblas_gemm_batch(
-                        CblasColMajor,
-                        opB_array.data(), opA_array.data(),
-                        n_array.data(), m_array.data(), k_array.data(),
-                        alpha_array.data(), b_array.data(), ldb_array.data(),
-                                            a_array.data(), lda_array.data(),
-                        beta_array.data(),  c_array.data(), ldc_array.data(),
-                        batch_count, group_size.data());
-                }
-                // mkl_set_num_threads_local(1);
-            #else
-                assert(false);
-            #endif
+            // mkl_set_num_threads_local(...);
+            if (layout == Layout::ColMajor) {
+                cblas_gemm_batch(
+                    CblasColMajor,
+                    opA_array.data(), opB_array.data(),
+                    m_array.data(), n_array.data(), k_array.data(),
+                    alpha_array.data(), a_array.data(), lda_array.data(),
+                                        b_array.data(), ldb_array.data(),
+                    beta_array.data(),  c_array.data(), ldc_array.data(),
+                    batch_count, group_size.data());
+            }
+            else {
+                cblas_gemm_batch(
+                    CblasColMajor,
+                    opB_array.data(), opA_array.data(),
+                    n_array.data(), m_array.data(), k_array.data(),
+                    alpha_array.data(), b_array.data(), ldb_array.data(),
+                                        a_array.data(), lda_array.data(),
+                    beta_array.data(),  c_array.data(), ldc_array.data(),
+                    batch_count, group_size.data());
+            }
+            // mkl_set_num_threads_local(1);
         }
 
         for (int64_t i = 0; i < C.mt(); ++i) {
@@ -352,14 +353,15 @@ void gemm(internal::TargetType<Target::HostBatch>,
             }
         }
     }
-
-    #pragma omp taskwait
+#else
+    slate_not_implemented( "HostBatch requires Intel MKL" );
+#endif
 }
 
 //------------------------------------------------------------------------------
 /// General matrix multiply to update trailing matrix,
 /// where A is a single block column and B is a single block row.
-/// GPU device batched cuBLAS implementation.
+/// GPU device batched-BLAS implementation.
 /// GPU can use either ColMajor or RowMajor.
 /// @ingroup gemm_internal
 ///
@@ -368,12 +370,16 @@ void gemm(internal::TargetType<Target::Devices>,
           scalar_t alpha, Matrix< scalar_t >& A,
                           Matrix< scalar_t >& B,
           scalar_t beta,  Matrix< scalar_t >& C,
-          Layout layout, int priority, int64_t queue_index)
+          Layout layout, int priority, int64_t queue_index,
+          Options const& opts
+          )
 {
     using blas::conj;
     using std::swap;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
     // check dimensions
     assert(C.mt() > 0);
     assert(C.nt() > 0);
@@ -385,8 +391,11 @@ void gemm(internal::TargetType<Target::Devices>,
     assert(C.num_devices() > 0);
 
     int err = 0;
+
+    #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared(A, B, C, err) priority(priority)
+        #pragma omp task shared(A, B, C, err) priority(priority) \
+            firstprivate(alpha, beta, layout, queue_index, device, tile_release_strategy)
         {
             // if op(C) is NoTrans, invert opA, opB if possible
             Op opA = A.op();
@@ -434,19 +443,25 @@ void gemm(internal::TargetType<Target::Devices>,
                     }
                 }
             }
-            #pragma omp task default(shared)
+
+            #pragma omp taskgroup
             {
-                A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                #pragma omp task slate_omp_default_none \
+                    shared( A, A_tiles_set ) firstprivate( layout, device )
+                {
+                    A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                }
+                #pragma omp task slate_omp_default_none \
+                    shared( B, B_tiles_set ) firstprivate( layout, device )
+                {
+                    B.tileGetForReading(B_tiles_set, device, LayoutConvert(layout));
+                }
+                #pragma omp task slate_omp_default_none \
+                    shared( C, C_tiles_set ) firstprivate( layout, device )
+                {
+                    C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
+                }
             }
-            #pragma omp task default(shared)
-            {
-                B.tileGetForReading(B_tiles_set, device, LayoutConvert(layout));
-            }
-            #pragma omp task default(shared)
-            {
-                C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
-            }
-            #pragma omp taskwait
 
             int64_t batch_size = C_tiles_set.size();
 
@@ -659,24 +674,25 @@ void gemm(internal::TargetType<Target::Devices>,
                 queue->sync();
             }
 
-            for (int64_t i = 0; i < C.mt(); ++i) {
-                for (int64_t j = 0; j < C.nt(); ++j) {
-                    if (C.tileIsLocal(i, j)) {
-                        if (device == C.tileDevice(i, j)) {
-                            // erase tmp local and remote device tiles;
-                            A.tileRelease(i, 0, device);
-                            B.tileRelease(0, j, device);
-                            // decrement life for remote tiles
-                            A.tileTick(i, 0);
-                            B.tileTick(0, j);
+            if (tile_release_strategy == TileReleaseStrategy::Internal
+                || tile_release_strategy == TileReleaseStrategy::All) {
+                for (int64_t i = 0; i < C.mt(); ++i) {
+                    for (int64_t j = 0; j < C.nt(); ++j) {
+                        if (C.tileIsLocal(i, j)) {
+                            if (device == C.tileDevice(i, j)) {
+                                // erase tmp local and remote device tiles;
+                                A.tileRelease(i, 0, device);
+                                B.tileRelease(0, j, device);
+                                // decrement life for remote tiles
+                                A.tileTick(i, 0);
+                                B.tileTick(0, j);
+                            }
                         }
                     }
                 }
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         slate_error(std::to_string(err));
@@ -690,28 +706,32 @@ void gemm<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 template
 void gemm<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 template
 void gemm<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 template
 void gemm<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -719,28 +739,32 @@ void gemm<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 template
 void gemm<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 template
 void gemm<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 template
 void gemm<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -748,28 +772,32 @@ void gemm< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 template
 void gemm< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 template
 void gemm< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 template
 void gemm< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -777,28 +805,32 @@ void gemm< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 template
 void gemm< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 template
 void gemm< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 template
 void gemm< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    Layout layout, int priority, int64_t queue_index);
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts );
 
 } // namespace internal
 } // namespace slate

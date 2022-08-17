@@ -72,8 +72,14 @@ add_executable(
     ${tester_src}
 )
 
-# C++17 is inherited from slate, but disabling extensions is not.
-set_target_properties( ${tester} PROPERTIES CXX_EXTENSIONS false )
+# Use and export -std=c++17.
+# CMake inexplicably allows gnu++17 or "decay" to c++11 or 14; prohibit those.
+target_compile_features( ${tester} PUBLIC cxx_std_17 )
+set_target_properties(
+    ${tester} PROPERTIES
+    CXX_STANDARD_REQUIRED true  # prohibit < c++17
+    CXX_EXTENSIONS false        # prohibit gnu++17
+)
 
 target_link_libraries(
     ${tester}

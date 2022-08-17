@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -146,6 +146,9 @@ void getrf_swap(
 ///     workspace for broadcasting the top row for the geru operation
 ///     and the top block for the gemm operation.
 ///
+/// @param[in] pivot_threshold
+///     threshold for pivoting.  1 is partial pivoting, 0 is no pivoting
+///
 /// @ingroup gesv_tile
 ///
 template <typename scalar_t>
@@ -160,13 +163,15 @@ void getrf(
     std::vector<scalar_t>& max_value,
     std::vector<int64_t>& max_index,
     std::vector<int64_t>& max_offset,
-    std::vector<scalar_t>& top_block)
+    std::vector<scalar_t>& top_block,
+    blas::real_type<scalar_t> pivot_threshold)
 {
     trace::Block trace_block("lapack::getrf");
 
     using real_t = blas::real_type<scalar_t>;
 
-    const scalar_t one = 1.0;
+    const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
 
     bool root = mpi_rank == mpi_root;
     int64_t nb = tiles[0].nb();
@@ -237,13 +242,44 @@ void getrf(
                 }
 
                 // MPI max abs reduction
-                struct { real_t max; int loc; } max_loc_in, max_loc;
-                max_loc_in.max = cabs1(max_value[0]);
-                max_loc_in.loc = mpi_rank;
+                // Do two reductions that differ in the root's value
+                // * the diagonal entry
+                // * the largest entry
+                struct { real_t max; int loc; } max_loc_in[2], max_loc[2];
+                if (mpi_rank == mpi_root) {
+                    max_loc_in[0].max = cabs1(tiles[0](j, j));
+                    max_loc_in[1].max = cabs1(max_value[0]);
+                }
+                else {
+                    max_loc_in[0].max = cabs1(max_value[0])*pivot_threshold;
+                    max_loc_in[1].max = max_loc_in[0].max;
+                }
+                max_loc_in[0].loc = mpi_rank;
+                max_loc_in[1].loc = mpi_rank;
                 slate_mpi_call(
-                    MPI_Allreduce(&max_loc_in, &max_loc, 1,
+                    MPI_Allreduce(max_loc_in, max_loc, 2,
                                   mpi_type< max_loc_type<real_t> >::value,
                                   MPI_MAXLOC, mpi_comm));
+
+                int bcast_rank;
+                if (max_loc[0].loc != mpi_root) {
+                    // if diagonal isn't good enough for the remote entries,
+                    // use the result of the second reduction
+                    bcast_rank = max_loc[1].loc;
+                }
+                else {
+                    bcast_rank = mpi_root;
+
+                    // if the diagonal is good enough for the local entries,
+                    // update that max_* variables on the root
+                    if (mpi_rank == mpi_root
+                        && max_loc[0].max >= cabs1(max_value[0])*pivot_threshold) {
+                        max_offset[0] = j;
+                        max_index[0] = 0;
+                        max_value[0] = tiles[0](j, j);
+                    }
+                }
+
 
                 // todo: can this Bcast info be merged into the Allreduce?
                 // Broadcast the pivot information.
@@ -251,13 +287,13 @@ void getrf(
                                               max_offset[0],
                                               max_index[0],
                                               max_value[0],
-                                              max_loc.loc);
+                                              bcast_rank);
                 slate_mpi_call(
                     MPI_Bcast(&pivot[j], sizeof(AuxPivot<scalar_t>),
-                              MPI_BYTE, max_loc.loc, mpi_comm));
+                              MPI_BYTE, bcast_rank, mpi_comm));
 
                 // pivot swap
-                getrf_swap(j, k, kb,
+                getrf_swap(j, 0, nb,
                            tiles, pivot,
                            mpi_rank, mpi_root, mpi_comm);
 
@@ -278,8 +314,6 @@ void getrf(
             }
             thread_barrier.wait(thread_size);
 
-            scalar_t one  = 1.0;
-            scalar_t zero = 0.0;
             // column scaling and trailing update
             for (int64_t idx = thread_rank;
                  idx < int64_t(tiles.size());
@@ -348,15 +382,7 @@ void getrf(
 
         // If there is a trailing submatrix.
         if (k+kb < nb) {
-            //======================
-            // pivoting to the right
             if (thread_rank == 0) {
-                for (int64_t i = k; i < k+kb; ++i) {
-                    getrf_swap(i, k+kb, nb-k-kb,
-                               tiles, pivot,
-                               mpi_rank, mpi_root, mpi_comm);
-                }
-
                 if (root) {
                     // triangular solve
                     auto top_tile = tiles[0];
@@ -407,19 +433,6 @@ void getrf(
                                      top_block.data(), kb,
                                one,  &tile.at(0, k+kb), tile.stride());
                 }
-            }
-            thread_barrier.wait(thread_size);
-        }
-    }
-
-    //=====================
-    // pivoting to the left
-    if (thread_rank == 0) {
-        for (int64_t k = ib; k < diag_len; k += ib) {
-            for (int64_t i = k; i < k+ib && i < diag_len; ++i) {
-                getrf_swap(i, 0, k,
-                           tiles, pivot,
-                           mpi_rank, mpi_root, mpi_comm);
             }
         }
     }

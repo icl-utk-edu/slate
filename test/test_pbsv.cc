@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -128,10 +128,11 @@ void test_pbsv_work(Params& params, bool run)
     }
 
     if (verbose > 1) {
-        printf("%% rank %d A kd %lld\n", A.mpiRank(), llong( A.bandwidth()));
-        print_matrix("A", A);
-        print_matrix("B", B, params);
+        printf("%% rank %d A\n", A.mpiRank());
+        //printf("%% rank %d A kd %lld\n", A.mpiRank(), llong( A.bandwidth()));
     }
+    print_matrix("A", A, params);
+    print_matrix("B", B, params);
 
 
     // if check is required, copy test data and create a descriptor for it
@@ -196,12 +197,13 @@ void test_pbsv_work(Params& params, bool run)
         params.gflops() = gflop / time;
 
         if (verbose > 1) {
-            printf("%% rank %d A2 kd %lld\n",
-                   A.mpiRank(), llong( A.bandwidth( )));
-            print_matrix("A2", A);
-            print_matrix("B2", B, params);
-            printf( "nb = %lld;\n", llong( nb ) );
+            printf("%% rank %d A2\n", A.mpiRank());
+            //printf("%% rank %d A2 kd %lld\n",
+            //       A.mpiRank(), llong( A.bandwidth( )));
+            //printf( "nb = %lld;\n", llong( nb ) );
         }
+        print_matrix("A2", A, params);
+        print_matrix("B2", B, params);
     }
     if (check) {
         //==================================================

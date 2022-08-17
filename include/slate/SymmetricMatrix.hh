@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -36,19 +36,39 @@ public:
                     std::function<int (ij_tuple ij)>& inTileDevice,
                     MPI_Comm mpi_comm);
 
-    SymmetricMatrix(Uplo uplo, int64_t n, int64_t nb,
-                    int p, int q, MPI_Comm mpi_comm);
+    //----------
+    SymmetricMatrix( Uplo uplo, int64_t n, int64_t nb,
+                     GridOrder order, int p, int q, MPI_Comm mpi_comm );
 
+    /// With order = Col.
+    SymmetricMatrix( Uplo uplo, int64_t n, int64_t nb,
+                     int p, int q, MPI_Comm mpi_comm )
+        : SymmetricMatrix( uplo, n, nb, GridOrder::Col, p, q, mpi_comm )
+    {}
+
+    //----------
     static
     SymmetricMatrix fromLAPACK(Uplo uplo, int64_t n,
                                scalar_t* A, int64_t lda, int64_t nb,
                                int p, int q, MPI_Comm mpi_comm);
 
+    //----------
     static
-    SymmetricMatrix fromScaLAPACK(Uplo uplo, int64_t n,
-                                  scalar_t* A, int64_t lda, int64_t nb,
-                                  int p, int q, MPI_Comm mpi_comm);
+    SymmetricMatrix fromScaLAPACK(
+        Uplo uplo, int64_t n, scalar_t* A, int64_t lda, int64_t nb,
+        GridOrder order, int p, int q, MPI_Comm mpi_comm);
 
+    /// With order = Col.
+    static
+    SymmetricMatrix fromScaLAPACK(
+        Uplo uplo, int64_t n, scalar_t* A, int64_t lda, int64_t nb,
+        int p, int q, MPI_Comm mpi_comm)
+    {
+        return fromScaLAPACK( uplo, n, A, lda, nb,
+                              GridOrder::Col, p, q, mpi_comm );
+    }
+
+    //----------
     static
     SymmetricMatrix fromDevices(Uplo uplo, int64_t n,
                                 scalar_t** Aarray, int num_devices, int64_t lda,
@@ -59,9 +79,15 @@ public:
 
     SymmetricMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig);
 
+    SymmetricMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig,
+                    typename BaseMatrix<scalar_t>::Slice slice);
+
     // on-diagonal sub-matrix
     SymmetricMatrix sub(int64_t i1, int64_t i2);
     SymmetricMatrix slice(int64_t index1, int64_t index2);
+
+    SymmetricMatrix(Uplo uplo, BaseMatrix<scalar_t>& orig,
+                    int64_t i1, int64_t i2);
 
     // off-diagonal sub-matrix
     Matrix<scalar_t> sub(int64_t i1, int64_t i2, int64_t j1, int64_t j2);
@@ -74,9 +100,10 @@ public:
 
 protected:
     // used by fromLAPACK and fromScaLAPACK
-    SymmetricMatrix(Uplo uplo, int64_t n,
-                    scalar_t* A, int64_t lda, int64_t nb,
-                    int p, int q, MPI_Comm mpi_comm, bool is_scalapack);
+    SymmetricMatrix( Uplo uplo, int64_t n,
+                     scalar_t* A, int64_t lda, int64_t nb,
+                     GridOrder order, int p, int q, MPI_Comm mpi_comm,
+                     bool is_scalapack );
 
     // used by fromDevices
     SymmetricMatrix(Uplo uplo, int64_t n,
@@ -126,8 +153,9 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 ///
 template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
-    Uplo uplo, int64_t n, int64_t nb, int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, nb, p, q, mpi_comm)
+    Uplo uplo, int64_t n, int64_t nb,
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>( uplo, n, n, nb, order, p, q, mpi_comm )
 {}
 
 //------------------------------------------------------------------------------
@@ -168,7 +196,8 @@ SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::fromLAPACK(
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    return SymmetricMatrix<scalar_t>(uplo, n, A, lda, nb, p, q, mpi_comm, false);
+    return SymmetricMatrix<scalar_t>( uplo, n, A, lda, nb,
+                                      GridOrder::Col, p, q, mpi_comm, false );
 }
 
 //------------------------------------------------------------------------------
@@ -195,6 +224,10 @@ SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::fromLAPACK(
 /// @param[in] nb
 ///     Block size in 2D block-cyclic distribution. nb > 0.
 ///
+/// @param[in] order
+///     Order to map MPI processes to tile grid,
+///     GridOrder::ColMajor (default) or GridOrder::RowMajor.
+///
 /// @param[in] p
 ///     Number of block rows in 2D block-cyclic distribution. p > 0.
 ///
@@ -209,9 +242,10 @@ template <typename scalar_t>
 SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::fromScaLAPACK(
     Uplo uplo, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
 {
-    return SymmetricMatrix<scalar_t>(uplo, n, A, lda, nb, p, q, mpi_comm, true);
+    return SymmetricMatrix<scalar_t>( uplo, n, A, lda, nb,
+                                      order, p, q, mpi_comm, true );
 }
 
 //------------------------------------------------------------------------------
@@ -275,9 +309,9 @@ template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(
     Uplo uplo, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, n, n, A, lda, nb, p, q, mpi_comm,
-                                    is_scalapack)
+    GridOrder order, int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
+    : BaseTrapezoidMatrix<scalar_t>( uplo, n, n, A, lda, nb,
+                                     order, p, q, mpi_comm, is_scalapack )
 {}
 
 //------------------------------------------------------------------------------
@@ -353,6 +387,27 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 {}
 
 //------------------------------------------------------------------------------
+/// Sub-matrix constructor creates shallow copy view of parent matrix,
+/// A[ i1:i2, i1:i2 ]. The new view is still a Symmetric matrix, with the
+/// same diagonal as the parent matrix.
+///
+/// @param[in,out] orig
+///     Original matrix.
+///
+/// @param[in] i1
+///     Starting block row and column index. 0 <= i1 < mt.
+///
+/// @param[in] i2
+///     Ending block row and column index (inclusive). i2 < mt.
+///
+template <typename scalar_t>
+SymmetricMatrix<scalar_t>::SymmetricMatrix(
+    Uplo uplo, BaseMatrix<scalar_t>& orig,
+    int64_t i1, int64_t i2)
+    : BaseTrapezoidMatrix<scalar_t>(uplo, orig, i1, i2, i1, i2)
+{}
+
+//------------------------------------------------------------------------------
 /// Returns sub-matrix that is a shallow copy view of the
 /// parent matrix, A[ i1:i2, i1:i2 ].
 /// This version returns a SymmetricMatrix with the same diagonal as the
@@ -420,6 +475,26 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix(
 {}
 
 //------------------------------------------------------------------------------
+/// Sliced matrix constructor creates shallow copy view of parent matrix,
+/// A[ row1:row2, col1:col2 ].
+/// This takes row & col indices instead of block row & block col indices.
+/// Assumes that row1 == col1 and row2 == col2 (@see slice()).
+///
+/// @param[in] orig
+///     Original matrix of which to make sub-matrix.
+///
+/// @param[in] slice
+///     Contains start and end row and column indices.
+///
+template <typename scalar_t>
+SymmetricMatrix<scalar_t>::SymmetricMatrix(
+    Uplo uplo, BaseMatrix<scalar_t>& orig, typename BaseMatrix<scalar_t>::Slice slice)
+    : BaseTrapezoidMatrix<scalar_t>(orig, slice)
+{
+    this->uplo_ = uplo;
+}
+
+//------------------------------------------------------------------------------
 /// Returns sliced matrix that is a shallow copy view of the
 /// parent matrix, A[ index1:index2, index1:index2 ].
 /// This takes row & col indices instead of block row & block col indices.
@@ -434,8 +509,9 @@ template <typename scalar_t>
 SymmetricMatrix<scalar_t> SymmetricMatrix<scalar_t>::slice(
     int64_t index1, int64_t index2)
 {
-    return SymmetricMatrix<scalar_t>(*this,
-        typename BaseMatrix<scalar_t>::Slice(index1, index2, index1, index2));
+    return SymmetricMatrix<scalar_t>(
+               *this, typename BaseMatrix<scalar_t>::Slice( index1, index2,
+                                                            index1, index2 ));
 }
 
 //------------------------------------------------------------------------------
@@ -463,8 +539,9 @@ Matrix<scalar_t> SymmetricMatrix<scalar_t>::slice(
     int64_t row1, int64_t row2,
     int64_t col1, int64_t col2)
 {
-    return Matrix<scalar_t>(*this,
-        typename BaseMatrix<scalar_t>::Slice(row1, row2, col1, col2));
+    return Matrix<scalar_t>(
+               *this, typename BaseMatrix<scalar_t>::Slice( row1, row2,
+                                                            col1, col2 ));
 }
 
 //------------------------------------------------------------------------------

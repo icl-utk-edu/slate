@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -196,6 +196,7 @@ inline cuDoubleComplex axpby(cuDoubleComplex alpha, cuDoubleComplex x,
 
 //------------------------------------------------------------------------------
 /// Overloaded copy and precision conversion.
+/// Sets b = a, converting from type TA to type TB.
 template <typename TA, typename TB>
 __host__ __device__
 inline void copy(TA a, TB& b)
@@ -203,6 +204,7 @@ inline void copy(TA a, TB& b)
     b = a;
 }
 
+/// Sets b = a, converting from complex-float to complex-double.
 __host__ __device__
 inline void copy(cuFloatComplex a, cuDoubleComplex& b)
 {
@@ -210,6 +212,7 @@ inline void copy(cuFloatComplex a, cuDoubleComplex& b)
     b.y = a.y;
 }
 
+/// Sets b = a, converting from complex-double to complex-float.
 __host__ __device__
 inline void copy(cuDoubleComplex a, cuFloatComplex& b)
 {
@@ -305,7 +308,7 @@ __host__ __device__  inline float  imag(float              x) { return 0.f; }
 __host__ __device__  inline double conj(double             x) { return x; }
 __host__ __device__  inline float  conj(float              x) { return x; }
 
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
 
 // ---------- negate
 __host__ __device__  inline cuDoubleComplex
@@ -454,7 +457,7 @@ operator / (const cuDoubleComplex x, const cuDoubleComplex y)
     double c = real(y);
     double d = imag(y);
     double e, f, p, q;
-    if ( abs( d ) < abs( c ) ) {
+    if (abs( d ) < abs( c )) {
         e = d / c;
         f = c + d*e;
         p = ( a + b*e ) / f;
@@ -482,7 +485,7 @@ operator / (const double a, const cuDoubleComplex y)
     double c = real(y);
     double d = imag(y);
     double e, f, p, q;
-    if ( abs( d ) < abs( c ) ) {
+    if (abs( d ) < abs( c )) {
         e = d / c;
         f = c + d*e;
         p =  a   / f;
@@ -655,7 +658,7 @@ operator / (const cuFloatComplex x, const cuFloatComplex y)
     float c = real(y);
     float d = imag(y);
     float e, f, p, q;
-    if ( abs( d ) < abs( c ) ) {
+    if (abs( d ) < abs( c )) {
         e = d / c;
         f = c + d*e;
         p = ( a + b*e ) / f;
@@ -683,7 +686,7 @@ operator / (const float a, const cuFloatComplex y)
     float c = real(y);
     float d = imag(y);
     float e, f, p, q;
-    if ( abs( d ) < abs( c ) ) {
+    if (abs( d ) < abs( c )) {
         e = d / c;
         f = c + d*e;
         p =  a   / f;
@@ -756,7 +759,7 @@ operator != (const float s, const cuFloatComplex a)
     return ! (a == s);
 }
 
-#endif // ! SLATE_NO_CUDA
+#endif // BLAS_WITH_CUBLAS
 
 } // namespace device
 } // namespace slate

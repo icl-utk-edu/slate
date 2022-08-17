@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -21,7 +21,7 @@
 namespace slate {
 
 //==============================================================================
-/// Symmetric, n-by-n, distributed, tiled matrices.
+/// Trapezoid, n-by-n, distributed, tiled matrices.
 template <typename scalar_t>
 class TrapezoidMatrix: public BaseTrapezoidMatrix<scalar_t> {
 public:
@@ -36,19 +36,42 @@ public:
                     std::function<int (ij_tuple ij)>& inTileDevice,
                     MPI_Comm mpi_comm);
 
-    TrapezoidMatrix(Uplo uplo, Diag diag, int64_t m, int64_t n, int64_t nb,
-                    int p, int q, MPI_Comm mpi_comm);
+    //----------
+    TrapezoidMatrix(
+        Uplo uplo, Diag diag, int64_t m, int64_t n, int64_t nb,
+        GridOrder order, int p, int q, MPI_Comm mpi_comm );
 
+    TrapezoidMatrix(
+        Uplo uplo, Diag diag, int64_t m, int64_t n, int64_t nb,
+        int p, int q, MPI_Comm mpi_comm )
+        : TrapezoidMatrix( uplo, diag, m, n, nb, GridOrder::Col, p, q, mpi_comm )
+    {}
+
+    //----------
     static
     TrapezoidMatrix fromLAPACK(Uplo uplo, Diag diag, int64_t m, int64_t n,
                                scalar_t* A, int64_t lda, int64_t nb,
                                int p, int q, MPI_Comm mpi_comm);
 
+    //----------
     static
-    TrapezoidMatrix fromScaLAPACK(Uplo uplo, Diag diag, int64_t m, int64_t n,
-                                  scalar_t* A, int64_t lda, int64_t nb,
-                                  int p, int q, MPI_Comm mpi_comm);
+    TrapezoidMatrix fromScaLAPACK(
+        Uplo uplo, Diag diag, int64_t m, int64_t n,
+        scalar_t* A, int64_t lda, int64_t nb,
+        GridOrder order, int p, int q, MPI_Comm mpi_comm);
 
+    /// With order = Col.
+    static
+    TrapezoidMatrix fromScaLAPACK(
+        Uplo uplo, Diag diag, int64_t m, int64_t n,
+        scalar_t* A, int64_t lda, int64_t nb,
+        int p, int q, MPI_Comm mpi_comm)
+    {
+        return fromScaLAPACK( uplo, diag, m, n, A, lda, nb,
+                              GridOrder::Col, p, q, mpi_comm );
+    }
+
+    //----------
     static
     TrapezoidMatrix fromDevices(Uplo uplo, Diag diag, int64_t m, int64_t n,
                                 scalar_t** A, int num_devices, int64_t lda,
@@ -83,9 +106,10 @@ public:
 
 protected:
     // used by fromLAPACK and fromScaLAPACK
-    TrapezoidMatrix(Uplo uplo, Diag diag, int64_t m, int64_t n,
-                    scalar_t* A, int64_t lda, int64_t nb,
-                    int p, int q, MPI_Comm mpi_comm, bool is_scalapack);
+    TrapezoidMatrix( Uplo uplo, Diag diag, int64_t m, int64_t n,
+                     scalar_t* A, int64_t lda, int64_t nb,
+                     GridOrder order, int p, int q, MPI_Comm mpi_comm,
+                     bool is_scalapack );
 
     // used by fromDevices
     TrapezoidMatrix(Uplo uplo, Diag diag, int64_t m, int64_t n,
@@ -149,8 +173,8 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     Uplo uplo, Diag diag, int64_t m, int64_t n, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, m, n, nb, p, q, mpi_comm),
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
+    : BaseTrapezoidMatrix<scalar_t>( uplo, m, n, nb, order, p, q, mpi_comm ),
       diag_(diag)
 {}
 
@@ -158,7 +182,7 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 /// [static]
 /// Named constructor returns a new Matrix from LAPACK layout.
 /// Construct matrix by wrapping existing memory of an n-by-n lower
-/// or upper symmetric LAPACK-style matrix.
+/// or upper trapezoid LAPACK-style matrix.
 ///
 /// @param[in] uplo
 ///     - Upper: upper triangle of A is stored.
@@ -173,13 +197,13 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
 ///     Number of rows and columns of the matrix. n >= 0.
 ///
 /// @param[in,out] A
-///     The n-by-n symmetric matrix A, stored in an lda-by-n array.
+///     The n-by-n trapezoid matrix A, stored in an lda-by-n array.
 ///
 /// @param[in] lda
 ///     Leading dimension of the array A. lda >= m.
 ///
 /// @param[in] nb
-///     Block size in 2D block-cyclic distribution.
+///     Block size in 2D block-cyclic distribution. nb > 0.
 ///
 /// @param[in] p
 ///     Number of block rows in 2D block-cyclic distribution. p > 0.
@@ -197,15 +221,15 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromLAPACK(
     scalar_t* A, int64_t lda, int64_t nb,
     int p, int q, MPI_Comm mpi_comm)
 {
-    return TrapezoidMatrix<scalar_t>(uplo, diag, m, n, A, lda, nb,
-                                     p, q, mpi_comm, false);
+    return TrapezoidMatrix<scalar_t>( uplo, diag, m, n, A, lda, nb,
+                                      GridOrder::Col, p, q, mpi_comm, false );
 }
 
 //------------------------------------------------------------------------------
 /// [static]
 /// Named constructor returns a new Matrix from ScaLAPACK layout.
 /// Construct matrix by wrapping existing memory of an n-by-n lower
-/// or upper symmetric ScaLAPACK-style matrix.
+/// or upper trapezoid ScaLAPACK-style matrix.
 /// @see BaseTrapezoidMatrix
 ///
 /// @param[in] uplo
@@ -230,6 +254,10 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromLAPACK(
 /// @param[in] nb
 ///     Block size in 2D block-cyclic distribution. nb > 0.
 ///
+/// @param[in] order
+///     Order to map MPI processes to tile grid,
+///     GridOrder::ColMajor (default) or GridOrder::RowMajor.
+///
 /// @param[in] p
 ///     Number of block rows in 2D block-cyclic distribution. p > 0.
 ///
@@ -244,17 +272,18 @@ template <typename scalar_t>
 TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromScaLAPACK(
     Uplo uplo, Diag diag, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm)
+    GridOrder order, int p, int q, MPI_Comm mpi_comm)
 {
-    return TrapezoidMatrix<scalar_t>(uplo, diag, m, n, A, lda, nb,
-                                     p, q, mpi_comm, true);
+    return TrapezoidMatrix<scalar_t>( uplo, diag, m, n, A, lda, nb,
+                                      order, p, q, mpi_comm, true );
 }
 
 //------------------------------------------------------------------------------
 /// [static]
+/// TODO
 /// Named constructor returns a new Matrix from ScaLAPACK layout.
 /// Construct matrix by wrapping existing memory of an n-by-n lower
-/// or upper symmetric ScaLAPACK-style matrix.
+/// or upper trapezoid ScaLAPACK-style matrix.
 /// @see BaseTrapezoidMatrix
 ///
 /// @param[in] uplo
@@ -269,9 +298,13 @@ TrapezoidMatrix<scalar_t> TrapezoidMatrix<scalar_t>::fromScaLAPACK(
 /// @param[in] n
 ///     Number of rows and columns of the matrix. n >= 0.
 ///
-/// @param[in,out] A
+/// @param[in,out] Aarray
+///     TODO
 ///     The local portion of the 2D block cyclic distribution of
 ///     the n-by-n matrix A, with local leading dimension lda.
+///
+/// @param[in] num_devices
+///     TODO
 ///
 /// @param[in] lda
 ///     Local leading dimension of the array A. lda >= local number of rows.
@@ -311,14 +344,15 @@ template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     Uplo uplo, Diag diag, int64_t m, int64_t n,
     scalar_t* A, int64_t lda, int64_t nb,
-    int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
-    : BaseTrapezoidMatrix<scalar_t>(uplo, m, n, A, lda, nb, p, q, mpi_comm,
-                                    is_scalapack),
+    GridOrder order, int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
+    : BaseTrapezoidMatrix<scalar_t>( uplo, m, n, A, lda, nb,
+                                     order, p, q, mpi_comm, is_scalapack ),
       diag_(diag)
 {}
 
 //------------------------------------------------------------------------------
 /// @see fromDevices
+///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     Uplo uplo, Diag diag, int64_t m, int64_t n,

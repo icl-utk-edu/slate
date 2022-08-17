@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -60,6 +60,10 @@ void test_trmm_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
+    // Suppress norm, nrhs from output; they're only for checks.
+    params.norm.width( 0 );
+    params.nrhs.width( 0 );
+
     if (! run) {
         return;
     }
@@ -87,13 +91,18 @@ void test_trmm_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector<scalar_t> A_data(lldA*nlocA);
 
     // Matrix B: figure out local size.
     int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-    std::vector<scalar_t> B_data(lldB*nlocB);
+
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data, B_data;
+    if (ref || origin == slate::Origin::ScaLAPACK) {
+        A_data.resize( lldA * nlocA );
+        B_data.resize( lldB * nlocB );
+    }
 
     slate::TriangularMatrix<scalar_t> A;
     slate::Matrix<scalar_t> B;
@@ -249,12 +258,6 @@ void test_trmm_work(Params& params, bool run)
                 copy( B, &B_data[0], B_desc );
             }
 
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
             // allocate workspace for norms
             std::vector<real_t> worklantr(std::max(mlocA, nlocA));
             std::vector<real_t> worklange(std::max(mlocB, nlocB));
@@ -289,8 +292,6 @@ void test_trmm_work(Params& params, bool run)
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
             params.error() = error;
-
-            slate_set_num_blas_threads(saved_num_threads);
 
             // Allow 3*eps; complex needs 2*sqrt(2) factor; see Higham, 2002, sec. 3.6.
             real_t eps = std::numeric_limits<real_t>::epsilon();

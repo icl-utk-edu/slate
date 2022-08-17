@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -13,25 +13,13 @@
 
 #include <complex>
 
-#ifdef SLATE_WITH_MKL
-    extern "C" int MKL_Set_Num_Threads(int nt);
-#endif
-
 namespace slate {
 namespace lapack_api {
 
-#define logprintf(fmt, ...)                                             \
+#define logprintf(fmt, ...) \
     do { fprintf(stdout, "slate_lapack_api: " fmt, __VA_ARGS__); } while (0)
 
 //    do { fprintf(stdout, "%s:%d %s(): " fmt, __FILE__, __LINE__, __func__, __VA_ARGS__); } while (0)
-
-inline int slate_lapack_set_num_blas_threads(const int nt)
-{
-    #ifdef SLATE_WITH_MKL
-    return MKL_Set_Num_Threads(nt);
-    #endif
-    return 1;
-}
 
 inline char slate_lapack_scalar_t_to_char(int* a) { return 'i'; }
 inline char slate_lapack_scalar_t_to_char(float* a) { return 's'; }
@@ -46,10 +34,10 @@ inline slate::Target slate_lapack_set_target()
     char* targetstr = std::getenv("SLATE_LAPACK_TARGET");
     if (targetstr) {
         char targetchar = (char)(toupper(targetstr[4]));
-        if (targetchar=='T') target = slate::Target::HostTask;
-        else if (targetchar=='N') target = slate::Target::HostNest;
-        else if (targetchar=='B') target = slate::Target::HostBatch;
-        else if (targetchar=='C') target = slate::Target::Devices;
+        if (targetchar == 'T') target = slate::Target::HostTask;
+        else if (targetchar == 'N') target = slate::Target::HostNest;
+        else if (targetchar == 'B') target = slate::Target::HostBatch;
+        else if (targetchar == 'C') target = slate::Target::Devices;
         return target;
     }
     // todo: should the device be set to cude automatically
@@ -67,7 +55,7 @@ inline int64_t slate_lapack_set_panelthreads()
     char* thrstr = std::getenv("SLATE_LAPACK_PANELTHREADS");
     if (thrstr) {
         max_panel_threads = (int64_t)strtol(thrstr, NULL, 0);
-        if (max_panel_threads!=0) return max_panel_threads;
+        if (max_panel_threads != 0) return max_panel_threads;
     }
     max_omp_threads = omp_get_max_threads();
     return std::max(max_omp_threads/4, 1);
@@ -79,7 +67,7 @@ inline int64_t slate_lapack_set_ib()
     char* ibstr = std::getenv("SLATE_LAPACK_IB");
     if (ibstr) {
         ib = (int64_t)strtol(ibstr, NULL, 0);
-        if (ib!=0) return ib;
+        if (ib != 0) return ib;
     }
     return 16;
 }
@@ -90,7 +78,7 @@ inline int slate_lapack_set_verbose()
     int verbose = 0; // default
     char* verbosestr = std::getenv("SLATE_LAPACK_VERBOSE");
     if (verbosestr) {
-        if (verbosestr[0]=='1')
+        if (verbosestr[0] == '1')
             verbose = 1;
     }
     return verbose;
@@ -104,11 +92,11 @@ inline int64_t slate_lapack_set_nb(slate::Target target)
     char* nbstr = std::getenv("SLATE_LAPACK_NB");
     if (nbstr) {
         nb = (int64_t)strtol(nbstr, NULL, 0);
-        if (nb!=0) return nb;
+        if (nb != 0) return nb;
     }
-    if (nb==0 && target==slate::Target::Devices)
+    if (nb == 0 && target == slate::Target::Devices)
         return 1024;
-    if (nb==0 && target==slate::Target::HostTask)
+    if (nb == 0 && target == slate::Target::HostTask)
         return 512;
     return 256;
 }

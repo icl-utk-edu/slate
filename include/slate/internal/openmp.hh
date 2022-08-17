@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -8,6 +8,10 @@
 ///
 #ifndef SLATE_OPENMP_HH
 #define SLATE_OPENMP_HH
+
+#ifndef slate_omp_default_none
+#define slate_omp_default_none
+#endif
 
 #ifdef _OPENMP
     #include <omp.h>
@@ -44,5 +48,8 @@ void omp_unset_nest_lock(omp_nest_lock_t* lock);
 #endif
 
 #endif // not _OPENMP
+
+// Defines a small class to wrap omp_set_max_active_levels()
+#include "slate/internal/OmpSetMaxActiveLevels.hh"
 
 #endif // SLATE_OPENMP_HH

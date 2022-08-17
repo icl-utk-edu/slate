@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -57,6 +57,9 @@ void test_trsm_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
 
+    // Suppress norm from output; it's only for checks.
+    params.norm.width( 0 );
+
     if (! run) {
         params.matrix.kind.set_default( "rand_dominant" );
         return;
@@ -85,13 +88,17 @@ void test_trsm_work(Params& params, bool run)
     int64_t mlocA = num_local_rows_cols(Am, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(An, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
-    std::vector< scalar_t > A_data(lldA*nlocA);
 
     // Matrix B: figure out local size.
     int64_t mlocB = num_local_rows_cols(Bm, nb, myrow, p);
     int64_t nlocB = num_local_rows_cols(Bn, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-    std::vector< scalar_t > B_data(lldB*nlocB);
+
+    // Allocate ScaLAPACK data if needed.
+    std::vector<scalar_t> A_data, B_data;
+    if (ref || origin == slate::Origin::ScaLAPACK) {
+        A_data.resize( lldA * nlocA );
+    }
 
     slate::TriangularMatrix<scalar_t> A;
     slate::Matrix<scalar_t> B;
@@ -110,6 +117,8 @@ void test_trsm_work(Params& params, bool run)
         // create SLATE matrices from the ScaLAPACK layouts
         A = slate::TriangularMatrix<scalar_t>::fromScaLAPACK(
                 uplo, diag, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+
+        B_data.resize( lldB * nlocB );
         B = slate::Matrix<scalar_t>::fromScaLAPACK(
                 Bm, Bn, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
     }
@@ -120,15 +129,14 @@ void test_trsm_work(Params& params, bool run)
     // Cholesky factor of A to get a well conditioned triangular matrix.
     // Even when we replace the diagonal with unit diagonal,
     // it seems to still be well conditioned.
-    auto AH = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
-                  uplo, An, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+    auto AH = slate::HermitianMatrix<scalar_t>( A );
     slate::potrf( AH, opts );
 
     // if check is required, copy test data
     std::vector< scalar_t > Bref_data;
     slate::Matrix<scalar_t> Bref;
     if (check || ref) {
-        Bref_data.resize( B_data.size() );
+        Bref_data.resize( lldB * nlocB );
         Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
                    Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
         slate::copy( B, Bref );
@@ -152,10 +160,18 @@ void test_trsm_work(Params& params, bool run)
     // Run SLATE test.
     // Solve AX = alpha B (left) or XA = alpha B (right).
     //==================================================
-    if (side == slate::Side::Left)
-        slate::triangular_solve(alpha, opA, B, opts);
-    else if (side == slate::Side::Right)
-        slate::triangular_solve(alpha, B, opA, opts);
+    if (side == slate::Side::Left) {
+        if (params.routine == "trsmA")
+            slate::trsmA(side, alpha, opA, B, opts);
+        else
+            slate::triangular_solve(alpha, opA, B, opts);
+    }
+    else if (side == slate::Side::Right) {
+        if (params.routine == "trsmA")
+            slate::trsmA(side, alpha, opA, B, opts);
+        else
+            slate::triangular_solve(alpha, B, opA, opts);
+    }
     else
         throw slate::Exception("unknown side");
     // Using traditional BLAS/LAPACK name
@@ -229,13 +245,6 @@ void test_trsm_work(Params& params, bool run)
             slate_assert(info == 0);
 
             copy( A, &A_data[0], A_desc );
-            copy( B, &B_data[0], B_desc );
-
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
 
             //==================================================
             // Run ScaLAPACK reference routine.
@@ -251,8 +260,6 @@ void test_trsm_work(Params& params, bool run)
 
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
-
-            slate_set_num_blas_threads(saved_num_threads);
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering.

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -12,6 +12,10 @@
 #include "print_tile.hh"
 #include "../test/print_matrix.hh"
 
+using slate::HostNum;
+
+namespace test {
+
 //------------------------------------------------------------------------------
 // globals
 int      g_argc      = 0;
@@ -20,7 +24,6 @@ int      verbose     = 0;
 int      debug       = 0;
 int      mpi_rank    = -1;
 int      mpi_size    = 0;
-int      host_num    = slate::HostNum;
 int      num_devices = 0;
 MPI_Comm mpi_comm;
 
@@ -51,9 +54,9 @@ void test_tpqrt_work( int m, int n, int l, int cn, int ib )
     std::vector< scalar_t > A2data( lda2*n, zero ); // not nan, for lange
     std::vector< scalar_t >  Tdata( ib*n,   nan_ );
     slate::Tile< scalar_t >
-        A1( n,  n, A1data.data(), lda1, host_num, slate::TileKind::UserOwned ),
-        A2( m,  n, A2data.data(), lda2, host_num, slate::TileKind::UserOwned ),
-        T(  ib, n, Tdata.data(),  ib,   host_num, slate::TileKind::UserOwned );
+        A1( n,  n, A1data.data(), lda1, HostNum, slate::TileKind::UserOwned ),
+        A2( m,  n, A2data.data(), lda2, HostNum, slate::TileKind::UserOwned ),
+        T(  ib, n, Tdata.data(),  ib,   HostNum, slate::TileKind::UserOwned );
 
     // A1 is upper triangular, n-by-n.
     srand( 1234 );
@@ -93,7 +96,7 @@ void test_tpqrt_work( int m, int n, int l, int cn, int ib )
     // Error check || Q R - A ||_1 / || A ||_1 < tol.
     std::vector< scalar_t > R2data( lda2*n, zero );
     slate::Tile< scalar_t >
-        R2( m, n, R2data.data(), lda2, host_num, slate::TileKind::UserOwned );
+        R2( m, n, R2data.data(), lda2, HostNum, slate::TileKind::UserOwned );
 
     // Zero out R1 (A1) below diag.
     lapack::laset( MatrixType::Lower, n-1, n-1, zero, zero,
@@ -135,8 +138,8 @@ void test_tpqrt_work( int m, int n, int l, int cn, int ib )
     std::vector< scalar_t > C1data( ldc1*cn );  // n-by-cn
     std::vector< scalar_t > C2data( ldc2*cn );  // m-by-cn
     slate::Tile< scalar_t >
-        C1( n, cn, C1data.data(), ldc1, host_num, slate::TileKind::UserOwned ),
-        C2( m, cn, C2data.data(), ldc2, host_num, slate::TileKind::UserOwned );
+        C1( n, cn, C1data.data(), ldc1, HostNum, slate::TileKind::UserOwned ),
+        C2( m, cn, C2data.data(), ldc2, HostNum, slate::TileKind::UserOwned );
 
     for (int j = 0; j < cn; ++j)
         for (int i = 0; i < n; ++i)
@@ -181,8 +184,8 @@ void test_tpqrt_work( int m, int n, int l, int cn, int ib )
     std::vector< scalar_t > D1data( ldd*n );  // cn-by-n
     std::vector< scalar_t > D2data( ldd*m );  // cn-by-m
     slate::Tile< scalar_t >
-        D1( cn, n, D1data.data(), ldd, host_num, slate::TileKind::UserOwned ),
-        D2( cn, m, D2data.data(), ldd, host_num, slate::TileKind::UserOwned );
+        D1( cn, n, D1data.data(), ldd, HostNum, slate::TileKind::UserOwned ),
+        D2( cn, m, D2data.data(), ldd, HostNum, slate::TileKind::UserOwned );
 
     for (int j = 0; j < n; ++j)
         for (int i = 0; i < cn; ++i)
@@ -311,7 +314,7 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
             auto TTi0 = TT( i, 0 );
             Ai0 .uplo( slate::Uplo::Upper );
             TTi0.uplo( slate::Uplo::Upper );
-            tzcopy( Ai0, TTi0 );
+            slate::tile::tzcopy( Ai0, TTi0 );
         }
     }
 
@@ -320,9 +323,9 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
     auto T = A.emptyLike( ib, 0 );  // ib-by-nb tiles
 
     if (verbose > 1) {
-        print_matrix( "A_init", A );
-        print_matrix( "TT_init", TT );
-        print_matrix( "T_init", T );
+        slate::print( "A_init", A );
+        slate::print( "TT_init", TT );
+        slate::print( "T_init", T );
     }
 
     //----------
@@ -335,8 +338,8 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
         std::move( T_panel ));
 
     if (verbose > 1) {
-        print_matrix( "A", A );
-        print_matrix( "T", T );
+        slate::print( "A", A );
+        slate::print( "T", T );
     }
 
     // Copy top tile as R.
@@ -349,10 +352,10 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
         auto A00 = A( 0, 0 );
         R00.uplo( slate::Uplo::Upper );
         A00.uplo( slate::Uplo::Upper );
-        tzcopy( A00, R00 );
+        slate::tile::tzcopy( A00, R00 );
     }
     if (verbose > 1) {
-        print_matrix( "R", R );
+        slate::print( "R", R );
     }
 
     //----------
@@ -370,7 +373,7 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
         std::move( T ),
         std::move( R ));
     if (verbose > 1) {
-        print_matrix( "QR", R );
+        slate::print( "QR", R );
     }
 
     // Error check || QR - A || / || A ||, where A is the original
@@ -379,7 +382,7 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
     real_t Anorm = slate::norm( slate::Norm::Fro, TT );
     add( -one, TT, one, R );
     if (verbose > 1) {
-        print_matrix( "QR - A", R );
+        slate::print( "QR - A", R );
     }
     real_t QR_Anorm = slate::norm( slate::Norm::Fro, R );
     real_t error = QR_Anorm / Anorm;
@@ -395,7 +398,7 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
     // inside the TT regions, the values are meaningless.
     if (verbose > 1) {
         add( -one, A, one, A0 );
-        print_matrix( "Ainit - Ahat", A0 );
+        slate::print( "Ainit - Ahat", A0 );
     }
 }
 
@@ -487,34 +490,34 @@ void test_unmqr_work( slate::Side side, slate::Op op, int m, int n, int k )
 
     if (verbose >= 2) {
         printf( "\n" );
-        print_matrix( "tau", 1, k, tau.data(), 1, 1, 1, mpi_comm );
-        print_matrix( "V", V );
-        print_matrix( "T", T );
+        print( "tau", 1, k, tau.data(), 1, 1, 1, mpi_comm );
+        slate::print( "V", V );
+        slate::print( "T", T );
     }
 
     //----------
     // Perform operations with LAPACK.
     if (verbose >= 2) {
-        print_matrix( "Cref", Cref );
+        slate::print( "Cref", Cref );
     }
     lapack::unmqr( side, op, m, n, k,
                    Vdata.data(), ldv, tau.data(),
                    Cref_data.data(), ldc );
     if (verbose >= 2) {
-        print_matrix( "Cref_after", Cref );
+        slate::print( "Cref_after", Cref );
     }
 
     //----------
     // Perform operations with SLATE.
     if (verbose >= 2) {
-        print_matrix( "C",  C );
+        slate::print( "C",  C );
     }
     auto W = C.emptyLike();
     slate::internal::unmqr( side, op,
                             std::move(V), std::move(T),
                             std::move(C), std::move(W) );
     if (verbose >= 2) {
-        print_matrix( "C_after",  C );
+        slate::print( "C_after",  C );
     }
 
     //----------
@@ -524,7 +527,7 @@ void test_unmqr_work( slate::Side side, slate::Op op, int m, int n, int k )
     slate::add( -one, Cref, one, C );
     real_t error = slate::norm( slate::Norm::One, C ) / Cnorm;
     if (verbose >= 2) {
-        print_matrix( "C - Cref",  C );
+        slate::print( "C - Cref",  C );
     }
     if (verbose > 0 && mpi_rank == 0) {
         printf( "error %.2e, Cnorm %.2e\n", error, Cnorm );
@@ -652,7 +655,7 @@ void run_tests()
     }
     else {
         // Run tests mentioned on command line.
-        for ( ; i < g_argc; ++i) {
+        for (/* continued */; i < g_argc; ++i) {
             std::string arg = g_argv[i];
             bool found = false;
             for (size_t j = 0; j < routines.size(); ++j) {
@@ -669,9 +672,13 @@ void run_tests()
     }
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     g_argc = argc;
     g_argv = argv;
     MPI_Init(&argc, &argv);
@@ -680,7 +687,6 @@ int main(int argc, char** argv)
     MPI_Comm_size(mpi_comm, &mpi_size);
 
     num_devices = blas::get_device_count();
-    host_num = slate::HostNum;
 
     int err = unit_test_main(mpi_comm);  // which calls run_tests()
 

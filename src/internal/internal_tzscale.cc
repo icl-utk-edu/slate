@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -15,7 +15,6 @@ namespace slate {
 namespace device {
 
 template <>
-
 void tzscale(
     Uplo uplo,
     int64_t m, int64_t n,
@@ -23,13 +22,13 @@ void tzscale(
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     tzscale(uplo, m, n,
             numer, denom,
             (cuFloatComplex**) Aarray, lda,
             batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     tzscale(uplo, m, n,
             numer, denom,
             (hipFloatComplex**) Aarray, lda,
@@ -45,13 +44,13 @@ void tzscale(
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
-#if ! defined(SLATE_NO_CUDA)
+#if defined( BLAS_HAVE_CUBLAS )
     tzscale(uplo, m, n,
             numer, denom,
             (cuDoubleComplex**) Aarray, lda,
             batch_count, queue);
 
-#elif ! defined(SLATE_NO_HIP)
+#elif defined( BLAS_HAVE_ROCBLAS )
     tzscale(uplo, m, n,
             numer, denom,
             (hipDoubleComplex**) Aarray, lda,
@@ -59,7 +58,7 @@ void tzscale(
 #endif
 }
 
-#if defined(SLATE_NO_CUDA) && defined(SLATE_NO_HIP)
+#if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
 void tzscale(
@@ -80,7 +79,7 @@ void tzscale(
     int64_t batch_count, blas::Queue& queue)
 {
 }
-#endif // not SLATE_WITH_CUDA
+#endif // not SLATE_HAVE_DEVICE
 
 } // namespace device
 
@@ -90,7 +89,7 @@ namespace internal {
 //------------------------------------------------------------------------------
 /// Scale Trapezoid matrix entries by the real scalar numer/denom.
 /// Dispatches to target implementations.
-/// @ingroup set_internal
+/// @ingroup scale_internal
 ///
 template <Target target, typename scalar_t>
 void scale(
@@ -106,7 +105,7 @@ void scale(
 /// Scale Trapezoid matrix entries by the real scalar numer/denom.
 /// TODO handle transpose A case
 /// Host OpenMP task implementation.
-/// @ingroup set_internal
+/// @ingroup scale_internal
 ///
 template <typename scalar_t>
 void scale(
@@ -115,13 +114,15 @@ void scale(
     BaseTrapezoidMatrix<scalar_t>& A,
     int priority, int queue_index)
 {
-    // trace::Block trace_block("set");
-
+    // trace::Block trace_block("scale");
+    #pragma omp taskgroup
     if (A.uplo() == Uplo::Lower) {
         for (int64_t j = 0; j < A.nt(); ++j) {
             for (int64_t i = j; i < A.mt(); ++i) { // lower trapezoid
                 if (A.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A ) priority(priority)
+                    #pragma omp task slate_omp_default_none \
+                        shared( A ) priority( priority ) \
+                        firstprivate(i, j, numer, denom)
                     {
                         A.tileGetForWriting(i, j, LayoutConvert::None);
                         scale(numer, denom, A(i, j));
@@ -134,7 +135,9 @@ void scale(
         for (int64_t j = 0; j < A.nt(); ++j) {
             for (int64_t i = 0; i <= j && i < A.mt(); ++i) { // upper trapezoid
                 if (A.tileIsLocal(i, j)) {
-                    #pragma omp task shared(A ) priority(priority)
+                    #pragma omp task slate_omp_default_none \
+                        shared( A ) priority( priority ) \
+                        firstprivate(i, j, numer, denom)
                     {
                         A.tileGetForWriting(i, j, LayoutConvert::None);
                         scale(numer, denom, A(i, j));
@@ -143,8 +146,6 @@ void scale(
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -171,7 +172,7 @@ void scale(internal::TargetType<Target::HostBatch>,
 /// Scale Trapezoid matrix entries by the real scalar numer/denom.
 /// TODO handle transpose A case
 /// GPU device implementation.
-/// @ingroup set_internal
+/// @ingroup scale_internal
 ///
 template <typename scalar_t>
 void scale(internal::TargetType<Target::Devices>,
@@ -194,8 +195,11 @@ void scale(internal::TargetType<Target::Devices>,
         { A.nt()-1, A.nt()   }
     };
 
+    #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task shared(A) priority(priority)
+        #pragma omp task slate_omp_default_none \
+            shared( A ) priority( priority ) \
+            firstprivate(device, irange, jrange, queue_index, numer, denom)
         {
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already
@@ -236,7 +240,7 @@ void scale(internal::TargetType<Target::Devices>,
                 if (A.uplo() == Uplo::Lower) {
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         for (int64_t i = std::max(j, irange[q][0]); i < irange[q][1]; ++i) {
-                            if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
+                            if (i != j && A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
                                 a_array_host[batch_count] = A(i, j, device).data();
                                 lda[q] = A(i, j, device).stride();
                                 ++group_count[q];
@@ -248,7 +252,7 @@ void scale(internal::TargetType<Target::Devices>,
                 else { // upper
                     for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
                         for (int64_t i = irange[q][0]; i < irange[q][1] && i <= j; ++i) {
-                            if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
+                            if (i != j && A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
                                 a_array_host[batch_count] = A(i, j, device).data();
                                 lda[q] = A(i, j, device).stride();
                                 ++group_count[q];
@@ -258,7 +262,36 @@ void scale(internal::TargetType<Target::Devices>,
                     }
                 }
             }
-
+            for (int q = 4; q < 8; ++q) {
+                group_count[q] = 0;
+                lda[q] = 0;
+                mb[q] = A.tileMb(irange[q-4][0]);
+                nb[q] = A.tileNb(jrange[q-4][0]);
+                if (A.uplo() == Uplo::Lower) {
+                    for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
+                        for (int64_t i = std::max(j, irange[q-4][0]); i < irange[q-4][1]; ++i) {
+                            if (i == j && A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
+                                a_array_host[batch_count] = A(i, j, device).data();
+                                lda[q] = A(i, j, device).stride();
+                                ++group_count[q];
+                                ++batch_count;
+                            }
+                        }
+                    }
+                }
+                else { // upper
+                    for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
+                        for (int64_t i = irange[q-4][0]; i < irange[q-4][1] && i <= j; ++i) {
+                            if (i == j && A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
+                                a_array_host[batch_count] = A(i, j, device).data();
+                                lda[q] = A(i, j, device).stride();
+                                ++group_count[q];
+                                ++batch_count;
+                            }
+                        }
+                    }
+                }
+            }
             scalar_t** a_array_dev = A.array_device(device);
 
             blas::Queue* queue = A.compute_queue(device, queue_index);
@@ -275,12 +308,18 @@ void scale(internal::TargetType<Target::Devices>,
                     a_array_dev += group_count[q];
                 }
             }
+            for (int q = 4; q < 8; ++q) {
+                if (group_count[q] > 0) {
+                    device::tzscale(A.uplo(), mb[q], nb[q],
+                                    numer, denom, a_array_dev, lda[q],
+                                    group_count[q], *queue);
+                    a_array_dev += group_count[q];
+                }
+            }
 
             queue->sync();
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

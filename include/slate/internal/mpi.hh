@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -39,6 +39,8 @@ enum {
     MPI_C_COMPLEX,
     MPI_C_DOUBLE_COMPLEX,
 
+    MPI_INT64_T,
+
     MPI_2INT,
 
     MPI_MAX,
@@ -62,6 +64,8 @@ typedef void (MPI_User_function) (void* a,
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+int MPI_Type_contiguous(int count, MPI_Datatype oldtype, MPI_Datatype* newtype);
 
 int MPI_Allreduce(const void* sendbuf, void* recvbuf, int count,
                   MPI_Datatype datatype, MPI_Op op, MPI_Comm comm);

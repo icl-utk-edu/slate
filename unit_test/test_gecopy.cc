@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -13,6 +13,8 @@
 #include "unit_test.hh"
 
 using slate::roundup;
+
+namespace test {
 
 //------------------------------------------------------------------------------
 // global variables
@@ -95,8 +97,8 @@ void test_gecopy_dev()
 
     // compute B-B0 on CPU to check the results
     //blas::axpy( A.size(), neg_one, A.data(), ione, B.data(), ione );
-    for( int j = 0; j < n; ++j ) {
-        for( int i = 0; i < m; ++i ) {
+    for (int j = 0; j < n; ++j) {
+        for (int i = 0; i < m; ++i) {
             Adata[i + j*lda] = Adata[i + j*lda] -  Bdata[i + j*ldb];
         }
     }
@@ -132,9 +134,13 @@ void run_tests()
     }
 }
 
+}  // namespace test
+
 //------------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     MPI_Init(&argc, &argv);
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);

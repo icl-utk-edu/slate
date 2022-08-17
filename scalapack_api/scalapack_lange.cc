@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -91,16 +91,11 @@ extern "C" double pzlange_(const char* norm, int* m, int* n, std::complex<double
 template< typename scalar_t >
 blas::real_type<scalar_t> slate_plange(const char* normstr, int m, int n, scalar_t* a, int ia, int ja, int* desca, blas::real_type<scalar_t>* work)
 {
-    check_and_assert_blacs_grid_is_column_major();
-
-    // make blas single threaded
-    // todo: does this set the omp num threads correctly
-    int saved_num_blas_threads = slate_set_num_blas_threads(1);
-
     lapack::Norm norm = lapack::char2norm(normstr[0]);
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
     int64_t lookahead = 1;
+    slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     // Matrix sizes
     int64_t Am = m;
@@ -109,7 +104,7 @@ blas::real_type<scalar_t> slate_plange(const char* normstr, int m, int n, scalar
     // create SLATE matrices from the ScaLAPACK layouts
     int nprow, npcol, myprow, mypcol;
     Cblacs_gridinfo(desc_CTXT(desca), &nprow, &npcol, &myprow, &mypcol);
-    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), nprow, npcol, MPI_COMM_WORLD);
+    auto A = slate::Matrix<scalar_t>::fromScaLAPACK(desc_M(desca), desc_N(desca), a, desc_LLD(desca), desc_MB(desca), desc_NB(desca), grid_order, nprow, npcol, MPI_COMM_WORLD);
     A = slate_scalapack_submatrix(Am, An, A, ia, ja, desca);
 
     if (verbose && myprow == 0 && mypcol == 0)
@@ -120,9 +115,6 @@ blas::real_type<scalar_t> slate_plange(const char* normstr, int m, int n, scalar
         {slate::Option::Target, target},
         {slate::Option::Lookahead, lookahead}
     });
-
-    // omp_set_num_threads(saved_num_omp_threads);
-    slate_set_num_blas_threads(saved_num_blas_threads);
 
     return A_norm;
 }

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -6,6 +6,8 @@
 #include "test.hh"
 #include "slate/Matrix.hh"
 #include "internal/internal.hh"
+
+namespace test {
 
 // -----------------------------------------------------------------------------
 // arrays of options to loop over in tests
@@ -279,6 +281,11 @@ void test_gemm(slate::Target target)
     auto msg = __func__ + ("< " + type_name<scalar_t>() + ", " + target_name(target) + " >");
     Test name(msg.c_str());
 
+    if (target == slate::Target::Devices && blas::get_device_count() == 0) {
+        printf( "requires num_devices > 0" );
+        return;
+    }
+
     using blas::real;
     using blas::imag;
     using blas::conj;
@@ -399,7 +406,7 @@ void test_gemm(slate::Target target)
                     // move data back to host
                     for (int j = 0; j < C.nt(); ++j)
                         for (int i = 0; i < C.mt(); ++i)
-                            C.tileGetForReading(i, j, LayoutConvert(layout));
+                            C.tileGetForReading(i, j, slate::LayoutConvert(layout));
                     break;
             }
 
@@ -410,6 +417,10 @@ void test_gemm(slate::Target target)
             assert(! (slate::is_complex<scalar_t>::value &&
                       ((ic == 1 && (ia == 2 || ib == 2)) ||
                        (ic == 2 && (ia == 1 || ib == 1)))));
+        }
+        catch (slate::NotImplemented const& ex) {
+            printf("%%      %s\n", ex.what());
+            continue;
         }
         catch (std::exception& e) {
             printf("%%      not allowed\n");
@@ -441,6 +452,11 @@ void test_syrk(slate::Target target)
 {
     auto msg = __func__ + ("< " + type_name<scalar_t>() + ", " + target_name(target) + " >");
     Test name(msg.c_str());
+
+    if (target == slate::Target::Devices && blas::get_device_count() == 0) {
+        printf( "requires num_devices > 0" );
+        return;
+    }
 
     using blas::Uplo;
     using blas::Op;
@@ -572,6 +588,10 @@ void test_syrk(slate::Target target)
             assert( (C.uploLogical() == Uplo::Lower) &&
                     ! (C.is_complex && (ic == 2 || ia == 2)) );
         }
+        catch (slate::NotImplemented const& ex) {
+            printf("%%      %s\n", ex.what());
+            continue;
+        }
         catch (std::exception& e) {
             printf("%%      not allowed\n");
             assert(! ( (C.uploLogical() == Uplo::Lower) &&
@@ -606,6 +626,11 @@ void test_herk(slate::Target target)
 {
     auto msg = __func__ + ("< " + type_name<scalar_t>() + ", " + target_name(target) + " >");
     Test name(msg.c_str());
+
+    if (target == slate::Target::Devices && blas::get_device_count() == 0) {
+        printf( "requires num_devices > 0" );
+        return;
+    }
 
     using blas::Uplo;
     using blas::Op;
@@ -736,6 +761,10 @@ void test_herk(slate::Target target)
             assert((C.uploLogical() == Uplo::Lower) &&
                    ! (C.is_complex && (ic == 1 || ia == 1)));
         }
+        catch (slate::NotImplemented const& ex) {
+            printf("%%      %s\n", ex.what());
+            continue;
+        }
         catch (std::exception& e) {
             printf("%%      not allowed\n");
             assert(! ((C.uploLogical() == Uplo::Lower) &&
@@ -765,8 +794,19 @@ void test_herk(slate::Target target)
 }
 
 // -----------------------------------------------------------------------------
+// This unit tester doesn't use run_tests, but leave it here to simplify
+// Makefile linking.
+void run_tests()
+{
+}
+
+}  // namespace test
+
+// -----------------------------------------------------------------------------
 int main(int argc, char** argv)
 {
+    using namespace test;  // for globals mpi_rank, etc.
+
     MPI_Init(&argc, &argv);
     g_mpi_comm = MPI_COMM_WORLD;
     MPI_Comm_rank(g_mpi_comm, &g_mpi_rank);

@@ -22,22 +22,17 @@ int mpi_rank;
 int mpi_size;
 int verbose;
 int num_devices;
-int batch_count;
 
 //------------------------------------------------------------------------------
-void test_geset_dev()
+void test_geset_dev_worker(int m, int n, int lda,
+    double offdiag_value, double diag_value)
 {
     if (num_devices == 0) {
         test_skip("requires num_devices > 0");
     }
 
     double eps = std::numeric_limits<double>::epsilon();
-    int m = 20;
-    int n = 30;
-    int lda = roundup( m, 8 );
     int ldb = lda;
-    double diag_value = 0.5;
-    double offdiag_value  = 0.3;
 
     double* Adata = new double[ lda * n ];
     slate::Tile<double> A( m, n, Adata, lda,
@@ -90,29 +85,70 @@ void test_geset_dev()
         lapack::Norm::Fro, A.mb(), A.nb(), A.data(), A.stride() );
 
     if (verbose) {
-        printf( "\nerror %.2e ",
-                result );
+        printf( "\n(%4d, %4d, %4d, %4.2f, %4.2f): error %.2f",
+            m, n, lda, offdiag_value, diag_value, result );
     }
 
     blas::device_free( dAdata );
     delete[] Adata;
+    delete[] Bdata;
 
     test_assert( result < 3*eps );
 }
 
+void test_geset_dev() {
+    // Each tuple contains (mA, nA, lda)
+    std::list< std::tuple< int, int, int > > dims_list{
+            // Square A matrix
+            {   1,   1,   1},
+            {  10,  10,  10 },
+            {  20,  20,  20 },
+            {  50,  50,  50 },
+            { 100, 100, 100 },
+            {   7,   7,   7 },
+            {  11,   11, 11 },
+            {  33,   33, 33 },
+            // Rectangular A matrix
+            {   1, 100,   1 },
+            { 100,   1, 100 },
+            {  20,  30,  20 },
+            // lda != mA
+            {  20,  30,  roundup(20, 8) }, //as it was in the original test
+            {  33,  33,  50 },
+        };
+
+    // Each tuple contains (offdiag_value, diag_value)
+    std::list< std::tuple< double, double > > values_list{
+            {   0,   0 }, //Special case
+            {   0, 0.5 },
+            { 0.3,   0 },
+            { 0.3, 0.5 },
+        };
+
+    for (auto dims : dims_list) {
+        int mA  = std::get<0>( dims );
+        int nA  = std::get<1>( dims );
+        int lda = std::get<2>( dims );
+        for (auto values : values_list) {
+            double offdiag_value  = std::get<0>( values );
+            double diag_value     = std::get<1>( values );
+            test_geset_dev_worker(
+                mA, nA, lda, offdiag_value, diag_value );
+        }
+    }
+}
+
 //------------------------------------------------------------------------------
-void test_geset_batch_dev() {
+void test_geset_batch_dev_worker(int m, int n, int lda,
+    double offdiag_value, double diag_value,
+    int batch_count)
+{
     if (num_devices == 0) {
         test_skip("requires num_devices > 0");
     }
 
     double eps = std::numeric_limits<double>::epsilon();
-    int m = 20;
-    int n = 30;
-    int lda = roundup(m, 8);
     int ldb = lda;
-    double diag_value = 0.5;
-    double offdiag_value  = 0.3;
     std::vector< slate::Tile< double > > list_A( 0 );
     std::vector< slate::Tile< double > > list_dA( 0 );
 
@@ -193,8 +229,13 @@ void test_geset_batch_dev() {
             lapack::Norm::Fro, A.mb(), A.nb(), A.data(), A.stride() );
 
         if (verbose) {
-            printf( "\nerror %.2e ",
-                    result );
+            // Display (m, n, lda, offdiag_value, diag_value)
+            if (m_i == 0)
+                printf( "\n(%4d, %4d, %4d, %4.2f, %4.2f):",
+                    m, n, lda, offdiag_value, diag_value );
+            if (verbose > 1)
+                printf( "\n\t[%d] error %.2e ",
+                    m_i, result );
         }
 
         blas::device_free( dA.data() );
@@ -203,7 +244,52 @@ void test_geset_batch_dev() {
         test_assert( result < 3*eps );
     }
     blas::device_free( dAarray );
+    delete[] Bdata;
+    delete[] Aarray;
 
+}
+
+void test_geset_batch_dev() {
+    // Each tuple contains (mA, nA, lda)
+    std::list< std::tuple< int, int, int > > dims_list{
+            // Square A matrix
+            {   1,   1,   1},
+            {  10,  10,  10 },
+            {  20,  20,  20 },
+            {   7,   7,   7 },
+            {  11,   11, 11 },
+            {  33,   33, 33 },
+            // Rectangular A matrix
+            {   1, 100,   1 },
+            { 100,   1, 100 },
+            {  20,  30,  20 },
+            // lda != mA
+            {  20,  30,  roundup(20, 8) }, //as it was in the original test
+            {  33,  33,  50 },
+        };
+
+    // Each tuple contains (offdiag_value, diag_value)
+    std::list< std::tuple< double, double > > values_list{
+            {   0,   0 }, //Special case
+            {   0, 0.5 },
+            { 0.3,   0 },
+            { 0.3, 0.5 },
+        };
+
+    std::list< int > batch_count_list{ 1, 2, 3, 4, 5, 10, 20, 100 };
+
+    for (auto dims : dims_list) {
+        int mA  = std::get<0>( dims );
+        int nA  = std::get<1>( dims );
+        int lda = std::get<2>( dims );
+        for (auto values : values_list) {
+            double offdiag_value  = std::get<0>( values );
+            double diag_value     = std::get<1>( values );
+            for (auto batch_count : batch_count_list)
+                test_geset_batch_dev_worker(
+                    mA, nA, lda, offdiag_value, diag_value, batch_count );
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -212,15 +298,11 @@ void run_tests()
 {
     if (mpi_rank == 0) {
         //-------------------- geset_dev
-        for (int i = 0; i < 10; i++)
-            run_test(
-                test_geset_dev, "geset_dev" );
+        run_test(
+            test_geset_dev, "geset_dev" );
         //-------------------- geset_batch_dev
-        for (int i = 0; i < 10; i++) {
-            batch_count = i + 1;
-            run_test(
-                test_geset_batch_dev, "geset_batch_dev" );
-        }
+        run_test(
+            test_geset_batch_dev, "geset_batch_dev" );
     }
 }
 

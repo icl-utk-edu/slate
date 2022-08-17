@@ -14,6 +14,53 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
+/// Device function implementing element-wise tile scale.
+/// Each thread block deals with one tile. gridDim.x == batch_count.
+/// Each thread deals with one row.
+/// Called by gescale_kernel and gescale_batch_kernel.
+///
+/// @copydoc gescale
+///
+template <typename scalar_t>
+__device__ void gescale_func(
+    int64_t m, int64_t n,
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    scalar_t* A, int64_t lda)
+{
+    blas::real_type<scalar_t> mul = numer / denom;
+    // thread per row, if more rows than threads, loop by blockDim.x
+    for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
+        scalar_t* rowA = &A[ i ];
+        for (int64_t j = 0; j < n; ++j)
+            rowA[ j*lda ] = rowA[ j*lda ] * mul;
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Kernel implementing element-wise tile set.
+/// @copydoc tzset
+template <typename scalar_t>
+__global__ void gescale_kernel(
+    int64_t m, int64_t n,
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    scalar_t* A, int64_t lda)
+{
+    gescale_func( m, n, numer, denom, A, lda );
+}
+
+//------------------------------------------------------------------------------
+/// Kernel implementing element-wise tile set.
+/// @copydoc tzset_batch
+template <typename scalar_t>
+__global__ void gescale_batch_kernel(
+    int64_t m, int64_t n,
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    scalar_t** Aarray, int64_t lda)
+{
+    gescale_func( m, n, numer, denom, Aarray[ blockIdx.x ], lda );
+}
+
+//------------------------------------------------------------------------------
 /// Kernel implementing element-wise tile scale.
 /// Each thread block deals with one tile.
 /// Each thread deals with one row.
@@ -31,28 +78,65 @@ namespace device {
 /// @param[in] denom
 ///     Scale value denominator.
 ///
-/// @param[in,out] Aarray
-///     Array of tiles of dimension gridDim.x,
-///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array.
+/// @param[in,out] A
+///     An m-by-n matrix stored in an lda-by-n array in GPU memory.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile in Aarray. lda >= m.
 ///
 template <typename scalar_t>
-__global__ void gescale_kernel(
+void gescale(
     int64_t m, int64_t n,
     blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
-    scalar_t** Aarray, int64_t lda)
+    scalar_t* A, int64_t lda,
+    blas::Queue& queue)
 {
-    scalar_t* tileA = Aarray[ blockIdx.x ];
-    blas::real_type<scalar_t> mul = numer / denom;
-    // thread per row, if more rows than threads, loop by blockDim.x
-    for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
-        scalar_t* rowA = &tileA[ i ];
-        for (int64_t j = 0; j < n; ++j)
-            rowA[j*lda] = rowA[j*lda] * mul;
-    }
+    cudaSetDevice( queue.device() );
+
+    // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
+    int64_t nthreads = std::min( int64_t( 1024 ), m );
+
+    gescale_kernel<<<1, nthreads, 0, queue.stream()>>>(
+        m, n,
+        numer, denom, A, lda);
+
+    cudaError_t error = cudaGetLastError();
+    slate_assert(error == cudaSuccess);
 }
+
+//------------------------------------------------------------------------------
+// Explicit instantiations.
+template
+void gescale(
+    int64_t m, int64_t n,
+    float numer, float denom,
+    float* A, int64_t lda,
+    blas::Queue& queue);
+
+template
+void gescale(
+    int64_t m, int64_t n,
+    double numer, double denom,
+    double* A, int64_t lda,
+    blas::Queue& queue);
+
+template
+void gescale(
+    int64_t m, int64_t n,
+    float numer, float denom,
+    cuFloatComplex* A, int64_t lda,
+    blas::Queue& queue);
+
+template
+void gescale(
+    int64_t m, int64_t n,
+    double numer,  double denom,
+    cuDoubleComplex* A, int64_t lda,
+    blas::Queue& queue);
+
+
+//==============================================================================
+namespace batch {
 
 //------------------------------------------------------------------------------
 /// Batched routine for element-wise tile scale. Sets
@@ -102,7 +186,7 @@ void gescale(
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
-    gescale_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
+    gescale_batch_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         m, n,
         numer, denom, Aarray, lda);
 
@@ -138,5 +222,6 @@ void gescale(
     cuDoubleComplex** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
 
+} // namespace batch
 } // namespace device
 } // namespace slate

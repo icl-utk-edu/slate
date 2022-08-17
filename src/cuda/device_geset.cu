@@ -71,11 +71,11 @@ __global__ void geset_batch_kernel(
 /// @param[in] n
 ///     Number of columns of A. n >= 0.
 ///
-/// @param[in] diag_value
-///     The value to set on the diagonal.
-///
 /// @param[in] offdiag_value
 ///     The value to set outside of the diagonal.
+///
+/// @param[in] diag_value
+///     The value to set on the diagonal.
 ///
 /// @param[out] A
 ///     An m-by-n matrix stored in an lda-by-n array in GPU memory.
@@ -89,7 +89,7 @@ __global__ void geset_batch_kernel(
 template <typename scalar_t>
 void geset(
     int64_t m, int64_t n,
-    scalar_t diag_value, scalar_t offdiag_value,
+    scalar_t offdiag_value, scalar_t diag_value,
     scalar_t* A, int64_t lda,
     blas::Queue &queue)
 {
@@ -100,7 +100,7 @@ void geset(
 
     geset_kernel<<<1, nthreads, 0, queue.stream()>>>(
         m, n,
-        diag_value, offdiag_value, A, lda);
+        offdiag_value, diag_value, A, lda);
 
     cudaError_t error = cudaGetLastError();
     slate_assert(error == cudaSuccess);
@@ -111,28 +111,28 @@ void geset(
 template
 void geset(
     int64_t m, int64_t n,
-    float diag_value, float offdiag_value,
+    float offdiag_value, float diag_value,
     float* A, int64_t lda,
     blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
-    double diag_value, double offdiag_value,
+    double offdiag_value, double diag_value,
     double* A, int64_t lda,
     blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
-    cuFloatComplex diag_value, cuFloatComplex offdiag_value,
+    cuFloatComplex offdiag_value, cuFloatComplex diag_value,
     cuFloatComplex* A, int64_t lda,
     blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
-    cuDoubleComplex diag_value, cuDoubleComplex offdiag_value,
+    cuDoubleComplex offdiag_value, cuDoubleComplex diag_value,
     cuDoubleComplex* A, int64_t lda,
     blas::Queue &queue);
 
@@ -149,11 +149,11 @@ namespace batch {
 /// @param[in] n
 ///     Number of columns of each tile. n >= 0.
 ///
-/// @param[in] diag_value
-///     The value to set on the diagonal.
-///
 /// @param[in] offdiag_value
 ///     The value to set outside of the diagonal.
+///
+/// @param[in] diag_value
+///     The value to set on the diagonal.
 ///
 /// @param[out] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
@@ -171,7 +171,7 @@ namespace batch {
 template <typename scalar_t>
 void geset(
     int64_t m, int64_t n,
-    scalar_t diag_value, scalar_t offdiag_value,
+    scalar_t offdiag_value, scalar_t diag_value,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -186,7 +186,7 @@ void geset(
 
     geset_batch_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         m, n,
-        diag_value, offdiag_value, Aarray, lda);
+        offdiag_value, diag_value, Aarray, lda);
 
     cudaError_t error = cudaGetLastError();
     slate_assert(error == cudaSuccess);
@@ -197,28 +197,28 @@ void geset(
 template
 void geset(
     int64_t m, int64_t n,
-    float diag_value, float offdiag_value,
+    float offdiag_value, float diag_value,
     float** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
-    double diag_value, double offdiag_value,
+    double offdiag_value, double diag_value,
     double** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
-    cuFloatComplex diag_value, cuFloatComplex offdiag_value,
+    cuFloatComplex offdiag_value, cuFloatComplex diag_value,
     cuFloatComplex** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
-    cuDoubleComplex diag_value, cuDoubleComplex offdiag_value,
+    cuDoubleComplex offdiag_value, cuDoubleComplex diag_value,
     cuDoubleComplex** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 

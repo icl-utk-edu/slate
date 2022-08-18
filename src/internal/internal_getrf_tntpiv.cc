@@ -302,10 +302,10 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                         std::vector<scalar_t> data1( Awork.tileMb(i_current) * Awork.tileNb(0) );
                         std::vector<scalar_t> data2( Awork.tileMb(i_dst) * Awork.tileNb(0) );
 
-                        slate::Tile<scalar_t> tile1( Awork.tileMb(i_current), Awork.tileNb(0),
-                                              &data1[0], Awork.tileMb(i_current), A.hostNum(), TileKind::Workspace );
-                        slate::Tile<scalar_t> tile2( Awork.tileMb(i_dst), Awork.tileNb(0),
-                                              &data2[0], Awork.tileMb(i_dst), A.hostNum(), TileKind::Workspace );
+                        Tile<scalar_t> tile1( Awork.tileMb(i_current), Awork.tileNb(0),
+                                              &data1[0], Awork.tileMb(i_current), slate::HostNum, TileKind::Workspace );
+                        Tile<scalar_t> tile2( Awork.tileMb(i_dst), Awork.tileNb(0),
+                                              &data2[0], Awork.tileMb(i_dst), slate::HostNum, TileKind::Workspace );
 
                         local_tiles.push_back( tile1 );
                         local_tiles.push_back( tile2 );

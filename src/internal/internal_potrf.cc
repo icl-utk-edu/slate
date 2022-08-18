@@ -66,7 +66,7 @@ void potrf(internal::TargetType<Target::Devices>,
         lapack::Queue* queue = A.compute_queue( device, 0 );
         auto A00 = A( 0, 0, device );
         lapack::potrf(
-            A00.uplo(), A00.mb(), A00.data(),
+            A00.uploPhysical(), A00.mb(), A00.data(),
             A00.stride(), device_info, *queue );
         queue->sync();
     }

@@ -39,12 +39,12 @@ void pivot_list(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
         }
     }
 
-    for (int i=0 ; i < int(global_info.size()); ++i) {
+    for (int i=0; i < int(global_info.size()); ++i) {
 
         int index = -1;
         // Find the pivot position in the pivot_list
         for (int j=i; j < int(pivot_list.size()); ++j) {
-            if ( pivot_list[j].first == global_info[i] ) {
+            if (pivot_list[j].first == global_info[i]) {
                 index = j;
                 break;
             }
@@ -53,7 +53,7 @@ void pivot_list(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
         if ((global_info[i].first == pivot_list[i].second.first)
             && (global_info[i].second < pivot_list[i].second.second)) {
 
-            if ( index != -1 ) {
+            if (index != -1) {
                 std::pair<int64_t, int64_t> temp = pivot_list[i].first;
                 //If the index is already moved down, put it is new index
                 pivot_list[i].first = pivot_list[index].second;
@@ -62,7 +62,7 @@ void pivot_list(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
             else {
                 int offset = global_info[i].second;
                 for (int j=0; j < int(pivot_list.size()); j++) {
-                    if ( pivot_list[offset].first == pivot_list[j].second) {
+                    if (pivot_list[offset].first == pivot_list[j].second) {
                         index = j;
                         break;
                     }
@@ -235,7 +235,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                      A.tileNb(0), tile_indices, aux_pivot,
                      A.mpiRank(), max_panel_threads, priority);
 
-        if ( nranks > 1 ) {
+        if (nranks > 1) {
 
             internal::copy<Target::HostTask>( std::move(A), std::move(Awork) );
 
@@ -252,7 +252,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
 
             std::pair<int, int64_t> global_pair;
 
-            for (int j=0; j < piv_len ; ++j) {
+            for (int j=0; j < piv_len; ++j) {
                 if (aux_pivot[0][j].localTileIndex() > 0 ||
                     aux_pivot[0][j].localOffset() > j) {
 
@@ -272,7 +272,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
             }
 
 
-            for (int j=0; j < piv_len ; ++j) {
+            for (int j=0; j < piv_len; ++j) {
                 aux_pivot[0][j].set_tileIndex(global_tracking[0][j].first);
                 aux_pivot[0][j].set_elementOffset(global_tracking[0][j].second);
             }
@@ -302,9 +302,9 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                         std::vector<scalar_t> data1( Awork.tileMb(i_current) * Awork.tileNb(0) );
                         std::vector<scalar_t> data2( Awork.tileMb(i_dst) * Awork.tileNb(0) );
 
-                        Tile<scalar_t> tile1( Awork.tileMb(i_current), Awork.tileNb(0),
+                        slate::Tile<scalar_t> tile1( Awork.tileMb(i_current), Awork.tileNb(0),
                                               &data1[0], Awork.tileMb(i_current), A.hostNum(), TileKind::Workspace );
-                        Tile<scalar_t> tile2( Awork.tileMb(i_dst), Awork.tileNb(0),
+                        slate::Tile<scalar_t> tile2( Awork.tileMb(i_dst), Awork.tileNb(0),
                                               &data2[0], Awork.tileMb(i_dst), A.hostNum(), TileKind::Workspace );
 
                         local_tiles.push_back( tile1 );
@@ -324,7 +324,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                         ptiles.push_back(Awork(i_current, 0));
                         ptiles.push_back(Awork(i_dst, 0));
 
-                        for (int j=0; j < piv_len ; ++j) {
+                        for (int j=0; j < piv_len; ++j) {
                             if (aux_pivot[0][j].localTileIndex() > 0 ||
                                 aux_pivot[0][j].localOffset() > j) {
 

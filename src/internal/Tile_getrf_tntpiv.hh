@@ -96,7 +96,8 @@ void getrf_tntpiv(
 
     using real_t = blas::real_type<scalar_t>;
 
-    const scalar_t one = 1.0;
+    const scalar_t one  = 1.0;
+    const scalar_t zero = 0.0;
 
     int64_t nb = tiles[0].nb();
 
@@ -200,8 +201,8 @@ void getrf_tntpiv(
             }
             thread_barrier.wait(thread_size);
 
-            scalar_t one  = 1.0;
-            scalar_t zero = 0.0;
+            //scalar_t one  = 1.0;
+            //scalar_t zero = 0.0;
             // column scaling and trailing update
             for (int64_t idx = thread_rank;
                  idx < int64_t(tiles.size());

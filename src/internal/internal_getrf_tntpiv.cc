@@ -262,7 +262,8 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                         tiles[aux_pivot[0][j].localTileIndex()],
                         aux_pivot[0][j].localOffset());
 
-                    int index = aux_pivot[0][j].localTileIndex();
+                    //int index = aux_pivot[0][j].localTileIndex();
+                    index = aux_pivot[0][j].localTileIndex();
                     int offset = aux_pivot[0][j].localOffset();
 
                     global_pair = global_tracking[0][j];

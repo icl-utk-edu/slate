@@ -59,15 +59,15 @@ void potrf(internal::TargetType<Target::Devices>,
     assert(A.mt() == 1);
     assert(A.nt() == 1);
 
-    if (A.tileIsLocal(0, 0))
-    {
+    if (A.tileIsLocal(0, 0)) {
         int device = A.tileDevice( 0, 0 );
         blas::set_device(device);
         A.tileGetForWriting(0, 0, device, LayoutConvert::ColMajor);
         lapack::Queue* queue = A.compute_queue( device, 0 );
+        auto A00 = A( 0, 0, device );
         lapack::potrf(
-            A(0, 0).uplo(), A(0, 0).mb(), A(0, 0, device).data(),
-            A(0, 0, device).stride(), device_info, *queue );
+            A00.uplo(), A00.mb(), A00.data(),
+            A00.stride(), device_info, *queue );
         queue->sync();
     }
 }

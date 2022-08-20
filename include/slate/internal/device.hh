@@ -93,10 +93,10 @@ void tzadd(
      int64_t batch_count, blas::Queue& queue);
 
 //------------------------------------------------------------------------------
-template <typename scalar_t>
+template <typename scalar_t, typename scalar_t2>
 void gescale(
     int64_t m, int64_t n,
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    scalar_t2 numer, scalar_t2 denom,
     scalar_t* A, int64_t lda,
     blas::Queue& queue);
 
@@ -138,10 +138,10 @@ void tzset(
 namespace batch {
 
 //------------------------------------------------------------------------------
-template <typename scalar_t>
+template <typename scalar_t, typename scalar_t2>
 void gescale(
     int64_t m, int64_t n,
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    scalar_t2 numer, scalar_t2 denom,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
 

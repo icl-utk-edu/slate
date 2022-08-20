@@ -41,6 +41,29 @@ void gescale(
 template <>
 void gescale(
     int64_t m, int64_t n,
+    std::complex<float> numer, std::complex<float> denom,
+    std::complex<float>* A, int64_t lda,
+    blas::Queue& queue)
+{
+#if defined( BLAS_HAVE_CUBLAS )
+    gescale(m, n,
+            make_cuFloatComplex( numer.real(), numer.imag() ),
+            make_cuFloatComplex( denom.real(), denom.imag() ),
+            (cuFloatComplex*) A, lda,
+            queue);
+
+#elif defined( BLAS_HAVE_ROCBLAS )
+    gescale(m, n,
+            make_hipFloatComplex( numer.real(), numer.imag() ),
+            make_hipFloatComplex( denom.real(), denom.imag() ),
+            (hipFloatComplex*) A, lda,
+            queue);
+#endif
+}
+
+template <>
+void gescale(
+    int64_t m, int64_t n,
     double numer, double denom,
     std::complex<double>* A, int64_t lda,
     blas::Queue& queue)
@@ -54,6 +77,29 @@ void gescale(
 #elif defined( BLAS_HAVE_ROCBLAS )
     gescale(m, n,
             numer, denom,
+            (hipDoubleComplex*) A, lda,
+            queue);
+#endif
+}
+
+template <>
+void gescale(
+    int64_t m, int64_t n,
+    std::complex<double> numer, std::complex<double> denom,
+    std::complex<double>* A, int64_t lda,
+    blas::Queue& queue)
+{
+#if defined( BLAS_HAVE_CUBLAS )
+    gescale(m, n,
+            make_cuDoubleComplex( numer.real(), numer.imag() ),
+            make_cuDoubleComplex( denom.real(), denom.imag() ),
+            (cuDoubleComplex*) A, lda,
+            queue);
+
+#elif defined( BLAS_HAVE_ROCBLAS )
+    gescale(m, n,
+            make_hipDoubleComplex( numer.real(), numer.imag() ),
+            make_hipDoubleComplex( denom.real(), denom.imag() ),
             (hipDoubleComplex*) A, lda,
             queue);
 #endif
@@ -109,6 +155,29 @@ void gescale(
 template <>
 void gescale(
     int64_t m, int64_t n,
+    std::complex<float> numer, std::complex<float> denom,
+    std::complex<float>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+#if defined( BLAS_HAVE_CUBLAS )
+    gescale(m, n,
+            make_cuFloatComplex( numer.real(), numer.imag() ),
+            make_cuFloatComplex( denom.real(), denom.imag() ),
+            (cuFloatComplex**) Aarray, lda,
+            batch_count, queue);
+
+#elif defined( BLAS_HAVE_ROCBLAS )
+    gescale(m, n,
+            make_hipFloatComplex( numer.real(), numer.imag() ),
+            make_hipFloatComplex( denom.real(), denom.imag() ),
+            (hipFloatComplex**) Aarray, lda,
+            batch_count, queue);
+#endif
+}
+
+template <>
+void gescale(
+    int64_t m, int64_t n,
     double numer, double denom,
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
@@ -122,6 +191,29 @@ void gescale(
 #elif defined( BLAS_HAVE_ROCBLAS )
     gescale(m, n,
             numer, denom,
+            (hipDoubleComplex**) Aarray, lda,
+            batch_count, queue);
+#endif
+}
+
+template <>
+void gescale(
+    int64_t m, int64_t n,
+    std::complex<double> numer, std::complex<double> denom,
+    std::complex<double>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue)
+{
+#if defined( BLAS_HAVE_CUBLAS )
+    gescale(m, n,
+            make_cuDoubleComplex( numer.real(), numer.imag() ),
+            make_cuDoubleComplex( denom.real(), denom.imag() ),
+            (cuDoubleComplex**) Aarray, lda,
+            batch_count, queue);
+
+#elif defined( BLAS_HAVE_ROCBLAS )
+    gescale(m, n,
+            make_hipDoubleComplex( numer.real(), numer.imag() ),
+            make_hipDoubleComplex( denom.real(), denom.imag() ),
             (hipDoubleComplex**) Aarray, lda,
             batch_count, queue);
 #endif

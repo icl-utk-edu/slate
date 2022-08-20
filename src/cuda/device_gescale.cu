@@ -21,13 +21,13 @@ namespace device {
 ///
 /// @copydoc gescale
 ///
-template <typename scalar_t>
+template <typename scalar_t, typename scalar_t2>
 __device__ void gescale_func(
     int64_t m, int64_t n,
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    scalar_t2 numer, scalar_t2 denom,
     scalar_t* A, int64_t lda)
 {
-    blas::real_type<scalar_t> mul = numer / denom;
+    scalar_t2 mul = numer / denom;
     // thread per row, if more rows than threads, loop by blockDim.x
     for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
         scalar_t* rowA = &A[ i ];
@@ -39,10 +39,10 @@ __device__ void gescale_func(
 //------------------------------------------------------------------------------
 /// Kernel implementing element-wise tile set.
 /// @copydoc tzset
-template <typename scalar_t>
+template <typename scalar_t, typename scalar_t2>
 __global__ void gescale_kernel(
     int64_t m, int64_t n,
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    scalar_t2 numer, scalar_t2 denom,
     scalar_t* A, int64_t lda)
 {
     gescale_func( m, n, numer, denom, A, lda );
@@ -51,10 +51,10 @@ __global__ void gescale_kernel(
 //------------------------------------------------------------------------------
 /// Kernel implementing element-wise tile set.
 /// @copydoc tzset_batch
-template <typename scalar_t>
+template <typename scalar_t, typename scalar_t2>
 __global__ void gescale_batch_kernel(
     int64_t m, int64_t n,
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    scalar_t2 numer, scalar_t2 denom,
     scalar_t** Aarray, int64_t lda)
 {
     gescale_func( m, n, numer, denom, Aarray[ blockIdx.x ], lda );
@@ -84,10 +84,10 @@ __global__ void gescale_batch_kernel(
 /// @param[in] lda
 ///     Leading dimension of each tile in Aarray. lda >= m.
 ///
-template <typename scalar_t>
+template <typename scalar_t, typename scalar_t2>
 void gescale(
     int64_t m, int64_t n,
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    scalar_t2 numer, scalar_t2 denom,
     scalar_t* A, int64_t lda,
     blas::Queue& queue)
 {
@@ -97,8 +97,7 @@ void gescale(
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
     gescale_kernel<<<1, nthreads, 0, queue.stream()>>>(
-        m, n,
-        numer, denom, A, lda);
+        m, n, numer, denom, A, lda );
 
     cudaError_t error = cudaGetLastError();
     slate_assert(error == cudaSuccess);
@@ -130,7 +129,21 @@ void gescale(
 template
 void gescale(
     int64_t m, int64_t n,
+    cuFloatComplex numer, cuFloatComplex denom,
+    cuFloatComplex* A, int64_t lda,
+    blas::Queue& queue);
+
+template
+void gescale(
+    int64_t m, int64_t n,
     double numer,  double denom,
+    cuDoubleComplex* A, int64_t lda,
+    blas::Queue& queue);
+
+template
+void gescale(
+    int64_t m, int64_t n,
+    cuDoubleComplex numer, cuDoubleComplex denom,
     cuDoubleComplex* A, int64_t lda,
     blas::Queue& queue);
 
@@ -170,10 +183,10 @@ namespace batch {
 /// @param[in] queue
 ///     BLAS++ queue to execute in.
 ///
-template <typename scalar_t>
+template <typename scalar_t, typename scalar_t2>
 void gescale(
     int64_t m, int64_t n,
-    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    scalar_t2 numer, scalar_t2 denom,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
@@ -199,13 +212,15 @@ void gescale(
 template
 void gescale(
     int64_t m, int64_t n,
-    float numer, float denom, float** Aarray, int64_t lda,
+    float numer, float denom,
+    float** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
 
 template
 void gescale(
     int64_t m, int64_t n,
-    double numer, double denom, double** Aarray, int64_t lda,
+    double numer, double denom,
+    double** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
 
 template
@@ -218,7 +233,21 @@ void gescale(
 template
 void gescale(
     int64_t m, int64_t n,
+    cuFloatComplex numer, cuFloatComplex denom,
+    cuFloatComplex** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue);
+
+template
+void gescale(
+    int64_t m, int64_t n,
     double numer,  double denom,
+    cuDoubleComplex** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue);
+
+template
+void gescale(
+    int64_t m, int64_t n,
+    cuDoubleComplex numer, cuDoubleComplex denom,
     cuDoubleComplex** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
 

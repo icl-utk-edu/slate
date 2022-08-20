@@ -81,6 +81,9 @@ void gemmA(internal::TargetType<Target::HostTask>,
     assert( A.nt() == B.mt() );
     assert( A.mt() == C.mt() );
 
+    const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
+
     int err   = 0;
     // This assumes that if a tile has to be acquired, then all tiles
     // have to be acquired
@@ -88,8 +91,10 @@ void gemmA(internal::TargetType<Target::HostTask>,
     int c_tile_acquired = 0;
     #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
+        int cpt = 0;
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal( i, j )) {
+                cpt++;
                 #pragma omp task slate_omp_default_none \
                     shared( A, B, C, err, c_tile_acquired ) \
                     firstprivate(i, j, layout) priority(priority)
@@ -121,6 +126,25 @@ void gemmA(internal::TargetType<Target::HostTask>,
                 }
             }
         }
+        // Set or scale tiles of C when the tiles are not updated but
+        // are part of the distribution, i.e., will be used for the reduction.
+        if (cpt == 0 && beta != one) {
+            for (int64_t j = 0; j < B.nt(); ++j) {
+                if (C.tileIsLocal( i, j )) {
+                    #pragma omp task slate_omp_default_none \
+                        shared( beta ) firstprivate( i, j )
+                    {
+                        C.tileGetForWriting( i, j, LayoutConvert( layout ) );
+                        if (beta == zero) {
+                            C( i, j ).set( beta );
+                        }
+                        else {
+                            tile::scale( beta, C( i, j ) );
+                        }
+                    }
+                }
+            }
+        }
     }
 
     #pragma omp taskgroup
@@ -130,9 +154,6 @@ void gemmA(internal::TargetType<Target::HostTask>,
             firstprivate(i, alpha, beta, c_tile_acquired) priority(priority)
         {
             try {
-                const scalar_t zero = 0.0;
-                const scalar_t one  = 1.0;
-
                 scalar_t beta_j;
                 for (int64_t k = 0; k < B.nt(); ++k) {
                     if (! c_tile_acquired || C.tileIsLocal( i, k )) {
@@ -201,7 +222,8 @@ void gemmA(internal::TargetType<Target::Devices>,
     assert(C.num_devices() > 0);
 
     int err = 0;
-    const scalar_t one = 1.0;
+    const scalar_t zero = 0;
+    const scalar_t one  = 1.0;
 
     // In the case where some C tiles are not touched locally but involved
     // in the reduce process, we scale it here first.
@@ -220,7 +242,20 @@ void gemmA(internal::TargetType<Target::Devices>,
                     // TODO Perform the scaling where the tile origins.
                     // Unless it got modified and so it should be
                     // performed where it was last modified.
-                    tile::scale( beta, C( i, 0 ) );
+                    int device = C.tileDevice( i, 0 );
+                    C.tileGetForWriting(
+                        i, 0, device, LayoutConvert( layout ) );
+                    blas::Queue* queue = A.compute_queue( device, queue_index );
+                    assert( queue != nullptr );
+                    auto T = C( i, 0, device );
+                    if (beta == zero) {
+                        device::geset( T.mb(), T.nb(), beta, beta,
+                            T.data(), T.stride(), *queue );
+                    }
+                    else{
+                        device::gescale( T.mb(), T.nb(), beta, one,
+                            T.data(), T.stride(), *queue );
+                    }
                 }
             }
         }
@@ -265,6 +300,9 @@ void gemmA(internal::TargetType<Target::Devices>,
                 beta  = conj( beta );
             }
 
+            blas::Queue* queue = A.compute_queue( device, queue_index );
+            assert( queue != nullptr );
+
             std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
             for (int64_t i = 0; i < A.mt(); ++i) {
                 for (int64_t j = 0; j < A.nt(); ++j) {
@@ -280,10 +318,11 @@ void gemmA(internal::TargetType<Target::Devices>,
                                 // XXX since at least cuBLAS does not
                                 // take beta as a vector, we have to
                                 // set new tiles to 0 explicitly.
-                                // TODO we should insert and set it directly
-                                // on the device.
-                                C.tileInsert( i, 0 );
-                                C( i, 0 ).set( 0 );
+                                C.tileInsert( i, 0, device );
+                                C.tileModified( i, 0, device );
+                                auto T = C( i, 0, device );
+                                device::geset( T.mb(), T.nb(), zero, zero,
+                                    T.data(), T.stride(), *queue );
                             }
                         }
                     }
@@ -547,9 +586,6 @@ void gemmA(internal::TargetType<Target::Devices>,
                     std::vector<int64_t> k1( 1, kb1 );
                     // info size 0 disables slow checks in batched BLAS++.
                     std::vector<int64_t> info;
-
-                    blas::Queue* queue = A.compute_queue( device, queue_index );
-                    assert( queue != nullptr );
 
                     if (c_array0_.size() > 0) {
                         std::vector<int64_t>    m( 1,  mb0_ );

@@ -24,10 +24,9 @@ namespace device {
 template <typename scalar_t, typename scalar_t2>
 __device__ void gescale_func(
     int64_t m, int64_t n,
-    scalar_t2 numer, scalar_t2 denom,
+    scalar_t2 mul,
     scalar_t* A, int64_t lda)
 {
-    scalar_t2 mul = numer / denom;
     // thread per row, if more rows than threads, loop by blockDim.x
     for (int64_t i = threadIdx.x; i < m; i += blockDim.x) {
         scalar_t* rowA = &A[ i ];
@@ -42,10 +41,10 @@ __device__ void gescale_func(
 template <typename scalar_t, typename scalar_t2>
 __global__ void gescale_kernel(
     int64_t m, int64_t n,
-    scalar_t2 numer, scalar_t2 denom,
+    scalar_t2 mul,
     scalar_t* A, int64_t lda)
 {
-    gescale_func( m, n, numer, denom, A, lda );
+    gescale_func( m, n, mul, A, lda );
 }
 
 //------------------------------------------------------------------------------
@@ -54,10 +53,10 @@ __global__ void gescale_kernel(
 template <typename scalar_t, typename scalar_t2>
 __global__ void gescale_batch_kernel(
     int64_t m, int64_t n,
-    scalar_t2 numer, scalar_t2 denom,
+    scalar_t2 mul,
     scalar_t** Aarray, int64_t lda)
 {
-    gescale_func( m, n, numer, denom, Aarray[ blockIdx.x ], lda );
+    gescale_func( m, n, mul, Aarray[ blockIdx.x ], lda );
 }
 
 //------------------------------------------------------------------------------
@@ -96,8 +95,10 @@ void gescale(
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
+    scalar_t2 mul = numer / denom;
+
     gescale_kernel<<<1, nthreads, 0, queue.stream()>>>(
-        m, n, numer, denom, A, lda );
+        m, n, mul, A, lda );
 
     cudaError_t error = cudaGetLastError();
     slate_assert(error == cudaSuccess);
@@ -199,9 +200,11 @@ void gescale(
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
 
+    scalar_t2 mul = numer / denom;
+
     gescale_batch_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         m, n,
-        numer, denom, Aarray, lda);
+        mul, Aarray, lda);
 
     cudaError_t error = cudaGetLastError();
     slate_assert(error == cudaSuccess);

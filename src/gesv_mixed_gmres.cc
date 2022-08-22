@@ -193,9 +193,7 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
 
         // Compute initial vector
         auto v0 = V.slice(0, V.m()-1, 0, 0);
-        slate::copy(R, X_lo, opts);
-        getrs(A_lo, pivots, X_lo, opts);
-        slate::copy(X_lo, v0, opts);
+        slate::copy(R, v0, opts);
 
         real_hi arnoldi_residual = norm(Norm::Fro, v0, opts);
         std::cout << "  beta = " << arnoldi_residual << std::endl;
@@ -224,15 +222,15 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
             auto Vj = V.slice(0, V.m()-1, j, j);
 
             // Vj1 = M^-1 A Vj
+            slate::copy(Vj, X_lo, opts);
+            getrs(A_lo, pivots, X_lo, opts);
+            slate::copy(X_lo, z, opts);
+
             gemm<scalar_hi>(
                 scalar_hi(1.0), A,
-                                Vj,
+                                z,
                 scalar_hi(0.0), Vj1,
                 opts);
-
-            slate::copy(Vj1, X_lo, opts);
-            getrs(A_lo, pivots, X_lo, opts);
-            slate::copy(X_lo, Vj1, opts);
 
             // orthogonalize w/ CGS2
             auto V0j = V.slice(0, V.m()-1, 0, j);
@@ -297,8 +295,13 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
         gemm<scalar_hi>(
             scalar_hi(1.0), V_j,
                             S_j,
-            scalar_hi(1.0), X,
+            scalar_hi(0.0), z,
             opts);
+        slate::copy(z, X_lo, opts);
+        getrs(A_lo, pivots, X_lo, opts);
+        slate::copy(X_lo, z, opts);
+        add(scalar_hi(1.0), z, scalar_hi(1.0), X, opts);
+
     }
 
     if (! converged) {

@@ -12,10 +12,6 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::gesv_mixed from internal::specialization::gesv_mixed
-namespace internal {
-namespace specialization {
 
 template <typename scalar_t>
 static bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
@@ -37,7 +33,7 @@ static bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
 }
 
 template<typename scalar_t>
-slate::Matrix<scalar_t> alloc_V(slate::Matrix<scalar_t> A, int64_t n)
+static slate::Matrix<scalar_t> alloc_V(slate::Matrix<scalar_t> A, int64_t n)
 {
     typedef typename Matrix<scalar_t>::ij_tuple ij_tuple;
 
@@ -86,13 +82,11 @@ slate::Matrix<scalar_t> alloc_V(slate::Matrix<scalar_t> A, int64_t n)
 /// @ingroup gesv_specialization
 ///
 template <Target target, typename scalar_hi, typename scalar_lo>
-void gesv_mixed_gmres( slate::internal::TargetType<target>,
-                     Matrix<scalar_hi>& A, Pivots& pivots,
-                     Matrix<scalar_hi>& B,
-                     Matrix<scalar_hi>& X,
-                     int& iter,
-                     int64_t ib, int max_panel_threads, int64_t lookahead,
-                     int64_t itermax, int64_t depth)
+void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
+                      Matrix<scalar_hi>& B,
+                      Matrix<scalar_hi>& X,
+                      int& iter,
+                      Options const& opts)
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -101,6 +95,7 @@ void gesv_mixed_gmres( slate::internal::TargetType<target>,
     using real_hi = blas::real_type<scalar_hi>;
     const real_hi eps = std::numeric_limits<real_hi>::epsilon();
     iter = 0;
+    const int64_t itermax = 30;
     const int64_t restart = std::min(int64_t(30), itermax);
     const int64_t mpi_rank = A.mpiRank();
 
@@ -153,103 +148,63 @@ void gesv_mixed_gmres( slate::internal::TargetType<target>,
     }
 
     // norm of A
-    real_hi Anorm = norm(Norm::Inf, A,
-                         {{Option::Target, target}});
+    real_hi Anorm = norm(Norm::Inf, A, opts);
 
     // stopping criteria
     real_hi cte = Anorm * eps * std::sqrt(A.n());
 
-    // Convert B from high to low precision, store result in X_lo.
-    copy(B, X_lo,
-         {{Option::Target, target}});
-
-    //std::cout << "||B|| = " << norm(Norm::Fro, B, {{Option::Target, target}}) << std::endl;
-
     // Convert A from high to low precision, store result in A_lo.
-    copy(A, A_lo,
-         {{Option::Target, target}});
+    slate::copy(A, A_lo, opts);
 
     // Compute the LU factorization of A_lo.
-    getrf(A_lo,
-          {{Option::InnerBlocking, ib},
-           {Option::Lookahead, lookahead},
-           {Option::Target, target}});
+    getrf(A_lo, pivots, opts);
 
 
-    // Solve the system A_lo * X_lo = B_lo.
-    getrs_nopiv(A_lo, X_lo,
-          {{Option::Lookahead, lookahead},
-           {Option::Target, target}});
+    // Solve the system A * X = B in low precision.
+    slate::copy(B, X_lo, opts);
+    getrs(A_lo, pivots, X_lo, opts);
+    slate::copy(X_lo, X, opts);
 
-    // Convert X_lo to high precision.
-    copy(X_lo, X,
-         {{Option::Target, target}});
-    set(scalar_hi(0.0), scalar_hi(0.0), X);
 
-    // Compute R = B - A * X.
-    copy(B, R,
-         {{Option::Target, target}});
-    gemm<scalar_hi>(
-        scalar_hi(-1.0), A,
-                         X,
-        scalar_hi(1.0),  R,
-        {{Option::Lookahead, lookahead},
-         {Option::Target, target}});
-    //std::cout << "||R0|| = " << norm(Norm::Fro, R, {{Option::Target, target}}) << std::endl;
-    //std::cout << "||X0|| = " << norm(Norm::Fro, X, {{Option::Target, target}}) << std::endl;
-
-    // Check whether the nrhs normwise backward error satisfies the
-    // stopping criterion. If yes, set iter=0 and return.
-    colNorms( Norm::Max, X, colnorms_X.data(),
-                {{Option::Target, target}});
-    colNorms( Norm::Max, R, colnorms_R.data(),
-                {{Option::Target, target}});
-
-    {
-        real_hi max_err = colnorms_R[0] / (colnorms_X[0] * cte);
-        real_hi max_x = colnorms_X[0];
-        real_hi max_r = colnorms_R[0];
-        for (int64_t i = 0; i < int64_t(colnorms_R.size()); i++) {
-            max_err = std::max(max_err, colnorms_R[i] / (colnorms_X[i] * cte));
-            max_x = std::max(max_x, colnorms_X[i]);
-            max_r = std::max(max_r, colnorms_R[i]);
-        }
-        if (A.mpiRank() == 0) {
-            //std::cout << "0: max_err = " << max_err << ", max_x = " << max_x << ", max_r = " << max_r << std::endl;
-        }
-    }
-
-    //std::cout << "error: " << (colnorms_R[0]/(colnorms_X[0]*cte)) << std::endl;
-
-    //if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
-    //    iter = 0;
-    //    converged = true;
-    //}
 
     // IR
     int iiter = 0;
-    for (; iiter < itermax && ! converged;) {
-        //std::cout << "IR: " << iiter << std::endl;
+    while (iiter < itermax) {
+        std::cout << "IR: " << iiter << std::endl;
+
+
+        // Check for convergence
+        slate::copy(B, R, opts);
+        gemm<scalar_hi>(
+            scalar_hi(-1.0), A,
+                             X,
+            scalar_hi(1.0),  R,
+            opts);
+        colNorms( Norm::Max, X, colnorms_X.data(), opts );
+        colNorms( Norm::Max, R, colnorms_R.data(), opts );
+        std::cout << "error: " << (colnorms_R[0]/(colnorms_X[0]*cte)) << " = " << colnorms_R[0] << " / " << colnorms_X[0] << "*" << cte << std::endl;
+        if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
+            iter = iiter;
+            converged = true;
+            break;
+        }
+
         // GMRES
 
         // Compute initial vector
         auto v0 = V.slice(0, V.m()-1, 0, 0);
-        copy(R, X_lo,
-             {{Option::Target, target}});
-        getrs(A_lo, X_lo,
-              {{Option::Lookahead, lookahead},
-               {Option::Target, target}});
-        copy(X_lo, v0,
-             {{Option::Target, target}});
+        slate::copy(R, X_lo, opts);
+        getrs(A_lo, pivots, X_lo, opts);
+        slate::copy(X_lo, v0, opts);
 
-        real_hi arnoldi_residual = norm(Norm::Fro, v0, {{Option::Target, target}});
-        //std::cout << "  beta = " << arnoldi_residual << std::endl;
+        real_hi arnoldi_residual = norm(Norm::Fro, v0, opts);
+        std::cout << "  beta = " << arnoldi_residual << std::endl;
         if (arnoldi_residual == 0) {
             // Solver broke down, but residual is not small enough yet.
             converged = false;
             break;
         }
-        scale(1.0, arnoldi_residual, v0, {{Option::Target, target}});
+        scale(1.0, arnoldi_residual, v0, opts);
         if (S.tileRank(0, 0) == mpi_rank) {
             S.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
             auto S_00 = S(0, 0);
@@ -264,25 +219,20 @@ void gesv_mixed_gmres( slate::internal::TargetType<target>,
         int j = 0;
         for (; j < restart && iiter < itermax && arnoldi_residual > restart_tol;
                j++, iiter++) {
-            auto w = V.slice(0, V.m()-1, j+1, j+1);
+            auto Vj1 = V.slice(0, V.m()-1, j+1, j+1);
 
-            // Compute z = M^-1 vj
             auto Vj = V.slice(0, V.m()-1, j, j);
-            copy(Vj, X_lo,
-                 {{Option::Target, target}});
-            getrs_nopiv(A_lo, X_lo,
-                  {{Option::Lookahead, lookahead},
-                   {Option::Target, target}});
-            copy(X_lo, z,
-                 {{Option::Target, target}});
 
-            // w = Az
+            // Vj1 = M^-1 A Vj
             gemm<scalar_hi>(
                 scalar_hi(1.0), A,
-                                z,
-                scalar_hi(0.0), w,
-                {{Option::Lookahead, lookahead},
-                 {Option::Target, target}});
+                                Vj,
+                scalar_hi(0.0), Vj1,
+                opts);
+
+            slate::copy(Vj1, X_lo, opts);
+            getrs(A_lo, pivots, X_lo, opts);
+            slate::copy(X_lo, Vj1, opts);
 
             // orthogonalize w/ CGS2
             auto V0j = V.slice(0, V.m()-1, 0, j);
@@ -290,38 +240,33 @@ void gesv_mixed_gmres( slate::internal::TargetType<target>,
             auto Hj = H.slice(0, j, j, j);
             gemm<scalar_hi>(
                 scalar_hi(1.0), V0jT,
-                                w,
+                                Vj1,
                 scalar_hi(0.0), Hj,
-                {{Option::Lookahead, lookahead},
-                 {Option::Target, target}});
+                opts);
             gemm<scalar_hi>(
                 scalar_hi(-1.0), V0j,
                                  Hj,
-                scalar_hi(1.0),  w,
-                {{Option::Lookahead, lookahead},
-                 {Option::Target, target}});
+                scalar_hi(1.0),  Vj1,
+                opts);
             auto zj = z.slice(0, j, 0, 0);
             gemm<scalar_hi>(
                 scalar_hi(1.0), V0jT,
-                                w,
+                                Vj1,
                 scalar_hi(0.0), zj,
-                {{Option::Lookahead, lookahead},
-                 {Option::Target, target}});
+                opts);
             gemm<scalar_hi>(
                 scalar_hi(-1.0), V0j,
                                  zj,
-                scalar_hi(1.0),  w,
-                {{Option::Lookahead, lookahead},
-                 {Option::Target, target}});
+                scalar_hi(1.0),  Vj1,
+                opts);
             add(scalar_hi(1.0), zj, scalar_hi(1.0), Hj,
-                {{Option::Lookahead, lookahead},
-                 {Option::Target, target}});
-            auto w_norm = norm(Norm::Fro, w, {{Option::Target, target}});
-            scale(1.0, w_norm, w, {{Option::Target, target}});
+                opts);
+            auto Vj1_norm = norm(Norm::Fro, Vj1, opts);
+            scale(1.0, Vj1_norm, Vj1, opts);
             if (H.tileRank(0, 0) == mpi_rank) {
                 H.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
                 auto H_00 = H(0, 0);
-                H_00.at(j+1, j) = w_norm;
+                H_00.at(j+1, j) = Vj1_norm;
 
                 // apply givens rotations
                 for (int64_t i = 0; i < j; ++i) {
@@ -339,41 +284,21 @@ void gesv_mixed_gmres( slate::internal::TargetType<target>,
             }
             MPI_Bcast(&arnoldi_residual, 1, mpi_type<scalar_hi>::value,
                       S.tileRank(0, 0), A.mpiComm());
+            if (A.mpiRank() == 0) {
+                std::cout << "0: arnoldi_residual = " << arnoldi_residual << std::endl;
+            }
         }
         // update X
         auto H_j = H.slice(0, j-1, 0, j-1);
         auto S_j = S.slice(0, j-1, 0, 0);
         auto H_tri = TriangularMatrix<scalar_hi>(Uplo::Upper, Diag::NonUnit, H_j);
-        trsm(Side::Left, scalar_hi(1.0), H_tri, S_j,
-             {{Option::Lookahead, lookahead},
-              {Option::Target, target}});
+        trsm(Side::Left, scalar_hi(1.0), H_tri, S_j, opts);
         auto V_j = V.slice(0, V.m()-1, 0, j-1);
         gemm<scalar_hi>(
             scalar_hi(1.0), V_j,
                             S_j,
             scalar_hi(1.0), X,
-            {{Option::Lookahead, lookahead},
-             {Option::Target, target}});
-
-
-        // Check for convergence
-        copy(B, R,
-             {{Option::Target, target}});
-        gemm<scalar_hi>(
-            scalar_hi(-1.0), A,
-                             X,
-            scalar_hi(1.0),  R,
-            {{Option::Lookahead, lookahead},
-             {Option::Target, Target::HostTask}});
-        colNorms( Norm::Max, X, colnorms_X.data(),
-                    {{Option::Target, target}});
-        colNorms( Norm::Max, R, colnorms_R.data(),
-                    {{Option::Target, target}});
-        //std::cout << "error: " << (colnorms_R[0]/(colnorms_X[0]*cte)) << std::endl;
-        if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
-            iter = iiter+1;
-            converged = true;
-        }
+            opts);
     }
 
     if (! converged) {
@@ -384,18 +309,11 @@ void gesv_mixed_gmres( slate::internal::TargetType<target>,
         iter = -iiter-1;
 
         // Compute the LU factorization of A.
-        //getrf(A, pivots,
-        //      {{Option::InnerBlocking, ib},
-        //       {Option::Lookahead, lookahead},
-        //       {Option::MaxPanelThreads, int64_t(max_panel_threads)},
-        //       {Option::Target, target}});
+        //getrf(A, pivots, opts);
 
         // Solve the system A * X = B.
-        //copy(B, X,
-        //     {{Option::Target, target}});
-        //getrs(A, pivots, X,
-        //      {{Option::Lookahead, lookahead},
-        //       {Option::Target, target}});
+        //slate::copy(B, X, opts);
+        //getrs(A, pivots, X, opts);
     }
 
     if (target == Target::Devices) {
@@ -406,37 +324,6 @@ void gesv_mixed_gmres( slate::internal::TargetType<target>,
     }
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gesv_specialization
-///
-template <Target target, typename scalar_hi, typename scalar_lo>
-void gesv_mixed_gmres( Matrix<scalar_hi>& A, Pivots& pivots,
-                    Matrix<scalar_hi>& B,
-                    Matrix<scalar_hi>& X,
-                    int& iter,
-                    Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
-    int64_t itermax = get_option<int64_t>( opts, Option::MaxIterations, 2);
-
-    int64_t depth = get_option<int64_t>( opts, Option::Depth, 2);
-
-    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
-
-    internal::specialization::gesv_mixed_gmres<target, scalar_hi, scalar_lo>(
-                                        internal::TargetType<target>(),
-                                        A, pivots, B, X, iter,
-                                        ib, max_panel_threads, lookahead,
-                                        itermax, depth);
-}
 
 //------------------------------------------------------------------------------
 /// Distributed parallel iterative-refinement LU factorization and solve.

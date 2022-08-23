@@ -125,6 +125,11 @@ void generate_sigma(
 
     // locals
     int64_t min_mn = std::min( A.m(), A.n() );
+
+    // Ensure Sigma is allocated
+    if (Sigma.size() == 0) {
+        Sigma.resize(min_mn);
+    }
     assert( min_mn == int64_t(Sigma.size()) );
 
     switch (dist) {
@@ -1196,7 +1201,9 @@ void generate_matrix(
             set(one, one, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_zero, d_one, Sigma.data(), Sigma.size() );
-            Sigma[0] = sqrt(m*n);
+            if (Sigma.size() >= 1) {
+                Sigma[0] = sqrt(m*n);
+            }
             break;
 
         case TestMatrixType::identity:
@@ -1608,6 +1615,15 @@ void generate_matrix(
             set(zero, zero, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_zero, d_zero, Sigma.data(), Sigma.size() );
+            break;
+
+        case TestMatrixType::one:
+            set(one, one, A);
+            lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
+                d_zero, d_one, Sigma.data(), Sigma.size() );
+            if (Sigma.size() >= 1) {
+                Sigma[0] = n;
+            }
             break;
 
         case TestMatrixType::identity:

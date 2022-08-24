@@ -350,6 +350,28 @@ void trsmA(Side side,
           int64_t queue_index=0 );
 
 //-----------------------------------------
+// trsm_addmod()
+template <Target target, typename scalar_t>
+void trsm_addmod(Side side, Uplo uplo, scalar_t alpha,
+                 Matrix<scalar_t>&& A,
+                 Matrix<scalar_t>&& U,
+                 std::vector<blas::real_type<scalar_t>>&& S,
+                 Matrix<scalar_t>&& B,
+                 int64_t ib, int priority=0, Layout layout=Layout::ColMajor,
+                 int64_t queue_index=0, Options const& opts = Options());
+
+//-----------------------------------------
+// trsmA_addmod()
+template <Target target, typename scalar_t>
+void trsmA_addmod(Side side, Uplo uplo, scalar_t alpha,
+                  Matrix<scalar_t>&& A,
+                  Matrix<scalar_t>&& U,
+                  std::vector<blas::real_type<scalar_t>>&& S,
+                  Matrix<scalar_t>&& B,
+                  int64_t ib, int priority=0, Layout layout=Layout::ColMajor,
+                  int64_t queue_index=0);
+
+//-----------------------------------------
 // trtri()
 template <Target target=Target::HostTask, typename scalar_t>
 void trtri(TriangularMatrix<scalar_t>&& A,
@@ -512,6 +534,17 @@ void getrf_tntpiv_panel(
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority, int64_t* info );
+
+//-----------------------------------------
+// getrf_addmod()
+template <Target target=Target::HostTask, typename scalar_t>
+void getrf_addmod(Matrix< scalar_t >&& A,
+                  Matrix< scalar_t >&& U,
+                  std::vector< blas::real_type<scalar_t> >&& singular_values,
+                  std::vector< blas::real_type<scalar_t> >&& modifications,
+                  std::vector<int64_t>&& modified_indices,
+                  blas::real_type<scalar_t> mod_tol,
+                  int64_t ib);
 
 //-----------------------------------------
 // geqrf()

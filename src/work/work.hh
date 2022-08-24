@@ -42,6 +42,22 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                                 Matrix<scalar_t> B,
           uint8_t* row, Options const& opts);
 
+//-----------------------------------------
+// trsm_addmod()
+template <Target target=Target::HostTask, typename scalar_t>
+void trsm_addmod(Side side, Uplo uplo,
+                 scalar_t alpha, AddModFactors<scalar_t> W,
+                                        Matrix<scalar_t> B,
+                 uint8_t* row, Options const& opts);
+
+//-----------------------------------------
+// trsmA_addmod()
+template <Target target=Target::HostTask, typename scalar_t>
+void trsmA_addmod(Side side, Uplo uplo,
+                  scalar_t alpha, AddModFactors<scalar_t> W,
+                                         Matrix<scalar_t> B,
+                  uint8_t* row, int64_t lookahead=1);
+
 } // namespace work
 } // namespace slate
 

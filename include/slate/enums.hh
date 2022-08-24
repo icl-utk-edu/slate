@@ -74,6 +74,8 @@ enum class Option : char {
     MaxIterations,      ///< maximum iteration count
     UseFallbackSolver,  ///< whether to fallback to a robust solver if iterations do not converge
     PivotThreshold,     ///< threshold for pivoting, >= 0, <= 1
+    AdditiveTolerance,  ///< tolerance for additive modification, >= 0
+    UseWoodbury,        ///< whether to apply the Woodbury formula
 
     // Printing parameters
     PrintVerbose = 50,  ///< verbose, 0: no printing,

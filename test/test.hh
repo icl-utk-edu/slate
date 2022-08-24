@@ -143,6 +143,8 @@ public:
     testsweeper::ParamInt    itermax;
     testsweeper::ParamChar   fallback;
     testsweeper::ParamInt    depth;
+    testsweeper::ParamDouble add_tol;
+    testsweeper::ParamChar   woodbury;
 
     // ----- output parameters
     testsweeper::ParamScientific value;

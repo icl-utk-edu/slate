@@ -116,18 +116,22 @@ std::vector< testsweeper::routines_t > routines = {
     { "gesv_mixed",         test_gesv,         Section::gesv },
     { "gesv_mixed_gmres",   test_gesv,         Section::gesv },
     { "gesv_rbt",           test_gesv,         Section::gesv },
+    { "gesv_addmod",        test_gesv,         Section::gesv },
+    { "gesv_addmod_ir",     test_gesv,         Section::gesv },
     { "gbsv",               test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 
     { "getrf",              test_gesv,          Section::gesv },
     { "getrf_nopiv",        test_gesv,          Section::gesv },
     { "getrf_tntpiv",       test_gesv,          Section::gesv },
+    { "getrf_addmod",       test_gesv,          Section::gesv },
     { "gbtrf",              test_gbsv,          Section::gesv },
     { "",                   nullptr,            Section::newline },
 
     { "getrs",              test_gesv,         Section::gesv },
     { "getrs_nopiv",        test_gesv,         Section::gesv },
     { "getrs_tntpiv",       test_gesv,         Section::gesv },
+    { "getrs_addmod",       test_gesv,         Section::gesv },
     { "gbtrs",              test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 
@@ -415,6 +419,9 @@ Params::Params():
     itermax   ("itermax", 7,    ParamType::List, 30,     -1, 1000000, "Maximum number of iterations for refinement"),
     fallback  ("fallback",0,    ParamType::List, 'y',  "ny",          "If refinement fails, fallback to a robust solver"),
     depth     ("depth",   5,    ParamType::List,  2,      0, 1000,    "Number of butterflies to apply"),
+    add_tol   ("addtol",  8, 2, ParamType::List, -1e-8, -inf,    inf, "threshold for additive changes"),
+    woodbury  ("woodbury",
+                          8,    ParamType::List, 'y', "ny", "wheather to apply the Woodbury formula"),
 
     // ----- output parameters
     // min, max are ignored

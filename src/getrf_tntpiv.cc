@@ -53,7 +53,7 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
     const int queue_1 = 1;
     const int64_t batch_size_zero = 0;
     const int num_queues = 2 + lookahead;
-    bool is_shared = target==Target::Devices && lookahead > 0;
+    bool is_shared = target == Target::Devices && lookahead > 0;
     pivots.resize(min_mt_nt);
 
     if (target == Target::Devices) {
@@ -69,7 +69,6 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
     // This dependency avoids that
     uint8_t listBcastMT_token;
     SLATE_UNUSED(listBcastMT_token); // Only used by OpenMP
-
 
     // workspace
     auto Awork = A.emptyLike();
@@ -112,7 +111,6 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                     pivots.at(k), target_layout, priority_one, tag_k, queue_0);
 
                 internal::copy<Target::HostTask>(Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
-
 
                 //broadcast panel
                 BcastList bcast_list_A;

@@ -83,7 +83,6 @@ void getrf_tntpiv(
     int64_t diag_len, int64_t ib, int stage,
     std::vector< Tile<scalar_t> >& tiles,
     std::vector<int64_t>& tile_indices,
-    //std::vector< AuxPivot<scalar_t> >& pivot,
     std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
     int mpi_rank, int thread_rank, int thread_size,
     ThreadBarrier& thread_barrier,
@@ -158,7 +157,7 @@ void getrf_tntpiv(
                 }
                 // stage 0 means first local lu before the tree reduction
                 // read global index and offset and swap it with j
-                if ( stage == 0 ) {
+                if (stage == 0) {
 
                     aux_pivot[0][j] = AuxPivot<scalar_t>(tile_indices[max_index[0]],
                                                          max_offset[0], max_index[0],
@@ -181,7 +180,7 @@ void getrf_tntpiv(
                 }
 
                 // pivot swap
-                // if pivot not on the diagonal
+                // if pivot is not on the diagonal
                 if (aux_pivot[0][j].localTileIndex() > 0 ||
                     aux_pivot[0][j].localOffset() > j) {
                     // local swap
@@ -201,8 +200,6 @@ void getrf_tntpiv(
             }
             thread_barrier.wait(thread_size);
 
-            //scalar_t one  = 1.0;
-            //scalar_t zero = 0.0;
             // column scaling and trailing update
             for (int64_t idx = thread_rank;
                  idx < int64_t(tiles.size());
@@ -266,7 +263,7 @@ void getrf_tntpiv(
             thread_barrier.wait(thread_size);
         }
 
-        // If there is a trailing submatrix.
+        // Trailing submatrix update.
         if (k+kb < nb) {
             //======================
             // pivoting to the right

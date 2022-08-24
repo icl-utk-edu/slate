@@ -23,7 +23,6 @@ void pivot_list(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
     std::vector<std::pair<int64_t, int64_t>> global_info;
 
     for (int i = 0; i < diag_len; i++) {
-
         global_info.push_back({aux_pivot[ 0 ][ i ].tileIndex(),
                                aux_pivot[ 0 ][ i ].elementOffset()});
     }
@@ -34,7 +33,6 @@ void pivot_list(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
     // Initial fill to the pivlist
     for (auto inx=0; inx < mt; ++inx) {
         for (auto i=0; i < int(global_info.size()); ++i) {
-
             pivot_list.push_back({{inx, i}, {inx, i}});
         }
     }
@@ -81,7 +79,6 @@ void pivot_list(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
     }
 
     for (int i = 0; i < diag_len; ++i) {
-
         aux_pivot[ 0 ][ i ].set_tileIndex(pivot_list[ i ].first.first);
         aux_pivot[ 0 ][ i ].set_elementOffset(pivot_list[ i ].first.second);
     }
@@ -249,7 +246,6 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                 }
             }
 
-
             std::pair<int, int64_t> global_pair;
 
             for (int j=0; j < piv_len; ++j) {
@@ -262,7 +258,6 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                         tiles[aux_pivot[0][j].localTileIndex()],
                         aux_pivot[0][j].localOffset());
 
-                    //int index = aux_pivot[0][j].localTileIndex();
                     index = aux_pivot[0][j].localTileIndex();
                     int offset = aux_pivot[0][j].localOffset();
 
@@ -271,7 +266,6 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                     global_tracking[index][offset]=global_pair;
                 }
             }
-
 
             for (int j=0; j < piv_len; ++j) {
                 aux_pivot[0][j].set_tileIndex(global_tracking[0][j].first);
@@ -335,9 +329,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                                     ptiles[aux_pivot[0][j].localTileIndex()],
                                     aux_pivot[0][j].localOffset());
                             }
-
                         }
-
                         if (level == nlevels-1) {
                             // Copy the last factorization back to panel tile
                             local_tiles[0].copyData(&ptiles[0]);
@@ -364,7 +356,7 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                 }
                 step *= 2;
 
-            }// for loop over levels
+            } // for loop over levels
         }
 
         // Copy pivot information from aux_pivot to pivot.

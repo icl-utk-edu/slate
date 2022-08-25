@@ -161,7 +161,7 @@ int main(int argc, char* argv[])
     // Get norm of residual from the dgemm above ( Bref - Ax )
     double Rnorm = pdlange_(&onenorm, &n, &nrhs, Bref, &ione, &ione, descBref, work);
     double residual = Rnorm / (n * Anorm * Xnorm);
-    if (mypnum == 0) printf("residual = (%f / (%d * %f * %f)) = %g\n", Rnorm, n, Anorm, Xnorm, residual);
+    if (mypnum == 0) printf("residual = (%g / (%d * %g * %g)) = %g\n", Rnorm, n, Anorm, Xnorm, residual);
 
     // Check if Bref - Ax is (near)zero
     // if (mypnum == 0) printf("Printing if any A_orig * x - B_orig > 1e-9 ...\n");
@@ -171,4 +171,6 @@ int main(int argc, char* argv[])
     //             printf("problem at B[%d,%d][%d,%d] = %g > 1e-9\n", myprow, mypcol, i, j, Bref[j*localmb+i]); fflush(0);
 
     if (mypnum == 0) printf("Done\n");
+    MPI_Barrier( MPI_COMM_WORLD );
+    MPI_Finalize();
 }

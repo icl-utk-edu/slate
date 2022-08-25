@@ -42,7 +42,9 @@ double pdlange_(const char* norm, const int* m, const int* n,
 
 int main(int argc, char* argv[])
 {
-    int nb=200, n=nb*4, nrhs=2;
+    int nb=200; // tile size
+    int n=nb*4+17; // the matrix is not a fixed multiple of tiles
+    int nrhs=2;
     int nprow=1, npcol=4, myprow, mypcol;
     int info, ictxt, izero=0, imone=-1, ione=1;
 
@@ -84,7 +86,7 @@ int main(int argc, char* argv[])
 
     // Setup B
     if (mypnum == 0) { printf("Setup B to be %d x %d\n", n, nrhs); fflush(0); }
-    int ib=1, jb=1, descB[9];
+    int descB[9];
     int localmb = numroc_(&n, &nb, &myprow, &izero, &nprow);
     int localnb = numroc_(&nrhs, &nb, &mypcol, &izero, &npcol);
     double* B = (double*)malloc(localmb * localnb * sizeof(double));
@@ -140,14 +142,19 @@ int main(int argc, char* argv[])
     // Get norm of residual from the dgemm above ( B_sav - Ax )
     double Rnorm = pdlange_(&maxnorm, &n, &nrhs, B_sav, &ione, &ione, descB_sav, work);
     double residual = Rnorm / (n * Anorm * Xnorm);
-    if (mypnum == 0) printf("residual = (%f / (%d * %f * %f)) = %f\n", Rnorm, n, Anorm, Xnorm, residual);
+    if (mypnum == 0) printf("residual = (%g / (%d * %g * %g)) = %g\n", Rnorm, n, Anorm, Xnorm, residual);
 
     // Check if B_sav - Ax is (near)zero
     if (mypnum == 0) printf("Printing if any A_orig * x - B_orig > 1e-9 ...\n");
-    for (int i=0; i<localmb; i++)
-        for (int j=0; j<localnb; j++)
-            if (B_sav[j*localmb+i] > 1e-9)
+    for (int i=0; i<localmb; i++) {
+        for (int j=0; j<localnb; j++) {
+            if (B_sav[j*localmb+i] > 1e-9) {
                 printf("problem at B[%d,%d][%d,%d] = %g > 1e-9\n", myprow, mypcol, i, j, B_sav[j*localmb+i]); fflush(0);
+            }
+        }
+    }
 
     if (mypnum == 0) printf("Done\n");
+    MPI_Barrier( MPI_COMM_WORLD );
+    MPI_Finalize();
 }

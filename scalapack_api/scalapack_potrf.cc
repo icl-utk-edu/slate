@@ -97,7 +97,7 @@ void slate_ppotrf(const char* uplostr, int n, scalar_t* a, int ia, int ja, int* 
     blas::Uplo uplo = blas::char2uplo(uplostr[0]);
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
-    int64_t lookahead = 1;
+    int64_t lookahead = slate_scalapack_set_lookahead();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     // Matrix sizes

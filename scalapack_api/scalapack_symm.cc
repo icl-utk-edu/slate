@@ -123,7 +123,7 @@ void slate_psymm(const char* sidestr, const char* uplostr, int m, int n, scalar_
     blas::Uplo uplo = blas::char2uplo(uplostr[0]);
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
-    int64_t lookahead = 1;
+    int64_t lookahead = slate_scalapack_set_lookahead();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     int64_t An = (side == blas::Side::Left ? m : n);

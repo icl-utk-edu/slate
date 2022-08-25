@@ -93,7 +93,7 @@ void slate_pgetrf(int m, int n, scalar_t* a, int ia, int ja, int* desca, int* ip
 {
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
-    int64_t lookahead = 1;
+    int64_t lookahead = slate_scalapack_set_lookahead();
     int64_t panel_threads = slate_scalapack_set_panelthreads();
     int64_t ib = slate_scalapack_set_ib();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();

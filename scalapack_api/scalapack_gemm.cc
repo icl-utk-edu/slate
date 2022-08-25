@@ -120,7 +120,7 @@ void slate_pgemm(const char* transastr, const char* transbstr, int m, int n, int
     blas::Op transB = blas::char2op(transbstr[0]);
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
-    int64_t lookahead = 1;
+    int64_t lookahead = slate_scalapack_set_lookahead();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     // sizes of A and B

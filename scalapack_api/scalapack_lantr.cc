@@ -99,7 +99,7 @@ blas::real_type<scalar_t> slate_plantr(const char* normstr, const char* uplostr,
     blas::Diag diag = blas::char2diag(diagstr[0]);
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
-    int64_t lookahead = 1;
+    int64_t lookahead = slate_scalapack_set_lookahead();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     // Matrix sizes

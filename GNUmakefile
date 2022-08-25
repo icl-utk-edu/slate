@@ -978,6 +978,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_posv.cc \
         scalapack_api/scalapack_potrf.cc \
         scalapack_api/scalapack_potri.cc \
+        scalapack_api/scalapack_potrs.cc \
         scalapack_api/scalapack_symm.cc \
         scalapack_api/scalapack_syr2k.cc \
         scalapack_api/scalapack_syrk.cc \

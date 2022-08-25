@@ -108,6 +108,7 @@ inline slate::SymmetricMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An
 template< typename scalar_t >
 inline slate::TriangularMatrix<scalar_t> slate_scalapack_submatrix(int Am, int An, slate::TriangularMatrix<scalar_t>& A, int ia, int ja, int* desca)
 {
+    if (ia == 1 && ja == 1 && Am == A.m() && An == A.n()) return A;
     assert((ia-1) % desc_MB(desca) == 0);
     assert(Am % desc_MB(desca) == 0);
     int64_t i1 = (ia-1)/desc_MB(desca);

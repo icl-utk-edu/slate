@@ -101,7 +101,8 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
 
     assert(B.mt() == A.mt());
 
-    // Only a single rhs is currently supported; TODO: implement block gmres
+    // Only a single rhs is currently supported
+    // TODO: implement block gmres
     assert(B.n() == 1);
 
     // workspace
@@ -112,7 +113,8 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
     std::vector<real_hi> colnorms_X(X.n());
     std::vector<real_hi> colnorms_R(R.n());
 
-    auto V = alloc_V(A, itermax+1);
+    auto V = alloc_V(A, itermax+1); // test basis
+    auto W = alloc_V(A, itermax+1); // solution basis
     auto z = alloc_V(A, 1);
     // allocate H as a single tile
     slate::Matrix<scalar_hi> H(itermax+1, itermax+1, itermax+1, 1, 1, A.mpiComm());
@@ -170,8 +172,6 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
     // IR
     int iiter = 0;
     while (iiter < itermax) {
-        std::cout << "IR: " << iiter << std::endl;
-
 
         // Check for convergence
         slate::copy(B, R, opts);
@@ -182,7 +182,6 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
             opts);
         colNorms( Norm::Max, X, colnorms_X.data(), opts );
         colNorms( Norm::Max, R, colnorms_R.data(), opts );
-        std::cout << "error: " << (colnorms_R[0]/(colnorms_X[0]*cte)) << " = " << colnorms_R[0] << " / " << colnorms_X[0] << "*" << cte << std::endl;
         if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
             iter = iiter;
             converged = true;
@@ -196,7 +195,6 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
         slate::copy(R, v0, opts);
 
         real_hi arnoldi_residual = norm(Norm::Fro, v0, opts);
-        std::cout << "  beta = " << arnoldi_residual << std::endl;
         if (arnoldi_residual == 0) {
             // Solver broke down, but residual is not small enough yet.
             converged = false;
@@ -212,23 +210,29 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
             }
         }
 
-        real_hi restart_tol = arnoldi_residual*eps*std::sqrt(A.n());
+        real_hi max_colnorms_X = 0;
+        for (int64_t i = 0; i < int64_t(colnorms_X.size()); ++i) {
+            max_colnorms_X = std::max(max_colnorms_X, colnorms_X[i]);
+        }
+        // Estimate the residual norm form convergence based on the current norm(X)
+        real_hi restart_tol = 0.99*max_colnorms_X*cte;
 
         int j = 0;
         for (; j < restart && iiter < itermax && arnoldi_residual > restart_tol;
                j++, iiter++) {
             auto Vj1 = V.slice(0, V.m()-1, j+1, j+1);
+            auto Wj1 = W.slice(0, W.m()-1, j+1, j+1);
 
             auto Vj = V.slice(0, V.m()-1, j, j);
 
             // Vj1 = M^-1 A Vj
             slate::copy(Vj, X_lo, opts);
             getrs(A_lo, pivots, X_lo, opts);
-            slate::copy(X_lo, z, opts);
+            slate::copy(X_lo, Wj1, opts);
 
             gemm<scalar_hi>(
                 scalar_hi(1.0), A,
-                                z,
+                                Wj1,
                 scalar_hi(0.0), Vj1,
                 opts);
 
@@ -282,26 +286,18 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
             }
             MPI_Bcast(&arnoldi_residual, 1, mpi_type<scalar_hi>::value,
                       S.tileRank(0, 0), A.mpiComm());
-            if (A.mpiRank() == 0) {
-                std::cout << "0: arnoldi_residual = " << arnoldi_residual << std::endl;
-            }
         }
         // update X
         auto H_j = H.slice(0, j-1, 0, j-1);
         auto S_j = S.slice(0, j-1, 0, 0);
         auto H_tri = TriangularMatrix<scalar_hi>(Uplo::Upper, Diag::NonUnit, H_j);
         trsm(Side::Left, scalar_hi(1.0), H_tri, S_j, opts);
-        auto V_j = V.slice(0, V.m()-1, 0, j-1);
+        auto W_0j = W.slice(0, W.m()-1, 1, j);
         gemm<scalar_hi>(
-            scalar_hi(1.0), V_j,
+            scalar_hi(1.0), W_0j,
                             S_j,
-            scalar_hi(0.0), z,
+            scalar_hi(1.0), X,
             opts);
-        slate::copy(z, X_lo, opts);
-        getrs(A_lo, pivots, X_lo, opts);
-        slate::copy(X_lo, z, opts);
-        add(scalar_hi(1.0), z, scalar_hi(1.0), X, opts);
-
     }
 
     if (! converged) {

@@ -294,12 +294,13 @@ void set(
 {
     using ij_tuple = typename BaseTrapezoidMatrix<scalar_t>::ij_tuple;
 
-    // Quadrants
-    // Ranges are [ begin, end ).
-    // 0 is interior          [ 0 : mt-2, 0 : nt-2 ]
-    // 1 is bottom row        [ mt-1,     0 : nt-2 ]
-    // 2 is right  col        [ 0 : mt-2, nt-1     ]
-    // 3 is bottom-right tile [ mt-1,     nt-1     ]
+    // Define index ranges for regions of matrix.
+    // Tiles in each region are all the same size.
+    // Ranges begin : end are [ begin, end ), exclusive of end.
+    // 0 is interior          [ 0 : mt-1, 0 : nt-1 ]
+    // 1 is bottom row        [     mt-1, 0 : nt-1 ]
+    // 2 is right  col        [ 0 : mt-1,     nt-1 ]
+    // 3 is bottom-right tile [     mt-1,     nt-1 ]
     // 0-3 are for off-diagonal tiles.
     // 4-7 are the same as 0-3, respectively, but for diagonal tiles.
     int64_t irange[4][2] = {

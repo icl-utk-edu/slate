@@ -252,8 +252,8 @@ void copy(internal::TargetType<Target::Devices>,
     slate_error_if(A.uplo() != B.uplo());
     bool lower = (B.uplo() == Uplo::Lower);
 
-    // Define index ranges for quadrants of matrix.
-    // Tiles in each quadrant are all the same size.
+    // Define index ranges for regions of matrix.
+    // Tiles in each region are all the same size.
     int64_t irange[6][2] = {
         // off-diagonal
         { 0,        B.mt()-1 },

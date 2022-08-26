@@ -346,8 +346,8 @@ void norm(
         vals_dev_arrays[device] = blas::device_malloc<real_t>(num_tiles*ldv);
     }
 
-    // Define index ranges for quadrants of matrix.
-    // Tiles in each quadrant are all the same size.
+    // Define index ranges for regions of matrix.
+    // Tiles in each region are all the same size.
     int64_t irange[4][2] = {
         { 0,        A.mt()-1 },
         { A.mt()-1, A.mt()   },

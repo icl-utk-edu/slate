@@ -231,6 +231,9 @@ void copy(internal::TargetType<Target::Devices>,
           int priority, int queue_index)
 {
     using ij_tuple = typename BaseMatrix<src_scalar_t>::ij_tuple;
+
+    // Define index ranges for regions of matrix.
+    // Tiles in each region are all the same size.
     int64_t irange[4][2] = {
         { 0,        B.mt()-1 },
         { B.mt()-1, B.mt()   },

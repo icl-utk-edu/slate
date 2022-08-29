@@ -63,7 +63,7 @@ blas::real_type<scalar_t> slate_planhe(const char* normstr, const char* uplostr,
     lapack::Norm norm = lapack::char2norm(normstr[0]);
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
-    int64_t lookahead = slate_scalapack_set_lookahead();
+    static int64_t lookahead = slate_scalapack_set_lookahead();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     // Matrix sizes

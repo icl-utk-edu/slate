@@ -93,7 +93,7 @@ void slate_pgetrs(const char* transstr, int n, int nrhs, scalar_t* a, int ia, in
 {
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
-    int64_t lookahead = slate_scalapack_set_lookahead();
+    static int64_t lookahead = slate_scalapack_set_lookahead();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     slate::Options const opts =  {

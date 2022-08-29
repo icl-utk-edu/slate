@@ -63,7 +63,7 @@ void slate_pherk(const char* uplostr, const char* transstr, int n, int k, blas::
     blas::Op transA = blas::char2op(transstr[0]);
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
-    int64_t lookahead = slate_scalapack_set_lookahead();
+    static int64_t lookahead = slate_scalapack_set_lookahead();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     // setup so op(A) is n-by-k

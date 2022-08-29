@@ -106,7 +106,7 @@ void slate_pgels(const char* transstr, int m, int n, int nrhs, scalar_t* a, int 
     static int verbose = slate_scalapack_set_verbose();
     static int64_t panel_threads = slate_scalapack_set_panelthreads();
     static int64_t inner_blocking = slate_scalapack_set_ib();
-    int64_t lookahead = slate_scalapack_set_lookahead();
+    static int64_t lookahead = slate_scalapack_set_lookahead();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     // A is m-by-n, BX is max(m, n)-by-nrhs.

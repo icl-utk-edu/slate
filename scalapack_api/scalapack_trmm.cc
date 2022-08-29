@@ -102,7 +102,7 @@ void slate_ptrmm(const char* sidestr, const char* uplostr, const char* transastr
     blas::Diag diag = blas::char2diag(diagstr[0]);
     static slate::Target target = slate_scalapack_set_target();
     static int verbose = slate_scalapack_set_verbose();
-    int64_t lookahead = slate_scalapack_set_lookahead();
+    static int64_t lookahead = slate_scalapack_set_lookahead();
     slate::GridOrder grid_order = slate_scalapack_blacs_grid_order();
 
     // setup so op(B) is m-by-n

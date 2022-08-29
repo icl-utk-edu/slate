@@ -107,33 +107,37 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
 
     // workspace
     auto R    = B.emptyLike();
+    R.   insertLocalTiles(target);
     auto A_lo = A.template emptyLike<scalar_lo>();
+    A_lo.insertLocalTiles(target);
     auto X_lo = X.template emptyLike<scalar_lo>();
+    X_lo.insertLocalTiles(target);
 
     std::vector<real_hi> colnorms_X(X.n());
     std::vector<real_hi> colnorms_R(R.n());
 
     auto V = alloc_V(A, itermax+1); // test basis
     auto W = alloc_V(A, itermax+1); // solution basis
-    auto z = alloc_V(A, 1);
-    // allocate H as a single tile
+
+    auto z = X.template emptyLike<scalar_hi>(); // workspace vector for orthogonalization
+    z.insertLocalTiles(Target::Host);
+
+    // Hessenberg Matrix.  Allocate as a single tile
     slate::Matrix<scalar_hi> H(itermax+1, itermax+1, itermax+1, 1, 1, A.mpiComm());
     H.insertLocalTiles(Target::Host);
-    // allocate S as a single tile
+    // least squares RHS.  Allocate as a single tile
     slate::Matrix<scalar_hi> S(itermax+1, 1, itermax+1, 1, 1, A.mpiComm());
     S.insertLocalTiles(Target::Host);
+    // Rotations
     std::vector<real_hi>   givens_alpha(itermax);
     std::vector<scalar_hi> givens_beta (itermax);
 
-    // insert local tiles
-    X_lo.insertLocalTiles(target);
-    R.   insertLocalTiles(target);
-    A_lo.insertLocalTiles(target);
 
     if (target == Target::Devices) {
         #pragma omp parallel
         #pragma omp master
         {
+            // TODO figure out which matrices should be held
             #pragma omp task default(shared)
             {
                 A.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
@@ -155,10 +159,8 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
     // stopping criteria
     real_hi cte = Anorm * eps * std::sqrt(A.n());
 
-    // Convert A from high to low precision, store result in A_lo.
+    // Compute the LU factorization of A in single-precision.
     slate::copy(A, A_lo, opts);
-
-    // Compute the LU factorization of A_lo.
     getrf(A_lo, pivots, opts);
 
 
@@ -214,8 +216,8 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
         for (int64_t i = 0; i < int64_t(colnorms_X.size()); ++i) {
             max_colnorms_X = std::max(max_colnorms_X, colnorms_X[i]);
         }
-        // Estimate the residual norm form convergence based on the current norm(X)
-        real_hi restart_tol = 0.99*max_colnorms_X*cte;
+        // Estimate convergence based on the current norm(X)
+        real_hi restart_tol = max_colnorms_X*cte;
 
         int j = 0;
         for (; j < restart && iiter < itermax && arnoldi_residual > restart_tol;
@@ -225,7 +227,7 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
 
             auto Vj = V.slice(0, V.m()-1, j, j);
 
-            // Vj1 = M^-1 A Vj
+            // Wj1 = M^-1 A Vj
             slate::copy(Vj, X_lo, opts);
             getrs(A_lo, pivots, X_lo, opts);
             slate::copy(X_lo, Wj1, opts);
@@ -269,8 +271,11 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
                 H.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
                 auto H_00 = H(0, 0);
                 H_00.at(j+1, j) = Vj1_norm;
+            }
 
-                // apply givens rotations
+            // apply givens rotations
+            if (H.tileRank(0, 0) == mpi_rank) {
+                auto H_00 = H(0, 0);
                 for (int64_t i = 0; i < j; ++i) {
                     blas::rot(1, &H_00.at(i, j), 1, &H_00.at(i+1, j), 1,
                               givens_alpha[i], givens_beta[i]);
@@ -308,11 +313,11 @@ void gesv_mixed_gmres(Matrix<scalar_hi>& A, Pivots& pivots,
         iter = -iiter-1;
 
         // Compute the LU factorization of A.
-        //getrf(A, pivots, opts);
+        getrf(A, pivots, opts);
 
         // Solve the system A * X = B.
-        //slate::copy(B, X, opts);
-        //getrs(A, pivots, X, opts);
+        slate::copy(B, X, opts);
+        getrs(A, pivots, X, opts);
     }
 
     if (target == Target::Devices) {

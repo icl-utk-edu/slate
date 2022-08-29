@@ -35,43 +35,13 @@ static bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
 template<typename scalar_t>
 static slate::Matrix<scalar_t> alloc_V(slate::Matrix<scalar_t> A, int64_t n)
 {
-    typedef typename Matrix<scalar_t>::ij_tuple ij_tuple;
-
-    const int64_t m = A.m();
-    const int64_t mt = A.mt();
-    const int64_t nt = A.nt();
-    const MPI_Comm mpi_comm = A.mpiComm();
-
-    std::vector<int64_t> tileMb(mt);
-    for (int64_t i = 0; i < mt; ++i) {
-        tileMb[i] = A.tileMb(i);
-    }
-    std::function<int64_t(int64_t)> tileMb_lambda = [tileMb] (int64_t i) {
-        return tileMb[i];
-    };
-
-    std::vector<int64_t> tileNb(nt);
-    for (int64_t i = 0; i < nt; ++i) {
-        tileNb[i] = A.tileNb(i);
-    }
-    std::function<int64_t(int64_t)> tileNb_lambda = [tileNb] (int64_t i) {
-        return tileNb[i];
-    };
-
-    std::vector<int> tileRank(nt);
-    for (int64_t i = 0; i < mt; ++i) {
-        tileRank[i] = A.tileRank(i, 0);
-    }
-    std::function<int(ij_tuple)> tileRank_lambda = [tileRank] (ij_tuple ij) {
-        return tileRank[std::get<0>(ij)];
-    };
-
-    std::function<int(ij_tuple)> tileDevice_lambda = [] (ij_tuple) {
-        return HostNum;
-    };
-
-
-    Matrix<scalar_t> V(m, n, tileMb_lambda, tileNb_lambda, tileRank_lambda, tileDevice_lambda, mpi_comm);
+    auto mpiComm = A.mpiComm();
+    auto tileMbFunc = A.tileMbFunc();
+    auto tileNbFunc = A.tileNbFunc();
+    auto tileRankFunc = A.tileRankFunc();
+    auto tileDeviceFunc = A.tileDeviceFunc();
+    Matrix<scalar_t> V(A.m(), n, tileMbFunc, tileNbFunc,
+                       tileRankFunc, tileDeviceFunc, mpiComm);
     V.insertLocalTiles(Target::Host);
     return V;
 }

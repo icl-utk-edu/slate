@@ -258,12 +258,12 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                         tiles[aux_pivot[0][j].localTileIndex()],
                         aux_pivot[0][j].localOffset());
 
-                    index = aux_pivot[0][j].localTileIndex();
+                    int index2 = aux_pivot[0][j].localTileIndex();
                     int offset = aux_pivot[0][j].localOffset();
 
                     global_pair = global_tracking[0][j];
-                    global_tracking[0][j] = global_tracking[index][offset];
-                    global_tracking[index][offset]=global_pair;
+                    global_tracking[0][j] = global_tracking[index2][offset];
+                    global_tracking[index2][offset]=global_pair;
                 }
             }
 
@@ -281,11 +281,12 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                 if (index % (2*step) == 0) {
                     if (index + step < nranks) {
 
-                        src = rank_rows[ index + step].first;
-                        i_current = rank_rows[ index ].second;
-                        i_dst = rank_rows[ index + step ].second;
+                        src       = rank_rows[index+step].first;
+                        i_dst     = rank_rows[index+step].second;
+                        i_current = rank_rows[index].second;
 
                         Awork.tileRecv(i_dst, 0, src, layout);
+                        Awork.tileGetForWriting(i_current, 0, LayoutConvert(layout));
 
                         MPI_Status status;
                         MPI_Recv(aux_pivot.at(1).data(),
@@ -344,20 +345,19 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                 }
                 else {
 
-                    dst = rank_rows[ index - step ].first;
+                    dst   = rank_rows[ index - step ].first;
                     i_src = rank_rows[ index ].second;
-
                     Awork.tileSend(i_src, 0, dst);
 
                     MPI_Send(aux_pivot.at(0).data(),
                              sizeof(AuxPivot<scalar_t>)*aux_pivot.at(0).size(),
                              MPI_BYTE, dst, 0, A.mpiComm());
                     break;
-                }
+              }
                 step *= 2;
 
-            } // for loop over levels
-        }
+          } // for loop over levels
+      }
 
         // Copy pivot information from aux_pivot to pivot.
         for (int64_t i = 0; i < diag_len; ++i) {

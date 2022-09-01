@@ -63,8 +63,8 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
-    std::vector< uint8_t > diag_vector(A_nt);
     uint8_t* column = column_vector.data();
+
     // Running two listBcastMT's simultaneously can hang due to task ordering
     // This dependency avoids that
     uint8_t listBcastMT_token;

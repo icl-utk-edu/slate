@@ -52,7 +52,7 @@ void steqr2(slate::internal::TargetType<target>,
 
     // Find the total number of processors.
     slate_mpi_call(
-        MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
+        MPI_Comm_size(Z.mpiComm(), &mpi_size));
 
     nrc = 0;
     ldc = 1;
@@ -70,7 +70,7 @@ void steqr2(slate::internal::TargetType<target>,
         ldc = max( 1, nrc );
         Q.resize(nrc*n);
         Z1d = slate::Matrix<scalar_t>::fromScaLAPACK(
-              n, n, &Q[0], nrc, nb, mpi_size, 1, MPI_COMM_WORLD);
+              n, n, &Q[0], nrc, nb, mpi_size, 1, Z.mpiComm());
         set(zero, one, Z1d);
     }
 

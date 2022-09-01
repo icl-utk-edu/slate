@@ -24,7 +24,8 @@ int verbose;
 int num_devices;
 
 //------------------------------------------------------------------------------
-void test_geset_dev_worker(int m, int n, int lda,
+void test_geset_dev_worker(
+    int m, int n, int lda,
     double offdiag_value, double diag_value)
 {
     if (num_devices == 0) {
@@ -96,7 +97,8 @@ void test_geset_dev_worker(int m, int n, int lda,
     test_assert( result < 3*eps );
 }
 
-void test_geset_dev() {
+void test_geset_dev()
+{
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
             // Corner cases
@@ -143,7 +145,8 @@ void test_geset_dev() {
 }
 
 //------------------------------------------------------------------------------
-void test_geset_batch_dev_worker(int m, int n, int lda,
+void test_geset_batch_dev_worker(
+    int m, int n, int lda,
     double offdiag_value, double diag_value,
     int batch_count)
 {
@@ -253,7 +256,8 @@ void test_geset_batch_dev_worker(int m, int n, int lda,
 
 }
 
-void test_geset_batch_dev() {
+void test_geset_batch_dev()
+{
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
             // Corner cases

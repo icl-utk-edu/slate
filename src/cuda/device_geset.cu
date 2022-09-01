@@ -93,6 +93,10 @@ void geset(
     scalar_t* A, int64_t lda,
     blas::Queue &queue)
 {
+    // quick return
+    if (m == 0 || n == 0) 
+        return;
+
     cudaSetDevice( queue.device() );
 
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
@@ -177,6 +181,9 @@ void geset(
 {
     // quick return
     if (batch_count == 0)
+        return;
+    // quick return
+    if (m == 0 || n == 0) 
         return;
 
     cudaSetDevice( queue.device() );

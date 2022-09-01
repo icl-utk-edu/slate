@@ -246,7 +246,8 @@ void set(internal::TargetType<Target::Devices>,
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    // TODO Should I copy the comments from internal/internal_tzset.cc?
+    // Define index ranges for regions of matrix.
+    // Tiles in each region are all the same size.
     int64_t irange[4][2] = {
         { 0,        A.mt()-1 },
         { A.mt()-1, A.mt()   },

@@ -258,13 +258,9 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                     }
                 }
             }
-
         }
-    }
+        #pragma omp taskwait
 
-    #pragma omp parallel
-    #pragma omp master
-    {
         A.tileLayoutReset();
     }
     A.clearWorkspace();

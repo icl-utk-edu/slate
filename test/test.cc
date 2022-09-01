@@ -139,6 +139,7 @@ std::vector< testsweeper::routines_t > routines = {
     // Cholesky
     { "posv",               test_posv,         Section::posv },
     { "posvMixed",          test_posv,         Section::posv },
+    { "posv_mixed_gmres",   test_posv,         Section::posv },
     { "pbsv",               test_pbsv,         Section::posv },
     { "",                   nullptr,           Section::newline },
 

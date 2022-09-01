@@ -6,6 +6,7 @@
 #include "slate/slate.hh"
 #include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
+#include "slate/HermitianMatrix.hh"
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
 
@@ -48,15 +49,16 @@ slate::Matrix<scalar_t> alloc_V(slate::BaseMatrix<scalar_t>& A, int64_t n,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel GMRES-IR LU factorization and solve.
+/// Distributed parallel GMRES-IR Cholesky factorization and solve.
 ///
 /// Computes the solution to a system of linear equations
 /// \[
 ///     A X = B,
 /// \]
-/// where $A$ is an n-by-n matrix and $X$ and $B$ are n-by-nrhs matrices.
+/// where $A$ is an n-by-n Hermitian positive definite matrix and $X$ and $B$
+/// are n-by-nrhs matrices.
 ///
-/// gesv_mixed_gmres first factorizes the matrix using getrf in low precision
+/// posv_mixed_gmres first factorizes the matrix using potrf in low precision
 /// (single) and uses this factorization within a GMRES-IR procedure to
 /// produce a solution with high precision (double) normwise backward error
 /// quality (see below). If the approach fails, the method falls back to a
@@ -89,16 +91,13 @@ slate::Matrix<scalar_t> alloc_V(slate::BaseMatrix<scalar_t>& A, int64_t n,
 ///     One of float, std::complex<float>.
 //------------------------------------------------------------------------------
 /// @param[in,out] A
-///     On entry, the n-by-n matrix $A$.
+///     On entry, the n-by-n Hermitian positive definite matrix $A$.
 ///     On exit, if iterative refinement has been successfully used
 ///     (return value = 0 and iter >= 0, see description below), then $A$ is
 ///     unchanged. If high precision (double) factorization has been used
 ///     (return value = 0 and iter < 0, see description below), then the
-///     array $A$ contains the factors $L$ and $U$ from the
-///     factorization $A = P L U$.
-///
-/// @param[out] pivots
-///     The pivot indices that define the permutation matrix $P$.
+///     array $A$ contains the factors $L$ or $U$ from the Cholesky
+///     factorization $A = U^H U$ or $A = L L^H$.
 ///
 /// @param[in] B
 ///     On entry, the n-by-nrhs right hand side matrix $B$.
@@ -133,10 +132,10 @@ slate::Matrix<scalar_t> alloc_V(slate::BaseMatrix<scalar_t>& A, int64_t n,
 ///         The factorization has been completed, but the factor U is exactly
 ///         singular, so the solution could not be computed.
 ///
-/// @ingroup gesv
+/// @ingroup posv
 ///
 template <typename scalar_hi, typename scalar_lo>
-void gesv_mixed_gmres( Matrix<scalar_hi>& A, Pivots& pivots,
+void posv_mixed_gmres( HermitianMatrix<scalar_hi>& A,
                     Matrix<scalar_hi>& B,
                     Matrix<scalar_hi>& X,
                     int& iter,
@@ -218,14 +217,14 @@ void gesv_mixed_gmres( Matrix<scalar_hi>& A, Pivots& pivots,
     // stopping criteria
     real_hi cte = Anorm * eps * std::sqrt(A.n());
 
-    // Compute the LU factorization of A in single-precision.
+    // Compute the Cholesky factorization of A in single-precision.
     slate::copy(A, A_lo, opts);
-    getrf(A_lo, pivots, opts);
+    potrf(A_lo, opts);
 
 
     // Solve the system A * X = B in low precision.
     slate::copy(B, X_lo, opts);
-    getrs(A_lo, pivots, X_lo, opts);
+    potrs(A_lo, X_lo, opts);
     slate::copy(X_lo, X, opts);
 
 
@@ -235,7 +234,8 @@ void gesv_mixed_gmres( Matrix<scalar_hi>& A, Pivots& pivots,
 
         // Check for convergence
         slate::copy(B, R, opts);
-        gemm<scalar_hi>(
+        hemm<scalar_hi>(
+            Side::Left,
             scalar_hi(-1.0), A,
                              X,
             scalar_hi(1.0),  R,
@@ -286,10 +286,11 @@ void gesv_mixed_gmres( Matrix<scalar_hi>& A, Pivots& pivots,
 
             // Wj1 = M^-1 A Vj
             slate::copy(Vj, X_lo, opts);
-            getrs(A_lo, pivots, X_lo, opts);
+            potrs(A_lo, X_lo, opts);
             slate::copy(X_lo, Wj1, opts);
 
-            gemm<scalar_hi>(
+            hemm<scalar_hi>(
+                Side::Left,
                 scalar_hi(1.0), A,
                                 Wj1,
                 scalar_hi(0.0), Vj1,
@@ -369,12 +370,12 @@ void gesv_mixed_gmres( Matrix<scalar_hi>& A, Pivots& pivots,
         // routine.
         iter = -iiter-1;
 
-        // Compute the LU factorization of A.
-        getrf(A, pivots, opts);
+        // Compute the Cholesky factorization of A.
+        potrf(A, opts);
 
         // Solve the system A * X = B.
         slate::copy(B, X, opts);
-        getrs(A, pivots, X, opts);
+        potrs(A, X, opts);
     }
 
     if (target == Target::Devices) {
@@ -389,25 +390,25 @@ void gesv_mixed_gmres( Matrix<scalar_hi>& A, Pivots& pivots,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template <>
-void gesv_mixed_gmres<double>(
-    Matrix<double>& A, Pivots& pivots,
+void posv_mixed_gmres<double>(
+    HermitianMatrix<double>& A,
     Matrix<double>& B,
     Matrix<double>& X,
     int& iter,
     Options const& opts)
 {
-    gesv_mixed_gmres<double, float>(A, pivots, B, X, iter, opts);
+    posv_mixed_gmres<double, float>(A, B, X, iter, opts);
 }
 
 template <>
-void gesv_mixed_gmres< std::complex<double> >(
-    Matrix< std::complex<double> >& A, Pivots& pivots,
+void posv_mixed_gmres< std::complex<double> >(
+    HermitianMatrix< std::complex<double> >& A,
     Matrix< std::complex<double> >& B,
     Matrix< std::complex<double> >& X,
     int& iter,
     Options const& opts)
 {
-    gesv_mixed_gmres<std::complex<double>, std::complex<float>>(A, pivots, B, X, iter, opts);
+    posv_mixed_gmres<std::complex<double>, std::complex<float>>(A, B, X, iter, opts);
 }
 
 } // namespace slate

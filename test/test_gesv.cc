@@ -386,7 +386,7 @@ void test_gesv_work(Params& params, bool run)
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
-        if (params.routine == "gesvMixed")
+        if (params.routine == "gesvMixed" || params.routine == "gesv_mixed_gmres")
             params.okay() = params.okay() && params.iters() >= 0;
     }
 

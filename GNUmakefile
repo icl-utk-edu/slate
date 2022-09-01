@@ -585,6 +585,7 @@ ifneq ($(only_unit),1)
         src/pbtrs.cc \
         src/posv.cc \
         src/posvMixed.cc \
+        src/posv_mixed_gmres.cc \
         src/potrf.cc \
         src/potri.cc \
         src/potrs.cc \

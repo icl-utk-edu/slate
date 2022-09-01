@@ -639,6 +639,26 @@ void posvMixed(
 // todo: forward real-symmetric matrices to posvMixed?
 
 //-----------------------------------------
+// posv_mixed_gmres()
+template <typename scalar_t>
+void posv_mixed_gmres(
+    HermitianMatrix<scalar_t>& A,
+             Matrix<scalar_t>& B,
+             Matrix<scalar_t>& X,
+    int& iter,
+    Options const& opts = Options());
+
+template <typename scalar_hi, typename scalar_lo>
+void posv_mixed_gmres(
+    HermitianMatrix<scalar_hi>& A,
+             Matrix<scalar_hi>& B,
+             Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts = Options());
+
+// todo: forward real-symmetric matrices to posv_mixed_gmres?
+
+//-----------------------------------------
 // pbtrf()
 template <typename scalar_t>
 void pbtrf(

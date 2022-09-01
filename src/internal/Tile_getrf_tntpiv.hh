@@ -95,8 +95,8 @@ void getrf_tntpiv(
 
     using real_t = blas::real_type<scalar_t>;
 
-    const scalar_t one  = 1.0;
     const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
 
     int64_t nb = tiles[0].nb();
 
@@ -118,7 +118,8 @@ void getrf_tntpiv(
             // thread max search
             for (int64_t idx = thread_rank;
                  idx < int64_t(tiles.size());
-                 idx += thread_size) {
+                 idx += thread_size)
+            {
                 auto tile = tiles[idx];
 
                 // if diagonal tile
@@ -203,7 +204,8 @@ void getrf_tntpiv(
             // column scaling and trailing update
             for (int64_t idx = thread_rank;
                  idx < int64_t(tiles.size());
-                 idx += thread_size) {
+                 idx += thread_size)
+            {
                 auto tile = tiles[idx];
 
                 // column scaling
@@ -248,15 +250,15 @@ void getrf_tntpiv(
                         blas::geru(Layout::ColMajor,
                                    tile.mb()-j-1, k+kb-j-1,
                                    -one, &tile.at(j+1, j), 1,
-                                   top_block.data(), 1,
-                                   &tile.at(j+1, j+1), tile.stride());
+                                         top_block.data(), 1,
+                                         &tile.at(j+1, j+1), tile.stride());
                     }
                     else {
                         blas::geru(Layout::ColMajor,
                                    tile.mb(), k+kb-j-1,
                                    -one, &tile.at(0, j), 1,
-                                   top_block.data(), 1,
-                                   &tile.at(0, j+1), tile.stride());
+                                         top_block.data(), 1,
+                                         &tile.at(0, j+1), tile.stride());
                     }
                 }
             }
@@ -310,7 +312,8 @@ void getrf_tntpiv(
             // rank-ib update to the right
             for (int64_t idx = thread_rank;
                  idx < int64_t(tiles.size());
-                 idx += thread_size) {
+                 idx += thread_size)
+            {
                 auto tile = tiles[idx];
 
                 if (idx == 0) {
@@ -318,9 +321,9 @@ void getrf_tntpiv(
                         blas::gemm(blas::Layout::ColMajor,
                                    Op::NoTrans, Op::NoTrans,
                                    tile.mb()-k-kb, nb-k-kb, kb,
-                                   -one, &tile.at(k+kb, k   ), tile.stride(),
-                                   &tile.at(k,   k+kb), tile.stride(),
-                                   one,  &tile.at(k+kb, k+kb), tile.stride());
+                                   -one, &tile.at( k+kb, k    ), tile.stride(),
+                                         &tile.at( k,    k+kb ), tile.stride(),
+                                   one,  &tile.at( k+kb, k+kb ), tile.stride());
                     }
                 }
                 else {
@@ -328,7 +331,7 @@ void getrf_tntpiv(
                                Op::NoTrans, Op::NoTrans,
                                tile.mb(), nb-k-kb, kb,
                                -one, &tile.at(0, k), tile.stride(),
-                               top_block.data(), kb,
+                                     top_block.data(), kb,
                                one,  &tile.at(0, k+kb), tile.stride());
                 }
             }
@@ -353,7 +356,6 @@ void getrf_tntpiv(
             }
         }
     }
-
 }
 
 } // namespace internal

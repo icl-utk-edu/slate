@@ -420,9 +420,9 @@ void getrf(
                         blas::gemm(blas::Layout::ColMajor,
                                    Op::NoTrans, Op::NoTrans,
                                    tile.mb()-k-kb, nb-k-kb, kb,
-                                   -one, &tile.at(k+kb,k   ), tile.stride(),
-                                         &tile.at(k,   k+kb), tile.stride(),
-                                   one,  &tile.at(k+kb,k+kb), tile.stride());
+                                   -one, &tile.at( k+kb, k    ), tile.stride(),
+                                         &tile.at( k,    k+kb ), tile.stride(),
+                                   one,  &tile.at( k+kb, k+kb ), tile.stride());
                     }
                 }
                 else {

@@ -24,12 +24,15 @@ namespace specialization {
 /// @ingroup gesv_specialization
 ///
 template <Target target, typename scalar_t>
-void getrf_tntpiv(slate::internal::TargetType<target>,
-                  Matrix<scalar_t>& A, Pivots& pivots,
-                  int64_t ib, int max_panel_threads, int64_t lookahead)
+void getrf_tntpiv(
+    slate::internal::TargetType<target>,
+    Matrix<scalar_t>& A, Pivots& pivots,
+    int64_t ib, int max_panel_threads, int64_t lookahead)
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
+
+    const scalar_t one = 1.0;
 
     // Host can use Col/RowMajor for row swapping,
     // RowMajor is slightly more efficient.
@@ -73,10 +76,12 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
     // workspace
     auto Awork = A.emptyLike();
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
         for (int64_t k = 0; k < min_mt_nt; ++k) {
 
             int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
@@ -112,7 +117,7 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
 
                 internal::copy<Target::HostTask>(Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
 
-                //broadcast panel
+                // broadcast panel
                 BcastList bcast_list_A;
                 bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
                                                A.sub(k, k, k+1, A_nt-1)}});
@@ -124,8 +129,8 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
             }
 
             #pragma omp task depend(inout:column[k]) \
-                            depend(inout:listBcastMT_token) \
-                            priority(priority_one)
+                             depend(inout:listBcastMT_token) \
+                             priority(priority_one)
             {
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Akk);
@@ -153,6 +158,7 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                                  depend(inout:column[j]) \
                                  priority(priority_one)
                 {
+                    // swap rows in A(k:mt-1, j)
                     int tag_j = j;
                     internal::permuteRows<target>(
                         Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
@@ -165,9 +171,8 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                     // solve A(k, k) A(k, j) = A(k, j)
                     internal::trsm<target>(
                         Side::Left,
-                        scalar_t(1.0), std::move(Tkk),
-                        A.sub(k, k, j, j), priority_one,
-                        Layout::ColMajor, j-k+1);
+                        one, std::move( Tkk ), A.sub( k, k, j, j ),
+                        priority_one, Layout::ColMajor, j-k+1);
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
@@ -175,10 +180,10 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
 
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                     internal::gemm<target>(
-                        scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
-                        A.sub(k, k, j, j),
-                        scalar_t(1.0),  A.sub(k+1, A_mt-1, j, j),
-                        host_layout, priority_one, j-k+1);
+                        -one, A.sub( k+1, A_mt-1, k, k ),
+                              A.sub( k, k, j, j ),
+                        one,  A.sub( k+1, A_mt-1, j, j ),
+                        target_layout, priority_one, j-k+1);
                 }
             }
 
@@ -216,8 +221,8 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
                     // solve A(k, k) A(k, kl+1:nt-1) = A(k, kl+1:nt-1)
                     internal::trsm<target>(
                         Side::Left,
-                        scalar_t(1.0), std::move(Tkk),
-                        A.sub(k, k, k+1+lookahead, A_nt-1),
+                        one, std::move( Tkk ),
+                             A.sub( k, k, k+1+lookahead, A_nt-1 ),
                         priority_zero, Layout::ColMajor, queue_1);
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
@@ -234,10 +239,10 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
 
                     // A(k+1:mt-1, kl+1:nt-1) -= A(k+1:mt-1, k) * A(k, kl+1:nt-1)
                     internal::gemm<target>(
-                        scalar_t(-1.0), A.sub(k+1, A_mt-1, k, k),
-                        A.sub(k, k, k+1+lookahead, A_nt-1),
-                        scalar_t(1.0),  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
-                        host_layout, priority_zero, queue_1);
+                        -one, A.sub( k+1, A_mt-1, k, k ),
+                              A.sub( k, k, k+1+lookahead, A_nt-1 ),
+                        one,  A.sub( k+1, A_mt-1, k+1+lookahead, A_nt-1 ),
+                        target_layout, priority_zero, queue_1);
                 }
             }
             if (is_shared) {
@@ -274,39 +279,22 @@ void getrf_tntpiv(slate::internal::TargetType<target>,
 /// @ingroup gesv_specialization
 ///
 template <Target target, typename scalar_t>
-void getrf_tntpiv(Matrix<scalar_t>& A, Pivots& pivots,
-                  Options const& opts)
+void getrf_tntpiv(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts)
 {
-    int64_t lookahead;
-    try {
-        lookahead = opts.at(Option::Lookahead).i_;
-        assert(lookahead >= 0);
-    }
-    catch (std::out_of_range&) {
-        lookahead = 1;
-    }
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
-    int64_t ib;
-    try {
-        ib = opts.at(Option::InnerBlocking).i_;
-        assert(ib >= 0);
-    }
-    catch (std::out_of_range&) {
-        ib = 16;
-    }
+    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
 
-    int64_t max_panel_threads;
-    try {
-        max_panel_threads = opts.at(Option::MaxPanelThreads).i_;
-        assert(max_panel_threads >= 1 && max_panel_threads <= omp_get_max_threads());
-    }
-    catch (std::out_of_range&) {
-        max_panel_threads = std::max(omp_get_max_threads()/2, 1);
-    }
+    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
+    max_panel_threads
+        = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
 
-    internal::specialization::getrf_tntpiv(internal::TargetType<target>(),
-                                           A, pivots,
-                                           ib, max_panel_threads, lookahead);
+    internal::specialization::getrf_tntpiv(
+        internal::TargetType<target>(),
+        A, pivots,
+        ib, max_panel_threads, lookahead);
 }
 
 //------------------------------------------------------------------------------
@@ -363,16 +351,11 @@ void getrf_tntpiv(Matrix<scalar_t>& A, Pivots& pivots,
 /// @ingroup gesv_computational
 ///
 template <typename scalar_t>
-void getrf_tntpiv(Matrix<scalar_t>& A, Pivots& pivots,
-                  Options const& opts)
+void getrf_tntpiv(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts)
 {
-    Target target;
-    try {
-        target = Target(opts.at(Option::Target).i_);
-    }
-    catch (std::out_of_range&) {
-        target = Target::HostTask;
-    }
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:

@@ -34,9 +34,9 @@ void test_gesv_work(Params& params, bool run)
         trans = params.trans();
 
     int64_t m;
-    if (params.routine == "getrf" ||
-        params.routine == "getrf_nopiv" ||
-        params.routine == "getrf_tntpiv")
+    if (params.routine == "getrf"
+        || params.routine == "getrf_nopiv"
+        || params.routine == "getrf_tntpiv")
         m = params.dim.m();
     else
         m = params.dim.n();  // square, n-by-n
@@ -82,9 +82,11 @@ void test_gesv_work(Params& params, bool run)
     params.gflops2();
     params.gflops2.name( "trs gflop/s" );
 
-    bool do_getrs = (
-        (check && (params.routine == "getrf" || params.routine == "getrf_nopiv" || params.routine == "getrf_tntpiv"))
-        || (params.routine == "getrs" || params.routine == "getrs_nopiv"));
+    bool do_getrs = params.routine == "getrs"
+                    || params.routine == "getrs_nopiv"
+                    || (check && (params.routine == "getrf"
+                                  || params.routine == "getrf_nopiv"
+                                  || params.routine == "getrf_tntpiv"));
 
     if (params.routine == "gesvMixed") {
         params.iters();
@@ -315,16 +317,16 @@ void test_gesv_work(Params& params, bool run)
             else if (trans == slate::Op::ConjTrans)
                 opA = conjTranspose(A);
 
-            if ((check && params.routine == "getrf")
-                || params.routine == "getrs"
+            if (params.routine == "getrs"
+                || params.routine == "getrf"
                 || params.routine == "getrf_tntpiv")
             {
                 slate::lu_solve_using_factor(opA, pivots, B, opts);
                 // Using traditional BLAS/LAPACK name
                 // slate::getrs(opA, pivots, B, opts);
             }
-            else if ((check && params.routine == "getrf_nopiv")
-                     || params.routine == "getrs_nopiv")
+            else if (params.routine == "getrs_nopiv"
+                     || params.routine == "getrf_nopiv")
             {
                 slate::lu_solve_using_factor_nopiv(opA, B, opts);
                 // Using traditional BLAS/LAPACK name

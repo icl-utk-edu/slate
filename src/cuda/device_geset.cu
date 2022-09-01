@@ -37,7 +37,7 @@ __device__ void geset_func(
 }
 
 //------------------------------------------------------------------------------
-/// Kernel implementing element-wise tile set.
+/// Kernel implementing element-wise tile.
 /// @copydoc geset
 template <typename scalar_t>
 __global__ void geset_kernel(
@@ -62,7 +62,7 @@ __global__ void geset_batch_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Element-wise m-by-n matrix Aarray[k]
+/// Element-wise m-by-n matrix A
 /// to diag_value on the diagonal and offdiag_value on the off-diagonals.
 ///
 /// @param[in] m

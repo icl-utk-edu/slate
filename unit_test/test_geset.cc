@@ -48,7 +48,7 @@ void test_geset_dev_worker(int m, int n, int lda,
     blas::Queue queue( device_idx, batch_arrays_index );
 
     double* dAdata;
-    dAdata = blas::device_malloc<double>( lda * n );
+    dAdata = blas::device_malloc<double>( blas::max( lda * n, 1 ) );
     test_assert( dAdata != nullptr );
     slate::Tile<double> dA( m, n, dAdata, lda,
         device_idx, slate::TileKind::UserOwned );
@@ -85,7 +85,7 @@ void test_geset_dev_worker(int m, int n, int lda,
         lapack::Norm::Fro, A.mb(), A.nb(), A.data(), A.stride() );
 
     if (verbose) {
-        printf( "\n(%4d, %4d, %4d, %4.2f, %4.2f): error %.2f",
+        printf( "\n(%4d, %4d, %4d, %4.2f, %4.2f ): error %.2f",
             m, n, lda, offdiag_value, diag_value, result );
     }
 
@@ -99,8 +99,12 @@ void test_geset_dev_worker(int m, int n, int lda,
 void test_geset_dev() {
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
+            // Corner cases
+            {   0,   0,   0 },
+            { 100,   0, 100 },
+            {   0, 100,   0 },
             // Square A matrix
-            {   1,   1,   1},
+            {   1,   1,   1 },
             {  10,  10,  10 },
             {  20,  20,  20 },
             {  50,  50,  50 },
@@ -170,7 +174,7 @@ void test_geset_batch_dev_worker(int m, int n, int lda,
 
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         double* dtmp_data;
-        dtmp_data = blas::device_malloc<double>( lda * n );
+        dtmp_data = blas::device_malloc<double>( blas::max( lda * n, 1 ) );
         test_assert( dtmp_data != nullptr );
         list_dA.push_back( slate::Tile<double>( m, n, dtmp_data, lda,
             device_idx, slate::TileKind::UserOwned ) );
@@ -231,7 +235,7 @@ void test_geset_batch_dev_worker(int m, int n, int lda,
         if (verbose) {
             // Display (m, n, lda, offdiag_value, diag_value)
             if (m_i == 0)
-                printf( "\n(%4d, %4d, %4d, %4.2f, %4.2f):",
+                printf( "\n(%4d, %4d, %4d, %4.2f, %4.2f ):",
                     m, n, lda, offdiag_value, diag_value );
             if (verbose > 1)
                 printf( "\n\t[%d] error %.2e ",
@@ -252,8 +256,12 @@ void test_geset_batch_dev_worker(int m, int n, int lda,
 void test_geset_batch_dev() {
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
+            // Corner cases
+            {   0,   0,   0 },
+            { 100,   0, 100 },
+            {   0, 100,   0 },
             // Square A matrix
-            {   1,   1,   1},
+            {   1,   1,   1 },
             {  10,  10,  10 },
             {  20,  20,  20 },
             {   7,   7,   7 },

@@ -90,6 +90,10 @@ void gescale(
     scalar_t* A, int64_t lda,
     blas::Queue& queue)
 {
+    // quick return
+    if (m == 0 || n == 0) 
+        return;
+
     cudaSetDevice( queue.device() );
 
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
@@ -191,6 +195,9 @@ void gescale(
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
+    // quick return
+    if (m == 0 || n == 0) 
+        return;
     // quick return
     if (batch_count == 0)
         return;

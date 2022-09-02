@@ -163,7 +163,7 @@ void test_gescale_dev_worker(int m, int n, int lda,
     blas::Queue queue( device_idx, batch_arrays_index );
 
     scalar_t* dAdata;
-    dAdata = blas::device_malloc<scalar_t>( lda * n );
+    dAdata = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ) );
     test_assert( dAdata != nullptr );
     slate::Tile<scalar_t> dA( m, n, dAdata, lda,
         device_idx, slate::TileKind::UserOwned );
@@ -227,6 +227,10 @@ template <typename scalar_t>
 void test_gescale_dev() {
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
+            // Corner cases
+            {   0,   0,   0 },
+            { 100,   0, 100 },
+            {   0, 100,   0 },
             // Square A matrix
             {   1,   1,   1},
             {  10,  10,  10 },
@@ -374,7 +378,7 @@ void test_gescale_batch_dev_worker(int m, int n, int lda,
     // Create the dA matrices on the device
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         scalar_t* dtmp_data;
-        dtmp_data = blas::device_malloc<scalar_t>( lda * n );
+        dtmp_data = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ) );
         test_assert( dtmp_data != nullptr );
         list_dA.push_back( slate::Tile<scalar_t>( m, n, dtmp_data, lda,
             device_idx, slate::TileKind::UserOwned ) );
@@ -473,6 +477,10 @@ template <typename scalar_t>
 void test_gescale_batch_dev() {
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
+            // Corner cases
+            {   0,   0,   0 },
+            { 100,   0, 100 },
+            {   0, 100,   0 },
             // Square A matrix
             {   1,   1,   1},
             {  10,  10,  10 },

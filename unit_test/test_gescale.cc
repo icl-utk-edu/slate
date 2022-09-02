@@ -16,6 +16,75 @@ using slate::roundup;
 
 namespace test {
 
+// The codes below are used to get a correct print of the types
+// XXX Where should we put it, if we keep it.
+template <typename scalar_t>
+struct TypeName
+{
+    static const char* name()
+    {
+        return typeid(scalar_t).name();
+    }
+};
+
+template <>
+struct TypeName<float>{
+    static const char* name()
+    {
+        return "float";
+    }
+};
+
+template <>
+struct TypeName<double>{
+    static const char* name()
+    {
+        return "double";
+    }
+};
+
+template <>
+struct TypeName<std::complex<float>>{
+    static const char* name()
+    {
+        return "std::complex<float>";
+    }
+};
+
+template <>
+struct TypeName<std::complex<double>>{
+    static const char* name()
+    {
+        return "std::complex<double>";
+    }
+};
+
+
+// The codes below come from testsweeper.hh
+// XXX Should we include the header instead?
+
+/// For real scalar types.
+template <typename real_t>
+struct MakeScalarTraits {
+    static real_t make( real_t re, real_t im )
+        { return re; }
+};
+
+/// For complex scalar types.
+template <typename real_t>
+struct MakeScalarTraits< std::complex<real_t> > {
+    static std::complex<real_t> make( real_t re, real_t im )
+        { return std::complex<real_t>( re, im ); }
+};
+
+/// Converts complex value into scalar_t,
+/// discarding imaginary part if scalar_t is real.
+template <typename scalar_t>
+scalar_t make_scalar( std::complex<double> val )
+{
+    return MakeScalarTraits<scalar_t>::make( std::real(val), std::imag(val) );
+}
+
 //------------------------------------------------------------------------------
 // global variables
 int mpi_rank;
@@ -43,9 +112,11 @@ void setup_data(slate::Tile<scalar_t>& A)
 /// If offdiag_value and diag_value are 0, call a variant.
 template <typename scalar_t>
 void setup_data(slate::Tile<scalar_t>& A,
-    double offdiag_value, double diag_value)
+    scalar_t offdiag_value, scalar_t diag_value)
 {
-    if (offdiag_value == 0.0 && diag_value == 0.0 ) {
+    if (std::real( offdiag_value ) == 0.0 && std::imag( offdiag_value ) == 0.0
+        && std::real( diag_value ) == 0.0 && std::imag( diag_value ) == 0.0)
+    {
         setup_data( A );
         return;
     }
@@ -66,10 +137,10 @@ void setup_data(slate::Tile<scalar_t>& A,
 }
 
 //------------------------------------------------------------------------------
-//void test_gescale_dev() {
+template <typename scalar_t>
 void test_gescale_dev_worker(int m, int n, int lda,
-    double offdiag_value, double diag_value,
-    double numer, double denom)
+    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t numer, scalar_t denom)
 {
     if (num_devices == 0) {
         test_skip("requires num_devices > 0");
@@ -78,12 +149,12 @@ void test_gescale_dev_worker(int m, int n, int lda,
     double eps = std::numeric_limits<double>::epsilon();
     int ldb = lda;
 
-    double* Adata = new double[ lda * n ];
-    slate::Tile<double> A( m, n, Adata, lda,
+    scalar_t* Adata = new scalar_t[ lda * n ];
+    slate::Tile<scalar_t> A( m, n, Adata, lda,
         slate::HostNum, slate::TileKind::UserOwned );
 
-    double* Bdata = new double[ ldb * n ];
-    slate::Tile<double> B( m, n, Bdata, ldb,
+    scalar_t* Bdata = new scalar_t[ ldb * n ];
+    slate::Tile<scalar_t> B( m, n, Bdata, ldb,
         slate::HostNum, slate::TileKind::UserOwned );
 
     int device_idx;
@@ -91,15 +162,15 @@ void test_gescale_dev_worker(int m, int n, int lda,
     const int batch_arrays_index = 0;
     blas::Queue queue( device_idx, batch_arrays_index );
 
-    double* dAdata;
-    dAdata = blas::device_malloc<double>( lda * n );
+    scalar_t* dAdata;
+    dAdata = blas::device_malloc<scalar_t>( lda * n );
     test_assert( dAdata != nullptr );
-    slate::Tile<double> dA( m, n, dAdata, lda,
+    slate::Tile<scalar_t> dA( m, n, dAdata, lda,
         device_idx, slate::TileKind::UserOwned );
 
     setup_data( A, offdiag_value, diag_value );
 
-    blas::device_memcpy<double>( dA.data(), A.data(),
+    blas::device_memcpy<scalar_t>( dA.data(), A.data(),
                         lda * n,
                         blas::MemcpyKind::HostToDevice,
                         queue );
@@ -114,7 +185,7 @@ void test_gescale_dev_worker(int m, int n, int lda,
 
     setup_data( B, offdiag_value, diag_value );
     // compute on CPU to check the results
-    double scaling = numer / denom;
+    scalar_t scaling = numer / denom;
     for (int j = 0; j < n; ++j) {
         for (int i = 0; i < m; ++i) {
             Bdata[ i + j*ldb ] *= scaling;
@@ -134,8 +205,15 @@ void test_gescale_dev_worker(int m, int n, int lda,
 
     if (verbose) {
         // Display (m, n, lda, offdiag_value, diag_value, numer, denom)
-        printf( "\n(%4d, %4d, %4d, %4.2f, %4.2f, %4.2f, %4.2f): error %.2e ",
-            m, n, lda, offdiag_value, diag_value, numer, denom, result );
+        printf(
+            "\n(%4d, %4d, %4d, (%6.2f, %6.2f), (%6.2f, %6.2f),"
+            " (%6.2f, %6.2f), (%6.2f, %6.2f) ): error %.2e ",
+            m, n, lda,
+            std::real( offdiag_value ), std::imag( offdiag_value ),
+            std::real( diag_value ), std::imag( diag_value ),
+            std::real( numer ), std::imag( numer ),
+            std::real( denom ), std::imag( denom ),
+            result );
     }
 
     blas::device_free( dAdata );
@@ -145,6 +223,7 @@ void test_gescale_dev_worker(int m, int n, int lda,
     test_assert( result < 3*eps );
 }
 
+template <typename scalar_t>
 void test_gescale_dev() {
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
@@ -167,50 +246,101 @@ void test_gescale_dev() {
         };
 
     // Each tuple contains (offdiag_value, diag_value)
-    std::list< std::tuple< double, double > > values_list{
-            {   0,   0 }, //Special case
-            {   0, 0.5 },
-            { 0.3,   0 },
-            { 0.3, 0.5 },
+    std::list<
+              std::tuple< std::complex<double>, std::complex<double> >
+              > values_list{
+            // Special case
+            { {   0,   0 },
+              {   0,   0 } },
+            // Offdiag 0, diag != 0
+            { {   0,   0 },
+              { 0.5, 0.5 } },
+            // Offdiag != 0, diag 0
+            { { 0.3, 0.3 },
+              {   0,   0 } },
+            // Real != 0, Imag 0
+            { {   0, 0.3 },
+              {   0, 0.5 } },
+            // Real = 0, Imag != 0
+            { { 0.3,   0 },
+              { 0.5,   0 } },
         };
 
     // Each tuple contains (numer, denom)
-    std::list< std::tuple< double, double > > scalings_list{
+    std::list<
+              std::tuple< std::complex<double>, std::complex<double> >
+              > scalings_list{
         // Positive scaling only
-        {   0, 1.0 },
-        { 1.0, 1.0 },
-        { 1.0, 2.0 },
-        { 2.0, 1.0 },
-        { 2.0, 3.0 },
-        { 3.0, 2.0 },
+        // Scale by 0/1
+        { {    0,    0 },
+          {  1.0,    0 } },
+        // Scale by 1/1
+        { {  1.0,    0 },
+          {  1.0,    0 } },
+        // Scale by (1+1i) / (2+2i)
+        { {  1.0,  1.0 },
+          {  2.0,  2.0 } },
+        // Scale by (2+2i) / (1+1i)
+        { {  2.0,  2.0 },
+          {  1.0,  1.0 } },
+        // Scale by (2+2i) / (3+3i)
+        { {  2.0,  2.0 },
+          {  3.0,  3.0 } },
+        // Scale by (3+3i) / (2+2i)
+        { {  3.0,  3.0 },
+          {  2.0,  2.0 } },
         // Negative scaling
-        {-1.0, 1.0 },
-        { 1.0,-1.0 },
-        {-2.0, 3.0 },
-        { 3.0,-2.0 },
+        // Scale by (-1+1i) / (1-1i)
+        { { -1.0,  1.0 },
+          {  1.0, -1.0 } },
+        // Scale by (1-1i) / (-1+1i)
+        { {  1.0, -1.0 },
+          { -1.0,  1.0 } },
+        // Scale by (-2+2i) / (3-3i)
+        { { -2.0,  2.0 },
+          {  3.0, -3.0 } },
+        // Scale by (3+3i) / (-2-2i)
+        { {  3.0,  3.0 },
+          { -2.0, -2.0 } },
       };
 
+    printf( "\n\t%s, ", TypeName<scalar_t>::name() );
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );
         int nA  = std::get<1>( dims );
         int lda = std::get<2>( dims );
         for (auto values : values_list) {
-            double offdiag_value  = std::get<0>( values );
-            double diag_value     = std::get<1>( values );
+            std::complex<double> offdiag_value  = std::get<0>( values );
+            std::complex<double> diag_value     = std::get<1>( values );
             for (auto scalings : scalings_list) {
-                double numer = std::get<0>( scalings );
-                double denom = std::get<1>( scalings );
-                test_gescale_dev_worker(
-                    mA, nA, lda, offdiag_value, diag_value, numer, denom );
+                std::complex<double> numer = std::get<0>( scalings );
+                std::complex<double> denom = std::get<1>( scalings );
+                test_gescale_dev_worker<scalar_t>(
+                    mA, nA, lda,
+                    make_scalar<scalar_t>( offdiag_value ),
+                    make_scalar<scalar_t>( diag_value ),
+                    make_scalar<scalar_t>( numer ),
+                    make_scalar<scalar_t>( denom ) );
             }
         }
     }
 }
 
+void test_gescale_device()
+{
+    // TODO have a "pass/fail" message for each type, instead of one overall.
+    test_gescale_dev<float>();
+    test_gescale_dev<double>();
+    // Complex cases
+    test_gescale_dev<std::complex<float>>();
+    test_gescale_dev<std::complex<double>>();
+}
+
 //------------------------------------------------------------------------------
+template <typename scalar_t>
 void test_gescale_batch_dev_worker(int m, int n, int lda,
-    double offdiag_value, double diag_value,
-    double numer, double denom, int batch_count)
+    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t numer, scalar_t denom, int batch_count)
 {
     if (num_devices == 0) {
         test_skip("requires num_devices > 0");
@@ -218,21 +348,21 @@ void test_gescale_batch_dev_worker(int m, int n, int lda,
 
     double eps = std::numeric_limits<double>::epsilon();
     int ldb = lda;
-    std::vector< slate::Tile< double > > list_A( 0 );
-    std::vector< slate::Tile< double > > list_dA( 0 );
+    std::vector< slate::Tile< scalar_t > > list_A( 0 );
+    std::vector< slate::Tile< scalar_t > > list_dA( 0 );
 
     // Create the A matrices on the Host
     for (int m_i = 0; m_i < batch_count; ++m_i) {
-        double* tmp_data = new double[ lda * n ];
+        scalar_t* tmp_data = new scalar_t[ lda * n ];
         test_assert( tmp_data != nullptr );
-        list_A.push_back( slate::Tile<double>( m, n, tmp_data, lda,
+        list_A.push_back( slate::Tile<scalar_t>( m, n, tmp_data, lda,
             slate::HostNum, slate::TileKind::UserOwned ) );
         setup_data( list_A.back(), offdiag_value, diag_value );
     }
 
     // Create the B matrix on the Host
-    double* Bdata = new double[ ldb * n ];
-    slate::Tile<double> B( m, n, Bdata, ldb,
+    scalar_t* Bdata = new scalar_t[ ldb * n ];
+    slate::Tile<scalar_t> B( m, n, Bdata, ldb,
         slate::HostNum, slate::TileKind::UserOwned );
 
     // Create the queue
@@ -243,16 +373,16 @@ void test_gescale_batch_dev_worker(int m, int n, int lda,
 
     // Create the dA matrices on the device
     for (int m_i = 0; m_i < batch_count; ++m_i) {
-        double* dtmp_data;
-        dtmp_data = blas::device_malloc<double>( lda * n );
+        scalar_t* dtmp_data;
+        dtmp_data = blas::device_malloc<scalar_t>( lda * n );
         test_assert( dtmp_data != nullptr );
-        list_dA.push_back( slate::Tile<double>( m, n, dtmp_data, lda,
+        list_dA.push_back( slate::Tile<scalar_t>( m, n, dtmp_data, lda,
             device_idx, slate::TileKind::UserOwned ) );
     }
 
-    double** Aarray = new double*[ batch_count ];
-    double** dAarray;
-    dAarray = blas::device_malloc<double*>( batch_count );
+    scalar_t** Aarray = new scalar_t*[ batch_count ];
+    scalar_t** dAarray;
+    dAarray = blas::device_malloc<scalar_t*>( batch_count );
     test_assert( dAarray != nullptr );
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         auto A  = list_A[ m_i ];
@@ -261,13 +391,13 @@ void test_gescale_batch_dev_worker(int m, int n, int lda,
         Aarray[m_i] = dA.data();
 
         // Copy the m_i'th matrix to the device
-        blas::device_memcpy<double>( dA.data(), A.data(),
+        blas::device_memcpy<scalar_t>( dA.data(), A.data(),
                             lda * n,
                             blas::MemcpyKind::HostToDevice,
                             queue );
     }
     // Transfer the batch_array to the device
-    blas::device_memcpy<double*>( dAarray, Aarray,
+    blas::device_memcpy<scalar_t*>( dAarray, Aarray,
                         batch_count,
                         blas::MemcpyKind::HostToDevice,
                         queue );
@@ -289,7 +419,7 @@ void test_gescale_batch_dev_worker(int m, int n, int lda,
     // Setup B, imitating what happens on the device
     setup_data( B, offdiag_value, diag_value );
     // compute on CPU to check the results
-    double scaling = numer / denom;
+    scalar_t scaling = numer / denom;
     for (int j = 0; j < n; ++j) {
         for (int i = 0; i < m; ++i) {
             Bdata[ i + j*ldb ] *= scaling;
@@ -300,7 +430,7 @@ void test_gescale_batch_dev_worker(int m, int n, int lda,
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         auto dA = list_dA[ m_i ];
         auto A  = list_A[ m_i ];
-        double *Adata = A.data();
+        scalar_t *Adata = A.data();
 
         //blas::axpy( lda*n, neg_one, B.data(), ione, A.data(), ione );
         for (int j = 0; j < n; ++j) {
@@ -316,8 +446,14 @@ void test_gescale_batch_dev_worker(int m, int n, int lda,
         if (verbose) {
             // Display (m, n, lda, offdiag_value, diag_value, numer, denom)
             if (m_i == 0)
-                printf( "\n(%4d, %4d, %4d, %4.2f, %4.2f, %4.2f, %4.2f):",
-                    m, n, lda, offdiag_value, diag_value, numer, denom );
+                printf(
+                    "\n(%4d, %4d, %4d, (%6.2f, %6.2f), (%6.2f, %6.2f),"
+                    " (%6.2f, %6.2f), (%6.2f, %6.2f) ):",
+                    m, n, lda,
+                    std::real( offdiag_value ), std::imag( offdiag_value ),
+                    std::real( diag_value ), std::imag( diag_value ),
+                    std::real( numer ), std::imag( numer ),
+                    std::real( denom ), std::imag( denom ) );
             if (verbose > 1)
                 printf( "\n\t[%d] error %.2e ",
                         m_i, result );
@@ -333,6 +469,7 @@ void test_gescale_batch_dev_worker(int m, int n, int lda,
 
 }
 
+template <typename scalar_t>
 void test_gescale_batch_dev() {
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
@@ -353,42 +490,80 @@ void test_gescale_batch_dev() {
         };
 
     // Each tuple contains (offdiag_value, diag_value)
-    std::list< std::tuple< double, double > > values_list{
-            {   0,   0 }, //Special case
-            {   0, 0.5 },
-            { 0.3,   0 },
-            { 0.3, 0.5 },
+    std::list<
+              std::tuple< std::complex<double>, std::complex<double> >
+              > values_list{
+            // Special case
+            { {   0,   0 },
+              {   0,   0 } },
+            // Offdiag 0, diag != 0
+            { {   0,   0 },
+              { 0.5, 0.5 } },
+            // Offdiag != 0, diag 0
+            { { 0.3, 0.3 },
+              {   0,   0 } },
+            // Real != 0, Imag 0
+            { {   0, 0.3 },
+              {   0, 0.5 } },
+            // Real = 0, Imag != 0
+            { { 0.3,   0 },
+              { 0.5,   0 } },
         };
 
     // Each tuple contains (numer, denom)
-    std::list< std::tuple< double, double > > scalings_list{
+    std::list<
+              std::tuple< std::complex<double>, std::complex<double> >
+              > scalings_list{
         // Positive scaling only
-        { 2.0, 3.0 },
-        { 3.0, 2.0 },
+        // Scale by (2+2i) / (3+3i)
+        { {  2.0,  2.0 },
+          {  3.0,  3.0 } },
+        // Scale by (3+3i) / (2+2i)
+        { {  3.0,  3.0 },
+          {  2.0,  2.0 } },
         // Negative scaling
-        {-2.0, 3.0 },
-        { 3.0,-2.0 },
+        // Scale by (-2+2i) / (3-3i)
+        { { -2.0,  2.0 },
+          {  3.0, -3.0 } },
+        // Scale by (3+3i) / (-2-2i)
+        { {  3.0,  3.0 },
+          { -2.0, -2.0 } },
       };
 
     std::list< int > batch_count_list{ 1, 2, 3, 4, 5, 10, 20, 100 };
 
+    printf( "\n\t%s, ", TypeName<scalar_t>::name() );
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );
         int nA  = std::get<1>( dims );
         int lda = std::get<2>( dims );
         for (auto values : values_list) {
-            double offdiag_value  = std::get<0>( values );
-            double diag_value     = std::get<1>( values );
+            std::complex<double> offdiag_value  = std::get<0>( values );
+            std::complex<double> diag_value     = std::get<1>( values );
             for (auto scalings : scalings_list) {
-                double numer = std::get<0>( scalings );
-                double denom = std::get<1>( scalings );
+                std::complex<double> numer = std::get<0>( scalings );
+                std::complex<double> denom = std::get<1>( scalings );
                 for (auto batch_count : batch_count_list)
-                    test_gescale_batch_dev_worker(
-                        mA, nA, lda, offdiag_value, diag_value,
-                        numer, denom, batch_count );
+                    test_gescale_batch_dev_worker<scalar_t>(
+                        mA, nA, lda,
+                        make_scalar<scalar_t>( offdiag_value ),
+                        make_scalar<scalar_t>( diag_value ),
+                        make_scalar<scalar_t>( numer ),
+                        make_scalar<scalar_t>( denom ),
+                        batch_count );
             }
         }
     }
+}
+
+void test_gescale_batch_device()
+{
+    // TODO have a "pass/fail" message for each type, instead of one overall.
+    test_gescale_batch_dev<float>();
+    test_gescale_batch_dev<double>();
+    // Complex cases
+    test_gescale_batch_dev<std::complex<float>>();
+    test_gescale_batch_dev<std::complex<double>>();
 }
 
 //------------------------------------------------------------------------------
@@ -398,10 +573,10 @@ void run_tests()
     if (mpi_rank == 0) {
         //-------------------- geset_dev
         run_test(
-            test_gescale_dev, "gescale_dev" );
+            test_gescale_device, "gescale_device:" );
         //-------------------- geset_batch_dev
         run_test(
-            test_gescale_batch_dev, "gescale_batch_dev" );
+            test_gescale_batch_device, "gescale_batch_device:" );
     }
 }
 

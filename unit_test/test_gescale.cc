@@ -138,7 +138,8 @@ void setup_data(slate::Tile<scalar_t>& A,
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void test_gescale_dev_worker(int m, int n, int lda,
+void test_gescale_dev_worker(
+    int m, int n, int lda,
     scalar_t offdiag_value, scalar_t diag_value,
     scalar_t numer, scalar_t denom)
 {
@@ -224,7 +225,8 @@ void test_gescale_dev_worker(int m, int n, int lda,
 }
 
 template <typename scalar_t>
-void test_gescale_dev() {
+void test_gescale_dev()
+{
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
             // Corner cases
@@ -342,7 +344,8 @@ void test_gescale_device()
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void test_gescale_batch_dev_worker(int m, int n, int lda,
+void test_gescale_batch_dev_worker(
+    int m, int n, int lda,
     scalar_t offdiag_value, scalar_t diag_value,
     scalar_t numer, scalar_t denom, int batch_count)
 {
@@ -474,7 +477,8 @@ void test_gescale_batch_dev_worker(int m, int n, int lda,
 }
 
 template <typename scalar_t>
-void test_gescale_batch_dev() {
+void test_gescale_batch_dev()
+{
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
             // Corner cases

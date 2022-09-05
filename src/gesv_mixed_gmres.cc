@@ -152,10 +152,11 @@ void gesv_mixed_gmres( Matrix<scalar_hi>& A, Pivots& pivots,
     const real_hi eps = std::numeric_limits<real_hi>::epsilon();
     iter = 0;
     const int64_t itermax = 30;
-    const int64_t restart = std::min(int64_t(30), itermax);
+    const int64_t restart = std::min(std::min(int64_t(30), itermax), A.tileMb(0)-1);
     const int64_t mpi_rank = A.mpiRank();
 
     assert(B.mt() == A.mt());
+    slate_assert(A.tileMb(0) >= restart);
 
     // TODO: implement block gmres
     if (B.n() != 1) {
@@ -174,23 +175,23 @@ void gesv_mixed_gmres( Matrix<scalar_hi>& A, Pivots& pivots,
     std::vector<real_hi> colnorms_R(R.n());
 
     // test basis.  First column corresponds to the residual
-    auto V = alloc_V(A, itermax+1, target);
+    auto V = alloc_V(A, restart+1, target);
     // solution basis.  Columns correspond to those in V.  First column is unused
-    auto W = alloc_V(A, itermax+1, target);
+    auto W = alloc_V(A, restart+1, target);
 
     // workspace vector for the orthogonalization process
     auto z = X.template emptyLike<scalar_hi>();
     z.insertLocalTiles(target);
 
     // Hessenberg Matrix.  Allocate as a single tile
-    slate::Matrix<scalar_hi> H(itermax+1, itermax+1, itermax+1, 1, 1, A.mpiComm());
+    slate::Matrix<scalar_hi> H(restart+1, restart+1, restart+1, 1, 1, A.mpiComm());
     H.insertLocalTiles(Target::Host);
     // least squares RHS.  Allocate as a single tile
-    slate::Matrix<scalar_hi> S(itermax+1, 1, itermax+1, 1, 1, A.mpiComm());
+    slate::Matrix<scalar_hi> S(restart+1, 1, restart+1, 1, 1, A.mpiComm());
     S.insertLocalTiles(Target::Host);
     // Rotations
-    std::vector<real_hi>   givens_alpha(itermax);
-    std::vector<scalar_hi> givens_beta (itermax);
+    std::vector<real_hi>   givens_alpha(restart);
+    std::vector<scalar_hi> givens_beta (restart);
 
 
     if (target == Target::Devices) {

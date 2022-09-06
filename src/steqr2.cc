@@ -50,9 +50,6 @@ void steqr2(slate::internal::TargetType<target>,
 
     bool wantz = (jobz == Job::Vec);
 
-    // Find the total number of processors.
-    slate_mpi_call(
-        MPI_Comm_size(Z.mpiComm(), &mpi_size));
 
     nrc = 0;
     ldc = 1;
@@ -63,6 +60,9 @@ void steqr2(slate::internal::TargetType<target>,
     // Build the matrix Z using 1-dim grid.
     slate::Matrix<scalar_t> Z1d;
     if (wantz) {
+        // Find the total number of processors.
+        slate_mpi_call(
+            MPI_Comm_size(Z.mpiComm(), &mpi_size));
         n = Z.n();
         nb = Z.tileNb(0);
         myrow = Z.mpiRank();

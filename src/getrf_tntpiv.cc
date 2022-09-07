@@ -183,7 +183,7 @@ void getrf_tntpiv(
                         -one, A.sub( k+1, A_mt-1, k, k ),
                               A.sub( k, k, j, j ),
                         one,  A.sub( k+1, A_mt-1, j, j ),
-                        target_layout, priority_one, j-k+1);
+                        host_layout, priority_one, j-k+1);
                 }
             }
 
@@ -242,7 +242,7 @@ void getrf_tntpiv(
                         -one, A.sub( k+1, A_mt-1, k, k ),
                               A.sub( k, k, k+1+lookahead, A_nt-1 ),
                         one,  A.sub( k+1, A_mt-1, k+1+lookahead, A_nt-1 ),
-                        target_layout, priority_zero, queue_1);
+                        host_layout, priority_zero, queue_1);
                 }
             }
             if (is_shared) {

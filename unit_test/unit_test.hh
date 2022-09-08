@@ -163,6 +163,67 @@ std::string type_name()
 //------------------------------------------------------------------------------
 typedef void test_function(void);
 
+template <typename scalar_t>
+using test_tpl_function = void (*)();
+
+// Vars declared in unit_test.cc
+extern int g_total;
+extern int g_pass;
+extern int g_fail;
+extern int g_skip;
+
+std::string output_test(const std::string str);
+
+/// Returns string for "pass".
+std::string output_pass();
+
+/// Returns string for "failed" and error message.
+std::string output_fail(AssertError& e);
+
+/// Returns string for "skipped" and message.
+std::string output_skip(SkipException& e);
+
+//------------------------------------------------------------------------------
+/// Runs a templated single test.
+/// Prints label and either pass, failed, or skipped.
+/// Catches and reports all exceptions.
+template <typename scalar_t>
+void run_test(test_tpl_function<scalar_t> func, const char* name)
+{
+    printf( output_test(
+          std::string( name ) + " - " + type_name<scalar_t>() ).c_str() );
+    fflush( stdout );
+    ++g_total;
+
+    try {
+        // run function
+        func();
+        printf( output_pass().c_str() );
+        ++g_pass;
+    }
+    catch (SkipException& e) {
+        printf( output_skip(e).c_str() );
+        --g_total;
+        ++g_skip;
+    }
+    catch (AssertError& e) {
+        printf( output_fail(e).c_str() );
+        ++g_fail;
+    }
+    catch (std::exception& e) {
+        AssertError err( "unexpected exception: " + std::string( e.what() ),
+                        __FILE__, __LINE__ );
+        printf( output_fail( err ).c_str() );
+        ++g_fail;
+    }
+    catch (...) {
+        AssertError err( "unexpected exception: (unknown type)",
+                        __FILE__, __LINE__ );
+        printf( output_fail( err ).c_str() );
+        ++g_fail;
+    }
+}
+
 void run_test(test_function* func, const char* name);
 void run_test(test_function* func, const char* name, MPI_Comm comm);
 

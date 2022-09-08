@@ -14,10 +14,10 @@
 #include "slate/internal/mpi.hh"
 #include "testsweeper.hh"
 
-static int g_total = 0;
-static int g_pass  = 0;
-static int g_fail  = 0;
-static int g_skip  = 0;
+int g_total = 0;
+int g_pass  = 0;
+int g_fail  = 0;
+int g_skip  = 0;
 
 //------------------------------------------------------------------------------
 // ANSI color codes
@@ -83,10 +83,21 @@ std::string output_test(const char* str)
     return string_printf("%-60s", str);
 }
 
+std::string output_test(const std::string str)
+{
+    return output_test( str.c_str() );
+}
+
 std::string output_test(const char* str, int rank)
 {
     std::string tmp = string_printf("rank %2d, %s", rank, str);
     return string_printf("%-60s", tmp.c_str());
+}
+
+std::string output_test(const std::string str, int rank)
+{
+    std::string tmp = string_printf( "rank %2d, %s", rank, str.c_str() );
+    return string_printf( "%-60s", tmp.c_str() );
 }
 
 //------------------------------------------------------------------------------

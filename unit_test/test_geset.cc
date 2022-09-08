@@ -11,79 +11,11 @@
 #include "slate/internal/util.hh"
 
 #include "unit_test.hh"
+#include "../testsweeper/testsweeper.hh"
 
 using slate::roundup;
 
 namespace test {
-
-// The codes below are used to get a correct print of the types
-// XXX Where should we put it, if we keep it.
-template <typename scalar_t>
-struct TypeName
-{
-    static const char* name()
-    {
-        return typeid(scalar_t).name();
-    }
-};
-
-template <>
-struct TypeName<float>{
-    static const char* name()
-    {
-        return "float";
-    }
-};
-
-template <>
-struct TypeName<double>{
-    static const char* name()
-    {
-        return "double";
-    }
-};
-
-template <>
-struct TypeName<std::complex<float>>{
-    static const char* name()
-    {
-        return "std::complex<float>";
-    }
-};
-
-template <>
-struct TypeName<std::complex<double>>{
-    static const char* name()
-    {
-        return "std::complex<double>";
-    }
-};
-
-
-// The codes below come from testsweeper.hh
-// XXX Should we include the header instead?
-
-/// For real scalar types.
-template <typename real_t>
-struct MakeScalarTraits {
-    static real_t make( real_t re, real_t im )
-        { return re; }
-};
-
-/// For complex scalar types.
-template <typename real_t>
-struct MakeScalarTraits< std::complex<real_t> > {
-    static std::complex<real_t> make( real_t re, real_t im )
-        { return std::complex<real_t>( re, im ); }
-};
-
-/// Converts complex value into scalar_t,
-/// discarding imaginary part if scalar_t is real.
-template <typename scalar_t>
-scalar_t make_scalar( std::complex<double> val )
-{
-    return MakeScalarTraits<scalar_t>::make( std::real(val), std::imag(val) );
-}
 
 //------------------------------------------------------------------------------
 // global variables
@@ -147,7 +79,7 @@ void test_geset_dev_worker(
     //blas::axpy( lda*n, neg_one, B.data(), ione, A.data(), ione );
     for (int j = 0; j < n; ++j) {
         for (int i = 0; i < m; ++i) {
-            Adata[i + j*lda] = Bdata[i + j*ldb] -  Adata[i + j*lda];
+            Adata[ i + j*lda ] = Bdata[ i + j*ldb ] -  Adata[ i + j*lda ];
         }
     }
 
@@ -225,7 +157,6 @@ void test_geset_dev()
               { 2.718281828459045, -1.732050807568877 } },
         };
 
-    printf( "\n\t%s, ", TypeName<scalar_t>::name() );
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );
         int nA  = std::get<1>( dims );
@@ -235,20 +166,18 @@ void test_geset_dev()
             std::complex<double> diag_value     = std::get<1>( values );
             test_geset_dev_worker<scalar_t>(
                 mA, nA, lda,
-                make_scalar<scalar_t>( offdiag_value ),
-                make_scalar<scalar_t>( diag_value ) );
+                testsweeper::make_scalar<scalar_t>( offdiag_value ),
+                testsweeper::make_scalar<scalar_t>( diag_value ) );
         }
     }
 }
 
-void test_geset_device()
+template <typename... scalar_t>
+void run_tests_geset_device()
 {
-    // TODO have a "pass/fail" message for each type, instead of one overall.
-    test_geset_dev<float>();
-    test_geset_dev<double>();
-    // Complex cases
-    test_geset_dev<std::complex<float>>();
-    test_geset_dev<std::complex<double>>();
+    ( run_test<scalar_t>(
+                          test_geset_dev<scalar_t>, "geset_dev" ),
+      ... );
 }
 
 //------------------------------------------------------------------------------
@@ -297,7 +226,7 @@ void test_geset_batch_dev_worker(
     test_assert( dAarray != nullptr );
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         auto dA = list_dA[ m_i ];
-        Aarray[m_i] = dA.data();
+        Aarray[ m_i ] = dA.data();
     }
     blas::device_memcpy<scalar_t*>( dAarray, Aarray,
                         batch_count,
@@ -335,7 +264,7 @@ void test_geset_batch_dev_worker(
         //blas::axpy( lda*n, neg_one, B.data(), ione, A.data(), ione );
         for (int j = 0; j < n; ++j) {
             for (int i = 0; i < m; ++i) {
-                Adata[i + j*lda] = Bdata[i + j*ldb] -  Adata[i + j*lda];
+                Adata[ i + j*lda ] = Bdata[ i + j*ldb ] -  Adata[ i + j*lda ];
             }
         }
 
@@ -351,8 +280,7 @@ void test_geset_batch_dev_worker(
                     std::real( offdiag_value ), std::imag( offdiag_value ),
                     std::real( diag_value ), std::imag( diag_value ) );
             if (verbose > 1)
-                printf( "\n\t[%d] error %.2e ",
-                    m_i, result );
+                printf( "\n\t[%d] error %.2e ", m_i, result );
         }
 
         blas::device_free( dA.data() );
@@ -420,7 +348,6 @@ void test_geset_batch_dev()
 
     std::list< int > batch_count_list{ 1, 2, 3, 4, 5, 10, 20, 100 };
 
-    printf( "\n\t%s, ", TypeName<scalar_t>::name() );
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );
         int nA  = std::get<1>( dims );
@@ -431,21 +358,19 @@ void test_geset_batch_dev()
             for (auto batch_count : batch_count_list)
                 test_geset_batch_dev_worker<scalar_t>(
                     mA, nA, lda,
-                    make_scalar<scalar_t>( offdiag_value ),
-                    make_scalar<scalar_t>( diag_value ),
+                    testsweeper::make_scalar<scalar_t>( offdiag_value ),
+                    testsweeper::make_scalar<scalar_t>( diag_value ),
                     batch_count );
         }
     }
 }
 
-void test_geset_batch_device()
+template <typename... scalar_t>
+void run_tests_geset_batch_device()
 {
-    // TODO have a "pass/fail" message for each type, instead of one overall.
-    test_geset_batch_dev<float>();
-    test_geset_batch_dev<double>();
-    // Complex cases
-    test_geset_batch_dev<std::complex<float>>();
-    test_geset_batch_dev<std::complex<double>>();
+    ( run_test<scalar_t>(
+                          test_geset_batch_dev<scalar_t>, "geset_batch_dev" ),
+      ... );
 }
 
 //------------------------------------------------------------------------------
@@ -453,14 +378,16 @@ void test_geset_batch_device()
 void run_tests()
 {
     if (mpi_rank == 0) {
-        // XXX Do we want to have ':' at the end for the output or move it
-        // somewhere else?
+
         //-------------------- geset_dev
-        run_test(
-            test_geset_device, "geset_device:" );
+        run_tests_geset_device<
+            float, double, std::complex<float>, std::complex<double>
+            >();
+
         //-------------------- geset_batch_dev
-        run_test(
-            test_geset_batch_device, "geset_batch_device:" );
+        run_tests_geset_batch_device<
+            float, double, std::complex<float>, std::complex<double>
+            >();
     }
 }
 
@@ -471,18 +398,18 @@ int main(int argc, char** argv)
 {
     using namespace test;  // for globals mpi_rank, etc.
 
-    MPI_Init(&argc, &argv);
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &mpi_size);
+    MPI_Init( &argc, &argv );
+    MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
+    MPI_Comm_size( MPI_COMM_WORLD, &mpi_size );
 
     num_devices = blas::get_device_count();
 
     verbose = 0;
     for (int i = 1; i < argc; ++i)
-        if (argv[i] == std::string("-v"))
+        if (argv[ i ] == std::string( "-v" ))
             verbose += 1;
 
-    int err = unit_test_main(MPI_COMM_WORLD);  // which calls run_tests()
+    int err = unit_test_main( MPI_COMM_WORLD );  // which calls run_tests()
 
     MPI_Finalize();
     return err;

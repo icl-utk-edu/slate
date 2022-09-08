@@ -333,6 +333,7 @@ void norm(
     else if (in_norm == Norm::Fro) {
         values[0] = 0;  // scale
         values[1] = 1;  // sumsq
+        #pragma omp taskgroup
         for (int64_t j = 0; j < A.nt(); ++j) {
             // diagonal tile
             if (j < A.mt() && A.tileIsLocal(j, j)) {

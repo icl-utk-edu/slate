@@ -11,79 +11,11 @@
 #include "slate/internal/util.hh"
 
 #include "unit_test.hh"
+#include "../testsweeper/testsweeper.hh"
 
 using slate::roundup;
 
 namespace test {
-
-// The codes below are used to get a correct print of the types
-// XXX Where should we put it, if we keep it.
-template <typename scalar_t>
-struct TypeName
-{
-    static const char* name()
-    {
-        return typeid(scalar_t).name();
-    }
-};
-
-template <>
-struct TypeName<float>{
-    static const char* name()
-    {
-        return "float";
-    }
-};
-
-template <>
-struct TypeName<double>{
-    static const char* name()
-    {
-        return "double";
-    }
-};
-
-template <>
-struct TypeName<std::complex<float>>{
-    static const char* name()
-    {
-        return "std::complex<float>";
-    }
-};
-
-template <>
-struct TypeName<std::complex<double>>{
-    static const char* name()
-    {
-        return "std::complex<double>";
-    }
-};
-
-
-// The codes below come from testsweeper.hh
-// XXX Should we include the header instead?
-
-/// For real scalar types.
-template <typename real_t>
-struct MakeScalarTraits {
-    static real_t make( real_t re, real_t im )
-        { return re; }
-};
-
-/// For complex scalar types.
-template <typename real_t>
-struct MakeScalarTraits< std::complex<real_t> > {
-    static std::complex<real_t> make( real_t re, real_t im )
-        { return std::complex<real_t>( re, im ); }
-};
-
-/// Converts complex value into scalar_t,
-/// discarding imaginary part if scalar_t is real.
-template <typename scalar_t>
-scalar_t make_scalar( std::complex<double> val )
-{
-    return MakeScalarTraits<scalar_t>::make( std::real(val), std::imag(val) );
-}
 
 //------------------------------------------------------------------------------
 // global variables
@@ -171,12 +103,14 @@ void test_gescale_dev_worker(
 
     setup_data( A, offdiag_value, diag_value );
 
-    blas::device_memcpy<scalar_t>( dA.data(), A.data(),
+    blas::device_memcpy<scalar_t>(
+                        dA.data(), A.data(),
                         lda * n,
                         blas::MemcpyKind::HostToDevice,
                         queue );
 
-    slate::device::gescale( m, n,
+    slate::device::gescale(
+                          m, n,
                           numer, denom,
                           dA.data(), lda,
                           queue );
@@ -196,7 +130,7 @@ void test_gescale_dev_worker(
     //blas::axpy( lda*n, neg_one, B.data(), ione, A.data(), ione );
     for (int j = 0; j < n; ++j) {
         for (int i = 0; i < m; ++i) {
-            Adata[i + j*lda] = Bdata[i + j*ldb] -  Adata[i + j*lda];
+            Adata[ i + j*lda ] = Bdata[ i + j*ldb ] -  Adata[ i + j*lda ];
         }
     }
 
@@ -310,7 +244,6 @@ void test_gescale_dev()
           { -2.0, -2.0 } },
       };
 
-    printf( "\n\t%s, ", TypeName<scalar_t>::name() );
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );
         int nA  = std::get<1>( dims );
@@ -323,23 +256,21 @@ void test_gescale_dev()
                 std::complex<double> denom = std::get<1>( scalings );
                 test_gescale_dev_worker<scalar_t>(
                     mA, nA, lda,
-                    make_scalar<scalar_t>( offdiag_value ),
-                    make_scalar<scalar_t>( diag_value ),
-                    make_scalar<scalar_t>( numer ),
-                    make_scalar<scalar_t>( denom ) );
+                    testsweeper::make_scalar<scalar_t>( offdiag_value ),
+                    testsweeper::make_scalar<scalar_t>( diag_value ),
+                    testsweeper::make_scalar<scalar_t>( numer ),
+                    testsweeper::make_scalar<scalar_t>( denom ) );
             }
         }
     }
 }
 
-void test_gescale_device()
+template <typename... scalar_t>
+void run_tests_gescale_device()
 {
-    // TODO have a "pass/fail" message for each type, instead of one overall.
-    test_gescale_dev<float>();
-    test_gescale_dev<double>();
-    // Complex cases
-    test_gescale_dev<std::complex<float>>();
-    test_gescale_dev<std::complex<double>>();
+    ( run_test<scalar_t>(
+                          test_gescale_dev<scalar_t>, "gescale_dev" ),
+      ... );
 }
 
 //------------------------------------------------------------------------------
@@ -395,21 +326,24 @@ void test_gescale_batch_dev_worker(
         auto A  = list_A[ m_i ];
         auto dA = list_dA[ m_i ];
         // Register the address on the device
-        Aarray[m_i] = dA.data();
+        Aarray[ m_i ] = dA.data();
 
         // Copy the m_i'th matrix to the device
-        blas::device_memcpy<scalar_t>( dA.data(), A.data(),
+        blas::device_memcpy<scalar_t>(
+                            dA.data(), A.data(),
                             lda * n,
                             blas::MemcpyKind::HostToDevice,
                             queue );
     }
     // Transfer the batch_array to the device
-    blas::device_memcpy<scalar_t*>( dAarray, Aarray,
+    blas::device_memcpy<scalar_t*>(
+                        dAarray, Aarray,
                         batch_count,
                         blas::MemcpyKind::HostToDevice,
                         queue );
 
-    slate::device::batch::gescale( m, n,
+    slate::device::batch::gescale(
+                          m, n,
                           numer, denom,
                           dAarray, lda,
                           batch_count, queue );
@@ -442,7 +376,7 @@ void test_gescale_batch_dev_worker(
         //blas::axpy( lda*n, neg_one, B.data(), ione, A.data(), ione );
         for (int j = 0; j < n; ++j) {
             for (int i = 0; i < m; ++i) {
-                Adata[i + j*lda] = Bdata[i + j*ldb] -  Adata[i + j*lda];
+                Adata[ i + j*lda ] = Bdata[ i + j*ldb ] -  Adata[ i + j*lda ];
             }
         }
 
@@ -544,7 +478,6 @@ void test_gescale_batch_dev()
 
     std::list< int > batch_count_list{ 1, 2, 3, 4, 5, 10, 20, 100 };
 
-    printf( "\n\t%s, ", TypeName<scalar_t>::name() );
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );
         int nA  = std::get<1>( dims );
@@ -558,10 +491,10 @@ void test_gescale_batch_dev()
                 for (auto batch_count : batch_count_list)
                     test_gescale_batch_dev_worker<scalar_t>(
                         mA, nA, lda,
-                        make_scalar<scalar_t>( offdiag_value ),
-                        make_scalar<scalar_t>( diag_value ),
-                        make_scalar<scalar_t>( numer ),
-                        make_scalar<scalar_t>( denom ),
+                        testsweeper::make_scalar<scalar_t>( offdiag_value ),
+                        testsweeper::make_scalar<scalar_t>( diag_value ),
+                        testsweeper::make_scalar<scalar_t>( numer ),
+                        testsweeper::make_scalar<scalar_t>( denom ),
                         batch_count );
             }
         }
@@ -578,17 +511,28 @@ void test_gescale_batch_device()
     test_gescale_batch_dev<std::complex<double>>();
 }
 
+template <typename... scalar_t>
+void run_tests_gescale_batch_device()
+{
+    ( run_test<scalar_t>(
+                        test_gescale_batch_dev<scalar_t>, "gescale_batch_dev" ),
+      ... );
+}
+
 //------------------------------------------------------------------------------
 /// Runs all tests. Called by unit test main().
 void run_tests()
 {
     if (mpi_rank == 0) {
-        //-------------------- geset_dev
-        run_test(
-            test_gescale_device, "gescale_device:" );
-        //-------------------- geset_batch_dev
-        run_test(
-            test_gescale_batch_device, "gescale_batch_device:" );
+        //-------------------- gescale_dev
+        run_tests_gescale_device<
+            float, double, std::complex<float>, std::complex<double>
+            >();
+
+        //-------------------- gescale_batch_dev
+        run_tests_gescale_batch_device<
+            float, double, std::complex<float>, std::complex<double>
+            >();
     }
 }
 

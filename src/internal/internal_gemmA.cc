@@ -206,6 +206,7 @@ void gemmA(internal::TargetType<Target::Devices>,
     // In the case where some C tiles are not touched locally but involved
     // in the reduce process, we scale it here first.
     if (beta != one) {
+        #pragma omp taskgroup
         for (int64_t i = 0; i < A.mt(); ++i) {
             int cpt = 0;
             for (int64_t j = 0; j < A.nt(); ++j) {

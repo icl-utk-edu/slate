@@ -248,6 +248,7 @@ void her2k(internal::TargetType<Target::HostBatch>,
 
     // diagonal tiles by her2k on host
     int err = 0;
+    #pragma omp taskgroup
     for (int64_t j = 0; j < C.nt(); ++j) {
         if (C.tileIsLocal(j, j)) {
             #pragma omp task slate_omp_default_none \
@@ -445,6 +446,7 @@ void her2k(internal::TargetType<Target::Devices>,
     int err = 0;
 
     // if single tile, avoid creating tasks for all devices
+    #pragma omp taskgroup
     if (C.nt() == 1) {
         if (C.tileIsLocal(0, 0)) {
             #pragma omp task slate_omp_default_none \
@@ -903,8 +905,6 @@ void her2k(internal::TargetType<Target::Devices>,
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         throw std::exception();

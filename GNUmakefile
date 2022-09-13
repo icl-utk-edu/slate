@@ -507,8 +507,8 @@ ifneq ($(only_unit),1)
         src/gesv_nopiv.cc \
         src/gesvd.cc \
         src/getrf.cc \
-        src/getrf_tntpiv.cc \
         src/getrf_nopiv.cc \
+        src/getrf_tntpiv.cc \
         src/getri.cc \
         src/getriOOP.cc \
         src/getrs.cc \

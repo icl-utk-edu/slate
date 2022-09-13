@@ -41,16 +41,16 @@ group_test.add_argument( '-t', '--test', action='store',
 group_test.add_argument( '--xml', help='generate report.xml for jenkins' )
 
 group_size = parser.add_argument_group( 'matrix dimensions (default is medium)' )
-group_size.add_argument(       '--quick',  action='store_true', help='run quick "sanity check" of few, small tests' )
-group_size.add_argument( '-x', '--xsmall', action='store_true', help='run x-small tests' )
-group_size.add_argument( '-s', '--small',  action='store_true', help='run small tests' )
-group_size.add_argument( '-m', '--medium', action='store_true', help='run medium tests' )
-group_size.add_argument( '-l', '--large',  action='store_true', help='run large tests' )
-group_size.add_argument(       '--square', action='store_true', help='run square (m = n = k) tests', default=False )
-group_size.add_argument(       '--tall',   action='store_true', help='run tall (m > n) tests', default=False )
-group_size.add_argument(       '--wide',   action='store_true', help='run wide (m < n) tests', default=False )
-group_size.add_argument(       '--mnk',    action='store_true', help='run tests with m, n, k all different', default=False )
-group_size.add_argument(       '--dim',    action='store',      help='explicitly specify size', default='' )
+group_size.add_argument( '--quick',  action='store_true', help='run quick "sanity check" of few, small tests' )
+group_size.add_argument( '--xsmall', action='store_true', help='run x-small tests' )
+group_size.add_argument( '--small',  action='store_true', help='run small tests' )
+group_size.add_argument( '--medium', action='store_true', help='run medium tests' )
+group_size.add_argument( '--large',  action='store_true', help='run large tests' )
+group_size.add_argument( '--square', action='store_true', help='run square (m = n = k) tests', default=False )
+group_size.add_argument( '--tall',   action='store_true', help='run tall (m > n) tests', default=False )
+group_size.add_argument( '--wide',   action='store_true', help='run wide (m < n) tests', default=False )
+group_size.add_argument( '--mnk',    action='store_true', help='run tests with m, n, k all different', default=False )
+group_size.add_argument( '--dim',    action='store',      help='explicitly specify size', default='' )
 
 group_cat = parser.add_argument_group( 'category (default is all)' )
 categories = [
@@ -121,6 +121,8 @@ group_opt.add_argument( '--np',     action='store', help='number of MPI processe
 group_opt.add_argument( '--grid',   action='store', help='use p-by-q MPI process grid', default='' )
 group_opt.add_argument( '--repeat', action='store', help='times to repeat each test', default='' )
 group_opt.add_argument( '--thresh', action='store', help='default=%(default)s', default='1,0.5')
+group_opt.add_argument( '--dry-run', action='store_true', help='print the commands that would be executed, but do not execute them.' )
+group_opt.add_argument( '-x', '--exclude', action='append', help='routines to exclude; repeatable', default=[] )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -595,11 +597,16 @@ def print_tee( *args ):
 
 # ------------------------------------------------------------------------------
 # cmd is a pair of strings: (function, args)
-
+# returns pair: (error, output-string), where error is the result from
+# subprocess wait, so error == 0 is success.
+#
 def run_test( cmd ):
     print( '-' * 80 )
     cmd = opts.test +' '+ cmd[1] +' '+ cmd[0]
     print_tee( cmd )
+    if (opts.dry_run):
+        return (0, None)
+
     output = ''
     p = subprocess.Popen( cmd.split(), stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT )
@@ -627,7 +634,7 @@ run_all = (ntests == 0)
 
 seen = set()
 for cmd in cmds:
-    if (run_all or cmd[0] in opts.tests):
+    if ((run_all or cmd[0] in opts.tests) and cmd[0] not in opts.exclude):
         seen.add( cmd[0] )
         (err, output) = run_test( cmd )
         if (err):

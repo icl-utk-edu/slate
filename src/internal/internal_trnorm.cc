@@ -337,13 +337,18 @@ void norm(
         for (int64_t j = 0; j < A.nt(); ++j) {
             // diagonal tile
             if (j < A.mt() && A.tileIsLocal(j, j)) {
-                A.tileGetForReading(j, j, LayoutConvert(layout));
-                real_t tile_values[2];
-                trnorm(in_norm, A.diag(), A(j, j), tile_values);
-                #pragma omp critical
+                #pragma omp task slate_omp_default_none \
+                    shared( A, values ) \
+                    firstprivate(layout, in_norm) priority(priority)
                 {
-                    combine_sumsq(values[0], values[1],
-                              tile_values[0], tile_values[1]);
+                    A.tileGetForReading(j, j, LayoutConvert(layout));
+                    real_t tile_values[2];
+                    trnorm(in_norm, A.diag(), A(j, j), tile_values);
+                    #pragma omp critical
+                    {
+                        combine_sumsq(values[0], values[1],
+                                tile_values[0], tile_values[1]);
+                    }
                 }
             }
             // off-diagonal tiles

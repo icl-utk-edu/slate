@@ -18,6 +18,80 @@ namespace device {
 template <>
 void geadd(
     int64_t m, int64_t n,
+    std::complex<float> alpha, std::complex<float>* A, int64_t lda,
+    std::complex<float> beta, std::complex<float>* B, int64_t ldb,
+    blas::Queue &queue)
+{
+#if defined( BLAS_HAVE_CUBLAS )
+    geadd(m, n,
+          make_cuFloatComplex(alpha.real(), alpha.imag()),
+          (cuFloatComplex*) A, lda,
+          make_cuFloatComplex(beta.real(), beta.imag()),
+          (cuFloatComplex*) B, ldb,
+          queue);
+
+#elif defined( BLAS_HAVE_ROCBLAS )
+    geadd(m, n,
+          make_hipFloatComplex(alpha.real(), alpha.imag()),
+          (hipFloatComplex*) A, lda,
+          make_hipFloatComplex(beta.real(), beta.imag()),
+          (hipFloatComplex*) B, ldb,
+          queue);
+#endif
+}
+
+template <>
+void geadd(
+    int64_t m, int64_t n,
+    std::complex<double> alpha, std::complex<double>* A, int64_t lda,
+    std::complex<double> beta, std::complex<double>* B, int64_t ldb,
+    blas::Queue &queue)
+{
+#if defined( BLAS_HAVE_CUBLAS )
+    geadd(m, n,
+          make_cuDoubleComplex(alpha.real(), alpha.imag()),
+          (cuDoubleComplex*) A, lda,
+          make_cuDoubleComplex(beta.real(), beta.imag()),
+          (cuDoubleComplex*) B, ldb,
+          queue);
+
+#elif defined( BLAS_HAVE_ROCBLAS )
+    geadd(m, n,
+          make_hipDoubleComplex(alpha.real(), alpha.imag()),
+          (hipDoubleComplex*) A, lda,
+          make_hipDoubleComplex(beta.real(), beta.imag()),
+          (hipDoubleComplex*) B, ldb,
+          queue);
+#endif
+}
+
+#if ! defined( SLATE_HAVE_DEVICE )
+// Specializations to allow compilation without CUDA or HIP.
+template <>
+void geadd(
+    int64_t m, int64_t n,
+    double alpha, double* A, int64_t lda,
+    double beta, double* B, int64_t ldb,
+    blas::Queue &queue)
+{
+}
+
+template <>
+void geadd(
+    int64_t m, int64_t n,
+    float alpha, float* A, int64_t lda,
+    float beta, float* B, int64_t ldb,
+    blas::Queue &queue)
+{
+}
+#endif // not SLATE_HAVE_DEVICE
+
+//==============================================================================
+namespace batch {
+
+template <>
+void geadd(
+    int64_t m, int64_t n,
     std::complex<float> alpha, std::complex<float>** Aarray, int64_t lda,
     std::complex<float> beta, std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
@@ -86,8 +160,10 @@ void geadd(
 }
 #endif // not SLATE_HAVE_DEVICE
 
+} // namespace batch
 } // namespace device
 
+//==============================================================================
 namespace internal {
 
 //------------------------------------------------------------------------------
@@ -277,7 +353,7 @@ void add(internal::TargetType<Target::Devices>,
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
-                    device::geadd(mb[q], nb[q],
+                    device::batch::geadd(mb[q], nb[q],
                                   alpha, a_array_dev, lda[q],
                                   beta,  b_array_dev, ldb[q],
                                   group_count[q], *queue);

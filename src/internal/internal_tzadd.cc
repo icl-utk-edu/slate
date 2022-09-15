@@ -359,7 +359,7 @@ void add(internal::TargetType<Target::Devices>,
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
-                    device::geadd(mb[q], nb[q],
+                    device::batch::geadd(mb[q], nb[q],
                                   alpha, a_array_dev, lda[q],
                                   beta,  b_array_dev, ldb[q],
                                   group_count[q], *queue);

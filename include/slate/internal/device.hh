@@ -79,9 +79,9 @@ void tzcopy(
 template <typename scalar_t>
 void geadd(
     int64_t m, int64_t n,
-    scalar_t alpha, scalar_t** Aarray, int64_t lda,
-    scalar_t beta, scalar_t** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue& queue);
+    scalar_t alpha, scalar_t* A, int64_t lda,
+    scalar_t beta, scalar_t* B, int64_t ldb,
+    blas::Queue& queue);
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
@@ -144,6 +144,15 @@ void gescale(
     scalar_t2 numer, scalar_t2 denom,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void geadd(
+    int64_t m, int64_t n,
+    scalar_t alpha, scalar_t** Aarray, int64_t lda,
+    scalar_t beta, scalar_t** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue& queue);
+
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>

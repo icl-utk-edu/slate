@@ -29,6 +29,9 @@ void gecopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
 
     assert(A.mb() == B.mb());
     assert(A.nb() == B.nb());
+    // Quick return
+    if (A.mb() == 0 || A.nb() == 0)
+        return;
 
     const src_scalar_t* A00 = &A.at(0, 0);
     int64_t a_col_inc = A.colIncrement();

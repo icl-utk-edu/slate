@@ -72,7 +72,7 @@ void test_geadd_dev_worker(
 
     // Create A on device and copy data
     scalar_t* dAdata;
-    dAdata = blas::device_malloc<scalar_t>( lda * n );
+    dAdata = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ) );
     test_assert(dAdata != nullptr);
     slate::Tile<scalar_t> dA( m, n, dAdata, lda,
         device_idx, slate::TileKind::UserOwned );
@@ -80,7 +80,7 @@ void test_geadd_dev_worker(
 
     // Create B on device and copy data
     scalar_t* dBdata;
-    dBdata = blas::device_malloc<scalar_t>( ldb * n );
+    dBdata = blas::device_malloc<scalar_t>( blas::max( ldb * n, 1 ) );
     test_assert( dBdata != nullptr );
     slate::Tile<scalar_t> dB( m, n, dBdata, ldb,
         device_idx, slate::TileKind::UserOwned );
@@ -127,7 +127,7 @@ void test_geadd_dev_worker(
     real_t result = lapack::lange(
         lapack::Norm::Max, A.mb(), A.nb(), A.data(), A.stride() );
 
-    if (max_csts != scalar_t(0.0))
+    if (max_csts != scalar_t(0.0) && result != scalar_t(0.0))
         result /= std::max( max_A, max_B ) * max_csts;
 
     if (verbose) {
@@ -173,9 +173,9 @@ void test_geadd_dev()
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
             // Corner cases
-            //{   0,   0,   0 },
-            //{ 100,   0, 100 },
-            //{   0, 100,   0 },
+            {   0,   0,   0 },
+            { 100,   0, 100 },
+            {   0, 100,   0 },
             // Square A matrix
             {   1,   1,   1 },
             {  10,  10,  10 },
@@ -431,7 +431,7 @@ void test_geadd_batch_dev_worker(
         real_t result = lapack::lange(
             lapack::Norm::Max, A.mb(), A.nb(), A.data(), A.stride() );
 
-        if (max_csts != scalar_t(0.0))
+        if (max_csts != scalar_t(0.0) && result != scalar_t(0.0))
             result /= std::max( max_A, max_B ) * max_csts;
 
         if (verbose) {
@@ -484,9 +484,9 @@ void test_geadd_batch_dev()
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
             // Corner cases
-            //{   0,   0,   0 },
-            //{ 100,   0, 100 },
-            //{   0, 100,   0 },
+            {   0,   0,   0 },
+            { 100,   0, 100 },
+            {   0, 100,   0 },
             // Square A matrix
             {   1,   1,   1 },
             {  10,  10,  10 },

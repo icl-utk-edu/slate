@@ -75,11 +75,13 @@ void test_gescale_dev_worker(
     scalar_t offdiag_value, scalar_t diag_value,
     scalar_t numer, scalar_t denom)
 {
+    using real_t = blas::real_type<scalar_t>;
+
     if (num_devices == 0) {
         test_skip("requires num_devices > 0");
     }
 
-    double eps = std::numeric_limits<double>::epsilon();
+    real_t eps = std::numeric_limits<real_t>::epsilon();
     int ldb = lda;
 
     scalar_t* Adata = new scalar_t[ lda * n ];
@@ -135,7 +137,7 @@ void test_gescale_dev_worker(
     }
 
     // check final norm result
-    double result = lapack::lange(
+    real_t result = lapack::lange(
         lapack::Norm::Fro, A.mb(), A.nb(), A.data(), A.stride() );
 
     if (verbose) {
@@ -280,11 +282,13 @@ void test_gescale_batch_dev_worker(
     scalar_t offdiag_value, scalar_t diag_value,
     scalar_t numer, scalar_t denom, int batch_count)
 {
+    using real_t = blas::real_type<scalar_t>;
+
     if (num_devices == 0) {
         test_skip("requires num_devices > 0");
     }
 
-    double eps = std::numeric_limits<double>::epsilon();
+    real_t eps = std::numeric_limits<real_t>::epsilon();
     int ldb = lda;
     std::vector< slate::Tile< scalar_t > > list_A( 0 );
     std::vector< slate::Tile< scalar_t > > list_dA( 0 );
@@ -381,7 +385,7 @@ void test_gescale_batch_dev_worker(
         }
 
         // check final norm result
-        double result = lapack::lange(
+        real_t result = lapack::lange(
             lapack::Norm::Fro, A.mb(), A.nb(), A.data(), A.stride() );
 
         if (verbose) {

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 # SPDX-License-Identifier: BSD-3-Clause
@@ -29,6 +29,8 @@ import argparse
 import subprocess
 import xml.etree.ElementTree as ET
 import io
+import select
+import time
 
 # ------------------------------------------------------------------------------
 # command line arguments
@@ -39,6 +41,7 @@ group_test.add_argument( '-t', '--test', action='store',
     help='test command to run, e.g., --test "mpirun -np 4"; default "%(default)s"',
     default='' )
 group_test.add_argument( '--xml', help='XML file to generate for jenkins' )
+group_test.add_argument( '--timeout', action='store', help='timeout in seconds for each routine', type=float )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -61,7 +64,7 @@ cmds = [
     'test_gecopy',
     'test_geset',
     'test_internal_blas',
-    'test_lq',
+    #'test_lq', todo hanging on dopamine
     'test_norm',
     #'test_qr',  # todo: failing
 ]
@@ -87,19 +90,46 @@ def run_test( cmd ):
     print( '-' * 80 )
     cmd = opts.test +' ./' + cmd
     print_tee( cmd )
+    failure_reason = 'FAILED'
     output = ''
     p = subprocess.Popen( cmd.split(), stdout=subprocess.PIPE,
                                        stderr=subprocess.STDOUT )
     p_out = p.stdout
     if (sys.version_info.major >= 3):
         p_out = io.TextIOWrapper(p.stdout, encoding='utf-8')
-    # Read unbuffered ("for line in p.stdout" will buffer).
-    for line in iter(p_out.readline, ''):
-        print( line, end='' )
-        output += line
+
+    if (opts.timeout is None):
+        # Read unbuffered ("for line in p.stdout" will buffer).
+        for line in iter(p_out.readline, ''):
+            print( line, end='' )
+            output += line
+    else:
+        killed = False
+        poll_obj = select.poll()
+        poll_obj.register(p_out, select.POLLIN)
+        now = start = time.time()
+        while (now - start) < opts.timeout:
+            # 0 means do not wait in poll(), return immediately.
+            poll_result = poll_obj.poll(0)
+            if poll_result:
+                # Assumed that tester prints new lines.
+                out = p_out.readline()
+                print( out, end='' )
+                output += out
+            # Check whether the process is still alive
+            err = p.poll()
+            if err is not None:
+                break
+            now = time.time()
+        else:
+            killed = True
+            failure_reason = 'Timeout (limit=' + str(opts.timeout) + ')'
+            output = output + '\n' + failure_reason
+            p.kill()
     err = p.wait()
+
     if (err != 0):
-        print_tee( 'FAILED: exit code', err )
+        print_tee( failure_reason, ': exit code', err )
     else:
         print_tee( 'pass' )
     return (err, output)

@@ -64,6 +64,7 @@ echo_and_restore() {
 alias print='{ save_flags="$-"; set +x; } 2> /dev/null; echo_and_restore'
 
 date
+module load python/3.9
 module load gcc/7.3.0
 module load intel-oneapi-mkl/2022
 
@@ -118,6 +119,10 @@ if [ "${host}" = "dopamine" ]; then
 
     # HIP headers have many errors; reduce noise.
     perl -pi -e 's/-pedantic//' GNUmakefile
+
+    # See the files that are opened by the executable.
+    # Used for debugging the ROCm library.
+    # extra_test_args=( -t \\\" strace -e trace=open ./tester \\\" )
 fi
 
 if [ "${maker}" = "make" ]; then
@@ -170,7 +175,7 @@ print "========================================"
 date
 export OMP_NUM_THREADS=8
 cd unit_test
-./run_tests.py --xml ${top}/report-unit-${maker}.xml
+./run_tests.py --timeout 300 --xml ${top}/report-unit-${maker}.xml
 cd ..
 
 print "========================================"
@@ -180,7 +185,11 @@ if [ "${maker}" = "cmake" ]; then
     # only sanity check with cmake build
     export tests=potrf
 fi
-./run_tests.py --origin s --target t,d --quick --ref n --xml ${top}/report-${maker}.xml ${tests}
+eval ./run_tests.py --origin s --target t,d --quick --ref n \
+    "${extra_test_args[@]}" \
+    --timeout 1200 \
+    --xml ${top}/report-${maker}.xml ${tests} \
+    2> ${top}/report-${maker}.txt
 cd ..
 
 date

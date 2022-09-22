@@ -339,7 +339,7 @@ void norm(
             if (j < A.mt() && A.tileIsLocal(j, j)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, values ) \
-                    firstprivate(layout, in_norm) priority(priority)
+                    firstprivate(j, layout, in_norm) priority(priority)
                 {
                     A.tileGetForReading(j, j, LayoutConvert(layout));
                     real_t tile_values[2];

@@ -501,11 +501,11 @@ protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set);
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
                         int radix, int tag, Layout layout,
-                        Target target = Target::HostTask);
+                        Target target);
     void tileIbcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
                         int radix, int tag, Layout layout,
                         std::vector<MPI_Request>& send_requests,
-                        Target target = Target::HostTask);
+                        Target target);
 
 public:
     // todo: should this be private?
@@ -2338,11 +2338,11 @@ void BaseMatrix<scalar_t>::tileIbcastToSet(
                                recv_from, send_to);
 
     int device = HostNum;
-#if defined(SLATE_WITH_GPU_AWARE_MPI)
+    #if defined(SLATE_WITH_GPU_AWARE_MPI)
     if (target == Target::Devices) {
         device = tileDevice(i, j); 
     }
-#endif
+    #endif
     // Receive.
     if (! recv_from.empty()) {
         // read tile

@@ -759,9 +759,12 @@ void MatrixStorage<scalar_t>::clearBatchArrays()
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::reserveHostWorkspace(int64_t num_tiles)
 {
-    int64_t n = num_tiles - memory_.allocated( HostNum );
-    if (n > 0)
+    int64_t n = num_tiles - memory_.capacity( HostNum );
+    if (n > 0) {
         memory_.addHostBlocks(n);
+        // Usually now capacity == num_tiles, but if multiple
+        // threads reserve memory, capacity >= num_tiles.
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -770,9 +773,12 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::reserveDeviceWorkspace(int64_t num_tiles)
 {
     for (int device = 0; device < num_devices_; ++device) {
-        int64_t n = num_tiles - memory_.allocated(device);
-        if (n > 0)
-            memory_.addDeviceBlocks(device, n);
+        int64_t n = num_tiles - memory_.capacity( device );
+        if (n > 0) {
+            memory_.addDeviceBlocks( device, n );
+            // Usually now capacity == num_tiles, but if multiple
+            // threads reserve memory, capacity >= num_tiles.
+        }
     }
 }
 
@@ -1147,8 +1153,8 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::tileMakeTransposable(Tile<scalar_t>* tile)
 {
+    // quick return
     if (tile->isTransposable())
-        // early return
         return;
 
     int device = tile->device();

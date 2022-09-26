@@ -234,6 +234,8 @@ void test_gesv_work(Params& params, bool run)
                                            tileDevice, MPI_COMM_WORLD);
             Bref = slate::Matrix<scalar_t>(n, nrhs, tileNb, tileNb, tileRank,
                                            tileDevice, MPI_COMM_WORLD);
+            Aref.insertLocalTiles( slate::Target::Host );
+            Bref.insertLocalTiles( slate::Target::Host );
         }
         else {
             Aref_data.resize( lldA* nlocA );
@@ -245,8 +247,6 @@ void test_gesv_work(Params& params, bool run)
                        n, nrhs, &Bref_data[0], lldB, nb, nb,
                        grid_order, p, q, MPI_COMM_WORLD );
         }
-        Aref.insertLocalTiles(origin2target(origin));
-        Bref.insertLocalTiles(origin2target(origin));
 
         slate::copy(A, Aref);
         slate::copy(B, Bref);

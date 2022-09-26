@@ -500,10 +500,12 @@ public:
 protected:
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set);
     void tileBcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
-                        int radix, int tag, Layout layout);
+                        int radix, int tag, Layout layout,
+                        Target target);
     void tileIbcastToSet(int64_t i, int64_t j, std::set<int> const& bcast_set,
                         int radix, int tag, Layout layout,
-                        std::vector<MPI_Request>& send_requests);
+                        std::vector<MPI_Request>& send_requests,
+                        Target target);
 
 public:
     // todo: should this be private?
@@ -1923,7 +1925,7 @@ void BaseMatrix<scalar_t>::listBcast(
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
             // Currently uses 2D hypercube p2p send.
-            tileIbcastToSet(i, j, bcast_set, 2, tag, layout, send_requests);
+            tileIbcastToSet(i, j, bcast_set, 2, tag, layout, send_requests, target);
         }
 
         // Copy to devices.
@@ -2086,7 +2088,7 @@ void BaseMatrix<scalar_t>::listBcastMT(
                 // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
                 // Currently uses radix-D hypercube p2p send.
                 int radix = 4; // bcast_set.size(); // 2;
-                tileBcastToSet(i, j, bcast_set, radix, tag, layout);
+                tileBcastToSet(i, j, bcast_set, radix, tag, layout, target);
             }
 
             // Copy to devices.
@@ -2260,12 +2262,12 @@ void BaseMatrix<scalar_t>::tileBcastToSet(
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileBcastToSet(
     int64_t i, int64_t j, std::set<int> const& bcast_set,
-    int radix, int tag, Layout layout)
+    int radix, int tag, Layout layout, Target target)
 {
     std::vector<MPI_Request> requests;
     requests.reserve(radix);
 
-    tileIbcastToSet(i, j, bcast_set, radix, tag, layout, requests);
+    tileIbcastToSet(i, j, bcast_set, radix, tag, layout, requests, target);
     slate_mpi_call(MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE));
 }
 
@@ -2303,7 +2305,8 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileIbcastToSet(
     int64_t i, int64_t j, std::set<int> const& bcast_set,
     int radix, int tag, Layout layout,
-    std::vector<MPI_Request>& send_requests)
+    std::vector<MPI_Request>& send_requests,
+    Target target)
 {
     // Quit if only root in the broadcast set.
     if (bcast_set.size() == 1)
@@ -2334,24 +2337,31 @@ void BaseMatrix<scalar_t>::tileIbcastToSet(
     internal::cubeBcastPattern(new_vec.size(), new_rank, radix,
                                recv_from, send_to);
 
+    int device = HostNum;
+    #if defined(SLATE_WITH_GPU_AWARE_MPI)
+    if (target == Target::Devices) {
+        device = tileDevice(i, j); 
+    }
+    #endif
     // Receive.
     if (! recv_from.empty()) {
-        // read tile on host memory
-        tileAcquire(i, j, layout);
+        // read tile
+        tileAcquire(i, j, device, layout);
 
-        at(i, j).recv(new_vec[recv_from.front()], mpi_comm_, layout, tag);
-        tileLayout(i, j, layout);
-        tileModified(i, j);
+        at(i, j, device).recv(new_vec[recv_from.front()], mpi_comm_, layout, tag);
+        tileLayout(i, j, device, layout);
+        tileModified(i, j, device);
     }
 
     if (! send_to.empty()) {
-        // read tile on host memory
-        tileGetForReading(i, j, LayoutConvert(layout));
+        // read tile
+        tileGetForReading(i, j, device, LayoutConvert(layout));
 
+        auto Aij = at(i, j, device);
         // Forward using multiple mpi_isend() calls
         for (int dst : send_to) {
             MPI_Request request;
-            at(i, j).isend(new_vec[dst], mpi_comm_, tag, &request);
+            Aij.isend(new_vec[dst], mpi_comm_, tag, &request);
             send_requests.push_back(request);
         }
     }

@@ -836,12 +836,15 @@ void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
 ///
 /// @param[in] target
 ///     - if target = Devices, inserts tiles on appropriate GPU devices, or
-///     - if target = Host, inserts on tiles on CPU host.
+///     - if target = Host,    inserts tiles on CPU host.
 ///
 template <typename scalar_t>
 void BaseTrapezoidMatrix<scalar_t>::insertLocalTiles(Target origin)
 {
     bool on_devices = (origin == Target::Devices);
+    if (on_devices)
+        reserveDeviceWorkspace();
+
     int64_t mt = this->mt();
     for (int64_t j = 0; j < this->nt(); ++j) {
         int64_t istart = (this->uplo() == Uplo::Lower ? j : 0);

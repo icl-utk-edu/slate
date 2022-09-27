@@ -806,12 +806,15 @@ void Matrix<scalar_t>::gather(scalar_t* A, int64_t lda)
 ///
 /// @param[in] target
 ///     - if target = Devices, inserts tiles on appropriate GPU devices, or
-///     - if target = Host, inserts on tiles on CPU host.
+///     - if target = Host,    inserts tiles on CPU host.
 ///
 template <typename scalar_t>
 void Matrix<scalar_t>::insertLocalTiles(Target origin)
 {
     bool on_devices = (origin == Target::Devices);
+    if (on_devices)
+        reserveDeviceWorkspace();
+
     for (int64_t j = 0; j < this->nt(); ++j) {
         for (int64_t i = 0; i < this->mt(); ++i) {
             if (this->tileIsLocal(i, j)) {

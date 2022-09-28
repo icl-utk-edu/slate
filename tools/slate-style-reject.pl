@@ -30,6 +30,9 @@ for my $ARG (@ARGV) {
     my $file_result = 0;
     while (<$fileh>) {
         chomp;
+        my $orig = $_;
+        s@//.*\S@//@;     # ignore C++ comments
+        s/".*?"/"..."/g;  # ignore strings
 
         my $line = 0;
         if (m/\t/) {
@@ -74,7 +77,9 @@ for my $ARG (@ARGV) {
             $line = 1;
         }
 
-        if (m/ [,;]/) {
+        # Prohibit space before , or ; unless at the beginning of a line.
+        # Sometimes with #if conditions, the comma has to start the line.
+        if (m/\S +[,;]/) {
             print( "$red$ARG:$.$black: excess space before comma or semi-colon\n" ) if (not $list);
             $line = 1;
         }
@@ -101,7 +106,7 @@ for my $ARG (@ARGV) {
 
         $file_result |= $line;
         if ($line and $verbose) {
-            print( "<$_>\n\n" );
+            print( "<$orig>\n\n" );
         }
     }
     if ($file_result and $list) {

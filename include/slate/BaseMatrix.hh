@@ -2340,7 +2340,7 @@ void BaseMatrix<scalar_t>::tileIbcastToSet(
     int device = HostNum;
     #if defined(SLATE_WITH_GPU_AWARE_MPI)
     if (target == Target::Devices) {
-        device = tileDevice(i, j); 
+        device = tileDevice(i, j);
     }
     #endif
     // Receive.

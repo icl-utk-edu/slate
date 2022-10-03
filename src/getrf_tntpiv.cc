@@ -12,27 +12,33 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::getrf_tntpiv from internal::specialization::getrf_tntpiv
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel CALU factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
-/// @ingroup gesv_specialization
+/// @ingroup gesv_impl
 ///
 template <Target target, typename scalar_t>
 void getrf_tntpiv(
     slate::internal::TargetType<target>,
     Matrix<scalar_t>& A, Pivots& pivots,
-    int64_t ib, int max_panel_threads, int64_t lookahead)
+    Options const& opts)
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
     const scalar_t one = 1.0;
+
+    // Get options.
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+
+    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
+
+    int64_t max_panel_threads = std::max( omp_get_max_threads()/2, 1 );
+    max_panel_threads = get_option<int64_t>(
+        opts, Option::MaxPanelThreads, max_panel_threads );
 
     // Host can use Col/RowMajor for row swapping,
     // RowMajor is slightly more efficient.
@@ -271,31 +277,7 @@ void getrf_tntpiv(
     A.clearWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gesv_specialization
-///
-template <Target target, typename scalar_t>
-void getrf_tntpiv(
-    Matrix<scalar_t>& A, Pivots& pivots,
-    Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
-    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
-    max_panel_threads
-        = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
-
-    internal::specialization::getrf_tntpiv(
-        internal::TargetType<target>(),
-        A, pivots,
-        ib, max_panel_threads, lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization.
@@ -355,21 +337,34 @@ void getrf_tntpiv(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts)
 {
+    using internal::TargetType;
+
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            getrf_tntpiv<Target::HostTask>(A, pivots, opts);
+            impl::getrf_tntpiv(
+                TargetType<Target::HostTask>(),
+                A, pivots, opts );
             break;
+
         case Target::HostNest:
-            getrf_tntpiv<Target::HostNest>(A, pivots, opts);
+            impl::getrf_tntpiv(
+                TargetType<Target::HostNest>(),
+                A, pivots, opts);
             break;
+
         case Target::HostBatch:
-            getrf_tntpiv<Target::HostBatch>(A, pivots, opts);
+            impl::getrf_tntpiv(
+                TargetType<Target::HostBatch>(),
+                A, pivots, opts);
             break;
+
         case Target::Devices:
-            getrf_tntpiv<Target::Devices>(A, pivots, opts);
+            impl::getrf_tntpiv(
+                TargetType<Target::Devices>(),
+                A, pivots, opts);
             break;
     }
     // todo: return value for errors?

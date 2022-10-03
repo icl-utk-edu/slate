@@ -12,27 +12,36 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::getrf from internal::specialization::getrf
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
-/// @ingroup gesv_specialization
+/// @ingroup gesv_impl
 ///
 template <Target target, typename scalar_t>
-void getrf(slate::internal::TargetType<target>,
-           Matrix<scalar_t>& A, Pivots& pivots,
-           blas::real_type<scalar_t> pivot_threshold,
-           int64_t ib, int max_panel_threads, int64_t lookahead)
+void getrf(
+    slate::internal::TargetType<target>,
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts )
 {
     // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     const scalar_t one = 1.0;
+
+    // Get options.
+    blas::real_type<scalar_t> pivot_threshold
+        = get_option<double>( opts, Option::PivotThreshold, 1.0 );
+
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+
+    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
+
+    int64_t max_panel_threads  = std::max( omp_get_max_threads()/2, 1 );
+    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
+                                             max_panel_threads );
 
     // Host can use Col/RowMajor for row swapping,
     // RowMajor is slightly more efficient.
@@ -225,31 +234,7 @@ void getrf(slate::internal::TargetType<target>,
     A.clearWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gesv_specialization
-///
-template <Target target, typename scalar_t>
-void getrf(Matrix<scalar_t>& A, Pivots& pivots,
-           Options const& opts)
-{
-    blas::real_type<scalar_t> pivot_threshold = get_option<double>( opts, Option::PivotThreshold, 1.0 );
-
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
-    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
-
-    internal::specialization::getrf(internal::TargetType<target>(),
-                                    A, pivots,
-                                    pivot_threshold,
-                                    ib, max_panel_threads, lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization.
@@ -308,24 +293,38 @@ void getrf(Matrix<scalar_t>& A, Pivots& pivots,
 /// @ingroup gesv_computational
 ///
 template <typename scalar_t>
-void getrf(Matrix<scalar_t>& A, Pivots& pivots,
-           Options const& opts)
+void getrf(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts )
 {
+    using internal::TargetType;
+
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            getrf<Target::HostTask>(A, pivots, opts);
+            impl::getrf(
+                TargetType<Target::HostTask>(),
+                A, pivots, opts );
             break;
+
         case Target::HostNest:
-            getrf<Target::HostNest>(A, pivots, opts);
+            impl::getrf(
+                TargetType<Target::HostNest>(),
+                A, pivots, opts );
             break;
+
         case Target::HostBatch:
-            getrf<Target::HostBatch>(A, pivots, opts);
+            impl::getrf(
+                TargetType<Target::HostBatch>(),
+                A, pivots, opts );
             break;
+
         case Target::Devices:
-            getrf<Target::Devices>(A, pivots, opts);
+            impl::getrf(
+                TargetType<Target::Devices>(),
+                A, pivots, opts );
             break;
     }
     // todo: return value for errors?

@@ -115,7 +115,6 @@ void geqrf(
                   thread_barrier,
                   scale, sumsq, xnorm, W);
         }
-        #pragma omp taskwait
     }
 }
 

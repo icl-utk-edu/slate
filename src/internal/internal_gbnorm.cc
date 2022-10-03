@@ -194,6 +194,7 @@ void norm(
 
         values[0] = 0;  // scale
         values[1] = 1;  // sumsq
+        #pragma omp taskgroup
         for (int64_t j = 0; j < A.nt(); ++j) {
             int64_t i_begin = max(j - kut, 0);
             int64_t i_end   = min(j + klt + 1, A.mt());

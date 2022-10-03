@@ -122,7 +122,6 @@ void getrf(internal::TargetType<Target::HostTask>,
                   max_value, max_index, max_offset, top_block,
                   pivot_threshold);
         }
-        #pragma omp taskwait
 
         // Copy pivot information from aux_pivot to pivot.
         for (int64_t i = 0; i < diag_len; ++i) {

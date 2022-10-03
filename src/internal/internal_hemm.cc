@@ -151,7 +151,6 @@ void hemm(internal::TargetType<Target::HostNest>,
     const Layout layout = Layout::ColMajor;
 
     int err = 0;
-    #pragma omp taskgroup
     if (side == Side::Left) {
         #pragma omp parallel for schedule(dynamic, 1) slate_omp_default_none \
             shared(A, B, C, err) firstprivate(side, alpha, beta)

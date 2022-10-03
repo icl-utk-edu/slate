@@ -121,6 +121,7 @@ void unmtr_hb2st( internal::TargetType<target>,
     // that they become eligible, rather than by columns.
     // If OpenMP has a limited window of tasks that it queues,
     // discovering them in this order would be better.
+    #pragma omp taskgroup
     for (int j2 = mt-1; j2 > -mt; --j2) {
         for (int j = 0; j < mt; ++j) {
             int i = 2*j - j2;
@@ -458,7 +459,6 @@ void unmtr_hb2st( internal::TargetType<target>,
             }
         } // inner loop
     } // outer loop
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

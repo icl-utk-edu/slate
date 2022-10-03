@@ -11,8 +11,21 @@
 
 .SUFFIXES:
 
-pwd  := ${shell pwd}
-cdir := ${notdir ${pwd}}
+pwd     := ${shell pwd}
+abs_top := ${abspath ${top}}
+cdir    := ${subst ${abs_top}/,,${pwd}}
+
+.DEFAULT_GOAL: ${cdir}
+.PHONY: ${cdir}
+
+${cdir}:
+	cd ${top} && ${MAKE} $@
+
+DONT_FORWARD += echo_sub
+echo_sub:
+	@echo "pwd     ${pwd}"
+	@echo "abs_top ${abs_top}"
+	@echo "cdir    ${cdir}"
 
 # ------------------------------------------------------------------------------
 ifneq (${MAKECMDGOALS},)
@@ -30,15 +43,6 @@ ${first}: force
 
 ${rest}: force
 	@echo > /dev/null
-
-# ------------------------------------------------------------------------------
-else
-
-# Otherwise, forward subdirectory name as target.
-.PHONY: ${cdir}
-
-${cdir}:
-	cd ${top} && ${MAKE} $@
 
 endif
 # ------------------------------------------------------------------------------

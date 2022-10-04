@@ -14,77 +14,109 @@
 namespace slate {
 namespace internal {
 
-// Convert pivot candidate to sequence of row-permutations to be applied to a matrix
+//------------------------------------------------------------------------------
+/// Convert pivot rows (i.e., permutation of 0, ..., m-1) to sequence of
+/// row-swaps to be applied to a matrix (i.e., LAPACK-style sequential
+/// pivots), for m = mt * mb rows.
+///
+/// @param[in,out] aux_pivot
+///     On entry, permutation of 0, ..., m-1 formed by diag_len swaps
+///     during panel factorization, in (tile index, offset) format.
+///     Actually, only first diag_len entries are accessed.
+///     On exit, first diag_len entries are LAPACK-style sequential
+///     pivots, in (tile index, offset) format.
+///
+/// @param[in] diag_len
+///     Length of the diagonal, min( mb, nb ) of diagonal tile.
+///
+/// @param[in] mt
+///     Number of block-rows in panel.
+///
+/// @param[in] mb
+///     Number of rows in each tile.
+///
 template <typename scalar_t>
-void pivot_list(std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
-                int64_t diag_len, int mt)
+void permutation_to_sequential_pivot(
+    std::vector< AuxPivot< scalar_t > >& aux_pivot,
+    int64_t diag_len, int mt, int64_t mb)
 {
+    struct TileOffset {
+        int64_t index;  // tile index
+        int64_t offset; // offset within tile
+    };
+    std::vector< TileOffset > pivot_list;
+    pivot_list.reserve( mt * mb );
 
-    std::vector<std::pair<int64_t, int64_t>> global_info;
-
-    for (int i = 0; i < diag_len; i++) {
-        global_info.push_back({aux_pivot[ 0 ][ i ].tileIndex(),
-                               aux_pivot[ 0 ][ i ].elementOffset()});
-    }
-
-    std::vector<std::pair<std::pair<int64_t, int64_t>,
-        std::pair<int64_t, int64_t>>> pivot_list;
-
-    // Initial fill to the pivlist
-    for (auto inx=0; inx < mt; ++inx) {
-        for (auto i=0; i < int(global_info.size()); ++i) {
-            pivot_list.push_back({{inx, i}, {inx, i}});
+    // pivot_list = [
+    //      ( 0,    0 ), ..., ( 0,    diag_len - 1 ),   // first tile
+    //      ...
+    //      ( mt-1, 0 ), ..., ( mt-1, diag_len - 1 )    // last tile
+    // ]
+    for (int64_t i = 0; i < mt; ++i) {
+        for (int64_t ii = 0; ii < diag_len; ++ii) {
+            pivot_list.push_back( { i, ii } );
         }
     }
 
-    for (int i=0; i < int(global_info.size()); ++i) {
+    // Search for where row ii was pivoted to as row iip. Often, iip
+    // will simply be aux_pivot[ ii ], which is why we start at k = ii.
+    // Otherwise, it's at a previous pivot, so count down k = ii, ..., 0.
+    // Example:
+    //
+    // aux_pivot with mt = 2, nb = 4
+    // on entry    on exit
+    // ( 1, 1 )    ( 1, 1 )
+    // ( 0, 3 )    ( 0, 3 )
+    // ( 0, 0 )    ( 1, 1 )
+    // ( 0, 2 )    ( 1, 1 )
+    //
+    // ( 1, 0 )    ( .... )  unchanged and ignored
+    // ( 0, 1 )    ( .... )
+    // ( 1, 2 )    ( .... )
+    // ( 1, 3 )    ( .... )
+    //
+    // iip  pivot_list  ii = 0      ii = 1      ii = 2      ii = 3
+    // 0    ( 0, 0 )-.  ( .... )    ( .... )    ( .... )    ( .... )
+    // 1    ( 0, 1 ) |  ( 0, 1 )-.  ( .... )    ( .... )    ( .... )
+    // 2    ( 0, 2 ) |  ( 0, 2 ) |  ( 0, 2 )-.  ( .... )    ( .... )
+    // 3    ( 0, 3 ) |  ( 0, 3 )==> ( 0, 1 ) |  ( 0, 1 )-.  ( .... )
+    //               |                       |           |
+    // 4    ( 1, 0 ) |  ( 1, 0 )    ( 1, 0 ) |  ( 1, 0 ) |  ( 1, 0 )
+    // 5    ( 1, 1 )==> ( 0, 0 )    ( 0, 0 )==> ( 0, 2 )==> ( 0, 1 )
+    // 6    ( 1, 2 )    ( 1, 2 )    ( 1, 2 )    ( 1, 2 )    ( 1, 2 )
+    // 7    ( 1, 3 )    ( 1, 3 )    ( 1, 3 )    ( 1, 3 )    ( 1, 3 )
+    //
+    // ii = 0: found aux_pivot[ 0 ] = ( 1, 1 ) at k = 0, iip = 5 =~ ( 1, 1 )
+    // ii = 1: found aux_pivot[ 1 ] = ( 0, 3 ) at k = 1, iip = 3 =~ ( 0, 3 )
+    // ii = 2: found aux_pivot[ 2 ] = ( 0, 0 ) at k = 0, iip = 5 =~ ( 1, 1 )
+    // ii = 3: found aux_pivot[ 3 ] = ( 0, 1 ) at k = 2, iip = 5 =~ ( 1, 1 )
 
-        int index = -1;
-        // Find the pivot position in the pivot_list
-        for (int j=i; j < int(pivot_list.size()); ++j) {
-            if (pivot_list[j].first == global_info[i]) {
-                index = j;
+    for (int64_t ii = 0; ii < diag_len; ++ii) {
+        int64_t iip = -1;
+        for (int k = ii; k >= 0; --k) {
+            int64_t iip_ = aux_pivot[ k ].tileIndex() * mb
+                         + aux_pivot[ k ].elementOffset();
+            // Pivot row iip_ must be at or below row ii.
+            if (iip_ >= ii
+                && pivot_list[ iip_ ].index  == aux_pivot[ ii ].tileIndex()
+                && pivot_list[ iip_ ].offset == aux_pivot[ ii ].elementOffset()) {
+                iip = iip_;
                 break;
             }
         }
+        assert( iip >= 0 );
 
-        if ((global_info[i].first == pivot_list[i].second.first)
-            && (global_info[i].second < pivot_list[i].second.second)) {
+        // Save iip in (tile index, offset) format as the sequential pivot.
+        aux_pivot[ ii ].set_tileIndex(     iip / mb );
+        aux_pivot[ ii ].set_elementOffset( iip % mb );
 
-            if (index != -1) {
-                std::pair<int64_t, int64_t> temp = pivot_list[i].first;
-                //If the index is already moved down, put it is new index
-                pivot_list[i].first = pivot_list[index].second;
-                pivot_list[index].first = temp;
-            }
-            else {
-                int offset = global_info[i].second;
-                for (int j=0; j < int(pivot_list.size()); j++) {
-                    if (pivot_list[offset].first == pivot_list[j].second) {
-                        index = j;
-                        break;
-                    }
-                }
-                std::pair<int64_t, int64_t> temp = pivot_list[i].first;
-                pivot_list[i].first = pivot_list[index].first;
-                pivot_list[index].first = temp;
-            }
-        }
-        else {
-            //If the index id down the list
-            std::pair<int64_t, int64_t> temp = pivot_list[ i ].first;
-            pivot_list[ i ].first = pivot_list[ index ].first;
-            pivot_list[ index ].first = temp;
-        }
+        // Copy pivot from ii to iip.
+        // (Could swap, but pivot_list[ ii ] is never accessed again.)
+        pivot_list[ iip ] = pivot_list[ ii ];
     }
-
-    for (int i = 0; i < diag_len; ++i) {
-        aux_pivot[ 0 ][ i ].set_tileIndex(pivot_list[ i ].first.first);
-        aux_pivot[ 0 ][ i ].set_elementOffset(pivot_list[ i ].first.second);
-    }
-
 }
 
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void getrf_tntpiv(
     std::vector< Tile<scalar_t> >& tiles,
@@ -334,13 +366,11 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
                         if (level == nlevels-1) {
                             // Copy the last factorization back to panel tile
                             local_tiles[0].copyData(&ptiles[0]);
-                            pivot_list(aux_pivot, diag_len, A.mt());
+                            permutation_to_sequential_pivot(
+                                aux_pivot[0], diag_len, A.mt(), A.tileMb( 0 ) );
                         }
 
                         Awork.tileTick(i_dst, 0);
-                        data1.clear();
-                        data2.clear();
-                        local_tiles.clear();
                     }
                 }
                 else {

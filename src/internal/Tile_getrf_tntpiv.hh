@@ -185,10 +185,10 @@ void getrf_tntpiv(
                 if (aux_pivot[0][j].localTileIndex() > 0 ||
                     aux_pivot[0][j].localOffset() > j) {
                     // local swap
-                    swapLocalRow(k, kb,
-                                 tiles[0], j,
-                                 tiles[aux_pivot[0][j].localTileIndex()],
-                                 aux_pivot[0][j].localOffset());
+                    swapLocalRow( 0, nb,
+                                  tiles[ 0 ], j,
+                                  tiles[ aux_pivot[ 0 ][ j ].localTileIndex() ],
+                                  aux_pivot[ 0 ][ j ].localOffset() );
                 }
                 // Broadcast the top row for the geru operation.
                 if (k+kb > j+1) {
@@ -267,24 +267,6 @@ void getrf_tntpiv(
 
         // Trailing submatrix update.
         if (k+kb < nb) {
-            //======================
-            // pivoting to the right
-            if (thread_rank == 0) {
-                for (int64_t i = k; i < k+kb; ++i) {
-                    // if pivot not on the diagonal
-                    if (aux_pivot[0][i].localTileIndex() > 0 ||
-                        aux_pivot[0][i].localOffset() > i) {
-                        // local swap
-                        swapLocalRow(k+kb, nb-k-kb,
-                                     tiles[0], i,
-                                     tiles[aux_pivot[0][i].localTileIndex()],
-                                     aux_pivot[0][i].localOffset());
-                    }
-
-                }
-            }
-            thread_barrier.wait(thread_size);
-
             //=================
             // triangular solve
             if (thread_rank == 0) {
@@ -336,24 +318,6 @@ void getrf_tntpiv(
                 }
             }
             thread_barrier.wait(thread_size);
-        }
-    }
-
-    //=====================
-    // pivoting to the left
-    for (int64_t k = ib; k < diag_len; k += ib) {
-        if (thread_rank == 0) {
-            for (int64_t i = k; i < k+ib && i < diag_len; ++i) {
-                // if pivot not on the diagonal
-                if (aux_pivot[0][i].localTileIndex() > 0 ||
-                    aux_pivot[0][i].localOffset() > i) {
-                    // local swap
-                    swapLocalRow(0, k,
-                                 tiles[0], i,
-                                 tiles[aux_pivot[0][i].localTileIndex()],
-                                 aux_pivot[0][i].localOffset());
-                }
-            }
         }
     }
 }

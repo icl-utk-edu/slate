@@ -60,6 +60,7 @@ void test_scale_row_col_work( Params& params, bool run )
     bool ref = params.ref() == 'y' || ref_only;
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
+    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -249,13 +250,26 @@ void test_scale_row_col_work( Params& params, bool run )
             // a lower triangular matrix, the kernel accidentally modifies
             // the upper triangle.
             slate::add( -one, Aref_full, one, Afull );
-            real_t A_diff_norm = slate::norm( slate::Norm::One, Afull );
-
+            real_t A_diff_norm = slate::norm( slate::Norm::Max, Afull );
             print_matrix( "A_diff_full", Afull, params );
 
-            real_t error = A_diff_norm / (n * A_max);
+            int64_t i = blas::iamax( m, &R[ 0 ], 1 );
+            real_t R_max = std::abs( R[ i ] );
+
+            int64_t j = blas::iamax( n, &C[ 0 ], 1 );
+            real_t C_max = std::abs( C[ j ] );
+
+            real_t error = A_diff_norm / (2 * R_max * A_max * C_max);
             params.error() = error;
-            params.okay() = (error == 0);  // Set should be exact.
+
+            real_t eps = std::numeric_limits<real_t>::epsilon();
+            params.okay() = (error <= 3*eps);
+
+            if (verbose && mpi_rank == 0) {
+                printf( "%% A_diff_norm %.2e, A_max %.2e, R_max %.2e,"
+                        " C_max %.2e, eps %.2e, 3*eps %.2e, error %.2e\n",
+                        A_diff_norm, A_max, R_max, C_max, eps, 3*eps, error );
+            }
 
             Cblacs_gridexit( ictxt );
             //Cblacs_exit(1) does not handle re-entering

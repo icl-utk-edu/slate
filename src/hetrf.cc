@@ -66,7 +66,7 @@ void hetrf(slate::internal::TargetType<target>,
     pivots.resize(A_mt);
 
     int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_rank(A.mpiComm(), &rank);
     #pragma omp parallel
     #pragma omp master
     for (int64_t k = 0; k < A_mt; ++k) {

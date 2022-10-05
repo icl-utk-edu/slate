@@ -49,10 +49,6 @@ void bdsqr(slate::internal::TargetType<target>,
 
     scalar_t zero = 0.0, one = 1.0;
 
-    // Find the total number of processors.
-    slate_mpi_call(
-        MPI_Comm_size(MPI_COMM_WORLD, &mpi_size));
-
     int myrow, mycol;
     int izero = 0;
 
@@ -81,23 +77,29 @@ void bdsqr(slate::internal::TargetType<target>,
         m = U.m();
         mb = U.tileMb(0);
         nb = U.tileNb(0);
+        // Find the total number of processors.
+        slate_mpi_call(
+            MPI_Comm_size(U.mpiComm(), &mpi_size));
         myrow = U.mpiRank();
         nru  = numberLocalRowOrCol(m, mb, myrow, izero, mpi_size);
         ldu = max( 1, nru );
         u1d.resize(ldu*min_mn);
         U1d = slate::Matrix<scalar_t>::fromScaLAPACK(
-              m, min_mn, &u1d[0], ldu, nb, mpi_size, 1, MPI_COMM_WORLD);
+              m, min_mn, &u1d[0], ldu, nb, mpi_size, 1, U.mpiComm());
         set(zero, one, U1d);
     }
     if (wantvt) {
         n = VT.n();
         nb = VT.tileNb(0);
+        // Find the total number of processors.
+        slate_mpi_call(
+            MPI_Comm_size(VT.mpiComm(), &mpi_size));
         mycol = VT.mpiRank();
         ncvt = numberLocalRowOrCol(n, nb, mycol, izero, mpi_size);
         ldvt = max( 1, min_mn );
         vt1d.resize(ldvt*ncvt);
         VT1d = slate::Matrix<scalar_t>::fromScaLAPACK(
-               min_mn, n, &vt1d[0], ldvt, nb, 1, mpi_size, MPI_COMM_WORLD);
+               min_mn, n, &vt1d[0], ldvt, nb, 1, mpi_size, VT.mpiComm());
         set(zero, one, VT1d);
     }
 

@@ -34,6 +34,7 @@ namespace slate {
 ///
 /// @param[out] Z
 ///     On entry, if Z is empty, does not compute eigenvectors.
+///     Otherwise, the n-by-n matrix $Z$ to store eigenvectors.
 ///     On exit, orthonormal eigenvectors of the matrix A.
 ///
 /// @param[in] opts

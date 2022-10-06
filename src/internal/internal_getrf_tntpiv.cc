@@ -293,40 +293,45 @@ void getrf_tntpiv_panel(
             // in the top tile.
             internal::copy<Target::HostTask>( std::move( A ), std::move( Awork ) );
 
-            std::vector< std::vector<std::pair<int, int64_t>> > global_tracking(tile_indices.size());
+            // For s = tile_indices.size(), permute is an s-length vector
+            // of mb-length vectors of pairs (tile_index, offset):
+            //     permute = [ [ (0, 0) ... (0, mb-1) ],
+            //                 ...,
+            //                 [ (s-1, 0), ..., (s-1, mb-1) ] ].
+            // containing final positions of rows,
+            // vs. sequential row swaps in usual pivot vector.
+            // The aggregate size is mlocal.
+            std::vector< std::vector< std::pair< int64_t, int64_t > > >
+                permute( tile_indices.size() );
 
-            for (int i=0; i < int(tile_indices.size()); i++) {
-                global_tracking[i].reserve(A.tileMb(0));
-
-                for (int64_t j = 0; j < A.tileMb(0); ++j) {
-                    global_tracking[i].push_back({tile_indices[i], j});
+            for (int64_t i = 0; i < int64_t( tile_indices.size() ); ++i) {
+                permute[ i ].reserve( A.tileMb( 0 ) );
+                for (int64_t ii = 0; ii < A.tileMb( 0 ); ++ii) {
+                    permute[ i ].push_back( { tile_indices[ i ], ii } );
                 }
             }
 
-            std::pair<int, int64_t> global_pair;
+            // Apply swaps to tiles in Awork, and to permute.
+            // Swap (tile, row) (i=0, ii) with (ip, iip).
+            for (int64_t ii = 0; ii < piv_len; ++ii) {
+                int64_t ip  = aux_pivot[ 0 ][ ii ].localTileIndex();
+                int64_t iip = aux_pivot[ 0 ][ ii ].localOffset();
 
-            for (int j=0; j < piv_len; ++j) {
-                if (aux_pivot[0][j].localTileIndex() > 0 ||
-                    aux_pivot[0][j].localOffset() > j) {
-
+                if (ip > 0 || iip > ii) {
                     swapLocalRow(
-                        0, A.tileNb(0),
-                        tiles[0], j,
-                        tiles[aux_pivot[0][j].localTileIndex()],
-                        aux_pivot[0][j].localOffset());
+                        0, nb,
+                        tiles[ 0  ], ii,
+                        tiles[ ip ], iip );
 
-                    int index2 = aux_pivot[0][j].localTileIndex();
-                    int offset = aux_pivot[0][j].localOffset();
-
-                    global_pair = global_tracking[0][j];
-                    global_tracking[0][j] = global_tracking[index2][offset];
-                    global_tracking[index2][offset]=global_pair;
+                    std::swap( permute[ 0  ][ ii  ],
+                               permute[ ip ][ iip ] );
                 }
             }
 
-            for (int j=0; j < piv_len; ++j) {
-                aux_pivot[0][j].set_tileIndex(global_tracking[0][j].first);
-                aux_pivot[0][j].set_elementOffset(global_tracking[0][j].second);
+            // Copy nb elements of permute to aux_pivot for first block.
+            for (int64_t ii = 0; ii < piv_len; ++ii) {
+                aux_pivot[ 0 ][ ii ].set_tileIndex(     permute[ 0 ][ ii ].first  );
+                aux_pivot[ 0 ][ ii ].set_elementOffset( permute[ 0 ][ ii ].second );
             }
 
             int step =1;

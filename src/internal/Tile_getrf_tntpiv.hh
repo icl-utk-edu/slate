@@ -20,7 +20,7 @@
 #include <lapack.hh>
 
 namespace slate {
-namespace internal {
+namespace tile {
 
 //------------------------------------------------------------------------------
 /// Compute the LU factorization of a panel.
@@ -79,11 +79,11 @@ namespace internal {
 /// @ingroup gesv_tile
 ///
 template <typename scalar_t>
-void getrf_tntpiv(
+void getrf_tntpiv_local(
     int64_t diag_len, int64_t ib, int stage,
     std::vector< Tile<scalar_t> >& tiles,
     std::vector<int64_t>& tile_indices,
-    std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
+    std::vector< std::vector< internal::AuxPivot< scalar_t > > >& aux_pivot,
     int mpi_rank, int thread_rank, int thread_size,
     ThreadBarrier& thread_barrier,
     std::vector<scalar_t>& max_value,
@@ -94,6 +94,7 @@ void getrf_tntpiv(
     trace::Block trace_block("lapack::getrf_tntpiv");
 
     using real_t = blas::real_type<scalar_t>;
+    using internal::AuxPivot;
 
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
@@ -322,7 +323,7 @@ void getrf_tntpiv(
     }
 }
 
-} // namespace internal
+} // namespace tile
 } // namespace slate
 
 #endif // SLATE_TILE_GETRF_TNTPIV_HH

@@ -118,7 +118,7 @@ void permutation_to_sequential_pivot(
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void getrf_tntpiv(
+void getrf_tntpiv_local(
     std::vector< Tile<scalar_t> >& tiles,
     int64_t diag_len, int64_t ib, int stage,
     int nb, std::vector<int64_t>& tile_indices,
@@ -154,8 +154,9 @@ void getrf_tntpiv(
     #endif
 
     for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
-        // Factor the panel in parallel.
-        getrf_tntpiv(diag_len, ib, stage,
+        // Factor the local panel in parallel.
+        tile::getrf_tntpiv_local(
+            diag_len, ib, stage,
                      tiles, tile_indices,
                      aux_pivot,
                      mpi_rank,
@@ -247,8 +248,9 @@ void getrf_tntpiv_panel(
 
         int piv_len = std::min(tiles[0].mb(), tiles[0].nb());
 
-        // Factor the panel locally in parallel.
-        getrf_tntpiv(tiles, piv_len, ib, 0,
+        // Factor the panel locally in parallel, for stage = 0.
+        getrf_tntpiv_local(
+            tiles, piv_len, ib, 0,
                      A.tileNb(0), tile_indices, aux_pivot,
                      A.mpiRank(), max_panel_threads, priority);
 
@@ -332,7 +334,8 @@ void getrf_tntpiv_panel(
                         piv_len = std::min(local_tiles[0].mb(), local_tiles[0].nb());
 
                         // Factor the panel locally in parallel.
-                        getrf_tntpiv(local_tiles, piv_len, ib, 1,
+                        getrf_tntpiv_local(
+                            local_tiles, piv_len, ib, 1,
                                      A.tileNb(0), tile_indices, aux_pivot,
                                      A.mpiRank(), max_panel_threads, priority);
 

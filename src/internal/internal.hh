@@ -94,7 +94,7 @@ private:
     int64_t local_tile_index_; ///< tile index in the local list
     int64_t local_offset_;     ///< pivot offset in the local list
     scalar_t value_;           ///< value of the pivot element
-    int rank_;                 ///< rank of the pivot owner
+    int rank_;                 ///< MPI rank of the pivot owner
 };
 
 //------------------------------------------------------------------------------

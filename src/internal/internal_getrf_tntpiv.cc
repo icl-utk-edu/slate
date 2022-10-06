@@ -118,6 +118,39 @@ void permutation_to_sequential_pivot(
 }
 
 //------------------------------------------------------------------------------
+/// Multi-threaded LU factorization of local tiles.
+///
+/// @params[in,out] tiles
+///     List of tiles to factor.
+///
+/// @params[in] diag_len
+///     Length of diagonal, min( mb, nb ) of diagonal tile.
+///
+/// @params[in] ib
+///     Inner blocking.
+///
+/// @params[in] stage
+///     Stage = 0 is initial local tiles,
+///     stage = 1 is subsequent tournament.
+///
+/// @params[in] nb
+///     Block size. (todo: mb, nb?)
+///
+/// @params[in] tile_indices
+///     Block row indices of tiles in tiles array.
+///
+/// @params[in] mpi_rank
+///     MPI rank of this process.
+///
+/// @params[in] max_panel_threads
+///     Maximum number of threads to launch for local panel.
+///
+/// @params[in] priority
+///     OpenMP priority.
+///     todo: unused. Should it be on taskloop?
+///
+/// @ingroup gesv_internal
+///
 template <typename scalar_t>
 void getrf_tntpiv_local(
     std::vector< Tile< scalar_t > >& tiles,
@@ -189,7 +222,7 @@ void getrf_tntpiv_panel(
 
     internal::copy<Target::HostTask>( std::move( A ), std::move( Awork ) );
 
-    // Move the panel to the host
+    // Move the panel to the host.
     std::set<ij_tuple> A_tiles_set;
     for (int64_t i = 0; i < A.mt(); ++i) {
         if (A.tileIsLocal( i, 0 )) {
@@ -214,7 +247,7 @@ void getrf_tntpiv_panel(
         }
         tile_offset += A.tileMb(i);
     }
-    // Find each rank's first (top-most) row in this panel
+    // Find each rank's first (top-most) row in this panel.
     std::vector< std::pair<int, int64_t> > rank_rows;
     rank_rows.reserve( bcast_set.size() );
     for (int r : bcast_set) {
@@ -229,6 +262,7 @@ void getrf_tntpiv_panel(
     // Sort rank_rows by row.
     std::sort( rank_rows.begin(), rank_rows.end(), compareSecond<int, int64_t> );
 
+    // Find index of first tile on this rank.
     int index;
     for (index = 0; index < int(rank_rows.size()); ++index) {
         if (rank_rows[ index ].first == A.mpiRank())

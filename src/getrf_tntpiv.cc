@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -122,10 +122,12 @@ void getrf_tntpiv(
                     Direction::Forward, A.sub(k, A_mt-1, k, k),
                     pivots.at(k), target_layout, priority_one, tag_k, queue_0);
 
+                // Copy factored diagonal tile into place.
                 internal::copy<Target::HostTask>(
                     Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
 
-                // broadcast panel
+                // Broadcast Akk tile down column to ranks owning A_k+1:mt,k
+                // and across row to ranks owning A_k,k+1:nt.
                 BcastList bcast_list_A;
                 bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
                                                A.sub(k, k, k+1, A_nt-1)}});
@@ -136,6 +138,8 @@ void getrf_tntpiv(
                 Apanel.clear();
             }
 
+            // Finish computing panel using trsm below diagonal tile.
+            // A_k+1:mt,k = A_k+1:mt,k * Tkk^{-1}
             #pragma omp task depend(inout:column[k]) \
                              depend(inout:listBcastMT_token) \
                              priority(priority_one)

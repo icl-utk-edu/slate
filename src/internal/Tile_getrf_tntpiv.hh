@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2020, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -23,7 +23,8 @@ namespace slate {
 namespace tile {
 
 //------------------------------------------------------------------------------
-/// Compute the LU factorization of a panel.
+/// Compute the LU factorization of a local panel,
+/// for use in CALU tournament pivoting.
 ///
 /// @param[in] diag_len
 ///     length of the panel diagonal
@@ -40,17 +41,18 @@ namespace tile {
 /// @param[in] tile_indices
 ///     i indices of the tiles in the panel
 ///
-/// @param[in,out] pivot
-///     pivots produced by the panel factorization
+/// @param[in,out] aux_pivot
+///     pivots produced by the panel factorization, of dimension (2, mb).
+///
+///     For stage == 0,
+///     aux_pivot[ 0 ][ 0:mb-1 ] is used.
+///
+///     For stage == 1,
+///     aux_pivot[ 0 ][ 0:mb-1 ] contains pivot info for tile 0,
+///     aux_pivot[ 1 ][ 0:mb-1 ] contains pivot info for tile 1.
 ///
 /// @param[in] mpi_rank
 ///     MPI rank in the panel factorization
-///
-/// @param[in] mpi_root
-///     MPI rank of the root for the panel factorization
-///
-/// @param[in] mpi_comm
-///     MPI subcommunicator for the panel factorization
 ///
 /// @param[in] thread_id
 ///     ID of this thread
@@ -62,17 +64,17 @@ namespace tile {
 ///     barrier for synchronizing local threads
 ///
 /// @param[out] max_value
-///     workspace for per-thread pivot value
+///     workspace for per-thread pivot value, of length thread_size.
 ///
-/// @param[in] max_index
-///     workspace for per-thread pivot index
+/// @param[out] max_index
+///     workspace for per-thread pivot index, of length thread_size.
 //      (local index of the tile containing the pivot)
 ///
-/// @param[in] max_offset
-///     workspace for per-thread pivot offset
+/// @param[out] max_offset
+///     workspace for per-thread pivot offset, of length thread_size.
 ///     (pivot offset in the tile)
 ///
-/// @param[in] tob_block
+/// @param[out] top_block
 ///     workspace for broadcasting the top row for the geru operation
 ///     and the top block for the gemm operation.
 ///
@@ -111,6 +113,7 @@ void getrf_tntpiv_local(
         // Loop over ib columns of a stripe.
         for (int64_t j = k; j < k+kb; ++j) {
 
+            // Start with diagonal entry.
             max_value [ thread_id ] = tiles[ 0 ]( j, j );
             max_index [ thread_id ] = 0;
             max_offset[ thread_id ] = j;
@@ -147,8 +150,9 @@ void getrf_tntpiv_local(
                         max_offset[ 0 ] = max_offset[ tid ];
                     }
                 }
-                // stage 0 means first local lu before the tree reduction
-                // read global index and offset and swap it with j
+
+                // Stage 0 is first local LU before the tree reduction.
+                // Read global index and offset and swap it with j.
                 if (stage == 0) {
                     aux_pivot[ 0 ][ j ] = AuxPivot<scalar_t>(
                         tile_indices[ max_index[ 0 ] ], max_offset[ 0 ],
@@ -225,7 +229,8 @@ void getrf_tntpiv_local(
                     }
                 }
                 else {
-                    // piv[j].value() = 0, The factorization has been completed
+                    // aux_pivot[ 0 ][ j ].value() == 0:
+                    // The factorization has been completed
                     // but the factor U is exactly singular
                     // todo: how to handle a zero pivot
                 }
@@ -255,8 +260,8 @@ void getrf_tntpiv_local(
         // Trailing submatrix update.
         if (k+kb < nb) {
             //=================
-            // triangular solve
             if (thread_id == 0) {
+                // triangular solve
                 auto top_tile = tiles[ 0 ];
                 blas::trsm( Layout::ColMajor,
                             Side::Left, Uplo::Lower,
@@ -267,8 +272,8 @@ void getrf_tntpiv_local(
             }
             thread_barrier.wait( thread_size );
 
-            // Broadcast the top block for gemm.
             if (thread_id == 0) {
+                // Broadcast the top block for gemm.
                 auto top_tile = tiles[ 0 ];
                 lapack::lacpy( lapack::MatrixType::General,
                                kb, nb-k-kb,

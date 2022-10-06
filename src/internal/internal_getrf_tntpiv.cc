@@ -334,84 +334,88 @@ void getrf_tntpiv_panel(
                 aux_pivot[ 0 ][ ii ].set_elementOffset( permute[ 0 ][ ii ].second );
             }
 
-            int step =1;
-            int src, dst;
-            int64_t i_src, i_dst, i_current;
-
+            int64_t step = 1;
             for (int level = 0; level < nlevels; ++level) {
-
                 if (index % (2*step) == 0) {
                     if (index + step < nranks) {
+                        // This is the top, rank1, of the pair;
+                        // recv tile from bottom, rank2, and do LU factorization.
+                        int rank2  = rank_rows[ index+step ].first;
+                        int64_t i2 = rank_rows[ index+step ].second;
+                        int64_t i1 = rank_rows[ index ].second;
 
-                        src       = rank_rows[index+step].first;
-                        i_dst     = rank_rows[index+step].second;
-                        i_current = rank_rows[index].second;
-
-                        Awork.tileRecv(i_dst, 0, src, layout);
-                        Awork.tileGetForWriting(i_current, 0, LayoutConvert(layout));
+                        Awork.tileRecv( i2, 0, rank2, layout );
+                        Awork.tileGetForWriting( i1, 0, LayoutConvert( layout ));
 
                         MPI_Status status;
-                        MPI_Recv(aux_pivot.at(1).data(),
-                                 sizeof(AuxPivot<scalar_t>)*aux_pivot.at(1).size(),
-                                 MPI_BYTE, src, 0, A.mpiComm(),  &status);
+                        MPI_Recv( aux_pivot[ 1 ].data(),
+                                  sizeof(AuxPivot<scalar_t>) * aux_pivot[ 1 ].size(),
+                                  MPI_BYTE, rank2, 0, A.mpiComm(),  &status );
 
-                        //Alocate workspace to copy tiles in the tree reduction.
-                        std::vector< Tile<scalar_t> > local_tiles;
-                        std::vector<scalar_t> data1( Awork.tileMb(i_current) * Awork.tileNb(0) );
-                        std::vector<scalar_t> data2( Awork.tileMb(i_dst) * Awork.tileNb(0) );
+                        // Alocate workspace to copy tiles in the tree reduction.
+                        std::vector<scalar_t> data1( Awork.tileMb( i1 ) * nb );
+                        std::vector<scalar_t> data2( Awork.tileMb( i2 ) * nb );
 
-                        Tile<scalar_t> tile1( Awork.tileMb(i_current), Awork.tileNb(0),
-                                              &data1[0], Awork.tileMb(i_current), slate::HostNum, TileKind::Workspace );
-                        Tile<scalar_t> tile2( Awork.tileMb(i_dst), Awork.tileNb(0),
-                                              &data2[0], Awork.tileMb(i_dst), slate::HostNum, TileKind::Workspace );
+                        Tile<scalar_t> tile1( Awork.tileMb( i1 ), nb,
+                                              &data1[ 0 ], Awork.tileMb( i1 ),
+                                              slate::HostNum, TileKind::Workspace );
+                        Tile<scalar_t> tile2( Awork.tileMb( i2 ), nb,
+                                              &data2[ 0 ], Awork.tileMb( i2 ),
+                                              slate::HostNum, TileKind::Workspace );
 
-                        local_tiles.push_back( tile1 );
-                        local_tiles.push_back( tile2 );
+                        Awork( i1, 0 ).copyData( &tile1 );
+                        Awork( i2, 0 ).copyData( &tile2 );
 
-                        Awork(i_current, 0).copyData( &local_tiles[0]);
-                        Awork(i_dst, 0).copyData( &local_tiles[1]);
+                        piv_len = std::min( tile1.mb(), nb );
 
-                        piv_len = std::min(local_tiles[0].mb(), local_tiles[0].nb());
+                        std::vector< Tile< scalar_t > > tmp_tiles;
+                        tmp_tiles.push_back( tile1 );
+                        tmp_tiles.push_back( tile2 );
 
                         // Factor the panel locally in parallel.
                         getrf_tntpiv_local(
-                            local_tiles, piv_len, ib, 1,
-                                     A.tileNb(0), tile_indices, aux_pivot,
-                                     A.mpiRank(), max_panel_threads, priority);
+                            tmp_tiles, piv_len, ib, 1,
+                            nb, tile_indices, aux_pivot,
+                            A.mpiRank(), max_panel_threads, priority );
 
-                        std::vector< Tile<scalar_t> > ptiles;
-                        ptiles.push_back(Awork(i_current, 0));
-                        ptiles.push_back(Awork(i_dst, 0));
+                        std::vector< Tile< scalar_t > > work_tiles;
+                        work_tiles.push_back( Awork( i1, 0 ) );
+                        work_tiles.push_back( Awork( i2, 0 ) );
 
-                        for (int j=0; j < piv_len; ++j) {
-                            if (aux_pivot[0][j].localTileIndex() > 0 ||
-                                aux_pivot[0][j].localOffset() > j) {
-
+                        // Swap rows in tiles in Awork.
+                        // Swap (tile, row) (0, ii) and (ip, iip).
+                        for (int64_t ii = 0; ii < piv_len; ++ii) {
+                            int64_t ip  = aux_pivot[ 0 ][ ii ].localTileIndex();
+                            int64_t iip = aux_pivot[ 0 ][ ii ].localOffset();
+                            if (ip > 0 || iip > ii) {
                                 swapLocalRow(
-                                    0, A.tileNb(0),
-                                    ptiles[0], j,
-                                    ptiles[aux_pivot[0][j].localTileIndex()],
-                                    aux_pivot[0][j].localOffset());
+                                    0, nb,
+                                    work_tiles[ 0  ], ii,
+                                    work_tiles[ ip ], iip );
                             }
                         }
                         if (level == nlevels-1) {
                             // Copy the last factorization back to panel tile
-                            local_tiles[ 0 ].copyData( &ptiles[ 0 ] );
+                            tile1.copyData( &work_tiles[ 0 ] );
                             permutation_to_sequential_pivot(
                                 aux_pivot[ 0 ], diag_len, A.mt(), A.tileMb( 0 ) );
                         }
 
-                        Awork.tileTick(i_dst, 0);
+                        Awork.tileTick( i2, 0 );
                     }
                 }
                 else {
-                    dst   = rank_rows[ index - step ].first;
-                    i_src = rank_rows[ index ].second;
-                    Awork.tileSend(i_src, 0, dst);
+                    // This is bottom, rank2, of the pair;
+                    // send tile i2 and pivot data to top, rank1.
+                    int rank1  = rank_rows[ index - step ].first;
+                    int64_t i2 = rank_rows[ index ].second;
+                    Awork.tileSend( i2, 0, rank1 );
 
-                    MPI_Send(aux_pivot.at(0).data(),
-                             sizeof(AuxPivot<scalar_t>)*aux_pivot.at(0).size(),
-                             MPI_BYTE, dst, 0, A.mpiComm());
+                    MPI_Send( aux_pivot[ 0 ].data(),
+                              sizeof(AuxPivot<scalar_t>) * aux_pivot[ 0 ].size(),
+                              MPI_BYTE, rank1, 0, A.mpiComm() );
+
+                    // This rank is done!
                     break;
                 }
                 step *= 2;

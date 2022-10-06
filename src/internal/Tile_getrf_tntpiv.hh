@@ -123,24 +123,14 @@ void getrf_tntpiv_local(
             {
                 auto tile = tiles[idx];
 
-                // if diagonal tile
-                if (idx == 0) {
-                    for (int64_t i = j+1; i < tile.mb(); ++i) {
-                        if (cabs1( tile( i, j ) ) > cabs1( max_value[ thread_id ] )) {
-                            max_value [ thread_id ] = tile(i, j);
-                            max_index [ thread_id ] = idx;
-                            max_offset[ thread_id ] = i;
-                        }
-                    }
-                }
-                // off diagonal tiles
-                else {
-                    for (int64_t i = 0; i < tile.mb(); ++i) {
-                        if (cabs1( tile( i, j ) ) > cabs1( max_value[ thread_id ] )) {
-                            max_value [ thread_id ] = tile(i, j);
-                            max_index [ thread_id ] = idx;
-                            max_offset[ thread_id ] = i;
-                        }
+                // For diagonal tile, start at sub-diagonal;
+                // otherwise start at tile's row 0.
+                int64_t start = (idx == 0 ? j+1 : 0);
+                for (int64_t i = start; i < tile.mb(); ++i) {
+                    if (cabs1( tile( i, j ) ) > cabs1( max_value[ thread_id ] )) {
+                        max_value [ thread_id ] = tile( i, j );
+                        max_index [ thread_id ] = idx;
+                        max_offset[ thread_id ] = i;
                     }
                 }
             }

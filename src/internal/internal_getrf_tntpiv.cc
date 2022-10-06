@@ -160,9 +160,7 @@ void getrf_tntpiv_local(
     int mpi_rank, int max_panel_threads, int priority)
 {
     // Launch the panel tasks.
-    int thread_size = max_panel_threads;
-    if (int(tiles.size()) < max_panel_threads)
-        thread_size = tiles.size();
+    int thread_size = std::min( max_panel_threads, int( tiles.size() ) );
 
     ThreadBarrier thread_barrier;
     std::vector<scalar_t> max_value( thread_size );
@@ -171,7 +169,6 @@ void getrf_tntpiv_local(
     std::vector<scalar_t> top_block( ib * nb );
 
     #if 1
-        omp_set_nested(1);
         // Launching new threads for the panel guarantees progression.
         // This should never deadlock, but may be detrimental to performance.
         #pragma omp parallel for \
@@ -196,8 +193,6 @@ void getrf_tntpiv_local(
             thread_barrier,
             max_value, max_index, max_offset, top_block);
     }
-    #pragma omp taskwait
-
 }
 
 //------------------------------------------------------------------------------

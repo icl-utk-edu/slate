@@ -150,8 +150,8 @@ void getrf_tntpiv(
 
                 internal::trsm<target>(
                     Side::Right,
-                    scalar_t(1.0), std::move(Tkk),
-                    A.sub(k+1, A_mt-1, k, k),
+                    one, std::move(Tkk),
+                         A.sub( k+1, A_mt-1, k, k ),
                     priority_one, Layout::ColMajor, queue_0);
 
                 BcastListTag bcast_list;

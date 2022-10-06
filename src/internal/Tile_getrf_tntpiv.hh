@@ -160,13 +160,15 @@ void getrf_tntpiv_local(
                         max_value[ 0 ], mpi_rank);
                 }
                 else {
-                    int global_tile_index = aux_pivot[max_index[0]][max_offset[0]].tileIndex();
-                    int global_Offset = aux_pivot[ max_index[ 0 ] ] [max_offset[0]].elementOffset();
+                    int64_t global_tile_index
+                        = aux_pivot[ max_index[ 0 ] ][ max_offset[ 0 ] ].tileIndex();
+                    int64_t global_offset
+                        = aux_pivot[ max_index[ 0 ] ][ max_offset[ 0 ] ].elementOffset();
 
                     aux_pivot[ max_index[ 0 ] ][ max_offset[ 0 ] ] = aux_pivot[ 0 ][ j ];
 
                     aux_pivot[ 0 ][ j ] = AuxPivot<scalar_t>(
-                        global_tile_index, global_Offset,
+                        global_tile_index, global_offset,
                         max_index [ 0 ], max_offset[ 0 ],
                         max_value [ 0 ], mpi_rank );
                 }

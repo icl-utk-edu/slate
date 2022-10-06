@@ -155,7 +155,7 @@ template <typename scalar_t>
 void getrf_tntpiv_local(
     std::vector< Tile< scalar_t > >& tiles,
     int64_t diag_len, int64_t ib, int stage,
-    int nb, std::vector<int64_t>& tile_indices,
+    int64_t nb, std::vector<int64_t>& tile_indices,
     std::vector< std::vector< AuxPivot< scalar_t > > >& aux_pivot,
     int mpi_rank, int max_panel_threads, int priority)
 {

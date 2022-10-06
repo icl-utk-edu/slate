@@ -81,12 +81,12 @@ public:
     scalar_t value() { return value_; }
     int rank() { return rank_; }
 
-    void set_tileIndex(int i) { tile_index_=i; }
-    void set_elementOffset(int i) { element_offset_=i; }
-    void set_localTileIndex(int i) { local_tile_index_=i; }
-    void set_localOffset(int i) { local_offset_=i; }
-    void set_value(scalar_t v) { value_=v; }
-    void set_rank(int r) { rank_=r; }
+    void set_tileIndex(int64_t i) { tile_index_ = i; }
+    void set_elementOffset(int64_t i) { element_offset_ = i; }
+    void set_localTileIndex(int64_t i) { local_tile_index_ = i; }
+    void set_localOffset(int64_t i) { local_offset_ = i; }
+    void set_value(scalar_t v) { value_ = v; }
+    void set_rank(int r) { rank_ = r; }
 
 private:
     int64_t tile_index_;       ///< tile index in the panel submatrix

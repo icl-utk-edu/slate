@@ -470,10 +470,11 @@ void norm(Norm in_norm, NormScope scope, HermitianBandMatrix<scalar_t>&& A,
 //       Probably best to do A, pivot, ib, diag_let, ib, ...
 //       Possibly compute diag_len in internal.
 template <Target target=Target::HostTask, typename scalar_t>
-void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
-           std::vector<Pivot>& pivot,
-           blas::real_type<scalar_t> remote_pivot_threshold,
-           int max_panel_threads, int priority=0, int tag=0);
+void getrf_panel(
+    Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    blas::real_type<scalar_t> remote_pivot_threshold,
+    int max_panel_threads, int priority=0, int tag=0);
 
 //-----------------------------------------
 // getrf_nopiv()
@@ -484,7 +485,7 @@ void getrf_nopiv(Matrix<scalar_t>&& A,
 //-----------------------------------------
 // getrf_tntpiv()
 template <Target target=Target::HostTask, typename scalar_t>
-void getrf_tntpiv(
+void getrf_tntpiv_panel(
     Matrix<scalar_t>&& A, Matrix<scalar_t>&& Awork,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,

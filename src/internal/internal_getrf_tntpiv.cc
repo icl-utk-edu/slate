@@ -168,30 +168,18 @@ void getrf_tntpiv(
 }
 
 //------------------------------------------------------------------------------
-/// LU factorization of a column of tiles.
-/// Dispatches to target implementations.
-/// @ingroup gesv_internal
-///
-template <Target target, typename scalar_t>
-void getrf_tntpiv(Matrix<scalar_t>&& A, Matrix<scalar_t>&& Awork,
-                  int64_t diag_len, int64_t ib,
-                  std::vector<Pivot>& pivot,
-                  int max_panel_threads, int priority)
-{
-    getrf_tntpiv(internal::TargetType<target>(),
-                 A, Awork, diag_len, ib, pivot, max_panel_threads, priority);
-}
-
-//------------------------------------------------------------------------------
 /// LU factorization of a column of tiles, host implementation.
 /// @ingroup gesv_internal
 ///
 template <typename scalar_t>
-void getrf_tntpiv(internal::TargetType<Target::HostTask>,
-                  Matrix<scalar_t>& A, Matrix<scalar_t>& Awork,
-                  int64_t diag_len, int64_t ib,
-                  std::vector<Pivot>& pivot,
-                  int max_panel_threads, int priority)
+void getrf_tntpiv_panel(
+    internal::TargetType<Target::HostTask>,
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority)
+    // todo: missing tag
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
@@ -398,35 +386,57 @@ void getrf_tntpiv(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
+/// LU factorization of a column of tiles.
+/// Dispatches to target implementations.
+/// @ingroup gesv_internal
+///
+template <Target target, typename scalar_t>
+void getrf_tntpiv_panel(
+    Matrix<scalar_t>&& A,
+    Matrix<scalar_t>&& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority)
+{
+    getrf_tntpiv_panel(
+        internal::TargetType<target>(),
+        A, Awork, diag_len, ib, pivot, max_panel_threads, priority );
+}
+
+//------------------------------------------------------------------------------
 // Explicit instantiations.
 // ----------------------------------------
 template
-void getrf_tntpiv<Target::HostTask, float>(
-    Matrix<float>&& A, Matrix<float>&& Awork,
+void getrf_tntpiv_panel<Target::HostTask, float>(
+    Matrix<float>&& A,
+    Matrix<float>&& Awork,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
 
 // ----------------------------------------
 template
-void getrf_tntpiv<Target::HostTask, double>(
-    Matrix<double>&& A, Matrix<double>&& Awork,
+void getrf_tntpiv_panel<Target::HostTask, double>(
+    Matrix<double>&& A,
+    Matrix<double>&& Awork,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
 
 // ----------------------------------------
 template
-void getrf_tntpiv< Target::HostTask, std::complex<float> >(
-    Matrix< std::complex<float> >&& A, Matrix< std::complex<float> >&& Awork,
+void getrf_tntpiv_panel< Target::HostTask, std::complex<float> >(
+    Matrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& Awork,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
 
 // ----------------------------------------
 template
-void getrf_tntpiv< Target::HostTask, std::complex<double> >(
-    Matrix< std::complex<double> >&& A, Matrix< std::complex<double> >&& Awork,
+void getrf_tntpiv_panel< Target::HostTask, std::complex<double> >(
+    Matrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& Awork,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);

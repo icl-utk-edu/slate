@@ -10,34 +10,20 @@
 #include "internal/internal.hh"
 
 namespace slate {
-namespace internal {
 
-//------------------------------------------------------------------------------
-/// LU factorization of a column of tiles.
-/// Dispatches to target implementations.
-/// @ingroup gesv_internal
-///
-template <Target target, typename scalar_t>
-void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
-           std::vector<Pivot>& pivot,
-           blas::real_type<scalar_t> pivot_threshold,
-           int max_panel_threads, int priority, int tag)
-{
-    getrf(internal::TargetType<target>(),
-          A, diag_len, ib, pivot,
-          pivot_threshold, max_panel_threads, priority, tag);
-}
+namespace internal {
 
 //------------------------------------------------------------------------------
 /// LU factorization of a column of tiles, host implementation.
 /// @ingroup gesv_internal
 ///
 template <typename scalar_t>
-void getrf(internal::TargetType<Target::HostTask>,
-           Matrix<scalar_t>& A, int64_t diag_len, int64_t ib,
-           std::vector<Pivot>& pivot,
-           blas::real_type<scalar_t> pivot_threshold,
-           int max_panel_threads, int priority, int tag)
+void getrf_panel(
+    internal::TargetType<Target::HostTask>,
+    Matrix<scalar_t>& A, int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    blas::real_type<scalar_t> pivot_threshold,
+    int max_panel_threads, int priority, int tag)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
     assert(A.nt() == 1);
@@ -136,10 +122,28 @@ void getrf(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
+/// LU factorization of a column of tiles.
+/// Dispatches to target implementations.
+/// @ingroup gesv_internal
+///
+template <Target target, typename scalar_t>
+void getrf_panel(
+    Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    blas::real_type<scalar_t> pivot_threshold,
+    int max_panel_threads, int priority, int tag)
+{
+    getrf_panel(
+        internal::TargetType<target>(),
+        A, diag_len, ib, pivot,
+        pivot_threshold, max_panel_threads, priority, tag );
+}
+
+//------------------------------------------------------------------------------
 // Explicit instantiations.
 // ----------------------------------------
 template
-void getrf<Target::HostTask, float>(
+void getrf_panel<Target::HostTask, float>(
     Matrix<float>&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     blas::real_type<float> pivot_threshold,
@@ -147,7 +151,7 @@ void getrf<Target::HostTask, float>(
 
 // ----------------------------------------
 template
-void getrf<Target::HostTask, double>(
+void getrf_panel<Target::HostTask, double>(
     Matrix<double>&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     blas::real_type<double> pivot_threshold,
@@ -155,7 +159,7 @@ void getrf<Target::HostTask, double>(
 
 // ----------------------------------------
 template
-void getrf< Target::HostTask, std::complex<float> >(
+void getrf_panel< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     blas::real_type<std::complex<float>> pivot_threshold,
@@ -163,7 +167,7 @@ void getrf< Target::HostTask, std::complex<float> >(
 
 // ----------------------------------------
 template
-void getrf< Target::HostTask, std::complex<double> >(
+void getrf_panel< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     blas::real_type<std::complex<double>> pivot_threshold,

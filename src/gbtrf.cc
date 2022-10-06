@@ -98,7 +98,7 @@ void gbtrf(slate::internal::TargetType<target>,
             #pragma omp task depend(inout:column[k]) priority(priority_one)
             {
                 // factor A(k:mt-1, k)
-                internal::getrf<Target::HostTask>(
+                internal::getrf_panel<Target::HostTask>(
                     A.sub(k, i_end-1, k, k), diag_len, ib,
                     pivots.at(k), max_panel_threads, priority_one);
 

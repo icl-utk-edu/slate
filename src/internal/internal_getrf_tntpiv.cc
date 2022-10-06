@@ -235,22 +235,20 @@ void getrf_tntpiv_panel(
     std::vector< Tile<scalar_t> > tiles, tiles_copy_poriginal;
     std::vector<int64_t> tile_indices;
 
-    // Build the broadcast set.
-    // Build lists of local tiles, indices, and offsets.
-    int64_t tile_offset = 0;
-    std::set<int> bcast_set;
+    // Build the set of ranks in the panel.
+    // Build lists of local tiles and their indices.
+    std::set<int> ranks_set;
     for (int64_t i = 0; i < A.mt(); ++i) {
-        bcast_set.insert( A.tileRank( i, 0 ) );
+        ranks_set.insert( A.tileRank( i, 0 ) );
         if (A.tileIsLocal( i, 0 )) {
             tiles.push_back( Awork( i, 0 ) );
             tile_indices.push_back( i );
         }
-        tile_offset += A.tileMb(i);
     }
     // Find each rank's first (top-most) row in this panel.
     std::vector< std::pair<int, int64_t> > rank_rows;
-    rank_rows.reserve( bcast_set.size() );
-    for (int r : bcast_set) {
+    rank_rows.reserve( ranks_set.size() );
+    for (int r : ranks_set) {
         for (int64_t i = 0; i < A.mt(); ++i) {
             if (A.tileRank( i, 0 ) == r) {
                 rank_rows.push_back( { r, i } );

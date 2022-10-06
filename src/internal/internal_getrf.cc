@@ -41,28 +41,26 @@ void getrf_panel(
     std::vector< Tile<scalar_t> > tiles;
     std::vector<int64_t> tile_indices;
 
-    // Build the broadcast set.
-    // Build lists of local tiles, indices, and offsets.
-    int64_t tile_offset = 0;
-    std::set<int> bcast_set;
+    // Build the set of ranks in the panel.
+    // Build lists of local tiles and their indices.
+    std::set<int> ranks_set;
     for (int64_t i = 0; i < A.mt(); ++i) {
-        bcast_set.insert(A.tileRank(i, 0));
+        ranks_set.insert( A.tileRank( i, 0 ) );
         if (A.tileIsLocal(i, 0)) {
             tiles.push_back(A(i, 0));
             tile_indices.push_back(i);
         }
-        tile_offset += A.tileMb(i);
     }
 
     // If participating in the panel factorization.
-    if (bcast_set.find(A.mpiRank()) != bcast_set.end()) {
+    if (ranks_set.find( A.mpiRank() ) != ranks_set.end()) {
 
         // Create the broadcast communicator.
         // Translate the root rank.
         int bcast_rank;
         int bcast_root;
         MPI_Comm bcast_comm;
-        bcast_comm = commFromSet(bcast_set,
+        bcast_comm = commFromSet(ranks_set,
                                  A.mpiComm(), A.mpiGroup(),
                                  A.tileRank(0, 0), bcast_root,
                                  tag);

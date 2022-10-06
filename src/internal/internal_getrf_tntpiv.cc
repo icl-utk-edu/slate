@@ -169,6 +169,7 @@ void getrf_tntpiv_local(
     std::vector<scalar_t> top_block( ib * nb );
 
     #if 1
+        // todo: this can be just `omp parallel` (no for). cf. internal_geqrf.cc
         // Launching new threads for the panel guarantees progression.
         // This should never deadlock, but may be detrimental to performance.
         #pragma omp parallel for \
@@ -262,6 +263,11 @@ void getrf_tntpiv_panel(
             break;
     }
 
+    // Either we participate, or the tiles should be empty.
+    assert( index < nranks
+            || (tiles.size() == 0
+                && A_tiles_set.size() == 0) );
+
     // If participating in the panel factorization.
     if (index < int(rank_rows.size())) {
 
@@ -281,7 +287,8 @@ void getrf_tntpiv_panel(
                      A.mpiRank(), max_panel_threads, priority);
 
         if (nranks > 1) {
-
+            // todo: don't need to copy all A, just the rows that end up
+            // in the top tile.
             internal::copy<Target::HostTask>( std::move( A ), std::move( Awork ) );
 
             std::vector< std::vector<std::pair<int, int64_t>> > global_tracking(tile_indices.size());

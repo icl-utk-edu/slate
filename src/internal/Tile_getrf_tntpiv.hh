@@ -101,6 +101,10 @@ void getrf_tntpiv_local(
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
 
+    assert( int( max_value .size() ) == thread_size );
+    assert( int( max_index .size() ) == thread_size );
+    assert( int( max_offset.size() ) == thread_size );
+
     int64_t nb = tiles[ 0 ].nb();
 
     // Loop over ib-wide stripes.
@@ -160,6 +164,7 @@ void getrf_tntpiv_local(
                         max_value[ 0 ], mpi_rank);
                 }
                 else {
+                    assert( max_index[ 0 ] >= 0 && max_index[ 0 ] <= 1 );
                     int64_t global_tile_index
                         = aux_pivot[ max_index[ 0 ] ][ max_offset[ 0 ] ].tileIndex();
                     int64_t global_offset
@@ -256,6 +261,7 @@ void getrf_tntpiv_local(
                     }
                 }
             }
+            // todo: needed? In tile::getrf, this thread_barrier was removed.
             thread_barrier.wait( thread_size );
         }
 
@@ -272,6 +278,8 @@ void getrf_tntpiv_local(
                             one, &top_tile.at( k, k ),    top_tile.stride(),
                                  &top_tile.at( k, k+kb ), top_tile.stride() );
             }
+            // todo: supperfluous, since next if is also tid 0?
+            // todo: merge these two `if` blocks, as in tile::getrf?
             thread_barrier.wait( thread_size );
 
             if (thread_id == 0) {

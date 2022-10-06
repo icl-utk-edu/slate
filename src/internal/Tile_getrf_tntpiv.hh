@@ -81,17 +81,17 @@ namespace tile {
 template <typename scalar_t>
 void getrf_tntpiv_local(
     int64_t diag_len, int64_t ib, int stage,
-    std::vector< Tile<scalar_t> >& tiles,
-    std::vector<int64_t>& tile_indices,
+    std::vector< Tile< scalar_t > >& tiles,
+    std::vector< int64_t >& tile_indices,
     std::vector< std::vector< internal::AuxPivot< scalar_t > > >& aux_pivot,
     int mpi_rank, int thread_id, int thread_size,
     ThreadBarrier& thread_barrier,
-    std::vector<scalar_t>& max_value,
-    std::vector<int64_t>& max_index,
-    std::vector<int64_t>& max_offset,
-    std::vector<scalar_t>& top_block)
+    std::vector< scalar_t >& max_value,
+    std::vector< int64_t  >& max_index,
+    std::vector< int64_t  >& max_offset,
+    std::vector< scalar_t >& top_block)
 {
-    trace::Block trace_block("lapack::getrf_tntpiv");
+    trace::Block trace_block( "lapack::getrf_tntpiv" );
 
     using real_t = blas::real_type<scalar_t>;
     using internal::AuxPivot;
@@ -99,14 +99,14 @@ void getrf_tntpiv_local(
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
 
-    int64_t nb = tiles[0].nb();
+    int64_t nb = tiles[ 0 ].nb();
 
     // Loop over ib-wide stripes.
     for (int64_t k = 0; k < diag_len; k += ib) {
 
         //=======================
         // ib panel factorization
-        int64_t kb = std::min(diag_len-k, ib);
+        int64_t kb = std::min( diag_len-k, ib );
 
         // Loop over ib columns of a stripe.
         for (int64_t j = k; j < k+kb; ++j) {
@@ -118,10 +118,10 @@ void getrf_tntpiv_local(
             //------------------
             // thread max search
             for (int64_t idx = thread_id;
-                 idx < int64_t(tiles.size());
+                 idx < int64_t( tiles.size() );
                  idx += thread_size)
             {
-                auto tile = tiles[idx];
+                auto tile = tiles[ idx ];
 
                 // For diagonal tile, start at sub-diagonal;
                 // otherwise start at tile's row 0.
@@ -134,7 +134,7 @@ void getrf_tntpiv_local(
                     }
                 }
             }
-            thread_barrier.wait(thread_size);
+            thread_barrier.wait( thread_size );
 
             //------------------------------------
             // global max reduction and pivot swap
@@ -150,31 +150,27 @@ void getrf_tntpiv_local(
                 // stage 0 means first local lu before the tree reduction
                 // read global index and offset and swap it with j
                 if (stage == 0) {
-
-                    aux_pivot[0][j] = AuxPivot<scalar_t>(tile_indices[max_index[0]],
-                                                         max_offset[0], max_index[0],
-                                                         max_offset[0], max_value[0],
-                                                         mpi_rank);
+                    aux_pivot[ 0 ][ j ] = AuxPivot<scalar_t>(
+                        tile_indices[ max_index[ 0 ] ], max_offset[ 0 ],
+                        max_index[ 0 ], max_offset[ 0 ],
+                        max_value[ 0 ], mpi_rank);
                 }
                 else {
-
                     int global_tile_index = aux_pivot[max_index[0]][max_offset[0]].tileIndex();
-                    int global_Offset = aux_pivot[max_index[0]][max_offset[0]].elementOffset();
+                    int global_Offset = aux_pivot[ max_index[ 0 ] ] [max_offset[0]].elementOffset();
 
-                    aux_pivot[max_index[0]][max_offset[0]] = aux_pivot[0][j];
+                    aux_pivot[ max_index[ 0 ] ][ max_offset[ 0 ] ] = aux_pivot[ 0 ][ j ];
 
-                    aux_pivot[0][j] = AuxPivot<scalar_t>(global_tile_index,
-                                                         global_Offset,
-                                                         max_index[0],
-                                                         max_offset[0],
-                                                         max_value[0],
-                                                         mpi_rank);
+                    aux_pivot[ 0 ][ j ] = AuxPivot<scalar_t>(
+                        global_tile_index, global_Offset,
+                        max_index [ 0 ], max_offset[ 0 ],
+                        max_value [ 0 ], mpi_rank );
                 }
 
                 // pivot swap
                 // if pivot is not on the diagonal
-                if (aux_pivot[0][j].localTileIndex() > 0 ||
-                    aux_pivot[0][j].localOffset() > j) {
+                if (aux_pivot[ 0 ][ j ].localTileIndex() > 0 ||
+                    aux_pivot[ 0 ][ j ].localOffset() > j) {
                     // local swap
                     swapLocalRow( 0, nb,
                                   tiles[ 0 ], j,
@@ -183,49 +179,49 @@ void getrf_tntpiv_local(
                 }
                 // Broadcast the top row for the geru operation.
                 if (k+kb > j+1) {
-                    auto top_tile = tiles[0];
+                    auto top_tile = tiles[ 0 ];
                     // todo: make it a tile operation
-                    blas::copy(k+kb-j-1,
-                               &top_tile.at(j, j+1), top_tile.stride(),
-                               top_block.data(), 1);
+                    blas::copy( k+kb-j-1,
+                                &top_tile.at( j, j+1 ), top_tile.stride(),
+                                top_block.data(), 1 );
                 }
             }
-            thread_barrier.wait(thread_size);
+            thread_barrier.wait( thread_size );
 
             // column scaling and trailing update
             for (int64_t idx = thread_id;
-                 idx < int64_t(tiles.size());
+                 idx < int64_t( tiles.size() );
                  idx += thread_size)
             {
-                auto tile = tiles[idx];
+                auto tile = tiles[ idx ];
 
                 // column scaling
                 real_t sfmin = std::numeric_limits<real_t>::min();
-                if (cabs1(aux_pivot[0][j].value()) >= sfmin) {
+                if (cabs1( aux_pivot[ 0 ][ j ].value() ) >= sfmin) {
                     // todo: make it a tile operation
                     if (idx == 0) {
                         // diagonal tile
-                        scalar_t alpha = one / tile(j, j);
+                        scalar_t alpha = one / tile( j, j );
                         int64_t m = tile.mb()-j-1;
                         if (m > 0)
-                            blas::scal(tile.mb()-j-1, alpha, &tile.at(j+1, j), 1);
+                            blas::scal( tile.mb()-j-1, alpha, &tile.at( j+1, j ), 1 );
                     }
                     else {
                         // off diagonal tile
-                        scalar_t alpha = one / aux_pivot[0][j].value();
-                        blas::scal(tile.mb(), alpha, &tile.at(0, j), 1);
+                        scalar_t alpha = one / aux_pivot[ 0 ][ j ].value();
+                        blas::scal( tile.mb(), alpha, &tile.at( 0, j ), 1 );
                     }
                 }
-                else if (aux_pivot[0][j].value() != zero) {
+                else if (aux_pivot[ 0 ][ j ].value() != zero) {
                     if (idx == 0) {
                         // diagonal tile
                         for (int64_t i = j+1; i < tile.mb(); ++i)
-                            tile.at(i, j) /= tile(j, j);
+                            tile.at( i, j ) /= tile( j, j );
                     }
                     else {
                         // off diagonal tile
                         for (int64_t i = 0; i < tile.mb(); ++i)
-                            tile.at(i, j) /= aux_pivot[0][j].value();
+                            tile.at( i, j ) /= aux_pivot[ 0 ][ j ].value();
                     }
                 }
                 else {
@@ -238,22 +234,22 @@ void getrf_tntpiv_local(
                 // todo: make it a tile operation
                 if (k+kb > j+1) {
                     if (idx == 0) {
-                        blas::geru(Layout::ColMajor,
-                                   tile.mb()-j-1, k+kb-j-1,
-                                   -one, &tile.at(j+1, j), 1,
-                                         top_block.data(), 1,
-                                         &tile.at(j+1, j+1), tile.stride());
+                        blas::geru( Layout::ColMajor,
+                                    tile.mb()-j-1, k+kb-j-1,
+                                    -one, &tile.at( j+1, j ), 1,
+                                          top_block.data(), 1,
+                                          &tile.at( j+1, j+1 ), tile.stride() );
                     }
                     else {
-                        blas::geru(Layout::ColMajor,
-                                   tile.mb(), k+kb-j-1,
-                                   -one, &tile.at(0, j), 1,
-                                         top_block.data(), 1,
-                                         &tile.at(0, j+1), tile.stride());
+                        blas::geru( Layout::ColMajor,
+                                    tile.mb(), k+kb-j-1,
+                                    -one, &tile.at( 0, j ), 1,
+                                          top_block.data(), 1,
+                                          &tile.at( 0, j+1 ), tile.stride() );
                     }
                 }
             }
-            thread_barrier.wait(thread_size);
+            thread_barrier.wait( thread_size );
         }
 
         // Trailing submatrix update.
@@ -261,54 +257,54 @@ void getrf_tntpiv_local(
             //=================
             // triangular solve
             if (thread_id == 0) {
-                auto top_tile = tiles[0];
-                blas::trsm(Layout::ColMajor,
-                           Side::Left, Uplo::Lower,
-                           Op::NoTrans, Diag::Unit,
-                           kb, nb-k-kb,
-                           one, &top_tile.at(k, k), top_tile.stride(),
-                           &top_tile.at(k, k+kb), top_tile.stride());
+                auto top_tile = tiles[ 0 ];
+                blas::trsm( Layout::ColMajor,
+                            Side::Left, Uplo::Lower,
+                            Op::NoTrans, Diag::Unit,
+                            kb, nb-k-kb,
+                            one, &top_tile.at( k, k ),    top_tile.stride(),
+                                 &top_tile.at( k, k+kb ), top_tile.stride() );
             }
-            thread_barrier.wait(thread_size);
+            thread_barrier.wait( thread_size );
 
             // Broadcast the top block for gemm.
             if (thread_id == 0) {
-                auto top_tile = tiles[0];
-                lapack::lacpy(lapack::MatrixType::General,
-                              kb, nb-k-kb,
-                              &top_tile.at(k, k+kb), top_tile.stride(),
-                              top_block.data(), kb);
+                auto top_tile = tiles[ 0 ];
+                lapack::lacpy( lapack::MatrixType::General,
+                               kb, nb-k-kb,
+                               &top_tile.at( k, k+kb ), top_tile.stride(),
+                               top_block.data(), kb );
             }
-            thread_barrier.wait(thread_size);
+            thread_barrier.wait( thread_size );
 
             //============================
             // rank-ib update to the right
             for (int64_t idx = thread_id;
-                 idx < int64_t(tiles.size());
+                 idx < int64_t( tiles.size() );
                  idx += thread_size)
             {
-                auto tile = tiles[idx];
+                auto tile = tiles[ idx ];
 
                 if (idx == 0) {
                     if (k+kb < tile.mb()) {
-                        blas::gemm(blas::Layout::ColMajor,
-                                   Op::NoTrans, Op::NoTrans,
-                                   tile.mb()-k-kb, nb-k-kb, kb,
-                                   -one, &tile.at( k+kb, k    ), tile.stride(),
-                                         &tile.at( k,    k+kb ), tile.stride(),
-                                   one,  &tile.at( k+kb, k+kb ), tile.stride());
+                        blas::gemm( blas::Layout::ColMajor,
+                                    Op::NoTrans, Op::NoTrans,
+                                    tile.mb()-k-kb, nb-k-kb, kb,
+                                    -one, &tile.at( k+kb, k    ), tile.stride(),
+                                          &tile.at( k,    k+kb ), tile.stride(),
+                                    one,  &tile.at( k+kb, k+kb ), tile.stride() );
                     }
                 }
                 else {
-                    blas::gemm(blas::Layout::ColMajor,
-                               Op::NoTrans, Op::NoTrans,
-                               tile.mb(), nb-k-kb, kb,
-                               -one, &tile.at(0, k), tile.stride(),
-                                     top_block.data(), kb,
-                               one,  &tile.at(0, k+kb), tile.stride());
+                    blas::gemm( blas::Layout::ColMajor,
+                                Op::NoTrans, Op::NoTrans,
+                                tile.mb(), nb-k-kb, kb,
+                                -one, &tile.at( 0, k ), tile.stride(),
+                                      top_block.data(), kb,
+                                one,  &tile.at( 0, k+kb ), tile.stride() );
                 }
             }
-            thread_barrier.wait(thread_size);
+            thread_barrier.wait( thread_size );
         }
     }
 }

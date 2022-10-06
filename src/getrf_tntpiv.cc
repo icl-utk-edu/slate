@@ -122,7 +122,8 @@ void getrf_tntpiv(
                     Direction::Forward, A.sub(k, A_mt-1, k, k),
                     pivots.at(k), target_layout, priority_one, tag_k, queue_0);
 
-                internal::copy<Target::HostTask>(Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
+                internal::copy<Target::HostTask>(
+                    Apanel.sub( 0, 0, 0, 0 ), A.sub( k, k, k, k ));
 
                 // broadcast panel
                 BcastList bcast_list_A;
@@ -140,7 +141,8 @@ void getrf_tntpiv(
                              priority(priority_one)
             {
                 auto Akk = A.sub(k, k, k, k);
-                auto Tkk = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, Akk);
+                auto Tkk = TriangularMatrix<scalar_t>(
+                    Uplo::Upper, Diag::NonUnit, Akk);
 
                 internal::trsm<target>(
                     Side::Right,
@@ -172,8 +174,8 @@ void getrf_tntpiv(
                         target_layout, priority_one, tag_j, j-k+1);
 
                     auto Akk = A.sub(k, k, k, k);
-                    auto Tkk =
-                        TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
+                    auto Tkk = TriangularMatrix<scalar_t>(
+                        Uplo::Lower, Diag::Unit, Akk);
 
                     // solve A(k, k) A(k, j) = A(k, j)
                     internal::trsm<target>(
@@ -183,7 +185,9 @@ void getrf_tntpiv(
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
-                    A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), Layout::ColMajor, tag_j);
+                    A.tileBcast(
+                        k, j, A.sub( k+1, A_mt-1, j, j ),
+                        Layout::ColMajor, tag_j );
 
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                     internal::gemm<target>(
@@ -240,7 +244,6 @@ void getrf_tntpiv(
                         const int64_t tag = j + A_mt;
                         bcast_list.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}, tag});
                     }
-
                     A.template listBcastMT<target>(
                         bcast_list, Layout::ColMajor);
 

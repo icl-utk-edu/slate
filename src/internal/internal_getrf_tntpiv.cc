@@ -12,6 +12,7 @@
 #include "internal/internal_util.hh"
 
 namespace slate {
+
 namespace internal {
 
 //------------------------------------------------------------------------------
@@ -119,50 +120,48 @@ void permutation_to_sequential_pivot(
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void getrf_tntpiv_local(
-    std::vector< Tile<scalar_t> >& tiles,
+    std::vector< Tile< scalar_t > >& tiles,
     int64_t diag_len, int64_t ib, int stage,
     int nb, std::vector<int64_t>& tile_indices,
-    std::vector< std::vector<AuxPivot<scalar_t>> >& aux_pivot,
+    std::vector< std::vector< AuxPivot< scalar_t > > >& aux_pivot,
     int mpi_rank, int max_panel_threads, int priority)
 {
-
     // Launch the panel tasks.
     int thread_size = max_panel_threads;
     if (int(tiles.size()) < max_panel_threads)
         thread_size = tiles.size();
 
     ThreadBarrier thread_barrier;
-    std::vector<scalar_t> max_value(thread_size);
-    std::vector<int64_t> max_index(thread_size);
-    std::vector<int64_t> max_offset(thread_size);
-    std::vector<scalar_t> top_block(ib*nb);
+    std::vector<scalar_t> max_value( thread_size );
+    std::vector<int64_t>  max_index( thread_size );
+    std::vector<int64_t>  max_offset( thread_size );
+    std::vector<scalar_t> top_block( ib * nb );
 
     #if 1
         omp_set_nested(1);
         // Launching new threads for the panel guarantees progression.
         // This should never deadlock, but may be detrimental to performance.
         #pragma omp parallel for \
-        num_threads(thread_size) \
-        shared(thread_barrier, max_value, max_index, max_offset, \
-                      top_block, aux_pivot)
+                    num_threads( thread_size ) \
+                    shared( thread_barrier, max_value, max_index, max_offset, \
+                            top_block, aux_pivot )
     #else
         // Issuing panel operation as tasks may cause a deadlock.
         #pragma omp taskloop \
-        num_tasks(thread_size) \
-        shared(thread_barrier, max_value, max_index, max_offset, \
-                      top_block, aux_pivot)
+                    num_tasks( thread_size ) \
+                    shared( thread_barrier, max_value, max_index, max_offset, \
+                            top_block, aux_pivot )
     #endif
-
     for (int thread_id = 0; thread_id < thread_size; ++thread_id) {
         // Factor the local panel in parallel.
         tile::getrf_tntpiv_local(
             diag_len, ib, stage,
-                     tiles, tile_indices,
-                     aux_pivot,
-                     mpi_rank,
-                     thread_id, thread_size,
-                     thread_barrier,
-                     max_value, max_index, max_offset, top_block);
+            tiles, tile_indices,
+            aux_pivot,
+            mpi_rank,
+            thread_id, thread_size,
+            thread_barrier,
+            max_value, max_index, max_offset, top_block);
     }
     #pragma omp taskwait
 
@@ -186,18 +185,18 @@ void getrf_tntpiv_panel(
 
     const Layout layout = Layout::ColMajor;
 
-    assert(A.nt() == 1);
+    assert( A.nt() == 1 );
 
-    internal::copy<Target::HostTask>( std::move(A), std::move(Awork) );
+    internal::copy<Target::HostTask>( std::move( A ), std::move( Awork ) );
 
     // Move the panel to the host
     std::set<ij_tuple> A_tiles_set;
     for (int64_t i = 0; i < A.mt(); ++i) {
-        if (A.tileIsLocal(i, 0)) {
-            A_tiles_set.insert({i, 0});
+        if (A.tileIsLocal( i, 0 )) {
+            A_tiles_set.insert( { i, 0 } );
         }
     }
-    A.tileGetForWriting(A_tiles_set, LayoutConvert::ColMajor);
+    A.tileGetForWriting( A_tiles_set, LayoutConvert::ColMajor );
 
     // lists of local tiles, indices, and offsets
     std::vector< Tile<scalar_t> > tiles, tiles_copy_poriginal;
@@ -208,31 +207,31 @@ void getrf_tntpiv_panel(
     int64_t tile_offset = 0;
     std::set<int> bcast_set;
     for (int64_t i = 0; i < A.mt(); ++i) {
-        bcast_set.insert(A.tileRank(i, 0));
-        if (A.tileIsLocal(i, 0)) {
-            tiles.push_back(Awork(i, 0));
-            tile_indices.push_back(i);
+        bcast_set.insert( A.tileRank( i, 0 ) );
+        if (A.tileIsLocal( i, 0 )) {
+            tiles.push_back( Awork( i, 0 ) );
+            tile_indices.push_back( i );
         }
         tile_offset += A.tileMb(i);
     }
     // Find each rank's first (top-most) row in this panel
     std::vector< std::pair<int, int64_t> > rank_rows;
-    rank_rows.reserve(bcast_set.size());
-    for (int r: bcast_set) {
+    rank_rows.reserve( bcast_set.size() );
+    for (int r : bcast_set) {
         for (int64_t i = 0; i < A.mt(); ++i) {
-            if (A.tileRank(i, 0) == r) {
-                rank_rows.push_back({r, i});
+            if (A.tileRank( i, 0 ) == r) {
+                rank_rows.push_back( { r, i } );
                 break;
             }
         }
     }
 
     // Sort rank_rows by row.
-    std::sort(rank_rows.begin(), rank_rows.end(), compareSecond<int, int64_t>);
+    std::sort( rank_rows.begin(), rank_rows.end(), compareSecond<int, int64_t> );
 
     int index;
     for (index = 0; index < int(rank_rows.size()); ++index) {
-        if (rank_rows[index].first == A.mpiRank())
+        if (rank_rows[ index ].first == A.mpiRank())
             break;
     }
 
@@ -242,9 +241,9 @@ void getrf_tntpiv_panel(
         int nranks = rank_rows.size();
         int nlevels = int( ceil( log2( nranks ) ) );
 
-        std::vector< std::vector<AuxPivot<scalar_t>>> aux_pivot(2);
-        aux_pivot[0].resize(A.tileMb(0));
-        aux_pivot[1].resize(A.tileMb(0));
+        std::vector< std::vector< AuxPivot< scalar_t > > > aux_pivot( 2 );
+        aux_pivot[ 0 ].resize( A.tileMb( 0 ) );
+        aux_pivot[ 1 ].resize( A.tileMb( 0 ) );
 
         int piv_len = std::min(tiles[0].mb(), tiles[0].nb());
 
@@ -256,7 +255,7 @@ void getrf_tntpiv_panel(
 
         if (nranks > 1) {
 
-            internal::copy<Target::HostTask>( std::move(A), std::move(Awork) );
+            internal::copy<Target::HostTask>( std::move( A ), std::move( Awork ) );
 
             std::vector< std::vector<std::pair<int, int64_t>> > global_tracking(tile_indices.size());
 
@@ -356,16 +355,15 @@ void getrf_tntpiv_panel(
                         }
                         if (level == nlevels-1) {
                             // Copy the last factorization back to panel tile
-                            local_tiles[0].copyData(&ptiles[0]);
+                            local_tiles[ 0 ].copyData( &ptiles[ 0 ] );
                             permutation_to_sequential_pivot(
-                                aux_pivot[0], diag_len, A.mt(), A.tileMb( 0 ) );
+                                aux_pivot[ 0 ], diag_len, A.mt(), A.tileMb( 0 ) );
                         }
 
                         Awork.tileTick(i_dst, 0);
                     }
                 }
                 else {
-
                     dst   = rank_rows[ index - step ].first;
                     i_src = rank_rows[ index ].second;
                     Awork.tileSend(i_src, 0, dst);
@@ -374,16 +372,15 @@ void getrf_tntpiv_panel(
                              sizeof(AuxPivot<scalar_t>)*aux_pivot.at(0).size(),
                              MPI_BYTE, dst, 0, A.mpiComm());
                     break;
-              }
+                }
                 step *= 2;
-
-          } // for loop over levels
-      }
+            } // for loop over levels
+        }
 
         // Copy pivot information from aux_pivot to pivot.
         for (int64_t i = 0; i < diag_len; ++i) {
-            pivot[i] = Pivot(aux_pivot[0][i].tileIndex(),
-                             aux_pivot[0][i].elementOffset());
+            pivot[ i ] = Pivot( aux_pivot[ 0 ][ i ].tileIndex(),
+                                aux_pivot[ 0 ][ i ].elementOffset() );
         }
     }
 }
@@ -445,4 +442,5 @@ void getrf_tntpiv_panel< Target::HostTask, std::complex<double> >(
     int max_panel_threads, int priority);
 
 } // namespace internal
+
 } // namespace slate

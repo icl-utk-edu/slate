@@ -153,14 +153,14 @@ void getrf_tntpiv_local(
                       top_block, aux_pivot)
     #endif
 
-    for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
+    for (int thread_id = 0; thread_id < thread_size; ++thread_id) {
         // Factor the local panel in parallel.
         tile::getrf_tntpiv_local(
             diag_len, ib, stage,
                      tiles, tile_indices,
                      aux_pivot,
                      mpi_rank,
-                     thread_rank, thread_size,
+                     thread_id, thread_size,
                      thread_barrier,
                      max_value, max_index, max_offset, top_block);
     }

@@ -52,8 +52,8 @@ namespace tile {
 /// @param[in] mpi_comm
 ///     MPI subcommunicator for the panel factorization
 ///
-/// @param[in] thread_rank
-///     rank of this thread
+/// @param[in] thread_id
+///     ID of this thread
 ///
 /// @param[in] thread_size
 ///     number of local threads
@@ -84,7 +84,7 @@ void getrf_tntpiv_local(
     std::vector< Tile<scalar_t> >& tiles,
     std::vector<int64_t>& tile_indices,
     std::vector< std::vector< internal::AuxPivot< scalar_t > > >& aux_pivot,
-    int mpi_rank, int thread_rank, int thread_size,
+    int mpi_rank, int thread_id, int thread_size,
     ThreadBarrier& thread_barrier,
     std::vector<scalar_t>& max_value,
     std::vector<int64_t>& max_index,
@@ -111,13 +111,13 @@ void getrf_tntpiv_local(
         // Loop over ib columns of a stripe.
         for (int64_t j = k; j < k+kb; ++j) {
 
-            max_value[thread_rank] = tiles[0](j, j);
-            max_index[thread_rank] = 0;
-            max_offset[thread_rank] = j;
+            max_value [ thread_id ] = tiles[ 0 ]( j, j );
+            max_index [ thread_id ] = 0;
+            max_offset[ thread_id ] = j;
 
             //------------------
             // thread max search
-            for (int64_t idx = thread_rank;
+            for (int64_t idx = thread_id;
                  idx < int64_t(tiles.size());
                  idx += thread_size)
             {
@@ -126,20 +126,20 @@ void getrf_tntpiv_local(
                 // if diagonal tile
                 if (idx == 0) {
                     for (int64_t i = j+1; i < tile.mb(); ++i) {
-                        if (cabs1(tile(i, j)) > cabs1(max_value[thread_rank])) {
-                            max_value[thread_rank] = tile(i, j);
-                            max_index[thread_rank] = idx;
-                            max_offset[thread_rank] = i;
+                        if (cabs1( tile( i, j ) ) > cabs1( max_value[ thread_id ] )) {
+                            max_value [ thread_id ] = tile(i, j);
+                            max_index [ thread_id ] = idx;
+                            max_offset[ thread_id ] = i;
                         }
                     }
                 }
                 // off diagonal tiles
                 else {
                     for (int64_t i = 0; i < tile.mb(); ++i) {
-                        if (cabs1(tile(i, j)) > cabs1(max_value[thread_rank])) {
-                            max_value[thread_rank] = tile(i, j);
-                            max_index[thread_rank] = idx;
-                            max_offset[thread_rank] = i;
+                        if (cabs1( tile( i, j ) ) > cabs1( max_value[ thread_id ] )) {
+                            max_value [ thread_id ] = tile(i, j);
+                            max_index [ thread_id ] = idx;
+                            max_offset[ thread_id ] = i;
                         }
                     }
                 }
@@ -148,13 +148,13 @@ void getrf_tntpiv_local(
 
             //------------------------------------
             // global max reduction and pivot swap
-            if (thread_rank == 0) {
+            if (thread_id == 0) {
                 // threads max reduction
-                for (int rank = 1; rank < thread_size; ++rank) {
-                    if (cabs1(max_value[rank]) > cabs1(max_value[0])) {
-                        max_value[0] = max_value[rank];
-                        max_index[0] = max_index[rank];
-                        max_offset[0] = max_offset[rank];
+                for (int tid = 1; tid < thread_size; ++tid) {
+                    if (cabs1( max_value[ tid ] ) > cabs1( max_value[ 0 ] )) {
+                        max_value [ 0 ] = max_value [ tid ];
+                        max_index [ 0 ] = max_index [ tid ];
+                        max_offset[ 0 ] = max_offset[ tid ];
                     }
                 }
                 // stage 0 means first local lu before the tree reduction
@@ -203,7 +203,7 @@ void getrf_tntpiv_local(
             thread_barrier.wait(thread_size);
 
             // column scaling and trailing update
-            for (int64_t idx = thread_rank;
+            for (int64_t idx = thread_id;
                  idx < int64_t(tiles.size());
                  idx += thread_size)
             {
@@ -270,7 +270,7 @@ void getrf_tntpiv_local(
         if (k+kb < nb) {
             //=================
             // triangular solve
-            if (thread_rank == 0) {
+            if (thread_id == 0) {
                 auto top_tile = tiles[0];
                 blas::trsm(Layout::ColMajor,
                            Side::Left, Uplo::Lower,
@@ -282,7 +282,7 @@ void getrf_tntpiv_local(
             thread_barrier.wait(thread_size);
 
             // Broadcast the top block for gemm.
-            if (thread_rank == 0) {
+            if (thread_id == 0) {
                 auto top_tile = tiles[0];
                 lapack::lacpy(lapack::MatrixType::General,
                               kb, nb-k-kb,
@@ -293,7 +293,7 @@ void getrf_tntpiv_local(
 
             //============================
             // rank-ib update to the right
-            for (int64_t idx = thread_rank;
+            for (int64_t idx = thread_id;
                  idx < int64_t(tiles.size());
                  idx += thread_size)
             {

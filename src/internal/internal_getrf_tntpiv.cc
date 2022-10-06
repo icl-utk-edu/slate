@@ -216,6 +216,8 @@ void getrf_tntpiv_panel(
 
     assert( A.nt() == 1 );
 
+    int64_t nb = A.tileNb( 0 );
+
     internal::copy<Target::HostTask>( std::move( A ), std::move( Awork ) );
 
     // Move the panel to the host.
@@ -228,7 +230,7 @@ void getrf_tntpiv_panel(
     A.tileGetForWriting( A_tiles_set, LayoutConvert::ColMajor );
 
     // lists of local tiles, indices, and offsets
-    std::vector< Tile<scalar_t> > tiles, tiles_copy_poriginal;
+    std::vector< Tile<scalar_t> > tiles;
     std::vector<int64_t> tile_indices;
 
     // Build the set of ranks in the panel.
@@ -257,8 +259,9 @@ void getrf_tntpiv_panel(
     std::sort( rank_rows.begin(), rank_rows.end(), compareSecond<int, int64_t> );
 
     // Find index of first tile on this rank.
+    int nranks = rank_rows.size();
     int index;
-    for (index = 0; index < int(rank_rows.size()); ++index) {
+    for (index = 0; index < nranks; ++index) {
         if (rank_rows[ index ].first == A.mpiRank())
             break;
     }
@@ -269,22 +272,21 @@ void getrf_tntpiv_panel(
                 && A_tiles_set.size() == 0) );
 
     // If participating in the panel factorization.
-    if (index < int(rank_rows.size())) {
-
-        int nranks = rank_rows.size();
+    if (index < nranks) {
         int nlevels = int( ceil( log2( nranks ) ) );
 
         std::vector< std::vector< AuxPivot< scalar_t > > > aux_pivot( 2 );
         aux_pivot[ 0 ].resize( A.tileMb( 0 ) );
         aux_pivot[ 1 ].resize( A.tileMb( 0 ) );
 
-        int piv_len = std::min(tiles[0].mb(), tiles[0].nb());
+        // piv_len can be < diag_len, if a rank's only tile is short.
+        int64_t piv_len = std::min( tiles[ 0 ].mb(), nb );
 
         // Factor the panel locally in parallel, for stage = 0.
         getrf_tntpiv_local(
             tiles, piv_len, ib, 0,
-                     A.tileNb(0), tile_indices, aux_pivot,
-                     A.mpiRank(), max_panel_threads, priority);
+            nb, tile_indices, aux_pivot,
+            A.mpiRank(), max_panel_threads, priority );
 
         if (nranks > 1) {
             // todo: don't need to copy all A, just the rows that end up

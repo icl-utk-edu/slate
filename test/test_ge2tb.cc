@@ -42,7 +42,7 @@ void test_ge2tb_work(Params& params, bool run)
 
     // mark non-standard output values
     params.time();
-    //params.gflops();
+    params.gflops();
 
     if (! run)
         return;
@@ -89,6 +89,7 @@ void test_ge2tb_work(Params& params, bool run)
 
     // todo
     //double gflop = lapack::Gflop<scalar_t>::ge2tb(m, n);
+    double gflop = lapack::Gflop<scalar_t>::gebrd(m, n);
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
@@ -106,7 +107,7 @@ void test_ge2tb_work(Params& params, bool run)
 
     // compute and save timing/performance
     params.time() = time;
-    //params.gflops() = gflop / time;
+    params.gflops() = gflop / time;
 
     print_matrix("A_factored", A, params);
     print_matrix("TUlocal",  TU[0], params);

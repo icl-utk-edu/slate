@@ -412,13 +412,14 @@ void generate_svd(
     slate::unmqr( slate::Side::Left, slate::Op::NoTrans, U, T, A);
 
     // random V, n-by-min_mn (stored column-wise in U)
-    auto V = U.sub(0, nt-1, 0, nt-1);
+    auto V = U.slice(0, n-1, 0, n-1);
+    auto Tmp_V = Tmp.slice(0, n-1, 0, n-1);
     #pragma omp parallel for collapse(2)
     for (int64_t j = 0; j < min_mt_nt; ++j) {
         for (int64_t i = 0; i < nt; ++i) {
             if (V.tileIsLocal(i, j)) {
-                Tmp.tileInsert(i, j);
-                auto Tmpij = Tmp(i, j);
+                Tmp_V.tileInsert(i, j);
+                auto Tmpij = Tmp_V(i, j);
                 scalar_t* data = Tmpij.data();
                 int64_t ldt = Tmpij.stride();
 
@@ -431,8 +432,8 @@ void generate_svd(
                 for (int64_t k = 0; k < Tmpij.nb(); ++k) {
                     lapack::larnv(idist_randn, tile_iseed, Tmpij.mb(), &data[k*ldt]);
                 }
-                slate::tile::gecopy( Tmp(i, j), V(i, j) );
-                Tmp.tileErase(i, j);
+                slate::tile::gecopy( Tmp_V(i, j), V(i, j) );
+                Tmp_V.tileErase(i, j);
             }
         }
     }

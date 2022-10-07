@@ -13,8 +13,42 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
+/// Distributed parallel Hermitian matrix eigen decomposition.
+/// heev Computes all eigenvalues and, optionally, eigenvectors of a
+/// Hermitian matrix A. The matrix A is preliminary reduced to
+/// tridiagonal form using a two-stage approach:
+/// First stage: reduction to band tridiagonal form (see he2hb);
+/// Second stage: reduction from band to tridiagonal form (see hb2st).
 ///
-/// todo: document
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///         One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in] A
+///         On entry, the n-by-n Hermitian matrix $A$.
+///         On exit, contents are destroyed.
+///
+/// @param[out] Lambda
+///     The vector Lambda of length n.
+///     If successful, the eigenvalues in ascending order.
+///
+/// @param[out] Z
+///     On entry, if Z is empty, does not compute eigenvectors.
+///     Otherwise, the n-by-n matrix $Z$ to store eigenvectors.
+///     On exit, orthonormal eigenvectors of the matrix A.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::InnerBlocking:
+///       Inner blocking to use for panel. Default 16.
+///     - Option::MaxPanelThreads:
+///       Number of threads to use for panel. Default omp_get_max_threads()/2.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup heev
 ///

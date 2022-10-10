@@ -358,14 +358,23 @@ if (opts.blas3):
 # LU
 if (opts.lu):
     cmds += [
-    [ 'gesv',  gen + dtype + la + n + thresh],
-    [ 'gesv_nopiv',  gen + dtype + la + n + ' --matrix rand_dominant' + ' --nonuniform_nb n'],
-    [ 'getrf', gen + dtype + la + n + thresh],  # todo: mn
-    [ 'getrf_tntpiv', gen + dtype + la + n],  # todo: mn
-    [ 'getrf_nopiv', target + grid + ref + check + repeat + nb + dtype + la + n + ' --matrix rand_dominant'+ ' --nonuniform_nb n'],
-    [ 'getrs', gen + dtype + la + n + trans + thresh],
-    [ 'getrs_nopiv', gen + dtype + la + n + trans + ' --matrix rand_dominant' + ' --nonuniform_nb n'],
-    [ 'getri', gen + dtype + la + n ],
+    [ 'gesv',         gen + dtype + la + n + thresh ],
+    [ 'gesv_tntpiv',  gen + dtype + la + n ],
+    [ 'gesv_nopiv',   gen + dtype + la + n
+                      + ' --matrix rand_dominant --nonuniform_nb n' ],
+
+    # todo: mn
+    [ 'getrf',        gen + dtype + la + n + thresh ],
+    [ 'getrf_tntpiv', gen + dtype + la + n ],
+    [ 'getrf_nopiv',  gen + dtype + la + n
+                      + ' --matrix rand_dominant --nonuniform_nb n' ],
+
+    [ 'getrs',        gen + dtype + la + n + trans + thresh ],
+    [ 'getrs_tntpiv', gen + dtype + la + n + trans ],
+    [ 'getrs_nopiv',  gen + dtype + la + n + trans
+                      + ' --matrix rand_dominant --nonuniform_nb n' ],
+
+    [ 'getri',    gen + dtype + la + n ],
     [ 'getriOOP', gen + dtype + la + n ],
     #[ 'gecon', gen + dtype + la + n ],
     #[ 'gerfs', gen + dtype + la + n + trans ],

@@ -42,15 +42,24 @@ namespace slate {
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
+///
 ///     - Option::Lookahead:
 ///       Number of panels to overlap with matrix updates.
 ///       lookahead >= 0. Default 1.
+///
 ///     - Option::Target:
 ///       Implementation to target. Possible values:
 ///       - HostTask:  OpenMP tasks on CPU host [default].
 ///       - HostNest:  nested OpenMP parallel for loop on CPU host.
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
+///
+///    - Option::MethodLU:
+///      Algorithm for LU factorization.
+///       - PPLU: partial pivoting [default].
+///       - CALU: communication avoiding.
+///       - NoPiv: no pivoting.
+///         Note pivots vector is currently ignored for NoPiv.
 ///
 /// @ingroup gesv_computational
 ///
@@ -62,6 +71,8 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
     // Constants
     const scalar_t one  = 1;
 
+    Method method = get_option( opts, Option::MethodLU, MethodLU::PPLU );
+
     assert(A.mt() == A.nt());
     assert(B.mt() == A.mt());
 
@@ -69,12 +80,14 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
     auto U = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A);
 
     if (A.op() == Op::NoTrans) {
-        // Pivot the right hand side matrix.
-        for (int64_t k = 0; k < B.mt(); ++k) {
-            // swap rows in B(k:mt-1, 0:nt-1)
-            internal::permuteRows<Target::HostTask>(
-                Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1),
-                pivots.at(k), Layout::ColMajor);
+        if (method != MethodLU::NoPiv) {
+            // Pivot the right hand side matrix.
+            for (int64_t k = 0; k < B.mt(); ++k) {
+                // swap rows in B(k:mt-1, 0:nt-1)
+                internal::permuteRows<Target::HostTask>(
+                    Direction::Forward, B.sub(k, B.mt()-1, 0, B.nt()-1),
+                    pivots.at(k), Layout::ColMajor);
+            }
         }
 
         // Forward substitution, Y = L^{-1} P B.
@@ -90,12 +103,14 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
         // Backward substitution, Xhat = L^{-T} Y.
         trsm(Side::Left, one, L, B, opts);
 
-        // Pivot the right hand side matrix, X = P^T Xhat
-        for (int64_t k = B.mt()-1; k >= 0; --k) {
-            // swap rows in B(k:mt-1, 0:nt-1)
-            internal::permuteRows<Target::HostTask>(
-                Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
-                pivots.at(k), Layout::ColMajor);
+        if (method != MethodLU::NoPiv) {
+            // Pivot the right hand side matrix, X = P^T Xhat
+            for (int64_t k = B.mt()-1; k >= 0; --k) {
+                // swap rows in B(k:mt-1, 0:nt-1)
+                internal::permuteRows<Target::HostTask>(
+                    Direction::Backward, B.sub(k, B.mt()-1, 0, B.nt()-1),
+                    pivots.at(k), Layout::ColMajor);
+            }
         }
     }
     // todo: return value for errors?

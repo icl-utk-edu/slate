@@ -262,6 +262,7 @@ void lu_solve(
 // }
 
 // gesv_nopiv
+// todo: deprecate, use lu_solve( ..., { MethodLU: NoPiv } )
 template <typename scalar_t>
 void lu_solve_nopiv(
     Matrix<scalar_t>& A,
@@ -293,18 +294,6 @@ void lu_factor(
 }
 
 //-----------------------------------------
-/// lu_factor_tntpiv()
-
-// getrf_tntpiv
-template <typename scalar_t>
-void lu_factor_tntpiv(
-    Matrix<scalar_t>& A, Pivots& pivots,
-    Options const& opts = Options())
-{
-    getrf_tntpiv(A, pivots, opts);
-}
-
-//-----------------------------------------
 // lu_factor_nopiv()
 
 // todo
@@ -318,6 +307,7 @@ void lu_factor_tntpiv(
 // }
 
 // getrf_nopiv
+// todo: deprecate, use lu_factor_nopiv( ..., { MethodLU: NoPiv } )
 template <typename scalar_t>
 void lu_factor_nopiv(
     Matrix<scalar_t>& A,
@@ -364,6 +354,7 @@ void lu_solve_using_factor(
 // }
 
 // getrs_nopiv
+// todo: deprecate, use lu_solve_using_factor( ..., { MethodLU: NoPiv } )
 template <typename scalar_t>
 void lu_solve_using_factor_nopiv(
     Matrix<scalar_t>& A,

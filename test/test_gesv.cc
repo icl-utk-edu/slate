@@ -19,6 +19,7 @@
 #include <cstdlib>
 #include <utility>
 #define SLATE_HAVE_SCALAPACK
+
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_gesv_work(Params& params, bool run)
@@ -28,15 +29,26 @@ void test_gesv_work(Params& params, bool run)
     // Constants
     const scalar_t one = 1.0;
 
+    // Decode routine, setting method and chopping off _tntpiv or _nopiv suffix.
+    if (ends_with( params.routine, "_tntpiv" )) {
+        printf( "tntpiv\n" );
+        params.routine = params.routine.substr( 0, params.routine.size() - 7 );
+        params.method_lu() = slate::MethodLU::CALU;
+    }
+    else if (ends_with( params.routine, "_nopiv" )) {
+        printf( "nopiv\n" );
+        params.routine = params.routine.substr( 0, params.routine.size() - 6 );
+        params.method_lu() = slate::MethodLU::NoPiv;
+    }
+    auto method = params.method_lu();
+
     // get & mark input values
     slate::Op trans = slate::Op::NoTrans;
-    if (params.routine == "getrs" || params.routine == "getrs_nopiv")
+    if (params.routine == "getrs")
         trans = params.trans();
 
     int64_t m;
-    if (params.routine == "getrf"
-        || params.routine == "getrf_nopiv"
-        || params.routine == "getrf_tntpiv")
+    if (params.routine == "getrf")
         m = params.dim.m();
     else
         m = params.dim.n();  // square, n-by-n
@@ -63,8 +75,7 @@ void test_gesv_work(Params& params, bool run)
     params.matrixB.mark();
 
     double pivot_threshold;
-    if (params.routine == "gesv_nopiv" || params.routine == "getrf_nopiv"
-        || params.routine == "getrs_nopiv") {
+    if (method == slate::MethodLU::NoPiv) {
         pivot_threshold = 0.0;
     }
     else {
@@ -83,10 +94,7 @@ void test_gesv_work(Params& params, bool run)
     params.gflops2.name( "trs gflop/s" );
 
     bool do_getrs = params.routine == "getrs"
-                    || params.routine == "getrs_nopiv"
-                    || (check && (params.routine == "getrf"
-                                  || params.routine == "getrf_nopiv"
-                                  || params.routine == "getrf_tntpiv"));
+                    || (check && params.routine == "getrf");
 
     if (params.routine == "gesvMixed") {
         params.iters();
@@ -128,7 +136,8 @@ void test_gesv_work(Params& params, bool run)
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib},
-        {slate::Option::PivotThreshold, pivot_threshold}
+        {slate::Option::PivotThreshold, pivot_threshold},
+        {slate::Option::MethodLU, method},
     };
 
     // Matrix A: figure out local size.
@@ -248,7 +257,6 @@ void test_gesv_work(Params& params, bool run)
 
     double gflop;
     if (params.routine == "gesv"
-        || params.routine == "gesv_nopiv"
         || params.routine == "gesvMixed")
         gflop = lapack::Gflop<scalar_t>::gesv(n, nrhs);
     else
@@ -271,26 +279,10 @@ void test_gesv_work(Params& params, bool run)
             // Using traditional BLAS/LAPACK name
             // slate::getrf(A, pivots, opts);
         }
-        else if (params.routine == "getrf_tntpiv") {
-            // slate::calu_factor(A, pivots, opts);
-            // Using traditional BLAS/LAPACK name
-            slate::getrf_tntpiv(A, pivots, opts);
-        }
         else if (params.routine == "gesv") {
             slate::lu_solve(A, B, opts);
             // Using traditional BLAS/LAPACK name
             // slate::gesv(A, pivots, B, opts);
-        }
-        else if (params.routine == "getrf_nopiv" || params.routine == "getrs_nopiv") {
-            // Factor matrix A.
-            slate::lu_factor_nopiv(A, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::getrf_nopiv(A, opts);
-        }
-        else if (params.routine == "gesv_nopiv") {
-            slate::lu_solve_nopiv(A, B, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::gesv_nopiv(A, B, opts);
         }
         else if (params.routine == "gesvMixed") {
             if constexpr (std::is_same<real_t, double>::value) {
@@ -318,19 +310,11 @@ void test_gesv_work(Params& params, bool run)
                 opA = conjTranspose(A);
 
             if (params.routine == "getrs"
-                || params.routine == "getrf"
-                || params.routine == "getrf_tntpiv")
+                || params.routine == "getrf")
             {
                 slate::lu_solve_using_factor(opA, pivots, B, opts);
                 // Using traditional BLAS/LAPACK name
                 // slate::getrs(opA, pivots, B, opts);
-            }
-            else if (params.routine == "getrs_nopiv"
-                     || params.routine == "getrf_nopiv")
-            {
-                slate::lu_solve_using_factor_nopiv(opA, B, opts);
-                // Using traditional BLAS/LAPACK name
-                // slate::getrs_nopiv(opA, B, opts);
             }
             else {
                 slate_error("Unknown routine!");
@@ -433,7 +417,7 @@ void test_gesv_work(Params& params, bool run)
             // ScaLAPACK data for pivots.
             std::vector<int> ipiv_ref(lldA + nb);
 
-            if (params.routine == "getrs" || params.routine == "getrs_nopiv") {
+            if (params.routine == "getrs") {
                 // Factor matrix A.
                 scalapack_pgetrf(m, n,
                                  &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info_ref);
@@ -444,13 +428,11 @@ void test_gesv_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            if (params.routine == "getrf"
-                || params.routine == "getrf_nopiv"
-                || params.routine == "getrf_tntpiv") {
+            if (params.routine == "getrf") {
                 scalapack_pgetrf(m, n,
                                  &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info_ref);
             }
-            else if (params.routine == "getrs" || params.routine == "getrs_nopiv") {
+            else if (params.routine == "getrs") {
                 scalapack_pgetrs(op2str(trans), n, nrhs,
                                  &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0],
                                  &Bref_data[0], 1, 1, Bref_desc, &info_ref);

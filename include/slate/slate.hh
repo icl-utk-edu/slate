@@ -474,6 +474,7 @@ void gesv(
 
 //-----------------------------------------
 // gesv_nopiv()
+// todo: deprecate, use gesv( ..., { MethodLU: NoPiv } )
 template <typename scalar_t>
 void gesv_nopiv(
     Matrix<scalar_t>& A,
@@ -544,6 +545,7 @@ void getrs(
 
 //-----------------------------------------
 // getrs_nopiv()
+// todo: deprecate, use getrs( ..., { MethodLU: NoPiv } )
 template <typename scalar_t>
 void getrs_nopiv(
     Matrix<scalar_t>& A,

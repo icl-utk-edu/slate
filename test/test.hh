@@ -87,6 +87,7 @@ public:
     testsweeper::ParamEnum< slate::Method >         method_gels;
     testsweeper::ParamEnum< slate::Method >         method_gemm;
     testsweeper::ParamEnum< slate::Method >         method_hemm;
+    testsweeper::ParamEnum< slate::Method >         method_lu;
     testsweeper::ParamEnum< slate::Method >         method_trsm;
 
     testsweeper::ParamEnum< slate::GridOrder >      grid_order;
@@ -437,6 +438,17 @@ inline double barrier_get_wtime(MPI_Comm comm)
     slate::trace::Block trace_block("MPI_Barrier");
     MPI_Barrier(comm);
     return testsweeper::get_wtime();
+}
+
+//------------------------------------------------------------------------------
+/// @return true if str ends with ending.
+/// std::string ends_with added in C++20. For now, do simple implementation.
+///
+inline bool ends_with( std::string const& str, std::string const& ending )
+{
+    return str.size() >= ending.size()
+           && str.compare( str.size() - ending.size(), std::string::npos,
+                           ending ) == 0;
 }
 
 #endif // SLATE_TEST_HH

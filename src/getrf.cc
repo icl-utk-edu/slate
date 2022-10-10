@@ -270,22 +270,34 @@ void getrf(
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
+///
 ///     - Option::Lookahead:
 ///       Number of panels to overlap with matrix updates.
 ///       lookahead >= 0. Default 1.
+///
 ///     - Option::InnerBlocking:
 ///       Inner blocking to use for panel. Default 16.
+///
 ///     - Option::MaxPanelThreads:
 ///       Number of threads to use for panel. Default omp_get_max_threads()/2.
+///
 ///     - Option::Target:
 ///       Implementation to target. Possible values:
 ///       - HostTask:  OpenMP tasks on CPU host [default].
 ///       - HostNest:  nested OpenMP parallel for loop on CPU host.
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
+///
 ///    - Option::PivotThreshold:
 ///      Strictness of the pivot selection.  Between 0 and 1 with 1 giving
 ///      partial pivoting and 0 giving no pivoting.  Default 1.
+///
+///    - Option::MethodLU:
+///      Algorithm for LU factorization.
+///       - PPLU: partial pivoting [default].
+///       - CALU: communication avoiding.
+///       - NoPiv: no pivoting.
+///         Note pivots vector is currently ignored for NoPiv.
 ///
 /// TODO: return value
 /// @retval 0 successful exit
@@ -303,33 +315,47 @@ void getrf(
 {
     using internal::TargetType;
 
-    Target target = get_option( opts, Option::Target, Target::HostTask );
+    Method method = get_option( opts, Option::MethodLU, MethodLU::PPLU );
 
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            impl::getrf(
-                TargetType<Target::HostTask>(),
-                A, pivots, opts );
-            break;
+    if (method == MethodLU::CALU) {
+        getrf_tntpiv( A, pivots, opts );
+    }
+    else if (method == MethodLU::NoPiv) {
+        // todo: fill in pivots vector?
+        getrf_nopiv( A, opts );
+    }
+    else if (method == MethodLU::PPLU) {
+        Target target = get_option( opts, Option::Target, Target::HostTask );
 
-        case Target::HostNest:
-            impl::getrf(
-                TargetType<Target::HostNest>(),
-                A, pivots, opts );
-            break;
+        switch (target) {
+            case Target::Host:
+            case Target::HostTask:
+                impl::getrf(
+                    TargetType<Target::HostTask>(),
+                    A, pivots, opts );
+                break;
 
-        case Target::HostBatch:
-            impl::getrf(
-                TargetType<Target::HostBatch>(),
-                A, pivots, opts );
-            break;
+            case Target::HostNest:
+                impl::getrf(
+                    TargetType<Target::HostNest>(),
+                    A, pivots, opts );
+                break;
 
-        case Target::Devices:
-            impl::getrf(
-                TargetType<Target::Devices>(),
-                A, pivots, opts );
-            break;
+            case Target::HostBatch:
+                impl::getrf(
+                    TargetType<Target::HostBatch>(),
+                    A, pivots, opts );
+                break;
+
+            case Target::Devices:
+                impl::getrf(
+                    TargetType<Target::Devices>(),
+                    A, pivots, opts );
+                break;
+        }
+    }
+    else {
+        throw Exception( "unknown value for MethodLU" );
     }
     // todo: return value for errors?
 }

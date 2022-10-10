@@ -13,6 +13,8 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
+/// @deprecated Use getrs( A, pivots, B, { Option::MethodLU, MethodLU::NoPiv } ).
+///
 /// Distributed parallel LU solve.
 ///
 /// Solves a system of linear equations

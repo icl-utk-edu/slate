@@ -274,6 +274,46 @@ namespace MethodGels {
 
 } // namespace MethodGels
 
+//------------------------------------------------------------------------------
+/// Select the LU factorization algorithm.
+namespace MethodLU {
+
+    static constexpr char PPLU_str[]  = "PPLU";
+    static constexpr char CALU_str[]  = "CALU";
+    static constexpr char NoPiv_str[] = "NoPiv";
+    static const Method Error = baseMethodError; ///< Error flag
+    static const Method PPLU  = 1;  ///< Select partial pivoting LU
+    static const Method CALU  = 2;  ///< Select communication avoiding LU
+    static const Method NoPiv = 3;  ///< Select no pivoting LU
+
+    inline Method str2methodLU( const char* method )
+    {
+        std::string method_ = method;
+        std::transform(
+            method_.begin(), method_.end(), method_.begin(), ::tolower );
+
+        if (method_ == "pplu")
+            return PPLU;
+        else if (method_ == "calu")
+            return CALU;
+        else if (method_ == "nopiv")
+            return NoPiv;
+        else
+            throw slate::Exception("unknown LU method");
+    }
+
+    inline const char* methodLU2str( Method method )
+    {
+        switch (method) {
+            case PPLU:  return PPLU_str;
+            case CALU:  return CALU_str;
+            case NoPiv: return NoPiv_str;
+            default:    return baseMethodError_str;
+        }
+    }
+
+} // namespace MethodLU
+
 } // namespace slate
 
 #endif // SLATE_METHOD_HH

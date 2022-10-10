@@ -23,16 +23,18 @@ using testsweeper::ansi_bold;
 using testsweeper::ansi_red;
 using testsweeper::ansi_normal;
 
-using slate::MethodCholQR::str2methodCholQR;
-using slate::MethodGels::str2methodGels;
-using slate::MethodGemm::str2methodGemm;
-using slate::MethodHemm::str2methodHemm;
-using slate::MethodTrsm::str2methodTrsm;
 using slate::MethodCholQR::methodCholQR2str;
+using slate::MethodCholQR::str2methodCholQR;
 using slate::MethodGels::methodGels2str;
+using slate::MethodGels::str2methodGels;
 using slate::MethodGemm::methodGemm2str;
+using slate::MethodGemm::str2methodGemm;
 using slate::MethodHemm::methodHemm2str;
+using slate::MethodHemm::str2methodHemm;
+using slate::MethodLU::methodLU2str;
+using slate::MethodLU::str2methodLU;
 using slate::MethodTrsm::methodTrsm2str;
+using slate::MethodTrsm::str2methodTrsm;
 
 using testsweeper::no_data_flag;
 
@@ -107,6 +109,7 @@ std::vector< testsweeper::routines_t > routines = {
     // LU
     { "gesv",               test_gesv,         Section::gesv },
     { "gesv_nopiv",         test_gesv,         Section::gesv },
+    { "gesv_tntpiv",        test_gesv,         Section::gesv },
     { "gesvMixed",          test_gesv,         Section::gesv },
     { "gbsv",               test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
@@ -119,6 +122,7 @@ std::vector< testsweeper::routines_t > routines = {
 
     { "getrs",              test_gesv,         Section::gesv },
     { "getrs_nopiv",        test_gesv,         Section::gesv },
+    { "getrs_tntpiv",       test_gesv,         Section::gesv },
     { "gbtrs",              test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 
@@ -328,6 +332,7 @@ Params::Params():
     method_gels   ("method-gels",   6, ParamType::List, 0, str2methodGels,   methodGels2str,   "method-gels: auto=auto, qr, cholqr"),
     method_gemm   ("method-gemm",   4, ParamType::List, 0, str2methodGemm,   methodGemm2str,   "method-gemm: auto=auto, A=gemmA, C=gemmC"),
     method_hemm   ("method-hemm",   4, ParamType::List, 0, str2methodHemm,   methodHemm2str,   "method-hemm: auto=auto, A=hemmA, C=hemmC"),
+    method_lu     ("method-lu",     5, ParamType::List, slate::MethodLU::PPLU, str2methodLU, methodLU2str, "method-lu: PPLU, CALU, NoPiv"),
     method_trsm   ("method-trsm",   4, ParamType::List, 0, str2methodTrsm,   methodTrsm2str,   "method-trsm: auto=auto, A=trsmA, B=trsmB"),
 
     grid_order("grid-order", 3, ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) MPI grid order: c=Col, r=Row"),
@@ -430,6 +435,7 @@ Params::Params():
     method_gels.name("gels", "method-gels");
     method_gemm.name("gemm", "method-gemm");
     method_hemm.name("hemm", "method-hemm");
+    method_lu.name("lu", "method-lu");
     method_trsm.name("trsm", "method-trsm");
 
     // change names of matrix B's params

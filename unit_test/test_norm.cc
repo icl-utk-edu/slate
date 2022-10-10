@@ -171,7 +171,7 @@ void test_genorm_dev(Norm norm)
     blas::Queue queue(device_idx, batch_arrays_index);
 
     double* dAdata;
-    dAdata = blas::device_malloc<double>(lda * n);
+    dAdata = blas::device_malloc<double>(lda * n, queue);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
     A.copyData(&dA, queue);
@@ -179,7 +179,7 @@ void test_genorm_dev(Norm norm)
     const int batch_count = 1;
     double* Aarray[batch_count];
     double** dAarray;
-    dAarray = blas::device_malloc<double*>(batch_count);
+    dAarray = blas::device_malloc<double*>(batch_count, queue);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
     blas::device_memcpy<double*>(dAarray, Aarray,
@@ -200,7 +200,7 @@ void test_genorm_dev(Norm norm)
     values.resize( ldv * batch_count );
 
     double* dvalues;
-    dvalues = blas::device_malloc<double>(ldv * batch_count);
+    dvalues = blas::device_malloc<double>(ldv * batch_count, queue);
     test_assert(dvalues != nullptr);
 
     slate::device::genorm( norm, slate::NormScope::Matrix, m, n, dAarray, lda,
@@ -258,9 +258,9 @@ void test_genorm_dev(Norm norm)
                 result, result_ref, error );
     }
 
-    blas::device_free(dAdata);
-    blas::device_free(dAarray);
-    blas::device_free(dvalues);
+    blas::device_free(dAdata, queue);
+    blas::device_free(dAarray, queue);
+    blas::device_free(dvalues, queue);
     delete[] Adata;
 
     test_assert( error < 3*eps );
@@ -393,7 +393,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
     blas::Queue queue(device_idx, batch_arrays_index);
 
     double* dAdata;
-    dAdata = blas::device_malloc<double>(lda * n);
+    dAdata = blas::device_malloc<double>(lda * n, queue);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(n, n, dAdata, lda, 0, slate::TileKind::UserOwned);
     A.copyData(&dA, queue);
@@ -401,7 +401,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
     const int batch_count = 1;
     double* Aarray[batch_count];
     double** dAarray;
-    dAarray = blas::device_malloc<double*>(batch_count);
+    dAarray = blas::device_malloc<double*>(batch_count, queue);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
     blas::device_memcpy<double*>(dAarray, Aarray,
@@ -420,7 +420,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
     values.resize( ldv * batch_count );
 
     double* dvalues;
-    dvalues = blas::device_malloc<double>(ldv * batch_count);
+    dvalues = blas::device_malloc<double>(ldv * batch_count, queue);
     test_assert(dvalues != nullptr);
 
     slate::device::synorm( norm, uplo, n, dAarray, lda,
@@ -472,9 +472,9 @@ void test_synorm_dev(Norm norm, Uplo uplo)
                 result, result_ref, error );
     }
 
-    blas::device_free(dAdata);
-    blas::device_free(dAarray);
-    blas::device_free(dvalues);
+    blas::device_free(dAdata, queue);
+    blas::device_free(dAarray, queue);
+    blas::device_free(dvalues, queue);
     delete[] Adata;
 
     // Theoretically requires only 3*eps, but that sometimes fails.
@@ -562,7 +562,7 @@ void test_synorm_offdiag_dev(Norm norm)
     blas::Queue queue(device_idx, batch_arrays_index);
 
     double* dAdata;
-    dAdata = blas::device_malloc<double>(lda * n);
+    dAdata = blas::device_malloc<double>(lda * n, queue);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
     A.copyData(&dA, queue);
@@ -570,7 +570,7 @@ void test_synorm_offdiag_dev(Norm norm)
     const int batch_count = 1;
     double* Aarray[batch_count];
     double** dAarray;
-    dAarray = blas::device_malloc<double*>(batch_count);
+    dAarray = blas::device_malloc<double*>(batch_count, queue);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
     blas::device_memcpy<double*>(dAarray, Aarray,
@@ -582,7 +582,7 @@ void test_synorm_offdiag_dev(Norm norm)
     std::vector<double> values( ldv );
 
     double* dvalues;
-    dvalues = blas::device_malloc<double>(ldv * batch_count);
+    dvalues = blas::device_malloc<double>(ldv * batch_count, queue);
     test_assert(dvalues != nullptr);
 
     slate::device::synormOffdiag( norm, m, n, dAarray, lda,
@@ -612,9 +612,9 @@ void test_synorm_offdiag_dev(Norm norm)
         }
     }
 
-    blas::device_free(dAdata);
-    blas::device_free(dAarray);
-    blas::device_free(dvalues);
+    blas::device_free(dAdata, queue);
+    blas::device_free(dAarray, queue);
+    blas::device_free(dvalues, queue);
     delete[] Adata;
 }
 
@@ -808,7 +808,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
     blas::Queue queue(device_idx, batch_arrays_index);
 
     double* dAdata;
-    dAdata = blas::device_malloc<double>(lda * n);
+    dAdata = blas::device_malloc<double>(lda * n, queue);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
     A.copyData(&dA, queue);
@@ -817,7 +817,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
     const int batch_count = 1;
     double* Aarray[batch_count];
     double** dAarray;
-    dAarray = blas::device_malloc<double*>(batch_count);
+    dAarray = blas::device_malloc<double*>(batch_count, queue);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
     blas::device_memcpy<double*>(dAarray, Aarray,
@@ -838,7 +838,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
     values.resize( ldv * batch_count );
 
     double* dvalues;
-    dvalues = blas::device_malloc<double>(ldv * batch_count);
+    dvalues = blas::device_malloc<double>(ldv * batch_count, queue);
     test_assert(dvalues != nullptr);
 
     slate::device::trnorm( norm, uplo, diag, m, n, dAarray, lda,
@@ -924,9 +924,9 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
                 result, result_ref, error );
     }
 
-    blas::device_free(dAdata);
-    blas::device_free(dAarray);
-    blas::device_free(dvalues);
+    blas::device_free(dAdata, queue);
+    blas::device_free(dAarray, queue);
+    blas::device_free(dvalues, queue);
     delete[] Adata;
 
     test_assert( error < 3*eps );

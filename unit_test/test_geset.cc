@@ -53,7 +53,7 @@ void test_geset_dev_worker(
     blas::Queue queue( device_idx, batch_arrays_index );
 
     scalar_t* dAdata;
-    dAdata = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ) );
+    dAdata = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ), queue );
     test_assert( dAdata != nullptr );
     slate::Tile<scalar_t> dA( m, n, dAdata, lda,
         device_idx, slate::TileKind::UserOwned );
@@ -98,7 +98,12 @@ void test_geset_dev_worker(
             result );
     }
 
+<<<<<<< HEAD
     blas::device_free( dAdata );
+=======
+    blas::device_free(dAdata, queue);
+    blas::device_free(dAarray, queue);
+>>>>>>> 1e8d2a22 (Remove set_device() and add queues in unit_tests.)
     delete[] Adata;
     delete[] Bdata;
 

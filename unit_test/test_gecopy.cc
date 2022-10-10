@@ -52,13 +52,13 @@ void test_gecopy_dev()
     blas::Queue queue(device_idx, batch_arrays_index);
 
     double* dAdata;
-    dAdata = blas::device_malloc<double>(lda * n);
+    dAdata = blas::device_malloc<double>(lda * n, queue);
     test_assert(dAdata != nullptr);
     slate::Tile<double> dA(m, n, dAdata, lda, 0, slate::TileKind::UserOwned);
     A.copyData(&dA, queue);
 
     double* dBdata;
-    dBdata = blas::device_malloc<double>(ldb * n);
+    dBdata = blas::device_malloc<double>(ldb * n, queue);
     test_assert(dBdata != nullptr);
     slate::Tile<double> dB(m, n, dBdata, ldb, 0, slate::TileKind::UserOwned);
     B.copyData(&dB, queue);
@@ -66,7 +66,7 @@ void test_gecopy_dev()
     const int batch_count = 1;
     double* Aarray[batch_count];
     double** dAarray;
-    dAarray = blas::device_malloc<double*>(batch_count);
+    dAarray = blas::device_malloc<double*>(batch_count, queue);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
     blas::device_memcpy<double*>(dAarray, Aarray,
@@ -76,7 +76,7 @@ void test_gecopy_dev()
 
     double* Barray[batch_count];
     double** dBarray;
-    dBarray = blas::device_malloc<double*>(batch_count);
+    dBarray = blas::device_malloc<double*>(batch_count, queue);
     test_assert(dBarray != nullptr);
     Barray[0] = dB.data();
     blas::device_memcpy<double*>(dBarray, Barray,
@@ -112,10 +112,10 @@ void test_gecopy_dev()
                 result );
     }
 
-    blas::device_free(dAdata);
-    blas::device_free(dBdata);
-    blas::device_free(dAarray);
-    blas::device_free(dBarray);
+    blas::device_free(dAdata, queue);
+    blas::device_free(dBdata, queue);
+    blas::device_free(dAarray, queue);
+    blas::device_free(dBarray, queue);
     delete[] Adata;
     delete[] Bdata;
 

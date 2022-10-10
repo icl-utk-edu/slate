@@ -1013,19 +1013,17 @@ void test_device_convert_layout(int m, int n)
 
     // copy batch A to GPU
     scalar_t* Adata_dev;
-    blas::set_device(device);
     const int batch_arrays_index = 0;
     blas::Queue queue(device, batch_arrays_index);
 
-    Adata_dev = blas::device_malloc<scalar_t>(Adata.size());
+    Adata_dev = blas::device_malloc<scalar_t>(Adata.size(), queue);
     blas::device_memcpy<scalar_t>(Adata_dev, Adata.data(),
                         Adata.size(),
                         blas::MemcpyKind::HostToDevice,
                         queue);
 
     scalar_t* Adata_dev_ext;
-    blas::set_device(device);
-    Adata_dev_ext = blas::device_malloc<scalar_t>(Adata.size());
+    Adata_dev_ext = blas::device_malloc<scalar_t>(Adata.size(), queue);
 
     std::vector< slate::Tile<scalar_t> > Atiles_dev( batch_count );
     std::vector< scalar_t* > Aarray( batch_count );
@@ -1036,14 +1034,14 @@ void test_device_convert_layout(int m, int n)
         Aarray_ext[k] = &Adata_dev_ext[ k*lda*n ];
     }
     scalar_t** Aarray_dev;
-    Aarray_dev = blas::device_malloc<scalar_t*>(Aarray.size());
+    Aarray_dev = blas::device_malloc<scalar_t*>(Aarray.size(), queue);
     blas::device_memcpy<scalar_t*>(Aarray_dev, Aarray.data(),
                         Aarray.size(),
                         blas::MemcpyKind::HostToDevice,
                         queue);
 
     scalar_t** Aarray_dev_ext;
-    Aarray_dev_ext = blas::device_malloc<scalar_t*>(Aarray_ext.size());
+    Aarray_dev_ext = blas::device_malloc<scalar_t*>(Aarray_ext.size(), queue);
     blas::device_memcpy<scalar_t*>(Aarray_dev_ext, Aarray_ext.data(),
                         Aarray_ext.size(),
                         blas::MemcpyKind::HostToDevice,
@@ -1185,9 +1183,9 @@ void test_device_convert_layout(int m, int n)
         }
     }
 
-    blas::device_free(Adata_dev);
-    blas::device_free(Adata_dev_ext);
-    blas::device_free(Aarray_dev);
+    blas::device_free(Adata_dev, queue);
+    blas::device_free(Adata_dev_ext, queue);
+    blas::device_free(Aarray_dev, queue);
 }
 
 void test_device_convert_layout()

@@ -666,18 +666,18 @@ void test_copyData(int align_host, int align_dev)
 
     double* Adata_dev;
     double* Bdata_dev;
-    Adata_dev = blas::device_malloc<double>(ldda * n);
+    Adata_dev = blas::device_malloc<double>(ldda * n, queue);
     test_assert(Adata_dev != nullptr);
-    Bdata_dev = blas::device_malloc<double>(ldda * n);
+    Bdata_dev = blas::device_malloc<double>(ldda * n, queue);
     test_assert(Bdata_dev != nullptr);
 
     slate::Tile<double> dA(m, n, Adata_dev, ldda, 0, slate::TileKind::UserOwned);
     slate::Tile<double> dB(m, n, Bdata_dev, ldda, 0, slate::TileKind::UserOwned);
 
     // copy H2D->D2D->D2H, then verify
-    A.copyData(&dA,  queue);
+    A.copyData(&dA, queue);
     dA.copyData(&dB, queue);
-    dB.copyData(&B,  queue);
+    dB.copyData(&B, queue);
     verify_data(B, mpi_rank);
 
     // copy host to host, then verify
@@ -685,8 +685,8 @@ void test_copyData(int align_host, int align_dev)
     A.copyData(&B);
     verify_data(B, mpi_rank);
 
-    blas::device_free(Adata_dev);
-    blas::device_free(Bdata_dev);
+    blas::device_free(Adata_dev, queue);
+    blas::device_free(Bdata_dev, queue);
 
     delete[] dataA;
     delete[] dataB;
@@ -739,7 +739,7 @@ void test_print()
     slate::print( "A", A, queue );
 
     if (num_devices > 0) {
-        scalar_t* Adata_dev = blas::device_malloc<scalar_t>( lda * n );
+        scalar_t* Adata_dev = blas::device_malloc<scalar_t>( lda * n, queue );
         test_assert( Adata_dev != nullptr );
 
         slate::Tile<scalar_t> dA( m, n, Adata_dev, lda, 0,
@@ -750,7 +750,7 @@ void test_print()
         // Run SLATE test
         slate::print( "dA", dA, queue );
 
-        blas::device_free( Adata_dev );
+        blas::device_free( Adata_dev, queue);
     }
 }
 

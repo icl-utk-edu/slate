@@ -72,7 +72,7 @@ void test_geadd_dev_worker(
 
     // Create A on device and copy data
     scalar_t* dAdata;
-    dAdata = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ) );
+    dAdata = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ), queue );
     test_assert(dAdata != nullptr);
     slate::Tile<scalar_t> dA( m, n, dAdata, lda,
         device_idx, slate::TileKind::UserOwned );
@@ -80,7 +80,7 @@ void test_geadd_dev_worker(
 
     // Create B on device and copy data
     scalar_t* dBdata;
-    dBdata = blas::device_malloc<scalar_t>( blas::max( ldb * n, 1 ) );
+    dBdata = blas::device_malloc<scalar_t>( blas::max( ldb * n, 1 ), queue );
     test_assert( dBdata != nullptr );
     slate::Tile<scalar_t> dB( m, n, dBdata, ldb,
         device_idx, slate::TileKind::UserOwned );
@@ -157,8 +157,15 @@ void test_geadd_dev_worker(
         }
     }
 
+<<<<<<< HEAD
     blas::device_free( dAdata );
     blas::device_free( dBdata );
+=======
+    blas::device_free(dAdata, queue);
+    blas::device_free(dBdata, queue);
+    blas::device_free(dAarray, queue);
+    blas::device_free(dBarray, queue);
+>>>>>>> 1e8d2a22 (Remove set_device() and add queues in unit_tests.)
     delete[] Adata;
     delete[] Bdata;
     delete[] B0data;

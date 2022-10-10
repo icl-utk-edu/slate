@@ -61,7 +61,6 @@ void potrf(internal::TargetType<Target::Devices>,
 
     if (A.tileIsLocal(0, 0)) {
         int device = A.tileDevice( 0, 0 );
-        blas::set_device(device);
         A.tileGetForWriting(0, 0, device, LayoutConvert::ColMajor);
         lapack::Queue* queue = A.compute_queue( device, queue_index );
         auto A00 = A( 0, 0, device );

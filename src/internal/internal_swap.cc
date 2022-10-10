@@ -522,7 +522,6 @@ void permuteRows(
                 MPI_Comm_size(comm, &comm_size);
                 MPI_Datatype mpi_scalar = mpi_type<scalar_t>::value;
 
-                blas::set_device(device);
                 blas::Queue* compute_queue = A.compute_queue(device, queue_index);
 
                 // this is likely an over estimation

@@ -101,8 +101,6 @@ void swapRemoteRowDevice(
 
     // todo: this assumes row is contiguous on GPU, right? Add asserts.
 
-    blas::set_device(device);
-
     blas::device_memcpy<scalar_t>(
         local_row.data(), &A.at(i, j), n,
         blas::MemcpyKind::DeviceToHost, queue);

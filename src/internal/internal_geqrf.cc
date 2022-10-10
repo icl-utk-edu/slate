@@ -206,7 +206,6 @@ void geqrf(
        return;
     }
     assert(device >= 0);
-    blas::set_device(device);
 
     A.tileGetForWriting( A_tiles_set, device, LayoutConvert( layout ) );
 

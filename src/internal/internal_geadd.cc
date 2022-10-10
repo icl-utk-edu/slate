@@ -344,7 +344,6 @@ void add(internal::TargetType<Target::Devices>,
             scalar_t** b_array_dev = a_array_dev + batch_size;
 
             blas::Queue* queue = B.compute_queue(device, queue_index);
-            blas::set_device( queue->device() );
 
             blas::device_memcpy<scalar_t*>(a_array_dev, a_array_host,
                                 batch_count*2,

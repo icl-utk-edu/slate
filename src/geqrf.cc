@@ -140,8 +140,6 @@ void geqrf(slate::internal::TargetType<target>,
 
         if (panel_device >= 0) {
 
-            blas::set_device( panel_device );
-
             lapack::Queue* queue = A.compute_queue(panel_device, 0);
 
             int64_t nb       = A.tileNb(0);
@@ -158,8 +156,8 @@ void geqrf(slate::internal::TargetType<target>,
                         + ceildiv(sizeof(device_info_t), sizeof(scalar_t));
 
             for (int64_t dev = 0; dev < num_devices; ++dev) {
-                blas::set_device(dev);
-                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size);
+                lapack::Queue* queue = A.comm_queue( dev );
+                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size, *queue);
             }
         }
     }
@@ -353,8 +351,8 @@ void geqrf(slate::internal::TargetType<target>,
 
     if (target == Target::Devices) {
         for (int64_t dev = 0; dev < num_devices; ++dev) {
-            blas::set_device(dev);
-            blas::device_free( dwork_array[dev] );
+            blas::Queue* queue = A.comm_queue( dev );
+            blas::device_free( dwork_array[dev], *queue );
             dwork_array[dev] = nullptr;
         }
     }

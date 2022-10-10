@@ -2558,7 +2558,6 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
 
     if (need_convert && (! is_square)) {
         assert( work_device != HostNum );
-        blas::set_device(work_device);
     }
 
     if (need_workspace) {
@@ -3636,7 +3635,6 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
         }
 
         lapack::Queue* queue = comm_queue(device);
-        blas::set_device(device);
 
         // for each bucket
         for (auto bucket  = tilesBuckets.begin();

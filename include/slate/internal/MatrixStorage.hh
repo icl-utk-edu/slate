@@ -589,8 +589,14 @@ MatrixStorage<scalar_t>::~MatrixStorage()
 {
     try {
         clear();
-        destroyQueues();
         clearBatchArrays();
+        // Clear all host and device memory allocations
+        memory_.clearHostBlocks();
+        for (int device = 0; device < num_devices_; ++device) {
+            blas::Queue* queue = comm_queues_[device];
+            memory_.clearDeviceBlocks(device, queue);
+        }
+        destroyQueues(); // must occur after clearBatchArrays
         omp_destroy_nest_lock(&lock_);
     }
     catch (std::exception const& ex) {
@@ -700,27 +706,30 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
 
         for (std::size_t i = i_begin; i < array_host_.size(); ++i) {
             for (int device = 0; device < num_devices_; ++device) {
-                blas::set_device(device);
+
+                // Get the original queue for malloc
+                blas::Queue* queue = comm_queues_[device];
 
                 // Free host arrays.
-                blas::device_free_pinned(array_host_[i][device]);
+                blas::device_free_pinned(array_host_[i][device], *queue);
 
                 // Free device arrays.
-                blas::device_free(array_dev_[i][device]);
-
-                // Allocate host arrays.
-                array_host_[i][device]
-                    = blas::device_malloc_pinned<scalar_t*>(batch_size*3);
-
-                // Allocate device arrays.
-                array_dev_[i][device]
-                    = blas::device_malloc<scalar_t*>(batch_size*3);
+                blas::device_free(array_dev_[i][device], *queue);
 
                 // Free queues.
                 delete compute_queues_[i][device];
 
                 // Allocate queues.
                 compute_queues_[i][device] = new lapack::Queue(device, batch_size);
+
+                // Allocate host arrays;
+                array_host_[i][device]
+                    = blas::device_malloc_pinned<scalar_t*>(batch_size*3, *queue);
+
+                // Allocate device arrays.
+                array_dev_[i][device]
+                    = blas::device_malloc<scalar_t*>(batch_size*3, *queue);
+
             }
         }
 
@@ -740,15 +749,21 @@ void MatrixStorage<scalar_t>::clearBatchArrays()
 
     for (std::size_t i = 0; i < array_host_.size(); ++i) {
         for (int device = 0; device < num_devices_; ++device) {
-            blas::set_device(device);
+
+            // Get the original queue for memory allocations
+            blas::Queue* queue = comm_queues_[device];
 
             // Free host arrays.
-            blas::device_free_pinned(array_host_[i][device]);
-            array_host_[i][device] = nullptr;
+            if (array_host_[i][device] != nullptr) {
+                blas::device_free_pinned(array_host_[i][device], *queue);
+                array_host_[i][device] = nullptr;
+            }
 
             // Free device arrays.
-            blas::device_free(array_dev_[i][device]);
-            array_dev_[i][device] = nullptr;
+            if (array_dev_[i][device] != nullptr) {
+                blas::device_free(array_dev_[i][device], *queue);
+                array_dev_[i][device] = nullptr;
+            }
         }
     }
     batch_array_size_ = 0;
@@ -773,9 +788,10 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::reserveDeviceWorkspace(int64_t num_tiles)
 {
     for (int device = 0; device < num_devices_; ++device) {
-        int64_t n = num_tiles - memory_.capacity( device );
+        int64_t n = num_tiles - memory_.capacity(device);
         if (n > 0) {
-            memory_.addDeviceBlocks( device, n );
+            blas::Queue* queue = comm_queues_[device];
+            memory_.addDeviceBlocks(device, n, queue);
             // Usually now capacity == num_tiles, but if multiple
             // threads reserve memory, capacity >= num_tiles.
         }
@@ -787,8 +803,10 @@ void MatrixStorage<scalar_t>::reserveDeviceWorkspace(int64_t num_tiles)
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::ensureDeviceWorkspace(int device, int64_t num_tiles)
 {
-    if (memory_.available(device) < size_t(num_tiles))
-        memory_.addDeviceBlocks(device, num_tiles - memory_.available(device));
+    if (memory_.available(device) < size_t(num_tiles)) {
+        blas::Queue* queue = comm_queues_[device];
+        memory_.addDeviceBlocks(device, num_tiles - memory_.available(device), queue);
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -837,7 +855,8 @@ void MatrixStorage<scalar_t>::clearWorkspace()
 
     for (int device = 0; device < num_devices_; ++device) {
         if (memory_.allocated(device) == 0) {
-            memory_.clearDeviceBlocks(device);
+            blas::Queue* queue = comm_queues_[device];
+            memory_.clearDeviceBlocks(device, queue);
         }
     }
 }
@@ -877,7 +896,8 @@ void MatrixStorage<scalar_t>::releaseWorkspace()
     }
     for (int device = 0; device < num_devices_; ++device) {
         if (memory_.allocated(device) == 0) {
-            memory_.clearDeviceBlocks(device);
+            blas::Queue* queue = comm_queues_[device];
+            memory_.clearDeviceBlocks(device, queue);
         }
     }
 }
@@ -1002,7 +1022,8 @@ scalar_t* MatrixStorage<scalar_t>::allocWorkspaceBuffer(int device)
 {
     int64_t mb = tileMb(0);
     int64_t nb = tileNb(0);
-    scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb);
+    blas::Queue* queue = comm_queues_[device];
+    scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);
     return data;
 }
 
@@ -1052,7 +1073,8 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileAcquire(
     if (! tile_node.existsOn(device)) {
         int64_t mb = tileMb(i);
         int64_t nb = tileNb(j);
-        scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb);
+        blas::Queue* queue = comm_queues_[device];
+        scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);
         int64_t stride = layout == Layout::ColMajor ? mb : nb;
         Tile<scalar_t>* tile
             = new Tile<scalar_t>(
@@ -1093,7 +1115,8 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     if (! tile_node.existsOn(device)) {
         int64_t mb = tileMb(i);
         int64_t nb = tileNb(j);
-        scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb);
+        blas::Queue* queue = comm_queues_[device];
+        scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);
         //scalar_t* data = new scalar_t[mb*nb];
         int64_t stride = layout == Layout::ColMajor ? mb : nb;
         Tile<scalar_t>* tile
@@ -1160,8 +1183,8 @@ void MatrixStorage<scalar_t>::tileMakeTransposable(Tile<scalar_t>* tile)
     int device = tile->device();
     int64_t mb = tileMb(0);
     int64_t nb = tileNb(0);
-    scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb);
-
+    blas::Queue* queue = comm_queues_[device];
+    scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);
     tile->makeTransposable(data);
 }
 

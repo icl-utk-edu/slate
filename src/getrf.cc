@@ -294,9 +294,9 @@ void getrf(
 ///
 ///    - Option::MethodLU:
 ///      Algorithm for LU factorization.
-///       - PPLU: partial pivoting [default].
-///       - CALU: communication avoiding.
-///       - NoPiv: no pivoting.
+///       - MethodLU::PartialPiv: partial pivoting [default].
+///       - MethodLU::CALU: communication avoiding (tournament pivoting).
+///       - MethodLU::NoPiv: no pivoting.
 ///         Note pivots vector is currently ignored for NoPiv.
 ///
 /// TODO: return value
@@ -315,7 +315,7 @@ void getrf(
 {
     using internal::TargetType;
 
-    Method method = get_option( opts, Option::MethodLU, MethodLU::PPLU );
+    Method method = get_option( opts, Option::MethodLU, MethodLU::PartialPiv );
 
     if (method == MethodLU::CALU) {
         getrf_tntpiv( A, pivots, opts );
@@ -324,7 +324,7 @@ void getrf(
         // todo: fill in pivots vector?
         getrf_nopiv( A, opts );
     }
-    else if (method == MethodLU::PPLU) {
+    else if (method == MethodLU::PartialPiv) {
         Target target = get_option( opts, Option::Target, Target::HostTask );
 
         switch (target) {

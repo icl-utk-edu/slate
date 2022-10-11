@@ -332,7 +332,7 @@ Params::Params():
     method_gels   ("method-gels",   6, ParamType::List, 0, str2methodGels,   methodGels2str,   "method-gels: auto=auto, qr, cholqr"),
     method_gemm   ("method-gemm",   4, ParamType::List, 0, str2methodGemm,   methodGemm2str,   "method-gemm: auto=auto, A=gemmA, C=gemmC"),
     method_hemm   ("method-hemm",   4, ParamType::List, 0, str2methodHemm,   methodHemm2str,   "method-hemm: auto=auto, A=hemmA, C=hemmC"),
-    method_lu     ("method-lu",     5, ParamType::List, slate::MethodLU::PPLU, str2methodLU, methodLU2str, "method-lu: PPLU, CALU, NoPiv"),
+    method_lu     ("method-lu",     5, ParamType::List, slate::MethodLU::PartialPiv, str2methodLU, methodLU2str, "method-lu: PartialPiv, CALU, NoPiv"),
     method_trsm   ("method-trsm",   4, ParamType::List, 0, str2methodTrsm,   methodTrsm2str,   "method-trsm: auto=auto, A=trsmA, B=trsmB"),
 
     grid_order("grid-order", 3, ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) MPI grid order: c=Col, r=Row"),

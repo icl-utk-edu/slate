@@ -278,13 +278,13 @@ namespace MethodGels {
 /// Select the LU factorization algorithm.
 namespace MethodLU {
 
-    static constexpr char PPLU_str[]  = "PPLU";
-    static constexpr char CALU_str[]  = "CALU";
-    static constexpr char NoPiv_str[] = "NoPiv";
+    static constexpr char PartialPiv_str[] = "PPLU";
+    static constexpr char CALU_str[]       = "CALU";
+    static constexpr char NoPiv_str[]      = "NoPiv";
     static const Method Error = baseMethodError; ///< Error flag
-    static const Method PPLU  = 1;  ///< Select partial pivoting LU
-    static const Method CALU  = 2;  ///< Select communication avoiding LU
-    static const Method NoPiv = 3;  ///< Select no pivoting LU
+    static const Method PartialPiv = 1;  ///< Select partial pivoting LU
+    static const Method CALU       = 2;  ///< Select communication avoiding LU
+    static const Method NoPiv      = 3;  ///< Select no pivoting LU
 
     inline Method str2methodLU( const char* method )
     {
@@ -292,8 +292,8 @@ namespace MethodLU {
         std::transform(
             method_.begin(), method_.end(), method_.begin(), ::tolower );
 
-        if (method_ == "pplu")
-            return PPLU;
+        if (method_ == "pplu" || method_ == "partialpiv")
+            return PartialPiv;
         else if (method_ == "calu")
             return CALU;
         else if (method_ == "nopiv")
@@ -305,10 +305,10 @@ namespace MethodLU {
     inline const char* methodLU2str( Method method )
     {
         switch (method) {
-            case PPLU:  return PPLU_str;
-            case CALU:  return CALU_str;
-            case NoPiv: return NoPiv_str;
-            default:    return baseMethodError_str;
+            case PartialPiv: return PartialPiv_str;
+            case CALU:       return CALU_str;
+            case NoPiv:      return NoPiv_str;
+            default:         return baseMethodError_str;
         }
     }
 

@@ -31,12 +31,10 @@ void test_gesv_work(Params& params, bool run)
 
     // Decode routine, setting method and chopping off _tntpiv or _nopiv suffix.
     if (ends_with( params.routine, "_tntpiv" )) {
-        printf( "tntpiv\n" );
         params.routine = params.routine.substr( 0, params.routine.size() - 7 );
         params.method_lu() = slate::MethodLU::CALU;
     }
     else if (ends_with( params.routine, "_nopiv" )) {
-        printf( "nopiv\n" );
         params.routine = params.routine.substr( 0, params.routine.size() - 6 );
         params.method_lu() = slate::MethodLU::NoPiv;
     }

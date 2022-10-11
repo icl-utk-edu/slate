@@ -56,9 +56,9 @@ namespace slate {
 ///
 ///    - Option::MethodLU:
 ///      Algorithm for LU factorization.
-///       - PPLU: partial pivoting [default].
-///       - CALU: communication avoiding.
-///       - NoPiv: no pivoting.
+///       - MethodLU::PartialPiv: partial pivoting [default].
+///       - MethodLU::CALU: communication avoiding (tournament pivoting).
+///       - MethodLU::NoPiv: no pivoting.
 ///         Note pivots vector is currently ignored for NoPiv.
 ///
 /// @ingroup gesv_computational
@@ -71,7 +71,7 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
     // Constants
     const scalar_t one  = 1;
 
-    Method method = get_option( opts, Option::MethodLU, MethodLU::PPLU );
+    Method method = get_option( opts, Option::MethodLU, MethodLU::PartialPiv );
 
     assert(A.mt() == A.nt());
     assert(B.mt() == A.mt());

@@ -29,6 +29,10 @@ void test_gesv_work(Params& params, bool run)
     // Constants
     const scalar_t one = 1.0;
 
+    // If routine is gesv, getrf, getrs (without suffix), the first time
+    // this is called, with run = false, method = PartialPiv because the
+    // command line hasn't been parsed yet.
+
     // Decode routine, setting method and chopping off _tntpiv or _nopiv suffix.
     if (ends_with( params.routine, "_tntpiv" )) {
         params.routine = params.routine.substr( 0, params.routine.size() - 7 );
@@ -72,13 +76,8 @@ void test_gesv_work(Params& params, bool run)
     params.matrix.mark();
     params.matrixB.mark();
 
-    double pivot_threshold;
-    if (method == slate::MethodLU::NoPiv) {
-        pivot_threshold = 0.0;
-    }
-    else {
-        pivot_threshold = params.pivot_threshold();
-    }
+    // NoPiv and CALU ignore threshold.
+    double pivot_threshold = params.pivot_threshold();
 
     // mark non-standard output values
     params.time();

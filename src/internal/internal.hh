@@ -60,18 +60,41 @@ public:
           rank_(rank)
     {}
 
+    AuxPivot(int64_t tile_index,
+             int64_t element_offset,
+             int64_t local_tile_index,
+             int64_t local_offset,
+             scalar_t value,
+             int rank)
+        : tile_index_(tile_index),
+          element_offset_(element_offset),
+          local_tile_index_(local_tile_index),
+          local_offset_(local_offset),
+          value_(value),
+          rank_(rank)
+    {}
+
     int64_t tileIndex() { return tile_index_; }
     int64_t elementOffset() { return element_offset_; }
     int64_t localTileIndex() { return local_tile_index_; }
+    int64_t localOffset() { return local_offset_; }
     scalar_t value() { return value_; }
     int rank() { return rank_; }
+
+    void set_tileIndex(int64_t i) { tile_index_ = i; }
+    void set_elementOffset(int64_t i) { element_offset_ = i; }
+    void set_localTileIndex(int64_t i) { local_tile_index_ = i; }
+    void set_localOffset(int64_t i) { local_offset_ = i; }
+    void set_value(scalar_t v) { value_ = v; }
+    void set_rank(int r) { rank_ = r; }
 
 private:
     int64_t tile_index_;       ///< tile index in the panel submatrix
     int64_t element_offset_;   ///< pivot offset in the tile
     int64_t local_tile_index_; ///< tile index in the local list
+    int64_t local_offset_;     ///< pivot offset in the local list
     scalar_t value_;           ///< value of the pivot element
-    int rank_;                 ///< rank of the pivot owner
+    int rank_;                 ///< MPI rank of the pivot owner
 };
 
 //------------------------------------------------------------------------------
@@ -447,16 +470,26 @@ void norm(Norm in_norm, NormScope scope, HermitianBandMatrix<scalar_t>&& A,
 //       Probably best to do A, pivot, ib, diag_let, ib, ...
 //       Possibly compute diag_len in internal.
 template <Target target=Target::HostTask, typename scalar_t>
-void getrf(Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
-           std::vector<Pivot>& pivot,
-           blas::real_type<scalar_t> remote_pivot_threshold,
-           int max_panel_threads, int priority=0, int tag=0);
+void getrf_panel(
+    Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    blas::real_type<scalar_t> remote_pivot_threshold,
+    int max_panel_threads, int priority=0, int tag=0);
 
 //-----------------------------------------
 // getrf_nopiv()
 template <Target target=Target::HostTask, typename scalar_t>
 void getrf_nopiv(Matrix<scalar_t>&& A,
                  int64_t ib, int priority=0);
+
+//-----------------------------------------
+// getrf_tntpiv()
+template <Target target=Target::HostTask, typename scalar_t>
+void getrf_tntpiv_panel(
+    Matrix<scalar_t>&& A, Matrix<scalar_t>&& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority=0);
 
 //-----------------------------------------
 // geqrf()

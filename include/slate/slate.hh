@@ -520,6 +520,13 @@ void getrf_nopiv(
     Options const& opts = Options());
 
 //-----------------------------------------
+// getrf_tntpiv()
+template <typename scalar_t>
+void getrf_tntpiv(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts = Options());
+
+//-----------------------------------------
 // gbtrs()
 template <typename scalar_t>
 void gbtrs(

@@ -413,6 +413,7 @@ ifneq ($(only_unit),1)
         src/internal/internal_geset.cc \
         src/internal/internal_getrf.cc \
         src/internal/internal_getrf_nopiv.cc \
+        src/internal/internal_getrf_tntpiv.cc \
         src/internal/internal_hbnorm.cc \
         src/internal/internal_hebr.cc \
         src/internal/internal_hegst.cc \
@@ -507,6 +508,7 @@ ifneq ($(only_unit),1)
         src/gesvd.cc \
         src/getrf.cc \
         src/getrf_nopiv.cc \
+        src/getrf_tntpiv.cc \
         src/getri.cc \
         src/getriOOP.cc \
         src/getrs.cc \

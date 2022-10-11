@@ -11,7 +11,7 @@
             @defgroup gesv_computational    Computational
             @brief                          Factor, forward and back solve, invert
 
-            @defgroup gesv_specialization   Target implementations
+            @defgroup gesv_impl             Target implementations
             @defgroup gesv_internal         Internal
             @defgroup gesv_tile             Tile
         @}

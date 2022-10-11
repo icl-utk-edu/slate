@@ -362,7 +362,7 @@ void hetrf(slate::internal::TargetType<target>,
             #pragma omp task depend(inout:columnL[k]) priority(1)
             {
                 //printf( " >> LU panel(%ld:%ld,%ld) diag_len=%ld on rank-%d <<\n", k+1, A_mt-1, k, diag_len, rank); fflush(stdout);
-                internal::getrf<Target::HostTask>(
+                internal::getrf_panel<Target::HostTask>(
                     A.sub(k+1, A_mt-1, k, k), diag_len, ib,
                     pivots.at(k+1), max_panel_threads, priority_one);
 

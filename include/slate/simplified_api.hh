@@ -293,6 +293,18 @@ void lu_factor(
 }
 
 //-----------------------------------------
+/// lu_factor_tntpiv()
+
+// getrf_tntpiv
+template <typename scalar_t>
+void lu_factor_tntpiv(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts = Options())
+{
+    getrf_tntpiv(A, pivots, opts);
+}
+
+//-----------------------------------------
 // lu_factor_nopiv()
 
 // todo

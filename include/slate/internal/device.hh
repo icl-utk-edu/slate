@@ -85,6 +85,13 @@ void geadd(
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
+void reduce(
+    int64_t m, int64_t n, int64_t mt,
+    scalar_t alpha, scalar_t** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue& queue);
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
 void tzadd(
      Uplo uplo,
      int64_t m, int64_t n,

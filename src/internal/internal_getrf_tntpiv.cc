@@ -197,7 +197,7 @@ void getrf_tntpiv_local(
 }
 
 //------------------------------------------------------------------------------
-/// LU factorization of a column of tiles, host implementation.
+/// LU factorization of a column of tiles, host task implementation.
 /// @ingroup gesv_internal
 ///
 template <typename scalar_t>
@@ -433,6 +433,57 @@ void getrf_tntpiv_panel(
 }
 
 //------------------------------------------------------------------------------
+/// LU factorization of a column of tiles, host nest implementation.
+/// @ingroup gesv_internal
+///
+template <typename scalar_t>
+void getrf_tntpiv_panel(
+    internal::TargetType<Target::HostNest>,
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority)
+{
+    getrf_tntpiv_panel( internal::TargetType<Target::HostTask>(),
+        A, Awork, diag_len, ib, pivot, max_panel_threads, priority );
+}
+
+//------------------------------------------------------------------------------
+/// LU factorization of a column of tiles, host batch implementation.
+/// @ingroup gesv_internal
+///
+template <typename scalar_t>
+void getrf_tntpiv_panel(
+    internal::TargetType<Target::HostBatch>,
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority)
+{
+    getrf_tntpiv_panel( internal::TargetType<Target::HostTask>(),
+        A, Awork, diag_len, ib, pivot, max_panel_threads, priority );
+}
+
+//------------------------------------------------------------------------------
+/// LU factorization of a column of tiles, device implementation.
+/// @ingroup gesv_internal
+///
+template <typename scalar_t>
+void getrf_tntpiv_panel(
+    internal::TargetType<Target::Devices>,
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority)
+{
+    getrf_tntpiv_panel( internal::TargetType<Target::HostTask>(),
+        A, Awork, diag_len, ib, pivot, max_panel_threads, priority );
+}
+
+//------------------------------------------------------------------------------
 /// LU factorization of a column of tiles.
 /// Dispatches to target implementations.
 /// @ingroup gesv_internal
@@ -482,6 +533,114 @@ void getrf_tntpiv_panel< Target::HostTask, std::complex<float> >(
 // ----------------------------------------
 template
 void getrf_tntpiv_panel< Target::HostTask, std::complex<double> >(
+    Matrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority);
+
+// ----------------------------------------
+template
+void getrf_tntpiv_panel<Target::HostNest, float>(
+    Matrix<float>&& A,
+    Matrix<float>&& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority);
+
+// ----------------------------------------
+template
+void getrf_tntpiv_panel<Target::HostNest, double>(
+    Matrix<double>&& A,
+    Matrix<double>&& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority);
+
+// ----------------------------------------
+template
+void getrf_tntpiv_panel< Target::HostNest, std::complex<float> >(
+    Matrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority);
+
+// ----------------------------------------
+template
+void getrf_tntpiv_panel< Target::HostNest, std::complex<double> >(
+    Matrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority);
+
+// ----------------------------------------
+template
+void getrf_tntpiv_panel<Target::HostBatch, float>(
+    Matrix<float>&& A,
+    Matrix<float>&& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority);
+
+// ----------------------------------------
+template
+void getrf_tntpiv_panel<Target::HostBatch, double>(
+    Matrix<double>&& A,
+    Matrix<double>&& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority);
+
+// ----------------------------------------
+template
+void getrf_tntpiv_panel< Target::HostBatch, std::complex<float> >(
+    Matrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority);
+
+// ----------------------------------------
+template
+void getrf_tntpiv_panel< Target::HostBatch, std::complex<double> >(
+    Matrix< std::complex<double> >&& A,
+    Matrix< std::complex<double> >&& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority);
+
+// ----------------------------------------
+template
+void getrf_tntpiv_panel<Target::Devices, float>(
+    Matrix<float>&& A,
+    Matrix<float>&& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority);
+
+// ----------------------------------------
+template
+void getrf_tntpiv_panel<Target::Devices, double>(
+    Matrix<double>&& A,
+    Matrix<double>&& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority);
+
+// ----------------------------------------
+template
+void getrf_tntpiv_panel< Target::Devices, std::complex<float> >(
+    Matrix< std::complex<float> >&& A,
+    Matrix< std::complex<float> >&& Awork,
+    int64_t diag_len, int64_t ib,
+    std::vector<Pivot>& pivot,
+    int max_panel_threads, int priority);
+
+// ----------------------------------------
+template
+void getrf_tntpiv_panel< Target::Devices, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& Awork,
     int64_t diag_len, int64_t ib,

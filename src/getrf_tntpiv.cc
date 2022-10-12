@@ -99,7 +99,7 @@ void getrf_tntpiv(
 
                 // Factor A(k:mt-1, k) using tournament pivoting to get
                 // pivots and diagonal tile, Akk in workspace Apanel.
-                internal::getrf_tntpiv_panel<Target::HostTask>(
+                internal::getrf_tntpiv_panel<target>(
                     A.sub(k, A_mt-1, k, k), std::move(Apanel), diag_len, ib,
                     pivots.at(k), max_panel_threads, priority_one);
 

@@ -404,9 +404,9 @@ void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>&& A,
 //------------------------------------------------------------------------------
 // Matrix rows reduction
 template <Target target=Target::HostTask, typename scalar_t>
-void reduce(
-         std::vector<int64_t>& row_indices,
+void gereduce(
          scalar_t alpha, Matrix<scalar_t>&& A,
+         scalar_t beta,  Matrix<scalar_t>&& B,
          int priority=0, int queue_index=0);
 
 //------------------------------------------------------------------------------

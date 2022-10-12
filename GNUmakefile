@@ -451,14 +451,14 @@ ifneq ($(only_unit),1)
         src/internal/internal_unmlq.cc \
         src/internal/internal_unmqr.cc \
         src/internal/internal_unmtr_hb2st.cc \
-        src/internal/internal_reduce.cc \
+        src/internal/internal_gereduce.cc \
         # End. Add alphabetically.
 endif
 
 # device
 cuda_src := \
         src/cuda/device_geadd.cu \
-        src/cuda/device_reduce.cu \
+        src/cuda/device_gereduce.cu \
         src/cuda/device_gecopy.cu \
         src/cuda/device_genorm.cu \
         src/cuda/device_gescale.cu \

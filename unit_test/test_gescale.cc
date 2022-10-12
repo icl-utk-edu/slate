@@ -29,7 +29,6 @@ int num_devices;
 template <typename scalar_t>
 void setup_data(slate::Tile<scalar_t>& A)
 {
-    //int m = A.mb();
     int n = A.nb();
     int lda = A.stride();
     scalar_t* Ad = A.data();
@@ -503,16 +502,6 @@ void test_gescale_batch_dev()
             }
         }
     }
-}
-
-void test_gescale_batch_device()
-{
-    // TODO have a "pass/fail" message for each type, instead of one overall.
-    test_gescale_batch_dev<float>();
-    test_gescale_batch_dev<double>();
-    // Complex cases
-    test_gescale_batch_dev<std::complex<float>>();
-    test_gescale_batch_dev<std::complex<double>>();
 }
 
 template <typename... scalar_t>

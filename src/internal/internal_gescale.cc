@@ -387,9 +387,10 @@ void scale(internal::TargetType<Target::Devices>,
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
-                    device::batch::gescale(mb[q], nb[q],
-                                    numer, denom, a_array_dev, lda[q],
-                                    group_count[q], *queue);
+                    device::batch::gescale(
+                            mb[q], nb[q],
+                            numer, denom, a_array_dev, lda[q],
+                            group_count[q], *queue);
                     a_array_dev += group_count[q];
                 }
             }

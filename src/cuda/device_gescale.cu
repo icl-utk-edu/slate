@@ -36,8 +36,8 @@ __device__ void gescale_func(
 }
 
 //------------------------------------------------------------------------------
-/// Kernel implementing element-wise tile set.
-/// @copydoc tzset
+/// Kernel implementing element-wise tile scale.
+/// @copydoc gescale
 template <typename scalar_t, typename scalar_t2>
 __global__ void gescale_kernel(
     int64_t m, int64_t n,
@@ -48,8 +48,8 @@ __global__ void gescale_kernel(
 }
 
 //------------------------------------------------------------------------------
-/// Kernel implementing element-wise tile set.
-/// @copydoc tzset_batch
+/// Kernel implementing element-wise tile scale.
+/// @copydoc gescale_batch
 template <typename scalar_t, typename scalar_t2>
 __global__ void gescale_batch_kernel(
     int64_t m, int64_t n,
@@ -91,7 +91,7 @@ void gescale(
     blas::Queue& queue)
 {
     // quick return
-    if (m == 0 || n == 0) 
+    if (m == 0 || n == 0)
         return;
 
     cudaSetDevice( queue.device() );
@@ -196,7 +196,7 @@ void gescale(
     int64_t batch_count, blas::Queue& queue)
 {
     // quick return
-    if (m == 0 || n == 0) 
+    if (m == 0 || n == 0)
         return;
     // quick return
     if (batch_count == 0)

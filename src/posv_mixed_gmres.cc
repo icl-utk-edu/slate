@@ -37,14 +37,14 @@ namespace slate {
 ///
 /// GMRES-IR process is stopped if iter > itermax or for all the RHS,
 /// $1 \le j \le nrhs$, we have:
-///     $\norm{r_j}_{inf} < \sqrt{n} \norm{x_j}_{inf} \norm{A}_{inf} \epsilon,$
+///     $\norm{r_j}_{inf} < \sqrt{n} \norm{x_j}_{inf} \norm{A}_{inf} \epsilon_{\mathrm{hi}},$
 /// where:
 /// - iter is the number of the current iteration in the iterative refinement
 ///    process
 /// - $\norm{r_j}_{inf}$ is the infinity-norm of the residual, $r_j = Ax_j - b_j$
 /// - $\norm{x_j}_{inf}$ is the infinity-norm of the solution
 /// - $\norm{A}_{inf}$ is the infinity-operator-norm of the matrix $A$
-/// - $\epsilon$ is the machine epsilon.
+/// - $\epsilon_{\mathrm{hi}}$ is the machine epsilon of double precision.
 ///
 /// The value itermax is fixed to 30.
 ///

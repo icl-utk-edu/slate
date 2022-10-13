@@ -9,44 +9,9 @@
 #include "slate/HermitianMatrix.hh"
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
-
+#include "internal/internal_util.hh"
 
 namespace slate {
-
-
-template <typename scalar_t>
-bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
-                      std::vector<scalar_t>& colnorms_X,
-                      scalar_t cte)
-{
-    assert(colnorms_X.size() == colnorms_R.size());
-    bool value = true;
-    int64_t size = colnorms_X.size();
-
-    for (int64_t i = 0; i < size; i++) {
-        if (colnorms_R[i] > colnorms_X[i] * cte) {
-            value = false;
-            break;
-        }
-    }
-
-    return value;
-}
-
-template<typename scalar_t>
-slate::Matrix<scalar_t> alloc_V(slate::BaseMatrix<scalar_t>& A, int64_t n,
-                                Target target)
-{
-    auto mpiComm = A.mpiComm();
-    auto tileMbFunc = A.tileMbFunc();
-    auto tileNbFunc = A.tileNbFunc();
-    auto tileRankFunc = A.tileRankFunc();
-    auto tileDeviceFunc = A.tileDeviceFunc();
-    Matrix<scalar_t> V(A.m(), n, tileMbFunc, tileNbFunc,
-                       tileRankFunc, tileDeviceFunc, mpiComm);
-    V.insertLocalTiles(target);
-    return V;
-}
 
 //------------------------------------------------------------------------------
 /// Distributed parallel GMRES-IR Cholesky factorization and solve.
@@ -135,11 +100,12 @@ slate::Matrix<scalar_t> alloc_V(slate::BaseMatrix<scalar_t>& A, int64_t n,
 /// @ingroup posv
 ///
 template <typename scalar_hi, typename scalar_lo>
-void posv_mixed_gmres( HermitianMatrix<scalar_hi>& A,
-                    Matrix<scalar_hi>& B,
-                    Matrix<scalar_hi>& X,
-                    int& iter,
-                    Options const& opts)
+void posv_mixed_gmres(
+    HermitianMatrix<scalar_hi>& A,
+    Matrix<scalar_hi>& B,
+    Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts)
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
@@ -173,9 +139,9 @@ void posv_mixed_gmres( HermitianMatrix<scalar_hi>& A,
     std::vector<real_hi> colnorms_R(R.n());
 
     // test basis.  First column corresponds to the residual
-    auto V = alloc_V(A, restart+1, target);
+    auto V = internal::alloc_basis(A, restart+1, target);
     // solution basis.  Columns correspond to those in V.  First column is unused
-    auto W = alloc_V(A, restart+1, target);
+    auto W = internal::alloc_basis(A, restart+1, target);
 
     // workspace vector for the orthogonalization process
     auto z = X.template emptyLike<scalar_hi>();
@@ -242,7 +208,7 @@ void posv_mixed_gmres( HermitianMatrix<scalar_hi>& A,
             opts);
         colNorms( Norm::Max, X, colnorms_X.data(), opts );
         colNorms( Norm::Max, R, colnorms_R.data(), opts );
-        if (iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
+        if (internal::iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
             iter = iiter;
             converged = true;
             break;
@@ -277,7 +243,7 @@ void posv_mixed_gmres( HermitianMatrix<scalar_hi>& A,
         // excessive restarting or delayed completion.
         int j = 0;
         for (; j < restart && iiter < itermax
-                   && !iterRefConverged(arnoldi_residual, colnorms_X, cte);
+                   && !internal::iterRefConverged(arnoldi_residual, colnorms_X, cte);
              j++, iiter++) {
             auto Vj1 = V.slice(0, V.m()-1, j+1, j+1);
             auto Wj1 = W.slice(0, W.m()-1, j+1, j+1);

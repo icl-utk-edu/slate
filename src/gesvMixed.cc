@@ -8,27 +8,9 @@
 #include "slate/Matrix.hh"
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
+#include "internal/internal_util.hh"
 
 namespace slate {
-
-template <typename scalar_t>
-bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
-                      std::vector<scalar_t>& colnorms_X,
-                      scalar_t cte)
-{
-    assert(colnorms_X.size() == colnorms_R.size());
-    bool value = true;
-    int64_t size = colnorms_X.size();
-
-    for (int64_t i = 0; i < size; ++i) {
-        if (colnorms_R[i] > colnorms_X[i] * cte) {
-            value = false;
-            break;
-        }
-    }
-
-    return value;
-}
 
 //------------------------------------------------------------------------------
 /// Distributed parallel iterative-refinement LU factorization and solve.
@@ -205,7 +187,7 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
     colNorms( Norm::Max, X, colnorms_X.data(), opts );
     colNorms( Norm::Max, R, colnorms_R.data(), opts );
 
-    if (iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
+    if (internal::iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
         iter = 0;
         converged = true;
     }
@@ -236,7 +218,7 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
         colNorms( Norm::Max, X, colnorms_X.data(), opts );
         colNorms( Norm::Max, R, colnorms_R.data(), opts );
 
-        if (iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
+        if (internal::iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
             iter = iiter+1;
             converged = true;
         }

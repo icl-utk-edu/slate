@@ -27,6 +27,10 @@ void gecopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
 {
 //  trace::Block trace_block("aux::copy");
 
+    // quick return
+    if (A.mb() == 0 || A.nb() == 0)
+        return;
+
     assert(A.mb() == B.mb());
     assert(A.nb() == B.nb());
     // Quick return

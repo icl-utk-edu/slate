@@ -138,6 +138,9 @@ void gereduce(
     int64_t batch_count, blas::Queue &queue)
 {
     // quick return
+    if (m == 0 || n == 0)
+        return;
+    // quick return
     if (batch_count == 0)
         return;
 

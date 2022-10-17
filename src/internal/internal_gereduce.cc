@@ -115,30 +115,32 @@ void gereduce(
 /// Host OpenMP task implementation.
 /// @ingroup add_internal
 ///
-/// todo: this function should just be named "add".
 template <typename scalar_t>
 void gereduce(internal::TargetType<Target::HostTask>,
            scalar_t alpha, Matrix<scalar_t>& A,
            scalar_t beta,  Matrix<scalar_t>& B,
            int priority, int queue_index)
 {
-    // trace::Block trace_block("add");
-
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
 
     #pragma omp taskgroup
-    // todo: add omp task
     for (int64_t j = 0; j < A_nt; ++j) {
         if (B.tileIsLocal(0, j)) {
-            for (int64_t i = 0; i < A_mt; ++i) {
-                if (A.tileIsLocal(i, j)) {
-                    A.tileGetForReading(i, j, LayoutConvert::None);
-                    B.tileGetForWriting(0, j, LayoutConvert::None);
-                    tile::add(
-                            alpha, A(i, j),
-                            beta,  B(0, j) );
-                    A.tileTick(i, j);
+            #pragma omp task slate_omp_default_none \
+                shared( A, B ) \
+                firstprivate( j, alpha, beta)  priority(priority)
+            {
+                for (int64_t i = 0; i < A_mt; ++i) {
+                    if (A.tileIsLocal(i, j)) {
+                        A.tileGetForReading(i, j, LayoutConvert::None);
+                        B.tileGetForWriting(0, j, LayoutConvert::None);
+                        tile::add(
+                                alpha, A(i, j),
+                                beta,  B(0, j) );
+                        beta = 1.0;
+                        A.tileTick(i, j);
+                    }
                 }
             }
         }
@@ -146,7 +148,6 @@ void gereduce(internal::TargetType<Target::HostTask>,
 }
 
 //------------------------------------------------------------------------------
-/// todo: this function should just be named "add".
 template <typename scalar_t>
 void gereduce(internal::TargetType<Target::HostNest>,
            scalar_t alpha, Matrix<scalar_t>& A,
@@ -157,7 +158,6 @@ void gereduce(internal::TargetType<Target::HostNest>,
 }
 
 //------------------------------------------------------------------------------
-/// todo: this function should just be named "add".
 template <typename scalar_t>
 void gereduce(internal::TargetType<Target::HostBatch>,
            scalar_t alpha, Matrix<scalar_t>& A,
@@ -168,12 +168,11 @@ void gereduce(internal::TargetType<Target::HostBatch>,
 }
 
 //------------------------------------------------------------------------------
-/// General matrix add.
+/// General matrix reduction.
 /// General matrix reduction.
 /// GPU device implementation.
 /// @ingroup add_internal
 ///
-/// todo: this function should just be named "add".
 template <typename scalar_t>
 void gereduce(internal::TargetType<Target::Devices>,
            scalar_t alpha, Matrix<scalar_t>& A,
@@ -328,7 +327,6 @@ void gereduce(internal::TargetType<Target::Devices>,
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
-/// todo: these functions should just be named "add".
 // ----------------------------------------
 template
 void gereduce<Target::HostTask, float>(

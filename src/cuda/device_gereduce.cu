@@ -90,7 +90,8 @@ __global__ void gereduce_kernel(
 /// Batched routine for element-wise matrix reduction.
 /// Sets
 /// \[
-///     Barray[0, j] = (\sum_{i = 0:mt-1} \alpha Aarray[i, j]) + \beta Barray[0, j]. j = 0:nt-1
+///     Barray[0, j] = (\sum_{i = 0:mt-1} \alpha Aarray[i, j]) +
+///     \beta Barray[0, j]. j = 0:batch_count-1
 /// \]
 ///
 /// @param[in] m
@@ -106,15 +107,19 @@ __global__ void gereduce_kernel(
 ///     The scalar alpha.
 ///
 /// @param[in] Aarray
-///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
-///     where each Aarray[i, j] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
+///     Array in GPU memory of dimension batch_count, containing pointers to
+///     tiles,
+///     where each Aarray[i, j] is an m-by-n matrix stored in an lda-by-n array
+///     in GPU memory.
 ///
 /// @param[in] lda
 ///     Leading dimension of each tile in A. lda >= m.
 ///
 /// @param[in] Barray
-///     Brray in GPU memory of dimension mt-by-batch_count, containing pointers to tiles,
-///     where each Barray[0, j] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
+///     Brray in GPU memory of dimension mt-by-batch_count, containing pointers
+///     to tiles,
+///     where each Barray[0, j] is an m-by-n matrix stored in an lda-by-n array
+///     in GPU memory.
 ///
 /// @param[in] ldb
 ///     Leading dimension of each tile in B. ldb >= m.

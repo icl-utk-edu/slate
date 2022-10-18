@@ -10,10 +10,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::gelqf from internal::specialization::gelqf
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LQ factorization.
@@ -22,22 +19,28 @@ namespace specialization {
 ///
 /// ColMajor layout is assumed
 ///
-/// @ingroup gelqf_specialization
+/// @ingroup gelqf_impl
 ///
 template <Target target, typename scalar_t>
-void gelqf(slate::internal::TargetType<target>,
-           Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           int64_t ib, int max_panel_threads, int64_t lookahead)
+void gelqf(
+    Matrix<scalar_t>& A,
+    TriangularFactors<scalar_t>& T,
+    Options const& opts )
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
-
     using blas::real;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
     const int priority_one = 1;
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
+    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
+    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
+                                             max_panel_threads );
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
@@ -259,29 +262,7 @@ void gelqf(slate::internal::TargetType<target>,
     A.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gelqf_specialization
-///
-template <Target target, typename scalar_t>
-void gelqf(Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
-    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
-
-    internal::specialization::gelqf(internal::TargetType<target>(),
-                                    A, T,
-                                    ib, max_panel_threads, lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LQ factorization.
@@ -327,25 +308,29 @@ void gelqf(Matrix<scalar_t>& A,
 /// @ingroup gelqf_computational
 ///
 template <typename scalar_t>
-void gelqf(Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Options const& opts)
+void gelqf(
+    Matrix<scalar_t>& A,
+    TriangularFactors<scalar_t>& T,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            gelqf<Target::HostTask>(A, T, opts);
+            impl::gelqf<Target::HostTask>( A, T, opts );
             break;
+
         case Target::HostNest:
-            gelqf<Target::HostNest>(A, T, opts);
+            impl::gelqf<Target::HostNest>( A, T, opts );
             break;
+
         case Target::HostBatch:
-            gelqf<Target::HostBatch>(A, T, opts);
+            impl::gelqf<Target::HostBatch>( A, T, opts );
             break;
+
         case Target::Devices:
-            gelqf<Target::Devices>(A, T, opts);
+            impl::gelqf<Target::Devices>( A, T, opts );
             break;
     }
     // todo: return value for errors?

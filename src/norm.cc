@@ -13,24 +13,23 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::norm from internal::specialization::norm
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
 /// Distributed parallel general matrix norm.
 /// Generic implementation for any target.
-/// @ingroup norm_specialization
+/// @ingroup norm_impl
 ///
 template <Target target, typename matrix_type>
 blas::real_type<typename matrix_type::value_type>
-norm(slate::internal::TargetType<target>,
-     Norm in_norm, matrix_type A)
+norm(
+    Norm in_norm, matrix_type A,
+    Options const& opts )
 {
     using scalar_t = typename matrix_type::value_type;
     using real_t = blas::real_type<scalar_t>;
+    using internal::mpi_max_nan;
 
     // Undo any transpose, which switches one <=> inf norms.
     if (A.op() == Op::ConjTrans || A.op() == Op::Trans) {
@@ -191,21 +190,7 @@ norm(slate::internal::TargetType<target>,
     }
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup norm_specialization
-///
-template <Target target, typename matrix_type>
-blas::real_type<typename matrix_type::value_type>
-norm(Norm norm, matrix_type& A,
-     Options const& opts)
-{
-    return internal::specialization::norm(internal::TargetType<target>(),
-                                          norm, A);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel general matrix norm.
@@ -238,25 +223,28 @@ norm(Norm norm, matrix_type& A,
 ///
 template <typename matrix_type>
 blas::real_type<typename matrix_type::value_type>
-norm(Norm in_norm, matrix_type& A,
-     Options const& opts)
+norm(
+    Norm in_norm, matrix_type& A,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            return norm<Target::HostTask>(in_norm, A, opts);
+            return impl::norm<Target::HostTask>( in_norm, A, opts );
             break;
+
         case Target::HostBatch:
         case Target::HostNest:
-            return norm<Target::HostNest>(in_norm, A, opts);
+            return impl::norm<Target::HostNest>( in_norm, A, opts );
             break;
+
         case Target::Devices:
-            return norm<Target::Devices>(in_norm, A, opts);
+            return impl::norm<Target::Devices>( in_norm, A, opts );
             break;
     }
-    throw std::exception();  // todo: invalid target
+    return -1.0;  // unreachable; silence error
 }
 
 //------------------------------------------------------------------------------

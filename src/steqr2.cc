@@ -13,25 +13,21 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::steqr2 from internal::specialization::steqr2
-namespace internal {
-namespace specialization {
-
 //------------------------------------------------------------------------------
-/// computes all eigenvalues/eigenvectors of a symmetric tridiagonal matrix
+/// Computes all eigenvalues/eigenvectors of a symmetric tridiagonal matrix
 /// using the Pal-Walker-Kahan variant of the QL or QR algorithm.
-/// Generic implementation for any target.
-/// @ingroup svd_specialization
 ///
-// ATTENTION: only host computation supported for now
-//
-template <Target target, typename scalar_t>
-void steqr2(slate::internal::TargetType<target>,
-           Job jobz,
-           std::vector< blas::real_type<scalar_t> >& D,
-           std::vector< blas::real_type<scalar_t> >& E,
-           Matrix<scalar_t>& Z)
+/// ATTENTION: only host computation supported for now
+///
+/// @ingroup svd_computational
+///
+template <typename scalar_t>
+void steqr2(
+    Job jobz,
+    std::vector< blas::real_type<scalar_t> >& D,
+    std::vector< blas::real_type<scalar_t> >& E,
+    Matrix<scalar_t>& Z,
+    Options const& opts )
 {
     trace::Block trace_block("lapack::steqr2");
 
@@ -81,49 +77,6 @@ void steqr2(slate::internal::TargetType<target>,
     if (wantz) {
         Z.redistribute(Z1d);
     }
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup svd_specialization
-///
-template <Target target, typename scalar_t>
-void steqr2(lapack::Job job,
-           std::vector< blas::real_type<scalar_t> >& D,
-           std::vector< blas::real_type<scalar_t> >& E,
-           Matrix<scalar_t>& Z,
-           Options const& opts)
-{
-    internal::specialization::steqr2<target, scalar_t>(
-                                    internal::TargetType<target>(),
-                                    job, D, E, Z);
-}
-
-//------------------------------------------------------------------------------
-///
-template <typename scalar_t>
-void steqr2(lapack::Job job,
-           std::vector< blas::real_type<scalar_t> >& D,
-           std::vector< blas::real_type<scalar_t> >& E,
-           Matrix<scalar_t>& Z,
-           Options const& opts)
-{
-    Target target = get_option( opts, Option::Target, Target::HostTask );
-
-    // only HostTask implementation is provided, since it calls LAPACK only
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-        case Target::HostNest:
-        case Target::HostBatch:
-        case Target::Devices:
-            steqr2<Target::HostTask, scalar_t>(job, D, E, Z, opts);
-            break;
-    }
-    // todo: return value for errors?
 }
 
 //------------------------------------------------------------------------------

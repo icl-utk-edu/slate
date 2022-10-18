@@ -8,24 +8,24 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::trmm from internal::specialization::trmm
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
 /// Distributed parallel triangular matrix-matrix multiplication.
 /// Generic implementation for any target.
-/// @ingroup trmm_specialization
+/// @ingroup trmm_impl
 ///
 template <Target target, typename scalar_t>
-void trmm(slate::internal::TargetType<target>,
-          Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          int64_t lookahead)
+void trmm(
+    Side side,
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    Options const& opts )
 {
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+
     if (target == Target::Devices) {
         const int64_t batch_size_zero = 0; // use default batch size
         const int64_t num_arrays_two = 2; // Number of kernels without lookahead
@@ -54,27 +54,7 @@ void trmm(slate::internal::TargetType<target>,
     B.clearWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup trmm_specialization
-///
-template <Target target, typename scalar_t>
-void trmm(blas::Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::trmm(internal::TargetType<target>(),
-                                   side,
-                                   alpha, A,
-                                          B,
-                                   lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel triangular matrix-matrix multiplication.
@@ -130,26 +110,30 @@ void trmm(blas::Side side,
 /// @ingroup trmm
 ///
 template <typename scalar_t>
-void trmm(blas::Side side,
-          scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                    Matrix<scalar_t>& B,
-          Options const& opts)
+void trmm(
+    blas::Side side,
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            trmm<Target::HostTask>(side, alpha, A, B, opts);
+            impl::trmm<Target::HostTask>( side, alpha, A, B, opts );
             break;
+
         case Target::HostNest:
-            trmm<Target::HostNest>(side, alpha, A, B, opts);
+            impl::trmm<Target::HostNest>( side, alpha, A, B, opts );
             break;
+
         case Target::HostBatch:
-            trmm<Target::HostBatch>(side, alpha, A, B, opts);
+            impl::trmm<Target::HostBatch>( side, alpha, A, B, opts );
             break;
+
         case Target::Devices:
-            trmm<Target::Devices>(side, alpha, A, B, opts);
+            impl::trmm<Target::Devices>( side, alpha, A, B, opts );
             break;
     }
 }

@@ -8,8 +8,6 @@
 
 namespace slate {
 
-// impl namespace differentiates, e.g.,
-// internal::herk from impl::herk
 namespace impl {
 
 //------------------------------------------------------------------------------
@@ -25,10 +23,10 @@ namespace impl {
 /// @ingroup herk_impl
 ///
 template <Target target, typename scalar_t>
-void herk(slate::internal::TargetType<target>,
-          blas::real_type<scalar_t> alpha, Matrix<scalar_t> A,
-          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t> C,
-          Options const& opts)
+void herk(
+    blas::real_type<scalar_t> alpha, Matrix<scalar_t> A,
+    blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t> C,
+    Options const& opts )
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
@@ -36,12 +34,8 @@ void herk(slate::internal::TargetType<target>,
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
-    // if upper, change to lower
-    if (C.uplo() == Uplo::Upper)
-        C = conjTranspose(C);
-
-    // A is mt-by-nt, C is mt-by-mt
-    assert(A.mt() == C.mt());
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // Use only TileReleaseStrategy::Slate for herk.
     // Internal herk routine called here won't release
@@ -49,7 +43,12 @@ void herk(slate::internal::TargetType<target>,
     Options opts2 = opts;
     opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
-    int64_t lookahead = get_option<int64_t>( opts2, Option::Lookahead, 1 );
+    // if upper, change to lower
+    if (C.uplo() == Uplo::Upper)
+        C = conjTranspose(C);
+
+    // A is mt-by-nt, C is mt-by-mt
+    assert(A.mt() == C.mt());
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
@@ -215,30 +214,26 @@ void herk(slate::internal::TargetType<target>,
 /// @ingroup herk
 ///
 template <typename scalar_t>
-void herk(blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
-          blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-          Options const& opts)
+void herk(
+    blas::real_type<scalar_t> alpha, Matrix<scalar_t>& A,
+    blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
+    Options const& opts )
 {
-    using internal::TargetType;
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::herk( TargetType<Target::HostTask>(),
-                        alpha, A, beta, C, opts );
+            impl::herk<Target::HostTask>( alpha, A, beta, C, opts );
             break;
         case Target::HostNest:
-            impl::herk( TargetType<Target::HostNest>(),
-                        alpha, A, beta, C, opts );
+            impl::herk<Target::HostNest>( alpha, A, beta, C, opts );
             break;
         case Target::HostBatch:
-            impl::herk( TargetType<Target::HostBatch>(),
-                        alpha, A, beta, C, opts );
+            impl::herk<Target::HostBatch>( alpha, A, beta, C, opts );
             break;
         case Target::Devices:
-            impl::herk( TargetType<Target::Devices>(),
-                        alpha, A, beta, C, opts );
+            impl::herk<Target::Devices>( alpha, A, beta, C, opts );
             break;
     }
 }

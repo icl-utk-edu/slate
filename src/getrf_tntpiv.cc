@@ -22,7 +22,6 @@ namespace impl {
 ///
 template <Target target, typename scalar_t>
 void getrf_tntpiv(
-    slate::internal::TargetType<target>,
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts)
 {
@@ -31,14 +30,12 @@ void getrf_tntpiv(
 
     const scalar_t one = 1.0;
 
-    // Get options.
+    // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
-    int64_t max_panel_threads = std::max( omp_get_max_threads()/2, 1 );
-    max_panel_threads = get_option<int64_t>(
-        opts, Option::MaxPanelThreads, max_panel_threads );
+    int64_t max_panel_threads  = std::max( omp_get_max_threads()/2, 1 );
+    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
+                                             max_panel_threads );
 
     // Host can use Col/RowMajor for row swapping,
     // RowMajor is slightly more efficient.
@@ -345,34 +342,24 @@ void getrf_tntpiv(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts)
 {
-    using internal::TargetType;
-
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::getrf_tntpiv(
-                TargetType<Target::HostTask>(),
-                A, pivots, opts );
+            impl::getrf_tntpiv<Target::HostTask>( A, pivots, opts );
             break;
 
         case Target::HostNest:
-            impl::getrf_tntpiv(
-                TargetType<Target::HostNest>(),
-                A, pivots, opts);
+            impl::getrf_tntpiv<Target::HostNest>( A, pivots, opts );
             break;
 
         case Target::HostBatch:
-            impl::getrf_tntpiv(
-                TargetType<Target::HostBatch>(),
-                A, pivots, opts);
+            impl::getrf_tntpiv<Target::HostBatch>( A, pivots, opts );
             break;
 
         case Target::Devices:
-            impl::getrf_tntpiv(
-                TargetType<Target::Devices>(),
-                A, pivots, opts);
+            impl::getrf_tntpiv<Target::Devices>( A, pivots, opts );
             break;
     }
     // todo: return value for errors?

@@ -11,22 +11,19 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::add from internal::specialization::add
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
 /// Distributed parallel general matrix-matrix addition.
 /// Generic implementation for any target.
-/// @ingroup add_specialization
+/// @ingroup add_impl
 ///
 template <Target target, typename scalar_t>
-void add(slate::internal::TargetType<target>,
-         scalar_t alpha, Matrix<scalar_t>& A,
-         scalar_t beta,  Matrix<scalar_t>& B,
-         int64_t lookahead)
+void add(
+    scalar_t alpha, Matrix<scalar_t>& A,
+    scalar_t beta,  Matrix<scalar_t>& B,
+    Options const& opts )
 {
     if (target == Target::Devices) {
         B.allocateBatchArrays();
@@ -45,25 +42,7 @@ void add(slate::internal::TargetType<target>,
     B.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup add_specialization
-///
-template <Target target, typename scalar_t>
-void add(scalar_t alpha, Matrix<scalar_t>& A,
-         scalar_t beta,  Matrix<scalar_t>& B,
-         Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::add(internal::TargetType<target>(),
-                                    alpha, A,
-                                    beta,  B,
-                                    lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel general matrix-matrix addition.
@@ -95,9 +74,6 @@ void add(scalar_t alpha, Matrix<scalar_t>& A,
 ///
 /// @param[in] opts
 ///         Additional options, as map of name = value pairs. Possible options:
-///         - Option::Lookahead:
-///           Number of blocks to overlap communication and computation.
-///           lookahead >= 0. Default 1.
 ///         - Option::Target:
 ///           Implementation to target. Possible values:
 ///           - HostTask:  OpenMP tasks on CPU host [default].
@@ -108,25 +84,29 @@ void add(scalar_t alpha, Matrix<scalar_t>& A,
 /// @ingroup add
 ///
 template <typename scalar_t>
-void add(scalar_t alpha, Matrix<scalar_t>& A,
-         scalar_t beta,  Matrix<scalar_t>& B,
-         Options const& opts)
+void add(
+    scalar_t alpha, Matrix<scalar_t>& A,
+    scalar_t beta,  Matrix<scalar_t>& B,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            add<Target::HostTask>(alpha, A, beta, B, opts);
+            impl::add<Target::HostTask>( alpha, A, beta, B, opts );
             break;
+
         case Target::HostNest:
-            add<Target::HostNest>(alpha, A, beta, B, opts);
+            impl::add<Target::HostNest>( alpha, A, beta, B, opts );
             break;
+
         case Target::HostBatch:
-            add<Target::HostBatch>(alpha, A, beta, B, opts);
+            impl::add<Target::HostBatch>( alpha, A, beta, B, opts );
             break;
+
         case Target::Devices:
-            add<Target::Devices>(alpha, A, beta, B, opts);
+            impl::add<Target::Devices>( alpha, A, beta, B, opts );
             break;
     }
 }
@@ -157,26 +137,23 @@ void add< std::complex<double> >(
     std::complex<double> beta,  Matrix< std::complex<double> >& B,
     Options const& opts);
 
-//----------------
-// Added for BaseTrapezoidMatrix.
-//----------------
-// specialization namespace differentiates, e.g.,
-// internal::add from internal::specialization::add
+//==============================================================================
+// For BaseTrapezoidMatrix.
+//==============================================================================
 
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
 /// Distributed parallel matrix-matrix addition.
 /// Generic implementation for any target.
-/// @ingroup set_specialization
+/// @ingroup add_impl
 ///
 template <Target target, typename scalar_t>
-void add(slate::internal::TargetType<target>,
-         scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
-         scalar_t beta,  BaseTrapezoidMatrix<scalar_t>& B,
-         int64_t lookahead)
+void add(
+    scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
+    scalar_t beta,  BaseTrapezoidMatrix<scalar_t>& B,
+    Options const& opts )
 {
     if (target == Target::Devices) {
         B.allocateBatchArrays();
@@ -195,25 +172,7 @@ void add(slate::internal::TargetType<target>,
     B.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup add_specialization
-///
-template <Target target, typename scalar_t>
-void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
-           scalar_t beta, BaseTrapezoidMatrix<scalar_t>& B,
-           Options const& opts)
-{
-     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-     internal::specialization::add(internal::TargetType<target>(),
-                                     alpha, A,
-                                     beta,  B,
-                                     lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel matrix-matrix addition.
@@ -245,9 +204,6 @@ void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
 ///
 /// @param[in] opts
 ///         Additional options, as map of name = value pairs. Possible options:
-///         - Option::Lookahead:
-///           Number of blocks to overlap communication and computation.
-///           lookahead >= 0. Default 1.
 ///         - Option::Target:
 ///           Implementation to target. Possible values:
 ///           - HostTask:  OpenMP tasks on CPU host [default].
@@ -259,25 +215,29 @@ void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
 ///
 
 template <typename scalar_t>
-void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
-         scalar_t beta,  BaseTrapezoidMatrix<scalar_t>& B,
-         Options const& opts)
+void add(
+    scalar_t alpha, BaseTrapezoidMatrix<scalar_t>& A,
+    scalar_t beta,  BaseTrapezoidMatrix<scalar_t>& B,
+    Options const& opts)
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            add<Target::HostTask>(alpha, A, beta, B, opts);
+            impl::add<Target::HostTask>( alpha, A, beta, B, opts );
             break;
+
         case Target::HostNest:
-            add<Target::HostNest>(alpha, A, beta, B, opts);
+            impl::add<Target::HostNest>( alpha, A, beta, B, opts );
             break;
+
         case Target::HostBatch:
-            add<Target::HostBatch>(alpha, A, beta, B, opts);
+            impl::add<Target::HostBatch>( alpha, A, beta, B, opts );
             break;
+
         case Target::Devices:
-            add<Target::Devices>(alpha, A, beta, B, opts);
+            impl::add<Target::Devices>( alpha, A, beta, B, opts );
             break;
     }
 }

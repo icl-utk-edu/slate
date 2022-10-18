@@ -14,28 +14,25 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::bdsqr from internal::specialization::bdsqr
-namespace internal {
-namespace specialization {
-
 //------------------------------------------------------------------------------
-/// computes the singular values and, optionally, the right and/or
+/// Computes the singular values and, optionally, the right and/or
 /// left singular vectors from the singular value decomposition (SVD) of
 /// a real (upper or lower) bidiagonal matrix.
 /// Generic implementation for any target.
-/// @ingroup svd_specialization
 ///
-// ATTENTION: only singular values computed for now, no singular vectors.
-// only host computation supported for now
-//
-template <Target target, typename scalar_t>
-void bdsqr(slate::internal::TargetType<target>,
-           lapack::Job jobu, lapack::Job jobvt,
-           std::vector< blas::real_type<scalar_t> >& D,
-           std::vector< blas::real_type<scalar_t> >& E,
-           Matrix<scalar_t>& U,
-           Matrix<scalar_t>& VT)
+/// ATTENTION: only singular values computed for now, no singular vectors.
+/// Only host computation supported for now.
+///
+/// @ingroup svd_computational
+///
+template <typename scalar_t>
+void bdsqr(
+    lapack::Job jobu, lapack::Job jobvt,
+    std::vector< blas::real_type<scalar_t> >& D,
+    std::vector< blas::real_type<scalar_t> >& E,
+    Matrix<scalar_t>& U,
+    Matrix<scalar_t>& VT,
+    Options const& opts )
 {
     trace::Block trace_block("slate::bdsqr");
 
@@ -114,55 +111,6 @@ void bdsqr(slate::internal::TargetType<target>,
     if (wantvt) {
         VT.redistribute(VT1d);
     }
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup svd_specialization
-///
-template <Target target, typename scalar_t>
-void bdsqr(lapack::Job jobu, lapack::Job jobvt,
-           std::vector< blas::real_type<scalar_t> >& D,
-           std::vector< blas::real_type<scalar_t> >& E,
-           Matrix<scalar_t>& U,
-           Matrix<scalar_t>& VT,
-           Options const& opts)
-{
-    internal::specialization::bdsqr<target, scalar_t>(internal::TargetType<target>(),
-                                    jobu, jobvt, D, E, U, VT);
-}
-
-//------------------------------------------------------------------------------
-///
-template <typename scalar_t>
-void bdsqr(lapack::Job jobu, lapack::Job jobvt,
-           std::vector< blas::real_type<scalar_t> >& D,
-           std::vector< blas::real_type<scalar_t> >& E,
-           Matrix<scalar_t>& U,
-           Matrix<scalar_t>& VT,
-           Options const& opts)
-{
-    Target target = get_option( opts, Option::Target, Target::HostTask );
-
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-            bdsqr<Target::HostTask, scalar_t>(jobu, jobvt, D, E, U, VT, opts);
-            break;
-        case Target::HostNest:
-            bdsqr<Target::HostNest, scalar_t>(jobu, jobvt, D, E, U, VT, opts);
-            break;
-        case Target::HostBatch:
-            bdsqr<Target::HostBatch, scalar_t>(jobu, jobvt, D, E, U, VT, opts);
-            break;
-        case Target::Devices:
-            bdsqr<Target::Devices, scalar_t>(jobu, jobvt, D, E, U, VT, opts);
-            break;
-    }
-    // todo: return value for errors?
 }
 
 //------------------------------------------------------------------------------

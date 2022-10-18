@@ -8,21 +8,20 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::scale from internal::specialization::scale
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
 /// Scale matrix entries by the real scalar numer/denom.
 /// Generic implementation for any target.
-/// @ingroup set_specialization
+/// @ingroup set_impl
 ///
 template <Target target, typename scalar_t>
-void scale(slate::internal::TargetType<target>,
-           blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
-           Matrix<scalar_t>& A)
+void scale(
+    blas::real_type<scalar_t> numer,
+    blas::real_type<scalar_t> denom,
+    Matrix<scalar_t>& A,
+    Options const& opts )
 {
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -41,20 +40,7 @@ void scale(slate::internal::TargetType<target>,
     A.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup scale_specialization
-///
-template <Target target, typename scalar_t>
-void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
-           Matrix<scalar_t>& A, Options const& opts)
-{
-    internal::specialization::scale(internal::TargetType<target>(),
-                                    numer, denom, A);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Scale matrix entries by the real scalar numer/denom.
@@ -79,8 +65,11 @@ void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
 /// @ingroup set
 ///
 template <typename scalar_t>
-void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
-           Matrix<scalar_t>& A, Options const& opts)
+void scale(
+    blas::real_type<scalar_t> numer,
+    blas::real_type<scalar_t> denom,
+    Matrix<scalar_t>& A,
+    Options const& opts )
 {
     Target target;
     try {
@@ -94,7 +83,7 @@ void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
         case Target::Host:
         case Target::HostTask:
         default: // todo: this is to silence a warning, should err otherwise
-            scale<Target::HostTask>(numer, denom, A, opts);
+            impl::scale<Target::HostTask>( numer, denom, A, opts );
             break;
         // case Target::HostNest:
         //     scale<Target::HostNest>(numer, denom, A, opts);
@@ -102,8 +91,9 @@ void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
         // case Target::HostBatch:
         //     scale<Target::HostBatch>(numer, denom, A, opts);
         //     break;
+
         case Target::Devices:
-            scale<Target::Devices>(numer, denom, A, opts);
+            impl::scale<Target::Devices>( numer, denom, A, opts );
             break;
     }
 }
@@ -132,24 +122,23 @@ void scale(
     Matrix<std::complex<double> >& A,
     Options const& opts);
 
-//----------------
-// Added for BaseTrapezoidMatrix.
-//----------------
-// specialization namespace differentiates, e.g.,
-// internal::scale from internal::specialization::scale
-namespace internal {
-namespace specialization {
+//==============================================================================
+// For BaseTrapezoidMatrix.
+//==============================================================================
+
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
 /// Set matrix entries.
 /// Generic implementation for any target.
-/// @ingroup set_specialization
+/// @ingroup set_impl
 ///
 template <Target target, typename scalar_t>
-void scale(slate::internal::TargetType<target>,
-           blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
-           BaseTrapezoidMatrix<scalar_t>& A)
+void scale(
+    blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts )
 {
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -168,20 +157,7 @@ void scale(slate::internal::TargetType<target>,
     A.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup set_specialization
-///
-template <Target target, typename scalar_t>
-void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
-           BaseTrapezoidMatrix<scalar_t>& A, Options const& opts)
-{
-    internal::specialization::scale(internal::TargetType<target>(),
-                                    numer, denom, A);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Scale matrix entries by the real scalar numer/denom.
@@ -206,8 +182,11 @@ void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
 /// @ingroup set
 ///
 template <typename scalar_t>
-void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
-           BaseTrapezoidMatrix<scalar_t>& A, Options const& opts)
+void scale(
+    blas::real_type<scalar_t> numer,
+    blas::real_type<scalar_t> denom,
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts )
 {
     Target target;
     try {
@@ -221,7 +200,7 @@ void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
         case Target::Host:
         case Target::HostTask:
         default: // todo: this is to silence a warning, should err otherwise
-            scale<Target::HostTask>(numer, denom, A, opts);
+            impl::scale<Target::HostTask>( numer, denom, A, opts );
             break;
         // case Target::HostNest:
         //     scale<Target::HostNest>(numer, denom, A, opts);
@@ -229,8 +208,9 @@ void scale(blas::real_type<scalar_t> numer, blas::real_type<scalar_t> denom,
         // case Target::HostBatch:
         //     scale<Target::HostBatch>(numer, denom, A, opts);
         //     break;
+
         case Target::Devices:
-            scale<Target::Devices>(numer, denom, A, opts);
+            impl::scale<Target::Devices>( numer, denom, A, opts );
             break;
     }
 }

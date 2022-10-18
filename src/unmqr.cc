@@ -11,23 +11,20 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::unmqr from internal::specialization::unmqr
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel multiply by Q from QR factorization.
 /// Generic implementation for any target.
-/// @ingroup geqrf_specialization
+/// @ingroup geqrf_impl
 ///
 template <Target target, typename scalar_t>
 void unmqr(
-    slate::internal::TargetType<target>,
     Side side, Op op,
     Matrix<scalar_t>& A,
     TriangularFactors<scalar_t>& T,
-    Matrix<scalar_t>& C)
+    Matrix<scalar_t>& C,
+    Options const& opts )
 {
     // trace::Block trace_block("unmqr");
     // const int priority_one = 1;
@@ -260,24 +257,7 @@ void unmqr(
     C.clearWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup geqrf_specialization
-///
-template <Target target, typename scalar_t>
-void unmqr(
-    Side side, Op op,
-    Matrix<scalar_t>& A,
-    TriangularFactors<scalar_t>& T,
-    Matrix<scalar_t>& C,
-    Options const& opts)
-{
-    internal::specialization::unmqr(internal::TargetType<target>(),
-                                    side, op, A, T, C);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel multiply by $Q$ from QR factorization.
@@ -349,16 +329,19 @@ void unmqr(
         case Target::Host:
         case Target::HostTask:
         default:
-            unmqr<Target::HostTask>(side, op, A, T, C, opts);
+            impl::unmqr<Target::HostTask>( side, op, A, T, C, opts );
             break;
+
         case Target::HostNest:
-            unmqr<Target::HostNest>(side, op, A, T, C, opts);
+            impl::unmqr<Target::HostNest>( side, op, A, T, C, opts );
             break;
+
         case Target::HostBatch:
-            unmqr<Target::HostBatch>(side, op, A, T, C, opts);
+            impl::unmqr<Target::HostBatch>( side, op, A, T, C, opts );
             break;
+
         case Target::Devices:
-            unmqr<Target::Devices>(side, op, A, T, C, opts);
+            impl::unmqr<Target::Devices>( side, op, A, T, C, opts );
             break;
     }
     // todo: return value for errors?

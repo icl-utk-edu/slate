@@ -8,10 +8,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::her2k from internal::specialization::her2k
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
@@ -23,20 +20,23 @@ namespace specialization {
 /// - bcasts can get ahead of her2ks by the value of lookahead.
 /// Note A, B, and C are passed by value, so we can transpose if needed
 /// (for uplo = Upper) without affecting caller.
-/// @ingroup her2k_specialization
+/// @ingroup her2k_impl
 ///
 template <Target target, typename scalar_t>
-void her2k(slate::internal::TargetType<target>,
-           scalar_t alpha,                  Matrix<scalar_t> A,
-                                            Matrix<scalar_t> B,
-           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t> C,
-           int64_t lookahead)
+void her2k(
+    scalar_t alpha,                 Matrix<scalar_t> A,
+                                    Matrix<scalar_t> B,
+    blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t> C,
+    Options const& opts )
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // if upper, change to lower
     if (C.uplo() == Uplo::Upper)
@@ -158,27 +158,7 @@ void her2k(slate::internal::TargetType<target>,
     C.clearWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup her2k_specialization
-///
-template <Target target, typename scalar_t>
-void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
-                                            Matrix<scalar_t>& B,
-           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::her2k(internal::TargetType<target>(),
-                                    alpha, A,
-                                           B,
-                                    beta,  C,
-                                    lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Hermitian rank 2k update.
@@ -232,26 +212,30 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
 /// @ingroup her2k
 ///
 template <typename scalar_t>
-void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
-                                           Matrix<scalar_t>& B,
-           blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
-           Options const& opts)
+void her2k(
+    scalar_t alpha,                 Matrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
+    blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            her2k<Target::HostTask>(alpha, A, B, beta, C, opts);
+            impl::her2k<Target::HostTask>( alpha, A, B, beta, C, opts );
             break;
+
         case Target::HostNest:
-            her2k<Target::HostNest>(alpha, A, B, beta, C, opts);
+            impl::her2k<Target::HostNest>( alpha, A, B, beta, C, opts );
             break;
+
         case Target::HostBatch:
-            her2k<Target::HostBatch>(alpha, A, B, beta, C, opts);
+            impl::her2k<Target::HostBatch>( alpha, A, B, beta, C, opts );
             break;
+
         case Target::Devices:
-            her2k<Target::Devices>(alpha, A, B, beta, C, opts);
+            impl::her2k<Target::Devices>( alpha, A, B, beta, C, opts );
             break;
     }
 }

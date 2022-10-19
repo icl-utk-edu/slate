@@ -456,6 +456,10 @@ void test_Matrix_fromDevices()
         blas::device_free(Aarray[dev], *dev_queues[dev]);
     }
     delete[] Aarray;
+
+    // free the device specific queues
+    for (int dev = 0; dev < num_devices; ++dev)
+        delete dev_queues[dev];
 }
 
 //==============================================================================

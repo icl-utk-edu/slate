@@ -87,6 +87,10 @@ void test_addDeviceBlocks()
     mem.clearHostBlocks();
     for (int dev = 0; dev < mem.num_devices_; ++dev)
         mem.clearDeviceBlocks(dev, dev_queues[dev]);
+
+    // free the device specific queues
+    for (int dev = 0; dev < mem.num_devices_; ++dev)
+        delete dev_queues[dev];
 }
 
 //------------------------------------------------------------------------------
@@ -102,7 +106,7 @@ void test_alloc_host()
     // First cnt blocks come from reserve, next cnt blocks malloc'd 1-by-1.
     double* hx[ 2*cnt ];
     for (int i = 0; i < 2*cnt; ++i) {
-        hx[i] = (double*) mem.alloc( HostNum, sizeof(double) * nb * nb, NULL );
+        hx[i] = (double*) mem.alloc( HostNum, sizeof(double) * nb * nb, nullptr );
         test_assert(hx[i] != nullptr);
         // Memory class no longer reserves CPU blocks, it allocates on-the-fly.
         //test_assert( int( mem.available( HostNum ) ) == max( cnt-(i+1), 0 ) );
@@ -129,7 +133,7 @@ void test_alloc_host()
 
     // Re-alloc some.
     for (int i = 0; i < some; ++i) {
-        hx[i] = (double*) mem.alloc( HostNum, sizeof(double) * nb * nb, NULL);
+        hx[i] = (double*) mem.alloc( HostNum, sizeof(double) * nb * nb, nullptr);
         test_assert(hx[i] != nullptr);
         //test_assert( int( mem.available( HostNum ) ) == some - ( i+1 ) );
         //test_assert( int( mem.capacity(  HostNum ) ) == 2*cnt );
@@ -200,6 +204,10 @@ void test_alloc_device()
         dev_queues[dev]->sync();
     }
 
+    // free the device specific queues
+    for (int dev = 0; dev < mem.num_devices_; ++dev)
+        delete dev_queues[dev];
+
     delete[] hx;
 }
 
@@ -218,7 +226,7 @@ void test_clearHostBlocks()
 
     // Allocate 2*cnt blocks.
     for (int i = 0; i < 2*cnt; ++i) {
-        mem.alloc( HostNum, sizeof(double) * nb * nb, NULL );
+        mem.alloc( HostNum, sizeof(double) * nb * nb, nullptr );
     }
 
     test_assert( int( mem.available( HostNum ) ) == 0 );
@@ -273,6 +281,9 @@ void test_clearDeviceBlocks()
         dev_queues[dev]->sync();
     }
 
+    // free the device specific queues
+    for (int dev = 0; dev < mem.num_devices_; ++dev)
+        delete dev_queues[dev];
 }
 
 //------------------------------------------------------------------------------

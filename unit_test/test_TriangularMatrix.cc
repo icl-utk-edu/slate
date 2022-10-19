@@ -424,6 +424,10 @@ void test_TriangularMatrix_fromDevices()
             blas::Uplo::General, blas::Diag::Unit,
             n, Aarray, num_devices, lda, nb, p, q, mpi_comm ),
         slate::Exception);
+
+    // free the device specific queues
+    for (int dev = 0; dev < num_devices; ++dev)
+        delete dev_queues[dev];
 }
 
 //==============================================================================

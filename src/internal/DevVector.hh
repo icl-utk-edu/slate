@@ -34,6 +34,16 @@ public:
         resize( in_size, device, queue );
     }
 
+    /// Destroys vector, freeing memory.
+    ~DevVector()
+    {
+        // This is just a check that a clear() was called before the
+        // destructor happens.  The destructor does not maintain
+        // access to the blas::Queue, so the user needs to call
+        // clear(queue) explicity.
+        assert(data_ == nullptr);
+    }
+
     // Frees the memory, setting size to 0.
     void clear(blas::Queue &queue)
     {

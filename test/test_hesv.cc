@@ -18,7 +18,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-#define SLATE_HAVE_SCALAPACK
+
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_hesv_work(Params& params, bool run)
@@ -99,6 +99,7 @@ void test_hesv_work(Params& params, bool run)
                  uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     auto B = slate::Matrix<scalar_t>::fromScaLAPACK(
                  n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
+    real_t A_norm, X_norm;
 
     slate::generate_matrix( params.matrix, A );
     slate::generate_matrix( params.matrixB, B );
@@ -244,9 +245,9 @@ void test_hesv_work(Params& params, bool run)
             std::vector<real_t> worklangeB(std::max(mlocB, nlocB));
 
             // Norm of the orig matrix: || A ||
-            real_t A_norm = scalapack_plange("1", n, n, &Aref_data[0], 1, 1, Aref_desc, &worklangeA[0]);
+            A_norm = scalapack_plange("1", n, n, &Aref_data[0], 1, 1, Aref_desc, &worklangeA[0]);
             // norm of updated rhs matrix: || X ||
-            real_t X_norm = scalapack_plange("1", n, nrhs, &B_data[0], 1, 1, B_desc, &worklangeB[0]);
+            X_norm = scalapack_plange("1", n, nrhs, &B_data[0], 1, 1, B_desc, &worklangeB[0]);
 
             // Bref_data -= Aref*B_data
             scalapack_phemm("Left", "Lower",
@@ -268,8 +269,10 @@ void test_hesv_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
-        #else
-            SLATE_UNUSED(one);
+        #else  // not SLATE_HAVE_SCALAPACK
+            SLATE_UNUSED( one );
+            SLATE_UNUSED( A_norm );
+            SLATE_UNUSED( X_norm );
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

@@ -17,7 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-#define SLATE_HAVE_SCALAPACK
+
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_getri_work(Params& params, bool run)
@@ -246,7 +246,7 @@ void test_getri_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
-        #else
+        #else  // not SLATE_HAVE_SCALAPACK
             SLATE_UNUSED(zero);
             SLATE_UNUSED(one);
             SLATE_UNUSED(A_norm);

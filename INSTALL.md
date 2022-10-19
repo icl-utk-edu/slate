@@ -156,8 +156,10 @@ SLATE specific options include:
         openmpi         Open MPI BLACS in SLATE's testers.
         intelmpi        Intel MPI BLACS in SLATE's testers (default).
 
-    SCALAPACK_LIBRARIES [CMake only]
-        Specify the exact ScaLAPACK libraries, overriding the built-in search.
+    SCALAPACK_LIBRARIES [Makefile and CMake]
+        For SLATE's testers, specify the exact ScaLAPACK libraries to
+        use, overriding the built-in search, or set to `none` to build
+        testers without ScaLAPACK.
         With MKL, by default it uses
             -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64
         or  -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64;
@@ -328,7 +330,7 @@ options include:
 
     build_tests
         Whether to build test suite (test/tester).
-        Requires ScaLAPACK. One of:
+        Requires ScaLAPACK unless SCALAPACK_LIBRARIES=none. One of:
         yes (default)
         no
 

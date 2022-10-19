@@ -19,7 +19,7 @@
 #include <cstdlib>
 #include <limits>
 #include <utility>
-#define SLATE_HAVE_SCALAPACK
+
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_hegv_work(Params& params, bool run)
@@ -415,7 +415,7 @@ void test_hegv_work(Params& params, bool run)
                 params.okay() = (params.error2() <= tol);
             }
             Cblacs_gridexit(ictxt);
-        #else
+        #else  // not SLATE_HAVE_SCALAPACK
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

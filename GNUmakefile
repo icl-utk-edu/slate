@@ -191,9 +191,6 @@ else
 endif
 
 #-------------------------------------------------------------------------------
-# ScaLAPACK, by default
-scalapack = -lscalapack
-
 # BLAS and LAPACK
 # todo: really should get these libraries from BLAS++ and LAPACK++.
 # If using shared libraries, and Fortran files that directly call BLAS are
@@ -247,15 +244,15 @@ ifeq ($(blas),mkl)
     ifneq ($(macos),1)
         ifeq ($(mkl_blacs),openmpi)
             ifeq ($(blas_int),int64)
-                scalapack = -lmkl_scalapack_ilp64 -lmkl_blacs_openmpi_ilp64
+                SCALAPACK_LIBRARIES ?= -lmkl_scalapack_ilp64 -lmkl_blacs_openmpi_ilp64
             else
-                scalapack = -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64
+                SCALAPACK_LIBRARIES ?= -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64
             endif
         else
             ifeq ($(blas_int),int64)
-                scalapack = -lmkl_scalapack_ilp64 -lmkl_blacs_intelmpi_ilp64
+                SCALAPACK_LIBRARIES ?= -lmkl_scalapack_ilp64 -lmkl_blacs_intelmpi_ilp64
             else
-                scalapack = -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64
+                SCALAPACK_LIBRARIES ?= -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64
             endif
         endif
     endif
@@ -270,10 +267,13 @@ else ifeq ($(blas),openblas)
 else ifeq ($(blas),libsci)
     # Cray LibSci
     # no LIBS to add
-    scalapack =
+    SCALAPACK_LIBRARIES ?=
 else
     $(error ERROR: unknown `blas=$(blas)`. Set blas to one of mkl, essl, openbblas, libsci.)
 endif
+
+# If not set by user or above, set default.
+SCALAPACK_LIBRARIES ?= -lscalapack
 
 #-------------------------------------------------------------------------------
 # if CUDA
@@ -648,6 +648,7 @@ tester_src += \
         # End. Add alphabetically.
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
+ifneq (${SCALAPACK_LIBRARIES},none)
 ifneq ($(have_fortran),)
     tester_src += \
         test/pslange.f \
@@ -663,6 +664,7 @@ ifneq ($(have_fortran),)
         test/pclantr.f \
         test/pzlantr.f \
         # End. Add alphabetically, by base name after precision.
+endif
 endif
 
 # unit testers
@@ -756,7 +758,11 @@ TEST_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 TEST_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
 TEST_LDFLAGS += -Wl,-rpath,$(abspath ./blaspp/lib)
 TEST_LDFLAGS += -Wl,-rpath,$(abspath ./lapackpp/lib)
-TEST_LIBS    += -lslate -ltestsweeper $(scalapack)
+TEST_LIBS    += -lslate -ltestsweeper
+ifneq (${SCALAPACK_LIBRARIES},none)
+    TEST_LIBS += ${SCALAPACK_LIBRARIES}
+    CXXFLAGS  += -DSLATE_HAVE_SCALAPACK
+endif
 
 UNIT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 UNIT_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
@@ -772,12 +778,18 @@ UNIT_LIBS    += -lslate -ltestsweeper
 .DEFAULT_GOAL := all
 
 all: lib unit_test hooks
+install: lib
 
 ifneq ($(only_unit),1)
-    all: tester scalapack_api lapack_api
+    all: tester lapack_api
+    install: lapack_api
+    ifneq (${SCALAPACK_LIBRARIES},none)
+        all: scalapack_api
+        install: scalapack_api
+    endif
 endif
 
-install: lib scalapack_api lapack_api
+install:
 	cd blaspp   && $(MAKE) install prefix=${prefix}
 	@echo
 	cd lapackpp && $(MAKE) install prefix=${prefix}
@@ -994,7 +1006,7 @@ scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 dep += $(addsuffix .d, $(basename $(scalapack_api_src)))
 
 SCALAPACK_API_LDFLAGS += -L./lib
-SCALAPACK_API_LIBS    += -lslate $(scalapack)
+SCALAPACK_API_LIBS    += -lslate ${SCALAPACK_LIBRARIES}
 
 scalapack_api: $(scalapack_api)
 
@@ -1006,9 +1018,15 @@ $(scalapack_api_a): $(scalapack_api_obj) $(libslate)
 	ar cr $@ $(scalapack_api_obj)
 	ranlib $@
 
-$(scalapack_api_so): $(scalapack_api_obj) $(libslate)
-	$(LD) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $(scalapack_api_obj) \
-		$(SCALAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
+ifneq (${SCALAPACK_LIBRARIES},none)
+    $(scalapack_api_so): $(scalapack_api_obj) $(libslate)
+		$(LD) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $(scalapack_api_obj) \
+			$(SCALAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
+else
+    $(scalapack_api_so):
+		@echo "Error: building $@ requires ScaLAPACK library, currently set to ${SCALAPACK_LIBRARIES}."
+		false
+endif
 
 #-------------------------------------------------------------------------------
 # lapack_api library
@@ -1202,6 +1220,13 @@ echo:
 	@echo "mkl_blacs     = '$(mkl_blacs)'"
 	@echo "openmp        = '$(openmp)'"
 	@echo "static        = '$(static)'"
+	@echo "gpu_backend   = '${gpu_backend}'"
+	@echo "prefix        = '${prefix}'"
+	@echo "c_api         = '${c_api}'"
+	@echo "fortran_api   = '${fortran_api}'"
+	@echo "SCALAPACK_LIBRARIES = '${SCALAPACK_LIBRARIES}'"
+	@echo
+	@echo "---------- Internal variables"
 	@echo "ostype        = '$(ostype)'"
 	@echo "macos         = '$(macos)'"
 	@echo "id            = '$(id)'"

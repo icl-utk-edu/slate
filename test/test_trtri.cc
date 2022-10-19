@@ -18,7 +18,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-#define SLATE_HAVE_SCALAPACK
+
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_trtri_work(Params& params, bool run)
@@ -246,10 +246,11 @@ void test_trtri_work(Params& params, bool run)
             params.okay() = (params.error() <= tol);
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
-        #else
-            SLATE_UNUSED(A_norm);
-            SLATE_UNUSED(one);
-            SLATE_UNUSED(zero);
+        #else  // not SLATE_HAVE_SCALAPACK
+            SLATE_UNUSED( A_norm );
+            SLATE_UNUSED( one );
+            SLATE_UNUSED( zero );
+            SLATE_UNUSED( origin );
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

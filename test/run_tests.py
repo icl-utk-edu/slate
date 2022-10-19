@@ -616,15 +616,15 @@ def print_tee( *args ):
 #
 def run_test( cmd ):
     print( '-' * 80 )
-    cmd = opts.test +' '+ cmd[1] +' '+ cmd[0]
-    print_tee( cmd )
+    cmd_str = opts.test +' '+ cmd[1] +' '+ cmd[0]
+    print_tee( cmd_str )
     if (opts.dry_run):
         return (0, None)
 
     failure_reason = 'FAILED'
     output = ''
-    p = subprocess.Popen( cmd.split(), stdout=subprocess.PIPE,
-                                       stderr=subprocess.STDOUT )
+    p = subprocess.Popen( cmd_str.split(), stdout=subprocess.PIPE,
+                                           stderr=subprocess.STDOUT )
     p_out = p.stdout
     if (sys.version_info.major >= 3):
         p_out = io.TextIOWrapper(p.stdout, encoding='utf-8')
@@ -660,9 +660,9 @@ def run_test( cmd ):
     err = p.wait()
 
     if (err != 0):
-        print_tee( failure_reason, ': exit code', err )
+        print_tee( failure_reason + ': ' + cmd[0] + ', exit code', err )
     else:
-        print_tee( 'pass' )
+        print_tee( 'passed: ' + cmd[0] )
     return (err, output)
 # end
 

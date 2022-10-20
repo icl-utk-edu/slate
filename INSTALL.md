@@ -210,11 +210,6 @@ options include:
         mpi = 1             link with `-lmpi`
         mpi = spectrum      link with `-lmpi_ibm`
         mpi = cray          using Cray compiler wrappers (CXX=CC, FC=ftn)
-        mpi = 0             without MPI (experimental)
-
-        NOTE: SLATE compiles without MPI, but not all routines operate
-        correctly. Also, the testers currently require ScaLAPACK, which
-        requires MPI, so testers will fail.
 
     cuda_arch
         By default, SLATE uses nvcc's default architecture.
@@ -312,16 +307,6 @@ options include:
         For other architectures, CMAKE_CUDA_ARCHITECTURES **should be defined**.
         For example, `-DCMAKE_CUDA_ARCHITECTURES=70` should be added for
         the Volta architecture.
-
-    use_mpi
-        Whether to use MPI, if available. One of:
-        yes (default)
-        no  (experimental)
-
-        NOTE: SLATE compiles without MPI, but not all routines operate
-        correctly. Also, the testers currently require ScaLAPACK, which
-        requires MPI, so testers will fail. The C API definitely requires
-        MPI.
 
     use_openmp
         Whether to use OpenMP, if available. One of:

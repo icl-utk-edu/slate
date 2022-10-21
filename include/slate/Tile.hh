@@ -24,6 +24,7 @@
 
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
+#include "slate/internal/Log.hh"
 
 namespace slate {
 
@@ -311,6 +312,8 @@ public:
         assert(mb() == nb() || extended());
         layoutConvert(nullptr, queue, async);
     }
+
+#include <slate/internal/Tile_extend.hh>
 
 protected:
     // BaseMatrix sets mb, nb, offset.

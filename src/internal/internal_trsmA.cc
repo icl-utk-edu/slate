@@ -179,6 +179,9 @@ void trsmA(internal::TargetType<Target::Devices>,
             alpha = conj(alpha);
     }
 
+    if (! A.tileIsLocal( 0, 0))
+        return;
+
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared(A, B) priority(priority) \
@@ -234,47 +237,43 @@ void trsmA(internal::TargetType<Target::Devices>,
 
                 if (side == Side::Right) {
                     for (int64_t i = 0; i < B.mt()-1; ++i) {
-                        if (B.tileIsLocal(i, 0)
-                            && device == B.tileDevice(i, 0))
+                        if (B.tileExists( i, 0, device ))
                         {
-                            a_array0.push_back( A(0, 0, device).data() );
-                            b_array0.push_back( B(i, 0, device).data() );
-                            lda0 = A(0, 0, device).stride();
-                            ldb0 = B(i, 0, device).stride();
+                            a_array0.push_back( A( 0, 0, device ).data() );
+                            b_array0.push_back( B( i, 0, device ).data() );
+                            lda0 = A( 0, 0, device ).stride();
+                            ldb0 = B( i, 0, device ).stride();
                         }
                     }
                     {
                         int64_t i = B.mt()-1;
-                        if (B.tileIsLocal(i, 0)
-                            && device == B.tileDevice(i, 0))
+                        if (B.tileExists( i, 0, device ))
                         {
-                            a_array1.push_back( A(0, 0, device).data() );
-                            b_array1.push_back( B(i, 0, device).data() );
-                            lda1 = A(0, 0, device).stride();
-                            ldb1 = B(i, 0, device).stride();
+                            a_array1.push_back( A( 0, 0, device ).data() );
+                            b_array1.push_back( B( i, 0, device ).data() );
+                            lda1 = A( 0, 0, device ).stride();
+                            ldb1 = B( i, 0, device ).stride();
                         }
                     }
                 }
                 else {
                     for (int64_t j = 0; j < B.nt()-1; ++j) {
-                        if (B.tileIsLocal(0, j)
-                            && device == B.tileDevice(0, j))
+                        if (B.tileExists( 0, j, device ))
                         {
-                            a_array0.push_back( A(0, 0, device).data() );
-                            b_array0.push_back( B(0, j, device).data() );
-                            lda0 = A(0, 0, device).stride();
-                            ldb0 = B(0, j, device).stride();
+                            a_array0.push_back( A( 0, 0, device ).data() );
+                            b_array0.push_back( B( 0, j, device ).data() );
+                            lda0 = A( 0, 0, device ).stride();
+                            ldb0 = B( 0, j, device ).stride();
                         }
                     }
                     {
                         int64_t j = B.nt()-1;
-                        if (B.tileIsLocal(0, j)
-                            && device == B.tileDevice(0, j))
+                        if (B.tileExists( 0, j, device ))
                         {
-                            a_array1.push_back( A(0, 0, device).data() );
-                            b_array1.push_back( B(0, j, device).data() );
-                            lda1 = A(0, 0, device).stride();
-                            ldb1 = B(0, j, device).stride();
+                            a_array1.push_back( A( 0, 0, device ).data() );
+                            b_array1.push_back( B( 0, j, device ).data() );
+                            lda1 = A( 0, 0, device ).stride();
+                            ldb1 = B( 0, j, device ).stride();
                         }
                     }
                 }

@@ -27,6 +27,7 @@
 
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
+#include "slate/internal/Log.hh"
 
 namespace slate {
 
@@ -519,6 +520,8 @@ public:
         tileLayoutReset( tile_set, HostNum, layout );
     }
     void tileLayoutReset();
+
+#include <slate/internal/BaseMatrix_extend.hh>
 
     //--------------------------------------------------------------------------
 protected:

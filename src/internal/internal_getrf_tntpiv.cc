@@ -289,10 +289,6 @@ void getrf_tntpiv_panel(
             A.mpiRank(), max_panel_threads, priority );
 
         if (nranks > 1) {
-            // todo: don't need to copy all A, just the rows that end up
-            // in the top tile.
-            internal::copy<Target::HostTask>( std::move( A ), std::move( Awork ) );
-
             // For s = tile_indices.size(), permute is an s-length vector
             // of mb-length vectors of pairs (tile_index, offset):
             //     permute = [ [ (0, 0) ... (0, mb-1) ],
@@ -313,18 +309,34 @@ void getrf_tntpiv_panel(
 
             // Apply swaps to tiles in Awork, and to permute.
             // Swap (tile, row) (i=0, ii) with (ip, iip).
+            auto Awork00 = Awork( tile_indices[0], 0 );
+            scalar_t* Awork00_data = Awork00.data();
             for (int64_t ii = 0; ii < piv_len; ++ii) {
                 int64_t ip  = aux_pivot[ 0 ][ ii ].localTileIndex();
                 int64_t iip = aux_pivot[ 0 ][ ii ].localOffset();
 
                 if (ip > 0 || iip > ii) {
-                    swapLocalRow(
-                        0, nb,
-                        tiles[ 0  ], ii,
-                        tiles[ ip ], iip );
-
                     std::swap( permute[ 0  ][ ii  ],
                                permute[ ip ][ iip ] );
+
+                    int64_t isp  =  permute[ 0 ][ ii ].first;
+                    int64_t iisp =  permute[ 0 ][ ii ].second;
+
+                    auto Aisp = A( isp, 0 );
+                    scalar_t* Aisp_data = Aisp.data();
+
+                    blas::copy( nb, &Aisp_data[ iisp ], Aisp.stride(),
+                                 &Awork00_data[ ii ], Awork00.stride() );
+                }
+                else {
+                    int64_t isp  =  permute[ 0 ][ ii ].first;
+                    int64_t iisp =  permute[ 0 ][ ii ].second;
+
+                    auto Aisp = A( isp, 0 );
+                    scalar_t* Aisp_data = Aisp.data();
+
+                    blas::copy( nb, &Aisp_data[ iisp ], Aisp.stride(),
+                                 &Awork00_data[ ii ], Awork00.stride() );
                 }
             }
 

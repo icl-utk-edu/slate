@@ -25,6 +25,7 @@
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
 #include "slate/internal/LockGuard.hh"
+#include "slate/internal/Log.hh"
 
 namespace slate {
 
@@ -145,6 +146,7 @@ public:
         }
         return false;
     }
+#include <slate/internal/TileInstance_extend.hh>
 };
 
 //------------------------------------------------------------------------------
@@ -273,6 +275,7 @@ public:
     {
         return num_instances_ == 0;
     }
+#include <slate/internal/TileNode_extend.hh>
 };
 
 //------------------------------------------------------------------------------
@@ -318,6 +321,7 @@ public:
     MatrixStorage& operator = (MatrixStorage&  orig) = delete;
     MatrixStorage& operator = (MatrixStorage&& orig) = delete;
 
+#include <slate/internal/MatrixStorage_extend.hh>
 protected:
     // used in constructor and destructor
     void initQueues();

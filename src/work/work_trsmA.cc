@@ -108,6 +108,8 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     for (int64_t i = 0; i < mt; ++i) {
                         for (int64_t j = 0; j < nt; ++j) {
                             if (B.tileIsLocal(i, j)) {
+                                // FIXME should be done where the tile is located
+                                // either CPU impl or DEVICE
                                 tile::scale( alpha, B(i, j) );
                             }
                         }
@@ -118,6 +120,8 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 if (A.tileIsLocal(k, k)) {
                     for (int64_t j = 0; j < nt; ++j) {
                         if (! B.tileIsLocal(k, j) && ! B.tileExists(k, j)) {
+                            // FIXME should be done where the tile is located
+                            // either CPU impl or DEVICE
                             B.tileInsert(k, j);
                             B.at(k, j).set(0, 0);
                         }
@@ -165,14 +169,18 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     }
                 }
 
+                // Clean the memory by removing temporary tiles
                 for (int64_t j = 0; j < nt; ++j)
                     if (B.tileExists(k, j) && ! B.tileIsLocal(k, j))
+                        // FIXME should be done where the tile is located
+                        // either CPU impl or DEVICE
                         B.tileErase(k, j);
 
                 // Bcast the result of the solve, B(k,:) to
                 // ranks owning block row A(k + 1 : mt, k)
                 BcastList bcast_list_upd_B;
                 for (int64_t j = 0; j < nt; ++j) {
+                    // FIXME add B( k, j ) as dest
                     bcast_list_upd_B.push_back(
                         {k, j, { A.sub(k + 1, mt - 1, k, k), }});
                 }
@@ -189,12 +197,15 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             if (! B.tileIsLocal(i, j)
                                 && ! B.tileExists(i, j))
                             {
+                                // FIXME should be done where the tile is located
+                                // either CPU impl or DEVICE
                                 B.tileInsert(i, j);
                                 B.at(i, j).set(0, 0);
                             }
                         }
                     }
-                    // TODO: execute lookahead on devices
+                    // TODO execute lookahead on devices
+                    // FIXME internal::gemmA<target>(
                     internal::gemmA<Target::HostTask>(
                         -one, A.sub(i, i, k, k),
                               B.sub(k, k, 0, nt-1),
@@ -219,6 +230,8 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                 if (! B.tileIsLocal(i, j)
                                     && ! B.tileExists(i, j))
                                 {
+                                    // FIXME should be done where the tile is located
+                                    // either CPU impl or DEVICE
                                     B.tileInsert(i, j);
                                     B.at(i, j).set(0, 0);
                                 }
@@ -226,7 +239,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         }
                     }
 
-                    //internal::gemmA<target>(
+                    // FIXME internal::gemmA<target>(
                     internal::gemmA<Target::HostTask>(
                         -one, A.sub(k+1+lookahead, mt-1, k, k),
                               B.sub(k, k, 0, nt-1),

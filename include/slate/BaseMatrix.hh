@@ -2386,6 +2386,10 @@ void BaseMatrix<scalar_t>::tileIbcastToSet(
         at(i, j, device).recv(new_vec[recv_from.front()], mpi_comm_, layout, tag);
         tileLayout(i, j, device, layout);
         tileModified(i, j, device);
+        Log::print<comm>( comm::info,
+            "ListBcast:Tile received from %d\n", new_vec[recv_from.front()] );
+        BaseLog::exec<comm>( comm::data,
+            [&] () { at(i, j).print( "ListBcast:recv" ); } );
     }
 
     if (! send_to.empty()) {
@@ -2398,6 +2402,10 @@ void BaseMatrix<scalar_t>::tileIbcastToSet(
             MPI_Request request;
             Aij.isend(new_vec[dst], mpi_comm_, tag, &request);
             send_requests.push_back(request);
+            Log::print<comm>( comm::info,
+                "ListBcast:Tile sent to %d\n", new_vec[dst] );
+            BaseLog::exec<comm>( comm::data,
+                [&] () { at(i, j).print( "ListBcast:send" ); } );
         }
     }
 }
@@ -2439,6 +2447,9 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
     // Get the send/recv pattern.
     std::list<int> recv_from;
     std::list<int> send_to;
+    Log::print<comm>( comm::info,
+        "Creation of the cubeReducePattern with #recv_from %d, #send_to %d\n",
+        recv_from.size(), send_to.size() );
     internal::cubeReducePattern(new_vec.size(), new_rank, radix,
                                 recv_from, send_to);
 
@@ -2456,13 +2467,27 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
         for (int src : recv_from) {
             // Receive.
             tile.recv(new_vec[src], mpi_comm_, layout, tag);
+            Log::print<comm>( comm::info,
+                "ListReduce:Tile received from %d\n", new_vec[src] );
+            BaseLog::exec<comm>( comm::data,
+                [&] () { tile.print( "ListReduce:recv" ); } );
+            BaseLog::exec<comm>( comm::data,
+                [&] () { Aij.print( "ListReduce:with" ); } );
             // Accumulate.
             tile::add( one, tile, Aij );
+            // XXX
+            BaseLog::exec<comm>( comm::data,
+                [&] () { Aij.print( "result" ); } );
         }
 
         // Forward.
-        if (! send_to.empty())
+        if (! send_to.empty()) {
             Aij.send(new_vec[send_to.front()], mpi_comm_, tag);
+            Log::print<comm>( comm::info,
+                "ListReduce:Tile sent to %d\n", new_vec[send_to.front()] );
+            BaseLog::exec<comm>( comm::data,
+                [&] () { Aij.print( "ListReduce:send" ); } );
+        }
     }
 }
 

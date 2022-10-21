@@ -217,6 +217,7 @@ void getrf_tntpiv_panel(
     assert( A.nt() == 1 );
 
     int64_t nb = A.tileNb( 0 );
+    int64_t mb = A.tileMb( 0 );
 
     internal::copy<Target::HostTask>( std::move( A ), std::move( Awork ) );
 
@@ -276,8 +277,8 @@ void getrf_tntpiv_panel(
         int nlevels = int( ceil( log2( nranks ) ) );
 
         std::vector< std::vector< AuxPivot< scalar_t > > > aux_pivot( 2 );
-        aux_pivot[ 0 ].resize( A.tileMb( 0 ) );
-        aux_pivot[ 1 ].resize( A.tileMb( 0 ) );
+        aux_pivot[ 0 ].resize( mb );
+        aux_pivot[ 1 ].resize( mb );
 
         // piv_len can be < diag_len, if a rank's only tile is short.
         int64_t piv_len = std::min( tiles[ 0 ].mb(), nb );
@@ -301,8 +302,8 @@ void getrf_tntpiv_panel(
                 permute( tile_indices.size() );
 
             for (int64_t i = 0; i < int64_t( tile_indices.size() ); ++i) {
-                permute[ i ].reserve( A.tileMb( 0 ) );
-                for (int64_t ii = 0; ii < A.tileMb( 0 ); ++ii) {
+                permute[ i ].reserve( mb );
+                for (int64_t ii = 0; ii < mb; ++ii) {
                     permute[ i ].push_back( { tile_indices[ i ], ii } );
                 }
             }
@@ -410,7 +411,7 @@ void getrf_tntpiv_panel(
                             // Copy the last factorization back to panel tile
                             tile1.copyData( &work_tiles[ 0 ] );
                             permutation_to_sequential_pivot(
-                                aux_pivot[ 0 ], diag_len, A.mt(), A.tileMb( 0 ) );
+                                aux_pivot[ 0 ], diag_len, A.mt(), mb );
                         }
 
                         Awork.tileTick( i2, 0 );

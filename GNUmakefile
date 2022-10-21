@@ -381,6 +381,7 @@ endif
 # types and classes
 libslate_src += \
         src/auxiliary/Debug.cc \
+        src/auxiliary/Log.cc \
         src/auxiliary/Trace.cc \
         src/core/Memory.cc \
         src/core/types.cc \

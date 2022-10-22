@@ -319,26 +319,15 @@ void getrf_tntpiv_panel(
                 if (ip > 0 || iip > ii) {
                     std::swap( permute[ 0  ][ ii  ],
                                permute[ ip ][ iip ] );
-
-                    int64_t isp  =  permute[ 0 ][ ii ].first;
-                    int64_t iisp =  permute[ 0 ][ ii ].second;
-
-                    auto Aisp = A( isp, 0 );
-                    scalar_t* Aisp_data = Aisp.data();
-
-                    blas::copy( nb, &Aisp_data[ iisp ], Aisp.stride(),
-                                 &Awork00_data[ ii ], Awork00.stride() );
                 }
-                else {
-                    int64_t isp  =  permute[ 0 ][ ii ].first;
-                    int64_t iisp =  permute[ 0 ][ ii ].second;
+                int64_t isp  =  permute[ 0 ][ ii ].first;
+                int64_t iisp =  permute[ 0 ][ ii ].second;
 
-                    auto Aisp = A( isp, 0 );
-                    scalar_t* Aisp_data = Aisp.data();
+                auto Aisp = A( isp, 0 );
+                scalar_t* Aisp_data = Aisp.data();
 
-                    blas::copy( nb, &Aisp_data[ iisp ], Aisp.stride(),
-                                 &Awork00_data[ ii ], Awork00.stride() );
-                }
+                blas::copy( nb, &Aisp_data[ iisp ], Aisp.stride(),
+                             &Awork00_data[ ii ], Awork00.stride() );
             }
 
             // Copy nb elements of permute to aux_pivot for first block.

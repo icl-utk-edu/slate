@@ -137,7 +137,7 @@ void potrf(
 /// GPU device batched cuBLAS implementation.
 /// @ingroup posv_impl
 ///
-template <Target target, typename scalar_t>
+template <typename scalar_t>
 void potrf(
     slate::internal::TargetType<Target::Devices>,
     HermitianMatrix<scalar_t> A,

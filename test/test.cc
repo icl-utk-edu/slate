@@ -714,12 +714,15 @@ int run(int argc, char** argv)
 
         if (print) {
             if (status) {
-                printf("%d tests FAILED.\n", status);
+                printf( "%d tests FAILED: %s\n", status, routine );
             }
             else {
-                printf("All tests passed.\n");
+                printf( "All tests passed: %s\n", routine );
             }
         }
+
+        // Exit status is only 8 bits, and reserve status = 251, ..., 255.
+        status = std::min( status, 250 );
     }
     catch (const QuitException& ex) {
         // pass: no error to print
@@ -729,7 +732,7 @@ int run(int argc, char** argv)
     }
     int err = print_reduce_error(msg, mpi_rank, MPI_COMM_WORLD);
     if (err)
-        status = -1;
+        status = 254;
 
     slate_mpi_call(
         MPI_Finalize());

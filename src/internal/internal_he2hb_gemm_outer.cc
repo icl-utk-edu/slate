@@ -51,9 +51,8 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostTask>,
 
     // try to loop over one tile and do two gemm, similar to her2k
     for (int64_t j = 0; j < nt; ++j) {
-        #pragma omp task depend(in:block[j]) \
-                         depend(in:block[0]) \
-                         depend(inout:block[j])
+        #pragma omp task depend(inout:block[j]) \
+                         depend(in:block[0])
         for (int64_t i: indices) {
             // todo: if HermitianMatrix returned conjTrans
             // tiles, could merge these two.

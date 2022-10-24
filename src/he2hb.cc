@@ -488,6 +488,10 @@ void he2hb(slate::internal::TargetType<target>,
                         // A = Q^H A
                         //   = (I - V T^H V^H) A = A - V T^H V^H A
                         //   = A - V W^H
+                        // Update from right:
+                        // A = A Q
+                        //   = A (I - V T V^H)   = A - A V T V^H
+                        //   = A - W V^H
                         // where
                         // W = A^H V T = A V T.
 

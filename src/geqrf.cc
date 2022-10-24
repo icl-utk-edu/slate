@@ -140,7 +140,7 @@ void geqrf(slate::internal::TargetType<target>,
 
         if (panel_device >= 0) {
 
-            lapack::Queue* queue = A.compute_queue(panel_device, 0);
+            lapack::Queue* comm_queue = A.comm_queue(panel_device);
 
             int64_t nb       = A.tileNb(0);
             size_t  size_tau = (size_t) std::min( mlocal, nb );
@@ -149,7 +149,7 @@ void geqrf(slate::internal::TargetType<target>,
 
             // Find size of the workspace needed
             lapack::geqrf_work_size_bytes( mlocal, nb, dwork_array[0], mlocal,
-                                           &dsize, &hsize, *queue );
+                                           &dsize, &hsize, *comm_queue );
 
             // Size of dA, dtau, dwork and dinfo
             work_size = size_A + size_tau + ceildiv(dsize, sizeof(scalar_t))

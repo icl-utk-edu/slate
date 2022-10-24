@@ -98,12 +98,7 @@ void test_geset_dev_worker(
             result );
     }
 
-<<<<<<< HEAD
-    blas::device_free( dAdata );
-=======
     blas::device_free(dAdata, queue);
-    blas::device_free(dAarray, queue);
->>>>>>> 1e8d2a22 (Remove set_device() and add queues in unit_tests.)
     delete[] Adata;
     delete[] Bdata;
 

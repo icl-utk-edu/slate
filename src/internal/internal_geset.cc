@@ -92,112 +92,156 @@ void set(internal::TargetType<Target::Devices>,
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    // Define index ranges for regions of matrix.
-    // Tiles in each region are all the same size.
-    int64_t irange[4][2] = {
-        { 0,        A.mt()-1 },
-        { A.mt()-1, A.mt()   },
-        { 0,        A.mt()-1 },
-        { A.mt()-1, A.mt()   }
-    };
-    int64_t jrange[4][2] = {
-        { 0,        A.nt()-1 },
-        { 0,        A.nt()-1 },
-        { A.nt()-1, A.nt()   },
-        { A.nt()-1, A.nt()   }
-    };
+    int64_t mt = A.mt();
+    int64_t nt = A.nt();
+
+    // Find ranges of matching mb's.
+    std::vector< int64_t > irange;
+    int64_t last_mb = -1;
+    for (int64_t i = 0; i < mt; ++i) {
+        int64_t mb = A.tileMb( i );
+        if (mb != last_mb) {
+            last_mb = mb;
+            irange.push_back( i );
+        }
+    }
+    irange.push_back( mt );
+
+    // Find ranges of matching nb's.
+    std::vector< int64_t > jrange;
+    int last_nb = -1;
+    for (int64_t j = 0; j < nt; ++j) {
+        int64_t nb = A.tileNb( j );
+        if (nb != last_nb) {
+            last_nb = nb;
+            jrange.push_back( j );
+        }
+    }
+    jrange.push_back( nt );
 
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task slate_omp_default_none \
-            shared( A ) priority( priority ) \
-            firstprivate(device, irange, jrange, queue_index, offdiag_value, diag_value)
+        #pragma omp task priority( priority ) slate_omp_default_none \
+            shared( A, irange, jrange ) \
+            firstprivate( device, queue_index, offdiag_value, diag_value )
         {
+            // Get local tiles for writing.
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already
             //       and possibly wrong, because an input matrix is being altered
             // todo: best, handle directly through the CUDA kernels
-            auto layout = Layout::ColMajor;
+            auto layout = LayoutConvert( Layout::ColMajor );
             std::set<ij_tuple> A_tiles_set;
 
             for (int64_t i = 0; i < A.mt(); ++i) {
                 for (int64_t j = 0; j < A.nt(); ++j) {
-                    if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
-                        A_tiles_set.insert({i, j});
+                    if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
+                        A_tiles_set.insert( { i, j } );
                     }
                 }
             }
-            A.tileGetForWriting(A_tiles_set, device, LayoutConvert(layout));
+            A.tileGetForWriting( A_tiles_set, device, layout );
 
-            scalar_t** a_array_host = A.array_host(device, queue_index);
+            scalar_t** a_array_host = A.array_host( device, queue_index );
 
+            // If offdiag == diag value, lump diag tiles with offdiag tiles
+            // in one batch.
+            bool diag_same = offdiag_value == diag_value;
+
+            // Build batch groups.
+            // group_index points to the start of each group.
+            int group = 0;
             int64_t batch_count = 0;
-            int64_t mb[8], nb[8], lda[8], group_count[8];
-            for (int q = 0; q < 4; ++q) {
-                group_count[q] = 0;
-                lda[q] = 0;
-                mb[q] = A.tileMb(irange[q][0]);
-                nb[q] = A.tileNb(jrange[q][0]);
-                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                        if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
-                            if (i != j) {
-                                a_array_host[batch_count] = A(i, j, device).data();
-                                lda[q] = A(i, j, device).stride();
-                                ++group_count[q];
-                                ++batch_count;
-                            }
+            struct Params {
+                int64_t start, mb, nb, lda;
+            };
+            std::vector<Params> group_params;
+            for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
+            for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
+                bool first = true;
+                group_params.push_back( { batch_count, -1, -1, -1 } );
+                for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
+                for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
+                    if ((diag_same || i != j)
+                        && A.tileIsLocal( i, j )
+                        && device == A.tileDevice( i, j ))
+                    {
+                        auto Aij = A( i, j, device );
+                        a_array_host[ batch_count ] = Aij.data();
+                        if (first) {
+                            group_params[ group ].mb  = Aij.mb();
+                            group_params[ group ].nb  = Aij.nb();
+                            group_params[ group ].lda = Aij.stride();
+                            first = false;
                         }
-                    }
-                }
-            }
-            for (int q = 4; q < 8; ++q) {
-                group_count[q] = 0;
-                lda[q] = 0;
-                mb[q] = A.tileMb(irange[q-4][0]);
-                nb[q] = A.tileNb(jrange[q-4][0]);
-                for (int64_t i = irange[q-4][0]; i < irange[q-4][1]; ++i) {
-                    for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
-                        if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
-                            if (i == j) {
-                                a_array_host[batch_count] = A(i, j, device).data();
-                                lda[q] = A(i, j, device).stride();
-                                ++group_count[q];
-                                ++batch_count;
-                            }
+                        else {
+                            assert( group_params[ group ].mb  == Aij.mb() );
+                            assert( group_params[ group ].nb  == Aij.nb() );
+                            assert( group_params[ group ].lda == Aij.stride() );
                         }
+                        ++batch_count;
                     }
-                }
+                }} // for j, i
+                ++group;
+            }} // for jj, ii
+
+            // Build batch groups for diagonal tiles,
+            // when offdiag_value != diag_value.
+            if (! diag_same) {
+                for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
+                for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
+                    bool first = true;
+                    group_params.push_back( { batch_count, -1, -1, -1 } );
+                    for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
+                    for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
+                        if (i == j
+                            && A.tileIsLocal( i, j )
+                            && device == A.tileDevice( i, j ))
+                        {
+                            auto Aij = A( i, j, device );
+                            a_array_host[ batch_count ] = Aij.data();
+                            if (first) {
+                                group_params[ group ].mb  = Aij.mb();
+                                group_params[ group ].nb  = Aij.nb();
+                                group_params[ group ].lda = Aij.stride();
+                                first = false;
+                            }
+                            else {
+                                assert( group_params[ group ].mb  == Aij.mb() );
+                                assert( group_params[ group ].nb  == Aij.nb() );
+                                assert( group_params[ group ].lda == Aij.stride() );
+                            }
+                            ++batch_count;
+                        }
+                    }} // for j, i
+                    ++group;
+                }} // for jj, ii
             }
+            group_params.push_back( { batch_count, -1, -1, -1 } );
 
-            scalar_t** a_array_dev = A.array_device(device, queue_index);
+            blas::Queue* queue = A.compute_queue( device, queue_index );
 
-            blas::Queue* queue = A.compute_queue(device, queue_index);
-
+            scalar_t** a_array_dev = A.array_device( device, queue_index );
             blas::device_memcpy<scalar_t*>(
                 a_array_dev, a_array_host, batch_count,
                 blas::MemcpyKind::HostToDevice, *queue);
 
-            for (int q = 0; q < 4; ++q) {
-                if (group_count[q] > 0) {
-                    device::batch::geset(mb[q], nb[q],
-                                  offdiag_value, offdiag_value, a_array_dev, lda[q],
-                                  group_count[q], *queue);
-                    a_array_dev += group_count[q];
+            for (size_t g = 0; g < group_params.size(); ++g) {
+                int64_t group_count
+                    = group_params[ g+1 ].start - group_params[ g ].start;
+                if (group_count > 0) {
+                    device::batch::geset(
+                        group_params[ g ].mb,
+                        group_params[ g ].nb,
+                        offdiag_value, offdiag_value, a_array_dev,
+                        group_params[ g ].lda,
+                        group_count, *queue );
+                    a_array_dev += group_count;
                 }
             }
-            for (int q = 4; q < 8; ++q) {
-                if (group_count[q] > 0) {
-                    device::batch::geset(mb[q], nb[q],
-                                  offdiag_value, diag_value, a_array_dev, lda[q],
-                                  group_count[q], *queue);
-                    a_array_dev += group_count[q];
-                }
-            }
-
             queue->sync();
-        }
-    }
+        } // end task
+    } // end for dev
 }
 
 //------------------------------------------------------------------------------

@@ -40,6 +40,7 @@ void test_geadd_dev_worker(
     int ldb = lda;
     int64_t idist = 2;
     int64_t iseed[4] = { 0, 1, 2, 3 };
+    const scalar_t zero = scalar_t( 0.0 );
 
     // Create A on the Host and setup with random data
     scalar_t* Adata = new scalar_t[ lda * n ];
@@ -110,11 +111,7 @@ void test_geadd_dev_worker(
         lapack::Norm::Max, A.mb(), A.nb(), A.data(), A.stride() );
     real_t max_B = lapack::lange(
         lapack::Norm::Max, B0.mb(), B0.nb(), B0.data(), B0.stride() );
-    // Create a vector from \alpha and \beta
-    std::vector<scalar_t> cst(4);
-    cst[ 0 ] = cst[ 2 ] = alpha;
-    cst[ 1 ] = cst[ 3 ] = beta;
-    real_t max_csts = lapack::lange( lapack::Norm::Max, 4, 1, cst.data(), 1 );
+    real_t max_constants = std::max( std::abs( alpha ), std::abs( beta ) );
 
     //blas::axpy( B.size(), neg_one, B.data(), ione, C0.data(), ione );
     for (int j = 0; j < n; ++j) {
@@ -127,8 +124,8 @@ void test_geadd_dev_worker(
     real_t result = lapack::lange(
         lapack::Norm::Max, A.mb(), A.nb(), A.data(), A.stride() );
 
-    if (max_csts != scalar_t(0.0) && result != scalar_t(0.0))
-        result /= std::max( max_A, max_B ) * max_csts;
+    if (max_constants != zero && result != zero)
+        result /= std::max( max_A, max_B ) * max_constants;
 
     if (verbose) {
         printf(
@@ -273,6 +270,7 @@ void test_geadd_batch_dev_worker(
     std::vector< slate::Tile< scalar_t > > list_C0( 0 );
     int64_t idist = 2;
     int64_t iseed[4] = { 0, 1, 2, 3 };
+    const scalar_t zero = scalar_t( 0.0 );
 
     // Create a list of A on the Host and setup with random data
     for (int m_i = 0; m_i < batch_count; ++m_i) {
@@ -400,11 +398,7 @@ void test_geadd_batch_dev_worker(
         }
     }
 
-    // Create a vector from \alpha and \beta
-    std::vector<scalar_t> cst(4);
-    cst[ 0 ] = cst[ 2 ] = alpha;
-    cst[ 1 ] = cst[ 3 ] = beta;
-    real_t max_csts = lapack::lange( lapack::Norm::Max, 4, 1, cst.data(), 1 );
+    real_t max_constants = std::max( std::abs( alpha ), std::abs( beta ) );
 
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         auto dA = list_dA[ m_i ];
@@ -431,8 +425,8 @@ void test_geadd_batch_dev_worker(
         real_t result = lapack::lange(
             lapack::Norm::Max, A.mb(), A.nb(), A.data(), A.stride() );
 
-        if (max_csts != scalar_t(0.0) && result != scalar_t(0.0))
-            result /= std::max( max_A, max_B ) * max_csts;
+        if (max_constants != zero && result != zero)
+            result /= std::max( max_A, max_B ) * max_constants;
 
         if (verbose) {
             // Display (m, n, lda, alpha, beta)
@@ -561,7 +555,6 @@ void run_tests_geadd_batch_device()
 }
 
 //------------------------------------------------------------------------------
-#define Aarray_row_major 1
 // reduce_count is 1 tile of A and reduce_count -1 tiles of B
 template <typename scalar_t>
 void test_reduce_batch_dev_worker(
@@ -587,6 +580,7 @@ void test_reduce_batch_dev_worker(
     std::vector< slate::Tile< scalar_t > > list_C0( 0 );
     int64_t idist = 2;
     int64_t iseed[4] = { 0, 1, 2, 3 };
+    const scalar_t zero = scalar_t( 0.0 );
 
     // Create a list of A on the Host and setup with random data
     for (int m_j = 0; m_j < batch_count; ++m_j) {
@@ -694,7 +688,6 @@ void test_reduce_batch_dev_worker(
     scalar_t** dAarray;
     dAarray = blas::device_malloc<scalar_t*>( nAarray );
     test_assert( dAarray != nullptr );
-#if Aarray_row_major
     int cpt = 0;
     for (int m_i = 0; m_i < reduce_count - 1; ++m_i) {
         for (int m_j = 0; m_j < batch_count; ++m_j) {
@@ -706,18 +699,6 @@ void test_reduce_batch_dev_worker(
                     m_ij, (void*) Aarray[ m_ij ] );
         }
     }
-#else
-    for (int m_j = 0; m_j < batch_count; ++m_j) {
-        for (int m_i = 0; m_i < reduce_count - 1; ++m_i) {
-            int m_ij = m_i + m_j * ( reduce_count - 1 );
-            auto dA = list_dA[ m_ij ];
-            Aarray[ m_ij ] = dA.data();
-            if (verbose > 2)
-                printf( "Aarray[%d] = A(%p)\n",
-                    m_ij, (void*) Aarray[ m_ij ] );
-        }
-    }
-#endif
     blas::device_memcpy<scalar_t*>( dAarray, Aarray,
                         nAarray,
                         blas::MemcpyKind::HostToDevice,
@@ -739,14 +720,11 @@ void test_reduce_batch_dev_worker(
                         queue );
 
     // Add: B[k] = \beta * B[k] + \sum_{1}^{reduce_count} \alpha A[k]
-#if Aarray_row_major
-    slate::device::gereduce( m, n, reduce_count - 1,
-#else
-    slate::device::batch::reduce( m, n, reduce_count,
-#endif
-                          alpha, dAarray, lda,
-                          beta,  dBarray, ldb,
-                          batch_count, queue );
+    slate::device::gereduce(
+            m, n, reduce_count - 1,
+            alpha, dAarray, lda,
+            beta,  dBarray, ldb,
+            batch_count, queue );
 
     queue.sync();
 
@@ -791,13 +769,7 @@ void test_reduce_batch_dev_worker(
         }
     }
 
-    // Create a vector from \alpha and \beta
-    // XXX
-  //std::vector<scalar_t> cst(reduce_count * 2) = {alpha};
-  //cst[ reduce_count - 1 ] = cst[ 2 * reduce_count - 1 ] = beta;
-  //real_t max_csts = lapack::lange(
-  //        lapack::Norm::Max, reduce_count * 2, 1, cst.data(), 1 );
-    real_t max_csts = std::abs( alpha );
+    real_t max_constants = std::max( std::abs( alpha ), std::abs( beta ) );
 
     for (int m_j = 0; m_j < batch_count; ++m_j) {
         auto A  = list_A[ m_j * ( reduce_count - 1 ) ];
@@ -829,8 +801,8 @@ void test_reduce_batch_dev_worker(
         real_t result = lapack::lange(
             lapack::Norm::Max, B.mb(), B.nb(), B.data(), B.stride() );
 
-        if (max_csts != scalar_t(0.0) && result != scalar_t(0.0))
-            result /= std::max( max_A, max_B ) * max_csts * reduce_count;
+        if (max_constants != zero && result != zero)
+            result /= std::max( max_A, max_B ) * max_constants * reduce_count;
 
         if (verbose) {
             // Display (m, n, lda, alpha)//, beta)
@@ -887,9 +859,9 @@ void test_reduce_batch_dev()
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
             // Corner cases
-          //{   0,   0,   0 },
-          //{ 100,   0, 100 },
-          //{   0, 100,   0 },
+            {   0,   0,   0 },
+            { 100,   0, 100 },
+            {   0, 100,   0 },
             // Square A matrix
             {   1,   1,   1 },
             {  10,  10,  10 },
@@ -914,33 +886,33 @@ void test_reduce_batch_dev()
             { {   1,   0 },
               {   1,   0 } },
             // All 0
-          //{ {   0,   0 },
-          //  {   0,   0 } },
-          //// Offdiag 0, diag != 0
-          //{ {   0,   0 },
-          //  { 0.5, 0.5 } },
-          //// Offdiag != 0, diag 0
-          //{ { 0.3, 0.3 },
-          //  {   0,   0 } },
-          //// Real != 0, Imag 0
-          //{ {   0, 0.3 },
-          //  {   0, 0.5 } },
-          //// Real = 0, Imag != 0
-          //{ { 0.3,   0 },
-          //  { 0.5,   0 } },
-          //// Standard case
-          //{ { 3.141592653589793, 1.414213562373095 },
-          //  { 2.718281828459045, 1.732050807568877 } },
-          //// Some negative values
-          //{ { -3.141592653589793, 1.414213562373095 },
-          //  { 2.718281828459045, -1.732050807568877 } },
-          //// Huge values
-          //{ { 3.141592653589793e8, 1.414213562373095 },
-          //  { 2.718281828459045e7, 1.732050807568877 } },
+            { {   0,   0 },
+              {   0,   0 } },
+            // Offdiag 0, diag != 0
+            { {   0,   0 },
+              { 0.5, 0.5 } },
+            // Offdiag != 0, diag 0
+            { { 0.3, 0.3 },
+              {   0,   0 } },
+            // Real != 0, Imag 0
+            { {   0, 0.3 },
+              {   0, 0.5 } },
+            // Real = 0, Imag != 0
+            { { 0.3,   0 },
+              { 0.5,   0 } },
+            // Standard case
+            { { 3.141592653589793, 1.414213562373095 },
+              { 2.718281828459045, 1.732050807568877 } },
+            // Some negative values
+            { { -3.141592653589793, 1.414213562373095 },
+              { 2.718281828459045, -1.732050807568877 } },
+            // Huge values
+            { { 3.141592653589793e8, 1.414213562373095 },
+              { 2.718281828459045e7, 1.732050807568877 } },
         };
 
-    std::list< int > batch_count_list{ 2 };//, 3, 4, 5, 10, 20, 100 };
-    std::list< int > reduce_count_list{ 2 };//, 3, 4, 5, 10 };
+    std::list< int > batch_count_list{ 2, 3, 4, 5, 10, 20, 100 };
+    std::list< int > reduce_count_list{ 2, 3, 4, 5, 10 };
 
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );
@@ -975,13 +947,13 @@ void run_tests()
 {
     if (mpi_rank == 0) {
         //-------------------- geadd_dev
-      //run_tests_geadd_device<
-      //    float, double, std::complex<float>, std::complex<double>
-      //    >();
-      ////-------------------- geadd_batch_dev
-      //run_tests_geadd_batch_device<
-      //    float, double, std::complex<float>, std::complex<double>
-      //    >();
+        run_tests_geadd_device<
+            float, double, std::complex<float>, std::complex<double>
+            >();
+        //-------------------- geadd_batch_dev
+        run_tests_geadd_batch_device<
+            float, double, std::complex<float>, std::complex<double>
+            >();
         //-------------------- geadd_batch_dev
         run_tests_reduce_batch_device<
             float, double, std::complex<float>, std::complex<double>

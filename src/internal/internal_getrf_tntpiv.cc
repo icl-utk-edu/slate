@@ -231,6 +231,7 @@ void getrf_tntpiv_panel(
     A.tileGetForWriting( A_tiles_set, LayoutConvert::ColMajor );
 
     // lists of local tiles, indices, and offsets
+    std::vector< Tile<scalar_t> > original_tiles;
     std::vector< Tile<scalar_t> > tiles;
     std::vector<int64_t> tile_indices;
 
@@ -240,6 +241,7 @@ void getrf_tntpiv_panel(
     for (int64_t i = 0; i < A.mt(); ++i) {
         ranks_set.insert( A.tileRank( i, 0 ) );
         if (A.tileIsLocal( i, 0 )) {
+            original_tiles.push_back( A( i, 0 ) );
             tiles.push_back( Awork( i, 0 ) );
             tile_indices.push_back( i );
         }
@@ -434,6 +436,7 @@ void getrf_tntpiv_panel(
 
 //------------------------------------------------------------------------------
 /// LU factorization of a column of tiles, host nest implementation.
+/// Currently no implementation, diverted to host task.
 /// @ingroup gesv_internal
 ///
 template <typename scalar_t>
@@ -451,6 +454,7 @@ void getrf_tntpiv_panel(
 
 //------------------------------------------------------------------------------
 /// LU factorization of a column of tiles, host batch implementation.
+/// Currently no implementation, diverted to host task.
 /// @ingroup gesv_internal
 ///
 template <typename scalar_t>
@@ -481,6 +485,108 @@ void getrf_tntpiv_panel(
 {
     getrf_tntpiv_panel( internal::TargetType<Target::HostTask>(),
         A, Awork, diag_len, ib, pivot, max_panel_threads, priority );
+
+/*
+ *
+ *
+ *
+    assert( A.nt() == 1 );
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
+    using device_info_t = lapack::device_info_int;
+
+    const Layout layout = Layout::ColMajor;
+    const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
+
+    int     device   = -1;
+    int64_t temp_loc = 0;
+    int64_t nb       = A.tileNb( 0 );
+    int64_t mlocal   = 0;
+
+    std::set<ij_tuple> A_tiles_set;
+    int64_t tile_index_zero = -1;
+
+    size_t dsize, hsize;
+    char* hwork = nullptr;
+
+    // not sure if this is needed, here at least
+    //
+    internal::copy<target>( std::move( A ), std::move( Awork ) );
+
+    // Move the panel to device.
+    std::set<ij_tuple> A_tiles_set;
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        if (A.tileIsLocal( i, 0 )) {
+            if (tile_index_zero < 0) {
+                tile_index_zero = i;
+                device = A.tileDevice( i, 0 );
+            }
+            A_tiles_set.insert( { i, 0 } );
+            mlocal += A.tileMb( i );
+        }
+    }
+
+    if (device < 0) {
+       return;
+    }
+    assert(device >= 0);
+    blas::set_device(device);
+
+    lapack::Queue* queue = A.compute_queue( device, 0 );
+
+    A.tileGetForWriting( A_tiles_set, device, LayoutConvert::ColMajor );
+
+    // lists of local tiles, indices, and offsets
+    std::vector< Tile<scalar_t> > tiles;
+    std::vector<int64_t> tile_indices;
+
+    // Build the set of ranks in the panel.
+    // Build lists of local tiles and their indices.
+    std::set<int> ranks_set;
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        ranks_set.insert( A.tileRank( i, 0 ) );
+        if (A.tileIsLocal( i, 0 )) {
+            tiles.push_back( Awork( i, 0 ) );
+            tile_indices.push_back( i );
+        }
+    }
+    // Find each rank's first (top-most) row in this panel.
+    std::vector< std::pair<int, int64_t> > rank_rows;
+    rank_rows.reserve( ranks_set.size() );
+    for (int r : ranks_set) {
+        for (int64_t i = 0; i < A.mt(); ++i) {
+            if (A.tileRank( i, 0 ) == r) {
+                rank_rows.push_back( { r, i } );
+                break;
+            }
+        }
+    }
+
+    // Sort rank_rows by row.
+    std::sort( rank_rows.begin(), rank_rows.end(), compareSecond<int, int64_t> );
+
+    // Find index of first tile on this rank.
+    int nranks = rank_rows.size();
+    int index;
+    for (index = 0; index < nranks; ++index) {
+        if (rank_rows[ index ].first == A.mpiRank())
+            break;
+    }
+
+    // Either we participate, or the tiles should be empty.
+    assert( index < nranks
+            || (tiles.size() == 0
+                && A_tiles_set.size() == 0) );
+
+
+
+
+   *
+   *
+   *
+   *
+*/
+
 }
 
 //------------------------------------------------------------------------------

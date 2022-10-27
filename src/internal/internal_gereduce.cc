@@ -129,7 +129,7 @@ void gereduce(internal::TargetType<Target::HostTask>,
         if (B.tileIsLocal(0, j)) {
             #pragma omp task slate_omp_default_none \
                 shared( A, B ) \
-                firstprivate( j, alpha, beta)  priority(priority)
+                firstprivate( j, alpha, beta, A_mt )  priority(priority)
             {
                 for (int64_t i = 0; i < A_mt; ++i) {
                     if (A.tileIsLocal(i, j)) {

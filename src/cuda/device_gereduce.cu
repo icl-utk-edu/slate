@@ -77,7 +77,7 @@ __global__ void gereduce_kernel(
             for (int64_t ii = 0; ii < mt; ++ii) {
                 // vector read and add
                 scalar_t* Aii = Aarray[ ii*nt + blockIdx.x ];
-                sum += alpha * Aii[ j*lda + i ];
+                sum = sum + alpha * Aii[ j*lda + i ];
             }
 
             // vector write

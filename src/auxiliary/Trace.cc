@@ -163,6 +163,12 @@ enum class Color {
 };
 
 //------------------------------------------------------------------------------
+const int max_nest          = 4;
+const int font_size         = 18;
+const int max_rank_chars    = 6;
+const int ylabel_width      = font_size * max_rank_chars;
+
+int Block::s_nest = 0;
 int Trace::width_  = 0;
 int Trace::height_ = 0;
 
@@ -210,6 +216,11 @@ std::map<std::string, Color> function_color_ = {
     {"internal::hebr2",  Color::LightBlue},
     {"internal::hebr3",  Color::LightBlue},
 
+    {"internal::geqrf",  Color::RosyBrown},
+    {"internal::ttqrt",  Color::DeepSkyBlue},
+    {"internal::unmqr",  Color::BurlyWood},
+    {"internal::ttmqr",  Color::DarkGreen},
+
     {"lapack::geqrf",  Color::RosyBrown},
     {"lapack::getrf",  Color::RosyBrown},
     {"lapack::lange",  Color::LightBlue},
@@ -234,8 +245,13 @@ std::map<std::string, Color> function_color_ = {
     {"slate::device::genorm",    Color::LightSkyBlue},
     {"slate::device::transpose", Color::SkyBlue},
     {"slate::convert_layout",    Color::DeepSkyBlue},
-    {"slate::bdsqr",    Color::DeepSkyBlue},
-    {"slate::gatherAll",    Color::RosyBrown},
+    {"slate::bdsqr",             Color::DeepSkyBlue},
+    {"slate::gatherAll",         Color::RosyBrown},
+
+    {"task::panel",     Color::LightSkyBlue},
+    {"task::lookahead", Color::Orange},
+    {"task::trailing",  Color::Yellow},
+    {"task::bcast",     Color::LightPink},
 };
 
 //------------------------------------------------------------------------------
@@ -341,7 +357,7 @@ void Trace::finish()
 
     // Compute width and vertical scaling factor.
     width_ = hscale_ * timespan;
-    height_ = vscale_ * mpi_size * num_threads_;
+    height_ = vscale_ * (mpi_size * (num_threads_ + 1) - 1);
 
     // Print header.
     if (mpi_rank == 0) {
@@ -449,26 +465,31 @@ double Trace::getTimeSpan()
 void Trace::printProcEvents(int mpi_rank, int mpi_size,
                             double timespan, FILE* trace_file)
 {
-    double y = mpi_rank * num_threads_ * vscale_;
-    double height = 0.9 * vscale_;
-    // double stroke_width = vscale_ / 500.0;
+    double y = mpi_rank * (num_threads_ + 1) * vscale_;
+    double height = 0.9 * vscale_ / max_nest;
+    using llong = long long;
 
     fprintf(trace_file, "\n<!-- data -->\n");
     for (auto& thread : events_) {
-        for (auto& event : thread) {
+        for (int nest = 0; nest < max_nest; ++nest) {
+            double h = std::max( max_nest - nest, 1 ) * height;
+            for (auto& event : thread) {
+                if (event.nest_ == nest) {
 
-            double x = (event.start_ - events_[0][0].stop_) * hscale_;
-            double width = (event.stop_ - event.start_) * hscale_;
+                    double x = (event.start_ - events_[0][0].stop_) * hscale_;
+                    double width = (event.stop_ - event.start_) * hscale_;
 
-            fprintf(trace_file,
-                    "<rect x=\"%.4f\" y=\"%.0f\" "
-                    "width=\"%.4f\" height=\"%.0f\" "
-                    "class=\"%s\" "
-                    "inkscape:label=\"%s\"/>\n",
-                    x, y,
-                    width, height,
-                    cleanName(event.name_).c_str(),
-                    event.name_);
+                    fprintf(trace_file,
+                            "<rect x=\"%.4f\" y=\"%.0f\" "
+                            "width=\"%.4f\" height=\"%.0f\" "
+                            "class=\"%s\" "
+                            "inkscape:label=\"%s %lld\"/>\n",
+                            x, y,
+                            width, h,
+                            cleanName(event.name_).c_str(),
+                            event.name_, llong( event.index_ ));
+                }
+            }
         }
         y += vscale_;
     }

@@ -357,7 +357,7 @@ void Trace::finish()
 
     // Compute width and vertical scaling factor.
     width_ = hscale_ * timespan;
-    height_ = vscale_ * mpi_size * num_threads_;
+    height_ = vscale_ * (mpi_size * (num_threads_ + 1) - 1);
 
     // Print header.
     if (mpi_rank == 0) {
@@ -465,7 +465,7 @@ double Trace::getTimeSpan()
 void Trace::printProcEvents(int mpi_rank, int mpi_size,
                             double timespan, FILE* trace_file)
 {
-    double y = mpi_rank * num_threads_ * vscale_;
+    double y = mpi_rank * (num_threads_ + 1) * vscale_;
     double height = 0.9 * vscale_ / max_nest;
     using llong = long long;
 

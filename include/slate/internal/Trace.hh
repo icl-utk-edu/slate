@@ -102,22 +102,13 @@ private:
 ///
 class Block {
 public:
-    Block(const char* name, int64_t index=0)
-        : event_(name, index, s_nest++)
-    {}
-
-    ~Block()
-    {
-        s_nest--;
-        Trace::insert(event_);
-    }
+    Block( const char* name, int64_t index=0 );
+    ~Block();
 
 private:
-    static int s_nest;
-    #pragma omp threadprivate( s_nest )
-
     Event event_;
 };
+
 } // namespace trace
 } // namespace slate
 

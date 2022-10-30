@@ -168,7 +168,11 @@ const int font_size         = 18;
 const int max_rank_chars    = 6;
 const int ylabel_width      = font_size * max_rank_chars;
 
-int Block::s_nest = 0;
+// Used by Block. If this is a static member of Block, some compilers
+// have a link error.
+static int s_nest = 0;
+#pragma omp threadprivate( s_nest )
+
 int Trace::width_  = 0;
 int Trace::height_ = 0;
 
@@ -253,6 +257,22 @@ std::map<std::string, Color> function_color_ = {
     {"task::trailing",  Color::Yellow},
     {"task::bcast",     Color::LightPink},
 };
+
+//------------------------------------------------------------------------------
+/// Create a block, which marks the beginning of an event in the trace.
+///
+Block::Block( const char* name, int64_t index )
+    : event_( name, index, s_nest++ )
+{}
+
+//------------------------------------------------------------------------------
+/// Destroy a block, which marks the end of an event in the trace.
+///
+Block::~Block()
+{
+    s_nest--;
+    Trace::insert( event_ );
+}
 
 //------------------------------------------------------------------------------
 ///

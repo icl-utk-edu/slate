@@ -34,6 +34,8 @@ void gemmC(scalar_t alpha, Matrix<scalar_t>& A,
 
     const scalar_t one = 1.0;
 
+    trace::Block gemm_block( "gemm" );
+
     // Use only TileReleaseStrategy::Slate for gemm.
     // Internal gemm routine called here won't release
     // any tiles. This routine will clean up tiles.

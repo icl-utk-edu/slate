@@ -120,10 +120,11 @@ void tpmlqt(
         assert(V2.nb() == n);
         assert(std::min(n, k) >= l);
     }
+
+    int64_t ib = std::min( T.mb(), k );
     assert(k >= ib);
     assert(T.nb() == k);
 
-    int64_t ib = std::min( T.mb(), k );
     lapack::tpmlqt(side, op, m, n, k, l, ib,
                    V2.data(), V2.stride(),
                    T.data(), T.stride(),

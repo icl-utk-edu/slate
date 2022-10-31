@@ -22,7 +22,7 @@ namespace impl {
 /// @ingroup geqrf_specialization
 ///
 template <Target target, typename scalar_t>
-void qdwh(slate::internal::TargetType<target>,
+void qdwh(
           Matrix<scalar_t>& A,
           Matrix<scalar_t>& H, // this matrix will be hermition
           Options const& opts)
@@ -31,7 +31,6 @@ void qdwh(slate::internal::TargetType<target>,
     using blas::real;
 
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
     int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
     max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
 
@@ -56,7 +55,8 @@ void qdwh(slate::internal::TargetType<target>,
     real_t tol1 = 5. * eps;
     real_t tol3 = pow(tol1, 1./3.);
 
-    double L2, sqd, dd, a1, a, b, c;
+    real_t L2, sqd, dd, a1, a, b, c;
+    //double L2, sqd, dd, a1, a, b, c;
     real_t Li, Liconv;
     real_t conv = 100.;
     scalar_t zero = 0.0, one = 1.0, minusone = -1.0;
@@ -152,7 +152,8 @@ void qdwh(slate::internal::TargetType<target>,
         }
         itconv++;
 
-        L2  = double (Liconv * Liconv);
+        L2  =  Liconv * Liconv;
+        //L2  = double (Liconv * Liconv);
         dd  = pow( 4.0 * (1.0 - L2 ) / (L2 * L2), 1.0/3.0 );
         sqd = sqrt(1.0 + dd);
         a1  = sqd + sqrt( 8.0 - 4.0 * dd + 8.0 * (2.0 - L2) / (L2 * sqd) ) / 2.0;
@@ -173,7 +174,8 @@ void qdwh(slate::internal::TargetType<target>,
         it++;
 
         // Compute parameters L,a,b,c
-        L2  = double (Li * Li);
+        //L2  = double (Li * Li);
+        L2  = Li * Li;
         dd  = pow( 4.0 * (1.0 - L2 ) / (L2 * L2), 1.0/3.0 );
         sqd = sqrt(1.0 + dd);
         a1  = sqd + sqrt( 8.0 - 4.0 * dd + 8.0 * (2.0 - L2) / (L2 * sqd) ) / 2.0;
@@ -204,13 +206,13 @@ void qdwh(slate::internal::TargetType<target>,
             // Factorize B = QR, and generate the associated Q
             add(alpha, A, zero, W1, opts);
             //geqrf(W, T1, opts); // naive impl
-            //geqrf_qdwh_full(W, T1, opts);
+            geqrf_qdwh_full(W, T1, opts);
 
             set(zero, one, Q1);
             set(zero, zero, Q2);
 
             //unmqr(slate::Side::Left, slate::Op::NoTrans, W, T1, Q, opts); //naive impl
-            //unmqr_qdwh_full(slate::Side::Left, slate::Op::NoTrans, W, T1, Q, opts);
+            unmqr_qdwh_full(slate::Side::Left, slate::Op::NoTrans, W, T1, Q, opts);
 
             // A = ( (a-b/c)/sqrt(c) ) * Q1 * Q2' + (b/c) * A
             auto Q2T = conj_transpose(Q2);
@@ -330,7 +332,8 @@ void qdwh(slate::internal::TargetType<target>,
 /// @ingroup geqrf_computational
 ///
 template <typename scalar_t>
-void qdwh(Matrix<scalar_t>& A,
+void qdwh(
+          Matrix<scalar_t>& A,
           Matrix<scalar_t>& H,
           Options const& opts)
 {
@@ -340,20 +343,16 @@ void qdwh(Matrix<scalar_t>& A,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::qdwh<Target::HostTask>( TargetType<Target::HostTask>(),
-                       A, H, opts);
+            impl::qdwh<Target::HostTask>( A, H, opts );
             break;
         case Target::HostNest:
-            impl::qdwh<Target::HostNest>( TargetType<Target::HostNest>(),
-                       A, H, opts);
+            impl::qdwh<Target::HostNest>( A, H, opts );
             break;
         case Target::HostBatch:
-            impl::qdwh<Target::HostBatch>( TargetType<Target::HostBatch>(),
-                       A, H, opts);
+            impl::qdwh<Target::HostBatch>( A, H, opts );
             break;
         case Target::Devices:
-            impl::qdwh<Target::Devices>( TargetType<Target::Devices>(),
-                       A, H, opts);
+            impl::qdwh<Target::Devices>( A, H, opts );
             break;
     }
     // todo: return value for errors?

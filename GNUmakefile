@@ -561,6 +561,10 @@ ifneq ($(only_unit),1)
         src/work/work_trmm.cc \
         src/work/work_trsm.cc \
         src/work/work_trsmA.cc \
+		src/qdwh.cc \
+		src/normest.cc \
+		src/geqrf_qdwh_full.cc \
+		src/unmqr_qdwh_full.cc \
         # End. Add alphabetically.
 endif
 
@@ -662,6 +666,7 @@ ifneq ($(have_fortran),)
         test/pdlantr.f \
         test/pclantr.f \
         test/pzlantr.f \
+        test/test_qdwh.cc \
         # End. Add alphabetically, by base name after precision.
 endif
 

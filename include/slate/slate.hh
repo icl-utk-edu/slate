@@ -1085,6 +1085,42 @@ void steqr2(
     Matrix<scalar_t>& Z,
     Options const& opts = Options());
 
+//-----------------------------------------
+// Polar Decomposition
+
+//-----------------------------------------
+// qdwh()
+template <typename scalar_t>
+void qdwh(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& H, // this matrix will be hermition
+    Options const& opts = Options());
+
+//-----------------------------------------
+// normest()
+template <typename matrix_type>
+blas::real_type<typename matrix_type::value_type>
+normest(
+    Norm in_norm,
+    matrix_type &A,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// geqrf_qdwh_full()
+template <typename scalar_t>
+void geqrf_qdwh_full(
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// unmqr_qdwh_full()
+template <typename scalar_t>
+void unmqr_qdwh_full(
+    Side side, Op op,
+    Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
+    Matrix<scalar_t>& C,
+    Options const& opts = Options());
+
 } // namespace slate
 
 //-----------------------------------------

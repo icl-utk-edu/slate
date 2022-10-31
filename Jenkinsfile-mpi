@@ -17,7 +17,7 @@ stages {
             axes {
                 axis {
                     name 'maker'
-                    values 'cmake'
+                    values 'make'
                 }
                 axis {
                     name 'host'
@@ -181,10 +181,13 @@ if [ "${maker}" = "cmake" ]; then
 fi
 export OMP_NUM_THREADS=4
 
+ex="sterf, gbmm, gemmA, gels, cholqr, gelqf, unmtr_he2hb, unmtr_he2hb, he2hb, hegv, gesvd, ge2tb, gbnorm, trsmA, getri"
+ex2=${ex//,};
 eval ./run_tests.py --np 4 --origin s --target t,d --quick --ref n \
     "${extra_test_args[@]}" \
     --timeout 1200 \
     --xml ${top}/report-${maker}.xml ${tests} \
+    `echo $ex2|xargs printf -- ' -x %s'` \
     2> ${top}/report-${maker}.txt
 cd ..
 

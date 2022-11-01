@@ -18,7 +18,6 @@
 #include <cstdlib>
 #include <utility>
 
-#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template <typename matrix_type>
 void test_set_work(Params& params, bool run)
@@ -206,6 +205,10 @@ void test_set_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
+        #else  // not SLATE_HAVE_SCALAPACK
+            SLATE_UNUSED( one );
+            if (mpi_rank == 0)
+                printf( "ScaLAPACK not available\n" );
         #endif
     }
 }

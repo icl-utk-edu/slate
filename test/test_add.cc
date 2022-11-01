@@ -150,7 +150,6 @@ void subtract_matrix( matrix_type& A, matrix_type& B )
     }
 }
 
-#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template <typename matrix_type>
 void test_add_work(Params& params, bool run)
@@ -373,6 +372,11 @@ void test_add_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
+        #else  // not SLATE_HAVE_SCALAPACK
+            SLATE_UNUSED( one );
+            SLATE_UNUSED( trans );
+            if (mpi_rank == 0)
+                printf( "ScaLAPACK not available\n" );
         #endif
     }
 }

@@ -19,7 +19,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-#define SLATE_HAVE_SCALAPACK
+
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_hegst_work(Params& params, bool run)
@@ -86,6 +86,7 @@ void test_hegst_work(Params& params, bool run)
     std::vector<scalar_t> A_data(lld*nlocal);
     auto A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
                  uplo, n, A_data.data(), lld, nb, p, q, MPI_COMM_WORLD);
+    real_t A_norm;
 
     slate::generate_matrix( params.matrix, A );
 
@@ -139,7 +140,7 @@ void test_hegst_work(Params& params, bool run)
 
     if (check || ref) {
         #ifdef SLATE_HAVE_SCALAPACK
-            real_t A_norm = slate::norm(slate::Norm::One, Aref);
+            A_norm = slate::norm(slate::Norm::One, Aref);
 
             int ictxt;
             Cblacs_get(-1, 0, &ictxt);
@@ -188,8 +189,9 @@ void test_hegst_work(Params& params, bool run)
                 params.okay() = (params.error() <= tol);
             }
             Cblacs_gridexit(ictxt);
-        #else
-            SLATE_UNUSED(one);
+        #else  // not SLATE_HAVE_SCALAPACK
+            SLATE_UNUSED( one );
+            SLATE_UNUSED( A_norm );
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

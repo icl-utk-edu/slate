@@ -19,7 +19,7 @@
 #include <cstdlib>
 #include <limits>
 #include <utility>
-#define SLATE_HAVE_SCALAPACK
+
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_hegv_work(Params& params, bool run)
@@ -412,10 +412,10 @@ void test_hegv_work(Params& params, bool run)
                 params.error2() = blas::asum( n, &Lambda[0], 1 )
                                 / blas::asum( n, &Lambda_ref[0], 1 );
                 real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-                params.okay() = (params.error2() <= tol);
+                params.okay() = params.okay() && (params.error2() <= tol);
             }
             Cblacs_gridexit(ictxt);
-        #else
+        #else  // not SLATE_HAVE_SCALAPACK
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

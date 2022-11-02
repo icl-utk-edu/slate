@@ -132,14 +132,13 @@ void tplqt(
 
     int64_t m = A2.mb();
     int64_t n = A2.nb();
+
     assert(A1.mb() == m);
     assert(A1.nb() >= m);  // k >= m
     assert(std::min(m, n) >= l);
-
-    int64_t ib = T.mb();
-    assert(m >= ib);
     assert(T.nb() == m);
 
+    int64_t ib = std::min( T.mb(), m );
     lapack::tplqt(m, n, l, ib,
                   A1.data(), A1.stride(),
                   A2.data(), A2.stride(),

@@ -46,8 +46,7 @@ void test_gecopy_dev()
     slate::Tile<double> B(m, n, Bdata, ldb, -1, slate::TileKind::UserOwned);
     //gecopy( A, B );
 
-    int device_idx;
-    blas::get_device(&device_idx);
+    int device_idx = 0;
     const int batch_arrays_index = 0;
     blas::Queue queue(device_idx, batch_arrays_index);
 

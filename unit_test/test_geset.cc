@@ -213,7 +213,7 @@ void test_geset_batch_dev_worker(
 
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         scalar_t* dtmp_data;
-        dtmp_data = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ) );
+        dtmp_data = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ), queue );
         test_assert( dtmp_data != nullptr );
         list_dA.push_back( slate::Tile<scalar_t>( m, n, dtmp_data, lda,
             device_idx, slate::TileKind::UserOwned ) );
@@ -221,7 +221,7 @@ void test_geset_batch_dev_worker(
 
     scalar_t** Aarray = new scalar_t*[ batch_count ];
     scalar_t** dAarray;
-    dAarray = blas::device_malloc<scalar_t*>( batch_count );
+    dAarray = blas::device_malloc<scalar_t*>( batch_count, queue );
     test_assert( dAarray != nullptr );
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         auto dA = list_dA[ m_i ];
@@ -282,12 +282,12 @@ void test_geset_batch_dev_worker(
                 printf( "\n\t[%d] error %.2e ", m_i, result );
         }
 
-        blas::device_free( dA.data() );
+        blas::device_free( dA.data(), queue );
         delete[] A.data();
 
         test_assert( result < 3*eps );
     }
-    blas::device_free( dAarray );
+    blas::device_free( dAarray, queue );
     delete[] Bdata;
     delete[] Aarray;
 

@@ -155,7 +155,7 @@ void print(
         lda = mb;
         data_vector.resize( lda * nb );
         data = data_vector.data();
-        blas::device_getmatrix(
+        blas::device_copy_matrix(
             mb, nb,
             A.data(), A.stride(),
             data, lda, queue );

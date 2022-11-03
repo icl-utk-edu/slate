@@ -73,7 +73,7 @@ void copyTile(
             // Copy from device tile, if it exists, to ScaLAPACK.
             auto Aij = A(i, j, dev);
             blas::Queue queue(dev, 0);
-            blas::device_getmatrix(
+            blas::device_copy_matrix(
                 Aij.mb(), Aij.nb(),
                 Aij.data(), Aij.stride(),
                 &B[ ii_local + jj_local*ldb ], ldb, queue);
@@ -123,7 +123,7 @@ void copyTile(
             A.tileGetForWriting(i, j, dev, slate::LayoutConvert::ColMajor);
             auto Aij = A(i, j, dev);
             blas::Queue queue(dev, 0);
-            blas::device_setmatrix(
+            blas::device_copy_matrix(
                 Aij.mb(), Aij.nb(),
                 &B[ ii_local + jj_local*ldb ], ldb,
                 Aij.data(), Aij.stride(), queue);

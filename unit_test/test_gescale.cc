@@ -94,7 +94,7 @@ void test_gescale_dev_worker(
         slate::HostNum, slate::TileKind::UserOwned );
 
     scalar_t* dAdata;
-    dAdata = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ) );
+    dAdata = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ), queue );
     test_assert( dAdata != nullptr );
     slate::Tile<scalar_t> dA( m, n, dAdata, lda,
         device_idx, slate::TileKind::UserOwned );
@@ -149,7 +149,7 @@ void test_gescale_dev_worker(
             result );
     }
 
-    blas::device_free( dAdata );
+    blas::device_free( dAdata, queue );
     delete[] Adata;
     delete[] Bdata;
 
@@ -314,7 +314,7 @@ void test_gescale_batch_dev_worker(
     // Create the dA matrices on the device
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         scalar_t* dtmp_data;
-        dtmp_data = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ) );
+        dtmp_data = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ), queue );
         test_assert( dtmp_data != nullptr );
         list_dA.push_back( slate::Tile<scalar_t>( m, n, dtmp_data, lda,
             device_idx, slate::TileKind::UserOwned ) );
@@ -322,7 +322,7 @@ void test_gescale_batch_dev_worker(
 
     scalar_t** Aarray = new scalar_t*[ batch_count ];
     scalar_t** dAarray;
-    dAarray = blas::device_malloc<scalar_t*>( batch_count );
+    dAarray = blas::device_malloc<scalar_t*>( batch_count, queue );
     test_assert( dAarray != nullptr );
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         auto A  = list_A[ m_i ];
@@ -402,12 +402,12 @@ void test_gescale_batch_dev_worker(
                         m_i, result );
         }
 
-        blas::device_free( dA.data() );
+        blas::device_free( dA.data(), queue );
         delete[] A.data();
 
         test_assert( result < 3*eps );
     }
-    blas::device_free( dAarray );
+    blas::device_free( dAarray, queue );
     delete[] Bdata;
 
 }
@@ -557,4 +557,3 @@ int main(int argc, char** argv)
     MPI_Finalize();
     return err;
 }
-

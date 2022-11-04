@@ -181,7 +181,7 @@ if [ "${maker}" = "cmake" ]; then
 fi
 export OMP_NUM_THREADS=4
 
-ex="sterf, gbmm, gemmA, gels, cholqr, gelqf, unmtr_he2hb, unmtr_he2hb, he2hb, hegv, gesvd, ge2tb, gbnorm, trsmA, getri"
+ex="gbmm, gemmA, trsmA, gels, cholqr, gelqf, unmtr_he2hb, unmtr_he2hb, he2hb, hegv, gbnorm"
 ex2=${ex//,};
 eval ./run_tests.py --np 4 --origin s --target t,d --quick --ref n \
     "${extra_test_args[@]}" \

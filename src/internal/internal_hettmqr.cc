@@ -47,14 +47,15 @@ namespace internal {
 /// @ingroup geqrf_internal
 ///
 template <Target target, typename scalar_t>
-void hettmqr(Op op,
-             Matrix<scalar_t>&& V,
-             Matrix<scalar_t>&& T,
-             HermitianMatrix<scalar_t>&& C,
-             int tag)
+void hettmqr(
+    Op op,
+    Matrix<scalar_t>&& V,
+    Matrix<scalar_t>&& T,
+    HermitianMatrix<scalar_t>&& C,
+    int tag)
 {
-    hettmqr(internal::TargetType<target>(),
-            op, V, T, C, tag);
+    hettmqr( internal::TargetType<target>(),
+             op, V, T, C, tag );
 }
 
 //------------------------------------------------------------------------------
@@ -64,12 +65,13 @@ void hettmqr(Op op,
 /// @ingroup geqrf_internal
 ///
 template <typename scalar_t>
-void hettmqr(internal::TargetType<Target::HostTask>,
-             Op op,
-             Matrix<scalar_t>& V,
-             Matrix<scalar_t>& T,
-             HermitianMatrix<scalar_t>& C,
-             int tag)
+void hettmqr(
+    internal::TargetType<Target::HostTask>,
+    Op op,
+    Matrix<scalar_t>& V,
+    Matrix<scalar_t>& T,
+    HermitianMatrix<scalar_t>& C,
+    int tag )
 {
     trace::Block trace_block("internal::hettmqr");
     using blas::conj;
@@ -205,7 +207,7 @@ void hettmqr(internal::TargetType<Target::HostTask>,
 
                 if ((i1 >= j && C.tileIsLocal(i1, j)) ||
                     (i1 <  j && C.tileIsLocal(j, i1))) {
-                    // First node of each pair sends tile to dst,
+                    // First node of each pair sends tile to dst.
                     int dst = C.tileRank(i2, j);
                     if (i1 >= j) {
                         C.tileSend(i1, j, dst, tag);
@@ -217,7 +219,7 @@ void hettmqr(internal::TargetType<Target::HostTask>,
                     }
                 }
                 else if (C.tileIsLocal(i2, j)) {
-                    // Second node of each pair receives tile from src,
+                    // Second node of each pair receives tile from src.
                     int src = (i1 >= j
                               ? C.tileRank(i1, j)
                               : C.tileRank(j, i1));
@@ -291,12 +293,12 @@ void hettmqr(internal::TargetType<Target::HostTask>,
             // 3: Multiply [ C(i, j1)  C(i, j2) ] * Q for i = j2+1, ..., mt-1.
             for (int64_t i = j2+1; i < C.mt(); ++i) {
                 if (C.tileIsLocal(i, j1)) {
-                    // First node of each pair sends tile to dst,
+                    // First node of each pair sends tile to dst.
                     int dst = C.tileRank(i, j2);
                     C.tileSend(i, j1, dst, tag);
                 }
                 else if (C.tileIsLocal(i, j2)) {
-                    // Second node of each pair receives tile from src,
+                    // Second node of each pair receives tile from src.
                     int src = C.tileRank(i, j1);
                     C.tileRecv(i, j1, src, layout, tag);
                 }

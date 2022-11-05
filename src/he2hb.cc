@@ -176,12 +176,13 @@ void he2hb(
                     std::move( Treduce_panel ) );
             }
 
+            //--------------------
+            // Bcast V, Treduce, Tlocal.
             #pragma omp task depend( in:block[ k ] ) \
                              depend( in:alloc_workspace[ 0 ] )
             {
                 // if a trailing matrix exists.
                 if (k < nt-1) {
-
                     // Send V across row i & col i for trailing matrix update.
                     BcastListTag bcast_list_V_first;
                     BcastListTag bcast_list_V;
@@ -245,11 +246,15 @@ void he2hb(
                     }
                 }
             }
-            // computation and data-movement overlap: Fetching data to be used in he2hb_hemm
+
+            //--------------------
+            // Computation and data movement overlap:
+            // fetch data to be used in he2hb_hemm
             #pragma omp task depend( in:alloc_workspace[ 0 ] ) \
                              depend( inout:alloc_trailing[ 0 ] )
             {
-
+                // todo: insert and set on device?
+                // todo: do we need entire column, or subset?
                 for (int64_t i = k+1; i < nt; ++i) {
                     W.tileInsert( i, k );
                     W( i, k ).set( zero );
@@ -269,6 +274,9 @@ void he2hb(
                                     panel_rank_rows.push_back( i+k+1 );
                                 }
                             }
+                            // Move lower( A( :, panel_rank_rows ) )
+                            // and  lower( A( panel_rank_rows, : ) )
+                            // and  W( :, k ) to GPU.
                             for (int device = 0; device < W_panel.num_devices(); ++device) {
                                 #pragma omp task shared( A, W )
                                 {
@@ -341,10 +349,12 @@ void he2hb(
                             Aik.set( zero, one );
                         }
                     }
+
                     //--------------------
-                    // Apply local reflectors.
-                    // Compute Wi = (sum_j Aij Vj) T, for i = k+1, ..., nt-1.
-                    // First compute Wi = (sum_j Aij Vj), for i = k+1, ..., nt-1.
+                    // Compute W = A V T.
+
+                    // 1a. Wi_part = sum_j Aij Vj, local partial sum,
+                    // for i = k+1, ..., nt-1 and j = panel_rank_rows.
                     #pragma omp task depend( inout:block[ k ] ) \
                                      depend( inout:alloc_trailing[ 0 ] )
                     {
@@ -358,8 +368,11 @@ void he2hb(
                     int rank_lower = -1;
                     int rank_upper = -1;
 
+                    // 1b. Wi = Wi_part1 + Wi_part2.
                     // At most 2 ranks contribute to each Wi; if I am one,
                     // exchange partial sum with neighbor and both ranks sum Wi.
+                    // todo: since 1a depends on alloc_trailing, don't need here.
+                    // todo: any advantage to 1a, 1b, 1c being different tasks?
                     #pragma omp task depend( inout:block[ k ] ) \
                                      depend( inout:alloc_trailing[ 0 ] )
                     {
@@ -405,10 +418,10 @@ void he2hb(
                             }
                         }
                         #pragma omp taskwait
-
                     }
 
-                    // Compute Wi = Wi T, for i = k+1, ..., nt-1.
+                    // 1c. Compute Wi = Wi T, for i = k+1, ..., nt-1.
+                    // todo: since 1a depends on alloc_trailing, don't need here
                     #pragma omp task depend( inout:block[ k ] ) \
                                      depend( in:alloc_trailing[ 0 ] )
                     {
@@ -425,19 +438,22 @@ void he2hb(
                         // Do 2-sided Hermitian update:
                         // A = Q^H A Q
                         //   = (I - V T^H V^H) A (I - V T V^H)
-                        //   = A - V W^H - W V^H
+                        //   = A - V Y^H - Y V^H
                         // where
-                        // W = A V T - 0.5 V (T^H V^H (A V T)).
+                        // Y = A V T - 0.5 V (T^H V^H (A V T))
+                        //   = W - 0.5 V (T^H V^H W),
+                        // W = A V T from above.
 
-                        // 1a. W = A VT from above.
-
+                        // todo: why block[ 0 ]? Just because TVAVT is W(0,0)?
                         #pragma omp task depend( in:block[ k ] ) \
                                          depend( inout:block[ 0 ] ) \
                                          depend( inout:block[ k+1 ] ) \
                                          depend( inout:block[ nt-1 ] )
                         {
-                            // 1b. TVAVT = V^H (A V T) = V^H W.
+                            // 1d. TVAVT = V^H (A V T) = V^H W.
                             auto A_panelT = conj_transpose( A.sub( k+1, nt-1, k, k ) );
+                            // todo: shouldn't need to set TVAVT = 0 since beta = 0.
+                            // todo: on GPU
                             TVAVT.tileGetForWriting( 0, 0, HostNum, layout_conv );
                             TVAVT( 0, 0 ).set( zero );
                             internal::he2hb_gemm<target>(
@@ -447,7 +463,7 @@ void he2hb(
                                 panel_rank,
                                 &block[ 0 ] );
 
-                            // 1c. TVAVT = T^H (V^H A V T) = T^H W0.
+                            // 1e. TVAVT = T^H (V^H A V T).
                             auto T0     = Tlocal.sub( i0, i0, k, k );
                             auto TVAVT0 = TVAVT;
 
@@ -461,6 +477,7 @@ void he2hb(
                                 TVAVT0 = TVAVT0.slice( 0, mb-1, 0, nb-1 );
                             }
 
+                            // todo: move to GPU
                             auto Tk0 = TriangularMatrix<scalar_t>(
                                 Uplo::Upper, Diag::NonUnit, T0 );
                             Tk0.tileGetForReading( 0, 0, HostNum, layout_conv );
@@ -469,7 +486,7 @@ void he2hb(
                                         one, conj_transpose( Tk0( 0, 0 ) ),
                                              std::move( TVAVT0( 0, 0 ) ) );
 
-                            // 1d. W = W - 0.5 V TVAVT.
+                            // 1f. Y = W - 0.5 V TVAVT, with Y in W.
                             internal::he2hb_gemm<target>(
                                 -half, A.sub( k+1, nt-1, k, k ),
                                        std::move( TVAVT ),
@@ -478,7 +495,7 @@ void he2hb(
                                 &block[ k+1 ] );
 
                             // 2. Update trailing matrix.
-                            // A = A - V W^H - W V^H
+                            // A = A - V Y^H - Y V^H, with Y in W.
                             internal::her2k<target>(
                                 -one,  A.sub( k+1, nt-1, k, k ),
                                        W.sub( k+1, nt-1, k, k ),
@@ -488,26 +505,24 @@ void he2hb(
                     else { // off-diag
                         //--------------------
                         // This rank has only off-diagonal tiles to update (if any).
-                        // Update from left:
+                        // Update from left tiles in lower( A( panel_rank_rows, : ) ):
                         // A = Q^H A
                         //   = (I - V T^H V^H) A = A - V T^H V^H A
                         //   = A - V W^H
-                        // Update from right:
+                        // Update from right tiles in lower( A( :, panel_rank_rows ) ):
                         // A = A Q
                         //   = A (I - V T V^H)   = A - A V T V^H
                         //   = A - W V^H
                         // where
-                        // W = A^H V T = A V T.
-
-                        // 1a. W = A V T from above.
-
+                        // W = A V T from above.
+                        // todo: since 1a depends on alloc_trailing, don't need here
                         #pragma omp task depend( in:block[ k ] ) \
                                          depend( inout:block[ k+1 ] ) \
                                          depend( inout:block[ nt-1 ] ) \
                                          depend( inout:alloc_trailing[ 0 ] )
                         {
                             // 2. Update trailing matrix.
-                            // A = A - V W^H.
+                            // A = A - V W^H or A - W V^H.
                             internal::he2hb_gemm_outer<target>(
                                 -one, A.sub( k+1, nt-1, k, k ),
                                       W.sub( k+1, nt-1, k, k ),
@@ -525,15 +540,18 @@ void he2hb(
                             Asave.tileErase( i0, k );
                         }
                     }
-                }
+                } // for panel_rank
 
+                //--------------------
+                // Update trailing matrix from triangle reductions.
+                // todo: since 1a depends on alloc_trailing, don't need here
                 #pragma omp task depend( in:block[ k ] ) \
                                  depend( inout:block[ k+1 ] ) \
                                  depend( inout:block[ nt-1 ] ) \
                                  depend( inout:alloc_trailing[ 0 ] )
                 {
-                    // Distributed multiply Hermitian matrix on left and right by Q from
-                    // 3. A Q^H A Q
+                    // Do 2-sided Hermitian update:
+                    // 3. A = Q^H A Q
                     internal::hettmqr<Target::HostTask>(
                         Op::ConjTrans,
                         std::move( A_panel ),

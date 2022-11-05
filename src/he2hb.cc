@@ -29,6 +29,7 @@ void he2hb(
     Options const& opts )
 {
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
+    using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
     assert( A.uplo() == Uplo::Lower );  // for now
@@ -42,6 +43,7 @@ void he2hb(
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
     const scalar_t half = 0.5;
+    const real_t r_one  = 1.0;
 
     // Options
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
@@ -480,7 +482,7 @@ void he2hb(
                             internal::her2k<target>(
                                 -one,  A.sub( k+1, nt-1, k, k ),
                                        W.sub( k+1, nt-1, k, k ),
-                                1.0,   A.sub( k+1, nt-1 ));
+                                r_one, A.sub( k+1, nt-1 ));
                         }
                     }
                     else { // off-diag

@@ -29,12 +29,12 @@ template <Target target, typename scalar_t>
 void he2hb_trmm(
     HermitianMatrix<scalar_t>&& AH, Matrix<scalar_t>&& A,
     Matrix<scalar_t>&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index)
 {
     he2hb_trmm( internal::TargetType<target>(),
                 AH, A, B,
-                indices, priority, queue_index );
+                panel_rank_rows, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -48,7 +48,7 @@ void he2hb_trmm(
     HermitianMatrix<scalar_t>& AH,
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index)
 {
     const scalar_t one  = 1;
@@ -65,8 +65,7 @@ void he2hb_trmm(
     for (int64_t i = 0; i < B.mt(); ++i) {
         #pragma omp task shared( AH, B )
         {
-
-            for (int64_t j : indices) {
+            for (int64_t j : panel_rank_rows) {
                 if (i >= j) { // lower
                     rank_lower = AH.tileRank( i, j );
                 }
@@ -113,7 +112,7 @@ void he2hb_trmm(
     HermitianMatrix<scalar_t>& AH,
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index )
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
@@ -132,7 +131,7 @@ void he2hb_trmm(
             int rank_upper = -1;
 
             for (int64_t i = 0; i < B.mt(); ++i) {
-                for (int64_t j : indices) {
+                for (int64_t j : panel_rank_rows) {
                     if (i >= j) { // lower
                         rank_lower = AH.tileRank( i, j );
                     }
@@ -187,7 +186,7 @@ void he2hb_trmm(
                 rank_upper = -1;
 
                 for (int64_t i = 0; i < i_interior; ++i) {
-                    for (int64_t j : indices) {
+                    for (int64_t j : panel_rank_rows) {
                         if (i >= j) { // lower
                             rank_lower = AH.tileRank( i, j );
                         }
@@ -226,7 +225,7 @@ void he2hb_trmm(
                     int64_t i = B.mt()-1;
                     rank_lower = -1;
                     rank_upper = -1;
-                    for (int64_t j : indices) {
+                    for (int64_t j : panel_rank_rows) {
                         if (i >= j) { // lower
                             rank_lower = AH.tileRank( i, j );
                         }
@@ -309,7 +308,7 @@ void he2hb_trmm(
                 rank_lower = -1;
                 rank_upper = -1;
                 for (int64_t i = 0; i < B.mt(); ++i) {
-                    for (int64_t j : indices) {
+                    for (int64_t j : panel_rank_rows) {
                         if (i >= j) { // lower
                             rank_lower = AH.tileRank( i, j );
                         }
@@ -342,7 +341,7 @@ void he2hb_trmm(
     HermitianMatrix<scalar_t>& AH,
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& A,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index)
 {
     slate_not_implemented( "Target::HostNest isn't yet supported." );
@@ -359,7 +358,7 @@ void he2hb_trmm(
     HermitianMatrix<scalar_t>& AH,
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index)
 {
     slate_not_implemented( "Target::HostBatch isn't yet supported." );
@@ -374,7 +373,7 @@ void he2hb_trmm<Target::HostTask, float>(
     HermitianMatrix<float>&& AH,
     Matrix<float>&& A,
     Matrix<float>&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -383,7 +382,7 @@ void he2hb_trmm<Target::HostTask, double>(
     HermitianMatrix<double>&& AH,
     Matrix<double>&& A,
     Matrix<double>&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -392,7 +391,7 @@ void he2hb_trmm< Target::HostTask, std::complex<float> >(
     HermitianMatrix< std::complex<float> >&& AH,
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -401,7 +400,7 @@ void he2hb_trmm< Target::HostTask, std::complex<double> >(
     HermitianMatrix< std::complex<double> >&& AH,
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -410,7 +409,7 @@ void he2hb_trmm<Target::Devices, float>(
     HermitianMatrix<float>&& AH,
     Matrix<float>&& A,
     Matrix<float>&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -419,7 +418,7 @@ void he2hb_trmm<Target::Devices, double>(
     HermitianMatrix<double>&& AH,
     Matrix<double>&& A,
     Matrix<double>&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -428,7 +427,7 @@ void he2hb_trmm< Target::Devices, std::complex<float> >(
     HermitianMatrix< std::complex<float> >&& AH,
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -437,7 +436,7 @@ void he2hb_trmm< Target::Devices, std::complex<double> >(
     HermitianMatrix< std::complex<double> >&& AH,
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -446,7 +445,7 @@ void he2hb_trmm<Target::HostNest, float>(
     HermitianMatrix<float>&& AH,
     Matrix<float>&& A,
     Matrix<float>&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -455,7 +454,7 @@ void he2hb_trmm<Target::HostNest, double>(
     HermitianMatrix<double>&& AH,
     Matrix<double>&& A,
     Matrix<double>&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -464,7 +463,7 @@ void he2hb_trmm< Target::HostNest, std::complex<float> >(
     HermitianMatrix< std::complex<float> >&& AH,
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -473,7 +472,7 @@ void he2hb_trmm< Target::HostNest, std::complex<double> >(
     HermitianMatrix< std::complex<double> >&& AH,
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -482,7 +481,7 @@ void he2hb_trmm<Target::HostBatch, float>(
     HermitianMatrix<float>&& AH,
     Matrix<float>&& A,
     Matrix<float>&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -491,7 +490,7 @@ void he2hb_trmm<Target::HostBatch, double>(
     HermitianMatrix<double>&& AH,
     Matrix<double>&& A,
     Matrix<double>&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -500,7 +499,7 @@ void he2hb_trmm< Target::HostBatch, std::complex<float> >(
     HermitianMatrix< std::complex<float> >&& AH,
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -509,7 +508,7 @@ void he2hb_trmm< Target::HostBatch, std::complex<double> >(
     HermitianMatrix< std::complex<double> >&& AH,
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& B,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 } // namespace internal

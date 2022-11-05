@@ -17,7 +17,7 @@ namespace internal {
 /// B contains the local reflectors Vj from local QR factorization
 /// of a panel of A
 /// C is the output matrix contains the Wi = sum_j Aij Vj
-/// indices contains the local indices for panel_rank,
+/// panel_rank_rows contains the local row indices for panel_rank,
 /// where the panel_rank is B.tileRank( i, 0 ), i = 0:nt-1.
 /// Dispatches to target implementations.
 /// @ingroup he2hb_hemm_internal
@@ -27,11 +27,11 @@ void he2hb_hemm(
     HermitianMatrix<scalar_t>&& A,
     Matrix<scalar_t>&& B,
     Matrix<scalar_t>&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index)
 {
     he2hb_hemm( internal::TargetType<target>(),
-                A, B, C, indices, priority, queue_index );
+                A, B, C, panel_rank_rows, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -45,7 +45,7 @@ void he2hb_hemm(
     HermitianMatrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index)
 {
     int64_t nt = A.nt();
@@ -59,7 +59,7 @@ void he2hb_hemm(
         #pragma omp task shared( A, B, C )
         {
 
-            for (int64_t j : indices) {
+            for (int64_t j : panel_rank_rows) {
                 if (i >= j) { // lower or diagonal
                     if (A.tileIsLocal( i, j )) {
                         A.tileGetForReading( i, j, layout_conv );
@@ -108,7 +108,7 @@ void he2hb_hemm(
     HermitianMatrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& C,
-    std::vector<int64_t> indices,
+    std::vector<int64_t> panel_rank_rows,
     int priority, int64_t queue_index )
 {
     slate_not_implemented( "Target::HostNest isn't yet supported." );
@@ -125,7 +125,7 @@ void he2hb_hemm(
     HermitianMatrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& C,
-    std::vector<int64_t> indices,
+    std::vector<int64_t> panel_rank_rows,
     int priority, int64_t queue_index )
 {
     slate_not_implemented( "Target::HostBatch isn't yet supported." );
@@ -144,7 +144,7 @@ void he2hb_hemm(
     HermitianMatrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& C,
-    std::vector<int64_t> indices,
+    std::vector<int64_t> panel_rank_rows,
     int priority, int64_t queue_index )
 {
     int64_t nt = A.nt();
@@ -160,7 +160,7 @@ void he2hb_hemm(
         {
 
             std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
-            for (int64_t j : indices) {
+            for (int64_t j : panel_rank_rows) {
                 for (int64_t i = 0; i < nt; ++i) {
                     if (i >= j) { // lower or diagonal
                         if (A.tileIsLocal( i, j )) {
@@ -208,7 +208,7 @@ void he2hb_hemm(
             // to have one queue and then fork several streams
             //blas::Queue* queue = C.compute_queue( device, queue_index );
             //assert( queue != nullptr );
-            for (int64_t j : indices) {
+            for (int64_t j : panel_rank_rows) {
                 //queue->fork(); // to have multiple streams
                 for (int64_t i = 0; i < nt; ++i) {
                     // queue per iteration i
@@ -272,7 +272,7 @@ void he2hb_hemm(
                 queue->sync();
             }
 
-            for (int64_t j : indices) {
+            for (int64_t j : panel_rank_rows) {
                 for (int64_t i = 0; i < nt; ++i) {
                     if (i >= j) { // lower or diagonal
                         if (A.tileIsLocal( i, j )
@@ -314,7 +314,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
     HermitianMatrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& C,
-    std::vector<int64_t> indices,
+    std::vector<int64_t> panel_rank_rows,
     int priority, int64_t queue_index)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
@@ -346,7 +346,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
         #pragma omp task shared( A, B, C, err ) priority( priority )
         {
             std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
-            for (int64_t j : indices) {
+            for (int64_t j : panel_rank_rows) {
                 for (int64_t i = 0; i < nt; ++i) {
                     if (i >= j) { // lower or diagonal
                         if (A.tileIsLocal( i, j )) {
@@ -766,8 +766,8 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                         }
                     }
                 }
-            } // j:indices
-        } // pragma
+            } // j = panel_rank_rows
+        } // task
     } // device
 
     #pragma omp taskwait
@@ -786,7 +786,7 @@ void he2hb_hemm<Target::HostTask, float>(
     HermitianMatrix<float>&& A,
     Matrix<float>&& B,
     Matrix<float>&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -795,7 +795,7 @@ void he2hb_hemm<Target::HostTask, double>(
     HermitianMatrix<double>&& A,
     Matrix<double>&& B,
     Matrix<double>&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -804,7 +804,7 @@ void he2hb_hemm< Target::HostTask, std::complex<float> >(
     HermitianMatrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& B,
     Matrix< std::complex<float> >&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -813,7 +813,7 @@ void he2hb_hemm< Target::HostTask, std::complex<double> >(
     HermitianMatrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& B,
     Matrix< std::complex<double> >&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -822,7 +822,7 @@ void he2hb_hemm<Target::Devices, float>(
     HermitianMatrix<float>&& A,
     Matrix<float>&& B,
     Matrix<float>&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -831,7 +831,7 @@ void he2hb_hemm<Target::Devices, double>(
     HermitianMatrix<double>&& A,
     Matrix<double>&& B,
     Matrix<double>&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -840,7 +840,7 @@ void he2hb_hemm< Target::Devices, std::complex<float> >(
     HermitianMatrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& B,
     Matrix< std::complex<float> >&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -849,7 +849,7 @@ void he2hb_hemm< Target::Devices, std::complex<double> >(
     HermitianMatrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& B,
     Matrix< std::complex<double> >&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -858,7 +858,7 @@ void he2hb_hemm<Target::HostNest, float>(
     HermitianMatrix<float>&& A,
     Matrix<float>&& B,
     Matrix<float>&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -867,7 +867,7 @@ void he2hb_hemm<Target::HostNest, double>(
     HermitianMatrix<double>&& A,
     Matrix<double>&& B,
     Matrix<double>&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -876,7 +876,7 @@ void he2hb_hemm< Target::HostNest, std::complex<float> >(
     HermitianMatrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& B,
     Matrix< std::complex<float> >&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -885,7 +885,7 @@ void he2hb_hemm< Target::HostNest, std::complex<double> >(
     HermitianMatrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& B,
     Matrix< std::complex<double> >&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -894,7 +894,7 @@ void he2hb_hemm<Target::HostBatch, float>(
     HermitianMatrix<float>&& A,
     Matrix<float>&& B,
     Matrix<float>&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -903,7 +903,7 @@ void he2hb_hemm<Target::HostBatch, double>(
     HermitianMatrix<double>&& A,
     Matrix<double>&& B,
     Matrix<double>&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -912,7 +912,7 @@ void he2hb_hemm< Target::HostBatch, std::complex<float> >(
     HermitianMatrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& B,
     Matrix< std::complex<float> >&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -921,7 +921,7 @@ void he2hb_hemm< Target::HostBatch, std::complex<double> >(
     HermitianMatrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& B,
     Matrix< std::complex<double> >&& C,
-    std::vector<int64_t>& indices,
+    std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index);
 
 } // namespace internal

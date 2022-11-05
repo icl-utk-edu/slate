@@ -144,9 +144,6 @@ void he2hb(
                     }
                 }
             }
-            std::vector<int64_t> indices;
-            std::vector<int64_t> indices_local_panel;
-            int64_t i0;
 
             if (k == 0) {
                 #pragma omp task depend( inout:alloc_workspace[ 0 ] )
@@ -220,23 +217,24 @@ void he2hb(
                         Treduce.template listBcastMT( bcast_list_T, layout );
                     }
 
+                    std::vector<int64_t> panel_rank_rows;
                     for (int panel_rank : panel_ranks) {
-                        // Find local indices for panel_rank.
-                        indices.clear();
+                        // Find local row indices for panel_rank.
+                        panel_rank_rows.clear();
                         for (int64_t i = 0; i < A_panel.mt(); ++i) {
                             if (A_panel.tileRank( i, 0 ) == panel_rank) {
                                 // global index
-                                indices.push_back( i+k+1 );
+                                panel_rank_rows.push_back( i+k+1 );
                             }
                         }
-                        i0 = indices[ 0 ];
+                        int64_t i0 = panel_rank_rows[ 0 ];
 
                         // Send Tlocal across row i & col i for trailing matrix update
                         // todo: I think this sets Tlocal with too many lives
                         // -- needs only 1 life per rank, not # tiles.
                         //BcastList bcast_list_T;
                         BcastListTag bcast_list_T;
-                        for (int64_t i : indices) {
+                        for (int64_t i : panel_rank_rows) {
                             bcast_list_T.push_back(
                                 { i0, k, { Tlocal.sub( i, i, k+1, i ),
                                            Tlocal.sub( i+1, nt-1, i, i ) }, i } );
@@ -256,25 +254,24 @@ void he2hb(
                 }
 
                 if (target == Target::Devices) {
-                    std::vector<int64_t> indices_copy;
+                    std::vector<int64_t> panel_rank_rows;
                     auto  W_panel = W.sub( k+1, nt-1, k, k );
                     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
                     if (k < nt-1) {
                         for (int panel_rank : panel_ranks) {
-
-                            // Find local indices for panel_rank.
-                            indices_copy.clear();
+                            // Find local row indices for panel_rank.
+                            panel_rank_rows.clear();
                             for (int64_t i = 0; i < A_panel.mt(); ++i) {
                                 if (A_panel.tileRank( i, 0 ) == panel_rank) {
                                     // global index
-                                    indices_copy.push_back( i+k+1 );
+                                    panel_rank_rows.push_back( i+k+1 );
                                 }
                             }
                             for (int device = 0; device < W_panel.num_devices(); ++device) {
                                 #pragma omp task shared( A, W )
                                 {
                                     std::set<ij_tuple> A_tiles_set, A_panel_tiles_set, W_tiles_set;
-                                    for (int64_t j : indices_copy) {
+                                    for (int64_t j : panel_rank_rows) {
                                         for (int64_t i = k+1; i < nt; ++i) {
                                             if (i >= j) { // lower or diagonal
                                                 if (A.tileIsLocal( i, j )) {
@@ -315,21 +312,20 @@ void he2hb(
             //----------------------------------------
             // QR update trailing submatrix.
             if (k < nt-1) {
-
+                std::vector<int64_t> panel_rank_rows, panel_rank_rows_sub;
                 for (int panel_rank : panel_ranks) {
-                    // Find local indices for panel_rank.
-                    indices.clear();
-                    indices_local_panel.clear();
+                    // Find local row indices for panel_rank.
+                    panel_rank_rows.clear();
+                    panel_rank_rows_sub.clear();
                     for (int64_t i = 0; i < A_panel.mt(); ++i) {
                         if (A_panel.tileRank( i, 0 ) == panel_rank) {
                             // global index
-                            indices.push_back( i+k+1 );
-                            // local index: indeces within the panel,
-                            // to be used in the subsequent calls
-                            indices_local_panel.push_back( i );
+                            panel_rank_rows.push_back( i+k+1 );
+                            // index relative to panel sub-matrix.
+                            panel_rank_rows_sub.push_back( i );
                         }
                     }
-                    i0 = indices[ 0 ];
+                    int64_t i0 = panel_rank_rows[ 0 ];
 
                     #pragma omp task depend( inout:block[ k ] )
                     {
@@ -354,7 +350,7 @@ void he2hb(
                             A.sub( k+1, nt-1 ),
                             A.sub( k+1, nt-1, k, k ),
                             W.sub( k+1, nt-1, k, k ),
-                            indices_local_panel);
+                            panel_rank_rows_sub );
                     }
 
                     int rank_lower = -1;
@@ -368,8 +364,7 @@ void he2hb(
                         for (int64_t i = k+1; i < nt-1; ++i) {
                             #pragma omp task
                             {
-
-                                for (int64_t j : indices) {
+                                for (int64_t j : panel_rank_rows) {
                                     if (i >= j) { // lower
                                         rank_lower = A.tileRank( i, j );
                                     }
@@ -419,7 +414,7 @@ void he2hb(
                             A.sub( k+1, nt-1 ), // Needed to get the rank
                             Tlocal.sub( i0, i0, k, k ),
                             W.sub( k+1, nt-1, k, k ),
-                            indices_local_panel);
+                            panel_rank_rows_sub );
                     }
 
                     if (A.tileIsLocal( i0, i0 )) {
@@ -515,7 +510,7 @@ void he2hb(
                                 -one, A.sub( k+1, nt-1, k, k ),
                                       W.sub( k+1, nt-1, k, k ),
                                 one,  A.sub( k+1, nt-1 ),
-                                indices_local_panel, &block[ k+1 ] );
+                                panel_rank_rows_sub, &block[ k+1 ] );
                         }
                     }
 
@@ -568,22 +563,22 @@ void he2hb(
                             }
 
                             for (int panel_rank : panel_ranks) {
-                                // Find local indices for panel_rank.
-                                indices.clear();
+                                // Find local row indices for panel_rank.
+                                panel_rank_rows.clear();
                                 for (int64_t i = 0; i < A_panel.mt(); ++i) {
                                     if (A_panel.tileRank( i, 0 ) == panel_rank) {
                                         // global index
-                                        indices.push_back( i+k+1 );
+                                        panel_rank_rows.push_back( i+k+1 );
                                     }
                                 }
-                                i0 = indices[ 0 ];
-                                if (indices.size() > 0) {
-                                    for (int64_t row : indices) {
-                                        if (Tlocal.tileIsLocal( row, k )) {
-                                            //Tlocal.tileUpdateOrigin( row, k );
+                                if (panel_rank_rows.size() > 0) {
+                                    int64_t i0 = panel_rank_rows[ 0 ];
+                                    for (int64_t i : panel_rank_rows) {
+                                        if (Tlocal.tileIsLocal( i, k )) {
+                                            //Tlocal.tileUpdateOrigin( i, k );
 
                                             std::set<int> dev_set;
-                                            Tlocal.sub( row, row, k+1, nt-1 ).getLocalDevices( &dev_set );
+                                            Tlocal.sub( i, i, k+1, nt-1 ).getLocalDevices( &dev_set );
 
                                             for (auto device : dev_set) {
                                                 Tlocal.tileUnsetHold( i0, k, device );
@@ -591,7 +586,7 @@ void he2hb(
                                             }
 
                                             std::set<int> dev_set2;
-                                            Tlocal.sub( k+1, nt-1, row, row ).getLocalDevices( &dev_set );
+                                            Tlocal.sub( k+1, nt-1, i, i ).getLocalDevices( &dev_set );
 
                                             for (auto device : dev_set2) {
                                                 Tlocal.tileUnsetHold( i0, k, device );

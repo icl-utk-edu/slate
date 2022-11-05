@@ -94,6 +94,7 @@ void he2hb(
     W = slate::HermitianMatrix<scalar_t>(
             Uplo::Lower, n, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
 
+    // Since W( 0, 0 ) is otherwise unused, store TVAVT there.
     W.tileInsert(0, 0);
     auto TVAVT = W.sub(0, 0, 0, 0);
     int num_queues = 10;
@@ -438,19 +439,19 @@ void he2hb(
                         {
                             // 1b. TVAVT = V^H (A V T) = V^H W.
                             auto A_panelT = conjTranspose(A.sub(k+1, nt-1, k, k));
-                            W.tileGetForWriting(0, 0, slate::HostNum,
+                            TVAVT.tileGetForWriting(0, 0, slate::HostNum,
                                                 LayoutConvert(layout));
                             TVAVT(0, 0).set(zero);
                             internal::he2hb_gemm<target>(
                                 one,  std::move(A_panelT),
                                 W.sub(k+1, nt-1, k, k),
-                                zero, W.sub(0, 0, 0, 0),
+                                zero, std::move( TVAVT ),
                                 panel_rank,
                                 &block[0]);
 
                             // 1c. TVAVT = T^H (V^H A V T) = T^H W0.
-                            auto T0    = Tlocal.sub(i0, i0, k, k);
-                            auto TVAVT0  = W.sub(0, 0, 0, 0);
+                            auto T0     = Tlocal.sub(i0, i0, k, k);
+                            auto TVAVT0 = TVAVT;
 
                             int64_t mb = T0.tileMb(0);
                             int64_t nb = T0.tileNb(0);
@@ -474,7 +475,7 @@ void he2hb(
                             // 1d. W = W - 0.5 V TVAVT.
                             internal::he2hb_gemm<target>(
                                 -half, A.sub(k+1, nt-1, k, k),
-                                W.sub(0, 0, 0, 0),
+                                       std::move( TVAVT ),
                                 one,   W.sub(k+1, nt-1, k, k),
                                 panel_rank,
                                 &block[k+1]);

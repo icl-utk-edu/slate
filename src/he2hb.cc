@@ -10,10 +10,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::he2hb from internal::specialization::he2hb
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel reduction to band for 3-stage Hermitian eigenvalue
@@ -23,19 +20,20 @@ namespace specialization {
 ///
 /// ColMajor layout is assumed
 ///
-/// @ingroup heev_specialization
+/// @ingroup heev_impl
 ///
 template <Target target, typename scalar_t>
-void he2hb(slate::internal::TargetType<target>,
-           HermitianMatrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           int64_t ib, int max_panel_threads)
+void he2hb(
+    HermitianMatrix<scalar_t>& A,
+    TriangularFactors<scalar_t>& T,
+    Options const& opts )
 {
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
     using blas::real;
 
     assert(A.uplo() == Uplo::Lower);  // for now
 
+    // Constants
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -43,6 +41,13 @@ void he2hb(slate::internal::TargetType<target>,
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
     const scalar_t half = 0.5;
+
+    // Options
+    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
+
+    int64_t max_panel_threads = std::max( omp_get_max_threads()/2, 1 );
+    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
+                                             max_panel_threads );
 
     int64_t nt = A.nt();
 
@@ -609,28 +614,7 @@ void he2hb(slate::internal::TargetType<target>,
     W.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup heev_specialization
-///
-template <Target target, typename scalar_t>
-void he2hb(HermitianMatrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Options const& opts)
-{
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
-    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
-                        max_panel_threads );
-
-    internal::specialization::he2hb(internal::TargetType<target>(),
-                                    A, T,
-                                    ib, max_panel_threads);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel reduction to band for 3-stage SVD.
@@ -681,25 +665,29 @@ void he2hb(HermitianMatrix<scalar_t>& A,
 /// @ingroup heev_computational
 ///
 template <typename scalar_t>
-void he2hb(HermitianMatrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Options const& opts)
+void he2hb(
+    HermitianMatrix<scalar_t>& A,
+    TriangularFactors<scalar_t>& T,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            he2hb<Target::HostTask>(A, T, opts);
+            impl::he2hb<Target::HostTask>( A, T, opts );
             break;
+
         case Target::HostNest:
-            he2hb<Target::HostNest>(A, T, opts);
+            impl::he2hb<Target::HostNest>( A, T, opts );
             break;
+
         case Target::HostBatch:
-            he2hb<Target::HostBatch>(A, T, opts);
+            impl::he2hb<Target::HostBatch>( A, T, opts );
             break;
+
         case Target::Devices:
-            he2hb<Target::Devices>(A, T, opts);
+            impl::he2hb<Target::Devices>( A, T, opts );
             break;
     }
     // todo: return value for errors?

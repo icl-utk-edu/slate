@@ -57,7 +57,7 @@ void he2hb_hemm(internal::TargetType<Target::HostTask>,
         #pragma omp task shared(A, B, C)
         {
 
-            for (int64_t j: indices) {
+            for (int64_t j : indices) {
                 if (i >= j) { // lower or diagonal
                     if (A.tileIsLocal(i, j)) {
                         A.tileGetForReading(i, j, LayoutConvert(layout));
@@ -151,7 +151,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
         {
 
             std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
-            for (int64_t j: indices) {
+            for (int64_t j : indices) {
                 for (int64_t i = 0; i < nt; ++i) {
                     if (i >= j) { // lower or diagonal
                         if (A.tileIsLocal(i, j)) {
@@ -199,7 +199,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
             // to have one queue and then fork several streams
             //blas::Queue* queue = C.compute_queue(device, queue_index);
             //assert(queue != nullptr);
-            for (int64_t j: indices) {
+            for (int64_t j : indices) {
                 //queue->fork(); // to have multiple streams
                 for (int64_t i = 0; i < nt; ++i) {
                     // queue per iteration i
@@ -263,7 +263,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                 queue->sync();
             }
 
-            for (int64_t j: indices) {
+            for (int64_t j : indices) {
                 for (int64_t i = 0; i < nt; ++i) {
                     if (i >= j) { // lower or diagonal
                         if (A.tileIsLocal(i, j)
@@ -336,7 +336,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
         {
 
             std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
-            for (int64_t j: indices) {
+            for (int64_t j : indices) {
                 for (int64_t i = 0; i < nt; ++i) {
                     if (i >= j) { // lower or diagonal
                         if (A.tileIsLocal(i, j)) {

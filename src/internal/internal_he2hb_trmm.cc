@@ -61,7 +61,7 @@ void he2hb_trmm(internal::TargetType<Target::HostTask>,
         #pragma omp task shared(AH, B)
         {
 
-            for (int64_t j: indices) {
+            for (int64_t j : indices) {
                 if (i >= j) { // lower
                     rank_lower = AH.tileRank(i, j);
                 }
@@ -125,7 +125,7 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
             int rank_upper = -1;
 
             for (int64_t i = 0; i < B.mt(); ++i) {
-                for (int64_t j: indices) {
+                for (int64_t j : indices) {
                     if (i >= j) { // lower
                         rank_lower = AH.tileRank(i, j);
                     }
@@ -180,7 +180,7 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
                 rank_upper = -1;
 
                 for (int64_t i = 0; i < i_interior; ++i) {
-                    for (int64_t j: indices) {
+                    for (int64_t j : indices) {
                         if (i >= j) { // lower
                             rank_lower = AH.tileRank(i, j);
                         }
@@ -219,7 +219,7 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
                     int64_t i = B.mt()-1;
                     rank_lower = -1;
                     rank_upper = -1;
-                    for (int64_t j: indices) {
+                    for (int64_t j : indices) {
                         if (i >= j) { // lower
                             rank_lower = AH.tileRank(i, j);
                         }
@@ -302,7 +302,7 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
                 rank_lower = -1;
                 rank_upper = -1;
                 for (int64_t i = 0; i < B.mt(); ++i) {
-                    for (int64_t j: indices) {
+                    for (int64_t j : indices) {
                         if (i >= j) { // lower
                             rank_lower = AH.tileRank(i, j);
                         }

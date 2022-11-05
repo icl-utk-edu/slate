@@ -125,7 +125,7 @@ void he2hb(slate::internal::TargetType<target>,
             // will reside.
             std::vector< int64_t > first_indices;
             first_indices.reserve(panel_ranks.size());
-            for (int r: panel_ranks) {
+            for (int r : panel_ranks) {
                 for (int64_t i = 0; i < A_panel.mt(); ++i) {
                     if (A_panel.tileRank(i, 0) == r) {
                         first_indices.push_back(i+k+1);
@@ -211,7 +211,7 @@ void he2hb(slate::internal::TargetType<target>,
                         Treduce.template listBcastMT(bcast_list_T, layout);
                     }
 
-                    for (int panel_rank: panel_ranks) {
+                    for (int panel_rank : panel_ranks) {
                         // Find local indices for panel_rank.
                         indices.clear();
                         for (int64_t i = 0; i < A_panel.mt(); ++i) {
@@ -252,7 +252,7 @@ void he2hb(slate::internal::TargetType<target>,
                     auto  W_panel = W.sub(k+1, nt-1, k, k);
                     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
                     if (k < nt-1) {
-                        for (int panel_rank: panel_ranks) {
+                        for (int panel_rank : panel_ranks) {
 
                             // Find local indices for panel_rank.
                             indices_copy.clear();
@@ -266,7 +266,7 @@ void he2hb(slate::internal::TargetType<target>,
                                 #pragma omp task shared(A, W)
                                 {
                                     std::set<ij_tuple> A_tiles_set, A_panel_tiles_set, W_tiles_set;
-                                    for (int64_t j: indices_copy) {
+                                    for (int64_t j : indices_copy) {
                                         for (int64_t i = k+1; i < nt; ++i) {
                                             if (i >= j) { // lower or diagonal
                                                 if (A.tileIsLocal(i, j)) {
@@ -308,7 +308,7 @@ void he2hb(slate::internal::TargetType<target>,
             // QR update trailing submatrix.
             if (k < nt-1) {
 
-                for (int panel_rank: panel_ranks) {
+                for (int panel_rank : panel_ranks) {
                     // Find local indices for panel_rank.
                     indices.clear();
                     indices_local_panel.clear();
@@ -362,7 +362,7 @@ void he2hb(slate::internal::TargetType<target>,
                             #pragma omp task
                             {
 
-                                for (int64_t j: indices) {
+                                for (int64_t j : indices) {
                                     if (i >= j) { // lower
                                         rank_lower = A.tileRank(i, j);
                                     }
@@ -560,7 +560,7 @@ void he2hb(slate::internal::TargetType<target>,
                                 }
                             }
 
-                            for (int panel_rank: panel_ranks) {
+                            for (int panel_rank : panel_ranks) {
                                 // Find local indices for panel_rank.
                                 indices.clear();
                                 for (int64_t i = 0; i < A_panel.mt(); ++i) {

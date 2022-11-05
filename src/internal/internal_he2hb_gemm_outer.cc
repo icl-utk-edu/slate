@@ -53,7 +53,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostTask>,
     for (int64_t j = 0; j < nt; ++j) {
         #pragma omp task depend(inout:block[j]) \
                          depend(in:block[0])
-        for (int64_t i: indices) {
+        for (int64_t i : indices) {
             // todo: if HermitianMatrix returned conjTrans
             // tiles, could merge these two.
             if (i > j) {
@@ -129,7 +129,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
 
             std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
             for (int64_t j = 0; j < nt; ++j) {
-                for (int64_t i: indices) {
+                for (int64_t i : indices) {
                     if (i > j) {
                         if (C.tileIsLocal(i, j)
                             && device == C.tileDevice(i, j)) {
@@ -249,7 +249,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
             if (j_last == 1) {
                 //for (int64_t j = 0; j < nt; ++j) {
                 int64_t j = C.nt()-1;
-                //for (int64_t i: indices) {
+                //for (int64_t i : indices) {
                 for (int64_t i_ = 0; i_ < i_interior; ++i_) {
                     int64_t i = indices[i_];
                     if (i > j) {
@@ -448,7 +448,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
                 queue->sync();
             }
             for (int64_t j = 0; j < nt; ++j) {
-                for (int64_t i: indices) {
+                for (int64_t i : indices) {
                     if (i > j) {
                         if (C.tileIsLocal(i, j)
                             && device == C.tileDevice(i, j)) {

@@ -52,6 +52,7 @@ void he2hb_trmm(internal::TargetType<Target::HostTask>,
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const LayoutConvert layout_conv = LayoutConvert( layout );
 
     int rank_lower = -1;
     int rank_upper = -1;
@@ -78,7 +79,7 @@ void he2hb_trmm(internal::TargetType<Target::HostTask>,
                 int64_t nb = A0.tileNb(0);
                 bool trapezoid = (mb < nb);
 
-                B.tileGetForWriting(i, 0, LayoutConvert(layout));
+                B.tileGetForWriting( i, 0, layout_conv );
                 if (trapezoid) {
                     auto B00 = Bi(0, 0);
                     int64_t mb1 = B00.mb();
@@ -116,6 +117,7 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const LayoutConvert layout_conv = LayoutConvert( layout );
 
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared(AH, B) priority(priority)
@@ -153,8 +155,8 @@ void he2hb_trmm(internal::TargetType<Target::Devices>,
             if (batch_size > 0) {
 
                 auto A0 = A.sub(0, 0, 0, 0);
-                A0.tileGetForReading(0, 0, device, LayoutConvert(layout));
-                B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
+                A0.tileGetForReading( 0, 0, device, layout_conv );
+                B.tileGetForWriting( B_tiles_set, device, layout_conv );
 
                 // interior
                 std::vector<scalar_t*> b_array0;

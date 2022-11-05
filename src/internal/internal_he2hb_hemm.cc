@@ -52,6 +52,7 @@ void he2hb_hemm(internal::TargetType<Target::HostTask>,
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const LayoutConvert layout_conv = LayoutConvert( layout );
 
     for (int64_t i = 0; i < nt; ++i) {
         #pragma omp task shared(A, B, C)
@@ -60,9 +61,9 @@ void he2hb_hemm(internal::TargetType<Target::HostTask>,
             for (int64_t j : indices) {
                 if (i >= j) { // lower or diagonal
                     if (A.tileIsLocal(i, j)) {
-                        A.tileGetForReading(i, j, LayoutConvert(layout));
-                        B.tileGetForReading(j, 0, LayoutConvert(layout));
-                        C.tileGetForWriting(i, 0, LayoutConvert(layout));
+                        A.tileGetForReading( i, j, layout_conv );
+                        B.tileGetForReading( j, 0, layout_conv );
+                        C.tileGetForWriting( i, 0, layout_conv );
                         if (i == j) {
                             tile::hemm(Side::Left, one, A(i, j), B(j, 0),
                                  one, C(i, 0));
@@ -78,9 +79,9 @@ void he2hb_hemm(internal::TargetType<Target::HostTask>,
                 }
                 else { // upper
                     if (A.tileIsLocal(j, i)) {
-                        A.tileGetForReading(j, i, LayoutConvert(layout));
-                        B.tileGetForReading(j, 0, LayoutConvert(layout));
-                        C.tileGetForWriting(i, 0, LayoutConvert(layout));
+                        A.tileGetForReading( j, i, layout_conv );
+                        B.tileGetForReading( j, 0, layout_conv );
+                        C.tileGetForWriting( i, 0, layout_conv );
                         tile::gemm(one, conjTranspose(A(j, i)), B(j, 0),
                              one, C(i, 0));
                         A.tileTick(j, i);
@@ -145,6 +146,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const LayoutConvert layout_conv = LayoutConvert( layout );
 
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task shared(A, B, C) priority(priority)
@@ -175,15 +177,15 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
 
                 #pragma omp task default(shared)
                 {
-                    A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                    A.tileGetForReading( A_tiles_set, device, layout_conv );
                 }
                 #pragma omp task default(shared)
                 {
-                    B.tileGetForReading(B_tiles_set, device, LayoutConvert(layout));
+                    B.tileGetForReading( B_tiles_set, device, layout_conv );
                 }
                 #pragma omp task default(shared)
                 {
-                    C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
+                    C.tileGetForWriting( C_tiles_set, device, layout_conv );
                 }
                 #pragma omp taskwait
             }
@@ -313,6 +315,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const LayoutConvert layout_conv = LayoutConvert( layout );
 
     assert(C.num_devices() > 0);
     scalar_t alpha = 1.;
@@ -360,15 +363,15 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
 
                 #pragma omp task default(shared)
                 {
-                    A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                    A.tileGetForReading( A_tiles_set, device, layout_conv );
                 }
                 #pragma omp task default(shared)
                 {
-                    B.tileGetForReading(B_tiles_set, device, LayoutConvert(layout));
+                    B.tileGetForReading( B_tiles_set, device, layout_conv );
                 }
                 #pragma omp task default(shared)
                 {
-                    C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
+                    C.tileGetForWriting( C_tiles_set, device, layout_conv );
                 }
                 #pragma omp taskwait
 

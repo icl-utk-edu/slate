@@ -49,15 +49,16 @@ void he2hb_gemm(internal::TargetType<Target::HostTask>,
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const LayoutConvert layout_conv = LayoutConvert( layout );
 
     for (int64_t k = 0; k < B.mt(); ++k) {
         #pragma omp task depend(inout:block[0])
         for (int64_t i = 0; i < A.mt(); ++i) {
             if (A.tileRank(i, k) == panel_rank) {
                 {
-                    A.tileGetForReading(i, k, LayoutConvert(layout));
-                    B.tileGetForReading(k, 0, LayoutConvert(layout));
-                    C.tileGetForWriting(i, 0, LayoutConvert(layout));
+                    A.tileGetForReading( i, k, layout_conv );
+                    B.tileGetForReading( k, 0, layout_conv );
+                    C.tileGetForWriting( i, 0, layout_conv );
                     tile::gemm(alpha, A(i, k), B(k, 0),
                          beta, C(i, 0));
                     A.tileTick(i, k);
@@ -85,6 +86,7 @@ void he2hb_gemm(internal::TargetType<Target::Devices>,
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const LayoutConvert layout_conv = LayoutConvert( layout );
 
     using blas::conj;
     using std::swap;
@@ -117,15 +119,15 @@ void he2hb_gemm(internal::TargetType<Target::Devices>,
                 }
                 #pragma omp task default(shared)
                 {
-                    A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                    A.tileGetForReading( A_tiles_set, device, layout_conv );
                 }
                 #pragma omp task default(shared)
                 {
-                    B.tileGetForReading(B_tiles_set, device, LayoutConvert(layout));
+                    B.tileGetForReading( B_tiles_set, device, layout_conv );
                 }
                 #pragma omp task default(shared)
                 {
-                    C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
+                    C.tileGetForWriting( C_tiles_set, device, layout_conv );
                 }
                 #pragma omp taskwait
 

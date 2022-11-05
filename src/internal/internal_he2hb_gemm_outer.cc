@@ -47,6 +47,8 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostTask>,
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const LayoutConvert layout_conv = LayoutConvert( layout );
+
     int64_t nt = C.nt();
 
     // try to loop over one tile and do two gemm, similar to her2k
@@ -58,9 +60,9 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostTask>,
             // tiles, could merge these two.
             if (i > j) {
                 if (C.tileIsLocal(i, j)) {
-                    A.tileGetForReading(i, 0, LayoutConvert(layout));
-                    B.tileGetForReading(j, 0, LayoutConvert(layout));
-                    C.tileGetForWriting(i, j, LayoutConvert(layout));
+                    A.tileGetForReading( i, 0, layout_conv );
+                    B.tileGetForReading( j, 0, layout_conv );
+                    C.tileGetForWriting( i, j, layout_conv );
                     // Aij -= Vik Wjk^H
                     tile::gemm(alpha, A(i, 0), conjTranspose(B(j, 0)),
                          beta, C(i, j));
@@ -70,9 +72,9 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostTask>,
             }
             else if (i < j) {
                 if (C.tileIsLocal(j, i)) {
-                    B.tileGetForReading(j, 0, LayoutConvert(layout));
-                    A.tileGetForReading(i, 0, LayoutConvert(layout));
-                    C.tileGetForWriting(j, i, LayoutConvert(layout));
+                    B.tileGetForReading( j, 0, layout_conv );
+                    A.tileGetForReading( i, 0, layout_conv );
+                    C.tileGetForWriting( j, i, layout_conv );
                     // Aji -= Wjk Vik^H
                     tile::gemm(alpha, B(j, 0), conjTranspose(A(i, 0)),
                          beta, C(j, i));
@@ -106,6 +108,8 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const LayoutConvert layout_conv = LayoutConvert( layout );
+
     int64_t nt = C.nt();
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
@@ -173,15 +177,15 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
 
             #pragma omp task default(shared)
             {
-                A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                A.tileGetForReading( A_tiles_set, device, layout_conv );
             }
             #pragma omp task default(shared)
             {
-                B.tileGetForReading(B_tiles_set, device, LayoutConvert(layout));
+                B.tileGetForReading( B_tiles_set, device, layout_conv );
             }
             #pragma omp task default(shared)
             {
-                C.tileGetForWriting(C_tiles_set, device, LayoutConvert(layout));
+                C.tileGetForWriting( C_tiles_set, device, layout_conv );
             }
             #pragma omp taskwait
 

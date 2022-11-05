@@ -36,6 +36,7 @@ void he2hb(
     // Constants
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const LayoutConvert layout_conv = LayoutConvert( layout );
 
     const int priority_one = 1;
     const scalar_t zero = 0.0;
@@ -295,11 +296,11 @@ void he2hb(
 
                                         #pragma omp task default(shared)
                                         {
-                                            A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
+                                            A.tileGetForReading( A_tiles_set, device, layout_conv );
                                         }
                                         #pragma omp task default(shared)
                                         {
-                                            W.tileGetForWriting(W_tiles_set, device, LayoutConvert(layout));
+                                            W.tileGetForWriting( W_tiles_set, device, layout_conv );
                                         }
                                         #pragma omp taskwait
                                     }
@@ -333,8 +334,7 @@ void he2hb(
                     #pragma omp task depend(inout:block[k])
                     {
                         if (A.tileExists(i0, k)) {
-                            A.tileGetForWriting(i0, k, slate::HostNum,
-                                                LayoutConvert(layout));
+                            A.tileGetForWriting( i0, k, HostNum, layout_conv );
                             // Save V0 and set upper(V0) to identity, to avoid trmm's.
                             Asave.tileInsert(i0, k);
                             auto Aik = A(i0, k);
@@ -387,14 +387,14 @@ void he2hb(
                                     int tag_i = i;
                                     int tag_i_ = i+1;
                                     if (neighbor < my_rank) {
-                                        W.tileGetForWriting(i, k, slate::HostNum,
-                                                            LayoutConvert(layout));
+                                        W.tileGetForWriting( i, k, HostNum,
+                                                             layout_conv );
                                         W   .tileSend(i, k, neighbor, tag_i);
                                         Wtmp.tileRecv(i, k, neighbor, layout, tag_i_);
                                     }
                                     else {
-                                        W.tileGetForWriting(i, k, slate::HostNum,
-                                                            LayoutConvert(layout));
+                                        W.tileGetForWriting( i, k, HostNum,
+                                                             layout_conv );
                                         Wtmp.tileRecv(i, k, neighbor, layout, tag_i);
                                         W   .tileSend(i, k, neighbor, tag_i_);
                                     }
@@ -439,8 +439,7 @@ void he2hb(
                         {
                             // 1b. TVAVT = V^H (A V T) = V^H W.
                             auto A_panelT = conjTranspose(A.sub(k+1, nt-1, k, k));
-                            TVAVT.tileGetForWriting(0, 0, slate::HostNum,
-                                                LayoutConvert(layout));
+                            TVAVT.tileGetForWriting( 0, 0, HostNum, layout_conv );
                             TVAVT(0, 0).set(zero);
                             internal::he2hb_gemm<target>(
                                 one,  std::move(A_panelT),
@@ -464,10 +463,8 @@ void he2hb(
 
                             auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper,
                                                                   Diag::NonUnit, T0);
-                            Tk0.tileGetForReading(0, 0, slate::HostNum,
-                                                  LayoutConvert(layout));
-                            TVAVT0.tileGetForWriting(0, 0, slate::HostNum,
-                                                     LayoutConvert(layout));
+                            Tk0.tileGetForReading( 0, 0, HostNum, layout_conv );
+                            TVAVT0.tileGetForWriting( 0, 0, HostNum, layout_conv );
                             tile::trmm(Side::Left, Diag::NonUnit,
                                  one, conjTranspose(Tk0(0, 0)),
                                  std::move(TVAVT0(0, 0)));
@@ -525,7 +522,7 @@ void he2hb(
                             // Restore V0.
                             #pragma omp task
                             {
-                                A.tileGetForWriting(i0, k, slate::LayoutConvert::ColMajor);
+                                A.tileGetForWriting( i0, k, layout_conv );
                                 tile::gecopy(Asave(i0, k), A(i0, k));
                                 Asave.tileErase(i0, k);
                             }

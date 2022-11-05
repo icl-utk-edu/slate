@@ -58,13 +58,13 @@ void he2hb_trmm(
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layout_conv = LayoutConvert( layout );
 
-    int rank_lower = -1;
-    int rank_upper = -1;
     auto A0 = A.sub( 0, 0, 0, 0 );
 
     for (int64_t i = 0; i < B.mt(); ++i) {
         #pragma omp task shared( AH, B )
         {
+            int rank_lower = -1;
+            int rank_upper = -1;
             for (int64_t j : panel_rank_rows) {
                 if (i >= j) { // lower
                     rank_lower = AH.tileRank( i, j );

@@ -365,9 +365,6 @@ void he2hb(
                             panel_rank_rows_sub );
                     }
 
-                    int rank_lower = -1;
-                    int rank_upper = -1;
-
                     // 1b. Wi = Wi_part1 + Wi_part2.
                     // At most 2 ranks contribute to each Wi; if I am one,
                     // exchange partial sum with neighbor and both ranks sum Wi.
@@ -379,6 +376,8 @@ void he2hb(
                         for (int64_t i = k+1; i < nt-1; ++i) {
                             #pragma omp task
                             {
+                                int rank_lower = -1;
+                                int rank_upper = -1;
                                 for (int64_t j : panel_rank_rows) {
                                     if (i >= j) { // lower
                                         rank_lower = A.tileRank( i, j );

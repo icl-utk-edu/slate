@@ -395,18 +395,18 @@ void he2hb(
                                 if (neighbor != -1 && neighbor != my_rank) {
                                     Wtmp.tileInsert( i, k );
                                     int tag_i = i;
-                                    int tag_i_ = i+1;
+                                    int tag_i1 = i+1;
                                     if (neighbor < my_rank) {
                                         W.tileGetForWriting( i, k, HostNum,
                                                              layout_conv );
                                         W   .tileSend( i, k, neighbor, tag_i );
-                                        Wtmp.tileRecv( i, k, neighbor, layout, tag_i_ );
+                                        Wtmp.tileRecv( i, k, neighbor, layout, tag_i1 );
                                     }
                                     else {
                                         W.tileGetForWriting( i, k, HostNum,
                                                              layout_conv );
                                         Wtmp.tileRecv( i, k, neighbor, layout, tag_i );
-                                        W   .tileSend( i, k, neighbor, tag_i_ );
+                                        W   .tileSend( i, k, neighbor, tag_i1 );
                                     }
                                     auto Wtmp_ik = Wtmp( i, k );
                                     auto W_ik = W( i, k );

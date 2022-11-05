@@ -29,6 +29,7 @@ void he2hb(
     Options const& opts )
 {
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
@@ -176,13 +177,13 @@ void he2hb(
                     std::move( Treduce_panel ) );
             }
 
-            //--------------------
-            // Bcast V, Treduce, Tlocal.
-            #pragma omp task depend( in:block[ k ] ) \
-                             depend( in:alloc_workspace[ 0 ] )
-            {
-                // if a trailing matrix exists.
-                if (k < nt-1) {
+            // if trailing matrix exists.
+            if (k < nt-1) {
+                //--------------------
+                // Bcast V, Treduce, Tlocal.
+                #pragma omp task depend( in:block[ k ] ) \
+                                 depend( in:alloc_workspace[ 0 ] )
+                {
                     // Send V across row i & col i for trailing matrix update.
                     BcastListTag bcast_list_V_first;
                     BcastListTag bcast_list_V;
@@ -244,27 +245,24 @@ void he2hb(
                         }
                         Tlocal.template listBcastMT<target>( bcast_list_T, layout, 1, set_hold );
                     }
-                }
-            }
+                } // task
 
-            //--------------------
-            // Computation and data movement overlap:
-            // fetch data to be used in he2hb_hemm
-            #pragma omp task depend( in:alloc_workspace[ 0 ] ) \
-                             depend( inout:alloc_trailing[ 0 ] )
-            {
-                // todo: insert and set on device?
-                // todo: do we need entire column, or subset?
-                for (int64_t i = k+1; i < nt; ++i) {
-                    W.tileInsert( i, k );
-                    W( i, k ).set( zero );
-                }
+                //--------------------
+                // Computation and data movement overlap:
+                // fetch data to be used in he2hb_hemm
+                #pragma omp task depend( in:alloc_workspace[ 0 ] ) \
+                                 depend( inout:alloc_trailing[ 0 ] )
+                {
+                    // todo: insert and set on device?
+                    // todo: do we need entire column, or subset?
+                    for (int64_t i = k+1; i < nt; ++i) {
+                        W.tileInsert( i, k );
+                        W( i, k ).set( zero );
+                    }
 
-                if (target == Target::Devices) {
-                    std::vector<int64_t> panel_rank_rows;
-                    auto  W_panel = W.sub( k+1, nt-1, k, k );
-                    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
-                    if (k < nt-1) {
+                    if (target == Target::Devices) {
+                        std::vector<int64_t> panel_rank_rows;
+                        auto  W_panel = W.sub( k+1, nt-1, k, k );
                         for (int panel_rank : panel_ranks) {
                             // Find local row indices for panel_rank.
                             panel_rank_rows.clear();
@@ -311,17 +309,15 @@ void he2hb(
                                         }
                                         #pragma omp taskwait
                                     }
-                                }
-                            }
-                        }
-                    }
-                }
-                #pragma omp taskwait
-            }
+                                } // task
+                            } // for device
+                        } // for panel_rank
+                    } // if devices
+                    #pragma omp taskwait
+                } // task
 
-            //----------------------------------------
-            // QR update trailing submatrix.
-            if (k < nt-1) {
+                //----------------------------------------
+                // QR update trailing submatrix.
                 std::vector<int64_t> panel_rank_rows, panel_rank_rows_sub;
                 for (int panel_rank : panel_ranks) {
                     // Find local row indices for panel_rank.

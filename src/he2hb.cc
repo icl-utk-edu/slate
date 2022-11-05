@@ -31,7 +31,7 @@ void he2hb(
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
     using blas::real;
 
-    assert(A.uplo() == Uplo::Lower);  // for now
+    assert( A.uplo() == Uplo::Lower );  // for now
 
     // Constants
     // Assumes column major
@@ -57,7 +57,7 @@ void he2hb(
     T.clear();
     auto empty = A.emptyLike();
     auto Tlocal = Matrix<scalar_t>( empty, 0, nt-1, 0, nt-1 );
-    auto Treduce = Tlocal.emptyLike(ib, 0);
+    auto Treduce = Tlocal.emptyLike( ib, 0 );
     T.push_back( Tlocal );
     T.push_back( Treduce );
 
@@ -68,7 +68,7 @@ void he2hb(
 
     slate::HermitianMatrix<scalar_t> W;
     int64_t n = A.n();
-    int64_t nb_A = A.tileNb(0);
+    int64_t nb_A = A.tileNb( 0 );
     GridOrder grid_order;
     int nprow, npcol, myrow, mycol;
     // For the workspace matrix (W) change the GPU distribution to row cyclic,
@@ -77,37 +77,42 @@ void he2hb(
     // which will improve the performance.
     A.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
     assert( grid_order == GridOrder::Col );  // todo: update for Row
-    std::function<int64_t (int64_t j)> tileNb = [n, nb_A] (int64_t j) {
-        return (j + 1)*nb_A > n ? n%nb_A : nb_A;
-    };
+
+    std::function<int64_t (int64_t j)>
+        tileNb = [n, nb_A] (int64_t j) {
+            return (j + 1)*nb_A > n ? n%nb_A : nb_A;
+        };
+
     std::function<int (std::tuple<int64_t, int64_t> ij)>
-    tileRank = [nprow, npcol](std::tuple<int64_t, int64_t> ij) {
-        int64_t i = std::get<0>(ij);
-        int64_t j = std::get<1>(ij);
-        return int(i%nprow + (j%npcol)*nprow);
-    };
+        tileRank = [nprow, npcol]( std::tuple<int64_t, int64_t> ij ) {
+            int64_t i = std::get<0>( ij );
+            int64_t j = std::get<1>( ij );
+            return int( i%nprow + (j%npcol)*nprow );
+        };
+
     int num_devices = blas::get_device_count();
     std::function<int (std::tuple<int64_t, int64_t> ij)>
-    tileDevice = [nprow, num_devices](std::tuple<int64_t, int64_t> ij) {
-        int64_t i = std::get<0>(ij);
-        return int(i/nprow)%num_devices;
-    };
+        tileDevice = [nprow, num_devices]( std::tuple<int64_t, int64_t> ij ) {
+            int64_t i = std::get<0>( ij );
+            return int( i/nprow )%num_devices;
+        };
+
     W = slate::HermitianMatrix<scalar_t>(
-            Uplo::Lower, n, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
+            Uplo::Lower, n, tileNb, tileRank, tileDevice, MPI_COMM_WORLD );
 
     // Since W( 0, 0 ) is otherwise unused, store TVAVT there.
-    W.tileInsert(0, 0);
-    auto TVAVT = W.sub(0, 0, 0, 0);
+    W.tileInsert( 0, 0 );
+    auto TVAVT = W.sub( 0, 0, 0, 0 );
     int num_queues = 10;
 
     int my_rank = A.mpiRank();
 
     // tracks dependencies by block-column.
-    std::vector< uint8_t > block_vector(nt);
+    std::vector< uint8_t > block_vector( nt );
     uint8_t* block = block_vector.data();
-    std::vector< uint8_t > alloc_workspace_vector(1);
+    std::vector< uint8_t > alloc_workspace_vector( 1 );
     uint8_t* alloc_workspace = alloc_workspace_vector.data();
-    std::vector< uint8_t > alloc_trailing_vector(1);
+    std::vector< uint8_t > alloc_trailing_vector( 1 );
     uint8_t* alloc_trailing = alloc_trailing_vector.data();
 
     // set min number for omp nested active parallel regions
@@ -119,24 +124,24 @@ void he2hb(
         for (int64_t k = 0; k < nt-1; ++k) {
             //----------------------------------------
             // Q panel and update.
-            auto       A_panel =       A.sub(k+1, nt-1, k, k);
-            auto  Tlocal_panel =  Tlocal.sub(k+1, nt-1, k, k);
-            auto Treduce_panel = Treduce.sub(k+1, nt-1, k, k);
+            auto       A_panel =       A.sub( k+1, nt-1, k, k );
+            auto  Tlocal_panel =  Tlocal.sub( k+1, nt-1, k, k );
+            auto Treduce_panel = Treduce.sub( k+1, nt-1, k, k );
 
             // Find ranks in this column.
             std::set<int> panel_ranks;
-            A_panel.getRanks(&panel_ranks);
-            assert(panel_ranks.size() > 0);
+            A_panel.getRanks( &panel_ranks );
+            assert( panel_ranks.size() > 0 );
 
             // Find each rank's first (top-most) row in this panel,
             // where the triangular tile resulting from local geqrf panel
             // will reside.
             std::vector< int64_t > first_indices;
-            first_indices.reserve(panel_ranks.size());
+            first_indices.reserve( panel_ranks.size() );
             for (int r : panel_ranks) {
                 for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                    if (A_panel.tileRank(i, 0) == r) {
-                        first_indices.push_back(i+k+1);
+                    if (A_panel.tileRank( i, 0 ) == r) {
+                        first_indices.push_back( i+k+1 );
                         break;
                     }
                 }
@@ -146,12 +151,12 @@ void he2hb(
             int64_t i0;
 
             if (k == 0) {
-                #pragma omp task depend(inout:alloc_workspace[0])
+                #pragma omp task depend( inout:alloc_workspace[ 0 ] )
                 {
                     if (target == Target::Devices) {
                         A.allocateBatchArrays();
                         A.reserveDeviceWorkspace();
-                        W.allocateBatchArrays(0, num_queues);
+                        W.allocateBatchArrays( 0, num_queues );
                         W.reserveDeviceWorkspace();
                     }
                 }
@@ -160,22 +165,22 @@ void he2hb(
             //--------------------
             // QR of panel
             // local panel factorization
-            #pragma omp task depend(inout:block[k])
+            #pragma omp task depend( inout:block[ k ] )
             {
                 internal::geqrf<Target::HostTask>(
-                    std::move(A_panel),
-                    std::move(Tlocal_panel),
+                    std::move( A_panel ),
+                    std::move( Tlocal_panel ),
                     ib, max_panel_threads, priority_one);
 
                 // triangle-triangle reductions
                 // ttqrt handles tile transfers internally
                 internal::ttqrt<Target::HostTask>(
-                    std::move(A_panel),
-                    std::move(Treduce_panel));
+                    std::move( A_panel ),
+                    std::move( Treduce_panel ) );
             }
 
-            #pragma omp task depend(in:block[k]) \
-                             depend(in:alloc_workspace[0])
+            #pragma omp task depend( in:block[ k ] ) \
+                             depend( in:alloc_workspace[ 0 ] )
             {
                 // if a trailing matrix exists.
                 if (k < nt-1) {
@@ -187,21 +192,19 @@ void he2hb(
                         // Vs need 6 lives.
                         // Vs in first_indices (except top-most one, i == k+1)
                         // need 3 lives: for her2k, gemm_outer, and for hettmqr.
-                        if (i > k+1 && std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end()) {
+                        if (i > k+1 && std::find( first_indices.begin(), first_indices.end(), i ) != first_indices.end()) {
                             bcast_list_V_first.push_back(
-                                {i, k, {A.sub(i, i, k+1, i),
-                                        A.sub(i+1, nt-1, i, i)},
-                                        i});
+                                { i, k, { A.sub( i, i, k+1, i ),
+                                          A.sub( i+1, nt-1, i, i ) }, i } );
                         }
                         else {
                             bcast_list_V.push_back(
-                                {i, k, {A.sub(i, i, k+1, i),
-                                        A.sub(i+1, nt-1, i, i)},
-                                        i});
+                                { i, k, { A.sub( i, i, k+1, i ),
+                                          A.sub( i+1, nt-1, i, i ) }, i } );
                         }
                     }
-                    A.template listBcastMT<target>(bcast_list_V_first, layout, 5, set_hold);
-                    A.template listBcastMT<target>(bcast_list_V, layout, 6, set_hold);
+                    A.template listBcastMT<target>( bcast_list_V_first, layout, 5, set_hold );
+                    A.template listBcastMT<target>( bcast_list_V, layout, 6, set_hold );
 
                     if (first_indices.size() > 1) {
                         //BcastList bcast_list_T;
@@ -211,24 +214,24 @@ void he2hb(
                             // which doesn't have Treduce tile.
                             if (i > k+1) {
                                 bcast_list_T.push_back(
-                                    {i, k, {Treduce.sub(i, i, k+1, i),
-                                            Treduce.sub(i+1, nt-1, i, i)},
-                                            i});
+                                    { i, k, { Treduce.sub( i, i, k+1, i ),
+                                              Treduce.sub( i+1, nt-1, i, i ) },
+                                      i } );
                             }
                         }
-                        Treduce.template listBcastMT(bcast_list_T, layout);
+                        Treduce.template listBcastMT( bcast_list_T, layout );
                     }
 
                     for (int panel_rank : panel_ranks) {
                         // Find local indices for panel_rank.
                         indices.clear();
                         for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                            if (A_panel.tileRank(i, 0) == panel_rank) {
+                            if (A_panel.tileRank( i, 0 ) == panel_rank) {
                                 // global index
-                                indices.push_back(i+k+1);
+                                indices.push_back( i+k+1 );
                             }
                         }
-                        i0 = indices[0];
+                        i0 = indices[ 0 ];
 
                         // Send Tlocal across row i & col i for trailing matrix update
                         // todo: I think this sets Tlocal with too many lives
@@ -237,27 +240,26 @@ void he2hb(
                         BcastListTag bcast_list_T;
                         for (int64_t i : indices) {
                             bcast_list_T.push_back(
-                                {i0, k, {Tlocal.sub(i, i, k+1, i),
-                                        Tlocal.sub(i+1, nt-1, i, i)},
-                                        i});
+                                { i0, k, { Tlocal.sub( i, i, k+1, i ),
+                                           Tlocal.sub( i+1, nt-1, i, i ) }, i } );
                         }
-                        Tlocal.template listBcastMT<target>(bcast_list_T, layout, 1, set_hold);
+                        Tlocal.template listBcastMT<target>( bcast_list_T, layout, 1, set_hold );
                     }
                 }
             }
             // computation and data-movement overlap: Fetching data to be used in he2hb_hemm
-            #pragma omp task depend(in:alloc_workspace[0]) \
-                             depend(inout:alloc_trailing[0])
+            #pragma omp task depend( in:alloc_workspace[ 0 ] ) \
+                             depend( inout:alloc_trailing[ 0 ] )
             {
 
                 for (int64_t i = k+1; i < nt; ++i) {
-                    W.tileInsert(i, k);
-                    W(i, k).set(zero);
+                    W.tileInsert( i, k );
+                    W( i, k ).set( zero );
                 }
 
                 if (target == Target::Devices) {
                     std::vector<int64_t> indices_copy;
-                    auto  W_panel = W.sub(k+1, nt-1, k, k);
+                    auto  W_panel = W.sub( k+1, nt-1, k, k );
                     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
                     if (k < nt-1) {
                         for (int panel_rank : panel_ranks) {
@@ -265,40 +267,40 @@ void he2hb(
                             // Find local indices for panel_rank.
                             indices_copy.clear();
                             for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                                if (A_panel.tileRank(i, 0) == panel_rank) {
+                                if (A_panel.tileRank( i, 0 ) == panel_rank) {
                                     // global index
-                                    indices_copy.push_back(i+k+1);
+                                    indices_copy.push_back( i+k+1 );
                                 }
                             }
                             for (int device = 0; device < W_panel.num_devices(); ++device) {
-                                #pragma omp task shared(A, W)
+                                #pragma omp task shared( A, W )
                                 {
                                     std::set<ij_tuple> A_tiles_set, A_panel_tiles_set, W_tiles_set;
                                     for (int64_t j : indices_copy) {
                                         for (int64_t i = k+1; i < nt; ++i) {
                                             if (i >= j) { // lower or diagonal
-                                                if (A.tileIsLocal(i, j)) {
-                                                    if (device == W.tileDevice(i, k)) {
-                                                        A_tiles_set.insert({i, j});
-                                                        W_tiles_set.insert({i, k});
+                                                if (A.tileIsLocal( i, j )) {
+                                                    if (device == W.tileDevice( i, k )) {
+                                                        A_tiles_set.insert( { i, j } );
+                                                        W_tiles_set.insert( { i, k } );
                                                     }
                                                 }
                                             }
                                             else { // upper
-                                                if (A.tileIsLocal(j, i)) {
-                                                    if (device == W.tileDevice(i, k)) {
-                                                        A_tiles_set.insert({j, i});
-                                                        W_tiles_set.insert({i, k});
+                                                if (A.tileIsLocal( j, i )) {
+                                                    if (device == W.tileDevice( i, k )) {
+                                                        A_tiles_set.insert( { j, i } );
+                                                        W_tiles_set.insert( { i, k } );
                                                     }
                                                 }
                                             }
                                         }
 
-                                        #pragma omp task default(shared)
+                                        #pragma omp task default( shared )
                                         {
                                             A.tileGetForReading( A_tiles_set, device, layout_conv );
                                         }
-                                        #pragma omp task default(shared)
+                                        #pragma omp task default( shared )
                                         {
                                             W.tileGetForWriting( W_tiles_set, device, layout_conv );
                                         }
@@ -321,39 +323,39 @@ void he2hb(
                     indices.clear();
                     indices_local_panel.clear();
                     for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                        if (A_panel.tileRank(i, 0) == panel_rank) {
+                        if (A_panel.tileRank( i, 0 ) == panel_rank) {
                             // global index
-                            indices.push_back(i+k+1);
+                            indices.push_back( i+k+1 );
                             // local index: indeces within the panel,
                             // to be used in the subsequent calls
-                            indices_local_panel.push_back(i);
+                            indices_local_panel.push_back( i );
                         }
                     }
-                    i0 = indices[0];
+                    i0 = indices[ 0 ];
 
-                    #pragma omp task depend(inout:block[k])
+                    #pragma omp task depend( inout:block[ k ] )
                     {
-                        if (A.tileExists(i0, k)) {
+                        if (A.tileExists( i0, k )) {
                             A.tileGetForWriting( i0, k, HostNum, layout_conv );
                             // Save V0 and set upper(V0) to identity, to avoid trmm's.
-                            Asave.tileInsert(i0, k);
-                            auto Aik = A(i0, k);
-                            tile::gecopy(std::move(Aik), Asave(i0, k));
-                            Aik.uplo(Uplo::Upper);
-                            Aik.set(zero, one);
+                            Asave.tileInsert( i0, k );
+                            auto Aik = A( i0, k );
+                            tile::gecopy( std::move( Aik ), Asave( i0, k ) );
+                            Aik.uplo( Uplo::Upper );
+                            Aik.set( zero, one );
                         }
                     }
                     //--------------------
                     // Apply local reflectors.
                     // Compute Wi = (sum_j Aij Vj) T, for i = k+1, ..., nt-1.
                     // First compute Wi = (sum_j Aij Vj), for i = k+1, ..., nt-1.
-                    #pragma omp task depend(inout:block[k]) \
-                                     depend(inout:alloc_trailing[0])
+                    #pragma omp task depend( inout:block[ k ] ) \
+                                     depend( inout:alloc_trailing[ 0 ] )
                     {
                         internal::he2hb_hemm<target>(
-                            A.sub(k+1, nt-1),
-                            A.sub(k+1, nt-1, k, k),
-                            W.sub(k+1, nt-1, k, k),
+                            A.sub( k+1, nt-1 ),
+                            A.sub( k+1, nt-1, k, k ),
+                            W.sub( k+1, nt-1, k, k ),
                             indices_local_panel);
                     }
 
@@ -362,8 +364,8 @@ void he2hb(
 
                     // At most 2 ranks contribute to each Wi; if I am one,
                     // exchange partial sum with neighbor and both ranks sum Wi.
-                    #pragma omp task depend(inout:block[k]) \
-                                     depend(inout:alloc_trailing[0])
+                    #pragma omp task depend( inout:block[ k ] ) \
+                                     depend( inout:alloc_trailing[ 0 ] )
                     {
                         for (int64_t i = k+1; i < nt-1; ++i) {
                             #pragma omp task
@@ -371,10 +373,10 @@ void he2hb(
 
                                 for (int64_t j : indices) {
                                     if (i >= j) { // lower
-                                        rank_lower = A.tileRank(i, j);
+                                        rank_lower = A.tileRank( i, j );
                                     }
                                     else { // upper
-                                        rank_upper = A.tileRank(j, i);
+                                        rank_upper = A.tileRank( j, i );
                                     }
                                 }
                                 int neighbor = -1;
@@ -383,25 +385,27 @@ void he2hb(
                                 else if (rank_upper == my_rank)
                                     neighbor = rank_lower;
                                 if (neighbor != -1 && neighbor != my_rank) {
-                                    Wtmp.tileInsert(i, k);
+                                    Wtmp.tileInsert( i, k );
                                     int tag_i = i;
                                     int tag_i_ = i+1;
                                     if (neighbor < my_rank) {
                                         W.tileGetForWriting( i, k, HostNum,
                                                              layout_conv );
-                                        W   .tileSend(i, k, neighbor, tag_i);
-                                        Wtmp.tileRecv(i, k, neighbor, layout, tag_i_);
+                                        W   .tileSend( i, k, neighbor, tag_i );
+                                        Wtmp.tileRecv( i, k, neighbor, layout, tag_i_ );
                                     }
                                     else {
                                         W.tileGetForWriting( i, k, HostNum,
                                                              layout_conv );
-                                        Wtmp.tileRecv(i, k, neighbor, layout, tag_i);
-                                        W   .tileSend(i, k, neighbor, tag_i_);
+                                        Wtmp.tileRecv( i, k, neighbor, layout, tag_i );
+                                        W   .tileSend( i, k, neighbor, tag_i_ );
                                     }
-                                    {
-                                        blas::axpy(Wtmp(i, k).nb()*Wtmp(i, k).nb(), one, Wtmp(i, k).data(), 1, W(i, k).data(), 1);
-                                        Wtmp.tileErase(i, k);
-                                    }
+                                    auto Wtmp_ik = Wtmp( i, k );
+                                    auto W_ik = W( i, k );
+                                    blas::axpy( W_ik.nb()*W_ik.nb(),
+                                                one, Wtmp_ik.data(), 1,
+                                                        W_ik.data(), 1 );
+                                    Wtmp.tileErase( i, k );
                                 }
                             }
                         }
@@ -410,17 +414,17 @@ void he2hb(
                     }
 
                     // Compute Wi = Wi T, for i = k+1, ..., nt-1.
-                    #pragma omp task depend(inout:block[k]) \
-                                     depend(in:alloc_trailing[0])
+                    #pragma omp task depend( inout:block[ k ] ) \
+                                     depend( in:alloc_trailing[ 0 ] )
                     {
                         internal::he2hb_trmm<target>(
-                            A.sub(k+1, nt-1), // Needed to get the rank
-                            Tlocal.sub(i0, i0, k, k),
-                            W.sub(k+1, nt-1, k, k),
+                            A.sub( k+1, nt-1 ), // Needed to get the rank
+                            Tlocal.sub( i0, i0, k, k ),
+                            W.sub( k+1, nt-1, k, k ),
                             indices_local_panel);
                     }
 
-                    if (A.tileIsLocal(i0, i0)) {
+                    if (A.tileIsLocal( i0, i0 )) {
                         //--------------------
                         // This rank has diagonal tiles to update.
                         // Do 2-sided Hermitian update:
@@ -432,57 +436,58 @@ void he2hb(
 
                         // 1a. W = A VT from above.
 
-                        #pragma omp task depend(in:block[k]) \
-                                         depend(inout:block[0]) \
-                                         depend(inout:block[k+1]) \
-                                         depend(inout:block[nt-1])
+                        #pragma omp task depend( in:block[ k ] ) \
+                                         depend( inout:block[ 0 ] ) \
+                                         depend( inout:block[ k+1 ] ) \
+                                         depend( inout:block[ nt-1 ] )
                         {
                             // 1b. TVAVT = V^H (A V T) = V^H W.
-                            auto A_panelT = conjTranspose(A.sub(k+1, nt-1, k, k));
+                            auto A_panelT = conj_transpose( A.sub( k+1, nt-1, k, k ) );
                             TVAVT.tileGetForWriting( 0, 0, HostNum, layout_conv );
-                            TVAVT(0, 0).set(zero);
+                            TVAVT( 0, 0 ).set( zero );
                             internal::he2hb_gemm<target>(
-                                one,  std::move(A_panelT),
-                                W.sub(k+1, nt-1, k, k),
+                                one,  std::move( A_panelT ),
+                                      W.sub( k+1, nt-1, k, k ),
                                 zero, std::move( TVAVT ),
                                 panel_rank,
-                                &block[0]);
+                                &block[ 0 ] );
 
                             // 1c. TVAVT = T^H (V^H A V T) = T^H W0.
-                            auto T0     = Tlocal.sub(i0, i0, k, k);
+                            auto T0     = Tlocal.sub( i0, i0, k, k );
                             auto TVAVT0 = TVAVT;
 
-                            int64_t mb = T0.tileMb(0);
-                            int64_t nb = T0.tileNb(0);
+                            int64_t mb = T0.tileMb( 0 );
+                            int64_t nb = T0.tileNb( 0 );
                             bool trapezoid = (mb < nb);
-
                             if (trapezoid) {
-                                T0     = T0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
-                                TVAVT0 = TVAVT0.slice(0, mb-1, 0, nb-1); // first mb-by-nb part
+                                // first mb-by-mb part
+                                T0 = T0.slice( 0, mb-1, 0, mb-1 );
+                                // first mb-by-nb part
+                                TVAVT0 = TVAVT0.slice( 0, mb-1, 0, nb-1 );
                             }
 
-                            auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper,
-                                                                  Diag::NonUnit, T0);
+                            auto Tk0 = TriangularMatrix<scalar_t>(
+                                Uplo::Upper, Diag::NonUnit, T0 );
                             Tk0.tileGetForReading( 0, 0, HostNum, layout_conv );
                             TVAVT0.tileGetForWriting( 0, 0, HostNum, layout_conv );
-                            tile::trmm(Side::Left, Diag::NonUnit,
-                                 one, conjTranspose(Tk0(0, 0)),
-                                 std::move(TVAVT0(0, 0)));
+                            tile::trmm( Side::Left, Diag::NonUnit,
+                                        one, conj_transpose( Tk0( 0, 0 ) ),
+                                             std::move( TVAVT0( 0, 0 ) ) );
 
                             // 1d. W = W - 0.5 V TVAVT.
                             internal::he2hb_gemm<target>(
-                                -half, A.sub(k+1, nt-1, k, k),
+                                -half, A.sub( k+1, nt-1, k, k ),
                                        std::move( TVAVT ),
-                                one,   W.sub(k+1, nt-1, k, k),
+                                one,   W.sub( k+1, nt-1, k, k ),
                                 panel_rank,
-                                &block[k+1]);
+                                &block[ k+1 ] );
 
                             // 2. Update trailing matrix.
                             // A = A - V W^H - W V^H
                             internal::her2k<target>(
-                                -one,  A.sub(k+1, nt-1, k, k),
-                                W.sub(k+1, nt-1, k, k),
-                                1.0,   A.sub(k+1, nt-1));
+                                -one,  A.sub( k+1, nt-1, k, k ),
+                                       W.sub( k+1, nt-1, k, k ),
+                                1.0,   A.sub( k+1, nt-1 ));
                         }
                     }
                     else { // off-diag
@@ -501,65 +506,65 @@ void he2hb(
 
                         // 1a. W = A V T from above.
 
-                        #pragma omp task depend(in:block[k]) \
-                                         depend(inout:block[k+1]) \
-                                         depend(inout:block[nt-1]) \
-                                         depend(inout:alloc_trailing[0])
+                        #pragma omp task depend( in:block[ k ] ) \
+                                         depend( inout:block[ k+1 ] ) \
+                                         depend( inout:block[ nt-1 ] ) \
+                                         depend( inout:alloc_trailing[ 0 ] )
                         {
                             // 2. Update trailing matrix.
                             // A = A - V W^H.
                             internal::he2hb_gemm_outer<target>(
-                                -one, A.sub(k+1, nt-1, k, k),
-                                W.sub(k+1, nt-1, k, k),
-                                one,  A.sub(k+1, nt-1),
-                                indices_local_panel, &block[k+1]);
+                                -one, A.sub( k+1, nt-1, k, k ),
+                                      W.sub( k+1, nt-1, k, k ),
+                                one,  A.sub( k+1, nt-1 ),
+                                indices_local_panel, &block[ k+1 ] );
                         }
                     }
 
-                    #pragma omp task depend(inout:block[k])
+                    #pragma omp task depend( inout:block[ k ] )
                     {
-                        if (A.tileExists(i0, k)) {
+                        if (A.tileExists( i0, k )) {
                             // Restore V0.
                             #pragma omp task
                             {
                                 A.tileGetForWriting( i0, k, layout_conv );
-                                tile::gecopy(Asave(i0, k), A(i0, k));
-                                Asave.tileErase(i0, k);
+                                tile::gecopy( Asave( i0, k ), A( i0, k ) );
+                                Asave.tileErase( i0, k );
                             }
                             #pragma omp taskwait
                         }
                     }
                 }
 
-                #pragma omp task depend(in:block[k]) \
-                                 depend(inout:block[k+1]) \
-                                 depend(inout:block[nt-1]) \
-                                 depend(inout:alloc_trailing[0])
+                #pragma omp task depend( in:block[ k ] ) \
+                                 depend( inout:block[ k+1 ] ) \
+                                 depend( inout:block[ nt-1 ] ) \
+                                 depend( inout:alloc_trailing[ 0 ] )
                 {
                     // Distributed multiply Hermitian matrix on left and right by Q from
                     // 3. A Q^H A Q
                     internal::hettmqr<Target::HostTask>(
                         Op::ConjTrans,
-                        std::move(A_panel),
-                        std::move(Treduce_panel),
-                        A.sub(k+1, nt-1));
+                        std::move( A_panel ),
+                        std::move( Treduce_panel ),
+                        A.sub( k+1, nt-1 ) );
                 }
 
                 // Unhold and release tiles in A_panel and Tlocal
                 if (target == Target::Devices) {
                     if (k < nt-1) {
-                        #pragma omp task depend(in:block[k])
+                        #pragma omp task depend( in:block[ k ] )
                         {
                             for (int64_t i = k; i < nt; ++i) {
-                                if (A.tileIsLocal(i, k)) {
-                                    A.tileUpdateOrigin(i, k);
+                                if (A.tileIsLocal( i, k )) {
+                                    A.tileUpdateOrigin( i, k );
 
                                     std::set<int> dev_set;
-                                    A.sub(k+1, nt-1).getLocalDevices(&dev_set);
+                                    A.sub( k+1, nt-1 ).getLocalDevices( &dev_set );
 
                                     for (auto device : dev_set) {
-                                        A.tileUnsetHold(i, k, device);
-                                        A.tileRelease(i, k, device);
+                                        A.tileUnsetHold( i, k, device );
+                                        A.tileRelease( i, k, device );
                                     }
                                 }
                             }
@@ -568,31 +573,31 @@ void he2hb(
                                 // Find local indices for panel_rank.
                                 indices.clear();
                                 for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                                    if (A_panel.tileRank(i, 0) == panel_rank) {
+                                    if (A_panel.tileRank( i, 0 ) == panel_rank) {
                                         // global index
-                                        indices.push_back(i+k+1);
+                                        indices.push_back( i+k+1 );
                                     }
                                 }
-                                i0 = indices[0];
+                                i0 = indices[ 0 ];
                                 if (indices.size() > 0) {
                                     for (int64_t row : indices) {
-                                        if (Tlocal.tileIsLocal(row, k)) {
-                                            //Tlocal.tileUpdateOrigin(row, k);
+                                        if (Tlocal.tileIsLocal( row, k )) {
+                                            //Tlocal.tileUpdateOrigin( row, k );
 
                                             std::set<int> dev_set;
-                                            Tlocal.sub(row, row, k+1, nt-1).getLocalDevices(&dev_set);
+                                            Tlocal.sub( row, row, k+1, nt-1 ).getLocalDevices( &dev_set );
 
                                             for (auto device : dev_set) {
-                                                Tlocal.tileUnsetHold(i0, k, device);
-                                                Tlocal.tileRelease(i0, k, device);
+                                                Tlocal.tileUnsetHold( i0, k, device );
+                                                Tlocal.tileRelease( i0, k, device );
                                             }
 
                                             std::set<int> dev_set2;
-                                            Tlocal.sub(k+1, nt-1, row, row).getLocalDevices(&dev_set);
+                                            Tlocal.sub( k+1, nt-1, row, row ).getLocalDevices( &dev_set );
 
                                             for (auto device : dev_set2) {
-                                                Tlocal.tileUnsetHold(i0, k, device);
-                                                Tlocal.tileRelease(i0, k, device);
+                                                Tlocal.tileUnsetHold( i0, k, device );
+                                                Tlocal.tileRelease( i0, k, device );
                                             }
                                         }
                                     }

@@ -20,15 +20,17 @@ namespace internal {
 /// @ingroup he2hb_gemm_outer_internal
 ///
 template <Target target, typename scalar_t>
-void he2hb_gemm_outer(scalar_t alpha, Matrix<scalar_t>&& A,
-                      Matrix<scalar_t>&& B,
-                      scalar_t beta,  HermitianMatrix<scalar_t>&& C,
-                      std::vector<int64_t>& indices,
-                      uint8_t* block,
-                      int priority, int64_t queue_index)
+void he2hb_gemm_outer(
+    scalar_t alpha, Matrix<scalar_t>&& A,
+    Matrix<scalar_t>&& B,
+    scalar_t beta,  HermitianMatrix<scalar_t>&& C,
+    std::vector<int64_t>& indices,
+    uint8_t* block,
+    int priority, int64_t queue_index )
 {
-    he2hb_gemm_outer(internal::TargetType<target>(),
-                     alpha, A, B, beta, C, indices, block, priority, queue_index);
+    he2hb_gemm_outer( internal::TargetType<target>(),
+                      alpha, A, B, beta, C,
+                      indices, block, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -37,13 +39,14 @@ void he2hb_gemm_outer(scalar_t alpha, Matrix<scalar_t>&& A,
 /// @ingroup he2hb_gemm_outer_internal
 ///
 template <typename scalar_t>
-void he2hb_gemm_outer(internal::TargetType<Target::HostTask>,
-                      scalar_t alpha, Matrix<scalar_t>& A,
-                      Matrix<scalar_t>& B,
-                      scalar_t beta,  HermitianMatrix<scalar_t>& C,
-                      std::vector<int64_t>& indices,
-                      uint8_t* block,
-                      int priority, int64_t queue_index)
+void he2hb_gemm_outer(
+    internal::TargetType<Target::HostTask>,
+    scalar_t alpha, Matrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    scalar_t beta,  HermitianMatrix<scalar_t>& C,
+    std::vector<int64_t>& indices,
+    uint8_t* block,
+    int priority, int64_t queue_index)
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -53,38 +56,38 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostTask>,
 
     // try to loop over one tile and do two gemm, similar to her2k
     for (int64_t j = 0; j < nt; ++j) {
-        #pragma omp task depend(inout:block[j]) \
-                         depend(in:block[0])
+        #pragma omp task depend( inout:block[ j ] ) \
+                         depend( in:block[ 0 ] )
         for (int64_t i : indices) {
             // todo: if HermitianMatrix returned conjTrans
             // tiles, could merge these two.
-            if (i > j) {
-                if (C.tileIsLocal(i, j)) {
+            if (i > j) {  // lower
+                if (C.tileIsLocal( i, j )) {
                     A.tileGetForReading( i, 0, layout_conv );
                     B.tileGetForReading( j, 0, layout_conv );
                     C.tileGetForWriting( i, j, layout_conv );
                     // Aij -= Vik Wjk^H
-                    tile::gemm(alpha, A(i, 0), conjTranspose(B(j, 0)),
-                         beta, C(i, j));
-                    A.tileTick(i, 0);
-                    B.tileTick(j, 0);
+                    tile::gemm( alpha, A( i, 0 ), conj_transpose( B( j, 0 ) ),
+                                beta, C( i, j ) );
+                    A.tileTick( i, 0 );
+                    B.tileTick( j, 0 );
                 }
             }
-            else if (i < j) {
-                if (C.tileIsLocal(j, i)) {
+            else if (i < j) {  // upper
+                if (C.tileIsLocal( j, i )) {
                     B.tileGetForReading( j, 0, layout_conv );
                     A.tileGetForReading( i, 0, layout_conv );
                     C.tileGetForWriting( j, i, layout_conv );
                     // Aji -= Wjk Vik^H
-                    tile::gemm(alpha, B(j, 0), conjTranspose(A(i, 0)),
-                         beta, C(j, i));
-                    B.tileTick(j, 0);
-                    A.tileTick(i, 0);
+                    tile::gemm( alpha, B( j, 0 ), conjTranspose( A( i, 0 ) ),
+                                beta, C( j, i ) );
+                    B.tileTick( j, 0 );
+                    A.tileTick( i, 0 );
                 }
             }
             else { // i == j
                 // Diagonal tiles dealt with above.
-                assert(! C.tileIsLocal(i, j));
+                assert( ! C.tileIsLocal( i, j ) );
             }
         }
     }
@@ -98,13 +101,14 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostTask>,
 /// @ingroup he2hb_gemm_outer_internal
 ///
 template <typename scalar_t>
-void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
-                      scalar_t alpha, Matrix<scalar_t>& A,
-                      Matrix<scalar_t>& B,
-                      scalar_t beta,  HermitianMatrix<scalar_t>& C,
-                      std::vector<int64_t>& indices,
-                      uint8_t* block,
-                      int priority, int64_t queue_index)
+void he2hb_gemm_outer(
+    internal::TargetType<Target::Devices>,
+    scalar_t alpha, Matrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    scalar_t beta,  HermitianMatrix<scalar_t>& C,
+    std::vector<int64_t>& indices,
+    uint8_t* block,
+    int priority, int64_t queue_index)
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -114,17 +118,17 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
     // check dimensions
-    assert(C.mt() > 0);
-    assert(C.nt() > 0);
-    assert(A.nt() == 1);
-    assert(B.nt() == 1);
-    assert(A.mt() == C.mt());
+    assert( C.mt() > 0 );
+    assert( C.nt() > 0 );
+    assert( A.nt() == 1 );
+    assert( B.nt() == 1 );
+    assert( A.mt() == C.mt() );
 
-    assert(C.num_devices() > 0);
+    assert( C.num_devices() > 0 );
 
     int err = 0;
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared(A, B, C, err) priority(priority)
+        #pragma omp task shared( A, B, C, err ) priority( priority )
         {
             Op opA = A.op();
             Op opB = B.op();
@@ -135,24 +139,24 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
             for (int64_t j = 0; j < nt; ++j) {
                 for (int64_t i : indices) {
                     if (i > j) {
-                        if (C.tileIsLocal(i, j)
-                            && device == C.tileDevice(i, j)) {
-                            A_tiles_set.insert({i, 0});
-                            B_tiles_set.insert({j, 0});
-                            C_tiles_set.insert({i, j});
+                        if (C.tileIsLocal( i, j )
+                            && device == C.tileDevice( i, j )) {
+                            A_tiles_set.insert( { i, 0 } );
+                            B_tiles_set.insert( { j, 0 } );
+                            C_tiles_set.insert( { i, j } );
                         }
                     }
                     else if (i < j) {
-                        if (C.tileIsLocal(j, i)
-                            && device == C.tileDevice(j, i)) {
-                            B_tiles_set.insert({j, 0});
-                            A_tiles_set.insert({i, 0});
-                            C_tiles_set.insert({j, i});
+                        if (C.tileIsLocal( j, i )
+                            && device == C.tileDevice( j, i )) {
+                            B_tiles_set.insert( { j, 0 } );
+                            A_tiles_set.insert( { i, 0 } );
+                            C_tiles_set.insert( { j, i } );
                         }
                     }
                     else { // i == j
                         // Diagonal tiles dealt with above.
-                        assert(! C.tileIsLocal(i, j));
+                        assert( ! C.tileIsLocal( i, j ) );
                     }
                 }
             }
@@ -160,7 +164,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
 
             int64_t j_interior = nt;
             int64_t j_last = 0;
-            if (C.tileNb(nt-1) != C.tileNb(0)) {
+            if (C.tileNb( nt-1 ) != C.tileNb( 0 )) {
                 j_interior = C.nt() - 1;
                 j_last = 1;
             }
@@ -168,22 +172,22 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
             int64_t m_indices = indices.size();
             int64_t i_interior = m_indices;
             int64_t i_last = 0;
-            int64_t i0 = indices[0];
-            int64_t i1 = indices[m_indices-1];
-            if (C.tileMb(i0) != C.tileMb(i1)) {
+            int64_t i0 = indices[ 0 ];
+            int64_t i1 = indices[ m_indices-1 ];
+            if (C.tileMb( i0 ) != C.tileMb( i1 )) {
                 i_interior = m_indices - 1;
                 i_last = 1;
             }
 
-            #pragma omp task default(shared)
+            #pragma omp task default( shared )
             {
                 A.tileGetForReading( A_tiles_set, device, layout_conv );
             }
-            #pragma omp task default(shared)
+            #pragma omp task default( shared )
             {
                 B.tileGetForReading( B_tiles_set, device, layout_conv );
             }
-            #pragma omp task default(shared)
+            #pragma omp task default( shared )
             {
                 C.tileGetForWriting( C_tiles_set, device, layout_conv );
             }
@@ -200,38 +204,38 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
             int64_t lda00 = 0;
             int64_t ldb00 = 0;
             int64_t ldc00 = 0;
-            int64_t mb00 = C.tileMb(i0);
-            int64_t nb00 = C.tileNb(0);
-            int64_t kb   = A.tileNb(0);
+            int64_t mb00 = C.tileMb( i0 );
+            int64_t nb00 = C.tileNb( 0 );
+            int64_t kb   = A.tileNb( 0 );
 
             for (int64_t j = 0; j < j_interior; ++j) {
                 for (int64_t i_ = 0; i_ < i_interior; ++i_) {
-                    int64_t i = indices[i_];
+                    int64_t i = indices[ i_ ];
                     if (i > j) {
-                        if (C.tileIsLocal(i, j)
-                            && device == C.tileDevice(i, j)) {
-                            a_array00.push_back( A(i, 0, device).data() );
-                            b_array00.push_back( B(j, 0, device).data() );
-                            c_array00.push_back( C(i, j, device).data() );
-                            lda00 = A(i, 0, device).stride();
-                            ldb00 = B(j, 0, device).stride();
-                            ldc00 = C(i, j, device).stride();
+                        if (C.tileIsLocal( i, j )
+                            && device == C.tileDevice( i, j )) {
+                            a_array00.push_back( A( i, 0, device ).data() );
+                            b_array00.push_back( B( j, 0, device ).data() );
+                            c_array00.push_back( C( i, j, device ).data() );
+                            lda00 = A( i, 0, device ).stride();
+                            ldb00 = B( j, 0, device ).stride();
+                            ldc00 = C( i, j, device ).stride();
                         }
                     }
                     else if (i < j) {
-                        if (C.tileIsLocal(j, i)
-                            && device == C.tileDevice(j, i)) {
-                            a_array00.push_back( B(j, 0, device).data() );
-                            b_array00.push_back( A(i, 0, device).data() );
-                            c_array00.push_back( C(j, i, device).data() );
-                            lda00 = B(j, 0, device).stride();
-                            ldb00 = A(i, 0, device).stride();
-                            ldc00 = C(j, i, device).stride();
+                        if (C.tileIsLocal( j, i )
+                            && device == C.tileDevice( j, i )) {
+                            a_array00.push_back( B( j, 0, device ).data() );
+                            b_array00.push_back( A( i, 0, device ).data() );
+                            c_array00.push_back( C( j, i, device ).data() );
+                            lda00 = B( j, 0, device ).stride();
+                            ldb00 = A( i, 0, device ).stride();
+                            ldc00 = C( j, i, device ).stride();
                         }
                     }
                     else { // i == j
                         // Diagonal tiles dealt with above.
-                        assert(! C.tileIsLocal(i, j));
+                        assert( ! C.tileIsLocal( i, j ) );
                     }
                 }
             }
@@ -247,41 +251,41 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
             int64_t lda01 = 0;
             int64_t ldb01 = 0;
             int64_t ldc01 = 0;
-            int64_t mb01 = C.tileMb(i0);
-            int64_t nb01 = C.tileNb(nt-1);
+            int64_t mb01 = C.tileMb( i0 );
+            int64_t nb01 = C.tileNb( nt-1 );
 
             if (j_last == 1) {
                 //for (int64_t j = 0; j < nt; ++j) {
                 int64_t j = C.nt()-1;
                 //for (int64_t i : indices) {
                 for (int64_t i_ = 0; i_ < i_interior; ++i_) {
-                    int64_t i = indices[i_];
+                    int64_t i = indices[ i_ ];
                     if (i > j) {
-                        if (C.tileIsLocal(i, j)
-                            && device == C.tileDevice(i, j)) {
-                            a_array01.push_back( A(i, 0, device).data() );
-                            b_array01.push_back( B(j, 0, device).data() );
-                            c_array01.push_back( C(i, j, device).data() );
-                            lda01 = A(i, 0, device).stride();
-                            ldb01 = B(j, 0, device).stride();
-                            ldc01 = C(i, j, device).stride();
+                        if (C.tileIsLocal( i, j )
+                            && device == C.tileDevice( i, j )) {
+                            a_array01.push_back( A( i, 0, device ).data() );
+                            b_array01.push_back( B( j, 0, device ).data() );
+                            c_array01.push_back( C( i, j, device ).data() );
+                            lda01 = A( i, 0, device ).stride();
+                            ldb01 = B( j, 0, device ).stride();
+                            ldc01 = C( i, j, device ).stride();
                         }
                     }
                     else if (i < j) {
-                        if (C.tileIsLocal(j, i)
-                            && device == C.tileDevice(j, i)) {
-                            a_array01.push_back( B(j, 0, device).data() );
-                            b_array01.push_back( A(i, 0, device).data() );
-                            c_array01.push_back( C(j, i, device).data() );
-                            mb01 = C.tileNb(nt-1);
-                            nb01 = C.tileMb(i0);
-                            lda01 = B(j, 0, device).stride();
-                            ldb01 = A(i, 0, device).stride();
-                            ldc01 = C(j, i, device).stride();
+                        if (C.tileIsLocal( j, i )
+                            && device == C.tileDevice( j, i )) {
+                            a_array01.push_back( B( j, 0, device ).data() );
+                            b_array01.push_back( A( i, 0, device ).data() );
+                            c_array01.push_back( C( j, i, device ).data() );
+                            mb01 = C.tileNb( nt-1 );
+                            nb01 = C.tileMb( i0 );
+                            lda01 = B( j, 0, device ).stride();
+                            ldb01 = A( i, 0, device ).stride();
+                            ldc01 = C( j, i, device ).stride();
                         }
                     }
                     else { // i == j
-                        assert(! C.tileIsLocal(i, j));
+                        assert( ! C.tileIsLocal( i, j ) );
                     }
                 }
             }
@@ -297,38 +301,38 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
             int64_t lda10 = 0;
             int64_t ldb10 = 0;
             int64_t ldc10 = 0;
-            int64_t mb10 = C.tileMb(i1);
-            int64_t nb10 = C.tileNb(0);
+            int64_t mb10 = C.tileMb( i1 );
+            int64_t nb10 = C.tileNb( 0 );
 
             if (i_last == 1) {
                 int64_t i = i1;
                 for (int64_t j = 0; j < j_interior; ++j) {
                     if (i > j) {
-                        if (C.tileIsLocal(i, j)
-                            && device == C.tileDevice(i, j)) {
-                            a_array10.push_back( A(i, 0, device).data() );
-                            b_array10.push_back( B(j, 0, device).data() );
-                            c_array10.push_back( C(i, j, device).data() );
-                            lda10 = A(i, 0, device).stride();
-                            ldb10 = B(j, 0, device).stride();
-                            ldc10 = C(i, j, device).stride();
+                        if (C.tileIsLocal( i, j )
+                            && device == C.tileDevice( i, j )) {
+                            a_array10.push_back( A( i, 0, device ).data() );
+                            b_array10.push_back( B( j, 0, device ).data() );
+                            c_array10.push_back( C( i, j, device ).data() );
+                            lda10 = A( i, 0, device ).stride();
+                            ldb10 = B( j, 0, device ).stride();
+                            ldc10 = C( i, j, device ).stride();
                         }
                     }
                     else if (i < j) {
-                        if (C.tileIsLocal(j, i)
-                            && device == C.tileDevice(j, i)) {
-                            a_array10.push_back( B(j, 0, device).data() );
-                            b_array10.push_back( A(i, 0, device).data() );
-                            c_array10.push_back( C(j, i, device).data() );
-                            mb10 = C.tileNb(0);
-                            nb10 = C.tileMb(i1);
-                            lda10 = A(i, 0, device).stride();
-                            ldb10 = B(j, 0, device).stride();
-                            ldc10 = C(j, i, device).stride();
+                        if (C.tileIsLocal( j, i )
+                            && device == C.tileDevice( j, i )) {
+                            a_array10.push_back( B( j, 0, device ).data() );
+                            b_array10.push_back( A( i, 0, device ).data() );
+                            c_array10.push_back( C( j, i, device ).data() );
+                            mb10 = C.tileNb( 0 );
+                            nb10 = C.tileMb( i1 );
+                            lda10 = A( i, 0, device ).stride();
+                            ldb10 = B( j, 0, device ).stride();
+                            ldc10 = C( j, i, device ).stride();
                         }
                     }
                     else { // i == j
-                        assert(! C.tileIsLocal(i, j));
+                        assert( ! C.tileIsLocal( i, j ) );
                     }
                 }
             }
@@ -341,138 +345,138 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
             int64_t lda11 = 0;
             int64_t ldb11 = 0;
             int64_t ldc11 = 0;
-            int64_t mb11 = C.tileMb(i1);
-            int64_t nb11 = C.tileNb(nt-1);
+            int64_t mb11 = C.tileMb( i1 );
+            int64_t nb11 = C.tileNb( nt-1 );
 
             if (i_last == 1 && j_last == 1) {
                 int64_t i = i1;
                 int64_t j = nt-1;
                 if (i > j) {
-                    if (C.tileIsLocal(i, j)
-                        && device == C.tileDevice(i, j)) {
-                        a_array11.push_back( A(i, 0, device).data() );
-                        b_array11.push_back( B(j, 0, device).data() );
-                        c_array11.push_back( C(i, j, device).data() );
-                        lda11 = A(i, 0, device).stride();
-                        ldb11 = B(j, 0, device).stride();
-                        ldc11 = C(i, j, device).stride();
+                    if (C.tileIsLocal( i, j )
+                        && device == C.tileDevice( i, j)) {
+                        a_array11.push_back( A( i, 0, device ).data() );
+                        b_array11.push_back( B( j, 0, device ).data() );
+                        c_array11.push_back( C( i, j, device ).data() );
+                        lda11 = A( i, 0, device ).stride();
+                        ldb11 = B( j, 0, device ).stride();
+                        ldc11 = C( i, j, device ).stride();
                     }
                 }
                 else if (i < j) {
-                    if (C.tileIsLocal(j, i)
-                        && device == C.tileDevice(j, i)) {
-                        a_array11.push_back( B(j, 0, device).data() );
-                        b_array11.push_back( A(i, 0, device).data() );
-                        c_array11.push_back( C(j, i, device).data() );
-                        mb11 = C.tileNb(nt-1);
-                        nb11 = C.tileMb(i1);
-                        lda11 = A(i, 0, device).stride();
-                        ldb11 = B(j, 0, device).stride();
-                        ldc11 = C(j, i, device).stride();
+                    if (C.tileIsLocal( j, i )
+                        && device == C.tileDevice( j, i )) {
+                        a_array11.push_back( B( j, 0, device ).data() );
+                        b_array11.push_back( A( i, 0, device ).data() );
+                        c_array11.push_back( C( j, i, device ).data() );
+                        mb11 = C.tileNb( nt-1 );
+                        nb11 = C.tileMb( i1 );
+                        lda11 = A( i, 0, device ).stride();
+                        ldb11 = B( j, 0, device ).stride();
+                        ldc11 = C( j, i, device ).stride();
                     }
                 }
                 else { // i == j
-                    assert(! C.tileIsLocal(i, j));
+                    assert( ! C.tileIsLocal( i, j ) );
                 }
             }
 
             {
-                trace::Block trace_block("blas::batch::he2hb_gemm_outer");
+                trace::Block trace_block( "blas::batch::he2hb_gemm_outer" );
 
-                std::vector<Op> opA_(1, opA);
-                std::vector<Op> opB_(1, opB);
-                std::vector<scalar_t> alpha_(1, alpha);
-                std::vector<scalar_t> beta_(1, beta);
-                std::vector<int64_t> kb_(1, kb);
+                std::vector<Op> opA_( 1, opA );
+                std::vector<Op> opB_( 1, opB );
+                std::vector<scalar_t> alpha_( 1, alpha );
+                std::vector<scalar_t> beta_( 1, beta );
+                std::vector<int64_t> kb_( 1, kb );
                 // info size 0 disables slow checks in batched BLAS++.
                 std::vector<int64_t> info;
 
-                blas::Queue* queue = C.compute_queue(device, queue_index);
-                assert(queue != nullptr);
+                blas::Queue* queue = C.compute_queue( device, queue_index );
+                assert( queue != nullptr );
 
                 if (c_array00.size() > 0) {
-                    std::vector<int64_t>    m(1,  mb00);
-                    std::vector<int64_t>    n(1,  nb00);
-                    std::vector<int64_t> ldda(1, lda00);
-                    std::vector<int64_t> lddb(1, ldb00);
-                    std::vector<int64_t> lddc(1, ldc00);
+                    std::vector<int64_t>    m( 1,  mb00 );
+                    std::vector<int64_t>    n( 1,  nb00 );
+                    std::vector<int64_t> ldda( 1, lda00 );
+                    std::vector<int64_t> lddb( 1, ldb00 );
+                    std::vector<int64_t> lddc( 1, ldc00 );
                     blas::batch::gemm(
                         layout, opA_, opB_,
                         m, n, kb_,
                         alpha_, a_array00, ldda,
-                        b_array00, lddb,
+                                b_array00, lddb,
                         beta_,  c_array00, lddc,
-                        c_array00.size(), info, *queue);
+                        c_array00.size(), info, *queue );
                 }
 
                 if (c_array01.size() > 0) {
-                    std::vector<int64_t>    m(1,  mb01);
-                    std::vector<int64_t>    n(1,  nb01);
-                    std::vector<int64_t> ldda(1, lda01);
-                    std::vector<int64_t> lddb(1, ldb01);
-                    std::vector<int64_t> lddc(1, ldc01);
+                    std::vector<int64_t>    m( 1,  mb01 );
+                    std::vector<int64_t>    n( 1,  nb01 );
+                    std::vector<int64_t> ldda( 1, lda01 );
+                    std::vector<int64_t> lddb( 1, ldb01 );
+                    std::vector<int64_t> lddc( 1, ldc01 );
                     blas::batch::gemm(
                         layout, opA_, opB_,
                         m, n, kb_,
                         alpha_, a_array01, ldda,
-                        b_array01, lddb,
+                                b_array01, lddb,
                         beta_,  c_array01, lddc,
-                        c_array01.size(), info, *queue);
+                        c_array01.size(), info, *queue );
                 }
 
                 if (c_array10.size() > 0) {
-                    std::vector<int64_t>    m(1,  mb10);
-                    std::vector<int64_t>    n(1,  nb10);
-                    std::vector<int64_t> ldda(1, lda10);
-                    std::vector<int64_t> lddb(1, ldb10);
-                    std::vector<int64_t> lddc(1, ldc10);
+                    std::vector<int64_t>    m( 1,  mb10 );
+                    std::vector<int64_t>    n( 1,  nb10 );
+                    std::vector<int64_t> ldda( 1, lda10 );
+                    std::vector<int64_t> lddb( 1, ldb10 );
+                    std::vector<int64_t> lddc( 1, ldc10 );
                     blas::batch::gemm(
                         layout, opA_, opB_,
                         m, n, kb_,
                         alpha_, a_array10, ldda,
-                        b_array10, lddb,
+                                b_array10, lddb,
                         beta_,  c_array10, lddc,
-                        c_array10.size(), info, *queue);
+                        c_array10.size(), info, *queue );
                 }
 
                 if (c_array11.size() > 0) {
-                    std::vector<int64_t>    m(1,  mb11);
-                    std::vector<int64_t>    n(1,  nb11);
-                    std::vector<int64_t> ldda(1, lda11);
-                    std::vector<int64_t> lddb(1, ldb11);
-                    std::vector<int64_t> lddc(1, ldc11);
+                    std::vector<int64_t>    m( 1,  mb11 );
+                    std::vector<int64_t>    n( 1,  nb11 );
+                    std::vector<int64_t> ldda( 1, lda11 );
+                    std::vector<int64_t> lddb( 1, ldb11 );
+                    std::vector<int64_t> lddc( 1, ldc11 );
                     blas::batch::gemm(
                         layout, opA_, opB_,
                         m, n, kb_,
                         alpha_, a_array11, ldda,
-                        b_array11, lddb,
+                                b_array11, lddb,
                         beta_,  c_array11, lddc,
-                        c_array11.size(), info, *queue);
+                        c_array11.size(), info, *queue );
                 }
                 queue->sync();
             }
             for (int64_t j = 0; j < nt; ++j) {
                 for (int64_t i : indices) {
                     if (i > j) {
-                        if (C.tileIsLocal(i, j)
-                            && device == C.tileDevice(i, j)) {
+                        if (C.tileIsLocal( i, j )
+                            && device == C.tileDevice( i, j )) {
                             // erase tmp local and remote device tiles;
-                            A.tileRelease(i, 0, device);
-                            B.tileRelease(j, 0, device);
+                            A.tileRelease( i, 0, device );
+                            B.tileRelease( j, 0, device );
                             // decrement life for remote tiles
-                            A.tileTick(i, 0);
-                            B.tileTick(j, 0);
+                            A.tileTick( i, 0 );
+                            B.tileTick( j, 0 );
                         }
                     }
                     else if (i < j) {
-                        if (C.tileIsLocal(j, i)
-                            && device == C.tileDevice(j, i)) {
+                        if (C.tileIsLocal( j, i )
+                            && device == C.tileDevice( j, i )) {
                             // erase tmp local and remote device tiles;
-                            A.tileRelease(i, 0, device);
-                            B.tileRelease(j, 0, device);
+                            A.tileRelease( i, 0, device );
+                            B.tileRelease( j, 0, device );
                             // decrement life for remote tiles
-                            A.tileTick(i, 0);
-                            B.tileTick(j, 0);
+                            A.tileTick( i, 0 );
+                            B.tileTick( j, 0 );
                         }
                     }
                 }
@@ -483,7 +487,7 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
     #pragma omp taskwait
 
     if (err)
-        slate_error(std::to_string(err));
+        slate_error( std::to_string( err ) );
 }
 
 //------------------------------------------------------------------------------
@@ -493,15 +497,16 @@ void he2hb_gemm_outer(internal::TargetType<Target::Devices>,
 /// @ingroup he2hb_gemm_outer_internal
 ///
 template <typename scalar_t>
-void he2hb_gemm_outer(internal::TargetType<Target::HostNest>,
-                      scalar_t alpha, Matrix<scalar_t>& A,
-                      Matrix<scalar_t>& B,
-                      scalar_t beta,  HermitianMatrix<scalar_t>& C,
-                      std::vector<int64_t>& indices,
-                      uint8_t* block,
-                      int priority, int64_t queue_index)
+void he2hb_gemm_outer(
+    internal::TargetType<Target::HostNest>,
+    scalar_t alpha, Matrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    scalar_t beta,  HermitianMatrix<scalar_t>& C,
+    std::vector<int64_t>& indices,
+    uint8_t* block,
+    int priority, int64_t queue_index )
 {
-    slate_not_implemented("Target::HostNest isn't yet supported.");
+    slate_not_implemented( "Target::HostNest isn't yet supported." );
 }
 
 //------------------------------------------------------------------------------
@@ -511,15 +516,16 @@ void he2hb_gemm_outer(internal::TargetType<Target::HostNest>,
 /// @ingroup he2hb_gemm_outer_internal
 ///
 template <typename scalar_t>
-void he2hb_gemm_outer(internal::TargetType<Target::HostBatch>,
-                      scalar_t alpha, Matrix<scalar_t>& A,
-                      Matrix<scalar_t>& B,
-                      scalar_t beta,  HermitianMatrix<scalar_t>& C,
-                      std::vector<int64_t>& indices,
-                      uint8_t* block,
-                      int priority, int64_t queue_index)
+void he2hb_gemm_outer(
+    internal::TargetType<Target::HostBatch>,
+    scalar_t alpha, Matrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    scalar_t beta,  HermitianMatrix<scalar_t>& C,
+    std::vector<int64_t>& indices,
+    uint8_t* block,
+    int priority, int64_t queue_index )
 {
-    slate_not_implemented("Target::HostBatch isn't yet supported.");
+    slate_not_implemented( "Target::HostBatch isn't yet supported." );
 }
 
 //------------------------------------------------------------------------------

@@ -68,7 +68,6 @@ void he2hb(
     auto Asave = A.emptyLike();
     const bool set_hold =  1;  // Do tileGetAndHold in the bcast
 
-    slate::HermitianMatrix<scalar_t> W;
     int64_t n = A.n();
     int64_t nb_A = A.tileNb( 0 );
     GridOrder grid_order;
@@ -99,8 +98,9 @@ void he2hb(
             return int( i/nprow )%num_devices;
         };
 
-    W = slate::HermitianMatrix<scalar_t>(
-            Uplo::Lower, n, tileNb, tileRank, tileDevice, MPI_COMM_WORLD );
+    // W is like A, but within node the GPU distribution is row-cyclic.
+    slate::HermitianMatrix<scalar_t> W(
+            Uplo::Lower, n, tileNb, tileRank, tileDevice, A.mpiComm() );
 
     // Since W( 0, 0 ) is otherwise unused, store TVAVT there.
     W.tileInsert( 0, 0 );

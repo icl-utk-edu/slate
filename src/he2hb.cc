@@ -514,17 +514,13 @@ void he2hb(
                         }
                     }
 
+                    // Restore V0.
                     #pragma omp task depend( inout:block[ k ] )
                     {
                         if (A.tileExists( i0, k )) {
-                            // Restore V0.
-                            #pragma omp task
-                            {
-                                A.tileGetForWriting( i0, k, layout_conv );
-                                tile::gecopy( Asave( i0, k ), A( i0, k ) );
-                                Asave.tileErase( i0, k );
-                            }
-                            #pragma omp taskwait
+                            A.tileGetForWriting( i0, k, layout_conv );
+                            tile::gecopy( Asave( i0, k ), A( i0, k ) );
+                            Asave.tileErase( i0, k );
                         }
                     }
                 }

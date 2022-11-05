@@ -20,7 +20,7 @@ namespace internal {
 /// panel_rank is in panel_ranks.
 /// Loop over the local tiles of A on this panel_rank to update C = AB.
 /// Dispatches to target implementations.
-/// @ingroup he2hb_gemm_internal
+/// @ingroup heev_internal
 /// todo: add more details
 ///
 template <Target target, typename scalar_t>
@@ -39,7 +39,7 @@ void he2hb_gemm(
 //------------------------------------------------------------------------------
 /// Inner product C = AB,
 /// Host OpenMP task implementation.
-/// @ingroup he2hb_gemm_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void he2hb_gemm(
@@ -77,7 +77,7 @@ void he2hb_gemm(
 //------------------------------------------------------------------------------
 /// Inner product C = AB,
 /// Device implementation.
-/// @ingroup he2hb_gemm_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void he2hb_gemm(

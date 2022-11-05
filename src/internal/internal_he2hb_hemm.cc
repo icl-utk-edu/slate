@@ -20,7 +20,7 @@ namespace internal {
 /// panel_rank_rows contains the local row indices for panel_rank,
 /// where the panel_rank is B.tileRank( i, 0 ), i = 0:nt-1.
 /// Dispatches to target implementations.
-/// @ingroup he2hb_hemm_internal
+/// @ingroup heev_internal
 ///
 template <Target target, typename scalar_t>
 void he2hb_hemm(
@@ -37,7 +37,7 @@ void he2hb_hemm(
 //------------------------------------------------------------------------------
 /// Apply local reflectors.
 /// Host OpenMP task implementation.
-/// @ingroup he2hb_hemm_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void he2hb_hemm(
@@ -100,7 +100,7 @@ void he2hb_hemm(
 //------------------------------------------------------------------------------
 /// Apply local reflectors.
 /// Host nested OpenMP implementation.
-/// @ingroup he2hb_hemm_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void he2hb_hemm(
@@ -117,7 +117,7 @@ void he2hb_hemm(
 //------------------------------------------------------------------------------
 /// Apply local reflectors.
 /// Host batched implementation.
-/// @ingroup he2hb_hemm_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void he2hb_hemm(
@@ -136,7 +136,7 @@ void he2hb_hemm(
 //------------------------------------------------------------------------------
 /// Apply local reflectors.
 /// GPU device BLAS implementation.
-/// @ingroup he2hb_hemm_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void he2hb_hemm(
@@ -307,7 +307,7 @@ void he2hb_hemm(
 //------------------------------------------------------------------------------
 /// Apply local reflectors.
 /// GPU device batched cuBLAS implementation.
-/// @ingroup he2hb_hemm_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void he2hb_hemm(internal::TargetType<Target::Devices>,

@@ -119,6 +119,8 @@
 
         @defgroup heev_computational        Computational
         @defgroup heev_specialization       Target implementations
+        @defgroup heev_impl                 Target implementations
+        @defgroup heev_internal             Internal
     @}
 
     ------------------------------------------------------------

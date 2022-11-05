@@ -17,7 +17,7 @@ namespace internal {
 /// C is a trailing square submatrix
 /// Cij -= AikBjk^H, i = k+1:nt-1, j = k+1:nt-1.
 /// Dispatches to target implementations.
-/// @ingroup he2hb_gemm_outer_internal
+/// @ingroup heev_internal
 ///
 template <Target target, typename scalar_t>
 void he2hb_gemm_outer(
@@ -36,7 +36,7 @@ void he2hb_gemm_outer(
 //------------------------------------------------------------------------------
 /// matrix multiply to update trailing matrix, except the diagonal tiles.
 /// Host OpenMP task implementation.
-/// @ingroup he2hb_gemm_outer_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void he2hb_gemm_outer(
@@ -98,7 +98,7 @@ void he2hb_gemm_outer(
 /// matrix multiply to update trailing matrix, except the diagonal tiles.
 /// where A is a single block column and B is a single block row.
 /// Device implementation.
-/// @ingroup he2hb_gemm_outer_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void he2hb_gemm_outer(
@@ -494,7 +494,7 @@ void he2hb_gemm_outer(
 /// matrix multiply to update trailing matrix, except the diagonal tiles.
 /// where A is a single block column and B is a single block row.
 /// Host nest implementation.
-/// @ingroup he2hb_gemm_outer_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void he2hb_gemm_outer(
@@ -513,7 +513,7 @@ void he2hb_gemm_outer(
 /// matrix multiply to update trailing matrix, except the diagonal tiles.
 /// where A is a single block column and B is a single block row.
 /// Host batched implementation.
-/// @ingroup he2hb_gemm_outer_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void he2hb_gemm_outer(

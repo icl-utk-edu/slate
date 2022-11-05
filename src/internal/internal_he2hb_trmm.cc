@@ -23,7 +23,7 @@ namespace internal {
 /// T = A[ 0:A.mb(), 0:A.mb() ] is upper triangular,
 /// Bi = Bi[ 0:B.mb(), 0:A.mb() ]. Call trmm Bi = Bi T.
 /// Dispatches to target implementations.
-/// @ingroup he2hb_trmm_internal
+/// @ingroup heev_internal
 ///
 template <Target target, typename scalar_t>
 void he2hb_trmm(
@@ -40,7 +40,7 @@ void he2hb_trmm(
 //------------------------------------------------------------------------------
 /// Triangular matrix multiply.
 /// Host OpenMP task implementation.
-/// @ingroup he2hb_trmm_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void he2hb_trmm(
@@ -104,7 +104,7 @@ void he2hb_trmm(
 //------------------------------------------------------------------------------
 /// Triangular matrix multiply.
 /// Device implementation.
-/// @ingroup he2hb_trmm_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void he2hb_trmm(
@@ -333,7 +333,7 @@ void he2hb_trmm(
 //------------------------------------------------------------------------------
 /// Triangular matrix multiply.
 /// Host nested OpenMP implementation.
-/// @ingroup he2hb_trmm_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void he2hb_trmm(
@@ -350,7 +350,7 @@ void he2hb_trmm(
 //------------------------------------------------------------------------------
 /// Triangular matrix multiply.
 /// Host batched OpenMP implementation.
-/// @ingroup he2hb_trmm_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void he2hb_trmm(

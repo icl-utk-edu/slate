@@ -44,7 +44,7 @@ namespace internal {
 /// However, it necesarily handles communication for C.
 /// Tag is used in geqrf to differentiate communication for look-ahead panel
 /// from rest of trailing matrix.
-/// @ingroup geqrf_internal
+/// @ingroup heev_internal
 ///
 template <Target target, typename scalar_t>
 void hettmqr(
@@ -62,7 +62,7 @@ void hettmqr(
 /// Distributed multiply Hermitian matrix on left and right by Q from
 /// QR triangle-triangle factorization of column of tiles.
 /// Host implementation.
-/// @ingroup geqrf_internal
+/// @ingroup heev_internal
 ///
 template <typename scalar_t>
 void hettmqr(

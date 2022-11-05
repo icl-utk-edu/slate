@@ -108,12 +108,10 @@ void he2hb(
     int my_rank = A.mpiRank();
 
     // tracks dependencies by block-column.
-    std::vector< uint8_t > block_vector( nt );
+    std::vector< uint8_t > block_vector( nt + 2 );
     uint8_t* block = block_vector.data();
-    std::vector< uint8_t > alloc_workspace_vector( 1 );
-    uint8_t* alloc_workspace = alloc_workspace_vector.data();
-    std::vector< uint8_t > alloc_trailing_vector( 1 );
-    uint8_t* alloc_trailing = alloc_trailing_vector.data();
+    uint8_t* alloc_workspace = &block_vector[ nt ];
+    uint8_t* alloc_trailing  = &block_vector[ nt+1 ];
 
     // set min number for omp nested active parallel regions
     slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );

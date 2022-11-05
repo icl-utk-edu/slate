@@ -539,68 +539,67 @@ void he2hb(
                         A.sub( k+1, nt-1 ) );
                 }
 
-                // Unhold and release tiles in A_panel and Tlocal
+                // Unhold and release tiles in A_panel and Tlocal.
                 if (target == Target::Devices) {
-                    if (k < nt-1) {
-                        #pragma omp task depend( in:block[ k ] )
-                        {
-                            for (int64_t i = k; i < nt; ++i) {
-                                if (A.tileIsLocal( i, k )) {
-                                    A.tileUpdateOrigin( i, k );
+                    // todo: inout, right?
+                    #pragma omp task depend( in:block[ k ] )
+                    {
+                        for (int64_t i = k; i < nt; ++i) {
+                            if (A.tileIsLocal( i, k )) {
+                                A.tileUpdateOrigin( i, k );
 
-                                    std::set<int> dev_set;
-                                    A.sub( k+1, nt-1 ).getLocalDevices( &dev_set );
+                                std::set<int> dev_set;
+                                A.sub( k+1, nt-1 ).getLocalDevices( &dev_set );
 
-                                    for (auto device : dev_set) {
-                                        A.tileUnsetHold( i, k, device );
-                                        A.tileRelease( i, k, device );
-                                    }
+                                for (auto device : dev_set) {
+                                    A.tileUnsetHold( i, k, device );
+                                    A.tileRelease( i, k, device );
                                 }
                             }
+                        }
 
-                            for (int panel_rank : panel_ranks) {
-                                // Find local row indices for panel_rank.
-                                panel_rank_rows.clear();
-                                for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                                    if (A_panel.tileRank( i, 0 ) == panel_rank) {
-                                        // global index
-                                        panel_rank_rows.push_back( i+k+1 );
-                                    }
+                        for (int panel_rank : panel_ranks) {
+                            // Find local row indices for panel_rank.
+                            panel_rank_rows.clear();
+                            for (int64_t i = 0; i < A_panel.mt(); ++i) {
+                                if (A_panel.tileRank( i, 0 ) == panel_rank) {
+                                    // global index
+                                    panel_rank_rows.push_back( i+k+1 );
                                 }
-                                if (panel_rank_rows.size() > 0) {
-                                    int64_t i0 = panel_rank_rows[ 0 ];
-                                    for (int64_t i : panel_rank_rows) {
-                                        if (Tlocal.tileIsLocal( i, k )) {
-                                            //Tlocal.tileUpdateOrigin( i, k );
+                            }
+                            if (panel_rank_rows.size() > 0) {
+                                int64_t i0 = panel_rank_rows[ 0 ];
+                                for (int64_t i : panel_rank_rows) {
+                                    if (Tlocal.tileIsLocal( i, k )) {
+                                        //Tlocal.tileUpdateOrigin( i, k );
 
-                                            std::set<int> dev_set;
-                                            Tlocal.sub( i, i, k+1, nt-1 ).getLocalDevices( &dev_set );
+                                        std::set<int> dev_set;
+                                        Tlocal.sub( i, i, k+1, nt-1 ).getLocalDevices( &dev_set );
 
-                                            for (auto device : dev_set) {
-                                                Tlocal.tileUnsetHold( i0, k, device );
-                                                Tlocal.tileRelease( i0, k, device );
-                                            }
+                                        for (auto device : dev_set) {
+                                            Tlocal.tileUnsetHold( i0, k, device );
+                                            Tlocal.tileRelease( i0, k, device );
+                                        }
 
-                                            std::set<int> dev_set2;
-                                            Tlocal.sub( k+1, nt-1, i, i ).getLocalDevices( &dev_set );
+                                        std::set<int> dev_set2;
+                                        Tlocal.sub( k+1, nt-1, i, i ).getLocalDevices( &dev_set );
 
-                                            for (auto device : dev_set2) {
-                                                Tlocal.tileUnsetHold( i0, k, device );
-                                                Tlocal.tileRelease( i0, k, device );
-                                            }
+                                        for (auto device : dev_set2) {
+                                            Tlocal.tileUnsetHold( i0, k, device );
+                                            Tlocal.tileRelease( i0, k, device );
                                         }
                                     }
                                 }
                             }
-                        }
-                    }
-                }
-            } //if (k < nt-1)
-        }
+                        } // for panel_rank
+                    } // task
+                } // if devices
+            } // if (k < nt-1)
+        } // for k
 
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
-    }
+    } // parallel, master
 
     A.releaseWorkspace();
     W.releaseWorkspace();

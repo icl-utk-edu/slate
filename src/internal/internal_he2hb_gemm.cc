@@ -54,23 +54,26 @@ void he2hb_gemm(
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layout_conv = LayoutConvert( layout );
 
+    assert( A.nt() == B.mt() );
+
     #pragma omp taskgroup
-    for (int64_t k = 0; k < B.mt(); ++k) {
-        #pragma omp task depend( inout:block[ 0 ] )
-        for (int64_t i = 0; i < A.mt(); ++i) {
-            if (A.tileRank( i, k ) == panel_rank) {
-                {
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        #pragma omp task priority( priority )
+        {
+            scalar_t beta_ = beta;
+            for (int64_t k = 0; k < A.nt(); ++k) {
+                if (A.tileRank( i, k ) == panel_rank) {
                     A.tileGetForReading( i, k, layout_conv );
                     B.tileGetForReading( k, 0, layout_conv );
                     C.tileGetForWriting( i, 0, layout_conv );
                     tile::gemm( alpha, A( i, k ), B( k, 0 ),
-                                beta,  C( i, 0 ) );
+                                beta_, C( i, 0 ) );
                     A.tileTick( i, k );
                     B.tileTick( k, 0 );
                 }
+                beta_ = 1.0;
             }
         }
-        beta = 1.0;
     }
 }
 

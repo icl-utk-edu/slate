@@ -284,19 +284,19 @@ void he2hb(
                                     for (int64_t j : panel_rank_rows) {
                                         for (int64_t i = k+1; i < nt; ++i) {
                                             if (i >= j) { // lower or diagonal
-                                                if (A.tileIsLocal( i, j )) {
-                                                    if (device == W.tileDevice( i, k )) {
-                                                        A_tiles_set.insert( { i, j } );
-                                                        W_tiles_set.insert( { i, k } );
-                                                    }
+                                                // todo: should this check device == A.tileDevice( i, j )?
+                                                if (A.tileIsLocal( i, j )
+                                                    && device == W.tileDevice( i, k )) {
+                                                    A_tiles_set.insert( { i, j } );
+                                                    W_tiles_set.insert( { i, k } );
                                                 }
                                             }
                                             else { // upper
-                                                if (A.tileIsLocal( j, i )) {
-                                                    if (device == W.tileDevice( i, k )) {
-                                                        A_tiles_set.insert( { j, i } );
-                                                        W_tiles_set.insert( { i, k } );
-                                                    }
+                                                // todo: should this check device == A.tileDevice( j, i )?
+                                                if (A.tileIsLocal( j, i )
+                                                    && device == W.tileDevice( i, k )) {
+                                                    A_tiles_set.insert( { j, i } );
+                                                    W_tiles_set.insert( { i, k } );
                                                 }
                                             }
                                         }

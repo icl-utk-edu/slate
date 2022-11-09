@@ -22,7 +22,7 @@ namespace internal {
 template <Target target, typename scalar_t>
 void he2hb_gemm_outer(
     scalar_t alpha, Matrix<scalar_t>&& A,
-    Matrix<scalar_t>&& B,
+                    Matrix<scalar_t>&& B,
     scalar_t beta,  HermitianMatrix<scalar_t>&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -42,7 +42,7 @@ template <typename scalar_t>
 void he2hb_gemm_outer(
     internal::TargetType<Target::HostTask>,
     scalar_t alpha, Matrix<scalar_t>& A,
-    Matrix<scalar_t>& B,
+                    Matrix<scalar_t>& B,
     scalar_t beta,  HermitianMatrix<scalar_t>& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -104,7 +104,7 @@ template <typename scalar_t>
 void he2hb_gemm_outer(
     internal::TargetType<Target::Devices>,
     scalar_t alpha, Matrix<scalar_t>& A,
-    Matrix<scalar_t>& B,
+                    Matrix<scalar_t>& B,
     scalar_t beta,  HermitianMatrix<scalar_t>& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -501,7 +501,7 @@ template <typename scalar_t>
 void he2hb_gemm_outer(
     internal::TargetType<Target::HostNest>,
     scalar_t alpha, Matrix<scalar_t>& A,
-    Matrix<scalar_t>& B,
+                    Matrix<scalar_t>& B,
     scalar_t beta,  HermitianMatrix<scalar_t>& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -520,7 +520,7 @@ template <typename scalar_t>
 void he2hb_gemm_outer(
     internal::TargetType<Target::HostBatch>,
     scalar_t alpha, Matrix<scalar_t>& A,
-    Matrix<scalar_t>& B,
+                    Matrix<scalar_t>& B,
     scalar_t beta,  HermitianMatrix<scalar_t>& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -535,7 +535,7 @@ void he2hb_gemm_outer(
 template
 void he2hb_gemm_outer<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
-    Matrix<float>&& B,
+                 Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -545,7 +545,7 @@ void he2hb_gemm_outer<Target::HostTask, float>(
 template
 void he2hb_gemm_outer<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
-    Matrix<double>&& B,
+                  Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -555,7 +555,7 @@ void he2hb_gemm_outer<Target::HostTask, double>(
 template
 void he2hb_gemm_outer< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-    Matrix< std::complex<float> >&& B,
+                               Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -565,7 +565,7 @@ void he2hb_gemm_outer< Target::HostTask, std::complex<float> >(
 template
 void he2hb_gemm_outer< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-    Matrix< std::complex<double> >&& B,
+                                Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -575,7 +575,7 @@ void he2hb_gemm_outer< Target::HostTask, std::complex<double> >(
 template
 void he2hb_gemm_outer<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
-    Matrix<float>&& B,
+                 Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -585,7 +585,7 @@ void he2hb_gemm_outer<Target::Devices, float>(
 template
 void he2hb_gemm_outer<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
-    Matrix<double>&& B,
+                  Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -595,7 +595,7 @@ void he2hb_gemm_outer<Target::Devices, double>(
 template
 void he2hb_gemm_outer< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-    Matrix< std::complex<float> >&& B,
+                               Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -605,7 +605,7 @@ void he2hb_gemm_outer< Target::Devices, std::complex<float> >(
 template
 void he2hb_gemm_outer< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-    Matrix< std::complex<double> >&& B,
+                                Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -615,7 +615,7 @@ void he2hb_gemm_outer< Target::Devices, std::complex<double> >(
 template
 void he2hb_gemm_outer<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
-    Matrix<float>&& B,
+                 Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -625,7 +625,7 @@ void he2hb_gemm_outer<Target::HostNest, float>(
 template
 void he2hb_gemm_outer<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
-    Matrix<double>&& B,
+                  Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -635,7 +635,7 @@ void he2hb_gemm_outer<Target::HostNest, double>(
 template
 void he2hb_gemm_outer< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-    Matrix< std::complex<float> >&& B,
+                               Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -645,7 +645,7 @@ void he2hb_gemm_outer< Target::HostNest, std::complex<float> >(
 template
 void he2hb_gemm_outer< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-    Matrix< std::complex<double> >&& B,
+                                Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -655,7 +655,7 @@ void he2hb_gemm_outer< Target::HostNest, std::complex<double> >(
 template
 void he2hb_gemm_outer<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
-    Matrix<float>&& B,
+                 Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -665,7 +665,7 @@ void he2hb_gemm_outer<Target::HostBatch, float>(
 template
 void he2hb_gemm_outer<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
-    Matrix<double>&& B,
+                  Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -675,7 +675,7 @@ void he2hb_gemm_outer<Target::HostBatch, double>(
 template
 void he2hb_gemm_outer< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
-    Matrix< std::complex<float> >&& B,
+                               Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -685,7 +685,7 @@ void he2hb_gemm_outer< Target::HostBatch, std::complex<float> >(
 template
 void he2hb_gemm_outer< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
-    Matrix< std::complex<double> >&& B,
+                                Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
     uint8_t* block,
@@ -693,4 +693,3 @@ void he2hb_gemm_outer< Target::HostBatch, std::complex<double> >(
 
 } // namespace internal
 } // namespace slate
-

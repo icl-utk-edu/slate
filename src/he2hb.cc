@@ -440,8 +440,7 @@ void he2hb(
                                 one,  conj_transpose( A.sub( k+1, nt-1, k, k ) ),
                                       W.sub( k+1, nt-1, k, k ),
                                 zero, std::move( TVAVT ),
-                                panel_rank,
-                                &block[ 0 ] );
+                                panel_rank );
 
                             // 1e. TVAVT = T^H (V^H A V T).
                             auto T0     = Tlocal.sub( i0, i0, k, k );
@@ -471,8 +470,7 @@ void he2hb(
                                 -half, A.sub( k+1, nt-1, k, k ),
                                        std::move( TVAVT ),
                                 one,   W.sub( k+1, nt-1, k, k ),
-                                panel_rank,
-                                &block[ k+1 ] );
+                                panel_rank );
 
                             // 2. Update trailing matrix.
                             // A = A - V Y^H - Y V^H, with Y in W.
@@ -501,7 +499,7 @@ void he2hb(
                                 -one, A.sub( k+1, nt-1, k, k ),
                                       W.sub( k+1, nt-1, k, k ),
                                 one,  A.sub( k+1, nt-1 ),
-                                panel_rank_rows_sub, &block[ k+1 ] );
+                                panel_rank_rows_sub );
                         }
                     }
 

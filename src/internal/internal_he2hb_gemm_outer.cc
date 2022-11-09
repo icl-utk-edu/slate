@@ -25,12 +25,11 @@ void he2hb_gemm_outer(
                     Matrix<scalar_t>&& B,
     scalar_t beta,  HermitianMatrix<scalar_t>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index )
 {
     he2hb_gemm_outer( internal::TargetType<target>(),
                       alpha, A, B, beta, C,
-                      panel_rank_rows, block, priority, queue_index );
+                      panel_rank_rows, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -45,7 +44,6 @@ void he2hb_gemm_outer(
                     Matrix<scalar_t>& B,
     scalar_t beta,  HermitianMatrix<scalar_t>& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index)
 {
     // Assumes column major
@@ -57,8 +55,7 @@ void he2hb_gemm_outer(
     // try to loop over one tile and do two gemm, similar to her2k
     #pragma omp taskgroup
     for (int64_t j = 0; j < nt; ++j) {
-        #pragma omp task depend( inout:block[ j ] ) \
-                         depend( in:block[ 0 ] )
+        #pragma omp task
         for (int64_t i : panel_rank_rows) {
             // todo: if HermitianMatrix returned conjTrans
             // tiles, could merge these two.
@@ -107,7 +104,6 @@ void he2hb_gemm_outer(
                     Matrix<scalar_t>& B,
     scalar_t beta,  HermitianMatrix<scalar_t>& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index)
 {
     // Assumes column major
@@ -504,7 +500,6 @@ void he2hb_gemm_outer(
                     Matrix<scalar_t>& B,
     scalar_t beta,  HermitianMatrix<scalar_t>& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index )
 {
     slate_not_implemented( "Target::HostNest isn't yet supported." );
@@ -523,7 +518,6 @@ void he2hb_gemm_outer(
                     Matrix<scalar_t>& B,
     scalar_t beta,  HermitianMatrix<scalar_t>& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index )
 {
     slate_not_implemented( "Target::HostBatch isn't yet supported." );
@@ -538,7 +532,6 @@ void he2hb_gemm_outer<Target::HostTask, float>(
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -548,7 +541,6 @@ void he2hb_gemm_outer<Target::HostTask, double>(
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -558,7 +550,6 @@ void he2hb_gemm_outer< Target::HostTask, std::complex<float> >(
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -568,7 +559,6 @@ void he2hb_gemm_outer< Target::HostTask, std::complex<double> >(
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -578,7 +568,6 @@ void he2hb_gemm_outer<Target::Devices, float>(
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -588,7 +577,6 @@ void he2hb_gemm_outer<Target::Devices, double>(
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -598,7 +586,6 @@ void he2hb_gemm_outer< Target::Devices, std::complex<float> >(
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -608,7 +595,6 @@ void he2hb_gemm_outer< Target::Devices, std::complex<double> >(
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -618,7 +604,6 @@ void he2hb_gemm_outer<Target::HostNest, float>(
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -628,7 +613,6 @@ void he2hb_gemm_outer<Target::HostNest, double>(
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -638,7 +622,6 @@ void he2hb_gemm_outer< Target::HostNest, std::complex<float> >(
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -648,7 +631,6 @@ void he2hb_gemm_outer< Target::HostNest, std::complex<double> >(
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -658,7 +640,6 @@ void he2hb_gemm_outer<Target::HostBatch, float>(
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -668,7 +649,6 @@ void he2hb_gemm_outer<Target::HostBatch, double>(
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -678,7 +658,6 @@ void he2hb_gemm_outer< Target::HostBatch, std::complex<float> >(
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 // ----------------------------------------
@@ -688,7 +667,6 @@ void he2hb_gemm_outer< Target::HostBatch, std::complex<double> >(
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
     std::vector<int64_t>& panel_rank_rows,
-    uint8_t* block,
     int priority, int64_t queue_index);
 
 } // namespace internal

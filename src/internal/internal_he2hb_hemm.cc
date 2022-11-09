@@ -131,6 +131,8 @@ void he2hb_hemm(
     slate_not_implemented( "Target::HostBatch isn't yet supported." );
 }
 
+#if 1 // device non-batch multi-queue implementation
+
 //------------------------------------------------------------------------------
 /// Apply local reflectors.
 /// GPU device BLAS implementation.
@@ -300,7 +302,8 @@ void he2hb_hemm(
     #pragma omp taskwait
 }
 
-/*
+#else // device batch implementation
+
 //------------------------------------------------------------------------------
 /// Apply local reflectors.
 /// GPU device batched cuBLAS implementation.
@@ -772,7 +775,8 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
     if (err)
         slate_error( std::to_string( err ) );
 }
-*/
+
+#endif // else device batch implementation
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.

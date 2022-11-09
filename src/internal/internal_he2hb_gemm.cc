@@ -54,6 +54,7 @@ void he2hb_gemm(
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layout_conv = LayoutConvert( layout );
 
+    #pragma omp taskgroup
     for (int64_t k = 0; k < B.mt(); ++k) {
         #pragma omp task depend( inout:block[ 0 ] )
         for (int64_t i = 0; i < A.mt(); ++i) {
@@ -71,7 +72,6 @@ void he2hb_gemm(
         }
         beta = 1.0;
     }
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -105,6 +105,8 @@ void he2hb_gemm(
     assert( C.num_devices() > 0 );
 
     int err = 0;
+
+    #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task shared( A, B, C, err ) priority( priority )
         {
@@ -121,19 +123,21 @@ void he2hb_gemm(
                         C_tiles_set.insert( { i, 0 } );
                     }
                 }
-                #pragma omp task default( shared )
+                #pragma omp taskgroup
                 {
-                    A.tileGetForReading( A_tiles_set, device, layout_conv );
+                    #pragma omp task default( shared )
+                    {
+                        A.tileGetForReading( A_tiles_set, device, layout_conv );
+                    }
+                    #pragma omp task default( shared )
+                    {
+                        B.tileGetForReading( B_tiles_set, device, layout_conv );
+                    }
+                    #pragma omp task default( shared )
+                    {
+                        C.tileGetForWriting( C_tiles_set, device, layout_conv );
+                    }
                 }
-                #pragma omp task default( shared )
-                {
-                    B.tileGetForReading( B_tiles_set, device, layout_conv );
-                }
-                #pragma omp task default( shared )
-                {
-                    C.tileGetForWriting( C_tiles_set, device, layout_conv );
-                }
-                #pragma omp taskwait
 
                 int64_t batch_size = C_tiles_set.size();
 
@@ -274,7 +278,6 @@ void he2hb_gemm(
             } // for loop (k)
         } // pragma
     } // device
-    #pragma omp taskwait
 
     if (err)
         slate_error( std::to_string( err ) );

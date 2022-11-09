@@ -60,6 +60,7 @@ void he2hb_trmm(
 
     auto A0 = A.sub( 0, 0, 0, 0 );
 
+    #pragma omp taskgroup
     for (int64_t i = 0; i < B.mt(); ++i) {
         #pragma omp task shared( AH, B )
         {
@@ -98,7 +99,6 @@ void he2hb_trmm(
             }
         }
     }
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -123,6 +123,7 @@ void he2hb_trmm(
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layout_conv = LayoutConvert( layout );
 
+    #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared( AH, B ) priority( priority )
         {
@@ -327,7 +328,6 @@ void he2hb_trmm(
             }
         }
     }
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------

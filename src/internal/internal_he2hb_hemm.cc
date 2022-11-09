@@ -55,6 +55,7 @@ void he2hb_hemm(
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layout_conv = LayoutConvert( layout );
 
+    #pragma omp taskgroup
     for (int64_t i = 0; i < nt; ++i) {
         #pragma omp task shared( A, B, C )
         {
@@ -93,8 +94,6 @@ void he2hb_hemm(
             }
         }
     }
-
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -155,6 +154,7 @@ void he2hb_hemm(
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layout_conv = LayoutConvert( layout );
 
+    #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task shared( A, B, C ) priority( priority )
         {
@@ -181,7 +181,10 @@ void he2hb_hemm(
                         }
                     }
                 }
+            }
 
+            #pragma omp taskgroup
+            {
                 #pragma omp task default( shared )
                 {
                     A.tileGetForReading( A_tiles_set, device, layout_conv );
@@ -194,13 +197,13 @@ void he2hb_hemm(
                 {
                     C.tileGetForWriting( C_tiles_set, device, layout_conv );
                 }
-                #pragma omp taskwait
             }
         }
     }
-    #pragma omp taskwait
+
     int num_queues = C.numComputeQueues();
 
+    #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task shared( A, B, C ) priority( priority )
         {
@@ -297,9 +300,7 @@ void he2hb_hemm(
                 } //i loop
             } // j loop
         } // pragma
-    } //devices
-
-    #pragma omp taskwait
+    } // devices
 }
 
 #else // device batch implementation
@@ -368,19 +369,21 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                     }
                 }
 
-                #pragma omp task default( shared )
+                #pragma omp taskgroup
                 {
-                    A.tileGetForReading( A_tiles_set, device, layout_conv );
+                    #pragma omp task default( shared )
+                    {
+                        A.tileGetForReading( A_tiles_set, device, layout_conv );
+                    }
+                    #pragma omp task default( shared )
+                    {
+                        B.tileGetForReading( B_tiles_set, device, layout_conv );
+                    }
+                    #pragma omp task default( shared )
+                    {
+                        C.tileGetForWriting( C_tiles_set, device, layout_conv );
+                    }
                 }
-                #pragma omp task default( shared )
-                {
-                    B.tileGetForReading( B_tiles_set, device, layout_conv );
-                }
-                #pragma omp task default( shared )
-                {
-                    C.tileGetForWriting( C_tiles_set, device, layout_conv );
-                }
-                #pragma omp taskwait
 
                 int64_t batch_size = C_tiles_set.size();
 
@@ -769,8 +772,6 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
             } // j = panel_rank_rows
         } // task
     } // device
-
-    #pragma omp taskwait
 
     if (err)
         slate_error( std::to_string( err ) );

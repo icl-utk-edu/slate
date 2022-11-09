@@ -55,6 +55,7 @@ void he2hb_gemm_outer(
     int64_t nt = C.nt();
 
     // try to loop over one tile and do two gemm, similar to her2k
+    #pragma omp taskgroup
     for (int64_t j = 0; j < nt; ++j) {
         #pragma omp task depend( inout:block[ j ] ) \
                          depend( in:block[ 0 ] )
@@ -91,7 +92,6 @@ void he2hb_gemm_outer(
             }
         }
     }
-    #pragma omp taskwait
 }
 
 //------------------------------------------------------------------------------
@@ -127,6 +127,7 @@ void he2hb_gemm_outer(
     assert( C.num_devices() > 0 );
 
     int err = 0;
+    #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task shared( A, B, C, err ) priority( priority )
         {
@@ -179,19 +180,21 @@ void he2hb_gemm_outer(
                 i_last = 1;
             }
 
-            #pragma omp task default( shared )
+            #pragma omp taskgroup
             {
-                A.tileGetForReading( A_tiles_set, device, layout_conv );
+                #pragma omp task default( shared )
+                {
+                    A.tileGetForReading( A_tiles_set, device, layout_conv );
+                }
+                #pragma omp task default( shared )
+                {
+                    B.tileGetForReading( B_tiles_set, device, layout_conv );
+                }
+                #pragma omp task default( shared )
+                {
+                    C.tileGetForWriting( C_tiles_set, device, layout_conv );
+                }
             }
-            #pragma omp task default( shared )
-            {
-                B.tileGetForReading( B_tiles_set, device, layout_conv );
-            }
-            #pragma omp task default( shared )
-            {
-                C.tileGetForWriting( C_tiles_set, device, layout_conv );
-            }
-            #pragma omp taskwait
 
             // interior
             std::vector<scalar_t*> a_array00;
@@ -483,8 +486,6 @@ void he2hb_gemm_outer(
             }
         }
     }
-
-    #pragma omp taskwait
 
     if (err)
         slate_error( std::to_string( err ) );

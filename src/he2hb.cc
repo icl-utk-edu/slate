@@ -446,13 +446,13 @@ void he2hb(
                                          depend( inout:block[ nt-1 ] )
                         {
                             // 1d. TVAVT = V^H (A V T) = V^H W.
-                            auto A_panelT = conj_transpose( A.sub( k+1, nt-1, k, k ) );
+                            // todo: potentially do gemm+reduce here (block inner-product)
                             // todo: shouldn't need to set TVAVT = 0 since beta = 0.
                             // todo: on GPU
                             TVAVT.tileGetForWriting( 0, 0, HostNum, layout_conv );
                             TVAVT( 0, 0 ).set( zero );
                             internal::he2hb_gemm<target>(
-                                one,  std::move( A_panelT ),
+                                one,  conj_transpose( A.sub( k+1, nt-1, k, k ) ),
                                       W.sub( k+1, nt-1, k, k ),
                                 zero, std::move( TVAVT ),
                                 panel_rank,

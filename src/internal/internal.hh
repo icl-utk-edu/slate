@@ -508,16 +508,14 @@ void he2hb_gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                 int priority=0, int64_t queue_index=0);
 
 //-----------------------------------------
-// he2hb_gemm_outer()
+// he2hb_her2k_offdiag_ranks()
 template <Target target=Target::HostTask, typename scalar_t>
-void he2hb_gemm_outer(scalar_t alpha, Matrix<scalar_t>&& A,
-                                      Matrix<scalar_t>&& B,
-                      scalar_t beta,  HermitianMatrix<scalar_t>&& C,
-                      std::vector<int64_t>& panel_rank_rows,
-                      int priority=0, int64_t queue_index=0);
-
-//-----------------------------------------
-// ttqrt()
+void he2hb_her2k_offdiag_ranks(
+        scalar_t alpha, Matrix<scalar_t>&& A,
+                        Matrix<scalar_t>&& B,
+        scalar_t beta,  HermitianMatrix<scalar_t>&& C,
+        std::vector<int64_t>& panel_rank_rows,
+        int priority=0, int64_t queue_index=0);
 
 //-----------------------------------------
 // ttqrt()

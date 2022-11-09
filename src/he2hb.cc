@@ -495,7 +495,7 @@ void he2hb(
 
                             // 2. Update trailing matrix.
                             // A = A - V W^H or A - W V^H.
-                            internal::he2hb_gemm_outer<target>(
+                            internal::he2hb_her2k_offdiag_ranks<target>(
                                 -one, A.sub( k+1, nt-1, k, k ),
                                       W.sub( k+1, nt-1, k, k ),
                                 one,  A.sub( k+1, nt-1 ),

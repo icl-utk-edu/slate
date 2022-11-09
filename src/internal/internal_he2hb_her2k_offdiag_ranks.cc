@@ -20,16 +20,17 @@ namespace internal {
 /// @ingroup heev_internal
 ///
 template <Target target, typename scalar_t>
-void he2hb_gemm_outer(
+void he2hb_her2k_offdiag_ranks(
     scalar_t alpha, Matrix<scalar_t>&& A,
                     Matrix<scalar_t>&& B,
     scalar_t beta,  HermitianMatrix<scalar_t>&& C,
     std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index )
 {
-    he2hb_gemm_outer( internal::TargetType<target>(),
-                      alpha, A, B, beta, C,
-                      panel_rank_rows, priority, queue_index );
+    he2hb_her2k_offdiag_ranks(
+        internal::TargetType<target>(),
+        alpha, A, B, beta, C,
+        panel_rank_rows, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -38,7 +39,7 @@ void he2hb_gemm_outer(
 /// @ingroup heev_internal
 ///
 template <typename scalar_t>
-void he2hb_gemm_outer(
+void he2hb_her2k_offdiag_ranks(
     internal::TargetType<Target::HostTask>,
     scalar_t alpha, Matrix<scalar_t>& A,
                     Matrix<scalar_t>& B,
@@ -98,7 +99,7 @@ void he2hb_gemm_outer(
 /// @ingroup heev_internal
 ///
 template <typename scalar_t>
-void he2hb_gemm_outer(
+void he2hb_her2k_offdiag_ranks(
     internal::TargetType<Target::Devices>,
     scalar_t alpha, Matrix<scalar_t>& A,
                     Matrix<scalar_t>& B,
@@ -380,7 +381,7 @@ void he2hb_gemm_outer(
             }
 
             {
-                trace::Block trace_block( "blas::batch::he2hb_gemm_outer" );
+                trace::Block trace_block( "blas::batch::gemm" );
 
                 std::vector<Op> opA_( 1, opA );
                 std::vector<Op> opB_( 1, opB );
@@ -494,7 +495,7 @@ void he2hb_gemm_outer(
 /// @ingroup heev_internal
 ///
 template <typename scalar_t>
-void he2hb_gemm_outer(
+void he2hb_her2k_offdiag_ranks(
     internal::TargetType<Target::HostNest>,
     scalar_t alpha, Matrix<scalar_t>& A,
                     Matrix<scalar_t>& B,
@@ -512,7 +513,7 @@ void he2hb_gemm_outer(
 /// @ingroup heev_internal
 ///
 template <typename scalar_t>
-void he2hb_gemm_outer(
+void he2hb_her2k_offdiag_ranks(
     internal::TargetType<Target::HostBatch>,
     scalar_t alpha, Matrix<scalar_t>& A,
                     Matrix<scalar_t>& B,
@@ -527,7 +528,7 @@ void he2hb_gemm_outer(
 // Explicit instantiations.
 // ----------------------------------------
 template
-void he2hb_gemm_outer<Target::HostTask, float>(
+void he2hb_her2k_offdiag_ranks<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
@@ -536,7 +537,7 @@ void he2hb_gemm_outer<Target::HostTask, float>(
 
 // ----------------------------------------
 template
-void he2hb_gemm_outer<Target::HostTask, double>(
+void he2hb_her2k_offdiag_ranks<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
@@ -545,7 +546,7 @@ void he2hb_gemm_outer<Target::HostTask, double>(
 
 // ----------------------------------------
 template
-void he2hb_gemm_outer< Target::HostTask, std::complex<float> >(
+void he2hb_her2k_offdiag_ranks< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
@@ -554,7 +555,7 @@ void he2hb_gemm_outer< Target::HostTask, std::complex<float> >(
 
 // ----------------------------------------
 template
-void he2hb_gemm_outer< Target::HostTask, std::complex<double> >(
+void he2hb_her2k_offdiag_ranks< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
@@ -563,7 +564,7 @@ void he2hb_gemm_outer< Target::HostTask, std::complex<double> >(
 
 // ----------------------------------------
 template
-void he2hb_gemm_outer<Target::Devices, float>(
+void he2hb_her2k_offdiag_ranks<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
@@ -572,7 +573,7 @@ void he2hb_gemm_outer<Target::Devices, float>(
 
 // ----------------------------------------
 template
-void he2hb_gemm_outer<Target::Devices, double>(
+void he2hb_her2k_offdiag_ranks<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
@@ -581,7 +582,7 @@ void he2hb_gemm_outer<Target::Devices, double>(
 
 // ----------------------------------------
 template
-void he2hb_gemm_outer< Target::Devices, std::complex<float> >(
+void he2hb_her2k_offdiag_ranks< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
@@ -590,7 +591,7 @@ void he2hb_gemm_outer< Target::Devices, std::complex<float> >(
 
 // ----------------------------------------
 template
-void he2hb_gemm_outer< Target::Devices, std::complex<double> >(
+void he2hb_her2k_offdiag_ranks< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
@@ -599,7 +600,7 @@ void he2hb_gemm_outer< Target::Devices, std::complex<double> >(
 
 // ----------------------------------------
 template
-void he2hb_gemm_outer<Target::HostNest, float>(
+void he2hb_her2k_offdiag_ranks<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
@@ -608,7 +609,7 @@ void he2hb_gemm_outer<Target::HostNest, float>(
 
 // ----------------------------------------
 template
-void he2hb_gemm_outer<Target::HostNest, double>(
+void he2hb_her2k_offdiag_ranks<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
@@ -617,7 +618,7 @@ void he2hb_gemm_outer<Target::HostNest, double>(
 
 // ----------------------------------------
 template
-void he2hb_gemm_outer< Target::HostNest, std::complex<float> >(
+void he2hb_her2k_offdiag_ranks< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
@@ -626,7 +627,7 @@ void he2hb_gemm_outer< Target::HostNest, std::complex<float> >(
 
 // ----------------------------------------
 template
-void he2hb_gemm_outer< Target::HostNest, std::complex<double> >(
+void he2hb_her2k_offdiag_ranks< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,
@@ -635,7 +636,7 @@ void he2hb_gemm_outer< Target::HostNest, std::complex<double> >(
 
 // ----------------------------------------
 template
-void he2hb_gemm_outer<Target::HostBatch, float>(
+void he2hb_her2k_offdiag_ranks<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  HermitianMatrix<float>&& C,
@@ -644,7 +645,7 @@ void he2hb_gemm_outer<Target::HostBatch, float>(
 
 // ----------------------------------------
 template
-void he2hb_gemm_outer<Target::HostBatch, double>(
+void he2hb_her2k_offdiag_ranks<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  HermitianMatrix<double>&& C,
@@ -653,7 +654,7 @@ void he2hb_gemm_outer<Target::HostBatch, double>(
 
 // ----------------------------------------
 template
-void he2hb_gemm_outer< Target::HostBatch, std::complex<float> >(
+void he2hb_her2k_offdiag_ranks< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  HermitianMatrix< std::complex<float> >&& C,
@@ -662,7 +663,7 @@ void he2hb_gemm_outer< Target::HostBatch, std::complex<float> >(
 
 // ----------------------------------------
 template
-void he2hb_gemm_outer< Target::HostBatch, std::complex<double> >(
+void he2hb_her2k_offdiag_ranks< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  HermitianMatrix< std::complex<double> >&& C,

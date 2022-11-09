@@ -114,7 +114,7 @@ void he2hb(
     std::vector< uint8_t > block_vector( nt + 2 );
     uint8_t* block = block_vector.data();
     uint8_t* alloc_workspace = &block_vector[ nt ];
-    uint8_t* alloc_trailing  = &block_vector[ nt+1 ];
+    uint8_t* fetch_trailing  = &block_vector[ nt+1 ];
 
     // set min number for omp nested active parallel regions
     slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
@@ -181,7 +181,7 @@ void he2hb(
             if (k < nt-1) {
                 //--------------------
                 // Bcast V, Treduce, Tlocal.
-                #pragma omp task depend( in:block[ k ] ) \
+                #pragma omp task depend( inout:block[ k ] ) \
                                  depend( in:alloc_workspace[ 0 ] )
                 {
                     // Send V across row i & col i for trailing matrix update.
@@ -251,10 +251,11 @@ void he2hb(
                 // Computation and data movement overlap:
                 // fetch data to be used in he2hb_hemm
                 #pragma omp task depend( in:alloc_workspace[ 0 ] ) \
-                                 depend( inout:alloc_trailing[ 0 ] )
+                                 depend( inout:fetch_trailing[ 0 ] )
                 {
                     // todo: insert and set on device?
-                    // todo: do we need entire column, or subset?
+                    // todo: do we need entire column, or subset? needs W[ my_rows + my_cols ].
+                    // todo: is this getting erased anywhere?
                     for (int64_t i = k+1; i < nt; ++i) {
                         W.tileInsert( i, k );
                         W( i, k ).set( zero );
@@ -347,28 +348,25 @@ void he2hb(
                     }
 
                     //--------------------
-                    // Compute W = A V T.
-
-                    // 1a. Wi_part = sum_j Aij Vj, local partial sum,
-                    // for i = k+1, ..., nt-1 and j = panel_rank_rows.
+                    // Update trailing submatrix.
                     #pragma omp task depend( inout:block[ k ] ) \
-                                     depend( inout:alloc_trailing[ 0 ] )
+                                     depend( inout:block[ k+1 ] ) \
+                                     depend( inout:block[ nt-1 ] ) \
+                                     depend( inout:fetch_trailing[ 0 ] )
                     {
+                        // Compute W = A V T.
+                        // 1a. Wi_part = sum_j Aij Vj, local partial sum,
+                        // for i = k+1, ..., nt-1 and j = panel_rank_rows.
                         internal::he2hb_hemm<target>(
                             A.sub( k+1, nt-1 ),
                             A.sub( k+1, nt-1, k, k ),
                             W.sub( k+1, nt-1, k, k ),
                             panel_rank_rows_sub );
-                    }
 
-                    // 1b. Wi = Wi_part1 + Wi_part2.
-                    // At most 2 ranks contribute to each Wi; if I am one,
-                    // exchange partial sum with neighbor and both ranks sum Wi.
-                    // todo: since 1a depends on alloc_trailing, don't need here.
-                    // todo: any advantage to 1a, 1b, 1c being different tasks?
-                    #pragma omp task depend( inout:block[ k ] ) \
-                                     depend( inout:alloc_trailing[ 0 ] )
-                    {
+                        // 1b. Wi = Wi_part1 + Wi_part2.
+                        // At most 2 ranks contribute to each Wi; if I am one,
+                        // exchange partial sum with neighbor and both ranks sum Wi.
+                        #pragma omp taskgroup
                         for (int64_t i = k+1; i < nt-1; ++i) {
                             #pragma omp task
                             {
@@ -412,39 +410,26 @@ void he2hb(
                                 }
                             }
                         }
-                        #pragma omp taskwait
-                    }
 
-                    // 1c. Compute Wi = Wi T, for i = k+1, ..., nt-1.
-                    // todo: since 1a depends on alloc_trailing, don't need here
-                    #pragma omp task depend( inout:block[ k ] ) \
-                                     depend( in:alloc_trailing[ 0 ] )
-                    {
+                        // 1c. Compute Wi = Wi T, for i = k+1, ..., nt-1.
                         internal::he2hb_trmm<target>(
                             A.sub( k+1, nt-1 ), // Needed to get the rank
                             Tlocal.sub( i0, i0, k, k ),
                             W.sub( k+1, nt-1, k, k ),
                             panel_rank_rows_sub );
-                    }
 
-                    if (A.tileIsLocal( i0, i0 )) {
-                        //--------------------
-                        // This rank has diagonal tiles to update.
-                        // Do 2-sided Hermitian update:
-                        // A = Q^H A Q
-                        //   = (I - V T^H V^H) A (I - V T V^H)
-                        //   = A - V Y^H - Y V^H
-                        // where
-                        // Y = A V T - 0.5 V (T^H V^H (A V T))
-                        //   = W - 0.5 V (T^H V^H W),
-                        // W = A V T from above.
+                        if (A.tileIsLocal( i0, i0 )) {
+                            //--------------------
+                            // This rank has diagonal tiles to update.
+                            // Do 2-sided Hermitian update:
+                            // A = Q^H A Q
+                            //   = (I - V T^H V^H) A (I - V T V^H)
+                            //   = A - V Y^H - Y V^H
+                            // where
+                            // Y = A V T - 0.5 V (T^H V^H (A V T))
+                            //   = W - 0.5 V (T^H V^H W),
+                            // W = A V T from above.
 
-                        // todo: why block[ 0 ]? Just because TVAVT is W(0,0)?
-                        #pragma omp task depend( in:block[ k ] ) \
-                                         depend( inout:block[ 0 ] ) \
-                                         depend( inout:block[ k+1 ] ) \
-                                         depend( inout:block[ nt-1 ] )
-                        {
                             // 1d. TVAVT = V^H (A V T) = V^H W.
                             // todo: potentially do gemm+reduce here (block inner-product)
                             // todo: shouldn't need to set TVAVT = 0 since beta = 0.
@@ -496,26 +481,20 @@ void he2hb(
                                        W.sub( k+1, nt-1, k, k ),
                                 r_one, A.sub( k+1, nt-1 ));
                         }
-                    }
-                    else { // off-diag
-                        //--------------------
-                        // This rank has only off-diagonal tiles to update (if any).
-                        // Update from left tiles in lower( A( panel_rank_rows, : ) ):
-                        // A = Q^H A
-                        //   = (I - V T^H V^H) A = A - V T^H V^H A
-                        //   = A - V W^H
-                        // Update from right tiles in lower( A( :, panel_rank_rows ) ):
-                        // A = A Q
-                        //   = A (I - V T V^H)   = A - A V T V^H
-                        //   = A - W V^H
-                        // where
-                        // W = A V T from above.
-                        // todo: since 1a depends on alloc_trailing, don't need here
-                        #pragma omp task depend( in:block[ k ] ) \
-                                         depend( inout:block[ k+1 ] ) \
-                                         depend( inout:block[ nt-1 ] ) \
-                                         depend( inout:alloc_trailing[ 0 ] )
-                        {
+                        else { // off-diag
+                            //--------------------
+                            // This rank has only off-diagonal tiles to update (if any).
+                            // Update from left tiles in lower( A( panel_rank_rows, : ) ):
+                            // A = Q^H A
+                            //   = (I - V T^H V^H) A = A - V T^H V^H A
+                            //   = A - V W^H
+                            // Update from right tiles in lower( A( :, panel_rank_rows ) ):
+                            // A = A Q
+                            //   = A (I - V T V^H)   = A - A V T V^H
+                            //   = A - W V^H
+                            // where
+                            // W = A V T from above.
+
                             // 2. Update trailing matrix.
                             // A = A - V W^H or A - W V^H.
                             internal::he2hb_gemm_outer<target>(
@@ -539,11 +518,9 @@ void he2hb(
 
                 //--------------------
                 // Update trailing matrix from triangle reductions.
-                // todo: since 1a depends on alloc_trailing, don't need here
                 #pragma omp task depend( in:block[ k ] ) \
                                  depend( inout:block[ k+1 ] ) \
-                                 depend( inout:block[ nt-1 ] ) \
-                                 depend( inout:alloc_trailing[ 0 ] )
+                                 depend( inout:block[ nt-1 ] )
                 {
                     // Do 2-sided Hermitian update:
                     // 3. A = Q^H A Q
@@ -556,8 +533,8 @@ void he2hb(
 
                 // Unhold and release tiles in A_panel and Tlocal.
                 if (target == Target::Devices) {
-                    // todo: inout, right?
-                    #pragma omp task depend( in:block[ k ] )
+                    // todo: inout, right? what prevents this from executing during previous update?
+                    #pragma omp task depend( inout:block[ k ] )
                     {
                         for (int64_t i = k; i < nt; ++i) {
                             if (A.tileIsLocal( i, k )) {

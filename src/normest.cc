@@ -43,7 +43,8 @@ normest(slate::internal::TargetType<target>,
     // Two norm estimation
     // First: let's compute the x vector such that
     // x_j = sum_i abs( A_{i,j} ), x here is global_sums.data
-    if (in_norm == Norm::One) {
+    // todo: should we add this to norm?
+    //if (in_norm == Norm::One_est) {
 
         using blas::min;
 
@@ -71,6 +72,7 @@ normest(slate::internal::TargetType<target>,
 
         std::vector<real_t> local_sums(n);
 
+        // todo: do we still need reserveDevice here?
         if (target == Target::Devices)
             A.reserveDeviceWorkspace();
 
@@ -92,7 +94,7 @@ normest(slate::internal::TargetType<target>,
         #pragma omp parallel
         #pragma omp master
         {
-            internal::norm<target>(in_norm, NormScope::Matrix, std::move(A), local_sums.data());
+            internal::norm<target>(slate::Norm::One, NormScope::Matrix, std::move(A), local_sums.data());
         }
 
         #pragma omp critical(slate_mpi)
@@ -120,7 +122,7 @@ normest(slate::internal::TargetType<target>,
         }
 
         // Third: start the while-loop X = X / ||X||
-        while ( (cnt < maxiter) && (fabs((e - e0)) > (tol * (e))) ) {
+        while ((cnt < maxiter) && (fabs((e - e0)) > (tol * (e)))) {
             e0 = e;
 
             // Scale X = X / ||X||
@@ -130,9 +132,18 @@ normest(slate::internal::TargetType<target>,
             // Compute Ax = A * sx
             gemm(one, A, X, zero, AX, opts);
 
+            // todo: still need to add the following
+            //if nnz(Sx) == 0
+            //    Sx = rand(size(Sx),class(Sx));
+            //end
+
             // Compute x = A' * A * x = A' * Ax
-            auto AT = conj_transpose(A);
+            auto AT = conjTranspose(A);
+            // todo: why this set is needed when using multiple mpi rank
+            // todo: send to Sebastien
+            set(zero, zero, XL);
             gemm(one, AT, AX, zero, XL, opts);
+            //gemmC(one, AT, AX, zero, XL, opts);
 
             // Compute ||X||, ||AX||
             normX  = norm(Norm::Fro, XL, opts);
@@ -142,17 +153,15 @@ normest(slate::internal::TargetType<target>,
             e = normX / normAX;
             cnt++;
         }
-        //if ( (cnt >= maxiter) && (fabs((e - e0)) > (tol * e)) ) {
-        //}
 
         A.clearWorkspace();
 
         return e;
 
-    }
-    else {
-        slate_error("invalid norm.");
-    }
+    //}
+    //else {
+    //    slate_error("invalid norm.");
+    //}
 }
 
 } // namespace specialization

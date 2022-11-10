@@ -193,7 +193,8 @@ void hemm(Side side,
           scalar_t alpha, HermitianMatrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          int priority=0);
+          int priority=0,
+          Options const& opts = Options());
 
 // forward real-symmetric matrices to hemm;
 // disabled for complex
@@ -203,10 +204,11 @@ void hemm(Side side,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
           int priority=0,
+          Options const& opts = Options(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     hemm<target>(side, alpha, std::move(A),
-                 beta, HermitianMatrix<scalar_t>(C), priority);
+                 beta, HermitianMatrix<scalar_t>(C), priority, opts);
 }
 
 //-----------------------------------------

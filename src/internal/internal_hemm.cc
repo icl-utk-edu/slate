@@ -28,7 +28,7 @@ void hemm(Side side,
           scalar_t alpha, HermitianMatrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          int priority)
+          int priority, Options const& opts)
 {
     // check dimensions
     assert(A.mt() == 1);
@@ -49,7 +49,7 @@ void hemm(Side side,
          side,
          alpha, A, B,
          beta,  C,
-         priority);
+         priority, opts);
 }
 
 //------------------------------------------------------------------------------
@@ -63,13 +63,19 @@ void hemm(internal::TargetType<Target::HostTask>,
           scalar_t alpha, HermitianMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          int priority)
+          int priority, Options const& opts)
 {
     // CPU uses ColMajor
     // todo: relax this assumption, by allowing Tile_blas.hh::hemm() to take layout param
     // todo: optimize for the number of layout conversions,
     //       by watching 'layout' and 'C(i, j).layout()'
     const Layout layout = Layout::ColMajor;
+
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
 
     int err = 0;
     #pragma omp taskgroup
@@ -78,7 +84,8 @@ void hemm(internal::TargetType<Target::HostTask>,
             if (C.tileIsLocal(0, j)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B, C, err ) \
-                    firstprivate(j, layout, side, alpha, beta) priority(priority)
+                    firstprivate(j, layout, side, alpha, beta, call_tile_tick) \
+                    priority(priority)
                 {
                     try {
                         A.tileGetForReading(0, 0, LayoutConvert(layout));
@@ -88,9 +95,11 @@ void hemm(internal::TargetType<Target::HostTask>,
                             side,
                             alpha, A(0, 0), B(0, j),
                             beta,  C(0, j) );
-                        // todo: should tileRelease()?
-                        A.tileTick(0, 0);
-                        B.tileTick(0, j);
+                        if (call_tile_tick) {
+                            // todo: should tileRelease()?
+                            A.tileTick(0, 0);
+                            B.tileTick(0, j);
+                        }
                     }
                     catch (std::exception& e) {
                         err = __LINE__;
@@ -105,7 +114,8 @@ void hemm(internal::TargetType<Target::HostTask>,
             if (C.tileIsLocal(i, 0)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B, C, err ) \
-                    firstprivate(i, layout, side, alpha, beta) priority(priority)
+                    firstprivate(i, layout, side, alpha, beta, call_tile_tick) \
+                    priority(priority)
                 {
                     try {
                         A.tileGetForReading(0, 0, LayoutConvert(layout));
@@ -115,9 +125,11 @@ void hemm(internal::TargetType<Target::HostTask>,
                             side,
                             alpha, A(0, 0), B(i, 0),
                             beta,  C(i, 0) );
-                        // todo: should tileRelease()?
-                        A.tileTick(0, 0);
-                        B.tileTick(i, 0);
+                        if (call_tile_tick) {
+                            // todo: should tileRelease()?
+                            A.tileTick(0, 0);
+                            B.tileTick(i, 0);
+                        }
                     }
                     catch (std::exception& e) {
                         err = __LINE__;
@@ -142,7 +154,7 @@ void hemm(internal::TargetType<Target::HostNest>,
           scalar_t alpha, HermitianMatrix<scalar_t>& A,
                           Matrix<scalar_t>& B,
           scalar_t beta,  Matrix<scalar_t>& C,
-          int priority)
+          int priority, Options const& opts)
 {
     // CPU uses ColMajor
     // todo: relax this assumption, by allowing Tile_blas.hh::hemm() to take layout param
@@ -153,7 +165,7 @@ void hemm(internal::TargetType<Target::HostNest>,
     int err = 0;
     if (side == Side::Left) {
         #pragma omp parallel for schedule(dynamic, 1) slate_omp_default_none \
-            shared(A, B, C, err) firstprivate(side, alpha, beta)
+            shared(A, B, C, err) firstprivate(layout, side, alpha, beta)
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(0, j)) {
                 try {
@@ -177,7 +189,7 @@ void hemm(internal::TargetType<Target::HostNest>,
     else {
         // side == Right
         #pragma omp parallel for schedule(dynamic, 1) slate_omp_default_none \
-            shared(A, B, C, err) firstprivate(side, alpha, beta)
+            shared(A, B, C, err) firstprivate(layout, side, alpha, beta)
         for (int64_t i = 0; i < C.mt(); ++i) {
             if (C.tileIsLocal(i, 0)) {
                 try {
@@ -212,7 +224,7 @@ void hemm< Target::HostTask, float >(
     float alpha, HermitianMatrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority);
+    int priority, Options const& opts);
 
 template
 void hemm<Target::HostNest, float>(
@@ -220,7 +232,7 @@ void hemm<Target::HostNest, float>(
     float alpha, HermitianMatrix<float>&& A,
                  Matrix<float>&& B,
     float beta,  Matrix<float>&& C,
-    int priority);
+    int priority, Options const& opts);
 
 // ----------------------------------------
 template
@@ -229,7 +241,7 @@ void hemm<Target::HostTask, double>(
     double alpha, HermitianMatrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority);
+    int priority, Options const& opts);
 
 template
 void hemm<Target::HostNest, double>(
@@ -237,7 +249,7 @@ void hemm<Target::HostNest, double>(
     double alpha, HermitianMatrix<double>&& A,
                   Matrix<double>&& B,
     double beta,  Matrix<double>&& C,
-    int priority);
+    int priority, Options const& opts);
 
 // ----------------------------------------
 template
@@ -246,7 +258,7 @@ void hemm< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, HermitianMatrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority);
+    int priority, Options const& opts);
 
 template
 void hemm< Target::HostNest, std::complex<float> >(
@@ -254,7 +266,7 @@ void hemm< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, HermitianMatrix< std::complex<float> >&& A,
                                Matrix< std::complex<float> >&& B,
     std::complex<float> beta,  Matrix< std::complex<float> >&& C,
-    int priority);
+    int priority, Options const& opts);
 
 // ----------------------------------------
 template
@@ -263,7 +275,7 @@ void hemm< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, HermitianMatrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority);
+    int priority, Options const& opts);
 
 template
 void hemm< Target::HostNest, std::complex<double> >(
@@ -271,7 +283,7 @@ void hemm< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, HermitianMatrix< std::complex<double> >&& A,
                                 Matrix< std::complex<double> >&& B,
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
-    int priority);
+    int priority, Options const& opts);
 
 } // namespace internal
 } // namespace slate

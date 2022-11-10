@@ -407,6 +407,30 @@ public:
         storage_->tileTick(globalIndex(i, j));
     }
 
+    /// Returns how many times the tile {i, j} is received
+    /// through MPI.
+    /// This function is used to track tiles that may be
+    /// communicated twice due to symmetricity
+    /// during hemm and symm operations.
+    int64_t tileReceiveCount(int64_t i, int64_t j) const
+    {
+        return storage_->tileReceiveCount( globalIndex( i, j ) );
+    }
+
+    /// Increments the number of times the tile {i, j} is received
+    /// through MPI.
+    void tileIncrementReceiveCount(int64_t i, int64_t j)
+    {
+        storage_->tileIncrementReceiveCount( globalIndex( i, j ) );
+    }
+
+    /// Decrements the number of times the tile {i, j} is received
+    /// through MPI.
+    void tileDecrementReceiveCount(int64_t i, int64_t j)
+    {
+        storage_->tileDecrementReceiveCount( globalIndex( i, j ) );
+    }
+
     void tileErase( int64_t i, int64_t j, int device=HostNum );
 
     void tileRelease( int64_t i, int64_t j, int device=HostNum );
@@ -537,9 +561,15 @@ public:
         storage_->releaseWorkspace();
     }
 
+    void eraseLocalWorkspaceTile(int64_t i, int64_t j);
+
     void eraseLocalWorkspace();
 
+    void eraseRemoteWorkspaceTile(int64_t i, int64_t j);
+
     void eraseRemoteWorkspace();
+
+    void eraseRemoteWorkspace(std::set<ij_tuple>& tile_set);
 
     /// Removes all temporary host and device workspace tiles from matrix.
     /// WARNING: currently, this clears the entire parent matrix,
@@ -2051,7 +2081,6 @@ void BaseMatrix<scalar_t>::listBcastMT(
         auto submatrices_list = std::get<2>(bcast);
         auto tagij = std::get<3>(bcast);
         int tag = int(tagij) % 32768;  // MPI_TAG_UB is at least 32767
-        std::vector< std::set<ij_tuple> > tile_set(num_devices());
 
         {
             trace::Block trace_block(
@@ -2074,14 +2103,17 @@ void BaseMatrix<scalar_t>::listBcastMT(
                     auto iter = storage_->find( globalIndex( i, j, HostNum ) );
 
                     int64_t life = 0;
-                    for (auto submatrix : submatrices_list)
+                    for (auto submatrix : submatrices_list) {
                         life += submatrix.numLocalTiles() * life_factor;
-
-                    if (iter == storage_->end())
+                    }
+                    if (iter == storage_->end()) {
                         tileInsertWorkspace( i, j, HostNum );
-                    else
-                        life += tileLife(i, j); // todo: use temp tile to receive
-                    tileLife(i, j, life);
+                    }
+                    else {
+                        life += tileLife( i, j ); // todo: use temp tile to receive
+                    }
+                    tileLife( i, j, life );
+                    tileIncrementReceiveCount( i, j );
                 }
 
                 // Send across MPI ranks.
@@ -4021,23 +4053,67 @@ std::tuple<int64_t, int64_t, int>
 }
 
 //------------------------------------------------------------------------------
-/// Erases local workspace tiles.
+/// Erases a given local workspace tile.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::eraseLocalWorkspaceTile(int64_t i, int64_t j)
+{
+    if (this->tileIsLocal( i, j )) {
+        auto& tile_node = this->storage_->at( this->globalIndex( i, j ) );
+
+        LockGuard guard( tile_node.getLock() );
+
+        for (int device = HostNum; device < this->num_devices(); ++device) {
+            if (tile_node.existsOn( device )
+                    && tile_node[ device ].tile()->workspace()) {
+
+                this->tileErase( i, j, device );
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Erases all local workspace tiles.
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::eraseLocalWorkspace()
 {
     for (int64_t j = 0; j < this->nt(); ++j) {
         for (int64_t i = 0; i < this->mt(); ++i) {
-            if (this->tileIsLocal(i, j)) {
-                auto& tile_node = this->storage_->at(this->globalIndex(i, j));
+            eraseLocalWorkspaceTile( i, j );
+        }
+    }
+}
 
-                LockGuard guard(tile_node.getLock());
 
-                for (int d = 0; d < this->num_devices(); ++d) {
-                    if (tile_node.existsOn(d)
-                        && tile_node[d].tile()->workspace()) {
+//------------------------------------------------------------------------------
+/// Erases a given tile that is not local to node from all devices
+/// including host.
+/// The tile's receive count is decremented. If the receive count
+/// reaches zero, the tile is erased. Otherwise, tile is not erased.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::eraseRemoteWorkspaceTile(int64_t i, int64_t j)
+{
+    if (! tileIsLocal( i, j ) ) { // erase remote tiles
+        // This lock ensures that no other thread is trying to
+        // remove this tile from the map of tiles.
+        LockGuard guard( storage_->getTilesMapLock() );
 
-                        this->tileErase(i, j, d);
+        auto iter = this->storage_->find( this->globalIndex( i, j ) );
+        if (iter != this->storage_->end()) {
+
+            auto& tile_node = *(iter->second);
+
+            // This lock ensures that no other thread is trying to
+            // modify the tile.
+            LockGuard guard_tile( tile_node.getLock() );
+            if (tileExists( i, j )) {
+                if (tileReceiveCount( i, j ) > 0) {
+                    tileDecrementReceiveCount( i, j );
+                    if (tileReceiveCount( i, j ) == 0) {
+                        tileErase( i, j, AllDevices );
                     }
                 }
             }
@@ -4052,12 +4128,28 @@ void BaseMatrix<scalar_t>::eraseLocalWorkspace()
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::eraseRemoteWorkspace()
 {
-    for (int64_t j = 0; j < this->nt(); ++j) {
-        for (int64_t i = 0; i < this->mt(); ++i) {
-            if (! this->tileIsLocal(i, j)) { // erase remote tiles
-                this->tileErase(i, j, AllDevices);
-            }
+    for (int64_t j = 0; j < nt(); ++j) {
+        for (int64_t i = 0; i < mt(); ++i) {
+            eraseRemoteWorkspaceTile( i, j );
         }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Erases a given set of tiles that are not local to node
+/// from all devices including host.
+///
+/// @param[in] tile_set
+///     Set of (i, j) tuples indicating indices of tiles to be erased.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::eraseRemoteWorkspace(
+    std::set<ij_tuple>& tile_set)
+{
+    for (auto ij : tile_set) {
+        int64_t i = std::get<0>( ij );
+        int64_t j = std::get<1>( ij );
+        eraseRemoteWorkspaceTile( i, j );
     }
 }
 

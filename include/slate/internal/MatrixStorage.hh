@@ -159,6 +159,9 @@ private:
     TileInstances tile_instances_;
     int num_instances_;
     int64_t life_;
+    /// number of times a tile is received.
+    /// This variable is used for only MPI communications.
+    int64_t receive_count_;
 
     /// OMP lock used to protect operations that modify the TileInstances within
     mutable omp_nest_lock_t lock_;
@@ -167,7 +170,8 @@ public:
     /// Constructor for TileNode class
     TileNode(int num_devices)
         : num_instances_(0),
-          life_(0)
+          life_(0),
+          receive_count_(0)
     {
         slate_assert(num_devices >= 0);
         omp_init_nest_lock(&lock_);
@@ -196,7 +200,7 @@ public:
     TileNode& operator = (TileNode&& orig) = delete;
 
     //--------------------------------------------------------------------------
-    /// Retrun pointer to tile instance OMP lock
+    /// Return pointer to tile instance OMP lock
     omp_nest_lock_t* getLock()
     {
         return &lock_;
@@ -258,6 +262,11 @@ public:
     int64_t& lives()
     {
         return life_;
+    }
+
+    int64_t& receiveCount()
+    {
+        return receive_count_;
     }
 
     bool empty() const
@@ -420,7 +429,7 @@ public:
     bool empty() const { return size() == 0; }
 
     //--------------------------------------------------------------------------
-    /// Retrun pointer to tiles-map OMP lock
+    /// Return pointer to tiles-map OMP lock
     omp_nest_lock_t* getTilesMapLock()
     {
         return &lock_;
@@ -455,16 +464,40 @@ public:
     /// @return tile's life counter.
     int64_t tileLife(ij_tuple ij)
     {
-        LockGuard guard(getTilesMapLock());
-        return tiles_.at(ij)->lives();
+        LockGuard guard( getTilesMapLock() );
+        return tiles_.at( ij )->lives();
     }
 
     //--------------------------------------------------------------------------
     /// Set tile's life counter.
     void tileLife(ij_tuple ij, int64_t life)
     {
-        LockGuard guard(getTilesMapLock());
-        tiles_.at(ij)->lives() = life;
+        LockGuard guard( getTilesMapLock() );
+        tiles_.at( ij )->lives() = life;
+    }
+
+    //--------------------------------------------------------------------------
+    /// @return tile's receive counter.
+    int64_t tileReceiveCount(ij_tuple ij)
+    {
+        LockGuard guard( getTilesMapLock() );
+        return tiles_.at( ij )->receiveCount();
+    }
+
+    //--------------------------------------------------------------------------
+    /// Increment tile's receive counter.
+    void tileIncrementReceiveCount(ij_tuple ij)
+    {
+        LockGuard guard( getTilesMapLock() );
+        tiles_.at( ij )->receiveCount()++;
+    }
+
+    //--------------------------------------------------------------------------
+    /// Decrement tile's receive counter.
+    void tileDecrementReceiveCount(ij_tuple ij)
+    {
+        LockGuard guard( getTilesMapLock() );
+        tiles_.at( ij )->receiveCount()--;
     }
 
 private:

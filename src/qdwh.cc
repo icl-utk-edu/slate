@@ -12,14 +12,16 @@ namespace slate {
 
 // specialization namespace differentiates, e.g.,
 // todo: is it ok?
-// internal::geqrf from internal::specialization::geqrf
+// internal::qdwh from impl::qdwh
+// todo: works only if m % nb = 0
+// todo: works only for square matrices
 namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel polar decomposition based on QDWH algorithm.
 /// Generic implementation for any target.
-// todo: is it ok?
-/// @ingroup geqrf_specialization
+// todo: add to docs/doxygen
+/// @ingroup qdwh_specialization
 ///
 template <Target target, typename scalar_t>
 void qdwh(
@@ -56,7 +58,6 @@ void qdwh(
     real_t tol3 = pow(tol1, 1./3.);
 
     real_t L2, sqd, dd, a1, a, b, c;
-    //double L2, sqd, dd, a1, a, b, c;
     real_t Li, Liconv;
     real_t conv = 100.;
     scalar_t zero = 0.0, one = 1.0, minusone = -1.0;
@@ -66,19 +67,25 @@ void qdwh(
     real_t normA;
     real_t norminvR;
 
-    int64_t mt2 = 2*mt - 1;
+    int64_t mt2 = mt + nt - 1;
 
     // allocate m2*n work space required for the qr-based iterations
     // this allocation can be avoided if we change the qr iterations to
     // work on two matrices on top of each other
 
-    // if doing QR([A;Id])
+    // allocation needed for doing QR([A;Id])
     slate::Matrix<scalar_t> W(m2, n, nb, nprow, npcol, MPI_COMM_WORLD);
     slate::Matrix<scalar_t> Q(m2, n, nb, nprow, npcol, MPI_COMM_WORLD);
+    slate::TriangularFactors<scalar_t> T;
 
     if (target == Target::Devices) {
         const int64_t batch_size_zero = 0; // use default batch size
         const int64_t num_queues = 3 + lookahead;
+        // todo: I have workspace here and in other call as geqrf_qdwh_full
+        // todo: in geqrf, it should use the allocated ones, it should not
+        // keep allocating
+        // todo: check traces to confirm
+        // or in printf in blaspp/device_malloc and here
         A.allocateBatchArrays(batch_size_zero, num_queues);
         A.reserveDeviceWorkspace();
         W.allocateBatchArrays(batch_size_zero, num_queues);
@@ -100,20 +107,18 @@ void qdwh(
     //W1.insertLocalTiles();
     //W2.insertLocalTiles();
 
-    slate::TriangularFactors<scalar_t> T1;
 
     // backup A in H
     copy(A, H);
 
     // two norm estimation (largest singular value of A)
-    // todo: fix norm_est the call it
-    real_t norm_est = 1.;
-    //real_t norm_est = normest(slate::Norm::One, A);
+    real_t norm_est = normest(slate::Norm::One, A);
     alpha = 1.0;
 
     // scale the original matrix A to form A0 of the iterative loop
     add(alpha/(scalar_t)norm_est, H, zero, A, opts);
 
+    // todo: look at Lapack impl
     // Calculate Li: reciprocal of condition number estimation
     // Either 1) use LU followed by gecon
     // Or     2) QR followed by trtri
@@ -123,11 +128,14 @@ void qdwh(
         // Estimate the condition number using QR
         // This Q factor can be used in the first QR-based iteration
         copy(A, W1);
-        slate::geqrf(W1, T1, opts);
+        // todo: this QR can be used in the first QR iteration
+        // todo: put bound of 1-norm est compared to 2-norm
+        slate::geqrf(W1, T, opts);
         auto R  = TriangularMatrix<scalar_t>(
             Uplo::Upper, slate::Diag::NonUnit, W1 );
         auto Rh = HermitianMatrix<scalar_t>(
             Uplo::Upper, W1 );
+        // todo: cheaper to do triangular solve than calling trtri
         trtri(R, opts);
         //tzset(scalar_t(0.0), L);
         norminvR = norm(slate::Norm::One, Rh);
@@ -204,15 +212,22 @@ void qdwh(
             //}
 
             // Factorize B = QR, and generate the associated Q
+            // todo: replace following add by copy and scale, but why scale only scale by a real numbers?
             add(alpha, A, zero, W1, opts);
-            //geqrf(W, T1, opts); // naive impl
-            geqrf_qdwh_full(W, T1, opts);
+            //copy(A, W1);
+            //scale(alpha, one, W1, opts);
+            //geqrf(W, T, opts); // naive impl
+            // todo: how to avoid allocating workspace for each iteration (3 QR)?
+            // todo: how to make it work for any matrix size and any nb?
+            // todo: check time for allocationn in geqrf
+            geqrf_qdwh_full(W, T, opts);
 
             set(zero, one, Q1);
             set(zero, zero, Q2);
 
-            //unmqr(slate::Side::Left, slate::Op::NoTrans, W, T1, Q, opts); //naive impl
-            unmqr_qdwh_full(slate::Side::Left, slate::Op::NoTrans, W, T1, Q, opts);
+            // todo: do I need unmqr?
+            //unmqr(slate::Side::Left, slate::Op::NoTrans, W, T, Q, opts); //naive impl
+            unmqr_qdwh_full(slate::Side::Left, slate::Op::NoTrans, W, T, Q, opts);
 
             // A = ( (a-b/c)/sqrt(c) ) * Q1 * Q2' + (b/c) * A
             auto Q2T = conj_transpose(Q2);
@@ -276,10 +291,19 @@ void qdwh(
         }
     }
 
+    if (A.mpiRank() == 0) {
+        printf("%-7s  %-7s\n", "QR", "PO");
+        printf("%-7d  %-7d\n", itqr, itpo);
+    }
+
     // A = U*H ==> H = U'*A ==> H = 0.5*(H'+H)
     copy(H, W1);
     auto AT = conj_transpose(A);
     gemm(one, AT, W1, zero, H, opts);
+
+    A.releaseWorkspace();
+    W.releaseWorkspace();
+    Q.releaseWorkspace();
 }
 
 } // namespace impl

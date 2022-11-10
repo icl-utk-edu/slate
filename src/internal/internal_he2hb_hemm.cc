@@ -48,7 +48,7 @@ void he2hb_hemm(
     std::vector<int64_t>& panel_rank_rows,
     int priority, int64_t queue_index)
 {
-    int64_t nt = A.nt();
+    int64_t mt = A.mt();
     const scalar_t one  = 1;
 
     // Assumes column major
@@ -56,10 +56,9 @@ void he2hb_hemm(
     const LayoutConvert layout_conv = LayoutConvert( layout );
 
     #pragma omp taskgroup
-    for (int64_t i = 0; i < nt; ++i) {
+    for (int64_t i = 0; i < mt; ++i) {
         #pragma omp task shared( A, B, C )
         {
-
             for (int64_t j : panel_rank_rows) {
                 if (i >= j) { // lower or diagonal
                     if (A.tileIsLocal( i, j )) {
@@ -146,7 +145,7 @@ void he2hb_hemm(
     std::vector<int64_t> panel_rank_rows,
     int priority, int64_t queue_index )
 {
-    int64_t nt = A.nt();
+    int64_t mt = A.mt();
     const scalar_t one  = 1;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
@@ -161,7 +160,7 @@ void he2hb_hemm(
 
             std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
             for (int64_t j : panel_rank_rows) {
-                for (int64_t i = 0; i < nt; ++i) {
+                for (int64_t i = 0; i < mt; ++i) {
                     if (i >= j) { // lower or diagonal
                         if (A.tileIsLocal( i, j )) {
                             if (device == C.tileDevice( i, 0 )) {
@@ -213,7 +212,7 @@ void he2hb_hemm(
             //assert( queue != nullptr );
             for (int64_t j : panel_rank_rows) {
                 //queue->fork(); // to have multiple streams
-                for (int64_t i = 0; i < nt; ++i) {
+                for (int64_t i = 0; i < mt; ++i) {
                     // queue per iteration i
                     blas::Queue* queue = C.compute_queue( device, i % num_queues );
                     assert( queue != nullptr );
@@ -276,7 +275,7 @@ void he2hb_hemm(
             }
 
             for (int64_t j : panel_rank_rows) {
-                for (int64_t i = 0; i < nt; ++i) {
+                for (int64_t i = 0; i < mt; ++i) {
                     if (i >= j) { // lower or diagonal
                         if (A.tileIsLocal( i, j )
                             && device == C.tileDevice( i, 0 )) {
@@ -320,7 +319,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    int64_t nt = A.nt();
+    int64_t mt = A.mt();
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -331,9 +330,9 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
     scalar_t beta = 1.;
 
     // check if there is a cleanup tile
-    int64_t i_interior = nt;
+    int64_t i_interior = mt;
     int64_t i_last = 0;
-    if (C.tileMb( nt-1 ) != C.tileMb( 0 )) {
+    if (C.tileMb( mt-1 ) != C.tileMb( 0 )) {
         i_interior = C.mt() - 1;
         i_last = 1;
     }
@@ -348,7 +347,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
         {
             std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
             for (int64_t j : panel_rank_rows) {
-                for (int64_t i = 0; i < nt; ++i) {
+                for (int64_t i = 0; i < mt; ++i) {
                     if (i >= j) { // lower or diagonal
                         if (A.tileIsLocal( i, j )) {
                             if (device == C.tileDevice( i, 0 )) {
@@ -747,7 +746,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
 
                 queue->sync();
 
-                for (int64_t i = 0; i < nt; ++i) {
+                for (int64_t i = 0; i < mt; ++i) {
                     if (i >= j) { // lower or diagonal
                         if (A.tileIsLocal( i, j )) {
                             if (device == C.tileDevice( i, 0 )) {

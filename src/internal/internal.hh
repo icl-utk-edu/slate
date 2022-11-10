@@ -271,7 +271,8 @@ void symm(Side side,
           scalar_t alpha, SymmetricMatrix<scalar_t>&& A,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
-          int priority=0);
+          int priority=0,
+          Options const& opts = Options());
 
 // forward real-Hermitian matrices to symm;
 // disabled for complex
@@ -281,10 +282,11 @@ void symm(Side side,
                           Matrix<scalar_t>&& B,
           scalar_t beta,  Matrix<scalar_t>&& C,
           int priority=0,
+          Options const& opts = Options(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     symm<target>(side, alpha, std::move(A),
-                 beta, SymmetricMatrix<scalar_t>(C), priority);
+                 beta, SymmetricMatrix<scalar_t>(C), priority, opts);
 }
 
 //-----------------------------------------

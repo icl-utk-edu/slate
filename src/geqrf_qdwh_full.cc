@@ -176,7 +176,7 @@ void geqrf_qdwh_full(slate::internal::TargetType<target>,
     #pragma omp master
     {
         for (int64_t k = 0; k < A_min_mtnt; ++k) {
-            int64_t i_end = std::min( A_mt-1, (A_mt-A_nt) + k);
+            int64_t i_end = A_min_mtnt + k;
 
             auto  A_panel =       A.sub(k, i_end, k, k);
             auto Tl_panel =  Tlocal.sub(k, i_end, k, k);
@@ -206,7 +206,7 @@ void geqrf_qdwh_full(slate::internal::TargetType<target>,
                 if (k < A_nt-1) {
 
                     // bcast V across row for trailing matrix update
-                    if (k < i_end+1) {
+                    if (k < i_end) {
                         BcastList bcast_list_V_first;
                         BcastList bcast_list_V;
                         for (int64_t i = k; i < i_end+1; ++i) {
@@ -311,7 +311,8 @@ void geqrf_qdwh_full(slate::internal::TargetType<target>,
                                      depend(inout:block[k+1])
                     {
                         int64_t k_la = k-lookahead;
-                        for (int64_t i = k_la; i < A_mt; ++i) {
+                        int64_t i_end_la = A_min_mtnt + k_la;
+                        for (int64_t i = k_la; i < i_end_la; ++i) {
                             if (A.tileIsLocal(i, k_la)) {
                                 A.tileUpdateOrigin(i, k_la);
 
@@ -325,7 +326,7 @@ void geqrf_qdwh_full(slate::internal::TargetType<target>,
                             }
                         }
 
-                        auto A_panel_k_la = A.sub(k_la, A_mt-1, k_la, k_la);
+                        auto A_panel_k_la = A.sub(k_la, i_end_la, k_la, k_la);
                         std::vector< int64_t > first_indices_k_la;
                         geqrf_compute_first_indices(A_panel_k_la, k_la, first_indices_k_la);
                         if (first_indices.size() > 0) {

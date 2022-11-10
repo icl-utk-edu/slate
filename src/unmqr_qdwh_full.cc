@@ -103,7 +103,7 @@ void unmqr_qdwh_full(
         SLATE_UNUSED(lastk);
         for (int64_t k = k_begin; k != k_end; k += k_step) {
 
-            int64_t i_end = std::min( A_mt-1, (A_mt-A_nt) + k);
+            int64_t i_end = A_min_mtnt + k;
 
             auto A_panel = A.sub(k, i_end, k, k);
 

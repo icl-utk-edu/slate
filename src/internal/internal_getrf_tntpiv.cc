@@ -10,6 +10,9 @@
 #include "internal/Tile_getrf_tntpiv.hh"
 #include "internal/internal.hh"
 #include "internal/internal_util.hh"
+#include "lapack.hh"
+#include "lapack/device.hh"
+#include "blas/device.hh"
 
 namespace slate {
 
@@ -205,6 +208,8 @@ void getrf_tntpiv_panel(
     internal::TargetType<Target::HostTask>,
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& Awork,
+    std::vector< scalar_t* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority)
@@ -444,12 +449,15 @@ void getrf_tntpiv_panel(
     internal::TargetType<Target::HostNest>,
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& Awork,
+    std::vector< scalar_t* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority)
 {
     getrf_tntpiv_panel( internal::TargetType<Target::HostTask>(),
-        A, Awork, diag_len, ib, pivot, max_panel_threads, priority );
+        A, Awork, dwork_array, work_size,
+        diag_len, ib, pivot, max_panel_threads, priority );
 }
 
 //------------------------------------------------------------------------------
@@ -462,12 +470,15 @@ void getrf_tntpiv_panel(
     internal::TargetType<Target::HostBatch>,
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& Awork,
+    std::vector< scalar_t* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority)
 {
     getrf_tntpiv_panel( internal::TargetType<Target::HostTask>(),
-        A, Awork, diag_len, ib, pivot, max_panel_threads, priority );
+        A, Awork, dwork_array, work_size,
+        diag_len, ib, pivot, max_panel_threads, priority );
 }
 
 //------------------------------------------------------------------------------
@@ -479,47 +490,49 @@ void getrf_tntpiv_panel(
     internal::TargetType<Target::Devices>,
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& Awork,
+    std::vector< scalar_t* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority)
 {
-    getrf_tntpiv_panel( internal::TargetType<Target::HostTask>(),
-        A, Awork, diag_len, ib, pivot, max_panel_threads, priority );
-
-/*
- *
- *
- *
     assert( A.nt() == 1 );
+
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
-    using device_info_t = lapack::device_info_int;
+    using lapack::device_info_int;
+    using lapack::device_pivot_int;
 
     const Layout layout = Layout::ColMajor;
-    const scalar_t zero = 0.0;
-    const scalar_t one  = 1.0;
 
     int     device   = -1;
     int64_t temp_loc = 0;
     int64_t nb       = A.tileNb( 0 );
+    int64_t mb       = A.tileMb( 0 );
     int64_t mlocal   = 0;
-
-    std::set<ij_tuple> A_tiles_set;
-    int64_t tile_index_zero = -1;
 
     size_t dsize, hsize;
     char* hwork = nullptr;
 
-    // not sure if this is needed, here at least
-    //
-    internal::copy<target>( std::move( A ), std::move( Awork ) );
+    // lists of local tiles, indices, and offsets
+    std::vector< Tile<scalar_t> > original_tiles;
+    std::vector< Tile<scalar_t> > tiles;
+    std::vector<int64_t> tile_indices;
+    std::set<int> ranks_set;
 
+    // Build the set of ranks in the panel.
+    // Build lists of local tiles and their indices.
     // Move the panel to device.
     std::set<ij_tuple> A_tiles_set;
+    int64_t tile_index_zero = -1;
     for (int64_t i = 0; i < A.mt(); ++i) {
         if (A.tileIsLocal( i, 0 )) {
             if (tile_index_zero < 0) {
                 tile_index_zero = i;
                 device = A.tileDevice( i, 0 );
+            }
+            else {
+                // Assuming devices have a 1-D distribution.
+                assert( device == A.tileDevice( i, 0 ) );
             }
             A_tiles_set.insert( { i, 0 } );
             mlocal += A.tileMb( i );
@@ -530,26 +543,42 @@ void getrf_tntpiv_panel(
        return;
     }
     assert(device >= 0);
-    blas::set_device(device);
-
-    lapack::Queue* queue = A.compute_queue( device, 0 );
-
-    A.tileGetForWriting( A_tiles_set, device, LayoutConvert::ColMajor );
-
-    // lists of local tiles, indices, and offsets
-    std::vector< Tile<scalar_t> > tiles;
-    std::vector<int64_t> tile_indices;
 
     // Build the set of ranks in the panel.
     // Build lists of local tiles and their indices.
-    std::set<int> ranks_set;
     for (int64_t i = 0; i < A.mt(); ++i) {
         ranks_set.insert( A.tileRank( i, 0 ) );
         if (A.tileIsLocal( i, 0 )) {
+            original_tiles.push_back( A( i, 0 ) );
             tiles.push_back( Awork( i, 0 ) );
             tile_indices.push_back( i );
         }
     }
+
+    A.tileGetForReading( A_tiles_set, device, LayoutConvert::ColMajor );
+
+    lapack::Queue* queue = A.compute_queue( device, 0 );
+
+    int64_t size_A = mlocal * nb;
+
+    // Device contiguous memory for lapack::getrf call
+    scalar_t* work = dwork_array[ device ];
+    scalar_t* dA   = work;
+
+    // Copy tile memory into contiguous memory.
+    temp_loc = 0;
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        if (A.tileIsLocal( i, 0 )) {
+            Tile Ai0 = A( i, 0, device );
+            blas::device_memcpy_2d<scalar_t>(
+                    &dA[ temp_loc ], mlocal,
+                    Ai0.data(), Ai0.stride(),
+                    Ai0.mb(), nb,
+                    blas::MemcpyKind::Default, *queue );
+            temp_loc += Ai0.mb();
+        }
+    }
+
     // Find each rank's first (top-most) row in this panel.
     std::vector< std::pair<int, int64_t> > rank_rows;
     rank_rows.reserve( ranks_set.size() );
@@ -578,15 +607,244 @@ void getrf_tntpiv_panel(
             || (tiles.size() == 0
                 && A_tiles_set.size() == 0) );
 
+    // If participating in the panel factorization.
+    if (index < nranks) {
+        int nlevels = int( ceil( log2( nranks ) ) );
 
+        std::vector< std::vector< AuxPivot< scalar_t > > > aux_pivot( 2 );
+        aux_pivot[ 0 ].resize( mb );
+        aux_pivot[ 1 ].resize( mb );
 
+        // piv_len can be < diag_len, if a rank's only tile is short.
+        int64_t piv_len = std::min( tiles[ 0 ].mb(), nb );
+        size_t size_ipiv = (size_t) piv_len;
 
-   *
-   *
-   *
-   *
-*/
+        // Find workspace size, used for reference that input memory is large enough.
+        lapack::getrf_work_size_bytes( mlocal, nb,
+                                       dA, mlocal, &dsize, &hsize, *queue );
 
+        assert(hsize == 0);
+        size_t tot_size = size_A + diag_len + ceildiv(dsize, sizeof(scalar_t))
+                          + ceildiv( sizeof(device_info_int), sizeof(scalar_t));
+
+        assert( tot_size <= work_size);
+
+        device_pivot_int* dipiv = (device_pivot_int*) &work[ size_A ];
+        void*             dwork = &work[ size_A + diag_len ];
+        device_info_int*  dinfo = (device_info_int*) &work[ size_A + diag_len
+                                            + ceildiv( dsize, sizeof(scalar_t) )];
+
+        std::vector<char> hwork_vector( hsize );
+        hwork = hwork_vector.data();
+
+        std::vector< device_pivot_int > hipiv( size_ipiv );
+        std::vector< scalar_t > hdiagu( diag_len );
+        std::vector< scalar_t > hu( mb * nb );
+
+        // Factor the panel locally in parallel on decice, for stage = 0.
+        lapack::getrf( mlocal, nb, dA, mlocal, dipiv,
+                       dwork, dsize, hwork, hsize, dinfo, *queue );
+
+        blas::device_memcpy<device_pivot_int>( &hipiv[0], dipiv, size_ipiv,
+                                       blas::MemcpyKind::Default, *queue);
+
+        //if (nranks > 1) {
+        //else {
+        //    Tile Ai0 = Awork( tile_indices[0], 0 );
+        //    blas::device_memcpy_2d<scalar_t>(
+        //            Ai0.data(), Ai0.stride(),
+        //            &dA[ 0 ], mlocal,
+        //            Ai0.mb(), nb,
+        //            blas::MemcpyKind::Default, *queue );
+        //    for (int64_t i = 0; i < diag_len; ++i) {
+        //        hdiagu[i] = Ai0.data()[ i * Ai0.stride() + i];
+        //    }
+        //}
+
+        // If bottom tile in panel has mb smaller than tile[ 0 ] mb,
+        // the row size needs to be reduced for the copy below.
+        int64_t tmp_mb = mb;
+        if (tmp_mb > mlocal)
+            tmp_mb = mlocal;
+
+        blas::device_memcpy_2d<scalar_t>(
+                &hu[ 0 ], mb, &dA[ 0 ], mlocal, tmp_mb, nb,
+                blas::MemcpyKind::Default, *queue );
+
+        for (int64_t i = 0; i < piv_len; ++i) {
+            hdiagu[i] = hu[ i * mb + i];
+        }
+
+        // Convert device sequential pivots to aux pivots
+        for (int64_t i = 0; i < piv_len; ++i) {
+            aux_pivot[ 0 ][ i ].set_localTileIndex( floor( ( hipiv[ i ] - 1 ) / mb ) );
+            aux_pivot[ 0 ][ i ].set_localOffset( (  hipiv[ i ] - 1 ) % mb );
+            aux_pivot[ 0 ][ i ].set_tileIndex(      tile_indices[ aux_pivot[ 0 ][ i ].localTileIndex() ] );
+            aux_pivot[ 0 ][ i ].set_elementOffset(  aux_pivot[ 0 ][ i ].localOffset() );
+            aux_pivot[ 0 ][ i ].set_value(          hdiagu[ i ] );
+        }
+
+        if (nranks > 1) {
+            // Moving to host for reduction
+            A.tileGetForReading( A_tiles_set, LayoutConvert::ColMajor );
+
+            // For s = tile_indices.size(), permute is an s-length vector
+            // of mb-length vectors of pairs (tile_index, offset):
+            //     permute = [ [ (0, 0) ... (0, mb-1) ],
+            //                 ...,
+            //                 [ (s-1, 0), ..., (s-1, mb-1) ] ].
+            // containing final positions of rows,
+            // vs. sequential row swaps in usual pivot vector.
+            // The aggregate size is mlocal.
+            std::vector< std::vector< std::pair< int64_t, int64_t > > >
+                permute( tile_indices.size() );
+
+            for (int64_t i = 0; i < int64_t( tile_indices.size() ); ++i) {
+                permute[ i ].reserve( mb );
+                for (int64_t ii = 0; ii < mb; ++ii) {
+                    permute[ i ].push_back( { tile_indices[ i ], ii } );
+                }
+            }
+
+            // Apply swaps to tiles in Awork, and to permute.
+            // Swap (tile, row) (i=0, ii) with (ip, iip).
+            auto Awork00 = Awork( tile_indices[0], 0 );
+            scalar_t* Awork00_data = Awork00.data();
+            for (int64_t ii = 0; ii < piv_len; ++ii) {
+                int64_t ip  = aux_pivot[ 0 ][ ii ].localTileIndex();
+                int64_t iip = aux_pivot[ 0 ][ ii ].localOffset();
+
+                if (ip > 0 || iip > ii) {
+                    std::swap( permute[ 0  ][ ii  ],
+                               permute[ ip ][ iip ] );
+                }
+                int64_t isp  =  permute[ 0 ][ ii ].first;
+                int64_t iisp =  permute[ 0 ][ ii ].second;
+
+                auto Aisp = A( isp, 0 );
+                scalar_t* Aisp_data = Aisp.data();
+
+                blas::copy( nb, &Aisp_data[ iisp ], Aisp.stride(),
+                             &Awork00_data[ ii ], Awork00.stride() );
+            }
+
+            // Copy nb elements of permute to aux_pivot for first block.
+            for (int64_t ii = 0; ii < piv_len; ++ii) {
+                aux_pivot[ 0 ][ ii ].set_tileIndex(     permute[ 0 ][ ii ].first  );
+                aux_pivot[ 0 ][ ii ].set_elementOffset( permute[ 0 ][ ii ].second );
+            }
+
+            int64_t step = 1;
+            for (int level = 0; level < nlevels; ++level) {
+                if (index % (2*step) == 0) {
+                    if (index + step < nranks) {
+                        // This is the top, rank1, of the pair;
+                        // recv tile from bottom, rank2, and do LU factorization.
+                        int rank2  = rank_rows[ index+step ].first;
+                        int64_t i2 = rank_rows[ index+step ].second;
+                        int64_t i1 = rank_rows[ index ].second;
+
+                        Awork.tileRecv( i2, 0, rank2, layout );
+                        Awork.tileGetForWriting( i1, 0, LayoutConvert( layout ));
+
+                        MPI_Status status;
+                        MPI_Recv( aux_pivot[ 1 ].data(),
+                                  sizeof(AuxPivot<scalar_t>) * aux_pivot[ 1 ].size(),
+                                  MPI_BYTE, rank2, 0, A.mpiComm(),  &status );
+
+                        // Alocate workspace to copy tiles in the tree reduction.
+                        std::vector<scalar_t> data1( Awork.tileMb( i1 ) * nb );
+                        std::vector<scalar_t> data2( Awork.tileMb( i2 ) * nb );
+
+                        Tile<scalar_t> tile1( Awork.tileMb( i1 ), nb,
+                                              &data1[ 0 ], Awork.tileMb( i1 ),
+                                              slate::HostNum, TileKind::Workspace );
+                        Tile<scalar_t> tile2( Awork.tileMb( i2 ), nb,
+                                              &data2[ 0 ], Awork.tileMb( i2 ),
+                                              slate::HostNum, TileKind::Workspace );
+
+                        Awork( i1, 0 ).copyData( &tile1 );
+                        Awork( i2, 0 ).copyData( &tile2 );
+
+                        piv_len = std::min( tile1.mb(), nb );
+
+                        std::vector< Tile< scalar_t > > tmp_tiles;
+                        tmp_tiles.push_back( tile1 );
+                        tmp_tiles.push_back( tile2 );
+
+                        // Factor the panel locally in parallel.
+                        getrf_tntpiv_local(
+                            tmp_tiles, piv_len, ib, 1,
+                            nb, tile_indices, aux_pivot,
+                            A.mpiRank(), max_panel_threads, priority );
+
+                        std::vector< Tile< scalar_t > > work_tiles;
+                        work_tiles.push_back( Awork( i1, 0 ) );
+                        work_tiles.push_back( Awork( i2, 0 ) );
+
+                        // Swap rows in tiles in Awork.
+                        // Swap (tile, row) (0, ii) and (ip, iip).
+
+                        for (int64_t ii = 0; ii < piv_len; ++ii) {
+                            int64_t ip  = aux_pivot[ 0 ][ ii ].localTileIndex();
+                            int64_t iip = aux_pivot[ 0 ][ ii ].localOffset();
+                            if (ip > 0 || iip > ii) {
+                                swapLocalRow(
+                                    0, nb,
+                                    work_tiles[ 0  ], ii,
+                                    work_tiles[ ip ], iip );
+                            }
+                        }
+                        if (level == nlevels-1) {
+                            // Copy the last factorization back to panel tile
+                            tile1.copyData( &work_tiles[ 0 ] );
+                            permutation_to_sequential_pivot(
+                                aux_pivot[ 0 ], diag_len, A.mt(), mb );
+                        }
+
+                        Awork.tileTick( i2, 0 );
+                    }
+                }
+                else {
+                    // This is bottom, rank2, of the pair;
+                    // send tile i2 and pivot data to top, rank1.
+                    int rank1  = rank_rows[ index - step ].first;
+                    int64_t i2 = rank_rows[ index ].second;
+                    Awork.tileSend( i2, 0, rank1 );
+
+                    MPI_Send( aux_pivot[ 0 ].data(),
+                              sizeof(AuxPivot<scalar_t>) * aux_pivot[ 0 ].size(),
+                              MPI_BYTE, rank1, 0, A.mpiComm() );
+
+                    // This rank is done!
+                    break;
+                }
+                step *= 2;
+            } // for loop over levels
+        }
+        else {
+            // Copy from contiguous memory back into workspace.
+            // If no reduction is needed do not redo factorization.
+            temp_loc = 0;
+            for (int64_t i = 0; i < A.mt(); ++i) {
+                if (A.tileIsLocal( i, 0 )) {
+                    Tile Ai0 = Awork( i, 0 );
+                    blas::device_memcpy_2d<scalar_t>(
+                            Ai0.data(), Ai0.stride(),
+                            &dA[ temp_loc ], mlocal,
+                            Ai0.mb(), nb,
+                            blas::MemcpyKind::Default, *queue );
+                    temp_loc += Ai0.mb();
+                }
+            }
+        }
+
+        // Copy pivot information from aux_pivot to pivot.
+        for (int64_t i = 0; i < diag_len; ++i) {
+            pivot[ i ] = Pivot( aux_pivot[ 0 ][ i ].tileIndex(),
+                                aux_pivot[ 0 ][ i ].elementOffset() );
+        }
+    }
 }
 
 //------------------------------------------------------------------------------
@@ -598,13 +856,16 @@ template <Target target, typename scalar_t>
 void getrf_tntpiv_panel(
     Matrix<scalar_t>&& A,
     Matrix<scalar_t>&& Awork,
+    std::vector< scalar_t* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority)
 {
     getrf_tntpiv_panel(
         internal::TargetType<target>(),
-        A, Awork, diag_len, ib, pivot, max_panel_threads, priority );
+        A, Awork, dwork_array, work_size,
+        diag_len, ib, pivot, max_panel_threads, priority );
 }
 
 //------------------------------------------------------------------------------
@@ -614,6 +875,8 @@ template
 void getrf_tntpiv_panel<Target::HostTask, float>(
     Matrix<float>&& A,
     Matrix<float>&& Awork,
+    std::vector< float* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
@@ -623,6 +886,8 @@ template
 void getrf_tntpiv_panel<Target::HostTask, double>(
     Matrix<double>&& A,
     Matrix<double>&& Awork,
+    std::vector< double* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
@@ -632,6 +897,8 @@ template
 void getrf_tntpiv_panel< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& Awork,
+    std::vector< std::complex<float>* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
@@ -641,6 +908,8 @@ template
 void getrf_tntpiv_panel< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& Awork,
+    std::vector< std::complex<double>* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
@@ -650,6 +919,8 @@ template
 void getrf_tntpiv_panel<Target::HostNest, float>(
     Matrix<float>&& A,
     Matrix<float>&& Awork,
+    std::vector< float* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
@@ -659,6 +930,8 @@ template
 void getrf_tntpiv_panel<Target::HostNest, double>(
     Matrix<double>&& A,
     Matrix<double>&& Awork,
+    std::vector< double* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
@@ -668,6 +941,8 @@ template
 void getrf_tntpiv_panel< Target::HostNest, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& Awork,
+    std::vector< std::complex<float>* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
@@ -677,6 +952,8 @@ template
 void getrf_tntpiv_panel< Target::HostNest, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& Awork,
+    std::vector< std::complex<double>* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
@@ -686,6 +963,8 @@ template
 void getrf_tntpiv_panel<Target::HostBatch, float>(
     Matrix<float>&& A,
     Matrix<float>&& Awork,
+    std::vector< float* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
@@ -695,6 +974,8 @@ template
 void getrf_tntpiv_panel<Target::HostBatch, double>(
     Matrix<double>&& A,
     Matrix<double>&& Awork,
+    std::vector< double* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
@@ -704,6 +985,8 @@ template
 void getrf_tntpiv_panel< Target::HostBatch, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& Awork,
+    std::vector< std::complex<float>* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
@@ -713,6 +996,8 @@ template
 void getrf_tntpiv_panel< Target::HostBatch, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& Awork,
+    std::vector< std::complex<double>* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
@@ -722,6 +1007,8 @@ template
 void getrf_tntpiv_panel<Target::Devices, float>(
     Matrix<float>&& A,
     Matrix<float>&& Awork,
+    std::vector< float* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
@@ -731,6 +1018,8 @@ template
 void getrf_tntpiv_panel<Target::Devices, double>(
     Matrix<double>&& A,
     Matrix<double>&& Awork,
+    std::vector< double* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
@@ -740,6 +1029,8 @@ template
 void getrf_tntpiv_panel< Target::Devices, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& Awork,
+    std::vector< std::complex<float>* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);
@@ -749,6 +1040,8 @@ template
 void getrf_tntpiv_panel< Target::Devices, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& Awork,
+    std::vector< std::complex<double>* > dwork_array,
+    size_t work_size,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority);

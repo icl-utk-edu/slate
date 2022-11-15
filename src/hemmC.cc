@@ -361,7 +361,7 @@ void hemmC(
                     Arow_0.eraseLocalWorkspace();
 
                     std::set<ij_tuple> tile_set;
-                    for (int64_t i = 0; i < A.mt(); ++i) {
+                    for (int64_t i = 1; i < A.mt(); ++i) {
                         for (int64_t j = 0; j < C.nt(); ++j) {
                             if (C.tileIsLocal( i, j ) && ! A.tileIsLocal( 0, i )) {
                                 tile_set.insert( {0, i} );
@@ -450,7 +450,7 @@ void hemmC(
                         Arow_k.eraseLocalWorkspace();
 
                         std::set<ij_tuple> tile_set;
-                        for (int64_t i = 0; i < A.mt(); ++i) {
+                        for (int64_t i = k+1; i < A.mt(); ++i) {
                             for (int64_t j = 0; j < C.nt(); ++j) {
                                 if (C.tileIsLocal( i, j ) && ! A.tileIsLocal( k, i )) {
                                     tile_set.insert( {k, i} );

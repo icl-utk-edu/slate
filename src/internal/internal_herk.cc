@@ -52,6 +52,12 @@ void herk(internal::TargetType<Target::HostTask>,
     scalar_t alpha_ = scalar_t(alpha);
     scalar_t beta_  = scalar_t(beta);
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     // CPU assumes column major
     // todo: relax this assumption, by updating Tile_blas.hh::herk()
     //       to operate in row major
@@ -68,7 +74,7 @@ void herk(internal::TargetType<Target::HostTask>,
                 if (i == j) {
                     #pragma omp task slate_omp_default_none \
                         shared( A, C, err ) priority( priority ) \
-                        firstprivate(j, layout, alpha, beta)
+                        firstprivate(j, layout, alpha, beta, call_tile_tick)
                     {
                         try {
                             A.tileGetForReading(j, 0, LayoutConvert(layout));
@@ -76,10 +82,13 @@ void herk(internal::TargetType<Target::HostTask>,
                             tile::herk(
                                 alpha, A(j, 0),
                                 beta,  C(j, j) );
-                            // todo: should tileRelease()?
-                            A.tileTick(j, 0);
-                            // todo: why the second tick?
-                            A.tileTick(j, 0);
+
+                            if (call_tile_tick) {
+                                // todo: should tileRelease()?
+                                A.tileTick(j, 0);
+                                // todo: why the second tick?
+                                A.tileTick(j, 0);
+                            }
                         }
                         catch (std::exception& e) {
                             err = __LINE__;
@@ -89,7 +98,7 @@ void herk(internal::TargetType<Target::HostTask>,
                 else {
                     #pragma omp task slate_omp_default_none \
                         shared( A, C, err ) priority( priority ) \
-                        firstprivate(i, j, layout, alpha_, beta_)
+                        firstprivate(i, j, layout, alpha_, beta_, call_tile_tick)
                     {
                         try {
                             A.tileGetForReading(i, 0, LayoutConvert(layout));
@@ -99,9 +108,12 @@ void herk(internal::TargetType<Target::HostTask>,
                             tile::gemm(
                                 alpha_, A(i, 0), conj_transpose( Aj0 ),
                                 beta_,  C(i, j) );
-                            // todo: should tileRelease()?
-                            A.tileTick(i, 0);
-                            A.tileTick(j, 0);
+
+                            if (call_tile_tick) {
+                                // todo: should tileRelease()?
+                                A.tileTick(i, 0);
+                                A.tileTick(j, 0);
+                            }
                         }
                         catch (std::exception& e) {
                             err = __LINE__;

@@ -175,7 +175,7 @@ void hemmC(
                     Acol_0.eraseLocalWorkspace();
 
                     std::set<ij_tuple> tile_set;
-                    for (int64_t i = 0; i < A.mt(); ++i) {
+                    for (int64_t i = 1; i < A.mt(); ++i) {
                         if (! A.tileIsLocal( i, 0 ) ) {
                             for (int64_t j = 0; j < C.nt(); ++j) {
                                 if (C.tileIsLocal( i, j )) {
@@ -266,7 +266,7 @@ void hemmC(
                         Acol_k.eraseLocalWorkspace();
 
                         std::set<ij_tuple> tile_set;
-                        for (int64_t i = 0; i < A.mt(); ++i) {
+                        for (int64_t i = k+1; i < A.mt(); ++i) {
                             if (! A.tileIsLocal( i, k ) ) {
                                 for (int64_t j = 0; j < C.nt(); ++j) {
                                     if (C.tileIsLocal( i, j )) {

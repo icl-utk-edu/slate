@@ -69,7 +69,7 @@ void geqrf(slate::internal::TargetType<target>,
            int64_t ib, int max_panel_threads, int64_t lookahead)
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
-    using device_info_t = lapack::device_info_int;
+    using lapack::device_info_int;
     using blas::real;
 
     // Assumes column major
@@ -153,7 +153,7 @@ void geqrf(slate::internal::TargetType<target>,
 
             // Size of dA, dtau, dwork and dinfo
             work_size = size_A + size_tau + ceildiv(dsize, sizeof(scalar_t))
-                        + ceildiv(sizeof(device_info_t), sizeof(scalar_t));
+                        + ceildiv(sizeof(device_info_int), sizeof(scalar_t));
 
             for (int64_t dev = 0; dev < num_devices; ++dev) {
                 lapack::Queue* queue = A.comm_queue( dev );

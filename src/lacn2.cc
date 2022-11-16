@@ -4,11 +4,12 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
-#include "slate/HermitianMatrix.hh"
-#include "slate/TriangularMatrix.hh"
+#include "slate/Tile_blas.hh"
+#include "slate/HermitianBandMatrix.hh"
 #include "internal/internal.hh"
+#include "internal/internal_util.hh"
+#include "slate_steqr2.hh"
 
 namespace slate {
 
@@ -33,13 +34,13 @@ void lacn2(
            std::vector<scalar_t>& V,
            std::vector<scalar_t>& X,
            std::vector<int64_t>& isgn,
-           blas::real_type<scalar_t>* one_normest,
+           blas::real_type<scalar_t>* est,
            int* kase,
            std::vector<int64_t>& isave,
            Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
-    using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
+    using blas::real;
 
     const scalar_t one  = 1.0;
     const scalar_t zero = 0.0;
@@ -50,29 +51,27 @@ void lacn2(
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
-    // set min number for omp nested active parallel regions
-    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
-
     // isave[0] = jump
-    // isave[1] = j
+    // isave[1] = j which is the index of the max element in X
     // isave[2] = iter
 
-    real_t est, estold;
-    scalar_t xs, altsgn, temp;
+    scalar_t xs, altsgn;
+    real_t estold, temp;
 
     // First iteration, kase = 0
-    // Initialize X
+    // Initialize X = 1./n
     if (*kase == 0) {
-        // Set X to 1./n
-        //scalar_t x1 = 1. / scalar_t (n);
         for (int64_t i = 0; i < n; ++i) {
             X[i] = 1. / n;
         }
-        *kase = 1; // X be overwritten by AX
+        // X to be overwritten by AX, so kase = 1.
+        *kase = 1;
+        // Next iteration will skip this.
         isave[0] = 1;
     }
-    // Iterations 2, 3, ..., itmax, kase = 1 or 2
-    // X is overwitten by AX or A^TX
+    // Iterations 2, 3, ..., itmax.
+    // kase = 1 or 2
+    // X has been overwitten by AX.
     else {
         if (isave[0] == 1) {
             // quick return
@@ -83,41 +82,44 @@ void lacn2(
                 //auto X0_data = X0.data();
                 //auto V0_data = V0.data();
                 //V0_data[0] = X0_data[0];
-                //*one_normest = fabs( V0_data[0] );
+                //*est = fabs( V0_data[0] );
                 V[0] = X[0];
-                *one_normest = fabs( V[0] );
-                // set kase = 0 because it converged
+                *est = fabs( V[0] );
+                // Converged, set kase back to zero
                 kase = 0;
                 return;
             }
 
-            // initial value of est
+            // Initial value of est
             for (int64_t i = 1; i < n; ++i) {
-                est = fabs( X[0] ) + fabs( X[i] );
+                *est = fabs( X[0] ) + fabs( X[i] );
             }
-            *one_normest = est;
 
-            // sign of X entries
+            // Update X to 1. or -1.:
+            // X[i] = {1   if X[i] > 0
+            //        {-1  if X[i] < 0
             for (int64_t i = 0; i < n; ++i) {
-                if (X[i] >= 0) {
+                if (real( X[i] ) >= 0.0) {
                     X[i] = one;
+                    isgn[i] = 1;
                 }
                 else {
                     X[i] = -one;
+                    isgn[i] = -1;
                 }
-                isgn[i] = (int64_t) X[i];
             }
-            // update kase ad isave
-            *kase = 2; // X be overwritten by A^TX
+            // Update kase ad isave
+            // X be overwritten by A^TX, so kase = 2
+            *kase = 2;
             isave[0] = 2;
             return;
         }
         else if (isave[0] == 2) {
             // isave( 2 ) = idamax( n, x, 1 )
-            isave[1] = fabs( X[0] );
+            isave[1] = 0;
             for (int64_t i = 1; i < n; ++i) {
-                if (fabs( X[i] ) > fabs( isave[1] )) {
-                    isave[1] = fabs( X[i] );
+                if (fabs( X[i] ) > fabs( X[ isave[1] ] )) {
+                    isave[1] = i;
                 }
             }
             isave[2] = 2;
@@ -125,75 +127,80 @@ void lacn2(
             // main loop - iterations 2,3,..., itmax
             for (int64_t i = 0; i < n; ++i) {
                 X[i] = zero;
-                X[save[1]] = one;
             }
-            kase = 1;
+            X[isave[1]] = one;
+            *kase = 1;
             isave[0] = 3;
+            return;
         }
         else if (isave[0] == 3) {
             // X HAS BEEN OVERWRITTEN BY A*X.
             for (int64_t i = 0; i < n; ++i) {
                 V[i] = X[i];
             }
-            estold = est;
+            estold = *est;
+            *est = fabs( V[0] );
             for (int64_t i = 1; i < n; ++i) {
-                est = fabs( V[0] ) + fabs( V[i] );
+                *est = *est + fabs( V[i] );
             }
 
             for (int64_t i = 0; i < n; ++i) {
-                if (X[i] >= 0) {
-                    xs = one;
-                }
-                else {
-                    xs = -one;
-                }
-                if ((int64_t) xs != isgn[i]) {
-                    if (est <= oldest) {
+                //if (X[i] >= 0) {
+                //    xs = one;
+                //}
+                //else {
+                //    xs = -one;
+                //}
+                //if ((int64_t) xs != isgn[i]) {
+                    //if (real(est1) <= real(estold)) {
+                    if (*est <= estold) {
                         altsgn = one;
                         // x( i ) = altsgn*( one+dble( i-1 ) / dble( n-1 ) )
                         for (int64_t i = 0; i < n; ++i) {
                             X[i] = altsgn * ( one + (scalar_t)( i-1 ) / (scalar_t)( n-1 ) );
                             altsgn = -altsgn;
                         }
-                        kase = 1;
+                        *kase = 1;
                         isave[0] = 5;
                     }
-                }
+                //}
             }
+            return;
         }
 
         else if (isave[0] == 4) {
             // X HAS BEEN OVERWRITTEN BY TRANSPOSE(A)*X.
-            jlast = isave[2];
-            isave[1] = fabs( X[0] );
+            jlast = isave[1];
+            isave[1] = 0;
             for (int64_t i = 1; i < n; ++i) {
-                if (fabs( X[i] ) > fabs( isave[1] )) {
-                    isave[1] = fabs( X[i] );
+                if (fabs( X[0] ) > fabs( X[i] )) {
+                    isave[1] = i;
                 }
                 if (X[jlast] != fabs( X[isave[1]] ) && isave[2] < itmax) {
                     isave[2] = isave[2] + 1;
                     for (int64_t i = 0; i < n; ++i) {
                         X[i] = zero;
-                        X[save[1]] = one;
                     }
-                    kase = 1;
+                    X[isave[1]] = one;
+                    *kase = 1;
                     isave[0] = 3;
                 }
             }
+            return;
         }
 
         else if (isave[0] == 5) {
-            temp = 0.0;
-            for (int64_t i = 0; i < n; ++i) {
-                temp = temp + 2.0 * (  fabs( X[i] ) / (scalar_t)( 3.0*n ) );
+            temp = real(X[0]);
+            for (int64_t i = 1; i < n; ++i) {
+                //temp = 2.0 * ( (temp + fabs( X[i] )) / ( 3.0 *  n ) );
             }
-            if (temp > est) {
+            if (temp > *est) {
                 for (int64_t i = 0; i < n; ++i) {
                     V[i] = X[i];
                 }
-                est = temp;
+                *est = temp;
             }
-            kase = 0;
+            *kase = 0;
         }
     }
 
@@ -257,7 +264,7 @@ void lacn2(
            std::vector<scalar_t>& V,
            std::vector<scalar_t>& X,
            std::vector<int64_t>& isgn,
-           blas::real_type<scalar_t>* one_normest,
+           blas::real_type<scalar_t>* est,
            int* kase,
            std::vector<int64_t>& isave,
            Options const& opts)
@@ -269,22 +276,22 @@ void lacn2(
         case Target::Host:
         case Target::HostTask:
             impl::lacn2<Target::HostTask>( n, V, X,
-                                           isgn, one_normest,
+                                           isgn, est,
                                            kase, isave, opts);
             break;
         case Target::HostNest:
             impl::lacn2<Target::HostNest>( n, V, X,
-                                           isgn, one_normest,
+                                           isgn, est,
                                            kase, isave, opts);
             break;
         case Target::HostBatch:
             impl::lacn2<Target::HostBatch>( n, V, X,
-                                           isgn, one_normest,
+                                           isgn, est,
                                            kase, isave, opts);
             break;
         case Target::Devices:
             impl::lacn2<Target::Devices>( n, V, X,
-                                          isgn, one_normest,
+                                          isgn, est,
                                           kase, isave, opts);
             break;
     }
@@ -299,7 +306,7 @@ void lacn2<float>(
     std::vector<float>& V,
     std::vector<float>& X,
     std::vector<int64_t>& isgn,
-    float* one_normest,
+    float* est,
     int* kase,
     std::vector<int64_t>& isave,
     Options const& opts);
@@ -310,7 +317,7 @@ void lacn2<double>(
     std::vector<double>& V,
     std::vector<double>& X,
     std::vector<int64_t>& isgn,
-    double* one_normest,
+    double* est,
     int* kase,
     std::vector<int64_t>& isave,
     Options const& opts);
@@ -321,7 +328,7 @@ void lacn2< std::complex<float> >(
     std::vector< std::complex<float> >& V,
     std::vector< std::complex<float> >& X,
     std::vector<int64_t>& isgn,
-    float* one_normest,
+    float* est,
     int* kase,
     std::vector<int64_t>& isave,
     Options const& opts);
@@ -332,7 +339,7 @@ void lacn2< std::complex<double> >(
     std::vector< std::complex<double> >& V,
     std::vector< std::complex<double> >& X,
     std::vector<int64_t>& isgn,
-    double* one_normest,
+    double* est,
     int* kase,
     std::vector<int64_t>& isave,
     Options const& opts);

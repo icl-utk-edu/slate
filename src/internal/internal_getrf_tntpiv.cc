@@ -455,7 +455,8 @@ void getrf_tntpiv_panel(
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority)
 {
-    getrf_tntpiv_panel( internal::TargetType<Target::HostTask>(),
+    getrf_tntpiv_panel(
+        internal::TargetType<Target::HostTask>(),
         A, Awork, dwork_array, work_size,
         diag_len, ib, pivot, max_panel_threads, priority );
 }
@@ -476,7 +477,8 @@ void getrf_tntpiv_panel(
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority)
 {
-    getrf_tntpiv_panel( internal::TargetType<Target::HostTask>(),
+    getrf_tntpiv_panel(
+        internal::TargetType<Target::HostTask>(),
         A, Awork, dwork_array, work_size,
         diag_len, ib, pivot, max_panel_threads, priority );
 }
@@ -638,8 +640,7 @@ void getrf_tntpiv_panel(
         hwork = hwork_vector.data();
 
         std::vector< device_pivot_int > hipiv( size_ipiv );
-        std::vector< scalar_t > hdiagu( diag_len );
-        std::vector< scalar_t > hu( mb * nb );
+        std::vector< scalar_t >        hdiagu( diag_len );
 
         // Factor the panel locally in parallel on decice, for stage = 0.
         lapack::getrf( mlocal, nb, dA, mlocal, dipiv,
@@ -648,36 +649,12 @@ void getrf_tntpiv_panel(
         blas::device_memcpy<device_pivot_int>( &hipiv[0], dipiv, size_ipiv,
                                        blas::MemcpyKind::Default, *queue);
 
-        //if (nranks > 1) {
-        //else {
-        //    Tile Ai0 = Awork( tile_indices[0], 0 );
-        //    blas::device_memcpy_2d<scalar_t>(
-        //            Ai0.data(), Ai0.stride(),
-        //            &dA[ 0 ], mlocal,
-        //            Ai0.mb(), nb,
-        //            blas::MemcpyKind::Default, *queue );
-        //    for (int64_t i = 0; i < diag_len; ++i) {
-        //        hdiagu[i] = Ai0.data()[ i * Ai0.stride() + i];
-        //    }
-        //}
-
-        // If bottom tile in panel has mb smaller than tile[ 0 ] mb,
-        // the row size needs to be reduced for the copy below.
-        int64_t tmp_mb = mb;
-        if (tmp_mb > mlocal)
-            tmp_mb = mlocal;
-
-        blas::device_memcpy_2d<scalar_t>(
-                &hu[ 0 ], mb, &dA[ 0 ], mlocal, tmp_mb, nb,
-                blas::MemcpyKind::Default, *queue );
-
-        for (int64_t i = 0; i < piv_len; ++i) {
-            hdiagu[i] = hu[ i * mb + i];
-        }
+        device_copy_vector( nb, dA, mlocal + 1,
+                                &hdiagu[ 0 ], 1, *queue );
 
         // Convert device sequential pivots to aux pivots
         for (int64_t i = 0; i < piv_len; ++i) {
-            aux_pivot[ 0 ][ i ].set_localTileIndex( floor( ( hipiv[ i ] - 1 ) / mb ) );
+            aux_pivot[ 0 ][ i ].set_localTileIndex( ( hipiv[ i ] - 1 ) / mb );
             aux_pivot[ 0 ][ i ].set_localOffset( (  hipiv[ i ] - 1 ) % mb );
             aux_pivot[ 0 ][ i ].set_tileIndex(      tile_indices[ aux_pivot[ 0 ][ i ].localTileIndex() ] );
             aux_pivot[ 0 ][ i ].set_elementOffset(  aux_pivot[ 0 ][ i ].localOffset() );

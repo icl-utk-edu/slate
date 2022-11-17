@@ -89,7 +89,7 @@ void gecon(
 
     // Compute matrix norm
     real_t Anorm = norm(in_norm, A);
-    real_t Ainvnorm;
+    real_t Ainvnorm = 0.0;
 
     // Quick return
     *rcond = 0.;
@@ -110,37 +110,37 @@ void gecon(
     std::vector<int64_t> isgn(m);
     std::vector<int64_t> isave(3);
 
-    auto B = slate::Matrix<scalar_t>::fromLAPACK(
-        m, 1, &X[0], m, nb, 1, p, q, A.mpiComm());
     auto L  = TriangularMatrix<scalar_t>(
         Uplo::Lower, slate::Diag::Unit, A );
     auto U  = TriangularMatrix<scalar_t>(
         Uplo::Upper, slate::Diag::NonUnit, A );
+    auto B = slate::Matrix<scalar_t>::fromLAPACK(
+            m, 1, &X[0], m, nb, 1, p, q, A.mpiComm());
 
-    while (kase != 0) {
+    // initial and final value of kase is 0
+    kase = 0;
+    lacn2( m, X, V, isgn, &Ainvnorm, &kase, isave, opts);
+    while (kase != 0)
+    {
         //LAPACKE_zlacn2_work( descA.m, workN, descW.mat, isgn, &Ainvnorm, &kase, isave);
+
+        if (kase == kase1) {
+            // Multiply by inv(L).
+            slate::trsm(Side::Left, alpha, L, B, opts);
+
+            // Multiply by inv(U).
+            slate::trsm(Side::Left, alpha, U, B, opts);
+        }
+        else {
+            // Multiply by inv(U**T).
+            auto UT = conjTranspose( U );
+            slate::trsm(Side::Left, alpha, UT, B, opts);
+
+            // Multiply by inv(L**T).
+            auto LT = conjTranspose( L );
+            slate::trsm(Side::Left, alpha, LT, B, opts);
+        }
         lacn2( m, X, V, isgn, &Ainvnorm, &kase, isave, opts);
-        printf("%-7s  %-7s\n", "Anorm", "Ainvnorm");
-        printf("%-7.2f %-7.2f\n", Anorm, Ainvnorm);
-
-        if (kase != 0) {
-            if (kase == kase1) {
-                // Multiply by inv(L).
-                slate::trsm(Side::Left, alpha, L, B, opts);
-
-                // Multiply by inv(U).
-                slate::trsm(Side::Left, alpha, U, B, opts);
-            }
-            else {
-                // Multiply by inv(U**T).
-                auto UT = conjTranspose( U );
-                slate::trsm(Side::Left, alpha, UT, B, opts);
-
-                // Multiply by inv(L**T).
-                auto LT = conjTranspose( L );
-                slate::trsm(Side::Left, alpha, LT, B, opts);
-            }
-        } // if (kase != 0)
     } // while (kase != 0)
 
     // Compute the estimate of the reciprocal condition number.

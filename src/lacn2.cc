@@ -14,9 +14,14 @@
 namespace slate {
 
 // todo:
-// 1. documentation
+// 1. documentation in lacn2
+// 1. documentation in gecon
 // 2. V and X as vectors or matrices
 // 3. scale and sum (est) with no loop
+// 4. quick return inn both
+// 5. add tester
+// 6. push all changes: lacn2, gecon, scalapck_wrapper
+// 7. test multiple mpi, gpus
 // re write code as slate structure
 // specialization namespace differentiates, e.g.,
 // internal::lacn2 from impl::lacn2
@@ -31,8 +36,8 @@ namespace impl {
 template <Target target, typename scalar_t>
 void lacn2(
            int64_t n,
-           std::vector<scalar_t>& V,
            std::vector<scalar_t>& X,
+           std::vector<scalar_t>& V,
            std::vector<int64_t>& isgn,
            blas::real_type<scalar_t>* est,
            int* kase,
@@ -55,8 +60,10 @@ void lacn2(
     // isave[1] = j which is the index of the max element in X
     // isave[2] = iter
 
-    scalar_t xs, altsgn;
-    real_t estold, temp;
+    scalar_t altsgn;
+    real_t estold = 0., temp, absxi;
+    real_t safemin = std::numeric_limits< real_t >::min();
+    int64_t xs;
 
     // First iteration, kase = 0
     // Initialize X = 1./n
@@ -68,6 +75,7 @@ void lacn2(
         *kase = 1;
         // Next iteration will skip this.
         isave[0] = 1;
+        return;
     }
     // Iterations 2, 3, ..., itmax.
     // kase = 1 or 2
@@ -86,7 +94,7 @@ void lacn2(
                 V[0] = X[0];
                 *est = fabs( V[0] );
                 // Converged, set kase back to zero
-                kase = 0;
+                *kase = 0;
                 return;
             }
 
@@ -145,13 +153,14 @@ void lacn2(
             }
 
             for (int64_t i = 0; i < n; ++i) {
-                //if (X[i] >= 0) {
-                //    xs = one;
-                //}
-                //else {
-                //    xs = -one;
-                //}
-                //if ((int64_t) xs != isgn[i]) {
+                // todo: dgecon have this part but zgecon does not, why?
+                if (real( X[i] ) >= 0) {
+                    xs = 1;
+                }
+                else {
+                    xs = -1;
+                }
+                if (xs != isgn[i]) {
                     //if (real(est1) <= real(estold)) {
                     if (*est <= estold) {
                         altsgn = one;
@@ -162,9 +171,46 @@ void lacn2(
                         }
                         *kase = 1;
                         isave[0] = 5;
+                        return;
                     }
-                //}
+                    for (int64_t i = 0; i < n; ++i) {
+                        if (real( X[i] ) >= 0) {
+                            X[i] = 1.0;
+                            isgn[i] = 1;
+                        }
+                        else {
+                            X[i] = -1.0;
+                            isgn[i] = -1;
+                        }
+                    }
+                    *kase = 2;
+                    isave[0] = 4;
+                    return;
+
+                    //for (int64_t i = 0; i < n; ++i) {
+                    //    absxi = fabs( X[i] );
+                    //    if (absxi > safemin) {
+                    //        //X[i] = (X[i] / absxi, X[i] / absxi);
+                    //        X[i] = ( real( X[i] ) / absxi , X[i] / absxi );
+                    //    }
+                    //    else {
+                    //        X[i] = one;
+                    //    }
+                    //    *kase = 2;
+                    //    isave[0] = 4;
+                    //    return;
+                    //}
+
+                }
             }
+            altsgn = one;
+            // x( i ) = altsgn*( one+dble( i-1 ) / dble( n-1 ) )
+            for (int64_t i = 0; i < n; ++i) {
+                X[i] = altsgn * ( one + (scalar_t)( i-1 ) / (scalar_t)( n-1 ) );
+                altsgn = -altsgn;
+            }
+            *kase = 1;
+            isave[0] = 5;
             return;
         }
 
@@ -173,27 +219,37 @@ void lacn2(
             jlast = isave[1];
             isave[1] = 0;
             for (int64_t i = 1; i < n; ++i) {
-                if (fabs( X[0] ) > fabs( X[i] )) {
+                if (fabs( X[i] ) > fabs( X[isave[1]] )) {
                     isave[1] = i;
                 }
-                if (X[jlast] != fabs( X[isave[1]] ) && isave[2] < itmax) {
-                    isave[2] = isave[2] + 1;
-                    for (int64_t i = 0; i < n; ++i) {
-                        X[i] = zero;
-                    }
-                    X[isave[1]] = one;
-                    *kase = 1;
-                    isave[0] = 3;
-                }
             }
+            if (fabs( X[jlast] ) != fabs( X[isave[1]] ) && isave[2] < itmax) {
+                isave[2] = isave[2] + 1;
+                for (int64_t i = 0; i < n; ++i) {
+                    X[i] = zero;
+                }
+                X[isave[1]] = one;
+                *kase = 1;
+                isave[0] = 3;
+                return;
+            }
+            altsgn = one;
+            // x( i ) = altsgn*( one+dble( i-1 ) / dble( n-1 ) )
+            for (int64_t i = 0; i < n; ++i) {
+                X[i] = altsgn * ( one + (scalar_t)( i-1 ) / (scalar_t)( n-1 ) );
+                altsgn = -altsgn;
+            }
+            *kase = 1;
+            isave[0] = 5;
             return;
         }
 
         else if (isave[0] == 5) {
-            temp = real(X[0]);
+            temp = fabs(X[0]);
             for (int64_t i = 1; i < n; ++i) {
-                //temp = 2.0 * ( (temp + fabs( X[i] )) / ( 3.0 *  n ) );
+                temp = temp + fabs( X[i] );
             }
+            temp = 2.0 * temp / (3.0 * n);
             if (temp > *est) {
                 for (int64_t i = 0; i < n; ++i) {
                     V[i] = X[i];
@@ -201,11 +257,10 @@ void lacn2(
                 *est = temp;
             }
             *kase = 0;
+            return;
         }
     }
 
-    // Debug::checkTilesLives(A);
-    // Debug::printTilesLives(A);
 }
 
 } // namespace impl
@@ -261,8 +316,8 @@ void lacn2(
 template <typename scalar_t>
 void lacn2(
            int64_t n,
-           std::vector<scalar_t>& V,
            std::vector<scalar_t>& X,
+           std::vector<scalar_t>& V,
            std::vector<int64_t>& isgn,
            blas::real_type<scalar_t>* est,
            int* kase,
@@ -275,22 +330,22 @@ void lacn2(
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::lacn2<Target::HostTask>( n, V, X,
+            impl::lacn2<Target::HostTask>( n, X, V,
                                            isgn, est,
                                            kase, isave, opts);
             break;
         case Target::HostNest:
-            impl::lacn2<Target::HostNest>( n, V, X,
+            impl::lacn2<Target::HostNest>( n, X, V,
                                            isgn, est,
                                            kase, isave, opts);
             break;
         case Target::HostBatch:
-            impl::lacn2<Target::HostBatch>( n, V, X,
+            impl::lacn2<Target::HostBatch>( n, X, V,
                                            isgn, est,
                                            kase, isave, opts);
             break;
         case Target::Devices:
-            impl::lacn2<Target::Devices>( n, V, X,
+            impl::lacn2<Target::Devices>( n, X, V,
                                           isgn, est,
                                           kase, isave, opts);
             break;
@@ -303,8 +358,8 @@ void lacn2(
 template
 void lacn2<float>(
     int64_t n,
-    std::vector<float>& V,
     std::vector<float>& X,
+    std::vector<float>& V,
     std::vector<int64_t>& isgn,
     float* est,
     int* kase,
@@ -314,8 +369,8 @@ void lacn2<float>(
 template
 void lacn2<double>(
     int64_t n,
-    std::vector<double>& V,
     std::vector<double>& X,
+    std::vector<double>& V,
     std::vector<int64_t>& isgn,
     double* est,
     int* kase,
@@ -325,8 +380,8 @@ void lacn2<double>(
 template
 void lacn2< std::complex<float> >(
     int64_t n,
-    std::vector< std::complex<float> >& V,
     std::vector< std::complex<float> >& X,
+    std::vector< std::complex<float> >& V,
     std::vector<int64_t>& isgn,
     float* est,
     int* kase,
@@ -336,8 +391,8 @@ void lacn2< std::complex<float> >(
 template
 void lacn2< std::complex<double> >(
     int64_t n,
-    std::vector< std::complex<double> >& V,
     std::vector< std::complex<double> >& X,
+    std::vector< std::complex<double> >& V,
     std::vector<int64_t>& isgn,
     double* est,
     int* kase,

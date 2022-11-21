@@ -102,13 +102,13 @@ void gecon(
 
     scalar_t alpha = 1.;
 
-    auto T0 = A(0, 0);
-    scalar_t* data = T0.data();
-
     std::vector<scalar_t> X(m);
     std::vector<scalar_t> V(m);
     std::vector<int64_t> isgn(m);
     std::vector<int64_t> isave(3);
+    isave[0] = 0;
+    isave[1] = 0;
+    isave[2] = 0;
 
     auto L  = TriangularMatrix<scalar_t>(
         Uplo::Lower, slate::Diag::Unit, A );
@@ -120,27 +120,31 @@ void gecon(
     // initial and final value of kase is 0
     kase = 0;
     lacn2( m, X, V, isgn, &Ainvnorm, &kase, isave, opts);
+    MPI_Bcast( &isave[0], 3, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
+    MPI_Bcast( &kase, 1, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
+    int mpi_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     while (kase != 0)
     {
-        //LAPACKE_zlacn2_work( descA.m, workN, descW.mat, isgn, &Ainvnorm, &kase, isave);
-
         if (kase == kase1) {
             // Multiply by inv(L).
-            slate::trsm(Side::Left, alpha, L, B, opts);
+            slate::trsmA(Side::Left, alpha, L, B, opts);
 
             // Multiply by inv(U).
-            slate::trsm(Side::Left, alpha, U, B, opts);
+            slate::trsmA(Side::Left, alpha, U, B, opts);
         }
         else {
             // Multiply by inv(U**T).
             auto UT = conjTranspose( U );
-            slate::trsm(Side::Left, alpha, UT, B, opts);
+            slate::trsmA(Side::Left, alpha, UT, B, opts);
 
             // Multiply by inv(L**T).
             auto LT = conjTranspose( L );
-            slate::trsm(Side::Left, alpha, LT, B, opts);
+            slate::trsmA(Side::Left, alpha, LT, B, opts);
         }
         lacn2( m, X, V, isgn, &Ainvnorm, &kase, isave, opts);
+        MPI_Bcast( &isave[0], 3, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
+        MPI_Bcast( &kase, 1, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
     } // while (kase != 0)
 
     // Compute the estimate of the reciprocal condition number.

@@ -22,11 +22,47 @@ namespace slate {
 // 5. add tester
 // 6. push all changes: lacn2, gecon, scalapck_wrapper
 // 7. test multiple mpi, gpus
+// 8. test complex: c and z
 // re write code as slate structure
 // specialization namespace differentiates, e.g.,
 // internal::lacn2 from impl::lacn2
 namespace impl {
 
+//------------------------------------------------------------------------------
+/// An auxiliary routine to alter the sign of a vector
+template <typename scalar_t>
+void lacn2_altsgn(Matrix<scalar_t>& A)
+{
+    using real_t = blas::real_type<scalar_t>;
+
+    int64_t mt = A.mt();
+    int64_t nt = A.nt();
+    int64_t n  = A.n();
+
+    const scalar_t one  = 1.0;
+    real_t altsgn;
+
+    //altsgn = 1.;
+    // x( i ) = altsgn*( one+dble( i-1 ) / dble( n-1 ) )
+    //for (int64_t i = 0; i < n; ++i) {
+    //    X[i] = altsgn * ( one + (scalar_t)( i-1 ) / (scalar_t)( n-1 ) );
+    //    altsgn = -altsgn;
+    //}
+
+    for (int64_t i = 0; i < mt; ++i) {
+        for (int64_t j = 0; j < nt; ++j) {
+            if (A.tileIsLocal(i, j)) {
+                auto Aij = A(i, j);
+                auto Aij_data = Aij.data();
+                int64_t nb = A.tileMb(i);
+                for (int64_t ii = 0; ii < nb; ++ii) {
+                    altsgn = pow(-1., i*nb+ii) * altsgn;
+                    Aij_data[ii] = altsgn * ( one + (scalar_t)( (i*nb+ii)-1 ) / (scalar_t)( n-1 ) );
+                }
+            }
+        }
+    }
+}
 //------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
 /// Generic implementation for any target.
@@ -44,36 +80,49 @@ void lacn2(
            std::vector<int64_t>& isave,
            Options const& opts)
 {
+    int mpi_rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+
+    //printf("\n ====== kase %ld mpi_rank %d isave[0] %ld isave[1] %ld \n", *kase, mpi_rank, isave[0], isave[1]);
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
     const scalar_t one  = 1.0;
     const scalar_t zero = 0.0;
+    scalar_t xi = 1./n;
     int itmax = 5, jlast;
 
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const auto mpi_real_type = mpi_type< blas::real_type<scalar_t> >::value;
 
     // isave[0] = jump
     // isave[1] = j which is the index of the max element in X
     // isave[2] = iter
 
-    scalar_t altsgn;
+    real_t altsgn;
     real_t estold = 0., temp, absxi;
     real_t safemin = std::numeric_limits< real_t >::min();
     int64_t xs;
+    int isavemax = 0;
+    int isavemax2 = 0;
+
+    int64_t m = n, nb = 10, p = 2, q = 2;
+    auto AX = slate::Matrix<scalar_t>::fromLAPACK(
+            m, 1, &X[0], m, nb, 1, p, q, MPI_COMM_WORLD);
+    auto AV = slate::Matrix<scalar_t>::fromLAPACK(
+            m, 1, &V[0], m, nb, 1, p, q, MPI_COMM_WORLD);
+    int64_t nt = AX.nt();
+    int64_t mt = AX.mt();
 
     // First iteration, kase = 0
     // Initialize X = 1./n
     if (*kase == 0) {
-        for (int64_t i = 0; i < n; ++i) {
-            X[i] = 1. / n;
-        }
+        slate::set(xi, xi, AX);
         // X to be overwritten by AX, so kase = 1.
         *kase = 1;
-        // Next iteration will skip this.
         isave[0] = 1;
         return;
     }
@@ -84,36 +133,48 @@ void lacn2(
         if (isave[0] == 1) {
             // quick return
             if (n == 1) {
-                // Set V[0] = X[0];
-                //auto X0 = X(0, 0);
-                //auto V0 = X(0, 0);
-                //auto X0_data = X0.data();
-                //auto V0_data = V0.data();
-                //V0_data[0] = X0_data[0];
-                //*est = fabs( V0_data[0] );
-                V[0] = X[0];
-                *est = fabs( V[0] );
+                if (AX.tileIsLocal(0, 0)) {
+                    //*est = fabs( V0_data[0] );
+                    //V[0] = X[0];
+                    //*est = fabs( V[0] );
+                    auto X0 = AX(0, 0);
+                    auto V0 = AV(0, 0);
+                    auto X0_data = X0.data();
+                    auto V0_data = V0.data();
+                    V0_data[0] = X0_data[0];
+                    *est = fabs( V0_data[0] );
+                }
+                MPI_Bcast( est, 1, mpi_real_type, 0, MPI_COMM_WORLD );
                 // Converged, set kase back to zero
                 *kase = 0;
                 return;
             }
 
             // Initial value of est
-            for (int64_t i = 1; i < n; ++i) {
-                *est = fabs( X[0] ) + fabs( X[i] );
-            }
+            *est = slate::norm(slate::Norm::One, AX, opts);
 
             // Update X to 1. or -1.:
             // X[i] = {1   if X[i] > 0
             //        {-1  if X[i] < 0
-            for (int64_t i = 0; i < n; ++i) {
-                if (real( X[i] ) >= 0.0) {
-                    X[i] = one;
-                    isgn[i] = 1;
-                }
-                else {
-                    X[i] = -one;
-                    isgn[i] = -1;
+            //
+            // todo: nneed offset in isgn.
+            for (int64_t i = 0; i < mt; ++i) {
+                for (int64_t j = 0; j < nt; ++j) {
+                    if (AX.tileIsLocal(i, j)) {
+                        int64_t nb = AX.tileMb(i);
+                        auto X0 = AX(i, j);
+                        auto X0_data = X0.data();
+                        for (int64_t ii = 0; ii < nb; ++ii) {
+                            if (real( X0_data[ii] ) >= 0.0) {
+                                X0_data[ii] = one;
+                                isgn[ii] = 1;
+                            }
+                            else {
+                                X0_data[ii] = -one;
+                                isgn[ii] = -1;
+                            }
+                        }
+                    }
                 }
             }
             // Update kase ad isave
@@ -123,19 +184,31 @@ void lacn2(
             return;
         }
         else if (isave[0] == 2) {
-            // isave( 2 ) = idamax( n, x, 1 )
             isave[1] = 0;
-            for (int64_t i = 1; i < n; ++i) {
-                if (fabs( X[i] ) > fabs( X[ isave[1] ] )) {
-                    isave[1] = i;
+            for (int64_t i = 0; i < mt; ++i) {
+                for (int64_t j = 0; j < nt; ++j) {
+                    if (AX.tileIsLocal(i, j)) {
+                        auto X0 = AX(i, j);
+                        auto X0_data = X0.data();
+                        int64_t nb = AX.tileMb(i);
+                        for (int64_t ii = 1; ii < nb; ++ii) {
+                            if (fabs( X0_data[ii] ) > fabs( X0_data[ isave[1] ] )) {
+                                isave[1] = i*nb+ii;
+                            }
+                        }
+                    }
                 }
             }
+            // MPI reduce for the max isave[1]
+            MPI_Allreduce(&isave[1], &isavemax, 1, MPI_INT, MPI_MAX, AX.mpiComm());
             isave[2] = 2;
+            isave[1] = isavemax;
 
             // main loop - iterations 2,3,..., itmax
-            for (int64_t i = 0; i < n; ++i) {
-                X[i] = zero;
-            }
+            //for (int64_t i = 0; i < n; ++i) {
+            //    X[i] = zero;
+            //}
+            slate::set(zero, zero, AX);
             X[isave[1]] = one;
             *kase = 1;
             isave[0] = 3;
@@ -143,72 +216,48 @@ void lacn2(
         }
         else if (isave[0] == 3) {
             // X HAS BEEN OVERWRITTEN BY A*X.
-            for (int64_t i = 0; i < n; ++i) {
-                V[i] = X[i];
-            }
+            copy(AX, AV);
             estold = *est;
-            *est = fabs( V[0] );
-            for (int64_t i = 1; i < n; ++i) {
-                *est = *est + fabs( V[i] );
-            }
-
-            for (int64_t i = 0; i < n; ++i) {
-                // todo: dgecon have this part but zgecon does not, why?
-                if (real( X[i] ) >= 0) {
-                    xs = 1;
-                }
-                else {
-                    xs = -1;
-                }
-                if (xs != isgn[i]) {
-                    //if (real(est1) <= real(estold)) {
-                    if (*est <= estold) {
-                        altsgn = one;
-                        // x( i ) = altsgn*( one+dble( i-1 ) / dble( n-1 ) )
-                        for (int64_t i = 0; i < n; ++i) {
-                            X[i] = altsgn * ( one + (scalar_t)( i-1 ) / (scalar_t)( n-1 ) );
-                            altsgn = -altsgn;
-                        }
-                        *kase = 1;
-                        isave[0] = 5;
-                        return;
-                    }
-                    for (int64_t i = 0; i < n; ++i) {
-                        if (real( X[i] ) >= 0) {
-                            X[i] = 1.0;
-                            isgn[i] = 1;
-                        }
-                        else {
-                            X[i] = -1.0;
-                            isgn[i] = -1;
-                        }
-                    }
-                    *kase = 2;
-                    isave[0] = 4;
-                    return;
-
-                    //for (int64_t i = 0; i < n; ++i) {
-                    //    absxi = fabs( X[i] );
-                    //    if (absxi > safemin) {
-                    //        //X[i] = (X[i] / absxi, X[i] / absxi);
-                    //        X[i] = ( real( X[i] ) / absxi , X[i] / absxi );
-                    //    }
-                    //    else {
-                    //        X[i] = one;
-                    //    }
-                    //    *kase = 2;
-                    //    isave[0] = 4;
-                    //    return;
-                    //}
-
-                }
-            }
-            altsgn = one;
-            // x( i ) = altsgn*( one+dble( i-1 ) / dble( n-1 ) )
-            for (int64_t i = 0; i < n; ++i) {
-                X[i] = altsgn * ( one + (scalar_t)( i-1 ) / (scalar_t)( n-1 ) );
-                altsgn = -altsgn;
-            }
+            *est = slate::norm(slate::Norm::One, AV, opts);
+            for (int64_t i = 0; i < mt; ++i) {
+                for (int64_t j = 0; j < nt; ++j) {
+                    if (AX.tileIsLocal(i, j)) {
+                        auto X0 = AX(i, j);
+                        auto X0_data = X0.data();
+                        int64_t nb = AX.tileMb(i);
+                        for (int64_t ii = 0; ii < nb; ++ii) {
+                            if (real( X0_data[ii] ) > 0.) {
+                                xs = 1;
+                            }
+                            else {
+                                xs = -1;
+                            }
+                            if (xs != isgn[i]) {
+                                if (*est <= estold) {
+                                    lacn2_altsgn( AX );
+                                    *kase = 1;
+                                    isave[0] = 5;
+                                    return;
+                                }
+                                //for (int64_t i = 0; i < n; ++i) {
+                                    if (real( X0_data[ii] ) >= 0) {
+                                        X0_data[ii] = 1.0;
+                                        isgn[ii] = 1;
+                                    }
+                                    else {
+                                        X0_data[ii] = -1.0;
+                                        isgn[ii] = -1;
+                                    }
+                                //}
+                                *kase = 2;
+                                isave[0] = 4;
+                                return;
+                            } // if (xs != isgn[i])
+                        } // for ii = 0:nb
+                    } // if (AX.tileIsLocal(i, j))
+                } // for j = 0:nt
+            } // for i = 0:mt
+            lacn2_altsgn( AX );
             *kase = 1;
             isave[0] = 5;
             return;
@@ -217,43 +266,60 @@ void lacn2(
         else if (isave[0] == 4) {
             // X HAS BEEN OVERWRITTEN BY TRANSPOSE(A)*X.
             jlast = isave[1];
-            isave[1] = 0;
-            for (int64_t i = 1; i < n; ++i) {
-                if (fabs( X[i] ) > fabs( X[isave[1]] )) {
-                    isave[1] = i;
+            //isave[1] = 0;
+            //for (int64_t i = 1; i < n; ++i) {
+            //    if (fabs( X[i] ) > fabs( X[isave[1]] )) {
+            //        isave[1] = i;
+            //    }
+            //}
+            for (int64_t i = 0; i < mt; ++i) {
+                for (int64_t j = 0; j < nt; ++j) {
+                    if (AX.tileIsLocal(i, j)) {
+                        auto X0 = AX(i, j);
+                        auto X0_data = X0.data();
+                        int64_t nb = AX.tileMb(i);
+                        isave[1] = 0;
+                        for (int64_t ii = 1; ii < nb; ++ii) {
+                            if (fabs( X0_data[ii] ) > fabs( X0_data[ isave[1] ] )) {
+                                isave[1] = i*nb+ii;
+                            }
+                        }
+                    }
                 }
             }
+            // MPI reduce for the max isave[1]
+            MPI_Allreduce(&isave[1], &isavemax, 1, MPI_INT, MPI_MAX, AX.mpiComm());
+            isave[1] = isavemax;
+
             if (fabs( X[jlast] ) != fabs( X[isave[1]] ) && isave[2] < itmax) {
                 isave[2] = isave[2] + 1;
-                for (int64_t i = 0; i < n; ++i) {
-                    X[i] = zero;
+                for (int64_t i = 0; i < mt; ++i) {
+                    for (int64_t j = 0; j < nt; ++j) {
+                        if (AX.tileIsLocal(i, j)) {
+                            auto X0 = AX(i, j);
+                            auto X0_data = X0.data();
+                            int64_t nb = AX.tileMb(i);
+                            X0_data[i] = zero;
+                            if (i*nb < isave[1] < (i+1)*nb)
+                                X0_data[isave[1]] = one;
+                        }
+                    }
                 }
-                X[isave[1]] = one;
                 *kase = 1;
                 isave[0] = 3;
                 return;
             }
-            altsgn = one;
-            // x( i ) = altsgn*( one+dble( i-1 ) / dble( n-1 ) )
-            for (int64_t i = 0; i < n; ++i) {
-                X[i] = altsgn * ( one + (scalar_t)( i-1 ) / (scalar_t)( n-1 ) );
-                altsgn = -altsgn;
-            }
+            lacn2_altsgn( AX );
             *kase = 1;
             isave[0] = 5;
             return;
         }
 
         else if (isave[0] == 5) {
-            temp = fabs(X[0]);
-            for (int64_t i = 1; i < n; ++i) {
-                temp = temp + fabs( X[i] );
-            }
+            temp = slate::norm(slate::Norm::One, AV, opts);
             temp = 2.0 * temp / (3.0 * n);
             if (temp > *est) {
-                for (int64_t i = 0; i < n; ++i) {
-                    V[i] = X[i];
-                }
+                copy( AX, AV);
                 *est = temp;
             }
             *kase = 0;

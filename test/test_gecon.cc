@@ -1,0 +1,295 @@
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// SPDX-License-Identifier: BSD-3-Clause
+// This program is free software: you can redistribute it and/or modify it under
+// the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
+
+#include "slate/slate.hh"
+#include "test.hh"
+#include "blas/flops.hh"
+#include "lapack/flops.hh"
+#include "print_matrix.hh"
+#include "grid_utils.hh"
+
+#include "scalapack_wrappers.hh"
+#include "scalapack_support_routines.hh"
+#include "scalapack_copy.hh"
+
+#include <cmath>
+#include <cstdio>
+#include <cstdlib>
+#include <utility>
+
+//------------------------------------------------------------------------------
+template <typename scalar_t>
+void test_gecon_work(Params& params, bool run)
+{
+    using real_t = blas::real_type<scalar_t>;
+    using blas::real;
+
+    // Decode routine, setting method and chopping off _tntpiv or _nopiv suffix.
+    if (ends_with( params.routine, "_tntpiv" )) {
+        params.routine = params.routine.substr( 0, params.routine.size() - 7 );
+        params.method_lu() = slate::MethodLU::CALU;
+    }
+    else if (ends_with( params.routine, "_nopiv" )) {
+        params.routine = params.routine.substr( 0, params.routine.size() - 6 );
+        params.method_lu() = slate::MethodLU::NoPiv;
+    }
+    auto method = params.method_lu();
+
+    int64_t m;
+    m = params.dim.m();
+
+    slate::Norm norm = params.norm();
+    int64_t n = params.dim.n();
+    int64_t nrhs = params.nrhs();
+    int64_t p = params.grid.m();
+    int64_t q = params.grid.n();
+    int64_t nb = params.nb();
+    int64_t ib = params.ib();
+    int64_t lookahead = params.lookahead();
+    int64_t panel_threads = params.panel_threads();
+    bool ref_only = params.ref() == 'o';
+    bool ref = params.ref() == 'y' || ref_only;
+    bool check = params.check() == 'y' && ! ref_only;
+    bool trace = params.trace() == 'y';
+    int verbose = params.verbose();
+    SLATE_UNUSED(verbose);
+    slate::Origin origin = params.origin();
+    slate::Target target = params.target();
+    slate::GridOrder grid_order = params.grid_order();
+    params.matrix.mark();
+    params.matrixB.mark();
+
+    // NoPiv and CALU ignore threshold.
+    double pivot_threshold = params.pivot_threshold();
+
+    // mark non-standard output values
+    params.time();
+    params.gflops();
+    params.ref_time();
+    params.ref_gflops();
+    params.time2();
+    params.time2.name( "trs time (s)" );
+    params.time2.width( 12 );
+    params.gflops2();
+    params.gflops2.name( "trs gflop/s" );
+
+    if (! run)
+        return;
+
+    // MPI variables
+    int mpi_rank, myrow, mycol;
+    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+    gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
+
+    slate::Options const opts =  {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target},
+        {slate::Option::MaxPanelThreads, panel_threads},
+        {slate::Option::InnerBlocking, ib},
+        {slate::Option::PivotThreshold, pivot_threshold},
+        {slate::Option::MethodLU, method},
+    };
+
+    // Matrix A: figure out local size.
+    int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
+    int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
+    int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
+
+    // Matrix B: figure out local size.
+    int64_t mlocB = num_local_rows_cols(n, nb, myrow, p);
+    int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
+    int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
+
+    std::vector<scalar_t> A_data, B_data, X_data;
+    slate::Matrix<scalar_t> A, B, X;
+    if (origin != slate::Origin::ScaLAPACK) {
+        // SLATE allocates CPU or GPU tiles.
+        slate::Target origin_target = origin2target(origin);
+        A = slate::Matrix<scalar_t>(
+                m, n,    nb, p, q, MPI_COMM_WORLD );
+        B = slate::Matrix<scalar_t>(
+                n, nrhs, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+        A.insertLocalTiles(origin_target);
+        B.insertLocalTiles(origin_target);
+    }
+    else {
+        // Create SLATE matrix from the ScaLAPACK layouts
+        A_data.resize( lldA * nlocA );
+        A = slate::Matrix<scalar_t>::fromScaLAPACK(
+            m, n, &A_data[0], lldA, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+
+        B_data.resize( lldB * nlocB );
+        B = slate::Matrix<scalar_t>::fromScaLAPACK(
+            n, nrhs, &B_data[0], lldB, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+
+        if (params.routine == "geconMixed") {
+            X_data.resize(lldB*nlocB);
+            X = slate::Matrix<scalar_t>::fromScaLAPACK(
+                n, nrhs, &X_data[0], lldB, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+        }
+    }
+
+    slate::Pivots pivots;
+
+    slate::generate_matrix(params.matrix,  A);
+    slate::generate_matrix(params.matrixB, B);
+    print_matrix("A", A, params);
+
+    // If check/ref is required, copy test data.
+    slate::Matrix<scalar_t> Aref, Bref;
+    std::vector<scalar_t> Aref_data, Bref_data;
+    if (check || ref) {
+        Aref_data.resize( lldA* nlocA );
+        Bref_data.resize( lldB* nlocB );
+        Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                m, n, &Aref_data[0], lldA, nb, nb,
+                grid_order, p, q, MPI_COMM_WORLD );
+        Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
+                n, nrhs, &Bref_data[0], lldB, nb, nb,
+                grid_order, p, q, MPI_COMM_WORLD );
+
+        slate::copy(A, Aref);
+        slate::copy(B, Bref);
+    }
+
+    double gflop = lapack::Gflop<scalar_t>::getrf(m, n);
+
+    // Compute the matrix norm
+    real_t Anorm = 0;
+    Anorm = slate::norm(norm, A, opts);
+    real_t slate_rcond, scl_rcond;
+
+    if (! ref_only) {
+
+        if (trace) slate::trace::Trace::on();
+        else slate::trace::Trace::off();
+
+        //==================================================
+        // Run SLATE test: getrf or gecon
+        // getrf: Factor PA = LU.
+        // gecon:  Solve AX = B, including factoring A.
+        //==================================================
+
+        double time2 = barrier_get_wtime(MPI_COMM_WORLD);
+        slate::lu_factor(A, pivots, opts);
+        // Using traditional BLAS/LAPACK name
+        // slate::getrf(A, pivots, opts);
+        // compute and save timing/performance
+        time2 = barrier_get_wtime(MPI_COMM_WORLD) - time2;
+        params.time2() = time2;
+        params.gflops2() = gflop / time2;
+
+        double time = barrier_get_wtime(MPI_COMM_WORLD);
+
+        slate::gecon(norm, A, &slate_rcond, opts);
+        printf("\n mpi_rank %d %-7.9f slate_rcond %-7.9f Anorm\n", mpi_rank, slate_rcond, Anorm);
+        time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+        // compute and save timing/performance
+        params.time() = time;
+        params.gflops() = gflop / time;
+
+        if (trace) slate::trace::Trace::finish();
+    }
+
+
+    if (check || ref) {
+        #ifdef SLATE_HAVE_SCALAPACK
+            // A comparison with a reference routine from ScaLAPACK for timing only
+
+            // BLACS/MPI variables
+            int ictxt, myrow_, mycol_, info, p_, q_;
+            int mpi_rank_ = 0, nprocs = 1;
+            // initialize BLACS and ScaLAPACK
+            Cblacs_pinfo(&mpi_rank_, &nprocs);
+            slate_assert(p*q <= nprocs);
+            Cblacs_get(-1, 0, &ictxt);
+            Cblacs_gridinit( &ictxt, grid_order2str( grid_order ), p, q );
+            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
+            slate_assert( p == p_ );
+            slate_assert( q == q_ );
+            slate_assert( myrow == myrow_ );
+            slate_assert( mycol == mycol_ );
+
+            int64_t info_ref = 0;
+
+            // ScaLAPACK descriptor for the reference matrix
+            int Aref_desc[9];
+            scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            slate_assert(info == 0);
+
+            int Bref_desc[9];
+            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
+            slate_assert(info == 0);
+
+            // ScaLAPACK data for pivots.
+            std::vector<int> ipiv_ref(lldA + nb);
+
+            //==================================================
+            // Run ScaLAPACK reference routine.
+            //==================================================
+            double time = barrier_get_wtime(MPI_COMM_WORLD);
+            scalapack_pgetrf(m, n,
+                    &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info_ref);
+
+
+            // Find the needed work and iwork
+            int64_t info_ref2 = 0;
+            int64_t lwork = -1;
+            int64_t liwork = -1;
+            scalar_t dummy;
+            int  idummy;
+            scalapack_pgecon( norm2str(norm), n, &Aref_data[0], 1, 1, Aref_desc,
+                &Anorm, &scl_rcond, &dummy, lwork, &idummy, liwork, info_ref2);
+            lwork = (int64_t)( real( dummy ) );
+            liwork = (int64_t)( real( idummy ) );
+
+            // Compute the condition number using scalapack
+            std::vector<scalar_t> work(lwork);
+            std::vector<int> iwork(liwork);
+            scalapack_pgecon( norm2str(norm), n, &Aref_data[0], 1, 1, Aref_desc, &Anorm, &scl_rcond, &work[0], lwork, &iwork[0], liwork, info_ref2);
+            printf("\n %-7.9f scl_rcond %-7.9f Anorm\n", scl_rcond, Anorm);
+            slate_assert(info_ref == 0);
+            time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+
+            params.ref_time() = time;
+            params.ref_gflops() = gflop / time;
+
+            // Compute the error
+            params.error() = std::abs(slate_rcond - scl_rcond);
+
+            Cblacs_gridexit(ictxt);
+            //Cblacs_exit(1) does not handle re-entering
+        #else  // not SLATE_HAVE_SCALAPACK
+            if (mpi_rank == 0)
+                printf( "ScaLAPACK not available\n" );
+        #endif
+    }
+}
+
+// -----------------------------------------------------------------------------
+void test_gecon(Params& params, bool run)
+{
+    switch (params.datatype()) {
+        case testsweeper::DataType::Integer:
+            throw std::exception();
+            break;
+
+        case testsweeper::DataType::Single:
+            test_gecon_work<float> (params, run);
+            break;
+
+        case testsweeper::DataType::Double:
+            test_gecon_work<double> (params, run);
+            break;
+
+        case testsweeper::DataType::SingleComplex:
+            test_gecon_work<std::complex<float>> (params, run);
+            break;
+
+        case testsweeper::DataType::DoubleComplex:
+            test_gecon_work<std::complex<double>> (params, run);
+            break;
+    }
+}

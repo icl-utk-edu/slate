@@ -97,61 +97,37 @@ void test_gecon_work(Params& params, bool run)
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
 
-    // Matrix B: figure out local size.
-    int64_t mlocB = num_local_rows_cols(n, nb, myrow, p);
-    int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
-    int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
-
-    std::vector<scalar_t> A_data, B_data, X_data;
-    slate::Matrix<scalar_t> A, B, X;
+    std::vector<scalar_t> A_data;
+    slate::Matrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(
                 m, n,    nb, p, q, MPI_COMM_WORLD );
-        B = slate::Matrix<scalar_t>(
-                n, nrhs, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
         A.insertLocalTiles(origin_target);
-        B.insertLocalTiles(origin_target);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
         A_data.resize( lldA * nlocA );
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
             m, n, &A_data[0], lldA, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
-
-        B_data.resize( lldB * nlocB );
-        B = slate::Matrix<scalar_t>::fromScaLAPACK(
-            n, nrhs, &B_data[0], lldB, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
-
-        if (params.routine == "geconMixed") {
-            X_data.resize(lldB*nlocB);
-            X = slate::Matrix<scalar_t>::fromScaLAPACK(
-                n, nrhs, &X_data[0], lldB, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
-        }
     }
 
     slate::Pivots pivots;
 
     slate::generate_matrix(params.matrix,  A);
-    slate::generate_matrix(params.matrixB, B);
     print_matrix("A", A, params);
 
     // If check/ref is required, copy test data.
-    slate::Matrix<scalar_t> Aref, Bref;
-    std::vector<scalar_t> Aref_data, Bref_data;
+    slate::Matrix<scalar_t> Aref;
+    std::vector<scalar_t> Aref_data;
     if (check || ref) {
         Aref_data.resize( lldA* nlocA );
-        Bref_data.resize( lldB* nlocB );
         Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
                 m, n, &Aref_data[0], lldA, nb, nb,
                 grid_order, p, q, MPI_COMM_WORLD );
-        Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                n, nrhs, &Bref_data[0], lldB, nb, nb,
-                grid_order, p, q, MPI_COMM_WORLD );
 
         slate::copy(A, Aref);
-        slate::copy(B, Bref);
     }
 
     double gflop = lapack::Gflop<scalar_t>::getrf(m, n);
@@ -183,7 +159,7 @@ void test_gecon_work(Params& params, bool run)
 
         double time = barrier_get_wtime(MPI_COMM_WORLD);
 
-        slate::gecon(norm, A, &slate_rcond, opts);
+        slate::gecon(norm, A, &Anorm, &slate_rcond, opts);
         printf("\n mpi_rank %d %-7.9f slate_rcond %-7.9f Anorm\n", mpi_rank, slate_rcond, Anorm);
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance
@@ -219,10 +195,6 @@ void test_gecon_work(Params& params, bool run)
             scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            int Bref_desc[9];
-            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
-            slate_assert(info == 0);
-
             // ScaLAPACK data for pivots.
             std::vector<int> ipiv_ref(lldA + nb);
 
@@ -232,7 +204,6 @@ void test_gecon_work(Params& params, bool run)
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pgetrf(m, n,
                     &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info_ref);
-
 
             // Find the needed work and iwork
             int64_t info_ref2 = 0;
@@ -249,7 +220,7 @@ void test_gecon_work(Params& params, bool run)
             std::vector<scalar_t> work(lwork);
             std::vector<int> iwork(liwork);
             scalapack_pgecon( norm2str(norm), n, &Aref_data[0], 1, 1, Aref_desc, &Anorm, &scl_rcond, &work[0], lwork, &iwork[0], liwork, info_ref2);
-            printf("\n %-7.9f scl_rcond %-7.9f Anorm\n", scl_rcond, Anorm);
+            printf("\n mpi_rank %d %-7.9f scl_rcond %-7.9f Anorm\n", mpi_rank, scl_rcond, Anorm);
             slate_assert(info_ref == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -258,6 +229,8 @@ void test_gecon_work(Params& params, bool run)
 
             // Compute the error
             params.error() = std::abs(slate_rcond - scl_rcond);
+            real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+            params.okay() = (params.error() <= tol);
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering

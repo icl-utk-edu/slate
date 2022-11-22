@@ -337,6 +337,13 @@ void getrf_tntpiv(
         A.tileLayoutReset();
     }
     A.clearWorkspace();
+    if (target == Target::Devices) {
+        for (int64_t dev = 0; dev < num_devices; ++dev) {
+            blas::Queue* queue = A.comm_queue( dev );
+            blas::device_free( dwork_array[dev], *queue );
+            dwork_array[dev] = nullptr;
+        }
+    }
 }
 
 } // namespace impl

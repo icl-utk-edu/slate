@@ -470,6 +470,8 @@ void hemmC(
         C.tileUpdateAllOrigin();
     }
 
+    A.releaseWorkspace();
+    B.releaseWorkspace();
     C.releaseWorkspace();
 }
 

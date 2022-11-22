@@ -1817,7 +1817,7 @@ void generate_matrix(
 }
 
 // -----------------------------------------------------------------------------
-/// Generates an m-by-n Hertitian-storage test matrix.
+/// Generates an m-by-n Hermitian-storage test matrix.
 /// Handles Hermitian matrices.
 /// Diagonal elements of a Hermitian matrix must be real;
 /// their imaginary part must be 0.

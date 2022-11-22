@@ -565,6 +565,8 @@ public:
 
     void eraseLocalWorkspace();
 
+    void eraseLocalWorkspace(std::set<ij_tuple>& tile_set);
+
     void eraseRemoteWorkspaceTile(int64_t i, int64_t j);
 
     void eraseRemoteWorkspace();
@@ -4063,7 +4065,7 @@ void BaseMatrix<scalar_t>::eraseLocalWorkspaceTile(int64_t i, int64_t j)
 
         LockGuard guard( tile_node.getLock() );
 
-        for (int device = HostNum; device < this->num_devices(); ++device) {
+        for (int device = 0; device < this->num_devices(); ++device) {
             if (tile_node.existsOn( device )
                     && tile_node[ device ].tile()->workspace()) {
 
@@ -4086,6 +4088,23 @@ void BaseMatrix<scalar_t>::eraseLocalWorkspace()
     }
 }
 
+//------------------------------------------------------------------------------
+/// Erases a given set of local workspace tiles
+/// from all devices including host.
+///
+/// @param[in] tile_set
+///     Set of (i, j) tuples indicating indices of tiles to be erased.
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::eraseLocalWorkspace(
+    std::set<ij_tuple>& tile_set)
+{
+    for (auto ij : tile_set) {
+        int64_t i = std::get<0>( ij );
+        int64_t j = std::get<1>( ij );
+        eraseLocalWorkspaceTile( i, j );
+    }
+}
 
 //------------------------------------------------------------------------------
 /// Erases a given tile that is not local to node from all devices

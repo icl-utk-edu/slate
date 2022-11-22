@@ -248,7 +248,8 @@ template <Target target=Target::HostTask, typename scalar_t>
 void her2k(scalar_t alpha,                 Matrix<scalar_t>&& A,
                                            Matrix<scalar_t>&& B,
            blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>&& C,
-           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor);
+           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
+           Options const& opts = Options());
 
 // forward real-symmetric matrices to her2k;
 // disabled for complex
@@ -257,11 +258,12 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>&& A,
                                             Matrix<scalar_t>&& B,
            blas::real_type<scalar_t> beta,  SymmetricMatrix<scalar_t>&& C,
            int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
+           Options const& opts = Options(),
            enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     her2k<target>(alpha, std::move(A),
                   beta, HermitianMatrix<scalar_t>(C),
-                  priority, queue_index, layout);
+                  priority, queue_index, layout, opts);
 }
 
 //-----------------------------------------

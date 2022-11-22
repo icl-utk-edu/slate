@@ -1085,6 +1085,32 @@ void steqr2(
     Matrix<scalar_t>& Z,
     Options const& opts = Options());
 
+//------------------------------------------------------------------------------
+// Condition number estimate
+
+//-----------------------------------------
+// lacn2()
+template <typename scalar_t>
+void lacn2(
+    int64_t n,
+    std::vector<scalar_t>& V,
+    std::vector<scalar_t>& X,
+    std::vector<int64_t>& isgn,
+    blas::real_type<scalar_t>* one_normest,
+    int* kase,
+    std::vector<int64_t>& isave,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// gecon()
+template <typename scalar_t>
+void gecon(
+        Norm in_norm,
+        Matrix<scalar_t>& A,
+        blas::real_type<scalar_t> *Anorm,
+        blas::real_type<scalar_t> *rcond,
+        Options const& opts = Options());
+
 } // namespace slate
 
 //-----------------------------------------

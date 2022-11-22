@@ -57,6 +57,7 @@ template <typename scalar_t>
 void gecon(
            Norm in_norm,
            Matrix<scalar_t>& A,
+           blas::real_type<scalar_t> *Anorm,
            blas::real_type<scalar_t> *rcond,
            Options const& opts)
 {
@@ -86,9 +87,6 @@ void gecon(
     GridOrder order;
     A.gridinfo(&order, &p, &q, &myrow, &mycol);
 
-
-    // Compute matrix norm
-    real_t Anorm = norm(in_norm, A);
     real_t Ainvnorm = 0.0;
 
     // Quick return
@@ -96,7 +94,7 @@ void gecon(
     if (m == 0) {
         *rcond = 1.;
     }
-    else if (Anorm == 0.) {
+    else if (*Anorm == 0.) {
         return;
     }
 
@@ -122,8 +120,7 @@ void gecon(
     lacn2( m, X, V, isgn, &Ainvnorm, &kase, isave, opts);
     MPI_Bcast( &isave[0], 3, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
     MPI_Bcast( &kase, 1, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
-    int mpi_rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
+
     while (kase != 0)
     {
         if (kase == kase1) {
@@ -142,6 +139,7 @@ void gecon(
             auto LT = conjTranspose( L );
             slate::trsmA(Side::Left, alpha, LT, B, opts);
         }
+
         lacn2( m, X, V, isgn, &Ainvnorm, &kase, isave, opts);
         MPI_Bcast( &isave[0], 3, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
         MPI_Bcast( &kase, 1, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
@@ -149,7 +147,7 @@ void gecon(
 
     // Compute the estimate of the reciprocal condition number.
     if (Ainvnorm != 0.0) {
-        *rcond = (1.0 / Ainvnorm) / Anorm;
+        *rcond = (1.0 / Ainvnorm) / *Anorm;
     }
 }
 
@@ -159,6 +157,7 @@ template
 void gecon<float>(
     Norm in_norm,
     Matrix<float>& A,
+    float *Anorm,
     float *rcond,
     Options const& opts);
 
@@ -166,6 +165,7 @@ template
 void gecon<double>(
     Norm in_norm,
     Matrix<double>& A,
+    double *Anorm,
     double *rcond,
     Options const& opts);
 
@@ -173,6 +173,7 @@ template
 void gecon< std::complex<float> >(
     Norm in_norm,
     Matrix< std::complex<float> >& A,
+    float *Anorm,
     float *rcond,
     Options const& opts);
 
@@ -180,6 +181,7 @@ template
 void gecon< std::complex<double> >(
     Norm in_norm,
     Matrix< std::complex<double> >& A,
+    double *Anorm,
     double *rcond,
     Options const& opts);
 

@@ -61,13 +61,8 @@ void gecon(
            blas::real_type<scalar_t> *rcond,
            Options const& opts)
 {
-    using BcastList = typename Matrix<scalar_t>::BcastList;
-    using device_info_t = lapack::device_info_int;
     using blas::real;
     using real_t = blas::real_type<scalar_t>;
-
-    // Assumes column major
-    const Layout layout = Layout::ColMajor;
 
     int kase, kase1;
     if (in_norm == Norm::One) {
@@ -100,20 +95,20 @@ void gecon(
 
     scalar_t alpha = 1.;
 
-    std::vector<scalar_t> X(m);
-    std::vector<scalar_t> V(m);
-    std::vector<int64_t> isgn(m);
+    std::vector<scalar_t> X_data(m);
+    std::vector<scalar_t> V_data(m);
+    std::vector<int64_t> isgn_data(m);
     std::vector<int64_t> isave(3);
     isave[0] = 0;
     isave[1] = 0;
     isave[2] = 0;
 
-    auto B = slate::Matrix<scalar_t>::fromLAPACK(
-            m, 1, &X[0], m, nb, 1, p, q, MPI_COMM_WORLD);
-    auto AV = slate::Matrix<scalar_t>::fromLAPACK(
-            m, 1, &V[0], m, nb, 1, p, q, MPI_COMM_WORLD);
-    auto Aisgn = slate::Matrix<int64_t>::fromLAPACK(
-            m, 1, &isgn[0], m, nb, 1, p, q, MPI_COMM_WORLD);
+    auto X = slate::Matrix<scalar_t>::fromLAPACK(
+            m, 1, &X_data[0], m, nb, 1, p, q, MPI_COMM_WORLD);
+    auto V = slate::Matrix<scalar_t>::fromLAPACK(
+            m, 1, &V_data[0], m, nb, 1, p, q, MPI_COMM_WORLD);
+    auto isgn = slate::Matrix<int64_t>::fromLAPACK(
+            m, 1, &isgn_data[0], m, nb, 1, p, q, MPI_COMM_WORLD);
 
     auto L  = TriangularMatrix<scalar_t>(
         Uplo::Lower, slate::Diag::Unit, A );
@@ -122,33 +117,33 @@ void gecon(
 
     // initial and final value of kase is 0
     kase = 0;
-    lacn2( m, B, AV, Aisgn, &Ainvnorm, &kase, isave, opts);
+    lacn2( X, V, isgn, &Ainvnorm, &kase, isave, opts);
     // todo: not always first tile has the max save[0]
-    MPI_Bcast( &isave[0], 3, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
-    MPI_Bcast( &kase, 1, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
+    MPI_Bcast( &isave[0], 3, MPI_INT, X.tileRank(0, 0), MPI_COMM_WORLD );
+    MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), MPI_COMM_WORLD );
 
     while (kase != 0)
     {
         if (kase == kase1) {
             // Multiply by inv(L).
-            slate::trsmA(Side::Left, alpha, L, B, opts);
+            slate::trsmA(Side::Left, alpha, L, X, opts);
 
             // Multiply by inv(U).
-            slate::trsmA(Side::Left, alpha, U, B, opts);
+            slate::trsmA(Side::Left, alpha, U, X, opts);
         }
         else {
             // Multiply by inv(U**T).
             auto UT = conjTranspose( U );
-            slate::trsmA(Side::Left, alpha, UT, B, opts);
+            slate::trsmA(Side::Left, alpha, UT, X, opts);
 
             // Multiply by inv(L**T).
             auto LT = conjTranspose( L );
-            slate::trsmA(Side::Left, alpha, LT, B, opts);
+            slate::trsmA(Side::Left, alpha, LT, X, opts);
         }
 
-        lacn2( m, B, AV, Aisgn, &Ainvnorm, &kase, isave, opts);
-        MPI_Bcast( &isave[0], 3, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
-        MPI_Bcast( &kase, 1, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
+        lacn2( X, V, isgn, &Ainvnorm, &kase, isave, opts);
+        MPI_Bcast( &isave[0], 3, MPI_INT, X.tileRank(0, 0), MPI_COMM_WORLD );
+        MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), MPI_COMM_WORLD );
     } // while (kase != 0)
 
     // Compute the estimate of the reciprocal condition number.

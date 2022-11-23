@@ -1092,7 +1092,6 @@ void steqr2(
 // lacn2()
 template <typename scalar_t>
 void lacn2(
-    int64_t n,
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& V,
     Matrix<int64_t>& S,

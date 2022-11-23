@@ -16,18 +16,13 @@ namespace slate {
 // todo:
 // 1. documentation in lacn2
 // 1. documentation in gecon
-// 2. V and X as vectors or matrices
-// 3. scale and sum (est) with no loop
+// 2. test gpus
+// 3. way to know tile number
 // 4. quick return inn both
-// 5. add tester
-// 6. push all changes: lacn2, gecon, scalapck_wrapper
-// 7. test multiple mpi, gpus
 // 8. test complex: c and z
 // 9. check isave[2] increment
 // 10. check when inf norm
 // re write code as slate structure
-// specialization namespace differentiates, e.g.,
-// internal::lacn2 from impl::lacn2
 namespace impl {
 
 //------------------------------------------------------------------------------
@@ -42,7 +37,7 @@ void lacn2_altsgn(Matrix<scalar_t>& A)
     int64_t n  = A.n();
 
     const scalar_t one  = 1.0;
-    real_t altsgn;
+    real_t altsgn = 1.;
 
     //altsgn = 1.;
     // x( i ) = altsgn*( one+dble( i-1 ) / dble( n-1 ) )
@@ -67,12 +62,11 @@ void lacn2_altsgn(Matrix<scalar_t>& A)
 }
 
 //------------------------------------------------------------------------------
-/// An auxiliary routine to alter the sign of a vector
+/// An auxiliary routine to set the sign of A and isgn vectors
 template <typename scalar_t>
-void lacn2_set(Matrix<int64_t>& Aisgn, Matrix<scalar_t>& A,
+void lacn2_set(Matrix<int64_t>& isgn, Matrix<scalar_t>& A,
                int* kase, int64_t* isave0)
 {
-    using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
     int64_t mt = A.mt();
@@ -81,16 +75,16 @@ void lacn2_set(Matrix<int64_t>& Aisgn, Matrix<scalar_t>& A,
         if (A.tileIsLocal(i, 0)) {
             auto X0 = A(i, 0);
             auto X0_data = X0.data();
-            auto Aisgn0 = Aisgn(i, 0);
-            auto Aisgn0_data = Aisgn0.data();
+            auto isgn0 = isgn(i, 0);
+            auto isgn0_data = isgn0.data();
             for (int64_t ii = 0; ii < A.tileMb(i); ++ii) {
                 if (real( X0_data[ii] ) >= 0) {
                     X0_data[ii] = 1.0;
-                    Aisgn0_data[ii] = 1;
+                    isgn0_data[ii] = 1;
                 }
                 else {
                     X0_data[ii] = -1.0;
-                    Aisgn0_data[ii] = -1;
+                    isgn0_data[ii] = -1;
                 }
                 *kase = 2;
                 //printf("\n isave[0] %ld go to 4 \n", *isave0);
@@ -101,76 +95,64 @@ void lacn2_set(Matrix<int64_t>& Aisgn, Matrix<scalar_t>& A,
 }
 
 //------------------------------------------------------------------------------
-/// Distributed parallel Cholesky factorization.
+/// Distributed parallel estimates of the 1-norm of a square matrix A.
 /// Generic implementation for any target.
-/// Panel and lookahead computed on host using Host OpenMP task.
-/// @ingroup posv_specialization
+/// @ingroup norm_specialization
 ///
 template <Target target, typename scalar_t>
 void lacn2(
-           int64_t n,
-           Matrix<scalar_t>& AX,
-           Matrix<scalar_t>& AV,
-           Matrix<int64_t>& Aisgn,
+           Matrix<scalar_t>& X,
+           Matrix<scalar_t>& V,
+           Matrix<int64_t>& isgn,
            blas::real_type<scalar_t>* est,
            int* kase,
            std::vector<int64_t>& isave,
            Options const& opts)
 {
-    int mpi_rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-
-    //printf("\n ====== kase %ld mpi_rank %d isave[0] %ld isave[1] %ld \n", *kase, mpi_rank, isave[0], isave[1]);
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
+    const auto mpi_real_type = mpi_type< blas::real_type<scalar_t> >::value;
 
     const scalar_t one  = 1.0;
     const scalar_t zero = 0.0;
+
+    int64_t n = X.m();
     scalar_t xi = 1./n;
+
     int itmax = 5, jlast;
-
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    // Assumes column major
-    const Layout layout = Layout::ColMajor;
-    const auto mpi_real_type = mpi_type< blas::real_type<scalar_t> >::value;
 
     // isave[0] = jump
     // isave[1] = j which is the index of the max element in X
     // isave[2] = iter
 
-    real_t altsgn;
-    real_t estold = 0., temp, absxi;
-    real_t safemin = std::numeric_limits< real_t >::min();
+    real_t estold = 0., temp;
     int64_t xs;
-    int isavemax = 0;
 
-    int64_t m = n;
-    int64_t nt = AX.nt();
-    int64_t mt = AX.mt();
+    int64_t mt = X.mt();
 
     // First iteration, kase = 0
     // Initialize X = 1./n
     if (*kase == 0) {
-        slate::set(xi, xi, AX);
-        // X to be overwritten by AX, so kase = 1.
+        slate::set(xi, xi, X);
+        // X to be overwritten by A*X, so kase = 1.
         *kase = 1;
         isave[0] = 1;
         return;
     }
+
     // Iterations 2, 3, ..., itmax.
     // kase = 1 or 2
-    // X has been overwitten by AX.
+    // X has been overwitten by A*X.
     else {
         if (isave[0] == 1) {
             // quick return
             if (n == 1) {
-                if (AX.tileIsLocal(0, 0)) {
+                if (X.tileIsLocal(0, 0)) {
                     //*est = fabs( V0_data[0] );
                     //V[0] = X[0];
                     //*est = fabs( V[0] );
-                    auto X0 = AX(0, 0);
-                    auto V0 = AV(0, 0);
+                    auto X0 = X(0, 0);
+                    auto V0 = V(0, 0);
                     auto X0_data = X0.data();
                     auto V0_data = V0.data();
                     V0_data[0] = X0_data[0];
@@ -183,59 +165,51 @@ void lacn2(
             }
 
             // Initial value of est
-            *est = slate::norm(slate::Norm::One, AX, opts);
-            //printf("\n isave[0] %ld est %e \n", isave[0], *est);
+            *est = slate::norm(slate::Norm::One, X, opts);
 
-            // Update X to 1. or -1.:
-            // X[i] = {1   if X[i] > 0
-            //        {-1  if X[i] < 0
-            //
-            // todo: do I need offset in isgn?
             for (int64_t i = 0; i < mt; ++i) {
-                if (AX.tileIsLocal(i, 0)) {
-                    auto X0 = AX(i, 0);
+                if (X.tileIsLocal(i, 0)) {
+                    auto X0 = X(i, 0);
                     auto X0_data = X0.data();
-                    auto Aisgn0 = Aisgn(i, 0);
-                    auto Aisgn0_data = Aisgn0.data();
-                    for (int64_t ii = 0; ii < AX.tileMb(i); ++ii) {
+                    auto isgn0 = isgn(i, 0);
+                    auto isgn0_data = isgn0.data();
+                    for (int64_t ii = 0; ii < X.tileMb(i); ++ii) {
                         if (real( X0_data[ii] ) >= 0.0) {
                             X0_data[ii] = one;
-                            Aisgn0_data[ii] = 1;
+                            isgn0_data[ii] = 1;
                         }
                         else {
                             X0_data[ii] = -one;
-                            Aisgn0_data[ii] = -1;
+                            isgn0_data[ii] = -1;
                         }
                     }
                 }
             }
-            // Update kase ad isave
-            // X be overwritten by A^TX, so kase = 2
+            // Update kase and isave
+            // X be overwritten by A^*X, so kase = 2
             *kase = 2;
             isave[0] = 2;
             return;
         }
         else if (isave[0] == 2) {
-            //printf("\n isave[0] %ld \n", isave[0]);
             isave[1] = 0;
             real_t A_max = 0.;
-            real_t A_max_red = 0.;
 
             struct { real_t max; int loc; } max_loc_in[1], max_loc[1];
             max_loc_in[0].max = 0.;
             max_loc_in[0].loc = 0;
 
             for (int64_t i = 0; i < mt; ++i) {
-                if (AX.tileIsLocal(i, 0)) {
-                    auto X0 = AX(i, 0);
+                if (X.tileIsLocal(i, 0)) {
+                    auto X0 = X(i, 0);
                     auto X0_data = X0.data();
-                    int64_t nb = AX.tileMb(i);
+                    int64_t nb = X.tileMb(i);
                     for (int64_t ii = 0; ii < nb; ++ii) {
                         if (std::abs( X0_data[ii] ) > A_max) {
-                            isave[1] = i*AX.tileMb(0)+ii;
+                            isave[1] = i*X.tileMb(0)+ii;
                             A_max = std::abs( X0_data[ ii ] );
                             max_loc_in[0].max = A_max;
-                            max_loc_in[0].loc = AX.tileRank(i, 0); //(int)isave[1];
+                            max_loc_in[0].loc = X.tileRank(i, 0);
                         }
                     }
                 }
@@ -243,70 +217,67 @@ void lacn2(
             slate_mpi_call(
                     MPI_Allreduce(max_loc_in, max_loc, 1,
                         mpi_type< max_loc_type<real_t> >::value,
-                        MPI_MAXLOC, AX.mpiComm()));
+                        MPI_MAXLOC, X.mpiComm()));
 
             int root_rank = max_loc[0].loc;
-            MPI_Bcast( &isave[1], 1, MPI_INT, root_rank, AX.mpiComm() );
-            //printf("\n root_rank %d mpi_rank %d isave[1] %ld \n", root_rank, mpi_rank, isave[1]);
+            MPI_Bcast( &isave[1], 1, MPI_INT, root_rank, X.mpiComm() );
 
             isave[2] = 2;
 
             // main loop - iterations 2,3,..., itmax
-            slate::set(zero, zero, AX);
-            int64_t i_isave = std::floor(isave[1] / AX.tileMb(0) );
-            //printf("\n isave[1] %ld i_isave %d iloc %ld \n", isave[1], i_isave, isave[1] - i_isave*nb);
-            if (AX.tileIsLocal(i_isave, 0)) {
-                auto X0 = AX(i_isave, 0);
+            slate::set(zero, zero, X);
+            int64_t i_isave = std::floor(isave[1] / X.tileMb(0) );
+
+            if (X.tileIsLocal(i_isave, 0)) {
+                auto X0 = X(i_isave, 0);
                 auto X0_data = X0.data();
-                X0_data[ isave[1] - i_isave*AX.tileMb(0) ] = one;
+                X0_data[ isave[1] - i_isave*X.tileMb(0) ] = one;
             }
             *kase = 1;
             isave[0] = 3;
             return;
         }
         else if (isave[0] == 3) {
-            // X HAS BEEN OVERWRITTEN BY A*X.
-            copy(AX, AV);
+            // X has been overwritten by A*X
+            copy(X, V);
             estold = *est;
-            *est = slate::norm(slate::Norm::One, AV, opts);
-            //printf("\n isave[0] %ld est %e estold %e \n", isave[0], *est, estold);
+            *est = slate::norm(slate::Norm::One, V, opts);
+
             for (int64_t i = 0; i < mt; ++i) {
-                if (AX.tileIsLocal(i, 0)) {
-                    auto X0 = AX(i, 0);
+                if (X.tileIsLocal(i, 0)) {
+                    auto X0 = X(i, 0);
                     auto X0_data = X0.data();
-                    auto Aisgn0 = Aisgn(i, 0);
-                    auto Aisgn0_data = Aisgn0.data();
-                    for (int64_t ii = 0; ii < AX.tileMb(i); ++ii) {
+                    auto isgn0 = isgn(i, 0);
+                    auto isgn0_data = isgn0.data();
+                    for (int64_t ii = 0; ii < X.tileMb(i); ++ii) {
                         if (real( X0_data[ii] ) > 0.) {
                             xs = 1;
                         }
                         else {
                             xs = -1;
                         }
-                        if (xs != Aisgn0_data[ii]) {
+                        if (xs != isgn0_data[ii]) {
                             if (*est <= estold) {
-                                lacn2_altsgn( AX );
+                                lacn2_altsgn( X );
                                 *kase = 1;
-                                //printf("\n isave[0] %ld go to 5 \n", isave[0]);
                                 isave[0] = 5;
                                 return;
                             }
-                            lacn2_set( Aisgn, AX, kase, &isave[0]);
+                            lacn2_set( isgn, X, kase, &isave[0]);
                             return;
                         } // if (xs != isgn[i])
                     } // for ii = 0:nb
-                } // if (AX.tileIsLocal(i, j))
+                } // if (X.tileIsLocal(i, j))
             } // for i = 0:mt
 
-            lacn2_altsgn( AX );
+            lacn2_altsgn( X );
             *kase = 1;
             isave[0] = 5;
             return;
         }
 
         else if (isave[0] == 4) {
-            //printf("\n isave[0] %ld \n", isave[0]);
-            // X HAS BEEN OVERWRITTEN BY TRANSPOSE(A)*X.
+            // X has been overwritten by A^T*X
             jlast = isave[1];
             isave[1] = 0;
             real_t A_max = 0.;
@@ -316,79 +287,71 @@ void lacn2(
             max_loc_in[0].loc = 0;
 
             for (int64_t i = 0; i < mt; ++i) {
-                if (AX.tileIsLocal(i, 0)) {
-                    auto X0 = AX(i, 0);
+                if (X.tileIsLocal(i, 0)) {
+                    auto X0 = X(i, 0);
                     auto X0_data = X0.data();
-                    int64_t nb = AX.tileMb(i);
+                    int64_t nb = X.tileMb(i);
                     for (int64_t ii = 0; ii < nb; ++ii) {
-                        //printf("\n i %ld ii %ld isave[1] %ld X0_data[ii] %e X0_data[ isave[1] ] %e \n", i, ii, isave[1], std::abs(X0_data[ii]), A_max);
                         if (std::abs( X0_data[ii] ) > A_max) {
-                            isave[1] = i*AX.tileMb(0)+ii;
+                            isave[1] = i*X.tileMb(0)+ii;
                             A_max = std::abs( X0_data[ ii ] );
                             max_loc_in[0].max = A_max;
-                            max_loc_in[0].loc = AX.tileRank(i, 0);
+                            max_loc_in[0].loc = X.tileRank(i, 0);
                         }
                     }
                 }
             }
-            // MPI reduce for the max isave[1]
-            //MPI_Allreduce(&isave[1], &isavemax, 1, MPI_INT, MPI_MAX, AX.mpiComm());
-            //isave[1] = isavemax;
+
             slate_mpi_call(
                     MPI_Allreduce(max_loc_in, max_loc, 1,
                         mpi_type< max_loc_type<real_t> >::value,
-                        MPI_MAXLOC, AX.mpiComm()));
+                        MPI_MAXLOC, X.mpiComm()));
             int root_rank = max_loc[0].loc;
-            MPI_Bcast( &isave[1], 1, MPI_INT, root_rank, AX.mpiComm() );
-            //printf("\n mpi_rank %d isave[1] %ld \n", mpi_rank, isave[1]);
+            MPI_Bcast( &isave[1], 1, MPI_INT, root_rank, X.mpiComm() );
 
-            int64_t i_jlast = std::floor(jlast / AX.tileMb(0) );
-            int64_t i_isave1 = std::floor(isave[1] / AX.tileMb(0) );
+            int64_t i_jlast = std::floor(jlast / X.tileMb(0) );
+            int64_t i_isave1 = std::floor(isave[1] / X.tileMb(0) );
 
             real_t A_jlast = 0., A_i_isave1 = 0.;
-            if (AX.tileIsLocal(i_jlast, 0)) {
-                auto X0 = AX(i_jlast, 0);
+            if (X.tileIsLocal(i_jlast, 0)) {
+                auto X0 = X(i_jlast, 0);
                 auto X0_data = X0.data();
-                A_jlast = std::abs( X0_data[jlast - i_jlast*AX.tileMb(0) ] );
+                A_jlast = std::abs( X0_data[jlast - i_jlast*X.tileMb(0) ] );
             }
-            else if (AX.tileIsLocal(i_isave1, 0)) {
-                MPI_Status status;
-                auto X0 = AX(i_isave1, 0);
+            else if (X.tileIsLocal(i_isave1, 0)) {
+                auto X0 = X(i_isave1, 0);
                 auto X0_data = X0.data();
-                A_i_isave1 = std::abs( X0_data[isave[1] - i_isave1*AX.tileMb(0) ] );
+                A_i_isave1 = std::abs( X0_data[isave[1] - i_isave1*X.tileMb(0) ] );
             }
 
-            MPI_Bcast( &A_jlast, 1, mpi_real_type, AX.tileRank(i_jlast, 0), AX.mpiComm() );
-            MPI_Bcast( &A_i_isave1, 1, mpi_real_type, AX.tileRank(i_isave1, 0), AX.mpiComm() );
+            MPI_Bcast( &A_jlast, 1, mpi_real_type, X.tileRank(i_jlast, 0), X.mpiComm() );
+            MPI_Bcast( &A_i_isave1, 1, mpi_real_type, X.tileRank(i_isave1, 0), X.mpiComm() );
 
             if (A_jlast != A_i_isave1 && isave[2] < itmax) {
-                //printf("\n jlast is diff than isave[1] %ld %ld \n", jlast, isave[1]);
                 isave[2] = isave[2] + 1;
 
-                //printf("\n X[jlast] %e X[isave[1]] %e \n", X[jlast], X[isave[1]]);
-                slate::set(zero, zero, AX);
-                int64_t i_isave = std::floor(isave[1] / AX.tileMb(0) );
-                if (AX.tileIsLocal(i_isave, 0)) {
-                    auto X0 = AX(i_isave, 0);
+                slate::set(zero, zero, X);
+                int64_t i_isave = std::floor(isave[1] / X.tileMb(0) );
+                if (X.tileIsLocal(i_isave, 0)) {
+                    auto X0 = X(i_isave, 0);
                     auto X0_data = X0.data();
-                    X0_data[isave[1] - i_isave*AX.tileMb(0) ] = one;
+                    X0_data[isave[1] - i_isave*X.tileMb(0) ] = one;
                 }
                 *kase = 1;
                 isave[0] = 3;
                 return;
             }
-            lacn2_altsgn( AX );
+            lacn2_altsgn( X );
             *kase = 1;
             isave[0] = 5;
             return;
         }
 
         else if (isave[0] == 5) {
-            //printf("\n isave[0] %ld \n", isave[0]);
-            temp = slate::norm(slate::Norm::One, AV, opts);
+            temp = slate::norm(slate::Norm::One, V, opts);
             temp = 2.0 * temp / (3.0 * n);
             if (temp > *est) {
-                copy( AX, AV);
+                copy( X, V);
                 *est = temp;
             }
             *kase = 0;
@@ -401,38 +364,49 @@ void lacn2(
 } // namespace impl
 
 //------------------------------------------------------------------------------
-/// Distributed parallel Cholesky factorization.
+/// Distributed parallel estimates of the 1-norm of a square matrix A.
 ///
-/// Performs the Cholesky factorization of a Hermitian positive definite
-/// matrix $A$.
-///
-/// The factorization has the form
-/// \[
-///     A = L L^H,
-/// \]
-/// if $A$ is stored lower, where $L$ is a lower triangular matrix, or
-/// \[
-///     A = U^H U,
-/// \]
-/// if $A$ is stored upper, where $U$ is an upper triangular matrix.
-///
-/// Complexity (in real): $\approx \frac{1}{3} n^{3}$ flops.
+/// Estimates the 1-norm of a square matrix, using reverse communication for
+/// evaluating matrix-vector products.
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
-/// @param[in,out] A
-///     On entry, the n-by-n Hermitian positive definite matrix $A$.
-///     On exit, if return value = 0, the factor $U$ or $L$ from the Cholesky
-///     factorization $A = U^H U$ or $A = L L^H$.
-///     If scalar_t is real, $A$ can be a SymmetricMatrix object.
+/// @param[in,out] X
+///     On entry, the n-by-1 matrix $X$.
+///     On an intermediate return, X should be overwritten by
+///       A * X,   if kase=1
+///       A**T * X,   if kase=2
+///
+/// @param[in,out] V
+///     On entry, the n-by-1 matrix $V$.
+///     On exit, V = A*W, where est = norm(A) / norm(W)
+///     (W is not retured).
+///
+/// @param[out] isgn
+///     isgn is integer matrix with size n-by-1.
+///
+/// @param[in,out] est
+///     On entry, with kase =1 or 2 and isave[0] = 3, est should be unchaged
+///     from the previous call to lacn2.
+///     On exit, est is an estimate for norm(A).
+///
+/// @param[in,out] kase
+///     On the initial call to lacn2, kase should be 0.
+///     On an intermediate return, kase will be 1 or 2, indicating whether
+///     X should be overwritte by A * X or A**T * X.
+///     On exit, kase will again be 0.
+///
+/// @param[in,out] isave
+///     isave is an integer vector, of size (3).
+///     isave is used to save variables between calls to lacn2.
+///     isave[0]: the step to do in the next iteration
+///     isave[1]: index of maximum element in X
+///     isave[2]: number of iterations
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
-///     - Option::Lookahead:
-///       Number of panels to overlap with matrix updates.
-///       lookahead >= 0. Default 1.
 ///     - Option::Target:
 ///       Implementation to target. Possible values:
 ///       - HostTask:  OpenMP tasks on CPU host [default].
@@ -446,14 +420,13 @@ void lacn2(
 ///         positive definite, so the factorization could not
 ///         be completed, and the solution has not been computed.
 ///
-/// @ingroup posv_computational
+/// @ingroup norm_specialization
 ///
 template <typename scalar_t>
 void lacn2(
-           int64_t n,
-           Matrix<scalar_t>& AX,
-           Matrix<scalar_t>& AV,
-           Matrix<int64_t>& Aisgn,
+           Matrix<scalar_t>& X,
+           Matrix<scalar_t>& V,
+           Matrix<int64_t>& isgn,
            blas::real_type<scalar_t>* est,
            int* kase,
            std::vector<int64_t>& isave,
@@ -465,22 +438,22 @@ void lacn2(
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::lacn2<Target::HostTask>( n, AX, AV, Aisgn,
+            impl::lacn2<Target::HostTask>( X, V, isgn,
                                            est,
                                            kase, isave, opts);
             break;
         case Target::HostNest:
-            impl::lacn2<Target::HostNest>( n, AX, AV, Aisgn,
+            impl::lacn2<Target::HostNest>( X, V, isgn,
                                            est,
                                            kase, isave, opts);
             break;
         case Target::HostBatch:
-            impl::lacn2<Target::HostBatch>( n, AX, AV, Aisgn,
+            impl::lacn2<Target::HostBatch>( X, V, isgn,
                                             est,
                                            kase, isave, opts);
             break;
         case Target::Devices:
-            impl::lacn2<Target::Devices>( n, AX, AV, Aisgn,
+            impl::lacn2<Target::Devices>( X, V, isgn,
                                           est,
                                           kase, isave, opts);
             break;
@@ -492,10 +465,9 @@ void lacn2(
 // Explicit instantiations.
 template
 void lacn2<float>(
-    int64_t n,
-    Matrix<float>& AX,
-    Matrix<float>& AV,
-    Matrix<int64_t>& Aisgn,
+    Matrix<float>& X,
+    Matrix<float>& V,
+    Matrix<int64_t>& isgn,
     float* est,
     int* kase,
     std::vector<int64_t>& isave,
@@ -503,10 +475,9 @@ void lacn2<float>(
 
 template
 void lacn2<double>(
-    int64_t n,
-    Matrix<double>& AX,
-    Matrix<double>& AV,
-    Matrix<int64_t>& Aisgn,
+    Matrix<double>& X,
+    Matrix<double>& V,
+    Matrix<int64_t>& isgn,
     double* est,
     int* kase,
     std::vector<int64_t>& isave,
@@ -514,10 +485,9 @@ void lacn2<double>(
 
 template
 void lacn2< std::complex<float> >(
-    int64_t n,
-    Matrix< std::complex<float> >& AX,
-    Matrix< std::complex<float> >& AV,
-    Matrix<int64_t>& Aisgn,
+    Matrix< std::complex<float> >& X,
+    Matrix< std::complex<float> >& V,
+    Matrix<int64_t>& isgn,
     float* est,
     int* kase,
     std::vector<int64_t>& isave,
@@ -525,10 +495,9 @@ void lacn2< std::complex<float> >(
 
 template
 void lacn2< std::complex<double> >(
-    int64_t n,
-    Matrix< std::complex<double> >& AX,
-    Matrix< std::complex<double> >& AV,
-    Matrix<int64_t>& Aisgn,
+    Matrix< std::complex<double> >& X,
+    Matrix< std::complex<double> >& V,
+    Matrix<int64_t>& isgn,
     double* est,
     int* kase,
     std::vector<int64_t>& isave,

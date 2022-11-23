@@ -93,7 +93,7 @@ void lacn2_set(Matrix<int64_t>& Aisgn, Matrix<scalar_t>& A,
                     Aisgn0_data[ii] = -1;
                 }
                 *kase = 2;
-                printf("\n isave[0] %ld go to 4 \n", *isave0);
+                //printf("\n isave[0] %ld go to 4 \n", *isave0);
                 *isave0 = 4;
             }
         }
@@ -109,9 +109,9 @@ void lacn2_set(Matrix<int64_t>& Aisgn, Matrix<scalar_t>& A,
 template <Target target, typename scalar_t>
 void lacn2(
            int64_t n,
-           std::vector<scalar_t>& X,
-           std::vector<scalar_t>& V,
-           std::vector<int64_t>& isgn,
+           Matrix<scalar_t>& AX,
+           Matrix<scalar_t>& AV,
+           Matrix<int64_t>& Aisgn,
            blas::real_type<scalar_t>* est,
            int* kase,
            std::vector<int64_t>& isave,
@@ -145,13 +145,7 @@ void lacn2(
     int64_t xs;
     int isavemax = 0;
 
-    int64_t m = n, nb = 10, p = 1, q = 1;
-    auto AX = slate::Matrix<scalar_t>::fromLAPACK(
-            m, 1, &X[0], m, nb, 1, p, q, MPI_COMM_WORLD);
-    auto AV = slate::Matrix<scalar_t>::fromLAPACK(
-            m, 1, &V[0], m, nb, 1, p, q, MPI_COMM_WORLD);
-    auto Aisgn = slate::Matrix<int64_t>::fromLAPACK(
-            m, 1, &isgn[0], m, nb, 1, p, q, MPI_COMM_WORLD);
+    int64_t m = n;
     int64_t nt = AX.nt();
     int64_t mt = AX.mt();
 
@@ -190,7 +184,7 @@ void lacn2(
 
             // Initial value of est
             *est = slate::norm(slate::Norm::One, AX, opts);
-            printf("\n isave[0] %ld est %e \n", isave[0], *est);
+            //printf("\n isave[0] %ld est %e \n", isave[0], *est);
 
             // Update X to 1. or -1.:
             // X[i] = {1   if X[i] > 0
@@ -253,7 +247,7 @@ void lacn2(
 
             int root_rank = max_loc[0].loc;
             MPI_Bcast( &isave[1], 1, MPI_INT, root_rank, AX.mpiComm() );
-            printf("\n root_rank %d mpi_rank %d isave[1] %ld \n", root_rank, mpi_rank, isave[1]);
+            //printf("\n root_rank %d mpi_rank %d isave[1] %ld \n", root_rank, mpi_rank, isave[1]);
 
             isave[2] = 2;
 
@@ -275,7 +269,7 @@ void lacn2(
             copy(AX, AV);
             estold = *est;
             *est = slate::norm(slate::Norm::One, AV, opts);
-            printf("\n isave[0] %ld est %e estold %e \n", isave[0], *est, estold);
+            //printf("\n isave[0] %ld est %e estold %e \n", isave[0], *est, estold);
             for (int64_t i = 0; i < mt; ++i) {
                 if (AX.tileIsLocal(i, 0)) {
                     auto X0 = AX(i, 0);
@@ -293,7 +287,7 @@ void lacn2(
                             if (*est <= estold) {
                                 lacn2_altsgn( AX );
                                 *kase = 1;
-                                printf("\n isave[0] %ld go to 5 \n", isave[0]);
+                                //printf("\n isave[0] %ld go to 5 \n", isave[0]);
                                 isave[0] = 5;
                                 return;
                             }
@@ -346,23 +340,31 @@ void lacn2(
                         MPI_MAXLOC, AX.mpiComm()));
             int root_rank = max_loc[0].loc;
             MPI_Bcast( &isave[1], 1, MPI_INT, root_rank, AX.mpiComm() );
-            printf("\n mpi_rank %d isave[1] %ld \n", mpi_rank, isave[1]);
+            //printf("\n mpi_rank %d isave[1] %ld \n", mpi_rank, isave[1]);
 
-            if (std::abs( X[jlast] ) != std::abs( X[isave[1]] ) && isave[2] < itmax) {
+            int64_t i_jlast = std::floor(jlast / AX.tileMb(0) );
+            int64_t i_isave1 = std::floor(isave[1] / AX.tileMb(0) );
+
+            real_t A_jlast = 0., A_i_isave1 = 0.;
+            if (AX.tileIsLocal(i_jlast, 0)) {
+                auto X0 = AX(i_jlast, 0);
+                auto X0_data = X0.data();
+                A_jlast = std::abs( X0_data[jlast - i_jlast*AX.tileMb(0) ] );
+            }
+            else if (AX.tileIsLocal(i_isave1, 0)) {
+                MPI_Status status;
+                auto X0 = AX(i_isave1, 0);
+                auto X0_data = X0.data();
+                A_i_isave1 = std::abs( X0_data[isave[1] - i_isave1*AX.tileMb(0) ] );
+            }
+
+            MPI_Bcast( &A_jlast, 1, mpi_real_type, AX.tileRank(i_jlast, 0), AX.mpiComm() );
+            MPI_Bcast( &A_i_isave1, 1, mpi_real_type, AX.tileRank(i_isave1, 0), AX.mpiComm() );
+
+            if (A_jlast != A_i_isave1 && isave[2] < itmax) {
                 //printf("\n jlast is diff than isave[1] %ld %ld \n", jlast, isave[1]);
                 isave[2] = isave[2] + 1;
-                #if 0
-                for (int64_t i = 0; i < mt; ++i) {
-                    if (AX.tileIsLocal(i, 0)) {
-                        auto X0 = AX(i, 0);
-                        auto X0_data = X0.data();
-                        int64_t nb = AX.tileMb(i);
-                        X0_data[i] = zero;
-                        if (i*nb < isave[1] < (i+1)*nb)
-                            X0_data[isave[1]] = one;
-                    }
-                }
-                #endif
+
                 //printf("\n X[jlast] %e X[isave[1]] %e \n", X[jlast], X[isave[1]]);
                 slate::set(zero, zero, AX);
                 int64_t i_isave = std::floor(isave[1] / AX.tileMb(0) );
@@ -382,7 +384,7 @@ void lacn2(
         }
 
         else if (isave[0] == 5) {
-            printf("\n isave[0] %ld \n", isave[0]);
+            //printf("\n isave[0] %ld \n", isave[0]);
             temp = slate::norm(slate::Norm::One, AV, opts);
             temp = 2.0 * temp / (3.0 * n);
             if (temp > *est) {
@@ -449,9 +451,9 @@ void lacn2(
 template <typename scalar_t>
 void lacn2(
            int64_t n,
-           std::vector<scalar_t>& X,
-           std::vector<scalar_t>& V,
-           std::vector<int64_t>& isgn,
+           Matrix<scalar_t>& AX,
+           Matrix<scalar_t>& AV,
+           Matrix<int64_t>& Aisgn,
            blas::real_type<scalar_t>* est,
            int* kase,
            std::vector<int64_t>& isave,
@@ -463,23 +465,23 @@ void lacn2(
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::lacn2<Target::HostTask>( n, X, V,
-                                           isgn, est,
+            impl::lacn2<Target::HostTask>( n, AX, AV, Aisgn,
+                                           est,
                                            kase, isave, opts);
             break;
         case Target::HostNest:
-            impl::lacn2<Target::HostNest>( n, X, V,
-                                           isgn, est,
+            impl::lacn2<Target::HostNest>( n, AX, AV, Aisgn,
+                                           est,
                                            kase, isave, opts);
             break;
         case Target::HostBatch:
-            impl::lacn2<Target::HostBatch>( n, X, V,
-                                           isgn, est,
+            impl::lacn2<Target::HostBatch>( n, AX, AV, Aisgn,
+                                            est,
                                            kase, isave, opts);
             break;
         case Target::Devices:
-            impl::lacn2<Target::Devices>( n, X, V,
-                                          isgn, est,
+            impl::lacn2<Target::Devices>( n, AX, AV, Aisgn,
+                                          est,
                                           kase, isave, opts);
             break;
     }
@@ -491,9 +493,9 @@ void lacn2(
 template
 void lacn2<float>(
     int64_t n,
-    std::vector<float>& X,
-    std::vector<float>& V,
-    std::vector<int64_t>& isgn,
+    Matrix<float>& AX,
+    Matrix<float>& AV,
+    Matrix<int64_t>& Aisgn,
     float* est,
     int* kase,
     std::vector<int64_t>& isave,
@@ -502,9 +504,9 @@ void lacn2<float>(
 template
 void lacn2<double>(
     int64_t n,
-    std::vector<double>& X,
-    std::vector<double>& V,
-    std::vector<int64_t>& isgn,
+    Matrix<double>& AX,
+    Matrix<double>& AV,
+    Matrix<int64_t>& Aisgn,
     double* est,
     int* kase,
     std::vector<int64_t>& isave,
@@ -513,9 +515,9 @@ void lacn2<double>(
 template
 void lacn2< std::complex<float> >(
     int64_t n,
-    std::vector< std::complex<float> >& X,
-    std::vector< std::complex<float> >& V,
-    std::vector<int64_t>& isgn,
+    Matrix< std::complex<float> >& AX,
+    Matrix< std::complex<float> >& AV,
+    Matrix<int64_t>& Aisgn,
     float* est,
     int* kase,
     std::vector<int64_t>& isave,
@@ -524,9 +526,9 @@ void lacn2< std::complex<float> >(
 template
 void lacn2< std::complex<double> >(
     int64_t n,
-    std::vector< std::complex<double> >& X,
-    std::vector< std::complex<double> >& V,
-    std::vector<int64_t>& isgn,
+    Matrix< std::complex<double> >& AX,
+    Matrix< std::complex<double> >& AV,
+    Matrix<int64_t>& Aisgn,
     double* est,
     int* kase,
     std::vector<int64_t>& isave,

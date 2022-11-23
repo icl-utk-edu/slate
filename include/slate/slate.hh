@@ -1093,9 +1093,9 @@ void steqr2(
 template <typename scalar_t>
 void lacn2(
     int64_t n,
-    std::vector<scalar_t>& V,
-    std::vector<scalar_t>& X,
-    std::vector<int64_t>& isgn,
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& V,
+    Matrix<int64_t>& S,
     blas::real_type<scalar_t>* one_normest,
     int* kase,
     std::vector<int64_t>& isave,

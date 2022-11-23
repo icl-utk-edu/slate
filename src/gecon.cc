@@ -108,16 +108,22 @@ void gecon(
     isave[1] = 0;
     isave[2] = 0;
 
+    auto B = slate::Matrix<scalar_t>::fromLAPACK(
+            m, 1, &X[0], m, nb, 1, p, q, MPI_COMM_WORLD);
+    auto AV = slate::Matrix<scalar_t>::fromLAPACK(
+            m, 1, &V[0], m, nb, 1, p, q, MPI_COMM_WORLD);
+    auto Aisgn = slate::Matrix<int64_t>::fromLAPACK(
+            m, 1, &isgn[0], m, nb, 1, p, q, MPI_COMM_WORLD);
+
     auto L  = TriangularMatrix<scalar_t>(
         Uplo::Lower, slate::Diag::Unit, A );
     auto U  = TriangularMatrix<scalar_t>(
         Uplo::Upper, slate::Diag::NonUnit, A );
-    auto B = slate::Matrix<scalar_t>::fromLAPACK(
-            m, 1, &X[0], m, nb, 1, p, q, A.mpiComm());
 
     // initial and final value of kase is 0
     kase = 0;
-    lacn2( m, X, V, isgn, &Ainvnorm, &kase, isave, opts);
+    lacn2( m, B, AV, Aisgn, &Ainvnorm, &kase, isave, opts);
+    // todo: not always first tile has the max save[0]
     MPI_Bcast( &isave[0], 3, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
     MPI_Bcast( &kase, 1, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
 
@@ -140,7 +146,7 @@ void gecon(
             slate::trsmA(Side::Left, alpha, LT, B, opts);
         }
 
-        lacn2( m, X, V, isgn, &Ainvnorm, &kase, isave, opts);
+        lacn2( m, B, AV, Aisgn, &Ainvnorm, &kase, isave, opts);
         MPI_Bcast( &isave[0], 3, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
         MPI_Bcast( &kase, 1, MPI_INT, B.tileRank(0, 0), MPI_COMM_WORLD );
     } // while (kase != 0)

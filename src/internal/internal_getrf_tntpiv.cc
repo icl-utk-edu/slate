@@ -318,8 +318,8 @@ void getrf_tntpiv_local(
     blas::device_memcpy<device_pivot_int>( &hipiv[0], dipiv, size_ipiv,
                                    blas::MemcpyKind::Default, *queue);
 
-    device_copy_vector( nb, dA, mlocal + 1,
-                            &hdiagu[ 0 ], 1, *queue );
+    device_copy_vector( diag_len, dA, mlocal + 1,
+                                  &hdiagu[ 0 ], 1, *queue );
 
     // Convert device sequential pivots to aux pivots for stage 0
     for (int64_t i = 0; i < diag_len; ++i) {

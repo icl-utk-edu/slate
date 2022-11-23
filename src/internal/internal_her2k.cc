@@ -80,7 +80,8 @@ void her2k(internal::TargetType<Target::HostTask>,
                 if (i == j) {
                     #pragma omp task slate_omp_default_none \
                         shared( A, B, C, err ) \
-                        firstprivate(i, j, layout, alpha, beta) priority(priority)
+                        firstprivate(i, j, layout, alpha, beta, call_tile_tick) \
+                        priority(priority)
                     {
                         try {
                             A.tileGetForReading(j, 0, LayoutConvert(layout));
@@ -103,7 +104,8 @@ void her2k(internal::TargetType<Target::HostTask>,
                 else {
                     #pragma omp task slate_omp_default_none \
                         shared( A, B, C, err ) \
-                        firstprivate(i, j, layout, alpha, beta_) priority(priority)
+                        firstprivate(i, j, layout, alpha, beta_, call_tile_tick) \
+                        priority(priority)
                     {
                         try {
                             const scalar_t one = 1.0;
@@ -468,7 +470,8 @@ void her2k(internal::TargetType<Target::Devices>,
         if (C.tileIsLocal(0, 0)) {
             #pragma omp task slate_omp_default_none \
                 shared( A, B, C, err ) \
-                firstprivate(layout, alpha, beta, queue_index) priority(priority)
+                firstprivate(layout, alpha, beta, queue_index, call_tile_tick) \
+                priority(priority)
             {
                 int device = C.tileDevice(0, 0);
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
@@ -507,7 +510,8 @@ void her2k(internal::TargetType<Target::Devices>,
         for (int device = 0; device < C.num_devices(); ++device) {
             #pragma omp task slate_omp_default_none \
                 shared( A, B, C, err ) priority( priority ) \
-                firstprivate(device, layout, alpha, beta, queue_index)
+                firstprivate(device, layout, alpha, beta, queue_index,\
+                        call_tile_tick)
             {
                 try {
                     const scalar_t one = 1.0;

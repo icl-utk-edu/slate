@@ -47,11 +47,19 @@ void her2k(
     assert(B.mt() == C.mt());
     assert(A.nt() == B.nt());
 
+    // Use only TileReleaseStrategy::Slate for her2k.
+    // Internal her2k routine called here won't release
+    // any tiles. This routine will clean up tiles.
+    Options const opts_local =  {
+        {slate::Option::TileReleaseStrategy, TileReleaseStrategy::Slate}};
+
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
     std::vector<uint8_t>  gemm_vector(A.nt());
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
+    const int default_priority = 0;
+    const int default_queue = 0;
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -108,10 +116,18 @@ void her2k(
         #pragma omp task depend(in:bcast[0]) \
                          depend(out:gemm[0])
         {
+            auto A_col0 = A.sub( 0, A.mt()-1, 0, 0 );
             internal::her2k<target>(
-                alpha, A.sub(0, A.mt()-1, 0, 0),
-                       B.sub(0, B.mt()-1, 0, 0),
-                beta,  std::move(C));
+                alpha, std::move( A_col0 ),
+                       B.sub( 0, B.mt()-1, 0, 0 ),
+                beta,  std::move( C ),
+                default_priority, default_queue, layout, opts_local );
+
+            // Erase remote tiles on all devices including host
+            A_col0.eraseRemoteWorkspace();
+
+            // Erase local workspace on devices.
+            A_col0.eraseLocalWorkspace();
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -144,10 +160,18 @@ void her2k(
                              depend(in:gemm[k-1]) \
                              depend(out:gemm[k])
             {
+                auto A_colk = A.sub( 0, A.mt()-1, k, k );
                 internal::her2k<target>(
-                    alpha,       A.sub(0, A.mt()-1, k, k),
-                                 B.sub(0, B.mt()-1, k, k),
-                    real_t(1.0), std::move(C));
+                    alpha,       std::move( A_colk ),
+                                 B.sub( 0, B.mt()-1, k, k ),
+                    real_t( 1.0 ), std::move( C ),
+                    default_priority, default_queue, layout, opts_local );
+
+                // Erase remote tiles on all devices including host
+                A_colk.eraseRemoteWorkspace();
+
+                // Erase local workspace on devices.
+                A_colk.eraseLocalWorkspace();
             }
         }
 

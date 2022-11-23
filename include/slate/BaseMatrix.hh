@@ -4065,7 +4065,7 @@ void BaseMatrix<scalar_t>::eraseLocalWorkspaceTile(int64_t i, int64_t j)
 
         LockGuard guard( tile_node.getLock() );
 
-        for (int device = 0; device < this->num_devices(); ++device) {
+        for (int device = HostNum; device < this->num_devices(); ++device) {
             if (tile_node.existsOn( device )
                     && tile_node[ device ].tile()->workspace()) {
 

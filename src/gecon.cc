@@ -126,19 +126,19 @@ void gecon(
     {
         if (kase == kase1) {
             // Multiply by inv(L).
-            slate::trsmA(Side::Left, alpha, L, X, opts);
+            slate::trsmB(Side::Left, alpha, L, X, opts);
 
             // Multiply by inv(U).
-            slate::trsmA(Side::Left, alpha, U, X, opts);
+            slate::trsmB(Side::Left, alpha, U, X, opts);
         }
         else {
             // Multiply by inv(U**T).
             auto UT = conjTranspose( U );
-            slate::trsmA(Side::Left, alpha, UT, X, opts);
+            slate::trsmB(Side::Left, alpha, UT, X, opts);
 
             // Multiply by inv(L**T).
             auto LT = conjTranspose( L );
-            slate::trsmA(Side::Left, alpha, LT, X, opts);
+            slate::trsmB(Side::Left, alpha, LT, X, opts);
         }
 
         lacn2( X, V, isgn, &Ainvnorm, &kase, isave, opts);

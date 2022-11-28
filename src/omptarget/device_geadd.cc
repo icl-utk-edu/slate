@@ -12,13 +12,110 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
-/// Batched routine for element-wise tile addition.
+/// Routine for element-wise tile addition.
+/// Sets
+/// \[
+///     B = \alpha A + \beta B.
+/// \]
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 0.
 ///
 /// @param[in] n
 ///     Number of columns of each tile. n >= 0.
+///
+/// @param[in] alpha
+///     The scalar alpha.
+///
+/// @param[in] A
+///     is an m-by-n matrix stored in an lda-by-n array in GPU memory.
+///
+/// @param[in] lda
+///     Leading dimension of each tile in A. lda >= m.
+///
+/// @param[in] beta
+///     The scalar beta.
+///
+/// @param[in,out] B
+///     is an m-by-n matrix stored in an lda-by-n array in GPU memory.
+///
+/// @param[in] ldb
+///     Leading dimension of each tile in B. ldb >= m.
+///
+/// @param[in] queue
+///     BLAS++ queue to execute in.
+///
+template <typename scalar_t>
+void geadd(
+    int64_t m, int64_t n,
+    scalar_t alpha, scalar_t* A, int64_t lda,
+    scalar_t beta, scalar_t* B, int64_t ldb,
+    blas::Queue &queue)
+{
+    // quick return
+    if (m == 0 || n == 0)
+        return;
+
+    // Use omp target offload
+    #pragma omp target is_device_ptr(A) device(queue.device())
+    #pragma omp teams distribute parallel for schedule(static, 1)
+    for (int64_t i = 0; i < m; ++i) {
+        scalar_t* rowA = &A[i];
+        scalar_t* rowB = &B[i];
+        for (int64_t j = 0; j < n; ++j) {
+            rowB[j*ldb] = alpha * rowA[j*lda] + beta * rowB[j*ldb];
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+// Explicit instantiations.
+template
+void geadd(
+    int64_t m, int64_t n,
+    float alpha, float* Aarray, int64_t lda,
+    float beta, float* Barray, int64_t ldb,
+    blas::Queue &queue);
+
+template
+void geadd(
+    int64_t m, int64_t n,
+    double alpha, double* Aarray, int64_t lda,
+    double beta, double* Barray, int64_t ldb,
+    blas::Queue &queue);
+
+template
+void geadd(
+    int64_t m, int64_t n,
+    std::complex<float> alpha, std::complex<float>* Aarray, int64_t lda,
+    std::complex<float> beta, std::complex<float>* Barray, int64_t ldb,
+    blas::Queue &queue);
+
+template
+void geadd(
+    int64_t m, int64_t n,
+    std::complex<double> alpha, std::complex<double>* Aarray, int64_t lda,
+    std::complex<double> beta, std::complex<double>* Barray, int64_t ldb,
+    blas::Queue &queue);
+
+//==============================================================================
+namespace batch {
+
+//------------------------------------------------------------------------------
+/// Batched routine for element-wise tile addition.
+/// Sets
+/// \[
+///     Barray[k] = \alpha Aarray[k] + \beta Barray[k].
+/// \]
+///
+/// @param[in] m
+///     Number of rows of each tile. m >= 0.
+///
+/// @param[in] n
+///     Number of columns of each tile. n >= 0.
+///
+/// @param[in] alpha
+///     The scalar alpha.
 ///
 /// @param[in] Aarray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
@@ -27,9 +124,12 @@ namespace device {
 /// @param[in] lda
 ///     Leading dimension of each tile in A. lda >= m.
 ///
-/// @param[out] Barray
+/// @param[in] beta
+///     The scalar beta.
+///
+/// @param[in,out] Barray
 ///     Array in GPU memory of dimension batch_count, containing pointers to tiles,
-///     where each Aarray[k] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
+///     where each Barray[k] is an m-by-n matrix stored in an lda-by-n array in GPU memory.
 ///
 /// @param[in] ldb
 ///     Leading dimension of each tile in B. ldb >= m.
@@ -38,7 +138,7 @@ namespace device {
 ///     Size of Aarray and Barray. batch_count >= 0.
 ///
 /// @param[in] queue
-///     blas device queue to execute in.
+///     BLAS++ queue to execute in.
 ///
 template <typename scalar_t>
 void geadd(
@@ -47,6 +147,9 @@ void geadd(
     scalar_t beta, scalar_t** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
+    // quick return
+    if (m == 0 || n == 0)
+        return;
     // quick return
     if (batch_count == 0)
         return;
@@ -58,7 +161,7 @@ void geadd(
         scalar_t* tileA = Aarray[k];
         scalar_t* tileB = Barray[k];
         // distribute rows (i) to threads
-        #pragma omp parallel for simd schedule(static, 1)
+        #pragma omp parallel for schedule(static, 1)
         for (int64_t i = 0; i < m; ++i) {
             scalar_t* rowA = &tileA[i];
             scalar_t* rowB = &tileB[i];
@@ -99,5 +202,6 @@ void geadd(
     std::complex<double> beta, std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
+} // namespace batch
 } // namespace device
 } // namespace slate

@@ -125,7 +125,7 @@ void genorm(
                 #pragma omp teams distribute
                 for (int64_t k = 0; k < batch_count; ++k) {
                     // distribute cols to threads (j)
-                    #pragma omp parallel for simd schedule(static, 1)
+                    #pragma omp parallel for schedule(static, 1)
                     for (int64_t j = 0; j < n; ++j) {
                         values[k*ldv + j] = 0;
                         for (int64_t i = 0; i < m; ++i) {
@@ -148,7 +148,7 @@ void genorm(
                 #pragma omp teams distribute
                 for (int64_t k = 0; k < batch_count; ++k) {
                     // distribute rows to threads (i)
-                    #pragma omp parallel for simd schedule(static, 1)
+                    #pragma omp parallel for schedule(static, 1)
                     for (int64_t i = 0; i < m; ++i) {
                         values[k*ldv + i] = 0;
                         for (int64_t j = 0; j < n; ++j) {
@@ -219,7 +219,7 @@ void genorm(
                 for (int64_t k = 0; k < batch_count; ++k) {
                     const scalar_t* tileA = Aarray[k];
                     // distribute cols to threads (j)
-                    #pragma omp parallel for simd collapse(1) schedule(static, 1)
+                    #pragma omp parallel for collapse(1) schedule(static, 1)
                     for (int64_t j = 0; j < n; ++j) {
                         const scalar_t* colA = &tileA[j*lda];
                         for (int64_t i = 0; i < m; ++i) {
@@ -272,5 +272,5 @@ void genorm(
     double* values, int64_t ldv, int64_t batch_count,
     blas::Queue &queue);
 
-} // Namespace device
+} // namespace device
 } // namespace slate

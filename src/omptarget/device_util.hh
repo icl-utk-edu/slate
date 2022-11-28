@@ -6,6 +6,8 @@
 #ifndef SLATE_OMPTARGET_UTIL_HH
 #define SLATE_OMPTARGET_UTIL_HH
 
+#include <math.h>
+
 namespace slate {
 namespace device {
 

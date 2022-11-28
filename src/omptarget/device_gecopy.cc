@@ -15,7 +15,11 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
-/// Routine for element-wise copy and precision conversion.
+/// Batched routine for element-wise copy and precision conversion,
+/// copying A to B. Sets
+/// \[
+///     Barray[k] = Aarray[k].
+/// \]
 ///
 /// @param[in] m
 ///     Number of rows of each tile. m >= 0.
@@ -40,13 +44,13 @@ namespace device {
 /// @param[in] batch_count
 ///     Size of Aarray and Barray. batch_count >= 0.
 ///
-/// @param[in] stream
-///     Device stream to execute in.
+/// @param[in] queue
+///     BLAS++ queue to execute in.
 ///
 template <typename src_scalar_t, typename dst_scalar_t>
 void gecopy(
     int64_t m, int64_t n,
-    src_scalar_t** Aarray, int64_t lda,
+    src_scalar_t const* const*  Aarray, int64_t lda,
     dst_scalar_t** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -57,16 +61,16 @@ void gecopy(
     #pragma omp target is_device_ptr(Aarray, Barray) device(queue.device())
     #pragma omp teams distribute
     for (int64_t k = 0; k < batch_count; ++k) {
-        src_scalar_t* tileA = Aarray[k];
+        src_scalar_t const* tileA = Aarray[k];
         dst_scalar_t* tileB = Barray[k];
         // distribute rows (i) to threads
-        #pragma omp parallel for simd collapse(1) schedule(static, 1)
+        #pragma omp parallel for collapse(1) schedule(static, 1)
         for (int64_t i = 0; i < m; ++i) {
-            src_scalar_t* rowA = &tileA[i];
+            src_scalar_t const* rowA = &tileA[i];
             dst_scalar_t* rowB = &tileB[i];
             for (int64_t j = 0; j < n; ++j) {
-                // todo: confirm type coversion float-complex -> double-complex
-                // todo: confirm type coversion double-complex -> float-complex
+                // todo: confirm type conversion float-complex -> double-complex
+                // todo: confirm type conversion double-complex -> float-complex
                 rowB[j*ldb] = rowA[j*lda];
             }
         }
@@ -78,56 +82,56 @@ void gecopy(
 template
 void gecopy(
     int64_t m, int64_t n,
-    float** Aarray, int64_t lda,
+    float const* const* Aarray, int64_t lda,
     float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void gecopy(
     int64_t m, int64_t n,
-    float** Aarray, int64_t lda,
+    float const* const* Aarray, int64_t lda,
     double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void gecopy(
     int64_t m, int64_t n,
-    double** Aarray, int64_t lda,
+    double const* const* Aarray, int64_t lda,
     double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void gecopy(
     int64_t m, int64_t n,
-    double** Aarray, int64_t lda,
+    double const* const* Aarray, int64_t lda,
     float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void gecopy(
     int64_t m, int64_t n,
-    std::complex<float>** Aarray, int64_t lda,
+    std::complex<float> const* const* Aarray, int64_t lda,
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void gecopy(
     int64_t m, int64_t n,
-    std::complex<float>** Aarray, int64_t lda,
+    std::complex<float> const* const* Aarray, int64_t lda,
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void gecopy(
     int64_t m, int64_t n,
-    std::complex<double>** Aarray, int64_t lda,
+    std::complex<double> const* const* Aarray, int64_t lda,
     std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void gecopy(
     int64_t m, int64_t n,
-    std::complex<double>** Aarray, int64_t lda,
+    std::complex<double> const* const* Aarray, int64_t lda,
     std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 

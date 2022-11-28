@@ -122,7 +122,7 @@ void synorm(
             for (int64_t k = 0; k < batch_count; ++k) {
                 const scalar_t* tileA = Aarray[k];
                 // distribute rows to threads (i)
-                #pragma omp parallel for simd schedule(static, 1)
+                #pragma omp parallel for schedule(static, 1)
                 for (int64_t idx = 0; idx < n; ++idx) {
                     // get pointer to row_i and corresponding column col_i
                     scalar_t const* row = &tileA[idx];

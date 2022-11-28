@@ -70,10 +70,15 @@ void test_gecon_work(Params& params, bool run)
     params.ref_time();
     params.ref_gflops();
     params.time2();
-    params.time2.name( "trs time (s)" );
+    params.time2.name( "lu time (s)" );
     params.time2.width( 12 );
     params.gflops2();
-    params.gflops2.name( "trs gflop/s" );
+    params.gflops2.name( "lu gflop/s" );
+
+    // Suppress norm from output.
+    params.norm.width( 0 );
+    params.nrhs.width( 0 );
+    params.pivot_threshold.width( 0 );
 
     if (! run)
         return;
@@ -160,7 +165,6 @@ void test_gecon_work(Params& params, bool run)
         double time = barrier_get_wtime(MPI_COMM_WORLD);
 
         slate::gecon(norm, A, &Anorm, &slate_rcond, opts);
-        printf("\n mpi_rank %d %-7.9f slate_rcond %-7.9f Anorm\n", mpi_rank, slate_rcond, Anorm);
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance
         params.time() = time;
@@ -220,7 +224,6 @@ void test_gecon_work(Params& params, bool run)
             std::vector<scalar_t> work(lwork);
             std::vector<int> iwork(liwork);
             scalapack_pgecon( norm2str(norm), n, &Aref_data[0], 1, 1, Aref_desc, &Anorm, &scl_rcond, &work[0], lwork, &iwork[0], liwork, info_ref2);
-            printf("\n mpi_rank %d %-7.9f scl_rcond %-7.9f Anorm\n", mpi_rank, scl_rcond, Anorm);
             slate_assert(info_ref == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 

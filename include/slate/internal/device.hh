@@ -53,8 +53,15 @@ namespace slate {
 /// GPU device implementations of kernels.
 namespace device {
 
-// Simplify checking for GPU device support (CUDA or ROCm).
-#if defined( BLAS_HAVE_CUBLAS ) || defined( BLAS_HAVE_ROCBLAS )
+// For the present, use omptarget-kernels when OneMKL is used
+#if defined( BLAS_HAVE_ONEMKL )
+    #define SLATE_HAVE_OMPTARGET
+#endif
+
+// Simplify checking for GPU device support (CUDA / ROCm / OneMKL).
+#if defined( BLAS_HAVE_CUBLAS ) \
+    || defined( BLAS_HAVE_ROCBLAS ) \
+    || defined( SLATE_HAVE_OMPTARGET )
     #define SLATE_HAVE_DEVICE
 #endif
 

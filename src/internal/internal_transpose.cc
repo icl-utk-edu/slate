@@ -20,6 +20,9 @@ namespace slate {
 // cu*Complex in .cu files, and cast from std::complex here.
 namespace device {
 
+// CUBLAS/ROCBLAS need complex translation, others do not
+#if ! defined( SLATE_HAVE_OMPTARGET)
+
 template <>
 void transpose(
     int64_t n,
@@ -159,6 +162,7 @@ void transpose_batch(
 #endif
 }
 
+#endif // ! defined( SLATE_HAVE_OMPTARGET)
 
 //------------------------------------------------------------------------------
 #if ! defined( SLATE_HAVE_DEVICE )

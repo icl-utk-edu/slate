@@ -15,6 +15,8 @@ namespace slate {
 
 namespace device {
 
+// CUBLAS/ROCBLAS need complex translation, others do not
+#if ! defined( SLATE_HAVE_OMPTARGET)
 template <>
 void geadd(
     int64_t m, int64_t n,
@@ -39,7 +41,10 @@ void geadd(
           queue);
 #endif
 }
+#endif // ! defined( SLATE_HAVE_OMPTARGET)
 
+// CUBLAS/ROCBLAS need complex translation, others do not
+#if ! defined( SLATE_HAVE_OMPTARGET)
 template <>
 void geadd(
     int64_t m, int64_t n,
@@ -64,6 +69,7 @@ void geadd(
           queue);
 #endif
 }
+#endif // ! defined( SLATE_HAVE_OMPTARGET)
 
 #if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
@@ -89,6 +95,8 @@ void geadd(
 //==============================================================================
 namespace batch {
 
+// CUBLAS/ROCBLAS need complex translation, others do not
+#if ! defined( SLATE_HAVE_OMPTARGET)
 template <>
 void geadd(
     int64_t m, int64_t n,
@@ -113,7 +121,10 @@ void geadd(
           batch_count, queue);
 #endif
 }
+#endif // if ! defined( SLATE_HAVE_OMPTARGET)
 
+// CUBLAS/ROCBLAS need complex definitions, others do not
+#if defined( BLAS_HAVE_CUBLAS ) || defined( BLAS_HAVE_ROCBLAS )
 template <>
 void geadd(
     int64_t m, int64_t n,
@@ -138,6 +149,7 @@ void geadd(
           batch_count, queue);
 #endif
 }
+#endif // if ! defined( SLATE_HAVE_OMPTARGET)
 
 #if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.

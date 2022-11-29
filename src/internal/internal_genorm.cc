@@ -21,6 +21,9 @@ namespace slate {
 // cu*Complex in .cu files, and cast from std::complex here.
 namespace device {
 
+// CUBLAS/ROCBLAS need complex translation, others do not
+#if ! defined( SLATE_HAVE_OMPTARGET )
+
 template <>
 void genorm(
     Norm in_norm, NormScope scope,
@@ -58,6 +61,8 @@ void genorm(
            values, ldv, batch_count, queue);
 #endif
 }
+
+#endif // ! defined( SLATE_HAVE_OMPTARGET )
 
 #if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.

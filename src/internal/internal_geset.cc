@@ -19,6 +19,9 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
+// CUBLAS/ROCBLAS need complex translation, others do not
+#if ! defined( SLATE_HAVE_OMPTARGET )
+
 // device single tile routine
 template <>
 void geset(
@@ -67,6 +70,8 @@ void geset(
 #endif
 }
 
+#endif // ! defined( SLATE_HAVE_OMPTARGET )
+
 #if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
@@ -92,6 +97,9 @@ void geset(
 namespace batch {
 
 //------------------------------------------------------------------------------
+// CUBLAS/ROCBLAS need complex translation, others do not
+#if ! defined( SLATE_HAVE_OMPTARGET )
+
 // device::batch routine
 template <>
 void geset(
@@ -139,6 +147,8 @@ void geset(
           batch_count, queue);
 #endif
 }
+
+#endif // ! defined( SLATE_HAVE_OMPTARGET )
 
 #if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.

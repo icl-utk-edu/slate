@@ -19,6 +19,9 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
+// CUBLAS/ROCBLAS need complex translation, others do not
+#if ! defined( SLATE_HAVE_OMPTARGET )
+
 // device single tile routine
 template <>
 void tzset(
@@ -72,6 +75,8 @@ void tzset(
         queue);
 #endif
 }
+
+#endif // ! defined( SLATE_HAVE_OMPTARGET )
 
 #if ! defined( SLATE_HAVE_DEVICE )
 //----------------------------------------

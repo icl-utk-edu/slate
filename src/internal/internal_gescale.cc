@@ -16,6 +16,9 @@ namespace slate {
 namespace device {
 
 //------------------------------------------------------------------------------
+// CUBLAS/ROCBLAS need complex translation, others do not
+#if ! defined( SLATE_HAVE_OMPTARGET )
+
 // device single tile routine
 template <>
 void gescale(
@@ -104,6 +107,8 @@ void gescale(
             queue);
 #endif
 }
+
+#endif // ! defined( SLATE_HAVE_OMPTARGET )
 
 #if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.

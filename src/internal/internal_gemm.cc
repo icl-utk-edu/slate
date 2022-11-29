@@ -100,7 +100,8 @@ void gemm(internal::TargetType<Target::HostTask>,
             if (C.tileIsLocal(i, j)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B, C, err, err_msg ) \
-                    firstprivate(i, j, layout, alpha, beta) priority(priority)
+                    firstprivate(i, j, layout, alpha, beta, call_tile_tick) \
+                    priority(priority)
                 {
                     try {
                         C.tileGetForWriting(i, j, LayoutConvert(layout));

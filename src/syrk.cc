@@ -48,11 +48,19 @@ void syrk(
     // A is mt-by-nt, C is mt-by-mt
     assert(A.mt() == C.mt());
 
+    // Use only TileReleaseStrategy::Slate for syrk.
+    // Internal syrk routine called here won't release
+    // any tiles. This routine will clean up tiles.
+    Options const opts_local =  {
+        {slate::Option::TileReleaseStrategy, TileReleaseStrategy::Slate}};
+
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
     std::vector<uint8_t>  gemm_vector(A.nt());
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
+    const int default_priority = 0;
+    const int default_queue = 0;
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -99,9 +107,17 @@ void syrk(
         #pragma omp task depend(in:bcast[0]) \
                          depend(out:gemm[0])
         {
+            auto A_col0 = A.sub( 0, A.mt()-1, 0, 0 );
             internal::syrk<target>(
-                alpha, A.sub(0, A.mt()-1, 0, 0),
-                beta,  std::move( C ) );
+                alpha, std::move( A_col0 ),
+                beta,  std::move( C ),
+                default_priority, default_queue, layout, opts_local );
+
+            // Erase remote tiles on all devices including host
+            A_col0.eraseRemoteWorkspace();
+
+            // Erase local workspace on devices.
+            A_col0.eraseLocalWorkspace();
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -129,9 +145,18 @@ void syrk(
                              depend(in:gemm[k-1]) \
                              depend(out:gemm[k])
             {
+                auto A_colk = A.sub( 0, A.mt()-1, k, k );
+
                 internal::syrk<target>(
-                    alpha, A.sub(0, A.mt()-1, k, k),
-                    one,   std::move( C ) );
+                    alpha, std::move( A_colk ),
+                    one,   std::move( C ),
+                    default_priority, default_queue, layout, opts_local );
+
+                // Erase remote tiles on all devices including host
+                A_colk.eraseRemoteWorkspace();
+
+                // Erase local workspace on devices.
+                A_colk.eraseLocalWorkspace();
             }
         }
 

@@ -296,7 +296,8 @@ void symm(Side side,
 template <Target target=Target::HostTask, typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
-          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor);
+          int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
+          Options const& opts = Options());
 
 // forward real-Hermitian matrices to syrk;
 // disabled for complex
@@ -304,6 +305,7 @@ template <Target target=Target::HostTask, typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
           scalar_t beta,  HermitianMatrix<scalar_t>&& C,
           int priority=0, int queue_index=0, Layout layout=Layout::ColMajor,
+          Options const& opts = Options(),
           enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
     syrk<target>(alpha, std::move(A),

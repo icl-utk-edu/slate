@@ -104,12 +104,20 @@ void test_gecon_work(Params& params, bool run)
 
     std::vector<scalar_t> A_data;
     slate::Matrix<scalar_t> A;
+    slate::Matrix<scalar_t> B;
+    slate::Matrix<scalar_t> Iden;
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(
                 m, n,    nb, p, q, MPI_COMM_WORLD );
         A.insertLocalTiles(origin_target);
+        B = slate::Matrix<scalar_t>(
+                m, n,    nb, p, q, MPI_COMM_WORLD );
+        B.insertLocalTiles(origin_target);
+        Iden = slate::Matrix<scalar_t>(
+                m, n,    nb, p, q, MPI_COMM_WORLD );
+        Iden.insertLocalTiles(origin_target);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
@@ -140,7 +148,7 @@ void test_gecon_work(Params& params, bool run)
     // Compute the matrix norm
     real_t Anorm = 0;
     Anorm = slate::norm(norm, A, opts);
-    real_t slate_rcond, scl_rcond;
+    real_t slate_rcond, scl_rcond, rcond;
 
     if (! ref_only) {
 
@@ -161,6 +169,21 @@ void test_gecon_work(Params& params, bool run)
         time2 = barrier_get_wtime(MPI_COMM_WORLD) - time2;
         params.time2() = time2;
         params.gflops2() = gflop / time2;
+
+        copy(A, B);
+        auto L  = slate::TriangularMatrix<scalar_t>(
+            slate::Uplo::Lower, slate::Diag::Unit, B );
+        auto U  = slate::TriangularMatrix<scalar_t>(
+            slate::Uplo::Upper, slate::Diag::NonUnit, B );
+        //trtri(L, opts);
+        //trtri(U, opts);
+        scalar_t zero = 0.0;
+        scalar_t one = 1.0;
+        set(zero, one, Iden);
+        slate::trsmB(slate::Side::Left, one, L, Iden, opts);
+        slate::trsmB(slate::Side::Left, one, U, Iden, opts);
+        rcond = (1. / slate::norm(norm, Iden, opts)) / Anorm;
+
 
         double time = barrier_get_wtime(MPI_COMM_WORLD);
 
@@ -223,20 +246,33 @@ void test_gecon_work(Params& params, bool run)
             // Compute the condition number using scalapack
             std::vector<scalar_t> work(lwork);
             std::vector<int> iwork(liwork);
+    #if 1
             scalapack_pgecon( norm2str(norm), n, &Aref_data[0], 1, 1, Aref_desc, &Anorm, &scl_rcond, &work[0], lwork, &iwork[0], liwork, info_ref2);
             slate_assert(info_ref == 0);
+    #endif
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
 
             // Compute the error
-            params.error() = std::abs(slate_rcond - scl_rcond);
+            //params.error() = std::abs(slate_rcond - scl_rcond);
+            params.error() = std::abs(slate_rcond - rcond);
             real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
             params.okay() = (params.error() <= tol);
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
+            real_t error1 = std::abs(slate_rcond - scl_rcond);
+            real_t error2 = std::abs(slate_rcond - rcond);
+            real_t error3 = std::abs(scl_rcond - rcond);
+
+            printf("%-11s  %-11s  %-11s  %-11s\n", "Anorm", "slate_rcond", "scl_rcond", "inv-rcond");
+            printf("%-7.2f  %-7e  %-7e  %-7e\n", Anorm, slate_rcond, scl_rcond, rcond);
+
+            printf("%-11s  %-11s  %-11s\n", "slate-scl", "slate-inv", "scl-inv");
+            printf("%--7e  %-7e  %-7e\n", error1, error2, error3);
+
         #else  // not SLATE_HAVE_SCALAPACK
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );

@@ -44,6 +44,7 @@ enum Section {
     newline = 0,  // zero flag forces newline
     blas3,
     gesv,
+    gecon,
     posv,
     sysv,
     hesv,
@@ -64,6 +65,7 @@ const char* section_names[] = {
     "",  // none
     "Level 3 BLAS",
     "LU",
+    "Condition number estimate",
     "Cholesky",
     "symmetric indefinite",
     "Hermitian indefinite",
@@ -111,6 +113,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "gesv_nopiv",         test_gesv,         Section::gesv },
     { "gesv_tntpiv",        test_gesv,         Section::gesv },
     { "gesvMixed",          test_gesv,         Section::gesv },
+    { "gecon",              test_gecon,        Section::gecon },
     { "gbsv",               test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 

@@ -191,6 +191,7 @@ void test_herk   (Params& params, bool run);
 
 // LU, general
 void test_gesv       (Params& params, bool run);
+void test_gecon      (Params& params, bool run);
 void test_getri      (Params& params, bool run);
 void test_trtri      (Params& params, bool run);
 

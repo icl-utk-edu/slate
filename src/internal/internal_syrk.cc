@@ -74,7 +74,7 @@ void syrk(internal::TargetType<Target::HostTask>,
                     #pragma omp task slate_omp_default_none \
                         shared( A, C, err ) \
                         firstprivate(j, layout, alpha, beta, call_tile_tick) \
-                         priority(priority)
+                        priority(priority)
                     {
                         try {
                             A.tileGetForReading(j, 0, LayoutConvert(layout));

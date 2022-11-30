@@ -256,8 +256,8 @@ void test_gecon_work(Params& params, bool run)
             params.ref_gflops() = gflop / time;
 
             // Compute the error
-            //params.error() = std::abs(slate_rcond - scl_rcond);
-            params.error() = std::abs(slate_rcond - rcond);
+            params.error() = std::abs(slate_rcond - scl_rcond);
+            //params.error() = std::abs(slate_rcond - rcond);
             real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
             params.okay() = (params.error() <= tol);
 

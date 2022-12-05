@@ -408,6 +408,10 @@ ifneq ($(only_unit),1)
         src/internal/internal_gemmA.cc \
         src/internal/internal_genorm.cc \
         src/internal/internal_geqrf.cc \
+        src/internal/internal_he2hb_gemm.cc \
+        src/internal/internal_he2hb_hemm.cc \
+        src/internal/internal_he2hb_her2k_offdiag_ranks.cc \
+        src/internal/internal_he2hb_trmm.cc \
         src/internal/internal_gescale.cc \
         src/internal/internal_gescale_row_col.cc \
         src/internal/internal_geset.cc \

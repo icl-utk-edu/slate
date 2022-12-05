@@ -515,6 +515,44 @@ void geqrf(Matrix<scalar_t>&& A, Matrix<scalar_t>&& T,
 }
 
 //-----------------------------------------
+// he2hb_hemm()
+template <Target target=Target::HostTask, typename scalar_t>
+void he2hb_hemm(HermitianMatrix<scalar_t>&& A,
+            Matrix<scalar_t>&& B,
+            Matrix<scalar_t>&& C,
+            std::vector<int64_t>& panel_rank_rows,
+            int priority=0, int64_t queue_index=0);
+
+//-----------------------------------------
+// he2hb_trmm()
+template <Target target=Target::HostTask, typename scalar_t>
+void he2hb_trmm(HermitianMatrix<scalar_t>&& AH,
+            Matrix<scalar_t>&& A,
+            Matrix<scalar_t>&& B,
+            std::vector<int64_t>& panel_rank_rows,
+            int priority=0, int64_t queue_index=0);
+
+
+//-----------------------------------------
+// he2hb_gemm()
+template <Target target=Target::HostTask, typename scalar_t>
+void he2hb_gemm(scalar_t alpha, Matrix<scalar_t>&& A,
+                                Matrix<scalar_t>&& B,
+                scalar_t beta,  Matrix<scalar_t>&& T,
+                int panel_rank,
+                int priority=0, int64_t queue_index=0);
+
+//-----------------------------------------
+// he2hb_her2k_offdiag_ranks()
+template <Target target=Target::HostTask, typename scalar_t>
+void he2hb_her2k_offdiag_ranks(
+        scalar_t alpha, Matrix<scalar_t>&& A,
+                        Matrix<scalar_t>&& B,
+        scalar_t beta,  HermitianMatrix<scalar_t>&& C,
+        std::vector<int64_t>& panel_rank_rows,
+        int priority=0, int64_t queue_index=0);
+
+//-----------------------------------------
 // ttqrt()
 template <Target target=Target::HostTask, typename scalar_t>
 void ttqrt(Matrix<scalar_t>&& A,

@@ -78,11 +78,8 @@ void gecon(
     int64_t m = A.m();
     int64_t nb = A.tileNb(0);
     int p, q;
-    int myrow, mycol;
-    GridOrder order;
-    A.gridinfo(&order, &p, &q, &myrow, &mycol);
-
-    real_t Ainvnorm = 0.0;
+    int myrow, mycol, mpi_size;
+    int izero = 0;
 
     // Quick return
     *rcond = 0.;
@@ -95,6 +92,17 @@ void gecon(
 
     scalar_t alpha = 1.;
 
+    // todo: needed to create X fromScaLAPACK
+    GridOrder grid_order;
+    A.gridinfo(&grid_order, &p, &q, &myrow, &mycol);
+    slate_mpi_call(
+            MPI_Comm_size(A.mpiComm(), &mpi_size));
+    //myrow = A.mpiRank();
+    int64_t mloc  = numberLocalRowOrCol(m, nb, myrow, izero, mpi_size);
+    int64_t lldA  = blas::max(1, mloc);
+
+    real_t Ainvnorm = 0.0;
+    //std::vector<scalar_t> X_data(mloc);
     std::vector<scalar_t> X_data(m);
     std::vector<scalar_t> V_data(m);
     std::vector<int64_t> isgn_data(m);
@@ -104,11 +112,16 @@ void gecon(
     isave[2] = 0;
 
     auto X = slate::Matrix<scalar_t>::fromLAPACK(
-            m, 1, &X_data[0], m, nb, 1, p, q, MPI_COMM_WORLD);
+            m, 1, &X_data[0], m, nb, 1, p, q, A.mpiComm());
+
+    // todo: create X fromScaLAPACK to avoid allocating the entire X on each rank
+    // X will be of size mloc
+    //auto X = slate::Matrix<scalar_t>::fromScaLAPACK(
+    //        m, 1, &X_data[0], lldA, nb, 1, grid_order, p, q, A.mpiComm() );
     auto V = slate::Matrix<scalar_t>::fromLAPACK(
-            m, 1, &V_data[0], m, nb, 1, p, q, MPI_COMM_WORLD);
+            m, 1, &V_data[0], m, nb, 1, p, q, A.mpiComm() );
     auto isgn = slate::Matrix<int64_t>::fromLAPACK(
-            m, 1, &isgn_data[0], m, nb, 1, p, q, MPI_COMM_WORLD);
+            m, 1, &isgn_data[0], m, nb, 1, p, q, A.mpiComm() );
 
     auto L  = TriangularMatrix<scalar_t>(
         Uplo::Lower, slate::Diag::Unit, A );
@@ -118,9 +131,9 @@ void gecon(
     // initial and final value of kase is 0
     kase = 0;
     lacn2( X, V, isgn, &Ainvnorm, &kase, isave, opts);
-    // todo: not always first tile has the max save[0]
-    MPI_Bcast( &isave[0], 3, MPI_INT, X.tileRank(0, 0), MPI_COMM_WORLD );
-    MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), MPI_COMM_WORLD );
+
+    MPI_Bcast( &isave[0], 3, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
+    MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
 
     while (kase != 0)
     {
@@ -142,8 +155,8 @@ void gecon(
         }
 
         lacn2( X, V, isgn, &Ainvnorm, &kase, isave, opts);
-        MPI_Bcast( &isave[0], 3, MPI_INT, X.tileRank(0, 0), MPI_COMM_WORLD );
-        MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), MPI_COMM_WORLD );
+        MPI_Bcast( &isave[0], 3, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
+        MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
     } // while (kase != 0)
 
     // Compute the estimate of the reciprocal condition number.

@@ -13,27 +13,6 @@
 
 namespace slate {
 
-// todo:
-// 1. documentation in lacn2
-// 1. documentation in gecon
-// 2. test gpus
-// 3. way to know tile number
-// 4. quick return inn both
-// 8. test complex: c and z
-// 9. check isave[2] increment
-// 10. check when inf norm
-// 11. square grid, for s and d precisions:
-//       cpu   (orig h targ h,d)              (orig h,d tar h,d)
-// 1x1    y     y                              y
-// 2x2    y     y (if calling trsm not trsmA)  some failure cases
-// 3x3    y     y (if calling trsm not trsmA)
-// 1x2
-// 2x1
-// 1x4
-// 4x1
-// 3x1
-// 1x3
-//
 namespace impl {
 
 //------------------------------------------------------------------------------
@@ -119,7 +98,7 @@ void lacn2(
     const scalar_t zero = 0.0;
 
     int64_t n = X.m();
-    scalar_t xi = one /scalar_t(n);
+    scalar_t alpha = one /scalar_t(n);
 
     int itmax = 5, jlast;
 
@@ -128,7 +107,7 @@ void lacn2(
     // isave[2] = iter
 
     real_t estold = 0., temp;
-    int64_t xs;
+    int64_t sign_x;
 
     int64_t mt = X.mt();
     int mpi_size;
@@ -137,7 +116,7 @@ void lacn2(
     // First iteration, kase = 0
     // Initialize X = 1./n
     if (*kase == 0) {
-        slate::set(xi, xi, X);
+        slate::set(alpha, alpha, X);
         // X to be overwritten by A*X, so kase = 1.
         *kase = 1;
         isave[0] = 1;
@@ -160,7 +139,7 @@ void lacn2(
                     Vi_data[0] = Xi_data[0];
                     *est = std::abs( Vi_data[0] );
                 }
-                MPI_Bcast( est, 1, mpi_real_type, 0, MPI_COMM_WORLD );
+                MPI_Bcast( est, 1, mpi_real_type, 0, X.mpiComm() );
                 // Converged, set kase back to zero
                 *kase = 0;
                 return;
@@ -305,12 +284,12 @@ void lacn2(
                         auto isgn0_data = isgn0.data();
                         for (int64_t ii = 0; ii < X.tileMb(i); ++ii) {
                             if (real( Xi_data[ii] ) > 0.) {
-                                xs = 1;
+                                sign_x = 1;
                             }
                             else {
-                                xs = -1;
+                                sign_x = -1;
                             }
-                            if (xs != isgn0_data[ii]) {
+                            if (sign_x != isgn0_data[ii]) {
                                 if (*est <= estold) {
                                     lacn2_altsgn( X );
                                     *kase = 1;
@@ -321,7 +300,7 @@ void lacn2(
                                 *kase = 2;
                                 isave[0] = 4;
                                 return;
-                            } // if (xs != isgn[i])
+                            } // if (sign_x != isgn[i])
                         } // for ii = 0:nb
                     } // if (X.tileIsLocal(i, j))
                 } // for i = 0:mt
@@ -433,7 +412,6 @@ void lacn2(
             return;
         }
     }
-
 }
 
 } // namespace impl

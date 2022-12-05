@@ -26,6 +26,10 @@ void test_gecon_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
+    // Constants
+    const scalar_t zero = 0;
+    const scalar_t one = 1;
+
     // Decode routine, setting method and chopping off _tntpiv or _nopiv suffix.
     if (ends_with( params.routine, "_tntpiv" )) {
         params.routine = params.routine.substr( 0, params.routine.size() - 7 );
@@ -40,9 +44,9 @@ void test_gecon_work(Params& params, bool run)
     int64_t m;
     m = params.dim.m();
 
+    // get & mark input values
     slate::Norm norm = params.norm();
     int64_t n = params.dim.n();
-    int64_t nrhs = params.nrhs();
     int64_t p = params.grid.m();
     int64_t q = params.grid.n();
     int64_t nb = params.nb();
@@ -76,8 +80,6 @@ void test_gecon_work(Params& params, bool run)
     params.gflops2.name( "lu gflop/s" );
 
     // Suppress norm from output.
-    params.norm.width( 0 );
-    params.nrhs.width( 0 );
     params.pivot_threshold.width( 0 );
 
     if (! run)
@@ -104,26 +106,30 @@ void test_gecon_work(Params& params, bool run)
 
     std::vector<scalar_t> A_data;
     slate::Matrix<scalar_t> A;
-    slate::Matrix<scalar_t> B;
-    slate::Matrix<scalar_t> Iden;
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(
                 m, n,    nb, p, q, MPI_COMM_WORLD );
         A.insertLocalTiles(origin_target);
-        B = slate::Matrix<scalar_t>(
-                m, n,    nb, p, q, MPI_COMM_WORLD );
-        B.insertLocalTiles(origin_target);
-        Iden = slate::Matrix<scalar_t>(
-                m, n,    nb, p, q, MPI_COMM_WORLD );
-        Iden.insertLocalTiles(origin_target);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
         A_data.resize( lldA * nlocA );
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
             m, n, &A_data[0], lldA, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+    }
+
+    slate::Matrix<scalar_t> Acpy;
+    slate::Matrix<scalar_t> Id;
+    if (check) {
+        slate::Target origin_target = origin2target(origin);
+        Acpy = slate::Matrix<scalar_t>(
+                m, n,    nb, p, q, MPI_COMM_WORLD );
+        Acpy.insertLocalTiles(origin_target);
+        Id = slate::Matrix<scalar_t>(
+                m, n,    nb, p, q, MPI_COMM_WORLD );
+        Id.insertLocalTiles(origin_target);
     }
 
     slate::Pivots pivots;
@@ -134,7 +140,7 @@ void test_gecon_work(Params& params, bool run)
     // If check/ref is required, copy test data.
     slate::Matrix<scalar_t> Aref;
     std::vector<scalar_t> Aref_data;
-    if (check || ref) {
+    if (ref) {
         Aref_data.resize( lldA* nlocA );
         Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
                 m, n, &Aref_data[0], lldA, nb, nb,
@@ -148,7 +154,7 @@ void test_gecon_work(Params& params, bool run)
     // Compute the matrix norm
     real_t Anorm = 0;
     Anorm = slate::norm(norm, A, opts);
-    real_t slate_rcond, scl_rcond, rcond;
+    real_t slate_rcond = 0., scl_rcond = 0., exact_rcond = 0.;
 
     if (! ref_only) {
 
@@ -170,19 +176,6 @@ void test_gecon_work(Params& params, bool run)
         params.time2() = time2;
         params.gflops2() = gflop / time2;
 
-        copy(A, B);
-        auto L  = slate::TriangularMatrix<scalar_t>(
-            slate::Uplo::Lower, slate::Diag::Unit, B );
-        auto U  = slate::TriangularMatrix<scalar_t>(
-            slate::Uplo::Upper, slate::Diag::NonUnit, B );
-        //trtri(L, opts);
-        //trtri(U, opts);
-        scalar_t zero = 0.0;
-        scalar_t one = 1.0;
-        set(zero, one, Iden);
-        slate::trsmB(slate::Side::Left, one, L, Iden, opts);
-        slate::trsmB(slate::Side::Left, one, U, Iden, opts);
-        rcond = (1. / slate::norm(norm, Iden, opts)) / Anorm;
 
 
         double time = barrier_get_wtime(MPI_COMM_WORLD);
@@ -196,8 +189,23 @@ void test_gecon_work(Params& params, bool run)
         if (trace) slate::trace::Trace::finish();
     }
 
+    if (check) {
+        // Find the exact condition number:
+        // A * A^-1  = Id
+        // LU * A^-1 = Id
+        // U * A^-1 = trsm(L, Id), Id will be overwritten by the first solve
+        // A^-1     = trsm(U, Id), Id will be overwritten by the second solve
+        // Id is the inverse of the matrix A, norm(A^-1) = norm(Id)
 
-    if (check || ref) {
+        // Copy the factored matrix A into Acpy
+        copy(A, Acpy);
+        // Set the Id matrix to identity
+        set(zero, one, Id);
+        lu_solve_using_factor( Acpy, pivots, Id, opts );
+        exact_rcond = (1. / slate::norm(norm, Id, opts)) / Anorm;
+    }
+
+    if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // A comparison with a reference routine from ScaLAPACK for timing only
 
@@ -246,38 +254,42 @@ void test_gecon_work(Params& params, bool run)
             // Compute the condition number using scalapack
             std::vector<scalar_t> work(lwork);
             std::vector<int> iwork(liwork);
-    #if 1
+
+            // todo: ScaLAPCK pzgecon has a seg fault
+
             scalapack_pgecon( norm2str(norm), n, &Aref_data[0], 1, 1, Aref_desc, &Anorm, &scl_rcond, &work[0], lwork, &iwork[0], liwork, info_ref2);
             slate_assert(info_ref == 0);
-    #endif
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             params.ref_time() = time;
             params.ref_gflops() = gflop / time;
 
-            // Compute the error
-            params.error() = std::abs(slate_rcond - scl_rcond);
-            //params.error() = std::abs(slate_rcond - rcond);
-            real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-            params.okay() = (params.error() <= tol);
-
             Cblacs_gridexit(ictxt);
-            //Cblacs_exit(1) does not handle re-entering
-            real_t error1 = std::abs(slate_rcond - scl_rcond);
-            real_t error2 = std::abs(slate_rcond - rcond);
-            real_t error3 = std::abs(scl_rcond - rcond);
-
-            printf("%-11s  %-11s  %-11s  %-11s\n", "Anorm", "slate_rcond", "scl_rcond", "inv-rcond");
-            printf("%-7.2f  %-7e  %-7e  %-7e\n", Anorm, slate_rcond, scl_rcond, rcond);
-
-            printf("%-11s  %-11s  %-11s\n", "slate-scl", "slate-inv", "scl-inv");
-            printf("%--7e  %-7e  %-7e\n", error1, error2, error3);
 
         #else  // not SLATE_HAVE_SCALAPACK
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif
     }
+
+    // Compute the error
+    //params.error() = std::abs(slate_rcond - scl_rcond);
+    params.error() = std::abs(slate_rcond - exact_rcond);
+    real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+    params.okay() = (params.error() <= tol);
+
+    real_t error1 = std::abs(slate_rcond - scl_rcond);
+    real_t error2 = std::abs(slate_rcond - exact_rcond);
+    real_t error3 = std::abs(scl_rcond - exact_rcond);
+
+    if (verbose && mpi_rank == 0) {
+        printf("%-8s  %-8s  %-8s  %-8s\n", "Anorm", "slate", "scl", "exact");
+        printf("%-2.2e  %-2.2e  %-2.2e  %-2.2e\n", Anorm, slate_rcond, scl_rcond, exact_rcond);
+
+        printf("%-9s  %-9s  %-9s\n", "slate-scl", "slate-inv", "scl-inv");
+        printf("%-9.2e  %-9.2e  %-9.2e\n", error1, error2, error3);
+    }
+
 }
 
 // -----------------------------------------------------------------------------

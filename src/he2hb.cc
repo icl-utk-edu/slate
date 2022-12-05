@@ -518,7 +518,8 @@ void he2hb(
                 // Update trailing matrix from triangle reductions.
                 #pragma omp task depend( in:block[ k ] ) \
                                  depend( inout:block[ k+1 ] ) \
-                                 depend( inout:block[ nt-1 ] )
+                                 depend( inout:block[ nt-1 ] ) \
+                                 depend( inout:fetch_trailing[ 0 ] )
                 {
                     // Do 2-sided Hermitian update:
                     // 3. A = Q^H A Q

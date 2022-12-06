@@ -11,8 +11,6 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::symm from impl::symm
 namespace impl {
 
 //------------------------------------------------------------------------------
@@ -427,11 +425,26 @@ void symm(
                     if (A.mt()-1 > k) {
                         auto Arow_k = A.sub( k, k, k+1, A.mt()-1 );
                         internal::gemm<target>(
-                            alpha, transpose( Arow_k ),
+                            alpha,  transpose( Arow_k ),
                                     std::move( Brow_k ),
                             one,    C.sub( k+1, C.mt()-1, 0, C.nt()-1 ),
                             layout, default_priority, default_queue, opts_local );
+
+                        Arow_k.eraseLocalWorkspace();
+
+                        std::set<ij_tuple> tile_set;
+                        for (int64_t i = 0; i < A.mt(); ++i) {
+                            for (int64_t j = 0; j < C.nt(); ++j) {
+                                if (C.tileIsLocal( i, j ) && ! A.tileIsLocal( k, i )) {
+                                    tile_set.insert( {k, i} );
+                                }
+                            }
+                        }
+                        A.eraseRemoteWorkspace( tile_set );
                     }
+
+                    Brow_k.eraseRemoteWorkspace();
+                    Brow_k.eraseLocalWorkspace();
                 }
             }
         }

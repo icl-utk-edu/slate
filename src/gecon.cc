@@ -91,6 +91,7 @@ void gecon(
     }
 
     scalar_t alpha = 1.;
+    real_t Ainvnorm = 0.0;
 
     // todo: needed to create X fromScaLAPACK
     GridOrder grid_order;
@@ -98,30 +99,23 @@ void gecon(
     slate_mpi_call(
             MPI_Comm_size(A.mpiComm(), &mpi_size));
     //myrow = A.mpiRank();
-    int64_t mloc  = numberLocalRowOrCol(m, nb, myrow, izero, mpi_size);
+    int64_t mloc  = numberLocalRowOrCol(m, nb, myrow, izero, p);
     int64_t lldA  = blas::max(1, mloc);
 
-    real_t Ainvnorm = 0.0;
-    //std::vector<scalar_t> X_data(mloc);
-    std::vector<scalar_t> X_data(m);
-    std::vector<scalar_t> V_data(m);
-    std::vector<int64_t> isgn_data(m);
+    std::vector<scalar_t> X_data(lldA);
+    std::vector<scalar_t> V_data(lldA);
+    std::vector<int64_t> isgn_data(lldA);
     std::vector<int64_t> isave(3);
     isave[0] = 0;
     isave[1] = 0;
     isave[2] = 0;
 
-    auto X = slate::Matrix<scalar_t>::fromLAPACK(
-            m, 1, &X_data[0], m, nb, 1, p, q, A.mpiComm());
-
-    // todo: create X fromScaLAPACK to avoid allocating the entire X on each rank
-    // X will be of size mloc
-    //auto X = slate::Matrix<scalar_t>::fromScaLAPACK(
-    //        m, 1, &X_data[0], lldA, nb, 1, grid_order, p, q, A.mpiComm() );
-    auto V = slate::Matrix<scalar_t>::fromLAPACK(
-            m, 1, &V_data[0], m, nb, 1, p, q, A.mpiComm() );
-    auto isgn = slate::Matrix<int64_t>::fromLAPACK(
-            m, 1, &isgn_data[0], m, nb, 1, p, q, A.mpiComm() );
+    auto X = slate::Matrix<scalar_t>::fromScaLAPACK(
+            m, 1, &X_data[0], lldA, nb, 1, p, q, A.mpiComm() );
+    auto V = slate::Matrix<scalar_t>::fromScaLAPACK(
+            m, 1, &V_data[0], lldA, nb, 1, p, q, A.mpiComm() );
+    auto isgn = slate::Matrix<int64_t>::fromScaLAPACK(
+            m, 1, &isgn_data[0], lldA, nb, 1, p, q, A.mpiComm() );
 
     auto L  = TriangularMatrix<scalar_t>(
         Uplo::Lower, slate::Diag::Unit, A );

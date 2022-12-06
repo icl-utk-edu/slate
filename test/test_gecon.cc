@@ -120,13 +120,14 @@ void test_gecon_work(Params& params, bool run)
             m, n, &A_data[0], lldA, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
     }
 
-    slate::Matrix<scalar_t> Acpy;
+    slate::Matrix<scalar_t> LUcpy;
     slate::Matrix<scalar_t> Id;
     if (check) {
         slate::Target origin_target = origin2target(origin);
-        Acpy = slate::Matrix<scalar_t>(
+        // Create a matrix to copy the LU factorization to it
+        LUcpy = slate::Matrix<scalar_t>(
                 m, n,    nb, p, q, MPI_COMM_WORLD );
-        Acpy.insertLocalTiles(origin_target);
+        LUcpy.insertLocalTiles(origin_target);
         Id = slate::Matrix<scalar_t>(
                 m, n,    nb, p, q, MPI_COMM_WORLD );
         Id.insertLocalTiles(origin_target);
@@ -137,7 +138,7 @@ void test_gecon_work(Params& params, bool run)
     slate::generate_matrix(params.matrix,  A);
     print_matrix("A", A, params);
 
-    // If check/ref is required, copy test data.
+    // If ref is required, copy test data.
     slate::Matrix<scalar_t> Aref;
     std::vector<scalar_t> Aref_data;
     if (ref) {
@@ -187,22 +188,6 @@ void test_gecon_work(Params& params, bool run)
         params.gflops() = gflop / time;
 
         if (trace) slate::trace::Trace::finish();
-    }
-
-    if (check) {
-        // Find the exact condition number:
-        // A * A^-1  = Id
-        // LU * A^-1 = Id
-        // U * A^-1 = trsm(L, Id), Id will be overwritten by the first solve
-        // A^-1     = trsm(U, Id), Id will be overwritten by the second solve
-        // Id is the inverse of the matrix A, norm(A^-1) = norm(Id)
-
-        // Copy the factored matrix A into Acpy
-        copy(A, Acpy);
-        // Set the Id matrix to identity
-        set(zero, one, Id);
-        lu_solve_using_factor( Acpy, pivots, Id, opts );
-        exact_rcond = (1. / slate::norm(norm, Id, opts)) / Anorm;
     }
 
     if (ref) {
@@ -272,17 +257,33 @@ void test_gecon_work(Params& params, bool run)
         #endif
     }
 
-    // Compute the error
-    //params.error() = std::abs(slate_rcond - scl_rcond);
-    params.error() = std::abs(slate_rcond - exact_rcond);
-    real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-    params.okay() = (params.error() <= tol);
+    if (check) {
+        // Find the exact condition number:
+        // A * A^-1  = Id
+        // LU * A^-1 = Id
+        // U * A^-1 = trsm(L, Id), Id will be overwritten by the first solve
+        // A^-1     = trsm(U, Id), Id will be overwritten by the second solve
+        // Id is the inverse of the matrix A, norm(A^-1) = norm(Id)
 
-    real_t error1 = std::abs(slate_rcond - scl_rcond);
-    real_t error2 = std::abs(slate_rcond - exact_rcond);
-    real_t error3 = std::abs(scl_rcond - exact_rcond);
+        // Copy the factored matrix A into Acpy
+        copy(A, LUcpy);
+        // Set the Id matrix to identity
+        set(zero, one, Id);
+        lu_solve_using_factor( LUcpy, pivots, Id, opts );
+        exact_rcond = (1. / slate::norm(norm, Id, opts)) / Anorm;
+
+        // Compute the error
+        //params.error() = std::abs(slate_rcond - scl_rcond);
+        params.error() = std::abs(slate_rcond - exact_rcond);
+        real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+        params.okay() = (params.error() <= tol);
+    }
 
     if (verbose && mpi_rank == 0) {
+        real_t error1 = std::abs(slate_rcond - scl_rcond);
+        real_t error2 = std::abs(slate_rcond - exact_rcond);
+        real_t error3 = std::abs(scl_rcond - exact_rcond);
+
         printf("%-8s  %-8s  %-8s  %-8s\n", "Anorm", "slate", "scl", "exact");
         printf("%-2.2e  %-2.2e  %-2.2e  %-2.2e\n", Anorm, slate_rcond, scl_rcond, exact_rcond);
 

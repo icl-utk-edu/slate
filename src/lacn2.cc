@@ -139,7 +139,7 @@ void lacn2(
                     Vi_data[0] = Xi_data[0];
                     *est = std::abs( Vi_data[0] );
                 }
-                MPI_Bcast( est, 1, mpi_real_type, 0, X.mpiComm() );
+                MPI_Bcast( est, 1, mpi_real_type, X.tileRank(0, 0), X.mpiComm() );
                 // Converged, set kase back to zero
                 *kase = 0;
                 return;

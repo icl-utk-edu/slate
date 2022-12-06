@@ -167,7 +167,6 @@ void colNorms(
             impl::colNorms<Target::Devices>( in_norm, A, values, opts );
             break;
     }
-    throw std::exception();  // todo: invalid target
 }
 
 //------------------------------------------------------------------------------

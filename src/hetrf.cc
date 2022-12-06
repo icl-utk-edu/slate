@@ -15,22 +15,20 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::hetrf from internal::specialization::hetrf
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Hermitian indefinite $LTL^T$ factorization.
 /// Generic implementation for any target.
-/// @ingroup hesv_specialization
+/// <b>GPU version not yet implemented.</b>
+/// @ingroup hesv_impl
 ///
 template <Target target, typename scalar_t>
-void hetrf(slate::internal::TargetType<target>,
-           HermitianMatrix<scalar_t>& A, Pivots& pivots,
-                BandMatrix<scalar_t>& T, Pivots& pivots2,
-                    Matrix<scalar_t>& H,
-           int64_t ib, int64_t max_panel_threads, int64_t lookahead)
+void hetrf(
+    HermitianMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+    Options const& opts)
 {
     using blas::conj;
     using BcastList  = typename Matrix<scalar_t>::BcastList;
@@ -38,6 +36,13 @@ void hetrf(slate::internal::TargetType<target>,
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
+    int64_t max_panel_threads = std::max( omp_get_max_threads()/2, 1 );
+    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
+                                             max_panel_threads );
 
     int64_t A_mt = A.mt();
 
@@ -489,46 +494,7 @@ void hetrf(slate::internal::TargetType<target>,
     // Debug::printTilesMaps(A);
 }
 
-//------------------------------------------------------------------------------
-/// Distributed parallel Hermitian indefinite $LTL^T$ factorization.
-/// GPU device batched cuBLAS implementation.
-/// <b>GPU version not yet implemented.</b>
-/// @ingroup hesv_specialization
-///
-template <typename scalar_t>
-void hetrf(slate::internal::TargetType<Target::Devices>,
-           HermitianMatrix<scalar_t>& A, Pivots& pivots,
-                BandMatrix<scalar_t>& T,
-                    Matrix<scalar_t>& H)
-{
-    slate_assert(false);  // GPU not yet implemented
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup hesv_specialization
-///
-template <Target target, typename scalar_t>
-void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
-                BandMatrix<scalar_t>& T, Pivots& pivots2,
-                    Matrix<scalar_t>& H,
-           Options const& opts)
-{
-
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
-    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
-
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::hetrf(internal::TargetType<target>(),
-                                    A, pivots, T, pivots2,
-                                    H, ib, max_panel_threads, lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Hermitian indefinite $LTL^T$ factorization.
@@ -589,26 +555,30 @@ void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 /// @ingroup hesv_computational
 ///
 template <typename scalar_t>
-void hetrf(HermitianMatrix<scalar_t>& A, Pivots& pivots,
-                BandMatrix<scalar_t>& T, Pivots& pivots2,
-                    Matrix<scalar_t>& H,
-           Options const& opts)
+void hetrf(
+    HermitianMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+    Options const& opts)
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            hetrf<Target::HostTask>(A, pivots, T, pivots2, H, opts);
+            impl::hetrf<Target::HostTask>( A, pivots, T, pivots2, H, opts );
             break;
+
         case Target::HostNest:
-            hetrf<Target::HostNest>(A, pivots, T, pivots2, H, opts);
+            impl::hetrf<Target::HostNest>( A, pivots, T, pivots2, H, opts );
             break;
+
         case Target::HostBatch:
-            hetrf<Target::HostBatch>(A, pivots, T, pivots2, H, opts);
+            impl::hetrf<Target::HostBatch>( A, pivots, T, pivots2, H, opts );
             break;
+
         case Target::Devices:
-            hetrf<Target::Devices>(A, pivots, T, pivots2, H, opts);
+            slate_not_implemented( "hetrf not yet implemented for GPU devices" );
             break;
     }
     // todo: return value for errors?

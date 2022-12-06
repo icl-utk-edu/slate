@@ -18,7 +18,6 @@ namespace impl {
 ///
 template <Target target, typename scalar_t, typename scalar_t2>
 void scale_row_col(
-    slate::internal::TargetType<target>,
     Equed equed,
     std::vector<scalar_t2> const& R,
     std::vector<scalar_t2> const& C,
@@ -113,13 +112,11 @@ void scale_row_col(
         case Target::HostTask:
         case Target::HostNest:
         case Target::HostBatch:
-            impl::scale_row_col( internal::TargetType<Target::HostTask>(),
-                                 equed, R, C, A, opts );
+            impl::scale_row_col<Target::HostTask>( equed, R, C, A, opts );
             break;
 
         case Target::Devices:
-            impl::scale_row_col( internal::TargetType<Target::Devices>(),
-                                 equed, R, C, A, opts );
+            impl::scale_row_col<Target::Devices>( equed, R, C, A, opts );
             break;
     }
 }

@@ -12,21 +12,18 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::getrf_nopiv from internal::specialization::getrf_nopiv
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization without pivoting.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
-/// @ingroup gesv_specialization
+/// @ingroup gesv_impl
 ///
 template <Target target, typename scalar_t>
-void getrf_nopiv(slate::internal::TargetType<target>,
-           Matrix<scalar_t>& A,
-           int64_t ib, int64_t lookahead)
+void getrf_nopiv(
+    Matrix<scalar_t>& A,
+    Options const& opts )
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
@@ -34,6 +31,10 @@ void getrf_nopiv(slate::internal::TargetType<target>,
     const scalar_t one = 1.0;
 
     Layout layout = Layout::ColMajor;
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
 
     if (target == Target::Devices) {
         // two batch arrays plus one for each lookahead
@@ -227,24 +228,7 @@ void getrf_nopiv(slate::internal::TargetType<target>,
     A.clearWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gesv_specialization
-///
-template <Target target, typename scalar_t>
-void getrf_nopiv(Matrix<scalar_t>& A,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
-    internal::specialization::getrf_nopiv(internal::TargetType<target>(),
-                                          A, ib, lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization without pivoting.
@@ -294,24 +278,28 @@ void getrf_nopiv(Matrix<scalar_t>& A,
 /// @ingroup gesv_computational
 ///
 template <typename scalar_t>
-void getrf_nopiv(Matrix<scalar_t>& A,
-           Options const& opts)
+void getrf_nopiv(
+    Matrix<scalar_t>& A,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            getrf_nopiv<Target::HostTask>(A, opts);
+            impl::getrf_nopiv<Target::HostTask>( A, opts );
             break;
+
         case Target::HostNest:
-            getrf_nopiv<Target::HostNest>(A, opts);
+            impl::getrf_nopiv<Target::HostNest>( A, opts );
             break;
+
         case Target::HostBatch:
-            getrf_nopiv<Target::HostBatch>(A, opts);
+            impl::getrf_nopiv<Target::HostBatch>( A, opts );
             break;
+
         case Target::Devices:
-            getrf_nopiv<Target::Devices>(A, opts);
+            impl::getrf_nopiv<Target::Devices>( A, opts );
             break;
     }
     // todo: return value for errors?

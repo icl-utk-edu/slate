@@ -12,29 +12,30 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::potrf from impl::potrf
 namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
-/// @ingroup posv_specialization
+/// @ingroup posv_impl
 ///
 template <Target target, typename scalar_t>
-void potrf(slate::internal::TargetType<target>,
-           HermitianMatrix<scalar_t> A, Options const& opts)
+void potrf(
+    slate::internal::TargetType<target>,
+    HermitianMatrix<scalar_t> A,
+    Options const& opts )
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
     const scalar_t one = 1.0;
 
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
@@ -134,16 +135,24 @@ void potrf(slate::internal::TargetType<target>,
 //------------------------------------------------------------------------------
 /// Distributed parallel Cholesky factorization.
 /// GPU device batched cuBLAS implementation.
-/// @ingroup posv_specialization
+/// @ingroup posv_impl
 ///
-template <Target target, typename scalar_t>
-void potrf(slate::internal::TargetType<Target::Devices>,
-           HermitianMatrix<scalar_t> A, Options const& opts)
+template <typename scalar_t>
+void potrf(
+    slate::internal::TargetType<Target::Devices>,
+    HermitianMatrix<scalar_t> A,
+    Options const& opts )
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
     const scalar_t one = 1.0;
+
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // Use only TileReleaseStrategy::Slate for potrf.
     // Internal routines (trsm, herk, gemm) called in
@@ -152,12 +161,8 @@ void potrf(slate::internal::TargetType<Target::Devices>,
     Options opts2 = Options( opts );
     opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
-    int64_t lookahead = get_option<int64_t>( opts2, Option::Lookahead, 1 );
     bool hold_local_workspace = get_option<bool>(
             opts2, Option::HoldLocalWorkspace, 0 );
-
-    // Assumes column major
-    const Layout layout = Layout::ColMajor;
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
@@ -359,29 +364,30 @@ void potrf(slate::internal::TargetType<Target::Devices>,
 /// @ingroup posv_computational
 ///
 template <typename scalar_t>
-void potrf(HermitianMatrix<scalar_t>& A,
-           Options const& opts)
+void potrf(
+    HermitianMatrix<scalar_t>& A,
+    Options const& opts)
 {
     using internal::TargetType;
+
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::potrf<Target::HostTask>( TargetType<Target::HostTask>(),
-                                           A, opts);
+            impl::potrf( TargetType<Target::HostTask>(), A, opts );
             break;
+
         case Target::HostNest:
-            impl::potrf<Target::HostNest>( TargetType<Target::HostNest>(),
-                                           A, opts);
+            impl::potrf( TargetType<Target::HostNest>(), A, opts );
             break;
+
         case Target::HostBatch:
-            impl::potrf<Target::HostBatch>( TargetType<Target::HostBatch>(),
-                                            A, opts);
+            impl::potrf( TargetType<Target::HostBatch>(), A, opts );
             break;
+
         case Target::Devices:
-            impl::potrf<Target::Devices>( TargetType<Target::Devices>(),
-                                          A, opts);
+            impl::potrf( TargetType<Target::Devices>(), A, opts );
             break;
     }
     // todo: return value for errors?

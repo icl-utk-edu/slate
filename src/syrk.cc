@@ -11,10 +11,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::syrk from internal::specialization::syrk
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
@@ -26,13 +23,13 @@ namespace specialization {
 /// - bcasts can get ahead of syrks by the value of lookahead.
 /// Note A and C are passed by value, so we can transpose if needed
 /// (for uplo = Upper) without affecting caller.
-/// @ingroup syrk_specialization
+/// @ingroup syrk_impl
 ///
 template <Target target, typename scalar_t>
-void syrk(slate::internal::TargetType<target>,
-          scalar_t alpha, Matrix<scalar_t> A,
-          scalar_t beta,  SymmetricMatrix<scalar_t> C,
-          int64_t lookahead)
+void syrk(
+    scalar_t alpha, Matrix<scalar_t> A,
+    scalar_t beta,  SymmetricMatrix<scalar_t> C,
+    Options const& opts )
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
@@ -40,6 +37,9 @@ void syrk(slate::internal::TargetType<target>,
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // if upper, change to lower
     if (C.uplo() == Uplo::Upper)
@@ -142,25 +142,7 @@ void syrk(slate::internal::TargetType<target>,
     C.clearWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup syrk_specialization
-///
-template <Target target, typename scalar_t>
-void syrk(scalar_t alpha, Matrix<scalar_t>& A,
-          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::syrk(internal::TargetType<target>(),
-                                   alpha, A,
-                                   beta,  C,
-                                   lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel symmetric rank k update.
@@ -208,25 +190,29 @@ void syrk(scalar_t alpha, Matrix<scalar_t>& A,
 /// @ingroup syrk
 ///
 template <typename scalar_t>
-void syrk(scalar_t alpha, Matrix<scalar_t>& A,
-          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          Options const& opts)
+void syrk(
+    scalar_t alpha, Matrix<scalar_t>& A,
+    scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            syrk<Target::HostTask>(alpha, A, beta, C, opts);
+            impl::syrk<Target::HostTask>( alpha, A, beta, C, opts );
             break;
+
         case Target::HostNest:
-            syrk<Target::HostNest>(alpha, A, beta, C, opts);
+            impl::syrk<Target::HostNest>( alpha, A, beta, C, opts );
             break;
+
         case Target::HostBatch:
-            syrk<Target::HostBatch>(alpha, A, beta, C, opts);
+            impl::syrk<Target::HostBatch>( alpha, A, beta, C, opts );
             break;
+
         case Target::Devices:
-            syrk<Target::Devices>(alpha, A, beta, C, opts);
+            impl::syrk<Target::Devices>( alpha, A, beta, C, opts );
             break;
     }
 }

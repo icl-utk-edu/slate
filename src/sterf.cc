@@ -6,74 +6,28 @@
 #include "slate/slate.hh"
 // #include "auxiliary/Debug.hh"
 #include "slate/Tile_blas.hh"
-#include "slate/HermitianBandMatrix.hh"
 #include "internal/internal.hh"
 #include "internal/internal_util.hh"
 
-#include <atomic>
-
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::sterf from internal::specialization::sterf
-namespace internal {
-namespace specialization {
-
 //------------------------------------------------------------------------------
-/// computes all eigenvalues of a symmetric tridiagonal matrix
+/// Computes all eigenvalues of a symmetric tridiagonal matrix
 /// using the Pal-Walker-Kahan variant of the QL or QR algorithm.
-/// Generic implementation for any target.
-/// @ingroup svd_specialization
 ///
-// ATTENTION: only host computation supported for now
-//
-template <Target target, typename scalar_t>
-void sterf(slate::internal::TargetType<target>,
-           std::vector< scalar_t >& D,
-           std::vector< scalar_t >& E)
+/// ATTENTION: only host computation supported for now
+///
+/// @ingroup svd_computational
+///
+template <typename scalar_t>
+void sterf(
+    std::vector< scalar_t >& D,
+    std::vector< scalar_t >& E,
+    Options const& opts )
 {
     trace::Block trace_block("lapack::sterf");
 
-    lapack::sterf(D.size(), &D[0], &E[0]);
-}
-
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup svd_specialization
-///
-template <Target target, typename scalar_t>
-void sterf(std::vector< scalar_t >& D,
-           std::vector< scalar_t >& E,
-           Options const& opts)
-{
-    internal::specialization::sterf<target, scalar_t>(
-                                    internal::TargetType<target>(),
-                                    D, E);
-}
-
-//------------------------------------------------------------------------------
-///
-template <typename scalar_t>
-void sterf(std::vector< scalar_t >& D,
-           std::vector< scalar_t >& E,
-           Options const& opts)
-{
-    Target target = get_option( opts, Option::Target, Target::HostTask );
-
-    // only HostTask implementation is provided, since it calls LAPACK only
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-        case Target::HostNest:
-        case Target::HostBatch:
-        case Target::Devices:
-            sterf<Target::HostTask, scalar_t>(D, E, opts);
-            break;
-    }
-    // todo: return value for errors?
+    lapack::sterf( D.size(), &D[0], &E[0] );
 }
 
 //------------------------------------------------------------------------------

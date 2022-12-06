@@ -11,10 +11,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::tbsm from internal::specialization::tbsm
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
@@ -22,15 +19,15 @@ namespace specialization {
 /// Generic implementation for any target.
 /// Note A and B are passed by value, so we can transpose if needed
 /// (for side = right) without affecting caller.
-/// @ingroup tbsm_specialization
+/// @ingroup tbsm_impl
 ///
 template <Target target, typename scalar_t>
-void tbsm(slate::internal::TargetType<target>,
-          Side side,
-          scalar_t alpha,
-          TriangularBandMatrix<scalar_t> A, Pivots& pivots,
-                        Matrix<scalar_t> B,
-          int64_t lookahead)
+void tbsm(
+    Side side,
+    scalar_t alpha,
+    TriangularBandMatrix<scalar_t> A, Pivots& pivots,
+                  Matrix<scalar_t> B,
+    Options const& opts )
 {
     using blas::conj;
     using blas::min;
@@ -39,6 +36,9 @@ void tbsm(slate::internal::TargetType<target>,
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // if on right, change to left by (conj)-transposing A and B to get
     // op(B) = op(A)^{-1} * op(B)
@@ -313,28 +313,7 @@ void tbsm(slate::internal::TargetType<target>,
     B.clearWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup tbsm_specialization
-///
-template <Target target, typename scalar_t>
-void tbsm(blas::Side side,
-          scalar_t alpha,
-          TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
-                        Matrix<scalar_t>& B,
-          Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::tbsm(internal::TargetType<target>(),
-                                   side,
-                                   alpha, A, pivots,
-                                          B,
-                                   lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel triangular band matrix-matrix solve.
@@ -393,27 +372,31 @@ void tbsm(blas::Side side,
 /// @ingroup tbsm
 ///
 template <typename scalar_t>
-void tbsm(blas::Side side,
-          scalar_t alpha,
-          TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
-                        Matrix<scalar_t>& B,
-          Options const& opts)
+void tbsm(
+    blas::Side side,
+    scalar_t alpha,
+    TriangularBandMatrix<scalar_t>& A, Pivots& pivots,
+                  Matrix<scalar_t>& B,
+    Options const& opts)
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            tbsm<Target::HostTask>(side, alpha, A, pivots, B, opts);
+            impl::tbsm<Target::HostTask>( side, alpha, A, pivots, B, opts );
             break;
+
         case Target::HostNest:
-            tbsm<Target::HostNest>(side, alpha, A, pivots, B, opts);
+            impl::tbsm<Target::HostNest>( side, alpha, A, pivots, B, opts );
             break;
+
         case Target::HostBatch:
-            tbsm<Target::HostBatch>(side, alpha, A, pivots, B, opts);
+            impl::tbsm<Target::HostBatch>( side, alpha, A, pivots, B, opts );
             break;
+
         case Target::Devices:
-            tbsm<Target::Devices>(side, alpha, A, pivots, B, opts);
+            impl::tbsm<Target::Devices>( side, alpha, A, pivots, B, opts );
             break;
     }
 }

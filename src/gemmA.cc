@@ -14,6 +14,7 @@
 namespace slate {
 
 namespace impl {
+
 //------------------------------------------------------------------------------
 /// @internal
 /// Distributed parallel general matrix-matrix multiplication.
@@ -34,13 +35,14 @@ void gemmA(
     scalar_t alpha, Matrix<scalar_t>& A,
                     Matrix<scalar_t>& B,
     scalar_t beta,  Matrix<scalar_t>& C,
-    Options const& opts)
+    Options const& opts )
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
+    // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // OpenMP needs pointer types, but vectors are exception safe
@@ -233,10 +235,11 @@ void gemmA(
 /// @ingroup gemm
 ///
 template <typename scalar_t>
-void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts)
+void gemmA(
+    scalar_t alpha, Matrix<scalar_t>& A,
+                    Matrix<scalar_t>& B,
+    scalar_t beta,  Matrix<scalar_t>& C,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
@@ -247,6 +250,7 @@ void gemmA(scalar_t alpha, Matrix<scalar_t>& A,
         case Target::HostBatch:
             impl::gemmA<Target::HostTask>( alpha, A, B, beta, C, opts );
             break;
+
         case Target::Devices:
             impl::gemmA<Target::Devices>( alpha, A, B, beta, C, opts );
             break;

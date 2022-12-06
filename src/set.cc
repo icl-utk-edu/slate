@@ -8,22 +8,19 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::set from internal::specialization::set
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
 /// Set matrix entries.
 /// Generic implementation for any target.
-/// @ingroup set_specialization
+/// @ingroup set_impl
 ///
 template <Target target, typename scalar_t>
 void set(
-    slate::internal::TargetType<target>,
     scalar_t offdiag_value, scalar_t diag_value,
-    Matrix<scalar_t>& A )
+    Matrix<scalar_t>& A,
+    Options const& opts )
 {
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -42,22 +39,7 @@ void set(
     A.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup set_specialization
-///
-template <Target target, typename scalar_t>
-void set(
-    scalar_t offdiag_value, scalar_t diag_value,
-    Matrix<scalar_t>& A,
-    Options const& opts )
-{
-    internal::specialization::set(internal::TargetType<target>(),
-                                  offdiag_value, diag_value, A);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Set matrix entries.
@@ -93,7 +75,7 @@ void set(
         case Target::Host:
         case Target::HostTask:
         default: // todo: this is to silence a warning, should err otherwise
-            set<Target::HostTask>( offdiag_value, diag_value, A, opts );
+            impl::set<Target::HostTask>( offdiag_value, diag_value, A, opts );
             break;
 //      case Target::HostNest:
 //          set<Target::HostNest>( offdiag_value, diag_value, A, opts );
@@ -101,8 +83,9 @@ void set(
 //      case Target::HostBatch:
 //          set<Target::HostBatch>( offdiag_value, diag_value, A, opts );
 //          break;
+
         case Target::Devices:
-            set<Target::Devices>( offdiag_value, diag_value, A, opts );
+            impl::set<Target::Devices>( offdiag_value, diag_value, A, opts );
             break;
     }
 }
@@ -133,25 +116,23 @@ void set(
     Matrix<std::complex<double> >& A,
     Options const& opts);
 
-//----------------
-// Added for BaseTrapezoidMatrix.
-//----------------
-// specialization namespace differentiates, e.g.,
-// internal::set from internal::specialization::set
-namespace internal {
-namespace specialization {
+//==============================================================================
+// For BaseTrapezoidMatrix.
+//==============================================================================
+
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
 /// Set matrix entries.
 /// Generic implementation for any target.
-/// @ingroup set_specialization
+/// @ingroup set_impl
 ///
 template <Target target, typename scalar_t>
 void set(
-    slate::internal::TargetType<target>,
     scalar_t offdiag_value, scalar_t diag_value,
-    BaseTrapezoidMatrix<scalar_t>& A)
+    BaseTrapezoidMatrix<scalar_t>& A,
+    Options const& opts )
 {
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -170,22 +151,7 @@ void set(
     A.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup set_specialization
-///
-template <Target target, typename scalar_t>
-void set(
-    scalar_t offdiag_value, scalar_t diag_value,
-    BaseTrapezoidMatrix<scalar_t>& A,
-    Options const& opts )
-{
-    internal::specialization::set(internal::TargetType<target>(),
-                                  offdiag_value, diag_value, A);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Set matrix entries.
@@ -221,7 +187,7 @@ void set(
         case Target::Host:
         case Target::HostTask:
         default: // todo: this is to silence a warning, should err otherwise
-            set<Target::HostTask>( offdiag_value, diag_value, A, opts );
+            impl::set<Target::HostTask>( offdiag_value, diag_value, A, opts );
             break;
 //      case Target::HostNest:
 //          set<Target::HostNest>( offdiag_value, diag_value, A, opts );
@@ -229,8 +195,9 @@ void set(
 //      case Target::HostBatch:
 //          set<Target::HostBatch>( offdiag_value, diag_value, A, opts );
 //          break;
+
         case Target::Devices:
-            set<Target::Devices>( offdiag_value, diag_value, A, opts );
+            impl::set<Target::Devices>( offdiag_value, diag_value, A, opts );
             break;
     }
 }

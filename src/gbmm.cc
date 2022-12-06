@@ -11,10 +11,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::gbmm from internal::specialization::gbmm
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
@@ -26,14 +23,14 @@ namespace specialization {
 /// - bcasts can get ahead of gemms by the value of lookahead.
 /// ColMajor layout is assumed
 ///
-/// @ingroup gbmm_specialization
+/// @ingroup gbmm_impl
 ///
 template <Target target, typename scalar_t>
-void gbmm(slate::internal::TargetType<target>,
-          scalar_t alpha, BandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          int64_t lookahead)
+void gbmm(
+    scalar_t alpha, BandMatrix<scalar_t>& A,
+                    Matrix<scalar_t>& B,
+    scalar_t beta,  Matrix<scalar_t>& C,
+    Options const& opts )
 {
     using blas::min;
     using blas::max;
@@ -45,6 +42,9 @@ void gbmm(slate::internal::TargetType<target>,
     const Layout layout = Layout::ColMajor;
 
     const scalar_t one = 1.0;
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
@@ -198,27 +198,7 @@ void gbmm(slate::internal::TargetType<target>,
     C.clearWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gbmm_specialization
-///
-template <Target target, typename scalar_t>
-void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::gbmm(internal::TargetType<target>(),
-                                   alpha, A,
-                                          B,
-                                   beta,  C,
-                                   lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel general matrix-matrix multiplication.
@@ -269,26 +249,30 @@ void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
 /// @ingroup gbmm
 ///
 template <typename scalar_t>
-void gbmm(scalar_t alpha, BandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts)
+void gbmm(
+    scalar_t alpha, BandMatrix<scalar_t>& A,
+                    Matrix<scalar_t>& B,
+    scalar_t beta,  Matrix<scalar_t>& C,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            gbmm<Target::HostTask>(alpha, A, B, beta, C, opts);
+            impl::gbmm<Target::HostTask>( alpha, A, B, beta, C, opts );
             break;
+
         case Target::HostNest:
-            gbmm<Target::HostNest>(alpha, A, B, beta, C, opts);
+            impl::gbmm<Target::HostNest>( alpha, A, B, beta, C, opts );
             break;
+
         case Target::HostBatch:
-            gbmm<Target::HostBatch>(alpha, A, B, beta, C, opts);
+            impl::gbmm<Target::HostBatch>( alpha, A, B, beta, C, opts );
             break;
+
         case Target::Devices:
-            gbmm<Target::Devices>(alpha, A, B, beta, C, opts);
+            impl::gbmm<Target::Devices>( alpha, A, B, beta, C, opts );
             break;
     }
 }

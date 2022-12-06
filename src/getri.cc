@@ -12,15 +12,12 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::getri from internal::specialization::getri
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel inverse of a general matrix.
 /// Generic implementation for any target.
-/// @ingroup gesv_specialization
+/// @ingroup gesv_impl
 ///
 /// todo: This routine is in-place and does not support GPUs.
 ///       There is another one (out-of-place) that does.
@@ -29,10 +26,12 @@ namespace specialization {
 ///       b) error out (not supported)?
 ///
 template <Target target, typename scalar_t>
-void getri(slate::internal::TargetType<target>,
-           Matrix<scalar_t>& A, Pivots& pivots,
-           int64_t lookahead)
+void getri(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts )
 {
+    slate_assert(A.mt() == A.nt());  // square
+
     using BcastList = typename Matrix<scalar_t>::BcastList;
     using ReduceList = typename Matrix<scalar_t>::ReduceList;
 
@@ -141,24 +140,7 @@ void getri(slate::internal::TargetType<target>,
     }
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gesv_specialization
-///
-template <Target target, typename scalar_t>
-void getri(Matrix<scalar_t>& A, Pivots& pivots,
-           Options const& opts)
-{
-    slate_assert(A.mt() == A.nt());  // square
-
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::getri(internal::TargetType<target>(),
-                                    A, pivots, lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU inversion.
@@ -183,9 +165,6 @@ void getri(Matrix<scalar_t>& A, Pivots& pivots,
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
-///     - Option::Lookahead:
-///       Number of panels to overlap with matrix updates.
-///       lookahead >= 0. Default 1.
 ///     - Option::Target:
 ///       Implementation to target. Possible values:
 ///       - HostTask:  OpenMP tasks on CPU host [default].
@@ -196,8 +175,9 @@ void getri(Matrix<scalar_t>& A, Pivots& pivots,
 /// @ingroup gesv_computational
 ///
 template <typename scalar_t>
-void getri(Matrix<scalar_t>& A, Pivots& pivots,
-           Options const& opts)
+void getri(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts )
 {
     // triangular inversion
     auto U = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, A);
@@ -208,16 +188,19 @@ void getri(Matrix<scalar_t>& A, Pivots& pivots,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            getri<Target::HostTask>(A, pivots, opts);
+            impl::getri<Target::HostTask>( A, pivots, opts );
             break;
+
         case Target::HostNest:
-            getri<Target::HostNest>(A, pivots, opts);
+            impl::getri<Target::HostNest>( A, pivots, opts );
             break;
+
         case Target::HostBatch:
-            getri<Target::HostBatch>(A, pivots, opts);
+            impl::getri<Target::HostBatch>( A, pivots, opts );
             break;
+
         case Target::Devices:
-            getri<Target::Devices>(A, pivots, opts);
+            impl::getri<Target::Devices>( A, pivots, opts );
             break;
     }
     // todo: return value for errors?

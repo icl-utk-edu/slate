@@ -71,6 +71,7 @@ void getrs(Matrix<scalar_t>& A, Pivots& pivots,
     // Constants
     const scalar_t one  = 1;
 
+    // Options
     Method method = get_option( opts, Option::MethodLU, MethodLU::PartialPiv );
 
     assert(A.mt() == A.nt());

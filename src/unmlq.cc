@@ -11,23 +11,20 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::unmlq from internal::specialization::unmlq
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel multiply by Q from LQ factorization.
 /// Generic implementation for any target.
-/// @ingroup gelqf_specialization
+/// @ingroup gelqf_impl
 ///
 template <Target target, typename scalar_t>
 void unmlq(
-    slate::internal::TargetType<target>,
     Side side, Op op,
     Matrix<scalar_t>& A,
     TriangularFactors<scalar_t>& T,
-    Matrix<scalar_t>& C)
+    Matrix<scalar_t>& C,
+    Options const& opts )
 {
     // trace::Block trace_block("unmlq");
     // const int priority_one = 1;
@@ -253,24 +250,7 @@ void unmlq(
     C.clearWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gelqf_specialization
-///
-template <Target target, typename scalar_t>
-void unmlq(
-    Side side, Op op,
-    Matrix<scalar_t>& A,
-    TriangularFactors<scalar_t>& T,
-    Matrix<scalar_t>& C,
-    Options const& opts)
-{
-    internal::specialization::unmlq(internal::TargetType<target>(),
-                                    side, op, A, T, C);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel multiply by $Q$ from LQ factorization.
@@ -334,23 +314,26 @@ void unmlq(
     Matrix<scalar_t>& A,
     TriangularFactors<scalar_t>& T,
     Matrix<scalar_t>& C,
-    Options const& opts)
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            unmlq<Target::HostTask>(side, op, A, T, C, opts);
+            impl::unmlq<Target::HostTask>( side, op, A, T, C, opts  );
             break;
+
         case Target::HostNest:
-            unmlq<Target::HostNest>(side, op, A, T, C, opts);
+            impl::unmlq<Target::HostNest>( side, op, A, T, C, opts  );
             break;
+
         case Target::HostBatch:
-            unmlq<Target::HostBatch>(side, op, A, T, C, opts);
+            impl::unmlq<Target::HostBatch>( side, op, A, T, C, opts  );
             break;
+
         case Target::Devices:
-            unmlq<Target::Devices>(side, op, A, T, C, opts);
+            impl::unmlq<Target::Devices>( side, op, A, T, C, opts  );
             break;
     }
     // todo: return value for errors?

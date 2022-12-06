@@ -11,24 +11,21 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::copy from internal::specialization::copy
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
 /// Copy and precision conversion.
 /// Generic implementation for any target.
-/// @ingroup copy_specialization
+/// @ingroup copy_impl
 ///
 template <Target target, typename src_matrix_type, typename dst_matrix_type>
-void copy(slate::internal::TargetType<target>,
-          src_matrix_type A, dst_matrix_type B,
-          int64_t lookahead)
+void copy(
+    src_matrix_type A, dst_matrix_type B,
+    Options const& opts )
 {
     // Usually the output matrix (B here) provides all the batch arrays.
-    // Here we are using A, because of the differen types.
+    // Here we are using A, because of the different types.
     if (target == Target::Devices) {
         A.allocateBatchArrays();
         B.allocateBatchArrays();
@@ -47,23 +44,7 @@ void copy(slate::internal::TargetType<target>,
     B.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup copy_specialization
-///
-template <Target target, typename src_matrix_type, typename dst_matrix_type>
-void copy(src_matrix_type& A, dst_matrix_type& B,
-          Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::copy(internal::TargetType<target>(),
-                                   A, B,
-                                   lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Copy and precision conversion.
@@ -86,9 +67,6 @@ void copy(src_matrix_type& A, dst_matrix_type& B,
 ///
 /// @param[in] opts
 ///         Additional options, as map of name = value pairs. Possible options:
-///         - Option::Lookahead:
-///           Number of blocks to overlap communication and computation.
-///           lookahead >= 0. Default 1.
 ///         - Option::Target:
 ///           Implementation to target. Possible values:
 ///           - HostTask:  OpenMP tasks on CPU host [default].
@@ -108,7 +86,7 @@ void copy(src_matrix_type& A, dst_matrix_type& B,
         case Target::Host:
         case Target::HostTask:
         default: // todo: this is to silence a warning, should err otherwise
-            copy<Target::HostTask>(A, B, opts);
+            impl::copy<Target::HostTask>( A, B, opts );
             break;
 //      case Target::HostNest:
 //          copy<Target::HostNest>(A, B, opts);
@@ -116,8 +94,9 @@ void copy(src_matrix_type& A, dst_matrix_type& B,
 //      case Target::HostBatch:
 //          copy<Target::HostBatch>(A, B, opts);
 //          break;
+
         case Target::Devices:
-            copy<Target::Devices>(A, B, opts);
+            impl::copy<Target::Devices>( A, B, opts );
             break;
     }
 }

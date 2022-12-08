@@ -117,17 +117,20 @@ void her2k(
                          depend(out:gemm[0])
         {
             auto A_col0 = A.sub( 0, A.mt()-1, 0, 0 );
+            auto B_col0 = B.sub( 0, B.mt()-1, 0, 0 );
             internal::her2k<target>(
                 alpha, std::move( A_col0 ),
-                       B.sub( 0, B.mt()-1, 0, 0 ),
+                       std::move( B_col0 ),
                 beta,  std::move( C ),
                 default_priority, default_queue, layout, opts_local );
 
             // Erase remote tiles on all devices including host
             A_col0.eraseRemoteWorkspace();
+            B_col0.eraseRemoteWorkspace();
 
             // Erase local workspace on devices.
             A_col0.eraseLocalWorkspace();
+            B_col0.eraseLocalWorkspace();
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -161,17 +164,20 @@ void her2k(
                              depend(out:gemm[k])
             {
                 auto A_colk = A.sub( 0, A.mt()-1, k, k );
+                auto B_colk = B.sub( 0, B.mt()-1, k, k );
                 internal::her2k<target>(
-                    alpha,       std::move( A_colk ),
-                                 B.sub( 0, B.mt()-1, k, k ),
+                    alpha,         std::move( A_colk ),
+                                   std::move( B_colk ),
                     real_t( 1.0 ), std::move( C ),
                     default_priority, default_queue, layout, opts_local );
 
                 // Erase remote tiles on all devices including host
                 A_colk.eraseRemoteWorkspace();
+                B_colk.eraseRemoteWorkspace();
 
                 // Erase local workspace on devices.
                 A_colk.eraseLocalWorkspace();
+                B_colk.eraseLocalWorkspace();
             }
         }
 

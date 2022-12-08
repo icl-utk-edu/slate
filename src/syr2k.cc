@@ -51,11 +51,19 @@ void syr2k(
     assert(B.mt() == C.mt());
     assert(A.nt() == B.nt());
 
+    // Use only TileReleaseStrategy::Slate for syr2k.
+    // Internal syr2k routine called here won't release
+    // any tiles. This routine will clean up tiles.
+    Options const opts_local =  {
+        {slate::Option::TileReleaseStrategy, TileReleaseStrategy::Slate}};
+
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
     std::vector<uint8_t>  gemm_vector(A.nt());
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
+    const int default_priority = 0;
+    const int default_queue = 0;
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -110,10 +118,21 @@ void syr2k(
         #pragma omp task depend(in:bcast[0]) \
                          depend(out:gemm[0])
         {
+            auto A_col0 = A.sub( 0, A.mt()-1, 0, 0 );
+            auto B_col0 = B.sub( 0, B.mt()-1, 0, 0 );
             internal::syr2k<target>(
-                alpha, A.sub(0, A.mt()-1, 0, 0),
-                       B.sub(0, B.mt()-1, 0, 0),
-                beta,  std::move( C ) );
+                alpha, std::move( A_col0 ),
+                       std::move( B_col0 ),
+                beta,  std::move( C ),
+                default_priority, default_queue, layout, opts_local );
+
+            // Erase remote tiles on all devices including host
+            A_col0.eraseRemoteWorkspace();
+            B_col0.eraseRemoteWorkspace();
+
+            // Erase local workspace on devices.
+            A_col0.eraseLocalWorkspace();
+            B_col0.eraseLocalWorkspace();
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -146,10 +165,21 @@ void syr2k(
                              depend(in:gemm[k-1]) \
                              depend(out:gemm[k])
             {
+                auto A_colk = A.sub( 0, A.mt()-1, k, k );
+                auto B_colk = B.sub( 0, B.mt()-1, k, k );
                 internal::syr2k<target>(
-                    alpha, A.sub(0, A.mt()-1, k, k),
-                           B.sub(0, B.mt()-1, k, k),
-                    one,   std::move( C ) );
+                    alpha, std::move( A_colk ),
+                           std::move( B_colk ),
+                    one,   std::move( C ),
+                    default_priority, default_queue, layout, opts_local );
+
+                // Erase remote tiles on all devices including host
+                A_colk.eraseRemoteWorkspace();
+                B_colk.eraseRemoteWorkspace();
+
+                // Erase local workspace on devices.
+                A_colk.eraseLocalWorkspace();
+                B_colk.eraseLocalWorkspace();
             }
         }
 

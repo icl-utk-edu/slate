@@ -72,7 +72,8 @@ template <typename scalar_t>
 void test_gescale_dev_worker(
     int m, int n, int lda,
     scalar_t offdiag_value, scalar_t diag_value,
-    scalar_t numer, scalar_t denom)
+    scalar_t numer, scalar_t denom,
+    blas::Queue& queue)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -82,6 +83,7 @@ void test_gescale_dev_worker(
 
     real_t eps = std::numeric_limits<real_t>::epsilon();
     int ldb = lda;
+    int device_idx = queue.device();
 
     scalar_t* Adata = new scalar_t[ lda * n ];
     slate::Tile<scalar_t> A( m, n, Adata, lda,
@@ -90,11 +92,6 @@ void test_gescale_dev_worker(
     scalar_t* Bdata = new scalar_t[ ldb * n ];
     slate::Tile<scalar_t> B( m, n, Bdata, ldb,
         slate::HostNum, slate::TileKind::UserOwned );
-
-    int device_idx;
-    blas::get_device( &device_idx );
-    const int batch_arrays_index = 0;
-    blas::Queue queue( device_idx, batch_arrays_index );
 
     scalar_t* dAdata;
     dAdata = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ) );
@@ -245,6 +242,11 @@ void test_gescale_dev()
           { -2.0, -2.0 } },
       };
 
+    int device_idx;
+    blas::get_device( &device_idx );
+    const int batch_arrays_index = 0;
+    blas::Queue queue( device_idx, batch_arrays_index );
+
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );
         int nA  = std::get<1>( dims );
@@ -260,7 +262,8 @@ void test_gescale_dev()
                     testsweeper::make_scalar<scalar_t>( offdiag_value ),
                     testsweeper::make_scalar<scalar_t>( diag_value ),
                     testsweeper::make_scalar<scalar_t>( numer ),
-                    testsweeper::make_scalar<scalar_t>( denom ) );
+                    testsweeper::make_scalar<scalar_t>( denom ),
+                    queue );
             }
         }
     }
@@ -279,7 +282,8 @@ template <typename scalar_t>
 void test_gescale_batch_dev_worker(
     int m, int n, int lda,
     scalar_t offdiag_value, scalar_t diag_value,
-    scalar_t numer, scalar_t denom, int batch_count)
+    scalar_t numer, scalar_t denom, int batch_count,
+    blas::Queue& queue)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -291,6 +295,7 @@ void test_gescale_batch_dev_worker(
     int ldb = lda;
     std::vector< slate::Tile< scalar_t > > list_A( 0 );
     std::vector< slate::Tile< scalar_t > > list_dA( 0 );
+    int device_idx = queue.device();
 
     // Create the A matrices on the Host
     for (int m_i = 0; m_i < batch_count; ++m_i) {
@@ -305,12 +310,6 @@ void test_gescale_batch_dev_worker(
     scalar_t* Bdata = new scalar_t[ ldb * n ];
     slate::Tile<scalar_t> B( m, n, Bdata, ldb,
         slate::HostNum, slate::TileKind::UserOwned );
-
-    // Create the queue
-    int device_idx;
-    blas::get_device( &device_idx );
-    const int batch_arrays_index = 0;
-    blas::Queue queue( device_idx, batch_arrays_index );
 
     // Create the dA matrices on the device
     for (int m_i = 0; m_i < batch_count; ++m_i) {
@@ -481,6 +480,12 @@ void test_gescale_batch_dev()
 
     std::list< int > batch_count_list{ 1, 2, 3, 4, 5, 10, 20, 100 };
 
+    // Create the queue
+    int device_idx;
+    blas::get_device( &device_idx );
+    const int batch_arrays_index = 0;
+    blas::Queue queue( device_idx, batch_arrays_index );
+
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );
         int nA  = std::get<1>( dims );
@@ -498,7 +503,7 @@ void test_gescale_batch_dev()
                         testsweeper::make_scalar<scalar_t>( diag_value ),
                         testsweeper::make_scalar<scalar_t>( numer ),
                         testsweeper::make_scalar<scalar_t>( denom ),
-                        batch_count );
+                        batch_count, queue );
             }
         }
     }

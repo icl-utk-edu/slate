@@ -34,28 +34,16 @@ void qdwh(
 
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
     int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
+
     max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
-
-    int64_t mt = A.mt();
-    int64_t nt = A.nt();
-
-    int64_t m    = A.m();
-    int64_t n    = A.n();
-    int64_t nb   = A.tileMb(0);
-    int64_t m2   = m + n;
-
-    int nprow, npcol;
-    int myrow, mycol;
-    GridOrder order;
-    A.gridinfo(&order, &nprow, &npcol, &myrow, &mycol);
-
-    bool optqr = 1;
-    int itconv, it;
-    int itqr = 0, itpo = 0;
 
     real_t eps  = 0.5 * std::numeric_limits<real_t>::epsilon();
     real_t tol1 = 5. * eps;
     real_t tol3 = pow(tol1, 1./3.);
+
+    bool optqr = 1;
+    int itconv, it;
+    int itqr = 0, itpo = 0;
 
     real_t L2, sqd, dd, a1, a, b, c;
     real_t Li, Liconv;
@@ -67,15 +55,30 @@ void qdwh(
     real_t normA;
     real_t norminvR;
 
-    int64_t mt2 = mt + nt - 1;
+    int64_t mt = A.mt();
+    int64_t nt = A.nt();
 
-    // allocate m2*n work space required for the qr-based iterations
-    // this allocation can be avoided if we change the qr iterations to
-    // work on two matrices on top of each other
+    int64_t m    = A.m();
+    int64_t n    = A.n();
+    int64_t nb   = A.tileMb(0);
 
-    // allocation needed for doing QR([A;Id])
-    slate::Matrix<scalar_t> W(m2, n, nb, nprow, npcol, MPI_COMM_WORLD);
-    slate::Matrix<scalar_t> Q(m2, n, nb, nprow, npcol, MPI_COMM_WORLD);
+    // The QR-based iterations requires QR[A; Id],
+    // W = [A; Id], where size of A is mxn, size of Id is nxn
+    // To avoid having a clean up tile in the middle of the W matrix,
+    // we round up the number of A rows (m),
+    // so that size(W) = m_roundup + n
+    int64_t m_roundup   = ceil( (m + nb)/ nb )*nb;
+    int64_t m_W   = m_roundup + n;
+    int64_t mt_W = mt + nt;
+
+    int nprow, npcol;
+    int myrow, mycol;
+    GridOrder order;
+    A.gridinfo(&order, &nprow, &npcol, &myrow, &mycol);
+
+    // allocate m_W*n work space required for the qr-based iterations QR([A;Id])
+    slate::Matrix<scalar_t> W(m_W, n, nb, nprow, npcol, MPI_COMM_WORLD);
+    slate::Matrix<scalar_t> Q(m_W, n, nb, nprow, npcol, MPI_COMM_WORLD);
     slate::TriangularFactors<scalar_t> T;
 
     if (target == Target::Devices) {
@@ -96,17 +99,27 @@ void qdwh(
 
     W.insertLocalTiles();
     Q.insertLocalTiles();
-    auto W1 = W.sub(0, mt-1, 0, nt-1); // First mxn block of W
-    auto W2 = W.sub(mt, mt2, 0, nt-1); // Second nxn block of W
-    auto Q1 = Q.sub(0, mt-1, 0, nt-1); // First mxn block of W
-    auto Q2 = Q.sub(mt, mt2, 0, nt-1); // Second nxn block of W
 
-    // if doing QR([A]) QR([A;Id])
-    //slate::Matrix<scalar_t> W1(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
-    //slate::Matrix<scalar_t> W2(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
-    //W1.insertLocalTiles();
-    //W2.insertLocalTiles();
+    // To compute QR[A; Id]
+    // First mt tiles of W contains A matrix in [0:m-1, 0:n-1]
+    // W1 have more rows than A, since we round up the number of rows of W1
+    // W10 have A matrix
+    auto W1 = W.sub(0, mt-1, 0, nt-1);
+    auto W10 = W1.slice(0, m-1, 0, n-1);
 
+    // Second nt tiles of W, contain the identity matrix
+    auto W2 = W.sub(mt, mt_W-1, 0, nt-1);
+
+    // W11 is the extra padded rows [m:m_round_up, 0:n-1]
+    auto W11 = W1.slice(m, m_roundup-1, 0, n-1);
+    set(zero, zero, W11);
+
+    auto Q1 = Q.sub(0, mt-1, 0, nt-1);
+    auto Q2 = Q.sub(mt, mt_W-1, 0, nt-1);
+
+    auto Q10 = Q1.slice(0, m-1, 0, n-1);
+    auto Q11 = Q1.slice(m, m_roundup-1, 0, n-1);
+    set(zero, zero, Q11);
 
     // backup A in H
     copy(A, H);
@@ -127,14 +140,14 @@ void qdwh(
     if (optqr) {
         // Estimate the condition number using QR
         // This Q factor can be used in the first QR-based iteration
-        copy(A, W1);
+        copy(A, W10);
         // todo: this QR can be used in the first QR iteration
         // todo: put bound of 1-norm est compared to 2-norm
         slate::geqrf(W1, T, opts);
         auto R  = TriangularMatrix<scalar_t>(
-            Uplo::Upper, slate::Diag::NonUnit, W1 );
+            Uplo::Upper, slate::Diag::NonUnit, W10 );
         auto Rh = HermitianMatrix<scalar_t>(
-            Uplo::Upper, W1 );
+            Uplo::Upper, W10 );
         // todo: cheaper to do triangular solve than calling trtri
         trtri(R, opts);
         //tzset(scalar_t(0.0), L);
@@ -213,7 +226,7 @@ void qdwh(
 
             // Factorize B = QR, and generate the associated Q
             // todo: replace following add by copy and scale, but why scale only scale by a real numbers?
-            add(alpha, A, zero, W1, opts);
+            add(alpha, A, zero, W10, opts);
             //copy(A, W1);
             //scale(alpha, one, W1, opts);
             //geqrf(W, T, opts); // naive impl
@@ -222,7 +235,7 @@ void qdwh(
             // todo: check time for allocationn in geqrf
             geqrf_qdwh_full(W, T, opts);
 
-            set(zero, one, Q1);
+            set(zero, one, Q10);
             set(zero, zero, Q2);
 
             // todo: do I need unmqr?
@@ -235,9 +248,9 @@ void qdwh(
             beta  = scalar_t( b / c );
             // Copy U into C to check the convergence of QDWH
             if (it >= itconv ) {
-                copy(A, W1);
+                copy(A, W10);
             }
-            gemm(alpha, Q1, Q2T, beta, A, opts);
+            gemm(alpha, Q10, Q2T, beta, A, opts);
 
             // Main flops used in this step/
             //flops_dgeqrf = FLOPS_DGEQRF( 2*m, n );
@@ -251,7 +264,7 @@ void qdwh(
         else {
             // Copy A into H to check the convergence of QDWH
             if (it >= itconv) {
-                copy(A, W1);
+                copy(A, W10);
             }
 
             // Make Q1 into an identity matrix
@@ -259,8 +272,8 @@ void qdwh(
 
             // Compute Q1 = c * A' * A + I
             ///////////////
-            copy(A, Q1);
-            auto AT = conj_transpose(Q1);
+            copy(A, Q10);
+            auto AT = conj_transpose(Q10);
             gemm(scalar_t(c), AT, A, one, W2, opts);
 
             // Solve R x = AT
@@ -286,8 +299,8 @@ void qdwh(
         // Compute the norm of the symmetric matrix U - B1
         conv = 10.0;
         if (it >= itconv) {
-            add(one, A, minusone, W1, opts);
-            conv = norm(slate::Norm::Fro, W1);
+            add(one, A, minusone, W10, opts);
+            conv = norm(slate::Norm::Fro, W10);
         }
     }
 
@@ -297,9 +310,9 @@ void qdwh(
     }
 
     // A = U*H ==> H = U'*A ==> H = 0.5*(H'+H)
-    copy(H, W1);
+    copy(H, W10);
     auto AT = conj_transpose(A);
-    gemm(one, AT, W1, zero, H, opts);
+    gemm(one, AT, W10, zero, H, opts);
 
     A.releaseWorkspace();
     W.releaseWorkspace();

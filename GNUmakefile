@@ -1165,7 +1165,7 @@ distclean: clean
 	cd lapackpp    && $(MAKE) distclean
 
 # Install git hooks
-hooks = .git/hooks/pre-commit
+hooks = .git/hooks/pre-commit .git/hooks/pre-push
 
 hooks: ${hooks}
 

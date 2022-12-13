@@ -196,6 +196,17 @@ eval ./run_tests.py --origin s --target t,d --quick --ref n \
     2> ${top}/report-${maker}.txt
 cd ..
 
+print "========================================"
+if [ "${maker}" = "make" ]; then
+    touch src/cuda/*.cu
+    if make hipify | grep "out-of-date"; then
+        print "HIP files are out-of-date with CUDA files."
+        print "Run 'make hipify' and commit changes."
+        print "Run 'touch src/cuda/*.cu' first if needed to force hipify."
+        exit 1
+    fi
+fi
+
 date
 '''
                     } // steps

@@ -58,8 +58,13 @@ void qdwh(
     int64_t mt = A.mt();
     int64_t nt = A.nt();
 
-    int64_t m    = A.m();
-    int64_t n    = A.n();
+    int64_t m  = A.m();
+    int64_t n  = A.n();
+
+    if (m < n) {
+        return;
+    }
+
     int64_t nb   = A.tileMb(0);
 
     // The QR-based iterations requires QR[A; Id],
@@ -67,7 +72,7 @@ void qdwh(
     // To avoid having a clean up tile in the middle of the W matrix,
     // we round up the number of A rows (m),
     // so that size(W) = m_roundup + n
-    int64_t m_roundup   = ceil( (m + nb)/ nb )*nb;
+    int64_t m_roundup =  ((m + nb - 1) / nb ) * nb;
     int64_t m_W   = m_roundup + n;
     int64_t mt_W = mt + nt;
 
@@ -80,6 +85,16 @@ void qdwh(
     slate::Matrix<scalar_t> W(m_W, n, nb, nprow, npcol, MPI_COMM_WORLD);
     slate::Matrix<scalar_t> Q(m_W, n, nb, nprow, npcol, MPI_COMM_WORLD);
     slate::TriangularFactors<scalar_t> T;
+
+    // todo: anyway to avoid Acpy allocation?
+    slate::Matrix<scalar_t> Acpy;
+    if (m != n) {
+        Acpy = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        Acpy.insertLocalTiles();
+    }
+    else {
+        Acpy = H;
+    }
 
     if (target == Target::Devices) {
         const int64_t batch_size_zero = 0; // use default batch size
@@ -95,6 +110,8 @@ void qdwh(
         W.reserveDeviceWorkspace();
         Q.allocateBatchArrays(batch_size_zero, num_queues);
         Q.reserveDeviceWorkspace();
+        Acpy.allocateBatchArrays(batch_size_zero, num_queues);
+        Acpy.reserveDeviceWorkspace();
     }
 
     W.insertLocalTiles();
@@ -110,26 +127,29 @@ void qdwh(
     // Second nt tiles of W, contain the identity matrix
     auto W2 = W.sub(mt, mt_W-1, 0, nt-1);
 
-    // W11 is the extra padded rows [m:m_round_up, 0:n-1]
-    auto W11 = W1.slice(m, m_roundup-1, 0, n-1);
-    set(zero, zero, W11);
-
     auto Q1 = Q.sub(0, mt-1, 0, nt-1);
+    auto Q10 = Q1.slice(0, m-1, 0, n-1);
+
     auto Q2 = Q.sub(mt, mt_W-1, 0, nt-1);
 
-    auto Q10 = Q1.slice(0, m-1, 0, n-1);
-    auto Q11 = Q1.slice(m, m_roundup-1, 0, n-1);
-    set(zero, zero, Q11);
 
-    // backup A in H
-    copy(A, H);
+    if (m_roundup != m) {
+        // W11 and Q11 is the extra padded rows [m:m_round_up, 0:n-1]
+        auto W11 = W1.slice(m, m_roundup-1, 0, n-1);
+        set(zero, zero, W11);
+        auto Q11 = Q1.slice(m, m_roundup-1, 0, n-1);
+        set(zero, zero, Q11);
+    }
+
+    // backup A in Acpy to compute H
+    copy(A, Acpy);
 
     // two norm estimation (largest singular value of A)
     real_t norm_est = normest(slate::Norm::One, A);
     alpha = 1.0;
 
     // scale the original matrix A to form A0 of the iterative loop
-    add(alpha/(scalar_t)norm_est, H, zero, A, opts);
+    add(alpha/scalar_t(norm_est), Acpy, zero, A, opts);
 
     // todo: look at Lapack impl
     // Calculate Li: reciprocal of condition number estimation
@@ -144,13 +164,15 @@ void qdwh(
         // todo: this QR can be used in the first QR iteration
         // todo: put bound of 1-norm est compared to 2-norm
         slate::geqrf(W1, T, opts);
+        //auto R  = TrapezoidMatrix<scalar_t>(
+        //    Uplo::Upper, slate::Diag::NonUnit, W10 );
+        auto R1 =  W10.slice(0, n-1, 0, n-1);
         auto R  = TriangularMatrix<scalar_t>(
-            Uplo::Upper, slate::Diag::NonUnit, W10 );
+            Uplo::Upper, slate::Diag::NonUnit, R1 );
         auto Rh = HermitianMatrix<scalar_t>(
-            Uplo::Upper, W10 );
+            Uplo::Upper, R1 );
         // todo: cheaper to do triangular solve than calling trtri
         trtri(R, opts);
-        //tzset(scalar_t(0.0), L);
         norminvR = norm(slate::Norm::One, Rh);
         Li = (1.0 / norminvR) / normA;
         Li = norm_est / 1.1 * Li;
@@ -162,6 +184,7 @@ void qdwh(
         // Estimate the condition number using LU
     }
 
+    // Compute the number of iterations to converge
     itconv = 0; Liconv = Li;
     while (itconv == 0 || fabs(1-Liconv) > tol1) {
         // To find the minimum number of iterations to converge.
@@ -174,7 +197,6 @@ void qdwh(
         itconv++;
 
         L2  =  Liconv * Liconv;
-        //L2  = double (Liconv * Liconv);
         dd  = pow( 4.0 * (1.0 - L2 ) / (L2 * L2), 1.0/3.0 );
         sqd = sqrt(1.0 + dd);
         a1  = sqd + sqrt( 8.0 - 4.0 * dd + 8.0 * (2.0 - L2) / (L2 * sqd) ) / 2.0;
@@ -207,20 +229,19 @@ void qdwh(
         Li  = Li * real_t ((a + b * L2) / (1.0 + c * L2));
 
         if (real(c) > 100.) {
-            //int doqr = !optqr || it > 1;
+            //int64_t doqr = !optqr || it > 1;
 
             // Generate the matrix B = [ B1 ] = [ sqrt(c) * U ]
             //                         [ B2 ] = [ Id          ]
             alpha = scalar_t(sqrt(c));
             set(zero, one, W2);
 
-            // todo: have a customized splitted QR
             //if( doqr ) {
-            //    geadd(alpha, A, zero, W1);
+            //    geadd(alpha, A, zero, W10, opts);
             //    geqrf_qdwh_full(W, T1, opts);
             //}
             //else {
-            //    geadd(alpha, W1, zero, W1);
+            //    geadd(alpha, W1, zero, W10, opts);
             //    geqrf_qdwh_full2(W, T1, opts);
             //}
 
@@ -229,16 +250,14 @@ void qdwh(
             add(alpha, A, zero, W10, opts);
             //copy(A, W1);
             //scale(alpha, one, W1, opts);
+
             //geqrf(W, T, opts); // naive impl
             // todo: how to avoid allocating workspace for each iteration (3 QR)?
             // todo: how to make it work for any matrix size and any nb?
             // todo: check time for allocationn in geqrf
             geqrf_qdwh_full(W, T, opts);
 
-            set(zero, one, Q10);
-            set(zero, zero, Q2);
-
-            // todo: do I need unmqr?
+            set(zero, one, Q);
             //unmqr(slate::Side::Left, slate::Op::NoTrans, W, T, Q, opts); //naive impl
             unmqr_qdwh_full(slate::Side::Left, slate::Op::NoTrans, W, T, Q, opts);
 
@@ -310,7 +329,7 @@ void qdwh(
     }
 
     // A = U*H ==> H = U'*A ==> H = 0.5*(H'+H)
-    copy(H, W10);
+    copy(Acpy, W10);
     auto AT = conj_transpose(A);
     gemm(one, AT, W10, zero, H, opts);
 

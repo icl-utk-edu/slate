@@ -176,7 +176,7 @@ void geqrf_qdwh_full(slate::internal::TargetType<target>,
     #pragma omp master
     {
         for (int64_t k = 0; k < A_min_mtnt; ++k) {
-            int64_t i_end = A_min_mtnt + k;
+            int64_t i_end = A_mt - A_nt + k;
 
             auto  A_panel =       A.sub(k, i_end, k, k);
             auto Tl_panel =  Tlocal.sub(k, i_end, k, k);

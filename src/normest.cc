@@ -77,7 +77,7 @@ normest(slate::internal::TargetType<target>,
             A.reserveDeviceWorkspace();
 
         std::vector<scalar_t> global_sums(n);
-        std::vector<scalar_t> W1(n);
+        std::vector<scalar_t> W1(m);
         std::vector<scalar_t> W2(n);
 
         auto XL = slate::Matrix<scalar_t>::fromLAPACK(

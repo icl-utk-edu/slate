@@ -19,8 +19,8 @@ template <>
 void tzadd(
     Uplo uplo,
     int64_t m, int64_t n,
-    std::complex<float> alpha, std::complex<float>** Aarray, int64_t lda,
-    std::complex<float> beta, std::complex<float>** Barray, int64_t ldb,
+    std::complex<float> const& alpha, std::complex<float>** Aarray, int64_t lda,
+    std::complex<float> const& beta, std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
 #if defined( BLAS_HAVE_CUBLAS )
@@ -45,8 +45,8 @@ template <>
 void tzadd(
     Uplo uplo,
     int64_t m, int64_t n,
-    std::complex<double> alpha, std::complex<double>** Aarray, int64_t lda,
-    std::complex<double> beta, std::complex<double>** Barray, int64_t ldb,
+    std::complex<double> const& alpha, std::complex<double>** Aarray, int64_t lda,
+    std::complex<double> const& beta, std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
 #if defined( BLAS_HAVE_CUBLAS )
@@ -73,8 +73,8 @@ template <>
 void tzadd(
     Uplo uplo,
     int64_t m, int64_t n,
-    double alpha, double** Aarray, int64_t lda,
-    double beta, double** Barray, int64_t ldb,
+    double const& alpha, double** Aarray, int64_t lda,
+    double const& beta, double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
 }
@@ -83,8 +83,8 @@ template <>
 void tzadd(
     Uplo uplo,
     int64_t m, int64_t n,
-    float alpha, float** Aarray, int64_t lda,
-    float beta, float** Barray, int64_t ldb,
+    float const& alpha, float** Aarray, int64_t lda,
+    float const& beta, float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
 }

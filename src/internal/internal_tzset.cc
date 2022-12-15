@@ -24,7 +24,7 @@ template <>
 void tzset(
     Uplo uplo,
     int64_t m, int64_t n,
-    std::complex<float> offdiag_value, std::complex<float> diag_value,
+    std::complex<float> const& offdiag_value, std::complex<float> const& diag_value,
     std::complex<float>* A, int64_t lda,
     blas::Queue& queue)
 {
@@ -51,7 +51,7 @@ template <>
 void tzset(
     Uplo uplo,
     int64_t m, int64_t n,
-    std::complex<double> offdiag_value, std::complex<double> diag_value,
+    std::complex<double> const& offdiag_value, std::complex<double> const& diag_value,
     std::complex<double>* A, int64_t lda,
     blas::Queue& queue)
 {
@@ -80,7 +80,7 @@ template <>
 void tzset(
     Uplo uplo,
     int64_t m, int64_t n,
-    double offdiag_value, double diag_value,
+    double const& offdiag_value, double const& diag_value,
     double* A, int64_t lda,
     blas::Queue& queue)
 {
@@ -91,7 +91,7 @@ template <>
 void tzset(
     Uplo uplo,
     int64_t m, int64_t n,
-    float offdiag_value, float diag_value,
+    float const& offdiag_value, float const& diag_value,
     float* A, int64_t lda,
     blas::Queue& queue)
 {
@@ -107,7 +107,7 @@ template <>
 void tzset(
     Uplo uplo,
     int64_t m, int64_t n,
-    std::complex<float> offdiag_value, std::complex<float> diag_value,
+    std::complex<float> const& offdiag_value, std::complex<float> const& diag_value,
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
@@ -134,7 +134,7 @@ template <>
 void tzset(
     Uplo uplo,
     int64_t m, int64_t n,
-    std::complex<double> offdiag_value, std::complex<double> diag_value,
+    std::complex<double> const& offdiag_value, std::complex<double> const& diag_value,
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
@@ -163,7 +163,7 @@ template <>
 void tzset(
     Uplo uplo,
     int64_t m, int64_t n,
-    double offdiag_value, double diag_value,
+    double const& offdiag_value, double const& diag_value,
     double** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
@@ -174,7 +174,7 @@ template <>
 void tzset(
     Uplo uplo,
     int64_t m, int64_t n,
-    float offdiag_value, float diag_value,
+    float const& offdiag_value, float const& diag_value,
     float** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {

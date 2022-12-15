@@ -192,7 +192,7 @@ template <typename scalar_t>
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t const& offdiag_value, scalar_t const& diag_value,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue )
 {

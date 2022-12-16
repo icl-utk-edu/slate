@@ -1110,6 +1110,16 @@ void gecon(
         blas::real_type<scalar_t> *rcond,
         Options const& opts = Options());
 
+//-----------------------------------------
+// trcon()
+template <typename scalar_t>
+void trcon(
+        Norm in_norm,
+        TriangularMatrix<scalar_t>& A,
+        blas::real_type<scalar_t> *Anorm,
+        blas::real_type<scalar_t> *rcond,
+        Options const& opts = Options());
+
 } // namespace slate
 
 //-----------------------------------------

@@ -36,7 +36,7 @@ namespace slate {
 ///
 /// @param[in] A
 ///     On entry, the n-by-n triangular matrix $A$.
-///     it is the output of the QR factorization of a general matrix.
+///     it is the output of the LU factorization of a general matrix.
 ///
 /// @param[in,out] rcond
 ///     The reciprocal of the condition number of the matrix A,
@@ -51,7 +51,7 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup geqrf_computational
+/// @ingroup gesv_computational
 ///
 template <typename scalar_t>
 void gecon(

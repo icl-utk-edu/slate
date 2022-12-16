@@ -120,14 +120,9 @@ void test_gecon_work(Params& params, bool run)
             m, n, &A_data[0], lldA, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
     }
 
-    slate::Matrix<scalar_t> LUcpy;
     slate::Matrix<scalar_t> Id;
     if (check) {
         slate::Target origin_target = origin2target(origin);
-        // Create a matrix to copy the LU factorization to it
-        LUcpy = slate::Matrix<scalar_t>(
-                m, n,    nb, p, q, MPI_COMM_WORLD );
-        LUcpy.insertLocalTiles(origin_target);
         Id = slate::Matrix<scalar_t>(
                 m, n,    nb, p, q, MPI_COMM_WORLD );
         Id.insertLocalTiles(origin_target);
@@ -221,11 +216,10 @@ void test_gecon_work(Params& params, bool run)
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
-            double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pgetrf(m, n,
                     &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info_ref);
 
-            // Find the needed work and iwork
+            // query for workspace size for pgecon
             int64_t info_ref2 = 0;
             int64_t lwork = -1;
             int64_t liwork = -1;
@@ -242,6 +236,7 @@ void test_gecon_work(Params& params, bool run)
 
             // todo: ScaLAPCK pzgecon has a seg fault
 
+            double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_pgecon( norm2str(norm), n, &Aref_data[0], 1, 1, Aref_desc, &Anorm, &scl_rcond, &work[0], lwork, &iwork[0], liwork, info_ref2);
             slate_assert(info_ref == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
@@ -266,16 +261,16 @@ void test_gecon_work(Params& params, bool run)
         // Id is the inverse of the matrix A, norm(A^-1) = norm(Id)
 
         // Copy the factored matrix A into Acpy
-        copy(A, LUcpy);
         // Set the Id matrix to identity
         set(zero, one, Id);
-        lu_solve_using_factor( LUcpy, pivots, Id, opts );
+        lu_solve_using_factor( A, pivots, Id, opts );
         exact_rcond = (1. / slate::norm(norm, Id, opts)) / Anorm;
 
         // Compute the error
         //params.error() = std::abs(slate_rcond - scl_rcond);
         params.error() = std::abs(slate_rcond - exact_rcond);
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+        tol = std::sqrt(tol);
         params.okay() = (params.error() <= tol);
     }
 

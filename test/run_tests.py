@@ -74,6 +74,8 @@ categories = [
     group_cat.add_argument( '--svd',           action='store_true', help='run SVD tests' ),
     group_cat.add_argument( '--aux',           action='store_true', help='run auxiliary routine tests' ),
     group_cat.add_argument( '--norms',         action='store_true', help='run norm tests' ),
+    group_cat.add_argument( '--gecon',            action='store_true', help='run condition number estimate tests' ),
+    group_cat.add_argument( '--trcon',            action='store_true', help='run condition number estimate of triangular matrix tests' ),
 ]
 # map category objects to category names: ['lu', 'chol', ...]
 categories = list( map( lambda x: x.dest, categories ) )
@@ -380,6 +382,8 @@ if (opts.lu):
     #[ 'gerfs', gen + dtype + la + n + trans ],
     #[ 'geequ', gen + dtype + la + n ],
     [ 'gesvMixed',  gen + dtype_double + la + n ],
+
+    [ 'gecon',      gen + dtype + la + n + thresh ],
     ]
 
 # LU banded
@@ -462,6 +466,7 @@ if (opts.qr):
     #[ 'ungqr', gen + dtype + la + mn ],  # m >= n
     #[ 'unmqr', gen + dtype_real    + la + mnk + side + trans    ],  # real does trans = N, T, C
     #[ 'unmqr', gen + dtype_complex + la + mnk + side + trans_nc ],  # complex does trans = N, C, not T
+    [ 'trcon', gen + dtype + la + mn ],
     ]
 
 # LQ

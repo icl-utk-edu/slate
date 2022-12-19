@@ -57,7 +57,6 @@ template <typename scalar_t>
 void trcon(
            Norm in_norm,
            TriangularMatrix<scalar_t>& A,
-           blas::real_type<scalar_t> *Anorm,
            blas::real_type<scalar_t> *rcond,
            Options const& opts)
 {
@@ -90,9 +89,6 @@ void trcon(
     if (m == 0) {
         *rcond = 1.;
     }
-    else if (*Anorm == 0.) {
-        return;
-    }
 
     scalar_t alpha = 1.;
     real_t Ainvnorm = 0.0;
@@ -121,11 +117,6 @@ void trcon(
     auto isgn = slate::Matrix<int64_t>::fromScaLAPACK(
             m, 1, &isgn_data[0], lldA, nb, 1, p, q, A.mpiComm() );
 
-    auto L  = TriangularMatrix<scalar_t>(
-        Uplo::Lower, slate::Diag::Unit, A );
-    auto U  = TriangularMatrix<scalar_t>(
-        Uplo::Upper, slate::Diag::NonUnit, A );
-
     // initial and final value of kase is 0
     kase = 0;
     lacn2( X, V, isgn, &Ainvnorm, &kase, isave, opts);
@@ -146,9 +137,10 @@ void trcon(
         MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
     } // while (kase != 0)
 
+    real_t Anorm = norm(in_norm, A, opts);
     // Compute the estimate of the reciprocal condition number.
     if (Ainvnorm != 0.0) {
-        *rcond = (1.0 / Ainvnorm) / *Anorm;
+        *rcond = (1.0 / Ainvnorm) / Anorm;
     }
 }
 
@@ -158,7 +150,6 @@ template
 void trcon<float>(
     Norm in_norm,
     TriangularMatrix<float>& A,
-    float *Anorm,
     float *rcond,
     Options const& opts);
 
@@ -166,7 +157,6 @@ template
 void trcon<double>(
     Norm in_norm,
     TriangularMatrix<double>& A,
-    double *Anorm,
     double *rcond,
     Options const& opts);
 
@@ -174,7 +164,6 @@ template
 void trcon< std::complex<float> >(
     Norm in_norm,
     TriangularMatrix< std::complex<float> >& A,
-    float *Anorm,
     float *rcond,
     Options const& opts);
 
@@ -182,7 +171,6 @@ template
 void trcon< std::complex<double> >(
     Norm in_norm,
     TriangularMatrix< std::complex<double> >& A,
-    double *Anorm,
     double *rcond,
     Options const& opts);
 

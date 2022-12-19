@@ -76,8 +76,12 @@ void test_trcon_work(Params& params, bool run)
     params.gflops2();
     params.gflops2.name( "lu gflop/s" );
 
-    // Suppress norm from output.
-    params.pivot_threshold.width( 0 );
+    params.error();
+    params.error.name( "slate-exact" );
+    params.error2();
+    params.error2.name( "scl-exact" );
+    params.error3();
+    params.error3.name( "slate-scl" );
 
     if (! run)
         return;
@@ -136,7 +140,6 @@ void test_trcon_work(Params& params, bool run)
 
     // Compute the matrix norm
     real_t Anorm = 0;
-    Anorm = slate::norm(norm, A, opts);
     real_t slate_rcond = 0., scl_rcond = 0., exact_rcond = 0.;
 
     if (! ref_only) {
@@ -164,14 +167,23 @@ void test_trcon_work(Params& params, bool run)
         double time = barrier_get_wtime(MPI_COMM_WORLD);
 
         auto R  = slate::TriangularMatrix<scalar_t>(
-            slate::Uplo::Upper, slate::Diag::Unit, A );
-        slate::trcon(norm, R, &Anorm, &slate_rcond, opts);
+            slate::Uplo::Upper, slate::Diag::NonUnit, A );
+        slate::trcon(norm, R, &slate_rcond, opts);
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance
         params.time() = time;
         params.gflops() = gflop / time;
 
         if (trace) slate::trace::Trace::finish();
+    }
+
+    if (check) {
+        // Find the exact condition number:
+        auto R  = slate::TriangularMatrix<scalar_t>(
+            slate::Uplo::Upper, slate::Diag::NonUnit, A );
+        Anorm = slate::norm(norm, R, opts);
+        trtri(R, opts);
+        exact_rcond = (1. / slate::norm(norm, R, opts)) / Anorm;
     }
 
     if (ref) {
@@ -262,31 +274,25 @@ void test_trcon_work(Params& params, bool run)
         #endif
     }
 
-    if (check) {
-        // Find the exact condition number:
-        // Set the Id matrix to identity
-        auto R  = slate::TriangularMatrix<scalar_t>(
-            slate::Uplo::Upper, slate::Diag::Unit, A );
-        trtri(R, opts);
-        exact_rcond = (1. / slate::norm(norm, R, opts)) / Anorm;
+    // Compute the error
+    //params.error() = std::abs(slate_rcond - scl_rcond);
+    params.error() = std::abs(slate_rcond - exact_rcond);
+    params.error2() = std::abs(scl_rcond - exact_rcond);
+    params.error3() = std::abs(slate_rcond - scl_rcond);
 
-        // Compute the error
-        //params.error() = std::abs(slate_rcond - scl_rcond);
-        params.error() = std::abs(slate_rcond - exact_rcond);
-        real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-        tol = std::sqrt(tol);
-        params.okay() = (params.error() <= tol);
-    }
+    real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+    tol = std::sqrt(tol);
+    params.okay() = (params.error() <= tol);
 
     if (verbose && mpi_rank == 0) {
-        real_t error1 = std::abs(slate_rcond - scl_rcond);
-        real_t error2 = std::abs(slate_rcond - exact_rcond);
-        real_t error3 = std::abs(scl_rcond - exact_rcond);
+        real_t error1 = std::abs(slate_rcond - exact_rcond);
+        real_t error2 = std::abs(scl_rcond - exact_rcond);
+        real_t error3 = std::abs(slate_rcond - scl_rcond);
 
         printf("%-8s  %-8s  %-8s  %-8s\n", "Anorm", "slate", "scl", "exact");
         printf("%-2.2e  %-2.2e  %-2.2e  %-2.2e\n", Anorm, slate_rcond, scl_rcond, exact_rcond);
 
-        printf("%-9s  %-9s  %-9s\n", "slate-scl", "slate-inv", "scl-inv");
+        printf("%-9s  %-9s  %-9s\n", "slate-exact", "scl-exact", "slate-scl");
         printf("%-9.2e  %-9.2e  %-9.2e\n", error1, error2, error3);
     }
 

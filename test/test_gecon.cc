@@ -79,7 +79,12 @@ void test_gecon_work(Params& params, bool run)
     params.gflops2();
     params.gflops2.name( "lu gflop/s" );
 
-    // Suppress norm from output.
+    params.error();
+    params.error.name( "slate-exact" );
+    params.error2();
+    params.error2.name( "scl-exact" );
+    params.error3();
+    params.error3.name( "slate-scl" );
     params.pivot_threshold.width( 0 );
 
     if (! run)
@@ -185,6 +190,21 @@ void test_gecon_work(Params& params, bool run)
         if (trace) slate::trace::Trace::finish();
     }
 
+    if (check) {
+        // Find the exact condition number:
+        // A * A^-1  = Id
+        // LU * A^-1 = Id
+        // U * A^-1 = trsm(L, Id), Id will be overwritten by the first solve
+        // A^-1     = trsm(U, Id), Id will be overwritten by the second solve
+        // Id is the inverse of the matrix A, norm(A^-1) = norm(Id)
+
+        // Copy the factored matrix A into Acpy
+        // Set the Id matrix to identity
+        set(zero, one, Id);
+        lu_solve_using_factor( A, pivots, Id, opts );
+        exact_rcond = (1. / slate::norm(norm, Id, opts)) / Anorm;
+    }
+
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // A comparison with a reference routine from ScaLAPACK for timing only
@@ -252,37 +272,27 @@ void test_gecon_work(Params& params, bool run)
         #endif
     }
 
-    if (check) {
-        // Find the exact condition number:
-        // A * A^-1  = Id
-        // LU * A^-1 = Id
-        // U * A^-1 = trsm(L, Id), Id will be overwritten by the first solve
-        // A^-1     = trsm(U, Id), Id will be overwritten by the second solve
-        // Id is the inverse of the matrix A, norm(A^-1) = norm(Id)
+    // Compute the error
+    //params.error() = std::abs(slate_rcond - scl_rcond);
+    params.error() = std::abs(slate_rcond - exact_rcond);
+    params.error2() = std::abs(scl_rcond - exact_rcond);
+    params.error3() = std::abs(slate_rcond - scl_rcond);
 
-        // Copy the factored matrix A into Acpy
-        // Set the Id matrix to identity
-        set(zero, one, Id);
-        lu_solve_using_factor( A, pivots, Id, opts );
-        exact_rcond = (1. / slate::norm(norm, Id, opts)) / Anorm;
+    real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+    tol = std::sqrt(tol);
+    params.okay() = (params.error() <= tol);
 
-        // Compute the error
-        //params.error() = std::abs(slate_rcond - scl_rcond);
-        params.error() = std::abs(slate_rcond - exact_rcond);
-        real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-        tol = std::sqrt(tol);
-        params.okay() = (params.error() <= tol);
-    }
 
     if (verbose && mpi_rank == 0) {
-        real_t error1 = std::abs(slate_rcond - scl_rcond);
-        real_t error2 = std::abs(slate_rcond - exact_rcond);
-        real_t error3 = std::abs(scl_rcond - exact_rcond);
+    // print out these errors
+        real_t error1 = std::abs(slate_rcond - exact_rcond);
+        real_t error2 = std::abs(scl_rcond - exact_rcond);
+        real_t error3 = std::abs(slate_rcond - scl_rcond);
 
         printf("%-8s  %-8s  %-8s  %-8s\n", "Anorm", "slate", "scl", "exact");
         printf("%-2.2e  %-2.2e  %-2.2e  %-2.2e\n", Anorm, slate_rcond, scl_rcond, exact_rcond);
 
-        printf("%-9s  %-9s  %-9s\n", "slate-scl", "slate-inv", "scl-inv");
+        printf("%-9s  %-9s  %-9s\n", "slate-exact", "scl-exact", "slate-scl");
         printf("%-9.2e  %-9.2e  %-9.2e\n", error1, error2, error3);
     }
 

@@ -220,6 +220,7 @@ void test_gels   (Params& params, bool run);
 void test_geqrf  (Params& params, bool run);
 void test_gelqf  (Params& params, bool run);
 void test_unmqr  (Params& params, bool run);
+void test_trcon  (Params& params, bool run);
 
 // symmetric/Hermitian eigenvalues
 void test_heev   (Params& params, bool run);

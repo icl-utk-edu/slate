@@ -104,7 +104,7 @@ template <typename scalar_t>
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t const& offdiag_value, scalar_t const& diag_value,
     scalar_t* A, int64_t lda,
     blas::Queue& queue )
 {
@@ -113,7 +113,7 @@ void tzset(
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int nthreads = std::min( int64_t( 1024 ), m );
 
-    hipLaunchKernelGGL(tzset_kernel, dim3(1), dim3(nthreads), 0, queue.stream(),
+    tzset_kernel<<<1, nthreads, 0, queue.stream()>>>(
         uplo, m, n,
         offdiag_value, diag_value, A, lda );
 
@@ -127,7 +127,7 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    float offdiag_value, float diag_value,
+    float const& offdiag_value, float const& diag_value,
     float* A, int64_t lda,
     blas::Queue& queue );
 
@@ -135,7 +135,7 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    double offdiag_value, double diag_value,
+    double const& offdiag_value, double const& diag_value,
     double* A, int64_t lda,
     blas::Queue& queue );
 
@@ -143,7 +143,7 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    hipFloatComplex offdiag_value, hipFloatComplex diag_value,
+    hipFloatComplex const& offdiag_value, hipFloatComplex const& diag_value,
     hipFloatComplex* A, int64_t lda,
     blas::Queue& queue );
 
@@ -151,7 +151,7 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    hipDoubleComplex offdiag_value, hipDoubleComplex diag_value,
+    hipDoubleComplex const& offdiag_value, hipDoubleComplex const& diag_value,
     hipDoubleComplex* A, int64_t lda,
     blas::Queue& queue );
 
@@ -193,7 +193,7 @@ template <typename scalar_t>
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t const& offdiag_value, scalar_t const& diag_value,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue )
 {
@@ -206,7 +206,7 @@ void tzset(
     // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int nthreads = std::min( int64_t( 1024 ), m );
 
-    hipLaunchKernelGGL(tzset_batch_kernel, dim3(batch_count), dim3(nthreads), 0, queue.stream(),
+    tzset_batch_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         uplo, m, n,
         offdiag_value, diag_value, Aarray, lda );
 
@@ -220,7 +220,7 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    float offdiag_value, float diag_value,
+    float const& offdiag_value, float const& diag_value,
     float** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue );
 
@@ -228,7 +228,7 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    double offdiag_value, double diag_value,
+    double const& offdiag_value, double const& diag_value,
     double** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue );
 
@@ -236,7 +236,7 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    hipFloatComplex offdiag_value, hipFloatComplex diag_value,
+    hipFloatComplex const& offdiag_value, hipFloatComplex const& diag_value,
     hipFloatComplex** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue );
 
@@ -244,7 +244,7 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    hipDoubleComplex offdiag_value, hipDoubleComplex diag_value,
+    hipDoubleComplex const& offdiag_value, hipDoubleComplex const& diag_value,
     hipDoubleComplex** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue );
 

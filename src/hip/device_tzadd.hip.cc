@@ -114,8 +114,8 @@ template <typename scalar_t>
 void tzadd(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t alpha, scalar_t** Aarray, int64_t lda,
-    scalar_t beta, scalar_t** Barray, int64_t ldb,
+    scalar_t const& alpha, scalar_t** Aarray, int64_t lda,
+    scalar_t const& beta, scalar_t** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
     // quick return
@@ -127,7 +127,7 @@ void tzadd(
 
     hipSetDevice( queue.device() );
 
-    hipLaunchKernelGGL(tzadd_kernel, dim3(batch_count), dim3(nthreads), 0, queue.stream(),
+    tzadd_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
         uplo,
         m, n,
         alpha, Aarray, lda,
@@ -143,32 +143,32 @@ template
 void tzadd(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    float alpha, float** Aarray, int64_t lda,
-    float beta, float** Barray, int64_t ldb,
+    float const& alpha, float** Aarray, int64_t lda,
+    float const& beta, float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void tzadd(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    double alpha, double** Aarray, int64_t lda,
-    double beta, double** Barray, int64_t ldb,
+    double const& alpha, double** Aarray, int64_t lda,
+    double const& beta, double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void tzadd(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    hipFloatComplex alpha, hipFloatComplex** Aarray, int64_t lda,
-    hipFloatComplex beta, hipFloatComplex** Barray, int64_t ldb,
+    hipFloatComplex const& alpha, hipFloatComplex** Aarray, int64_t lda,
+    hipFloatComplex const& beta, hipFloatComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void tzadd(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    hipDoubleComplex alpha, hipDoubleComplex** Aarray, int64_t lda,
-    hipDoubleComplex beta, hipDoubleComplex** Barray, int64_t ldb,
+    hipDoubleComplex const& alpha, hipDoubleComplex** Aarray, int64_t lda,
+    hipDoubleComplex const& beta, hipDoubleComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 } // namespace device

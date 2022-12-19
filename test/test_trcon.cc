@@ -30,17 +30,6 @@ void test_trcon_work(Params& params, bool run)
     const scalar_t zero = 0;
     const scalar_t one = 1;
 
-    // Decode routine, setting method and chopping off _tntpiv or _nopiv suffix.
-    if (ends_with( params.routine, "_tntpiv" )) {
-        params.routine = params.routine.substr( 0, params.routine.size() - 7 );
-        params.method_lu() = slate::MethodLU::CALU;
-    }
-    else if (ends_with( params.routine, "_nopiv" )) {
-        params.routine = params.routine.substr( 0, params.routine.size() - 6 );
-        params.method_lu() = slate::MethodLU::NoPiv;
-    }
-    auto method = params.method_lu();
-
     int64_t m;
     m = params.dim.m();
 
@@ -70,11 +59,6 @@ void test_trcon_work(Params& params, bool run)
     params.gflops();
     params.ref_time();
     params.ref_gflops();
-    params.time2();
-    params.time2.name( "lu time (s)" );
-    params.time2.width( 12 );
-    params.gflops2();
-    params.gflops2.name( "lu gflop/s" );
 
     params.error();
     params.error.name( "slate-exact" );
@@ -153,19 +137,12 @@ void test_trcon_work(Params& params, bool run)
         // trcon:  Solve AX = B, including factoring A.
         //==================================================
 
-        double time2 = barrier_get_wtime(MPI_COMM_WORLD);
         slate::qr_factor( A, T, opts );
         // Using traditional BLAS/LAPACK name
         // slate::geqrf(A, T, opts);
         // compute and save timing/performance
-        time2 = barrier_get_wtime(MPI_COMM_WORLD) - time2;
-        params.time2() = time2;
-        params.gflops2() = gflop / time2;
-
-
 
         double time = barrier_get_wtime(MPI_COMM_WORLD);
-
         auto R  = slate::TriangularMatrix<scalar_t>(
             slate::Uplo::Upper, slate::Diag::NonUnit, A );
         slate::trcon(norm, R, &slate_rcond, opts);

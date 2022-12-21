@@ -88,23 +88,22 @@ void test_qdwh_work(Params& params, bool run)
     Id.insertLocalTiles();
 
     slate::Matrix<scalar_t> A;
-    slate::Matrix<scalar_t> H;
+    slate::HermitianMatrix<scalar_t> H;
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
         //copy(&A_tst[0], descA_tst, A);
-        H = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
+        H = slate::HermitianMatrix<scalar_t>(slate::Uplo::Lower, n, nb, p, q, MPI_COMM_WORLD);
         H.insertLocalTiles(origin_target);
-        //copy(&H_tst[0], descH_tst, H);
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
         A_data.resize( lldA * nlocA );
         H_data.resize( lldH * nlocH );
         A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
-        H = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &H_data[0], lldH, nb, p, q, MPI_COMM_WORLD);
+        H = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(slate::Uplo::Lower, n, &H_data[0], lldH, nb, p, q, MPI_COMM_WORLD);
     }
 
     real_t cond = 1 / std::numeric_limits<real_t>::epsilon();
@@ -126,11 +125,12 @@ void test_qdwh_work(Params& params, bool run)
     print_matrix("A", A, params);
 
     // todo: how to compute gflops?
-    double gflop = lapack::Gflop<scalar_t>::geqrf(m, n);
 
     if (! ref_only) {
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
+
+        int itqr = 0, itpo = 0;
 
         double time = barrier_get_wtime(MPI_COMM_WORLD);
 
@@ -140,9 +140,30 @@ void test_qdwh_work(Params& params, bool run)
         // A = AH,
         // A will be written by the orthogonal polar factor
         // H is the symmetric positive semidefinite polar factor
-        slate::qdwh(A, H, opts);
+        slate::qdwh(A, H, itqr, itpo, opts);
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+
+        // gflop include the flops to estimate the condition
+        // number, the flops for the qr_based iterations the
+        // flops for the po_based iterations and the flops
+        // to compute H (hermition polar factor).
+        // gflop = trcon + itqr * (flop_per_qr_based_iter) +
+        //         itpo * (flop_per_po_based_iter) +
+        //         flop_compute_H
+        double gflop_trcon = lapack::Gflop<scalar_t>::geqrf(m, n);
+
+        double gflop_itqr  = itqr * ( lapack::Gflop<scalar_t>::geqrf(m+n, n) +
+                                      lapack::Gflop<scalar_t>::unmqr(slate::Side::Left, m+n, n, n) +
+                                      lapack::Gflop<scalar_t>::gemm(m, n, n) );
+
+        double gflop_itpo  = itpo * ( lapack::Gflop<scalar_t>::gemm(m, n, n) +
+                                      lapack::Gflop<scalar_t>::potrf(m)      +
+                                      blas::Gflop<scalar_t>::trsm(slate::Side::Left, m, n) );
+
+        double gflop_compute_H = blas::Gflop<scalar_t>::her2k(n, m);
+
+        double gflop = gflop_trcon + gflop_itqr + gflop_itpo + gflop_compute_H;
 
         if (trace) slate::trace::Trace::finish();
 
@@ -178,7 +199,8 @@ void test_qdwh_work(Params& params, bool run)
         //
         //==================================================
         real_t normA = slate::norm(slate::Norm::Fro, Aref);
-        slate::gemm(one, A, H, -one, Aref, opts);
+        //slate::gemm(one, A, H, -one, Aref, opts);
+        slate::hemm(slate::Side::Right, one, H, A, -one, Aref, opts);
         real_t berr = slate::norm(slate::Norm::Fro, Aref);
         params.error() = berr / normA;
 

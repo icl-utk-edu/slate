@@ -26,7 +26,8 @@ namespace impl {
 template <Target target, typename scalar_t>
 void qdwh(
           Matrix<scalar_t>& A,
-          Matrix<scalar_t>& H, // this matrix will be hermition
+          HermitianMatrix<scalar_t>& H, // this matrix will be hermition
+          int& itqr, int& itpo,
           Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
@@ -43,12 +44,12 @@ void qdwh(
 
     bool optqr = 1;
     int itconv, it;
-    int itqr = 0, itpo = 0;
 
     real_t L2, sqd, dd, a1, a, b, c;
     real_t Li, Liconv;
     real_t conv = 100.;
-    scalar_t zero = 0.0, one = 1.0, minusone = -1.0;
+    scalar_t zero = 0.0, one = 1.0;
+    real_t rzero = 0.0;
 
     scalar_t alpha, beta;
 
@@ -88,13 +89,8 @@ void qdwh(
 
     // todo: anyway to avoid Acpy allocation?
     slate::Matrix<scalar_t> Acpy;
-    if (m != n) {
-        Acpy = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
-        Acpy.insertLocalTiles();
-    }
-    else {
-        Acpy = H;
-    }
+    Acpy = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
+    Acpy.insertLocalTiles(target);
 
     if (target == Target::Devices) {
         const int64_t batch_size_zero = 0; // use default batch size
@@ -104,18 +100,22 @@ void qdwh(
         // keep allocating
         // todo: check traces to confirm
         // or in printf in blaspp/device_malloc and here
-        A.allocateBatchArrays(batch_size_zero, num_queues);
-        A.reserveDeviceWorkspace();
-        W.allocateBatchArrays(batch_size_zero, num_queues);
-        W.reserveDeviceWorkspace();
-        Q.allocateBatchArrays(batch_size_zero, num_queues);
-        Q.reserveDeviceWorkspace();
-        Acpy.allocateBatchArrays(batch_size_zero, num_queues);
-        Acpy.reserveDeviceWorkspace();
+        // todo: is it enough to allocate for one matrix??
+        // todo: we don't need these here because each slate call will do it.
+        // todo: check if after any call it deallocate, for example after gemm, does it throw away the gpu allocation?
+        //A.allocateBatchArrays(batch_size_zero, num_queues);
+        //A.reserveDeviceWorkspace();
+        //W.allocateBatchArrays(batch_size_zero, num_queues);
+        //W.reserveDeviceWorkspace();
+        //Q.allocateBatchArrays(batch_size_zero, num_queues);
+        //Q.reserveDeviceWorkspace();
+        //Acpy.allocateBatchArrays(batch_size_zero, num_queues);
+        //Acpy.reserveDeviceWorkspace();
     }
 
-    W.insertLocalTiles();
-    Q.insertLocalTiles();
+    // todo: do this on GPUs
+    W.insertLocalTiles(target);
+    Q.insertLocalTiles(target);
 
     // To compute QR[A; Id]
     // First mt tiles of W contains A matrix in [0:m-1, 0:n-1]
@@ -151,7 +151,6 @@ void qdwh(
     // scale the original matrix A to form A0 of the iterative loop
     add(alpha/scalar_t(norm_est), Acpy, zero, A, opts);
 
-    // todo: look at Lapack impl
     // Calculate Li: reciprocal of condition number estimation
     // Either 1) use LU followed by gecon
     // Or     2) QR followed by trtri
@@ -161,7 +160,7 @@ void qdwh(
         // Estimate the condition number using QR
         // This Q factor can be used in the first QR-based iteration
         copy(A, W10);
-        // todo: this QR can be used in the first QR iteration
+        // todo: the QR used to estimate the condition number can be used in the first QR iteration
         // todo: put bound of 1-norm est compared to 2-norm
         slate::geqrf(W1, T, opts);
         //auto R  = TrapezoidMatrix<scalar_t>(
@@ -255,6 +254,8 @@ void qdwh(
             // todo: how to avoid allocating workspace for each iteration (3 QR)?
             // todo: how to make it work for any matrix size and any nb?
             // todo: check time for allocationn in geqrf
+            // W = [W1]
+            //     [I ]
             geqrf_qdwh_full(W, T, opts);
 
             set(zero, one, Q);
@@ -318,7 +319,7 @@ void qdwh(
         // Compute the norm of the symmetric matrix U - B1
         conv = 10.0;
         if (it >= itconv) {
-            add(one, A, minusone, W10, opts);
+            add(one, A, -one, W10, opts);
             conv = norm(slate::Norm::Fro, W10);
         }
     }
@@ -331,7 +332,12 @@ void qdwh(
     // A = U*H ==> H = U'*A ==> H = 0.5*(H'+H)
     copy(Acpy, W10);
     auto AT = conj_transpose(A);
-    gemm(one, AT, W10, zero, H, opts);
+    // todo: try something like her2k to compute H
+    //her2k(one, A, W10, rzero, H, opts);
+    gemm(one, AT, W10, zero, Q10, opts);
+    auto AL = HermitianMatrix<scalar_t>(
+            Uplo::Lower, Q10 );
+    copy(AL, H);
 
     A.releaseWorkspace();
     W.releaseWorkspace();
@@ -390,7 +396,8 @@ void qdwh(
 template <typename scalar_t>
 void qdwh(
           Matrix<scalar_t>& A,
-          Matrix<scalar_t>& H,
+          HermitianMatrix<scalar_t>& H,
+          int& itqr, int& itpo,
           Options const& opts)
 {
     using internal::TargetType;
@@ -399,16 +406,16 @@ void qdwh(
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::qdwh<Target::HostTask>( A, H, opts );
+            impl::qdwh<Target::HostTask>( A, H, itqr, itpo, opts );
             break;
         case Target::HostNest:
-            impl::qdwh<Target::HostNest>( A, H, opts );
+            impl::qdwh<Target::HostNest>( A, H, itqr, itpo, opts );
             break;
         case Target::HostBatch:
-            impl::qdwh<Target::HostBatch>( A, H, opts );
+            impl::qdwh<Target::HostBatch>( A, H, itqr, itpo, opts );
             break;
         case Target::Devices:
-            impl::qdwh<Target::Devices>( A, H, opts );
+            impl::qdwh<Target::Devices>( A, H, itqr, itpo, opts );
             break;
     }
     // todo: return value for errors?
@@ -419,25 +426,29 @@ void qdwh(
 template
 void qdwh<float>(
     Matrix<float>& A,
-    Matrix<float>& H,
+    HermitianMatrix<float>& H,
+    int& itqr, int& itpo,
     Options const& opts);
 
 template
 void qdwh<double>(
     Matrix<double>& A,
-    Matrix<double>& H,
+    HermitianMatrix<double>& H,
+    int& itqr, int& itpo,
     Options const& opts);
 
 template
 void qdwh< std::complex<float> >(
     Matrix< std::complex<float> >& A,
-    Matrix< std::complex<float> >& H,
+    HermitianMatrix< std::complex<float> >& H,
+    int& itqr, int& itpo,
     Options const& opts);
 
 template
 void qdwh< std::complex<double> >(
     Matrix< std::complex<double> >& A,
-    Matrix< std::complex<double> >& H,
+    HermitianMatrix< std::complex<double> >& H,
+    int& itqr, int& itpo,
     Options const& opts);
 
 } // namespace slate

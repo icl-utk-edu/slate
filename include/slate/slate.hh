@@ -1093,7 +1093,8 @@ void steqr2(
 template <typename scalar_t>
 void qdwh(
     Matrix<scalar_t>& A,
-    Matrix<scalar_t>& H, // this matrix will be hermition
+    HermitianMatrix<scalar_t>& H,
+    int& itqr, int& itpo,
     Options const& opts = Options());
 
 //-----------------------------------------

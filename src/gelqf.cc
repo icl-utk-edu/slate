@@ -28,6 +28,7 @@ void gelqf(
     Options const& opts )
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
+    using lapack::device_info_int;
     using blas::real;
 
     // Assumes column major
@@ -60,6 +61,13 @@ void gelqf(
     // workspace
     auto W = A.emptyLike();
 
+    int64_t num_devices  = A.num_devices();
+    int     panel_device = -1;
+    size_t  work_size    = 0;
+    lapack::Queue* queue;
+
+    std::vector< scalar_t* > dwork_array( num_devices, nullptr );
+
     if (target == Target::Devices) {
         A.allocateBatchArrays();
         A.reserveDeviceWorkspace();
@@ -70,6 +78,52 @@ void gelqf(
         // thus limiting the matrix size that can be processed
         // For now, allocate workspace tiles 1-by-1.
         //W.reserveDeviceWorkspace();
+
+        // Needed for calling internal::geqrf on device.
+        int64_t mlocal = 0;
+        int64_t nlocal = 0;
+        int64_t first_panel_seen = -1;
+        // Assume transpose on panel-evaluation
+        for (int64_t i = 0; i < A.mt(); ++i) {
+            for (int64_t j = i; j < A.nt(); ++j) {
+                if (A.tileIsLocal( i, j )) {
+                    if (first_panel_seen < 0) {
+                        first_panel_seen = i;
+                        mlocal = A.tileMb( i );
+                        nlocal = A.tileNb( i );
+                    }
+                    if (first_panel_seen == i) {
+                        if (panel_device < 0) {
+                            panel_device = A.tileDevice( i, j );
+                        }
+                        nlocal += A.tileNb( j );
+                    }
+                }
+            }
+            if (first_panel_seen >= 0) {
+                break;
+            }
+        }
+
+        if (panel_device >= 0) {
+
+            queue = A.compute_queue( panel_device );
+
+            size_t  size_tau = (size_t) std::min( nlocal, mlocal );
+            size_t  size_A   = (size_t) blas::max( 1, nlocal ) * mlocal;
+            size_t  hsize, dsize;
+
+            lapack::geqrf_work_size_bytes( nlocal, mlocal, dwork_array[0], nlocal,
+                                           &dsize, &hsize, *queue );
+
+            work_size = size_A + size_tau + ceildiv( dsize, sizeof( scalar_t ) )
+                        + ceildiv( sizeof( device_info_int ), sizeof( scalar_t ) );
+
+            for (int64_t dev = 0; dev < num_devices; ++dev) {
+                queue = A.comm_queue( dev );
+                dwork_array[ dev ] = blas::device_malloc<scalar_t>( work_size, *queue );
+            }
+        }
     }
 
     // Workspace for transposed panels needs one column of tiles.
@@ -124,29 +178,35 @@ void gelqf(
                 // better cache efficiency.
                 for (int64_t j = 0; j < A_panel.nt(); ++j) {
                     if (A_panel.tileIsLocal(0, j)) {
+                        // Needed if origin is device
+                        A_panel.tileGetForWriting( 0, j, LayoutConvert( layout ) );
                         tile::deepConjTranspose( A_panel(0, j), AT_panel(j, 0) );
                     }
                 }
 
                 // local panel factorization
-                internal::geqrf<Target::HostTask>(
-                                std::move(AT_panel),
-                                std::move(TlT_panel),
-                                ib, max_panel_threads, priority_one);
+                internal::geqrf<target>(
+                    std::move(AT_panel), std::move(TlT_panel),
+                    dwork_array, work_size, ib,
+                    max_panel_threads, priority_one);
 
                 // Find first local tile, which is triangular factor (T in I - VTV^H),
                 // and copy it to Tlocal.
                 for (int64_t i = 0; i < TlT_panel.mt(); ++i) {
                     if (Tl_panel.tileIsLocal(0, i)) {
+                        // Device GEQRF updates tiles on device. Without getting
+                        // the tile for reading on Host, it is not updated
+                        TlT_panel.tileGetForReading( i, 0, LayoutConvert( layout ) );
                         Tl_panel.tileInsert(0, i);
                         tile::gecopy( TlT_panel(i, 0), Tl_panel(0, i) );
                         break;
                     }
                 }
-
                 // Copy result back.
                 for (int64_t j = 0; j < A_panel.nt(); ++j) {
                     if (A_panel.tileIsLocal(0, j)) {
+                        // Same as above for TlT
+                        AT_panel.tileGetForReading( j, 0, LayoutConvert( layout ) );
                         tile::deepConjTranspose( AT_panel(j, 0), A_panel(0, j) );
                     }
                 }
@@ -257,6 +317,14 @@ void gelqf(
 
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
+    }
+
+    if (target == Target::Devices) {
+        for (int64_t dev = 0; dev < num_devices; ++dev) {
+            queue = A.comm_queue( dev );
+            blas::device_free( dwork_array[ dev ], *queue );
+            dwork_array[ dev ] = nullptr;
+        }
     }
 
     A.releaseWorkspace();

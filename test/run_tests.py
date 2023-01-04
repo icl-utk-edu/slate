@@ -567,7 +567,7 @@ if (opts.cond):
     [ 'gecondest', gen + dtype + n ],
 
     # Triangle
-    [ 'trcondest', gen + dtype + mn  + norm ],
+    [ 'trcondest', gen + dtype + n ],
 
     #[ 'gbcon', gen + dtype + la + n  + kl + ku ],
     #[ 'pocon', gen + dtype + la + n + uplo ],

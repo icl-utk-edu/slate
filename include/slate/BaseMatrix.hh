@@ -4108,7 +4108,13 @@ void BaseMatrix<scalar_t>::eraseRemoteWorkspaceTile(int64_t i, int64_t j)
 
             // This lock ensures that no other thread is trying to
             // modify the tile.
-            LockGuard guard_tile( tile_node.getLock() );
+            // The following lock causes the following runtime
+            // error on Crusher
+            //
+            // FATAL ERROR (libmp/x86_64/omp_lock.c:297): omp_destroy_lock
+            // failed: Can only destroy unlocked lockss.
+            //
+            // LockGuard guard_tile( tile_node.getLock() );
             if (tileExists( i, j )) {
                 if (tileReceiveCount( i, j ) > 0) {
                     tileDecrementReceiveCount( i, j );

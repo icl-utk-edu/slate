@@ -1089,18 +1089,6 @@ void steqr2(
 // Condition number estimate
 
 //-----------------------------------------
-// norm1est()
-template <typename scalar_t>
-void norm1est(
-    Matrix<scalar_t>& A,
-    Matrix<scalar_t>& V,
-    Matrix<int64_t>& S,
-    blas::real_type<scalar_t>* one_normest,
-    int* kase,
-    std::vector<int64_t>& isave,
-    Options const& opts = Options());
-
-//-----------------------------------------
 // gecondest()
 template <typename scalar_t>
 void gecondest(

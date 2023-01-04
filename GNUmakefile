@@ -446,6 +446,7 @@ ifneq ($(only_unit),1)
         src/internal/internal_unmlq.cc \
         src/internal/internal_unmqr.cc \
         src/internal/internal_unmtr_hb2st.cc \
+        src/internal/internal_norm1est.cc \
         # End. Add alphabetically.
 endif
 
@@ -561,7 +562,6 @@ ifneq ($(only_unit),1)
         src/work/work_trmm.cc \
         src/work/work_trsm.cc \
         src/work/work_trsmA.cc \
-        src/norm1est.cc \
         src/gecondest.cc \
         src/trcondest.cc \
         # End. Add alphabetically.

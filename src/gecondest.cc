@@ -128,7 +128,7 @@ void gecondest(
 
     // initial and final value of kase is 0
     kase = 0;
-    norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);
+    internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);
 
     MPI_Bcast( &isave[0], 3, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
     MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
@@ -152,7 +152,7 @@ void gecondest(
             slate::trsmB(Side::Left, alpha, LT, X, opts);
         }
 
-        norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);
+        internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);
         MPI_Bcast( &isave[0], 3, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
         MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
     } // while (kase != 0)

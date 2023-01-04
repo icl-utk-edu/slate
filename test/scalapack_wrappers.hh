@@ -2479,10 +2479,10 @@ inline void scalapack_plaqge(
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-#define scalapack_psgecon BLAS_FORTRAN_NAME( psgecon, PSgecon )
-#define scalapack_pdgecon BLAS_FORTRAN_NAME( pdgecon, PDgecon )
-#define scalapack_pcgecon BLAS_FORTRAN_NAME( pcgecon, PCgecon )
-#define scalapack_pzgecon BLAS_FORTRAN_NAME( pzgecon, PZgecon )
+#define scalapack_psgecon BLAS_FORTRAN_NAME( psgecon, PSGECON )
+#define scalapack_pdgecon BLAS_FORTRAN_NAME( pdgecon, PDGECON )
+#define scalapack_pcgecon BLAS_FORTRAN_NAME( pcgecon, PCGECON )
+#define scalapack_pzgecon BLAS_FORTRAN_NAME( pzgecon, PZGECON )
 
 extern "C" {
 
@@ -2591,10 +2591,10 @@ inline void scalapack_pgecon(
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-#define scalapack_pstrcon BLAS_FORTRAN_NAME( pstrcon, PStrcon )
-#define scalapack_pdtrcon BLAS_FORTRAN_NAME( pdtrcon, PDtrcon )
-#define scalapack_pctrcon BLAS_FORTRAN_NAME( pctrcon, PCtrcon )
-#define scalapack_pztrcon BLAS_FORTRAN_NAME( pztrcon, PZtrcon )
+#define scalapack_pstrcon BLAS_FORTRAN_NAME( pstrcon, PSTRCON )
+#define scalapack_pdtrcon BLAS_FORTRAN_NAME( pdtrcon, PDTRCON )
+#define scalapack_pctrcon BLAS_FORTRAN_NAME( pctrcon, PCTRCON )
+#define scalapack_pztrcon BLAS_FORTRAN_NAME( pztrcon, PZTRCON )
 
 extern "C" {
 

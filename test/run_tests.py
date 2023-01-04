@@ -74,8 +74,7 @@ categories = [
     group_cat.add_argument( '--svd',           action='store_true', help='run SVD tests' ),
     group_cat.add_argument( '--aux',           action='store_true', help='run auxiliary routine tests' ),
     group_cat.add_argument( '--norms',         action='store_true', help='run norm tests' ),
-    group_cat.add_argument( '--gecon',            action='store_true', help='run condition number estimate tests' ),
-    group_cat.add_argument( '--trcon',            action='store_true', help='run condition number estimate of triangular matrix tests' ),
+    group_cat.add_argument( '--cond',          action='store_true', help='run condition number estimate tests' ),
 ]
 # map category objects to category names: ['lu', 'chol', ...]
 categories = list( map( lambda x: x.dest, categories ) )
@@ -378,12 +377,9 @@ if (opts.lu):
 
     [ 'getri',    gen + dtype + la + n ],
     [ 'getriOOP', gen + dtype + la + n ],
-    #[ 'gecon', gen + dtype + la + n ],
     #[ 'gerfs', gen + dtype + la + n + trans ],
     #[ 'geequ', gen + dtype + la + n ],
     [ 'gesvMixed',  gen + dtype_double + la + n ],
-
-    [ 'gecon',      gen + dtype + la + n + thresh ],
     ]
 
 # LU banded
@@ -392,7 +388,6 @@ if (opts.lu_band):
     [ 'gbsv',  gen + dtype + la + n  + kl + ku ],
     [ 'gbtrf', gen + dtype + la + n  + kl + ku ],  # todo: mn
     [ 'gbtrs', gen + dtype + la + n  + kl + ku + trans ],
-    #[ 'gbcon', gen + dtype + la + n  + kl + ku ],
     #[ 'gbrfs', gen + dtype + la + n  + kl + ku + trans ],
     #[ 'gbequ', gen + dtype + la + n  + kl + ku ],
     ]
@@ -404,7 +399,6 @@ if (opts.chol):
     [ 'potrf', gen + dtype + la + n + uplo + ddist ],
     [ 'potrs', gen + dtype + la + n + uplo ],
     [ 'potri', gen + dtype + la + n + uplo ],
-    #[ 'pocon', gen + dtype + la + n + uplo ],
     #[ 'porfs', gen + dtype + la + n + uplo ],
     #[ 'poequ', gen + dtype + la + n ],  # only diagonal elements (no uplo)
     [ 'posvMixed',  gen + dtype_double + la + n + uplo ],
@@ -417,7 +411,6 @@ if (opts.chol):
     [ 'pbsv',  gen + dtype + la + n + kd + uplo ],
     [ 'pbtrf', gen + dtype + la + n + kd + uplo ],
     [ 'pbtrs', gen + dtype + la + n + kd + uplo ],
-    #[ 'pbcon', gen + dtype + la + n + kd + uplo ],
     #[ 'pbrfs', gen + dtype + la + n + kd + uplo ],
     #[ 'pbequ', gen + dtype + la + n + kd + uplo ],
     ]
@@ -466,7 +459,6 @@ if (opts.qr):
     #[ 'ungqr', gen + dtype + la + mn ],  # m >= n
     #[ 'unmqr', gen + dtype_real    + la + mnk + side + trans    ],  # real does trans = N, T, C
     #[ 'unmqr', gen + dtype_complex + la + mnk + side + trans_nc ],  # complex does trans = N, C, not T
-    [ 'trcon', gen + dtype + la + mn ],
     ]
 
 # LQ
@@ -567,6 +559,19 @@ if (opts.norms):
     [ 'hbnorm', gen + dtype + n   + kd      + norm + uplo ],
     #[ 'sbnorm', gen + dtype + la + n + kd + norm ],
     #[ 'tbnorm', gen + dtype + la + n + kd + norm ],
+    ]
+
+# cond
+if (opts.cond):
+    cmds += [
+    [ 'gecondest', gen + dtype + n ],
+
+    # Triangle
+    [ 'trcondest', gen + dtype + mn  + norm ],
+
+    #[ 'gbcon', gen + dtype + la + n  + kl + ku ],
+    #[ 'pocon', gen + dtype + la + n + uplo ],
+    #[ 'pbcon', gen + dtype + la + n + kd + uplo ],
     ]
 
 # aux

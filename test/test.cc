@@ -44,8 +44,6 @@ enum Section {
     newline = 0,  // zero flag forces newline
     blas3,
     gesv,
-    gecon,
-    trcon,
     posv,
     sysv,
     hesv,
@@ -66,13 +64,11 @@ const char* section_names[] = {
     "",  // none
     "Level 3 BLAS",
     "LU",
-    "Condition number estimate",
     "Cholesky",
     "symmetric indefinite",
     "Hermitian indefinite",
     "least squares",
     "QR, LQ, QL, RQ",
-    "Condition number estimate of triangular matrix",
     "symmetric eigenvalues",
     "generalized symmetric eigenvalues",
     "non-symmetric eigenvalues",
@@ -115,7 +111,6 @@ std::vector< testsweeper::routines_t > routines = {
     { "gesv_nopiv",         test_gesv,         Section::gesv },
     { "gesv_tntpiv",        test_gesv,         Section::gesv },
     { "gesvMixed",          test_gesv,         Section::gesv },
-    { "gecon",              test_gecon,        Section::gecon },
     { "gbsv",               test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 
@@ -137,6 +132,7 @@ std::vector< testsweeper::routines_t > routines = {
 
     { "trtri",              test_trtri,        Section::gesv },
     { "",                   nullptr,           Section::newline },
+    { "gecondest",          test_gecondest,    Section::gesv },
 
     // -----
     // Cholesky
@@ -188,7 +184,6 @@ std::vector< testsweeper::routines_t > routines = {
     { "geqrf",              test_geqrf,     Section::qr },
     { "cholqr",             test_geqrf,     Section::qr },
     { "gelqf",              test_gelqf,     Section::qr },
-    { "trcon",              test_trcon,     Section::trcon },
     //{ "geqlf",              test_geqlf,     Section::qr },
     //{ "gerqf",              test_gerqf,     Section::qr },
     //{ "",                   nullptr,        Section::newline },
@@ -204,6 +199,7 @@ std::vector< testsweeper::routines_t > routines = {
     //{ "unmql",              test_unmql,     Section::qr },
     //{ "unmrq",              test_unmrq,     Section::qr },
     { "",                   nullptr,        Section::newline },
+    { "trcondest",          test_trcondest, Section::qr },
 
     // -----
     // symmetric/Hermitian eigenvalues

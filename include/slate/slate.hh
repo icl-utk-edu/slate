@@ -1089,9 +1089,9 @@ void steqr2(
 // Condition number estimate
 
 //-----------------------------------------
-// lacn2()
+// norm1est()
 template <typename scalar_t>
-void lacn2(
+void norm1est(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& V,
     Matrix<int64_t>& S,
@@ -1101,9 +1101,9 @@ void lacn2(
     Options const& opts = Options());
 
 //-----------------------------------------
-// gecon()
+// gecondest()
 template <typename scalar_t>
-void gecon(
+void gecondest(
         Norm in_norm,
         Matrix<scalar_t>& A,
         blas::real_type<scalar_t> *Anorm,
@@ -1111,9 +1111,9 @@ void gecon(
         Options const& opts = Options());
 
 //-----------------------------------------
-// trcon()
+// trcondest()
 template <typename scalar_t>
-void trcon(
+void trcondest(
         Norm in_norm,
         TriangularMatrix<scalar_t>& A,
         blas::real_type<scalar_t> *rcond,

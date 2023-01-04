@@ -561,9 +561,9 @@ ifneq ($(only_unit),1)
         src/work/work_trmm.cc \
         src/work/work_trsm.cc \
         src/work/work_trsmA.cc \
-        src/lacn2.cc \
-        src/gecon.cc \
-        src/trcon.cc \
+        src/norm1est.cc \
+        src/gecondest.cc \
+        src/trcondest.cc \
         # End. Add alphabetically.
 endif
 
@@ -613,8 +613,8 @@ tester_src += \
         test/test_genorm.cc \
         test/test_geqrf.cc \
         test/test_gesv.cc \
-        test/test_gecon.cc \
-        test/test_trcon.cc \
+        test/test_gecondest.cc \
+        test/test_trcondest.cc \
         test/test_gesvd.cc \
         test/test_getri.cc \
         test/test_hb2st.cc \

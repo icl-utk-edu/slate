@@ -4104,7 +4104,7 @@ void BaseMatrix<scalar_t>::eraseRemoteWorkspaceTile(int64_t i, int64_t j)
         auto iter = this->storage_->find( this->globalIndex( i, j ) );
         if (iter != this->storage_->end()) {
 
-            auto& tile_node = *(iter->second);
+            // auto& tile_node = *(iter->second);
 
             // This lock ensures that no other thread is trying to
             // modify the tile.

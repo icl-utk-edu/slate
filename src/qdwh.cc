@@ -26,7 +26,7 @@ namespace impl {
 template <Target target, typename scalar_t>
 void qdwh(
           Matrix<scalar_t>& A,
-          HermitianMatrix<scalar_t>& H, // this matrix will be hermition
+          Matrix<scalar_t>& B,
           int& itqr, int& itpo,
           Options const& opts)
 {
@@ -136,9 +136,9 @@ void qdwh(
     if (m_roundup != m) {
         // W11 and Q11 is the extra padded rows [m:m_round_up, 0:n-1]
         auto W11 = W1.slice(m, m_roundup-1, 0, n-1);
-        set(zero, zero, W11);
+        set(zero, zero, W11, opts);
         auto Q11 = Q1.slice(m, m_roundup-1, 0, n-1);
-        set(zero, zero, Q11);
+        set(zero, zero, Q11, opts);
     }
 
     // backup A in Acpy to compute H
@@ -155,7 +155,7 @@ void qdwh(
     // Either 1) use LU followed by gecon
     // Or     2) QR followed by trtri
     // If used the QR, use the Q factor in the first QR-based iteration
-    normA = norm(slate::Norm::One, A);
+    normA = norm(slate::Norm::One, A, opts);
     if (optqr) {
         // Estimate the condition number using QR
         // This Q factor can be used in the first QR-based iteration
@@ -172,7 +172,7 @@ void qdwh(
             Uplo::Upper, R1 );
         // todo: cheaper to do triangular solve than calling trtri
         trtri(R, opts);
-        norminvR = norm(slate::Norm::One, Rh);
+        norminvR = norm(slate::Norm::One, Rh, opts);
         Li = (1.0 / norminvR) / normA;
         Li = norm_est / 1.1 * Li;
         // *flops += FLOPS_DGEQRF( M, N )
@@ -233,7 +233,7 @@ void qdwh(
             // Generate the matrix B = [ B1 ] = [ sqrt(c) * U ]
             //                         [ B2 ] = [ Id          ]
             alpha = scalar_t(sqrt(c));
-            set(zero, one, W2);
+            set(zero, one, W2, opts);
 
             //if( doqr ) {
             //    geadd(alpha, A, zero, W10, opts);
@@ -258,7 +258,7 @@ void qdwh(
             //     [I ]
             geqrf_qdwh_full(W, T, opts);
 
-            set(zero, one, Q);
+            set(zero, one, Q, opts);
             //unmqr(slate::Side::Left, slate::Op::NoTrans, W, T, Q, opts); //naive impl
             unmqr_qdwh_full(slate::Side::Left, slate::Op::NoTrans, W, T, Q, opts);
 
@@ -288,7 +288,7 @@ void qdwh(
             }
 
             // Make Q1 into an identity matrix
-            set(zero, one, W2);
+            set(zero, one, W2, opts);
 
             // Compute Q1 = c * A' * A + I
             ///////////////
@@ -320,7 +320,7 @@ void qdwh(
         conv = 10.0;
         if (it >= itconv) {
             add(one, A, -one, W10, opts);
-            conv = norm(slate::Norm::Fro, W10);
+            conv = norm(slate::Norm::Fro, W10, opts);
         }
     }
 
@@ -330,14 +330,10 @@ void qdwh(
     }
 
     // A = U*H ==> H = U'*A ==> H = 0.5*(H'+H)
-    copy(Acpy, W10);
     auto AT = conj_transpose(A);
+    gemm(one, AT, Acpy, zero, B, opts);
     // todo: try something like her2k to compute H
     //her2k(one, A, W10, rzero, H, opts);
-    gemm(one, AT, W10, zero, Q10, opts);
-    auto AL = HermitianMatrix<scalar_t>(
-            Uplo::Lower, Q10 );
-    copy(AL, H);
 
     A.releaseWorkspace();
     W.releaseWorkspace();
@@ -396,7 +392,7 @@ void qdwh(
 template <typename scalar_t>
 void qdwh(
           Matrix<scalar_t>& A,
-          HermitianMatrix<scalar_t>& H,
+          Matrix<scalar_t>& B,
           int& itqr, int& itpo,
           Options const& opts)
 {
@@ -406,16 +402,16 @@ void qdwh(
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::qdwh<Target::HostTask>( A, H, itqr, itpo, opts );
+            impl::qdwh<Target::HostTask>( A, B, itqr, itpo, opts );
             break;
         case Target::HostNest:
-            impl::qdwh<Target::HostNest>( A, H, itqr, itpo, opts );
+            impl::qdwh<Target::HostNest>( A, B, itqr, itpo, opts );
             break;
         case Target::HostBatch:
-            impl::qdwh<Target::HostBatch>( A, H, itqr, itpo, opts );
+            impl::qdwh<Target::HostBatch>( A, B, itqr, itpo, opts );
             break;
         case Target::Devices:
-            impl::qdwh<Target::Devices>( A, H, itqr, itpo, opts );
+            impl::qdwh<Target::Devices>( A, B, itqr, itpo, opts );
             break;
     }
     // todo: return value for errors?
@@ -426,28 +422,28 @@ void qdwh(
 template
 void qdwh<float>(
     Matrix<float>& A,
-    HermitianMatrix<float>& H,
+    Matrix<float>& B,
     int& itqr, int& itpo,
     Options const& opts);
 
 template
 void qdwh<double>(
     Matrix<double>& A,
-    HermitianMatrix<double>& H,
+    Matrix<double>& B,
     int& itqr, int& itpo,
     Options const& opts);
 
 template
 void qdwh< std::complex<float> >(
     Matrix< std::complex<float> >& A,
-    HermitianMatrix< std::complex<float> >& H,
+    Matrix< std::complex<float> >& B,
     int& itqr, int& itpo,
     Options const& opts);
 
 template
 void qdwh< std::complex<double> >(
     Matrix< std::complex<double> >& A,
-    HermitianMatrix< std::complex<double> >& H,
+    Matrix< std::complex<double> >& B,
     int& itqr, int& itpo,
     Options const& opts);
 

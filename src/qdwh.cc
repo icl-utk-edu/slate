@@ -145,8 +145,9 @@ void qdwh(
     copy(A, Acpy);
 
     // two norm estimation (largest singular value of A)
-    real_t norm_est = normest(slate::Norm::One, A);
+    real_t norm_est = norm2est( A, opts);
     alpha = 1.0;
+    norm_est = 1.;
 
     // scale the original matrix A to form A0 of the iterative loop
     add(alpha/scalar_t(norm_est), Acpy, zero, A, opts);
@@ -402,13 +403,9 @@ void qdwh(
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::qdwh<Target::HostTask>( A, B, itqr, itpo, opts );
-            break;
         case Target::HostNest:
-            impl::qdwh<Target::HostNest>( A, B, itqr, itpo, opts );
-            break;
         case Target::HostBatch:
-            impl::qdwh<Target::HostBatch>( A, B, itqr, itpo, opts );
+            impl::qdwh<Target::HostTask>( A, B, itqr, itpo, opts );
             break;
         case Target::Devices:
             impl::qdwh<Target::Devices>( A, B, itqr, itpo, opts );

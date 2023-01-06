@@ -1093,7 +1093,7 @@ void steqr2(
 template <typename scalar_t>
 void qdwh(
     Matrix<scalar_t>& A,
-    HermitianMatrix<scalar_t>& H,
+    Matrix<scalar_t>& B,
     int& itqr, int& itpo,
     Options const& opts = Options());
 
@@ -1101,8 +1101,7 @@ void qdwh(
 // normest()
 template <typename matrix_type>
 blas::real_type<typename matrix_type::value_type>
-normest(
-    Norm in_norm,
+norm2est(
     matrix_type &A,
     Options const& opts = Options());
 

@@ -134,7 +134,7 @@ void qdwh(
     }
 
     // backup A in Acpy to compute H
-    copy(A, Acpy);
+    slate::copy(A, Acpy, opts);
 
     // two norm estimation (largest singular value of A)
     real_t norm_est = norm2est( A, opts);
@@ -152,7 +152,7 @@ void qdwh(
     if (optqr) {
         // Estimate the condition number using QR
         // This Q factor can be used in the first QR-based iteration
-        copy(A, W10);
+        slate::copy(A, W10, opts);
         // todo: the QR used to estimate the condition number can be used in the first QR iteration
         // todo: put bound of 1-norm est compared to 2-norm
         slate::geqrf(W1, T, opts);
@@ -256,7 +256,7 @@ void qdwh(
             beta  = scalar_t( b / c );
             // Copy U into C to check the convergence of QDWH
             if (it >= itconv ) {
-                copy(A, W10);
+                slate::copy(A, W10, opts);
             }
             gemm(alpha, Q10, Q2T, beta, A, opts);
 
@@ -272,14 +272,14 @@ void qdwh(
         else {
             // Copy A into H to check the convergence of QDWH
             if (it >= itconv) {
-                copy(A, W10);
+                slate::copy(A, W10, opts);
             }
 
             // Make Q1 into an identity matrix
             set(zero, one, W2, opts);
 
             // Compute Q1 = c * A' * A + I
-            copy(A, Q10);
+            slate::copy(A, Q10, opts);
             auto AT = conj_transpose(Q10);
             gemm(scalar_t(c), AT, A, one, W2, opts);
 

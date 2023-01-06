@@ -10,17 +10,11 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// todo: is it ok?
-// internal::qdwh from impl::qdwh
-// todo: works only if m % nb = 0
-// todo: works only for square matrices
 namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel polar decomposition based on QDWH algorithm.
 /// Generic implementation for any target.
-// todo: add to docs/doxygen
 /// @ingroup qdwh_specialization
 ///
 template <Target target, typename scalar_t>
@@ -92,9 +86,9 @@ void qdwh(
     Acpy = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
     Acpy.insertLocalTiles(target);
 
-    if (target == Target::Devices) {
-        const int64_t batch_size_zero = 0; // use default batch size
-        const int64_t num_queues = 3 + lookahead;
+    //if (target == Target::Devices) {
+        //const int64_t batch_size_zero = 0; // use default batch size
+        //const int64_t num_queues = 3 + lookahead;
         // todo: I have workspace here and in other call as geqrf_qdwh_full
         // todo: in geqrf, it should use the allocated ones, it should not
         // keep allocating
@@ -111,7 +105,7 @@ void qdwh(
         //Q.reserveDeviceWorkspace();
         //Acpy.allocateBatchArrays(batch_size_zero, num_queues);
         //Acpy.reserveDeviceWorkspace();
-    }
+    //}
 
     // todo: do this on GPUs
     W.insertLocalTiles(target);
@@ -136,9 +130,7 @@ void qdwh(
     if (m_roundup != m) {
         // W11 and Q11 is the extra padded rows [m:m_round_up, 0:n-1]
         auto W11 = W1.slice(m, m_roundup-1, 0, n-1);
-        set(zero, zero, W11, opts);
         auto Q11 = Q1.slice(m, m_roundup-1, 0, n-1);
-        set(zero, zero, Q11, opts);
     }
 
     // backup A in Acpy to compute H
@@ -252,11 +244,6 @@ void qdwh(
             //scale(alpha, one, W1, opts);
 
             //geqrf(W, T, opts); // naive impl
-            // todo: how to avoid allocating workspace for each iteration (3 QR)?
-            // todo: how to make it work for any matrix size and any nb?
-            // todo: check time for allocationn in geqrf
-            // W = [W1]
-            //     [I ]
             geqrf_qdwh_full(W, T, opts);
 
             set(zero, one, Q, opts);
@@ -292,7 +279,6 @@ void qdwh(
             set(zero, one, W2, opts);
 
             // Compute Q1 = c * A' * A + I
-            ///////////////
             copy(A, Q10);
             auto AT = conj_transpose(Q10);
             gemm(scalar_t(c), AT, A, one, W2, opts);
@@ -317,7 +303,7 @@ void qdwh(
             //facto = 1;
         }
 
-        // Compute the norm of the symmetric matrix U - B1
+        // Check if it converge, compute the norm of matrix U - B1
         conv = 10.0;
         if (it >= itconv) {
             add(one, A, -one, W10, opts);
@@ -335,6 +321,9 @@ void qdwh(
     gemm(one, AT, Acpy, zero, B, opts);
     // todo: try something like her2k to compute H
     //her2k(one, A, W10, rzero, H, opts);
+    //auto AL = HermitianMatrix<scalar_t>(
+    //        slate::Uplo::Lower, B );
+    //slate::copy(AL, H, opts);
 
     A.releaseWorkspace();
     W.releaseWorkspace();

@@ -13,6 +13,7 @@
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
+#include "nvToolsExt.h"
 
 #include <cmath>
 #include <cstdio>
@@ -76,11 +77,10 @@ void test_qdwh_work(Params& params, bool run)
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector<scalar_t> A_data;
-    std::vector<scalar_t> B_data;
 
     int64_t mlocH = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocH = num_local_rows_cols(n, nb, mycol, q);
-    int64_t lldH  = blas::max(1, mlocH); // local leading dimension of A
+    int64_t lldH  = blas::max(1, mlocH); // local leading dimension of H
     std::vector<scalar_t> H_data;
 
     // matrix QR, for checking result
@@ -89,7 +89,7 @@ void test_qdwh_work(Params& params, bool run)
     Id.insertLocalTiles();
 
     slate::Matrix<scalar_t> A;
-    slate::Matrix<scalar_t> B;
+    slate::Matrix<scalar_t> H;
     //slate::HermitianMatrix<scalar_t> H;
     if (origin != slate::Origin::ScaLAPACK) {
         // Copy local ScaLAPACK data to GPU or CPU tiles.
@@ -98,8 +98,8 @@ void test_qdwh_work(Params& params, bool run)
         A.insertLocalTiles(origin_target);
         //H = slate::HermitianMatrix<scalar_t>(slate::Uplo::Lower, n, nb, p, q, MPI_COMM_WORLD);
         //H.insertLocalTiles(origin_target);
-        B = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
-        B.insertLocalTiles(origin_target);
+        H = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
+        H.insertLocalTiles(origin_target);
     }
     else {
         // create SLATE matrices from the ScaLAPACK layouts
@@ -107,8 +107,8 @@ void test_qdwh_work(Params& params, bool run)
         A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         //H_data.resize( lldH * nlocH );
         //H = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(slate::Uplo::Lower, n, &H_data[0], lldH, nb, p, q, MPI_COMM_WORLD);
-        B_data.resize( lldA * nlocA );
-        B = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &B_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        H_data.resize( lldH * nlocA );
+        H = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &H_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
     }
 
     real_t cond = 1 / std::numeric_limits<real_t>::epsilon();
@@ -145,7 +145,9 @@ void test_qdwh_work(Params& params, bool run)
         // A = AH,
         // A will be written by the orthogonal polar factor
         // H is the symmetric positive semidefinite polar factor
-        slate::qdwh(A, B, itqr, itpo, opts);
+        nvtxRangePush("qdwh");
+        slate::qdwh(A, H, itqr, itpo, opts);
+        nvtxRangePop();
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -204,7 +206,9 @@ void test_qdwh_work(Params& params, bool run)
         //
         //==================================================
         real_t normA = slate::norm(slate::Norm::Fro, Aref, opts);
-        slate::gemm(one, A, B, -one, Aref, opts);
+        slate::gemm(one, A, H, -one, Aref, opts);
+        //auto H = HermitianMatrix<scalar_t>(
+        //        slate::Uplo::Lower, B );
         //slate::hemm(slate::Side::Right, one, H, A, -one, Aref, opts);
         real_t berr = slate::norm(slate::Norm::Fro, Aref, opts);
         params.error() = berr / normA;

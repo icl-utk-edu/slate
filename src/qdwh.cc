@@ -20,7 +20,7 @@ namespace impl {
 template <Target target, typename scalar_t>
 void qdwh(
           Matrix<scalar_t>& A,
-          Matrix<scalar_t>& B,
+          Matrix<scalar_t>& H,
           int& itqr, int& itpo,
           Options const& opts)
 {
@@ -81,31 +81,16 @@ void qdwh(
     slate::Matrix<scalar_t> Q(m_W, n, nb, nprow, npcol, MPI_COMM_WORLD);
     slate::TriangularFactors<scalar_t> T;
 
-    // todo: anyway to avoid Acpy allocation?
     slate::Matrix<scalar_t> Acpy;
-    Acpy = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
-    Acpy.insertLocalTiles(target);
-
-    //if (target == Target::Devices) {
-        //const int64_t batch_size_zero = 0; // use default batch size
-        //const int64_t num_queues = 3 + lookahead;
-        // todo: I have workspace here and in other call as geqrf_qdwh_full
-        // todo: in geqrf, it should use the allocated ones, it should not
-        // keep allocating
-        // todo: check traces to confirm
-        // or in printf in blaspp/device_malloc and here
-        // todo: is it enough to allocate for one matrix??
-        // todo: we don't need these here because each slate call will do it.
-        // todo: check if after any call it deallocate, for example after gemm, does it throw away the gpu allocation?
-        //A.allocateBatchArrays(batch_size_zero, num_queues);
-        //A.reserveDeviceWorkspace();
-        //W.allocateBatchArrays(batch_size_zero, num_queues);
-        //W.reserveDeviceWorkspace();
-        //Q.allocateBatchArrays(batch_size_zero, num_queues);
-        //Q.reserveDeviceWorkspace();
-        //Acpy.allocateBatchArrays(batch_size_zero, num_queues);
-        //Acpy.reserveDeviceWorkspace();
-    //}
+    if (m == n) {
+        // if A is square, we can use H to save a copy of A
+        // this is will not work if H is stored as Hermitian matrix
+        Acpy = H;
+    }
+    else {
+        Acpy = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        Acpy.insertLocalTiles(target);
+    }
 
     // todo: do this on GPUs
     W.insertLocalTiles(target);
@@ -126,13 +111,6 @@ void qdwh(
 
     auto Q2 = Q.sub(mt, mt_W-1, 0, nt-1);
 
-
-    if (m_roundup != m) {
-        // W11 and Q11 is the extra padded rows [m:m_round_up, 0:n-1]
-        auto W11 = W1.slice(m, m_roundup-1, 0, n-1);
-        auto Q11 = Q1.slice(m, m_roundup-1, 0, n-1);
-    }
-
     // backup A in Acpy to compute H
     slate::copy(A, Acpy, opts);
 
@@ -145,9 +123,7 @@ void qdwh(
     add(alpha/scalar_t(norm_est), Acpy, zero, A, opts);
 
     // Calculate Li: reciprocal of condition number estimation
-    // Either 1) use LU followed by gecon
-    // Or     2) QR followed by trtri
-    // If used the QR, use the Q factor in the first QR-based iteration
+    // todo: use the Q factor in the first QR-based iteration
     normA = norm(slate::Norm::One, A, opts);
     if (optqr) {
         // Estimate the condition number using QR
@@ -223,8 +199,8 @@ void qdwh(
         if (real(c) > 100.) {
             //int64_t doqr = !optqr || it > 1;
 
-            // Generate the matrix B = [ B1 ] = [ sqrt(c) * U ]
-            //                         [ B2 ] = [ Id          ]
+            // Generate the matrix W = [ W1 ] = [ sqrt(c) * A ]
+            //                         [ W2 ] = [ Id          ]
             alpha = scalar_t(sqrt(c));
             set(zero, one, W2, opts);
 
@@ -237,7 +213,7 @@ void qdwh(
             //    geqrf_qdwh_full2(W, T1, opts);
             //}
 
-            // Factorize B = QR, and generate the associated Q
+            // Factorize W = QR, and generate the associated Q
             // todo: replace following add by copy and scale, but why scale only scale by a real numbers?
             add(alpha, A, zero, W10, opts);
             //copy(A, W1);
@@ -303,7 +279,7 @@ void qdwh(
             //facto = 1;
         }
 
-        // Check if it converge, compute the norm of matrix U - B1
+        // Check if it converge, compute the norm of matrix A - W1
         conv = 10.0;
         if (it >= itconv) {
             add(one, A, -one, W10, opts);
@@ -318,16 +294,19 @@ void qdwh(
 
     // A = U*H ==> H = U'*A ==> H = 0.5*(H'+H)
     auto AT = conj_transpose(A);
-    gemm(one, AT, Acpy, zero, B, opts);
+    if (m == n) {
+        auto W10_n = W1.slice(0, n-1, 0, n-1);
+        gemm(one, AT, Acpy, zero, W10_n, opts);
+        slate::copy(W10_n, H, opts);
+    }
+    else {
+        gemm(one, AT, Acpy, zero, H, opts);
+    }
     // todo: try something like her2k to compute H
     //her2k(one, A, W10, rzero, H, opts);
     //auto AL = HermitianMatrix<scalar_t>(
-    //        slate::Uplo::Lower, B );
+    //        slate::Uplo::Lower, H );
     //slate::copy(AL, H, opts);
-
-    A.releaseWorkspace();
-    W.releaseWorkspace();
-    Q.releaseWorkspace();
 }
 
 } // namespace impl

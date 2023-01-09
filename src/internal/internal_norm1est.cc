@@ -31,6 +31,7 @@ void norm1est_altsgn(Matrix<scalar_t>& A)
     for (int64_t i = 0; i < mt; ++i) {
         for (int64_t j = 0; j < nt; ++j) {
             if (A.tileIsLocal(i, j)) {
+                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                 auto Aij = A(i, j);
                 auto Aij_data = Aij.data();
                 int64_t nb = A.tileMb(i);

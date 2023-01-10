@@ -27,12 +27,11 @@ void qdwh(
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
     int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
 
     max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
 
-    real_t eps  = 0.5 * std::numeric_limits<real_t>::epsilon();
+    real_t eps  = std::numeric_limits<real_t>::epsilon();
     real_t tol1 = 5. * eps;
     real_t tol3 = pow(tol1, 1./3.);
 
@@ -43,7 +42,6 @@ void qdwh(
     real_t Li, Liconv;
     real_t conv = 100.;
     scalar_t zero = 0.0, one = 1.0;
-    real_t rzero = 0.0;
 
     scalar_t alpha, beta;
 
@@ -77,8 +75,8 @@ void qdwh(
     A.gridinfo(&order, &nprow, &npcol, &myrow, &mycol);
 
     // allocate m_W*n work space required for the qr-based iterations QR([A;Id])
-    slate::Matrix<scalar_t> W(m_W, n, nb, nprow, npcol, MPI_COMM_WORLD);
-    slate::Matrix<scalar_t> Q(m_W, n, nb, nprow, npcol, MPI_COMM_WORLD);
+    slate::Matrix<scalar_t> W(m_W, n, nb, nprow, npcol, A.mpiComm());
+    slate::Matrix<scalar_t> Q(m_W, n, nb, nprow, npcol, A.mpiComm());
     slate::TriangularFactors<scalar_t> T;
 
     slate::Matrix<scalar_t> Acpy;
@@ -88,7 +86,7 @@ void qdwh(
         Acpy = H;
     }
     else {
-        Acpy = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, MPI_COMM_WORLD);
+        Acpy = slate::Matrix<scalar_t>(m, n, nb, nprow, npcol, A.mpiComm());
         Acpy.insertLocalTiles(target);
     }
 
@@ -102,12 +100,13 @@ void qdwh(
     // W10 have A matrix
     auto W1 = W.sub(0, mt-1, 0, nt-1);
     auto W10 = W1.slice(0, m-1, 0, n-1);
-
-    // Second nt tiles of W, contain the identity matrix
-    auto W2 = W.sub(mt, mt_W-1, 0, nt-1);
+    auto W11 = W.sub(mt-1, mt-1, 0, nt-1);
 
     auto Q1 = Q.sub(0, mt-1, 0, nt-1);
     auto Q10 = Q1.slice(0, m-1, 0, n-1);
+
+    // Second nt tiles of W, contain the identity matrix
+    auto W2 = W.sub(mt, mt_W-1, 0, nt-1);
 
     auto Q2 = Q.sub(mt, mt_W-1, 0, nt-1);
 
@@ -117,7 +116,6 @@ void qdwh(
     // two norm estimation (largest singular value of A)
     real_t norm_est = norm2est( A, opts);
     alpha = 1.0;
-    norm_est = 1.;
 
     // scale the original matrix A to form A0 of the iterative loop
     add(alpha/scalar_t(norm_est), Acpy, zero, A, opts);
@@ -139,7 +137,6 @@ void qdwh(
             Uplo::Upper, slate::Diag::NonUnit, R1 );
         auto Rh = HermitianMatrix<scalar_t>(
             Uplo::Upper, R1 );
-        // todo: cheaper to do triangular solve than calling trtri
         trtri(R, opts);
         norminvR = norm(slate::Norm::One, Rh, opts);
         Li = (1.0 / norminvR) / normA;
@@ -159,8 +156,7 @@ void qdwh(
         // itconv = number of iterations needed until |Li - 1| < tol1
         // This should have converged in less than 50 iterations
         if (itconv > 100) {
-            exit(-1);
-            break;
+            slate_error("Failed to converge.");
         }
         itconv++;
 
@@ -179,8 +175,7 @@ void qdwh(
     while (conv > tol3 || it < itconv) {
         // This should have converged in less than 50 iterations
         if (it > 100) {
-            exit(-1);
-            break;
+            slate_error("Failed to converge.");
         }
         it++;
 
@@ -201,62 +196,53 @@ void qdwh(
 
             // Generate the matrix W = [ W1 ] = [ sqrt(c) * A ]
             //                         [ W2 ] = [ Id          ]
-            alpha = scalar_t(sqrt(c));
-            set(zero, one, W2, opts);
-
-            //if( doqr ) {
-            //    geadd(alpha, A, zero, W10, opts);
-            //    geqrf_qdwh_full(W, T1, opts);
-            //}
-            //else {
-            //    geadd(alpha, W1, zero, W10, opts);
-            //    geqrf_qdwh_full2(W, T1, opts);
-            //}
 
             // Factorize W = QR, and generate the associated Q
             // todo: replace following add by copy and scale, but why scale only scale by a real numbers?
+            alpha = scalar_t(sqrt(c));
+            set(zero, zero, W11, opts);
             add(alpha, A, zero, W10, opts);
-            //copy(A, W1);
-            //scale(alpha, one, W1, opts);
+            set(zero, one, W2, opts);
 
-            //geqrf(W, T, opts); // naive impl
+            // Call a variant of geqrf annd unmqr that avoid the tiles of zeros,
+            // which are the tiles below the diagonal of W2 (identity)
             geqrf_qdwh_full(W, T, opts);
 
             set(zero, one, Q, opts);
-            //unmqr(slate::Side::Left, slate::Op::NoTrans, W, T, Q, opts); //naive impl
             unmqr_qdwh_full(slate::Side::Left, slate::Op::NoTrans, W, T, Q, opts);
 
             // A = ( (a-b/c)/sqrt(c) ) * Q1 * Q2' + (b/c) * A
             auto Q2T = conj_transpose(Q2);
             alpha = scalar_t( (a-b/c)/sqrt(c) );
             beta  = scalar_t( b / c );
-            // Copy U into C to check the convergence of QDWH
+            // Save a copy of A to check the convergence of QDWH
             if (it >= itconv ) {
                 slate::copy(A, W10, opts);
             }
             gemm(alpha, Q10, Q2T, beta, A, opts);
 
+            itqr += 1;
+
+            //facto = 0;
             // Main flops used in this step/
             //flops_dgeqrf = FLOPS_DGEQRF( 2*m, n );
             //flops_dorgqr = FLOPS_DORGQR( 2*m, n, n );
             //flops_dgemm  = FLOPS_DGEMM( m, n, n );
             //flops += flops_dgeqrf + flops_dorgqr + flops_dgemm;
-
-            itqr += 1;
-            //facto = 0;
         }
         else {
-            // Copy A into H to check the convergence of QDWH
+            // A = (b/c) * A + (a-b/c) * ( linsolve( C, linsolve( C, A') ) )';
+            // Save a copy of A to check the convergence of QDWH
             if (it >= itconv) {
                 slate::copy(A, W10, opts);
             }
 
-            // Make Q1 into an identity matrix
-            set(zero, one, W2, opts);
-
-            // Compute Q1 = c * A' * A + I
+            // Save a copy of A
             slate::copy(A, Q10, opts);
+
+            // Compute c * A' * A + I
             auto AT = conj_transpose(Q10);
+            set(zero, one, W2, opts);
             gemm(scalar_t(c), AT, A, one, W2, opts);
 
             // Solve R x = AT
@@ -264,19 +250,19 @@ void qdwh(
                     slate::Uplo::Upper, W2 );
             posv(R, AT, opts);
 
-            // Update A =  (a-b/c) * Q1T' + (b/c) * A
+            // Update A = (b/c) * A + (a-b/c) * ( linsolve( C, linsolve( C, A') ) )';
             alpha = (a-b/c); beta = (b/c);
-            AT = conj_transpose(AT);
-            add(scalar_t(alpha), AT, scalar_t(beta), A, opts);
+            auto AT2 = conj_transpose(AT);
+            add(alpha, AT2, beta, A, opts);
 
+            itpo += 1;
+
+            //facto = 1;
             // Main flops used in this step
             //flops_dgemm  = FLOPS_DGEMM( m, n, n );
             //flops_dpotrf = FLOPS_DPOTRF( m );
             //flops_dtrsm  = FLOPS_DTRSM( 'L', m, n );
             //flops += flops_dgemm + flops_dpotrf + 2. * flops_dtrsm;
-
-            itpo += 1;
-            //facto = 1;
         }
 
         // Check if it converge, compute the norm of matrix A - W1

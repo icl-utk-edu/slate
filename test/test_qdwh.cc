@@ -107,8 +107,8 @@ void test_qdwh_work(Params& params, bool run)
         A = slate::Matrix<scalar_t>::fromScaLAPACK(m, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         //H_data.resize( lldH * nlocH );
         //H = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(slate::Uplo::Lower, n, &H_data[0], lldH, nb, p, q, MPI_COMM_WORLD);
-        H_data.resize( lldH * nlocA );
-        H = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &H_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
+        H_data.resize( lldH * nlocH );
+        H = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &H_data[0], lldH, nb, p, q, MPI_COMM_WORLD);
     }
 
     real_t cond = 1 / std::numeric_limits<real_t>::epsilon();

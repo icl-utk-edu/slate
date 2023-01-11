@@ -2448,26 +2448,26 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 
     if (! (send_to.empty() && recv_from.empty())) {
         // read tile on host memory
-        tileGetForReading(i, j, LayoutConvert(layout));
+        tileGetForWriting(i, j, LayoutConvert(layout));
+
+        auto Aij = at(i, j);
+
+        std::vector<scalar_t> data(Aij.mb() * Aij.nb());
+        int64_t lda = (Aij.op() == Op::NoTrans ? Aij.mb() : Aij.nb());
+        Tile<scalar_t> tile(Aij, &data[0], lda, TileKind::Workspace);
+
+        // Receive, accumulate.
+        for (int src : recv_from) {
+            // Receive.
+            tile.recv(new_vec[src], mpi_comm_, layout, tag);
+            // Accumulate.
+            tile::add( one, tile, Aij );
+        }
+
+        // Forward.
+        if (! send_to.empty())
+            Aij.send(new_vec[send_to.front()], mpi_comm_, tag);
     }
-
-    auto Aij = at(i, j);
-
-    std::vector<scalar_t> data(Aij.mb() * Aij.nb());
-    int64_t lda = (Aij.op() == Op::NoTrans ? Aij.mb() : Aij.nb());
-    Tile<scalar_t> tile(Aij, &data[0], lda, TileKind::Workspace);
-
-    // Receive, accumulate.
-    for (int src : recv_from) {
-        // Receive.
-        tile.recv(new_vec[src], mpi_comm_, layout, tag);
-        // Accumulate.
-        tile::add( one, tile, Aij );
-    }
-
-    // Forward.
-    if (! send_to.empty())
-        Aij.send(new_vec[send_to.front()], mpi_comm_, tag);
 }
 
 //------------------------------------------------------------------------------

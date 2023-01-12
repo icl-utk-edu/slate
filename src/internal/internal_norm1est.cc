@@ -267,12 +267,11 @@ void norm1est(
                 }
             }
             slate_mpi_call(
-                    MPI_Allreduce(max_loc_in, max_loc, mpi_size,
+                    MPI_Reduce(max_loc_in, max_loc, 1,
                         mpi_type< max_loc_type<real_t> >::value,
-                        MPI_MAXLOC, X.mpiComm()));
+                        MPI_MAXLOC, 0, X.mpiComm()) );
 
-            int root_rank = max_loc[0].loc;
-            MPI_Bcast( &isave[1], 1, MPI_INT, root_rank, X.mpiComm() );
+            MPI_Bcast( &isave[1], 1, MPI_INT, 0, X.mpiComm() );
 
             isave[2] = 2;
 
@@ -388,13 +387,12 @@ void norm1est(
 
             // Find the max value/index among all mpi ranks
             slate_mpi_call(
-                    MPI_Allreduce(max_loc_in, max_loc, mpi_size,
+                    MPI_Reduce(max_loc_in, max_loc, 1,
                         mpi_type< max_loc_type<real_t> >::value,
-                        MPI_MAXLOC, X.mpiComm()));
+                        MPI_MAXLOC, 0, X.mpiComm()) );
 
             // Bcast the index of the max value to all mpi ranks
-            int root_rank = max_loc[0].loc;
-            MPI_Bcast( &isave[1], 1, MPI_INT, root_rank, X.mpiComm() );
+            MPI_Bcast( &isave[1], 1, MPI_INT, 0, X.mpiComm() );
 
             // Find the tile index which has the jlast entry
             int64_t i_jlast = std::floor(jlast / X.tileMb(0) );

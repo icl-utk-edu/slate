@@ -1570,7 +1570,7 @@ void generate_matrix(
                                 auto A_ij = A(i, j);
                                 for (int64_t ii = 0; ii < mb; ++ii) {
                                     for (int64_t jj = 0; jj < nb; ++jj) {
-                                        A_ij.at(ii, jj) = 0.5 / (max_mn-(i_global+ii+1)-(j_global+jj+1)+1.5);
+                                        A_ij.at(ii, jj) = 0.5 / (max_mn-(i_global+ii)-(j_global+jj)+1.5);
                                     }
                                 }
                             }

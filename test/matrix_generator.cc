@@ -333,8 +333,10 @@ void generate_svd(
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
-    int64_t seed )
+    int64_t seed,
+    slate::Options const& opts )
 {
+
     using real_t = blas::real_type<scalar_t>;
     assert( A.m() >= A.n() );
 
@@ -403,10 +405,10 @@ void generate_svd(
     // no need to update subsequent columns (as in geqrf).
     // However, currently we do geqrf here,
     // since we don't have a way to make Householder vectors (no distributed larfg).
-    slate::geqrf(U, T);
+    slate::geqrf(U, T, opts);
 
     // A = U*A
-    slate::unmqr( slate::Side::Left, slate::Op::NoTrans, U, T, A);
+    slate::unmqr( slate::Side::Left, slate::Op::NoTrans, U, T, A, opts);
 
     // random V, n-by-min_mn (stored column-wise in U)
     auto V = U.slice(0, n-1, 0, n-1);
@@ -434,10 +436,10 @@ void generate_svd(
     }
     seed += 1;
 
-    slate::geqrf(V, T);
+    slate::geqrf(V, T, opts);
 
     // A = A*V^H
-    slate::unmqr( slate::Side::Right, slate::Op::ConjTrans, V, T, A);
+    slate::unmqr( slate::Side::Right, slate::Op::ConjTrans, V, T, A, opts);
 
     if (condD != 1) {
         // A = A*W, W orthogonal, such that A has unit column norms,
@@ -497,7 +499,8 @@ void generate_heev(
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
-    int64_t seed )
+    int64_t seed,
+    slate::Options const& opts )
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -546,13 +549,13 @@ void generate_heev(
     // no need to update subsequent columns (as in geqrf).
     // However, currently we do geqrf here,
     // since we don't have a way to make Householder vectors (no distributed larfg).
-    slate::geqrf(U, T);
+    slate::geqrf(U, T, opts);
 
     // A = U*A
-    slate::unmqr( slate::Side::Left, slate::Op::NoTrans, U, T, A);
+    slate::unmqr( slate::Side::Left, slate::Op::NoTrans, U, T, A, opts );
 
     // A = A*U^H
-    slate::unmqr( slate::Side::Right, slate::Op::ConjTrans, U, T, A);
+    slate::unmqr( slate::Side::Right, slate::Op::ConjTrans, U, T, A, opts );
 
     // make diagonal real
     // usually LAPACK ignores imaginary part anyway, but Matlab doesn't
@@ -616,7 +619,8 @@ void generate_geev(
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
-    int64_t seed )
+    int64_t seed,
+    slate::Options const& opts )
 {
     throw std::exception();  // not implemented
 }
@@ -637,7 +641,8 @@ void generate_geevx(
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
-    int64_t seed )
+    int64_t seed,
+    slate::Options const& opts )
 {
     throw std::exception();  // not implemented
 }
@@ -1146,7 +1151,8 @@ template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
     slate::Matrix<scalar_t>& A,
-    std::vector< blas::real_type<scalar_t> >& Sigma )
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    slate::Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -1516,23 +1522,23 @@ void generate_matrix(
             break;
 
         case TestMatrixType::svd:
-            generate_svd( params, dist, cond, condD, sigma_max, A, Sigma, seed );
+            generate_svd( params, dist, cond, condD, sigma_max, A, Sigma, seed, opts );
             break;
 
         case TestMatrixType::poev:
-            generate_heev( params, dist, false, cond, condD, sigma_max, A, Sigma, seed );
+            generate_heev( params, dist, false, cond, condD, sigma_max, A, Sigma, seed, opts );
             break;
 
         case TestMatrixType::heev:
-            generate_heev( params, dist, true, cond, condD, sigma_max, A, Sigma, seed );
+            generate_heev( params, dist, true, cond, condD, sigma_max, A, Sigma, seed, opts );
             break;
 
         case TestMatrixType::geev:
-            generate_geev( params, dist, cond, sigma_max, A, Sigma, seed );
+            generate_geev( params, dist, cond, sigma_max, A, Sigma, seed, opts );
             break;
 
         case TestMatrixType::geevx:
-            generate_geevx( params, dist, cond, sigma_max, A, Sigma, seed );
+            generate_geevx( params, dist, cond, sigma_max, A, Sigma, seed, opts );
             break;
     }
 
@@ -1557,7 +1563,8 @@ template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
     slate::BaseTrapezoidMatrix<scalar_t>& A,
-    std::vector< blas::real_type<scalar_t> >& Sigma )
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    slate::Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -1777,10 +1784,11 @@ template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
     slate::HermitianMatrix<scalar_t>& A,
-    std::vector< blas::real_type<scalar_t> >& Sigma )
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    slate::Options const& opts)
 {
     slate::BaseTrapezoidMatrix<scalar_t>& TZ = A;
-    generate_matrix( params, TZ, Sigma );
+    generate_matrix( params, TZ, Sigma, opts );
 
     // Set diagonal to real.
     #pragma omp parallel for
@@ -1804,11 +1812,12 @@ void generate_matrix(
 template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
-    slate::Matrix<scalar_t>& A )
+    slate::Matrix<scalar_t>& A,
+    slate::Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
     std::vector<real_t> dummy;
-    generate_matrix( params, A, dummy );
+    generate_matrix( params, A, dummy, opts );
 }
 
 /// Overload without Sigma.
@@ -1818,11 +1827,12 @@ void generate_matrix(
 template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
-    slate::BaseTrapezoidMatrix<scalar_t>& A )
+    slate::BaseTrapezoidMatrix<scalar_t>& A,
+    slate::Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
     std::vector<real_t> dummy;
-    generate_matrix( params, A, dummy );
+    generate_matrix( params, A, dummy, opts );
 }
 
 /// Overload without Sigma.
@@ -1832,73 +1842,86 @@ void generate_matrix(
 template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
-    slate::HermitianMatrix<scalar_t>& A )
+    slate::HermitianMatrix<scalar_t>& A,
+    slate::Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
     std::vector<real_t> dummy;
-    generate_matrix( params, A, dummy );
+    generate_matrix( params, A, dummy, opts );
 }
 // -----------------------------------------------------------------------------
 // explicit instantiations
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::Matrix<float>& A );
+    slate::Matrix<float>& A,
+    slate::Options const& opts);
 
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::Matrix<double>& A );
+    slate::Matrix<double>& A,
+    slate::Options const& opts);
 
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::Matrix< std::complex<float> >& A );
+    slate::Matrix< std::complex<float> >& A,
+    slate::Options const& opts);
 
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::Matrix< std::complex<double> >& A );
+    slate::Matrix< std::complex<double> >& A,
+    slate::Options const& opts);
 
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::BaseTrapezoidMatrix<float>& A);
+    slate::BaseTrapezoidMatrix<float>& A,
+    slate::Options const& opts);
 
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::BaseTrapezoidMatrix<double>& A);
+    slate::BaseTrapezoidMatrix<double>& A,
+    slate::Options const& opts);
 
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::BaseTrapezoidMatrix< std::complex<float> >& A);
+    slate::BaseTrapezoidMatrix< std::complex<float> >& A,
+    slate::Options const& opts);
 
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::BaseTrapezoidMatrix< std::complex<double> >& A);
+    slate::BaseTrapezoidMatrix< std::complex<double> >& A,
+    slate::Options const& opts);
 
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::HermitianMatrix<float>& A);
+    slate::HermitianMatrix<float>& A,
+    slate::Options const& opts);
 
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::HermitianMatrix<double>& A);
+    slate::HermitianMatrix<double>& A,
+    slate::Options const& opts);
 
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::HermitianMatrix< std::complex<float> >& A);
+    slate::HermitianMatrix< std::complex<float> >& A,
+    slate::Options const& opts);
 
 template
 void generate_matrix(
     MatrixParams& params,
-    slate::HermitianMatrix< std::complex<double> >& A);
+    slate::HermitianMatrix< std::complex<double> >& A,
+    slate::Options const& opts);
 
 template
 void decode_matrix<float>(

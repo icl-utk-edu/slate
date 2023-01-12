@@ -24,35 +24,41 @@ template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
     slate::Matrix< scalar_t >& A,
-    std::vector< blas::real_type<scalar_t> >& sigma );
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    slate::Options const& opts = slate::Options());
 
 template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
     slate::BaseTrapezoidMatrix< scalar_t >& A,
-    std::vector< blas::real_type<scalar_t> >& sigma);
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    slate::Options const& opts = slate::Options());
 
 template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
     slate::HermitianMatrix< scalar_t >& A,
-    std::vector< blas::real_type<scalar_t> >& sigma);
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    slate::Options const& opts = slate::Options());
 
 // Overload without sigma.
 template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
-    slate::Matrix< scalar_t >& A );
+    slate::Matrix< scalar_t >& A,
+    slate::Options const& opts = slate::Options());
 
 template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
-    slate::BaseTrapezoidMatrix< scalar_t >& A);
+    slate::BaseTrapezoidMatrix< scalar_t >& A,
+    slate::Options const& opts = slate::Options());
 
 template <typename scalar_t>
 void generate_matrix(
     MatrixParams& params,
-    slate::HermitianMatrix< scalar_t >& A);
+    slate::HermitianMatrix< scalar_t >& A,
+    slate::Options const& opts = slate::Options());
 
 void generate_matrix_usage();
 

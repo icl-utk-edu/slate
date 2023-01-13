@@ -4,12 +4,12 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
+#include "slate/slate.hh"
 #include "slate/Matrix.hh"
 #include "slate/Tile_blas.hh"
 #include "slate/HermitianBandMatrix.hh"
 #include "internal/internal.hh"
 #include "internal/internal_util.hh"
-#include "slate_steqr2.hh"
 
 namespace slate {
 namespace internal {
@@ -144,6 +144,7 @@ void norm1est(
     using blas::imag;
     const auto mpi_real_type = mpi_type< blas::real_type<scalar_t> >::value;
     real_t safmin = std::numeric_limits< real_t >::min();
+    SLATE_UNUSED(safmin);
 
     const scalar_t one  = 1.0;
     const scalar_t zero = 0.0;

@@ -132,7 +132,7 @@ void gemmA(internal::TargetType<Target::HostTask>,
             for (int64_t j = 0; j < B.nt(); ++j) {
                 if (C.tileIsLocal( i, j )) {
                     #pragma omp task slate_omp_default_none \
-                        shared( beta ) firstprivate( i, j )
+                        shared( C, beta ) firstprivate( i, j, layout )
                     {
                         C.tileGetForWriting( i, j, LayoutConvert( layout ) );
                         if (beta == zero) {

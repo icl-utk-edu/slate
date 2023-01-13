@@ -6,6 +6,7 @@
 #include "slate/slate.hh"
 #include "internal/internal.hh"
 #include "work/work.hh"
+#include "slate/internal/Log.hh"
 
 namespace slate {
 namespace work {
@@ -111,6 +112,8 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             if (B.tileIsLocal(i, j)) {
                                 // FIXME should be done where the tile is located
                                 // either CPU impl or DEVICE
+                                Log::print<algo>( algo::info,
+                                    "Scale B( %ld, %ld )\n", i, j );
                                 tile::scale( alpha, B(i, j) );
                             }
                         }
@@ -123,7 +126,11 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         if (! B.tileIsLocal(k, j) && ! B.tileExists(k, j)) {
                             // FIXME should be done where the tile is located
                             // either CPU impl or DEVICE
+                            Log::print<algo>( algo::info,
+                                "Insert B( %ld, %ld )\n", k, j );
                             B.tileInsert(k, j);
+                            Log::print<algo>( algo::info,
+                                "Set B( %ld, %ld ) to 0\n", k, j );
                             B.at(k, j).set(0, 0);
                         }
                     }
@@ -140,9 +147,15 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                               }
                                             });
                 }
+                Log::print<algo>( algo::info,
+                    "Reduce B( %ld, %ld ) where A( %ld, %ld ) is located\n",
+                    k, -1l, k, k );
                 B.template listReduce<target>(reduce_list_B, layout);
 
                 if (A.tileIsLocal(k, k)) {
+                    Log::print<algo>( algo::info,
+                        "Call internal::trsmA on A( %ld, %ld )\n",
+                        k, k );
                     // solve A(k, k) B(k, :) = alpha B(k, :)
                     internal::trsmA<target>(
                         Side::Left,
@@ -157,6 +170,8 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 if (A.tileIsLocal(k, k)) {
                     for (int64_t j = 0; j < nt; ++j) {
                         int dest = B.tileRank(k, j);
+                        Log::print<algo>( algo::info,
+                            "Send B( %ld, %ld ) to %d\n", k, j, dest );
                         B.tileSend(k, j, dest);
                     }
                 }
@@ -165,6 +180,8 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
 
                     for (int64_t j = 0; j < nt; ++j) {
                         if (B.tileIsLocal(k, j)) {
+                            Log::print<algo>( algo::info,
+                                "Recv B( %ld, %ld ) from %d\n", k, j, root );
                             B.tileRecv(k, j, root, layout);
                         }
                     }
@@ -185,6 +202,8 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     bcast_list_upd_B.push_back(
                         {k, j, { A.sub(k + 1, mt - 1, k, k), }});
                 }
+                Log::print<algo>( algo::info,
+                    "Bcast B( %ld, %ld )\n", k, -1l );
                 B.template listBcast<target>(bcast_list_upd_B, layout);
             }
 
@@ -200,13 +219,25 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             {
                                 // FIXME should be done where the tile is located
                                 // either CPU impl or DEVICE
+                                Log::print<algo>( algo::info,
+                                    "Insert B( %ld, %ld )\n", i, j );
                                 B.tileInsert(i, j);
+                                Log::print<algo>( algo::info,
+                                    "Set B( %ld, %ld ) to 0\n", i, j );
                                 B.at(i, j).set(0, 0);
                             }
                         }
                     }
                     // TODO execute lookahead on devices
                     // FIXME internal::gemmA<target>(
+                    Log::print<algo>( algo::info,
+                        "Call internal::gemmA( "
+                        "A( %ld, %ld, %ld, %ld )"
+                        "B( %ld, %ld, %ld, %ld )"
+                        "B( %ld, %ld, %ld, %ld )\n",
+                        i, i, k, k,
+                        k, k, 0, nt-1,
+                        i, i, 0, nt-1 );
                     internal::gemmA<Target::HostTask>(
                         -one, A.sub(i, i, k, k),
                               B.sub(k, k, 0, nt-1),
@@ -233,7 +264,11 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                 {
                                     // FIXME should be done where the tile is located
                                     // either CPU impl or DEVICE
+                                    Log::print<algo>( algo::info,
+                                        "Insert B( %ld, %ld )\n", i, j );
                                     B.tileInsert(i, j);
+                                    Log::print<algo>( algo::info,
+                                        "Set B( %ld, %ld ) to 0\n", i, j );
                                     B.at(i, j).set(0, 0);
                                 }
                             }
@@ -241,6 +276,14 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     }
 
                     // FIXME internal::gemmA<target>(
+                    Log::print<algo>( algo::info,
+                        "Call internal::gemmA( "
+                        "A( %ld, %ld, %ld, %ld )"
+                        "B( %ld, %ld, %ld, %ld )"
+                        "B( %ld, %ld, %ld, %ld )\n",
+                        k+1+lookahead, mt-1, k, k,
+                        k, k, 0, nt-1,
+                        k+1+lookahead, mt-1, 0, nt-1 );
                     internal::gemmA<Target::HostTask>(
                         -one, A.sub(k+1+lookahead, mt-1, k, k),
                               B.sub(k, k, 0, nt-1),

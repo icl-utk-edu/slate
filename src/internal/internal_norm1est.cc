@@ -161,8 +161,6 @@ void norm1est(
     int64_t sign_x;
 
     int64_t mt = X.mt();
-    int mpi_size;
-    MPI_Comm_size(X.mpiComm(), &mpi_size);
 
     // First iteration, kase = 0
     // Initialize X = 1./n
@@ -222,7 +220,7 @@ void norm1est(
                             }
                         }
                         else {
-                            if (real( Xi_data[ii] ) >= 0.0) {
+                            if (Xi_data[ii] >= zero) {
                                 Xi_data[ii] = one;
                                 isgn0_data[ii] = 1;
                             }
@@ -267,11 +265,12 @@ void norm1est(
                 }
             }
             slate_mpi_call(
-                    MPI_Reduce(max_loc_in, max_loc, 1,
+                    MPI_Allreduce(max_loc_in, max_loc, 1,
                         mpi_type< max_loc_type<real_t> >::value,
-                        MPI_MAXLOC, 0, X.mpiComm()) );
+                        MPI_MAXLOC, X.mpiComm()) );
 
-            MPI_Bcast( &isave[1], 1, MPI_INT, 0, X.mpiComm() );
+            int root_rank = max_loc[0].loc;
+            MPI_Bcast( &isave[1], 1, MPI_INT64_T, root_rank, X.mpiComm() );
 
             isave[2] = 2;
 
@@ -323,6 +322,7 @@ void norm1est(
                 return;
             }
             else {
+                int break_outer = -1;
                 for (int64_t i = 0; i < mt; ++i) {
                     if (X.tileIsLocal(i, 0)) {
                         auto Xi = X(i, 0);
@@ -338,19 +338,28 @@ void norm1est(
                             }
                             if (sign_x != isgn0_data[ii]) {
                                 if (*est <= estold) {
-                                    norm1est_altsgn( X );
                                     *kase = 1;
                                     isave[0] = 5;
-                                    return;
+                                    break_outer = 1;
+                                    break;
                                 }
-                                norm1est_set( isgn, X );
                                 *kase = 2;
                                 isave[0] = 4;
-                                return;
+                                break_outer = 2;
+                                break;
                             } // if (sign_x != isgn[i])
                         } // for ii = 0:nb
+                        if (break_outer == 1 || break_outer == 2) break;
                     } // if (X.tileIsLocal(i, j))
                 } // for i = 0:mt
+                if (break_outer == 1) {
+                    norm1est_altsgn( X );
+                    return;
+                }
+                else if (break_outer == 2) {
+                    norm1est_set( isgn, X );
+                    return;
+                }
             } // if constexpr
 
             norm1est_altsgn( X );
@@ -387,12 +396,13 @@ void norm1est(
 
             // Find the max value/index among all mpi ranks
             slate_mpi_call(
-                    MPI_Reduce(max_loc_in, max_loc, 1,
+                    MPI_Allreduce(max_loc_in, max_loc, 1,
                         mpi_type< max_loc_type<real_t> >::value,
-                        MPI_MAXLOC, 0, X.mpiComm()) );
+                        MPI_MAXLOC, X.mpiComm()) );
 
             // Bcast the index of the max value to all mpi ranks
-            MPI_Bcast( &isave[1], 1, MPI_INT, 0, X.mpiComm() );
+            int root_rank = max_loc[0].loc;
+            MPI_Bcast( &isave[1], 1, MPI_INT64_T, root_rank, X.mpiComm() );
 
             // Find the tile index which has the jlast entry
             int64_t i_jlast = std::floor(jlast / X.tileMb(0) );
@@ -446,7 +456,7 @@ void norm1est(
         else if (isave[0] == 5) {
             // X has been overwritten by A*X.
             temp = slate::norm(slate::Norm::One, V);
-            temp = 2.0 * temp / (3.0 * real_t(n));
+            temp = real_t(2.0) * temp / ( real_t(3.0) * real_t(n) );
             if (temp > *est) {
                 copy( X, V);
                 *est = temp;

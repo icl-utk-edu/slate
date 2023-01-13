@@ -29,6 +29,7 @@ void test_trcondest_work(Params& params, bool run)
     // Constants
     const scalar_t zero = 0;
     const scalar_t one = 1;
+    int64_t ione = 1;
 
     int64_t m;
     m = params.dim.m();
@@ -124,7 +125,7 @@ void test_trcondest_work(Params& params, bool run)
 
     // Compute the matrix norm
     real_t Anorm = 0;
-    real_t slate_rcond = 0., scl_rcond = 0., exact_rcond = 0.;
+    real_t slate_rcond = 1., scl_rcond = 1., exact_rcond = 1.;
 
     if (! ref_only) {
 
@@ -213,29 +214,30 @@ void test_trcondest_work(Params& params, bool run)
             slate_assert(info_ref == 0);
 
             // query for workspace size for ptrcon
-            int64_t info_ref2 = 0;
+            int64_t info_ref_trcon = 0;
             int64_t liwork = -1;
             int  idummy;
-            lwork = -1;
+            int64_t lwork_trcon = -1;
+            scalar_t dummy_trcon;
             slate::Uplo uplo = slate::Uplo::Upper;
             slate::Diag diag = slate::Diag::NonUnit;
             scalapack_ptrcon( norm2str(norm), uplo2str(uplo), diag2str(diag), n,
-                              &Aref_data[0], 1, 1, Aref_desc,
-                              &scl_rcond, &dummy, lwork, &idummy, liwork,
-                              info_ref2);
-            lwork = (int64_t)( real( dummy ) );
+                              &Aref_data[0], ione, ione, Aref_desc,
+                              &scl_rcond, &dummy_trcon, lwork_trcon, &idummy, liwork,
+                              info_ref_trcon);
+            lwork_trcon = (int64_t)( real( dummy_trcon ) );
             liwork = (int64_t)( real( idummy ) );
 
             // Compute the condition number using scalapack
-            std::vector<scalar_t> work_trcon(lwork);
+            std::vector<scalar_t> work_trcon(lwork_trcon);
             std::vector<int> iwork(liwork);
 
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_ptrcon( norm2str(norm), uplo2str(uplo), diag2str(diag), n,
                               &Aref_data[0], 1, 1, Aref_desc,
                               &scl_rcond, &work_trcon[0], lwork, &iwork[0], liwork,
-                              info_ref2);
-            slate_assert(info_ref == 0);
+                              info_ref_trcon);
+            slate_assert(info_ref_trcon == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             params.ref_time() = time;

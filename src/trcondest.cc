@@ -119,6 +119,8 @@ void trcondest(
     // initial and final value of kase is 0
     kase = 0;
     internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);
+    MPI_Bcast( &isave[0], 3, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
+    MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
 
     while (kase != 0) {
         if (kase == kase1) {
@@ -132,7 +134,7 @@ void trcondest(
         }
 
         internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);
-        MPI_Bcast( &isave[0], 3, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
+        MPI_Bcast( &isave[0], 3, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
         MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
     } // while (kase != 0)
 

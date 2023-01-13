@@ -91,10 +91,10 @@ void gemmA(internal::TargetType<Target::HostTask>,
     int c_tile_acquired = 0;
     #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
-        int cpt = 0;
+        int nlocal_A_tiles = 0;
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal( i, j )) {
-                cpt++;
+                nlocal_A_tiles++;
                 #pragma omp task slate_omp_default_none \
                     shared( A, B, C, err, c_tile_acquired ) \
                     firstprivate(i, j, layout) priority(priority)
@@ -128,7 +128,7 @@ void gemmA(internal::TargetType<Target::HostTask>,
         }
         // Set or scale tiles of C when the tiles are not updated but
         // are part of the distribution, i.e., will be used for the reduction.
-        if (cpt == 0 && beta != one) {
+        if (nlocal_A_tiles == 0 && beta != one) {
             for (int64_t j = 0; j < B.nt(); ++j) {
                 if (C.tileIsLocal( i, j )) {
                     #pragma omp task slate_omp_default_none \

@@ -17,13 +17,11 @@ namespace slate {
 ///
 /// ColMajor layout is assumed
 ///
-/// @ingroup cond_specialization
-///
 /// The reciprocal of the condition number computed as:
 /// \[
-///     rcond = \frac{1}{\|\|A\-\| \times \-\|A^{-1}\|\|}
+///     rcond = \frac{1}{\|\|A\|\| \times \|\|A^{-1}\|\-}
 /// \]
-/// where $A$ is upper triangular computed from the QR factorization.
+/// where $A$ is the output of the LU factorization (getrf).
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
@@ -35,12 +33,12 @@ namespace slate {
 ///     - Norm::Inf: infinity-norm condition number
 ///
 /// @param[in] A
-///     On entry, the n-by-n triangular matrix $A$.
-///     it is the output of the LU factorization of a general matrix.
+///     On entry, the n-by-n matrix $A$.
+///     It is the output of the LU factorization of a general matrix.
 ///
 /// @param[in] Anorm
-///     If NORM = '1' or 'O', the 1-norm of the original matrix A.
-///     If NORM = 'I', the infinity-norm of the original matrix A.
+///     If Norm::One, the 1-norm of the original matrix A.
+///     If Norm::Inf, the infinity-norm of the original matrix A.
 ///
 /// @param[in,out] rcond
 ///     The reciprocal of the condition number of the matrix A,
@@ -97,7 +95,6 @@ void gecondest(
     scalar_t alpha = 1.;
     real_t Ainvnorm = 0.0;
 
-    // todo: needed to create X fromScaLAPACK
     GridOrder grid_order;
     A.gridinfo(&grid_order, &p, &q, &myrow, &mycol);
     slate_mpi_call(
@@ -130,7 +127,7 @@ void gecondest(
     kase = 0;
     internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);
 
-    MPI_Bcast( &isave[0], 3, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
+    MPI_Bcast( &isave[0], 3, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
     MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
 
     while (kase != 0)
@@ -143,17 +140,17 @@ void gecondest(
             slate::trsmB(Side::Left, alpha, U, X, opts);
         }
         else {
-            // Multiply by inv(U**T).
-            auto UT = conjTranspose( U );
-            slate::trsmB(Side::Left, alpha, UT, X, opts);
+            // Multiply by inv(U^H).
+            auto UH = conjTranspose( U );
+            slate::trsmB(Side::Left, alpha, UH, X, opts);
 
-            // Multiply by inv(L**T).
-            auto LT = conjTranspose( L );
-            slate::trsmB(Side::Left, alpha, LT, X, opts);
+            // Multiply by inv(L^H).
+            auto LH = conjTranspose( L );
+            slate::trsmB(Side::Left, alpha, LH, X, opts);
         }
 
         internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);
-        MPI_Bcast( &isave[0], 3, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
+        MPI_Bcast( &isave[0], 3, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
         MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
     } // while (kase != 0)
 

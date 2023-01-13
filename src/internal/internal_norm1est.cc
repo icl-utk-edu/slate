@@ -4,7 +4,6 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "slate/slate.hh"
 #include "slate/Matrix.hh"
 #include "slate/Tile_blas.hh"
 #include "slate/HermitianBandMatrix.hh"
@@ -15,7 +14,11 @@ namespace slate {
 namespace internal {
 
 //------------------------------------------------------------------------------
-/// An auxiliary routine to alter the sign of a vector
+/// An auxiliary routine to set the entries of a vector and alternating the
+/// vector entries signs.
+/// Vector is stored as a matrix
+/// For each iteration in norm1est, if the new estimation is smaller than the
+/// current one, then call this routine to set a new search direction.
 template <typename scalar_t>
 void norm1est_altsgn(Matrix<scalar_t>& A)
 {
@@ -29,23 +32,24 @@ void norm1est_altsgn(Matrix<scalar_t>& A)
     real_t altsgn = 1.;
 
     for (int64_t i = 0; i < mt; ++i) {
-        for (int64_t j = 0; j < nt; ++j) {
-            if (A.tileIsLocal(i, j)) {
-                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
-                auto Aij = A(i, j);
-                auto Aij_data = Aij.data();
-                int64_t nb = A.tileMb(i);
-                for (int64_t ii = 0; ii < nb; ++ii) {
-                    altsgn = pow(-1, int(i*nb+ii)) * altsgn;
-                    Aij_data[ii] = altsgn * ( one + scalar_t( (i*nb+ii)-1 ) / scalar_t( n-1 ) );
-                }
+        if (A.tileIsLocal(i, 0)) {
+            A.tileGetForWriting( i, 0, LayoutConvert::ColMajor );
+            auto Aij = A(i, 0);
+            auto Aij_data = Aij.data();
+            int64_t nb = A.tileMb(i);
+            for (int64_t ii = 0; ii < nb; ++ii) {
+                altsgn = pow(-1, int(i*nb+ii)) * altsgn;
+                Aij_data[ii] = altsgn * ( one + scalar_t( (i*nb+ii)-1 ) / scalar_t( n-1 ) );
             }
         }
     }
 }
 
 //------------------------------------------------------------------------------
-/// An auxiliary routine to set the sign of A and isgn vectors
+/// An auxiliary routine to replace each entry of a vector by its sign (+1 or -1),
+/// for each entry a_i = {1.0,  if a_i >=0
+///                      {-1.0, if a_i < 0
+/// Store the sign of each entry in isgn vector as well.
 template <typename scalar_t>
 void norm1est_set(Matrix<int64_t>& isgn, Matrix<scalar_t>& A)
 {
@@ -55,17 +59,17 @@ void norm1est_set(Matrix<int64_t>& isgn, Matrix<scalar_t>& A)
 
     for (int64_t i = 0; i < mt; ++i) {
         if (A.tileIsLocal(i, 0)) {
-            auto Xi = A(i, 0);
-            auto Xi_data = Xi.data();
+            auto Ai = A(i, 0);
+            auto Ai_data = Ai.data();
             auto isgn0 = isgn(i, 0);
             auto isgn0_data = isgn0.data();
             for (int64_t ii = 0; ii < A.tileMb(i); ++ii) {
-                if (real( Xi_data[ii] ) >= 0) {
-                    Xi_data[ii] = 1.0;
+                if (real( Ai_data[ii] ) >= 0) {
+                    Ai_data[ii] = 1.0;
                     isgn0_data[ii] = 1;
                 }
                 else {
-                    Xi_data[ii] = -1.0;
+                    Ai_data[ii] = -1.0;
                     isgn0_data[ii] = -1;
                 }
             }
@@ -88,7 +92,7 @@ void norm1est_set(Matrix<int64_t>& isgn, Matrix<scalar_t>& A)
 ///     On entry, the n-by-1 matrix $X$.
 ///     On an intermediate return, X should be overwritten by
 ///       A * X,   if kase=1
-///       A**T * X,   if kase=2
+///       A^H * X,   if kase=2
 ///
 /// @param[in,out] V
 ///     On entry, the n-by-1 matrix $V$.
@@ -106,7 +110,7 @@ void norm1est_set(Matrix<int64_t>& isgn, Matrix<scalar_t>& A)
 /// @param[in,out] kase
 ///     On the initial call to norm1est, kase should be 0.
 ///     On an intermediate return, kase will be 1 or 2, indicating whether
-///     X should be overwritte by A * X or A**T * X.
+///     X should be overwritten by A * X or A^H * X.
 ///     On exit, kase will again be 0.
 ///
 /// @param[in,out] isave

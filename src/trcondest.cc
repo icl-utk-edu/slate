@@ -17,11 +17,9 @@ namespace slate {
 ///
 /// ColMajor layout is assumed
 ///
-/// @ingroup cond_specialization
-///
 /// The reciprocal of the condition number computed as:
 /// \[
-///     rcond = \frac{1}{\|\|A\-\| \times \-\|A^{-1}\|\|}
+///     rcond = \frac{1}{\|\|A\|\| \times \|\|A^{-1}\|\|}
 /// \]
 /// where $A$ is upper triangular matrix.
 ///
@@ -88,7 +86,6 @@ void trcondest(
     scalar_t alpha = 1.;
     real_t Ainvnorm = 0.0;
 
-    // todo: needed to create X fromScaLAPACK
     GridOrder grid_order;
     A.gridinfo(&grid_order, &p, &q, &myrow, &mycol);
     slate_mpi_call(
@@ -124,9 +121,9 @@ void trcondest(
             slate::trsmB(Side::Left, alpha, A, X, opts);
         }
         else {
-            // Multiply by inv(A**T).
-            auto AT = conjTranspose( A );
-            slate::trsmB(Side::Left, alpha, AT, X, opts);
+            // Multiply by inv(A^H).
+            auto AH = conjTranspose( A );
+            slate::trsmB(Side::Left, alpha, AH, X, opts);
         }
 
         internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);

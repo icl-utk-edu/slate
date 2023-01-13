@@ -30,19 +30,7 @@ void test_gecondest_work(Params& params, bool run)
     const scalar_t zero = 0;
     const scalar_t one = 1;
 
-    // Decode routine, setting method and chopping off _tntpiv or _nopiv suffix.
-    if (ends_with( params.routine, "_tntpiv" )) {
-        params.routine = params.routine.substr( 0, params.routine.size() - 7 );
-        params.method_lu() = slate::MethodLU::CALU;
-    }
-    else if (ends_with( params.routine, "_nopiv" )) {
-        params.routine = params.routine.substr( 0, params.routine.size() - 6 );
-        params.method_lu() = slate::MethodLU::NoPiv;
-    }
     auto method = params.method_lu();
-
-    int64_t m;
-    m = params.dim.m();
 
     // get & mark input values
     slate::Norm norm = params.norm();
@@ -105,7 +93,7 @@ void test_gecondest_work(Params& params, bool run)
     };
 
     // Matrix A: figure out local size.
-    int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
+    int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
 
@@ -115,21 +103,21 @@ void test_gecondest_work(Params& params, bool run)
         // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(
-                m, n,    nb, p, q, MPI_COMM_WORLD );
+                n, n,    nb, p, q, MPI_COMM_WORLD );
         A.insertLocalTiles(origin_target);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
         A_data.resize( lldA * nlocA );
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, n, &A_data[0], lldA, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+            n, n, &A_data[0], lldA, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
     }
 
     slate::Matrix<scalar_t> Id;
     if (check) {
         slate::Target origin_target = origin2target(origin);
         Id = slate::Matrix<scalar_t>(
-                m, n,    nb, p, q, MPI_COMM_WORLD );
+                n, n,    nb, p, q, MPI_COMM_WORLD );
         Id.insertLocalTiles(origin_target);
     }
 
@@ -144,13 +132,13 @@ void test_gecondest_work(Params& params, bool run)
     if (ref) {
         Aref_data.resize( lldA* nlocA );
         Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                m, n, &Aref_data[0], lldA, nb, nb,
+                n, n, &Aref_data[0], lldA, nb, nb,
                 grid_order, p, q, MPI_COMM_WORLD );
 
         slate::copy(A, Aref);
     }
 
-    double gflop = lapack::Gflop<scalar_t>::getrf(m, n);
+    double gflop = lapack::Gflop<scalar_t>::getrf(n, n);
 
     // Compute the matrix norm
     real_t Anorm = 0;
@@ -198,7 +186,6 @@ void test_gecondest_work(Params& params, bool run)
         // A^-1     = trsm(U, Id), Id will be overwritten by the second solve
         // Id is the inverse of the matrix A, norm(A^-1) = norm(Id)
 
-        // Copy the factored matrix A into Acpy
         // Set the Id matrix to identity
         set(zero, one, Id);
         lu_solve_using_factor( A, pivots, Id, opts );
@@ -227,7 +214,7 @@ void test_gecondest_work(Params& params, bool run)
 
             // ScaLAPACK descriptor for the reference matrix
             int Aref_desc[9];
-            scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
             // ScaLAPACK data for pivots.
@@ -236,7 +223,7 @@ void test_gecondest_work(Params& params, bool run)
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
-            scalapack_pgetrf(m, n,
+            scalapack_pgetrf(n, n,
                     &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info_ref);
 
             // query for workspace size for pgecon
@@ -273,7 +260,6 @@ void test_gecondest_work(Params& params, bool run)
     }
 
     // Compute the error
-    //params.error() = std::abs(slate_rcond - scl_rcond);
     params.error() = std::abs(slate_rcond - exact_rcond);
     params.error2() = std::abs(scl_rcond - exact_rcond);
     params.error3() = std::abs(slate_rcond - scl_rcond);
@@ -284,16 +270,11 @@ void test_gecondest_work(Params& params, bool run)
 
 
     if (verbose && mpi_rank == 0) {
-    // print out these errors
-        real_t error1 = std::abs(slate_rcond - exact_rcond);
-        real_t error2 = std::abs(scl_rcond - exact_rcond);
-        real_t error3 = std::abs(slate_rcond - scl_rcond);
-
         printf("%-8s  %-8s  %-8s  %-8s\n", "Anorm", "slate", "scl", "exact");
         printf("%-2.2e  %-2.2e  %-2.2e  %-2.2e\n", Anorm, slate_rcond, scl_rcond, exact_rcond);
 
         printf("%-9s  %-9s  %-9s\n", "slate-exact", "scl-exact", "slate-scl");
-        printf("%-9.2e  %-9.2e  %-9.2e\n", error1, error2, error3);
+        printf("%-9.2e  %-9.2e  %-9.2e\n", params.error(), params.error2(), params.error3());
     }
 
 }

@@ -250,7 +250,6 @@ void test_trcondest_work(Params& params, bool run)
     }
 
     // Compute the error
-    //params.error() = std::abs(slate_rcond - scl_rcond);
     params.error() = std::abs(slate_rcond - exact_rcond);
     params.error2() = std::abs(scl_rcond - exact_rcond);
     params.error3() = std::abs(slate_rcond - scl_rcond);
@@ -260,15 +259,11 @@ void test_trcondest_work(Params& params, bool run)
     params.okay() = (params.error() <= tol);
 
     if (verbose && mpi_rank == 0) {
-        real_t error1 = std::abs(slate_rcond - exact_rcond);
-        real_t error2 = std::abs(scl_rcond - exact_rcond);
-        real_t error3 = std::abs(slate_rcond - scl_rcond);
-
         printf("%-8s  %-8s  %-8s  %-8s\n", "Anorm", "slate", "scl", "exact");
         printf("%-2.2e  %-2.2e  %-2.2e  %-2.2e\n", Anorm, slate_rcond, scl_rcond, exact_rcond);
 
         printf("%-9s  %-9s  %-9s\n", "slate-exact", "scl-exact", "slate-scl");
-        printf("%-9.2e  %-9.2e  %-9.2e\n", error1, error2, error3);
+        printf("%-9.2e  %-9.2e  %-9.2e\n", params.error(), params.error2(), params.error3());
     }
 
 }

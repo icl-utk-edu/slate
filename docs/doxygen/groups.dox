@@ -204,7 +204,7 @@
         @defgroup group_cond                Condition number estimate
         @{
             @defgroup cond                  Driver
-            @brief                          $rcond = \frac{1}{\|\|A\-\| \times \-\|A^{-1}\|\|}$
+            @brief                          $rcond = \frac{1}{\|\|A\|\| \times \|\|A^{-1}\|\|}$
         @}
 
     @}

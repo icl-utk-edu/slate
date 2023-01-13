@@ -25,7 +25,6 @@ void norm1est_altsgn(Matrix<scalar_t>& A)
     using real_t = blas::real_type<scalar_t>;
 
     int64_t mt = A.mt();
-    int64_t nt = A.nt();
     int64_t n  = A.n();
 
     const scalar_t one  = 1.0;

@@ -93,6 +93,7 @@ CXX    = mpicxx
 FC     = mpif90
 blas   = mkl
 prefix = ${top}/install
+md5sum = md5sum
 END
 
 print "========================================"

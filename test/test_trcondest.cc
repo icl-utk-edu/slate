@@ -27,8 +27,6 @@ void test_trcondest_work(Params& params, bool run)
     using blas::real;
 
     // Constants
-    const scalar_t zero = 0;
-    const scalar_t one = 1;
     int64_t ione = 1;
 
     int64_t m;

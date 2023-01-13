@@ -62,9 +62,6 @@ void trcondest(
     using blas::real;
     using real_t = blas::real_type<scalar_t>;
 
-    // Assumes column major
-    const Layout layout = Layout::ColMajor;
-
     int kase, kase1;
     if (in_norm == Norm::One) {
         kase1 = 1;
@@ -80,7 +77,6 @@ void trcondest(
     int64_t nb = A.tileNb(0);
     int p, q;
     int myrow, mycol, mpi_size;
-    GridOrder order;
     int izero = 0;
 
     // Quick return

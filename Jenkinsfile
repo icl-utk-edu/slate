@@ -111,8 +111,10 @@ if [ "${host}" = "gpu_nvidia" ]; then
 
     # Load CUDA. LD_LIBRARY_PATH set by Spack.
     run module avail cuda
-    # CUDA 11.8 seems to require linking with -lcublasLt; stick with 11.6 for now.
-    run module load cuda/11.6
+    # CUDA 11.8 seems to require linking with -lcublasLt; stick with 11.4 or 11.6.
+    # Error "provided PTX was compiled with an unsupported toolchain" with
+    # 11.6 indicates driver is older; nvidia-smi suggests driver is from 11.4.
+    run module load cuda/11.4
     run which nvcc
     nvcc --version
 

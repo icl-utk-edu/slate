@@ -13,6 +13,7 @@
 #include "test.hh"
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
+#include "slate/internal/Log.hh"
 
 // -----------------------------------------------------------------------------
 using testsweeper::ParamType;
@@ -552,6 +553,10 @@ int run(int argc, char** argv)
     int mpi_rank = 0, mpi_size = 0, provided = 0;
     slate_mpi_call(
         MPI_Init_thread(nullptr, nullptr, MPI_THREAD_MULTIPLE, &provided));
+
+    // Log initializations
+    slate::Log::parsing( argc, argv );
+    slate::Log::clean_argv( argc, argv );
 
     int status = 0;
     std::string msg;

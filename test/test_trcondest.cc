@@ -67,6 +67,13 @@ void test_trcondest_work(Params& params, bool run)
     params.error3();
     params.error3.name( "slate-scl" );
 
+    params.value();
+    params.value.name( "slate" );
+    params.value2();
+    params.value2.name( "exact" );
+    params.value3();
+    params.value3.name( "scl" );
+
     if (! run) {
         params.tol() = 0.5;
         return;
@@ -261,23 +268,13 @@ void test_trcondest_work(Params& params, bool run)
     params.error2() = std::abs( rone/scl_rcond - rone/exact_rcond ) / (rone/exact_rcond);
     params.error3() = std::abs(slate_rcond - scl_rcond);
 
+    // Printf out the rcondest
+    params.value()  = slate_rcond;
+    params.value2() = exact_rcond;
+    params.value3() = scl_rcond;
+
     real_t tol = params.tol();
     params.okay() = (params.error() <= tol);
-
-    if (verbose && mpi_rank == 0) {
-        printf("%-8s  %-8s  %-8s  %-8s\n",
-             "Anorm", "slate", "scl", "exact");
-        printf("%-2.2e  %-2.2e  %-2.2e  %-2.2e\n",
-            Anorm, slate_rcond, scl_rcond, exact_rcond);
-
-        printf("%-9s  %-9s  %-9s\n",
-            "(slate-exact)/(1/exact)", "(scl-exact)/(1/exact)", "slate-scl");
-        printf("%-9.2e  %-9.2e  %-9.2e\n",
-            params.error(), params.error2(), params.error3());
-
-
-
-    }
 
 }
 

@@ -400,6 +400,9 @@ Params::Params():
     // ----- output parameters
     // min, max are ignored
     //          name,           w, p, type,              default,      min, max, help
+    value      ("value",        9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical value"),
+    value2     ("value2",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical value"),
+    value3     ("value3",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical value"),
     error      ("error",        9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),
     error2     ("error2",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),
     error3     ("error3",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),

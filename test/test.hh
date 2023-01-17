@@ -140,6 +140,9 @@ public:
     testsweeper::ParamDouble pivot_threshold;
 
     // ----- output parameters
+    testsweeper::ParamScientific value;
+    testsweeper::ParamScientific value2;
+    testsweeper::ParamScientific value3;
     testsweeper::ParamScientific error;
     testsweeper::ParamScientific error2;
     testsweeper::ParamScientific error3;

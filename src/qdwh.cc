@@ -24,6 +24,14 @@ void qdwh(
           int& itqr, int& itpo,
           Options const& opts)
 {
+    // todo:
+    // optimizations:
+    // 1. reuse Q from first geqrf
+    // 2. avoid rounding m if m is not divisible by nb, because then geqrf/unmqr
+    // have extra zero rows
+    // in norm2est, when allocate vector mx1, need to allocate on row-processes only
+    // limitations:
+    // 1. works only when have square grid
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
@@ -31,22 +39,22 @@ void qdwh(
 
     max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
 
-    real_t eps  = std::numeric_limits<real_t>::epsilon();
-    real_t tol1 = 5. * eps;
-    real_t tol3 = pow(tol1, 1./3.);
-
-    bool optqr = 1;
     int itconv, it;
 
     real_t L2, sqd, dd, a1, a, b, c;
     real_t Li, Liconv;
     real_t conv = 100.;
-    scalar_t zero = 0.0, one = 1.0;
+    real_t rone = 1.;
 
+    scalar_t zero = 0.0, one = 1.0;
     scalar_t alpha, beta;
 
     real_t normA;
     real_t norminvR;
+
+    real_t eps  = std::numeric_limits<real_t>::epsilon();
+    real_t tol1 = 5. * eps;
+    real_t tol3 = pow(tol1, rone/real_t(3.));
 
     int64_t mt = A.mt();
     int64_t nt = A.nt();
@@ -90,24 +98,22 @@ void qdwh(
         Acpy.insertLocalTiles(target);
     }
 
-    // todo: do this on GPUs
     W.insertLocalTiles(target);
     Q.insertLocalTiles(target);
 
-    // To compute QR[A; Id]
+    // To compute QR[A; Id], allocate W and Q of size m_Wxn
     // First mt tiles of W contains A matrix in [0:m-1, 0:n-1]
     // W1 have more rows than A, since we round up the number of rows of W1
-    // W10 have A matrix
     auto W1 = W.sub(0, mt-1, 0, nt-1);
-    auto W10 = W1.slice(0, m-1, 0, n-1);
-    auto W11 = W.sub(mt-1, mt-1, 0, nt-1);
-
     auto Q1 = Q.sub(0, mt-1, 0, nt-1);
+    // W10 have A matrix
+    auto W10 = W1.slice(0, m-1, 0, n-1);
     auto Q10 = Q1.slice(0, m-1, 0, n-1);
+    // W11 is the last tile which has more rows in case we round up m
+    auto W11 = W.sub(mt-1, mt-1, 0, nt-1);
 
     // Second nt tiles of W, contain the identity matrix
     auto W2 = W.sub(mt, mt_W-1, 0, nt-1);
-
     auto Q2 = Q.sub(mt, mt_W-1, 0, nt-1);
 
     // backup A in Acpy to compute H
@@ -117,37 +123,33 @@ void qdwh(
     real_t norm_est = norm2est( A, opts);
     alpha = 1.0;
 
-    // scale the original matrix A to form A0 of the iterative loop
+    // scale the original matrix A to form A0 which is the initial matrix
+    // for the first iteration
     add(alpha/scalar_t(norm_est), Acpy, zero, A, opts);
 
-    // Calculate Li: reciprocal of condition number estimation
+    // Estimate the condition number
     // todo: use the Q factor in the first QR-based iteration
-    normA = norm(slate::Norm::One, A, opts);
-    if (optqr) {
-        // Estimate the condition number using QR
-        // This Q factor can be used in the first QR-based iteration
-        slate::copy(A, W10, opts);
-        // todo: the QR used to estimate the condition number can be used in the first QR iteration
-        // todo: put bound of 1-norm est compared to 2-norm
-        slate::geqrf(W1, T, opts);
-        //auto R  = TrapezoidMatrix<scalar_t>(
-        //    Uplo::Upper, slate::Diag::NonUnit, W10 );
-        auto R1 =  W10.slice(0, n-1, 0, n-1);
-        auto R  = TriangularMatrix<scalar_t>(
+
+    // Estimate the condition number using QR
+    // This Q factor can be used in the first QR-based iteration
+    slate::copy(A, W10, opts);
+    // todo: put bound of 1-norm est compared to 2-norm
+    slate::geqrf(W10, T, opts);
+    //auto R  = TrapezoidMatrix<scalar_t>(
+    //    Uplo::Upper, slate::Diag::NonUnit, W10 );
+    auto R1 =  W10.slice(0, n-1, 0, n-1);
+    auto R  = TriangularMatrix<scalar_t>(
             Uplo::Upper, slate::Diag::NonUnit, R1 );
-        auto Rh = HermitianMatrix<scalar_t>(
-            Uplo::Upper, R1 );
-        trtri(R, opts);
-        norminvR = norm(slate::Norm::One, Rh, opts);
-        Li = (1.0 / norminvR) / normA;
-        Li = norm_est / 1.1 * Li;
-        // *flops += FLOPS_DGEQRF( M, N )
-        //       + FLOPS_DTRTRI( N );
-    }
-    else {
-        // todo
-        // Estimate the condition number using LU
-    }
+    // For now, compute the exact condition number using trtri
+    normA = norm(slate::Norm::One, A, opts);
+    trtri(R, opts);
+    norminvR = norm(slate::Norm::One, R, opts);
+    Li = (1.0 / norminvR) / normA;
+    // todo: will call trcondest instead
+    //slate::trcondest(slate::Norm::One, R, &Li, opts);
+    Li = norm_est / 1.1 * Li;
+    // *flops += FLOPS_DGEQRF( M, N )
+    //       + FLOPS_DTRTRI( N );
 
     // Compute the number of iterations to converge
     itconv = 0; Liconv = Li;
@@ -161,14 +163,15 @@ void qdwh(
         itconv++;
 
         L2  =  Liconv * Liconv;
-        dd  = pow( 4.0 * (1.0 - L2 ) / (L2 * L2), 1.0/3.0 );
-        sqd = sqrt(1.0 + dd);
-        a1  = sqd + sqrt( 8.0 - 4.0 * dd + 8.0 * (2.0 - L2) / (L2 * sqd) ) / 2.0;
+        dd  = pow( real_t(4.0) * ( rone - L2 ) / ( L2 * L2 ), rone / real_t(3.0) );
+        sqd = sqrt( rone + dd );
+        a1  = sqd + sqrt( real_t(8.0) - real_t(4.0) * dd +
+              real_t(8.0) * ( real_t(2.0) - L2 ) / ( L2 * sqd ) ) / real_t(2.0);
         a   = real(a1);
-        b   = (a - 1.0) * (a - 1.0) / 4.0;
-        c   = a + b - 1.0;
+        b   = ( a - rone ) * ( a - rone ) / real_t(4.0);
+        c   = a + b - rone;
         // Update Liconv
-        Liconv  = Liconv * real_t((a + b * L2) / (1.0 + c * L2));
+        Liconv  = Liconv * ( a + b * L2 ) / ( rone + c * L2 );
     }
 
     it = 0;
@@ -180,31 +183,28 @@ void qdwh(
         it++;
 
         // Compute parameters L,a,b,c
-        //L2  = double (Li * Li);
         L2  = Li * Li;
-        dd  = pow( 4.0 * (1.0 - L2 ) / (L2 * L2), 1.0/3.0 );
-        sqd = sqrt(1.0 + dd);
-        a1  = sqd + sqrt( 8.0 - 4.0 * dd + 8.0 * (2.0 - L2) / (L2 * sqd) ) / 2.0;
+        dd  = pow( real_t(4.0) * ( rone - L2 ) / ( L2 * L2 ), rone / real_t(3.0) );
+        sqd = sqrt( rone + dd );
+        a1  = sqd + sqrt( real_t(8.0) - real_t(4.0) * dd +
+              real_t(8.0) * ( real_t(2.0) - L2 ) / ( L2 * sqd ) ) / real_t(2.0);
         a   = real(a1);
-        b   = (a - 1.0) * (a - 1.0) / 4.0;
-        c   = a + b - 1.0;
+        b   = ( a - rone ) * ( a - rone ) / real_t(4.0);
+        c   = a + b - rone;
         // Update Li
-        Li  = Li * real_t ((a + b * L2) / (1.0 + c * L2));
+        Li  = Li * ( a + b * L2 ) / ( rone + c * L2 );
 
-        if (real(c) > 100.) {
-            //int64_t doqr = !optqr || it > 1;
-
+        if (c > real_t(100.)) {
             // Generate the matrix W = [ W1 ] = [ sqrt(c) * A ]
             //                         [ W2 ] = [ Id          ]
 
             // Factorize W = QR, and generate the associated Q
-            // todo: replace following add by copy and scale, but why scale only scale by a real numbers?
             alpha = scalar_t(sqrt(c));
             set(zero, zero, W11, opts);
             add(alpha, A, zero, W10, opts);
             set(zero, one, W2, opts);
 
-            // Call a variant of geqrf annd unmqr that avoid the tiles of zeros,
+            // Call a variant of geqrf and unmqr that avoid the tiles of zeros,
             // which are the tiles below the diagonal of W2 (identity)
             geqrf_qdwh_full(W, T, opts);
 
@@ -246,9 +246,9 @@ void qdwh(
             gemm(scalar_t(c), AT, A, one, W2, opts);
 
             // Solve R x = AT
-            auto R = slate::HermitianMatrix<scalar_t>(
+            auto U = slate::HermitianMatrix<scalar_t>(
                     slate::Uplo::Upper, W2 );
-            posv(R, AT, opts);
+            posv(U, AT, opts);
 
             // Update A = (b/c) * A + (a-b/c) * ( linsolve( C, linsolve( C, A') ) )';
             alpha = (a-b/c); beta = (b/c);
@@ -276,6 +276,12 @@ void qdwh(
     if (A.mpiRank() == 0) {
         printf("%-7s  %-7s\n", "QR", "PO");
         printf("%-7d  %-7d\n", itqr, itpo);
+    }
+
+    if (itqr + itpo > 6) {
+        printf("\n Converged after %d. Check what is the issue,"
+                   "because QDWH needs <= 6 iterations \n",
+                   itqr+itpo);
     }
 
     // A = U*H ==> H = U'*A ==> H = 0.5*(H'+H)

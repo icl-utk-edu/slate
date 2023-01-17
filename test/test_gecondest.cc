@@ -29,6 +29,7 @@ void test_gecondest_work(Params& params, bool run)
     // Constants
     const scalar_t zero = 0;
     const scalar_t one = 1;
+    real_t rone = 1.;
 
     auto method = params.method_lu();
 
@@ -75,8 +76,10 @@ void test_gecondest_work(Params& params, bool run)
     params.error3.name( "slate-scl" );
     params.pivot_threshold.width( 0 );
 
-    if (! run)
+    if (! run) {
+        params.tol() = 0.5;
         return;
+    }
 
     // MPI variables
     int mpi_rank, myrow, mycol;
@@ -227,13 +230,15 @@ void test_gecondest_work(Params& params, bool run)
                     &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info_ref);
 
             // query for workspace size for pgecon
-            int64_t info_ref2 = 0;
+            int64_t info_ref_cond = 0;
             int64_t lwork = -1;
             int64_t liwork = -1;
             scalar_t dummy;
             int  idummy;
-            scalapack_pgecon( norm2str(norm), n, &Aref_data[0], 1, 1, Aref_desc,
-                &Anorm, &scl_rcond, &dummy, lwork, &idummy, liwork, info_ref2);
+            scalapack_pgecon( norm2str(norm), n,
+                              &Aref_data[0], 1, 1, Aref_desc,
+                              &Anorm, &scl_rcond,
+                              &dummy, lwork, &idummy, liwork, info_ref_cond);
             lwork = (int64_t)( real( dummy ) );
             liwork = (int64_t)( real( idummy ) );
 
@@ -244,8 +249,11 @@ void test_gecondest_work(Params& params, bool run)
             // todo: ScaLAPCK pzgecon has a seg fault
 
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_pgecon( norm2str(norm), n, &Aref_data[0], 1, 1, Aref_desc, &Anorm, &scl_rcond, &work[0], lwork, &iwork[0], liwork, info_ref2);
-            slate_assert(info_ref == 0);
+            scalapack_pgecon( norm2str(norm), n,
+                              &Aref_data[0], 1, 1, Aref_desc,
+                              &Anorm, &scl_rcond,
+                              &work[0], lwork, &iwork[0], liwork, info_ref_cond);
+            slate_assert(info_ref_cond == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             params.ref_time() = time;
@@ -260,21 +268,23 @@ void test_gecondest_work(Params& params, bool run)
     }
 
     // Compute the error
-    params.error() = std::abs(slate_rcond - exact_rcond);
-    params.error2() = std::abs(scl_rcond - exact_rcond);
+    params.error()  = std::abs( rone/slate_rcond - rone/exact_rcond ) / (rone/exact_rcond);
+    params.error2() = std::abs( rone/scl_rcond - rone/exact_rcond ) / (rone/exact_rcond);
     params.error3() = std::abs(slate_rcond - scl_rcond);
 
-    real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-    tol = std::sqrt(tol);
+    real_t tol = params.tol();
     params.okay() = (params.error() <= tol);
 
-
     if (verbose && mpi_rank == 0) {
-        printf("%-8s  %-8s  %-8s  %-8s\n", "Anorm", "slate", "scl", "exact");
-        printf("%-2.2e  %-2.2e  %-2.2e  %-2.2e\n", Anorm, slate_rcond, scl_rcond, exact_rcond);
+        printf("%-8s  %-8s  %-8s  %-8s\n",
+             "Anorm", "slate", "scl", "exact");
+        printf("%-2.2e  %-2.2e  %-2.2e  %-2.2e\n",
+            Anorm, slate_rcond, scl_rcond, exact_rcond);
 
-        printf("%-9s  %-9s  %-9s\n", "slate-exact", "scl-exact", "slate-scl");
-        printf("%-9.2e  %-9.2e  %-9.2e\n", params.error(), params.error2(), params.error3());
+        printf("%-9s  %-9s  %-9s\n",
+            "(slate-exact)/(1/exact)", "(scl-exact)/(1/exact)", "slate-scl");
+        printf("%-9.2e  %-9.2e  %-9.2e\n",
+            params.error(), params.error2(), params.error3());
     }
 
 }

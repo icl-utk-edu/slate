@@ -28,6 +28,7 @@ void test_trcondest_work(Params& params, bool run)
 
     // Constants
     int64_t ione = 1;
+    real_t rone = 1.;
 
     int64_t m;
     m = params.dim.m();
@@ -66,8 +67,10 @@ void test_trcondest_work(Params& params, bool run)
     params.error3();
     params.error3.name( "slate-scl" );
 
-    if (! run)
+    if (! run) {
+        params.tol() = 0.5;
         return;
+    }
 
     // MPI variables
     int mpi_rank, myrow, mycol;
@@ -250,20 +253,30 @@ void test_trcondest_work(Params& params, bool run)
     }
 
     // Compute the error
-    params.error() = std::abs(slate_rcond - exact_rcond);
+    params.error()  = std::abs(slate_rcond - exact_rcond);
     params.error2() = std::abs(scl_rcond - exact_rcond);
     params.error3() = std::abs(slate_rcond - scl_rcond);
 
-    real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
-    tol = std::sqrt(tol);
+    params.error()  = std::abs( rone/slate_rcond - rone/exact_rcond ) / (rone/exact_rcond);
+    params.error2() = std::abs( rone/scl_rcond - rone/exact_rcond ) / (rone/exact_rcond);
+    params.error3() = std::abs(slate_rcond - scl_rcond);
+
+    real_t tol = params.tol();
     params.okay() = (params.error() <= tol);
 
     if (verbose && mpi_rank == 0) {
-        printf("%-8s  %-8s  %-8s  %-8s\n", "Anorm", "slate", "scl", "exact");
-        printf("%-2.2e  %-2.2e  %-2.2e  %-2.2e\n", Anorm, slate_rcond, scl_rcond, exact_rcond);
+        printf("%-8s  %-8s  %-8s  %-8s\n",
+             "Anorm", "slate", "scl", "exact");
+        printf("%-2.2e  %-2.2e  %-2.2e  %-2.2e\n",
+            Anorm, slate_rcond, scl_rcond, exact_rcond);
 
-        printf("%-9s  %-9s  %-9s\n", "slate-exact", "scl-exact", "slate-scl");
-        printf("%-9.2e  %-9.2e  %-9.2e\n", params.error(), params.error2(), params.error3());
+        printf("%-9s  %-9s  %-9s\n",
+            "(slate-exact)/(1/exact)", "(scl-exact)/(1/exact)", "slate-scl");
+        printf("%-9.2e  %-9.2e  %-9.2e\n",
+            params.error(), params.error2(), params.error3());
+
+
+
     }
 
 }

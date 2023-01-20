@@ -64,7 +64,7 @@ void gecopy(
         src_scalar_t const* tileA = Aarray[k];
         dst_scalar_t* tileB = Barray[k];
         // distribute rows (i) to threads
-        #pragma omp parallel for collapse(1) schedule(static, 1)
+        #pragma omp parallel for schedule(static, 1)
         for (int64_t i = 0; i < m; ++i) {
             src_scalar_t const* rowA = &tileA[i];
             dst_scalar_t* rowB = &tileB[i];

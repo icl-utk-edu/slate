@@ -57,7 +57,7 @@ void geadd(
         return;
 
     // Use omp target offload
-    #pragma omp target is_device_ptr(A) device(queue.device())
+    #pragma omp target is_device_ptr(A, B) device(queue.device())
     #pragma omp teams distribute parallel for schedule(static, 1)
     for (int64_t i = 0; i < m; ++i) {
         scalar_t* rowA = &A[i];

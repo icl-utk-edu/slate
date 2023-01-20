@@ -137,12 +137,13 @@ void geset(
     #pragma omp target is_device_ptr(Aarray) device(queue.device())
     #pragma omp teams distribute
     for (int64_t k = 0; k < batch_count; ++k) {
-        #pragma omp parallel for collapse(2)
+        scalar_t* tileA = Aarray[k];
+        // distribute i to threads
+        #pragma omp parallel for schedule(static, 1)
         for (int64_t i = 0; i < m; ++i) {
+            scalar_t* rowA = &tileA[i];
             for (int64_t j = 0; j < n; ++j) {
-                scalar_t* tileA = Aarray[k];
-                scalar_t* rowA = &tileA[i];
-                rowA[j*lda] = (j != i) ? offdiag_value : diag_value;
+                rowA[j*lda] = (j == i ? diag_value : offdiag_value);
             }
         }
     }

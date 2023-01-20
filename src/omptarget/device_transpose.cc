@@ -39,40 +39,105 @@ void transpose_sqr_batch_func(
                 // #pragma omp private(sA1, sA2)
                 // #pragma omp allocate (sA1,sA2) allocator(omp_pteam_mem_alloc)
                 // ii, jj are row & column offsets within each block.
-                int max_ii = i+ib < n ? std::min(ib,n) : n-i;
-                int max_jj = j+ib < n ? std::min(ib,n) : n-j;
+                int max_ii = ( i+ib < n ? std::min(ib, n) : n-i );
+                int max_jj = ( j+ib < n ? std::min(ib, n) : n-j );
                 if (i == j) { // diagonal blocks
                     // Load ibxib block from A(i,j) into sA1
-                    #pragma omp parallel for collapse(2)
+                    #pragma omp parallel for simd collapse(2)
                     for (int ii = 0; ii < max_ii; ++ii)
                         for (int jj = 0; jj < max_jj; ++jj)
                             sA1[jj][ii] = A[i+ii + (j+jj)*lda];
                     // Save transposed block, A(i, j) = trans(sA1).
-                    #pragma omp parallel for collapse(2)
+                    #pragma omp parallel for simd collapse(2)
                     for (int ii = 0; ii < max_ii; ++ii)
                         for (int jj = 0; jj < max_jj; ++jj)
                             A[i+ii + (j+jj)*lda] = sA1[ii][jj];
                 }
                 else { // off-diagonal block
                     // Load blocks A(i, j) and A(j, i) into shared memory sA1 and sA2.
-                    #pragma omp parallel for collapse(2)
+                    #pragma omp parallel for simd collapse(2)
                     for (int ii = 0; ii < max_ii; ++ii)
                         for (int jj = 0; jj < max_jj; ++jj)
                             sA1[ii][jj] = A[i+ii + (j+jj)*lda]; // sA1(i,j)=A(i,j)
-                    #pragma omp parallel for collapse(2)
+                    #pragma omp parallel for simd collapse(2)
                     for (int ii = 0; ii < max_ii; ++ii)
                         for (int jj = 0; jj < max_jj; ++jj)
                             sA2[jj][ii] = A[j+jj + (i+ii)*lda]; // sA2(j,i)=A(j,i)
                     // Save transposed blocks, A(i, j) = trans(sA2), A(j, i) = trans(sA1).
-                    #pragma omp parallel for collapse(2)
+                    #pragma omp parallel for simd collapse(2)
                     for (int ii = 0; ii < max_ii; ++ii)
                         for (int jj = 0; jj < max_jj; ++jj)
                             A[i+ii + (j+jj)*lda] = sA2[jj][ii]; // A(i,j)=trans(sA2)=sA2(i,j)
-                    #pragma omp parallel for collapse(2)
+                    #pragma omp parallel for simd collapse(2)
                     for (int ii = 0; ii < max_ii; ++ii)
                         for (int jj = 0; jj < max_jj; ++jj)
                             A[j+jj + (i+ii)*lda] = sA1[ii][jj]; // A(j,i)=trans(sA1)=sA1(j,i)
                 }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Device routine handles single square matrix
+
+/// The routine loads blocks of data into small ib x ib local storage
+/// and then writes the blocks back transposed into the correct
+/// location transposed.
+///
+template <typename scalar_t>
+void transpose_sqr_func(
+    int n, scalar_t* A, int64_t lda, blas::Queue& queue)
+{
+    // printf("%s:%d sqr queue.device() %d\n", __FILE__, __LINE__, queue.device());
+
+    static const int ib = 16;
+    // i, j are row & column indices of top-left corner of each local block.
+    #pragma omp target is_device_ptr(A) device(queue.device())
+    // Distribute the blocks to omp teams
+    #pragma omp teams distribute collapse(2)
+    for (int i = 0; i < n; i += ib) {
+        for (int j = 0; j <= i; j += ib) {
+            // allocate local blocks for storage
+            // +1 to avoid memory bank conflicts.
+            scalar_t sA1[ ib ][ ib+1 ], sA2[ ib ][ ib+1 ];
+            // todo: make sA1, sA2 team-local, shared by threads (OpenMP > 5)
+            // #pragma omp private(sA1, sA2)
+            // #pragma omp allocate (sA1,sA2) allocator(omp_pteam_mem_alloc)
+            // ii, jj are row & column offsets within each block.
+            int max_ii = ( i+ib < n ? std::min(ib, n) : n-i );
+            int max_jj = ( j+ib < n ? std::min(ib, n) : n-j );
+            if (i == j) { // diagonal blocks
+                // Load ibxib block from A(i,j) into sA1
+                #pragma omp parallel for simd collapse(2)
+                for (int ii = 0; ii < max_ii; ++ii)
+                    for (int jj = 0; jj < max_jj; ++jj)
+                        sA1[jj][ii] = A[i+ii + (j+jj)*lda];
+                // Save transposed block, A(i, j) = trans(sA1).
+                #pragma omp parallel for simd collapse(2)
+                for (int ii = 0; ii < max_ii; ++ii)
+                        for (int jj = 0; jj < max_jj; ++jj)
+                            A[i+ii + (j+jj)*lda] = sA1[ii][jj];
+            }
+            else { // off-diagonal block
+                // Load blocks A(i, j) and A(j, i) into shared memory sA1 and sA2.
+                #pragma omp parallel for simd collapse(2)
+                for (int ii = 0; ii < max_ii; ++ii)
+                    for (int jj = 0; jj < max_jj; ++jj)
+                        sA1[ii][jj] = A[i+ii + (j+jj)*lda]; // sA1(i,j)=A(i,j)
+                #pragma omp parallel for simd collapse(2)
+                for (int ii = 0; ii < max_ii; ++ii)
+                    for (int jj = 0; jj < max_jj; ++jj)
+                        sA2[jj][ii] = A[j+jj + (i+ii)*lda]; // sA2(j,i)=A(j,i)
+                // Save transposed blocks, A(i, j) = trans(sA2), A(j, i) = trans(sA1).
+                #pragma omp parallel for simd collapse(2)
+                for (int ii = 0; ii < max_ii; ++ii)
+                    for (int jj = 0; jj < max_jj; ++jj)
+                        A[i+ii + (j+jj)*lda] = sA2[jj][ii]; // A(i,j)=trans(sA2)=sA2(i,j)
+                #pragma omp parallel for simd collapse(2)
+                for (int ii = 0; ii < max_ii; ++ii)
+                    for (int jj = 0; jj < max_jj; ++jj)
+                        A[j+jj + (i+ii)*lda] = sA1[ii][jj]; // A(j,i)=trans(sA1)=sA1(j,i)
             }
         }
     }
@@ -85,7 +150,6 @@ void transpose_sqr_batch_func(
 /// and then writes the blocks back transposed into the correct
 /// location transposed.
 ///
-static const int NB = 32;
 template <typename scalar_t, int NX>
 void transpose_rect_batch_func(
     int m, int n,
@@ -93,9 +157,10 @@ void transpose_rect_batch_func(
     scalar_t** dATarray, int64_t ldat,
     int batch_count, blas::Queue& queue)
 {
+    static const int NB = 32;
     // i, j are row & column indices of top-left corner of each local block.
     #pragma omp target is_device_ptr(dAarray, dATarray) device(queue.device())
-    #pragma omp teams distribute collapse(3)
+    #pragma omp teams distribute collapse(2)
     for (int k = 0; k < batch_count; ++k) {
         for (int i = 0; i < m; i += NX) {
             for (int j = 0; j < n; j += NB) {
@@ -108,19 +173,62 @@ void transpose_rect_batch_func(
                 // #pragma omp allocate (sA) allocator(omp_pteam_mem_alloc)
                 // #endif
                 scalar_t sA[ NX ][ NB+1 ];
-                int max_NX = i+NX < m ? std::min(NX,m) : m-i;
-                int max_NB = j+NB < n ? std::min(NB,n) : n-j;
+                int max_NX = ( i+NX < m ? std::min(NX, m) : m-i );
+                int max_NB = ( j+NB < n ? std::min(NB, n) : n-j );
                 // Load NXxNB block from A(i,j) so that sA(i,j) = dA(i,j)
-                #pragma omp parallel for collapse(2)
+                #pragma omp parallel for simd collapse(2)
                 for (int ii = 0; ii < max_NX; ++ii)
                     for (int jj = 0; jj < max_NB; ++jj)
                         sA[ii][jj] = dA[i+ii + (j+jj)*lda];
                 // Save transposed block, dAT(j, i) = sA(i,j).
-                #pragma omp parallel for collapse(2)
+                #pragma omp parallel for simd collapse(2)
                 for (int ii = 0; ii < max_NX; ++ii)
                     for (int jj = 0; jj < max_NB; ++jj)
                         dAT[j+jj + (i+ii)*ldat] = sA[ii][jj];
             }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Device routine handles single rectangular matrox
+///
+/// The routine loads blocks of data into small NX x NB local storage
+/// and then writes the blocks back transposed into the correct
+/// location transposed.
+///
+template <typename scalar_t, int NX>
+void transpose_rect_func(
+    int m, int n,
+    scalar_t* dA, int64_t lda,
+    scalar_t* dAT, int64_t ldat,
+    blas::Queue& queue)
+{
+    static const int NB = 32;
+    // i, j are row & column indices of top-left corner of each local block.
+    #pragma omp target is_device_ptr(dA, dAT) device(queue.device())
+    #pragma omp teams distribute collapse(2)
+    for (int i = 0; i < m; i += NX) {
+        for (int j = 0; j < n; j += NB) {
+            // todo: make sA team-local, shared by threads
+            // #pragma omp private(sA)
+            // todo: allocators supported after OpenMP 5.0
+            // #if (_OPENMP > 201810)
+            // #pragma omp allocate (sA) allocator(omp_pteam_mem_alloc)
+            // #endif
+            scalar_t sA[ NX ][ NB+1 ];
+            int max_NX = ( i+NX < m ? std::min(NX, m) : m-i );
+            int max_NB = ( j+NB < n ? std::min(NB, n) : n-j );
+            // Load NXxNB block from A(i,j) so that sA(i,j) = dA(i,j)
+            #pragma omp parallel for simd collapse(2)
+            for (int ii = 0; ii < max_NX; ++ii)
+                for (int jj = 0; jj < max_NB; ++jj)
+                    sA[ii][jj] = dA[i+ii + (j+jj)*lda];
+            // Save transposed block, dAT(j, i) = sA(i,j).
+            #pragma omp parallel for simd collapse(2)
+            for (int ii = 0; ii < max_NX; ++ii)
+                for (int jj = 0; jj < max_NB; ++jj)
+                    dAT[j+jj + (i+ii)*ldat] = sA[ii][jj];
         }
     }
 }
@@ -151,7 +259,7 @@ void transpose(
         return;
     assert(lda >= n);
 
-    transpose_sqr_batch_func(n, &A, lda, 1, queue);
+    transpose_sqr_func(n, A, lda, queue);
 }
 
 //------------------------------------------------------------------------------
@@ -229,7 +337,7 @@ void transpose(
     assert(lda >= m);
     assert(ldat >= n);
 
-    transpose_rect_batch_func<scalar_t, NX>( m, n, &dA, lda, &dAT, ldat, 1, queue );
+    transpose_rect_func<scalar_t, NX>( m, n, dA, lda, dAT, ldat, queue );
 }
 
 //------------------------------------------------------------------------------

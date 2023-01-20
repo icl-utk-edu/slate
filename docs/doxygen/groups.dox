@@ -202,6 +202,13 @@
             @defgroup ger_tile              ger
             @defgroup her2_tile             her2
         @}
+
+        @defgroup group_cond                Condition number estimate
+        @{
+            @defgroup cond                  Driver
+            @brief                          $rcond = \frac{1}{\|\|A\|\| \times \|\|A^{-1}\|\|}$
+        @}
+
     @}
 
     ------------------------------------------------------------

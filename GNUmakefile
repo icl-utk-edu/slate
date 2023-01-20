@@ -427,6 +427,7 @@ ifneq ($(only_unit),1)
         src/internal/internal_her2k.cc \
         src/internal/internal_herk.cc \
         src/internal/internal_hettmqr.cc \
+        src/internal/internal_norm1est.cc \
         src/internal/internal_potrf.cc \
         src/internal/internal_swap.cc \
         src/internal/internal_symm.cc \
@@ -498,6 +499,7 @@ ifneq ($(only_unit),1)
         src/gbtrf.cc \
         src/gbtrs.cc \
         src/ge2tb.cc \
+        src/gecondest.cc \
         src/gelqf.cc \
         src/gels.cc \
         src/gels_cholqr.cc \
@@ -552,6 +554,7 @@ ifneq ($(only_unit),1)
         src/tb2bd.cc \
         src/tbsm.cc \
         src/tbsmPivots.cc \
+        src/trcondest.cc \
         src/trmm.cc \
         src/trsm.cc \
         src/trsmA.cc \
@@ -608,6 +611,7 @@ tester_src += \
         test/test_gbnorm.cc \
         test/test_gbsv.cc \
         test/test_ge2tb.cc \
+        test/test_gecondest.cc \
         test/test_gelqf.cc \
         test/test_gels.cc \
         test/test_gemm.cc \
@@ -642,6 +646,7 @@ tester_src += \
         test/test_syrk.cc \
         test/test_tb2bd.cc \
         test/test_tbsm.cc \
+        test/test_trcondest.cc \
         test/test_trmm.cc \
         test/test_trnorm.cc \
         test/test_trsm.cc \

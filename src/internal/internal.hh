@@ -646,6 +646,18 @@ template <Target target=Target::HostTask, typename scalar_t>
 void hegst(int64_t itype, HermitianMatrix<scalar_t>&& A,
                           HermitianMatrix<scalar_t>&& B);
 
+//------------------------------------------------------------------------------
+// Norm 1 estimate
+template <typename scalar_t>
+void norm1est(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& V,
+    Matrix<int64_t>& S,
+    blas::real_type<scalar_t>* one_normest,
+    int* kase,
+    std::vector<int64_t>& isave,
+    Options const& opts = Options());
+
 } // namespace internal
 } // namespace slate
 

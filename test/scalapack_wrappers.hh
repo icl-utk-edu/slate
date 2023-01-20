@@ -2476,4 +2476,228 @@ inline void scalapack_plaqge(
                       R, C, &rowcnd, &colcnd, &Amax, equed );
 }
 
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_psgecon BLAS_FORTRAN_NAME( psgecon, PSGECON )
+#define scalapack_pdgecon BLAS_FORTRAN_NAME( pdgecon, PDGECON )
+#define scalapack_pcgecon BLAS_FORTRAN_NAME( pcgecon, PCGECON )
+#define scalapack_pzgecon BLAS_FORTRAN_NAME( pzgecon, PZGECON )
+
+extern "C" {
+
+void scalapack_psgecon(
+    const char* norm, blas_int* n,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* Anorm, float* rcond,
+    float* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info);
+
+void scalapack_pdgecon(
+    const char* norm, blas_int* n,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* Anorm, double* rcond,
+    double* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info);
+
+void scalapack_pcgecon(
+    const char* norm, blas_int* n,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* Anorm, float* rcond,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info);
+
+void scalapack_pzgecon(
+    const char* norm, blas_int* n,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* Anorm, double* rcond,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info);
+
+} // extern C
+
+// -----------------------------------------------------------------------------
+inline void scalapack_pgecon(
+    const char* norm, blas_int* n,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* Anorm, float* rcond,
+    float* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info)
+{
+    scalapack_psgecon( norm, n, A, ia, ja, descA,
+                       Anorm, rcond, work, lwork, iwrok, liwork, info);
+}
+
+inline void scalapack_pgecon(
+    const char* norm, blas_int* n,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* Anorm, double* rcond,
+    double* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info)
+{
+    scalapack_pdgecon( norm, n, A, ia, ja, descA,
+                       Anorm, rcond, work, lwork, iwrok, liwork, info);
+}
+
+inline void scalapack_pgecon(
+    const char* norm, blas_int* n,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* Anorm, float* rcond,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info)
+{
+    scalapack_pcgecon( norm, n, A, ia, ja, descA,
+                       Anorm, rcond, work, lwork, iwrok, liwork, info);
+}
+
+inline void scalapack_pgecon(
+    const char* norm, blas_int* n,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* Anorm, double* rcond,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info)
+{
+    scalapack_pzgecon( norm, n, A, ia, ja, descA,
+                       Anorm, rcond, work, lwork, iwrok, liwork, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_pgecon(
+    const char* norm, int64_t n,
+    scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
+    blas::real_type<scalar_t>* Anorm, blas::real_type<scalar_t>* rcond,
+    scalar_t* work, int64_t lwork,
+    blas_int* iwork, int64_t liwork,
+    int64_t info)
+{
+    int n_     = int64_to_int(n);
+    int ia_    = int64_to_int(ia);
+    int ja_    = int64_to_int(ja);
+    int lwork_ = int64_to_int(lwork);
+    int liwork_ = int64_to_int(liwork);
+    int info_  = int64_to_int(info);
+    scalapack_pgecon( norm, &n_, A, &ia_, &ja_, descA,
+                      Anorm, rcond, work, &lwork_, iwork, &liwork_, &info_);
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+#define scalapack_pstrcon BLAS_FORTRAN_NAME( pstrcon, PSTRCON )
+#define scalapack_pdtrcon BLAS_FORTRAN_NAME( pdtrcon, PDTRCON )
+#define scalapack_pctrcon BLAS_FORTRAN_NAME( pctrcon, PCTRCON )
+#define scalapack_pztrcon BLAS_FORTRAN_NAME( pztrcon, PZTRCON )
+
+extern "C" {
+
+void scalapack_pstrcon(
+    const char* norm, const char* uplo, const char* diag, blas_int* n,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* rcond,
+    float* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info);
+
+void scalapack_pdtrcon(
+    const char* norm, const char* uplo, const char* diag, blas_int* n,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* rcond,
+    double* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info);
+
+void scalapack_pctrcon(
+    const char* norm, const char* uplo, const char* diag, blas_int* n,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* rcond,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info);
+
+void scalapack_pztrcon(
+    const char* norm, const char* uplo, const char* diag, blas_int* n,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* rcond,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info);
+
+} // extern C
+
+// -----------------------------------------------------------------------------
+inline void scalapack_ptrcon(
+    const char* norm, const char* uplo, const char* diag, blas_int* n,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* rcond,
+    float* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info)
+{
+    scalapack_pstrcon( norm, uplo, diag, n, A, ia, ja, descA,
+                       rcond, work, lwork, iwrok, liwork, info);
+}
+
+inline void scalapack_ptrcon(
+    const char* norm, const char* uplo, const char* diag, blas_int* n,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* rcond,
+    double* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info)
+{
+    scalapack_pdtrcon( norm, uplo, diag, n, A, ia, ja, descA,
+                       rcond, work, lwork, iwrok, liwork, info);
+}
+
+inline void scalapack_ptrcon(
+    const char* norm, const char* uplo, const char* diag, blas_int* n,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* rcond,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info)
+{
+    scalapack_pctrcon( norm, uplo, diag, n, A, ia, ja, descA,
+                       rcond, work, lwork, iwrok, liwork, info);
+}
+
+inline void scalapack_ptrcon(
+    const char* norm, const char* uplo, const char* diag, blas_int* n,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* rcond,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    int* info)
+{
+    scalapack_pztrcon( norm, uplo, diag, n, A, ia, ja, descA,
+                       rcond, work, lwork, iwrok, liwork, info);
+}
+
+template <typename scalar_t>
+inline void scalapack_ptrcon(
+    const char* norm, const char* uplo, const char* diag, int64_t n,
+    scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
+    blas::real_type<scalar_t>* rcond,
+    scalar_t* work, int64_t lwork,
+    blas_int* iwork, int64_t liwork,
+    int64_t info)
+{
+    int n_     = int64_to_int(n);
+    int ia_    = int64_to_int(ia);
+    int ja_    = int64_to_int(ja);
+    int lwork_ = int64_to_int(lwork);
+    int liwork_ = int64_to_int(liwork);
+    int info_  = int64_to_int(info);
+    scalapack_ptrcon( norm, uplo, diag, &n_, A, &ia_, &ja_, descA,
+                      rcond, work, &lwork_, iwork, &liwork_, &info_);
+}
+
 #endif // SLATE_SCALAPACK_WRAPPERS_HH

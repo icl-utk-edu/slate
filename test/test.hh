@@ -140,6 +140,9 @@ public:
     testsweeper::ParamDouble pivot_threshold;
 
     // ----- output parameters
+    testsweeper::ParamScientific value;
+    testsweeper::ParamScientific value2;
+    testsweeper::ParamScientific value3;
     testsweeper::ParamScientific error;
     testsweeper::ParamScientific error2;
     testsweeper::ParamScientific error3;
@@ -191,6 +194,7 @@ void test_herk   (Params& params, bool run);
 
 // LU, general
 void test_gesv       (Params& params, bool run);
+void test_gecondest  (Params& params, bool run);
 void test_getri      (Params& params, bool run);
 void test_trtri      (Params& params, bool run);
 
@@ -215,10 +219,11 @@ void test_hetrf  (Params& params, bool run);
 void test_hetrs  (Params& params, bool run);
 
 // QR, LQ, RQ, QL
-void test_gels   (Params& params, bool run);
-void test_geqrf  (Params& params, bool run);
-void test_gelqf  (Params& params, bool run);
-void test_unmqr  (Params& params, bool run);
+void test_gels      (Params& params, bool run);
+void test_geqrf     (Params& params, bool run);
+void test_gelqf     (Params& params, bool run);
+void test_unmqr     (Params& params, bool run);
+void test_trcondest (Params& params, bool run);
 
 // symmetric/Hermitian eigenvalues
 void test_heev   (Params& params, bool run);

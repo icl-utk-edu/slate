@@ -38,6 +38,27 @@ inline scalar_t sqr(scalar_t x)
 #pragma omp end declare target
 
 //------------------------------------------------------------------------------
+/// Adds two scaled, sum-of-squares representations.
+/// On exit, scale1 and sumsq1 are updated such that:
+///     scale1^2 sumsq1 := scale1^2 sumsq1 + scale2^2 sumsq2.
+#pragma omp declare target
+template <typename real_t>
+void combine_sumsq(
+    real_t& scale1, real_t& sumsq1,
+    real_t  scale2, real_t  sumsq2 )
+{
+    if (scale1 > scale2) {
+        sumsq1 = sumsq1 + sumsq2*sqr(scale2 / scale1);
+        // scale1 stays same
+    }
+    else if (scale2 != 0) {
+        sumsq1 = sumsq1*sqr(scale1 / scale2) + sumsq2;
+        scale1 = scale2;
+    }
+}
+#pragma omp end declare target
+
+//------------------------------------------------------------------------------
 /// Adds new value to scaled, sum-of-squares representation.
 /// On exit, scale and sumsq are updated such that:
 ///     scale^2 sumsq := scale^2 sumsq + (absx)^2

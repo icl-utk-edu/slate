@@ -45,7 +45,7 @@ namespace device {
 ///
 ///     - Norm::Inf: for symmetric, same as Norm::One
 ///
-///     - Norm::Max: ldv = 2.
+///     - Norm::Fro: ldv = 2.
 ///         On exit,
 ///             values[k*2 + 0] = scale_k
 ///             values[k*2 + 1] = sumsq_k
@@ -79,10 +79,12 @@ void synorm(
     if (norm == lapack::Norm::Max) {
         if (n == 0) {
             blas::device_memset(values, 0, batch_count, queue);
+            queue.sync();
         }
         else {
             assert(ldv == 1);
             blas::device_memset(values, 0, batch_count, queue);
+            queue.sync();
             // Use omp target offload
             #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
             #pragma omp teams distribute
@@ -113,6 +115,7 @@ void synorm(
     else if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
         if (n == 0) {
             blas::device_memset(values, 0, batch_count * n, queue);
+            queue.sync();
         }
         else {
             assert(ldv >= n);
@@ -152,6 +155,7 @@ void synorm(
     else if (norm == lapack::Norm::Fro) {
         if (n == 0) {
             blas::device_memset(values, 0, batch_count * 2, queue);
+            queue.sync();
         }
         else {
             assert(ldv == 2);
@@ -169,7 +173,7 @@ void synorm(
                     real_t scale_ki = 0;
                     real_t sumsq_ki = 1;
                     if (uplo == lapack::Uplo::Lower) {
-                        for (int64_t j = 0; j < i; ++j) // strictly lower
+                        for (int64_t j = 0; j < i && j < n; ++j) // strictly lower
                             add_sumsq(scale_ki, sumsq_ki, abs_val(rowI[j*lda]));
                         // double sumsq for symmetric entries
                         sumsq_ki *= 2;
@@ -189,22 +193,11 @@ void synorm(
                     // todo: try to speed this up
                     #pragma omp critical
                     {
-                        real_t scale_k = values[k*2 + 0];
-                        real_t sumsq_k = values[k*2 + 1];
-                        if (scale_k > scale_ki) {
-                            sumsq_k = sumsq_k + sumsq_ki * sqr(scale_ki / scale_k);
-                            // scale_k stays same
-                        }
-                        else if (scale_ki != 0) {
-                            sumsq_k = sumsq_k * sqr(scale_k / scale_ki) + sumsq_ki;
-                            scale_k = scale_ki;
-                        }
-                        values[k*2 + 0] = scale_k;
-                        values[k*2 + 1] = sumsq_k;
-
+                        combine_sumsq(values[k*2+0], values[k*2+1], scale_ki, sumsq_ki);
                     }
                 }
             }
+            queue.sync();
         }
     }
 }

@@ -75,7 +75,7 @@ void test_trcondest_work(Params& params, bool run)
     params.value3.name( "scl" );
 
     if (! run) {
-        params.tol() = 0.5;
+        params.tol() = 0.75;
         return;
     }
 

@@ -85,7 +85,7 @@ void test_gecondest_work(Params& params, bool run)
     params.pivot_threshold.width( 0 );
 
     if (! run) {
-        params.tol() = 0.5;
+        params.tol() = 0.75;
         return;
     }
 

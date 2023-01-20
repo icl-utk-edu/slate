@@ -96,13 +96,13 @@ void norm1est_set(Matrix<int64_t>& isgn, Matrix<scalar_t>& A)
 /// @param[in,out] V
 ///     On entry, the n-by-1 matrix $V$.
 ///     On exit, V = A*W, where est = norm(A) / norm(W)
-///     (W is not retured).
+///     (W is not returned).
 ///
 /// @param[out] isgn
 ///     isgn is integer matrix with size n-by-1.
 ///
 /// @param[in,out] est
-///     On entry, with kase =1 or 2 and isave[0] = 3, est should be unchaged
+///     On entry, with kase = 1 or 2 and isave[0] = 3, est should be unchanged
 ///     from the previous call to norm1est.
 ///     On exit, est is an estimate for norm(A).
 ///

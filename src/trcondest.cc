@@ -21,7 +21,7 @@ namespace slate {
 /// \[
 ///     rcond = \frac{1}{\|\|A\|\| \times \|\|A^{-1}\|\|}
 /// \]
-/// where $A$ is upper triangular matrix.
+/// where $A$ is an upper triangular matrix.
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_t

@@ -140,6 +140,10 @@ void herk(internal::TargetType<Target::HostNest>,
           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
           int priority, int queue_index, Layout layout, Options const& opts)
 {
+#ifdef SLATE_HAVE_OMPTARGET
+    // SYCL/OMP-target-offload can't process this section
+    slate_not_implemented("Target::HostNest isn't supported in this configuration.");
+#else
     scalar_t alpha_ = scalar_t(alpha);
     scalar_t beta_  = scalar_t(beta);
 
@@ -208,6 +212,7 @@ void herk(internal::TargetType<Target::HostNest>,
 
     if (err)
         throw std::exception();
+#endif // omit if SLATE_HAVE_OMPTARGET
 }
 
 //------------------------------------------------------------------------------

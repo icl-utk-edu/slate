@@ -153,6 +153,10 @@ void syr2k(internal::TargetType<Target::HostNest>,
            scalar_t beta,  SymmetricMatrix<scalar_t>& C,
            int priority, int queue_index, Layout layout, Options const& opts)
 {
+#ifdef SLATE_HAVE_OMPTARGET
+    // SYCL/OMP-target-offload can't process this section
+    slate_not_implemented("Target::HostNest isn't supported in this configuration.");
+#else
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::syr2k()
     //       to take layout param
@@ -226,6 +230,7 @@ void syr2k(internal::TargetType<Target::HostNest>,
 
     if (err)
         throw std::exception();
+#endif // omit if SLATE_HAVE_OMPTARGET
 }
 
 //------------------------------------------------------------------------------

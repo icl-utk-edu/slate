@@ -619,6 +619,7 @@ void norm(internal::TargetType<Target::Devices>,
                                     batch_count,
                                     blas::MemcpyKind::HostToDevice,
                                     *queue);
+                queue->sync(); // blas::device_memcpy does not sync
 
                 // off-diagonal blocks
                 for (int q = 0; q < 4; ++q) {
@@ -655,6 +656,8 @@ void norm(internal::TargetType<Target::Devices>,
                 }
 
                 vals_dev_array = vals_dev_arrays[device];
+
+                queue->sync(); // sync after computation
 
                 blas::device_memcpy<real_t>(vals_host_array, vals_dev_array,
                                     batch_count*ldv,

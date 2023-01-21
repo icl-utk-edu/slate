@@ -341,6 +341,7 @@ void set(internal::TargetType<Target::Devices>,
             blas::device_memcpy<scalar_t*>(
                 a_array_dev, a_array_host, batch_count,
                 blas::MemcpyKind::HostToDevice, *queue);
+            queue->sync(); // blas::device_memcpy does not sync
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
@@ -350,6 +351,7 @@ void set(internal::TargetType<Target::Devices>,
                     a_array_dev += group_count[q];
                 }
             }
+            queue->sync(); // blas::device_memcpy does not sync
             for (int q = 4; q < 8; ++q) {
                 if (group_count[q] > 0) {
                     device::batch::geset(mb[q], nb[q],

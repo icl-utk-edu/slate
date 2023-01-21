@@ -159,6 +159,10 @@ void her2k(internal::TargetType<Target::HostNest>,
 {
     using blas::conj;
 
+#ifdef SLATE_HAVE_OMPTARGET
+    // SYCL/OMP-target-offload can't process this section
+    slate_not_implemented("Target::HostNest isn't supported in this configuration.");
+#else
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::her2k()
     //       to take layout param
@@ -233,6 +237,7 @@ void her2k(internal::TargetType<Target::HostNest>,
 
     if (err)
         throw std::exception();
+#endif // omit if SLATE_HAVE_OMPTARGET
 }
 
 //------------------------------------------------------------------------------

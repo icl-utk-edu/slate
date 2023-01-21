@@ -311,11 +311,13 @@ void copy(internal::TargetType<Target::Devices>,
                                 batch_count,
                                 blas::MemcpyKind::HostToDevice,
                                 *queue);
+            queue->sync(); // blas::device_memcpy does not sync
 
             blas::device_memcpy<dst_scalar_t*>(b_array_dev, b_array_host,
                                 batch_count,
                                 blas::MemcpyKind::HostToDevice,
                                 *queue);
+            queue->sync(); // blas::device_memcpy does not sync
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {

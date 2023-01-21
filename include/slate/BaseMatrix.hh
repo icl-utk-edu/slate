@@ -3698,6 +3698,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
             blas::device_memcpy<scalar_t*>(
                 array_dev, bucket->second.first.data(),
                 batch_count, blas::MemcpyKind::HostToDevice, *queue);
+            queue->sync(); // blas::device_memcpy does not sync
 
             if (mb == nb) {
                 // in-place transpose
@@ -3710,6 +3711,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
                 blas::device_memcpy<scalar_t*>(
                     work_array_dev, bucket->second.second.data(),
                     batch_count, blas::MemcpyKind::HostToDevice, *queue);
+                queue->sync(); // blas::device_memcpy does not sync
 
                 device::transpose_batch(layout == Layout::ColMajor ? nb : mb,
                                         layout == Layout::ColMajor ? mb : nb,

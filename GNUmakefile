@@ -89,7 +89,7 @@ fortran_api     := $(strip $(fortran_api))
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX blas blas_int blas_threaded openmp static gpu_backend
 
-CXXFLAGS   += -O3 -std=c++17 -Wall -Wshadow -pedantic -MMD
+CXXFLAGS   += -O3 -std=c++17 -Wall -pedantic -MMD #  -Wshadow
 NVCCFLAGS  += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
 HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
 
@@ -125,10 +125,8 @@ ifneq ($(cuda),1)
 endif
 
 omptarget = 0
-ifneq ($(cuda),1)
-    ifneq ($(filter auto omptarget, $(gpu_backend)),)
-	omptarget = 1
-    endif
+ifneq ($(filter auto omptarget, $(gpu_backend)),)
+    omptarget = 1
 endif
 
 # Default LD=ld won't work; use CXX. Can override in make.inc or environment.
@@ -485,17 +483,22 @@ cuda_hdr := \
 hip_src := $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(cuda_src))
 hip_hdr := $(patsubst src/cuda/%.cuh,src/hip/%.hip.hh,$(cuda_hdr))
 
-# missing gescale tzadd tzscale tzset
+# OpenMP implementations of device kernels
 omptarget_src := \
         src/omptarget/device_geadd.cc \
         src/omptarget/device_gecopy.cc \
         src/omptarget/device_genorm.cc \
+        src/omptarget/device_gescale.cc \
+        src/omptarget/device_gescale_row_col.cc \
         src/omptarget/device_geset.cc \
         src/omptarget/device_henorm.cc \
         src/omptarget/device_synorm.cc \
         src/omptarget/device_transpose.cc \
         src/omptarget/device_trnorm.cc \
+	    src/omptarget/device_tzadd.cc \
         src/omptarget/device_tzcopy.cc \
+        src/omptarget/device_tzscale.cc \
+        src/omptarget/device_tzset.cc \
         # End. Add alphabetically.
 
 omptarget_hdr := \

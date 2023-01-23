@@ -436,6 +436,7 @@ void test_Matrix_fromDevices()
         int64_t len = std::max(lda * n_dev, 1);
         Aarray[dev] = blas::device_malloc<double>(len, *dev_queues[dev]);
         assert(Aarray[dev] != nullptr);
+        dev_queues[dev]->sync();
     }
 
     auto A = slate::Matrix<double>::fromDevices(
@@ -454,6 +455,7 @@ void test_Matrix_fromDevices()
 
     for (int dev = 0; dev < num_devices; ++dev) {
         blas::device_free(Aarray[dev], *dev_queues[dev]);
+        dev_queues[dev]->sync();
     }
     delete[] Aarray;
 
@@ -1829,7 +1831,7 @@ void test_Matrix_MOSI()
 /// Test tileLayoutConvert.
 void test_Matrix_tileLayoutConvert()
 {
-    int lda = roundup(m, nb);
+    int lda = roundup(m, mb);
     std::vector<double> Ad( lda*n );
 
     int64_t iseed[4] = { 0, 1, 2, 3 };

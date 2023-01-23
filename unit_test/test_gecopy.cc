@@ -68,10 +68,12 @@ void test_gecopy_dev()
     dAarray = blas::device_malloc<double*>(batch_count, queue);
     test_assert(dAarray != nullptr);
     Aarray[0] = dA.data();
+
     blas::device_memcpy<double*>(dAarray, Aarray,
                         batch_count,
                         blas::MemcpyKind::HostToDevice,
                         queue);
+    queue.sync(); // blas::device_memcpy does not sync
 
     double* Barray[batch_count];
     double** dBarray;
@@ -82,16 +84,21 @@ void test_gecopy_dev()
                         batch_count,
                         blas::MemcpyKind::HostToDevice,
                         queue);
+    queue.sync(); // blas::device_memcpy does not sync
+
     slate::device::gecopy( m, n,
                            dAarray, lda,
                            dBarray, ldb,
                            batch_count, queue );
 
     queue.sync();
+
     blas::device_memcpy<double*>(Barray, dBarray,
                         batch_count,
                         blas::MemcpyKind::DeviceToHost,
                         queue);
+    queue.sync(); // blas::device_memcpy does not sync
+
     dB.copyData(&B, queue);
 
     // compute B-B0 on CPU to check the results

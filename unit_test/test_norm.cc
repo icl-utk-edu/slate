@@ -185,6 +185,7 @@ void test_genorm_dev(Norm norm)
                         batch_count,
                         blas::MemcpyKind::HostToDevice,
                         queue);
+    queue.sync(); // blas::device_memcpy does not sync by default
 
     std::vector<double> values;
     size_t ldv = 1;
@@ -209,6 +210,7 @@ void test_genorm_dev(Norm norm)
                         values.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);
+    queue.sync(); // blas::device_memcpy does not sync by default
 
     // check column & row sum results
     if (norm == lapack::Norm::One) {
@@ -406,6 +408,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
                         batch_count,
                         blas::MemcpyKind::HostToDevice,
                         queue);
+    queue.sync(); // blas::device_memcpy does not sync by default
 
     std::vector<double> values;
     size_t ldv = 1;
@@ -428,6 +431,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
                         values.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);
+    queue.sync(); // blas::device_memcpy does not sync by default
 
     // check column & row sum results
     if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
@@ -574,6 +578,7 @@ void test_synorm_offdiag_dev(Norm norm)
                         batch_count,
                         blas::MemcpyKind::HostToDevice,
                         queue);
+    queue.sync(); // blas::device_memcpy does not sync by default
 
     int ldv = n + m;
     std::vector<double> values( ldv );
@@ -590,6 +595,7 @@ void test_synorm_offdiag_dev(Norm norm)
                         values.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);
+    queue.sync(); // blas::device_memcpy does not sync by default
 
     // check column & row sum results
     if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
@@ -820,6 +826,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
                         batch_count,
                         blas::MemcpyKind::HostToDevice,
                         queue);
+    queue.sync(); // blas::device_memcpy does not sync by default
 
     std::vector<double> values;
     size_t ldv = 1;
@@ -844,6 +851,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
                         values.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);
+    queue.sync(); // blas::device_memcpy does not sync by default
 
     // check column & row sum results
     if (norm == lapack::Norm::One) {

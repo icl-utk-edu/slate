@@ -177,6 +177,7 @@ void test_alloc_device()
             blas::device_memcpy<double>(dx[i], hx, nb * nb,
                                         blas::MemcpyKind::HostToDevice,
                                         *dev_queues[dev]);
+            dev_queues[dev]->sync(); // blas::device_memcpy does not sync
         }
 
         // Free some.

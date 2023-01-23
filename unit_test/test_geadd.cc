@@ -351,10 +351,9 @@ void test_geadd_batch_dev_worker(
         auto dA = list_dA[ m_i ];
         Aarray[ m_i ] = dA.data();
     }
-    blas::device_memcpy<scalar_t*>( dAarray, Aarray,
-                        batch_count,
-                        blas::MemcpyKind::HostToDevice,
-                        queue );
+    blas::device_memcpy<scalar_t*>(
+        dAarray, Aarray, batch_count, blas::MemcpyKind::HostToDevice, queue );
+    queue.sync(); // blas::device_memcpy does not sync by default
 
     // Create batch array of dB
     scalar_t** Barray = new scalar_t*[ batch_count ];
@@ -365,18 +364,15 @@ void test_geadd_batch_dev_worker(
         auto dB = list_dB[ m_i ];
         Barray[ m_i ] = dB.data();
     }
-    blas::device_memcpy<scalar_t*>( dBarray, Barray,
-                        batch_count,
-                        blas::MemcpyKind::HostToDevice,
-                        queue );
+    blas::device_memcpy<scalar_t*>(
+        dBarray, Barray, batch_count, blas::MemcpyKind::HostToDevice, queue );
+    queue.sync(); // blas::device_memcpy does not sync by default
 
     // Add: B[k] = \alpha * A[k] + \beta * B[k]
     slate::device::batch::geadd( m, n,
                           alpha, dAarray, lda,
                           beta,  dBarray, ldb,
                           batch_count, queue );
-
-    queue.sync();
 
     // Copy the result back to the Host
     for (int m_i = 0; m_i < batch_count; ++m_i) {

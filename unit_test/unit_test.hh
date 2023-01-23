@@ -198,7 +198,7 @@ void run_test(test_tpl_function<scalar_t> func, const char* name)
     try {
         // run function
         func();
-        printf( output_pass().c_str() );
+        printf( "%s", output_pass().c_str() );
         ++g_pass;
     }
     catch (SkipException& e) {

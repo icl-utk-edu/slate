@@ -34,9 +34,12 @@ blas::Diag diags[] = {
 
 slate::Target targets[] = {
     slate::Target::HostTask,
-    slate::Target::HostNest,
-    slate::Target::HostBatch,
     slate::Target::Devices,
+    slate::Target::HostBatch,
+#if not defined SLATE_HAVE_OMPTARGET
+    // OMPTARGET does not support HostNest
+    slate::Target::HostNest,
+#endif
 };
 
 // -----------------------------------------------------------------------------

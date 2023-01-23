@@ -142,10 +142,10 @@ void printf_gather(int root, MPI_Comm comm, const std::string& str)
                 // todo: guard against buffer overflow
                 assert(bufsize < int(sizeof(buf)));
                 MPI_Recv(buf, bufsize, MPI_CHAR, rank, 0, comm, &status);
-                printf(buf);
+                printf("%s", buf);
             }
             else {
-                printf(str.c_str());
+                printf("%s", str.c_str());
             }
         }
     }
@@ -174,35 +174,35 @@ void printf_gather(int root, MPI_Comm comm, const char* format, ...)
 /// Catches and reports all exceptions.
 void run_test(test_function* func, const char* name)
 {
-    printf(output_test(name).c_str());
+    printf("%s", output_test(name).c_str());
     fflush(stdout);
     ++g_total;
 
     try {
         // run function
         func();
-        printf(output_pass().c_str());
+        printf("%s", output_pass().c_str());
         ++g_pass;
     }
     catch (SkipException& e) {
-        printf(output_skip(e).c_str());
+        printf("%s", output_skip(e).c_str());
         --g_total;
         ++g_skip;
     }
     catch (AssertError& e) {
-        printf(output_fail(e).c_str());
+        printf("%s", output_fail(e).c_str());
         ++g_fail;
     }
     catch (std::exception& e) {
         AssertError err("unexpected exception: " + std::string(e.what()),
                         __FILE__, __LINE__);
-        printf(output_fail(err).c_str());
+        printf("%s", output_fail(err).c_str());
         ++g_fail;
     }
     catch (...) {
         AssertError err("unexpected exception: (unknown type)",
                         __FILE__, __LINE__);
-        printf(output_fail(err).c_str());
+        printf("%s", output_fail(err).c_str());
         ++g_fail;
     }
 }

@@ -200,6 +200,7 @@ void test_geset_batch_dev_worker(
     std::vector< slate::Tile< scalar_t > > list_dA( 0 );
     int device_idx = queue.device();
 
+    // list_A list of tiles pointing to uninitialized host data
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         scalar_t* tmp_data = new scalar_t[ lda * n ];
         test_assert( tmp_data != nullptr );
@@ -207,6 +208,7 @@ void test_geset_batch_dev_worker(
             slate::HostNum, slate::TileKind::UserOwned ) );
     }
 
+    // Bdata single uninitialized tile on host
     scalar_t* Bdata = new scalar_t[ ldb * n ];
     slate::Tile<scalar_t> B( m, n, Bdata, ldb,
         slate::HostNum, slate::TileKind::UserOwned );
@@ -219,39 +221,35 @@ void test_geset_batch_dev_worker(
             device_idx, slate::TileKind::UserOwned ) );
     }
 
+    // Aarray host-array of pointers to device-data in dA[].data()
     scalar_t** Aarray = new scalar_t*[ batch_count ];
-    scalar_t** dAarray;
-    dAarray = blas::device_malloc<scalar_t*>( batch_count, queue );
+    scalar_t** dAarray = blas::device_malloc<scalar_t*>( batch_count, queue );
     test_assert( dAarray != nullptr );
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         auto dA = list_dA[ m_i ];
         Aarray[ m_i ] = dA.data();
     }
-    blas::device_memcpy<scalar_t*>( dAarray, Aarray,
-                        batch_count,
-                        blas::MemcpyKind::HostToDevice,
-                        queue );
 
+    // dAarray setup device-pointers to device-data in Aarray[]=dA[].data() for batch call
+    blas::device_memcpy<scalar_t*>(
+        dAarray, Aarray, batch_count, blas::MemcpyKind::HostToDevice, queue );
+
+    // call device::batch::geset
     slate::device::batch::geset( m, n,
                           offdiag_value, diag_value, dAarray, lda,
                           batch_count, queue );
 
     queue.sync();
     for (int m_i = 0; m_i < batch_count; ++m_i) {
-        auto dA = list_dA[ m_i ];
-        auto A = list_A[ m_i ];
+        auto dA = list_dA[ m_i ]; // device tile
+        auto A = list_A[ m_i ]; // host tile
         dA.copyData( &A, queue );
     }
 
     // compute on CPU to check the results
     for (int j = 0; j < n; ++j) {
         for (int i = 0; i < m; ++i) {
-            if (i == j) {
-                Bdata[ i + j*ldb ] = diag_value;
-            }
-            else {
-                Bdata[ i + j*ldb ] = offdiag_value;
-            }
+            Bdata[ i + j*ldb ] = ( i == j ? diag_value : offdiag_value );
         }
     }
 

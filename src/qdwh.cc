@@ -30,8 +30,6 @@ void qdwh(
     // 2. avoid rounding m if m is not divisible by nb, because then geqrf/unmqr
     // have extra zero rows
     // in norm2est, when allocate vector mx1, need to allocate on row-processes only
-    // limitations:
-    // 1. works only when have square grid
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
@@ -44,12 +42,11 @@ void qdwh(
     real_t L2, sqd, dd, a1, a, b, c;
     real_t Li, Liconv;
     real_t conv = 100.;
-    real_t rone = 1.;
+    real_t rzero = 0.0, rone = 1.0;
 
     scalar_t zero = 0.0, one = 1.0;
     scalar_t alpha, beta;
 
-    real_t normA;
     real_t norminvR;
 
     real_t eps  = std::numeric_limits<real_t>::epsilon();
@@ -141,13 +138,13 @@ void qdwh(
     auto R  = TriangularMatrix<scalar_t>(
             Uplo::Upper, slate::Diag::NonUnit, R1 );
     // For now, compute the exact condition number using trtri
-    normA = norm(slate::Norm::One, A, opts);
     trtri(R, opts);
     norminvR = norm(slate::Norm::One, R, opts);
-    Li = (1.0 / norminvR) / normA;
+    real_t smin_est = 1./norminvR;
+    Li = smin_est / sqrt(n);
+
     // todo: will call trcondest instead
     //slate::trcondest(slate::Norm::One, R, &Li, opts);
-    Li = norm_est / 1.1 * Li;
     // *flops += FLOPS_DGEQRF( M, N )
     //       + FLOPS_DTRTRI( N );
 
@@ -184,7 +181,11 @@ void qdwh(
 
         // Compute parameters L,a,b,c
         L2  = Li * Li;
-        dd  = pow( real_t(4.0) * ( rone - L2 ) / ( L2 * L2 ), rone / real_t(3.0) );
+        //dd  = pow( real_t(4.0) * ( rone - L2 ) / ( L2 * L2 ), rone / real_t(3.0) );
+        if (abs( L2 - one) <= 10*eps)
+            dd = rzero;
+        else
+            dd  = pow( real_t(4.0) * ( rone - L2 ) / ( L2 * L2 ), rone / real_t(3.0) );
         sqd = sqrt( rone + dd );
         a1  = sqd + sqrt( real_t(8.0) - real_t(4.0) * dd +
               real_t(8.0) * ( real_t(2.0) - L2 ) / ( L2 * sqd ) ) / real_t(2.0);
@@ -194,7 +195,7 @@ void qdwh(
         // Update Li
         Li  = Li * ( a + b * L2 ) / ( rone + c * L2 );
 
-        if (c > real_t(100.)) {
+        if (c > 100.) {
             // Generate the matrix W = [ W1 ] = [ sqrt(c) * A ]
             //                         [ W2 ] = [ Id          ]
 
@@ -280,7 +281,7 @@ void qdwh(
 
     if (itqr + itpo > 6) {
         printf("\n Converged after %d. Check what is the issue,"
-                   "because QDWH needs <= 6 iterations \n",
+                   "because QDWH needs <= 6 iterations. \n",
                    itqr+itpo);
     }
 

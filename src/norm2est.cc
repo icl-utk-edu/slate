@@ -56,7 +56,7 @@ norm2est(
     real_t tol = 1.e-1;
 
     int64_t mloc   = numberLocalRowOrCol(m, mb, myrow, izero, p);
-    int64_t nloc   = numberLocalRowOrCol(n, nb, myrow, izero, q);
+    int64_t nloc   = numberLocalRowOrCol(n, nb, mycol, izero, q);
     int64_t lldA   = blas::max(1, mloc);
     int64_t lldA_n = blas::max(1, nloc);
 
@@ -67,7 +67,10 @@ norm2est(
     std::vector<real_t> local_sums(n);
     std::vector<scalar_t> global_sums(n);
     std::vector<scalar_t> W1(lldA);
-    std::vector<scalar_t> W2(lldA_n);
+    std::vector<scalar_t> W2(n);
+    // todo: W2 should needs only lldA_n, but it does not work with grid pxq,
+    // where p!=q
+    //std::vector<scalar_t> W2(lldA_n);
 
     auto XL = slate::Matrix<scalar_t>::fromScaLAPACK(
             n, 1, &global_sums[0], n, nb, 1, p, q, A.mpiComm());

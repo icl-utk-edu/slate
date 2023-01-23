@@ -280,8 +280,8 @@ void qdwh(
     }
 
     if (itqr + itpo > 6) {
-        printf("\n Converged after %d. Check what is the issue,"
-                   "because QDWH needs <= 6 iterations. \n",
+        printf("\nConverged after %d. Check what is the issue, "
+                   "because QDWH needs <= 6 iterations.\n",
                    itqr+itpo);
     }
 

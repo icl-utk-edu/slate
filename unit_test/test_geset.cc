@@ -33,10 +33,6 @@ void test_geset_dev_worker(
 {
     using real_t = blas::real_type<scalar_t>;
 
-    if (num_devices == 0) {
-        test_skip("requires num_devices > 0");
-    }
-
     real_t eps = std::numeric_limits<real_t>::epsilon();
     int ldb = lda;
     int device_idx = queue.device();
@@ -105,6 +101,10 @@ void test_geset_dev_worker(
 template <typename scalar_t>
 void test_geset_dev()
 {
+    if (num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
             // Corner cases
@@ -193,10 +193,6 @@ void test_geset_batch_dev_worker(
     int batch_count, blas::Queue& queue)
 {
     using real_t = blas::real_type<scalar_t>;
-
-    if (num_devices == 0) {
-        test_skip("requires num_devices > 0");
-    }
 
     real_t eps = std::numeric_limits<real_t>::epsilon();
     int ldb = lda;
@@ -300,6 +296,10 @@ void test_geset_batch_dev_worker(
 template <typename scalar_t>
 void test_geset_batch_dev()
 {
+    if (num_devices == 0) {
+        test_skip("requires num_devices > 0");
+    }
+
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
             // Corner cases

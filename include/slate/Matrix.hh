@@ -836,6 +836,7 @@ void Matrix<scalar_t>::redistribute(Matrix<scalar_t>& A)
     for (int64_t j = 0; j < nt; ++j) {
         for (int64_t i = 0; i < mt; ++i) {
             if (this->tileIsLocal(i, j)) {
+                this->tileGetForWriting( i, j, LayoutConvert::None );
                 if (! A.tileIsLocal(i, j)) {
                     auto Bij = this->at(i, j);
                     Bij.recv(A.tileRank(i, j), A.mpiComm(),  A.layout());

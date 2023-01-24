@@ -127,7 +127,7 @@ void test_trmm_work(Params& params, bool run)
         // if reference run is required, copy test data.
         std::vector<scalar_t> Bref_data;
         if (ref) {
-            Bref_data.resize( B_data.size() );
+            Bref_data.resize( lldB * nlocB );
             auto Bref = slate::Matrix<scalar_t>::fromScaLAPACK(
                             Bm, Bn, &Bref_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
             slate::copy( B, Bref );

@@ -136,6 +136,7 @@ void test_ge2tb_work(Params& params, bool run)
         for (int64_t i = 0; i < min_mtnt; ++i) {
             if (B.tileIsLocal(i, i)) {
                 // diagonal tile
+                A.tileGetForReading( i, i, slate::LayoutConvert::None );
                 auto Aii = A(i, i);
                 auto Bii = B(i, i);
                 Aii.uplo(slate::Uplo::Upper);
@@ -144,6 +145,7 @@ void test_ge2tb_work(Params& params, bool run)
             }
             if (i+1 < min_mtnt && B.tileIsLocal(i, i+1)) {
                 // super-diagonal tile
+                A.tileGetForReading( i, i+1, slate::LayoutConvert::None );
                 auto Aii1 = A(i, i+1);
                 auto Bii1 = B(i, i+1);
                 Aii1.uplo(slate::Uplo::Lower);

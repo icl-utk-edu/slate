@@ -245,6 +245,7 @@ void test_hegv_work(Params& params, bool run)
                 int64_t ioff = 0;
                 for (int64_t i = 0; i < Z.mt(); ++i) {
                     if (Z.tileIsLocal(i, j)) {
+                        Z.tileGetForWriting( i, j, slate::LayoutConvert::None );
                         auto T = Z.at(i, j);
                         for (int jj = 0; jj < T.nb(); ++jj)
                             for (int ii = 0; ii < T.mb(); ++ii)
@@ -268,6 +269,7 @@ void test_hegv_work(Params& params, bool run)
                 int64_t ioff = 0;
                 for (int64_t i = 0; i < Z.mt(); ++i) {
                     if (Z.tileIsLocal(i, j)) {
+                        Z.tileGetForWriting( i, j, slate::LayoutConvert::None );
                         auto T = Z.at(i, j);
                         for (int jj = 0; jj < T.nb(); ++jj)
                             for (int ii = 0; ii < T.mb(); ++ii)
@@ -291,6 +293,7 @@ void test_hegv_work(Params& params, bool run)
                 int64_t ioff = 0;
                 for (int64_t i = 0; i < Z.mt(); ++i) {
                     if (Z.tileIsLocal(i, j)) {
+                        Z.tileGetForWriting( i, j, slate::LayoutConvert::None );
                         auto T = Z.at(i, j);
                         for (int jj = 0; jj < T.nb(); ++jj)
                             for (int ii = 0; ii < T.mb(); ++ii)

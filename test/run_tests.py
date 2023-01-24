@@ -127,7 +127,7 @@ group_opt.add_argument( '--thresh', action='store', help='default=%(default)s', 
 group_opt.add_argument( '--dry-run', action='store_true', help='print the commands that would be executed, but do not execute them.' )
 group_opt.add_argument( '-x', '--exclude', action='append', help='routines to exclude; repeatable', default=[] )
 group_opt.add_argument( '--timeout', action='store', help='timeout in seconds for each routine', type=float )
-group_opt.add_argument( '--tee', action=argparse.BooleanOptionalAction, help='controls writing to both stdout and stderr' )
+group_opt.add_argument( '--tee',    action='store_true', help='controls writing to both stdout and stderr' )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()

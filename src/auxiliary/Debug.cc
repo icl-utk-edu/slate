@@ -250,13 +250,14 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
 ///  - "i" if invalid
 /// Second char:
 ///  - "h" if on hold
-///  - " " otherwise
+///  - "_" otherwise
 ///
 /// Prints aditional char for Layout:
 ///  - "|" if ColMajor
 ///  - "-" if RowMajor
 ///
 /// Prints aditional char for extended buffer:
+///  - "u" if user data
 ///  - "e" if extended
 ///  - " " otherwise
 ///
@@ -287,7 +288,7 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name,
                 if (it->second->at( HostNum ).stateOn( MOSI::OnHold ))
                     printf("h");
                 else
-                    printf(" ");
+                    printf("_");
                 if (tile->layout() == Layout::ColMajor)
                     printf("|");
                 else
@@ -329,7 +330,7 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name,
                     if (it->second->at(device).stateOn(MOSI::OnHold))
                         printf("h");
                     else
-                        printf(" ");
+                        printf("_");
                     if (tile->layout() == Layout::ColMajor)
                         printf("|");
                     else

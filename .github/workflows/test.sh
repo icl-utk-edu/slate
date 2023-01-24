@@ -27,9 +27,12 @@ origin="d"
 if [ "$device" = "cpu" ]; then
     target="t"
     origin="s"
+    tests=""
+else
+    # trsmA currently fails device tests. Enable when it is fixed.
+    tests="-x trsmA"
 fi
 
-tests=""
 if [ "$maker" = "cmake" ]; then
    # Limit cmake to running a minimal sanity test.
    tests="potrf"

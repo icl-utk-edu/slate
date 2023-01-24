@@ -83,7 +83,7 @@ norm(
                 MPI_Op_free(&op_max_nan));
         }
 
-        A.clearWorkspace();
+        A.releaseWorkspace();
 
         return global_max;
     }
@@ -115,7 +115,7 @@ norm(
                               MPI_SUM, A.mpiComm()));
         }
 
-        A.clearWorkspace();
+        A.releaseWorkspace();
 
         return lapack::lange(Norm::Max, 1, A.n(), global_sums.data(), 1);
     }
@@ -181,7 +181,7 @@ norm(
                               MPI_SUM, A.mpiComm()));
         }
 
-        A.clearWorkspace();
+        A.releaseWorkspace();
 
         return sqrt(global_sumsq);
     }

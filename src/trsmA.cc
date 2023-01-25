@@ -8,10 +8,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::trsmA from internal::specialization::trsmA
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
@@ -20,12 +17,15 @@ namespace specialization {
 /// @ingroup trsm_impl
 ///
 template <Target target, typename scalar_t>
-void trsmA(slate::internal::TargetType<target>,
-           Side side,
-           scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                     Matrix<scalar_t>& B,
-           int64_t lookahead)
+void trsmA(
+    Side side,
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    Options const& opts )
 {
+    // Options
+    int64_t lookahead = get_option<int64_t>(opts, Option::Lookahead, 1);
+
     if (target == Target::Devices) {
         const int64_t batch_size_zero = 0;
         const int64_t num_arrays_two = 2; // Number of kernels without lookahead
@@ -64,27 +64,7 @@ void trsmA(slate::internal::TargetType<target>,
     B.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup trsm_impl
-///
-template <Target target, typename scalar_t>
-void trsmA(blas::Side side,
-           scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                     Matrix<scalar_t>& B,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>(opts, Option::Lookahead, 1);
-
-    internal::specialization::trsmA(internal::TargetType<target>(),
-                                    side,
-                                    alpha, A,
-                                           B,
-                                    lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel triangular matrix-matrix solve.
@@ -145,26 +125,30 @@ void trsmA(blas::Side side,
 /// @ingroup trsm
 ///
 template <typename scalar_t>
-void trsmA(blas::Side side,
-           scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                     Matrix<scalar_t>& B,
-           Options const& opts)
+void trsmA(
+    blas::Side side,
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                             Matrix<scalar_t>& B,
+    Options const& opts )
 {
     Target target = get_option<Target>(opts, Option::Target, Target::HostTask);
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            trsmA<Target::HostTask>(side, alpha, A, B, opts);
+            impl::trsmA<Target::HostTask>( side, alpha, A, B, opts );
             break;
+
         case Target::HostNest:
-            trsmA<Target::HostNest>(side, alpha, A, B, opts);
+            impl::trsmA<Target::HostNest>( side, alpha, A, B, opts );
             break;
+
         case Target::HostBatch:
-            trsmA<Target::HostBatch>(side, alpha, A, B, opts);
+            impl::trsmA<Target::HostBatch>( side, alpha, A, B, opts );
             break;
+
         case Target::Devices:
-            trsmA<Target::Devices>(side, alpha, A, B, opts);
+            impl::trsmA<Target::Devices>( side, alpha, A, B, opts );
             break;
     }
 }

@@ -17,15 +17,16 @@ namespace impl {
 /// @ingroup trsm_specialization
 ///
 template <Target target, typename scalar_t>
-void trsmB( slate::internal::TargetType<target>,
-            Side side,
-            scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                      Matrix<scalar_t>& B,
-            Options const& opts)
+void trsmB(
+    Side side,
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    Options const& opts )
 {
-    if (target == Target::Devices) {
-        int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
+    if (target == Target::Devices) {
         const int64_t batch_size_zero = 0;
         // Allocate batch arrays = number of kernels without
         // lookahead + lookahead
@@ -122,34 +123,31 @@ void trsmB( slate::internal::TargetType<target>,
 /// @ingroup trsm
 ///
 template <typename scalar_t>
-void trsmB( blas::Side side,
-            scalar_t alpha, TriangularMatrix<scalar_t>& A,
-                                      Matrix<scalar_t>& B,
-            Options const& opts)
+void trsmB(
+    blas::Side side,
+    scalar_t alpha, TriangularMatrix<scalar_t>& A,
+                              Matrix<scalar_t>& B,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::trsmB<Target::HostTask>(
-                internal::TargetType<Target::HostTask>(),
-                side, alpha, A, B, opts );
+            impl::trsmB<Target::HostTask>( side, alpha, A, B, opts );
             break;
+
         case Target::HostNest:
-            impl::trsmB<Target::HostNest>(
-                internal::TargetType<Target::HostNest>(),
-                side, alpha, A, B, opts );
+            impl::trsmB<Target::HostNest>( side, alpha, A, B, opts );
             break;
+
         case Target::HostBatch:
-            impl::trsmB<Target::HostBatch>(
-                internal::TargetType<Target::HostBatch>(),
-                side, alpha, A, B, opts );
+            impl::trsmB<Target::HostBatch>( side, alpha, A, B, opts );
             break;
+
         case Target::Devices:
-            impl::trsmB<Target::Devices>(
-                internal::TargetType<Target::Devices>(),
-                side, alpha, A, B, opts );
+            impl::trsmB<Target::Devices>( side, alpha, A, B, opts );
+            break;
     }
 }
 

@@ -107,6 +107,7 @@ void tpmlqt(
     int64_t k = V2.mb();
     int64_t m = C2.mb();
     int64_t n = C2.nb();
+
     if (side == Side::Left) {
         assert(C1.mb() >= k);
         assert(C1.nb() == n);
@@ -120,7 +121,7 @@ void tpmlqt(
         assert(std::min(n, k) >= l);
     }
 
-    int64_t ib = T.mb();
+    int64_t ib = std::min( T.mb(), k );
     assert(k >= ib);
     assert(T.nb() == k);
 

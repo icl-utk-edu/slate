@@ -46,7 +46,11 @@ enum class TileReleaseStrategy : char {
 };
 
 namespace internal {
+
+/// TargetType is used to overload functions, since there is no C++
+/// partial specialization of functions, only of classes.
 template <Target> class TargetType {};
+
 } // namespace internal
 
 //------------------------------------------------------------------------------

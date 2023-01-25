@@ -12,10 +12,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::gbtrf from internal::specialization::gbtrf
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel band LU factorization.
@@ -25,9 +22,9 @@ namespace specialization {
 /// Warning: ColMajor layout is assumed
 ///
 template <Target target, typename scalar_t>
-void gbtrf(slate::internal::TargetType<target>,
-           BandMatrix<scalar_t>& A, Pivots& pivots,
-           int64_t ib, int max_panel_threads, int64_t lookahead)
+void gbtrf(
+    BandMatrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts )
 {
     // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename BandMatrix<scalar_t>::BcastList;
@@ -36,6 +33,13 @@ void gbtrf(slate::internal::TargetType<target>,
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
+    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
+    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
+                                             max_panel_threads );
 
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
@@ -204,28 +208,7 @@ void gbtrf(slate::internal::TargetType<target>,
 
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup gbsv_specialization
-///
-template <Target target, typename scalar_t>
-void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
-    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
-
-    internal::specialization::gbtrf(internal::TargetType<target>(),
-                                    A, pivots,
-                                    ib, max_panel_threads, lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel band LU factorization.
@@ -284,24 +267,28 @@ void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
 /// @ingroup gbsv_computational
 ///
 template <typename scalar_t>
-void gbtrf(BandMatrix<scalar_t>& A, Pivots& pivots,
-           Options const& opts)
+void gbtrf(
+    BandMatrix<scalar_t>& A, Pivots& pivots,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            gbtrf<Target::HostTask>(A, pivots, opts);
+            impl::gbtrf<Target::HostTask>( A, pivots, opts );
             break;
+
         case Target::HostNest:
-            gbtrf<Target::HostNest>(A, pivots, opts);
+            impl::gbtrf<Target::HostNest>( A, pivots, opts );
             break;
+
         case Target::HostBatch:
-            gbtrf<Target::HostBatch>(A, pivots, opts);
+            impl::gbtrf<Target::HostBatch>( A, pivots, opts );
             break;
+
         case Target::Devices:
-            gbtrf<Target::Devices>(A, pivots, opts);
+            impl::gbtrf<Target::Devices>( A, pivots, opts );
             break;
     }
     // todo: return value for errors?

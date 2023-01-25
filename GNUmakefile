@@ -191,9 +191,6 @@ else
 endif
 
 #-------------------------------------------------------------------------------
-# ScaLAPACK, by default
-scalapack = -lscalapack
-
 # BLAS and LAPACK
 # todo: really should get these libraries from BLAS++ and LAPACK++.
 # If using shared libraries, and Fortran files that directly call BLAS are
@@ -247,15 +244,15 @@ ifeq ($(blas),mkl)
     ifneq ($(macos),1)
         ifeq ($(mkl_blacs),openmpi)
             ifeq ($(blas_int),int64)
-                scalapack = -lmkl_scalapack_ilp64 -lmkl_blacs_openmpi_ilp64
+                SCALAPACK_LIBRARIES ?= -lmkl_scalapack_ilp64 -lmkl_blacs_openmpi_ilp64
             else
-                scalapack = -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64
+                SCALAPACK_LIBRARIES ?= -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64
             endif
         else
             ifeq ($(blas_int),int64)
-                scalapack = -lmkl_scalapack_ilp64 -lmkl_blacs_intelmpi_ilp64
+                SCALAPACK_LIBRARIES ?= -lmkl_scalapack_ilp64 -lmkl_blacs_intelmpi_ilp64
             else
-                scalapack = -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64
+                SCALAPACK_LIBRARIES ?= -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64
             endif
         endif
     endif
@@ -270,10 +267,13 @@ else ifeq ($(blas),openblas)
 else ifeq ($(blas),libsci)
     # Cray LibSci
     # no LIBS to add
-    scalapack =
+    SCALAPACK_LIBRARIES ?=
 else
     $(error ERROR: unknown `blas=$(blas)`. Set blas to one of mkl, essl, openbblas, libsci.)
 endif
+
+# If not set by user or above, set default.
+SCALAPACK_LIBRARIES ?= -lscalapack
 
 #-------------------------------------------------------------------------------
 # if CUDA
@@ -408,6 +408,10 @@ ifneq ($(only_unit),1)
         src/internal/internal_gemmA.cc \
         src/internal/internal_genorm.cc \
         src/internal/internal_geqrf.cc \
+        src/internal/internal_he2hb_gemm.cc \
+        src/internal/internal_he2hb_hemm.cc \
+        src/internal/internal_he2hb_her2k_offdiag_ranks.cc \
+        src/internal/internal_he2hb_trmm.cc \
         src/internal/internal_gescale.cc \
         src/internal/internal_gescale_row_col.cc \
         src/internal/internal_geset.cc \
@@ -423,6 +427,7 @@ ifneq ($(only_unit),1)
         src/internal/internal_her2k.cc \
         src/internal/internal_herk.cc \
         src/internal/internal_hettmqr.cc \
+        src/internal/internal_norm1est.cc \
         src/internal/internal_potrf.cc \
         src/internal/internal_swap.cc \
         src/internal/internal_symm.cc \
@@ -494,6 +499,7 @@ ifneq ($(only_unit),1)
         src/gbtrf.cc \
         src/gbtrs.cc \
         src/ge2tb.cc \
+        src/gecondest.cc \
         src/gelqf.cc \
         src/gels.cc \
         src/gels_cholqr.cc \
@@ -551,6 +557,7 @@ ifneq ($(only_unit),1)
         src/tb2bd.cc \
         src/tbsm.cc \
         src/tbsmPivots.cc \
+        src/trcondest.cc \
         src/trmm.cc \
         src/trsm.cc \
         src/trsmA.cc \
@@ -608,6 +615,7 @@ tester_src += \
         test/test_gbnorm.cc \
         test/test_gbsv.cc \
         test/test_ge2tb.cc \
+        test/test_gecondest.cc \
         test/test_gelqf.cc \
         test/test_gels.cc \
         test/test_gemm.cc \
@@ -642,6 +650,7 @@ tester_src += \
         test/test_syrk.cc \
         test/test_tb2bd.cc \
         test/test_tbsm.cc \
+        test/test_trcondest.cc \
         test/test_trmm.cc \
         test/test_trnorm.cc \
         test/test_trsm.cc \
@@ -652,6 +661,7 @@ tester_src += \
         # End. Add alphabetically.
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.
+ifneq (${SCALAPACK_LIBRARIES},none)
 ifneq ($(have_fortran),)
     tester_src += \
         test/pslange.f \
@@ -668,6 +678,7 @@ ifneq ($(have_fortran),)
         test/pzlantr.f \
         test/test_qdwh.cc \
         # End. Add alphabetically, by base name after precision.
+endif
 endif
 
 # unit testers
@@ -761,7 +772,11 @@ TEST_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 TEST_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
 TEST_LDFLAGS += -Wl,-rpath,$(abspath ./blaspp/lib)
 TEST_LDFLAGS += -Wl,-rpath,$(abspath ./lapackpp/lib)
-TEST_LIBS    += -lslate -ltestsweeper $(scalapack)
+TEST_LIBS    += -lslate -ltestsweeper
+ifneq (${SCALAPACK_LIBRARIES},none)
+    TEST_LIBS += ${SCALAPACK_LIBRARIES}
+    CXXFLAGS  += -DSLATE_HAVE_SCALAPACK
+endif
 
 UNIT_LDFLAGS += -L./lib -Wl,-rpath,$(abspath ./lib)
 UNIT_LDFLAGS += -L./testsweeper -Wl,-rpath,$(abspath ./testsweeper)
@@ -777,12 +792,18 @@ UNIT_LIBS    += -lslate -ltestsweeper
 .DEFAULT_GOAL := all
 
 all: lib unit_test hooks
+install: lib
 
 ifneq ($(only_unit),1)
-    all: tester scalapack_api lapack_api
+    all: tester lapack_api
+    install: lapack_api
+    ifneq (${SCALAPACK_LIBRARIES},none)
+        all: scalapack_api
+        install: scalapack_api
+    endif
 endif
 
-install: lib scalapack_api lapack_api
+install:
 	cd blaspp   && $(MAKE) install prefix=${prefix}
 	@echo
 	cd lapackpp && $(MAKE) install prefix=${prefix}
@@ -999,7 +1020,7 @@ scalapack_api_obj = $(addsuffix .o, $(basename $(scalapack_api_src)))
 dep += $(addsuffix .d, $(basename $(scalapack_api_src)))
 
 SCALAPACK_API_LDFLAGS += -L./lib
-SCALAPACK_API_LIBS    += -lslate $(scalapack)
+SCALAPACK_API_LIBS    += -lslate ${SCALAPACK_LIBRARIES}
 
 scalapack_api: $(scalapack_api)
 
@@ -1011,9 +1032,15 @@ $(scalapack_api_a): $(scalapack_api_obj) $(libslate)
 	ar cr $@ $(scalapack_api_obj)
 	ranlib $@
 
-$(scalapack_api_so): $(scalapack_api_obj) $(libslate)
-	$(LD) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $(scalapack_api_obj) \
-		$(SCALAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
+ifneq (${SCALAPACK_LIBRARIES},none)
+    $(scalapack_api_so): $(scalapack_api_obj) $(libslate)
+		$(LD) $(SCALAPACK_API_LDFLAGS) $(LDFLAGS) $(scalapack_api_obj) \
+			$(SCALAPACK_API_LIBS) $(LIBS) -shared $(install_name) -o $@
+else
+    $(scalapack_api_so):
+		@echo "Error: building $@ requires ScaLAPACK library, currently set to ${SCALAPACK_LIBRARIES}."
+		false
+endif
 
 #-------------------------------------------------------------------------------
 # lapack_api library
@@ -1148,7 +1175,7 @@ distclean: clean
 	cd lapackpp    && $(MAKE) distclean
 
 # Install git hooks
-hooks = .git/hooks/pre-commit
+hooks = .git/hooks/pre-commit .git/hooks/pre-push
 
 hooks: ${hooks}
 
@@ -1207,6 +1234,13 @@ echo:
 	@echo "mkl_blacs     = '$(mkl_blacs)'"
 	@echo "openmp        = '$(openmp)'"
 	@echo "static        = '$(static)'"
+	@echo "gpu_backend   = '${gpu_backend}'"
+	@echo "prefix        = '${prefix}'"
+	@echo "c_api         = '${c_api}'"
+	@echo "fortran_api   = '${fortran_api}'"
+	@echo "SCALAPACK_LIBRARIES = '${SCALAPACK_LIBRARIES}'"
+	@echo
+	@echo "---------- Internal variables"
 	@echo "ostype        = '$(ostype)'"
 	@echo "macos         = '$(macos)'"
 	@echo "id            = '$(id)'"

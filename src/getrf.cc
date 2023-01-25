@@ -22,23 +22,19 @@ namespace impl {
 ///
 template <Target target, typename scalar_t>
 void getrf(
-    slate::internal::TargetType<target>,
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts )
 {
-    // using real_t = blas::real_type<scalar_t>;
+    using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     const scalar_t one = 1.0;
 
-    // Get options.
-    blas::real_type<scalar_t> pivot_threshold
+    // Options
+    real_t pivot_threshold
         = get_option<double>( opts, Option::PivotThreshold, 1.0 );
-
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
     int64_t max_panel_threads  = std::max( omp_get_max_threads()/2, 1 );
     max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
                                              max_panel_threads );
@@ -313,8 +309,6 @@ void getrf(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts )
 {
-    using internal::TargetType;
-
     Method method = get_option( opts, Option::MethodLU, MethodLU::PartialPiv );
 
     if (method == MethodLU::CALU) {
@@ -330,27 +324,19 @@ void getrf(
         switch (target) {
             case Target::Host:
             case Target::HostTask:
-                impl::getrf(
-                    TargetType<Target::HostTask>(),
-                    A, pivots, opts );
+                impl::getrf<Target::HostTask>( A, pivots, opts );
                 break;
 
             case Target::HostNest:
-                impl::getrf(
-                    TargetType<Target::HostNest>(),
-                    A, pivots, opts );
+                impl::getrf<Target::HostNest>( A, pivots, opts );
                 break;
 
             case Target::HostBatch:
-                impl::getrf(
-                    TargetType<Target::HostBatch>(),
-                    A, pivots, opts );
+                impl::getrf<Target::HostBatch>( A, pivots, opts );
                 break;
 
             case Target::Devices:
-                impl::getrf(
-                    TargetType<Target::Devices>(),
-                    A, pivots, opts );
+                impl::getrf<Target::Devices>( A, pivots, opts );
                 break;
         }
     }

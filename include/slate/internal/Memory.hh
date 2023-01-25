@@ -42,12 +42,12 @@ public:
 
     // todo: change add* to reserve*?
     void addHostBlocks(int64_t num_blocks);
-    void addDeviceBlocks(int device, int64_t num_blocks);
+    void addDeviceBlocks(int device, int64_t num_blocks, blas::Queue *queue);
 
     void clearHostBlocks();
-    void clearDeviceBlocks(int device);
+    void clearDeviceBlocks(int device, blas::Queue *queue);
 
-    void* alloc(int device, size_t size);
+    void* alloc(int device, size_t size, blas::Queue *queue);
     void free(void* block, int device);
 
     /// @return number of available free blocks in device's memory pool,
@@ -76,13 +76,13 @@ public:
     static int num_devices_;
 
 private:
-    void* allocBlock(int device);
+    void* allocBlock(int device, blas::Queue *queue);
 
     void* allocHostMemory(size_t size);
-    void* allocDeviceMemory(int device, size_t size);
+    void* allocDeviceMemory(int device, size_t size, blas::Queue *queue);
 
     void freeHostMemory(void* host_mem);
-    void freeDeviceMemory(int device, void* dev_mem);
+    void freeDeviceMemory(int device, void* dev_mem, blas::Queue *queue);
 
     // ----------------------------------------
     // member variables

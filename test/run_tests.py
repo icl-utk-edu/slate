@@ -74,6 +74,7 @@ categories = [
     group_cat.add_argument( '--svd',           action='store_true', help='run SVD tests' ),
     group_cat.add_argument( '--aux',           action='store_true', help='run auxiliary routine tests' ),
     group_cat.add_argument( '--norms',         action='store_true', help='run norm tests' ),
+    group_cat.add_argument( '--cond',          action='store_true', help='run condition number estimate tests' ),
 ]
 # map category objects to category names: ['lu', 'chol', ...]
 categories = list( map( lambda x: x.dest, categories ) )
@@ -126,7 +127,7 @@ group_opt.add_argument( '--thresh', action='store', help='default=%(default)s', 
 group_opt.add_argument( '--dry-run', action='store_true', help='print the commands that would be executed, but do not execute them.' )
 group_opt.add_argument( '-x', '--exclude', action='append', help='routines to exclude; repeatable', default=[] )
 group_opt.add_argument( '--timeout', action='store', help='timeout in seconds for each routine', type=float )
-group_opt.add_argument( '--tee', action=argparse.BooleanOptionalAction, help='controls writing to both stdout and stderr' )
+group_opt.add_argument( '--tee',    action='store_true', help='controls writing to both stdout and stderr' )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -376,7 +377,6 @@ if (opts.lu):
 
     [ 'getri',    gen + dtype + la + n ],
     [ 'getriOOP', gen + dtype + la + n ],
-    #[ 'gecon', gen + dtype + la + n ],
     #[ 'gerfs', gen + dtype + la + n + trans ],
     #[ 'geequ', gen + dtype + la + n ],
     [ 'gesvMixed',  gen + dtype_double + la + n ],
@@ -388,7 +388,6 @@ if (opts.lu_band):
     [ 'gbsv',  gen + dtype + la + n  + kl + ku ],
     [ 'gbtrf', gen + dtype + la + n  + kl + ku ],  # todo: mn
     [ 'gbtrs', gen + dtype + la + n  + kl + ku + trans ],
-    #[ 'gbcon', gen + dtype + la + n  + kl + ku ],
     #[ 'gbrfs', gen + dtype + la + n  + kl + ku + trans ],
     #[ 'gbequ', gen + dtype + la + n  + kl + ku ],
     ]
@@ -400,7 +399,6 @@ if (opts.chol):
     [ 'potrf', gen + dtype + la + n + uplo + ddist ],
     [ 'potrs', gen + dtype + la + n + uplo ],
     [ 'potri', gen + dtype + la + n + uplo ],
-    #[ 'pocon', gen + dtype + la + n + uplo ],
     #[ 'porfs', gen + dtype + la + n + uplo ],
     #[ 'poequ', gen + dtype + la + n ],  # only diagonal elements (no uplo)
     [ 'posvMixed',  gen + dtype_double + la + n + uplo ],
@@ -413,7 +411,6 @@ if (opts.chol):
     [ 'pbsv',  gen + dtype + la + n + kd + uplo ],
     [ 'pbtrf', gen + dtype + la + n + kd + uplo ],
     [ 'pbtrs', gen + dtype + la + n + kd + uplo ],
-    #[ 'pbcon', gen + dtype + la + n + kd + uplo ],
     #[ 'pbrfs', gen + dtype + la + n + kd + uplo ],
     #[ 'pbequ', gen + dtype + la + n + kd + uplo ],
     ]
@@ -562,6 +559,19 @@ if (opts.norms):
     [ 'hbnorm', gen + dtype + n   + kd      + norm + uplo ],
     #[ 'sbnorm', gen + dtype + la + n + kd + norm ],
     #[ 'tbnorm', gen + dtype + la + n + kd + norm ],
+    ]
+
+# cond
+if (opts.cond):
+    cmds += [
+    [ 'gecondest', gen + dtype + n ],
+
+    # Triangle
+    [ 'trcondest', gen + dtype + n ],
+
+    #[ 'gbcon', gen + dtype + la + n  + kl + ku ],
+    #[ 'pocon', gen + dtype + la + n + uplo ],
+    #[ 'pbcon', gen + dtype + la + n + kd + uplo ],
     ]
 
 # aux

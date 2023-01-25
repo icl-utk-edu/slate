@@ -10,10 +10,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::geqrf from internal::specialization::geqrf
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// An auxiliary routine to find each rank's first (top-most) row
@@ -28,11 +25,12 @@ namespace specialization {
 /// @param[out] first_indices
 ///     The array of computed indices.
 ///
-/// @ingroup geqrf_specialization
+/// @ingroup geqrf_impl
 ///
 template <typename scalar_t>
-void geqrf_compute_first_indices(Matrix<scalar_t>& A_panel, int64_t k,
-                                 std::vector< int64_t >& first_indices)
+void geqrf_compute_first_indices(
+    Matrix<scalar_t>& A_panel, int64_t k,
+    std::vector< int64_t >& first_indices )
 {
     // Find ranks in this column.
     std::set<int> ranks_set;
@@ -60,16 +58,16 @@ void geqrf_compute_first_indices(Matrix<scalar_t>& A_panel, int64_t k,
 ///
 /// ColMajor layout is assumed
 ///
-/// @ingroup geqrf_specialization
+/// @ingroup geqrf_impl
 ///
 template <Target target, typename scalar_t>
-void geqrf(slate::internal::TargetType<target>,
-           Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           int64_t ib, int max_panel_threads, int64_t lookahead)
+void geqrf(
+    Matrix<scalar_t>& A,
+    TriangularFactors<scalar_t>& T,
+    Options const& opts )
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
-    using device_info_t = lapack::device_info_int;
+    using lapack::device_info_int;
     using blas::real;
 
     // Assumes column major
@@ -78,7 +76,15 @@ void geqrf(slate::internal::TargetType<target>,
     const int priority_zero = 0;
     const int priority_one = 1;
     const int life_factor_one = 1;
-    const bool set_hold = lookahead > 0;  // Do tileGetAndHold in the bcast
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
+    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
+    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
+                                             max_panel_threads );
+
+    bool set_hold = lookahead > 0;  // Do tileGetAndHold in the bcast
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
@@ -140,9 +146,7 @@ void geqrf(slate::internal::TargetType<target>,
 
         if (panel_device >= 0) {
 
-            blas::set_device( panel_device );
-
-            lapack::Queue* queue = A.compute_queue(panel_device, 0);
+            lapack::Queue* comm_queue = A.comm_queue(panel_device);
 
             int64_t nb       = A.tileNb(0);
             size_t  size_tau = (size_t) std::min( mlocal, nb );
@@ -151,15 +155,15 @@ void geqrf(slate::internal::TargetType<target>,
 
             // Find size of the workspace needed
             lapack::geqrf_work_size_bytes( mlocal, nb, dwork_array[0], mlocal,
-                                           &dsize, &hsize, *queue );
+                                           &dsize, &hsize, *comm_queue );
 
             // Size of dA, dtau, dwork and dinfo
             work_size = size_A + size_tau + ceildiv(dsize, sizeof(scalar_t))
-                        + ceildiv(sizeof(device_info_t), sizeof(scalar_t));
+                        + ceildiv(sizeof(device_info_int), sizeof(scalar_t));
 
             for (int64_t dev = 0; dev < num_devices; ++dev) {
-                blas::set_device(dev);
-                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size);
+                lapack::Queue* queue = A.comm_queue( dev );
+                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size, *queue);
             }
         }
     }
@@ -353,36 +357,14 @@ void geqrf(slate::internal::TargetType<target>,
 
     if (target == Target::Devices) {
         for (int64_t dev = 0; dev < num_devices; ++dev) {
-            blas::set_device(dev);
-            blas::device_free( dwork_array[dev] );
+            blas::Queue* queue = A.comm_queue( dev );
+            blas::device_free( dwork_array[dev], *queue );
             dwork_array[dev] = nullptr;
         }
     }
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup geqrf_specialization
-///
-template <Target target, typename scalar_t>
-void geqrf(Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
-    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
-
-    internal::specialization::geqrf(internal::TargetType<target>(),
-                                    A, T,
-                                    ib, max_panel_threads, lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel QR factorization.
@@ -433,25 +415,29 @@ void geqrf(Matrix<scalar_t>& A,
 /// @ingroup geqrf_computational
 ///
 template <typename scalar_t>
-void geqrf(Matrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Options const& opts)
+void geqrf(
+    Matrix<scalar_t>& A,
+    TriangularFactors<scalar_t>& T,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            geqrf<Target::HostTask>(A, T, opts);
+            impl::geqrf<Target::HostTask>( A, T, opts );
             break;
+
         case Target::HostNest:
-            geqrf<Target::HostNest>(A, T, opts);
+            impl::geqrf<Target::HostNest>( A, T, opts );
             break;
+
         case Target::HostBatch:
-            geqrf<Target::HostBatch>(A, T, opts);
+            impl::geqrf<Target::HostBatch>( A, T, opts );
             break;
+
         case Target::Devices:
-            geqrf<Target::Devices>(A, T, opts);
+            impl::geqrf<Target::Devices>( A, T, opts );
             break;
     }
     // todo: return value for errors?

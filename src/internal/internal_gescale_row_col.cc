@@ -99,16 +99,16 @@ void scale_row_col(
             DevVector< scalar_t2 > dR, dC;
 
             if (want_row) {
-                dR.resize( R.size(), device );
+                dR.resize( R.size(), device, *queue );
                 blas::device_memcpy( dR.data(), R.data(), R.size(), *queue );
                 r_array_host.resize( A.batchArraySize() );
-                r_array_dev .resize( A.batchArraySize(), device );
+                r_array_dev .resize( A.batchArraySize(), device, *queue );
             }
             if (want_col) {
-                dC.resize( C.size(), device );
+                dC.resize( C.size(), device, *queue );
                 blas::device_memcpy( dC.data(), C.data(), C.size(), *queue );
                 c_array_host.resize( A.batchArraySize() );
-                c_array_dev .resize( A.batchArraySize(), device );
+                c_array_dev .resize( A.batchArraySize(), device, *queue );
             }
 
             // temporarily, convert both into same layout
@@ -188,6 +188,12 @@ void scale_row_col(
                     a_array_dev += group_count[q];
                 }
             }
+
+            // Clear the DevVectors, freeing device memory
+            r_array_dev.clear(*queue);
+            c_array_dev.clear(*queue);
+            dR.clear(*queue);
+            dC.clear(*queue);
 
             queue->sync();
         }

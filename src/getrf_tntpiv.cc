@@ -22,23 +22,23 @@ namespace impl {
 ///
 template <Target target, typename scalar_t>
 void getrf_tntpiv(
-    slate::internal::TargetType<target>,
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts)
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
+    using lapack::device_info_int;
+    using lapack::device_pivot_int;
+
 
     const scalar_t one = 1.0;
 
-    // Get options.
+    // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
-    int64_t max_panel_threads = std::max( omp_get_max_threads()/2, 1 );
-    max_panel_threads = get_option<int64_t>(
-        opts, Option::MaxPanelThreads, max_panel_threads );
+    int64_t max_panel_threads  = std::max( omp_get_max_threads()/2, 1 );
+    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
+                                             max_panel_threads );
 
     // Host can use Col/RowMajor for row swapping,
     // RowMajor is slightly more efficient.
@@ -65,9 +65,62 @@ void getrf_tntpiv(
     bool is_shared = target == Target::Devices && lookahead > 0;
     pivots.resize(min_mt_nt);
 
+    // setting up dummy variables for case the when target == host
+    int64_t num_devices  = A.num_devices();
+    int     panel_device = -1;
+    size_t  work_size    = 0;
+
+    std::vector< scalar_t* > dwork_array( num_devices, nullptr );
+
     if (target == Target::Devices) {
         A.allocateBatchArrays(batch_size_zero, num_queues);
         A.reserveDeviceWorkspace();
+
+        int64_t mlocal = 0;
+        int64_t first_panel_seen = -1;
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            for (int64_t i = j; i < A.mt(); ++i) {
+                if (A.tileIsLocal(i, j)) {
+                    if (first_panel_seen < 0) {
+                        first_panel_seen = j;
+                    }
+                    if (first_panel_seen == j) {
+                        if (panel_device < 0) {
+                            panel_device = A.tileDevice(i, j);
+                        }
+                        mlocal += A.tileMb(i);
+                        // Asserting 1-D distribution for device
+                        assert( panel_device == A.tileDevice(i, j) );
+                    }
+                }
+            }
+            if (first_panel_seen >= 0) {
+                break;
+            }
+        }
+
+        if (panel_device >= 0) {
+
+            lapack::Queue* comm_queue = A.comm_queue(panel_device);
+
+            int64_t nb       = A.tileNb(0);
+            int64_t size_A   = blas::max( 1, mlocal ) * nb;
+            int64_t diag_len = blas::min( A.tileMb(0), nb );
+            size_t  hsize, dsize;
+
+            // Find size of the workspace needed
+            lapack::getrf_work_size_bytes( mlocal, nb, dwork_array[0], mlocal,
+                                           &dsize, &hsize, *comm_queue );
+
+            // Size of dA, dipiv, dwork and dinfo
+            work_size = size_A + diag_len + ceildiv(dsize, sizeof(scalar_t))
+                        + ceildiv(sizeof(device_info_int), sizeof(scalar_t));
+
+            for (int64_t dev = 0; dev < num_devices; ++dev) {
+                lapack::Queue* queue = A.comm_queue( dev );
+                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size, *queue);
+            }
+        }
     }
 
     // OpenMP needs pointer types, but vectors are exception safe
@@ -102,8 +155,9 @@ void getrf_tntpiv(
 
                 // Factor A(k:mt-1, k) using tournament pivoting to get
                 // pivots and diagonal tile, Akk in workspace Apanel.
-                internal::getrf_tntpiv_panel<Target::HostTask>(
-                    A.sub(k, A_mt-1, k, k), std::move(Apanel), diag_len, ib,
+                internal::getrf_tntpiv_panel<target>(
+                    A.sub(k, A_mt-1, k, k), std::move(Apanel),
+                    dwork_array, work_size, diag_len, ib,
                     pivots.at(k), max_panel_threads, priority_one);
 
                 // Root broadcasts the pivot to all ranks.
@@ -283,6 +337,13 @@ void getrf_tntpiv(
         A.tileLayoutReset();
     }
     A.clearWorkspace();
+    if (target == Target::Devices) {
+        for (int64_t dev = 0; dev < num_devices; ++dev) {
+            blas::Queue* queue = A.comm_queue( dev );
+            blas::device_free( dwork_array[dev], *queue );
+            dwork_array[dev] = nullptr;
+        }
+    }
 }
 
 } // namespace impl
@@ -345,34 +406,24 @@ void getrf_tntpiv(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts)
 {
-    using internal::TargetType;
-
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::getrf_tntpiv(
-                TargetType<Target::HostTask>(),
-                A, pivots, opts );
+            impl::getrf_tntpiv<Target::HostTask>( A, pivots, opts );
             break;
 
         case Target::HostNest:
-            impl::getrf_tntpiv(
-                TargetType<Target::HostNest>(),
-                A, pivots, opts);
+            impl::getrf_tntpiv<Target::HostNest>( A, pivots, opts );
             break;
 
         case Target::HostBatch:
-            impl::getrf_tntpiv(
-                TargetType<Target::HostBatch>(),
-                A, pivots, opts);
+            impl::getrf_tntpiv<Target::HostBatch>( A, pivots, opts );
             break;
 
         case Target::Devices:
-            impl::getrf_tntpiv(
-                TargetType<Target::Devices>(),
-                A, pivots, opts);
+            impl::getrf_tntpiv<Target::Devices>( A, pivots, opts );
             break;
     }
     // todo: return value for errors?

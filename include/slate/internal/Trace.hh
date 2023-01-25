@@ -28,8 +28,10 @@ public:
     Event()
     {}
 
-    Event(const char* name)
-        : start_(omp_get_wtime())
+    Event(const char* name, int index, int nest)
+        : start_(omp_get_wtime()),
+          index_( index ),
+          nest_(nest)
     {
         // todo: do with C++ instead of cstring?
         strncpy(name_, name, 30);
@@ -42,8 +44,9 @@ private:
     char name_[31];
     double start_;
     double stop_;
+    int64_t index_;
+    int nest_;
 };
-
 //------------------------------------------------------------------------------
 ///
 class Trace {
@@ -99,14 +102,13 @@ private:
 ///
 class Block {
 public:
-    Block(const char* name)
-        : event_(name)
-    {}
+    Block( const char* name, int64_t index=0 );
+    ~Block();
 
-    ~Block() { Trace::insert(event_); }
 private:
     Event event_;
 };
+
 } // namespace trace
 } // namespace slate
 

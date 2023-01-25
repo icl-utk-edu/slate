@@ -8,10 +8,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::hemm from internal::specialization::hbmm
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
@@ -23,17 +20,17 @@ namespace specialization {
 /// - bcasts can get ahead of hbmms by the value of lookahead.
 /// Note A, B, and C are passed by value, so we can transpose if needed
 /// (for side = right) without affecting caller.
-/// @ingroup hbmm_specialization
+/// @ingroup hbmm_impl
 ///
 /// ColMajor layout is assumed
 ///
 template <Target target, typename scalar_t>
-void hbmm(slate::internal::TargetType<target>,
-          Side side,
-          scalar_t alpha, HermitianBandMatrix<scalar_t> A,
-          Matrix<scalar_t> B,
-          scalar_t beta,  Matrix<scalar_t> C,
-          int64_t lookahead)
+void hbmm(
+    Side side,
+    scalar_t alpha, HermitianBandMatrix<scalar_t> A,
+                    Matrix<scalar_t> B,
+    scalar_t beta,  Matrix<scalar_t> C,
+    Options const& opts )
 {
     // Due to the symmetry, each off diagonal tile is sent twice, once as part
     // of A and once as art of A^T. In principle, this could be avoided by
@@ -51,6 +48,9 @@ void hbmm(slate::internal::TargetType<target>,
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // if on right, change to left by transposing A, B, C to get
     // op(C) = op(A)*op(B)
@@ -418,29 +418,7 @@ void hbmm(slate::internal::TargetType<target>,
     C.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup hbmm_specialization
-///
-template <Target target, typename scalar_t>
-void hbmm(Side side,
-          scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::hbmm(internal::TargetType<target>(),
-                                   side,
-                                   alpha, A,
-                                          B,
-                                   beta,  C,
-                                   lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Hermitian banded matrix-matrix multiplication.
@@ -498,26 +476,29 @@ void hbmm(Side side,
 ///
 template <typename scalar_t>
 void hbmm(Side side,
-          scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts)
+    scalar_t alpha, HermitianBandMatrix<scalar_t>& A,
+                    Matrix<scalar_t>& B,
+    scalar_t beta,  Matrix<scalar_t>& C,
+    Options const& opts)
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            hbmm<Target::HostTask>(side, alpha, A, B, beta, C, opts);
+            impl::hbmm<Target::HostTask>( side, alpha, A, B, beta, C, opts );
             break;
+
         case Target::HostNest:
-            hbmm<Target::HostNest>(side, alpha, A, B, beta, C, opts);
+            impl::hbmm<Target::HostNest>( side, alpha, A, B, beta, C, opts );
             break;
+
         case Target::HostBatch:
-            hbmm<Target::HostBatch>(side, alpha, A, B, beta, C, opts);
+            impl::hbmm<Target::HostBatch>( side, alpha, A, B, beta, C, opts );
             break;
+
         case Target::Devices:
-            hbmm<Target::Devices>(side, alpha, A, B, beta, C, opts);
+            impl::hbmm<Target::Devices>( side, alpha, A, B, beta, C, opts );
             break;
     }
 }

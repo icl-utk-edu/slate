@@ -14,10 +14,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::getrs from internal::specialization::getrs
-namespace internal {
-namespace specialization {
+namespace impl {
 
 template <typename scalar_t>
 using Reflectors = std::map< std::pair<int64_t, int64_t>,
@@ -203,11 +200,12 @@ void tb2bd_run(TriangularBandMatrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 /// @internal
 /// Reduces a band matrix to a bidiagonal matrix using bulge chasing.
-/// @ingroup svd_specialization
+/// @ingroup svd_impl
 ///
 template <Target target, typename scalar_t>
-void tb2bd(slate::internal::TargetType<target>,
-           TriangularBandMatrix<scalar_t>& A)
+void tb2bd(
+    TriangularBandMatrix<scalar_t>& A,
+    Options const& opts )
 {
     const scalar_t zero = 0.0;
 
@@ -302,20 +300,7 @@ void tb2bd(slate::internal::TargetType<target>,
     A.bandwidth(1);
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup svd_specialization
-///
-template <Target target, typename scalar_t>
-void tb2bd(TriangularBandMatrix<scalar_t>& A,
-           Options const& opts)
-{
-    internal::specialization::tb2bd(internal::TargetType<target>(),
-                                    A);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Reduces a band matrix to a bidiagonal matrix using bulge chasing.
@@ -339,24 +324,30 @@ void tb2bd(TriangularBandMatrix<scalar_t>& A,
 /// @ingroup svd_computational
 ///
 template <typename scalar_t>
-void tb2bd(TriangularBandMatrix<scalar_t>& A,
-           Options const& opts)
+void tb2bd(
+    TriangularBandMatrix<scalar_t>& A,
+    Options const& opts )
 {
+    using internal::TargetType;
+
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            tb2bd<Target::HostTask>(A, opts);
+            impl::tb2bd<Target::HostTask>( A, opts );
             break;
+
         case Target::HostNest:
-            tb2bd<Target::HostNest>(A, opts);
+            impl::tb2bd<Target::HostNest>( A, opts );
             break;
+
         case Target::HostBatch:
-            tb2bd<Target::HostBatch>(A, opts);
+            impl::tb2bd<Target::HostBatch>( A, opts );
             break;
+
         case Target::Devices:
-            tb2bd<Target::Devices>(A, opts);
+            impl::tb2bd<Target::Devices>( A, opts );
             break;
     }
     // todo: return value for errors?

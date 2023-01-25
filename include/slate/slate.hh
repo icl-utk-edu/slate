@@ -1085,6 +1085,28 @@ void steqr2(
     Matrix<scalar_t>& Z,
     Options const& opts = Options());
 
+//------------------------------------------------------------------------------
+// Condition number estimate
+
+//-----------------------------------------
+// gecondest()
+template <typename scalar_t>
+void gecondest(
+        Norm in_norm,
+        Matrix<scalar_t>& A,
+        blas::real_type<scalar_t> *Anorm,
+        blas::real_type<scalar_t> *rcond,
+        Options const& opts = Options());
+
+//-----------------------------------------
+// trcondest()
+template <typename scalar_t>
+void trcondest(
+        Norm in_norm,
+        TriangularMatrix<scalar_t>& A,
+        blas::real_type<scalar_t> *rcond,
+        Options const& opts = Options());
+
 //-----------------------------------------
 // Polar Decomposition
 

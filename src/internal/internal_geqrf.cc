@@ -169,7 +169,7 @@ void geqrf(
     assert(A.nt() == 1);
 
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
-    using device_info_t = lapack::device_info_int;
+    using lapack::device_info_int;
 
     const Layout layout = Layout::ColMajor;
     const scalar_t zero = 0.0;
@@ -206,7 +206,6 @@ void geqrf(
        return;
     }
     assert(device >= 0);
-    blas::set_device(device);
 
     A.tileGetForWriting( A_tiles_set, device, LayoutConvert( layout ) );
 
@@ -238,7 +237,7 @@ void geqrf(
                                    dA, mlocal, &dsize, &hsize, *queue );
 
     size_t tot_size = size_A + diag_len + ceildiv(dsize, sizeof(scalar_t))
-                      + ceildiv( sizeof(device_info_t), sizeof(scalar_t));
+                      + ceildiv( sizeof(device_info_int), sizeof(scalar_t));
 
     assert(tot_size <= work_size);
     assert(hsize == 0);
@@ -246,7 +245,7 @@ void geqrf(
     // Point to correct location(s) in work array.
     scalar_t* dtau  = &work[ size_A ];
     void*     dwork = &work[ size_A + diag_len ];
-    device_info_t* dinfo = (device_info_t*) &work[ size_A + diag_len
+    device_info_int* dinfo = (device_info_int*) &work[ size_A + diag_len
                                             + ceildiv( dsize, sizeof(scalar_t) )];
 
     std::vector<char> hwork_vector( hsize );

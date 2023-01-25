@@ -6,6 +6,7 @@
 #include "slate/slate.hh"
 #include "test.hh"
 #include "blas/flops.hh"
+#include "print_matrix.hh"
 
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
@@ -16,7 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-#define SLATE_HAVE_SCALAPACK
+
 //------------------------------------------------------------------------------
 template<typename scalar_t>
 void test_hemm_work(Params& params, bool run)
@@ -42,10 +43,8 @@ void test_hemm_work(Params& params, bool run)
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
-    #ifndef SLATE_HAVE_SCALAPACK
-        ref = false;
-    #endif
     bool trace = params.trace() == 'y';
+    int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -67,7 +66,9 @@ void test_hemm_work(Params& params, bool run)
 
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
+        {slate::Option::Target, target},
+        // TODO fix gemmA on device
+        {slate::Option::MethodGemm, slate::MethodGemm::GemmC}
     };
 
     // Error analysis applies in these norms.
@@ -219,6 +220,11 @@ void test_hemm_work(Params& params, bool run)
 
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
+    if (verbose >= 2) {
+        C.tileGetAllForReading( slate::HostNum, slate::LayoutConvert::None );
+        print_matrix( "C_out", C, params );
+    }
+
     if (trace) slate::trace::Trace::finish();
 
     // Compute and save timing/performance
@@ -231,7 +237,7 @@ void test_hemm_work(Params& params, bool run)
         // Check error, C*X - Y.
         real_t y_norm = slate::norm( norm, Y, opts );
         // Y = C * X - Y
-        slate::multiply( one, C, X, -one, Y );
+        slate::multiply( one, C, X, -one, Y, opts );
         // error = norm( Y ) / y_norm
         real_t error = slate::norm( slate::Norm::One, Y, opts )/y_norm;
         params.error() = error;
@@ -323,7 +329,7 @@ void test_hemm_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
-        #else
+        #else  // not SLATE_HAVE_SCALAPACK
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

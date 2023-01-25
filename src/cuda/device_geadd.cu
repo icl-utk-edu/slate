@@ -121,12 +121,12 @@ __global__ void geadd_batch_kernel(
 template <typename scalar_t>
 void geadd(
     int64_t m, int64_t n,
-    scalar_t alpha, scalar_t* A, int64_t lda,
-    scalar_t beta, scalar_t* B, int64_t ldb,
+    scalar_t const& alpha, scalar_t* A, int64_t lda,
+    scalar_t const& beta, scalar_t* B, int64_t ldb,
     blas::Queue &queue)
 {
     // quick return
-    if (m == 0 || n == 0) 
+    if (m == 0 || n == 0)
         return;
 
     cudaSetDevice( queue.device() );
@@ -148,29 +148,29 @@ void geadd(
 template
 void geadd(
     int64_t m, int64_t n,
-    float alpha, float* Aarray, int64_t lda,
-    float beta, float* Barray, int64_t ldb,
+    float const& alpha, float* Aarray, int64_t lda,
+    float const& beta, float* Barray, int64_t ldb,
     blas::Queue &queue);
 
 template
 void geadd(
     int64_t m, int64_t n,
-    double alpha, double* Aarray, int64_t lda,
-    double beta, double* Barray, int64_t ldb,
+    double const& alpha, double* Aarray, int64_t lda,
+    double const& beta, double* Barray, int64_t ldb,
     blas::Queue &queue);
 
 template
 void geadd(
     int64_t m, int64_t n,
-    cuFloatComplex alpha, cuFloatComplex* Aarray, int64_t lda,
-    cuFloatComplex beta, cuFloatComplex* Barray, int64_t ldb,
+    cuFloatComplex const& alpha, cuFloatComplex* Aarray, int64_t lda,
+    cuFloatComplex const& beta, cuFloatComplex* Barray, int64_t ldb,
     blas::Queue &queue);
 
 template
 void geadd(
     int64_t m, int64_t n,
-    cuDoubleComplex alpha, cuDoubleComplex* Aarray, int64_t lda,
-    cuDoubleComplex beta, cuDoubleComplex* Barray, int64_t ldb,
+    cuDoubleComplex const& alpha, cuDoubleComplex* Aarray, int64_t lda,
+    cuDoubleComplex const& beta, cuDoubleComplex* Barray, int64_t ldb,
     blas::Queue &queue);
 
 //==============================================================================
@@ -218,12 +218,12 @@ namespace batch {
 template <typename scalar_t>
 void geadd(
     int64_t m, int64_t n,
-    scalar_t alpha, scalar_t** Aarray, int64_t lda,
-    scalar_t beta, scalar_t** Barray, int64_t ldb,
+    scalar_t const& alpha, scalar_t** Aarray, int64_t lda,
+    scalar_t const& beta, scalar_t** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
     // quick return
-    if (m == 0 || n == 0) 
+    if (m == 0 || n == 0)
         return;
     // quick return
     if (batch_count == 0)
@@ -248,29 +248,29 @@ void geadd(
 template
 void geadd(
     int64_t m, int64_t n,
-    float alpha, float** Aarray, int64_t lda,
-    float beta, float** Barray, int64_t ldb,
+    float const& alpha, float** Aarray, int64_t lda,
+    float const& beta, float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void geadd(
     int64_t m, int64_t n,
-    double alpha, double** Aarray, int64_t lda,
-    double beta, double** Barray, int64_t ldb,
+    double const& alpha, double** Aarray, int64_t lda,
+    double const& beta, double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void geadd(
     int64_t m, int64_t n,
-    cuFloatComplex alpha, cuFloatComplex** Aarray, int64_t lda,
-    cuFloatComplex beta, cuFloatComplex** Barray, int64_t ldb,
+    cuFloatComplex const& alpha, cuFloatComplex** Aarray, int64_t lda,
+    cuFloatComplex const& beta, cuFloatComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void geadd(
     int64_t m, int64_t n,
-    cuDoubleComplex alpha, cuDoubleComplex** Aarray, int64_t lda,
-    cuDoubleComplex beta, cuDoubleComplex** Barray, int64_t ldb,
+    cuDoubleComplex const& alpha, cuDoubleComplex** Aarray, int64_t lda,
+    cuDoubleComplex const& beta, cuDoubleComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 } // namespace batch

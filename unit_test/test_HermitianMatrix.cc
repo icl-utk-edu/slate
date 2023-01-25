@@ -327,6 +327,12 @@ void test_HermitianMatrix_fromDevices()
         mtiles, mtiles_local, m_local,
         ntiles, ntiles_local, n_local, lda );
 
+    // device specific queues
+    std::vector< blas::Queue* > dev_queues;
+    dev_queues.resize(num_devices);
+    for (int dev = 0; dev < num_devices; ++dev)
+        dev_queues[dev] = new blas::Queue(dev, 0);
+
     double** Aarray = new double*[ num_devices ];
     for (int dev = 0; dev < num_devices; ++dev) {
         int ntiles_local2, ntiles_dev, n_dev;
@@ -336,7 +342,7 @@ void test_HermitianMatrix_fromDevices()
 
         // blas::device_malloc returns null if len = 0, so make it at least 1.
         int64_t len = std::max(lda * n_dev, 1);
-        Aarray[dev] = blas::device_malloc<double>(len);
+        Aarray[dev] = blas::device_malloc<double>(len, *dev_queues[dev]);
         assert(Aarray[dev] != nullptr);
     }
 
@@ -373,7 +379,7 @@ void test_HermitianMatrix_fromDevices()
     }
 
     for (int dev = 0; dev < num_devices; ++dev) {
-        blas::device_free(Aarray[dev]);
+        blas::device_free(Aarray[dev], *dev_queues[dev]);
     }
     delete[] Aarray;
 
@@ -383,6 +389,10 @@ void test_HermitianMatrix_fromDevices()
         slate::HermitianMatrix<double>::fromDevices(
             blas::Uplo::General, n, Aarray, num_devices, lda, nb, p, q, mpi_comm ),
         slate::Exception);
+
+    // free the device specific queues
+    for (int dev = 0; dev < num_devices; ++dev)
+        delete dev_queues[dev];
 }
 
 //==============================================================================

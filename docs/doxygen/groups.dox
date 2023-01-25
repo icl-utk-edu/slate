@@ -119,6 +119,8 @@
 
         @defgroup heev_computational        Computational
         @defgroup heev_specialization       Target implementations
+        @defgroup heev_impl                 Target implementations
+        @defgroup heev_internal             Internal
     @}
 
     ------------------------------------------------------------
@@ -200,6 +202,13 @@
             @defgroup ger_tile              ger
             @defgroup her2_tile             her2
         @}
+
+        @defgroup group_cond                Condition number estimate
+        @{
+            @defgroup cond                  Driver
+            @brief                          $rcond = \frac{1}{\|\|A\|\| \times \|\|A^{-1}\|\|}$
+        @}
+
     @}
 
     ------------------------------------------------------------
@@ -269,11 +278,11 @@
         @{
             @defgroup gemm_specialization   gemm:  General matrix multiply
             @defgroup gbmm_specialization   gbmm:  General band matrix multiply
-            @defgroup hemm_specialization   hemm:  Hermitian matrix multiply
+            @defgroup hemm_impl             hemm:  Hermitian matrix multiply
             @defgroup hbmm_specialization   hbmm:  Hermitian band matrix multiply
             @defgroup herk_impl             herk:  Hermitian rank k update
             @defgroup her2k_specialization  her2k: Hermitian rank 2k update
-            @defgroup symm_specialization   symm:  Symmetric matrix multiply
+            @defgroup symm_impl             symm:  Symmetric matrix multiply
             @defgroup syrk_specialization   syrk:  Symmetric rank k update
             @defgroup syr2k_specialization  syr2k: Symmetric rank 2k update
             @defgroup trmm_specialization   trmm:  Triangular matrix multiply

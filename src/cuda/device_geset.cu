@@ -89,12 +89,12 @@ __global__ void geset_batch_kernel(
 template <typename scalar_t>
 void geset(
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t const& offdiag_value, scalar_t const& diag_value,
     scalar_t* A, int64_t lda,
     blas::Queue &queue)
 {
     // quick return
-    if (m == 0 || n == 0) 
+    if (m == 0 || n == 0)
         return;
 
     cudaSetDevice( queue.device() );
@@ -115,28 +115,28 @@ void geset(
 template
 void geset(
     int64_t m, int64_t n,
-    float offdiag_value, float diag_value,
+    float const& offdiag_value, float const& diag_value,
     float* A, int64_t lda,
     blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
-    double offdiag_value, double diag_value,
+    double const& offdiag_value, double const& diag_value,
     double* A, int64_t lda,
     blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
-    cuFloatComplex offdiag_value, cuFloatComplex diag_value,
+    cuFloatComplex const& offdiag_value, cuFloatComplex const& diag_value,
     cuFloatComplex* A, int64_t lda,
     blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
-    cuDoubleComplex offdiag_value, cuDoubleComplex diag_value,
+    cuDoubleComplex const& offdiag_value, cuDoubleComplex const& diag_value,
     cuDoubleComplex* A, int64_t lda,
     blas::Queue &queue);
 
@@ -175,7 +175,7 @@ namespace batch {
 template <typename scalar_t>
 void geset(
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t const& offdiag_value, scalar_t const& diag_value,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -183,7 +183,7 @@ void geset(
     if (batch_count == 0)
         return;
     // quick return
-    if (m == 0 || n == 0) 
+    if (m == 0 || n == 0)
         return;
 
     cudaSetDevice( queue.device() );
@@ -204,28 +204,28 @@ void geset(
 template
 void geset(
     int64_t m, int64_t n,
-    float offdiag_value, float diag_value,
+    float const& offdiag_value, float const& diag_value,
     float** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
-    double offdiag_value, double diag_value,
+    double const& offdiag_value, double const& diag_value,
     double** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
-    cuFloatComplex offdiag_value, cuFloatComplex diag_value,
+    cuFloatComplex const& offdiag_value, cuFloatComplex const& diag_value,
     cuFloatComplex** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
-    cuDoubleComplex offdiag_value, cuDoubleComplex diag_value,
+    cuDoubleComplex const& offdiag_value, cuDoubleComplex const& diag_value,
     cuDoubleComplex** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 

@@ -18,7 +18,6 @@
 #include <cstdlib>
 #include <utility>
 
-#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template<typename scalar_t>
 void test_gemm_work(Params& params, bool run)
@@ -45,10 +44,6 @@ void test_gemm_work(Params& params, bool run)
     bool ref_only = params.ref() == 'o';
     slate::Norm norm = params.norm();
     bool ref = params.ref() == 'y' || ref_only;
-    #ifndef SLATE_HAVE_SCALAPACK
-        ref = false;
-        ref_only = false;
-    #endif
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
@@ -267,8 +262,8 @@ void test_gemm_work(Params& params, bool run)
         params.okay() = (params.error() <= 3*eps);
     }
 
-    #ifdef SLATE_HAVE_SCALAPACK
-        if (ref) {
+    if (ref) {
+        #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
 
             // BLACS/MPI variables
@@ -344,8 +339,11 @@ void test_gemm_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
-        }
-    #endif
+        #else  // not SLATE_HAVE_SCALAPACK
+            if (mpi_rank == 0)
+                printf( "ScaLAPACK not available\n" );
+        #endif
+    }
 }
 
 // -----------------------------------------------------------------------------

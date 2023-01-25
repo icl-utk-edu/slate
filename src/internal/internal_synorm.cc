@@ -499,14 +499,14 @@ void norm(internal::TargetType<Target::Devices>,
     }
 
     for (int device = 0; device < A.num_devices(); ++device) {
-        blas::set_device(device);
         int64_t num_tiles = A.getMaxDeviceTiles(device);
 
         a_host_arrays[device].resize(num_tiles);
         vals_host_arrays[device].resize(num_tiles*ldv);
 
-        a_dev_arrays[device] = blas::device_malloc<scalar_t*>(num_tiles);
-        vals_dev_arrays[device] = blas::device_malloc<real_t>(num_tiles*ldv);
+        blas::Queue* queue = A.comm_queue(device);
+        a_dev_arrays[device] = blas::device_malloc<scalar_t*>(num_tiles, *queue);
+        vals_dev_arrays[device] = blas::device_malloc<real_t>(num_tiles*ldv, *queue);
     }
 
     // Define index ranges for regions of matrix.
@@ -684,9 +684,9 @@ void norm(internal::TargetType<Target::Devices>,
     // end omp taskgroup
 
     for (int device = 0; device < A.num_devices(); ++device) {
-        blas::set_device(device);
-        blas::device_free(a_dev_arrays[device]);
-        blas::device_free((void*)vals_dev_arrays[device]);
+        blas::Queue* queue = A.compute_queue(device, queue_index);
+        blas::device_free(a_dev_arrays[device], *queue);
+        blas::device_free((void*)vals_dev_arrays[device], *queue);
     }
 
     // Reduction over devices to local result.

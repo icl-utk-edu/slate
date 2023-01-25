@@ -17,7 +17,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-#define SLATE_HAVE_SCALAPACK
+
 //------------------------------------------------------------------------------
 template< typename scalar_t >
 void test_syr2k_work(Params& params, bool run)
@@ -45,9 +45,6 @@ void test_syr2k_work(Params& params, bool run)
     slate::Norm norm = params.norm();
     bool check = params.check() == 'y';
     bool ref = params.ref() == 'y';
-    #ifndef SLATE_HAVE_SCALAPACK
-        ref = false;
-    #endif
     bool trace = params.trace() == 'y';
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
@@ -149,6 +146,7 @@ void test_syr2k_work(Params& params, bool run)
             Cref = slate::SymmetricMatrix<scalar_t>::fromScaLAPACK(
                        uplo, Cn, &Cref_data[0], lldC, nb, p, q, MPI_COMM_WORLD);
             slate::copy( C, Cref );
+            print_matrix("Initial Cref", Cref, params);
         }
     #endif
 
@@ -171,9 +169,6 @@ void test_syr2k_work(Params& params, bool run)
     print_matrix("A", A, params);
     print_matrix("B", B, params);
     print_matrix("Initial C", C, params);
-    if (check || ref) {
-        print_matrix("Initial Cref", Cref, params);
-    }
 
     if (trace) slate::trace::Trace::on();
     else slate::trace::Trace::off();
@@ -324,7 +319,7 @@ void test_syr2k_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
-        #else
+        #else   // not SLATE_HAVE_SCALAPACK
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif

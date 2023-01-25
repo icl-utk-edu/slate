@@ -8,10 +8,9 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::hemm from internal::specialization::hemm
-namespace internal {
-namespace specialization {
+// impl namespace differentiates, e.g.,
+// internal::hemm from impl::hemm
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
@@ -23,17 +22,17 @@ namespace specialization {
 /// - bcasts can get ahead of hemms by the value of lookahead.
 /// Note A, B, and C are passed by value, so we can transpose if needed
 /// (for side = right) without affecting caller.
-/// @ingroup hemm_specialization
+/// @ingroup hemm_impl
 ///
 /// ColMajor layout is assumed
 ///
 template <Target target, typename scalar_t>
-void hemmC( slate::internal::TargetType<target>,
-            Side side,
-            scalar_t alpha, HermitianMatrix<scalar_t> A,
-            Matrix<scalar_t> B,
-            scalar_t beta,  Matrix<scalar_t> C,
-            int64_t lookahead)
+void hemmC(
+    Side side,
+    scalar_t alpha, HermitianMatrix<scalar_t> A,
+    Matrix<scalar_t> B,
+    scalar_t beta,  Matrix<scalar_t> C,
+    Options const& opts)
 {
     // Due to the symmetry, each off diagonal tile is sent twice, once as part
     // of A and once as art of A^T. In principle, this could be avoided by
@@ -45,6 +44,7 @@ void hemmC( slate::internal::TargetType<target>,
 
     using blas::conj;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
     // Constants
     const scalar_t one = 1.0;
@@ -68,11 +68,21 @@ void hemmC( slate::internal::TargetType<target>,
     assert( B.mt() == C.mt() );
     assert( B.nt() == C.nt() );
 
+    // Use only TileReleaseStrategy::Slate for hemm.
+    // Internal hemm and gemm routines called here won't release
+    // any tiles. This routine will clean up tiles.
+    Options opts_local = opts;
+    opts_local[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
+
+    int64_t lookahead = get_option<int64_t>( opts_local, Option::Lookahead, 1 );
+
     // OpenMP needs pointer  types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector( A.nt() );
     std::vector<uint8_t>  gemm_vector( A.nt() );
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
+    const int default_priority = 0;
+    const int default_queue = 0;
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -141,19 +151,44 @@ void hemmC( slate::internal::TargetType<target>,
             #pragma omp task depend(in:bcast[0]) \
                              depend(out:gemm[0])
             {
+                auto Brow_0 = B.sub( 0, 0, 0, B.nt()-1 );
                 internal::hemm<Target::HostTask>(
                     Side::Left,
                     alpha, A.sub( 0, 0 ),
-                           B.sub( 0, 0, 0, B.nt()-1 ),
-                    beta,  C.sub( 0, 0, 0, C.nt()-1 ) );
+                           std::move( Brow_0 ),
+                    beta,  C.sub( 0, 0, 0, C.nt()-1 ),
+                    default_priority, opts_local );
+
+                // Erase remote tile on all devices including host
+                A.eraseRemoteWorkspaceTile( 0, 0 );
+                // Erase local workspace on devices.
+                A.eraseLocalWorkspaceTile( 0, 0 );
 
                 if (A.mt()-1 > 0) {
+                    auto Acol_0 = A.sub( 1, A.mt()-1, 0, 0 );
                     internal::gemm<target>(
-                        alpha, A.sub( 1, A.mt()-1, 0, 0 ),
-                               B.sub( 0, 0, 0, B.nt()-1 ),
+                        alpha, std::move( Acol_0 ),
+                               std::move( Brow_0 ),
                         beta,  C.sub( 1, C.mt()-1, 0, C.nt()-1 ),
-                        layout );
+                        layout, default_priority, default_queue, opts_local );
+
+                    Acol_0.eraseLocalWorkspace();
+
+                    std::set<ij_tuple> tile_set;
+                    for (int64_t i = 1; i < A.mt(); ++i) {
+                        if (! A.tileIsLocal( i, 0 ) ) {
+                            for (int64_t j = 0; j < C.nt(); ++j) {
+                                if (C.tileIsLocal( i, j )) {
+                                    tile_set.insert( {i, 0} );
+                                }
+                            }
+                        }
+                    }
+                    A.eraseRemoteWorkspace( tile_set );
                 }
+
+                Brow_0.eraseRemoteWorkspace();
+                Brow_0.eraseLocalWorkspace();
             }
 
             for (int64_t k = 1; k < A.nt(); ++k) {
@@ -200,25 +235,51 @@ void hemmC( slate::internal::TargetType<target>,
                                  depend(out:gemm[k])
                 {
                     auto Arow_k = A.sub(k, k, 0, k-1);
+                    auto Brow_k = B.sub( k, k, 0, B.nt()-1 );
                     internal::gemm<target>(
                         alpha,  conjTranspose( Arow_k ),
-                                B.sub( k, k, 0, B.nt()-1 ),
+                                std::move( Brow_k ),
                         one,    C.sub( 0, k-1, 0, C.nt()-1 ),
-                        layout );
+                        layout, default_priority, default_queue, opts_local );
+
+                    Arow_k.eraseRemoteWorkspace();
+                    Arow_k.eraseLocalWorkspace();
 
                     internal::hemm<Target::HostTask>(
                         Side::Left,
                         alpha,  A.sub( k, k ),
-                                B.sub( k, k, 0, B.nt()-1 ),
-                        one,    C.sub( k, k, 0, C.nt()-1 ) );
+                                std::move( Brow_k ),
+                        one,    C.sub( k, k, 0, C.nt()-1 ),
+                        default_priority, opts_local);
+
+                    A.eraseRemoteWorkspaceTile( k, k );
+                    A.eraseLocalWorkspaceTile( k, k );
 
                     if (A.mt()-1 > k) {
+                        auto Acol_k = A.sub( k+1, A.mt()-1, k, k );
                         internal::gemm<target>(
-                            alpha,  A.sub( k+1, A.mt()-1, k, k ),
-                                    B.sub( k, k, 0, B.nt()-1 ),
+                            alpha,  std::move( Acol_k ),
+                                    std::move( Brow_k ),
                             one,    C.sub( k+1, C.mt()-1, 0, C.nt()-1 ),
-                            layout );
+                            layout, default_priority, default_queue, opts_local );
+
+                        Acol_k.eraseLocalWorkspace();
+
+                        std::set<ij_tuple> tile_set;
+                        for (int64_t i = k+1; i < A.mt(); ++i) {
+                            if (! A.tileIsLocal( i, k ) ) {
+                                for (int64_t j = 0; j < C.nt(); ++j) {
+                                    if (C.tileIsLocal( i, j )) {
+                                        tile_set.insert( {i, k} );
+                                    }
+                                }
+                            }
+                        }
+                        A.eraseRemoteWorkspace( tile_set );
                     }
+
+                    Brow_k.eraseRemoteWorkspace();
+                    Brow_k.eraseLocalWorkspace();
                 }
             }
         }
@@ -278,20 +339,40 @@ void hemmC( slate::internal::TargetType<target>,
             #pragma omp task depend(in:bcast[0]) \
                              depend(out:gemm[0])
             {
+                auto Brow_0 = B.sub( 0, 0, 0, B.nt()-1 );
                 internal::hemm<Target::HostTask>(
                     Side::Left,
                     alpha, A.sub( 0, 0 ),
-                           B.sub( 0, 0, 0, B.nt()-1 ),
-                    beta,  C.sub( 0, 0, 0, C.nt()-1 ) );
+                           std::move( Brow_0 ),
+                    beta,  C.sub( 0, 0, 0, C.nt()-1 ),
+                    default_priority, opts_local);
+
+                A.eraseRemoteWorkspaceTile( 0, 0 );
+                A.eraseLocalWorkspaceTile( 0, 0 );
 
                 if (A.mt()-1 > 0) {
-                    auto Arow_k = A.sub( 0, 0, 1, A.mt()-1 );
+                    auto Arow_0 = A.sub( 0, 0, 1, A.mt()-1 );
                     internal::gemm<target>(
-                        alpha, conjTranspose( Arow_k ),
-                               B.sub( 0, 0, 0, B.nt()-1 ),
+                        alpha, conjTranspose( Arow_0 ),
+                               std::move( Brow_0 ),
                         beta,  C.sub( 1, C.mt()-1, 0, C.nt()-1 ),
-                        layout );
+                        layout, default_priority, default_queue, opts_local );
+
+                    Arow_0.eraseLocalWorkspace();
+
+                    std::set<ij_tuple> tile_set;
+                    for (int64_t i = 1; i < A.mt(); ++i) {
+                        for (int64_t j = 0; j < C.nt(); ++j) {
+                            if (C.tileIsLocal( i, j ) && ! A.tileIsLocal( 0, i )) {
+                                tile_set.insert( {0, i} );
+                            }
+                        }
+                    }
+                    A.eraseRemoteWorkspace( tile_set );
                 }
+
+                Brow_0.eraseRemoteWorkspace();
+                Brow_0.eraseLocalWorkspace();
             }
 
             for (int64_t k = 1; k < A.nt(); ++k) {
@@ -337,26 +418,50 @@ void hemmC( slate::internal::TargetType<target>,
                                  depend(in:gemm[k-1]) \
                                  depend(out:gemm[k])
                 {
+                    auto Acol_k = A.sub( 0, k-1, k, k );
+                    auto Brow_k = B.sub( k, k, 0, B.nt()-1 );
                     internal::gemm<target>(
-                        alpha,  A.sub( 0, k-1, k, k ),
-                                B.sub( k, k, 0, B.nt()-1 ),
+                        alpha,  std::move( Acol_k ),
+                                std::move( Brow_k ),
                         one,    C.sub( 0, k-1, 0, C.nt()-1 ),
-                        layout );
+                        layout, default_priority, default_queue, opts_local );
+
+                    Acol_k.eraseRemoteWorkspace();
+                    Acol_k.eraseLocalWorkspace();
 
                     internal::hemm<Target::HostTask>(
                         Side::Left,
                         alpha,  A.sub( k, k ),
-                                B.sub( k, k, 0, B.nt()-1 ),
-                        one,    C.sub( k, k, 0, C.nt()-1 ) );
+                                std::move( Brow_k ),
+                        one,    C.sub( k, k, 0, C.nt()-1 ),
+                        default_priority, opts_local);
+
+                    A.eraseRemoteWorkspaceTile( k, k );
+                    A.eraseLocalWorkspaceTile( k, k );
 
                     if (A.mt()-1 > k) {
                         auto Arow_k = A.sub( k, k, k+1, A.mt()-1 );
                         internal::gemm<target>(
                             alpha,  conjTranspose( Arow_k ),
-                                    B.sub( k, k, 0, B.nt()-1 ),
+                                    std::move( Brow_k ),
                             one,    C.sub( k+1, C.mt()-1, 0, C.nt()-1 ),
-                            layout );
+                            layout, default_priority, default_queue, opts_local );
+
+                        Arow_k.eraseLocalWorkspace();
+
+                        std::set<ij_tuple> tile_set;
+                        for (int64_t i = k+1; i < A.mt(); ++i) {
+                            for (int64_t j = 0; j < C.nt(); ++j) {
+                                if (C.tileIsLocal( i, j ) && ! A.tileIsLocal( k, i )) {
+                                    tile_set.insert( {k, i} );
+                                }
+                            }
+                        }
+                        A.eraseRemoteWorkspace( tile_set );
                     }
+
+                    Brow_k.eraseRemoteWorkspace();
+                    Brow_k.eraseLocalWorkspace();
                 }
             }
         }
@@ -368,29 +473,7 @@ void hemmC( slate::internal::TargetType<target>,
     C.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup hemm_specialization
-///
-template <Target target, typename scalar_t>
-void hemmC( Side side,
-            scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                            Matrix<scalar_t>& B,
-            scalar_t beta,  Matrix<scalar_t>& C,
-            Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::hemmC( internal::TargetType<target>(),
-                                     side,
-                                     alpha, A,
-                                            B,
-                                     beta,  C,
-                                     lookahead );
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Hermitian matrix-matrix multiplication.
@@ -453,21 +536,22 @@ void hemmC( Side side,
             scalar_t beta,  Matrix<scalar_t>& C,
             Options const& opts)
 {
+    using internal::TargetType;
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            hemmC<Target::HostTask>( side, alpha, A, B, beta, C, opts );
+            impl::hemmC<Target::HostTask>( side, alpha, A, B, beta, C, opts );
             break;
         case Target::HostNest:
-            hemmC<Target::HostNest>( side, alpha, A, B, beta, C, opts );
+            impl::hemmC<Target::HostNest>( side, alpha, A, B, beta, C, opts );
             break;
         case Target::HostBatch:
-            hemmC<Target::HostBatch>( side, alpha, A, B, beta, C, opts );
+            impl::hemmC<Target::HostBatch>( side, alpha, A, B, beta, C, opts );
             break;
         case Target::Devices:
-            hemmC<Target::Devices>( side, alpha, A, B, beta, C, opts );
+            impl::hemmC<Target::Devices>( side, alpha, A, B, beta, C, opts );
             break;
     }
 }

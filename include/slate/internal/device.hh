@@ -79,8 +79,8 @@ void tzcopy(
 template <typename scalar_t>
 void geadd(
     int64_t m, int64_t n,
-    scalar_t alpha, scalar_t* A, int64_t lda,
-    scalar_t beta, scalar_t* B, int64_t ldb,
+    scalar_t const& alpha, scalar_t* A, int64_t lda,
+    scalar_t const& beta, scalar_t* B, int64_t ldb,
     blas::Queue& queue);
 
 //------------------------------------------------------------------------------
@@ -88,8 +88,8 @@ template <typename scalar_t>
 void tzadd(
      Uplo uplo,
      int64_t m, int64_t n,
-     scalar_t alpha, scalar_t** Aarray, int64_t lda,
-     scalar_t beta, scalar_t** Barray, int64_t ldb,
+     scalar_t const& alpha, scalar_t** Aarray, int64_t lda,
+     scalar_t const& beta, scalar_t** Barray, int64_t ldb,
      int64_t batch_count, blas::Queue& queue);
 
 //------------------------------------------------------------------------------
@@ -122,7 +122,7 @@ void gescale_row_col_batch(
 template <typename scalar_t>
 void geset(
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t const& offdiag_value, scalar_t const& diag_value,
     scalar_t* A, int64_t lda,
     blas::Queue& queue);
 
@@ -131,7 +131,7 @@ template <typename scalar_t>
 void tzset(
     Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t const& offdiag_value, scalar_t const& diag_value,
     scalar_t* A, int64_t lda,
     blas::Queue& queue );
 
@@ -149,8 +149,8 @@ void gescale(
 template <typename scalar_t>
 void geadd(
     int64_t m, int64_t n,
-    scalar_t alpha, scalar_t** Aarray, int64_t lda,
-    scalar_t beta, scalar_t** Barray, int64_t ldb,
+    scalar_t const& alpha, scalar_t** Aarray, int64_t lda,
+    scalar_t const& beta, scalar_t** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue& queue);
 
 
@@ -158,7 +158,7 @@ void geadd(
 template <typename scalar_t>
 void geset(
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t const& offdiag_value, scalar_t const& diag_value,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
 
@@ -167,7 +167,7 @@ template <typename scalar_t>
 void tzset(
     Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t const& offdiag_value, scalar_t const& diag_value,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue );
 

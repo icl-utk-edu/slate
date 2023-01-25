@@ -18,7 +18,6 @@
 #include <cstdlib>
 #include <utility>
 
-#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template <typename matrix_type>
 void test_copy_work(Params& params, bool run)
@@ -82,6 +81,7 @@ void test_copy_work(Params& params, bool run)
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector<scalar_t> A_data, B_data;
+    real_t A_norm, B_norm;
 
     int64_t nlocB = nlocA, lldB = lldA;
 
@@ -188,8 +188,8 @@ void test_copy_work(Params& params, bool run)
             scalapack_descinit(B_desc, m, n, nb, nb, 0, 0, ictxt, lldB, &info);
             slate_assert(info == 0);
 
-            real_t A_norm = slate::norm( slate::Norm::Max, A );
-            real_t B_norm = slate::norm( slate::Norm::Max, B );
+            A_norm = slate::norm( slate::Norm::Max, A );
+            B_norm = slate::norm( slate::Norm::Max, B );
 
             print_matrix( "Aref_full", Aref_full, params );
             print_matrix( "Bref_full", Bref_full, params );
@@ -230,6 +230,12 @@ void test_copy_work(Params& params, bool run)
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
+        #else  // not SLATE_HAVE_SCALAPACK
+            SLATE_UNUSED( one );
+            SLATE_UNUSED( A_norm );
+            SLATE_UNUSED( B_norm );
+            if (mpi_rank == 0)
+                printf( "ScaLAPACK not available\n" );
         #endif
     }
 }

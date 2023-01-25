@@ -18,8 +18,8 @@ namespace device {
 template <>
 void geadd(
     int64_t m, int64_t n,
-    std::complex<float> alpha, std::complex<float>* A, int64_t lda,
-    std::complex<float> beta, std::complex<float>* B, int64_t ldb,
+    std::complex<float> const& alpha, std::complex<float>* A, int64_t lda,
+    std::complex<float> const& beta, std::complex<float>* B, int64_t ldb,
     blas::Queue &queue)
 {
 #if defined( BLAS_HAVE_CUBLAS )
@@ -43,8 +43,8 @@ void geadd(
 template <>
 void geadd(
     int64_t m, int64_t n,
-    std::complex<double> alpha, std::complex<double>* A, int64_t lda,
-    std::complex<double> beta, std::complex<double>* B, int64_t ldb,
+    std::complex<double> const& alpha, std::complex<double>* A, int64_t lda,
+    std::complex<double> const& beta, std::complex<double>* B, int64_t ldb,
     blas::Queue &queue)
 {
 #if defined( BLAS_HAVE_CUBLAS )
@@ -70,8 +70,8 @@ void geadd(
 template <>
 void geadd(
     int64_t m, int64_t n,
-    double alpha, double* A, int64_t lda,
-    double beta, double* B, int64_t ldb,
+    double const& alpha, double* A, int64_t lda,
+    double const& beta, double* B, int64_t ldb,
     blas::Queue &queue)
 {
 }
@@ -79,8 +79,8 @@ void geadd(
 template <>
 void geadd(
     int64_t m, int64_t n,
-    float alpha, float* A, int64_t lda,
-    float beta, float* B, int64_t ldb,
+    float const& alpha, float* A, int64_t lda,
+    float const& beta, float* B, int64_t ldb,
     blas::Queue &queue)
 {
 }
@@ -92,8 +92,8 @@ namespace batch {
 template <>
 void geadd(
     int64_t m, int64_t n,
-    std::complex<float> alpha, std::complex<float>** Aarray, int64_t lda,
-    std::complex<float> beta, std::complex<float>** Barray, int64_t ldb,
+    std::complex<float> const& alpha, std::complex<float>** Aarray, int64_t lda,
+    std::complex<float> const& beta, std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
 #if defined( BLAS_HAVE_CUBLAS )
@@ -117,8 +117,8 @@ void geadd(
 template <>
 void geadd(
     int64_t m, int64_t n,
-    std::complex<double> alpha, std::complex<double>** Aarray, int64_t lda,
-    std::complex<double> beta, std::complex<double>** Barray, int64_t ldb,
+    std::complex<double> const& alpha, std::complex<double>** Aarray, int64_t lda,
+    std::complex<double> const& beta, std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
 #if defined( BLAS_HAVE_CUBLAS )
@@ -144,8 +144,8 @@ void geadd(
 template <>
 void geadd(
     int64_t m, int64_t n,
-    double alpha, double** Aarray, int64_t lda,
-    double beta, double** Barray, int64_t ldb,
+    double const& alpha, double** Aarray, int64_t lda,
+    double const& beta, double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
 }
@@ -153,8 +153,8 @@ void geadd(
 template <>
 void geadd(
     int64_t m, int64_t n,
-    float alpha, float** Aarray, int64_t lda,
-    float beta, float** Barray, int64_t ldb,
+    float const& alpha, float** Aarray, int64_t lda,
+    float const& beta, float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
 }
@@ -344,7 +344,6 @@ void add(internal::TargetType<Target::Devices>,
             scalar_t** b_array_dev = a_array_dev + batch_size;
 
             blas::Queue* queue = B.compute_queue(device, queue_index);
-            blas::set_device( queue->device() );
 
             blas::device_memcpy<scalar_t*>(a_array_dev, a_array_host,
                                 batch_count*2,

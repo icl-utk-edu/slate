@@ -11,10 +11,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::syrk from internal::specialization::syrk
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
@@ -26,13 +23,13 @@ namespace specialization {
 /// - bcasts can get ahead of syrks by the value of lookahead.
 /// Note A and C are passed by value, so we can transpose if needed
 /// (for uplo = Upper) without affecting caller.
-/// @ingroup syrk_specialization
+/// @ingroup syrk_impl
 ///
 template <Target target, typename scalar_t>
-void syrk(slate::internal::TargetType<target>,
-          scalar_t alpha, Matrix<scalar_t> A,
-          scalar_t beta,  SymmetricMatrix<scalar_t> C,
-          int64_t lookahead)
+void syrk(
+    scalar_t alpha, Matrix<scalar_t> A,
+    scalar_t beta,  SymmetricMatrix<scalar_t> C,
+    Options const& opts )
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
@@ -41,6 +38,9 @@ void syrk(slate::internal::TargetType<target>,
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+
     // if upper, change to lower
     if (C.uplo() == Uplo::Upper)
         C = transpose(C);
@@ -48,11 +48,19 @@ void syrk(slate::internal::TargetType<target>,
     // A is mt-by-nt, C is mt-by-mt
     assert(A.mt() == C.mt());
 
+    // Use only TileReleaseStrategy::Slate for syrk.
+    // Internal syrk routine called here won't release
+    // any tiles. This routine will clean up tiles.
+    Options const opts_local =  {
+        {slate::Option::TileReleaseStrategy, TileReleaseStrategy::Slate}};
+
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
     std::vector<uint8_t>  gemm_vector(A.nt());
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
+    const int default_priority = 0;
+    const int default_queue = 0;
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -99,9 +107,17 @@ void syrk(slate::internal::TargetType<target>,
         #pragma omp task depend(in:bcast[0]) \
                          depend(out:gemm[0])
         {
+            auto A_col0 = A.sub( 0, A.mt()-1, 0, 0 );
             internal::syrk<target>(
-                alpha, A.sub(0, A.mt()-1, 0, 0),
-                beta,  std::move( C ) );
+                alpha, std::move( A_col0 ),
+                beta,  std::move( C ),
+                default_priority, default_queue, layout, opts_local );
+
+            // Erase remote tiles on all devices including host
+            A_col0.eraseRemoteWorkspace();
+
+            // Erase local workspace on devices.
+            A_col0.eraseLocalWorkspace();
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -129,9 +145,18 @@ void syrk(slate::internal::TargetType<target>,
                              depend(in:gemm[k-1]) \
                              depend(out:gemm[k])
             {
+                auto A_colk = A.sub( 0, A.mt()-1, k, k );
+
                 internal::syrk<target>(
-                    alpha, A.sub(0, A.mt()-1, k, k),
-                    one,   std::move( C ) );
+                    alpha, std::move( A_colk ),
+                    one,   std::move( C ),
+                    default_priority, default_queue, layout, opts_local );
+
+                // Erase remote tiles on all devices including host
+                A_colk.eraseRemoteWorkspace();
+
+                // Erase local workspace on devices.
+                A_colk.eraseLocalWorkspace();
             }
         }
 
@@ -142,25 +167,7 @@ void syrk(slate::internal::TargetType<target>,
     C.clearWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup syrk_specialization
-///
-template <Target target, typename scalar_t>
-void syrk(scalar_t alpha, Matrix<scalar_t>& A,
-          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::syrk(internal::TargetType<target>(),
-                                   alpha, A,
-                                   beta,  C,
-                                   lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel symmetric rank k update.
@@ -208,25 +215,29 @@ void syrk(scalar_t alpha, Matrix<scalar_t>& A,
 /// @ingroup syrk
 ///
 template <typename scalar_t>
-void syrk(scalar_t alpha, Matrix<scalar_t>& A,
-          scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          Options const& opts)
+void syrk(
+    scalar_t alpha, Matrix<scalar_t>& A,
+    scalar_t beta,  SymmetricMatrix<scalar_t>& C,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            syrk<Target::HostTask>(alpha, A, beta, C, opts);
+            impl::syrk<Target::HostTask>( alpha, A, beta, C, opts );
             break;
+
         case Target::HostNest:
-            syrk<Target::HostNest>(alpha, A, beta, C, opts);
+            impl::syrk<Target::HostNest>( alpha, A, beta, C, opts );
             break;
+
         case Target::HostBatch:
-            syrk<Target::HostBatch>(alpha, A, beta, C, opts);
+            impl::syrk<Target::HostBatch>( alpha, A, beta, C, opts );
             break;
+
         case Target::Devices:
-            syrk<Target::Devices>(alpha, A, beta, C, opts);
+            impl::syrk<Target::Devices>( alpha, A, beta, C, opts );
             break;
     }
 }

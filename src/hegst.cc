@@ -9,25 +9,25 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::hegst from internal::specialization::hegst
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel reduction of a complex Hermitian positive-definite
 /// generalized eigenvalue problem to the standard form.
 /// Generic implementation for any target.
-/// @ingroup hegv_specialization
+/// @ingroup hegv_impl
 ///
 template <Target target, typename scalar_t>
-void hegst(slate::internal::TargetType<target>,
-           int64_t itype, HermitianMatrix<scalar_t> A,
-                          HermitianMatrix<scalar_t> B,
-           int64_t lookahead)
+void hegst(
+    int64_t itype, HermitianMatrix<scalar_t> A,
+                   HermitianMatrix<scalar_t> B,
+    Options const& opts )
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
     using real_t = blas::real_type<scalar_t>;
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     if (itype != 1 && itype != 2 && itype != 3) {
         throw Exception("itype must be: 1, 2, or 3");
@@ -216,23 +216,7 @@ void hegst(slate::internal::TargetType<target>,
     A.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup hegv_specialization
-///
-template <Target target, typename scalar_t>
-void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
-                          HermitianMatrix<scalar_t>& B,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::hegst(internal::TargetType<target>(),
-                                    itype, A, B, lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel reduction of a complex Hermitian positive-definite
@@ -291,25 +275,29 @@ void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
 /// @ingroup hegv_computational
 ///
 template <typename scalar_t>
-void hegst(int64_t itype, HermitianMatrix<scalar_t>& A,
-                          HermitianMatrix<scalar_t>& B,
-           Options const& opts)
+void hegst(
+    int64_t itype, HermitianMatrix<scalar_t>& A,
+                   HermitianMatrix<scalar_t>& B,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            hegst<Target::HostTask>(itype, A, B, opts);
+            impl::hegst<Target::HostTask>( itype, A, B, opts );
             break;
+
         case Target::HostNest:
-            hegst<Target::HostNest>(itype, A, B, opts);
+            impl::hegst<Target::HostNest>( itype, A, B, opts );
             break;
+
         case Target::HostBatch:
-            hegst<Target::HostBatch>(itype, A, B, opts);
+            impl::hegst<Target::HostBatch>( itype, A, B, opts );
             break;
+
         case Target::Devices:
-            hegst<Target::Devices>(itype, A, B, opts);
+            impl::hegst<Target::Devices>( itype, A, B, opts );
             break;
     }
     // todo: return value for errors?

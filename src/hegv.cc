@@ -100,8 +100,8 @@ void hegv(
         if (itype == 1 || itype == 2) {
             // For A x = lambda B x and A B x = lambda x,
             // backtransform eigenvectors: x = inv(L)^H y.
-            // todo: missing conj-transpose?
-            trsm( Side::Left, one, L, Z, opts );
+            auto LH = conj_transpose( L );
+            trsm( Side::Left, one, LH, Z, opts );
         }
         else {
             // For B A x = lambda x,

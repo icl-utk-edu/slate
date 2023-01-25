@@ -62,9 +62,14 @@ void test_addDeviceBlocks()
         test_skip("no GPU devices available");
     }
 
-    const int cnt = 5;
+    // device specific queues
+    std::vector< blas::Queue* > dev_queues(mem.num_devices_);
+    for (int dev = 0; dev < mem.num_devices_; ++dev)
+        dev_queues[dev] = new blas::Queue(dev, 0);
+
+    const int cnt = 7;
     for (int dev = 0; dev < mem.num_devices_; ++dev) {
-        mem.addDeviceBlocks(dev, cnt);
+        mem.addDeviceBlocks(dev, cnt, dev_queues[dev]);
         test_assert(int(mem.available(dev)) == cnt);
         test_assert(int(mem.capacity (dev)) == cnt);
 
@@ -77,6 +82,15 @@ void test_addDeviceBlocks()
 
     test_assert( int( mem.available( HostNum ) ) == 0 );
     test_assert( int( mem.capacity(  HostNum ) ) == 0 );
+
+    // deallocate/clear memory before the slate::Memory destructer
+    mem.clearHostBlocks();
+    for (int dev = 0; dev < mem.num_devices_; ++dev)
+        mem.clearDeviceBlocks(dev, dev_queues[dev]);
+
+    // free the device specific queues
+    for (int dev = 0; dev < mem.num_devices_; ++dev)
+        delete dev_queues[dev];
 }
 
 //------------------------------------------------------------------------------
@@ -85,14 +99,14 @@ void test_alloc_host()
 {
     slate::Memory mem(sizeof(double) * nb * nb);
 
-    const int cnt = 5;
+    const int cnt = 9;
     mem.addHostBlocks(cnt);
 
     // Allocate 2*cnt blocks.
     // First cnt blocks come from reserve, next cnt blocks malloc'd 1-by-1.
     double* hx[ 2*cnt ];
     for (int i = 0; i < 2*cnt; ++i) {
-        hx[i] = (double*) mem.alloc( HostNum, sizeof(double) * nb * nb );
+        hx[i] = (double*) mem.alloc( HostNum, sizeof(double) * nb * nb, nullptr );
         test_assert(hx[i] != nullptr);
         // Memory class no longer reserves CPU blocks, it allocates on-the-fly.
         //test_assert( int( mem.available( HostNum ) ) == max( cnt-(i+1), 0 ) );
@@ -119,7 +133,7 @@ void test_alloc_host()
 
     // Re-alloc some.
     for (int i = 0; i < some; ++i) {
-        hx[i] = (double*) mem.alloc( HostNum, sizeof(double) * nb * nb );
+        hx[i] = (double*) mem.alloc( HostNum, sizeof(double) * nb * nb, nullptr);
         test_assert(hx[i] != nullptr);
         //test_assert( int( mem.available( HostNum ) ) == some - ( i+1 ) );
         //test_assert( int( mem.capacity(  HostNum ) ) == 2*cnt );
@@ -140,25 +154,29 @@ void test_alloc_device()
     double* hx = new double[ nb*nb ];
     const int batch_arrays_index = 0;
 
+    // device specific queues
+    std::vector< blas::Queue* > dev_queues(mem.num_devices_);
+    for (int dev = 0; dev < mem.num_devices_; ++dev)
+        dev_queues[dev] = new blas::Queue(dev, batch_arrays_index);
+
     const int cnt = 5;
     for (int dev = 0; dev < mem.num_devices_; ++dev) {
-        mem.addDeviceBlocks(dev, cnt);
+        // Reserve cnt blocks
+        mem.addDeviceBlocks(dev, cnt, dev_queues[dev]);
 
         // Allocate 2*cnt blocks.
         // First cnt blocks come from reserve, next cnt blocks malloc'd 1-by-1.
         double* dx[ 2*cnt ];
         for (int i = 0; i < 2*cnt; ++i) {
-            dx[i] = (double*) mem.alloc(dev, sizeof(double) * nb * nb);
+            dx[i] = (double*) mem.alloc(dev, sizeof(double) * nb * nb, dev_queues[dev]);
             test_assert(dx[i] != nullptr);
             test_assert(int(mem.available(dev)) == max(cnt - (i+1), 0));
             test_assert(int(mem.capacity (dev)) == max(cnt, i+1));
 
             // Touch memory to verify it is valid.
-            blas::Queue queue(dev, batch_arrays_index);
-            blas::set_device(dev);
             blas::device_memcpy<double>(dx[i], hx, nb * nb,
                                         blas::MemcpyKind::HostToDevice,
-                                        queue);
+                                        *dev_queues[dev]);
         }
 
         // Free some.
@@ -172,12 +190,23 @@ void test_alloc_device()
 
         // Re-alloc some.
         for (int i = 0; i < some; ++i) {
-            dx[i] = (double*) mem.alloc(dev, sizeof(double) * nb * nb);
+            dx[i] = (double*) mem.alloc(dev, sizeof(double) * nb * nb, dev_queues[dev]);
             test_assert(dx[i] != nullptr);
             test_assert(int(mem.available(dev)) == some - (i+1));
             test_assert(int(mem.capacity (dev)) == 2*cnt);
         }
     }
+
+    // deallocate/clear memory before the slate::Memory destructer
+    mem.clearHostBlocks();
+    for (int dev = 0; dev < mem.num_devices_; ++dev) {
+        mem.clearDeviceBlocks(dev, dev_queues[dev] );
+        dev_queues[dev]->sync();
+    }
+
+    // free the device specific queues
+    for (int dev = 0; dev < mem.num_devices_; ++dev)
+        delete dev_queues[dev];
 
     delete[] hx;
 }
@@ -197,7 +226,7 @@ void test_clearHostBlocks()
 
     // Allocate 2*cnt blocks.
     for (int i = 0; i < 2*cnt; ++i) {
-        mem.alloc( HostNum, sizeof(double) * nb * nb );
+        mem.alloc( HostNum, sizeof(double) * nb * nb, nullptr );
     }
 
     test_assert( int( mem.available( HostNum ) ) == 0 );
@@ -219,13 +248,18 @@ void test_clearDeviceBlocks()
         test_skip("no GPU devices available");
     }
 
-    const int cnt = 5;
+    // device specific queues
+    std::vector< blas::Queue* > dev_queues(mem.num_devices_);
+    for (int dev = 0; dev < mem.num_devices_; ++dev)
+        dev_queues[dev] = new blas::Queue(dev, 0);
+
+    const int cnt = 13;
     for (int dev = 0; dev < mem.num_devices_; ++dev) {
-        mem.addDeviceBlocks(dev, cnt);
+        mem.addDeviceBlocks(dev, cnt, dev_queues[dev]);
 
         // Allocate 2*cnt blocks.
         for (int i = 0; i < 2*cnt; ++i) {
-            mem.alloc(dev, sizeof(double) * nb * nb);
+            mem.alloc(dev, sizeof(double) * nb * nb, dev_queues[dev]);
         }
     }
 
@@ -233,11 +267,23 @@ void test_clearDeviceBlocks()
         test_assert(int(mem.available(dev)) == 0);
         test_assert(int(mem.capacity (dev)) == 2*cnt);
 
-        mem.clearDeviceBlocks(dev);
+        mem.clearDeviceBlocks(dev, dev_queues[dev]);
 
         test_assert(int(mem.available(dev)) == 0);
         test_assert(int(mem.capacity (dev)) == 0);
     }
+
+    // deallocate/clear memory before the slate::Memory destructer
+    mem.clearHostBlocks();
+    for (int dev = 0; dev < mem.num_devices_; ++dev) {
+       dev_queues[dev]->sync();
+        mem.clearDeviceBlocks(dev, dev_queues[dev] );
+        dev_queues[dev]->sync();
+    }
+
+    // free the device specific queues
+    for (int dev = 0; dev < mem.num_devices_; ++dev)
+        delete dev_queues[dev];
 }
 
 //------------------------------------------------------------------------------
@@ -247,8 +293,8 @@ void run_tests()
     run_test(test_Memory,            "Memory()");
     run_test(test_addHostBlocks,     "addHostBlocks");
     run_test(test_addDeviceBlocks,   "addDeviceBlocks");
-    run_test(test_alloc_host,        "alloc and free (host)");
-    run_test(test_alloc_device,      "alloc and free (device)");
+    run_test(test_alloc_host,        "alloc and free (alloc_host)");
+    run_test(test_alloc_device,      "alloc and free (alloc_device)");
     run_test(test_clearHostBlocks,   "clearHostBlocks");
     run_test(test_clearDeviceBlocks, "clearDeviceBlocks");
 }

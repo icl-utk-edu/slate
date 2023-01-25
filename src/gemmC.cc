@@ -12,6 +12,7 @@
 namespace slate {
 
 namespace impl {
+
 //------------------------------------------------------------------------------
 /// @internal
 /// Distributed parallel general matrix-matrix multiplication.
@@ -22,28 +23,31 @@ namespace impl {
 /// - bcasts can get ahead of gemms by the value of lookahead.
 /// ColMajor layout is assumed
 ///
-/// @ingroup gemm_specialization
+/// @ingroup gemm_impl
 ///
 template <Target target, typename scalar_t>
-void gemmC(scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
-           scalar_t beta,  Matrix<scalar_t>& C,
-           Options const& opts)
+void gemmC(
+    scalar_t alpha, Matrix<scalar_t>& A,
+                    Matrix<scalar_t>& B,
+    scalar_t beta,  Matrix<scalar_t>& C,
+    Options const& opts )
 {
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
+    trace::Block gemm_block( "gemm" );
+
+    // Constants
     const scalar_t one = 1.0;
+    const Layout layout = Layout::ColMajor;
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // Use only TileReleaseStrategy::Slate for gemm.
     // Internal gemm routine called here won't release
     // any tiles. This routine will clean up tiles.
     Options opts2 = opts;
     opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
-
-    int64_t lookahead = get_option<int64_t>( opts2, Option::Lookahead, 1 );
-
-    // Assumes column major
-    const Layout layout = Layout::ColMajor;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
@@ -239,26 +243,30 @@ void gemmC(scalar_t alpha, Matrix<scalar_t>& A,
 /// @ingroup gemm
 ///
 template <typename scalar_t>
-void gemmC(scalar_t alpha, Matrix<scalar_t>& A,
-                           Matrix<scalar_t>& B,
-           scalar_t beta,  Matrix<scalar_t>& C,
-           Options const& opts)
+void gemmC(
+    scalar_t alpha, Matrix<scalar_t>& A,
+                    Matrix<scalar_t>& B,
+    scalar_t beta,  Matrix<scalar_t>& C,
+    Options const& opts)
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::gemmC<Target::HostTask>(alpha, A, B, beta, C, opts);
+            impl::gemmC<Target::HostTask>( alpha, A, B, beta, C, opts );
             break;
+
         case Target::HostNest:
-            impl::gemmC<Target::HostNest>(alpha, A, B, beta, C, opts);
+            impl::gemmC<Target::HostNest>( alpha, A, B, beta, C, opts );
             break;
+
         case Target::HostBatch:
-            impl::gemmC<Target::HostBatch>(alpha, A, B, beta, C, opts);
+            impl::gemmC<Target::HostBatch>( alpha, A, B, beta, C, opts );
             break;
+
         case Target::Devices:
-            impl::gemmC<Target::Devices>(alpha, A, B, beta, C, opts);
+            impl::gemmC<Target::Devices>( alpha, A, B, beta, C, opts );
             break;
     }
 }

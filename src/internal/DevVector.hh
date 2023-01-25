@@ -28,39 +28,40 @@ public:
     /// Constructs vector, allocating in_size elements on device.
     /// Unlike std::vector, elements are uninitialized.
     /// todo: should this take queue instead of device, for SYCL?
-    DevVector( size_t in_size, int device ):
+    DevVector( size_t in_size, int device, blas::Queue &queue ):
         DevVector()
     {
-        resize( in_size, device );
+        resize( in_size, device, queue );
     }
 
     /// Destroys vector, freeing memory.
     ~DevVector()
     {
-        clear();
+        // This is just a check that a clear() was called before the
+        // destructor happens.  The destructor does not maintain
+        // access to the blas::Queue, so the user needs to call
+        // clear(queue) explicity.
+        assert(data_ == nullptr);
     }
 
     // Frees the memory, setting size to 0.
-    void clear()
+    void clear(blas::Queue &queue)
     {
         if (data_) {
-            blas::set_device( device_ );
-            blas::device_free( data_ );
+            blas::device_free( data_, queue );
             data_ = nullptr;
             size_ = 0;
+            device_ = -1;
         }
     }
 
     /// Frees existing memory and allocates new memory for in_size
     /// elements on device. Unlike std::vector, this does not copy old
     /// elements to new array.
-    void resize( size_t in_size, int device )
+    void resize( size_t in_size, int device, blas::Queue &queue )
     {
-        clear();
-
-        device_ = device;
-        blas::set_device( device_ );
-        data_ = blas::device_malloc<scalar_t>( in_size );
+        clear( queue );
+        data_ = blas::device_malloc<scalar_t>( in_size, queue );
         size_ = in_size;
     }
 

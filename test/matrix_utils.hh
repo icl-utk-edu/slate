@@ -22,8 +22,10 @@ void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
     const scalar_t zero = 0;
     set(zero, B);
     for (int64_t i = 0; i < nt; ++i) {
+        int tag_i = i+1;
         if (B.tileIsLocal(i, i)) {
             // diagonal tile
+            A.tileGetForReading(i, i, slate::LayoutConvert::ColMajor);
             auto Aii = A(i, i);
             auto Bii = B(i, i);
             Aii.uplo(slate::Uplo::Lower);
@@ -36,20 +38,21 @@ void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
         }
         if (i+1 < nt && B.tileIsLocal(i+1, i)) {
             // sub-diagonal tile
+            A.tileGetForReading(i+1, i, slate::LayoutConvert::ColMajor);
             auto Ai1i = A(i+1, i);
             auto Bi1i = B(i+1, i);
             Ai1i.uplo(slate::Uplo::Upper);
             Bi1i.uplo(slate::Uplo::Upper);
             slate::tile::tzcopy( Ai1i, Bi1i );
             if (! B.tileIsLocal(i, i+1))
-                B.tileSend(i+1, i, B.tileRank(i, i+1));
+                B.tileSend(i+1, i, B.tileRank(i, i+1), tag_i);
         }
         if (i+1 < nt && B.tileIsLocal(i, i+1)) {
             if (! B.tileIsLocal(i+1, i)) {
                 // Remote copy-transpose B(i+1, i) => B(i, i+1);
                 // assumes square tiles!
-                B.tileRecv(i, i+1, B.tileRank(i+1, i), slate::Layout::ColMajor);
-                slate::tile::deepConjTranspose( B(i, i+1) );
+                B.tileRecv(i+1, i, B.tileRank(i+1, i), slate::Layout::ColMajor, tag_i);
+                slate::tile::deepConjTranspose( B(i+1, i), B(i, i+1) );
             }
             else {
                 // Local copy-transpose B(i+1, i) => B(i, i+1).

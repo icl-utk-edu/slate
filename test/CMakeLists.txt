@@ -5,7 +5,7 @@ message( "---------------------------------------- ScaLAPACK" )
 # User or Spack can give us SCALAPACK_LIBRARIES;
 # otherwise, try to figure it out to match BLAS and MPI.
 # todo: more robust FindScaLAPACK package; several exist.
-if (NOT SCALAPACK_LIBRARIES)
+if (NOT DEFINED SCALAPACK_LIBRARIES)
     if ("${blaspp_defines}" MATCHES "HAVE_MKL")
         if ("${blaspp_defines}" MATCHES "BLAS_ILP64")
             set( int_ "ilp64" )
@@ -23,7 +23,11 @@ if (NOT SCALAPACK_LIBRARIES)
         set( SCALAPACK_LIBRARIES "scalapack" )
     endif()
 endif()
-message( "Using ScaLAPACK library: ${SCALAPACK_LIBRARIES}" )
+if (SCALAPACK_LIBRARIES STREQUAL "none")
+    message( STATUS "Not using ScaLAPACK" )
+else()
+    message( STATUS "Using ScaLAPACK library: ${SCALAPACK_LIBRARIES}" )
+endif()
 
 # Search for TestSweeper library, if not already included (e.g., in SLATE).
 message( "" )
@@ -63,13 +67,20 @@ file(
     GLOB tester_src
     CONFIGURE_DEPENDS
     *.cc
-    *.f
 )
+if (NOT SCALAPACK_LIBRARIES STREQUAL "none")
+    file(
+        GLOB tester_f_src
+        CONFIGURE_DEPENDS
+        *.f
+    )
+endif()
 
 set( tester "${slate_}tester" )
 add_executable(
     ${tester}
     ${tester_src}
+    ${tester_f_src}
 )
 
 # Use and export -std=c++17.
@@ -85,8 +96,12 @@ target_link_libraries(
     ${tester}
     testsweeper
     slate
-    ${SCALAPACK_LIBRARIES}
 )
+
+if (NOT SCALAPACK_LIBRARIES STREQUAL "none")
+    target_compile_definitions( ${tester} PUBLIC "SLATE_HAVE_SCALAPACK" )
+    target_link_libraries( ${tester} ${SCALAPACK_LIBRARIES} )
+endif()
 
 # todo: remove internal includes from testers (e.g., test_posv.cc).
 target_include_directories(

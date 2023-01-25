@@ -30,11 +30,16 @@ Memory::Memory(size_t block_size):
 /// Destructor frees all allocations on host and devices.
 Memory::~Memory()
 {
-    //Debug::printNumFreeMemBlocks(*this);
-
-    clearHostBlocks();
-    for (int device = 0; device < num_devices_; ++device)
-        clearDeviceBlocks(device);
+    // This is just a check that an explicit clear was called before
+    // the destructor happens.  For device/accelerator's, the queue is
+    // needed to release memory (and can't be passed in here).  So to
+    // release the memory, an explicit clear must called using the
+    // queue parameter ( Memory::clearDeviceBlocks(device, *queue) ).
+    assert(capacity_[ HostNum ] == 0);
+    for (int device = 0; device < num_devices_; ++device) {
+        assert(capacity_[ device ] == 0);
+    }
+    // Debug::printNumFreeMemBlocks(*this);
 }
 
 //------------------------------------------------------------------------------
@@ -59,11 +64,11 @@ void Memory::addHostBlocks(int64_t num_blocks)
 /// Allocates num_blocks in given device's memory
 /// and adds them to the pool of free blocks.
 ///
-void Memory::addDeviceBlocks(int device, int64_t num_blocks)
+void Memory::addDeviceBlocks(int device, int64_t num_blocks, blas::Queue *queue)
 {
     // or std::byte* (C++17)
     uint8_t* dev_mem;
-    dev_mem = (uint8_t*) allocDeviceMemory(device, block_size_*num_blocks);
+    dev_mem = (uint8_t*) allocDeviceMemory(device, block_size_*num_blocks, queue);
     capacity_[device] += num_blocks;
 
     for (int64_t i = 0; i < num_blocks; ++i)
@@ -95,7 +100,7 @@ void Memory::clearHostBlocks()
 /// Empties the pool of free blocks of given device's memory and frees the
 /// allocations.
 ///
-void Memory::clearDeviceBlocks(int device)
+void Memory::clearDeviceBlocks(int device, blas::Queue *queue)
 {
     Debug::checkDeviceMemoryLeaks(*this, device);
 
@@ -104,7 +109,7 @@ void Memory::clearDeviceBlocks(int device)
 
     while (! allocated_mem_[device].empty()) {
         void* dev_mem = allocated_mem_[device].top();
-        freeDeviceMemory(device, dev_mem);
+        freeDeviceMemory(device, dev_mem, queue);
         allocated_mem_[device].pop();
     }
     capacity_[device] = 0;
@@ -114,7 +119,7 @@ void Memory::clearDeviceBlocks(int device)
 /// @return single block of memory on the given device, which can be host,
 /// either from free blocks or by allocating a new block.
 ///
-void* Memory::alloc(int device, size_t size)
+void* Memory::alloc(int device, size_t size, blas::Queue* queue)
 {
     void* block;
 
@@ -131,7 +136,7 @@ void* Memory::alloc(int device, size_t size)
                 free_blocks_[device].pop();
             }
             else {
-                block = allocBlock(device);
+                block = allocBlock(device, queue);
             }
         }
     }
@@ -159,13 +164,13 @@ void Memory::free(void* block, int device)
 //------------------------------------------------------------------------------
 /// Allocates a single block of memory on the given device, which can be host.
 ///
-void* Memory::allocBlock(int device)
+void* Memory::allocBlock(int device, blas::Queue *queue)
 {
     void* block;
     if (device == HostNum)
         block = allocHostMemory(block_size_);
     else
-        block = allocDeviceMemory(device, block_size_);
+        block = allocDeviceMemory(device, block_size_, queue);
 
     capacity_[device] += 1;
     return block;
@@ -187,10 +192,9 @@ void* Memory::allocHostMemory(size_t size)
 //------------------------------------------------------------------------------
 /// Allocates GPU device memory of given size.
 ///
-void* Memory::allocDeviceMemory(int device, size_t size)
+void* Memory::allocDeviceMemory(int device, size_t size, blas::Queue *queue)
 {
-    blas::set_device(device);
-    void* dev_mem = blas::device_malloc<char>(size);
+    void* dev_mem = blas::device_malloc<char>(size, *queue);
     allocated_mem_[device].push(dev_mem);
 
     return dev_mem;
@@ -207,10 +211,9 @@ void Memory::freeHostMemory(void* host_mem)
 //------------------------------------------------------------------------------
 /// Frees GPU device memory.
 ///
-void Memory::freeDeviceMemory(int device, void* dev_mem)
+void Memory::freeDeviceMemory(int device, void* dev_mem, blas::Queue *queue)
 {
-    blas::set_device(device);
-    blas::device_free(dev_mem);
+    blas::device_free(dev_mem, *queue);
 }
 
 } // namespace slate

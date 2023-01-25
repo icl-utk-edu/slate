@@ -13,23 +13,22 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::norm from internal::specialization::norm
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
 /// Distributed parallel matrix norm.
 /// Generic implementation for any target.
-/// @ingroup norm_specialization
+/// @ingroup norm_impl
 ///
 template <Target target, typename matrix_type>
-void colNorms(slate::internal::TargetType<target>,
-              Norm in_norm,
-              matrix_type A,
-              blas::real_type<typename matrix_type::value_type>* values)
+void colNorms(
+    Norm in_norm,
+    matrix_type A,
+    blas::real_type< typename matrix_type::value_type >* values,
+    Options const& opts )
 {
+    using internal::mpi_max_nan;
     using scalar_t = typename matrix_type::value_type;
     using real_t = blas::real_type<scalar_t>;
 
@@ -110,23 +109,7 @@ void colNorms(slate::internal::TargetType<target>,
     A.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup norm_specialization
-///
-template <Target target, typename matrix_type>
-void colNorms(Norm in_norm,
-              matrix_type& A,
-              blas::real_type<typename matrix_type::value_type>* values,
-              Options const& opts)
-{
-    return internal::specialization::colNorms(internal::TargetType<target>(),
-                                              in_norm, A,
-                                              values);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel matrix norm.
@@ -161,53 +144,59 @@ void colNorms(Norm in_norm,
 /// @ingroup norm
 ///
 template <typename matrix_type>
-void colNorms(Norm in_norm,
-              matrix_type& A,
-              blas::real_type<typename matrix_type::value_type>* values,
-              Options const& opts)
+void colNorms(
+    Norm in_norm,
+    matrix_type& A,
+    blas::real_type<typename matrix_type::value_type>* values,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            return colNorms<Target::HostTask>(in_norm, A, values, opts);
+            impl::colNorms<Target::HostTask>( in_norm, A, values, opts );
             break;
+
         case Target::HostBatch:
         case Target::HostNest:
-            return colNorms<Target::HostNest>(in_norm, A, values, opts);
+            impl::colNorms<Target::HostNest>( in_norm, A, values, opts );
             break;
+
         case Target::Devices:
-            return colNorms<Target::Devices>(in_norm, A, values, opts);
+            impl::colNorms<Target::Devices>( in_norm, A, values, opts );
             break;
     }
-    throw std::exception();  // todo: invalid target
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void colNorms(Norm in_norm,
-              Matrix<float>& A,
-              float* values,
-              Options const& opts);
+void colNorms(
+    Norm in_norm,
+    Matrix<float>& A,
+    float* values,
+    Options const& opts);
 
 template
-void colNorms(Norm in_norm,
-              Matrix<double>& A,
-              double* values,
-              Options const& opts);
+void colNorms(
+    Norm in_norm,
+    Matrix<double>& A,
+    double* values,
+    Options const& opts);
 
 template
-void colNorms(Norm in_norm,
-              Matrix< std::complex<float> >& A,
-              float* values,
-              Options const& opts);
+void colNorms(
+    Norm in_norm,
+    Matrix< std::complex<float> >& A,
+    float* values,
+    Options const& opts);
 
 template
-void colNorms(Norm in_norm,
-              Matrix< std::complex<double> >& A,
-              double* values,
-              Options const& opts);
+void colNorms(
+    Norm in_norm,
+    Matrix< std::complex<double> >& A,
+    double* values,
+    Options const& opts);
 
 } // namespace slate

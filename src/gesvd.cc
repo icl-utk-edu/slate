@@ -22,9 +22,10 @@ namespace slate {
 /// without affecting caller.
 ///
 template <typename scalar_t>
-void gesvd(Matrix<scalar_t> A,
-           std::vector< blas::real_type<scalar_t> >& S,
-           Options const& opts)
+void gesvd(
+    Matrix<scalar_t> A,
+    std::vector< blas::real_type<scalar_t> >& S,
+    Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
     using std::swap;

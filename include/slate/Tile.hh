@@ -801,7 +801,6 @@ void Tile<scalar_t>::layoutConvert(
     trace::Block trace_block("slate::convertLayout");
 
     if (mb() == nb()) { // square tile (in-place conversion)
-        blas::set_device(device_);
         device::transpose(mb(), data(), stride(), queue);
         if (! async)
             queue.sync();
@@ -824,7 +823,6 @@ void Tile<scalar_t>::layoutConvert(
                 stride_    = user_stride_;
             }
 
-            blas::set_device(device_);
             device::transpose(
                 layout() == Layout::ColMajor ? mb_ : nb_,
                 layout() == Layout::ColMajor ? nb_ : mb_,
@@ -838,7 +836,6 @@ void Tile<scalar_t>::layoutConvert(
 
             int64_t work_stride = layout() == Layout::ColMajor ? nb() : mb();
 
-            blas::set_device(device_);
             device::transpose(
                 layout() == Layout::ColMajor ? mb_ : nb_,
                 layout() == Layout::ColMajor ? nb_ : mb_,
@@ -950,7 +947,6 @@ void Tile<scalar_t>::copyData(
     }
 
     slate_assert(device >= 0);
-    blas::set_device(device);
 
     // If no stride on both sides.
     if (this->isContiguous() &&

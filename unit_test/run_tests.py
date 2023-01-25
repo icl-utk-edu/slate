@@ -42,6 +42,7 @@ group_test.add_argument( '-t', '--test', action='store',
     default='' )
 group_test.add_argument( '--xml', help='XML file to generate for jenkins' )
 group_test.add_argument( '--timeout', action='store', help='timeout in seconds for each routine', type=float )
+group_test.add_argument( '--tee',     action='store_true', help='controls writing to both stdout and stderr' )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -80,7 +81,7 @@ output_redirected = not sys.stdout.isatty()
 def print_tee( *args ):
     global output_redirected
     print( *args )
-    if (output_redirected):
+    if (output_redirected and opts.tee):
         print( *args, file=sys.stderr )
 # end
 

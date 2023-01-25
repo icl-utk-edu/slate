@@ -21,9 +21,10 @@ namespace impl {
 /// @ingroup geqrf_specialization
 ///
 template <Target target, typename scalar_t>
-void cholqr(Matrix<scalar_t>& A,
-            Matrix<scalar_t>& R,
-            Options const& opts)
+void cholqr(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& R,
+    Options const& opts )
 {
     const scalar_t one  = 1.0;
     const scalar_t zero = 0.0;
@@ -66,9 +67,10 @@ void cholqr(Matrix<scalar_t>& A,
 /// @ingroup geqrf_specialization
 ///
 template <Target target, typename scalar_t>
-void cholqr(Matrix<scalar_t>& A,
-            HermitianMatrix<scalar_t>& R,
-            Options const& opts)
+void cholqr(
+    Matrix<scalar_t>& A,
+    HermitianMatrix<scalar_t>& R,
+    Options const& opts )
 {
     slate_assert( R.uplo() == Uplo::Upper );
 
@@ -96,9 +98,10 @@ void cholqr(Matrix<scalar_t>& A,
 ///
 ///
 template <Target target, typename scalar_t>
-void cholqr(Matrix<scalar_t>& A,
-            Matrix<scalar_t>& R,
-            Options const& opts)
+void cholqr(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& R,
+    Options const& opts )
 {
     Method method = get_option(
         opts, Option::MethodCholQR, MethodCholQR::Auto );
@@ -111,7 +114,7 @@ void cholqr(Matrix<scalar_t>& A,
             HermitianMatrix H( Uplo::Upper, R );
             impl::cholqr<target>( A, H, opts );
             break;
-            }
+        }
         case MethodCholQR::GemmA:
             /* Fallthrough */
         case MethodCholQR::GemmC:{
@@ -119,9 +122,10 @@ void cholqr(Matrix<scalar_t>& A,
             opts2[ Option::MethodCholQR ] = method;
             impl::cholqr<target>( A, R, opts2 );
             break;
-            }
+        }
         default:
             slate_error( "CholQR unknown method" );
+            break;
     }
 }
 
@@ -173,9 +177,10 @@ void cholqr(Matrix<scalar_t>& A,
 /// @ingroup geqrf_computational
 ///
 template <typename scalar_t>
-void cholqr(Matrix<scalar_t>& A,
-            Matrix<scalar_t>& R,
-            Options const& opts)
+void cholqr(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& R,
+    Options const& opts )
 {
     int64_t m = A.m();
     int64_t n = A.n();

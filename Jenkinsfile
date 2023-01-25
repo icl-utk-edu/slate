@@ -64,9 +64,20 @@ echo_and_restore() {
 alias print='{ save_flags="$-"; set +x; } 2> /dev/null; echo_and_restore'
 
 date
-module load python/3.9
-module load gcc/7.3.0
-module load intel-oneapi-mkl/2022
+run module load python
+run which python
+run which python3
+
+run module avail gcc
+set +x  # not verbose; run() doesn't seem to work with ||.
+echo "module load gcc/7.5.0 || module load gcc/7.3.0"
+      module load gcc/7.5.0 || module load gcc/7.3.0
+set -x  # verbose
+run which g++
+g++ --version
+
+run module load intel-oneapi-mkl
+echo "MKLROOT=${MKLROOT}"
 
 # hipcc needs /usr/sbin/lsmod
 export PATH=${PATH}:/usr/sbin
@@ -82,13 +93,16 @@ CXX    = mpicxx
 FC     = mpif90
 blas   = mkl
 prefix = ${top}/install
+md5sum = md5sum
 END
 
 print "========================================"
 # Run CUDA, OpenMPI tests.
 if [ "${host}" = "gpu_nvidia" ]; then
-    module load openmpi/4
+    run module load openmpi/4
     export OMPI_CXX=${CXX}
+    run which mpicxx
+    mpicxx --version
 
     echo "CXXFLAGS  = -Werror" >> make.inc
     echo "CXXFLAGS += -Dslate_omp_default_none='default(none)'" >> make.inc
@@ -97,15 +111,24 @@ if [ "${host}" = "gpu_nvidia" ]; then
     echo "gpu_backend = cuda"  >> make.inc
 
     # Load CUDA. LD_LIBRARY_PATH set by Spack.
-    module load cuda/11
+    run module avail cuda
+    # CUDA 11.8 seems to require linking with -lcublasLt; stick with 11.4 or 11.6.
+    # Error "provided PTX was compiled with an unsupported toolchain" with
+    # 11.6 indicates driver is older; nvidia-smi suggests driver is from 11.4.
+    run module load cuda/11.4
+    run which nvcc
+    nvcc --version
+
     export CPATH=${CPATH}:${CUDA_HOME}/include
     export LIBRARY_PATH=${LIBRARY_PATH}:${CUDA_HOME}/lib64
 fi
 
 # Run HIP, Intel MPI tests.
 if [ "${host}" = "dopamine" ]; then
-    module load intel-mpi
+    run module load intel-mpi
     export FI_PROVIDER=tcp
+    run which mpicxx
+    mpicxx --version
 
     #echo "CXXFLAGS  = -Werror"  >> make.inc  # HIP headers have many errors; ignore.
     echo "mkl_blacs = intelmpi" >> make.inc
@@ -133,7 +156,10 @@ fi
 
 if [ "${maker}" = "cmake" ]; then
     print "========================================"
-    module load cmake/3.18
+    run module load cmake
+    run which cmake
+    cmake --version
+
     rm -rf build && mkdir build && cd build
     cmake -Dcolor=no -DCMAKE_CXX_FLAGS="-Werror" \
           -DCMAKE_INSTALL_PREFIX=${top}/install \
@@ -175,6 +201,9 @@ ldd test/tester
 print "========================================"
 date
 export OMP_NUM_THREADS=8
+export CUDA_VISIBLE_DEVICES=0
+export ROCR_VISIBLE_DEVICES=0
+
 cd unit_test
 ./run_tests.py --timeout 300 --xml ${top}/report-unit-${maker}.xml
 cd ..
@@ -192,6 +221,17 @@ eval ./run_tests.py --origin s --target t,d --quick --ref n \
     --xml ${top}/report-${maker}.xml ${tests} \
     2> ${top}/report-${maker}.txt
 cd ..
+
+print "========================================"
+if [ "${maker}" = "make" ]; then
+    touch src/cuda/*.cu
+    if make hipify | grep "out-of-date"; then
+        print "HIP files are out-of-date with CUDA files."
+        print "Run 'make hipify' and commit changes."
+        print "Run 'touch src/cuda/*.cu' first if needed to force hipify."
+        exit 1
+    fi
+fi
 
 date
 '''

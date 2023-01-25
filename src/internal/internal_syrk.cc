@@ -23,7 +23,8 @@ namespace internal {
 template <Target target, typename scalar_t>
 void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>&& C,
-          int priority, int queue_index, Layout layout)
+          int priority, int queue_index, Layout layout,
+          Options const& opts)
 {
     if (! ((C.uplo() == Uplo::Lower)
            &&
@@ -34,7 +35,7 @@ void syrk(scalar_t alpha, Matrix<scalar_t>&& A,
     syrk(internal::TargetType<target>(),
          alpha, A,
          beta,  C,
-         priority, queue_index, layout);
+         priority, queue_index, layout, opts);
 }
 
 //------------------------------------------------------------------------------
@@ -47,7 +48,8 @@ template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostTask>,
           scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          int priority, int queue_index, Layout layout)
+          int priority, int queue_index, Layout layout,
+          Options const& opts)
 {
     // CPU assumes column major
     // todo: relax this assumption, by updating Tile_blas.hh::syrk()
@@ -55,6 +57,12 @@ void syrk(internal::TargetType<Target::HostTask>,
     // todo: optimize for the number of layout conversions,
     //       by watching 'layout' and 'C(i, j).layout()'
     assert(layout == Layout::ColMajor);
+
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
 
     // Lower, NoTrans
     int err = 0;
@@ -65,7 +73,8 @@ void syrk(internal::TargetType<Target::HostTask>,
                 if (i == j) {
                     #pragma omp task slate_omp_default_none \
                         shared( A, C, err ) \
-                        firstprivate(j, layout, alpha, beta) priority(priority)
+                        firstprivate(j, layout, alpha, beta, call_tile_tick) \
+                        priority(priority)
                     {
                         try {
                             A.tileGetForReading(j, 0, LayoutConvert(layout));
@@ -73,9 +82,11 @@ void syrk(internal::TargetType<Target::HostTask>,
                             tile::syrk(
                                 alpha, A(j, 0),
                                 beta,  C(j, j) );
-                            // todo: should tileRelease()?
-                            A.tileTick(j, 0);
-                            A.tileTick(j, 0);
+                            if (call_tile_tick) {
+                                // todo: should tileRelease()?
+                                A.tileTick(j, 0);
+                                A.tileTick(j, 0);
+                            }
                         }
                         catch (std::exception& e) {
                             err = __LINE__;
@@ -85,7 +96,8 @@ void syrk(internal::TargetType<Target::HostTask>,
                 else {
                     #pragma omp task slate_omp_default_none \
                         shared( A, C, err ) \
-                        firstprivate(i, j, layout, alpha, beta) priority(priority)
+                        firstprivate(i, j, layout, alpha, beta, call_tile_tick) \
+                        priority(priority)
                     {
                         try {
                             A.tileGetForReading(i, 0, LayoutConvert(layout));
@@ -95,9 +107,11 @@ void syrk(internal::TargetType<Target::HostTask>,
                             tile::gemm(
                                 alpha, A(i, 0), transpose( Aj0 ),
                                 beta,  C(i, j) );
-                            // todo: should tileRelease()?
-                            A.tileTick(i, 0);
-                            A.tileTick(j, 0);
+                            if (call_tile_tick) {
+                                // todo: should tileRelease()?
+                                A.tileTick(i, 0);
+                                A.tileTick(j, 0);
+                            }
                         }
                         catch (std::exception& e ) {
                             err = __LINE__;
@@ -122,7 +136,8 @@ template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostNest>,
           scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          int priority, int queue_index, Layout layout)
+          int priority, int queue_index, Layout layout,
+          Options const& opts)
 {
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::syrk()
@@ -201,7 +216,8 @@ template <typename scalar_t>
 void syrk(internal::TargetType<Target::HostBatch>,
           scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          int priority, int queue_index, Layout layout)
+          int priority, int queue_index, Layout layout,
+          Options const& opts)
 {
 #ifdef BLAS_HAVE_MKL
     // CPU assumes column major
@@ -364,7 +380,8 @@ template <typename scalar_t>
 void syrk(internal::TargetType<Target::Devices>,
           scalar_t alpha, Matrix<scalar_t>& A,
           scalar_t beta,  SymmetricMatrix<scalar_t>& C,
-          int priority, int queue_index, Layout layout)
+          int priority, int queue_index, Layout layout,
+          Options const& opts)
 {
     int err = 0;
     using std::swap;
@@ -372,13 +389,19 @@ void syrk(internal::TargetType<Target::Devices>,
 
     assert(C.num_devices() > 0);
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     // if single tile, avoid creating tasks for all devices
     #pragma omp taskgroup
     if (C.nt() == 1) {
         if (C.tileIsLocal(0, 0)) {
             #pragma omp task slate_omp_default_none \
                 shared( A, C, err ) priority( priority ) \
-                firstprivate(layout, queue_index, alpha, beta)
+                firstprivate(layout, queue_index, alpha, beta, call_tile_tick)
             {
                 int device = C.tileDevice(0, 0);
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
@@ -397,9 +420,11 @@ void syrk(internal::TargetType<Target::Devices>,
 
                 queue->sync();
 
-                A.tileRelease(0, 0, device);
-                A.tileTick(0, 0);
-                A.tileTick(0, 0);
+                if (call_tile_tick) {
+                    A.tileRelease(0, 0, device);
+                    A.tileTick(0, 0);
+                    A.tileTick(0, 0);
+                }
             }
         }
     }
@@ -409,7 +434,7 @@ void syrk(internal::TargetType<Target::Devices>,
         for (int device = 0; device < C.num_devices(); ++device) {
             #pragma omp task slate_omp_default_none \
                 shared( A, C, err ) priority( priority ) \
-                firstprivate(device, layout, alpha, beta, queue_index)
+                firstprivate(device, layout, alpha, beta, queue_index, call_tile_tick)
             {
                 try {
                     // if op(C) is NoTrans, invert opA, opB if possible
@@ -670,18 +695,20 @@ void syrk(internal::TargetType<Target::Devices>,
 
                     queue->sync();
 
-                    // both off-diagonal batch gemm and diagonal syrks are done
-                    for (int64_t j = 0; j < C.nt(); ++j) {
-                        for (int64_t i = j; i < C.mt(); ++i) {  // lower
-                            if (C.tileIsLocal(i, j)) {
-                                if (device == C.tileDevice(i, j)) {
-                                    // erase tmp local and remote device tiles;
-                                    A.tileRelease(i, 0, device);
-                                    A.tileRelease(j, 0, device);
-                                    // decrement life for remote tiles
-                                    // todo: should tileRelease()?
-                                    A.tileTick(i, 0);
-                                    A.tileTick(j, 0);
+                    if (call_tile_tick) {
+                        // both off-diagonal batch gemm and diagonal syrks are done
+                        for (int64_t j = 0; j < C.nt(); ++j) {
+                            for (int64_t i = j; i < C.mt(); ++i) {  // lower
+                                if (C.tileIsLocal(i, j)) {
+                                    if (device == C.tileDevice(i, j)) {
+                                        // erase tmp local and remote device tiles;
+                                        A.tileRelease(i, 0, device);
+                                        A.tileRelease(j, 0, device);
+                                        // decrement life for remote tiles
+                                        // todo: should tileRelease()?
+                                        A.tileTick(i, 0);
+                                        A.tileTick(j, 0);
+                                    }
                                 }
                             }
                         }
@@ -705,100 +732,100 @@ template
 void syrk<Target::HostTask, float>(
     float alpha, Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void syrk<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void syrk<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void syrk<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
     float beta,  SymmetricMatrix<float>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 // ----------------------------------------
 template
 void syrk<Target::HostTask, double>(
     double alpha, Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void syrk<Target::HostNest, double>(
     double alpha, Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void syrk<Target::HostBatch, double>(
     double alpha, Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void syrk<Target::Devices, double>(
     double alpha, Matrix<double>&& A,
     double beta,  SymmetricMatrix<double>&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 // ----------------------------------------
 template
 void syrk< Target::HostTask, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void syrk< Target::HostNest, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void syrk< Target::HostBatch, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void syrk< Target::Devices, std::complex<float> >(
     std::complex<float> alpha, Matrix< std::complex<float> >&& A,
     std::complex<float> beta,  SymmetricMatrix< std::complex<float> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 // ----------------------------------------
 template
 void syrk< Target::HostTask, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void syrk< Target::HostNest, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void syrk< Target::HostBatch, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 template
 void syrk< Target::Devices, std::complex<double> >(
     std::complex<double> alpha, Matrix< std::complex<double> >&& A,
     std::complex<double> beta,  SymmetricMatrix< std::complex<double> >&& C,
-    int priority, int queue_index, Layout layout);
+    int priority, int queue_index, Layout layout, Options const& opts);
 
 } // namespace internal
 } // namespace slate

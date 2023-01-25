@@ -10,10 +10,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::he2hb from internal::specialization::he2hb
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel reduction to band for 3-stage Hermitian eigenvalue
@@ -23,27 +20,38 @@ namespace specialization {
 ///
 /// ColMajor layout is assumed
 ///
-/// @ingroup heev_specialization
+/// @ingroup heev_impl
 ///
 template <Target target, typename scalar_t>
-void he2hb(slate::internal::TargetType<target>,
-           HermitianMatrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           int64_t ib, int max_panel_threads)
+void he2hb(
+    HermitianMatrix<scalar_t>& A,
+    TriangularFactors<scalar_t>& T,
+    Options const& opts )
 {
-    using BcastList = typename HermitianMatrix<scalar_t>::BcastList;
-    using blas::real;
+    using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
+    using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
     using real_t = blas::real_type<scalar_t>;
+    using blas::real;
 
-    assert(A.uplo() == Uplo::Lower);  // for now
+    assert( A.uplo() == Uplo::Lower );  // for now
 
+    // Constants
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const LayoutConvert layout_conv = LayoutConvert( layout );
 
+    const int priority_one = 1;
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
     const scalar_t half = 0.5;
     const real_t r_one  = 1.0;
+
+    // Options
+    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
+
+    int64_t max_panel_threads = std::max( omp_get_max_threads()/2, 1 );
+    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
+                                             max_panel_threads );
 
     int64_t nt = A.nt();
 
@@ -52,33 +60,61 @@ void he2hb(slate::internal::TargetType<target>,
     T.clear();
     auto empty = A.emptyLike();
     auto Tlocal = Matrix<scalar_t>( empty, 0, nt-1, 0, nt-1 );
-    auto Treduce = Tlocal.emptyLike(ib, 0);
+    auto Treduce = Tlocal.emptyLike( ib, 0 );
     T.push_back( Tlocal );
     T.push_back( Treduce );
 
     // workspace
-    auto W = A.emptyLike();
     auto Wtmp = A.emptyLike();
-    //auto TVAVT = A.emptyLike();
     auto Asave = A.emptyLike();
+    const bool set_hold =  1;  // Do tileGetAndHold in the bcast
 
-    // Use W(0, 0) for TVAVT, since W(0, 0) is never used otherwise.
-    W.tileInsert(0, 0);
-    auto TVAVT = W(0, 0);
-    TVAVT.uplo(Uplo::General);
+    int64_t n = A.n();
+    int64_t nb_A = A.tileNb( 0 );
+    GridOrder grid_order;
+    int nprow, npcol, myrow, mycol;
+    // For the workspace matrix (W) change the GPU distribution to row cyclic,
+    // by doing that, all the GPUs will be busy simultaneously,
+    // in particular when we call he2hb_hemm,
+    // which will improve the performance.
+    A.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
+    assert( grid_order == GridOrder::Col );  // todo: update for Row
 
-    if (target == Target::Devices) {
-        A.allocateBatchArrays();
-        A.reserveDeviceWorkspace();
-        W.allocateBatchArrays();
-    }
+    std::function<int64_t (int64_t j)>
+        tileNb = [n, nb_A] (int64_t j) {
+            return (j + 1)*nb_A > n ? n%nb_A : nb_A;
+        };
 
-    // No lookahead is possible, so no need to track dependencies --
-    // just execute tasks in order. Also, priority isn't needed.
+    std::function<int (std::tuple<int64_t, int64_t> ij)>
+        tileRank = [nprow, npcol]( std::tuple<int64_t, int64_t> ij ) {
+            int64_t i = std::get<0>( ij );
+            int64_t j = std::get<1>( ij );
+            return int( i%nprow + (j%npcol)*nprow );
+        };
+
+    int num_devices = blas::get_device_count();
+    std::function<int (std::tuple<int64_t, int64_t> ij)>
+        tileDevice = [nprow, num_devices]( std::tuple<int64_t, int64_t> ij ) {
+            int64_t i = std::get<0>( ij );
+            return int( i/nprow )%num_devices;
+        };
+
+    // W is like A, but within node the GPU distribution is row-cyclic.
+    slate::HermitianMatrix<scalar_t> W(
+            Uplo::Lower, n, tileNb, tileRank, tileDevice, A.mpiComm() );
+
+    // Since W( 0, 0 ) is otherwise unused, store TVAVT there.
+    W.tileInsert( 0, 0 );
+    auto TVAVT = W.sub( 0, 0, 0, 0 );
+    int num_queues = 10;
 
     int my_rank = A.mpiRank();
 
-    // bool debug = true;
+    // tracks dependencies by block-column.
+    std::vector< uint8_t > block_vector( nt + 2 );
+    uint8_t* block = block_vector.data();
+    uint8_t* alloc_workspace = &block_vector[ nt ];
+    uint8_t* fetch_trailing  = &block_vector[ nt+1 ];
 
     // set min number for omp nested active parallel regions
     slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
@@ -89,26 +125,37 @@ void he2hb(slate::internal::TargetType<target>,
         for (int64_t k = 0; k < nt-1; ++k) {
             //----------------------------------------
             // Q panel and update.
-            auto       A_panel =       A.sub(k+1, nt-1, k, k);
-            auto  Tlocal_panel =  Tlocal.sub(k+1, nt-1, k, k);
-            auto Treduce_panel = Treduce.sub(k+1, nt-1, k, k);
+            auto       A_panel =       A.sub( k+1, nt-1, k, k );
+            auto  Tlocal_panel =  Tlocal.sub( k+1, nt-1, k, k );
+            auto Treduce_panel = Treduce.sub( k+1, nt-1, k, k );
 
             // Find ranks in this column.
             std::set<int> panel_ranks;
-            A_panel.getRanks(&panel_ranks);
-            assert(panel_ranks.size() > 0);
+            A_panel.getRanks( &panel_ranks );
+            assert( panel_ranks.size() > 0 );
 
             // Find each rank's first (top-most) row in this panel,
             // where the triangular tile resulting from local geqrf panel
             // will reside.
             std::vector< int64_t > first_indices;
-            first_indices.reserve(panel_ranks.size());
-            for (int r: panel_ranks) {
+            first_indices.reserve( panel_ranks.size() );
+            for (int r : panel_ranks) {
                 for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                    if (A_panel.tileRank(i, 0) == r) {
-                        // todo: way to get index in parent matrix, to avoid manually adding k+1?
-                        first_indices.push_back(i+k+1);
+                    if (A_panel.tileRank( i, 0 ) == r) {
+                        first_indices.push_back( i+k+1 );
                         break;
+                    }
+                }
+            }
+
+            if (k == 0) {
+                #pragma omp task depend( inout:alloc_workspace[ 0 ] )
+                {
+                    if (target == Target::Devices) {
+                        A.allocateBatchArrays();
+                        A.reserveDeviceWorkspace();
+                        W.allocateBatchArrays( 0, num_queues );
+                        W.reserveDeviceWorkspace();
                     }
                 }
             }
@@ -116,324 +163,440 @@ void he2hb(slate::internal::TargetType<target>,
             //--------------------
             // QR of panel
             // local panel factorization
-            internal::geqrf<Target::HostTask>(
-                            std::move(A_panel),
-                            std::move(Tlocal_panel),
-                            ib, max_panel_threads);
+            #pragma omp task depend( inout:block[ k ] )
+            {
+                internal::geqrf<Target::HostTask>(
+                    std::move( A_panel ),
+                    std::move( Tlocal_panel ),
+                    ib, max_panel_threads, priority_one);
 
-            // triangle-triangle reductions
-            // ttqrt handles tile transfers internally
-            internal::ttqrt<Target::HostTask>(
-                            std::move(A_panel),
-                            std::move(Treduce_panel));
-
-            // Done if no trailing matrix exists.
-            if (k == nt-1)
-                continue;
-
-            // Send V across row i & col i for trailing matrix update.
-            BcastList bcast_list_V_first;
-            BcastList bcast_list_V;
-            for (int64_t i = k; i < nt; ++i) {
-                // Vs need 2 lives for unmqr (I - VTV^H).
-                // Vs in first_indices (except top-most one, i == k+1)
-                // need 3 lives: 2 for unmqr, 1 for ttmqr.
-                if (i > k+1 && std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end()) {
-                    bcast_list_V_first.push_back(
-                        {i, k, {A.sub(i, i, k+1, i)}});
-                    bcast_list_V_first.push_back(
-                        {i, k, {A.sub(i+1, nt-1, i, i)}});
-                }
-                else {
-                    bcast_list_V.push_back(
-                        {i, k, {A.sub(i, i, k+1, i)}});
-                    bcast_list_V.push_back(
-                        {i, k, {A.sub(i+1, nt-1, i, i)}});
-                }
-            }
-            A.template listBcast(bcast_list_V_first, layout, 0, 3);
-            A.template listBcast(bcast_list_V, layout, 0, 2);
-
-            // Send Treduce across row i & col i for trailing matrix update
-            if (first_indices.size() > 1) {
-                BcastList bcast_list_T;
-                for (int64_t i : first_indices) {
-                    // Exclude first row of this panel,
-                    // which doesn't have Treduce tile.
-                    if (i > k+1) {
-                        bcast_list_T.push_back(
-                            {i, k, {Treduce.sub(i, i, k+1, i)}});
-                        bcast_list_T.push_back(
-                            {i, k, {Treduce.sub(i+1, nt-1, i, i)}});
-                    }
-                }
-                Treduce.template listBcast(bcast_list_T, layout);
+                // triangle-triangle reductions
+                // ttqrt handles tile transfers internally
+                internal::ttqrt<Target::HostTask>(
+                    std::move( A_panel ),
+                    std::move( Treduce_panel ) );
             }
 
-            //----------------------------------------
-            // QR update trailing submatrix.
-            auto A_trail = A.sub(k+1, nt-1);
-
-            std::vector<int64_t> indices;
-            for (int panel_rank: panel_ranks) {
-                // Find local indices for panel_rank.
-                indices.clear();
-                for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                    if (A_panel.tileRank(i, 0) == panel_rank) {
-                        // todo: global index
-                        indices.push_back(i+k+1);
-                    }
-                }
-                int64_t i0 = indices[0];
-
-            // Send Tlocal across row i & col i for trailing matrix update
-            // todo: I think this sets Tlocal with too many lives
-            // -- needs only 1 life per rank, not # tiles.
-            BcastList bcast_list_T;
-            for (int64_t i : indices) {
-                bcast_list_T.push_back(
-                    {i0, k, {Tlocal.sub(i, i, k+1, i)}});
-                bcast_list_T.push_back(
-                    {i0, k, {Tlocal.sub(i+1, nt-1, i, i)}});
-            }
-            Tlocal.template listBcast(bcast_list_T, layout);
-
-                if (A.tileExists(i0, k)) {
-                    // Save V0 and set upper(V0) to identity, to avoid trmm's.
-                    Asave.tileInsert(i0, k);
-                    auto Aik = A(i0, k);
-                    tile::gecopy( std::move( Aik ), Asave(i0, k) );
-                    Aik.uplo(Uplo::Upper);
-                    Aik.set(zero, one);
-                }
-
+            // if trailing matrix exists.
+            if (k < nt-1) {
                 //--------------------
-                // Apply local reflectors.
-                // Compute Wi = (sum_j Aij Vj) T, for i = k+1, ..., nt-1.
-                int rank_lower = -1;
-                int rank_upper = -1;
-                for (int64_t i = k+1; i < nt; ++i) {
-                    W.tileInsert(i, k);
-                    W(i, k).set(zero);
-                    for (int64_t j: indices) {
-                        if (i >= j) { // lower
-                            rank_lower = A.tileRank(i, j);
-                            if (rank_lower == my_rank) { // A.tileIsLocal(i, j)
-                                if (i == j) {
-                                    tile::hemm(
-                                        Side::Left,
-                                        one, A(i, j), A(j, k),
-                                        one, W(i, k) );
-                                }
-                                else {
-                                    // todo: if HeMatrix returned conjTrans tiles,
-                                    // could merge this with one below.
-                                    tile::gemm(
-                                        one, A(i, j), A(j, k),
-                                        one, W(i, k) );
-                                }
-                            }
-                        }
-                        else { // upper
-                            rank_upper = A.tileRank(j, i);
-                            if (rank_upper == my_rank) { // A.tileIsLocal(j, i)
-                                tile::gemm(
-                                    one, conj_transpose( A(j, i) ), A(j, k),
-                                    one, W(i, k) );
-                            }
-                        }
-                    }
-
-                    // At most 2 ranks contribute to each Wi; if I am one,
-                    // exchange partial sum with neighbor and both ranks sum Wi.
-                    int neighbor = -1;
-                    if (rank_lower == my_rank)
-                        neighbor = rank_upper;
-                    else if (rank_upper == my_rank)
-                        neighbor = rank_lower;
-                    if (neighbor != -1 && neighbor != my_rank) {
-                        Wtmp.tileInsert(i, k);
-                        if (neighbor < my_rank) {
-                            W   .tileSend(i, k, neighbor);
-                            Wtmp.tileRecv(i, k, neighbor, layout);
+                // Bcast V, Treduce, Tlocal.
+                #pragma omp task depend( inout:block[ k ] ) \
+                                 depend( in:alloc_workspace[ 0 ] )
+                {
+                    // Send V across row i & col i for trailing matrix update.
+                    BcastListTag bcast_list_V_first;
+                    BcastListTag bcast_list_V;
+                    for (int64_t i = k; i < nt; ++i) {
+                        // Vs need 6 lives.
+                        // Vs in first_indices (except top-most one, i == k+1)
+                        // need 3 lives: for her2k, gemm_outer, and for hettmqr.
+                        if (i > k+1 && std::find( first_indices.begin(), first_indices.end(), i ) != first_indices.end()) {
+                            bcast_list_V_first.push_back(
+                                { i, k, { A.sub( i, i, k+1, i ),
+                                          A.sub( i+1, nt-1, i, i ) }, i } );
                         }
                         else {
-                            Wtmp.tileRecv(i, k, neighbor, layout);
-                            W   .tileSend(i, k, neighbor);
+                            bcast_list_V.push_back(
+                                { i, k, { A.sub( i, i, k+1, i ),
+                                          A.sub( i+1, nt-1, i, i ) }, i } );
                         }
-                        tile::add( one, Wtmp(i, k), W(i, k) );
-                        Wtmp.tileErase(i, k);
                     }
+                    A.template listBcastMT<target>( bcast_list_V_first, layout, 5, set_hold );
+                    A.template listBcastMT<target>( bcast_list_V, layout, 6, set_hold );
 
-                    // If I contributed to Wi, multiply by T.
-                    if (rank_upper == my_rank || rank_lower == my_rank) {
-                        // Wi = Wi * T
-                        auto T0    = Tlocal.sub(i0, i0, k, k);
-                        auto TVAVT0 = W.sub(i, i, k, k);
-
-                        int64_t mb = T0.tileMb(0);
-                        int64_t nb = T0.tileNb(0);
-                        bool trapezoid = (mb < nb);
-
-                        if (trapezoid) {
-                            T0     = T0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
-                            TVAVT0 = TVAVT0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
-                        }
-
-                        auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
-                        tile::trmm(
-                            Side::Right, Diag::NonUnit,
-                            one, std::move( Tk0(0, 0) ), TVAVT0(0, 0) );
-                    }
-                }
-
-                if (A.tileIsLocal(i0, i0)) {
-                    //--------------------
-                    // This rank has diagonal tiles to update.
-                    // Do 2-sided Hermitian update:
-                    // A = Q^H A Q
-                    //   = (I - V T^H V^H) A (I - V T V^H)
-                    //   = A - V W^H - W V^H
-                    // where
-                    // W = A V T - 0.5 V (T^H V^H (A V T)).
-
-                    // 1a. W = AVT from above.
-                    // 1b. TVAVT = V^H (AVT) = V^H W.
-                    TVAVT.set(zero);
-                    for (int64_t i: indices) {
-                        tile::gemm(
-                            one, conj_transpose( A(i, k) ), W(i, k),
-                            one, std::move( TVAVT ) );
-                    }
-                    // 1c. TVAVT = T^H (V^H AVT)
-                    auto T0    = Tlocal.sub(i0, i0, k, k);
-                    auto TVAVT0  = W.sub(0, 0, 0, 0);
-
-                    int64_t mb = T0.tileMb(0);
-                    int64_t nb = T0.tileNb(0);
-                    bool trapezoid = (mb < nb);
-
-                    if (trapezoid) {
-                        T0     = T0.slice(0, mb-1, 0, mb-1); // first mb-by-mb part
-                        TVAVT0 = TVAVT0.slice(0, mb-1, 0, nb-1); // first mb-by-nb part
-                    }
-
-                    auto Tk0 = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
-                    tile::trmm(
-                        Side::Left, Diag::NonUnit,
-                        one, conj_transpose( Tk0(0, 0) ),
-                             std::move( TVAVT0(0, 0) ) );
-
-                    // 1d. W = W - 0.5 V TVAVT.
-                    // Technically, could do a hemm here since TVAVT is Hermitian.
-                    for (int64_t i: indices) {
-                        tile::gemm(
-                            -half, A(i, k), std::move( TVAVT ),
-                            one,   W(i, k) );
-                    }
-
-                    // 2. Update trailing matrix.
-                    for (int64_t j: indices) {
-                        for (int64_t i: indices) {
-                            assert(A.tileIsLocal(i, j));
-                            if (i == j) {  // diag
-                                // A = A - Vik Wjk^H - Wjk Vik^H
-                                tile::her2k(
-                                    -one, A(i, k), W(j, k),
-                                    r_one, A(i, j) );
+                    if (first_indices.size() > 1) {
+                        //BcastList bcast_list_T;
+                        BcastListTag bcast_list_T;
+                        for (int64_t i : first_indices) {
+                            // Exclude first row of this panel,
+                            // which doesn't have Treduce tile.
+                            if (i > k+1) {
+                                bcast_list_T.push_back(
+                                    { i, k, { Treduce.sub( i, i, k+1, i ),
+                                              Treduce.sub( i+1, nt-1, i, i ) },
+                                      i } );
                             }
-                            else if (i > j) {  // lower
-                                // A = A - Vik Wjk^H
-                                tile::gemm(
-                                    -one, A(i, k), conj_transpose( W(j, k) ),
-                                    one,  A(i, j) );
-                                // A = A - Wik Vjk^H
-                                tile::gemm(
-                                    -one, W(i, k), conj_transpose( A(j, k) ),
-                                    one,  A(i, j) );
-                            }
-                            // Skip tiles in upper triangle (i < j) that are
-                            // known by symmetry.
                         }
+                        Treduce.template listBcastMT( bcast_list_T, layout );
                     }
-                }
-                else { // off-diag
-                    //--------------------
-                    // This rank has only off-diagonal tiles to update (if any).
-                    // Update from left:
-                    // A = Q^H A
-                    //   = (I - V T^H V^H) A = A - V T^H V^H A
-                    //   = A - V W^H
-                    // where
-                    // W = A^H V T = A V T.
-                    for (int64_t j = k+1; j < nt; ++j) {
-                        for (int64_t i: indices) {
-                            // todo: if HermitianMatrix returned conjTrans
-                            // tiles, could merge these two.
-                            if (i > j) {
-                                if (A.tileIsLocal(i, j)) {
-                                    // Aij -= Vik Wjk^H
-                                    tile::gemm(
-                                        -one, A(i, k), conj_transpose( W(j, k) ),
-                                        one,  A(i, j) );
+
+                    std::vector<int64_t> panel_rank_rows;
+                    for (int panel_rank : panel_ranks) {
+                        // Find local row indices for panel_rank.
+                        panel_rank_rows.clear();
+                        for (int64_t i = 0; i < A_panel.mt(); ++i) {
+                            if (A_panel.tileRank( i, 0 ) == panel_rank) {
+                                // global index
+                                panel_rank_rows.push_back( i+k+1 );
+                            }
+                        }
+                        int64_t i0 = panel_rank_rows[ 0 ];
+
+                        // Send Tlocal across row i & col i for trailing matrix update
+                        // todo: I think this sets Tlocal with too many lives
+                        // -- needs only 1 life per rank, not # tiles.
+                        //BcastList bcast_list_T;
+                        BcastListTag bcast_list_T;
+                        for (int64_t i : panel_rank_rows) {
+                            bcast_list_T.push_back(
+                                { i0, k, { Tlocal.sub( i, i, k+1, i ),
+                                           Tlocal.sub( i+1, nt-1, i, i ) }, i } );
+                        }
+                        Tlocal.template listBcastMT<target>( bcast_list_T, layout, 1, set_hold );
+                    }
+                } // task
+
+                //--------------------
+                // Computation and data movement overlap:
+                // fetch data to be used in he2hb_hemm
+                #pragma omp task depend( in:alloc_workspace[ 0 ] ) \
+                                 depend( inout:fetch_trailing[ 0 ] )
+                {
+                    // todo: insert and set on device?
+                    // todo: do we need entire column, or subset? needs W[ my_rows + my_cols ].
+                    // todo: is this getting erased anywhere?
+                    for (int64_t i = k+1; i < nt; ++i) {
+                        W.tileInsert( i, k );
+                        W( i, k ).set( zero );
+                    }
+
+                    if (target == Target::Devices) {
+                        std::vector<int64_t> panel_rank_rows;
+                        auto  W_panel = W.sub( k+1, nt-1, k, k );
+                        for (int panel_rank : panel_ranks) {
+                            // Find local row indices for panel_rank.
+                            panel_rank_rows.clear();
+                            for (int64_t i = 0; i < A_panel.mt(); ++i) {
+                                if (A_panel.tileRank( i, 0 ) == panel_rank) {
+                                    // global index
+                                    panel_rank_rows.push_back( i+k+1 );
                                 }
                             }
-                            else if (i < j) {
-                                if (A.tileIsLocal(j, i)) {
-                                    // Aji -= Wjk Vik^H
-                                    tile::gemm(
-                                        -one, W(j, k), conj_transpose( A(i, k) ),
-                                        one, A(j, i) );
-                                }
-                            }
-                            else { // i == j
-                                // Diagonal tiles dealt with above.
-                                assert(! A.tileIsLocal(i, j));
-                            }
+                            // Move lower( A( :, panel_rank_rows ) )
+                            // and  lower( A( panel_rank_rows, : ) )
+                            // and  W( :, k ) to GPU.
+                            for (int device = 0; device < W_panel.num_devices(); ++device) {
+                                #pragma omp task shared( A, W )
+                                {
+                                    std::set<ij_tuple> A_tiles_set, A_panel_tiles_set, W_tiles_set;
+                                    for (int64_t j : panel_rank_rows) {
+                                        for (int64_t i = k+1; i < nt; ++i) {
+                                            if (i >= j) { // lower or diagonal
+                                                // todo: should this check device == A.tileDevice( i, j )?
+                                                if (A.tileIsLocal( i, j )
+                                                    && device == W.tileDevice( i, k )) {
+                                                    A_tiles_set.insert( { i, j } );
+                                                    W_tiles_set.insert( { i, k } );
+                                                }
+                                            }
+                                            else { // upper
+                                                // todo: should this check device == A.tileDevice( j, i )?
+                                                if (A.tileIsLocal( j, i )
+                                                    && device == W.tileDevice( i, k )) {
+                                                    A_tiles_set.insert( { j, i } );
+                                                    W_tiles_set.insert( { i, k } );
+                                                }
+                                            }
+                                        }
+
+                                        #pragma omp task default( shared )
+                                        {
+                                            A.tileGetForReading( A_tiles_set, device, layout_conv );
+                                        }
+                                        #pragma omp task default( shared )
+                                        {
+                                            W.tileGetForWriting( W_tiles_set, device, layout_conv );
+                                        }
+                                        #pragma omp taskwait
+                                    }
+                                } // task
+                            } // for device
+                        } // for panel_rank
+                    } // if devices
+                    #pragma omp taskwait
+                } // task
+
+                //----------------------------------------
+                // QR update trailing submatrix.
+                std::vector<int64_t> panel_rank_rows, panel_rank_rows_sub;
+                for (int panel_rank : panel_ranks) {
+                    // Find local row indices for panel_rank.
+                    panel_rank_rows.clear();
+                    panel_rank_rows_sub.clear();
+                    for (int64_t i = 0; i < A_panel.mt(); ++i) {
+                        if (A_panel.tileRank( i, 0 ) == panel_rank) {
+                            // global index
+                            panel_rank_rows.push_back( i+k+1 );
+                            // index relative to panel sub-matrix.
+                            panel_rank_rows_sub.push_back( i );
                         }
                     }
-                }
+                    int64_t i0 = panel_rank_rows[ 0 ];
 
-                if (A.tileExists(i0, k)) {
+                    #pragma omp task depend( inout:block[ k ] )
+                    {
+                        if (A.tileExists( i0, k )) {
+                            A.tileGetForWriting( i0, k, HostNum, layout_conv );
+                            // Save V0 and set upper(V0) to identity, to avoid trmm's.
+                            Asave.tileInsert( i0, k );
+                            auto Aik = A( i0, k );
+                            tile::gecopy( std::move( Aik ), Asave( i0, k ) );
+                            Aik.uplo( Uplo::Upper );
+                            Aik.set( zero, one );
+                        }
+                    }
+
+                    //--------------------
+                    // Update trailing submatrix.
+                    #pragma omp task depend( inout:block[ k ] ) \
+                                     depend( inout:block[ k+1 ] ) \
+                                     depend( inout:block[ nt-1 ] ) \
+                                     depend( inout:fetch_trailing[ 0 ] )
+                    {
+                        // Compute W = A V T.
+                        // 1a. Wi_part = sum_j Aij Vj, local partial sum,
+                        // for i = k+1, ..., nt-1 and j = panel_rank_rows.
+                        internal::he2hb_hemm<target>(
+                            A.sub( k+1, nt-1 ),
+                            A.sub( k+1, nt-1, k, k ),
+                            W.sub( k+1, nt-1, k, k ),
+                            panel_rank_rows_sub );
+
+                        // 1b. Wi = Wi_part1 + Wi_part2.
+                        // At most 2 ranks contribute to each Wi; if I am one,
+                        // exchange partial sum with neighbor and both ranks sum Wi.
+                        #pragma omp taskgroup
+                        for (int64_t i = k+1; i < nt-1; ++i) {
+                            #pragma omp task
+                            {
+                                int rank_lower = -1;
+                                int rank_upper = -1;
+                                for (int64_t j : panel_rank_rows) {
+                                    if (i >= j) { // lower
+                                        rank_lower = A.tileRank( i, j );
+                                    }
+                                    else { // upper
+                                        rank_upper = A.tileRank( j, i );
+                                    }
+                                }
+                                int neighbor = -1;
+                                if (rank_lower == my_rank)
+                                    neighbor = rank_upper;
+                                else if (rank_upper == my_rank)
+                                    neighbor = rank_lower;
+                                if (neighbor != -1 && neighbor != my_rank) {
+                                    Wtmp.tileInsert( i, k );
+                                    int tag_i = i;
+                                    int tag_i1 = i+1;
+                                    if (neighbor < my_rank) {
+                                        W.tileGetForWriting( i, k, HostNum,
+                                                             layout_conv );
+                                        W   .tileSend( i, k, neighbor, tag_i );
+                                        Wtmp.tileRecv( i, k, neighbor, layout, tag_i1 );
+                                    }
+                                    else {
+                                        W.tileGetForWriting( i, k, HostNum,
+                                                             layout_conv );
+                                        Wtmp.tileRecv( i, k, neighbor, layout, tag_i );
+                                        W   .tileSend( i, k, neighbor, tag_i1 );
+                                    }
+                                    auto Wtmp_ik = Wtmp( i, k );
+                                    auto W_ik = W( i, k );
+                                    blas::axpy( W_ik.nb()*W_ik.nb(),
+                                                one, Wtmp_ik.data(), 1,
+                                                        W_ik.data(), 1 );
+                                    Wtmp.tileErase( i, k );
+                                }
+                            }
+                        }
+
+                        // 1c. Compute Wi = Wi T, for i = k+1, ..., nt-1.
+                        internal::he2hb_trmm<target>(
+                            A.sub( k+1, nt-1 ), // Needed to get the rank
+                            Tlocal.sub( i0, i0, k, k ),
+                            W.sub( k+1, nt-1, k, k ),
+                            panel_rank_rows_sub );
+
+                        if (A.tileIsLocal( i0, i0 )) {
+                            //--------------------
+                            // This rank has diagonal tiles to update.
+                            // Do 2-sided Hermitian update:
+                            // A = Q^H A Q
+                            //   = (I - V T^H V^H) A (I - V T V^H)
+                            //   = A - V Y^H - Y V^H
+                            // where
+                            // Y = A V T - 0.5 V (T^H V^H (A V T))
+                            //   = W - 0.5 V (T^H V^H W),
+                            // W = A V T from above.
+
+                            // 1d. TVAVT = V^H (A V T) = V^H W.
+                            // todo: potentially do gemm+reduce here (block inner-product)
+                            // todo: shouldn't need to set TVAVT = 0 since beta = 0.
+                            // todo: on GPU
+                            TVAVT.tileGetForWriting( 0, 0, HostNum, layout_conv );
+                            TVAVT( 0, 0 ).set( zero );
+                            internal::he2hb_gemm<target>(
+                                one,  conj_transpose( A.sub( k+1, nt-1, k, k ) ),
+                                      W.sub( k+1, nt-1, k, k ),
+                                zero, std::move( TVAVT ),
+                                panel_rank );
+
+                            // 1e. TVAVT = T^H (V^H A V T).
+                            auto T0     = Tlocal.sub( i0, i0, k, k );
+                            auto TVAVT0 = TVAVT;
+
+                            int64_t mb = T0.tileMb( 0 );
+                            int64_t nb = T0.tileNb( 0 );
+                            bool trapezoid = (mb < nb);
+                            if (trapezoid) {
+                                // first mb-by-mb part
+                                T0 = T0.slice( 0, mb-1, 0, mb-1 );
+                                // first mb-by-nb part
+                                TVAVT0 = TVAVT0.slice( 0, mb-1, 0, nb-1 );
+                            }
+
+                            // todo: move to GPU
+                            auto Tk0 = TriangularMatrix<scalar_t>(
+                                Uplo::Upper, Diag::NonUnit, T0 );
+                            Tk0.tileGetForReading( 0, 0, HostNum, layout_conv );
+                            TVAVT0.tileGetForWriting( 0, 0, HostNum, layout_conv );
+                            tile::trmm( Side::Left, Diag::NonUnit,
+                                        one, conj_transpose( Tk0( 0, 0 ) ),
+                                             std::move( TVAVT0( 0, 0 ) ) );
+
+                            // 1f. Y = W - 0.5 V TVAVT, with Y in W.
+                            internal::he2hb_gemm<target>(
+                                -half, A.sub( k+1, nt-1, k, k ),
+                                       std::move( TVAVT ),
+                                one,   W.sub( k+1, nt-1, k, k ),
+                                panel_rank );
+
+                            // 2. Update trailing matrix.
+                            // A = A - V Y^H - Y V^H, with Y in W.
+                            internal::her2k<target>(
+                                -one,  A.sub( k+1, nt-1, k, k ),
+                                       W.sub( k+1, nt-1, k, k ),
+                                r_one, A.sub( k+1, nt-1 ));
+                        }
+                        else { // off-diag
+                            //--------------------
+                            // This rank has only off-diagonal tiles to update (if any).
+                            // Update from left tiles in lower( A( panel_rank_rows, : ) ):
+                            // A = Q^H A
+                            //   = (I - V T^H V^H) A = A - V T^H V^H A
+                            //   = A - V W^H
+                            // Update from right tiles in lower( A( :, panel_rank_rows ) ):
+                            // A = A Q
+                            //   = A (I - V T V^H)   = A - A V T V^H
+                            //   = A - W V^H
+                            // where
+                            // W = A V T from above.
+
+                            // 2. Update trailing matrix.
+                            // A = A - V W^H or A - W V^H.
+                            internal::he2hb_her2k_offdiag_ranks<target>(
+                                -one, A.sub( k+1, nt-1, k, k ),
+                                      W.sub( k+1, nt-1, k, k ),
+                                one,  A.sub( k+1, nt-1 ),
+                                panel_rank_rows_sub );
+                        }
+                    }
+
                     // Restore V0.
-                    tile::gecopy( Asave(i0, k), A(i0, k) );
-                    Asave.tileErase(i0, k);
-                }
-            }
+                    #pragma omp task depend( inout:block[ k ] )
+                    {
+                        if (A.tileExists( i0, k )) {
+                            A.tileGetForWriting( i0, k, layout_conv );
+                            tile::gecopy( Asave( i0, k ), A( i0, k ) );
+                            Asave.tileErase( i0, k );
+                        }
+                    }
+                } // for panel_rank
 
-            internal::hettmqr<Target::HostTask>(
-                Op::ConjTrans, std::move(A_panel), std::move(Treduce_panel),
-                A.sub(k+1, nt-1));
-        }
+                //--------------------
+                // Update trailing matrix from triangle reductions.
+                #pragma omp task depend( in:block[ k ] ) \
+                                 depend( inout:block[ k+1 ] ) \
+                                 depend( inout:block[ nt-1 ] ) \
+                                 depend( inout:fetch_trailing[ 0 ] )
+                {
+                    // Do 2-sided Hermitian update:
+                    // 3. A = Q^H A Q
+                    internal::hettmqr<Target::HostTask>(
+                        Op::ConjTrans,
+                        std::move( A_panel ),
+                        std::move( Treduce_panel ),
+                        A.sub( k+1, nt-1 ) );
+                }
+
+                // Unhold and release tiles in A_panel and Tlocal.
+                if (target == Target::Devices) {
+                    // todo: inout, right? what prevents this from executing during previous update?
+                    #pragma omp task depend( inout:block[ k ] )
+                    {
+                        for (int64_t i = k; i < nt; ++i) {
+                            if (A.tileIsLocal( i, k )) {
+                                A.tileUpdateOrigin( i, k );
+
+                                std::set<int> dev_set;
+                                A.sub( k+1, nt-1 ).getLocalDevices( &dev_set );
+
+                                for (auto device : dev_set) {
+                                    A.tileUnsetHold( i, k, device );
+                                    A.tileRelease( i, k, device );
+                                }
+                            }
+                        }
+
+                        for (int panel_rank : panel_ranks) {
+                            // Find local row indices for panel_rank.
+                            panel_rank_rows.clear();
+                            for (int64_t i = 0; i < A_panel.mt(); ++i) {
+                                if (A_panel.tileRank( i, 0 ) == panel_rank) {
+                                    // global index
+                                    panel_rank_rows.push_back( i+k+1 );
+                                }
+                            }
+                            if (panel_rank_rows.size() > 0) {
+                                int64_t i0 = panel_rank_rows[ 0 ];
+                                for (int64_t i : panel_rank_rows) {
+                                    if (Tlocal.tileIsLocal( i, k )) {
+                                        //Tlocal.tileUpdateOrigin( i, k );
+
+                                        std::set<int> dev_set;
+                                        Tlocal.sub( i, i, k+1, nt-1 ).getLocalDevices( &dev_set );
+
+                                        for (auto device : dev_set) {
+                                            Tlocal.tileUnsetHold( i0, k, device );
+                                            Tlocal.tileRelease( i0, k, device );
+                                        }
+
+                                        std::set<int> dev_set2;
+                                        Tlocal.sub( k+1, nt-1, i, i ).getLocalDevices( &dev_set );
+
+                                        for (auto device : dev_set2) {
+                                            Tlocal.tileUnsetHold( i0, k, device );
+                                            Tlocal.tileRelease( i0, k, device );
+                                        }
+                                    }
+                                }
+                            }
+                        } // for panel_rank
+                    } // task
+                } // if devices
+            } // if (k < nt-1)
+        } // for k
 
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
-    }
+    } // parallel, master
 
     A.releaseWorkspace();
+    W.releaseWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup heev_specialization
-///
-template <Target target, typename scalar_t>
-void he2hb(HermitianMatrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Options const& opts)
-{
-    int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
-
-    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
-
-    internal::specialization::he2hb(internal::TargetType<target>(),
-                                    A, T,
-                                    ib, max_panel_threads);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel reduction to band for 3-stage SVD.
@@ -484,25 +647,29 @@ void he2hb(HermitianMatrix<scalar_t>& A,
 /// @ingroup heev_computational
 ///
 template <typename scalar_t>
-void he2hb(HermitianMatrix<scalar_t>& A,
-           TriangularFactors<scalar_t>& T,
-           Options const& opts)
+void he2hb(
+    HermitianMatrix<scalar_t>& A,
+    TriangularFactors<scalar_t>& T,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            he2hb<Target::HostTask>(A, T, opts);
+            impl::he2hb<Target::HostTask>( A, T, opts );
             break;
+
         case Target::HostNest:
-            he2hb<Target::HostNest>(A, T, opts);
+            impl::he2hb<Target::HostNest>( A, T, opts );
             break;
+
         case Target::HostBatch:
-            he2hb<Target::HostBatch>(A, T, opts);
+            impl::he2hb<Target::HostBatch>( A, T, opts );
             break;
+
         case Target::Devices:
-            he2hb<Target::Devices>(A, T, opts);
+            impl::he2hb<Target::Devices>( A, T, opts );
             break;
     }
     // todo: return value for errors?

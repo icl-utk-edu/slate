@@ -8,10 +8,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::her2k from internal::specialization::her2k
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
@@ -23,20 +20,23 @@ namespace specialization {
 /// - bcasts can get ahead of her2ks by the value of lookahead.
 /// Note A, B, and C are passed by value, so we can transpose if needed
 /// (for uplo = Upper) without affecting caller.
-/// @ingroup her2k_specialization
+/// @ingroup her2k_impl
 ///
 template <Target target, typename scalar_t>
-void her2k(slate::internal::TargetType<target>,
-           scalar_t alpha,                  Matrix<scalar_t> A,
-                                            Matrix<scalar_t> B,
-           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t> C,
-           int64_t lookahead)
+void her2k(
+    scalar_t alpha,                 Matrix<scalar_t> A,
+                                    Matrix<scalar_t> B,
+    blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t> C,
+    Options const& opts )
 {
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // if upper, change to lower
     if (C.uplo() == Uplo::Upper)
@@ -47,11 +47,19 @@ void her2k(slate::internal::TargetType<target>,
     assert(B.mt() == C.mt());
     assert(A.nt() == B.nt());
 
+    // Use only TileReleaseStrategy::Slate for her2k.
+    // Internal her2k routine called here won't release
+    // any tiles. This routine will clean up tiles.
+    Options const opts_local =  {
+        {slate::Option::TileReleaseStrategy, TileReleaseStrategy::Slate}};
+
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector(A.nt());
     std::vector<uint8_t>  gemm_vector(A.nt());
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
+    const int default_priority = 0;
+    const int default_queue = 0;
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -108,10 +116,21 @@ void her2k(slate::internal::TargetType<target>,
         #pragma omp task depend(in:bcast[0]) \
                          depend(out:gemm[0])
         {
+            auto A_col0 = A.sub( 0, A.mt()-1, 0, 0 );
+            auto B_col0 = B.sub( 0, B.mt()-1, 0, 0 );
             internal::her2k<target>(
-                alpha, A.sub(0, A.mt()-1, 0, 0),
-                       B.sub(0, B.mt()-1, 0, 0),
-                beta,  std::move(C));
+                alpha, std::move( A_col0 ),
+                       std::move( B_col0 ),
+                beta,  std::move( C ),
+                default_priority, default_queue, layout, opts_local );
+
+            // Erase remote tiles on all devices including host
+            A_col0.eraseRemoteWorkspace();
+            B_col0.eraseRemoteWorkspace();
+
+            // Erase local workspace on devices.
+            A_col0.eraseLocalWorkspace();
+            B_col0.eraseLocalWorkspace();
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -144,10 +163,21 @@ void her2k(slate::internal::TargetType<target>,
                              depend(in:gemm[k-1]) \
                              depend(out:gemm[k])
             {
+                auto A_colk = A.sub( 0, A.mt()-1, k, k );
+                auto B_colk = B.sub( 0, B.mt()-1, k, k );
                 internal::her2k<target>(
-                    alpha,       A.sub(0, A.mt()-1, k, k),
-                                 B.sub(0, B.mt()-1, k, k),
-                    real_t(1.0), std::move(C));
+                    alpha,         std::move( A_colk ),
+                                   std::move( B_colk ),
+                    real_t( 1.0 ), std::move( C ),
+                    default_priority, default_queue, layout, opts_local );
+
+                // Erase remote tiles on all devices including host
+                A_colk.eraseRemoteWorkspace();
+                B_colk.eraseRemoteWorkspace();
+
+                // Erase local workspace on devices.
+                A_colk.eraseLocalWorkspace();
+                B_colk.eraseLocalWorkspace();
             }
         }
 
@@ -158,27 +188,7 @@ void her2k(slate::internal::TargetType<target>,
     C.clearWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup her2k_specialization
-///
-template <Target target, typename scalar_t>
-void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
-                                            Matrix<scalar_t>& B,
-           blas::real_type<scalar_t> beta,  HermitianMatrix<scalar_t>& C,
-           Options const& opts)
-{
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
-    internal::specialization::her2k(internal::TargetType<target>(),
-                                    alpha, A,
-                                           B,
-                                    beta,  C,
-                                    lookahead);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Distributed parallel Hermitian rank 2k update.
@@ -232,26 +242,30 @@ void her2k(scalar_t alpha,                  Matrix<scalar_t>& A,
 /// @ingroup her2k
 ///
 template <typename scalar_t>
-void her2k(scalar_t alpha,                 Matrix<scalar_t>& A,
-                                           Matrix<scalar_t>& B,
-           blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
-           Options const& opts)
+void her2k(
+    scalar_t alpha,                 Matrix<scalar_t>& A,
+                                    Matrix<scalar_t>& B,
+    blas::real_type<scalar_t> beta, HermitianMatrix<scalar_t>& C,
+    Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            her2k<Target::HostTask>(alpha, A, B, beta, C, opts);
+            impl::her2k<Target::HostTask>( alpha, A, B, beta, C, opts );
             break;
+
         case Target::HostNest:
-            her2k<Target::HostNest>(alpha, A, B, beta, C, opts);
+            impl::her2k<Target::HostNest>( alpha, A, B, beta, C, opts );
             break;
+
         case Target::HostBatch:
-            her2k<Target::HostBatch>(alpha, A, B, beta, C, opts);
+            impl::her2k<Target::HostBatch>( alpha, A, B, beta, C, opts );
             break;
+
         case Target::Devices:
-            her2k<Target::Devices>(alpha, A, B, beta, C, opts);
+            impl::her2k<Target::Devices>( alpha, A, B, beta, C, opts );
             break;
     }
 }

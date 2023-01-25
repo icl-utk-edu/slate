@@ -132,6 +132,7 @@ std::vector< testsweeper::routines_t > routines = {
 
     { "trtri",              test_trtri,        Section::gesv },
     { "",                   nullptr,           Section::newline },
+    { "gecondest",          test_gecondest,    Section::gesv },
 
     // -----
     // Cholesky
@@ -198,6 +199,7 @@ std::vector< testsweeper::routines_t > routines = {
     //{ "unmql",              test_unmql,     Section::qr },
     //{ "unmrq",              test_unmrq,     Section::qr },
     { "",                   nullptr,        Section::newline },
+    { "trcondest",          test_trcondest, Section::qr },
 
     // -----
     // symmetric/Hermitian eigenvalues
@@ -400,6 +402,9 @@ Params::Params():
     // ----- output parameters
     // min, max are ignored
     //          name,           w, p, type,              default,      min, max, help
+    value      ("value",        9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical value"),
+    value2     ("value2",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical value"),
+    value3     ("value3",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical value"),
     error      ("error",        9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),
     error2     ("error2",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),
     error3     ("error3",       9, 2, ParamType::Output, no_data_flag,   0,   0, "numerical error"),

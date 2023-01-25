@@ -252,11 +252,11 @@ void Debug::printTilesMaps(BaseMatrix<scalar_t> const& A)
 ///  - "h" if on hold
 ///  - "_" otherwise
 ///
-/// Prints aditional char for Layout:
+/// Prints additional char for Layout:
 ///  - "|" if ColMajor
 ///  - "-" if RowMajor
 ///
-/// Prints aditional char for extended buffer:
+/// Prints additional char for extended buffer:
 ///  - "u" if user data
 ///  - "e" if extended
 ///  - " " otherwise
@@ -318,7 +318,7 @@ void Debug::printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name,
                     if (tile->origin())
                         printf("o");
                     else
-                        printf("x");
+                        printf("w");
 
                     auto mosi = it->second->at(device).getState();
                     switch (mosi) {

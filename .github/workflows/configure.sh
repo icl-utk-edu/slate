@@ -24,8 +24,8 @@ if [ "${maker}" = "make" ]; then
     # SLATE doesn't have 'make config', just echo the settings.
     make echo \
          || exit 10
-fi
-if [ "${maker}" = "cmake" ]; then
+
+elif [ "${maker}" = "cmake" ]; then
     cmake -Dcolor=no -DCMAKE_CXX_FLAGS="-Werror" \
           -DCMAKE_INSTALL_PREFIX=${top}/install \
           -Dgpu_backend=${gpu_backend} .. \

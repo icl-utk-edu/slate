@@ -68,7 +68,7 @@ END
 
 if [ "${device}" = "cpu" -o "${device}" = "gpu_nvidia" ]; then
     print "======================================== Load Open MPI"
-    module load openmpi
+    quiet module load openmpi
     export OMPI_CXX=${CXX}
 
     cat >> make.inc << END
@@ -77,7 +77,7 @@ mkl_blacs = openmpi
 END
 else
     print "======================================== Load Intel MPI"
-    module load intel-mpi
+    quiet module load intel-mpi
     export FI_PROVIDER=tcp
 
     # AMD has header warnings, so don't use -Werror.
@@ -93,7 +93,8 @@ mpif90 --version
 
 if [ "${device}" = "gpu_nvidia" ]; then
     print "======================================== Load CUDA"
-    export CUDA_HOME=/usr/local/cuda/
+    quiet module load cuda
+    echo "CUDA_HOME=${CUDA_HOME}"
     export PATH=${PATH}:${CUDA_HOME}/bin
     export CPATH=${CPATH}:${CUDA_HOME}/include
     export LIBRARY_PATH=${LIBRARY_PATH}:${CUDA_HOME}/lib64
@@ -102,9 +103,8 @@ if [ "${device}" = "gpu_nvidia" ]; then
     nvcc --version
 
     echo "cuda_arch = volta" >> make.inc
-fi
 
-if [ "${device}" = "gpu_amd" ]; then
+elif [ "${device}" = "gpu_amd" ]; then
     print "======================================== Load ROCm"
     export ROCM_HOME=/opt/rocm
     # Some hip utilities require /usr/sbin/lsmod

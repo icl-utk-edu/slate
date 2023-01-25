@@ -147,6 +147,10 @@ void gemmA(internal::TargetType<Target::HostTask>,
         }
     }
 
+    if (err)
+        slate_error(
+            std::string( "Error in omp-task line: " ) + std::to_string( err ) );
+
     #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
         #pragma omp task slate_omp_default_none \
@@ -190,6 +194,30 @@ void gemmA(internal::TargetType<Target::HostTask>,
     if (err)
         slate_error(
             std::string( "Error in omp-task line: " ) + std::to_string( err ) );
+}
+
+template <typename scalar_t>
+void gemmA(internal::TargetType<Target::HostNest>,
+           scalar_t alpha, Matrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
+           scalar_t beta,  Matrix<scalar_t>& C,
+           Layout layout, int priority, int queue_index,
+           Options const& opts)
+{
+    gemmA( internal::TargetType<Target::HostTask>(),
+            alpha, A, B, beta, C, layout, priority, queue_index, opts );
+}
+
+template <typename scalar_t>
+void gemmA(internal::TargetType<Target::HostBatch>,
+           scalar_t alpha, Matrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
+           scalar_t beta,  Matrix<scalar_t>& C,
+           Layout layout, int priority, int queue_index,
+           Options const& opts)
+{
+    gemmA( internal::TargetType<Target::HostTask>(),
+            alpha, A, B, beta, C, layout, priority, queue_index, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -312,8 +340,8 @@ void gemmA(internal::TargetType<Target::Devices>,
                             B_tiles_set.insert( {j, 0} );
                             C_tiles_set.insert( {i, 0} );
 
-                            if ((! C.tileExists( i, 0, device ))
-                                && (! C.tileExists( i, 0, HostNum )))
+                            if (! C.tileExists( i, 0, device )
+                                && ! C.tileExists( i, 0, HostNum ))
                             {
                                 // XXX since at least cuBLAS does not
                                 // take beta as a vector, we have to
@@ -737,10 +765,78 @@ void gemmA< Target::HostTask, std::complex<double> >(
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
     Layout layout, int priority, int64_t queue_index,
     Options const& opts);
-template
 
 // ----------------------------------------
 // Devices instantiation
+template
+void gemmA<Target::HostNest, float>(
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+template
+void gemmA<Target::HostNest, double>(
+    double alpha, Matrix<double>&& A,
+                  Matrix<double>&& B,
+    double beta,  Matrix<double>&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+template
+void gemmA< Target::HostNest, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+template
+void gemmA< Target::HostNest, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
+    std::complex<double> beta,  Matrix< std::complex<double> >&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+// ----------------------------------------
+// HostBatch instantiation
+template
+void gemmA<Target::HostBatch, float>(
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+template
+void gemmA<Target::HostBatch, double>(
+    double alpha, Matrix<double>&& A,
+                  Matrix<double>&& B,
+    double beta,  Matrix<double>&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+template
+void gemmA< Target::HostBatch, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+template
+void gemmA< Target::HostBatch, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
+    std::complex<double> beta,  Matrix< std::complex<double> >&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+// ----------------------------------------
+// Devices instantiation
+template
 void gemmA<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,

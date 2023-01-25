@@ -110,7 +110,8 @@ void trsm(internal::TargetType<Target::HostNest>,
           int priority, Layout layout, int64_t queue_index,
           Options const& opts)
 {
-    slate_not_implemented("Target::HostNest isn't yet supported.");
+    trsm( internal::TargetType<Target::HostTask>(),
+            side, alpha, A, B, priority, layout, queue_index, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -126,7 +127,8 @@ void trsm(internal::TargetType<Target::HostBatch>,
           int priority, Layout layout, int64_t queue_index,
           Options const& opts)
 {
-    slate_not_implemented("Target::HostBatch isn't yet supported.");
+    trsm( internal::TargetType<Target::HostTask>(),
+            side, alpha, A, B, priority, layout, queue_index, opts );
 }
 
 //------------------------------------------------------------------------------

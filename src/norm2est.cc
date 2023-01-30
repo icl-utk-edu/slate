@@ -187,6 +187,7 @@ norm2est(matrix_type& A,
             return impl::norm2est<Target::Devices>( A, opts );
             break;
     }
+    throw std::exception();  // todo: invalid target
 }
 
 //------------------------------------------------------------------------------

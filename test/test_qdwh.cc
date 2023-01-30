@@ -18,7 +18,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-#define SLATE_HAVE_SCALAPACK
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_qdwh_work(Params& params, bool run)

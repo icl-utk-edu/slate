@@ -17,7 +17,7 @@ namespace impl {
 
 //------------------------------------------------------------------------------
 /// @internal
-/// Distributed parallel general matrix norm.
+/// Distributed parallel general matrix 2-norm estimate.
 /// Generic implementation for any target.
 /// @ingroup norm_specialization
 ///

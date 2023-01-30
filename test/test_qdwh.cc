@@ -13,7 +13,6 @@
 #include "scalapack_wrappers.hh"
 #include "scalapack_support_routines.hh"
 #include "scalapack_copy.hh"
-#include "nvToolsExt.h"
 
 #include <cmath>
 #include <cstdio>
@@ -145,9 +144,7 @@ void test_qdwh_work(Params& params, bool run)
         // A = AH,
         // A will be written by the orthogonal polar factor
         // H is the symmetric positive semidefinite polar factor
-        nvtxRangePush("qdwh");
         slate::qdwh(A, H, itqr, itpo, opts);
-        nvtxRangePop();
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 

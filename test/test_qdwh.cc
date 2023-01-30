@@ -176,7 +176,7 @@ void test_qdwh_work(Params& params, bool run)
         params.gflops() = gflop / time;
 
         print_matrix("U: orthogonal polar factor", A, params);
-        //print_matrix("H: symmetric postive semi definite factor", H, params);
+        print_matrix("H: symmetric postive semi definite factor", H, params);
     }
 
     if (check) {

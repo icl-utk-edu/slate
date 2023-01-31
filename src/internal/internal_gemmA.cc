@@ -241,6 +241,7 @@ void gemmA(internal::TargetType<Target::Devices>,
 
     TileReleaseStrategy tile_release_strategy = get_option(
             opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
     // check dimensions
     // TODO add more?
     assert( A.mt() == C.mt() );
@@ -709,13 +710,15 @@ void gemmA(internal::TargetType<Target::Devices>,
                 }
 
                 if (tile_release_strategy == TileReleaseStrategy::Internal
-                    || tile_release_strategy == TileReleaseStrategy::All) {
+                    || tile_release_strategy == TileReleaseStrategy::All)
+                {
                     for (int64_t i = 0; i < A.mt(); ++i) {
                         for (int64_t j = 0; j < A.nt(); ++j) {
                             if (A.tileIsLocal( i, j )) {
                                 if (device == A.tileDevice( i, j )) {
+                                    A.tileRelease( i, j, device );
                                     // erase tmp local and remote device tiles;
-                                    B.tileRelease( j, 0, device );
+                                    B.tileRelease( j, 0, device ); // XXX Should it stay here?
                                     // decrement life for remote tiles
                                     B.tileTick( j, 0 );
                                 }

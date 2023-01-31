@@ -47,7 +47,7 @@ void qdwh(
     scalar_t zero = 0.0, one = 1.0;
     scalar_t alpha, beta;
 
-    real_t norminvR;
+    real_t normR;
 
     real_t eps  = std::numeric_limits<real_t>::epsilon();
     real_t tol1 = 5. * eps;
@@ -137,16 +137,13 @@ void qdwh(
     auto R1 =  W10.slice(0, n-1, 0, n-1);
     auto R  = TriangularMatrix<scalar_t>(
             Uplo::Upper, slate::Diag::NonUnit, R1 );
-    // For now, compute the exact condition number using trtri
-    trtri(R, opts);
-    norminvR = norm(slate::Norm::One, R, opts);
-    real_t smin_est = 1./norminvR;
+    normR = norm(slate::Norm::One, R, opts);
+    slate::trcondest(slate::Norm::One, R, &Li, opts);
+    real_t smin_est = normR*Li;
     Li = smin_est / sqrt(n);
 
-    // todo: will call trcondest instead
     //slate::trcondest(slate::Norm::One, R, &Li, opts);
-    // *flops += FLOPS_DGEQRF( M, N )
-    //       + FLOPS_DTRTRI( N );
+    // *flops += FLOPS_DGEQRF( M, N );
 
     // Compute the number of iterations to converge
     itconv = 0; Liconv = Li;
@@ -160,7 +157,10 @@ void qdwh(
         itconv++;
 
         L2  =  Liconv * Liconv;
-        dd  = pow( real_t(4.0) * ( rone - L2 ) / ( L2 * L2 ), rone / real_t(3.0) );
+        if (abs( L2 - rone) <= 10*eps)
+            dd = rzero;
+        else
+            dd  = pow( real_t(4.0) * ( rone - L2 ) / ( L2 * L2 ), rone / real_t(3.0) );
         sqd = sqrt( rone + dd );
         a1  = sqd + sqrt( real_t(8.0) - real_t(4.0) * dd +
               real_t(8.0) * ( real_t(2.0) - L2 ) / ( L2 * sqd ) ) / real_t(2.0);
@@ -182,10 +182,12 @@ void qdwh(
         // Compute parameters L,a,b,c
         L2  = Li * Li;
         //dd  = pow( real_t(4.0) * ( rone - L2 ) / ( L2 * L2 ), rone / real_t(3.0) );
-        if (abs( L2 - one) <= 10*eps)
+        if (abs( L2 - rone) <= 10*eps) {
             dd = rzero;
-        else
-            dd  = pow( real_t(4.0) * ( rone - L2 ) / ( L2 * L2 ), rone / real_t(3.0) );
+        }
+        else {
+            dd  = std::pow( real_t(4.0) * ( rone - L2 ) / ( L2 * L2 ), rone / real_t(3.0) );
+        }
         sqd = sqrt( rone + dd );
         a1  = sqd + sqrt( real_t(8.0) - real_t(4.0) * dd +
               real_t(8.0) * ( real_t(2.0) - L2 ) / ( L2 * sqd ) ) / real_t(2.0);

@@ -2384,7 +2384,7 @@ void BaseMatrix<scalar_t>::tileIbcastToSet(
 
         at(i, j, device).recv(new_vec[recv_from.front()], mpi_comm_, layout, tag);
         tileLayout(i, j, device, layout);
-        tileModified(i, j, device);
+        tileModified(i, j, device, true);
     }
 
     if (! send_to.empty()) {

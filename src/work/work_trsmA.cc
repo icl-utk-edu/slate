@@ -63,6 +63,13 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     using std::imag;
 
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+    auto tileStrategy = get_option<TileReleaseStrategy>( opts, Option::TileReleaseStrategy, TileReleaseStrategy::Slate );
+
+    Options local_opts = opts;
+    local_opts[ Option::Lookahead ] = lookahead;
+
+    // XXX This should be removed later, based on Kadir's comment.
+    local_opts[ Option::TileReleaseStrategy ] = tileStrategy;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -156,7 +163,8 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 if (A.tileIsLocal(k, k)) {
                     Log::print<alloc>( alloc::details,
                             "Before inserting tiles in B\n" );
-                    Debug::printTilesMaps( B );
+                    BaseLog::exec<alloc>( alloc::data,
+                            [&] () { Debug::printTilesMaps( B ); } );
                     // TODO insert only what is needed for this iteration, otherwise,
                     // all missing tiles are inserted.
                     for (int64_t j = 0; j < nt; ++j) {
@@ -212,7 +220,8 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     }
                     Log::print<alloc>( alloc::details,
                             "After inserting tiles in B\n" );
-                    Debug::printTilesMaps( B );
+                    BaseLog::exec<alloc>( alloc::data,
+                            [&] () { Debug::printTilesMaps( B ); } );
                 }
 
                 // Gather B(k,:) to rank owning diagonal block A(k,k)
@@ -242,7 +251,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         Side::Left,
                         one, A.sub(k, k),
                              B.sub(k, k, 0, nt-1),
-                        priority_one, layout, queue_1, opts);
+                        priority_one, layout, queue_1, local_opts);
                 }
               //Log::print<alloc>( alloc::details, "After trsmA\n" );
               //Debug::printTilesMaps( B );
@@ -279,8 +288,40 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
               //Log::print<alloc>( alloc::details, "After sending back the solution\n" );
               //Debug::printTilesMaps( B );
 
+                // Bcast the result of the solve, B(k,:) to
+                // ranks owning block row A(k + 1 : mt, k)
+                // TODO does it work for the last iteration?
+                BcastList bcast_list_upd_B;
+                for (int64_t j = 0; j < nt; ++j) {
+                    // FIXME add B( k, j ) as dest
+                    bcast_list_upd_B.push_back(
+                        {k, j, { A.sub(k + 1, mt - 1, k, k), }});
+                }
+                Log::print<algo>( algo::info,
+                    "Bcast B( %ld, %ld )\n", k, -1l );
+                B.template listBcast<target>(
+                        bcast_list_upd_B, layout, k, lookahead + 1 ); // XXX Should it be just 1 at the last iteration?
+              //Log::print<alloc>( alloc::details, "After bcast\n" );
+              //Debug::printTilesMaps( B );
+
+#if 0
                 // Clean the memory by removing temporary tiles
                 // TODO do it on device too
+                Log::print<alloc>( alloc::info,
+                        "Current state of B before erasing tiles\n" );
+                BaseLog::exec<alloc>( alloc::data,
+                    [&] () { Debug::printTilesMaps( B ); } );
+                auto B_row_k = B.sub( k, k, 0, nt-1 );
+                BaseLog::exec<alloc>( alloc::data,
+                    [&] () { Debug::printTilesMaps( B_row_k ); } );
+                B_row_k.eraseRemoteWorkspace();
+                B_row_k.eraseLocalWorkspace();
+                Log::print<alloc>( alloc::info,
+                        "Current state of B after erasing tiles\n" );
+                BaseLog::exec<alloc>( alloc::data,
+                    [&] () { Debug::printTilesMaps( B ); } );
+                BaseLog::exec<alloc>( alloc::data,
+                    [&] () { Debug::printTilesMaps( B_row_k ); } );
               //if (tile_release_strategy == TileReleaseStrategy::Internal
               //    || tile_release_strategy == TileReleaseStrategy::All)
               //{
@@ -305,24 +346,9 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             [&] () { Debug::printTilesMaps( B ); } );
                 }
               //}
-
-                // Bcast the result of the solve, B(k,:) to
-                // ranks owning block row A(k + 1 : mt, k)
-                // TODO does it work for the last iteration?
-                BcastList bcast_list_upd_B;
-                for (int64_t j = 0; j < nt; ++j) {
-                    // FIXME add B( k, j ) as dest
-                    bcast_list_upd_B.push_back(
-                        {k, j, { A.sub(k + 1, mt - 1, k, k), }});
-                }
-                Log::print<algo>( algo::info,
-                    "Bcast B( %ld, %ld )\n", k, -1l );
-                B.template listBcast<target>(
-                        bcast_list_upd_B, layout, k, lookahead + 1 ); // XXX Should it be just 1 at the last iteration?
-              //Log::print<alloc>( alloc::details, "After bcast\n" );
-              //Debug::printTilesMaps( B );
+#endif
             }
-#pragma omp taskwait
+//#pragma omp taskwait
 
             // lookahead update, B(k+1:k+la, :) -= A(k+1:k+la, k) B(k, :)
             for (int64_t i = k+1; i < k+1+lookahead && i < mt; ++i) {
@@ -344,11 +370,11 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             -one, A.sub(i, i, k, k),
                                   B.sub(k, k, j, j),
                             one,  B.sub(i, i, j, j),
-                            layout, priority_one, queue_i );
+                            layout, priority_one, queue_i, local_opts );
                     }
                 }
             }
-#pragma omp taskwait
+//#pragma omp taskwait
           //Log::print<alloc>( alloc::details, "After lookahead gemmA\n" );
           //Debug::printTilesMaps( B );
 
@@ -375,14 +401,44 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             -one, A.sub(k+1+lookahead, mt-1, k, k),
                                   B.sub(k, k, j, j),
                             one,  B.sub(k+1+lookahead, mt-1, j, j),
-                            layout, priority_zero, queue_0);
+                            layout, priority_zero, queue_0, local_opts );
                     }
                 }
             }
-#pragma omp taskwait
+//#pragma omp taskwait
+            // Erase remote or workspace tiles.
+            #pragma omp task depend(inout:row[k])
+            {
+                auto A_col_k = A.sub( k, mt-1, k, k );
+                A_col_k.eraseRemoteWorkspace();
+                A_col_k.eraseLocalWorkspace();
+
+                Log::print<alloc>( alloc::info,
+                        "Current state of B before erasing tiles\n" );
+                BaseLog::exec<alloc>( alloc::data,
+                    [&] () { Debug::printTilesMaps( B ); Debug::PRINTTILESMOSI( B ); } );
+                auto B_row_k = B.sub( k, k, 0, nt-1 );
+                BaseLog::exec<alloc>( alloc::data,
+                    [&] () { Debug::printTilesMaps( B_row_k ); } );
+
+                B_row_k.eraseRemoteWorkspace();
+
+                // Copy back modifications to tiles in the B panel
+                // before they are erased.
+                B_row_k.tileUpdateAllOrigin();
+                B_row_k.eraseLocalWorkspace();
+
+                Log::print<alloc>( alloc::info,
+                        "Current state of B after erasing tiles\n" );
+                BaseLog::exec<alloc>( alloc::data,
+                    [&] () { Debug::printTilesMaps( B ); } );
+                BaseLog::exec<alloc>( alloc::data,
+                    [&] () { Debug::printTilesMaps( B_row_k ); } );
+            }
+//#pragma omp taskwait
           //Log::print<alloc>( alloc::details, "After gemmA\n" );
           //Debug::printTilesMaps( B );
-            if (k == 2) break;
+          //if (k == 0) break;
         }
     }
     else {
@@ -532,22 +588,38 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     #pragma omp taskwait
     Log::print<alloc>( alloc::info, "Before final cleaning\n" );
     BaseLog::exec<alloc>( alloc::data,
-            [&] () { Debug::printTilesMaps( B ); } );
-  //Debug::printTilesMaps( A );
-    for (int64_t i = 0; i < mt; ++i) {
-        int device = (target == Target::Devices ? A.tileDevice( i, i ) : HostNum );
-        for (int64_t j = 0; j < nt; ++j) {
-            // TODO move it up
-            if (B.tileExists( i, j, device )) { // && ! B.tileIsLocal( i, j )) {
-                Log::print<alloc>( alloc::info,
-                        "Release B( %ld, %ld ) on Device %d\n",
-                        i, j, device );
-                // FIXME should be done where the tile is located
-                // either CPU impl or DEVICE
-                //B.tileErase(k, j);
-              //A.tileRelease( i, j, device );
-                B.tileRelease( i, j, device );
-                B.tileTick( i, j );
+            [&] () { 
+            Debug::printTilesMaps( B );
+            Debug::PRINTTILESMOSI( B ); 
+            Debug::printTilesMaps( A );
+            Debug::PRINTTILESMOSI( A ); 
+            } );
+    for (int64_t i = 0; i < A.mt(); ++i) {
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            if (A.tileIsLocal( i, j )) {
+                int device = (target == Target::Devices ? A.tileDevice( i, j ) : HostNum );
+                for (int64_t k = 0; k < nt; ++k) {
+                    if (B.tileExists( i, k, device )) {
+                        Log::print<alloc>( alloc::info,
+                                "Release B( %ld, %ld ) on Device %d\n",
+                                i, k, device );
+                        // FIXME should be done where the tile is located
+                        // either CPU impl or DEVICE
+                        //B.tileErase(k, j);
+                        B.tileRelease( i, k, device );
+                        //B.tileTick( i, j );
+                    }
+                    if (device != HostNum && B.tileExists( i, k, HostNum )) {
+                        Log::print<alloc>( alloc::info,
+                                "Release B( %ld, %ld ) on Device %d\n",
+                                i, k, HostNum );
+                        // FIXME should be done where the tile is located
+                        // either CPU impl or DEVICE
+                        //B.tileErase(k, j);
+                        B.tileRelease( i, k, HostNum );
+                    }
+                }
+                break;
             }
         }
     }

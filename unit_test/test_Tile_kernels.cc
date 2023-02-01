@@ -1021,7 +1021,6 @@ void test_device_convert_layout(int m, int n)
                         Adata.size(),
                         blas::MemcpyKind::HostToDevice,
                         queue);
-    queue.sync(); // blas::device_memcpy does not sync by default
 
     scalar_t* Adata_dev_ext;
     Adata_dev_ext = blas::device_malloc<scalar_t>(Adata.size(), queue);
@@ -1042,7 +1041,6 @@ void test_device_convert_layout(int m, int n)
                         Aarray.size(),
                         blas::MemcpyKind::HostToDevice,
                         queue);
-    queue.sync(); // blas::device_memcpy does not sync by default
 
     // Allocate Aarray_dev_ext[] on device and copy Aarray[] to it
     scalar_t** Aarray_dev_ext;
@@ -1051,7 +1049,6 @@ void test_device_convert_layout(int m, int n)
                         Aarray_ext.size(),
                         blas::MemcpyKind::HostToDevice,
                         queue);
-    queue.sync(); // blas::device_memcpy does not sync by default
 
     if (verbose > 1) {
         printf("A = [\n");
@@ -1091,7 +1088,6 @@ void test_device_convert_layout(int m, int n)
     // copy transposed data Adata_dev/Adata_dev_ext from device to Adata (cpu)
     blas::device_memcpy<scalar_t>(
         Adata.data(), (m == n ? Adata_dev : Adata_dev_ext), Adata.size(), queue);
-    queue.sync(); // blas::device_memcpy does not sync by default
 
     //-----------------------------------------
     // Run kernel.
@@ -1150,7 +1146,7 @@ void test_device_convert_layout(int m, int n)
                         Adata.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);
-    queue.sync(); // blas::device_memcpy does not sync by default
+    queue.sync(); // sync before looking at data
 
     if (verbose > 1) {
         printf("AT = [\n");

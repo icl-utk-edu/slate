@@ -957,7 +957,6 @@ void Tile<scalar_t>::copyData(
 
         blas::device_memcpy<scalar_t>(
             dst_tile->data_, this->data_, this->size(), memcpy_kind, queue);
-        queue.sync(); // blas::device_memcpy does not sync
 
         if (! async)
             queue.sync();

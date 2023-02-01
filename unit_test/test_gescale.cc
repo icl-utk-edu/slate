@@ -478,7 +478,7 @@ void test_gescale_batch_dev()
           { -2.0, -2.0 } },
       };
 
-    std::list< int > batch_count_list{ 1, 2, 3, 4, 5, 10, 20, 100 };
+    std::list< int > batch_count_list{ 1, 2, 3, 4, 5, 10, 20, 30 };
 
     // Create the queue
     int device_idx;

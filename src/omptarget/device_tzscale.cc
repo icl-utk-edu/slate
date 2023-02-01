@@ -63,6 +63,7 @@ void tzscale(
 
     blas::real_type<scalar_t> mul = numer / denom;
 
+    queue.sync(); // sync queue before switching to openmp device execution
     // Use omp target offload
     #pragma omp target is_device_ptr(Aarray) device(queue.device())
     #pragma omp teams distribute

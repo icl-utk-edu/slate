@@ -24,6 +24,7 @@ void transpose_sqr_batch_func(
     int n, scalar_t** Aarray, int64_t lda, int batch_count, blas::Queue& queue)
 {
     static const int ib = 16;
+    queue.sync(); // sync queue before switching to openmp device execution
     // i, j are row & column indices of top-left corner of each local block.
     #pragma omp target is_device_ptr(Aarray) device(queue.device())
     // Distribute the blocks to omp teams
@@ -92,6 +93,7 @@ void transpose_sqr_func(
     // printf("%s:%d sqr queue.device() %d\n", __FILE__, __LINE__, queue.device());
 
     static const int ib = 16;
+    queue.sync(); // sync queue before switching to openmp device execution
     // i, j are row & column indices of top-left corner of each local block.
     #pragma omp target is_device_ptr(A) device(queue.device())
     // Distribute the blocks to omp teams
@@ -158,6 +160,7 @@ void transpose_rect_batch_func(
     int batch_count, blas::Queue& queue)
 {
     static const int NB = 32;
+    queue.sync(); // sync queue before switching to openmp device execution
     // i, j are row & column indices of top-left corner of each local block.
     #pragma omp target is_device_ptr(dAarray, dATarray) device(queue.device())
     #pragma omp teams distribute collapse(2)
@@ -205,6 +208,7 @@ void transpose_rect_func(
     blas::Queue& queue)
 {
     static const int NB = 32;
+    queue.sync(); // sync queue before switching to openmp device execution
     // i, j are row & column indices of top-left corner of each local block.
     #pragma omp target is_device_ptr(dA, dAT) device(queue.device())
     #pragma omp teams distribute collapse(2)

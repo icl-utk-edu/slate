@@ -58,6 +58,7 @@ void gecopy(
     if (batch_count == 0)
         return;
 
+    queue.sync(); // sync queue before switching to openmp device execution
     #pragma omp target is_device_ptr(Aarray, Barray) device(queue.device())
     #pragma omp teams distribute
     for (int64_t k = 0; k < batch_count; ++k) {

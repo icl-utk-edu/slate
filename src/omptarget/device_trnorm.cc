@@ -90,6 +90,7 @@ void trnorm(
             assert(ldv == 1);
             // use omp offload
             blas::device_memset(values, 0, batch_count, queue);
+            queue.sync(); // sync queue before switching to openmp device execution
             #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
             #pragma omp teams distribute
             for (int64_t k = 0; k < batch_count; ++k) {
@@ -139,6 +140,7 @@ void trnorm(
         else {
             assert(ldv >= n);
             blas::device_memset(values, 0, batch_count * n, queue);
+            queue.sync(); // sync queue before switching to openmp device execution
             #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
             #pragma omp teams distribute
             for (int64_t k = 0; k < batch_count; ++k) {
@@ -186,6 +188,7 @@ void trnorm(
         }
         else {
             assert(ldv >= m);
+            queue.sync(); // sync queue before switching to openmp device execution
             #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
             #pragma omp teams distribute
             for (int64_t k = 0; k < batch_count; ++k) {
@@ -234,6 +237,7 @@ void trnorm(
         else {
             assert(ldv == 2);
             blas::device_memset(values, 0, batch_count * 2, queue);
+            queue.sync(); // sync queue before switching to openmp device execution
             #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
             #pragma omp teams distribute
             // distribute each batch array to a team

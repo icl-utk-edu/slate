@@ -86,6 +86,7 @@ void henorm(
         else {
             assert(ldv == 1);
             blas::device_memset(values, 0, batch_count, queue);
+            queue.sync(); // sync queue before switching to openmp device execution
             // Use omp target offload
             #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
             #pragma omp teams distribute
@@ -119,6 +120,7 @@ void henorm(
         }
         else {
             assert(ldv >= n);
+            queue.sync(); // sync queue before switching to openmp device execution
             // use omp target offload
             #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
             #pragma omp teams distribute
@@ -160,6 +162,7 @@ void henorm(
         }
         else {
             assert(ldv == 2);
+            queue.sync(); // sync queue before switching to openmp device execution
             // use omp target offload
             #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
             #pragma omp teams distribute

@@ -94,6 +94,7 @@ void genorm(
             else {
                 assert(ldv == 1);
                 blas::device_memset(values, 0, batch_count, queue);
+                queue.sync(); // sync queue before switching to openmp device execution
                 // Use omp target offload
                 // note: the max_nan_reduction preserves nans
                 #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
@@ -120,6 +121,7 @@ void genorm(
             }
             else {
                 assert(ldv >= n);
+                queue.sync(); // sync queue before switching to openmp device execution
                 // use omp target offload
                 #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
                 #pragma omp teams distribute
@@ -143,6 +145,7 @@ void genorm(
             }
             else {
                 assert(ldv >= m);
+                queue.sync(); // sync queue before switching to openmp device execution
                 // use omp target offload
                 #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
                 #pragma omp teams distribute
@@ -166,6 +169,7 @@ void genorm(
             }
             else {
                 assert(ldv == 2);
+                queue.sync(); // sync queue before switching to openmp device execution
                 // use omp target offload
                 #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
                 #pragma omp teams distribute
@@ -213,6 +217,7 @@ void genorm(
                 // todo:  NOTE THIS NORM IS NOT CHECKED YET
                 assert(ldv >= n);
                 blas::device_memset(values, 0, batch_count * n, queue);
+                queue.sync(); // sync queue before switching to openmp device execution
                 // Use omp target offload
                 #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
                 #pragma omp teams distribute

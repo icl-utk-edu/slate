@@ -46,6 +46,7 @@ void geset(
     if (m == 0 || n == 0)
         return;
 
+    queue.sync(); // sync queue before switching to openmp device execution
     // Use omp target offload
     #pragma omp target is_device_ptr(A) device(queue.device())
     #pragma omp teams distribute parallel for schedule(static, 1)
@@ -133,6 +134,7 @@ void geset(
     if (m == 0 || n == 0)
         return;
 
+    queue.sync(); // sync queue before switching to openmp device execution
     // Use omp target offload
     #pragma omp target is_device_ptr(Aarray) device(queue.device())
     #pragma omp teams distribute

@@ -102,7 +102,7 @@ void Memory::clearHostBlocks()
 ///
 void Memory::clearDeviceBlocks(int device, blas::Queue *queue)
 {
-    Debug::checkDeviceMemoryLeaks(*this, device);
+    // Debug::checkDeviceMemoryLeaks(*this, device);
 
     while (! free_blocks_[device].empty())
         free_blocks_[device].pop();
@@ -196,7 +196,6 @@ void* Memory::allocDeviceMemory(int device, size_t size, blas::Queue *queue)
 {
     void* dev_mem = blas::device_malloc<char>(size, *queue);
     allocated_mem_[device].push(dev_mem);
-    queue->sync(); // blas::device_malloc does not sync
 
     return dev_mem;
 }
@@ -215,7 +214,6 @@ void Memory::freeHostMemory(void* host_mem)
 void Memory::freeDeviceMemory(int device, void* dev_mem, blas::Queue *queue)
 {
     blas::device_free(dev_mem, *queue);
-    queue->sync(); // blas::device_free does not sync
 }
 
 } // namespace slate

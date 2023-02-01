@@ -361,7 +361,6 @@ void add(internal::TargetType<Target::Devices>,
                                 batch_count*2,
                                 blas::MemcpyKind::HostToDevice,
                                 *queue);
-            queue->sync(); // blas::device_memcpy does not sync
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {

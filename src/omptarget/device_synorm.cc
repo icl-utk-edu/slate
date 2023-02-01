@@ -79,12 +79,11 @@ void synorm(
     if (norm == lapack::Norm::Max) {
         if (n == 0) {
             blas::device_memset(values, 0, batch_count, queue);
-            queue.sync();
         }
         else {
             assert(ldv == 1);
             blas::device_memset(values, 0, batch_count, queue);
-            queue.sync();
+            queue.sync(); // sync queue before switching to openmp device execution
             // Use omp target offload
             #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
             #pragma omp teams distribute
@@ -115,10 +114,10 @@ void synorm(
     else if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
         if (n == 0) {
             blas::device_memset(values, 0, batch_count * n, queue);
-            queue.sync();
         }
         else {
             assert(ldv >= n);
+            queue.sync(); // sync queue before switching to openmp device execution
             #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
             // distribute tiles to teams
             #pragma omp teams distribute
@@ -155,10 +154,10 @@ void synorm(
     else if (norm == lapack::Norm::Fro) {
         if (n == 0) {
             blas::device_memset(values, 0, batch_count * 2, queue);
-            queue.sync();
         }
         else {
             assert(ldv == 2);
+            queue.sync(); // sync queue before switching to openmp device execution
             // use omp target offload
             #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
             #pragma omp teams distribute
@@ -197,7 +196,6 @@ void synorm(
                     }
                 }
             }
-            queue.sync();
         }
     }
 }
@@ -268,6 +266,7 @@ void synormOffdiag(
     // one norm and inf norm
     if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
         assert(ldv >= n+m);
+        queue.sync(); // sync queue before switching to openmp device execution
         // use openmp offload
         #pragma omp target is_device_ptr(Aarray, values) device(queue.device())
         #pragma omp teams distribute

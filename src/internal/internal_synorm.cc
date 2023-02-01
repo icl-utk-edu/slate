@@ -619,7 +619,6 @@ void norm(internal::TargetType<Target::Devices>,
                                     batch_count,
                                     blas::MemcpyKind::HostToDevice,
                                     *queue);
-                queue->sync(); // blas::device_memcpy does not sync
 
                 // off-diagonal blocks
                 for (int q = 0; q < 4; ++q) {

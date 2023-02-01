@@ -73,7 +73,6 @@ void test_gecopy_dev()
                         batch_count,
                         blas::MemcpyKind::HostToDevice,
                         queue);
-    queue.sync(); // blas::device_memcpy does not sync
 
     double* Barray[batch_count];
     double** dBarray;
@@ -84,7 +83,6 @@ void test_gecopy_dev()
                         batch_count,
                         blas::MemcpyKind::HostToDevice,
                         queue);
-    queue.sync(); // blas::device_memcpy does not sync
 
     slate::device::gecopy( m, n,
                            dAarray, lda,
@@ -97,7 +95,7 @@ void test_gecopy_dev()
                         batch_count,
                         blas::MemcpyKind::DeviceToHost,
                         queue);
-    queue.sync(); // blas::device_memcpy does not sync
+    queue.sync(); // sync before looking at data
 
     dB.copyData(&B, queue);
 

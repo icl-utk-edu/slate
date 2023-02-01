@@ -436,7 +436,6 @@ void test_Matrix_fromDevices()
         int64_t len = std::max(lda * n_dev, 1);
         Aarray[dev] = blas::device_malloc<double>(len, *dev_queues[dev]);
         assert(Aarray[dev] != nullptr);
-        dev_queues[dev]->sync();
     }
 
     auto A = slate::Matrix<double>::fromDevices(
@@ -455,7 +454,6 @@ void test_Matrix_fromDevices()
 
     for (int dev = 0; dev < num_devices; ++dev) {
         blas::device_free(Aarray[dev], *dev_queues[dev]);
-        dev_queues[dev]->sync();
     }
     delete[] Aarray;
 

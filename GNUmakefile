@@ -89,7 +89,7 @@ fortran_api     := $(strip $(fortran_api))
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX blas blas_int blas_threaded openmp static gpu_backend
 
-CXXFLAGS   += -O3 -std=c++17 -Wall -pedantic -MMD #  -Wshadow
+CXXFLAGS   += -O3 -std=c++17 -Wall -Wshadow -pedantic -MMD
 NVCCFLAGS  += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
 HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
 
@@ -495,7 +495,7 @@ omptarget_src := \
         src/omptarget/device_synorm.cc \
         src/omptarget/device_transpose.cc \
         src/omptarget/device_trnorm.cc \
-	    src/omptarget/device_tzadd.cc \
+        src/omptarget/device_tzadd.cc \
         src/omptarget/device_tzcopy.cc \
         src/omptarget/device_tzscale.cc \
         src/omptarget/device_tzset.cc \

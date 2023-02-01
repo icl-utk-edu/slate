@@ -44,6 +44,7 @@ norm2est(
 
     scalar_t one = 1.;
     scalar_t zero  = 0.;
+    real_t rone = 1.;
     real_t alpha;
 
     int64_t cnt = 0;
@@ -67,17 +68,11 @@ norm2est(
     std::vector<real_t> local_sums(n);
     std::vector<scalar_t> global_sums(n);
     std::vector<scalar_t> W1(lldA);
-    std::vector<scalar_t> W2(n);
-    // todo: W2 should needs only lldA_n, but it does not work with grid pxq,
-    // where p!=q
-    //std::vector<scalar_t> W2(lldA_n);
 
     auto XL = slate::Matrix<scalar_t>::fromScaLAPACK(
             n, 1, &global_sums[0], n, nb, 1, p, q, A.mpiComm());
     auto AX = slate::Matrix<scalar_t>::fromScaLAPACK(
             m, 1, &W1[0], lldA, mb, 1, p, q, A.mpiComm());
-    auto X = slate::Matrix<scalar_t>::fromScaLAPACK(
-            n, 1, &W2[0], lldA_n, nb, 1, p, q, A.mpiComm());
 
     // Two norm estimation
     // First: let's compute the x vector such that
@@ -112,11 +107,10 @@ norm2est(
         e0 = e;
 
         // Scale X = X / ||X||
-        alpha = 1.0/normX;
-        add(scalar_t(alpha), XL, zero, X, opts);
+        scale(rone, normX, XL, opts);
 
         // Compute Ax = A * sx
-        gemm(one, A, X, zero, AX, opts);
+        gemm(one, A, XL, zero, AX, opts);
 
         // todo: still need to add the following
         //if nnz(Sx) == 0
@@ -125,11 +119,9 @@ norm2est(
 
         // Compute x = A' * A * x = A' * Ax
         auto AT = conjTranspose(A);
-        // todo: why this set is needed when using multiple mpi rank
-        // todo: send to Sebastien
+        // todo: why this set is needed when using multiple mpi rank and using gemmA
         set(zero, zero, XL);
         gemm(one, AT, AX, zero, XL, opts);
-        //gemmC(one, AT, AX, zero, XL, opts);
 
         // Compute ||X||, ||AX||
         normX  = norm(Norm::Fro, XL, opts);

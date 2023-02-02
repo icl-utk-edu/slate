@@ -11,23 +11,20 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::unmqr_qdwh_full from internal::specialization::unmqr_qdwh_full
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel multiply by Q from QR factorization.
 /// Generic implementation for any target.
-/// @ingroup geqrf_specialization
+/// @ingroup geqrf_impl
 ///
 template <Target target, typename scalar_t>
 void unmqr_qdwh_full(
-    slate::internal::TargetType<target>,
     Side side, Op op,
     Matrix<scalar_t>& A,
     TriangularFactors<scalar_t>& T,
-    Matrix<scalar_t>& C)
+    Matrix<scalar_t>& C,
+    Options const& opts )
 {
     // trace::Block trace_block("unmqr");
     // const int priority_one = 1;
@@ -262,29 +259,21 @@ void unmqr_qdwh_full(
     C.clearWorkspace();
 }
 
-} // namespace specialization
-} // namespace internal
+} // namespace impl
 
 //------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup geqrf_specialization
+/// Distributed parallel customized multiply by $Q$ from QR factorization.
+/// Required for the QR-based iterations in the polar decomposition QDWH.
 ///
-template <Target target, typename scalar_t>
-void unmqr_qdwh_full(
-    Side side, Op op,
-    Matrix<scalar_t>& A,
-    TriangularFactors<scalar_t>& T,
-    Matrix<scalar_t>& C,
-    Options const& opts)
-{
-    internal::specialization::unmqr_qdwh_full(internal::TargetType<target>(),
-                                    side, op, A, T, C);
-}
-
-//------------------------------------------------------------------------------
-/// Distributed parallel multiply by $Q$ from QR factorization.
+/// The $Q$ matrix is the output of geqrf_qdwh_full. Since the input matrix
+/// to geqrf_qdwh_full has identity trailing matrix, the $Q$ matrix has
+/// zero tiles below the diagonal.
+/// Q = [ Q0 ]  full matrix ( m0-by-n, where m0 = m - n)
+///     [ Q1 ]  zero tiles below the diagonal (n-by-n)
 ///
 /// Multiplies the general m-by-n matrix $C$ by $Q$ from QR factorization,
+/// and takes advantage of the structure of the matrix by avoid operating
+/// on the tiles of zeros,
 /// according to:
 ///
 /// op              |  side = Left  |  side = Right
@@ -351,16 +340,19 @@ void unmqr_qdwh_full(
         case Target::Host:
         case Target::HostTask:
         default:
-            unmqr_qdwh_full<Target::HostTask>(side, op, A, T, C, opts);
+            impl::unmqr_qdwh_full<Target::HostTask>( side, op, A, T, C, opts );
             break;
+
         case Target::HostNest:
-            unmqr_qdwh_full<Target::HostNest>(side, op, A, T, C, opts);
+            impl::unmqr_qdwh_full<Target::HostNest>( side, op, A, T, C, opts );
             break;
+
         case Target::HostBatch:
-            unmqr_qdwh_full<Target::HostBatch>(side, op, A, T, C, opts);
+            impl::unmqr_qdwh_full<Target::HostBatch>( side, op, A, T, C, opts );
             break;
+
         case Target::Devices:
-            unmqr_qdwh_full<Target::Devices>(side, op, A, T, C, opts);
+            impl::unmqr_qdwh_full<Target::Devices>( side, op, A, T, C, opts );
             break;
     }
     // todo: return value for errors?

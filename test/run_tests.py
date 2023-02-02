@@ -578,7 +578,7 @@ if (opts.cond):
 # polar
 if (opts.qdwh):
     cmds += [
-    [ 'qdwh', gen + dtype + mn ],
+    [ 'qdwh', gen + dtype + n + tall ],
     ]
 
 # aux

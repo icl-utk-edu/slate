@@ -10,14 +10,55 @@
 
 namespace slate {
 
-namespace impl {
-
 //------------------------------------------------------------------------------
 /// Distributed parallel polar decomposition based on QDWH algorithm.
-/// Generic implementation for any target.
-/// @ingroup qdwh_specialization
 ///
-template <Target target, typename scalar_t>
+/// Computes a polar decomposition of an m-by-n matrix $A$.
+/// The factorization has the form
+/// \[
+///     A = UH,
+/// \]
+/// where $U$ is a matrix with orthonormal columns and $H$ is a Hermition
+/// matrix.
+///
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///     One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in,out] A
+///     On entry, the m-by-n matrix $A$.
+///     On exit, if return value = 0, the orthogonal polar factor $U$
+///     from the decomposition $A = U H$.
+///
+/// @param[out] H
+///     On exit, if return value = 0, the hermitian polar factor matrix $H$
+///     from the decomposition $A = U H$.
+///
+/// @param[out] itqr
+///     The number of the QR-based iterations.
+///
+/// @param[out] itpo
+///     The number of the Cholesky-based iterations.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::Lookahead:
+///       Number of panels to overlap with matrix updates.
+///       lookahead >= 0. Default 1.
+///     - Option::InnerBlocking:
+///       Inner blocking to use for panel. Default 16.
+///     - Option::MaxPanelThreads:
+///       Number of threads to use for panel. Default omp_get_max_threads()/2.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
+///
+/// @ingroup qdwh
+///
+template <typename scalar_t>
 void qdwh(
           Matrix<scalar_t>& A,
           Matrix<scalar_t>& H,
@@ -33,21 +74,14 @@ void qdwh(
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
-    int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
-
-    max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads, max_panel_threads );
-
-    int itconv, it;
-
-    real_t L2, sqd, dd, a1, a, b, c;
-    real_t Li, Liconv;
+    // Constants
     real_t conv = 100.;
-    real_t rzero = 0.0, rone = 1.0;
-
+    real_t rone = 1.0;
     scalar_t zero = 0.0, one = 1.0;
     scalar_t alpha, beta;
 
-    real_t normR;
+    // Options
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     real_t eps  = std::numeric_limits<real_t>::epsilon();
     real_t tol1 = 5. * eps;
@@ -65,14 +99,20 @@ void qdwh(
 
     int64_t nb   = A.tileMb(0);
 
+    int itconv, it;
+    real_t L2, sqd, dd, a1, a, b, c;
+    real_t Li, Liconv;
+    real_t normR;
     // The QR-based iterations requires QR[A; Id],
     // W = [A; Id], where size of A is mxn, size of Id is nxn
     // To avoid having a clean up tile in the middle of the W matrix,
     // we round up the number of A rows (m),
     // so that size(W) = m_roundup + n
-    int64_t m_roundup =  ((m + nb - 1) / nb ) * nb;
+    //int64_t m_roundup =  ((m + nb - 1) / nb ) * nb;
+    int64_t m_roundup = roundup( m, nb );
     int64_t m_W   = m_roundup + n;
     int64_t mt_W = mt + nt;
+
 
     int nprow, npcol;
     int myrow, mycol;
@@ -122,13 +162,11 @@ void qdwh(
 
     // scale the original matrix A to form A0 which is the initial matrix
     // for the first iteration
-    add(alpha/scalar_t(norm_est), Acpy, zero, A, opts);
-
-    // Estimate the condition number
-    // todo: use the Q factor in the first QR-based iteration
+    scale(rone, norm_est, A, opts);
 
     // Estimate the condition number using QR
     // This Q factor can be used in the first QR-based iteration
+    // todo: use the Q factor in the first QR-based iteration
     slate::copy(A, W10, opts);
     slate::geqrf(W10, T, opts);
     //auto R  = TrapezoidMatrix<scalar_t>(
@@ -296,106 +334,33 @@ void qdwh(
     //slate::copy(AL, H, opts);
 }
 
-} // namespace impl
-
-//------------------------------------------------------------------------------
-/// Distributed parallel polar decomposition based on QDWH algorithm.
-///
-/// Computes a polar decomposition of an m-by-n matrix $A$.
-/// The factorization has the form
-/// \[
-///     A = UH,
-/// \]
-/// where $U$ is a matrix with orthonormal columns and $H$ is a Hermition
-/// matrix.
-///
-/// Complexity (in real):
-/// - for $m \ge n$, $\approx 2 m n^{2} - \frac{2}{3} n^{3}$ flops;
-/// - for $m \le n$, $\approx 2 m^{2} n - \frac{2}{3} m^{3}$ flops;
-/// - for $m = n$,   $\approx \frac{4}{3} n^{3}$ flops.
-/// .
-//------------------------------------------------------------------------------
-/// @tparam scalar_t
-///     One of float, double, std::complex<float>, std::complex<double>.
-//------------------------------------------------------------------------------
-/// @param[in,out] A
-///     On entry, the m-by-n matrix $A$.
-///     On exit, if return value = 0, the orthogonal polar factor $U$
-///     from the decomposition $A = U H$.
-///
-/// @param[out] H
-///     On exit, if return value = 0, the hermitian polar factor matrix $H$
-///     from the decomposition $A = U H$.
-///
-/// @param[in] opts
-///     Additional options, as map of name = value pairs. Possible options:
-///     - Option::Lookahead:
-///       Number of panels to overlap with matrix updates.
-///       lookahead >= 0. Default 1.
-///     - Option::InnerBlocking:
-///       Inner blocking to use for panel. Default 16.
-///     - Option::MaxPanelThreads:
-///       Number of threads to use for panel. Default omp_get_max_threads()/2.
-///     - Option::Target:
-///       Implementation to target. Possible values:
-///       - HostTask:  OpenMP tasks on CPU host [default].
-///       - HostNest:  nested OpenMP parallel for loop on CPU host.
-///       - HostBatch: batched BLAS on CPU host.
-///       - Devices:   batched BLAS on GPU device.
-///
-/// @ingroup geqrf_computational
-///
-template <typename scalar_t>
-void qdwh(
-          Matrix<scalar_t>& A,
-          Matrix<scalar_t>& B,
-          int& itqr, int& itpo,
-          Options const& opts)
-{
-    using internal::TargetType;
-    Target target = get_option( opts, Option::Target, Target::HostTask );
-
-    switch (target) {
-        case Target::Host:
-        case Target::HostTask:
-        case Target::HostNest:
-        case Target::HostBatch:
-            impl::qdwh<Target::HostTask>( A, B, itqr, itpo, opts );
-            break;
-        case Target::Devices:
-            impl::qdwh<Target::Devices>( A, B, itqr, itpo, opts );
-            break;
-    }
-    // todo: return value for errors?
-}
-
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
 void qdwh<float>(
     Matrix<float>& A,
-    Matrix<float>& B,
+    Matrix<float>& H,
     int& itqr, int& itpo,
     Options const& opts);
 
 template
 void qdwh<double>(
     Matrix<double>& A,
-    Matrix<double>& B,
+    Matrix<double>& H,
     int& itqr, int& itpo,
     Options const& opts);
 
 template
 void qdwh< std::complex<float> >(
     Matrix< std::complex<float> >& A,
-    Matrix< std::complex<float> >& B,
+    Matrix< std::complex<float> >& H,
     int& itqr, int& itpo,
     Options const& opts);
 
 template
 void qdwh< std::complex<double> >(
     Matrix< std::complex<double> >& A,
-    Matrix< std::complex<double> >& B,
+    Matrix< std::complex<double> >& H,
     int& itqr, int& itpo,
     Options const& opts);
 

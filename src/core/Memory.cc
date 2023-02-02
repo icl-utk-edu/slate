@@ -102,7 +102,7 @@ void Memory::clearHostBlocks()
 ///
 void Memory::clearDeviceBlocks(int device, blas::Queue *queue)
 {
-    // Debug::checkDeviceMemoryLeaks(*this, device);
+    Debug::checkDeviceMemoryLeaks(*this, device);
 
     while (! free_blocks_[device].empty())
         free_blocks_[device].pop();

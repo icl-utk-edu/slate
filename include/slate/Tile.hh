@@ -956,7 +956,7 @@ void Tile<scalar_t>::copyData(
         trace::Block trace_block("blas::device_memcpy");
 
         blas::device_memcpy<scalar_t>(
-            dst_tile->data_, this->data_, this->size(), memcpy_kind, queue);
+            dst_tile->data_, data_, size(), memcpy_kind, queue);
 
         if (! async)
             queue.sync();

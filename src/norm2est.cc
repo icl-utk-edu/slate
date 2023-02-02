@@ -103,7 +103,7 @@ norm2est(
     }
 
     // Third: start the while-loop X = X / ||X||
-    while ((cnt < maxiter) && (fabs((e - e0)) > (tol * (e)))) {
+    while ((cnt < maxiter) && (std::abs(e - e0) > (tol * e))) {
         e0 = e;
 
         // Scale X = X / ||X||
@@ -127,7 +127,7 @@ norm2est(
         normX  = norm(Norm::Fro, XL, opts);
         normAX = norm(Norm::Fro, AX, opts);
 
-        // Uodate e
+        // Update e
         e = normX / normAX;
         cnt++;
     }

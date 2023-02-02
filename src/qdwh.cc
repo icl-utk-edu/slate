@@ -130,7 +130,6 @@ void qdwh(
     // Estimate the condition number using QR
     // This Q factor can be used in the first QR-based iteration
     slate::copy(A, W10, opts);
-    // todo: put bound of 1-norm est compared to 2-norm
     slate::geqrf(W10, T, opts);
     //auto R  = TrapezoidMatrix<scalar_t>(
     //    Uplo::Upper, slate::Diag::NonUnit, W10 );
@@ -157,10 +156,8 @@ void qdwh(
         itconv++;
 
         L2  =  Liconv * Liconv;
-        if (abs( L2 - rone) <= 10*eps)
-            dd = rzero;
-        else
-            dd  = pow( real_t(4.0) * ( rone - L2 ) / ( L2 * L2 ), rone / real_t(3.0) );
+        dd  = std::pow( real_t(4.0) * ( rone - L2 ), rone / real_t(3.0) ) *
+            std::pow( L2, real_t(-2.0) / real_t(3.0) );
         sqd = sqrt( rone + dd );
         a1  = sqd + sqrt( real_t(8.0) - real_t(4.0) * dd +
               real_t(8.0) * ( real_t(2.0) - L2 ) / ( L2 * sqd ) ) / real_t(2.0);
@@ -181,13 +178,8 @@ void qdwh(
 
         // Compute parameters L,a,b,c
         L2  = Li * Li;
-        //dd  = pow( real_t(4.0) * ( rone - L2 ) / ( L2 * L2 ), rone / real_t(3.0) );
-        if (abs( L2 - rone) <= 10*eps) {
-            dd = rzero;
-        }
-        else {
-            dd  = std::pow( real_t(4.0) * ( rone - L2 ) / ( L2 * L2 ), rone / real_t(3.0) );
-        }
+        dd  = std::pow( real_t(4.0) * ( rone - L2 ), rone / real_t(3.0) ) *
+            std::pow( L2, real_t(-2.0) / real_t(3.0) );
         sqd = sqrt( rone + dd );
         a1  = sqd + sqrt( real_t(8.0) - real_t(4.0) * dd +
               real_t(8.0) * ( real_t(2.0) - L2 ) / ( L2 * sqd ) ) / real_t(2.0);

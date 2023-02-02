@@ -639,6 +639,7 @@ tester_src += \
         test/test_pbsv.cc \
         test/test_posv.cc \
         test/test_potri.cc \
+        test/test_qdwh.cc \
         test/test_scale.cc \
         test/test_scale_row_col.cc \
         test/test_set.cc \
@@ -676,7 +677,6 @@ ifneq ($(have_fortran),)
         test/pdlantr.f \
         test/pclantr.f \
         test/pzlantr.f \
-        test/test_qdwh.cc \
         # End. Add alphabetically, by base name after precision.
 endif
 endif

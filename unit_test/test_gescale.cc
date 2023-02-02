@@ -242,8 +242,7 @@ void test_gescale_dev()
           { -2.0, -2.0 } },
       };
 
-    int device_idx;
-    blas::get_device( &device_idx );
+    int device_idx = 0;
     const int batch_arrays_index = 0;
     blas::Queue queue( device_idx, batch_arrays_index );
 
@@ -481,8 +480,7 @@ void test_gescale_batch_dev()
     std::list< int > batch_count_list{ 1, 2, 3, 4, 5, 10, 20, 30 };
 
     // Create the queue
-    int device_idx;
-    blas::get_device( &device_idx );
+    int device_idx = 0;
     const int batch_arrays_index = 0;
     blas::Queue queue( device_idx, batch_arrays_index );
 

@@ -156,8 +156,7 @@ void test_geset_dev()
               { 2.718281828459045, -1.732050807568877 } },
         };
 
-    int device_idx;
-    blas::get_device( &device_idx );
+    int device_idx = 0;
     const int batch_arrays_index = 0;
     blas::Queue queue( device_idx, batch_arrays_index );
 
@@ -349,8 +348,7 @@ void test_geset_batch_dev()
 
     std::list< int > batch_count_list{ 1, 2, 3, 4, 5, 10, 20, 100 };
 
-    int device_idx;
-    blas::get_device( &device_idx );
+    int device_idx = 0;
     const int batch_arrays_index = 0;
     blas::Queue queue( device_idx, batch_arrays_index );
 

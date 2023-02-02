@@ -109,7 +109,7 @@ void test_qdwh_work(Params& params, bool run)
         H = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &H_data[0], lldH, nb, p, q, MPI_COMM_WORLD);
     }
 
-    real_t cond = 1 / (100 * std::numeric_limits<real_t>::epsilon() );
+    real_t cond = 1 / (std::numeric_limits<real_t>::epsilon() );
     params.matrix.kind.set_default("svd");
     params.matrix.cond.set_default(cond);
 

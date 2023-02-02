@@ -45,7 +45,6 @@ norm2est(
     scalar_t one = 1.;
     scalar_t zero  = 0.;
     real_t rone = 1.;
-    real_t alpha;
 
     int64_t cnt = 0;
     int64_t maxiter = min( 100, n );
@@ -57,9 +56,7 @@ norm2est(
     real_t tol = 1.e-1;
 
     int64_t mloc   = numberLocalRowOrCol(m, mb, myrow, izero, p);
-    int64_t nloc   = numberLocalRowOrCol(n, nb, mycol, izero, q);
     int64_t lldA   = blas::max(1, mloc);
-    int64_t lldA_n = blas::max(1, nloc);
 
     // todo: do we still need reserveDevice here?
     if (target == Target::Devices)

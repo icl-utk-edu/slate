@@ -219,8 +219,13 @@ void geqrf(
                             else
                                 bcast_list_V.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                         }
-                        A.template listBcast<target>(bcast_list_V_first, layout, 0, 3, set_hold);
-                        A.template listBcast<target>(bcast_list_V, layout, 0, 2, set_hold);
+                        int tag_0  = 0;
+                        int life_3 = 3;
+                        int life_2 = 2;
+                        A.template listBcast<target>(
+                            bcast_list_V_first, layout, tag_0, life_3, set_hold );
+                        A.template listBcast<target>(
+                            bcast_list_V, layout, tag_0, life_2, set_hold );
                     }
 
                     // bcast Tlocal across row for trailing matrix update
@@ -229,7 +234,10 @@ void geqrf(
                         for (int64_t row : first_indices) {
                             bcast_list_T.push_back({row, k, {Tlocal.sub(row, row, k+1, A_nt-1)}});
                         }
-                        Tlocal.template listBcast<target>(bcast_list_T, layout, k, life_factor_one, set_hold);
+                        int tag_k = k;
+                        Tlocal.template listBcast<target>(
+                            bcast_list_T, layout,
+                            tag_k, life_factor_one, set_hold );
                     }
 
                     // bcast Treduce across row for trailing matrix update
@@ -253,22 +261,24 @@ void geqrf(
                                  priority(priority_one)
                 {
                     // Apply local reflectors
+                    int queue_jk1 = j-k+1;
                     internal::unmqr<target>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, j),
-                                    priority_one, j-k+1);
+                                    priority_one, queue_jk1 );
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmqr handles the tile broadcasting internally
+                    int tag_j = j;
                     internal::ttmqr<Target::HostTask>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_j),
-                                    j);
+                                    tag_j );
                 }
             }
 
@@ -282,22 +292,24 @@ void geqrf(
                                  depend(inout:block[A_nt-1])
                 {
                     // Apply local reflectors.
+                    int queue_jk1 = j-k+1;
                     internal::unmqr<target>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, A_nt-1),
-                                    priority_zero, j-k+1);
+                                    priority_zero, queue_jk1 );
 
                     // Apply triangle-triangle reduction reflectors.
                     // ttmqr handles the tile broadcasting internally.
+                    int tag_j = j;
                     internal::ttmqr<Target::HostTask>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_j),
-                                    j);
+                                    tag_j );
                 }
             }
             if (target == Target::Devices) {

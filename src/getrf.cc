@@ -122,9 +122,10 @@ void getrf(
                 {
                     // swap rows in A(k:mt-1, j)
                     int tag_j = j;
+                    int queue_jk1 = j-k+1;
                     internal::permuteRows<target>(
                         Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
-                        target_layout, priority_one, tag_j, j-k+1);
+                        target_layout, priority_one, tag_j, queue_jk1 );
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
@@ -134,7 +135,7 @@ void getrf(
                     internal::trsm<target>(
                         Side::Left,
                         one, std::move( Tkk ), A.sub(k, k, j, j),
-                        priority_one, Layout::ColMajor, j-k+1);
+                        priority_one, Layout::ColMajor, queue_jk1 );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
@@ -145,7 +146,7 @@ void getrf(
                         -one, A.sub(k+1, A_mt-1, k, k),
                               A.sub(k, k, j, j),
                         one,  A.sub(k+1, A_mt-1, j, j),
-                        target_layout, priority_one, j-k+1);
+                        target_layout, priority_one, queue_jk1 );
                 }
             }
             // pivot to the left

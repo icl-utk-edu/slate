@@ -202,8 +202,12 @@ void he2hb(
                                           A.sub( i+1, nt-1, i, i ) }, i } );
                         }
                     }
-                    A.template listBcastMT<target>( bcast_list_V_first, layout, 5, set_hold );
-                    A.template listBcastMT<target>( bcast_list_V, layout, 6, set_hold );
+                    int life_5 = 5;
+                    int life_6 = 6;
+                    A.template listBcastMT<target>(
+                        bcast_list_V_first, layout, life_5, set_hold );
+                    A.template listBcastMT<target>(
+                        bcast_list_V, layout, life_6, set_hold );
 
                     if (first_indices.size() > 1) {
                         //BcastList bcast_list_T;
@@ -243,7 +247,9 @@ void he2hb(
                                 { i0, k, { Tlocal.sub( i, i, k+1, i ),
                                            Tlocal.sub( i+1, nt-1, i, i ) }, i } );
                         }
-                        Tlocal.template listBcastMT<target>( bcast_list_T, layout, 1, set_hold );
+                        int life_1 = 1;
+                        Tlocal.template listBcastMT<target>(
+                            bcast_list_T, layout, life_1, set_hold );
                     }
                 } // task
 

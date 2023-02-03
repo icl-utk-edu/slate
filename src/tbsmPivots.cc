@@ -35,6 +35,7 @@ void tbsm(
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major
+    const int priority_1 = 1;
     const Layout layout = Layout::ColMajor;
 
     // Options
@@ -282,7 +283,7 @@ void tbsm(
                                     -one, A.sub(k, k, i, i),
                                           B.sub(i, i, 0, nt-1),
                                     one,  B.sub(k, k, 0, nt-1),
-                                    layout, 1);
+                                    layout, priority_1 );
                     }
                 }
 

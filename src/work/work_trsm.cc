@@ -145,11 +145,12 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 #pragma omp task depend(in:row[k]) \
                                  depend(inout:row[i]) priority(1)
                 {
+                    int queue_ik1 = i-k+1;
                     internal::gemm<target>(
                         -one, A.sub(i, i, k, k),
                               B.sub(k, k, 0, nt-1),
                         alph, B.sub(i, i, 0, nt-1),
-                        layout, priority_one, i-k+1, opts2);
+                        layout, priority_one, queue_ik1, opts2 );
                 }
             }
 
@@ -226,11 +227,12 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 #pragma omp task depend(in:row[k]) \
                                  depend(inout:row[i]) priority(1)
                 {
+                    int queue_ikl2 = i-k+lookahead+2;
                     internal::gemm<target>(
                         -one, A.sub(i, i, k, k),
                               B.sub(k, k, 0, nt-1),
                         alph, B.sub(i, i, 0, nt-1),
-                        layout, priority_one, i-k+lookahead+2, opts2);
+                        layout, priority_one, queue_ikl2, opts2 );
                 }
             }
 

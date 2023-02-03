@@ -269,10 +269,11 @@ void potrf(
                                  depend(inout:column[j])
                 {
                     // A(j, j) -= A(j, k) * A(j, k)^H
+                    int queue_jk1 = j-k+2;
                     internal::herk<Target::Devices>(
                         real_t(-1.0), A.sub(j, j, k, k),
                         real_t( 1.0), A.sub(j, j),
-                        priority_zero, j-k+2, layout, opts2);
+                        priority_zero, queue_jk1, layout, opts2 );
 
                     // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
                     if (j+1 <= A_nt-1) {
@@ -281,7 +282,7 @@ void potrf(
                             -one, A.sub(j+1, A_nt-1, k, k),
                                   conj_transpose( Ajk ),
                             one,  A.sub(j+1, A_nt-1, j, j),
-                            layout, priority_zero, j-k+2, opts2);
+                            layout, priority_zero, queue_jk1, opts2 );
                     }
                 }
             }

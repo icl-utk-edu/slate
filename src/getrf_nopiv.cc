@@ -28,9 +28,13 @@ void getrf_nopiv(
     using BcastList = typename Matrix<scalar_t>::BcastList;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
+    // Constants
     const scalar_t one = 1.0;
-
-    Layout layout = Layout::ColMajor;
+    const int priority_one = 1;
+    const int priority_zero = 0;
+    const int queue_0 = 0;
+    const int queue_1 = 1;
+    const Layout layout = Layout::ColMajor;
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
@@ -43,8 +47,6 @@ void getrf_nopiv(
         A.reserveDeviceWorkspace();
     }
 
-    const int priority_one = 1;
-    const int priority_zero = 0;
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
@@ -99,7 +101,7 @@ void getrf_nopiv(
                 internal::trsm<target>(
                     Side::Right,
                     one, std::move( Tkk ), A.sub(k+1, A_mt-1, k, k),
-                    priority_one, layout, 0);
+                    priority_one, layout, queue_0 );
 
 
                 BcastListTag bcast_list;
@@ -119,6 +121,7 @@ void getrf_nopiv(
                                  priority(priority_one)
                 {
                     int tag_j = j;
+                    int queue_jk1 = j-k+1;
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
                         TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, Akk);
@@ -127,7 +130,7 @@ void getrf_nopiv(
                     internal::trsm<target>(
                         Side::Left,
                         one, std::move( Tkk ), A.sub(k, k, j, j),
-                        priority_one, layout, j-k+1);
+                        priority_one, layout, queue_jk1 );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), layout, tag_j);
@@ -137,12 +140,13 @@ void getrf_nopiv(
                                  depend(inout:column[j]) \
                                  priority(priority_one)
                 {
+                    int queue_jk1 = j-k+1;
                     // A(k+1:mt-1, j) -= A(k+1:mt-1, k) * A(k, j)
                     internal::gemm<target>(
                         -one, A.sub(k+1, A_mt-1, k, k),
                               A.sub(k, k, j, j),
                         one,  A.sub(k+1, A_mt-1, j, j),
-                        layout, priority_one, j-k+1);
+                        layout, priority_one, queue_jk1 );
                 }
             }
             // update trailing submatrix, normal priority
@@ -161,7 +165,8 @@ void getrf_nopiv(
                         Side::Left,
                         one, std::move( Tkk ),
                              A.sub(k, k, k+1+lookahead, A_nt-1),
-                        priority_zero, layout, 1);
+                        priority_zero, layout, queue_1 );
+
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastListTag bcast_list;
                     for (int64_t j = k+1+lookahead; j < A_nt; ++j) {
@@ -184,7 +189,7 @@ void getrf_nopiv(
                         -one, A.sub(k+1, A_mt-1, k, k),
                               A.sub(k, k, k+1+lookahead, A_nt-1),
                         one,  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
-                        layout, priority_zero, 1);
+                        layout, priority_zero, queue_1 );
                 }
             }
             if (target == Target::Devices) {

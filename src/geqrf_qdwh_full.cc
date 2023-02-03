@@ -378,7 +378,8 @@ void geqrf_qdwh_full(
 ///
 /// Computes a QR factorization of m-by-n matrix $A$, m \ge 2n,
 /// and takes advantage of the trailing identity matrix structure.
-/// A = [ A0 ]  full matrix ( m0-by-n, where m0 = m - n)
+/// A = [ A0 ]  full matrix ( m0-by-n, where m0 = m - n, which the size of the
+/// original matrix in qdwh)
 ///     [ A1 ]  identity matrix (n-by-n)
 /// Avoids doing computaions on the zero tiles below the diagonal of $A1$.
 /// The factorization has the form
@@ -389,7 +390,11 @@ void geqrf_qdwh_full(
 /// (or upper trapezoidal if m < n).
 ///
 /// Complexity (in real):
-/// - for $m \ge n$, $\approx 2 m n^{2} - \frac{2}{3} n^{3}$ flops;
+/// The size of matrix $A$ is $m = m0 + n$;
+/// Since the lower n-by-n of the matrix $A$ is the identity, then the
+/// k householder vectors has m0 - k + k + 1 = m0 + 1 rows.
+/// - for $m \ge n$, \Sigma_{k=1}^{n-1} 4 (n - k) (m0 + 1) =
+/// $\approx 2 m0 n^{2} + 2 m0 n +  n^{2}$ flops;
 /// .
 //------------------------------------------------------------------------------
 /// @tparam scalar_t

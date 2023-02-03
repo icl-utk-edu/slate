@@ -156,8 +156,14 @@ void test_qdwh_work(Params& params, bool run)
         //         flop_compute_H
         double gflop_trcon = lapack::Gflop<scalar_t>::geqrf(m, n);
 
-        double gflop_itqr  = itqr * ( lapack::Gflop<scalar_t>::geqrf(m+n, n) +
-                                      lapack::Gflop<scalar_t>::unmqr(slate::Side::Left, m+n, n, n) +
+        // this flop count of the QR-based iteration is in case we are not taking advantage
+        // of the identity trailing submatrix:
+        //double gflop_itqr  = itqr * ( lapack::Gflop<scalar_t>::geqrf(m+n, n) +
+        //                              lapack::Gflop<scalar_t>::unmqr(slate::Side::Left, m+n, n, n) +
+        //                              lapack::Gflop<scalar_t>::gemm(m, n, n) );
+        // when take advantage of the matrix structure, the flops count will be reduced:
+        double gflop_itqr  = itqr * ( 2 * m * n^2 +
+                                      2 * m * n^2 +
                                       lapack::Gflop<scalar_t>::gemm(m, n, n) );
 
         double gflop_itpo  = itpo * ( lapack::Gflop<scalar_t>::gemm(m, n, n) +

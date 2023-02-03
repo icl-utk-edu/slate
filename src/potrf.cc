@@ -146,8 +146,12 @@ void potrf(
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
+	// Constants
     const scalar_t one = 1.0;
-
+    const int priority_0 = 0;
+    const int queue_0 = 0;
+    const int queue_1 = 1;
+    const int queue_2 = 2;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -174,10 +178,6 @@ void potrf(
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
-    const int priority_zero = 0;
-    const int queue_0 = 0;
-    const int queue_1 = 1;
-    const int queue_2 = 2;
     const int64_t batch_size_zero = 0;
     const int num_queues = 3 + lookahead;  // Number of kernels with lookahead
 
@@ -212,8 +212,8 @@ void potrf(
             {
                 // factor A(k, k)
                 internal::potrf<Target::Devices>(
-                    A.sub(k, k), priority_zero, queue_2,
-                    device_info_array[A.tileDevice( k, k )]);
+                    A.sub(k, k), priority_0, queue_2,
+                    device_info_array[ A.tileDevice( k, k ) ] );
 
                 // send A(k, k) down col A(k+1:nt-1, k)
                 if (k+1 <= A_nt-1)
@@ -227,7 +227,7 @@ void potrf(
                         Side::Right,
                         one, conj_transpose( Tkk ),
                         A.sub(k+1, A_nt-1, k, k),
-                        priority_zero, layout, queue_1, opts2);
+                        priority_0, layout, queue_1, opts2 );
                 }
 
                 BcastListTag bcast_list_A;
@@ -255,7 +255,7 @@ void potrf(
                     internal::herk<Target::Devices>(
                         real_t(-1.0), A.sub(k+1+lookahead, A_nt-1, k, k),
                         real_t( 1.0), A.sub(k+1+lookahead, A_nt-1),
-                        priority_zero, queue_0, layout, opts2);
+                        priority_0, queue_0, layout, opts2 );
                 }
             }
 
@@ -273,7 +273,7 @@ void potrf(
                     internal::herk<Target::Devices>(
                         real_t(-1.0), A.sub(j, j, k, k),
                         real_t( 1.0), A.sub(j, j),
-                        priority_zero, queue_jk1, layout, opts2 );
+                        priority_0, queue_jk1, layout, opts2 );
 
                     // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
                     if (j+1 <= A_nt-1) {
@@ -282,7 +282,7 @@ void potrf(
                             -one, A.sub(j+1, A_nt-1, k, k),
                                   conj_transpose( Ajk ),
                             one,  A.sub(j+1, A_nt-1, j, j),
-                            layout, priority_zero, queue_jk1, opts2 );
+                            layout, priority_0, queue_jk1, opts2 );
                     }
                 }
             }

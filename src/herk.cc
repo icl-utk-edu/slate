@@ -55,7 +55,7 @@ void herk(
     std::vector<uint8_t>  gemm_vector(A.nt());
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
-    const int default_priority = 0;
+    const int priority_0 = 0;
     const int queue_0 = 0;
 
     if (target == Target::Devices) {
@@ -106,7 +106,7 @@ void herk(
             internal::herk<target>(
                 alpha, A.sub(0, A.mt()-1, 0, 0),
                 beta,  std::move(C),
-                default_priority, queue_0, layout, opts2);
+                priority_0, queue_0, layout, opts2);
 
             auto A_colblock = A.sub(0, A.mt()-1, 0, 0);
 
@@ -145,7 +145,7 @@ void herk(
                 internal::herk<target>(
                     alpha,       A.sub(0, A.mt()-1, k, k),
                     real_t(1.0), std::move(C),
-                    default_priority, queue_0, layout, opts2);
+                    priority_0, queue_0, layout, opts2);
 
                 auto A_colblock = A.sub(0, A.mt()-1, k, k);
 

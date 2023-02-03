@@ -65,8 +65,12 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     using blas::conj;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Constants
     const scalar_t one = 1.0;
-
+    const int priority_0 = 0;
+    const int priority_1 = 1;
+    const int queue_0 = 0;
+    const int queue_1 = 1;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -91,14 +95,9 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     int64_t mt = B.mt();
     int64_t nt = B.nt();
 
-    const int priority_0 = 0;
-    const int priority_1 = 1;
-
     // Requires at least 2 queues
     if (target == Target::Devices)
         assert(B.numComputeQueues() >= 2);
-    const int64_t queue_0 = 0;
-    const int64_t queue_1 = 1;
 
     if (A.uplo() == Uplo::Upper) {
         // ----------------------------------------
@@ -189,7 +188,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     alpha, A.sub(0, k-1, k, k),
                            B.sub(k, k, 0, nt-1),
                     one,   B.sub(0, k-1, 0, nt-1),
-                    layout, priority_0, queue_0);
+                    layout, priority_0, queue_0 );
 
                 internal::trmm<target>(
                     Side::Left,
@@ -292,7 +291,7 @@ void trmm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     alpha, A.sub(k+1, mt-1, k, k),
                            B.sub(k, k, 0, nt-1),
                     one,   B.sub(k+1, mt-1, 0, nt-1),
-                    layout, priority_0, queue_0);
+                    layout, priority_0, queue_0 );
 
                 // todo: target? needs batch trmm
                 internal::trmm<target>(

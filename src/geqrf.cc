@@ -70,12 +70,12 @@ void geqrf(
     using lapack::device_info_int;
     using blas::real;
 
+    // Constants
+    const int life_1 = 1;
+    const int priority_0 = 0;
+    const int priority_1 = 1;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-
-    const int priority_zero = 0;
-    const int priority_one = 1;
-    const int life_factor_one = 1;
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
@@ -189,14 +189,14 @@ void geqrf(
             // todo: pass first_indices into internal geqrf or ttqrt?
 
             // panel, high priority
-            #pragma omp task depend(inout:block[k]) priority(priority_one)
+            #pragma omp task depend(inout:block[k]) priority(1)
             {
                 // local panel factorization
                 internal::geqrf<target>(
                                 std::move(A_panel),
                                 std::move(Tl_panel),
                                 dwork_array, work_size,
-                                ib, max_panel_threads, priority_one);
+                                ib, max_panel_threads, priority_1 );
 
                 // triangle-triangle reductions
                 // ttqrt handles tile transfers internally
@@ -237,7 +237,7 @@ void geqrf(
                         int tag_k = k;
                         Tlocal.template listBcast<target>(
                             bcast_list_T, layout,
-                            tag_k, life_factor_one, set_hold );
+                            tag_k, life_1, set_hold );
                     }
 
                     // bcast Treduce across row for trailing matrix update
@@ -258,7 +258,7 @@ void geqrf(
 
                 #pragma omp task depend(in:block[k]) \
                                  depend(inout:block[j]) \
-                                 priority(priority_one)
+                                 priority(1)
                 {
                     // Apply local reflectors
                     int queue_jk1 = j-k+1;
@@ -268,7 +268,7 @@ void geqrf(
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, j),
-                                    priority_one, queue_jk1 );
+                                    priority_1, queue_jk1 );
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmqr handles the tile broadcasting internally
@@ -299,7 +299,7 @@ void geqrf(
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, A_nt-1),
-                                    priority_zero, queue_jk1 );
+                                    priority_0, queue_jk1 );
 
                     // Apply triangle-triangle reduction reflectors.
                     // ttmqr handles the tile broadcasting internally.

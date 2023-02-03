@@ -34,6 +34,12 @@ void hetrf(
     using BcastList  = typename Matrix<scalar_t>::BcastList;
     using ReduceList = typename Matrix<scalar_t>::ReduceList;
 
+    // Constants
+    const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
+    const int64_t ione  = 1;
+    const int64_t izero = 0;
+    const int priority_1 = 1;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -61,11 +67,6 @@ void hetrf(
     //uint8_t* ind1 = Ind1.data();
     //uint8_t* ind2 = Ind2.data();
 
-    const scalar_t zero = 0.0;
-    const scalar_t one  = 1.0;
-    int64_t ione  = 1;
-    int64_t izero = 0;
-    int priority_one = 1;
     assert(A.uplo() == Uplo::Lower); // upper not implemented, yet
 
     pivots.resize(A_mt);
@@ -337,7 +338,7 @@ void hetrf(
                                     -one, A.sub(k+1, A_mt-1, j, j),
                                           Hj.sub(0, 0, 0, 0),
                                     one,  A.sub(k+1, A_mt-1, k, k),
-                                    layout, priority_one);
+                                    layout, priority_1 );
                             }
                         }
                     }
@@ -359,7 +360,7 @@ void hetrf(
                         -one, A.sub(k+1, A_mt-1, k-1, k-1),
                               Hj.sub(0,   0,     0, 0),
                         one,  A.sub(k+1, A_mt-1, k, k),
-                        layout, priority_one);
+                        layout, priority_1 );
                 }
             }
 
@@ -370,7 +371,7 @@ void hetrf(
                 //printf( " >> LU panel(%ld:%ld,%ld) diag_len=%ld on rank-%d <<\n", k+1, A_mt-1, k, diag_len, rank); fflush(stdout);
                 internal::getrf_panel<Target::HostTask>(
                     A.sub(k+1, A_mt-1, k, k), diag_len, ib,
-                    pivots.at(k+1), max_panel_threads, priority_one);
+                    pivots.at(k+1), max_panel_threads, priority_1 );
 
                 // copy U(k, k) into T(k+1, k)
                 //printf( " >> compute T(%ld,%ld) on rank-%d <<\n", k+1, k, rank); fflush(stdout);

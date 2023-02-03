@@ -36,15 +36,14 @@ void he2hb(
     assert( A.uplo() == Uplo::Lower );  // for now
 
     // Constants
-    // Assumes column major
-    const Layout layout = Layout::ColMajor;
-    const LayoutConvert layout_conv = LayoutConvert( layout );
-
-    const int priority_one = 1;
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
     const scalar_t half = 0.5;
     const real_t r_one  = 1.0;
+    const int priority_1 = 1;
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+    const LayoutConvert layout_conv = LayoutConvert( layout );
 
     // Options
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
@@ -168,7 +167,7 @@ void he2hb(
                 internal::geqrf<Target::HostTask>(
                     std::move( A_panel ),
                     std::move( Tlocal_panel ),
-                    ib, max_panel_threads, priority_one);
+                    ib, max_panel_threads, priority_1 );
 
                 // triangle-triangle reductions
                 // ttqrt handles tile transfers internally

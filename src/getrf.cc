@@ -28,7 +28,13 @@ void getrf(
     using real_t = blas::real_type<scalar_t>;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Constants
     const scalar_t one = 1.0;
+    const int life_1 = 1;
+    const int priority_0 = 0;
+    const int priority_1 = 1;
+    const int queue_0 = 0;
+    const int queue_1 = 1;
 
     // Options
     real_t pivot_threshold
@@ -56,11 +62,6 @@ void getrf(
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
     pivots.resize(min_mt_nt);
 
-    const int priority_one = 1;
-    const int priority_zero = 0;
-    int life_factor_one = 1;
-    const int queue_0 = 0;
-    const int queue_1 = 1;
     const int64_t batch_size_zero = 0;
     const int num_queues = 2 + lookahead;
     bool is_shared = target == Target::Devices && lookahead > 0;
@@ -89,12 +90,12 @@ void getrf(
             pivots.at(k).resize(diag_len);
 
             // panel, high priority
-            #pragma omp task depend(inout:column[k]) priority(priority_one)
+            #pragma omp task depend(inout:column[k]) priority(1)
             {
                 // factor A(k:mt-1, k)
                 internal::getrf_panel<Target::HostTask>(
                     A.sub(k, A_mt-1, k, k), diag_len, ib, pivots.at(k),
-                    pivot_threshold, max_panel_threads, priority_one, k);
+                    pivot_threshold, max_panel_threads, priority_1, k );
 
                 BcastList bcast_list_A;
                 int tag_k = k;
@@ -103,7 +104,7 @@ void getrf(
                     bcast_list_A.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                 }
                 A.template listBcast<target>(
-                    bcast_list_A, Layout::ColMajor, tag_k, life_factor_one, is_shared);
+                    bcast_list_A, Layout::ColMajor, tag_k, life_1, is_shared );
 
                 // Root broadcasts the pivot to all ranks.
                 // todo: Panel ranks send the pivots to the right.
@@ -118,14 +119,14 @@ void getrf(
             // update lookahead column(s), high priority
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
                 #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[j]) priority(priority_one)
+                                 depend(inout:column[j]) priority(1)
                 {
                     // swap rows in A(k:mt-1, j)
                     int tag_j = j;
                     int queue_jk1 = j-k+1;
                     internal::permuteRows<target>(
                         Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
-                        target_layout, priority_one, tag_j, queue_jk1 );
+                        target_layout, priority_1, tag_j, queue_jk1 );
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
@@ -135,7 +136,7 @@ void getrf(
                     internal::trsm<target>(
                         Side::Left,
                         one, std::move( Tkk ), A.sub(k, k, j, j),
-                        priority_one, Layout::ColMajor, queue_jk1 );
+                        priority_1, Layout::ColMajor, queue_jk1 );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
@@ -146,7 +147,7 @@ void getrf(
                         -one, A.sub(k+1, A_mt-1, k, k),
                               A.sub(k, k, j, j),
                         one,  A.sub(k+1, A_mt-1, j, j),
-                        target_layout, priority_one, queue_jk1 );
+                        target_layout, priority_1, queue_jk1 );
                 }
             }
             // pivot to the left
@@ -159,7 +160,7 @@ void getrf(
                     int tag_0 = 0;
                     internal::permuteRows<Target::HostTask>(
                         Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
-                        host_layout, priority_zero, tag_0, queue_0);
+                        host_layout, priority_0, tag_0, queue_0 );
                 }
             }
             // update trailing submatrix, normal priority
@@ -173,7 +174,7 @@ void getrf(
                     // todo: target
                     internal::permuteRows<target>(
                         Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
-                        pivots.at(k), target_layout, priority_zero, tag_kl1, queue_1);
+                        pivots.at(k), target_layout, priority_0, tag_kl1, queue_1 );
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
@@ -185,7 +186,7 @@ void getrf(
                         Side::Left,
                         one, std::move( Tkk ),
                              A.sub(k, k, k+1+lookahead, A_nt-1),
-                        priority_zero, Layout::ColMajor, queue_1);
+                        priority_0, Layout::ColMajor, queue_1 );
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastList bcast_list_A;
@@ -202,7 +203,7 @@ void getrf(
                         -one, A.sub(k+1, A_mt-1, k, k),
                               A.sub(k, k, k+1+lookahead, A_nt-1),
                         one,  A.sub(k+1, A_mt-1, k+1+lookahead, A_nt-1),
-                        target_layout, priority_zero, queue_1);
+                        target_layout, priority_0, queue_1 );
                 }
             }
             if (is_shared) {

@@ -31,10 +31,10 @@ void gelqf(
     using lapack::device_info_int;
     using blas::real;
 
+    // Constants
+    const int priority_1 = 1;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-
-    const int priority_one = 1;
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
@@ -170,7 +170,7 @@ void gelqf(
             }
 
             // panel, high priority
-            #pragma omp task depend(inout:block[k]) priority(priority_one)
+            #pragma omp task depend(inout:block[k]) priority(1)
             {
                 //--------------------
                 // Instead of doing LQ of panel, we do QR of transpose( panel ),
@@ -188,7 +188,7 @@ void gelqf(
                 internal::geqrf<target>(
                     std::move(AT_panel), std::move(TlT_panel),
                     dwork_array, work_size, ib,
-                    max_panel_threads, priority_one);
+                    max_panel_threads, priority_1 );
 
                 // Find first local tile, which is triangular factor (T in I - VTV^H),
                 // and copy it to Tlocal.
@@ -265,7 +265,7 @@ void gelqf(
 
                 #pragma omp task depend(in:block[k]) \
                                  depend(inout:block[i]) \
-                                 priority(priority_one)
+                                 priority(1)
                 {
                     // Apply local reflectors
                     internal::unmlq<Target::HostTask>(

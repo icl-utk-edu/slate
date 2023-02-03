@@ -48,7 +48,8 @@ void hemmC(
 
     // Constants
     const scalar_t one = 1.0;
-
+    const int priority_0 = 0;
+    const int queue_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -81,8 +82,6 @@ void hemmC(
     std::vector<uint8_t>  gemm_vector( A.nt() );
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
-    const int default_priority = 0;
-    const int queue_0 = 0;
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -157,7 +156,7 @@ void hemmC(
                     alpha, A.sub( 0, 0 ),
                            std::move( Brow_0 ),
                     beta,  C.sub( 0, 0, 0, C.nt()-1 ),
-                    default_priority, opts_local );
+                    priority_0, opts_local );
 
                 // Erase remote tile on all devices including host
                 A.eraseRemoteWorkspaceTile( 0, 0 );
@@ -170,7 +169,7 @@ void hemmC(
                         alpha, std::move( Acol_0 ),
                                std::move( Brow_0 ),
                         beta,  C.sub( 1, C.mt()-1, 0, C.nt()-1 ),
-                        layout, default_priority, queue_0, opts_local );
+                        layout, priority_0, queue_0, opts_local );
 
                     Acol_0.eraseLocalWorkspace();
 
@@ -240,7 +239,7 @@ void hemmC(
                         alpha,  conjTranspose( Arow_k ),
                                 std::move( Brow_k ),
                         one,    C.sub( 0, k-1, 0, C.nt()-1 ),
-                        layout, default_priority, queue_0, opts_local );
+                        layout, priority_0, queue_0, opts_local );
 
                     Arow_k.eraseRemoteWorkspace();
                     Arow_k.eraseLocalWorkspace();
@@ -250,7 +249,7 @@ void hemmC(
                         alpha,  A.sub( k, k ),
                                 std::move( Brow_k ),
                         one,    C.sub( k, k, 0, C.nt()-1 ),
-                        default_priority, opts_local);
+                        priority_0, opts_local );
 
                     A.eraseRemoteWorkspaceTile( k, k );
                     A.eraseLocalWorkspaceTile( k, k );
@@ -261,7 +260,7 @@ void hemmC(
                             alpha,  std::move( Acol_k ),
                                     std::move( Brow_k ),
                             one,    C.sub( k+1, C.mt()-1, 0, C.nt()-1 ),
-                            layout, default_priority, queue_0, opts_local );
+                            layout, priority_0, queue_0, opts_local );
 
                         Acol_k.eraseLocalWorkspace();
 
@@ -345,7 +344,7 @@ void hemmC(
                     alpha, A.sub( 0, 0 ),
                            std::move( Brow_0 ),
                     beta,  C.sub( 0, 0, 0, C.nt()-1 ),
-                    default_priority, opts_local);
+                    priority_0, opts_local );
 
                 A.eraseRemoteWorkspaceTile( 0, 0 );
                 A.eraseLocalWorkspaceTile( 0, 0 );
@@ -356,7 +355,7 @@ void hemmC(
                         alpha, conjTranspose( Arow_0 ),
                                std::move( Brow_0 ),
                         beta,  C.sub( 1, C.mt()-1, 0, C.nt()-1 ),
-                        layout, default_priority, queue_0, opts_local );
+                        layout, priority_0, queue_0, opts_local );
 
                     Arow_0.eraseLocalWorkspace();
 
@@ -424,7 +423,7 @@ void hemmC(
                         alpha,  std::move( Acol_k ),
                                 std::move( Brow_k ),
                         one,    C.sub( 0, k-1, 0, C.nt()-1 ),
-                        layout, default_priority, queue_0, opts_local );
+                        layout, priority_0, queue_0, opts_local );
 
                     Acol_k.eraseRemoteWorkspace();
                     Acol_k.eraseLocalWorkspace();
@@ -434,7 +433,7 @@ void hemmC(
                         alpha,  A.sub( k, k ),
                                 std::move( Brow_k ),
                         one,    C.sub( k, k, 0, C.nt()-1 ),
-                        default_priority, opts_local);
+                        priority_0, opts_local );
 
                     A.eraseRemoteWorkspaceTile( k, k );
                     A.eraseLocalWorkspaceTile( k, k );
@@ -445,7 +444,7 @@ void hemmC(
                             alpha,  conjTranspose( Arow_k ),
                                     std::move( Brow_k ),
                             one,    C.sub( k+1, C.mt()-1, 0, C.nt()-1 ),
-                            layout, default_priority, queue_0, opts_local );
+                            layout, priority_0, queue_0, opts_local );
 
                         Arow_k.eraseLocalWorkspace();
 

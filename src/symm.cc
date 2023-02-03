@@ -78,7 +78,7 @@ void symm(
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
     const int default_priority = 0;
-    const int default_queue = 0;
+    const int queue_0 = 0;
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -164,7 +164,7 @@ void symm(
                         alpha, std::move( Acol_0 ),
                                std::move( Brow_0 ),
                         beta,  C.sub( 1, C.mt()-1, 0, C.nt()-1 ),
-                        layout, default_priority, default_queue, opts_local );
+                        layout, default_priority, queue_0, opts_local );
 
                     Acol_0.eraseLocalWorkspace();
 
@@ -231,7 +231,7 @@ void symm(
                         alpha,  transpose( Arow_k ),
                                 std::move( Brow_k ),
                         one,    C.sub( 0, k-1, 0, C.nt()-1 ),
-                        layout, default_priority, default_queue, opts_local );
+                        layout, default_priority, queue_0, opts_local );
 
                     Arow_k.eraseRemoteWorkspace();
                     Arow_k.eraseLocalWorkspace();
@@ -252,7 +252,7 @@ void symm(
                             alpha,  std::move( Acol_k ),
                                     std::move( Brow_k ),
                             one,    C.sub( k+1, C.mt()-1, 0, C.nt()-1 ),
-                            layout, default_priority, default_queue, opts_local );
+                            layout, default_priority, queue_0, opts_local );
 
                         Acol_k.eraseLocalWorkspace();
 
@@ -342,7 +342,7 @@ void symm(
                         alpha, transpose( Arow_0 ),
                                std::move( Brow_0 ),
                         beta,  C.sub( 1, C.mt()-1, 0, C.nt()-1 ),
-                        layout, default_priority, default_queue, opts_local );
+                        layout, default_priority, queue_0, opts_local );
 
                     Arow_0.eraseLocalWorkspace();
 
@@ -407,7 +407,7 @@ void symm(
                         alpha,  std::move( Acol_k ),
                                 std::move( Brow_k ),
                         one,    C.sub( 0, k-1, 0, C.nt()-1 ),
-                        layout, default_priority, default_queue, opts_local );
+                        layout, default_priority, queue_0, opts_local );
 
                     Acol_k.eraseRemoteWorkspace();
                     Acol_k.eraseLocalWorkspace();
@@ -428,7 +428,7 @@ void symm(
                             alpha,  transpose( Arow_k ),
                                     std::move( Brow_k ),
                             one,    C.sub( k+1, C.mt()-1, 0, C.nt()-1 ),
-                            layout, default_priority, default_queue, opts_local );
+                            layout, default_priority, queue_0, opts_local );
 
                         Arow_k.eraseLocalWorkspace();
 

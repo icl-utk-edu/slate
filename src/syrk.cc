@@ -60,7 +60,7 @@ void syrk(
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
     const int default_priority = 0;
-    const int default_queue = 0;
+    const int queue_0 = 0;
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -111,7 +111,7 @@ void syrk(
             internal::syrk<target>(
                 alpha, std::move( A_col0 ),
                 beta,  std::move( C ),
-                default_priority, default_queue, layout, opts_local );
+                default_priority, queue_0, layout, opts_local );
 
             // Erase remote tiles on all devices including host
             A_col0.eraseRemoteWorkspace();
@@ -150,7 +150,7 @@ void syrk(
                 internal::syrk<target>(
                     alpha, std::move( A_colk ),
                     one,   std::move( C ),
-                    default_priority, default_queue, layout, opts_local );
+                    default_priority, queue_0, layout, opts_local );
 
                 // Erase remote tiles on all devices including host
                 A_colk.eraseRemoteWorkspace();

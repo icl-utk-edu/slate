@@ -158,7 +158,7 @@ void test_gels_work(Params& params, bool run)
     if (trans == slate::Op::Trans)
         opA = transpose(A);
     else if (trans == slate::Op::ConjTrans)
-        opA = conjTranspose(A);
+        opA = conj_transpose( A );
 
     if (verbose >= 1) {
         printf( "%% A   %6lld-by-%6lld\n", llong(   A.m() ), llong(   A.n() ) );
@@ -207,7 +207,7 @@ void test_gels_work(Params& params, bool run)
         if (trans == slate::Op::Trans)
             opAref = transpose(Aref);
         else if (trans == slate::Op::ConjTrans)
-            opAref = conjTranspose(Aref);
+            opAref = conj_transpose( Aref );
     }
 
     double gflop = lapack::Gflop<scalar_t>::gels(m, n, nrhs);
@@ -269,7 +269,7 @@ void test_gels_work(Params& params, bool run)
             // RA = R^H op(A)
             slate::Matrix<scalar_t> RA(nrhs, opAn, nb, p, q, MPI_COMM_WORLD);
             RA.insertLocalTiles();
-            auto RT = conjTranspose(Bref);
+            auto RT = conj_transpose( Bref );
             slate::multiply(one, RT, opA, zero, RA);
             // Using traditional BLAS/LAPACK name
             // slate::gemm(one, RT, opA, zero, RA);

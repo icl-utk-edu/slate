@@ -180,7 +180,7 @@ void test_bdsqr_work(Params& params, bool run)
             Id.insertLocalTiles();
             set(zero, one, Id);
 
-            auto UT = conjTranspose(U);
+            auto UT = conj_transpose( U );
             slate::gemm(one, UT, U, -one, Id);
             params.ortho_U() = slate::norm(slate::Norm::Fro, Id) / m;
             params.okay() = params.okay() && (params.ortho_U() <= tol);
@@ -191,7 +191,7 @@ void test_bdsqr_work(Params& params, bool run)
             Id.insertLocalTiles();
             set(zero, one, Id);
 
-            auto VTT = conjTranspose(VT);
+            auto VTT = conj_transpose( VT );
             slate::gemm(one, VTT, VT, -one, Id);
             params.ortho_V() = slate::norm(slate::Norm::Fro, Id) / n;
             params.okay() = params.okay() && (params.ortho_V() <= tol);

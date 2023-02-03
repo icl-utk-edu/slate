@@ -150,7 +150,7 @@ void unmqr(internal::TargetType<target>,
         auto V0tr = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, V0);
         auto T0tr = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
         if (op != Op::NoTrans) {
-            T0tr = conjTranspose(T0tr);
+            T0tr = conj_transpose( T0tr );
         }
 
         // --------------------
@@ -163,14 +163,14 @@ void unmqr(internal::TargetType<target>,
                 priority, queue_index);
         internal::trmm<target>(
                 Side::Left,
-                one, conjTranspose(V0tr),
+                one, conj_transpose( V0tr ),
                      std::move(Wr),
                 priority, queue_index);
 
         if (trapezoid) {
             // W <- V0b^H C0b + W
             internal::gemm<target>(
-                    one, conjTranspose(V0b),
+                    one, conj_transpose( V0b ),
                          std::move(C0b),
                     one, std::move(Wr),
                     layout,
@@ -186,7 +186,7 @@ void unmqr(internal::TargetType<target>,
                 Ci.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
             }
             internal::gemm<target>(
-                    one, conjTranspose(V.sub(row, row, 0, 0)),
+                    one, conj_transpose( V.sub( row, row, 0, 0 ) ),
                          std::move(Ci),
                     one, std::move(Wr),
                     layout,
@@ -331,7 +331,7 @@ void unmqr(internal::TargetType<target>,
         auto V0tr = TriangularMatrix<scalar_t>(Uplo::Lower, Diag::Unit, V0);
         auto T0tr = TriangularMatrix<scalar_t>(Uplo::Upper, Diag::NonUnit, T0);
         if (op != Op::NoTrans) {
-            T0tr = conjTranspose(T0tr);
+            T0tr = conj_transpose( T0tr );
         }
 
         // --------------------
@@ -388,7 +388,7 @@ void unmqr(internal::TargetType<target>,
             // C1 <- C1 - W V1^H
             internal::gemm<target>(
                     -one, std::move(Wc),
-                          conjTranspose(V.sub(col_indices[1], nt-1, 0, 0)),
+                          conj_transpose( V.sub( col_indices[1], nt-1, 0, 0 ) ),
                     one,  C.sub(0, mt-1, col_indices[1], nt-1),
                     layout,
                     priority, queue_index);
@@ -398,7 +398,7 @@ void unmqr(internal::TargetType<target>,
             // C0b <- C0b - W V0b^H
             internal::gemm<target>(
                     -one, std::move(Wc),
-                          conjTranspose(V0b),
+                          conj_transpose( V0b ),
                     one,  std::move(C0b),
                     layout,
                     priority, queue_index);
@@ -407,7 +407,7 @@ void unmqr(internal::TargetType<target>,
         // W <- W V0^H
         internal::trmm<target>(
                 Side::Right,
-                one, conjTranspose(V0tr),
+                one, conj_transpose( V0tr ),
                      std::move(Wc),
                 priority, queue_index);
 

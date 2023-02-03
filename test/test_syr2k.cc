@@ -159,8 +159,8 @@ void test_syr2k_work(Params& params, bool run)
         opB = transpose(B);
     }
     else if (trans == slate::Op::ConjTrans) {
-        opA = conjTranspose(A);
-        opB = conjTranspose(B);
+        opA = conj_transpose( A );
+        opB = conj_transpose( B );
     }
     slate_assert(opA.mt() == C.mt());
     slate_assert(opB.mt() == C.mt());

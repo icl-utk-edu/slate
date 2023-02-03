@@ -45,8 +45,8 @@ void tbsm(
     // op(B) = op(A)^{-1} * op(B)
     if (side == Side::Right) {
         if (A.op() == Op::ConjTrans || B.op() == Op::ConjTrans) {
-            A = conjTranspose(A);
-            B = conjTranspose(B);
+            A = conj_transpose( A );
+            B = conj_transpose( B );
             alpha = conj(alpha);
         }
         else {

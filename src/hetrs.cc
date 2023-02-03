@@ -73,7 +73,7 @@ void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 
     // if upper, change to lower
     if (A_.uplo() == Uplo::Upper)
-        A_ = conjTranspose(A_);
+        A_ = conj_transpose( A_ );
 
     int64_t A_nt = A_.nt();
     int64_t A_mt = A_.mt();
@@ -102,7 +102,7 @@ void hetrs(HermitianMatrix<scalar_t>& A, Pivots& pivots,
         // backward substitution with L^T from Aasen's
         auto Lkk = TriangularMatrix<scalar_t>( Diag::NonUnit, A_, 1, A_mt-1, 0, A_nt-2 );
         auto Bkk = B.sub(1, B_mt-1, 0, B_nt-1);
-        Lkk = conjTranspose(Lkk);
+        Lkk = conj_transpose( Lkk );
         trsm(Side::Left, one, Lkk, Bkk, opts);
 
         // pivot right-hand-sides

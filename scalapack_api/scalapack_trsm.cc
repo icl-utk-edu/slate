@@ -124,7 +124,7 @@ void slate_ptrsm(const char* sidestr, const char* uplostr, const char* transastr
     if (transA == Op::Trans)
         AT = transpose(AT);
     else if (transA == Op::ConjTrans)
-        AT = conjTranspose(AT);
+        AT = conj_transpose( AT );
 
     if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "trsm");

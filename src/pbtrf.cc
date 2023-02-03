@@ -40,7 +40,7 @@ void pbtrf(
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper)
-        A = conjTranspose(A);
+        A = conj_transpose( A );
 
     int64_t A_nt = A.nt();
 

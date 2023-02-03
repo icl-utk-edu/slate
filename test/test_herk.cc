@@ -139,7 +139,7 @@ void test_herk_work(Params& params, bool run)
     if (transA == slate::Op::Trans)
         opA = transpose(A);
     else if (transA == slate::Op::ConjTrans)
-        opA = conjTranspose(A);
+        opA = conj_transpose( A );
     slate_assert(opA.mt() == C.mt());
 
     if (trace) slate::trace::Trace::on();
@@ -162,7 +162,7 @@ void test_herk_work(Params& params, bool run)
         // Y = beta C X
         slate::multiply( scalar_t(beta), C, X, zero, Y, opts );
         // Z = A^H X
-        auto AH = conjTranspose( opA );
+        auto AH = conj_transpose( opA );
         slate::multiply( one, AH, X, zero, Z, opts );
         // Y = alpha A Z + Y
         slate::multiply( scalar_t(alpha), opA, Z, one, Y, opts );

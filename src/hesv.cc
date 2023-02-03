@@ -106,7 +106,7 @@ void hesv(HermitianMatrix<scalar_t>& A, Pivots& pivots,
 
     // if upper, change to lower
     if (A_.uplo() == Uplo::Upper)
-        A_ = conjTranspose(A_);
+        A_ = conj_transpose( A_ );
 
     // factorization
     hetrf(A_, pivots, T, pivots2, H, opts);

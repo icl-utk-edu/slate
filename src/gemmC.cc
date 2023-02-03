@@ -205,7 +205,7 @@ void gemmC(
 /// The matrices can be transposed or conjugate-transposed beforehand, e.g.,
 ///
 ///     auto AT = slate::transpose( A );
-///     auto BT = slate::conjTranspose( B );
+///     auto BT = slate::conj_transpose( B );
 ///     slate::gemmC( alpha, AT, BT, beta, C );
 ///
 //------------------------------------------------------------------------------

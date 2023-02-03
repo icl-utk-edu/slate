@@ -102,7 +102,7 @@ void slate_getrs(const char* transstr, const int n, const int nrhs, scalar_t* a,
     if (trans == slate::Op::Trans)
         opA = transpose(A);
     else if (trans == slate::Op::ConjTrans)
-        opA = conjTranspose(A);
+        opA = conj_transpose( A );
 
     // solve
     slate::getrs(opA, pivots, B, {

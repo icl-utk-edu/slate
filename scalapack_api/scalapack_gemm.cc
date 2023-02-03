@@ -148,12 +148,12 @@ void slate_pgemm(const char* transastr, const char* transbstr, int m, int n, int
     if (transA == blas::Op::Trans)
         A = transpose(A);
     else if (transA == blas::Op::ConjTrans)
-        A = conjTranspose(A);
+        A = conj_transpose( A );
 
     if (transB == blas::Op::Trans)
         B = transpose(B);
     else if (transB == blas::Op::ConjTrans)
-        B = conjTranspose(B);
+        B = conj_transpose( B );
 
     if (verbose && myprow == 0 && mypcol == 0)
         logprintf("%s\n", "gemm");

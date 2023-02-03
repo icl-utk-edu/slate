@@ -155,7 +155,7 @@ void hetrf(
             {
                 //printf( " >> update T(%ld, %ld) on rank-%d <<\n", k, k, rank); fflush(stdout);
                 auto Hj = H.sub(k, k, 0, k-2);
-                Hj = conjTranspose(Hj);
+                Hj = conj_transpose( Hj );
 
                 #if 0
                 slate::internal::gemm_W<Target::HostTask>(
@@ -186,7 +186,7 @@ void hetrf(
                 if (T.tileIsLocal(k, k)) {
                     H.tileInsert(k, k);
                     auto Lkj = A.sub(k, k, k-2, k-2);
-                    Lkj = conjTranspose(Lkj);
+                    Lkj = conj_transpose( Lkj );
                     tile::gemm<scalar_t>(
                         one,  T(k,   k-1),
                               Lkj(0, 0),
@@ -292,7 +292,7 @@ void hetrf(
                                 H.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), layout, tag1);
                             }
                             auto Hj = H.sub(k, k, 0, k-2);
-                            Hj = conjTranspose(Hj);
+                            Hj = conj_transpose( Hj );
 
                             #if 1
                                 slate::internal::gemmA<Target::HostTask>(
@@ -333,7 +333,7 @@ void hetrf(
                             }
                             for (int64_t j = 0; j < k-1; ++j) {
                                 auto Hj = H.sub(k, k, j, j);
-                                Hj = conjTranspose(Hj);
+                                Hj = conj_transpose( Hj );
                                 slate::internal::gemm<target>(
                                     -one, A.sub(k+1, A_mt-1, j, j),
                                           Hj.sub(0, 0, 0, 0),
@@ -355,7 +355,7 @@ void hetrf(
                     H.tileBcast(k, k-1, A.sub(k+1, A_mt-1, k, k), layout, tag1);
 
                     auto Hj = H.sub(k, k, k-1, k-1);
-                    Hj = conjTranspose(Hj);
+                    Hj = conj_transpose( Hj );
                     slate::internal::gemm<target>(
                         -one, A.sub(k+1, A_mt-1, k-1, k-1),
                               Hj.sub(0,   0,     0, 0),
@@ -412,7 +412,7 @@ void hetrf(
                         auto Akk = A.sub(k, k, k-1, k-1);
                         auto Lkk = TriangularMatrix< scalar_t >(Uplo::Lower, Diag::NonUnit, Akk);
 
-                        Lkk = conjTranspose(Lkk);
+                        Lkk = conj_transpose( Lkk );
                         tile::trsm(
                             Side::Right, Diag::Unit,
                             one, Lkk(0, 0), T(k+1, k) );

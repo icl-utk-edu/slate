@@ -141,11 +141,11 @@ void gecondest(
         }
         else {
             // Multiply by inv(U^H).
-            auto UH = conjTranspose( U );
+            auto UH = conj_transpose( U );
             slate::trsmB(Side::Left, alpha, UH, X, opts);
 
             // Multiply by inv(L^H).
-            auto LH = conjTranspose( L );
+            auto LH = conj_transpose( L );
             slate::trsmB(Side::Left, alpha, LH, X, opts);
         }
 

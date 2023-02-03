@@ -30,7 +30,7 @@ void cholqr(
     const scalar_t one  = 1.0;
     const scalar_t zero = 0.0;
 
-    auto AH = conjTranspose( A );
+    auto AH = conj_transpose( A );
     HermitianMatrix<scalar_t> R_hermitian( Uplo::Upper, R );
     auto U = TriangularMatrix<scalar_t>( Diag::NonUnit, R_hermitian );
 
@@ -81,7 +81,7 @@ void cholqr(
     blas::real_type<scalar_t> r_one  = 1.0;
     blas::real_type<scalar_t> r_zero = 0.0;
 
-    auto AH = conjTranspose( A );
+    auto AH = conj_transpose( A );
     auto U = TriangularMatrix<scalar_t>( Diag::NonUnit, R );
 
     // Compute R = AH * A.

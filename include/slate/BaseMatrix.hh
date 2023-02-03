@@ -134,14 +134,18 @@ private:
 
 public:
     /// Returns shallow copy of op(A) that is transposed.
-    /// @see conjTranspose
+    /// @see conj_transpose
     template<typename MatrixType>
     friend MatrixType transpose(MatrixType& A);
 
     /// Returns shallow copy of op(A) that is conjugate-transpose.
     /// @see transpose
     template<typename MatrixType>
-    friend MatrixType conjTranspose(MatrixType& A);
+    friend MatrixType conj_transpose( MatrixType& A );
+
+    /// @deprecated
+    template<typename MatrixType>
+    friend MatrixType conjTranspose( MatrixType& A );
 
     template <typename T>
     friend void swap(BaseMatrix<T>& A, BaseMatrix<T>& B);
@@ -1181,7 +1185,7 @@ BaseMatrix<out_scalar_t> BaseMatrix<scalar_t>::baseEmptyLike(
         std::swap(mt, nt);
     }
     else if (this->op() == Op::ConjTrans) {
-        B = conjTranspose( B );
+        B = conj_transpose( B );
         std::swap(ioffset, joffset);
         std::swap(mt, nt);
     }

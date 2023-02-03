@@ -90,7 +90,7 @@ void gerf(int64_t n, scalar_t* v, Matrix<scalar_t>& A)
     v[0] = one;
 
     // w = A^H v
-    auto AH = conjTranspose(A);
+    auto AH = conj_transpose( A );
     std::vector<scalar_t> w(AH.m());
 
     scalar_t* wi = w.data();
@@ -164,7 +164,7 @@ void gebr1(internal::TargetType<Target::HostTask>,
 
     // Zero A[0, 1:n-1].
     // Apply A Q^H => becomes Q A^H.
-    auto A1 = conjTranspose(A);
+    auto A1 = conj_transpose( A );
     gerfg(A1, n1, v1);
     gerf(n1, v1, A1);
 
@@ -220,7 +220,7 @@ void gebr2(internal::TargetType<Target::HostTask>,
 
     // Zero A[0, 1:n-1].
     // Apply A Q^H => becomes Q A^H.
-    auto AH = conjTranspose(A);
+    auto AH = conj_transpose( A );
     gerfg(AH, n2, v2);
     gerf(n2, v2, AH);
 }
@@ -266,7 +266,7 @@ void gebr3(internal::TargetType<Target::HostTask>,
     trace::Block trace_block("internal::gebr3");
 
     // Apply the reflector from task 2: Q A.
-    auto AH = conjTranspose(A);
+    auto AH = conj_transpose( A );
     gerf(n1, v1, AH);
 
     // Zero A[1:m-1, 0].

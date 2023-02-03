@@ -40,7 +40,7 @@ void her2k(
 
     // if upper, change to lower
     if (C.uplo() == Uplo::Upper)
-        C = conjTranspose(C);
+        C = conj_transpose( C );
 
     // A is mt-by-nt, C is mt-by-mt
     assert(A.mt() == C.mt());
@@ -200,8 +200,8 @@ void her2k(
 /// matrix, and A and B are an n-by-k matrices.
 /// The matrices can be conjugate-transposed beforehand, e.g.,
 ///
-///     auto AT = slate::conjTranspose( A );
-///     auto BT = slate::conjTranspose( B );
+///     auto AT = slate::conj_transpose( A );
+///     auto BT = slate::conj_transpose( B );
 ///     slate::her2k( alpha, AT, BT, beta, C );
 ///
 /// Complexity (in real): $\approx 2 k n^{2}$ flops.

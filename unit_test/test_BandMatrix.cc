@@ -91,11 +91,11 @@ void test_BandMatrix_transpose()
 }
 
 //------------------------------------------------------------------------------
-void test_BandMatrix_conjTranspose()
+void test_BandMatrix_conj_transpose()
 {
     auto A = slate::BandMatrix<double>(m, n, kl, ku, nb, p, q, mpi_comm);
 
-    auto AT = conjTranspose( A );
+    auto AT = conj_transpose( A );
 
     test_assert(AT.mt() == ceildiv(n, nb));
     test_assert(AT.nt() == ceildiv(m, nb));
@@ -447,7 +447,7 @@ void run_tests()
     if (mpi_rank == 0)
         printf("\nMethods\n");
     run_test(test_BandMatrix_transpose,       "transpose",      mpi_comm);
-    run_test(test_BandMatrix_conjTranspose,  "conjTranspose", mpi_comm);
+    run_test(test_BandMatrix_conj_transpose,  "conj_transpose", mpi_comm);
     run_test(test_BandMatrix_swap,            "swap",           mpi_comm);
     run_test(test_BandMatrix_tileInsert_new,  "BandMatrix::tileInsert(i, j, dev) ", mpi_comm);
     run_test(test_BandMatrix_tileInsert_data, "BandMatrix::tileInsert(i, j, dev, data, lda)",  mpi_comm);

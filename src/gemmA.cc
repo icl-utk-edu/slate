@@ -195,7 +195,7 @@ void gemmA(
 /// The matrices can be transposed or conjugate-transposed beforehand, e.g.,
 ///
 ///     auto AT = slate::transpose( A );
-///     auto BT = slate::conjTranspose( B );
+///     auto BT = slate::conj_transpose( B );
 ///     slate::gemm( alpha, AT, BT, beta, C );
 ///
 /// This algorithmic variant manages computation to be local to the

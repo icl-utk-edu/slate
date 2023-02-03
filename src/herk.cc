@@ -45,7 +45,7 @@ void herk(
 
     // if upper, change to lower
     if (C.uplo() == Uplo::Upper)
-        C = conjTranspose(C);
+        C = conj_transpose( C );
 
     // A is mt-by-nt, C is mt-by-mt
     assert(A.mt() == C.mt());
@@ -176,7 +176,7 @@ void herk(
 /// matrix, and A is an n-by-k matrix.
 /// The matrices can be conjugate-transposed beforehand, e.g.,
 ///
-///     auto AT = slate::conjTranspose( A );
+///     auto AT = slate::conj_transpose( A );
 ///     slate::herk( alpha, AT, beta, C );
 ///
 /// Complexity (in real): $\approx k n^{2}$ flops.

@@ -147,12 +147,12 @@ void test_gbmm_work(Params& params, bool run)
     if (transA == slate::Op::Trans)
         A_band = transpose(A_band);
     else if (transA == slate::Op::ConjTrans)
-        A_band = conjTranspose(A_band);
+        A_band = conj_transpose( A_band );
 
     if (transB == slate::Op::Trans)
         B = transpose(B);
     else if (transB == slate::Op::ConjTrans)
-        B = conjTranspose(B);
+        B = conj_transpose( B );
 
     slate_assert(A_band.mt() == C.mt());
     slate_assert(B.nt() == C.nt());
@@ -189,7 +189,7 @@ void test_gbmm_work(Params& params, bool run)
         if (transA == slate::Op::Trans)
             A = transpose(A);
         else if (transA == slate::Op::ConjTrans)
-            A = conjTranspose(A);
+            A = conj_transpose( A );
 
         print_matrix("Cref", Cref, params);
 

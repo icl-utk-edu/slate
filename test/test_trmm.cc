@@ -140,12 +140,12 @@ void test_trmm_work(Params& params, bool run)
     if (transA == Op::Trans)
         opA = transpose(A);
     else if (transA == Op::ConjTrans)
-        opA = conjTranspose(A);
+        opA = conj_transpose( A );
 
     if (transB == Op::Trans)
         B = transpose(B);
     else if (transB == Op::ConjTrans)
-        B = conjTranspose(B);
+        B = conj_transpose( B );
 
     // If check run, perform first half of SLATE residual check.
     slate::Matrix<scalar_t> X, X2, Y;

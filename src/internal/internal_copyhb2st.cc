@@ -45,7 +45,7 @@ void copyhb2st(internal::TargetType<Target::HostTask>,
 
     // If lower, change to upper.
     if (A.uplo() == Uplo::Lower) {
-        A = conjTranspose(A);
+        A = conj_transpose( A );
     }
 
     // Make sure it is a tri-diagonal matrix.

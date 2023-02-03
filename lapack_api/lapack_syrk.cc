@@ -79,7 +79,7 @@ void slate_syrk(const char* uplostr, const char* transastr, const int n, const i
     if (transA == blas::Op::Trans)
         A = transpose(A);
     else if (transA == blas::Op::ConjTrans)
-        A = conjTranspose(A);
+        A = conj_transpose( A );
     assert(A.mt() == C.mt());
 
     slate::syrk(alpha, A, beta, C, {

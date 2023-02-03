@@ -65,7 +65,7 @@ void herf(int64_t n, scalar_t* v, HermitianMatrix<scalar_t>& A)
             else {
                 auto Aij = i > j
                          ? A(i, j)
-                         : conjTranspose(A(j, i));
+                         : conj_transpose( A( j, i ) );
                 tile::gemv( one, Aij, vj, beta, wi );
             }
             beta = one;
@@ -206,7 +206,7 @@ void hebr2(internal::TargetType<Target::HostTask>,
     trace::Block trace_block("internal::hebr2");
 
     // Apply the reflector from task type 1 or 2.
-    auto AH = conjTranspose(A);
+    auto AH = conj_transpose( A );
     gerf(n1, v1, AH);
 
     // Zero A[1:n-1, 0].

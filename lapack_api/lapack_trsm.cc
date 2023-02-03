@@ -81,7 +81,7 @@ void slate_trsm(const char* sidestr, const char* uplostr, const char* transastr,
     if (transA == Op::Trans)
         A = transpose(A);
     else if (transA == Op::ConjTrans)
-        A = conjTranspose(A);
+        A = conj_transpose( A );
 
     slate::trsm(side, alpha, A, B, {
         {slate::Option::Lookahead, lookahead},

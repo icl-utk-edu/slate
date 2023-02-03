@@ -27,8 +27,6 @@ void trsmA(
     int64_t lookahead = get_option<int64_t>(opts, Option::Lookahead, 1);
 
     if (target == Target::Devices) {
-        const int64_t batch_size_zero = 0;
-        const int64_t num_arrays_two = 2; // Number of kernels without lookahead
         // Allocate batch arrays = number of kernels without
         // lookahead + lookahead
         // number of kernels without lookahead = 2
@@ -41,7 +39,9 @@ void trsmA(
         // and the batch_arrays_index starts from
         // the number of kernels without lookahead, and then incremented by 1
         // for every execution for the internal::gemm with lookahead
-        B.allocateBatchArrays(batch_size_zero, num_arrays_two);
+        const int64_t batch_size_default = 0;
+        int num_queues = 2; // Number of kernels without lookahead
+        B.allocateBatchArrays( batch_size_default, num_queues );
         B.reserveDeviceWorkspace();
     }
 

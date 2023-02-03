@@ -27,7 +27,6 @@ void trsmB(
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     if (target == Target::Devices) {
-        const int64_t batch_size_zero = 0;
         // Allocate batch arrays = number of kernels without
         // lookahead + lookahead
         // number of kernels without lookahead = 2
@@ -45,8 +44,9 @@ void trsmB(
         // 1) trsm                            (         1 )
         // 2) gemm for trailing matrix update (         1 )
         // 3) lookahead number of gemm's      ( lookahead )
-        const int num_queues = 2 + lookahead;
-        B.allocateBatchArrays( batch_size_zero, num_queues );
+        const int64_t batch_size_default = 0;
+        int num_queues = 2 + lookahead;
+        B.allocateBatchArrays( batch_size_default, num_queues );
         B.reserveDeviceWorkspace();
     }
 

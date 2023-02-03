@@ -146,7 +146,7 @@ void potrf(
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
-	// Constants
+    // Constants
     const scalar_t one = 1.0;
     const int priority_0 = 0;
     const int queue_0 = 0;
@@ -178,9 +178,6 @@ void potrf(
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
 
-    const int64_t batch_size_zero = 0;
-    const int num_queues = 3 + lookahead;  // Number of kernels with lookahead
-
     // Allocate batch arrays = number of kernels without lookahead + lookahead
     // number of kernels without lookahead = 3
     // (internal::potrf, internal::gemm, and internal::trsm)
@@ -189,7 +186,9 @@ void potrf(
     // and the batch_arrays_index starts from
     // the number of kernels without lookahead, and then incremented by 1
     // for every execution for the internal::herk
-    A.allocateBatchArrays(batch_size_zero, num_queues);
+    const int64_t batch_size_default = 0;
+    int num_queues = 3 + lookahead;  // Number of kernels with lookahead
+    A.allocateBatchArrays( batch_size_default, num_queues );
     A.reserveDeviceWorkspace();
 
     // Allocate

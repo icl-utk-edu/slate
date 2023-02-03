@@ -60,8 +60,6 @@ void getrf_tntpiv(
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
-    const int64_t batch_size_zero = 0;
-    const int num_queues = 2 + lookahead;
     bool is_shared = target == Target::Devices && lookahead > 0;
     pivots.resize(min_mt_nt);
 
@@ -73,7 +71,9 @@ void getrf_tntpiv(
     std::vector< scalar_t* > dwork_array( num_devices, nullptr );
 
     if (target == Target::Devices) {
-        A.allocateBatchArrays(batch_size_zero, num_queues);
+        const int64_t batch_size_default = 0;
+        int num_queues = 2 + lookahead;
+        A.allocateBatchArrays( batch_size_default, num_queues );
         A.reserveDeviceWorkspace();
 
         int64_t mlocal = 0;

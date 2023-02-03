@@ -41,6 +41,8 @@ void he2hb(
     const scalar_t half = 0.5;
     const real_t r_one  = 1.0;
     const int priority_1 = 1;
+    const int batch_size_default = 0;
+    const int num_queues = 10;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layout_conv = LayoutConvert( layout );
@@ -105,7 +107,6 @@ void he2hb(
     // Since W( 0, 0 ) is otherwise unused, store TVAVT there.
     W.tileInsert( 0, 0 );
     auto TVAVT = W.sub( 0, 0, 0, 0 );
-    int num_queues = 10;
 
     int my_rank = A.mpiRank();
 
@@ -153,7 +154,7 @@ void he2hb(
                     if (target == Target::Devices) {
                         A.allocateBatchArrays();
                         A.reserveDeviceWorkspace();
-                        W.allocateBatchArrays( 0, num_queues );
+                        W.allocateBatchArrays( batch_size_default, num_queues );
                         W.reserveDeviceWorkspace();
                     }
                 }

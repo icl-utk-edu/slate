@@ -62,8 +62,6 @@ void getrf(
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
     pivots.resize(min_mt_nt);
 
-    const int64_t batch_size_zero = 0;
-    const int num_queues = 2 + lookahead;
     bool is_shared = target == Target::Devices && lookahead > 0;
 
     // OpenMP needs pointer types, but vectors are exception safe
@@ -74,7 +72,9 @@ void getrf(
     // So, the data dependencies protect the corresponding MPI tags
 
     if (target == Target::Devices) {
-        A.allocateBatchArrays(batch_size_zero, num_queues);
+        const int64_t batch_size_default = 0;
+        int num_queues = 2 + lookahead;
+        A.allocateBatchArrays( batch_size_default, num_queues );
         A.reserveDeviceWorkspace();
     }
 

@@ -107,11 +107,11 @@ void geqrf(
     std::vector< scalar_t* > dwork_array( num_devices, nullptr );
 
     if (target == Target::Devices) {
-        const int64_t batch_size_zero = 0; // use default batch size
-        const int64_t num_queues = 3 + lookahead;
-        A.allocateBatchArrays(batch_size_zero, num_queues);
+        const int64_t batch_size_default = 0; // use default batch size
+        int num_queues = 3 + lookahead;
+        A.allocateBatchArrays( batch_size_default, num_queues );
         A.reserveDeviceWorkspace();
-        W.allocateBatchArrays(batch_size_zero, num_queues);
+        W.allocateBatchArrays( batch_size_default, num_queues );
         // todo: this is demanding too much device workspace memory
         // only one tile-row of matrix W per MPI process is going to be used,
         // but W with size of whole A is being allocated

@@ -21,7 +21,7 @@ namespace slate {
 /// \]
 /// where $A$ is an n-by-n matrix and $X$ and $B$ are n-by-nrhs matrices.
 ///
-/// gesvMixed first factorizes the matrix using getrf in low precision (single)
+/// gesv_mixed first factorizes the matrix using getrf in low precision (single)
 /// and uses this factorization within an iterative refinement procedure to
 /// produce a solution with high precision (double) normwise backward error
 /// quality (see below). If the approach fails, the method falls back to a
@@ -97,11 +97,12 @@ namespace slate {
 /// @ingroup gesv
 ///
 template <typename scalar_hi, typename scalar_lo>
-void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
-                Matrix<scalar_hi>& B,
-                Matrix<scalar_hi>& X,
-                int& iter,
-                Options const& opts)
+void gesv_mixed(
+    Matrix<scalar_hi>& A, Pivots& pivots,
+    Matrix<scalar_hi>& B,
+    Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts)
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
@@ -252,25 +253,25 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template <>
-void gesvMixed<double>(
+void gesv_mixed<double>(
     Matrix<double>& A, Pivots& pivots,
     Matrix<double>& B,
     Matrix<double>& X,
     int& iter,
     Options const& opts)
 {
-    gesvMixed<double, float>( A, pivots, B, X, iter, opts );
+    gesv_mixed<double, float>( A, pivots, B, X, iter, opts );
 }
 
 template <>
-void gesvMixed< std::complex<double> >(
+void gesv_mixed< std::complex<double> >(
     Matrix< std::complex<double> >& A, Pivots& pivots,
     Matrix< std::complex<double> >& B,
     Matrix< std::complex<double> >& X,
     int& iter,
     Options const& opts)
 {
-    gesvMixed<std::complex<double>, std::complex<float>>(
+    gesv_mixed<std::complex<double>, std::complex<float>>(
         A, pivots, B, X, iter, opts );
 }
 

@@ -66,7 +66,7 @@ void test_posv_work(Params& params, bool run)
     bool do_potrs = (
         (check && params.routine == "potrf") || params.routine == "potrs");
 
-    if (params.routine == "posvMixed" || params.routine == "posv_mixed_gmres") {
+    if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres") {
         params.iters();
     }
 
@@ -94,13 +94,13 @@ void test_posv_work(Params& params, bool run)
         return;
     }
 
-    if ((params.routine == "posvMixed" || params.routine == "posv_mixed_gmres")
+    if ((params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres")
         && ! std::is_same<real_t, double>::value) {
         params.msg() = "skipping: unsupported mixed precision; must be type=d or z";
         return;
     }
 
-    if ((params.routine == "posvMixed" || params.routine == "posv_mixed_gmres")
+    if ((params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres")
         && target == slate::Target::Devices) {
         params.msg() = "skipping: unsupported devices support";
         return;
@@ -170,7 +170,7 @@ void test_posv_work(Params& params, bool run)
 
         B.insertLocalTiles(origin_target);
 
-        if (params.routine == "posvMixed" || params.routine == "posv_mixed_gmres") {
+        if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres") {
             X_data.resize(lldB*nlocB);
             X = slate::Matrix<scalar_t>(n, nrhs, nb, p, q, MPI_COMM_WORLD);
             X.insertLocalTiles(origin_target);
@@ -184,7 +184,7 @@ void test_posv_work(Params& params, bool run)
                 uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         B = slate::Matrix<scalar_t>::fromScaLAPACK(
                 n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-        if (params.routine == "posvMixed" || params.routine == "posv_mixed_gmres") {
+        if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres") {
             X_data.resize(lldB*nlocB);
             X = slate::Matrix<scalar_t>::fromScaLAPACK(
                     n, nrhs, &X_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
@@ -218,7 +218,7 @@ void test_posv_work(Params& params, bool run)
 
     double gflop;
     if (params.routine == "posv"
-        || params.routine == "posvMixed"
+        || params.routine == "posv_mixed"
         || params.routine == "posv_mixed_gmres")
         gflop = lapack::Gflop<scalar_t>::posv(n, nrhs);
     else
@@ -247,10 +247,10 @@ void test_posv_work(Params& params, bool run)
             // Using traditional BLAS/LAPACK name
             // slate::posv(A, B, opts);
         }
-        else if (params.routine == "posvMixed") {
+        else if (params.routine == "posv_mixed") {
             if constexpr (std::is_same<real_t, double>::value) {
                 int iters = 0;
-                slate::posvMixed(A, B, X, iters, opts);
+                slate::posv_mixed( A, B, X, iters, opts );
                 params.iters() = iters;
             }
         }
@@ -307,13 +307,13 @@ void test_posv_work(Params& params, bool run)
 
         // Norm of updated-rhs/solution matrix: || X ||_1
         real_t X_norm;
-        if (params.routine == "posvMixed" || params.routine == "posv_mixed_gmres")
+        if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres")
             X_norm = slate::norm(slate::Norm::One, X);
         else
             X_norm = slate::norm(slate::Norm::One, B);
 
         // Bref -= Aref*B
-        if (params.routine == "posvMixed" || params.routine == "posv_mixed_gmres") {
+        if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres") {
             slate::multiply(-one, Aref, X, one, Bref);
             // Using traditional BLAS/LAPACK name
             // slate::hemm(slate::Side::Left, -one, Aref, X, one, Bref);
@@ -331,7 +331,7 @@ void test_posv_work(Params& params, bool run)
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
-        if (params.routine == "posvMixed" || params.routine == "posv_mixed_gmres")
+        if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres")
             params.okay() = params.okay() && params.iters() >= 0;
     }
 

@@ -23,7 +23,7 @@ namespace slate {
 /// where $A$ is an n-by-n Hermitian positive definite matrix and $X$ and $B$
 /// are n-by-nrhs matrices.
 ///
-/// posvMixed first factorizes the matrix using potrf in low precision (single)
+/// posv_mixed first factorizes the matrix using potrf in low precision (single)
 /// and uses this factorization within an iterative refinement procedure to
 /// produce a solution with high precision (double) normwise backward error
 /// quality (see below). If the approach fails, the method falls back to a
@@ -97,11 +97,12 @@ namespace slate {
 /// @ingroup posv
 ///
 template <typename scalar_hi, typename scalar_lo>
-void posvMixed( HermitianMatrix<scalar_hi>& A,
-                Matrix<scalar_hi>& B,
-                Matrix<scalar_hi>& X,
-                int& iter,
-                Options const& opts)
+void posv_mixed(
+    HermitianMatrix<scalar_hi>& A,
+    Matrix<scalar_hi>& B,
+    Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts)
 {
     // XXX This is only used for the memory management and may be inconsistent
     // with the routines called in this routine.
@@ -255,25 +256,25 @@ void posvMixed( HermitianMatrix<scalar_hi>& A,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template <>
-void posvMixed<double>(
+void posv_mixed<double>(
     HermitianMatrix<double>& A,
     Matrix<double>& B,
     Matrix<double>& X,
     int& iter,
     Options const& opts)
 {
-    posvMixed<double, float>( A, B, X, iter, opts );
+    posv_mixed<double, float>( A, B, X, iter, opts );
 }
 
 template <>
-void posvMixed< std::complex<double> >(
+void posv_mixed< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A,
     Matrix< std::complex<double> >& B,
     Matrix< std::complex<double> >& X,
     int& iter,
     Options const& opts)
 {
-    posvMixed<std::complex<double>, std::complex<float>>( A, B, X, iter, opts );
+    posv_mixed<std::complex<double>, std::complex<float>>( A, B, X, iter, opts );
 }
 
 } // namespace slate

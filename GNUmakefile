@@ -554,7 +554,7 @@ ifneq ($(only_unit),1)
         src/gemmC.cc \
         src/geqrf.cc \
         src/gesv.cc \
-        src/gesvMixed.cc \
+        src/gesv_mixed.cc \
         src/gesv_mixed_gmres.cc \
         src/gesv_nopiv.cc \
         src/gesvd.cc \
@@ -584,7 +584,7 @@ ifneq ($(only_unit),1)
         src/pbtrf.cc \
         src/pbtrs.cc \
         src/posv.cc \
-        src/posvMixed.cc \
+        src/posv_mixed.cc \
         src/posv_mixed_gmres.cc \
         src/potrf.cc \
         src/potri.cc \
@@ -1042,7 +1042,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_gels.cc \
         scalapack_api/scalapack_gemm.cc \
         scalapack_api/scalapack_gesv.cc \
-        scalapack_api/scalapack_gesvMixed.cc \
+        scalapack_api/scalapack_gesv_mixed.cc \
         scalapack_api/scalapack_getrf.cc \
         scalapack_api/scalapack_getrs.cc \
         scalapack_api/scalapack_hemm.cc \
@@ -1100,7 +1100,7 @@ lapack_api_src += \
         lapack_api/lapack_gels.cc \
         lapack_api/lapack_gemm.cc \
         lapack_api/lapack_gesv.cc \
-        lapack_api/lapack_gesvMixed.cc \
+        lapack_api/lapack_gesv_mixed.cc \
         lapack_api/lapack_getrf.cc \
         lapack_api/lapack_getri.cc \
         lapack_api/lapack_getrs.cc \

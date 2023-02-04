@@ -110,7 +110,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "gesv",               test_gesv,         Section::gesv },
     { "gesv_nopiv",         test_gesv,         Section::gesv },
     { "gesv_tntpiv",        test_gesv,         Section::gesv },
-    { "gesvMixed",          test_gesv,         Section::gesv },
+    { "gesv_mixed",         test_gesv,         Section::gesv },
     { "gesv_mixed_gmres",   test_gesv,         Section::gesv },
     { "gbsv",               test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
@@ -138,7 +138,7 @@ std::vector< testsweeper::routines_t > routines = {
     // -----
     // Cholesky
     { "posv",               test_posv,         Section::posv },
-    { "posvMixed",          test_posv,         Section::posv },
+    { "posv_mixed",         test_posv,         Section::posv },
     { "posv_mixed_gmres",   test_posv,         Section::posv },
     { "pbsv",               test_pbsv,         Section::posv },
     { "",                   nullptr,           Section::newline },

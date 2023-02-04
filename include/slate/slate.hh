@@ -482,9 +482,9 @@ void gesv_nopiv(
     Options const& opts = Options());
 
 //-----------------------------------------
-// gesvMixed()
+// gesv_mixed()
 template <typename scalar_t>
-void gesvMixed(
+void gesv_mixed(
     Matrix<scalar_t>& A, Pivots& pivots,
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& X,
@@ -492,13 +492,36 @@ void gesvMixed(
     Options const& opts = Options());
 
 template <typename scalar_hi, typename scalar_lo>
-void gesvMixed(
+void gesv_mixed(
     Matrix<scalar_hi>& A, Pivots& pivots,
     Matrix<scalar_hi>& B,
     Matrix<scalar_hi>& X,
     int& iter,
     Options const& opts = Options());
 
+template <typename scalar_t>
+[[deprecated( "Use gesv_mixed instead. Remove 2024-02." )]]
+void gesvMixed(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Matrix<scalar_t>& B,
+    Matrix<scalar_t>& X,
+    int& iter,
+    Options const& opts = Options())
+{
+    gesv_mixed( A, pivots, B, X, iter, opts );
+}
+
+template <typename scalar_hi, typename scalar_lo>
+[[deprecated( "Use gesv_mixed instead. Remove 2024-02." )]]
+void gesvMixed(
+    Matrix<scalar_hi>& A, Pivots& pivots,
+    Matrix<scalar_hi>& B,
+    Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts = Options())
+{
+    gesv_mixed( A, pivots, B, X, iter, opts );
+}
 
 //-----------------------------------------
 // gesv_mixed_gmres()
@@ -619,9 +642,9 @@ void posv(
 }
 
 //-----------------------------------------
-// posvMixed()
+// posv_mixed()
 template <typename scalar_t>
-void posvMixed(
+void posv_mixed(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
              Matrix<scalar_t>& X,
@@ -629,14 +652,38 @@ void posvMixed(
     Options const& opts = Options());
 
 template <typename scalar_hi, typename scalar_lo>
-void posvMixed(
+void posv_mixed(
     HermitianMatrix<scalar_hi>& A,
              Matrix<scalar_hi>& B,
              Matrix<scalar_hi>& X,
     int& iter,
     Options const& opts = Options());
 
-// todo: forward real-symmetric matrices to posvMixed?
+// todo: forward real-symmetric matrices to posv_mixed?
+
+template <typename scalar_t>
+[[deprecated( "Use posv_mixed instead. Remove 2024-02." )]]
+void posvMixed(
+    HermitianMatrix<scalar_t>& A,
+             Matrix<scalar_t>& B,
+             Matrix<scalar_t>& X,
+    int& iter,
+    Options const& opts = Options())
+{
+    posv_mixed( A, B, X, iter, opts );
+}
+
+template <typename scalar_hi, typename scalar_lo>
+[[deprecated( "Use posv_mixed instead. Remove 2024-02." )]]
+void posvMixed(
+    HermitianMatrix<scalar_hi>& A,
+             Matrix<scalar_hi>& B,
+             Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts = Options())
+{
+    posv_mixed( A, B, X, iter, opts );
+}
 
 //-----------------------------------------
 // posv_mixed_gmres()

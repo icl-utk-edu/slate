@@ -58,7 +58,7 @@ void test_lu_mixed()
     // traditional API
     // TODO: pass using &iters?
     int iters = 0;
-    slate::gesvMixed( A, pivots, B, X, iters );
+    slate::gesv_mixed( A, pivots, B, X, iters );
     printf( "rank %d: iters %d\n", mpi_rank, iters );
 }
 

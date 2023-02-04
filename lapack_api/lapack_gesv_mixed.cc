@@ -64,12 +64,13 @@ void slate_gesv(const int n, const int nrhs, scalar_t* a, const int lda, int* ip
 
     // computes the solution to the system of linear equations with a square coefficient matrix A and multiple right-hand sides.
     int iters;
-    slate::gesvMixed(A, pivots, B, X, iters, {
-            {slate::Option::Lookahead, lookahead},
-            {slate::Option::Target, target},
-            {slate::Option::MaxPanelThreads, panel_threads},
-            {slate::Option::InnerBlocking, ib}
-        });
+    slate::gesv_mixed(
+        A, pivots, B, X, iters, {
+        {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target},
+        {slate::Option::MaxPanelThreads, panel_threads},
+        {slate::Option::InnerBlocking, ib}
+    });
     *iter = iters;
 
     // extract pivots from SLATE's Pivots structure into LAPACK ipiv array

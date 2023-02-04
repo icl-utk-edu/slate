@@ -55,7 +55,7 @@ void test_cholesky_mixed()
     // traditional API
     // TODO: pass using &iters?
     int iters = 0;
-    slate::posvMixed( A, B, X, iters );
+    slate::posv_mixed( A, B, X, iters );
     printf( "rank %d: iters %d\n", mpi_rank, iters );
 }
 

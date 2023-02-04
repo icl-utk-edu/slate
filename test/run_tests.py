@@ -381,7 +381,7 @@ if (opts.lu):
     [ 'getriOOP', gen + dtype + la + n ],
     #[ 'gerfs', gen + dtype + la + n + trans ],
     #[ 'geequ', gen + dtype + la + n ],
-    [ 'gesvMixed',  gen + dtype_double + la + n ],
+    [ 'gesv_mixed',   gen + dtype_double + la + n ],
     [ 'gesv_mixed_gmres',  gen + dtype_double + la + n + ' --nrhs 1' ],
     ]
 
@@ -404,7 +404,7 @@ if (opts.chol):
     [ 'potri', gen + dtype + la + n + uplo ],
     #[ 'porfs', gen + dtype + la + n + uplo ],
     #[ 'poequ', gen + dtype + la + n ],  # only diagonal elements (no uplo)
-    [ 'posvMixed',  gen + dtype_double + la + n + uplo ],
+    [ 'posv_mixed', gen + dtype_double + la + n + uplo ],
     [ 'posv_mixed_gmres',  gen + dtype_double + la + n + uplo + ' --nrhs 1' ],
     [ 'trtri', gen + dtype + la + n + uplo + diag ],
     ]

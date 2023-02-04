@@ -269,7 +269,7 @@ void he2hb_hemm(
             //queue->sync(); // sync all the queues/streams
 
             // sync all the queues (in case of queue per iteration i)
-            for (int64_t i = 0; i < num_queues; i++) {
+            for (int64_t i = 0; i < num_queues; ++i) {
                 blas::Queue* queue = C.compute_queue( device, i );
                 queue->sync();
             }

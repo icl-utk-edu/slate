@@ -1288,7 +1288,7 @@ int main(int argc, char** argv)
         else if (arg == "-seed" && i+1 < argc)
             seed = atoi( argv[++i] );
         else if (arg == "-v")
-            verbose++;
+            ++verbose;
         else {
             printf( "unknown argument: %s\n", argv[i] );
             return 1;

@@ -296,7 +296,7 @@ void permuteRows(
                         scalar_t* rows_r = remote_rows + nb*remote_offsets[r];
                         MPI_Irecv(rows_r, remote_count[r], row_type,
                                   r, tag, comm, &requests[request_count]);
-                        request_count++;
+                        ++request_count;
                     }
                 }
                 MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
@@ -343,7 +343,7 @@ void permuteRows(
                         scalar_t* rows_r = remote_rows + nb*remote_offsets[r];
                         MPI_Isend(rows_r, remote_count[r], row_type,
                                   r, tag, comm, &requests[request_count]);
-                        request_count++;
+                        ++request_count;
                     }
                 }
                 MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
@@ -614,7 +614,7 @@ void permuteRows(
                                 scalar_t* rows_r = remote_rows + nb*remote_offsets[r];
                                 MPI_Irecv(rows_r, remote_count[r], row_type,
                                           r, tag, comm, &requests[request_count]);
-                                request_count++;
+                                ++request_count;
                             }
                         }
                         MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
@@ -670,7 +670,7 @@ void permuteRows(
                                 scalar_t* rows_r = remote_rows + nb*remote_offsets[r];
                                 MPI_Isend(rows_r, remote_count[r], row_type,
                                           r, tag, comm, &requests[request_count]);
-                                request_count++;
+                                ++request_count;
                             }
                         }
                         MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);

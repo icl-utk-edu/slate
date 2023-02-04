@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
     // seed random generator (do not use 1 => reset)
     int srand_seed = mpi_rank*13+17;
     srand(srand_seed);
-    for (int j=0; j<localma*localna; j++)
+    for (int j = 0; j < localma*localna; ++j)
         A[j] = 0.5 - (double)rand() / RAND_MAX;
 
     // Get norm of original A
@@ -84,8 +84,8 @@ int main(int argc, char* argv[])
     // printf("Anorm = %f\n", Anorm); fflush(0);
 
     // Use this to print a matrix if desired
-    // for (int i=0; i<localma; i++)
-    //     for (int j=0; j<localna; j++)
+    // for (int i = 0; i < localma; ++i)
+    //     for (int j = 0; j < localna; ++j)
     //         printf("A[%d,%d][%d,%d] = %f\n", myprow, mypcol, i, j, A[j*localma+i]); fflush(0);
 
     // Allocate space for pivots
@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
     int localnb = numroc_(&nrhs, &nb, &mypcol, &izero, &npcol);
     double* B = (double*)malloc(localmb * localnb * sizeof(double));
     descinit_(descB, &n, &nrhs, &nb, &nb, &izero, &izero, &ictxt, &localmb, &info);
-    for (int j=0; j<localmb*localnb; j++)
+    for (int j = 0; j < localmb*localnb; ++j)
         B[j] = 0.5 - (double)rand() / RAND_MAX;
 
     // Allocate X (same as B)
@@ -106,19 +106,19 @@ int main(int argc, char* argv[])
     int descX[9];
     double* X = (double*)malloc(localmb * localnb * sizeof(double));
     descinit_(descX, &n, &nrhs, &nb, &nb, &izero, &izero, &ictxt, &localmb, &info);
-    for (int j=0; j<localmb*localnb; j++)
+    for (int j = 0; j < localmb*localnb; ++j)
         X[j] = 0;
 
     // Save B for checking
     int descBref[9];
     double* Bref = (double*)malloc(localmb * localnb * sizeof(double));
     descinit_(descBref, &n, &nrhs, &nb, &nb, &izero, &izero, &ictxt, &localmb, &info);
-    for (int j=0; j<localmb*localnb; j++)
+    for (int j = 0; j < localmb*localnb; ++j)
         Bref[j] = B[j];
 
     // Use this to print a matrix if desired
-    // for (int i=0; i<localmb; i++)
-    //     for (int j=0; j<localnb; j++)
+    // for (int i = 0; i < localmb; ++i)
+    //     for (int j = 0; j < localnb; ++j)
     //         printf("B[%d,%d][%d,%d] = %f\n", myprow, mypcol, i, j, B[j*localmb+i]); fflush(0);
 
     int iters = 0;
@@ -131,8 +131,8 @@ int main(int argc, char* argv[])
     if (mypnum == 0) { printf("pdsgesv_ completed in %d iterations\n", iters); fflush(0); }
 
     // Use this to print a matrix if desired
-    // for (int i=0; i<localmb; i++)
-    //     for (int j=0; j<localnb; j++)
+    // for (int i = 0; i < localmb; ++i)
+    //     for (int j = 0; j < localnb; ++j)
     //         printf("X[%d,%d][%d,%d] = %f\n", myprow, mypcol, i, j, X[j*localmb+i]); fflush(0);
 
     // Get norm of the solution stored in X
@@ -141,7 +141,7 @@ int main(int argc, char* argv[])
 
     // Reset the contants of matrix A
     srand(srand_seed);
-    for (int j=0; j<localma*localna; j++)
+    for (int j = 0; j < localma*localna; ++j)
         A[j] = 0.5 - (double)rand() / RAND_MAX;
 
     if (mypnum == 0) { printf("Calling pdgemm_ for B_orig - A_orig * X to check results\n"); fflush(0); }
@@ -165,8 +165,8 @@ int main(int argc, char* argv[])
 
     // Check if Bref - Ax is (near)zero
     // if (mypnum == 0) printf("Printing if any A_orig * x - B_orig > 1e-9 ...\n");
-    // for (int i=0; i<localmb; i++)
-    //     for (int j=0; j<localnb; j++)
+    // for (int i = 0; i < localmb; ++i)
+    //     for (int j = 0; j < localnb; ++j)
     //         if (Bref[j*localmb+i] > 1e-9)
     //             printf("problem at B[%d,%d][%d,%d] = %g > 1e-9\n", myprow, mypcol, i, j, Bref[j*localmb+i]); fflush(0);
 

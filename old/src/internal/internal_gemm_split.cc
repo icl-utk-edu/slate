@@ -169,7 +169,7 @@ void gemmPrep(internal::TargetType<Target::Devices>,
                     a_array_host[index] = A(i, 0, device).data();
                     b_array_host[index] = B(0, j, device).data();
                     c_array_host[index] = C(i, j, device).data();
-                    index++;
+                    ++index;
                 }
             }
             slate_assert(index == batch_count);

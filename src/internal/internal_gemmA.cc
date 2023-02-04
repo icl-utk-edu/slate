@@ -211,7 +211,7 @@ void gemmA(internal::TargetType<Target::Devices>,
             int cpt = 0;
             for (int64_t j = 0; j < A.nt(); ++j) {
                 if (A.tileIsLocal( i, j )) {
-                    cpt++;
+                    ++cpt;
                 }
             }
             if (cpt == 0 && C.tileIsLocal( i, 0 )) {

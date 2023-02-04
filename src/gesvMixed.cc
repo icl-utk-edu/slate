@@ -20,7 +20,7 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
     bool value = true;
     int64_t size = colnorms_X.size();
 
-    for (int64_t i = 0; i < size; i++) {
+    for (int64_t i = 0; i < size; ++i) {
         if (colnorms_R[i] > colnorms_X[i] * cte) {
             value = false;
             break;
@@ -211,7 +211,7 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
     }
 
     // iterative refinement
-    for (int iiter = 0; iiter < itermax && ! converged; iiter++) {
+    for (int iiter = 0; iiter < itermax && ! converged; ++iiter) {
         // Convert R from high to low precision, store result in X_lo.
         copy( R, X_lo, opts );
 

@@ -656,8 +656,6 @@ void norm(internal::TargetType<Target::Devices>,
 
                 vals_dev_array = vals_dev_arrays[device];
 
-                queue->sync(); // sync after computation
-
                 blas::device_memcpy<real_t>(vals_host_array, vals_dev_array,
                                     batch_count*ldv,
                                     blas::MemcpyKind::DeviceToHost,

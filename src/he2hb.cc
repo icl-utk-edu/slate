@@ -202,8 +202,8 @@ void he2hb(
                                           A.sub( i+1, nt-1, i, i ) }, i } );
                         }
                     }
-                    int life_5 = 5;
-                    int life_6 = 6;
+                    const int life_5 = 5;
+                    const int life_6 = 6;
                     A.template listBcastMT<target>(
                         bcast_list_V_first, layout, life_5, set_hold );
                     A.template listBcastMT<target>(
@@ -247,7 +247,7 @@ void he2hb(
                                 { i0, k, { Tlocal.sub( i, i, k+1, i ),
                                            Tlocal.sub( i+1, nt-1, i, i ) }, i } );
                         }
-                        int life_1 = 1;
+                        const int life_1 = 1;
                         Tlocal.template listBcastMT<target>(
                             bcast_list_T, layout, life_1, set_hold );
                     }

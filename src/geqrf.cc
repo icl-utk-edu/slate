@@ -219,9 +219,9 @@ void geqrf(
                             else
                                 bcast_list_V.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                         }
-                        int tag_0  = 0;
-                        int life_3 = 3;
-                        int life_2 = 2;
+                        const int tag_0  = 0;
+                        const int life_3 = 3;
+                        const int life_2 = 2;
                         A.template listBcast<target>(
                             bcast_list_V_first, layout, tag_0, life_3, set_hold );
                         A.template listBcast<target>(

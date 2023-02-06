@@ -31,23 +31,26 @@ norm2est(
     using real_t = blas::real_type<scalar_t>;
     using blas::min;
 
-    int p, q;
-    int myrow, mycol;
-    int izero = 0;
-    GridOrder order;
-    A.gridinfo(&order, &p, &q, &myrow, &mycol);
+    // Constants
+    const scalar_t one = 1.;
+    const scalar_t zero  = 0.;
+    const real_t r_one = 1.;
+    const int izero = 0;
 
     int64_t n = A.n();
     int64_t m = A.m();
     int64_t mb = A.tileMb(0);
     int64_t nb = A.tileNb(0);
 
-    scalar_t one = 1.;
-    scalar_t zero  = 0.;
-    real_t rone = 1.;
+    int p, q;
+    int myrow, mycol;
+    GridOrder order;
+    A.gridinfo(&order, &p, &q, &myrow, &mycol);
 
     int64_t cnt = 0;
     int64_t maxiter = min( 100, n );
+    int64_t mloc   = numberLocalRowOrCol(m, mb, myrow, izero, p);
+    int64_t lldA   = blas::max(1, mloc);
 
     real_t e  = 0.;
     real_t e0  = 0.;
@@ -55,10 +58,6 @@ norm2est(
     real_t normAX = 0;
     real_t tol = 1.e-1;
 
-    int64_t mloc   = numberLocalRowOrCol(m, mb, myrow, izero, p);
-    int64_t lldA   = blas::max(1, mloc);
-
-    // todo: do we still need reserveDevice here?
     if (target == Target::Devices)
         A.reserveDeviceWorkspace();
 
@@ -104,7 +103,7 @@ norm2est(
         e0 = e;
 
         // Scale X = X / ||X||
-        scale(rone, normX, XL, opts);
+        scale(r_one, normX, XL, opts);
 
         // Compute Ax = A * sx
         gemm(one, A, XL, zero, AX, opts);
@@ -116,6 +115,7 @@ norm2est(
 
         // Compute x = A' * A * x = A' * Ax
         auto AT = conjTranspose(A);
+
         // todo: why this set is needed when using multiple mpi rank and using gemmA
         set(zero, zero, XL);
         gemm(one, AT, AX, zero, XL, opts);

@@ -70,25 +70,21 @@ void qdwh(
     // 1. reuse Q from first geqrf
     // 2. avoid rounding m if m is not divisible by nb, because then geqrf/unmqr
     // have extra zero rows
-    // in norm2est, when allocate vector mx1, need to allocate on row-processes only
+
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
     // Constants
-    const real_t conv = 100.;
+    const scalar_t zero = 0.0;
+    const scalar_t one = 1.0;
     const real_t r_one = 1.0;
-    const scalar_t zero = 0.0, one = 1.0;
-    scalar_t alpha, beta;
 
     // Options
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
-    real_t eps  = std::numeric_limits<real_t>::epsilon();
-    real_t tol1 = 5. * eps;
-    real_t tol3 = pow(tol1, r_one/real_t(3.));
-
     int64_t mt = A.mt();
     int64_t nt = A.nt();
+    int64_t nb   = A.tileMb(0);
 
     int64_t m  = A.m();
     int64_t n  = A.n();
@@ -97,22 +93,25 @@ void qdwh(
         return;
     }
 
-    int64_t nb   = A.tileMb(0);
+    real_t eps  = std::numeric_limits<real_t>::epsilon();
+    real_t tol1 = 5. * eps;
+    real_t tol3 = pow(tol1, r_one/real_t(3.));
 
     int itconv, it;
     real_t L2, sqd, dd, a1, a, b, c;
     real_t Li, Liconv;
     real_t normR;
+    real_t conv = 10.0;
+    scalar_t alpha, beta;
+
     // The QR-based iterations requires QR[A; Id],
     // W = [A; Id], where size of A is mxn, size of Id is nxn
     // To avoid having a clean up tile in the middle of the W matrix,
     // we round up the number of A rows (m),
     // so that size(W) = m_roundup + n
-    //int64_t m_roundup =  ((m + nb - 1) / nb ) * nb;
     int64_t m_roundup = roundup( m, nb );
     int64_t m_W   = m_roundup + n;
     int64_t mt_W = mt + nt;
-
 
     int nprow, npcol;
     int myrow, mycol;

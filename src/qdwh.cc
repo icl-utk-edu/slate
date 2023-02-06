@@ -75,9 +75,9 @@ void qdwh(
     using blas::real;
 
     // Constants
-    real_t conv = 100.;
-    real_t rone = 1.0;
-    scalar_t zero = 0.0, one = 1.0;
+    const real_t conv = 100.;
+    const real_t r_one = 1.0;
+    const scalar_t zero = 0.0, one = 1.0;
     scalar_t alpha, beta;
 
     // Options
@@ -85,7 +85,7 @@ void qdwh(
 
     real_t eps  = std::numeric_limits<real_t>::epsilon();
     real_t tol1 = 5. * eps;
-    real_t tol3 = pow(tol1, rone/real_t(3.));
+    real_t tol3 = pow(tol1, r_one/real_t(3.));
 
     int64_t mt = A.mt();
     int64_t nt = A.nt();
@@ -162,7 +162,7 @@ void qdwh(
 
     // scale the original matrix A to form A0 which is the initial matrix
     // for the first iteration
-    scale(rone, norm_est, A, opts);
+    scale(r_one, norm_est, A, opts);
 
     // Estimate the condition number using QR
     // This Q factor can be used in the first QR-based iteration
@@ -194,16 +194,16 @@ void qdwh(
         itconv++;
 
         L2  =  Liconv * Liconv;
-        dd  = std::pow( real_t(4.0) * ( rone - L2 ), rone / real_t(3.0) ) *
+        dd  = std::pow( real_t(4.0) * ( r_one - L2 ), r_one / real_t(3.0) ) *
             std::pow( L2, real_t(-2.0) / real_t(3.0) );
-        sqd = sqrt( rone + dd );
+        sqd = sqrt( r_one + dd );
         a1  = sqd + sqrt( real_t(8.0) - real_t(4.0) * dd +
               real_t(8.0) * ( real_t(2.0) - L2 ) / ( L2 * sqd ) ) / real_t(2.0);
         a   = real(a1);
-        b   = ( a - rone ) * ( a - rone ) / real_t(4.0);
-        c   = a + b - rone;
+        b   = ( a - r_one ) * ( a - r_one ) / real_t(4.0);
+        c   = a + b - r_one;
         // Update Liconv
-        Liconv  = Liconv * ( a + b * L2 ) / ( rone + c * L2 );
+        Liconv  = Liconv * ( a + b * L2 ) / ( r_one + c * L2 );
     }
 
     it = 0;
@@ -216,16 +216,16 @@ void qdwh(
 
         // Compute parameters L,a,b,c
         L2  = Li * Li;
-        dd  = std::pow( real_t(4.0) * ( rone - L2 ), rone / real_t(3.0) ) *
+        dd  = std::pow( real_t(4.0) * ( r_one - L2 ), r_one / real_t(3.0) ) *
             std::pow( L2, real_t(-2.0) / real_t(3.0) );
-        sqd = sqrt( rone + dd );
+        sqd = sqrt( r_one + dd );
         a1  = sqd + sqrt( real_t(8.0) - real_t(4.0) * dd +
               real_t(8.0) * ( real_t(2.0) - L2 ) / ( L2 * sqd ) ) / real_t(2.0);
         a   = real(a1);
-        b   = ( a - rone ) * ( a - rone ) / real_t(4.0);
-        c   = a + b - rone;
+        b   = ( a - r_one ) * ( a - r_one ) / real_t(4.0);
+        c   = a + b - r_one;
         // Update Li
-        Li  = Li * ( a + b * L2 ) / ( rone + c * L2 );
+        Li  = Li * ( a + b * L2 ) / ( r_one + c * L2 );
 
         if (c > 100.) {
             // Generate the matrix W = [ W1 ] = [ sqrt(c) * A ]

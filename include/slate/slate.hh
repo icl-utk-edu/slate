@@ -500,7 +500,7 @@ void gesv_mixed(
     Options const& opts = Options());
 
 template <typename scalar_t>
-[[deprecated( "Use gesv_mixed instead. Remove 2024-02." )]]
+[[deprecated( "Use gesv_mixed instead. Will be removed 2024-02." )]]
 void gesvMixed(
     Matrix<scalar_t>& A, Pivots& pivots,
     Matrix<scalar_t>& B,
@@ -512,7 +512,7 @@ void gesvMixed(
 }
 
 template <typename scalar_hi, typename scalar_lo>
-[[deprecated( "Use gesv_mixed instead. Remove 2024-02." )]]
+[[deprecated( "Use gesv_mixed instead. Will be removed 2024-02." )]]
 void gesvMixed(
     Matrix<scalar_hi>& A, Pivots& pivots,
     Matrix<scalar_hi>& B,
@@ -662,7 +662,7 @@ void posv_mixed(
 // todo: forward real-symmetric matrices to posv_mixed?
 
 template <typename scalar_t>
-[[deprecated( "Use posv_mixed instead. Remove 2024-02." )]]
+[[deprecated( "Use posv_mixed instead. Will be removed 2024-02." )]]
 void posvMixed(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
@@ -674,7 +674,7 @@ void posvMixed(
 }
 
 template <typename scalar_hi, typename scalar_lo>
-[[deprecated( "Use posv_mixed instead. Remove 2024-02." )]]
+[[deprecated( "Use posv_mixed instead. Will be removed 2024-02." )]]
 void posvMixed(
     HermitianMatrix<scalar_hi>& A,
              Matrix<scalar_hi>& B,
@@ -881,7 +881,7 @@ void gels_cholqr(
 
 // Backward compatibility
 template <typename scalar_t>
-[[deprecated( "Use gels( A, BX[, opts] ) instead." )]]
+[[deprecated( "Use gels( A, BX[, opts] ) instead. Will be removed 2024-02." )]]
 void gels(
     Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
     Matrix<scalar_t>& BX,

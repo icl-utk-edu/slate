@@ -30,7 +30,7 @@ void test_gels_overdetermined()
     // solve AX = B, solution in X
     slate::least_squares_solve( A, BX );  // simplified API
 
-    slate::gels( A, T, BX );              // traditional API
+    slate::gels( A, BX );              // traditional API
 }
 
 //------------------------------------------------------------------------------
@@ -57,7 +57,7 @@ void test_gels_underdetermined()
     auto AH = conj_transpose(A);
     slate::least_squares_solve( AH, BX );  // simplified API
 
-    slate::gels( AH, T, BX );              // traditional API
+    slate::gels( AH, BX );              // traditional API
 }
 
 //------------------------------------------------------------------------------

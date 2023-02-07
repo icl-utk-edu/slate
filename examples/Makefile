@@ -65,7 +65,7 @@ else ifeq ($(blas),libsci)
     # no LIBS to add
     scalapack_libs ?=
 else
-    $(error ERROR: unknown `blas=$(blas)`. Set blas to one of mkl, essl, openbblas, libsci.)
+    $(error ERROR: unknown `blas=$(blas)`. Set blas to one of mkl, essl, openblas, libsci.)
 endif
 
 #-------------------------------------------------------------------------------

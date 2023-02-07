@@ -109,7 +109,7 @@ void test_qdwh_work(Params& params, bool run)
         H = slate::Matrix<scalar_t>::fromScaLAPACK(n, n, &H_data[0], lldH, nb, p, q, MPI_COMM_WORLD);
     }
 
-    real_t cond = 1 / (100 * std::numeric_limits<real_t>::epsilon() );
+    real_t cond = 1 / std::numeric_limits<real_t>::epsilon();
     params.matrix.kind.set_default("svd");
     params.matrix.cond.set_default(cond);
 
@@ -160,13 +160,13 @@ void test_qdwh_work(Params& params, bool run)
         // of the identity trailing submatrix:
         //double gflop_itqr  = itqr * ( lapack::Gflop<scalar_t>::geqrf(m+n, n) +
         //                              lapack::Gflop<scalar_t>::unmqr(slate::Side::Left, m+n, n, n) +
-        //                              lapack::Gflop<scalar_t>::gemm(m, n, n) );
+        //                              blas::Gflop<scalar_t>::gemm(m, n, n) );
         // when take advantage of the matrix structure, the flops count will be reduced:
-        double gflop_itqr  = itqr * ( 2 * m * std::pow(n, 2) +
-                                      2 * m * std::pow(n, 2) +
-                                      lapack::Gflop<scalar_t>::gemm(m, n, n) );
+        double gflop_itqr  = itqr * ( 2. * double(m*n*n) +
+                                      2. * double(m*n*n) +
+                                      blas::Gflop<scalar_t>::gemm(m, n, n) );
 
-        double gflop_itpo  = itpo * ( lapack::Gflop<scalar_t>::gemm(m, n, n) +
+        double gflop_itpo  = itpo * ( blas::Gflop<scalar_t>::gemm(m, n, n) +
                                       lapack::Gflop<scalar_t>::potrf(m)      +
                                       blas::Gflop<scalar_t>::trsm(slate::Side::Left, m, n) );
 

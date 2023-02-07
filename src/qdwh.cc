@@ -98,11 +98,11 @@ void qdwh(
     real_t tol3 = pow(tol1, r_one/real_t(3.));
 
     int itconv, it;
-    real_t L2, sqd, dd, a1, a, b, c;
-    real_t Li, Liconv;
     real_t normR;
     real_t conv = 10.0;
     scalar_t alpha, beta;
+    double L2, sqd, a1, a, b, c, dd;
+    real_t Li, Liconv;
 
     // The QR-based iterations requires QR[A; Id],
     // W = [A; Id], where size of A is mxn, size of Id is nxn
@@ -192,17 +192,17 @@ void qdwh(
         }
         itconv++;
 
-        L2  =  Liconv * Liconv;
+        L2  =  double(Liconv) * double(Liconv);
         dd  = std::pow( real_t(4.0) * ( r_one - L2 ), r_one / real_t(3.0) ) *
             std::pow( L2, real_t(-2.0) / real_t(3.0) );
-        sqd = sqrt( r_one + dd );
-        a1  = sqd + sqrt( real_t(8.0) - real_t(4.0) * dd +
+        sqd = sqrt( r_one + real_t(dd) );
+        a1  = sqd + sqrt( real_t(8.0) - real_t(4.0) * real_t(dd) +
               real_t(8.0) * ( real_t(2.0) - L2 ) / ( L2 * sqd ) ) / real_t(2.0);
         a   = real(a1);
         b   = ( a - r_one ) * ( a - r_one ) / real_t(4.0);
         c   = a + b - r_one;
         // Update Liconv
-        Liconv  = Liconv * ( a + b * L2 ) / ( r_one + c * L2 );
+        Liconv  = Liconv * real_t(( a + b * L2 ) / ( r_one + c * L2 ));
     }
 
     it = 0;
@@ -214,17 +214,17 @@ void qdwh(
         it++;
 
         // Compute parameters L,a,b,c
-        L2  = Li * Li;
+        L2  = double(Li) * double(Li);
         dd  = std::pow( real_t(4.0) * ( r_one - L2 ), r_one / real_t(3.0) ) *
             std::pow( L2, real_t(-2.0) / real_t(3.0) );
-        sqd = sqrt( r_one + dd );
-        a1  = sqd + sqrt( real_t(8.0) - real_t(4.0) * dd +
+        sqd = sqrt( r_one + real_t(dd) );
+        a1  = sqd + sqrt( real_t(8.0) - real_t(4.0) * real_t(dd) +
               real_t(8.0) * ( real_t(2.0) - L2 ) / ( L2 * sqd ) ) / real_t(2.0);
         a   = real(a1);
         b   = ( a - r_one ) * ( a - r_one ) / real_t(4.0);
         c   = a + b - r_one;
         // Update Li
-        Li  = Li * ( a + b * L2 ) / ( r_one + c * L2 );
+        Li  = Li * real_t(( a + b * L2 ) / ( r_one + c * L2 ));
 
         if (c > 100.) {
             // Generate the matrix W = [ W1 ] = [ sqrt(c) * A ]
@@ -326,6 +326,7 @@ void qdwh(
     else {
         gemm(one, AT, Acpy, zero, H, opts);
     }
+
     // todo: try something like her2k to compute H
     //her2k(one, A, W10, rzero, H, opts);
     //auto AL = HermitianMatrix<scalar_t>(

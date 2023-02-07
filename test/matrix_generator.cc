@@ -246,13 +246,17 @@ void generate_sigma(
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
     set(zero, zero, A);
     int64_t S_index = 0;
-    #pragma omp parallel for
+    #pragma omp parallel
+    #pragma omp master
     for (int64_t i = 0; i < min_mt_nt; ++i) {
         if (A.tileIsLocal(i, i)) {
-            A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
-            auto T = A(i, i);
-            for (int ii = 0; ii < A.tileNb(i); ++ii) {
-                T.at(ii, ii) = Sigma[S_index + ii];
+            #pragma omp task
+            {
+                A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
+                auto T = A(i, i);
+                for (int ii = 0; ii < A.tileNb(i); ++ii) {
+                    T.at(ii, ii) = Sigma[S_index + ii];
+                }
             }
         }
         S_index += A.tileNb(i);
@@ -367,13 +371,17 @@ void generate_svd(
 
         // copy Sigma to diag(A)
         int64_t S_index = 0;
-        #pragma omp parallel for
+        #pragma omp parallel
+        #pragma omp master
         for (int64_t i = 0; i < min_mt_nt; ++i) {
             if (A.tileIsLocal(i, i)) {
-                A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
-                auto Aii = A(i, i);
-                for (int ii = 0; ii < A.tileNb(i); ++ii) {
-                    Aii.at(ii, ii) = Sigma[S_index + ii];
+                #pragma omp task
+                {
+                    A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
+                    auto Aii = A(i, i);
+                    for (int ii = 0; ii < A.tileNb(i); ++ii) {
+                        Aii.at(ii, ii) = Sigma[S_index + ii];
+                    }
                 }
             }
             S_index += A.tileNb(i);
@@ -586,16 +594,20 @@ void generate_heev(
         }
 
         int64_t J_index = 0;
-        #pragma omp parallel for
+        #pragma omp parallel
+        #pragma omp master
         for (int64_t j = 0; j < nt; ++j) {
             int64_t I_index = 0;
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
-                    A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
-                    auto Aij = A(i, j);
-                    for (int jj = 0; jj < A.tileMb(j); ++jj) {
-                        for (int ii = 0; ii < A.tileMb(i); ++ii) {
-                            Aij.at(ii, jj) *= D[I_index + ii] * D[J_index + jj];
+                    #pragma omp task
+                    {
+                        A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                        auto Aij = A(i, j);
+                        for (int jj = 0; jj < A.tileMb(j); ++jj) {
+                            for (int ii = 0; ii < A.tileMb(i); ++ii) {
+                                Aij.at(ii, jj) *= D[I_index + ii] * D[J_index + jj];
+                            }
                         }
                     }
                 }

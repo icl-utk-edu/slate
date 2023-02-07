@@ -41,7 +41,7 @@ namespace device {
 /// @param[in] beta
 ///     The scalar alpha.
 ///
-/// @param[in] Barray
+/// @param[in,out] Barray
 ///     Array of tiles of dimension 1-by-gridDim.x,
 ///     where each Barray[k] is an m-by-n matrix stored in an ldb-by-n array.
 ///
@@ -62,7 +62,7 @@ __global__ void gereduce_kernel(
     scalar_t sum;
 
     // The first row of tiles.
-    // All other rows will be sumed up to this row.
+    // All other rows will be summed up to this row.
     scalar_t* B = Barray[ blockIdx.x ];
 
 
@@ -115,7 +115,7 @@ __global__ void gereduce_kernel(
 /// @param[in] lda
 ///     Leading dimension of each tile in A. lda >= m.
 ///
-/// @param[in] Barray
+/// @param[in,out] Barray
 ///     Brray in GPU memory of dimension mt-by-batch_count, containing pointers
 ///     to tiles,
 ///     where each Barray[0, j] is an m-by-n matrix stored in an lda-by-n array
@@ -138,19 +138,15 @@ void gereduce(
     int64_t batch_count, blas::Queue &queue)
 {
     // quick return
-    if (m == 0 || n == 0)
-        return;
-    // quick return
-    if (batch_count == 0)
+    if (m == 0 || n == 0 || batch_count == 0)
         return;
 
-    //int64_t nt = ceildiv( batch_count, mt );
     int64_t nt = batch_count;
-    int64_t jb = 32;
+    int64_t jb = std::min( int64_t( 32 ), n );
 
-    // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     cudaSetDevice( queue.device() );
 
+    // Max threads/block=1024 for current CUDA compute capability (<= 7.5)
     int64_t nthreads = std::min( int64_t( 1024 ), m );
     dim3 threads( nthreads );
     dim3 blocks( nt, jb );

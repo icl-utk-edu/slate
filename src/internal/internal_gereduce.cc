@@ -154,7 +154,8 @@ void gereduce(internal::TargetType<Target::HostNest>,
            scalar_t beta,  Matrix<scalar_t>& B,
            int priority, int queue_index)
 {
-    slate_not_implemented("Target::HostNest isn't yet supported.");
+    gereduce( internal::TargetType<Target::HostTask>(),
+        alpha, A, beta, B, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------
@@ -164,7 +165,8 @@ void gereduce(internal::TargetType<Target::HostBatch>,
            scalar_t beta,  Matrix<scalar_t>& B,
            int priority, int queue_index)
 {
-    slate_not_implemented("Target::HostBatch isn't yet supported.");
+    gereduce( internal::TargetType<Target::HostTask>(),
+        alpha, A, beta, B, priority, queue_index );
 }
 
 //------------------------------------------------------------------------------

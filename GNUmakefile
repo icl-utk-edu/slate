@@ -412,6 +412,7 @@ ifneq ($(only_unit),1)
         src/internal/internal_he2hb_hemm.cc \
         src/internal/internal_he2hb_her2k_offdiag_ranks.cc \
         src/internal/internal_he2hb_trmm.cc \
+        src/internal/internal_gereduce.cc \
         src/internal/internal_gescale.cc \
         src/internal/internal_gescale_row_col.cc \
         src/internal/internal_geset.cc \
@@ -451,16 +452,15 @@ ifneq ($(only_unit),1)
         src/internal/internal_unmlq.cc \
         src/internal/internal_unmqr.cc \
         src/internal/internal_unmtr_hb2st.cc \
-        src/internal/internal_gereduce.cc \
         # End. Add alphabetically.
 endif
 
 # device
 cuda_src := \
         src/cuda/device_geadd.cu \
-        src/cuda/device_gereduce.cu \
         src/cuda/device_gecopy.cu \
         src/cuda/device_genorm.cu \
+        src/cuda/device_gereduce.cu \
         src/cuda/device_gescale.cu \
         src/cuda/device_gescale_row_col.cu \
         src/cuda/device_geset.cu \

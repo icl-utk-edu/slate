@@ -28,8 +28,12 @@ int num_devices;
 template <typename scalar_t>
 void test_geadd_dev_worker(
     int m, int n, int lda,
-    scalar_t alpha, scalar_t beta)
+    scalar_t alpha, scalar_t beta,
+    blas::Queue& queue)
 {
+    // Constant
+    const scalar_t zero = scalar_t( 0.0 );
+
     using real_t = blas::real_type<scalar_t>;
 
     if (num_devices == 0) {
@@ -40,7 +44,7 @@ void test_geadd_dev_worker(
     int ldb = lda;
     int64_t idist = 2;
     int64_t iseed[4] = { 0, 1, 2, 3 };
-    const scalar_t zero = scalar_t( 0.0 );
+    int device_idx = queue.device();
 
     // Create A on the Host and setup with random data
     scalar_t* Adata = new scalar_t[ lda * n ];
@@ -64,12 +68,6 @@ void test_geadd_dev_worker(
     scalar_t* C0data = new scalar_t[ ldb * n ];
     slate::Tile<scalar_t> C0( m, n, C0data, ldb,
         slate::HostNum, slate::TileKind::UserOwned );
-
-    // Create the queue
-    int device_idx;
-    blas::get_device( &device_idx );
-    const int batch_arrays_index = 0;
-    blas::Queue queue( device_idx, batch_arrays_index );
 
     // Create A on device and copy data
     scalar_t* dAdata;
@@ -224,6 +222,12 @@ void test_geadd_dev()
               { 2.718281828459045e7, 1.732050807568877 } },
         };
 
+    // Create the queue
+    int device_idx;
+    blas::get_device( &device_idx );
+    const int batch_arrays_index = 0;
+    blas::Queue queue( device_idx, batch_arrays_index );
+
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );
         int nA  = std::get<1>( dims );
@@ -234,7 +238,7 @@ void test_geadd_dev()
             test_geadd_dev_worker<scalar_t>(
                 mA, nA, lda,
                 testsweeper::make_scalar<scalar_t>( alpha ),
-                testsweeper::make_scalar<scalar_t>( beta ) );
+                testsweeper::make_scalar<scalar_t>( beta ), queue );
         }
     }
 }
@@ -258,8 +262,12 @@ template <typename scalar_t>
 void test_geadd_batch_dev_worker(
     int m, int n, int lda,
     scalar_t alpha, scalar_t beta,
-    int batch_count)
+    int batch_count,
+    blas::Queue& queue)
 {
+    // Constant
+    const scalar_t zero = scalar_t( 0.0 );
+
     using real_t = blas::real_type<scalar_t>;
 
     if (num_devices == 0) {
@@ -276,7 +284,7 @@ void test_geadd_batch_dev_worker(
     std::vector< slate::Tile< scalar_t > > list_C0( 0 );
     int64_t idist = 2;
     int64_t iseed[4] = { 0, 1, 2, 3 };
-    const scalar_t zero = scalar_t( 0.0 );
+    int device_idx = queue.device();
 
     // Create a list of A on the Host and setup with random data
     for (int m_i = 0; m_i < batch_count; ++m_i) {
@@ -319,12 +327,6 @@ void test_geadd_batch_dev_worker(
             slate::Tile<scalar_t>( m, n, tmp_data, ldb,
                 slate::HostNum, slate::TileKind::UserOwned ) );
     }
-
-    // Create the queue
-    int device_idx;
-    blas::get_device( &device_idx );
-    const int batch_arrays_index = 0;
-    blas::Queue queue( device_idx, batch_arrays_index );
 
     // Create list of A on device and copy data
     for (int m_i = 0; m_i < batch_count; ++m_i) {
@@ -535,6 +537,12 @@ void test_geadd_batch_dev()
 
     std::list< int > batch_count_list{ 1, 2, 3, 4, 5, 10, 20, 100 };
 
+    // Create the queue
+    int device_idx;
+    blas::get_device( &device_idx );
+    const int batch_arrays_index = 0;
+    blas::Queue queue( device_idx, batch_arrays_index );
+
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );
         int nA  = std::get<1>( dims );
@@ -547,7 +555,7 @@ void test_geadd_batch_dev()
                     mA, nA, lda,
                     testsweeper::make_scalar<scalar_t>( alpha ),
                     testsweeper::make_scalar<scalar_t>( beta ),
-                    batch_count );
+                    batch_count, queue );
         }
     }
 }
@@ -569,6 +577,9 @@ void test_gereduce_batch_dev_worker(
     int batch_count, int reduce_count,
     blas::Queue &queue)
 {
+    // Constat
+    const scalar_t zero = scalar_t( 0.0 );
+
     using real_t = blas::real_type<scalar_t>;
 
     if (num_devices == 0) {
@@ -587,7 +598,6 @@ void test_gereduce_batch_dev_worker(
     std::vector< slate::Tile< scalar_t > > list_C0( 0 );
     int64_t idist = 2;
     int64_t iseed[4] = { 0, 1, 2, 3 };
-    const scalar_t zero = scalar_t( 0.0 );
     int device_idx = queue.device();
 
     // Create a list of A on the Host and setup with random data

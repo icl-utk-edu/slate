@@ -7,49 +7,11 @@
 #include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "internal/internal.hh"
+#include "internal/internal_util.hh"
 
 namespace slate {
 
 namespace impl {
-
-//------------------------------------------------------------------------------
-/// An auxiliary routine to find each rank's first (top-most) row
-/// in panel k.
-///
-/// @param[in] A_panel
-///     Current panel, which is a sub of the input matrix $A$.
-///
-/// @param[in] k
-///     Index of the current panel in the input matrix $A$.
-///
-/// @param[out] first_indices
-///     The array of computed indices.
-///
-/// @ingroup geqrf_impl
-///
-template <typename scalar_t>
-void geqrf_compute_first_indices(
-    Matrix<scalar_t>& A_panel, int64_t k,
-    std::vector< int64_t >& first_indices )
-{
-    // Find ranks in this column.
-    std::set<int> ranks_set;
-    A_panel.getRanks(&ranks_set);
-    assert(ranks_set.size() > 0);
-
-    // Find each rank's first (top-most) row in this panel,
-    // where the triangular tile resulting from local geqrf panel
-    // will reside.
-    first_indices.reserve(ranks_set.size());
-    for (int r: ranks_set) {
-        for (int64_t i = 0; i < A_panel.mt(); ++i) {
-            if (A_panel.tileRank(i, 0) == r) {
-                first_indices.push_back(i+k);
-                break;
-            }
-        }
-    }
-}
 
 //------------------------------------------------------------------------------
 /// Distributed parallel QR factorization.
@@ -185,7 +147,7 @@ void geqrf(
             auto Tr_panel = Treduce.sub(k, A_mt-1, k, k);
 
             std::vector< int64_t > first_indices;
-            geqrf_compute_first_indices(A_panel, k, first_indices);
+            internal::geqrf_compute_first_indices(A_panel, k, first_indices);
             // todo: pass first_indices into internal geqrf or ttqrt?
 
             // panel, high priority
@@ -328,7 +290,7 @@ void geqrf(
 
                         auto A_panel_k_la = A.sub(k_la, A_mt-1, k_la, k_la);
                         std::vector< int64_t > first_indices_k_la;
-                        geqrf_compute_first_indices(A_panel_k_la, k_la, first_indices_k_la);
+                        internal::geqrf_compute_first_indices(A_panel_k_la, k_la, first_indices_k_la);
                         if (first_indices.size() > 0) {
                             for (int64_t row : first_indices_k_la) {
                                 if (Tlocal.tileIsLocal(row, k_la)) {

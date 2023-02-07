@@ -242,8 +242,14 @@ void test_geadd_dev()
 template <typename... scalar_t>
 void run_tests_geadd_device()
 {
+    // C++17: fold expression
+    // (see https://en.cppreference.com/w/cpp/language/fold).
+    // This syntax allows the compiler to loop over the templates passed
+    // through typename... scalar_t
+    // Here, it means the routine run_test is called for each typename,
+    // and the op used is the comma.
     ( run_test<scalar_t>(
-                          test_geadd_dev<scalar_t>, "geadd_dev" ),
+          test_geadd_dev<scalar_t>, "geadd_dev" ),
       ... );
 }
 
@@ -550,14 +556,14 @@ template <typename... scalar_t>
 void run_tests_geadd_batch_device()
 {
     ( run_test<scalar_t>(
-                          test_geadd_batch_dev<scalar_t>, "geadd_batch_dev" ),
+          test_geadd_batch_dev<scalar_t>, "geadd_batch_dev" ),
       ... );
 }
 
 //------------------------------------------------------------------------------
-// reduce_count is 1 tile of A and reduce_count -1 tiles of B
+// reduce_count is 1 tile of A and reduce_count-1 tiles of B
 template <typename scalar_t>
-void test_reduce_batch_dev_worker(
+void test_gereduce_batch_dev_worker(
     int m, int n, int lda,
     scalar_t alpha, scalar_t beta,
     int batch_count, int reduce_count,
@@ -593,7 +599,7 @@ void test_reduce_batch_dev_worker(
                     slate::Tile<scalar_t>( m, n, tmp_data, lda,
                         slate::HostNum, slate::TileKind::UserOwned ) );
             lapack::larnv( idist, iseed, lda * n, tmp_data );
-            if (verbose > 2)
+            if (verbose > 2) {
                 for (int j = 0; j < n; ++j) {
                     for (int i = 0; i < m; ++i) {
                         printf(
@@ -604,6 +610,7 @@ void test_reduce_batch_dev_worker(
                                 std::imag( tmp_data[ i + j*lda ] ) );
                     }
                 }
+            }
         }
     }
 
@@ -617,7 +624,7 @@ void test_reduce_batch_dev_worker(
             slate::Tile<scalar_t>( m, n, tmp_data, ldb,
                 slate::HostNum, slate::TileKind::UserOwned ) );
         lapack::larnv( idist, iseed, ldb * n, tmp_data );
-        if (verbose > 2)
+        if (verbose > 2) {
             for (int j = 0; j < n; ++j) {
                 for (int i = 0; i < m; ++i) {
                     printf(
@@ -628,6 +635,7 @@ void test_reduce_batch_dev_worker(
                         std::imag( tmp_data[ i + j*lda ] ) );
                 }
             }
+        }
     }
 
     // Create B0, a copy of B on the host
@@ -850,7 +858,7 @@ void test_reduce_batch_dev_worker(
 }
 
 template <typename scalar_t>
-void test_reduce_batch_dev()
+void test_gereduce_batch_dev()
 {
     // Each tuple contains (mA, nA, lda)
     std::list< std::tuple< int, int, int > > dims_list{
@@ -925,7 +933,7 @@ void test_reduce_batch_dev()
             std::complex<double> beta  = std::get<0>( values );
             for (auto reduce_count : reduce_count_list)
                 for (auto batch_count : batch_count_list)
-                    test_reduce_batch_dev_worker<scalar_t>(
+                    test_gereduce_batch_dev_worker<scalar_t>(
                         mA, nA, lda,
                         testsweeper::make_scalar<scalar_t>( alpha ),
                         testsweeper::make_scalar<scalar_t>( beta ),
@@ -935,10 +943,10 @@ void test_reduce_batch_dev()
 }
 
 template <typename... scalar_t>
-void run_tests_reduce_batch_device()
+void run_tests_gereduce_batch_device()
 {
     ( run_test<scalar_t>(
-                          test_reduce_batch_dev<scalar_t>, "reduce_batch_dev" ),
+          test_gereduce_batch_dev<scalar_t>, "gereduce_batch_dev" ),
       ... );
 }
 
@@ -956,8 +964,8 @@ void run_tests()
         run_tests_geadd_batch_device<
             float, double, std::complex<float>, std::complex<double>
             >();
-        //-------------------- geadd_batch_dev
-        run_tests_reduce_batch_device<
+        //-------------------- gereduce_batch_dev
+        run_tests_gereduce_batch_device<
             float, double, std::complex<float>, std::complex<double>
             >();
     }

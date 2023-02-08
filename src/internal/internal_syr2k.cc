@@ -153,7 +153,7 @@ void syr2k(internal::TargetType<Target::HostNest>,
            scalar_t beta,  SymmetricMatrix<scalar_t>& C,
            int priority, int queue_index, Layout layout, Options const& opts)
 {
-#ifdef SLATE_HAVE_OMPTARGET
+#if defined(SLATE_HAVE_OMPTARGET) || defined(SLATE_SKIP_HOSTNEST)
     // SYCL/OMP-target-offload can't process this section
     slate_not_implemented("Target::HostNest isn't supported in this configuration.");
 #else

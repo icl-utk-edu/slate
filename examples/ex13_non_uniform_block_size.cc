@@ -6,6 +6,8 @@
 
 int mpi_size = 0;
 int mpi_rank = 0;
+int grid_p = 0;
+int grid_q = 0;
 
 //------------------------------------------------------------------------------
 template <typename scalar_type>
@@ -13,12 +15,11 @@ void test_matrix_lambda()
 {
     print_func( mpi_rank );
 
-    int64_t n=1000, nb=256, p=2, q=2;
-    assert( mpi_size == p*q );
+    int64_t n=1000, nb=256;
 
     int nb_ = nb;
-    int p_ = p;
-    int q_ = q;
+    int p_ = grid_p;
+    int q_ = grid_q;
     int num_devices_ = 0;
 
     std::function< int64_t (int64_t j) >
@@ -32,7 +33,7 @@ void test_matrix_lambda()
     {
         int64_t i = std::get<0>(ij);
         int64_t j = std::get<1>(ij);
-        return int(i%p_ + (j%q_)*p_);
+        return int( i%p_ + (j%q_)*p_ );
     };
 
     std::function< int (std::tuple<int64_t, int64_t> ij) >
@@ -42,7 +43,7 @@ void test_matrix_lambda()
         return int(i)%num_devices_;
     };
 
-    slate::Matrix<scalar_type> A(n, n, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);
+    slate::Matrix<scalar_type> A( n, n, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD );
     A.insertLocalTiles();
 
     for (int64_t j = 0; j < A.nt(); ++j) {
@@ -59,7 +60,7 @@ void test_matrix_lambda()
     int jj = 0;
     for (int j = 0; j < nt; ++j) {
         assert( A.tileNb(j) == blas::min( tileNb(j), n - jj ) );
-        jj += A.tileNb(j);
+        jj += A.tileNb( j );
     }
     assert( jj == n );
 }
@@ -72,15 +73,18 @@ int main( int argc, char** argv )
     assert( err == 0 );
     assert( provided == MPI_THREAD_MULTIPLE );
 
-    err = MPI_Comm_size( MPI_COMM_WORLD, &mpi_size );
-    assert( err == 0 );
-    if (mpi_size != 4) {
-        printf( "Usage: mpirun -np 4 %s  # 4 ranks hard coded\n", argv[0] );
-        return -1;
-    }
+    slate_mpi_call(
+        MPI_Comm_size( MPI_COMM_WORLD, &mpi_size ) );
 
-    err = MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
-    assert( err == 0 );
+    slate_mpi_call(
+        MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank ) );
+
+    // Determine p-by-q grid for this MPI size.
+    grid_size( mpi_size, &grid_p, &grid_q );
+    if (mpi_rank == 0) {
+        printf( "mpi_size %d, grid_p %d, grid_q %d\n",
+                mpi_size, grid_p, grid_q );
+    }
 
     // so random_matrix is different on different ranks.
     srand( 100 * mpi_rank );
@@ -90,6 +94,8 @@ int main( int argc, char** argv )
     test_matrix_lambda< std::complex<float> >();
     test_matrix_lambda< std::complex<double> >();
 
-    err = MPI_Finalize();
-    assert( err == 0 );
+    slate_mpi_call(
+        MPI_Finalize() );
+
+    return 0;
 }

@@ -16,6 +16,7 @@ export ROCR_VISIBLE_DEVICES=0
 
 print "======================================== Unit tests"
 cd unit_test
+
 ./run_tests.py --timeout 300 --xml ${top}/report-unit-${maker}.xml
 (( err += $? ))
 
@@ -41,6 +42,24 @@ fi
 ./run_tests.py --timeout 1200 --origin ${origin} --target ${target} --quick \
                --xml ${top}/report-${maker}.xml ${tests}
 (( err += $? ))
+
+print "======================================== Smoke tests"
+cd ${top}/examples
+
+if [ "${maker}" = "make" ]; then
+    export PKG_CONFIG_PATH=${top}/install/lib/pkgconfig
+    make clean
+    make -j8 || exit 20
+    ./run_tests.py
+    (( err += $? ))
+fi
+if [ "${maker}" = "cmake" ]; then
+    rm -rf build && mkdir build && cd build
+    cmake "-DCMAKE_PREFIX_PATH=${top}/install" ..
+    make -j8 || exit 21
+    make test
+    (( err += $? ))
+fi
 
 print "======================================== Check HIP files are up-to-date"
 if [ "${maker}" = "make" ]; then

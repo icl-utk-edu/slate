@@ -34,8 +34,6 @@ shopt -s expand_aliases
 
 
 print "======================================== Load compiler"
-quiet module avail
-
 quiet module load gcc@7.3.0
 quiet which g++
 g++ --version

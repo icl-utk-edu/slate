@@ -88,6 +88,8 @@ prefix          := $(strip $(prefix))
 c_api           := $(strip $(c_api))
 fortran_api     := $(strip $(fortran_api))
 
+abs_prefix      := ${abspath ${prefix}}
+
 #-------------------------------------------------------------------------------
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX blas blas_int blas_threaded openmp static gpu_backend
@@ -830,7 +832,8 @@ UNIT_LIBS    += -lslate -ltestsweeper
 .DEFAULT_GOAL := all
 
 all: lib unit_test hooks
-install: lib
+
+pkg = lib/pkgconfig/slate.pc
 
 ifneq ($(only_unit),1)
     all: tester lapack_api
@@ -841,32 +844,36 @@ ifneq ($(only_unit),1)
     endif
 endif
 
-install:
-	cd blaspp   && $(MAKE) install prefix=${prefix}
+install: lib ${pkg}
+	cd blaspp   && ${MAKE} install prefix=${abs_prefix}
 	@echo
-	cd lapackpp && $(MAKE) install prefix=${prefix}
+	cd lapackpp && ${MAKE} install prefix=${abs_prefix}
 	@echo
-	mkdir -p $(DESTDIR)$(prefix)/include/slate/internal
-	mkdir -p $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)
-	cp include/slate/*.hh          $(DESTDIR)$(prefix)/include/slate
-	cp include/slate/internal/*.hh $(DESTDIR)$(prefix)/include/slate/internal
-	cp lib/lib*                    $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)
-	if [ $(c_api) -eq 1 ]; then \
-		mkdir -p $(DESTDIR)$(prefix)/include/slate/c_api; \
-		cp include/slate/c_api/*.h  $(DESTDIR)$(prefix)/include/slate/c_api; \
-		cp include/slate/c_api/*.hh $(DESTDIR)$(prefix)/include/slate/c_api; \
+	mkdir -p ${DESTDIR}${abs_prefix}/include/slate/internal
+	mkdir -p ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}
+	mkdir -p ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}/pkgconfig
+	cp include/slate/*.hh          ${DESTDIR}${abs_prefix}/include/slate/
+	cp include/slate/internal/*.hh ${DESTDIR}${abs_prefix}/include/slate/internal/
+	cp lib/lib*                    ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}
+	cp ${pkg}                      ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}/pkgconfig/
+	if [ ${c_api} -eq 1 ]; then \
+		mkdir -p ${DESTDIR}${abs_prefix}/include/slate/c_api; \
+		cp include/slate/c_api/*.h  ${DESTDIR}${abs_prefix}/include/slate/c_api; \
+		cp include/slate/c_api/*.hh ${DESTDIR}${abs_prefix}/include/slate/c_api; \
 	fi
 	if [ ${fortran_api} -eq 1 ]; then \
-		cp slate.mod                $(DESTDIR)$(prefix)/include/; \
+		cp slate.mod                ${DESTDIR}${abs_prefix}/include/; \
 	fi
 
 uninstall:
-	cd blaspp   && $(MAKE) uninstall prefix=${prefix}
+	cd blaspp   && ${MAKE} uninstall prefix=${abs_prefix}
 	@echo
-	cd lapackpp && $(MAKE) uninstall prefix=${prefix}
+	cd lapackpp && ${MAKE} uninstall prefix=${abs_prefix}
 	@echo
-	$(RM) -r $(DESTDIR)$(prefix)/include/slate
-	$(RM)    $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)/libslate*
+	${RM}    ${DESTDIR}${abs_prefix}/include/slate.mod
+	${RM} -r ${DESTDIR}${abs_prefix}/include/slate
+	${RM}    ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}/libslate*
+	${RM}    ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}/pkgconfig/slate.pc
 
 docs:
 	doxygen docs/doxygen/doxyfile.conf
@@ -1191,6 +1198,25 @@ src/hip:
 	mkdir -p $@
 
 #-------------------------------------------------------------------------------
+# pkgconfig
+# Keep -std=c++11 in CXXFLAGS. Keep -fopenmp in LDFLAGS.
+CXXFLAGS_clean = ${filter-out -O% -W% -pedantic -D% -I./% -MMD -fPIC, ${CXXFLAGS}}
+CPPFLAGS_clean = ${filter-out -O% -W% -pedantic -D% -I./% -MMD -fPIC, ${CPPFLAGS}}
+LDFLAGS_clean  = ${filter-out -fPIC -L./%, ${LDFLAGS}}
+
+.PHONY: ${pkg}
+${pkg}:
+	perl -pe "s'#VERSION'2023.01.00'; \
+	          s'#PREFIX'${abs_prefix}'; \
+	          s'#CXX\b'${CXX}'; \
+	          s'#CXXFLAGS'${CXXFLAGS_clean}'; \
+	          s'#CPPFLAGS'${CPPFLAGS_clean}'; \
+	          s'#LDFLAGS'${LDFLAGS_clean}'; \
+	          s'#LIBS'${LIBS}'; \
+	          s'#SCALAPACK'${SCALAPACK_LIBRARIES}';" \
+	          $@.in > $@
+
+#-------------------------------------------------------------------------------
 # general rules
 
 lib: $(libslate)
@@ -1223,6 +1249,10 @@ hooks: ${hooks}
 		cp $< $@ ; \
 	fi
 
+#-------------------------------------------------------------------------------
+# Compile object files
+
+# .hip.cc rule before .cc rule.
 %.hip.o: %.hip.cc | $(hip_hdr)
 	$(HIPCC) $(HIPCCFLAGS) -c $< -o $@
 
@@ -1238,12 +1268,16 @@ hooks: ${hooks}
 %.o: %.cu
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
-# preprocess source
+#-------------------------------------------------------------------------------
+# Preprocess source
+
 # test/%.i depend on testsweeper; for simplicity just add it here.
 %.i: %.cc
 	$(CXX) $(CXXFLAGS) -I./testsweeper -E $< -o $@
 
-# precompile header to check for errors
+#-------------------------------------------------------------------------------
+# Precompile header to check for errors
+
 # test/%.gch depend on testsweeper; for simplicity just add it here.
 %.gch: %.hh
 	$(CXX) $(CXXFLAGS) -I./testsweeper -c $< -o $@
@@ -1274,6 +1308,7 @@ echo:
 	@echo "static        = '$(static)'"
 	@echo "gpu_backend   = '${gpu_backend}'"
 	@echo "prefix        = '${prefix}'"
+	@echo "abs_prefix    = '${abs_prefix}'"
 	@echo "c_api         = '${c_api}'"
 	@echo "fortran_api   = '${fortran_api}'"
 	@echo "SCALAPACK_LIBRARIES = '${SCALAPACK_LIBRARIES}'"
@@ -1293,6 +1328,7 @@ echo:
 	@echo "libslate_a    = $(libslate_a)"
 	@echo "libslate_so   = $(libslate_so)"
 	@echo "libslate      = $(libslate)"
+	@echo "pkg           = ${pkg}"
 	@echo
 	@echo "---------- Files"
 	@echo "libslate_src  = $(libslate_src)"

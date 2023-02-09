@@ -162,8 +162,8 @@ void test_qdwh_work(Params& params, bool run)
         //                              lapack::Gflop<scalar_t>::unmqr(slate::Side::Left, m+n, n, n) +
         //                              blas::Gflop<scalar_t>::gemm(m, n, n) );
         // when take advantage of the matrix structure, the flops count will be reduced:
-        double gflop_itqr  = itqr * ( 2. * double(m*n*n) +
-                                      2. * double(m*n*n) +
+        double gflop_itqr  = itqr * ( 1e-9 * 2. * double(m*n*n) +
+                                      1e-9 * 2. * double(m*n*n) +
                                       blas::Gflop<scalar_t>::gemm(m, n, n) );
 
         double gflop_itpo  = itpo * ( blas::Gflop<scalar_t>::gemm(m, n, n) +

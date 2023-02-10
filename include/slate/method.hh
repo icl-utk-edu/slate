@@ -33,15 +33,7 @@ namespace MethodTrsm {
 
     template <typename TA, typename TB>
     inline Method select_algo(TA& A, TB& B, Options const& opts) {
-        // TODO replace the default value by a unique value located elsewhere
-        Target target = get_option( opts, Option::Target, Target::HostTask );
-
         Method method = (B.nt() < 2 ? TrsmA : TrsmB);
-
-        // XXX For now, when target == device, we fallback to trsmB on device
-        if (target == Target::Devices && method == TrsmA)
-            method = TrsmB;
-
         return method;
     }
 
@@ -86,14 +78,7 @@ namespace MethodGemm {
 
     template <typename TA, typename TB>
     inline Method select_algo(TA& A, TB& B, Options& opts) {
-        // TODO replace the default value by a unique value located elsewhere
-        Target target = get_option( opts, Option::Target, Target::HostTask );
-
         Method method = (B.nt() < 2 ? GemmA : GemmC);
-
-        if (target == Target::Devices && method == GemmA && A.num_devices() > 1)
-            opts[ Option::Target ] = Target::HostTask;
-
         return method;
     }
 

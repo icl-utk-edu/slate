@@ -347,9 +347,11 @@ void gemmA(internal::TargetType<Target::Devices>,
                                 // XXX since at least cuBLAS does not
                                 // take beta as a vector, we have to
                                 // set new tiles to 0 explicitly.
-                                C.tileInsert( i, 0, device );
+                                C.tileInsertWorkspace( i, 0, device );
                                 C.tileModified( i, 0, device );
                                 auto T = C( i, 0, device );
+                                if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
+                                    T = transpose( T );
                                 device::geset( T.mb(), T.nb(), zero, zero,
                                     T.data(), T.stride(), *queue );
                             }

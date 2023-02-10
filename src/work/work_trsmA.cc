@@ -116,6 +116,8 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 // Scale the RHS in order to be consistent with the upper case
                 // XXX This inserts all tiles on the device...
                 if (k == 0 && alpha != one) {
+                    // XXX Call scale( alpha, one, B, local_opts ) when 
+                    // transpose will be handled.
                     for (int64_t i = 0; i < mt; ++i) {
                         for (int64_t j = 0; j < nt; ++j) {
                             if (B.tileIsLocal(i, j)) {
@@ -128,6 +130,8 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                     blas::Queue* queue = A.compute_queue( device, queue_0 );
                                     assert( queue != nullptr );
                                     auto T = B( i, j, device );
+                                    if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
+                                        T = transpose( T );
 
                                     device::gescale( T.mb(), T.nb(), alpha, one,
                                             T.data(), T.stride(), *queue );
@@ -145,22 +149,23 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
 
                 // Create the local B tiles where A(k,k) is located
                 if (A.tileIsLocal(k, k)) {
-                    // TODO insert only what is needed for this iteration, otherwise,
+                    // XXX insert only what is needed for this iteration, otherwise,
                     // all missing tiles are inserted.
                     for (int64_t j = 0; j < nt; ++j) {
-                        int life = 2;
                         if (! B.tileIsLocal(k, j) ) {
                             if (target == Target::Devices) {
                                 int device = A.tileDevice( k, k );
                                 if (! B.tileExists( k, j, device )) {
                                     B.tileInsertWorkspace( k, j, device );
-                                  //B.tileInsert( k, j, device );
                                     B.tileModified( k, j, device );
-                                    B.tileLife( k, j, life );
 
+                                    // XXX maybe reset the memory in case it got created from a previous call.
                                     blas::Queue* queue = A.compute_queue( device, queue_0 );
                                     assert( queue != nullptr );
                                     auto T = B( k, j, device );
+                                    if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
+                                        T = transpose( T );
+
                                     B.tileGetForWriting( k, j, device,
                                             LayoutConvert( layout ) );
                                     device::geset( T.mb(), T.nb(), zero, zero,
@@ -170,16 +175,17 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             }
                             else {
                                 if (! B.tileExists( k, j )) {
-                                    // FIXME should be done where the tile is located
-                                    // either CPU impl or DEVICE
-                                    B.tileInsert( k, j );
+                                    B.tileInsertWorkspace( k, j, HostNum );
+                                    B.tileModified( k, j, HostNum );
+
                                     B.tileGetForWriting( k, j,
                                             LayoutConvert( layout ) );
-                                    B.at( k, j ).set( 0, 0 );
+                                    B( k, j ).set( 0, 0 );
                                 }
                             }
                         }
                     }
+                    // XXX We can sync here instead of at each iteration.
                 }
 
                 // Gather B(k,:) to rank owning diagonal block A(k,k)
@@ -193,7 +199,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                               }
                                             });
                 }
-                B.template listReduce<target>(reduce_list_B, layout);
+                B.template listReduce<target>(reduce_list_B, layout, k);
 
                 if (A.tileIsLocal(k, k)) {
                     // solve A(k, k) B(k, :) = alpha B(k, :)
@@ -206,7 +212,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
 
                 // Send the solution back to where it belongs
                 // TODO : could be part of the bcast of the solution,
-                // but not working now
+                // but not working now because of listBcast constraint.
                 if (A.tileIsLocal(k, k)) {
                     const int root = A.tileRank(k, k);
                     for (int64_t j = 0; j < nt; ++j) {
@@ -235,53 +241,30 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     bcast_list_upd_B.push_back(
                         {k, j, { A.sub(k + 1, mt - 1, k, k), }});
                 }
-                B.template listBcast<target>(
-                        bcast_list_upd_B, layout, k, lookahead + 1 ); // XXX Should it be just 1 at the last iteration?
 
-#if 0
-                // Clean the memory by removing temporary tiles
-                // TODO do it on device too
                 auto B_row_k = B.sub( k, k, 0, nt-1 );
-                B_row_k.eraseRemoteWorkspace();
-                B_row_k.eraseLocalWorkspace();
-              //if (tile_release_strategy == TileReleaseStrategy::Internal
-              //    || tile_release_strategy == TileReleaseStrategy::All)
-              //{
-                if (A.tileIsLocal( k, k )) {
-                    for (int64_t j = 0; j < nt; ++j) {
-                        // TODO move it up
-                        int device = (target == Target::Devices ? A.tileDevice( k, k ) : HostNum );
-                        if (B.tileExists( k, j, device ) && ! B.tileIsLocal( k, j )) {
-                            // FIXME should be done where the tile is located
-                            // either CPU impl or DEVICE
-                          //B.tileErase(k, j);
-                            B.tileRelease( k, j, device );
-                          //B.tileTick( k, j );
-                        }
-                    }
-                }
-              //}
-#endif
+                // XXX Should it be just 1 at the last iteration?
+                // XXX Should we ignore this since the life will be removed
+                B.template listBcast<target>( bcast_list_upd_B, layout, k, lookahead + 1 );
+
             }
-//#pragma omp taskwait
 
             // lookahead update, B(k+1:k+la, :) -= A(k+1:k+la, k) B(k, :)
             for (int64_t i = k+1; i < k+1+lookahead && i < mt; ++i) {
                 #pragma omp task depend(in:row[k]) \
                                  depend(inout:row[i]) priority(1)
                 {
-                    // TODO execute lookahead on devices
-                    int queue_i = i - k + 1;
+
+                    int queue_ik1 = i - k + 1;
                     for (int j = 0; j < nt; ++j) {
                         internal::gemmA<target>(
                             -one, A.sub(i, i, k, k),
                                   B.sub(k, k, j, j),
                             one,  B.sub(i, i, j, j),
-                            layout, priority_1, queue_i, local_opts );
+                            layout, priority_1, queue_ik1, local_opts );
                     }
                 }
             }
-#pragma omp taskwait
 
             // trailing update,
             // B(k+1+la:mt-1, :) -= A(k+1+la:mt-1, k) B(k, :)
@@ -302,7 +285,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     }
                 }
             }
-//#pragma omp taskwait
+
             // Erase remote or workspace tiles.
             #pragma omp task depend(inout:row[k])
             {
@@ -332,11 +315,33 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
             {
                 // Scale the RHS to handle the alpha issue since B is moved
                 // around instead of the A as in trsm
-                if (k == mt - 1 && alpha != one) {
+                if (k == mt-1 && alpha != one) {
+                    // XXX Call scale( alpha, one, B, local_opts ) when 
+                    // transpose will be handled.
                     for (int64_t i = 0; i < mt; ++i) {
                         for (int64_t j = 0; j < nt; ++j) {
                             if (B.tileIsLocal(i, j)) {
-                                tile::scale( alpha, B(i, j) );
+                                if (target == Target::Devices) {
+                                    int device = B.tileDevice( i, j );
+
+                                    B.tileGetForWriting( i, j, device,
+                                            LayoutConvert( layout ) );
+
+                                    blas::Queue* queue = A.compute_queue( device, queue_0 );
+                                    assert( queue != nullptr );
+                                    auto T = B( i, j, device );
+                                    if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
+                                        T = transpose( T );
+
+                                    device::gescale( T.mb(), T.nb(), alpha, one,
+                                            T.data(), T.stride(), *queue );
+                                    queue->sync();
+                                }
+                                else {
+                                    B.tileGetForWriting( i, j,
+                                            LayoutConvert( layout ) );
+                                    tile::scale( alpha, B(i, j) );
+                                }
                             }
                         }
                     }
@@ -345,9 +350,37 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 // Create the local B tiles where A(k,k) is located
                 if (A.tileIsLocal(k, k)) {
                     for (int64_t j = 0; j < nt; ++j) {
-                        if (! B.tileIsLocal(k, j) && ! B.tileExists(k, j)) {
-                            B.tileInsert(k, j);
-                            B.at(k, j).set(0, 0); // Might not needed if alph is set correctly
+                        if (! B.tileIsLocal(k, j) ) {
+                            if (target == Target::Devices) {
+                                int device = A.tileDevice( k, k );
+                                if (! B.tileExists( k, j, device )) {
+                                    B.tileInsertWorkspace( k, j, device );
+                                    B.tileModified( k, j, device );
+
+                                    blas::Queue* queue = A.compute_queue( device, queue_0 );
+                                    assert( queue != nullptr );
+                                    auto T = B( k, j, device );
+                                    if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
+                                        T = transpose( T );
+
+                                    B.tileGetForWriting( k, j, device,
+                                            LayoutConvert( layout ) );
+
+                                    device::geset( T.mb(), T.nb(), zero, zero,
+                                            T.data(), T.stride(), *queue );
+                                    queue->sync();
+                                }
+                            }
+                            else {
+                                if (! B.tileExists( k, j )) {
+                                    B.tileInsertWorkspace( k, j, HostNum );
+                                    B.tileModified( k, j, HostNum );
+
+                                    B.tileGetForWriting( k, j,
+                                            LayoutConvert( layout ) );
+                                    B( k, j ).set( 0, 0 );
+                                }
+                            }
                         }
                     }
                 }
@@ -363,7 +396,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                               }
                                             });
                 }
-                B.template listReduce<target>(reduce_list_B, layout);
+                B.template listReduce<target>(reduce_list_B, layout, k);
 
                 if (A.tileIsLocal(k, k)) {
                     // solve A(k, k) B(k, :) = alpha B(k, :)
@@ -371,15 +404,16 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         Side::Left,
                         one, A.sub(k, k),
                              B.sub(k, k, 0, nt-1),
-                        priority_1, layout, queue_1, opts );
+                        priority_1, layout, queue_1, local_opts );
                 }
 
                 // Send the solution back to where it belongs
-                // TODO : could be part of the bcast of the solution,
-                // but not working now
                 if (A.tileIsLocal(k, k)) {
+                    const int root = A.tileRank(k, k);
                     for (int64_t j = 0; j < nt; ++j) {
                         int dest = B.tileRank(k, j);
+                        if (dest == root) continue;
+
                         B.tileSend(k, j, dest);
                     }
                 }
@@ -393,10 +427,6 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     }
                 }
 
-                for (int64_t j = 0; j < nt; ++j)
-                    if (B.tileExists(k, j) && ! B.tileIsLocal(k, j))
-                        B.tileErase(k, j);
-
                 // Bcast the result of the solve, B(k,:) to
                 // ranks owning block row A(k + 1 : mt, k)
                 BcastList bcast_list_upd_B;
@@ -404,7 +434,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     bcast_list_upd_B.push_back(
                         {k, j, { A.sub(0, k - 1, k, k), }});
                 }
-                B.template listBcast<target>(bcast_list_upd_B, layout);
+                B.template listBcast<target>(bcast_list_upd_B, layout, k, lookahead + 1 );
             }
 
             // lookahead update, B(k-la:k-1, :) -= A(k-la:k-1, k) B(k, :)
@@ -412,22 +442,14 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 #pragma omp task depend(in:row[k]) \
                                  depend(inout:row[i]) priority(1)
                 {
-                    if (A.tileIsLocal(i, k)) {
-                        for (int64_t j = 0; j < nt; ++j) {
-                            if (! B.tileIsLocal(i, j)
-                                && ! B.tileExists(i, j))
-                            {
-                                B.tileInsert(i, j);
-                                B.at(i, j).set(0, 0);
-                            }
-                        }
+                    int queue_k1lai = k - 1 + lookahead - i;
+                    for (int j = 0; j < nt; ++j) {
+                        internal::gemmA<target>(
+                            -one, A.sub(i, i, k, k),
+                                  B.sub(k, k, j, j),
+                            one,  B.sub(i, i, j, j),
+                            layout, priority_1, queue_k1lai, local_opts );
                     }
-                    // TODO: execute lookahead on devices
-                    internal::gemmA<Target::HostTask>(
-                        -one, A.sub(i, i, k, k),
-                              B.sub(k, k, 0, nt-1),
-                        one,  B.sub(i, i, 0, nt-1),
-                        layout, priority_1 );
                 }
             }
 
@@ -441,53 +463,33 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                  depend(inout:row[k-1-lookahead]) \
                                  depend(inout:row[0])
                 {
-                    for (int64_t i = 0; i < k - lookahead; ++i) {
-                        if (A.tileIsLocal(i, k)) {
-                            for (int64_t j = 0; j < nt; ++j) {
-                                if (! B.tileIsLocal(i, j)
-                                    && ! B.tileExists(i, j))
-                                {
-                                    B.tileInsert(i, j);
-                                    B.at(i, j).set(0, 0);
-                                }
-                            }
-                        }
+                    for (int64_t j = 0; j < nt; ++j) {
+                        internal::gemmA<target>(
+                            -one, A.sub(0, k-1-lookahead, k, k),
+                                  B.sub(k, k, j, j),
+                            one,  B.sub(0, k-1-lookahead, j, j),
+                            layout, priority_0, queue_0, local_opts );
                     }
-
-                    //internal::gemm<target>(
-                    internal::gemmA<Target::HostTask>(
-                        -one, A.sub(0, k-1-lookahead, k, k),
-                              B.sub(k, k, 0, nt-1),
-                        one,  B.sub(0, k-1-lookahead, 0, nt-1),
-                        layout, priority_0 ); //, queue_0 );
                 }
+            }
+
+            // Erase remote or workspace tiles.
+            #pragma omp task depend(inout:row[k])
+            {
+                auto A_col_k = A.sub( 0, k, k, k );
+                A_col_k.eraseRemoteWorkspace();
+                A_col_k.eraseLocalWorkspace();
+
+                auto B_row_k = B.sub( k, k, 0, nt-1 );
+                B_row_k.eraseRemoteWorkspace();
+                // Copy back modifications to tiles in the B panel
+                // before they are erased.
+                B_row_k.tileUpdateAllOrigin();
+                B_row_k.eraseLocalWorkspace();
             }
         }
     }
     #pragma omp taskwait
-    for (int64_t i = 0; i < A.mt(); ++i) {
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            if (A.tileIsLocal( i, j )) {
-                int device = (target == Target::Devices ? A.tileDevice( i, j ) : HostNum );
-                for (int64_t k = 0; k < nt; ++k) {
-                    if (B.tileExists( i, k, device )) {
-                        // FIXME should be done where the tile is located
-                        // either CPU impl or DEVICE
-                        //B.tileErase(k, j);
-                        B.tileRelease( i, k, device );
-                        //B.tileTick( i, j );
-                    }
-                    if (device != HostNum && B.tileExists( i, k, HostNum )) {
-                        // FIXME should be done where the tile is located
-                        // either CPU impl or DEVICE
-                        //B.tileErase(k, j);
-                        B.tileRelease( i, k, HostNum );
-                    }
-                }
-                break;
-            }
-        }
-    }
 }
 
 //------------------------------------------------------------------------------

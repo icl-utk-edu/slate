@@ -34,7 +34,6 @@ void trsmA(
         // lookahead + lookahead
         // number of kernels without lookahead = 2
         // (internal::gemm & internal::trsm)
-        // TODO
         // whereas internal::gemm with lookahead will be executed as many as
         // lookaheads, thus
         // internal::gemm with lookahead needs batch arrays equal to the

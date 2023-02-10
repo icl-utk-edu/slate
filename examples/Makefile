@@ -17,20 +17,21 @@ slate_libs     = ${shell pkg-config --libs-only-l        slate}
 scalapack_libs = ${shell pkg-config --variable=scalapack slate}
 
 #-------------------------------------------------------------------------------
-# ScaLAPACK examples
-# Link with -lslate_scalapack_api -lscalapack.
-# Implicitly links with -lslate -lblaspp -llapackpp and your BLAS library.
+# SLATE's ScaLAPACK API example
+# Link with -lslate_scalapack_api -lscalapack -lslate -lblaspp -llapackpp.
+# If RUNPATH was set on libslate_scalapack_api.so when it was installed,
+# here we could implicitly link with -lslate -lblaspp -llapackpp.
+# Implicitly links with your BLAS library.
 
 scalapack_src = ${wildcard *scalapack*.cc}
 scalapack_exe = ${basename ${scalapack_src}}
-scalapack_txt = ${addsuffix .txt, ${scalapack_exe}}
 exe += ${scalapack_exe}
 
 scalapack: ${scalapack_exe}
 
 ${scalapack_exe}: %: %.o
 	${CXX} -o $@ $^ \
-		${LDFLAGS} -lslate_scalapack_api ${scalapack_libs} ${LIBS}
+		${LDFLAGS} -lslate_scalapack_api ${slate_libs} ${scalapack_libs} ${LIBS}
 
 #-------------------------------------------------------------------------------
 # SLATE examples
@@ -62,10 +63,10 @@ all: ${exe}
 	${CXX} ${CXXFLAGS} -c -o $@ $<
 
 clean:
-	-rm -f ${exe} *.o *.d
+	${RM} ${exe} *.o *.d
 
 clean_exe:
-	-rm -f ${exe}
+	${RM} ${exe}
 
 distclean: clean
 

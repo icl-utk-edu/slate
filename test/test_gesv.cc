@@ -42,6 +42,8 @@ void test_gesv_work(Params& params, bool run)
         params.method_lu() = slate::MethodLU::NoPiv;
     }
     auto method = params.method_lu();
+    auto methodTrsm = params.method_trsm();
+    auto methodGemm = params.method_gemm();
 
     // get & mark input values
     slate::Op trans = slate::Op::NoTrans;
@@ -121,12 +123,6 @@ void test_gesv_work(Params& params, bool run)
         return;
     }
 
-    if (params.routine == "gesvMixed"
-        && target == slate::Target::Devices) {
-        params.msg() = "skipping: unsupported mixed precision; no devices support";
-        return;
-    }
-
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
@@ -134,6 +130,8 @@ void test_gesv_work(Params& params, bool run)
         {slate::Option::InnerBlocking, ib},
         {slate::Option::PivotThreshold, pivot_threshold},
         {slate::Option::MethodLU, method},
+        {slate::Option::MethodGemm, methodGemm},
+        {slate::Option::MethodTrsm, methodTrsm},
     };
 
     // Matrix A: figure out local size.
@@ -252,6 +250,9 @@ void test_gesv_work(Params& params, bool run)
         slate::copy(B, Bref);
     }
 
+    print_matrix( "A", A, params );
+    print_matrix( "B", B, params );
+
     double gflop;
     if (params.routine == "gesv"
         || params.routine == "gesvMixed")
@@ -325,6 +326,7 @@ void test_gesv_work(Params& params, bool run)
 
         if (trace) slate::trace::Trace::finish();
     }
+    print_matrix( "X_out", X, params );
 
     if (check) {
         //==================================================

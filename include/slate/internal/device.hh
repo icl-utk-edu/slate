@@ -30,7 +30,20 @@
     } // namespace blas
 
 #elif defined( BLAS_HAVE_ROCBLAS )
+    // Default to AMD platform on ROCm.
+    #if ! defined(__HIP_PLATFORM_NVIDIA__) && ! defined(__HIP_PLATFORM_NVCC__) \
+        && ! defined(__HIP_PLATFORM_AMD__) && ! defined(__HIP_PLATFORM_HCC__)
+        #define __HIP_PLATFORM_AMD__
+        #define SLATE_HIP_PLATFORM_AMD
+    #endif
+
     #include <hip/hip_complex.h>
+
+    // If we defined __HIP_PLATFORM_AMD__, undef it.
+    #ifdef SLATE_HIP_PLATFORM_AMD
+        #undef __HIP_PLATFORM_AMD__
+        #undef SLATE_HIP_PLATFORM_AMD
+    #endif
 
     namespace blas {
 

@@ -379,7 +379,7 @@ ifeq ($(hip),1)
     # Generate hipcc target options for all gfx in hip_arch_.
     amdgpu_targets = $(foreach arch, $(gfx),--amdgpu-target=$(arch))
     HIPCCFLAGS += $(amdgpu_targets)
-    FLAGS += -D__HIP_PLATFORM_HCC__
+    FLAGS += -D__HIP_PLATFORM_AMD__
     LIBS += -L$(ROCM_DIR)/lib -lrocsolver -lrocblas -lamdhip64
 
     # ROCm 4.0 has errors in its headers that produce excessive warnings.
@@ -1354,6 +1354,9 @@ echo:
 	@echo "---------- C++ compiler"
 	@echo "CXX           = $(CXX)"
 	@echo "CXXFLAGS      = $(CXXFLAGS)"
+	@echo "CXXFLAGS_clean= $(CXXFLAGS_clean)"
+	@echo "CPPFLAGS      = $(CPPFLAGS)"
+	@echo "CPPFLAGS_clean= $(CPPFLAGS_clean)"
 	@echo
 	@echo "---------- CUDA options"
 	@echo "cuda          = '$(cuda)'"

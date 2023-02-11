@@ -47,16 +47,16 @@ print "======================================== Smoke tests"
 cd ${top}/examples
 
 if [ "${maker}" = "make" ]; then
-    export PKG_CONFIG_PATH=${top}/install/lib/pkgconfig
-    make clean
-    make -j8 || exit 20
+    export PKG_CONFIG_PATH+=:${top}/install/lib/pkgconfig
+    make clean || exit 20
+    make -j8   || exit 21
     ./run_tests.py
     (( err += $? ))
-fi
-if [ "${maker}" = "cmake" ]; then
+
+elif [ "${maker}" = "cmake" ]; then
     rm -rf build && mkdir build && cd build
-    cmake "-DCMAKE_PREFIX_PATH=${top}/install" ..
-    make -j8 || exit 21
+    cmake "-DCMAKE_PREFIX_PATH=${top}/install" .. || exit 22
+    make -j8 || exit 23
     make test
     (( err += $? ))
 fi

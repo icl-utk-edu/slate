@@ -27,6 +27,7 @@ public:
 
     Matrix<scalar_t> A;
     Matrix<scalar_t> U_factors;
+    Matrix<scalar_t> VT_factors;
     std::vector<std::vector<real_t>> singular_values;
     std::vector<std::vector<real_t>> modifications;
     std::vector<std::vector<int64_t>>  modification_indices;

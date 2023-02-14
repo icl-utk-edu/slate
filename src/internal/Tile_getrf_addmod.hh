@@ -43,6 +43,7 @@ namespace internal {
 template <typename scalar_t>
 void getrf_addmod(Tile<scalar_t> A,
                   Tile<scalar_t> U,
+                  Tile<scalar_t> VT,
                   std::vector< blas::real_type<scalar_t> >& singular_values,
                   std::vector< blas::real_type<scalar_t> >& modifications,
                   std::vector<int64_t>& modified_indices,
@@ -61,6 +62,8 @@ void getrf_addmod(Tile<scalar_t> A,
     int64_t lda = A.stride();
     scalar_t* U_data = U.data();
     int64_t ldu = U.stride();
+    scalar_t* VT_data = VT.data();
+    int64_t ldvt = VT.stride();
 
     std::vector<scalar_t> workspace_vect (ib * std::max(mb, nb));
     scalar_t* workspace = workspace_vect.data();
@@ -70,18 +73,16 @@ void getrf_addmod(Tile<scalar_t> A,
         int64_t kb = std::min(diag_len-k, ib);
 
         // Compute SVD of diagonal block
-        //lapack::gesvd(lapack::Job::AllVec, lapack::Job::OverwriteVec, kb, kb,
+        //lapack::gesvd(lapack::Job::AllVec, lapack::Job::AllVec, kb, kb,
         //              &A_data[k + k*lda], lda,
         //              &singular_values[k],
         //              &U_data[k + k*ldu], ldu,
-        //              nullptr, kb);
+        //              VT_data[k + k*ldvt], ldvt);
         lapack::gesdd(lapack::Job::AllVec, kb, kb,
                       &A_data[k + k*lda], lda,
                       &singular_values[k],
                       &U_data[k + k*ldu], ldu,
-                      &workspace[0], kb);
-        lapack::lacpy(lapack::MatrixType::General, kb, kb,
-                      &workspace[0], kb, &A_data[k + k*lda], lda);
+                      &VT_data[k + k*ldvt], ldvt);
 
         // Compute modifications
         {
@@ -113,7 +114,7 @@ void getrf_addmod(Tile<scalar_t> A,
                        Op::NoTrans, Op::ConjTrans,
                        mb-k-kb, kb, kb,
                        one,  &A_data[k+kb + k*lda], lda,
-                             &A_data[k + k*lda], lda,
+                             &VT_data[k + k*ldvt], ldvt,
                        zero, &workspace[0], ldwork);
 
             for (int64_t j = 0; j < kb; ++j) {

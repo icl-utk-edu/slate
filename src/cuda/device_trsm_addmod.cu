@@ -406,8 +406,8 @@ template <bool isUpper, bool isLeft, typename scalar_t>
 __global__ void __launch_bounds__(256,3) batch_diag_kernel(
                     int mb, int nb,
                     scalar_t alpha,
-                    scalar_t** dAarray, int64_t Ai,             int64_t ldda,
-                    scalar_t** dUarray,                         int64_t lddu,
+                    scalar_t** dUarray,  int64_t Ui,            int64_t lddu,
+                    scalar_t** dVTarray, int64_t VTi,           int64_t lddvt,
                     blas::real_type<scalar_t>** dSarray,
                     scalar_t** dBarray, int64_t Bi, int64_t Bj, int64_t lddb,
                     scalar_t** dWarray, int64_t lddw)
@@ -416,7 +416,6 @@ __global__ void __launch_bounds__(256,3) batch_diag_kernel(
 
     int batch = blockIdx.x;
 
-    scalar_t* A_local = dAarray[batch] + Ai + Ai*ldda;
     scalar_t* B_local = dBarray[batch] + Bi + Bj*lddb;
     scalar_t* W_local = dWarray[batch];
 
@@ -427,7 +426,7 @@ __global__ void __launch_bounds__(256,3) batch_diag_kernel(
         W_local += step * blockIdx.y;
         int mb_local = min(step, mb - step*blockIdx.y);
 
-        scalar_t* U_local = dUarray[batch] + Ai + Ai*lddu;
+        scalar_t* U_local = dUarray[batch] + Ui + Ui*lddu;
         tb_gemm_magma(false, true, mb_local, nb, nb,
                 alpha, B_local, lddb,
                        U_local, lddu,
@@ -443,7 +442,7 @@ __global__ void __launch_bounds__(256,3) batch_diag_kernel(
         W_local += step * blockIdx.y * lddw;
         int nb_local = min(step, nb - step*blockIdx.y);
 
-        scalar_t* U_local = dUarray[batch] + Ai + Ai*lddu;
+        scalar_t* U_local = dUarray[batch] + Ui + Ui*lddu;
         tb_copy(mb, nb_local, B_local, lddb, W_local, lddw);
         //__syncthreads();
         tb_gemm_magma(true, false, mb, nb_local, mb,
@@ -458,11 +457,12 @@ __global__ void __launch_bounds__(256,3) batch_diag_kernel(
         W_local += step * blockIdx.y;
         int mb_local = min(step, mb - step*blockIdx.y);
 
-        real_t* S_local = dSarray[batch] + Ai;
+        scalar_t* VT_local = dVTarray[batch] + VTi + VTi*lddvt;
+        real_t* S_local = dSarray[batch] + VTi;
         tb_gemm_magma(false, true, mb_local, nb, nb,
-                alpha, B_local, lddb,
-                       A_local, ldda,
-                       W_local, lddw);
+                alpha,  B_local, lddb,
+                       VT_local, lddvt,
+                        W_local, lddw);
         //__syncthreads();
         tb_scale_copy(false, mb_local, nb,
                     S_local,
@@ -476,16 +476,17 @@ __global__ void __launch_bounds__(256,3) batch_diag_kernel(
         W_local += step * blockIdx.y * lddw;
         int nb_local = min(step, nb - step*blockIdx.y);
 
-        real_t* S_local = dSarray[batch] + Ai;
+        scalar_t* VT_local = dVTarray[batch] + VTi + VTi*lddvt;
+        real_t* S_local = dSarray[batch] + VTi;
         tb_scale_copy(true, mb, nb_local,
                     S_local,
                     B_local, lddb,
                     W_local, lddw);
         //__syncthreads();
         tb_gemm_magma(true, false, mb, nb_local, mb,
-                alpha, A_local, ldda,
-                       W_local, lddw,
-                       B_local, lddb);
+                alpha, VT_local, lddvt,
+                        W_local, lddw,
+                        B_local, lddb);
     }
 }
 
@@ -497,8 +498,8 @@ void batch_trsm_addmod_diag(
     int64_t      mb,
     int64_t      nb,
     scalar_t     alpha,
-    std::vector<scalar_t*> Aarray, int64_t Ai, int64_t Aj, int64_t ldda,
     std::vector<scalar_t*> Uarray, int64_t Ui, int64_t Uj, int64_t lddu,
+    std::vector<scalar_t*> VTarray, int64_t VTi, int64_t VTj, int64_t lddvt,
     std::vector<blas::real_type<scalar_t>*> Sarray, int64_t Si,
     std::vector<scalar_t*> Barray, int64_t Bi, int64_t Bj, int64_t lddb,
     std::vector<scalar_t*> Warray, int64_t lddw,
@@ -512,21 +513,21 @@ void batch_trsm_addmod_diag(
     constexpr int isUpper = uplo == blas::Uplo::Upper;
     constexpr int isLeft  = side == blas::Side::Left;
 
-    assert(Ai == Aj && Ai == Ui && Ai == Uj && Ai == Si);
+    assert(Ui == Uj && VTi == VTj && VTi == Si);
 
     queue.work_ensure_size<void*>( 2*batch );
 
-    scalar_t** dAarray = (scalar_t**)queue.work();
-    scalar_t** dBarray = dAarray + batch;
+    scalar_t** dBarray = (scalar_t**)queue.work();
     scalar_t** dWarray = dBarray + batch;
-    // need either U or S, can use the same dev ptr array
+    // need either U or (VT and S), can use the same dev ptr array
     scalar_t** dUarray = dWarray + batch;
-    real_t**   dSarray = (real_t**)(dUarray);
+    scalar_t** dVTarray = dUarray;
+    real_t**   dSarray = (real_t**)(dUarray + batch);
 
-    blas::device_setvector<scalar_t*>(batch, Aarray.data(), 1, dAarray, 1, queue);
     blas::device_setvector<scalar_t*>(batch, Barray.data(), 1, dBarray, 1, queue);
     blas::device_setvector<scalar_t*>(batch, Warray.data(), 1, dWarray, 1, queue);
     if (isUpper) {
+        blas::device_setvector<scalar_t*>(batch, VTarray.data(), 1, dVTarray, 1, queue);
         blas::device_setvector<real_t*>  (batch, Sarray.data(), 1, dSarray, 1, queue);
     } else {
         blas::device_setvector<scalar_t*>(batch, Uarray.data(), 1, dUarray, 1, queue);
@@ -550,8 +551,8 @@ void batch_trsm_addmod_diag(
     batch_diag_kernel<isUpper, isLeft><<< grid_dim, block_dim, shmem_size, queue.stream() >>>(
                     mb, nb,
                     to_cutype(alpha),
-                    to_cutype(dAarray), Ai,     ldda,
-                    to_cutype(dUarray),         lddu,
+                    to_cutype(dUarray),   Ui,   lddu,
+                    to_cutype(dVTarray), VTi,   lddvt,
                     dSarray,
                     to_cutype(dBarray), Bi, Bj, lddb,
                     to_cutype(dWarray),         lddw);
@@ -727,11 +728,12 @@ void batch_trsm_addmod_rec(
     int64_t      nb,
     int64_t      ib,
     scalar_t     alpha,
-    std::vector<scalar_t*> Aarray, int64_t Ai, int64_t Aj, int64_t ldda,
-    std::vector<scalar_t*> Uarray, int64_t Ui, int64_t Uj, int64_t lddu,
+    std::vector<scalar_t*>  Aarray, int64_t  Ai, int64_t  Aj, int64_t ldda,
+    std::vector<scalar_t*>  Uarray, int64_t  Ui, int64_t  Uj, int64_t lddu,
+    std::vector<scalar_t*> VTarray, int64_t VTi, int64_t VTj, int64_t lddvt,
     std::vector<blas::real_type<scalar_t>*> Sarray, int64_t Si,
-    std::vector<scalar_t*> Barray, int64_t Bi, int64_t Bj, int64_t lddb,
-    std::vector<scalar_t*> Warray,
+    std::vector<scalar_t*>  Barray, int64_t  Bi, int64_t  Bj, int64_t lddb,
+    std::vector<scalar_t*>  Warray,
     const size_t batch,
     blas::Queue &queue )
 {
@@ -753,11 +755,11 @@ void batch_trsm_addmod_rec(
             if (ib < cublas_threshold) {
                 batch_trsm_addmod_diag<blas::Side::Left, blas::Uplo::Upper>(
                             layout, mb, nb, alpha,
-                            Aarray, Ai, Aj, ldda,
-                            Uarray, Ui, Uj, lddu,
-                            Sarray, Si,
-                            Barray, Bi, Bj, lddb,
-                            Warray, lddw,
+                            Uarray,  Ui,  Uj, lddu,
+                           VTarray, VTi, VTj, lddvt,
+                            Sarray,  Si,
+                            Barray,  Bi,  Bj, lddb,
+                            Warray,           lddw,
                             batch, queue);
             } else {
                 batch_scale_copy(layout, side, mb, nb,
@@ -766,9 +768,9 @@ void batch_trsm_addmod_rec(
                         Warray,  0,  0, lddw,
                         batch, queue);
                 batch_gemm(layout, trans_op, blas::Op::NoTrans, mb, nb, mb,
-                        alpha, Aarray, Ai, Aj, ldda,
-                               Warray,  0,  0, lddw,
-                        zero,  Barray, Bi, Bj, lddb,
+                        alpha, VTarray, VTi, VTj, lddvt,
+                                Warray,   0,   0, lddw,
+                        zero,   Barray,  Bi,  Bj, lddb,
                         batch, queue);
             }
         }
@@ -778,10 +780,11 @@ void batch_trsm_addmod_rec(
             int64_t m2 = mb-m1;
 
             batch_trsm_addmod_rec(layout, side, uplo, m2, nb, ib, alpha,
-                    Aarray, Ai+m1, Aj+m1, ldda,
-                    Uarray, Ui+m1, Uj+m1, lddu,
-                    Sarray, Si+m1,
-                    Barray, Bi+m1, Bj,    lddb,
+                    Aarray,  Ai+m1,  Aj+m1, ldda,
+                    Uarray,  Ui+m1,  Uj+m1, lddu,
+                   VTarray, VTi+m1, VTj+m1, lddvt,
+                    Sarray,  Si+m1,
+                    Barray,  Bi+m1,  Bj,    lddb,
                     Warray, batch, queue);
 
             batch_gemm(layout, blas::Op::NoTrans, blas::Op::NoTrans, m1, nb, m2,
@@ -791,10 +794,11 @@ void batch_trsm_addmod_rec(
                     batch, queue); 
 
             batch_trsm_addmod_rec(layout, side, uplo, m1, nb, ib, one,
-                    Aarray, Ai, Aj, ldda,
-                    Uarray, Ui, Uj, lddu,
-                    Sarray, Si,
-                    Barray, Bi, Bj, lddb,
+                    Aarray,  Ai,  Aj, ldda,
+                    Uarray,  Ui,  Uj, lddu,
+                   VTarray, VTi, VTj, lddvt,
+                    Sarray,  Si,
+                    Barray,  Bi,  Bj, lddb,
                     Warray, batch, queue);
         }
     }
@@ -804,17 +808,17 @@ void batch_trsm_addmod_rec(
             if (ib < cublas_threshold) {
                 batch_trsm_addmod_diag<blas::Side::Right, blas::Uplo::Upper>(
                             layout, mb, nb, alpha,
-                            Aarray, Ai, Aj, ldda,
                             Uarray, Ui, Uj, lddu,
+                           VTarray, VTi, VTj, lddvt,
                             Sarray, Si,
                             Barray, Bi, Bj, lddb,
                             Warray, lddw,
                             batch, queue);
             } else {
                 batch_gemm(layout, blas::Op::NoTrans, trans_op, mb, nb, nb,
-                        alpha, Barray, Bi, Bj, lddb,
-                               Aarray, Ai, Aj, ldda,
-                        zero,  Warray,  0,  0, lddw,
+                        alpha,  Barray,  Bi,  Bj, lddb,
+                               VTarray, VTi, VTj, lddvt,
+                        zero,   Warray,   0,   0, lddw,
                         batch, queue);
                 batch_scale_copy(layout, side, mb, nb,
                         Sarray, Si,
@@ -831,6 +835,7 @@ void batch_trsm_addmod_rec(
             batch_trsm_addmod_rec(layout, side, uplo, mb, n1, ib, alpha,
                     Aarray, Ai, Aj, ldda,
                     Uarray, Ui, Uj, lddu,
+                   VTarray, VTi, VTj, lddvt,
                     Sarray, Si,
                     Barray, Bi, Bj,    lddb,
                     Warray, batch, queue);
@@ -842,10 +847,11 @@ void batch_trsm_addmod_rec(
                     batch, queue); 
 
             batch_trsm_addmod_rec(layout, side, uplo, mb, n2, ib, one,
-                    Aarray, Ai+n1, Aj+n1, ldda,
-                    Uarray, Ui+n1, Uj+n1, lddu,
-                    Sarray, Si+n1,
-                    Barray, Bi,    Bj+n1, lddb,
+                    Aarray,  Ai+n1,  Aj+n1, ldda,
+                    Uarray,  Ui+n1,  Uj+n1, lddu,
+                   VTarray, VTi+n1, VTj+n1, lddvt,
+                    Sarray,  Si+n1,
+                    Barray,  Bi,     Bj+n1, lddb,
                     Warray, batch, queue);
         }
     }
@@ -854,10 +860,10 @@ void batch_trsm_addmod_rec(
             // halt recursion
             if (ib < cublas_threshold) {
                 batch_trsm_addmod_diag<blas::Side::Left, blas::Uplo::Lower>(layout, /*side, uplo,*/ mb, nb, alpha,
-                            Aarray, Ai, Aj, ldda,
-                            Uarray, Ui, Uj, lddu,
-                            Sarray, Si,
-                            Barray, Bi, Bj, lddb,
+                            Uarray,  Ui,  Uj, lddu,
+                           VTarray, VTi, VTj, lddvt,
+                            Sarray,  Si,
+                            Barray,  Bi,  Bj, lddb,
                             Warray, lddw,
                             batch, queue);
             } else {
@@ -878,10 +884,11 @@ void batch_trsm_addmod_rec(
             int64_t m2 = mb-m1;
 
             batch_trsm_addmod_rec(layout, side, uplo, m1, nb, ib, alpha,
-                    Aarray, Ai, Aj, ldda,
-                    Uarray, Ui, Uj, lddu,
-                    Sarray, Si,
-                    Barray, Bi, Bj,    lddb,
+                    Aarray,  Ai,  Aj, ldda,
+                    Uarray,  Ui,  Uj, lddu,
+                   VTarray, VTi, VTj, lddvt,
+                    Sarray,  Si,
+                    Barray,  Bi,  Bj, lddb,
                     Warray, batch, queue);
 
             batch_gemm(layout, blas::Op::NoTrans, blas::Op::NoTrans, m2, nb, m1,
@@ -891,11 +898,12 @@ void batch_trsm_addmod_rec(
                     batch, queue); 
 
             batch_trsm_addmod_rec(layout, side, uplo, m2, nb, ib, one,
-                    Aarray, Ai+m1, Aj+m1, ldda,
-                    Uarray, Ui+m1, Uj+m1, lddu,
-                    Sarray, Si+m1,
-                    Barray, Bi+m1, Bj,    lddb,
-                    Warray, batch, queue);
+                     Aarray,  Ai+m1,  Aj+m1, ldda,
+                     Uarray,  Ui+m1,  Uj+m1, lddu,
+                    VTarray, VTi+m1, VTj+m1, lddvt,
+                     Sarray,  Si+m1,
+                     Barray,  Bi+m1,  Bj,    lddb,
+                     Warray, batch, queue);
         }
     }
     else if (!isUpper && !isLeft) {
@@ -903,10 +911,10 @@ void batch_trsm_addmod_rec(
             // halt recursion
             if (ib < cublas_threshold) {
                 batch_trsm_addmod_diag<blas::Side::Right, blas::Uplo::Lower>(layout, /*side, uplo,*/ mb, nb, alpha,
-                            Aarray, Ai, Aj, ldda,
-                            Uarray, Ui, Uj, lddu,
-                            Sarray, Si,
-                            Barray, Bi, Bj, lddb,
+                            Uarray,  Ui,  Uj, lddu,
+                           VTarray, VTi, VTj, lddvt,
+                            Sarray,  Si,
+                            Barray,  Bi,  Bj, lddb,
                             Warray, lddw,
                             batch, queue);
             } else {
@@ -928,10 +936,11 @@ void batch_trsm_addmod_rec(
             int64_t n2 = nb-n1;
 
             batch_trsm_addmod_rec(layout, side, uplo, mb, n2, ib, alpha,
-                    Aarray, Ai+n1, Aj+n1, ldda,
-                    Uarray, Ui+n1, Uj+n1, lddu,
-                    Sarray, Si+n1,
-                    Barray, Bi,    Bj+n1, lddb,
+                    Aarray,  Ai+n1,  Aj+n1, ldda,
+                    Uarray,  Ui+n1,  Uj+n1, lddu,
+                   VTarray, VTi+n1, VTj+n1, lddvt,
+                    Sarray,  Si+n1,
+                    Barray,  Bi,     Bj+n1, lddb,
                     Warray, batch, queue);
 
             batch_gemm(layout, blas::Op::NoTrans, blas::Op::NoTrans, mb, n1, n2,
@@ -941,10 +950,11 @@ void batch_trsm_addmod_rec(
                     batch, queue); 
 
             batch_trsm_addmod_rec(layout, side, uplo, mb, n1, ib, one,
-                    Aarray, Ai, Aj, ldda,
-                    Uarray, Ui, Uj, lddu,
-                    Sarray, Si,
-                    Barray, Bi, Bj, lddb,
+                    Aarray,  Ai,  Aj, ldda,
+                    Uarray,  Ui,  Uj, lddu,
+                   VTarray, VTi, VTj, lddvt,
+                    Sarray,  Si,
+                    Barray,  Bi,  Bj, lddb,
                     Warray, batch, queue);
         }
     }
@@ -963,6 +973,7 @@ void batch_trsm_addmod(
     scalar_t     alpha,
     std::vector<scalar_t*>   Aarray, int64_t ldda,
     std::vector<scalar_t*>   Uarray, int64_t lddu,
+    std::vector<scalar_t*>  VTarray, int64_t lddvt,
     std::vector<blas::real_type<scalar_t>*>   Sarray,
     std::vector<scalar_t*>   Barray, int64_t lddb,
     std::vector<scalar_t*>   Warray,
@@ -973,6 +984,7 @@ void batch_trsm_addmod(
     batch_trsm_addmod_rec(layout, side, uplo, mb, nb, ib, alpha,
             Aarray, 0, 0, ldda,
             Uarray, 0, 0, lddu,
+           VTarray, 0, 0, lddvt,
             Sarray, 0,
             Barray, 0, 0, lddb,
             Warray, batch, queue);
@@ -991,6 +1003,7 @@ void batch_trsm_addmod(
     float        alpha,
     std::vector<float*>      Aarray, int64_t ldda,
     std::vector<float*>      Uarray, int64_t lddu,
+    std::vector<float*>     VTarray, int64_t lddvt,
     std::vector<float*>      Sarray,
     std::vector<float*>      Barray, int64_t lddb,
     std::vector<float*>      Warray,
@@ -1008,6 +1021,7 @@ void batch_trsm_addmod(
     double       alpha,
     std::vector<double*>     Aarray, int64_t ldda,
     std::vector<double*>     Uarray, int64_t lddu,
+    std::vector<double*>    VTarray, int64_t lddvt,
     std::vector<double*>     Sarray,
     std::vector<double*>     Barray, int64_t lddb,
     std::vector<double*>     Warray,
@@ -1023,11 +1037,12 @@ void batch_trsm_addmod(
     int64_t      nb,
     int64_t      ib,
     std::complex<float>   alpha,
-    std::vector<std::complex<float>*> Aarray, int64_t ldda,
-    std::vector<std::complex<float>*> Uarray, int64_t lddu,
-    std::vector<float*>               Sarray,
-    std::vector<std::complex<float>*> Barray, int64_t lddb,
-    std::vector<std::complex<float>*> Warray,
+    std::vector<std::complex<float>*>  Aarray, int64_t ldda,
+    std::vector<std::complex<float>*>  Uarray, int64_t lddu,
+    std::vector<std::complex<float>*> VTarray, int64_t lddvt,
+    std::vector<float*>                Sarray,
+    std::vector<std::complex<float>*>  Barray, int64_t lddb,
+    std::vector<std::complex<float>*>  Warray,
     const size_t batch,
     blas::Queue &queue );
 
@@ -1040,11 +1055,12 @@ void batch_trsm_addmod(
     int64_t      nb,
     int64_t      ib,
     std::complex<double>   alpha,
-    std::vector<std::complex<double>*> Aarray, int64_t ldda,
-    std::vector<std::complex<double>*> Uarray, int64_t lddu,
-    std::vector<double*>               Sarray,
-    std::vector<std::complex<double>*> Barray, int64_t lddb,
-    std::vector<std::complex<double>*> Warray,
+    std::vector<std::complex<double>*>  Aarray, int64_t ldda,
+    std::vector<std::complex<double>*>  Uarray, int64_t lddu,
+    std::vector<std::complex<double>*> VTarray, int64_t lddvt,
+    std::vector<double*>                Sarray,
+    std::vector<std::complex<double>*>  Barray, int64_t lddb,
+    std::vector<std::complex<double>*>  Warray,
     const size_t batch,
     blas::Queue &queue );
 

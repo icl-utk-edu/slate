@@ -62,6 +62,7 @@ void trsmA_addmod(Side side, Uplo uplo,
     int64_t ib = W.block_size;
     slate::Matrix<scalar_t>& A = W.A;
     slate::Matrix<scalar_t>& U = W.U_factors;
+    slate::Matrix<scalar_t>& VT = W.VT_factors;
     auto& S = W.singular_values;
 
     // Assumes column major
@@ -143,6 +144,7 @@ void trsmA_addmod(Side side, Uplo uplo,
                             Side::Left, Uplo::Lower,
                             one, A.sub(k, k, k, k),
                                  U.sub(k, k, k, k),
+                                VT.sub(k, k, k, k),
                                  std::move(S[k]),
                                  B.sub(k, k, 0, nt-1),
                             ib, priority_one, layout, queue_1);
@@ -288,6 +290,7 @@ void trsmA_addmod(Side side, Uplo uplo,
                             Side::Left, Uplo::Upper,
                             one, A.sub(k, k, k, k),
                                  U.sub(k, k, k, k),
+                                VT.sub(k, k, k, k),
                                  std::move(S[k]),
                                  B.sub(k, k, 0, nt-1),
                             ib, priority_one, layout, queue_1);
@@ -435,6 +438,7 @@ void trsmA_addmod(Side side, Uplo uplo,
                             Side::Right, Uplo::Lower,
                             one, A.sub(k, k, k, k),
                                  U.sub(k, k, k, k),
+                                VT.sub(k, k, k, k),
                                  std::move(S[k]),
                                  B.sub(0, mt-1, k, k),
                             ib, priority_one, layout, queue_1);
@@ -588,6 +592,7 @@ void trsmA_addmod(Side side, Uplo uplo,
                             Side::Right, Uplo::Upper,
                             one, A.sub(k, k, k, k),
                                  U.sub(k, k, k, k),
+                                VT.sub(k, k, k, k),
                                  std::move(S[k]),
                                  B.sub(0, mt-1, k, k),
                             ib, priority_one, layout, queue_1);

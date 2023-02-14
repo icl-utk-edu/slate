@@ -63,6 +63,7 @@ void trsm_addmod(Side side, Uplo uplo,
     int64_t ib = W.block_size;
     auto& A = W.A;
     auto& U = W.U_factors;
+    auto& VT = W.VT_factors;
     auto& S = W.singular_values;
 
     // Assumes column major
@@ -114,14 +115,16 @@ void trsm_addmod(Side side, Uplo uplo,
                 #pragma omp task depend(inout:row[k]) priority(1)
                 {
                     // send A(k, k) to ranks owning block row B(k, :)
-                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
-                    U.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+                    A .template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+                    U .template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+                    VT.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
 
                     // solve A(k, k) B(k, :) = alpha B(k, :)
                     internal::trsm_addmod<target>(
                         Side::Left, Uplo::Lower,
                         alph, A.sub(k, k, k, k),
                               U.sub(k, k, k, k),
+                             VT.sub(k, k, k, k),
                               std::move(S[k]),
                               B.sub(k, k, 0, nt-1),
                         ib, priority_one, layout, queue_1, opts2);
@@ -201,14 +204,16 @@ void trsm_addmod(Side side, Uplo uplo,
                 #pragma omp task depend(inout:row[k]) priority(1)
                 {
                     // send A(k, k) to ranks owning block row B(k, :)
-                    A.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
-                    U.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+                    A .template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+                    U .template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+                    VT.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
 
                     // solve A(k, k) B(k, :) = alpha B(k, :)
                     internal::trsm_addmod<target>(
                         Side::Left, Uplo::Upper,
                         alph, A.sub(k, k, k, k),
                               U.sub(k, k, k, k),
+                             VT.sub(k, k, k, k),
                               std::move(S[k]),
                               B.sub(k, k, 0, nt-1),
                         ib, priority_one, layout, queue_1, opts2);
@@ -286,14 +291,16 @@ void trsm_addmod(Side side, Uplo uplo,
                 #pragma omp task depend(inout:row[k]) priority(1)
                 {
                     // send A(k, k) to ranks owning block column B(:, k)
-                    A.template tileBcast(k, k, B.sub(0, mt-1, k, k), layout);
-                    U.template tileBcast(k, k, B.sub(0, mt-1, k, k), layout);
+                    A .template tileBcast(k, k, B.sub(0, mt-1, k, k), layout);
+                    U .template tileBcast(k, k, B.sub(0, mt-1, k, k), layout);
+                    VT.template tileBcast(k, k, B.sub(0, mt-1, k, k), layout);
 
                     // solve B(k, :) A(k, k) = alpha B(k, :)
                     internal::trsm_addmod<target>(
                         Side::Right, Uplo::Lower,
                         alph, A.sub(k, k, k, k),
                               U.sub(k, k, k, k),
+                             VT.sub(k, k, k, k),
                               std::move(S[k]),
                               B.sub(0, mt-1, k, k),
                         ib, priority_one, layout, queue_1, opts2);
@@ -369,14 +376,16 @@ void trsm_addmod(Side side, Uplo uplo,
                 #pragma omp task depend(inout:row[k]) priority(1)
                 {
                     // send A(k, k) to ranks owning block column B(:, k)
-                    A.template tileBcast(k, k, B.sub(0, mt-1, k, k), layout);
-                    U.template tileBcast(k, k, B.sub(0, mt-1, k, k), layout);
+                    A .template tileBcast(k, k, B.sub(0, mt-1, k, k), layout);
+                    U .template tileBcast(k, k, B.sub(0, mt-1, k, k), layout);
+                    VT.template tileBcast(k, k, B.sub(0, mt-1, k, k), layout);
 
                     // solve B(:, k) A(k, k) = alpha B(:, k)
                     internal::trsm_addmod<target>(
                         Side::Right, Uplo::Upper,
                         alph, A.sub(k, k, k, k),
                               U.sub(k, k, k, k),
+                              VT.sub(k, k, k, k),
                               std::move(S[k]),
                               B.sub(0, mt-1, k, k),
                         ib, priority_one, layout, queue_1, opts2);

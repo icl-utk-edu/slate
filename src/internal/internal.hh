@@ -355,6 +355,7 @@ template <Target target, typename scalar_t>
 void trsm_addmod(Side side, Uplo uplo, scalar_t alpha,
                  Matrix<scalar_t>&& A,
                  Matrix<scalar_t>&& U,
+                 Matrix<scalar_t>&& VT,
                  std::vector<blas::real_type<scalar_t>>&& S,
                  Matrix<scalar_t>&& B,
                  int64_t ib, int priority=0, Layout layout=Layout::ColMajor,
@@ -366,6 +367,7 @@ template <Target target, typename scalar_t>
 void trsmA_addmod(Side side, Uplo uplo, scalar_t alpha,
                   Matrix<scalar_t>&& A,
                   Matrix<scalar_t>&& U,
+                  Matrix<scalar_t>&& VT,
                   std::vector<blas::real_type<scalar_t>>&& S,
                   Matrix<scalar_t>&& B,
                   int64_t ib, int priority=0, Layout layout=Layout::ColMajor,
@@ -540,6 +542,7 @@ void getrf_tntpiv_panel(
 template <Target target=Target::HostTask, typename scalar_t>
 void getrf_addmod(Matrix< scalar_t >&& A,
                   Matrix< scalar_t >&& U,
+                  Matrix< scalar_t >&& VT,
                   std::vector< blas::real_type<scalar_t> >&& singular_values,
                   std::vector< blas::real_type<scalar_t> >&& modifications,
                   std::vector<int64_t>&& modified_indices,

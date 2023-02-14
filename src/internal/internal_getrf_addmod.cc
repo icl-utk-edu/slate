@@ -19,6 +19,7 @@ namespace internal {
 template <Target target, typename scalar_t>
 void getrf_addmod(Matrix< scalar_t >&& A,
                   Matrix< scalar_t >&& U,
+                  Matrix< scalar_t >&& VT,
                   std::vector< blas::real_type<scalar_t> >&& singular_values,
                   std::vector< blas::real_type<scalar_t> >&& modifications,
                   std::vector<int64_t>&& modified_indices,
@@ -26,7 +27,7 @@ void getrf_addmod(Matrix< scalar_t >&& A,
                   int64_t ib)
 {
     getrf_addmod(internal::TargetType<target>(),
-                 A, U, singular_values, modifications, modified_indices,
+                 A, U, VT, singular_values, modifications, modified_indices,
                  mod_tol, ib);
 }
 
@@ -38,6 +39,7 @@ template <typename scalar_t>
 void getrf_addmod(internal::TargetType<Target::HostTask>,
                   Matrix<scalar_t>& A,
                   Matrix<scalar_t>& U,
+                  Matrix<scalar_t>& VT,
                   std::vector< blas::real_type<scalar_t> >& singular_values,
                   std::vector< blas::real_type<scalar_t> >& modifications,
                   std::vector<int64_t>& modified_indices,
@@ -50,7 +52,8 @@ void getrf_addmod(internal::TargetType<Target::HostTask>,
     if (A.tileIsLocal(0, 0)) {
         A.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
         U.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
-        getrf_addmod(A(0, 0), U(0, 0), singular_values, modifications, modified_indices,
+        VT.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
+        getrf_addmod(A(0, 0), U(0, 0), VT(0, 0), singular_values, modifications, modified_indices,
                      mod_tol, ib);
     }
 }
@@ -62,6 +65,7 @@ template
 void getrf_addmod<Target::HostTask, float>(
     Matrix<float>&& A,
     Matrix<float>&& U,
+    Matrix<float>&& VT,
     std::vector<float>&& singular_values,
     std::vector<float>&& modifications,
     std::vector<int64_t>&& modified_indices,
@@ -73,6 +77,7 @@ template
 void getrf_addmod<Target::HostTask, double>(
     Matrix<double>&& A,
     Matrix<double>&& U,
+    Matrix<double>&& VT,
     std::vector<double>&& singular_values,
     std::vector<double>&& modifications,
     std::vector<int64_t>&& modified_indices,
@@ -84,6 +89,7 @@ template
 void getrf_addmod< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& U,
+    Matrix< std::complex<float> >&& VT,
     std::vector<float>&& singular_values,
     std::vector<float>&& modifications,
     std::vector<int64_t>&& modified_indices,
@@ -95,6 +101,7 @@ template
 void getrf_addmod< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& U,
+    Matrix< std::complex<double> >&& VT,
     std::vector<double>&& singular_values,
     std::vector<double>&& modifications,
     std::vector<int64_t>&& modified_indices,

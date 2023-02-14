@@ -86,6 +86,7 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
     W.block_size = ib;
     W.A = A;
     W.U_factors = A.emptyLike();
+    W.VT_factors = A.emptyLike();
     W.singular_values.resize(min_mt_nt);
     W.modifications.resize(min_mt_nt);
     W.modification_indices.resize(min_mt_nt);
@@ -122,12 +123,14 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
 
                 if (A.tileIsLocal(k,k)) {
                     W.U_factors.tileInsert(k, k, HostNum);
+                    W.VT_factors.tileInsert(k, k, HostNum);
                 }
 
                 // factor A(k, k)
                 internal::getrf_addmod<Target::HostTask>(
                                 A.sub(k, k, k, k),
                                 W.U_factors.sub(k, k, k, k),
+                                W.VT_factors.sub(k, k, k, k),
                                 std::move(local_sig_vals),
                                 std::move(local_mod_vals), std::move(local_mod_inds),
                                 mod_tol, ib);
@@ -146,6 +149,8 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                 A.template listBcast<target>(
                     bcast_list, layout, tag_k, life_factor_one, true);
                 W.U_factors.template listBcast<target>(
+                    bcast_list, layout, tag_k, life_factor_one, true);
+                W.VT_factors.template listBcast<target>(
                     bcast_list, layout, tag_k, life_factor_one, true);
 
                 // Allow concurrent Bcast's
@@ -191,6 +196,7 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                     Side::Right, Uplo::Upper,
                     scalar_t(1.0), A.sub(k, k, k, k),
                                    W.U_factors.sub(k, k, k, k),
+                                   W.VT_factors.sub(k, k, k, k),
                                    std::move(W.singular_values[k]),
                                    A.sub(k+1, A_mt-1, k, k),
                     ib, priority_one, layout, 0);
@@ -219,6 +225,7 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                         Side::Left, Uplo::Lower,
                         scalar_t(1.0), A.sub(k, k, k, k),
                                        W.U_factors.sub(k, k, k, k),
+                                       W.VT_factors.sub(k, k, k, k),
                                        std::move(W.singular_values[k]),
                                        A.sub(k, k, j, j),
                         ib, priority_one, layout, j-k+1);
@@ -251,6 +258,7 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                         Side::Left, Uplo::Lower,
                         scalar_t(1.0), A.sub(k, k, k, k),
                                        W.U_factors.sub(k, k, k, k),
+                                       W.VT_factors.sub(k, k, k, k),
                                        std::move(W.singular_values[k]),
                                        A.sub(k, k, k+1+lookahead, A_nt-1),
                         ib, priority_zero, layout, 1);
@@ -292,6 +300,8 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                             A.tileRelease(k, k, device);
                             W.U_factors.tileUnsetHold(k, k, device);
                             W.U_factors.tileRelease(k, k, device);
+                            W.VT_factors.tileUnsetHold(k, k, device);
+                            W.VT_factors.tileRelease(k, k, device);
                         }
                     }
                 }
@@ -370,9 +380,9 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                         #pragma omp task firstprivate(tile, i, chunk, mod_offset) \
                                          firstprivate(mod_inds, mod_vals, num_mods)
                         {
-                            A.tileRecv(i, i, A.tileRank(i, i), layout, 2*i);
-                            A.tileGetForReading(i, i, LayoutConvert(layout));
-                            auto tile_VT = A(i, i);
+                            W.VT_factors.tileRecv(i, i, A.tileRank(i, i), layout, 2*i);
+                            W.VT_factors.tileGetForReading(i, i, LayoutConvert(layout));
+                            auto tile_VT = W.VT_factors(i, i);
                             W.S_VT_Rinv.tileGetForWriting(tile, i, LayoutConvert(layout));
                             auto tile_CVT = W.S_VT_Rinv(tile, i);
 
@@ -387,13 +397,13 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                                         = s*tile_VT(ind, jj+col_offset);
                                 }
                             }
-                            A.tileTick(i, i);
+                            W.VT_factors.tileTick(i, i);
                         }
                     }
-                    else if (A.tileIsLocal(i, i)) {
+                    else if (W.VT_factors.tileIsLocal(i, i)) {
                         #pragma omp task firstprivate(tile, i)
                         {
-                            A.tileSend(i, i, W.S_VT_Rinv.tileRank(tile, i), 2*i);
+                            W.VT_factors.tileSend(i, i, W.S_VT_Rinv.tileRank(tile, i), 2*i);
                         }
                     }
 

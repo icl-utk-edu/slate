@@ -55,8 +55,12 @@ void trsm_addmod(internal::TargetType<Target::HostTask>,
 
     if (B.numLocalTiles() > 0) {
         A.tileGetForReading(0, 0, LayoutConvert(layout));
-        U.tileGetForReading(0, 0, LayoutConvert(layout));
-        VT.tileGetForReading(0, 0, LayoutConvert(layout));
+        if (uplo == Uplo::Lower) {
+            U.tileGetForReading(0, 0, LayoutConvert(layout));
+        }
+        else {
+            VT.tileGetForReading(0, 0, LayoutConvert(layout));
+        }
     }
 
     // TODO figure out if the workspaces can be shared/reused
@@ -70,10 +74,16 @@ void trsm_addmod(internal::TargetType<Target::HostTask>,
                     firstprivate(i, layout, side, uplo, ib) priority(priority)
                 {
                     B.tileGetForWriting(i, 0, LayoutConvert(layout));
+                    auto U_VT = uplo == Uplo::Lower ? U(0, 0) : VT(0, 0);
                     tile::trsm_addmod(ib, side, uplo, alpha,
-                                      A(0, 0), U(0, 0), VT(0, 0), S, B(i, 0));
+                                      A(0, 0), U_VT, U_VT, S, B(i, 0));
                     A.tileTick(0, 0);
-                    U.tileTick(0, 0);
+                    if (uplo == Uplo::Lower) {
+                        U.tileTick(0, 0);
+                    }
+                    else {
+                        VT.tileTick(0, 0);
+                    }
                 }
             }
         }
@@ -87,10 +97,16 @@ void trsm_addmod(internal::TargetType<Target::HostTask>,
                     firstprivate(j, layout, side, uplo, ib) priority(priority)
                 {
                     B.tileGetForWriting(0, j, LayoutConvert(layout));
+                    auto U_VT = uplo == Uplo::Lower ? U(0, 0) : VT(0, 0);
                     tile::trsm_addmod(ib, side, uplo, alpha,
-                                      A(0, 0), U(0, 0), VT(0, 0), S, B(0, j));
+                                      A(0, 0), U_VT, U_VT, S, B(0, j));
                     A.tileTick(0, 0);
-                    U.tileTick(0, 0);
+                    if (uplo == Uplo::Lower) {
+                        U.tileTick(0, 0);
+                    }
+                    else {
+                        VT.tileTick(0, 0);
+                    }
                 }
             }
         }
@@ -202,8 +218,12 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
 
 
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
-                U.tileGetForReading(0, 0, device, LayoutConvert(layout));
-                VT.tileGetForReading(0, 0, device, LayoutConvert(layout));
+                if (uplo == Uplo::Lower) {
+                    U.tileGetForReading(0, 0, device, LayoutConvert(layout));
+                }
+                else {
+                    VT.tileGetForReading(0, 0, device, LayoutConvert(layout));
+                }
                 B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
 
                 DevVector< real_t > dS;
@@ -385,6 +405,18 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
                     A.tileRelease(0, 0, device);
                     for (auto i = 0; i < batch_size; ++i) {
                         A.tileTick(0, 0);
+                    }
+                    if (uplo == Uplo::Lower) {
+                        U.tileRelease(0, 0, device);
+                        for (auto i = 0; i < batch_size; ++i) {
+                            U.tileTick(0, 0);
+                        }
+                    }
+                    else {
+                        VT.tileRelease(0, 0, device);
+                        for (auto i = 0; i < batch_size; ++i) {
+                            VT.tileTick(0, 0);
+                        }
                     }
                 }
 

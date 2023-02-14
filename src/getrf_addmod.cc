@@ -143,15 +143,18 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
 
                 // Update panel
                 int tag_k = k;
-                BcastList bcast_list;
-                bcast_list.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
+                BcastList bcast_list_A, bcast_list_U, bcast_list_VT;
+                bcast_list_A.push_back({k, k, {A.sub(k+1, A_mt-1, k, k),
                                                A.sub(k, k, k+1, A_nt-1)}});
+                bcast_list_U.push_back({k, k, {A.sub(k, k, k+1, A_nt-1)}});
+                bcast_list_VT.push_back({k, k, {A.sub(k+1, A_mt-1, k, k)}});
+
                 A.template listBcast<target>(
-                    bcast_list, layout, tag_k, life_factor_one, true);
+                    bcast_list_A, layout, tag_k, life_factor_one, true);
                 W.U_factors.template listBcast<target>(
-                    bcast_list, layout, tag_k, life_factor_one, true);
+                    bcast_list_U, layout, tag_k, life_factor_one, true);
                 W.VT_factors.template listBcast<target>(
-                    bcast_list, layout, tag_k, life_factor_one, true);
+                    bcast_list_VT, layout, tag_k, life_factor_one, true);
 
                 // Allow concurrent Bcast's
                 slate_mpi_call( MPI_Wait(&req_sig_vals, MPI_STATUS_IGNORE) );

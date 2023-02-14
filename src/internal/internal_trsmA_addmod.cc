@@ -60,8 +60,12 @@ void trsmA_addmod(internal::TargetType<Target::HostTask>,
 
     if (A.tileIsLocal(0, 0)) {
         A .tileGetForReading(0, 0, LayoutConvert(layout));
-        U .tileGetForReading(0, 0, LayoutConvert(layout));
-        VT.tileGetForReading(0, 0, LayoutConvert(layout));
+        if (uplo == Uplo::Lower) {
+            U.tileGetForReading(0, 0, LayoutConvert(layout));
+        }
+        else {
+            VT.tileGetForReading(0, 0, LayoutConvert(layout));
+        }
     }
 
     #pragma omp taskgroup
@@ -148,7 +152,7 @@ void trsmA_addmod(internal::TargetType<Target::Devices>,
                   Matrix<scalar_t>& B,
                   int64_t ib, int priority, Layout layout, int64_t queue_index)
 {
-    slate_not_implemented("Target::HostBatch isn't yet supported.");
+    slate_not_implemented("Target::Devices isn't yet supported.");
 }
 
 //------------------------------------------------------------------------------

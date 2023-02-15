@@ -41,7 +41,7 @@ void test_gesv_work(Params& params, bool run)
         params.routine = params.routine.substr( 0, params.routine.size() - 6 );
         params.method_lu() = slate::MethodLU::NoPiv;
     }
-    auto method = params.method_lu();
+    auto method_lu   = params.method_lu();
     auto methodTrsm = params.method_trsm();
     auto methodGemm = params.method_gemm();
 
@@ -123,15 +123,24 @@ void test_gesv_work(Params& params, bool run)
         return;
     }
 
+    if (params.routine == "gesvMixed"
+        && target == slate::Target::Devices) {
+        params.msg() = "skipping: unsupported mixed precision; no devices support";
+        return;
+    }
+
+    // TODO For now, we force the use of gemmC and trsmB since
+    // gemmA and trsmA have some issues on device.
+    // When both routines are fixed and merged, we will remove this constraints.
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib},
         {slate::Option::PivotThreshold, pivot_threshold},
-        {slate::Option::MethodLU, method},
-        {slate::Option::MethodGemm, methodGemm},
-        {slate::Option::MethodTrsm, methodTrsm},
+        {slate::Option::MethodLU, method_lu},
+        {slate::Option::MethodGemm, slate::MethodGemm::GemmC},
+        {slate::Option::MethodTrsm, slate::MethodTrsm::TrsmB},
     };
 
     // Matrix A: figure out local size.

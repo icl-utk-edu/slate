@@ -33,8 +33,10 @@ void syrk(
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Constants
     const scalar_t one = 1.0;
-
+    const int priority_0 = 0;
+    const int queue_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -59,8 +61,6 @@ void syrk(
     std::vector<uint8_t>  gemm_vector(A.nt());
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
-    const int priority_0 = 0;
-    const int queue_0 = 0;
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();

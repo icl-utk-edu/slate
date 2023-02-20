@@ -99,13 +99,17 @@ void henorm(
                     const scalar_t* rowA = &tileA[i];
                     real_t max = 0;
                     if (uplo == lapack::Uplo::Lower) {
-                        for (int64_t j = 0; j < i && j < n; ++j)
+                        for (int64_t j = 0; j < i && j < n; ++j) // strictly lower
                             max = max_nan(max, abs_val(rowA[j*lda]));
+                        int64_t j = i;
+                        max = max_nan(max, abs_val( std::real( rowA[j*lda] ))); // diag (real)
                     }
                     else {
                         // Loop backwards (n-1 down to i)
-                        for (int64_t j = n-1; j > i; --j)
+                        for (int64_t j = n-1; j > i; --j) // strictly upper
                             max = max_nan(max, abs_val(rowA[j*lda]));
+                        int64_t j = i;
+                        max = max_nan(max, abs_val( std::real( rowA[j*lda] ))); // diag (real)
                     }
                     values[k] = max_nan(values[0], max);
                 }

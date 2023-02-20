@@ -111,14 +111,14 @@ void heev(
     Lambda.resize(n);
     std::vector<real_t> E(n - 1);
     Matrix<scalar_t> V;
+    // Matrix to store Householder vectors.
+    // Could pack into a lower triangular matrix, but we store each
+    // parallelogram in a 2nb-by-nb tile, with nt(nt + 1)/2 tiles.
+    int64_t vm = 2*nb;
+    int64_t nt = A.nt();
+    int64_t vn = nt*(nt + 1)/2*nb;
+    V = Matrix<scalar_t>(vm, vn, vm, nb, 1, 1, A.mpiComm());
     if (A.mpiRank() == 0) {
-        // Matrix to store Householder vectors.
-        // Could pack into a lower triangular matrix, but we store each
-        // parallelogram in a 2nb-by-nb tile, with nt(nt + 1)/2 tiles.
-        int64_t vm = 2*nb;
-        int64_t nt = A.nt();
-        int64_t vn = nt*(nt + 1)/2*nb;
-        V = Matrix<scalar_t>(vm, vn, vm, nb, 1, 1, A.mpiComm());
         V.insertLocalTiles();
 
         // 2. Reduce band to real symmetric tri-diagonal.
@@ -135,9 +135,20 @@ void heev(
         MPI_Bcast( &E[0],      n-1, mpi_real_type, 0, A.mpiComm() );
         // QR iteration to get eigenvalues and eigenvectors of tridiagonal.
         steqr2( Job::Vec, Lambda, E, Z );
+
+        int mpi_size;
+        // Find the total number of processors.
+        slate_mpi_call(
+            MPI_Comm_size(A.mpiComm(), &mpi_size));
+
+        Matrix<scalar_t> Z1d(Z.m(), Z.n(), Z.tileNb(0), 1, mpi_size, Z.mpiComm());
+        Z1d.insertLocalTiles();
+        Z1d.redistribute(Z);
         // Back-transform: Z = Q1 * Q2 * Z.
-        unmtr_hb2st( Side::Left, Op::NoTrans, V, Z );
-        unmtr_he2hb( Side::Left, Op::NoTrans, A, T, Z );
+        unmtr_hb2st( Side::Left, Op::NoTrans, V, Z1d, opts );
+
+        Z.redistribute(Z1d);
+        unmtr_he2hb( Side::Left, Op::NoTrans, A, T, Z, opts );
     }
     else {
         if (A.mpiRank() == 0) {

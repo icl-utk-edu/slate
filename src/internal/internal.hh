@@ -358,8 +358,9 @@ void trsm_addmod(Side side, Uplo uplo, scalar_t alpha,
                  Matrix<scalar_t>&& VT,
                  std::vector<blas::real_type<scalar_t>>&& S,
                  Matrix<scalar_t>&& B,
-                 int64_t ib, int priority=0, Layout layout=Layout::ColMajor,
-                 int64_t queue_index=0, Options const& opts = Options());
+                 BlockFactor blockFactorType, int64_t ib,
+                 int priority=0, Layout layout=Layout::ColMajor, int64_t queue_index=0,
+                 Options const& opts = Options());
 
 //-----------------------------------------
 // trsmA_addmod()
@@ -370,8 +371,8 @@ void trsmA_addmod(Side side, Uplo uplo, scalar_t alpha,
                   Matrix<scalar_t>&& VT,
                   std::vector<blas::real_type<scalar_t>>&& S,
                   Matrix<scalar_t>&& B,
-                  int64_t ib, int priority=0, Layout layout=Layout::ColMajor,
-                  int64_t queue_index=0);
+                  BlockFactor blockFactorType, int64_t ib,
+                  int priority=0, Layout layout=Layout::ColMajor, int64_t queue_index=0);
 
 //-----------------------------------------
 // trtri()
@@ -544,8 +545,9 @@ void getrf_addmod(Matrix< scalar_t >&& A,
                   Matrix< scalar_t >&& U,
                   Matrix< scalar_t >&& VT,
                   std::vector< blas::real_type<scalar_t> >&& singular_values,
-                  std::vector< blas::real_type<scalar_t> >&& modifications,
+                  std::vector<scalar_t>&& modifications,
                   std::vector<int64_t>&& modified_indices,
+                  BlockFactor blockFactorType,
                   blas::real_type<scalar_t> mod_tol,
                   int64_t ib);
 

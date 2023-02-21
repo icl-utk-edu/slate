@@ -145,6 +145,7 @@ public:
     testsweeper::ParamInt    depth;
     testsweeper::ParamDouble add_tol;
     testsweeper::ParamChar   woodbury;
+    testsweeper::ParamEnum< slate::BlockFactor > blockfactor;
 
     // ----- output parameters
     testsweeper::ParamScientific value;

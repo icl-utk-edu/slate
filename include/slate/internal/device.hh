@@ -251,6 +251,7 @@ void trnorm(
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void batch_trsm_addmod(
+    BlockFactor factorType,
     blas::Layout layout,
     blas::Side   side,
     blas::Uplo   uplo,

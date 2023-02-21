@@ -60,10 +60,11 @@ void trsmA_addmod(Side side, Uplo uplo,
     using std::imag;
 
     int64_t ib = W.block_size;
-    slate::Matrix<scalar_t>& A = W.A;
-    slate::Matrix<scalar_t>& U = W.U_factors;
-    slate::Matrix<scalar_t>& VT = W.VT_factors;
+    auto& A = W.A;
+    auto& U = W.U_factors;
+    auto& VT = W.VT_factors;
     auto& S = W.singular_values;
+    auto blockFactorType = W.factorType;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -147,6 +148,7 @@ void trsmA_addmod(Side side, Uplo uplo,
                                 VT.sub(k, k, k, k),
                                  std::move(S[k]),
                                  B.sub(k, k, 0, nt-1),
+                            blockFactorType,
                             ib, priority_one, layout, queue_1);
                     }
 
@@ -293,6 +295,7 @@ void trsmA_addmod(Side side, Uplo uplo,
                                 VT.sub(k, k, k, k),
                                  std::move(S[k]),
                                  B.sub(k, k, 0, nt-1),
+                            blockFactorType,
                             ib, priority_one, layout, queue_1);
                     }
 
@@ -441,6 +444,7 @@ void trsmA_addmod(Side side, Uplo uplo,
                                 VT.sub(k, k, k, k),
                                  std::move(S[k]),
                                  B.sub(0, mt-1, k, k),
+                            blockFactorType,
                             ib, priority_one, layout, queue_1);
                     }
 
@@ -595,6 +599,7 @@ void trsmA_addmod(Side side, Uplo uplo,
                                 VT.sub(k, k, k, k),
                                  std::move(S[k]),
                                  B.sub(0, mt-1, k, k),
+                            blockFactorType,
                             ib, priority_one, layout, queue_1);
                     }
 

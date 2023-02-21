@@ -719,7 +719,7 @@ void batch_copy(
 }
 
 
-template <typename scalar_t>
+template <BlockFactor factorType, typename scalar_t>
 void batch_trsm_addmod_rec(
     blas::Layout layout,
     blas::Side   side,
@@ -748,6 +748,8 @@ void batch_trsm_addmod_rec(
     int64_t lddw = (layout == blas::Layout::ColMajor) ? mb : nb;
 
     blas::Op trans_op = std::is_same<scalar_t, blas::real_type<scalar_t>>::value ? blas::Op::Trans : blas::Op::ConjTrans;
+
+    static_assert(factorType == BlockFactor::SVD, "Only SVD supported on devices");
 
     if (isUpper && isLeft) {
         if (mb <= ib) {
@@ -779,7 +781,7 @@ void batch_trsm_addmod_rec(
             int64_t m1 = (((mb-1)/ib+1)/2) * ib; // half the tiles, rounded down
             int64_t m2 = mb-m1;
 
-            batch_trsm_addmod_rec(layout, side, uplo, m2, nb, ib, alpha,
+            batch_trsm_addmod_rec<factorType>(layout, side, uplo, m2, nb, ib, alpha,
                     Aarray,  Ai+m1,  Aj+m1, ldda,
                     Uarray,  Ui+m1,  Uj+m1, lddu,
                    VTarray, VTi+m1, VTj+m1, lddvt,
@@ -793,7 +795,7 @@ void batch_trsm_addmod_rec(
                     alpha, Barray, Bi,    Bj,    lddb,
                     batch, queue); 
 
-            batch_trsm_addmod_rec(layout, side, uplo, m1, nb, ib, one,
+            batch_trsm_addmod_rec<factorType>(layout, side, uplo, m1, nb, ib, one,
                     Aarray,  Ai,  Aj, ldda,
                     Uarray,  Ui,  Uj, lddu,
                    VTarray, VTi, VTj, lddvt,
@@ -832,7 +834,7 @@ void batch_trsm_addmod_rec(
             int64_t n1 = (((nb-1)/ib)/2+1) * ib; // half the tiles, rounded up
             int64_t n2 = nb-n1;
 
-            batch_trsm_addmod_rec(layout, side, uplo, mb, n1, ib, alpha,
+            batch_trsm_addmod_rec<factorType>(layout, side, uplo, mb, n1, ib, alpha,
                     Aarray, Ai, Aj, ldda,
                     Uarray, Ui, Uj, lddu,
                    VTarray, VTi, VTj, lddvt,
@@ -846,7 +848,7 @@ void batch_trsm_addmod_rec(
                     alpha, Barray, Bi, Bj+n1, lddb,
                     batch, queue); 
 
-            batch_trsm_addmod_rec(layout, side, uplo, mb, n2, ib, one,
+            batch_trsm_addmod_rec<factorType>(layout, side, uplo, mb, n2, ib, one,
                     Aarray,  Ai+n1,  Aj+n1, ldda,
                     Uarray,  Ui+n1,  Uj+n1, lddu,
                    VTarray, VTi+n1, VTj+n1, lddvt,
@@ -883,7 +885,7 @@ void batch_trsm_addmod_rec(
             int64_t m1 = (((mb-1)/ib)/2+1) * ib; // half the tiles, rounded up
             int64_t m2 = mb-m1;
 
-            batch_trsm_addmod_rec(layout, side, uplo, m1, nb, ib, alpha,
+            batch_trsm_addmod_rec<factorType>(layout, side, uplo, m1, nb, ib, alpha,
                     Aarray,  Ai,  Aj, ldda,
                     Uarray,  Ui,  Uj, lddu,
                    VTarray, VTi, VTj, lddvt,
@@ -897,7 +899,7 @@ void batch_trsm_addmod_rec(
                     alpha, Barray, Bi+m1, Bj, lddb,
                     batch, queue); 
 
-            batch_trsm_addmod_rec(layout, side, uplo, m2, nb, ib, one,
+            batch_trsm_addmod_rec<factorType>(layout, side, uplo, m2, nb, ib, one,
                      Aarray,  Ai+m1,  Aj+m1, ldda,
                      Uarray,  Ui+m1,  Uj+m1, lddu,
                     VTarray, VTi+m1, VTj+m1, lddvt,
@@ -935,7 +937,7 @@ void batch_trsm_addmod_rec(
             int64_t n1 = (((nb-1)/ib+1)/2) * ib; // half the tiles, rounded down
             int64_t n2 = nb-n1;
 
-            batch_trsm_addmod_rec(layout, side, uplo, mb, n2, ib, alpha,
+            batch_trsm_addmod_rec<factorType>(layout, side, uplo, mb, n2, ib, alpha,
                     Aarray,  Ai+n1,  Aj+n1, ldda,
                     Uarray,  Ui+n1,  Uj+n1, lddu,
                    VTarray, VTi+n1, VTj+n1, lddvt,
@@ -949,7 +951,7 @@ void batch_trsm_addmod_rec(
                     alpha, Barray, Bi,    Bj,    lddb,
                     batch, queue); 
 
-            batch_trsm_addmod_rec(layout, side, uplo, mb, n1, ib, one,
+            batch_trsm_addmod_rec<factorType>(layout, side, uplo, mb, n1, ib, one,
                     Aarray,  Ai,  Aj, ldda,
                     Uarray,  Ui,  Uj, lddu,
                    VTarray, VTi, VTj, lddvt,
@@ -964,6 +966,7 @@ void batch_trsm_addmod_rec(
 
 template <typename scalar_t>
 void batch_trsm_addmod(
+    BlockFactor factorType,
     blas::Layout layout,
     blas::Side   side,
     blas::Uplo   uplo,
@@ -981,19 +984,25 @@ void batch_trsm_addmod(
     blas::Queue &queue )
 {
     // TODO could assume A, U, S are shared between all thread blocks
-    batch_trsm_addmod_rec(layout, side, uplo, mb, nb, ib, alpha,
-            Aarray, 0, 0, ldda,
-            Uarray, 0, 0, lddu,
-           VTarray, 0, 0, lddvt,
-            Sarray, 0,
-            Barray, 0, 0, lddb,
-            Warray, batch, queue);
 
+    if (factorType == BlockFactor::SVD) {
+        batch_trsm_addmod_rec<BlockFactor::SVD>(layout, side, uplo, mb, nb, ib, alpha,
+                Aarray, 0, 0, ldda,
+                Uarray, 0, 0, lddu,
+               VTarray, 0, 0, lddvt,
+                Sarray, 0,
+                Barray, 0, 0, lddb,
+                Warray, batch, queue);
+    }
+    else {
+        slate_not_implemented("Only SVD is supported on device");
+    }
 }
 
 // Explicit instantiation
 template
 void batch_trsm_addmod(
+    BlockFactor factorType,
     blas::Layout layout,
     blas::Side   side,
     blas::Uplo   uplo,
@@ -1012,6 +1021,7 @@ void batch_trsm_addmod(
 
 template
 void batch_trsm_addmod(
+    BlockFactor factorType,
     blas::Layout layout,
     blas::Side   side,
     blas::Uplo   uplo,
@@ -1030,6 +1040,7 @@ void batch_trsm_addmod(
 
 template
 void batch_trsm_addmod(
+    BlockFactor factorType,
     blas::Layout layout,
     blas::Side   side,
     blas::Uplo   uplo,
@@ -1048,6 +1059,7 @@ void batch_trsm_addmod(
 
 template
 void batch_trsm_addmod(
+    BlockFactor factorType,
     blas::Layout layout,
     blas::Side   side,
     blas::Uplo   uplo,

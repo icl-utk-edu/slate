@@ -87,6 +87,11 @@ void test_gesv_work(Params& params, bool run)
     if (! supported)
         timer_level = 1;
 
+    slate::BlockFactor blockFactorType = slate::BlockFactor::SVD;
+    if (ends_with( params.routine, "_addmod" )) {
+        blockFactorType = params.blockfactor();
+    }
+
     // NoPiv and CALU ignore threshold.
     double pivot_threshold = params.pivot_threshold();
     double add_tol = 0.0;
@@ -187,6 +192,7 @@ void test_gesv_work(Params& params, bool run)
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
+        {slate::Option::BlockFactor, blockFactorType},
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib},
         {slate::Option::PivotThreshold, pivot_threshold},

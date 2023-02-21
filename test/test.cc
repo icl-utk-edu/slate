@@ -422,6 +422,7 @@ Params::Params():
     add_tol   ("addtol",  8, 2, ParamType::List, -1e-8, -inf,    inf, "threshold for additive changes"),
     woodbury  ("woodbury",
                           8,    ParamType::List, 'y', "ny", "wheather to apply the Woodbury formula"),
+    blockfactor("bf", 4, ParamType::List, slate::BlockFactor::SVD, slate::str2blockfactor, slate::blockfactor2str, "Block Factor for Addmod"),
 
     // ----- output parameters
     // min, max are ignored

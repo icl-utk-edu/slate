@@ -38,6 +38,7 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
     real_t mod_tol = get_option<double>( opts, Option::AdditiveTolerance, -1e-8 );
     bool useWoodbury = get_option<int64_t>( opts, Option::UseWoodbury, 1 );
+    BlockFactor blockFactorType = get_option( opts, Option::BlockFactor, BlockFactor::SVD );
 
 
     if (mod_tol < 0) {
@@ -84,6 +85,7 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
     bool is_shared = lookahead > 0;
 
     W.block_size = ib;
+    W.factorType = blockFactorType;
     W.A = A;
     W.U_factors = A.emptyLike();
     W.VT_factors = A.emptyLike();
@@ -119,7 +121,9 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                 auto& local_mod_inds = W.modification_indices[k];
 
                 int64_t mb = A.tileMb(k);
-                local_sig_vals.resize(mb);
+                if (blockFactorType == BlockFactor::SVD) {
+                    local_sig_vals.resize(mb);
+                }
 
                 if (A.tileIsLocal(k,k)) {
                     W.U_factors.tileInsert(k, k, HostNum);
@@ -133,13 +137,15 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                                 W.VT_factors.sub(k, k, k, k),
                                 std::move(local_sig_vals),
                                 std::move(local_mod_vals), std::move(local_mod_inds),
-                                mod_tol, ib);
+                                blockFactorType, mod_tol, ib);
 
                 // broadcast singular values
-                MPI_Request req_sig_vals;
-                slate_mpi_call(
-                    MPI_Ibcast(local_sig_vals.data(), mb, mpi_scalar_t,
-                               A.tileRank(k, k), comm, &req_sig_vals) );
+                MPI_Request req_sig_vals = MPI_REQUEST_NULL;
+                if (blockFactorType == BlockFactor::SVD) {
+                    slate_mpi_call(
+                        MPI_Ibcast(local_sig_vals.data(), mb, mpi_scalar_t,
+                                   A.tileRank(k, k), comm, &req_sig_vals) );
+                }
 
                 // Update panel
                 int tag_k = k;
@@ -202,7 +208,7 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                                    W.VT_factors.sub(k, k, k, k),
                                    std::move(W.singular_values[k]),
                                    A.sub(k+1, A_mt-1, k, k),
-                    ib, priority_one, layout, 0);
+                    blockFactorType, ib, priority_one, layout, 0);
 
 
                 BcastListTag bcast_list;
@@ -231,7 +237,7 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                                        W.VT_factors.sub(k, k, k, k),
                                        std::move(W.singular_values[k]),
                                        A.sub(k, k, j, j),
-                        ib, priority_one, layout, j-k+1);
+                        blockFactorType, ib, priority_one, layout, j-k+1);
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     A.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), layout, tag_j);
@@ -264,7 +270,7 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                                        W.VT_factors.sub(k, k, k, k),
                                        std::move(W.singular_values[k]),
                                        A.sub(k, k, k+1+lookahead, A_nt-1),
-                        ib, priority_zero, layout, 1);
+                        blockFactorType, ib, priority_zero, layout, 1);
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastListTag bcast_list;
                     for (int64_t j = k+1+lookahead; j < A_nt; ++j) {
@@ -342,6 +348,7 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
     inner_dim *= useWoodbury; // discard inner_dim unless using Woodbury formula
     W.num_modifications = inner_dim;
     if (inner_dim > 0) {
+        slate_assert(blockFactorType == BlockFactor::SVD);
 
         auto A_tileMb     = A.tileMbFunc();
         auto A_tileRank   = A.tileRankFunc();

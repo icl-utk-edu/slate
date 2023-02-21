@@ -26,12 +26,13 @@ void trsm_addmod(Side side, Uplo uplo, scalar_t alpha,
                  Matrix<scalar_t>&& VT,
                  std::vector<blas::real_type<scalar_t>>&& S,
                  Matrix<scalar_t>&& B,
+                 BlockFactor blockFactorType,
                  int64_t ib, int priority, Layout layout, int64_t queue_index,
                  Options const &opts)
 {
     trsm_addmod(internal::TargetType<target>(),
                 side, uplo, alpha, A, U, VT, S, B,
-                ib, priority, layout, queue_index, opts);
+                blockFactorType, ib, priority, layout, queue_index, opts);
 }
 
 //------------------------------------------------------------------------------
@@ -47,6 +48,7 @@ void trsm_addmod(internal::TargetType<Target::HostTask>,
                  Matrix<scalar_t>& VT,
                  std::vector<blas::real_type<scalar_t>>& S,
                  Matrix<scalar_t>& B,
+                 BlockFactor blockFactorType,
                  int64_t ib, int priority, Layout layout, int64_t queue_index,
                  Options const &opts)
 {
@@ -75,7 +77,7 @@ void trsm_addmod(internal::TargetType<Target::HostTask>,
                 {
                     B.tileGetForWriting(i, 0, LayoutConvert(layout));
                     auto U_VT = uplo == Uplo::Lower ? U(0, 0) : VT(0, 0);
-                    tile::trsm_addmod(ib, side, uplo, alpha,
+                    tile::trsm_addmod(blockFactorType, ib, side, uplo, alpha,
                                       A(0, 0), U_VT, U_VT, S, B(i, 0));
                     A.tileTick(0, 0);
                     if (uplo == Uplo::Lower) {
@@ -98,7 +100,7 @@ void trsm_addmod(internal::TargetType<Target::HostTask>,
                 {
                     B.tileGetForWriting(0, j, LayoutConvert(layout));
                     auto U_VT = uplo == Uplo::Lower ? U(0, 0) : VT(0, 0);
-                    tile::trsm_addmod(ib, side, uplo, alpha,
+                    tile::trsm_addmod(blockFactorType, ib, side, uplo, alpha,
                                       A(0, 0), U_VT, U_VT, S, B(0, j));
                     A.tileTick(0, 0);
                     if (uplo == Uplo::Lower) {
@@ -120,14 +122,15 @@ void trsm_addmod(internal::TargetType<Target::HostTask>,
 ///
 template <typename scalar_t>
 void trsm_addmod(internal::TargetType<Target::HostNest>,
-                Side side, Uplo uplo, scalar_t alpha,
-                Matrix<scalar_t>& A,
-                Matrix<scalar_t>& U,
-                Matrix<scalar_t>& VT,
-                std::vector<blas::real_type<scalar_t>>& S,
-                Matrix<scalar_t>& B,
-                int64_t ib, int priority, Layout layout, int64_t queue_index,
-                Options const &opts)
+                 Side side, Uplo uplo, scalar_t alpha,
+                 Matrix<scalar_t>& A,
+                 Matrix<scalar_t>& U,
+                 Matrix<scalar_t>& VT,
+                 std::vector<blas::real_type<scalar_t>>& S,
+                 Matrix<scalar_t>& B,
+                 BlockFactor blockFactorType,
+                 int64_t ib, int priority, Layout layout, int64_t queue_index,
+                 Options const &opts)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
@@ -139,14 +142,15 @@ void trsm_addmod(internal::TargetType<Target::HostNest>,
 ///
 template <typename scalar_t>
 void trsm_addmod(internal::TargetType<Target::HostBatch>,
-                Side side, Uplo uplo, scalar_t alpha,
-                Matrix<scalar_t>& A,
-                Matrix<scalar_t>& U,
-                Matrix<scalar_t>& VT,
-                std::vector<blas::real_type<scalar_t>>& S,
-                Matrix<scalar_t>& B,
-                int64_t ib, int priority, Layout layout, int64_t queue_index,
-                Options const &opts)
+                 Side side, Uplo uplo, scalar_t alpha,
+                 Matrix<scalar_t>& A,
+                 Matrix<scalar_t>& U,
+                 Matrix<scalar_t>& VT,
+                 std::vector<blas::real_type<scalar_t>>& S,
+                 Matrix<scalar_t>& B,
+                 BlockFactor blockFactorType,
+                 int64_t ib, int priority, Layout layout, int64_t queue_index,
+                 Options const &opts)
 {
     slate_not_implemented("Target::Device isn't yet supported.");
 }
@@ -158,14 +162,15 @@ void trsm_addmod(internal::TargetType<Target::HostBatch>,
 ///
 template <typename scalar_t>
 void trsm_addmod(internal::TargetType<Target::Devices>,
-                Side side, Uplo uplo, scalar_t alpha,
-                Matrix<scalar_t>& A,
-                Matrix<scalar_t>& U,
-                Matrix<scalar_t>& VT,
-                std::vector<blas::real_type<scalar_t>>& S,
-                Matrix<scalar_t>& B,
-                int64_t ib, int priority, Layout layout, int64_t queue_index,
-                Options const &opts)
+                 Side side, Uplo uplo, scalar_t alpha,
+                 Matrix<scalar_t>& A,
+                 Matrix<scalar_t>& U,
+                 Matrix<scalar_t>& VT,
+                 std::vector<blas::real_type<scalar_t>>& S,
+                 Matrix<scalar_t>& B,
+                 BlockFactor blockFactorType,
+                 int64_t ib, int priority, Layout layout, int64_t queue_index,
+                 Options const &opts)
 {
 
     using blas::conj;
@@ -371,6 +376,7 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
 
                     if (a_array0.size() > 0) {
                         device::batch_trsm_addmod(
+                            blockFactorType,
                             layout, side, uplo, mb0, nb0, ib,
                             alpha, a_array0, lda0,
                                    u_array0, ldu0,
@@ -383,6 +389,7 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
 
                     if (a_array1.size() > 0) {
                         device::batch_trsm_addmod(
+                            blockFactorType,
                             layout, side, uplo, mb1, nb1, ib,
                             alpha, a_array1, lda1,
                                    u_array1, ldu1,
@@ -439,6 +446,7 @@ void trsm_addmod<Target::HostTask, float>(
     Matrix<float>&& VT,
     std::vector<float>&& S,
     Matrix<float>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 
@@ -450,6 +458,7 @@ void trsm_addmod<Target::HostNest, float>(
     Matrix<float>&& VT,
     std::vector<float>&& S,
     Matrix<float>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 
@@ -461,6 +470,7 @@ void trsm_addmod<Target::HostBatch, float>(
     Matrix<float>&& VT,
     std::vector<float>&& S,
     Matrix<float>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 
@@ -472,6 +482,7 @@ void trsm_addmod<Target::Devices, float>(
     Matrix<float>&& VT,
     std::vector<float>&& S,
     Matrix<float>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 
@@ -484,6 +495,7 @@ void trsm_addmod<Target::HostTask, double>(
     Matrix<double>&& VT,
     std::vector<double>&& S,
     Matrix<double>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 
@@ -495,6 +507,7 @@ void trsm_addmod<Target::HostNest, double>(
     Matrix<double>&& VT,
     std::vector<double>&& S,
     Matrix<double>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 
@@ -506,6 +519,7 @@ void trsm_addmod<Target::HostBatch, double>(
     Matrix<double>&& VT,
     std::vector<double>&& S,
     Matrix<double>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 
@@ -517,6 +531,7 @@ void trsm_addmod<Target::Devices, double>(
     Matrix<double>&& VT,
     std::vector<double>&& S,
     Matrix<double>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 
@@ -529,6 +544,7 @@ void trsm_addmod< Target::HostTask, std::complex<float> >(
     Matrix<std::complex<float>>&& VT,
     std::vector<float>&& S,
     Matrix<std::complex<float>>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 
@@ -540,6 +556,7 @@ void trsm_addmod< Target::HostNest, std::complex<float> >(
     Matrix<std::complex<float>>&& VT,
     std::vector<float>&& S,
     Matrix<std::complex<float>>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 
@@ -551,6 +568,7 @@ void trsm_addmod< Target::HostBatch, std::complex<float> >(
     Matrix<std::complex<float>>&& VT,
     std::vector<float>&& S,
     Matrix<std::complex<float>>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 
@@ -562,6 +580,7 @@ void trsm_addmod< Target::Devices, std::complex<float> >(
     Matrix<std::complex<float>>&& VT,
     std::vector<float>&& S,
     Matrix<std::complex<float>>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 
@@ -574,6 +593,7 @@ void trsm_addmod< Target::HostTask, std::complex<double> >(
     Matrix<std::complex<double>>&& VT,
     std::vector<double>&& S,
     Matrix<std::complex<double>>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 
@@ -585,6 +605,7 @@ void trsm_addmod< Target::HostNest, std::complex<double> >(
     Matrix<std::complex<double>>&& VT,
     std::vector<double>&& S,
     Matrix<std::complex<double>>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 
@@ -596,6 +617,7 @@ void trsm_addmod< Target::HostBatch, std::complex<double> >(
     Matrix<std::complex<double>>&& VT,
     std::vector<double>&& S,
     Matrix<std::complex<double>>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 
@@ -607,6 +629,7 @@ void trsm_addmod< Target::Devices, std::complex<double> >(
     Matrix<std::complex<double>>&& VT,
     std::vector<double>&& S,
     Matrix<std::complex<double>>&& B,
+    BlockFactor blockFactorType,
     int64_t ib, int priority, Layout layout, int64_t queue_index,
     Options const &opts);
 

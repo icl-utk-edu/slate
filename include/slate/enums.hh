@@ -9,6 +9,7 @@
 #ifndef SLATE_ENUMS_HH
 #define SLATE_ENUMS_HH
 
+#include <algorithm>
 #include <blas.hh>
 #include <lapack.hh>
 
@@ -76,6 +77,7 @@ enum class Option : char {
     PivotThreshold,     ///< threshold for pivoting, >= 0, <= 1
     AdditiveTolerance,  ///< tolerance for additive modification, >= 0
     UseWoodbury,        ///< whether to apply the Woodbury formula
+    BlockFactor,        ///< how to factor the diagonal blocks in the addmod solver
 
     // Printing parameters
     PrintVerbose = 50,  ///< verbose, 0: no printing,
@@ -89,7 +91,6 @@ enum class Option : char {
     PrintWidth,         ///< width print format specifier
     PrintPrecision,     ///< precision print format specifier
                         ///< For correct printing, PrintWidth = PrintPrecision + 6.
-
     // Methods, listed alphabetically.
     MethodCholQR = 60,  ///< Select the algorithm to compute A^H * A
     MethodEig,          ///< Select the algorithm to compute eigenpairs of tridiagonal matrix
@@ -145,6 +146,44 @@ enum MOSI {
 };
 typedef short MOSI_State;
 
+
+
+//------------------------------------------------------------------------------
+enum class BlockFactor : char {
+    SVD,
+    QLP,
+    QRCP,
+    QR
+};
+inline BlockFactor str2blockfactor(const char* method)
+{
+    std::string method_ = method;
+    std::transform(
+        method_.begin(), method_.end(), method_.begin(), ::tolower );
+
+    if (method_ == "svd")
+        return BlockFactor::SVD;
+    else if (method_ == "qlp")
+        return BlockFactor::QLP;
+    else if (method_ == "qrcp")
+        return BlockFactor::QRCP;
+    else if (method_ == "qr")
+        return BlockFactor::QR;
+    else
+    //    throw slate::Exception("unknown BlockFactor");
+        return BlockFactor::SVD;
+}
+
+inline const char* blockfactor2str(BlockFactor method)
+{
+    switch (method) {
+        case BlockFactor::SVD:  return "SVD";
+        case BlockFactor::QLP:  return "QLP";
+        case BlockFactor::QRCP: return "QRCP";
+        case BlockFactor::QR:   return "QR";
+        default:   return "error";
+    }
+}
 
 } // namespace slate
 

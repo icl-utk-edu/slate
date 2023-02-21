@@ -65,6 +65,7 @@ void trsm_addmod(Side side, Uplo uplo,
     auto& U = W.U_factors;
     auto& VT = W.VT_factors;
     auto& S = W.singular_values;
+    auto blockFactorType = W.factorType;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -126,7 +127,7 @@ void trsm_addmod(Side side, Uplo uplo,
                              VT.sub(k, k, k, k),
                               std::move(S[k]),
                               B.sub(k, k, 0, nt-1),
-                        ib, priority_one, layout, queue_1, opts2);
+                        blockFactorType, ib, priority_one, layout, queue_1, opts2);
 
                     // send A(i=k+1:mt-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -214,7 +215,7 @@ void trsm_addmod(Side side, Uplo uplo,
                              VT.sub(k, k, k, k),
                               std::move(S[k]),
                               B.sub(k, k, 0, nt-1),
-                        ib, priority_one, layout, queue_1, opts2);
+                        blockFactorType, ib, priority_one, layout, queue_1, opts2);
 
                     // send A(i=0:k-1, k) to ranks owning block row B(i, :)
                     BcastList bcast_list_A;
@@ -300,7 +301,7 @@ void trsm_addmod(Side side, Uplo uplo,
                              VT.sub(k, k, k, k),
                               std::move(S[k]),
                               B.sub(0, mt-1, k, k),
-                        ib, priority_one, layout, queue_1, opts2);
+                        blockFactorType, ib, priority_one, layout, queue_1, opts2);
 
                     // send A(k, j=0:k-1) to ranks owning block column B(:, j)
                     BcastList bcast_list_A;
@@ -384,7 +385,7 @@ void trsm_addmod(Side side, Uplo uplo,
                               VT.sub(k, k, k, k),
                               std::move(S[k]),
                               B.sub(0, mt-1, k, k),
-                        ib, priority_one, layout, queue_1, opts2);
+                        blockFactorType, ib, priority_one, layout, queue_1, opts2);
 
                     // send A(k, j=k+1:nt-1) to ranks owning block column B(:, j)
                     BcastList bcast_list_A;

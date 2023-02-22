@@ -72,7 +72,6 @@ void ge2tb(
     std::vector< scalar_t* > dwork_array( num_devices, nullptr );
 
     int     VTpanel_device = -1;
-    size_t  VTwork_size    = 0;
     std::vector< scalar_t* > VTdwork_array( num_devices, nullptr );
 
     if (target == Target::Devices) {
@@ -111,30 +110,6 @@ void ge2tb(
             }
         }
 
-        if (panel_device >= 0) {
-
-            blas::set_device( panel_device );
-
-            lapack::Queue* queue = A.compute_queue(panel_device, 0);
-
-            size_t  size_tau = (size_t) std::min( mlocal, nb );
-            size_t  size_A   = (size_t) blas::max( 1, mlocal ) * nb;
-            size_t  hsize, dsize;
-
-            // Find size of the workspace needed
-            lapack::geqrf_work_size_bytes( mlocal, nb, dwork_array[0], mlocal,
-                                           &dsize, &hsize, *queue );
-
-            // Size of dA, dtau, dwork and dinfo
-            work_size = size_A + size_tau + ceildiv(dsize, sizeof(scalar_t))
-                        + ceildiv(sizeof(device_info_t), sizeof(scalar_t));
-
-            for (int64_t dev = 0; dev < num_devices; ++dev) {
-                blas::set_device(dev);
-                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size);
-            }
-        }
-
         // Find largest panel size and device for copying to
         // contiguous memory within internal geqrf routine to factorize VT_panel
         int64_t nlocal = 0;
@@ -160,30 +135,31 @@ void ge2tb(
             }
         }
 
-        if (VTpanel_device >= 0) {
+        // Allocate memory to factorize V and VT
+        if (panel_device >= 0 || VTpanel_device >=0) {
 
-            blas::set_device( VTpanel_device );
+            blas::set_device( panel_device );
 
             lapack::Queue* queue = A.compute_queue(panel_device, 0);
 
-            size_t  VTsize_tau = (size_t) std::min( nlocal, mb );
-            size_t  VTsize_A   = (size_t) blas::max( 1, nlocal ) * mb;
-            size_t  VThsize, VTdsize;
+            // Find the max needed allocation
+            int64_t mlocal_max = std::max(nlocal, mlocal);
+            int64_t nb_max = std::max(nb, mb);
+            size_t  size_tau = (size_t) std::min( mlocal_max, nb_max );
+            size_t  size_A   = (size_t) blas::max( 1, mlocal_max ) * nb_max;
+            size_t  hsize, dsize;
 
             // Find size of the workspace needed
-            lapack::geqrf_work_size_bytes( nlocal, mb, VTdwork_array[0], nlocal,
-                                           &VTdsize, &VThsize, *queue );
+            lapack::geqrf_work_size_bytes( mlocal_max, nb_max, dwork_array[0], mlocal_max,
+                                           &dsize, &hsize, *queue );
 
             // Size of dA, dtau, dwork and dinfo
-            VTwork_size = VTsize_A + VTsize_tau + ceildiv(VTdsize, sizeof(scalar_t))
+            work_size = size_A + size_tau + ceildiv(dsize, sizeof(scalar_t))
                         + ceildiv(sizeof(device_info_t), sizeof(scalar_t));
 
             for (int64_t dev = 0; dev < num_devices; ++dev) {
                 blas::set_device(dev);
-                // Since dwork_array is already allocated, check if the memory required
-                // by geqrf to factorize VT is more, then allocate the difference
-                if (VTdwork_array[dev] > dwork_array[dev])
-                    VTdwork_array[dev] = blas::device_malloc<scalar_t>(VTwork_size - work_size);
+                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size);
             }
         }
     }
@@ -234,6 +210,7 @@ void ge2tb(
             internal::geqrf<target>(
                             std::move(U_panel),
                             std::move(TUl_panel),
+                            dwork_array, work_size,
                             ib, max_panel_threads);
 
             // triangle-triangle reductions
@@ -362,6 +339,7 @@ void ge2tb(
                 internal::geqrf<target>(
                                 std::move(VT_panel),
                                 std::move(TVlT_panel),
+                                dwork_array, work_size,
                                 ib, max_panel_threads);
 
                 // Find first local tile, which is triangular factor

@@ -114,10 +114,66 @@ void he2hb(
 
     int my_rank = A.mpiRank();
 
+    if (target == Target::Devices) {
+        A.allocateBatchArrays();
+        A.reserveDeviceWorkspace();
+        W.allocateBatchArrays( 0, num_queues );
+        W.reserveDeviceWorkspace();
+
+        // Find largest panel size and device for copying to
+        // contiguous memory within internal geqrf routine
+        int64_t mlocal = 0;
+        int64_t first_panel_seen = -1;
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            for (int64_t i = j; i < A.mt(); ++i) {
+                if (A.tileIsLocal(i, j)) {
+                    if (first_panel_seen < 0) {
+                        first_panel_seen = j;
+                    }
+                    if (first_panel_seen == j) {
+                        if (panel_device < 0) {
+                            panel_device = A.tileDevice(i, j);
+                        }
+                        mlocal += A.tileMb(i);
+                        // Asserting 1-D distribution for device
+                        assert( panel_device == A.tileDevice(i, j) );
+                    }
+                }
+            }
+            if (first_panel_seen >= 0) {
+                break;
+            }
+        }
+
+        if (panel_device >= 0) {
+
+            blas::set_device( panel_device );
+
+            lapack::Queue* queue = A.compute_queue(panel_device, 0);
+
+            int64_t nb       = A.tileNb(0);
+            size_t  size_tau = (size_t) std::min( mlocal, nb );
+            size_t  size_A   = (size_t) blas::max( 1, mlocal ) * nb;
+            size_t  hsize, dsize;
+
+            // Find size of the workspace needed
+            lapack::geqrf_work_size_bytes( mlocal, nb, dwork_array[0], mlocal,
+                    &dsize, &hsize, *queue );
+
+            // Size of dA, dtau, dwork and dinfo
+            work_size = size_A + size_tau + ceildiv(dsize, sizeof(scalar_t))
+                + ceildiv(sizeof(device_info_t), sizeof(scalar_t));
+
+            for (int64_t dev = 0; dev < num_devices; ++dev) {
+                blas::set_device(dev);
+                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size);
+            }
+        }
+    }
+
     // tracks dependencies by block-column.
     std::vector< uint8_t > block_vector( nt + 2 );
     uint8_t* block = block_vector.data();
-    uint8_t* alloc_workspace = &block_vector[ nt ];
     uint8_t* fetch_trailing  = &block_vector[ nt+1 ];
 
     // set min number for omp nested active parallel regions
@@ -152,68 +208,6 @@ void he2hb(
                 }
             }
 
-            if (k == 0) {
-                #pragma omp task depend( inout:alloc_workspace[ 0 ] )
-                {
-                    if (target == Target::Devices) {
-                        A.allocateBatchArrays();
-                        A.reserveDeviceWorkspace();
-                        W.allocateBatchArrays( 0, num_queues );
-                        W.reserveDeviceWorkspace();
-
-                        // Find largest panel size and device for copying to
-                        // contiguous memory within internal geqrf routine
-                        int64_t mlocal = 0;
-                        int64_t first_panel_seen = -1;
-                        for (int64_t j = 0; j < A.nt(); ++j) {
-                            for (int64_t i = j; i < A.mt(); ++i) {
-                                if (A.tileIsLocal(i, j)) {
-                                    if (first_panel_seen < 0) {
-                                        first_panel_seen = j;
-                                    }
-                                    if (first_panel_seen == j) {
-                                        if (panel_device < 0) {
-                                            panel_device = A.tileDevice(i, j);
-                                        }
-                                        mlocal += A.tileMb(i);
-                                        // Asserting 1-D distribution for device
-                                        assert( panel_device == A.tileDevice(i, j) );
-                                    }
-                                }
-                            }
-                            if (first_panel_seen >= 0) {
-                                break;
-                            }
-                        }
-
-                        if (panel_device >= 0) {
-
-                            blas::set_device( panel_device );
-
-                            lapack::Queue* queue = A.compute_queue(panel_device, 0);
-
-                            int64_t nb       = A.tileNb(0);
-                            size_t  size_tau = (size_t) std::min( mlocal, nb );
-                            size_t  size_A   = (size_t) blas::max( 1, mlocal ) * nb;
-                            size_t  hsize, dsize;
-
-                            // Find size of the workspace needed
-                            lapack::geqrf_work_size_bytes( mlocal, nb, dwork_array[0], mlocal,
-                                    &dsize, &hsize, *queue );
-
-                            // Size of dA, dtau, dwork and dinfo
-                            work_size = size_A + size_tau + ceildiv(dsize, sizeof(scalar_t))
-                                + ceildiv(sizeof(device_info_t), sizeof(scalar_t));
-
-                            for (int64_t dev = 0; dev < num_devices; ++dev) {
-                                blas::set_device(dev);
-                                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size);
-                            }
-                        }
-                    }
-                }
-            }
-
             //--------------------
             // QR of panel
             // local panel factorization
@@ -222,6 +216,7 @@ void he2hb(
                 internal::geqrf<target>(
                     std::move( A_panel ),
                     std::move( Tlocal_panel ),
+                    dwork_array, work_size,
                     ib, max_panel_threads, priority_one);
 
                 // triangle-triangle reductions
@@ -235,8 +230,7 @@ void he2hb(
             if (k < nt-1) {
                 //--------------------
                 // Bcast V, Treduce, Tlocal.
-                #pragma omp task depend( inout:block[ k ] ) \
-                                 depend( in:alloc_workspace[ 0 ] )
+                #pragma omp task depend( inout:block[ k ] )
                 {
                     // Send V across row i & col i for trailing matrix update.
                     BcastListTag bcast_list_V_first;
@@ -304,8 +298,7 @@ void he2hb(
                 //--------------------
                 // Computation and data movement overlap:
                 // fetch data to be used in he2hb_hemm
-                #pragma omp task depend( in:alloc_workspace[ 0 ] ) \
-                                 depend( inout:fetch_trailing[ 0 ] )
+                #pragma omp task depend( inout:fetch_trailing[ 0 ] )
                 {
                     // todo: insert and set on device?
                     // todo: do we need entire column, or subset? needs W[ my_rows + my_cols ].

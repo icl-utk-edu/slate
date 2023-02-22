@@ -96,7 +96,7 @@ HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
 force: ;
 
 # Auto-detect CUDA, HIP.
-ifneq ($(filter-out auto cuda hip omptarget none, $(gpu_backend)),)
+ifneq ($(filter-out auto cuda hip onemkl none, $(gpu_backend)),)
     $(error ERROR: gpu_backend = $(gpu_backend) is unknown)
 endif
 
@@ -125,7 +125,8 @@ ifneq ($(cuda),1)
 endif
 
 omptarget = 0
-ifneq ($(filter auto omptarget, $(gpu_backend)),)
+ifneq ($(filter auto onemkl, $(gpu_backend)),)
+    # enable the omptarget offload kernels in SLATE
     omptarget = 1
 endif
 

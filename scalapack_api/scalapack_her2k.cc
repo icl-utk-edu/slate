@@ -92,8 +92,8 @@ void slate_pher2k(const char* uplostr, const char* transstr, int n, int k, scala
         B = transpose(B);
     }
     else if (trans == blas::Op::ConjTrans) {
-        A = conjTranspose(A);
-        B = conjTranspose(B);
+        A = conj_transpose( A );
+        B = conj_transpose( B );
     }
     assert(A.mt() == CH.mt());
     assert(B.mt() == CH.mt());

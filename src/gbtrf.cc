@@ -29,8 +29,11 @@ void gbtrf(
     // using real_t = blas::real_type<scalar_t>;
     using BcastList = typename BandMatrix<scalar_t>::BcastList;
 
+    // Constants
+    const scalar_t zero = 0.0;
     const scalar_t one = 1.0;
-
+    const int priority_0 = 0;
+    const int priority_1 = 1;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -45,10 +48,6 @@ void gbtrf(
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
     pivots.resize(min_mt_nt);
-
-    const scalar_t zero = 0.0;
-    const int priority_one = 1;
-    const int priority_zero = 0;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
@@ -99,12 +98,12 @@ void gbtrf(
             int64_t j_end = std::min(k + ku2t + 1, A_nt);
 
             // panel, high priority
-            #pragma omp task depend(inout:column[k]) priority(priority_one)
+            #pragma omp task depend(inout:column[k]) priority(1)
             {
                 // factor A(k:mt-1, k)
                 internal::getrf_panel<Target::HostTask>(
                     A.sub(k, i_end-1, k, k), diag_len, ib,
-                    pivots.at(k), max_panel_threads, priority_one);
+                    pivots.at(k), max_panel_threads, priority_1 );
 
                 BcastList bcast_list_A;
                 int tag_k = k;
@@ -127,13 +126,13 @@ void gbtrf(
             // update lookahead column(s), high priority
             for (int64_t j = k+1; j < k+1+lookahead && j < j_end; ++j) {
                 #pragma omp task depend(in:column[k]) \
-                                 depend(inout:column[j]) priority(priority_one)
+                                 depend(inout:column[j]) priority(1)
                 {
                     // swap rows in A(k:mt-1, j)
                     int tag_j = j;
                     internal::permuteRows<Target::HostTask>(
                         Direction::Forward, A.sub(k, i_end-1, j, j), pivots.at(k),
-                        layout, priority_one, tag_j);
+                        layout, priority_1, tag_j );
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
@@ -142,7 +141,7 @@ void gbtrf(
                     // solve A(k, k) A(k, j) = A(k, j)
                     internal::trsm<Target::HostTask>(
                         Side::Left,
-                        one, std::move( Tkk ), A.sub(k, k, j, j), priority_one );
+                        one, std::move( Tkk ), A.sub(k, k, j, j), priority_1 );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     A.tileBcast(k, j, A.sub(k+1, i_end-1, j, j), layout, tag_j);
@@ -152,7 +151,7 @@ void gbtrf(
                         -one, A.sub(k+1, i_end-1, k, k),
                               A.sub(k, k, j, j),
                         one,  A.sub(k+1, i_end-1, j, j),
-                        layout, priority_one);
+                        layout, priority_1 );
                 }
             }
             // Update trailing submatrix, normal priority.
@@ -167,7 +166,7 @@ void gbtrf(
                     int tag_kl1 = k+1+lookahead;
                     internal::permuteRows<Target::HostTask>(
                         Direction::Forward, A.sub(k, i_end-1, k+1+lookahead, j_end-1),
-                        pivots.at(k), layout, priority_zero, tag_kl1);
+                        pivots.at(k), layout, priority_0, tag_kl1 );
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =

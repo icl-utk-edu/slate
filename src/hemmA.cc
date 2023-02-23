@@ -47,9 +47,9 @@ void hemmA(
     // if on right, change to left by transposing A, B, C to get
     // op(C) = op(A)*op(B)
     if (side == Side::Right) {
-        A = conjTranspose(A);
-        B = conjTranspose(B);
-        C = conjTranspose(C);
+        A = conj_transpose( A );
+        B = conj_transpose( B );
+        C = conj_transpose( C );
         alpha = conj(alpha);
         beta  = conj(beta);
     }
@@ -424,7 +424,7 @@ void hemmA(
                 if (A.mt()-1 > 0) {
                     auto Arow_k = A.sub(0, 0, 1, A.nt()-1);
                     internal::gemmA<target>(
-                        alpha, conjTranspose(Arow_k),
+                        alpha, conj_transpose( Arow_k ),
                                B.sub(0, 0, 0, B.nt()-1),
                         beta,  C.sub(1, C.mt()-1, 0, C.nt()-1),
                         layout);

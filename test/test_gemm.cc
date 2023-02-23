@@ -160,12 +160,12 @@ void test_gemm_work(Params& params, bool run)
     if (transA == slate::Op::Trans)
         A = transpose(A);
     else if (transA == slate::Op::ConjTrans)
-        A = conjTranspose(A);
+        A = conj_transpose( A );
 
     if (transB == slate::Op::Trans)
         B = transpose(B);
     else if (transB == slate::Op::ConjTrans)
-        B = conjTranspose(B);
+        B = conj_transpose( B );
 
     slate_assert(A.mt() == C.mt());
     slate_assert(B.nt() == C.nt());

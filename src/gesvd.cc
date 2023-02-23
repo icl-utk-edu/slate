@@ -39,7 +39,7 @@ void gesvd(
     if (flip) {
         slate_not_implemented("m < n not yet supported");
         swap(m, n);
-        A = conjTranspose(A);
+        A = conj_transpose( A );
     }
 
     // Scale matrix to allowable range, if necessary.

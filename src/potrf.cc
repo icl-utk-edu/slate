@@ -39,7 +39,7 @@ void potrf(
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
-        A = conjTranspose(A);
+        A = conj_transpose( A );
     }
     int64_t A_nt = A.nt();
 
@@ -146,8 +146,12 @@ void potrf(
     using real_t = blas::real_type<scalar_t>;
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
 
+    // Constants
     const scalar_t one = 1.0;
-
+    const int priority_0 = 0;
+    const int queue_0 = 0;
+    const int queue_1 = 1;
+    const int queue_2 = 2;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -166,20 +170,13 @@ void potrf(
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
-        A = conjTranspose(A);
+        A = conj_transpose( A );
     }
     int64_t A_nt = A.nt();
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
-
-    const int priority_zero = 0;
-    const int queue_0 = 0;
-    const int queue_1 = 1;
-    const int queue_2 = 2;
-    const int64_t batch_size_zero = 0;
-    const int num_queues = 3 + lookahead;  // Number of kernels with lookahead
 
     // Allocate batch arrays = number of kernels without lookahead + lookahead
     // number of kernels without lookahead = 3
@@ -189,7 +186,9 @@ void potrf(
     // and the batch_arrays_index starts from
     // the number of kernels without lookahead, and then incremented by 1
     // for every execution for the internal::herk
-    A.allocateBatchArrays(batch_size_zero, num_queues);
+    const int64_t batch_size_default = 0;
+    int num_queues = 3 + lookahead;  // Number of kernels with lookahead
+    A.allocateBatchArrays( batch_size_default, num_queues );
     A.reserveDeviceWorkspace();
 
     // Allocate
@@ -212,8 +211,8 @@ void potrf(
             {
                 // factor A(k, k)
                 internal::potrf<Target::Devices>(
-                    A.sub(k, k), priority_zero, queue_2,
-                    device_info_array[A.tileDevice( k, k )]);
+                    A.sub(k, k), priority_0, queue_2,
+                    device_info_array[ A.tileDevice( k, k ) ] );
 
                 // send A(k, k) down col A(k+1:nt-1, k)
                 if (k+1 <= A_nt-1)
@@ -227,7 +226,7 @@ void potrf(
                         Side::Right,
                         one, conj_transpose( Tkk ),
                         A.sub(k+1, A_nt-1, k, k),
-                        priority_zero, layout, queue_1, opts2);
+                        priority_0, layout, queue_1, opts2 );
                 }
 
                 BcastListTag bcast_list_A;
@@ -255,7 +254,7 @@ void potrf(
                     internal::herk<Target::Devices>(
                         real_t(-1.0), A.sub(k+1+lookahead, A_nt-1, k, k),
                         real_t( 1.0), A.sub(k+1+lookahead, A_nt-1),
-                        priority_zero, queue_0, layout, opts2);
+                        priority_0, queue_0, layout, opts2 );
                 }
             }
 
@@ -269,10 +268,11 @@ void potrf(
                                  depend(inout:column[j])
                 {
                     // A(j, j) -= A(j, k) * A(j, k)^H
+                    int queue_jk2 = j-k+2;
                     internal::herk<Target::Devices>(
                         real_t(-1.0), A.sub(j, j, k, k),
                         real_t( 1.0), A.sub(j, j),
-                        priority_zero, j-k+2, layout, opts2);
+                        priority_0, queue_jk2, layout, opts2 );
 
                     // A(j+1:nt, j) -= A(j+1:nt-1, k) * A(j, k)^H
                     if (j+1 <= A_nt-1) {
@@ -281,7 +281,7 @@ void potrf(
                             -one, A.sub(j+1, A_nt-1, k, k),
                                   conj_transpose( Ajk ),
                             one,  A.sub(j+1, A_nt-1, j, j),
-                            layout, priority_zero, j-k+2, opts2);
+                            layout, priority_0, queue_jk2, opts2 );
                     }
                 }
             }

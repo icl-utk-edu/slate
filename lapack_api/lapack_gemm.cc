@@ -83,12 +83,12 @@ void slate_gemm(const char* transastr, const char* transbstr, int m, int n, int 
     if (transA == blas::Op::Trans)
         A = transpose(A);
     else if (transA == blas::Op::ConjTrans)
-        A = conjTranspose(A);
+        A = conj_transpose( A );
 
     if (transB == blas::Op::Trans)
         B = transpose(B);
     else if (transB == blas::Op::ConjTrans)
-        B = conjTranspose(B);
+        B = conj_transpose( B );
 
     slate::gemm(alpha, A, B, beta, C, {
         {slate::Option::Lookahead, lookahead},

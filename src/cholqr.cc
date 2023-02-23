@@ -26,9 +26,11 @@ void cholqr(
     Matrix<scalar_t>& R,
     Options const& opts )
 {
+    // Constants
     const scalar_t one  = 1.0;
     const scalar_t zero = 0.0;
-    auto AH = conjTranspose( A );
+
+    auto AH = conj_transpose( A );
     HermitianMatrix<scalar_t> R_hermitian( Uplo::Upper, R );
     auto U = TriangularMatrix<scalar_t>( Diag::NonUnit, R_hermitian );
 
@@ -74,20 +76,22 @@ void cholqr(
 {
     slate_assert( R.uplo() == Uplo::Upper );
 
-    scalar_t s_one = 1.0;
-    blas::real_type<scalar_t> one  = 1.0;
-    blas::real_type<scalar_t> zero = 0.0;
-    auto AH = conjTranspose( A );
+    // Constants
+    scalar_t one = 1.0;
+    blas::real_type<scalar_t> r_one  = 1.0;
+    blas::real_type<scalar_t> r_zero = 0.0;
+
+    auto AH = conj_transpose( A );
     auto U = TriangularMatrix<scalar_t>( Diag::NonUnit, R );
 
     // Compute R = AH * A.
-    herk( one, AH, zero, R, opts );
+    herk( r_one, AH, r_zero, R, opts );
 
     // Compute Ut * U = chol(R).
     potrf( R, opts );
 
     // Compute Q = A * U^{-1}.
-    trsm( Side::Right, s_one, U, A, opts );
+    trsm( Side::Right, one, U, A, opts );
 }
 
 } // namespace impl

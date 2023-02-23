@@ -88,7 +88,7 @@ void slate_pherk(const char* uplostr, const char* transstr, int n, int k, blas::
     if (transA == blas::Op::Trans)
         A = transpose(A);
     else if (transA == blas::Op::ConjTrans)
-        A = conjTranspose(A);
+        A = conj_transpose( A );
     assert(A.mt() == C.mt());
 
     slate::herk(alpha, A, beta, C, {

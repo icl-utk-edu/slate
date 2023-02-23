@@ -108,7 +108,7 @@ bool Debug::checkTilesLayout(BaseMatrix<scalar_t> const& A)
         auto tile_end = A.storage_->tiles_.end();
 
         for (int64_t i = 0; i < A.mt(); ++i) {
-            for (int64_t j = 0; j < A.nt(); j++) {
+            for (int64_t j = 0; j < A.nt(); ++j) {
                 index = A.globalIndex(i, j);
                 tmp_tile = A.storage_->tiles_.find(index);
                 if (tmp_tile != tile_end
@@ -149,7 +149,7 @@ void Debug::printTilesLives(BaseMatrix<scalar_t> const& A)
     for (int64_t i = 0; i < A.mt(); ++i) {
         snprintf( buf, len, "%02d [%4lld]: ", A.mpiRank(), llong( i ) );
         msg += buf;
-        for (int64_t j = 0; j < A.nt(); j++) {
+        for (int64_t j = 0; j < A.nt(); ++j) {
             index = A.globalIndex(i, j);
             tmp_tile = A.storage_->find(index);
             if (tmp_tile == tile_end)

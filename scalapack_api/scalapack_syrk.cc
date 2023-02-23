@@ -122,7 +122,7 @@ void slate_psyrk(const char* uplostr, const char* transstr, int n, int k, scalar
     if (transA == blas::Op::Trans)
         A = transpose(A);
     else if (transA == blas::Op::ConjTrans)
-        A = conjTranspose(A);
+        A = conj_transpose( A );
     assert(A.mt() == C.mt());
 
     if (verbose && myprow == 0 && mypcol == 0)

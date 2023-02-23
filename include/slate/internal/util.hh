@@ -132,9 +132,9 @@ public:
 
         __sync_fetch_and_add(&count_, 1);
         if (__sync_bool_compare_and_swap(&count_, size, 0))
-            passed_++;
+            ++passed_;
         else
-            while (passed_ == passed_old);
+            while (passed_ == passed_old) {}
     }
 
 private:

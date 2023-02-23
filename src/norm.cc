@@ -39,7 +39,7 @@ norm(
             in_norm = Norm::One;
     }
     if (A.op() == Op::ConjTrans)
-        A = conjTranspose(A);
+        A = conj_transpose( A );
     else if (A.op() == Op::Trans)
         A = transpose(A);
 

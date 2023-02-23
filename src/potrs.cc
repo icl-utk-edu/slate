@@ -67,10 +67,10 @@ void potrs(HermitianMatrix<scalar_t>& A,
 
     // if upper, change to lower
     if (A_.uplo() == Uplo::Upper)
-        A_ = conjTranspose(A_);
+        A_ = conj_transpose( A_ );
 
     auto L = TriangularMatrix<scalar_t>(Diag::NonUnit, A_);
-    auto LT = conjTranspose(L);
+    auto LT = conj_transpose( L );
 
     trsm(Side::Left, one, L, B, opts);
 

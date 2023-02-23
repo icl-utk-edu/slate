@@ -17,8 +17,8 @@ namespace internal {
 /// where A is a single block column and B is a single block row.
 /// Dispatches to target implementations.
 /// In the complex case,
-/// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conjTranspose;
-/// if $op(C)$ is conjTranspose, then $op(A)$ and $op(B)$ cannot be transpose.
+/// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conj_transpose;
+/// if $op(C)$ is conj_transpose, then $op(A)$ and $op(B)$ cannot be transpose.
 ///
 /// @param[in] layout
 ///     Indicates the Layout (ColMajor/RowMajor) to operate with.

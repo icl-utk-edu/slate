@@ -38,6 +38,8 @@ void gemmC(
 
     // Constants
     const scalar_t one = 1.0;
+    const int priority_0 = 0;
+    const int queue_0 = 0;
     const Layout layout = Layout::ColMajor;
 
     // Options
@@ -56,8 +58,6 @@ void gemmC(
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
     uint8_t* c     =     c_vector.data();
-    const int default_priority = 0;
-    const int default_queue = 0;
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -123,7 +123,7 @@ void gemmC(
                     alpha, A.sub(0, A.mt()-1, 0, 0),
                            B.sub(0, 0, 0, B.nt()-1),
                     beta,  std::move(C),
-                    layout, default_priority, default_queue, opts2);
+                    layout, priority_0, queue_0, opts2 );
 
             auto A_colblock = A.sub(0, A.mt()-1, 0, 0);
             auto B_rowblock = B.sub(0, 0, 0, B.nt()-1);
@@ -172,7 +172,7 @@ void gemmC(
                     alpha, A.sub(0, A.mt()-1, k, k),
                            B.sub(k, k, 0, B.nt()-1),
                     one,   std::move( C ),
-                    layout, default_priority, default_queue, opts2);
+                    layout, priority_0, queue_0, opts2 );
 
                 auto A_colblock = A.sub(0, A.mt()-1, k, k);
                 auto B_rowblock = B.sub(k, k, 0, B.nt()-1);
@@ -205,7 +205,7 @@ void gemmC(
 /// The matrices can be transposed or conjugate-transposed beforehand, e.g.,
 ///
 ///     auto AT = slate::transpose( A );
-///     auto BT = slate::conjTranspose( B );
+///     auto BT = slate::conj_transpose( B );
 ///     slate::gemmC( alpha, AT, BT, beta, C );
 ///
 //------------------------------------------------------------------------------

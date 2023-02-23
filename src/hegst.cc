@@ -26,6 +26,14 @@ void hegst(
     using BcastList = typename Matrix<scalar_t>::BcastList;
     using real_t = blas::real_type<scalar_t>;
 
+    // Constants
+    const scalar_t half = 0.5;
+    const scalar_t one  = 1.0;
+    const real_t r_one  = 1.0;
+    const int tag_0  = 0;
+    const int life_2 = 2;
+    const Layout layout = Layout::ColMajor;
+
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
@@ -36,20 +44,11 @@ void hegst(
     slate_assert(A.nt() == B.nt());
 
     if (A.uplo() == Uplo::Upper) {
-        A = conjTranspose(A);
-        B = conjTranspose(B);
+        A = conj_transpose( A );
+        B = conj_transpose( B );
     }
 
     int64_t nt = A.nt();
-
-    const scalar_t half = 0.5;
-    const scalar_t one  = 1.0;
-    const real_t r_one  = 1.0;
-
-    const int tag_zero        = 0;
-    const int life_factor_two = 2;
-
-    const Layout layout = Layout::ColMajor;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> column_vector(nt);
@@ -92,14 +91,14 @@ void hegst(
                         B.template tileBcast<target>(k, k, Asub, layout);
 
                         internal::trsm<target>(
-                            Side::Right,  one,  conjTranspose(TBkk),
+                            Side::Right,  one,  conj_transpose( TBkk ),
                                                 std::move(Asub));
                     }
 
                     #pragma omp task depend(inout:column[k])
                     {
                         A.tileBcast(
-                            k, k, Asub, layout, tag_zero, life_factor_two);
+                            k, k, Asub, layout, tag_0, life_2 );
 
                         BcastList bcast_list;
                         for (int64_t i = k+1; i < nt; ++i) {
@@ -107,7 +106,7 @@ void hegst(
                                                          A.sub(i, nt-1, i, i)}});
                         }
                         B.template listBcast<target>(
-                            bcast_list, layout, tag_zero, life_factor_two);
+                            bcast_list, layout, tag_0, life_2 );
                     }
 
                     #pragma omp task depend(in:column[k]) \
@@ -154,7 +153,7 @@ void hegst(
                     #pragma omp task depend(inout:column[0])
                     {
                         A.tileBcast(
-                            k, k, Asub, layout, tag_zero, life_factor_two);
+                            k, k, Asub, layout, tag_0, life_2 );
 
                         BcastList bcast_list;
                         for (int64_t i = 0; i < k; ++i) {
@@ -162,7 +161,7 @@ void hegst(
                                                          A.sub(i, i,   0, i)}});
                         }
                         B.template listBcast<target>(
-                            bcast_list, layout, tag_zero, life_factor_two);
+                            bcast_list, layout, tag_0, life_2 );
 
                         B.template tileBcast<target>(k, k, Asub, layout);
                     }
@@ -198,7 +197,7 @@ void hegst(
                                         one,  std::move(Asub));
 
                         internal::trmm<Target::HostTask>(
-                            Side::Left, one,  conjTranspose(TBkk),
+                            Side::Left, one,  conj_transpose( TBkk ),
                                               std::move(Asub));
                     }
                 }

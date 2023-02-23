@@ -20,8 +20,8 @@ namespace internal {
 /// for all i = 0 : A.mt, j = 0 : A.nt, k=.
 /// Dispatches to target implementations.
 /// In the complex case,
-/// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conjTranspose;
-/// if $op(C)$ is conjTranspose, then $op(A)$ and $op(B)$ cannot be transpose.
+/// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conj_transpose;
+/// if $op(C)$ is conj_transpose, then $op(A)$ and $op(B)$ cannot be transpose.
 /// @ingroup gemm_internal
 ///
 template <Target target, typename scalar_t>
@@ -211,7 +211,7 @@ void gemmA(internal::TargetType<Target::Devices>,
             int cpt = 0;
             for (int64_t j = 0; j < A.nt(); ++j) {
                 if (A.tileIsLocal( i, j )) {
-                    cpt++;
+                    ++cpt;
                 }
             }
             if (cpt == 0 && C.tileIsLocal( i, 0 )) {

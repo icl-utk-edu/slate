@@ -29,10 +29,10 @@ void unmtr_hb2st(slate::internal::TargetType<target>,
 {
     if (target == Target::Devices) {
         trace::Block trace_block("quealloc");
-        const int64_t batch_size_zero = 0; // use default batch size
+        const int64_t batch_size_default = 0; // use default batch size
         // use separate queue for each parallel task in internal_unmtr_hb2st
-        const int64_t num_queues = omp_get_max_threads();
-        C.allocateBatchArrays(batch_size_zero, num_queues);
+        int num_queues = omp_get_max_threads();
+        C.allocateBatchArrays( batch_size_default, num_queues );
     }
 
     // set min number for omp nested active parallel regions

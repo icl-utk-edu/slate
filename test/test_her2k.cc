@@ -156,8 +156,8 @@ void test_her2k_work(Params& params, bool run)
         opB = transpose(B);
     }
     else if (trans == slate::Op::ConjTrans) {
-        opA = conjTranspose(A);
-        opB = conjTranspose(B);
+        opA = conj_transpose( A );
+        opB = conj_transpose( B );
     }
     slate_assert(A.mt() == C.mt());
     slate_assert(B.mt() == C.mt());
@@ -187,12 +187,12 @@ void test_her2k_work(Params& params, bool run)
         // Y = beta C X
         slate::multiply( scalar_t(beta), C, X, zero, Y, opts );
         // Z = A^H X
-        auto AH = conjTranspose( opA );
+        auto AH = conj_transpose( opA );
         slate::multiply( one, AH, X, zero, Z, opts );
         // Y = conj(alpha) B Z + Y
         slate::multiply( conj( alpha ), opB, Z, one, Y, opts );
         // Z = B^H X
-        auto BH = conjTranspose( opB );
+        auto BH = conj_transpose( opB );
         slate::multiply( one, BH, X, zero, Z, opts );
         // Y = alpha A Z + Y
         slate::multiply( alpha, opA, Z, one, Y, opts );

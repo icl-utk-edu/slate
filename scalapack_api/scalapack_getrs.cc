@@ -178,7 +178,7 @@ void slate_pgetrs(const char* transstr, int n, int nrhs, scalar_t* a, int ia, in
     if (trans == slate::Op::Trans)
         opA = transpose(A);
     else if (trans == slate::Op::ConjTrans)
-        opA = conjTranspose(A);
+        opA = conj_transpose( A );
 
     // call the SLATE getrs routine
     slate::getrs(opA, pivots, B, opts);

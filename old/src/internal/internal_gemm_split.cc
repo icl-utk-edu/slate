@@ -17,8 +17,8 @@ namespace internal {
 /// where A is a single block column and B is a single block row.
 /// Dispatches to target implementations.
 /// In the complex case,
-/// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conjTranspose;
-/// if $op(C)$ is conjTranspose, then $op(A)$ and $op(B)$ cannot be transpose.
+/// if $op(C)$ is transpose, then $op(A)$ and $op(B)$ cannot be conj_transpose;
+/// if $op(C)$ is conj_transpose, then $op(A)$ and $op(B)$ cannot be transpose.
 ///
 /// @param[inout] batchArrays
 ///     holds the pointer arrays to be prepared for later execution
@@ -169,7 +169,7 @@ void gemmPrep(internal::TargetType<Target::Devices>,
                     a_array_host[index] = A(i, 0, device).data();
                     b_array_host[index] = B(0, j, device).data();
                     c_array_host[index] = C(i, j, device).data();
-                    index++;
+                    ++index;
                 }
             }
             slate_assert(index == batch_count);

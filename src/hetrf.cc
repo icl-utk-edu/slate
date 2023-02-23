@@ -34,6 +34,12 @@ void hetrf(
     using BcastList  = typename Matrix<scalar_t>::BcastList;
     using ReduceList = typename Matrix<scalar_t>::ReduceList;
 
+    // Constants
+    const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
+    const int64_t ione  = 1;
+    const int64_t izero = 0;
+    const int priority_1 = 1;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -61,11 +67,6 @@ void hetrf(
     //uint8_t* ind1 = Ind1.data();
     //uint8_t* ind2 = Ind2.data();
 
-    const scalar_t zero = 0.0;
-    const scalar_t one  = 1.0;
-    int64_t ione  = 1;
-    int64_t izero = 0;
-    int priority_one = 1;
     assert(A.uplo() == Uplo::Lower); // upper not implemented, yet
 
     pivots.resize(A_mt);
@@ -94,17 +95,18 @@ void hetrf(
                 //printf( " >> compute H(%ld, %d:%ld) on rank-%d <<\n", k, 0,k-1, rank); fflush(stdout);
                 // going by row, H(k, i) = L(k, :) * T(:, i) for i=0,..,k+1
                 // send L(k, j) that are needed to compute H(:, k)
-                for (int64_t j=0; j<k; j++) {
+                for (int64_t j = 0; j < k; ++j) {
                     //printf( " %d: >> receiving A(%ld,:%ld) <<\n",rank,k,j  );
                     A.tileBcast(k, j, H.sub(k, k, std::max(j, ione)-1, std::min(j+2, k-1)-1), layout, tag);
                 }
-                for (int64_t i = 1; i < k; i++) {
+                for (int64_t i = 1; i < k; ++i) {
                     if (H.tileIsLocal(k, i-1)) {
                         #pragma omp task
                         {
                             H.tileInsert(k, i-1);
                             scalar_t beta = zero;
-                            for (int64_t j = std::max(i-1, ione); j <= std::min(i+1, k); j++) {
+                            for (int64_t j = std::max(i-1, ione);
+                                 j <= std::min(i+1, k); ++j) {
                                 tile::gemm<scalar_t>(
                                     one,  A(k, j-1), T(j, i),
                                     beta, H(k, i-1) );
@@ -137,8 +139,8 @@ void hetrf(
                     //printf( " ++ expanding ++\n" ); fflush(stdout);
                     int64_t ldt = T(k, k).stride();
                     scalar_t *tkk = T(k, k).data();
-                    for (int i = 0; i < T(k, k).mb(); i++) {
-                        for (int j = i; j < T(k, k).nb(); j++) {
+                    for (int i = 0; i < T(k, k).mb(); ++i) {
+                        for (int j = i; j < T(k, k).nb(); ++j) {
                             tkk[i + j*ldt] = conj( tkk[j + i*ldt] );
                         }
                     }
@@ -153,7 +155,7 @@ void hetrf(
             {
                 //printf( " >> update T(%ld, %ld) on rank-%d <<\n", k, k, rank); fflush(stdout);
                 auto Hj = H.sub(k, k, 0, k-2);
-                Hj = conjTranspose(Hj);
+                Hj = conj_transpose( Hj );
 
                 #if 0
                 slate::internal::gemm_W<Target::HostTask>(
@@ -184,7 +186,7 @@ void hetrf(
                 if (T.tileIsLocal(k, k)) {
                     H.tileInsert(k, k);
                     auto Lkj = A.sub(k, k, k-2, k-2);
-                    Lkj = conjTranspose(Lkj);
+                    Lkj = conj_transpose( Lkj );
                     tile::gemm<scalar_t>(
                         one,  T(k,   k-1),
                               Lkj(0, 0),
@@ -222,8 +224,8 @@ void hetrf(
                     //printf( " ++ expanding ++\n" ); fflush(stdout);
                     int64_t ldt = T(k, k).stride();
                     scalar_t *tkk = T(k, k).data();
-                    for (int i = 0; i < T(k, k).mb(); i++) {
-                        for (int j = i; j < T(k, k).nb(); j++) {
+                    for (int i = 0; i < T(k, k).mb(); ++i) {
+                        for (int j = i; j < T(k, k).nb(); ++j) {
                             tkk[i + j*ldt] = conj( tkk[j + i*ldt] );
                         }
                     }
@@ -286,11 +288,11 @@ void hetrf(
                     {
                         //printf( " >> update A1(%ld:%ld, %ld) on rank-%d <<\n", k+1,A_mt-1, k, rank); fflush(stdout);
                         if (k > 2) {
-                            for (int64_t j = 0; j < k-1; j++) {
+                            for (int64_t j = 0; j < k-1; ++j) {
                                 H.tileBcast(k, j, A.sub(k+1, A_mt-1, j, j), layout, tag1);
                             }
                             auto Hj = H.sub(k, k, 0, k-2);
-                            Hj = conjTranspose(Hj);
+                            Hj = conj_transpose( Hj );
 
                             #if 1
                                 slate::internal::gemmA<Target::HostTask>(
@@ -323,20 +325,20 @@ void hetrf(
                             A.template listReduce<target>(reduce_list, layout, tag1);
                         }
                         else {
-                            for (int64_t j = 0; j < k-1; j++) {
-                                for (int64_t i = k+1; i < A_mt; i++) {
+                            for (int64_t j = 0; j < k-1; ++j) {
+                                for (int64_t i = k+1; i < A_mt; ++i) {
                                     A.tileBcast(i, j, A.sub(i, i, k, k), layout, tag1);
                                 }
                                 H.tileBcast(k, j, A.sub(k+1, A_mt-1, k, k), layout, tag1);
                             }
-                            for (int64_t j = 0; j < k-1; j++) {
+                            for (int64_t j = 0; j < k-1; ++j) {
                                 auto Hj = H.sub(k, k, j, j);
-                                Hj = conjTranspose(Hj);
+                                Hj = conj_transpose( Hj );
                                 slate::internal::gemm<target>(
                                     -one, A.sub(k+1, A_mt-1, j, j),
                                           Hj.sub(0, 0, 0, 0),
                                     one,  A.sub(k+1, A_mt-1, k, k),
-                                    layout, priority_one);
+                                    layout, priority_1 );
                             }
                         }
                     }
@@ -347,18 +349,18 @@ void hetrf(
                                  priority(1)
                 {
                     //printf( " >> update A2(%ld:%ld, %ld) on rank-%d <<\n", k+1,A_mt-1, k, rank); fflush(stdout);
-                    for (int64_t i2 = k+1; i2 < A_mt; i2++) {
+                    for (int64_t i2 = k+1; i2 < A_mt; ++i2) {
                         A.tileBcast(i2, k-1, A.sub(i2, i2, k, k), layout, tag1);
                     }
                     H.tileBcast(k, k-1, A.sub(k+1, A_mt-1, k, k), layout, tag1);
 
                     auto Hj = H.sub(k, k, k-1, k-1);
-                    Hj = conjTranspose(Hj);
+                    Hj = conj_transpose( Hj );
                     slate::internal::gemm<target>(
                         -one, A.sub(k+1, A_mt-1, k-1, k-1),
                               Hj.sub(0,   0,     0, 0),
                         one,  A.sub(k+1, A_mt-1, k, k),
-                        layout, priority_one);
+                        layout, priority_1 );
                 }
             }
 
@@ -369,7 +371,7 @@ void hetrf(
                 //printf( " >> LU panel(%ld:%ld,%ld) diag_len=%ld on rank-%d <<\n", k+1, A_mt-1, k, diag_len, rank); fflush(stdout);
                 internal::getrf_panel<Target::HostTask>(
                     A.sub(k+1, A_mt-1, k, k), diag_len, ib,
-                    pivots.at(k+1), max_panel_threads, priority_one);
+                    pivots.at(k+1), max_panel_threads, priority_1 );
 
                 // copy U(k, k) into T(k+1, k)
                 //printf( " >> compute T(%ld,%ld) on rank-%d <<\n", k+1, k, rank); fflush(stdout);
@@ -410,7 +412,7 @@ void hetrf(
                         auto Akk = A.sub(k, k, k-1, k-1);
                         auto Lkk = TriangularMatrix< scalar_t >(Uplo::Lower, Diag::NonUnit, Akk);
 
-                        Lkk = conjTranspose(Lkk);
+                        Lkk = conj_transpose( Lkk );
                         tile::trsm(
                             Side::Right, Diag::Unit,
                             one, Lkk(0, 0), T(k+1, k) );
@@ -425,11 +427,11 @@ void hetrf(
                     int64_t ldt2 = T(k, k+1).stride();
                     scalar_t *tkk1 = T(k+1, k).data();
                     scalar_t *tkk2 = T(k, k+1).data();
-                    for (int i=0; i < T(k+1, k).mb(); i++) {
-                        for (int j = 0; j < i; j++) {
+                    for (int i=0; i < T(k+1, k).mb(); ++i) {
+                        for (int j = 0; j < i; ++j) {
                             tkk2[j + i*ldt2] = 0.0;
                         }
-                        for (int j = i; j < T(k+1, k).nb(); j++) {
+                        for (int j = i; j < T(k+1, k).nb(); ++j) {
                             tkk2[j + i*ldt2] = conj( tkk1[i + j*ldt1] );
                         }
                     }

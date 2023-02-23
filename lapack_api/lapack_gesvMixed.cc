@@ -79,7 +79,7 @@ void slate_gesv(const int n, const int nrhs, scalar_t* a, const int lda, int* ip
         for (auto t_iter = pivots.begin(); t_iter != pivots.end(); ++t_iter) {
             for (auto p_iter = t_iter->begin(); p_iter != t_iter->end(); ++p_iter) {
                 ipiv[p_count] = p_iter->tileIndex() * nb + p_iter->elementOffset() + 1 + t_iter_add;
-                p_count++;
+                ++p_count;
             }
             t_iter_add += nb;
         }

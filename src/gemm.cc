@@ -18,7 +18,7 @@ namespace slate {
 /// The matrices can be transposed or conjugate-transposed beforehand, e.g.,
 ///
 ///     auto AT = slate::transpose( A );
-///     auto BT = slate::conjTranspose( B );
+///     auto BT = slate::conj_transpose( B );
 ///     slate::gemm( alpha, AT, BT, beta, C );
 ///
 /// Complexity (in real): $2 m n k$ flops.

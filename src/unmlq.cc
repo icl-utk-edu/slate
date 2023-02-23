@@ -27,7 +27,6 @@ void unmlq(
     Options const& opts )
 {
     // trace::Block trace_block("unmlq");
-    // const int priority_one = 1;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
     // Assumes column major

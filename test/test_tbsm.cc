@@ -150,12 +150,12 @@ void test_tbsm_work(Params& params, bool run)
     if (transA == slate::Op::Trans)
         A = transpose(A);
     else if (transA == slate::Op::ConjTrans)
-        A = conjTranspose(A);
+        A = conj_transpose( A );
 
     //if (transB == slate::Op::Trans)
     //    B = transpose(B);
     //else if (transB == slate::Op::ConjTrans)
-    //    B = conjTranspose(B);
+    //    B = conj_transpose( B );
 
     if (verbose > 1) {
         // todo: print_matrix( A ) calls Matrix version;

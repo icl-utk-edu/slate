@@ -27,9 +27,9 @@ void trmm(
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     if (target == Target::Devices) {
-        const int64_t batch_size_zero = 0; // use default batch size
-        const int64_t num_arrays_two = 2; // Number of kernels without lookahead
-        B.allocateBatchArrays(batch_size_zero, num_arrays_two);
+        const int64_t batch_size_default = 0; // use default batch size
+        const int num_queues = 2; // Number of kernels without lookahead
+        B.allocateBatchArrays( batch_size_default, num_queues );
         B.reserveDeviceWorkspace();
     }
 

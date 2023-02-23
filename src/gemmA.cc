@@ -83,7 +83,8 @@ void gemmA(
                 for (int64_t i = 0; i < B.mt(); ++i)
                     bcast_list_B.push_back(
                         {i, k, {A.sub( 0, A.mt()-1, i, i )}} );
-                B.template listBcast<target>( bcast_list_B, layout, k );
+                int tag_k = k;
+                B.template listBcast<target>( bcast_list_B, layout, tag_k );
             }
         }
 
@@ -134,8 +135,9 @@ void gemmA(
                     for (int64_t i = 0; i < B.mt(); ++i)
                         bcast_list_B.push_back(
                             {i, k+lookahead, {A.sub( 0, A.mt()-1, i, i )}} );
+                    int tag_kl = k+lookahead;
                     B.template listBcast<target>(
-                        bcast_list_B, layout, k+lookahead );
+                        bcast_list_B, layout, tag_kl );
                 }
             }
 
@@ -193,7 +195,7 @@ void gemmA(
 /// The matrices can be transposed or conjugate-transposed beforehand, e.g.,
 ///
 ///     auto AT = slate::transpose( A );
-///     auto BT = slate::conjTranspose( B );
+///     auto BT = slate::conj_transpose( B );
 ///     slate::gemm( alpha, AT, BT, beta, C );
 ///
 /// This algorithmic variant manages computation to be local to the

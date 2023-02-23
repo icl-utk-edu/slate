@@ -131,7 +131,7 @@ void slate_getri(const int n, scalar_t* a, const int lda, int* ipiv, scalar_t* w
                 int64_t tileIndex = (ipiv[p_count] - 1 - t_iter_add) / nb;
                 int64_t elementOffset = (ipiv[p_count] - 1 - t_iter_add) % nb;
                 *p_iter = Pivot(tileIndex, elementOffset);
-                p_count++;
+                ++p_count;
             }
             t_iter_add += nb;
         }

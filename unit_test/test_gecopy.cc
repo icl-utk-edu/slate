@@ -128,9 +128,9 @@ void run_tests()
 {
     if (mpi_rank == 0) {
         //-------------------- genorm_dev
-        for (int i = 0; i < 10; i++)
-        run_test(
-            test_gecopy_dev, "gecopy_dev");
+        for (int i = 0; i < 10; ++i) {
+            run_test( test_gecopy_dev, "gecopy_dev" );
+        }
     }
 }
 

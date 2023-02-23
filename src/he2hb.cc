@@ -36,15 +36,16 @@ void he2hb(
     assert( A.uplo() == Uplo::Lower );  // for now
 
     // Constants
-    // Assumes column major
-    const Layout layout = Layout::ColMajor;
-    const LayoutConvert layout_conv = LayoutConvert( layout );
-
-    const int priority_one = 1;
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
     const scalar_t half = 0.5;
     const real_t r_one  = 1.0;
+    const int priority_1 = 1;
+    const int batch_size_default = 0;
+    const int num_queues = 10;
+    // Assumes column major
+    const Layout layout = Layout::ColMajor;
+    const LayoutConvert layout_conv = LayoutConvert( layout );
 
     // Options
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
@@ -106,7 +107,6 @@ void he2hb(
     // Since W( 0, 0 ) is otherwise unused, store TVAVT there.
     W.tileInsert( 0, 0 );
     auto TVAVT = W.sub( 0, 0, 0, 0 );
-    int num_queues = 10;
 
     int my_rank = A.mpiRank();
 
@@ -154,7 +154,7 @@ void he2hb(
                     if (target == Target::Devices) {
                         A.allocateBatchArrays();
                         A.reserveDeviceWorkspace();
-                        W.allocateBatchArrays( 0, num_queues );
+                        W.allocateBatchArrays( batch_size_default, num_queues );
                         W.reserveDeviceWorkspace();
                     }
                 }
@@ -168,7 +168,7 @@ void he2hb(
                 internal::geqrf<Target::HostTask>(
                     std::move( A_panel ),
                     std::move( Tlocal_panel ),
-                    ib, max_panel_threads, priority_one);
+                    ib, max_panel_threads, priority_1 );
 
                 // triangle-triangle reductions
                 // ttqrt handles tile transfers internally
@@ -202,8 +202,12 @@ void he2hb(
                                           A.sub( i+1, nt-1, i, i ) }, i } );
                         }
                     }
-                    A.template listBcastMT<target>( bcast_list_V_first, layout, 5, set_hold );
-                    A.template listBcastMT<target>( bcast_list_V, layout, 6, set_hold );
+                    const int life_5 = 5;
+                    const int life_6 = 6;
+                    A.template listBcastMT<target>(
+                        bcast_list_V_first, layout, life_5, set_hold );
+                    A.template listBcastMT<target>(
+                        bcast_list_V, layout, life_6, set_hold );
 
                     if (first_indices.size() > 1) {
                         //BcastList bcast_list_T;
@@ -243,7 +247,9 @@ void he2hb(
                                 { i0, k, { Tlocal.sub( i, i, k+1, i ),
                                            Tlocal.sub( i+1, nt-1, i, i ) }, i } );
                         }
-                        Tlocal.template listBcastMT<target>( bcast_list_T, layout, 1, set_hold );
+                        const int life_1 = 1;
+                        Tlocal.template listBcastMT<target>(
+                            bcast_list_T, layout, life_1, set_hold );
                     }
                 } // task
 

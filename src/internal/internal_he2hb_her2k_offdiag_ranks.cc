@@ -78,7 +78,7 @@ void he2hb_her2k_offdiag_ranks(
                     A.tileGetForReading( i, 0, layout_conv );
                     C.tileGetForWriting( j, i, layout_conv );
                     // Aji -= Wjk Vik^H
-                    tile::gemm( alpha, B( j, 0 ), conjTranspose( A( i, 0 ) ),
+                    tile::gemm( alpha, B( j, 0 ), conj_transpose( A( i, 0 ) ),
                                 beta, C( j, i ) );
                     B.tileTick( j, 0 );
                     A.tileTick( i, 0 );

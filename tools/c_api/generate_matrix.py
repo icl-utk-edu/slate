@@ -162,8 +162,8 @@ matrix_routines = [
     ['int64_t',      '_n',                                 'slate_Matrix',                                                  'n()'],
     ['bool',         '_tileIsLocal',                       'slate_Matrix, int64_t i, int64_t j',                            'tileIsLocal(i, j)'],
     ['slate_Tile',   '_at',                                'slate_Matrix, int64_t i, int64_t j',                            'at(i, j)'],
-    ['void',         '_transpose_in_place',                'slate_Matrix',                                                  'transpose(*A_)'],
-    ['void',         '_conjTranspose_in_place',            'slate_Matrix',                                                  'conjTranspose(*A_)'],
+    ['void',         '_transpose_in_place',                'slate_Matrix',                                                  'transpose( *A_ )'],
+    ['void',         '_conj_transpose_in_place',           'slate_Matrix',                                                  'conj_transpose( *A_ )'],
 ]
 
 contents = ''
@@ -231,7 +231,7 @@ for matrix_type in matrix_types:
                 else:
                     if routine[1] == '_destroy':
                         contents0 += '    ' + routine[3] + ' A_;\n'
-                    elif (routine[1] == '_conjTranspose_in_place') or (routine[1] == '_transpose_in_place'):
+                    elif (routine[1] == '_conj_transpose_in_place') or (routine[1] == '_transpose_in_place'):
                         contents0 += '    *A_ = slate::' + routine[3] + ';\n'
                     else:
                         contents0 += '    A_->' + routine[3] + ';\n'

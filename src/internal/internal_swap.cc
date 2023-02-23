@@ -296,7 +296,7 @@ void permuteRows(
                         scalar_t* rows_r = remote_rows + nb*remote_offsets[r];
                         MPI_Irecv(rows_r, remote_count[r], row_type,
                                   r, tag, comm, &requests[request_count]);
-                        request_count++;
+                        ++request_count;
                     }
                 }
                 MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
@@ -343,7 +343,7 @@ void permuteRows(
                         scalar_t* rows_r = remote_rows + nb*remote_offsets[r];
                         MPI_Isend(rows_r, remote_count[r], row_type,
                                   r, tag, comm, &requests[request_count]);
-                        request_count++;
+                        ++request_count;
                     }
                 }
                 MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
@@ -597,9 +597,13 @@ void permuteRows(
                             remote_count[r] = remote_index[r] - remote_offsets[r];
                         }
 
+                        #if defined(SLATE_WITH_GPU_AWARE_MPI)
+                        scalar_t* remote_rows = remote_rows_dev;
+                        #else
                         int64_t remote_rows_size = remote_offsets[comm_size]*nb;
                         std::vector<scalar_t> remote_rows_vect (remote_rows_size);
                         scalar_t* remote_rows = remote_rows_vect.data();
+                        #endif
 
                         // Gather remote rows to root.
                         std::vector<MPI_Request> requests (comm_size);
@@ -610,13 +614,15 @@ void permuteRows(
                                 scalar_t* rows_r = remote_rows + nb*remote_offsets[r];
                                 MPI_Irecv(rows_r, remote_count[r], row_type,
                                           r, tag, comm, &requests[request_count]);
-                                request_count++;
+                                ++request_count;
                             }
                         }
                         MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
 
+                        #if !defined(SLATE_WITH_GPU_AWARE_MPI)
                         blas::device_memcpy<scalar_t>(remote_rows_dev, remote_rows,
                                                       remote_rows_size, *compute_queue);
+                        #endif
 
                         // Swap rows locally.
                         for (int64_t i = begin; i != end; i += inc) {
@@ -650,8 +656,10 @@ void permuteRows(
                         }
                         compute_queue->sync();
 
+                        #if !defined(SLATE_WITH_GPU_AWARE_MPI)
                         blas::device_memcpy<scalar_t>(remote_rows, remote_rows_dev,
                                                       remote_rows_size, *compute_queue);
+                        #endif
 
                         // Scatter remote rows.
                         // reuse requests array from before
@@ -662,7 +670,7 @@ void permuteRows(
                                 scalar_t* rows_r = remote_rows + nb*remote_offsets[r];
                                 MPI_Isend(rows_r, remote_count[r], row_type,
                                           r, tag, comm, &requests[request_count]);
-                                request_count++;
+                                ++request_count;
                             }
                         }
                         MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
@@ -683,7 +691,6 @@ void permuteRows(
                         }
 
                         if (remote_length > 0) {
-                            int64_t remote_rows_size = remote_length*nb;
 
                             // Pack pivot rows into workspace.
                             int64_t count = 0;
@@ -707,19 +714,25 @@ void permuteRows(
                             compute_queue->sync();
 
                             // Send rows, then recv updated rows.
-                            // todo: MPI GPU direct.
+                            #if defined(SLATE_WITH_GPU_AWARE_MPI)
+                            scalar_t* remote_rows = remote_rows_dev;
+                            #else
+                            int64_t remote_rows_size = remote_length*nb;
                             std::vector<scalar_t> remote_rows_vect (remote_rows_size);
                             scalar_t* remote_rows = remote_rows_vect.data();
                             blas::device_memcpy<scalar_t>(remote_rows, remote_rows_dev,
                                                           remote_rows_size, *compute_queue);
+                            #endif
 
                             MPI_Send(remote_rows, remote_length, row_type,
                                      root_rank, tag, comm);
                             MPI_Recv(remote_rows, remote_length, row_type,
                                      root_rank, tag, comm, MPI_STATUS_IGNORE);
 
+                            #if !defined(SLATE_WITH_GPU_AWARE_MPI)
                             blas::device_memcpy<scalar_t>(remote_rows_dev, remote_rows,
                                                           remote_rows_size, *compute_queue);
+                            #endif
 
                             // Unpack pivot rows from workspace.
                             count = 0;

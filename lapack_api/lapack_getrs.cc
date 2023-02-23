@@ -91,7 +91,7 @@ void slate_getrs(const char* transstr, const int n, const int nrhs, scalar_t* a,
                 int64_t tileIndex = (ipiv[p_count] - 1 - t_iter_add) / nb;
                 int64_t elementOffset = (ipiv[p_count] - 1 - t_iter_add) % nb;
                 *p_iter = Pivot(tileIndex, elementOffset);
-                p_count++;
+                ++p_count;
             }
             t_iter_add += nb;
         }
@@ -102,7 +102,7 @@ void slate_getrs(const char* transstr, const int n, const int nrhs, scalar_t* a,
     if (trans == slate::Op::Trans)
         opA = transpose(A);
     else if (trans == slate::Op::ConjTrans)
-        opA = conjTranspose(A);
+        opA = conj_transpose( A );
 
     // solve
     slate::getrs(opA, pivots, B, {

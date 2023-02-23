@@ -29,8 +29,8 @@ with PROJECT changed to the project's name.
 
 'version.c' is a source file containing the following #define for the id:
 
-    // PROJECT_ID is the Mercurial or git commit hash ID, either
-    // defined by `hg id` or `git rev-parse --short HEAD` in Makefile,
+    // PROJECT_ID is the git commit hash ID, either
+    // defined by `git rev-parse --short HEAD` in Makefile,
     // or defined here by make_release.py for release tar files. DO NOT EDIT.
     #ifndef PROJECT_ID
     #define PROJECT_ID "unknown"

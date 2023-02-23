@@ -74,7 +74,7 @@ int main(int argc, char* argv[])
     // seed random generator (do not use 1 => reset)
     int srand_seed = mpi_rank*13+17;
     srand(srand_seed);
-    for (int j=0; j<localma*localna; j++)
+    for (int j = 0; j < localma*localna; ++j)
         A[j] = 1+ 0.5 - (double)rand() / RAND_MAX;
 
     // Allocate space for pivots
@@ -91,19 +91,19 @@ int main(int argc, char* argv[])
     int localnb = numroc_(&nrhs, &nb, &mypcol, &izero, &npcol);
     double* B = (double*)malloc(localmb * localnb * sizeof(double));
     descinit_(descB, &n, &nrhs, &nb, &nb, &izero, &izero, &ictxt, &localmb, &info);
-    for (int j=0; j<localmb*localnb; j++)
+    for (int j = 0; j < localmb*localnb; ++j)
         B[j] = 0.5 - (double)rand() / RAND_MAX;
 
     // Save B for checking
     int descB_sav[9];
     double* B_sav = (double*)malloc(localmb * localnb * sizeof(double));
     descinit_(descB_sav, &n, &nrhs, &nb, &nb, &izero, &izero, &ictxt, &localmb, &info);
-    for (int j=0; j<localmb*localnb; j++)
+    for (int j = 0; j < localmb*localnb; ++j)
         B_sav[j] = B[j];
 
     // Use this to print a matrix if desired
-    // for (int i=0; i<localmb; i++)
-    //     for (int j=0; j<localnb; j++)
+    // for (int i=0; i<localmb; ++i)
+    //     for (int j = 0; j < localnb; ++j)
     //         printf("B[%d,%d][%d,%d] = %f\n", myprow, mypcol, i, j, B[j*localmb+i]); fflush(0);
 
     // Solve for x, Ax=B, storing x in B
@@ -119,7 +119,7 @@ int main(int argc, char* argv[])
 
     // Reset the contants of matrix A
     srand(srand_seed);
-    for (int j=0; j<localma*localna; j++)
+    for (int j = 0; j < localma*localna; ++j)
         A[j] = 1+ 0.5 - (double)rand() / RAND_MAX;
 
     // Get norm of original A
@@ -146,8 +146,8 @@ int main(int argc, char* argv[])
 
     // Check if B_sav - Ax is (near)zero
     if (mypnum == 0) printf("Printing if any A_orig * x - B_orig > 1e-9 ...\n");
-    for (int i=0; i<localmb; i++) {
-        for (int j=0; j<localnb; j++) {
+    for (int i=0; i<localmb; ++i) {
+        for (int j = 0; j < localnb; ++j) {
             if (B_sav[j*localmb+i] > 1e-9) {
                 printf("problem at B[%d,%d][%d,%d] = %g > 1e-9\n", myprow, mypcol, i, j, B_sav[j*localmb+i]); fflush(0);
             }

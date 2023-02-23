@@ -51,7 +51,7 @@ static inline void CORE_plrnt(int64_t m, int64_t n, scalar_t* A, int64_t lda,
         for (i = 0; i < m; ++i) {
             *tmp = 0.5f - ran*RndF_Mul;
             ran  = Rnd64_A*ran + Rnd64_C;
-            tmp++;
+            ++tmp;
         }
         tmp  += lda - i;
         jump += bigM;
@@ -69,34 +69,34 @@ static inline void CORE_plghe(scalar_t bump, int64_t m, int64_t n, scalar_t* A, 
     jump = (ull)m0 + (ull)n0*(ull)gM;
     /* Tile diagonal */
     if (m0 == n0) {
-        for (j = 0; j < n; j++) {
+        for (j = 0; j < n; ++j) {
             ran = Rnd64_jump(jump, seed);
 
-            for (i = j; i < m; i++) {
+            for (i = j; i < m; ++i) {
                 *tmp = 0.5f - ran*RndF_Mul;
                 ran  = Rnd64_A*ran + Rnd64_C;
-                tmp++;
+                ++tmp;
             }
             tmp  += (lda - i + j + 1);
             jump += gM + 1;
         }
-        for (j = 0; j < n; j++) {
+        for (j = 0; j < n; ++j) {
             A[j + j*lda] += bump;
 
-            for (i = 0; i < j; i++)
+            for (i = 0; i < j; ++i)
                 A[lda*j + i] = A[lda*i + j];
         }
     }
 
     /* Lower part */
     else if (m0 > n0) {
-        for (j = 0; j < n; j++) {
+        for (j = 0; j < n; ++j) {
             ran = Rnd64_jump(jump, seed);
 
-            for (i = 0; i < m; i++) {
+            for (i = 0; i < m; ++i) {
                 *tmp = 0.5f - ran*RndF_Mul;
                 ran  = Rnd64_A*ran + Rnd64_C;
-                tmp++;
+                ++tmp;
             }
             tmp  += (lda - i);
             jump += gM;
@@ -108,10 +108,10 @@ static inline void CORE_plghe(scalar_t bump, int64_t m, int64_t n, scalar_t* A, 
         /* Overwrite jump */
         jump = (ull)n0 + (ull)m0*(ull)gM;
 
-        for (i = 0; i < m; i++) {
+        for (i = 0; i < m; ++i) {
             ran = Rnd64_jump(jump, seed);
 
-            for (j = 0; j < n; j++) {
+            for (j = 0; j < n; ++j) {
                 A[j*lda + i] = 0.5f - ran*RndF_Mul;
                 ran = Rnd64_A*ran + Rnd64_C;
             }

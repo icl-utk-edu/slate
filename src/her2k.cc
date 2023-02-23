@@ -40,7 +40,7 @@ void her2k(
 
     // if upper, change to lower
     if (C.uplo() == Uplo::Upper)
-        C = conjTranspose(C);
+        C = conj_transpose( C );
 
     // A is mt-by-nt, C is mt-by-mt
     assert(A.mt() == C.mt());
@@ -58,8 +58,8 @@ void her2k(
     std::vector<uint8_t>  gemm_vector(A.nt());
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
-    const int default_priority = 0;
-    const int default_queue = 0;
+    const int priority_0 = 0;
+    const int queue_0 = 0;
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -122,7 +122,7 @@ void her2k(
                 alpha, std::move( A_col0 ),
                        std::move( B_col0 ),
                 beta,  std::move( C ),
-                default_priority, default_queue, layout, opts_local );
+                priority_0, queue_0, layout, opts_local );
 
             // Erase remote tiles on all devices including host
             A_col0.eraseRemoteWorkspace();
@@ -169,7 +169,7 @@ void her2k(
                     alpha,         std::move( A_colk ),
                                    std::move( B_colk ),
                     real_t( 1.0 ), std::move( C ),
-                    default_priority, default_queue, layout, opts_local );
+                    priority_0, queue_0, layout, opts_local );
 
                 // Erase remote tiles on all devices including host
                 A_colk.eraseRemoteWorkspace();
@@ -200,8 +200,8 @@ void her2k(
 /// matrix, and A and B are an n-by-k matrices.
 /// The matrices can be conjugate-transposed beforehand, e.g.,
 ///
-///     auto AT = slate::conjTranspose( A );
-///     auto BT = slate::conjTranspose( B );
+///     auto AT = slate::conj_transpose( A );
+///     auto BT = slate::conj_transpose( B );
 ///     slate::her2k( alpha, AT, BT, beta, C );
 ///
 /// Complexity (in real): $\approx 2 k n^{2}$ flops.

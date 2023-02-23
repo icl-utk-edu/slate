@@ -57,12 +57,17 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     using blas::conj;
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Constants
     const scalar_t one = 1.0;
-
-    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
-
+    const int priority_0 = 0;
+    const int priority_1 = 1;
+    const int queue_0 = 0;
+    const int queue_1 = 1;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+
+    // Options
+    int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
 
     // if on right, change to left by (conj)-transposing A and B to get
     // op(B) = op(A)^{-1} * op(B)
@@ -85,9 +90,6 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     int64_t mt = B.mt();
     int64_t nt = B.nt();
 
-    const int priority_one  = 1;
-    const int priority_zero = 0;
-
     Options opts2 = opts;
 
     // Requires 2+lookahead queues
@@ -100,9 +102,6 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
         // clean up tiles.
         opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
     }
-
-    const int64_t queue_0 = 0;
-    const int64_t queue_1 = 1;
 
     if (A.uplo() == Uplo::Lower) {
         // ----------------------------------------
@@ -122,7 +121,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     Side::Left,
                     alph, A.sub(k, k),
                           B.sub(k, k, 0, nt-1),
-                    priority_one, layout, queue_1, opts2);
+                    priority_1, layout, queue_1, opts2 );
 
                 // send A(i=k+1:mt-1, k) to ranks owning block row B(i, :)
                 BcastList bcast_list_A;
@@ -145,11 +144,12 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 #pragma omp task depend(in:row[k]) \
                                  depend(inout:row[i]) priority(1)
                 {
+                    int queue_ik1 = i-k+1;
                     internal::gemm<target>(
                         -one, A.sub(i, i, k, k),
                               B.sub(k, k, 0, nt-1),
                         alph, B.sub(i, i, 0, nt-1),
-                        layout, priority_one, i-k+1, opts2);
+                        layout, priority_1, queue_ik1, opts2 );
                 }
             }
 
@@ -167,7 +167,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         -one, A.sub(k+1+lookahead, mt-1, k, k),
                               B.sub(k, k, 0, nt-1),
                         alph, B.sub(k+1+lookahead, mt-1, 0, nt-1),
-                        layout, priority_zero, queue_0, opts2);
+                        layout, priority_0, queue_0, opts2 );
                 }
             }
 
@@ -206,7 +206,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                     Side::Left,
                     alph, A.sub(k, k),
                           B.sub(k, k, 0, nt-1),
-                    priority_one, layout, queue_1, opts2);
+                    priority_1, layout, queue_1, opts2 );
 
                 // send A(i=0:k-1, k) to ranks owning block row B(i, :)
                 BcastList bcast_list_A;
@@ -226,11 +226,12 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 #pragma omp task depend(in:row[k]) \
                                  depend(inout:row[i]) priority(1)
                 {
+                    int queue_ikl2 = i-k+lookahead+2;
                     internal::gemm<target>(
                         -one, A.sub(i, i, k, k),
                               B.sub(k, k, 0, nt-1),
                         alph, B.sub(i, i, 0, nt-1),
-                        layout, priority_one, i-k+lookahead+2, opts2);
+                        layout, priority_1, queue_ikl2, opts2 );
                 }
             }
 
@@ -247,7 +248,7 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         -one, A.sub(0, k-1-lookahead, k, k),
                               B.sub(k, k, 0, nt-1),
                         alph, B.sub(0, k-1-lookahead, 0, nt-1),
-                        layout, priority_zero, queue_0, opts2);
+                        layout, priority_0, queue_0, opts2 );
                 }
             }
 

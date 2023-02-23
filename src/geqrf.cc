@@ -70,12 +70,12 @@ void geqrf(
     using lapack::device_info_int;
     using blas::real;
 
+    // Constants
+    const int life_1 = 1;
+    const int priority_0 = 0;
+    const int priority_1 = 1;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-
-    const int priority_zero = 0;
-    const int priority_one = 1;
-    const int life_factor_one = 1;
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
@@ -107,11 +107,11 @@ void geqrf(
     std::vector< scalar_t* > dwork_array( num_devices, nullptr );
 
     if (target == Target::Devices) {
-        const int64_t batch_size_zero = 0; // use default batch size
-        const int64_t num_queues = 3 + lookahead;
-        A.allocateBatchArrays(batch_size_zero, num_queues);
+        const int64_t batch_size_default = 0; // use default batch size
+        int num_queues = 3 + lookahead;
+        A.allocateBatchArrays( batch_size_default, num_queues );
         A.reserveDeviceWorkspace();
-        W.allocateBatchArrays(batch_size_zero, num_queues);
+        W.allocateBatchArrays( batch_size_default, num_queues );
         // todo: this is demanding too much device workspace memory
         // only one tile-row of matrix W per MPI process is going to be used,
         // but W with size of whole A is being allocated
@@ -189,14 +189,14 @@ void geqrf(
             // todo: pass first_indices into internal geqrf or ttqrt?
 
             // panel, high priority
-            #pragma omp task depend(inout:block[k]) priority(priority_one)
+            #pragma omp task depend(inout:block[k]) priority(1)
             {
                 // local panel factorization
                 internal::geqrf<target>(
                                 std::move(A_panel),
                                 std::move(Tl_panel),
                                 dwork_array, work_size,
-                                ib, max_panel_threads, priority_one);
+                                ib, max_panel_threads, priority_1 );
 
                 // triangle-triangle reductions
                 // ttqrt handles tile transfers internally
@@ -219,8 +219,13 @@ void geqrf(
                             else
                                 bcast_list_V.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                         }
-                        A.template listBcast<target>(bcast_list_V_first, layout, 0, 3, set_hold);
-                        A.template listBcast<target>(bcast_list_V, layout, 0, 2, set_hold);
+                        const int tag_0  = 0;
+                        const int life_3 = 3;
+                        const int life_2 = 2;
+                        A.template listBcast<target>(
+                            bcast_list_V_first, layout, tag_0, life_3, set_hold );
+                        A.template listBcast<target>(
+                            bcast_list_V, layout, tag_0, life_2, set_hold );
                     }
 
                     // bcast Tlocal across row for trailing matrix update
@@ -229,7 +234,10 @@ void geqrf(
                         for (int64_t row : first_indices) {
                             bcast_list_T.push_back({row, k, {Tlocal.sub(row, row, k+1, A_nt-1)}});
                         }
-                        Tlocal.template listBcast<target>(bcast_list_T, layout, k, life_factor_one, set_hold);
+                        int tag_k = k;
+                        Tlocal.template listBcast<target>(
+                            bcast_list_T, layout,
+                            tag_k, life_1, set_hold );
                     }
 
                     // bcast Treduce across row for trailing matrix update
@@ -250,25 +258,27 @@ void geqrf(
 
                 #pragma omp task depend(in:block[k]) \
                                  depend(inout:block[j]) \
-                                 priority(priority_one)
+                                 priority(1)
                 {
                     // Apply local reflectors
+                    int queue_jk1 = j-k+1;
                     internal::unmqr<target>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, j),
-                                    priority_one, j-k+1);
+                                    priority_1, queue_jk1 );
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmqr handles the tile broadcasting internally
+                    int tag_j = j;
                     internal::ttmqr<Target::HostTask>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_j),
-                                    j);
+                                    tag_j );
                 }
             }
 
@@ -282,22 +292,24 @@ void geqrf(
                                  depend(inout:block[A_nt-1])
                 {
                     // Apply local reflectors.
+                    int queue_jk1 = j-k+1;
                     internal::unmqr<target>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, A_nt-1),
-                                    priority_zero, j-k+1);
+                                    priority_0, queue_jk1 );
 
                     // Apply triangle-triangle reduction reflectors.
                     // ttmqr handles the tile broadcasting internally.
+                    int tag_j = j;
                     internal::ttmqr<Target::HostTask>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_j),
-                                    j);
+                                    tag_j );
                 }
             }
             if (target == Target::Devices) {

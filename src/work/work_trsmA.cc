@@ -60,6 +60,12 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     using std::real;
     using std::imag;
 
+    // Constants
+    const scalar_t one = 1.0;
+    const int priority_0 = 0;
+    const int priority_1 = 1;
+    //const int queue_0 = 0;
+    const int queue_1 = 1;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -84,16 +90,9 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     int64_t mt = B.mt();
     int64_t nt = B.nt();
 
-    const int priority_one  = 1;
-    const int priority_zero = 0;
-
     // Requires 2 queues
     if (target == Target::Devices)
         assert(B.numComputeQueues() >= 2);
-    //const int64_t queue_0 = 0;
-    const int64_t queue_1 = 1;
-
-    const scalar_t one = 1.0;
 
     if (A.uplo() == Uplo::Lower) {
         // ----------------------------------------
@@ -144,7 +143,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         Side::Left,
                         one, A.sub(k, k),
                              B.sub(k, k, 0, nt-1),
-                        priority_one, layout, queue_1);
+                        priority_1, layout, queue_1 );
                 }
 
                 // Send the solution back to where it belongs
@@ -200,7 +199,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         -one, A.sub(i, i, k, k),
                               B.sub(k, k, 0, nt-1),
                         one,  B.sub(i, i, 0, nt-1),
-                        layout, priority_one);
+                        layout, priority_1 );
                 }
             }
 
@@ -232,7 +231,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         -one, A.sub(k+1+lookahead, mt-1, k, k),
                               B.sub(k, k, 0, nt-1),
                         one,  B.sub(k+1+lookahead, mt-1, 0, nt-1),
-                        layout, priority_zero); //, queue_0);
+                        layout, priority_0 ); //, queue_0 );
                 }
             }
         }
@@ -287,7 +286,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         Side::Left,
                         one, A.sub(k, k),
                              B.sub(k, k, 0, nt-1),
-                        priority_one, layout, queue_1);
+                        priority_1, layout, queue_1 );
                 }
 
                 // Send the solution back to where it belongs
@@ -343,7 +342,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         -one, A.sub(i, i, k, k),
                               B.sub(k, k, 0, nt-1),
                         one,  B.sub(i, i, 0, nt-1),
-                        layout, priority_one);
+                        layout, priority_1 );
                 }
             }
 
@@ -375,7 +374,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                         -one, A.sub(0, k-1-lookahead, k, k),
                               B.sub(k, k, 0, nt-1),
                         one,  B.sub(0, k-1-lookahead, 0, nt-1),
-                        layout, priority_zero); //, queue_0);
+                        layout, priority_0 ); //, queue_0 );
                 }
             }
         }

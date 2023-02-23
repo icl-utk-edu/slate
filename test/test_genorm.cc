@@ -98,7 +98,7 @@ void test_genorm_work(Params& params, bool run)
     if (trans == slate::Op::Trans)
         A = transpose(A);
     else if (trans == slate::Op::ConjTrans)
-        A = conjTranspose(A);
+        A = conj_transpose( A );
 
     print_matrix("A", A, params);
 

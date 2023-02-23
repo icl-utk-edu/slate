@@ -134,14 +134,18 @@ private:
 
 public:
     /// Returns shallow copy of op(A) that is transposed.
-    /// @see conjTranspose
+    /// @see conj_transpose
     template<typename MatrixType>
     friend MatrixType transpose(MatrixType& A);
 
     /// Returns shallow copy of op(A) that is conjugate-transpose.
     /// @see transpose
     template<typename MatrixType>
-    friend MatrixType conjTranspose(MatrixType& A);
+    friend MatrixType conj_transpose( MatrixType& A );
+
+    /// @deprecated
+    template<typename MatrixType>
+    friend MatrixType conjTranspose( MatrixType& A );
 
     template <typename T>
     friend void swap(BaseMatrix<T>& A, BaseMatrix<T>& B);
@@ -1181,7 +1185,7 @@ BaseMatrix<out_scalar_t> BaseMatrix<scalar_t>::baseEmptyLike(
         std::swap(mt, nt);
     }
     else if (this->op() == Op::ConjTrans) {
-        B = conjTranspose( B );
+        B = conj_transpose( B );
         std::swap(ioffset, joffset);
         std::swap(mt, nt);
     }
@@ -2384,7 +2388,7 @@ void BaseMatrix<scalar_t>::tileIbcastToSet(
 
         at(i, j, device).recv(new_vec[recv_from.front()], mpi_comm_, layout, tag);
         tileLayout(i, j, device, layout);
-        tileModified(i, j, device);
+        tileModified(i, j, device, true);
     }
 
     if (! send_to.empty()) {
@@ -2899,7 +2903,7 @@ void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
                                   ? in_layoutConvert
                                   : LayoutConvert::None;
 
-    for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+    for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
         int64_t i = std::get<0>(*iter);
         int64_t j = std::get<1>(*iter);
         {
@@ -2972,7 +2976,7 @@ void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
 
         // find number of already existing tiles on the device
         int64_t existing_tiles = 0;
-        for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+        for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
             int64_t i = std::get<0>(*iter);
             int64_t j = std::get<1>(*iter);
             existing_tiles += tileExists(i, j, device);
@@ -3075,7 +3079,7 @@ void BaseMatrix<scalar_t>::tileGetForWriting(std::set<ij_tuple>& tile_set,
 
         // find number of aready existing tiles on the device
         int64_t existing_tiles = 0;
-        for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+        for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
             int64_t i = std::get<0>(*iter);
             int64_t j = std::get<1>(*iter);
             existing_tiles += tileExists(i, j, device);
@@ -3146,7 +3150,7 @@ void BaseMatrix<scalar_t>::tileGetAndHold(std::set<ij_tuple>& tile_set, int devi
 
         // find number of aready existing tiles on the device
         int64_t existing_tiles = 0;
-        for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+        for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
             int64_t i = std::get<0>(*iter);
             int64_t j = std::get<1>(*iter);
             existing_tiles += tileExists(i, j, device);
@@ -3733,7 +3737,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
 
                 for (auto iter  = bucket->second.second.begin();
                           iter != bucket->second.second.end();
-                          iter++) {
+                          ++iter) {
                     storage_->releaseWorkspaceBuffer(*iter, device);
                 }
             }
@@ -3742,7 +3746,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
         queue->sync();
 
         if (reset) {
-            for (auto iter = tile_set.begin(); iter != tile_set.end(); iter++) {
+            for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
                 // #pragma omp task default(none)
                 {
                     int64_t i = std::get<0>(*iter);

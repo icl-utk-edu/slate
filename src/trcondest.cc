@@ -122,7 +122,7 @@ void trcondest(
         }
         else {
             // Multiply by inv(A^H).
-            auto AH = conjTranspose( A );
+            auto AH = conj_transpose( A );
             slate::trsmB(Side::Left, alpha, AH, X, opts);
         }
 

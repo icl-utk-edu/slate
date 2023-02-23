@@ -36,7 +36,7 @@ void trtrm(
 
     // if upper, change to lower
     if (A.uplo() == Uplo::Upper) {
-        A = conjTranspose(A);
+        A = conj_transpose( A );
     }
     int64_t A_nt = A.nt();
 
@@ -84,7 +84,7 @@ void trtrm(
                 auto H = HermitianMatrix<scalar_t>(A);
                 auto H0 = H.sub(0, k-1);
                 auto Ak = A.sub(k, k, 0, k-1);
-                Ak = conjTranspose(Ak);
+                Ak = conj_transpose( Ak );
 
                 internal::herk<target>(
                     real_t(1.0), std::move(Ak),
@@ -99,7 +99,7 @@ void trtrm(
 
                 // A(k, 0:k-1) = A(k, 0:k-1) * A(k, k)^H
                 auto Akk = A.sub(k, k);
-                Akk = conjTranspose(Akk);
+                Akk = conj_transpose( Akk );
                 internal::trmm<Target::HostTask>(
                     Side::Left,
                     one, std::move( Akk ), A.sub(k, k, 0, k-1) );

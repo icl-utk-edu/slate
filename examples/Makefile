@@ -11,7 +11,6 @@
 -include make.inc
 
 slate_dir      ?= ../install
-scalapack_libs ?= -lscalapack -lgfortran
 
 # CXXFLAGS add /opt/slate/include to include path.
 # LDFLAGS  add /opt/slate/lib     to lib path.
@@ -19,7 +18,7 @@ scalapack_libs ?= -lscalapack -lgfortran
 CXX      = mpicxx
 CXXFLAGS = -fopenmp -Wall -std=c++17 -MMD -I${slate_dir}/include
 LDFLAGS  = -fopenmp -L${slate_dir}/lib -Wl,-rpath,${slate_dir}/lib
-LIBS     =
+LIBS     = -llapackpp -lblaspp
 
 # auto-detect OS
 # $OSTYPE may not be exported from the shell, so echo it
@@ -30,6 +29,43 @@ ifneq ($(findstring darwin, $(ostype)),)
     LDD = otool -L
 else
     LDD = ldd
+endif
+
+#-------------------------------------------------------------------------------
+# BLAS and LAPACK
+
+ifeq ($(blas),mkl)
+    # MKL on MacOS doesn't include ScaLAPACK; use default.
+    # For others, link with appropriate version of ScaLAPACK and BLACS.
+    ifneq ($(macos),1)
+        ifeq ($(mkl_blacs),openmpi)
+            ifeq ($(blas_int),int64)
+                scalapack_libs ?= -lmkl_scalapack_ilp64 -lmkl_blacs_openmpi_ilp64
+            else
+                scalapack_libs ?= -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64
+            endif
+        else
+            ifeq ($(blas_int),int64)
+                scalapack_libs ?= -lmkl_scalapack_ilp64 -lmkl_blacs_intelmpi_ilp64
+            else
+                scalapack_libs ?= -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64
+            endif
+        endif
+    endif
+else ifeq ($(blas),essl)
+    # IBM ESSL
+    # todo threaded, int64
+    # hmm... likely LAPACK won't be int64 even if ESSL is.
+    LIBS += -lessl -llapack
+else ifeq ($(blas),openblas)
+    # OpenBLAS
+    LIBS += -lopenblas
+else ifeq ($(blas),libsci)
+    # Cray LibSci
+    # no LIBS to add
+    scalapack_libs ?=
+else
+    $(error ERROR: unknown `blas=$(blas)`. Set blas to one of mkl, essl, openblas, libsci.)
 endif
 
 #-------------------------------------------------------------------------------
@@ -51,7 +87,7 @@ else
 
     CXXFLAGS += -I${CUDA_ROOT}/include
     LDFLAGS  += -L${CUDA_ROOT}/lib -Wl,-rpath,${CUDA_ROOT}/lib
-    LIBS     += -lcublas -lcudart
+    LIBS     += -lcusolver -lcublas -lcudart
 endif
 
 #-------------------------------------------------------------------------------

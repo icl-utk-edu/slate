@@ -303,7 +303,7 @@ void test_gesv_work(Params& params, bool run)
             if (trans == slate::Op::Trans)
                 opA = transpose(A);
             else if (trans == slate::Op::ConjTrans)
-                opA = conjTranspose(A);
+                opA = conj_transpose( A );
 
             if (params.routine == "getrs"
                 || params.routine == "getrf")
@@ -350,7 +350,7 @@ void test_gesv_work(Params& params, bool run)
         if (trans == slate::Op::Trans)
             opAref = slate::transpose(Aref);
         else if (trans == slate::Op::ConjTrans)
-            opAref = slate::conj_transpose(Aref);
+            opAref = slate::conj_transpose( Aref );
         else
             opAref = Aref;
 

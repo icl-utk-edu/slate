@@ -154,7 +154,7 @@ void test_steqr2_work(Params& params, bool run)
         //
         //==================================================
         if (wantz) {
-            auto ZT = conjTranspose(Z);
+            auto ZT = conj_transpose( Z );
             set(zero, one, A);
             slate::gemm(one, ZT, Z, -one, A);
             params.ortho() = slate::norm(slate::Norm::Fro, A) / n;

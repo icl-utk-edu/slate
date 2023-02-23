@@ -45,7 +45,7 @@ void herk(
 
     // if upper, change to lower
     if (C.uplo() == Uplo::Upper)
-        C = conjTranspose(C);
+        C = conj_transpose( C );
 
     // A is mt-by-nt, C is mt-by-mt
     assert(A.mt() == C.mt());
@@ -55,8 +55,8 @@ void herk(
     std::vector<uint8_t>  gemm_vector(A.nt());
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
-    const int default_priority = 0;
-    const int default_queue = 0;
+    const int priority_0 = 0;
+    const int queue_0 = 0;
 
     if (target == Target::Devices) {
         C.allocateBatchArrays();
@@ -106,7 +106,7 @@ void herk(
             internal::herk<target>(
                 alpha, A.sub(0, A.mt()-1, 0, 0),
                 beta,  std::move(C),
-                default_priority, default_queue, layout, opts2);
+                priority_0, queue_0, layout, opts2);
 
             auto A_colblock = A.sub(0, A.mt()-1, 0, 0);
 
@@ -145,7 +145,7 @@ void herk(
                 internal::herk<target>(
                     alpha,       A.sub(0, A.mt()-1, k, k),
                     real_t(1.0), std::move(C),
-                    default_priority, default_queue, layout, opts2);
+                    priority_0, queue_0, layout, opts2);
 
                 auto A_colblock = A.sub(0, A.mt()-1, k, k);
 
@@ -176,7 +176,7 @@ void herk(
 /// matrix, and A is an n-by-k matrix.
 /// The matrices can be conjugate-transposed beforehand, e.g.,
 ///
-///     auto AT = slate::conjTranspose( A );
+///     auto AT = slate::conj_transpose( A );
 ///     slate::herk( alpha, AT, beta, C );
 ///
 /// Complexity (in real): $\approx k n^{2}$ flops.

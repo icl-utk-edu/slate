@@ -68,7 +68,7 @@ MatrixType transpose(MatrixType&& A)
 /// @ingroup util
 ///
 template<typename MatrixType>
-MatrixType conjTranspose(MatrixType& A)
+MatrixType conj_transpose( MatrixType& A )
 {
     MatrixType AT = A;
     if (AT.op_ == Op::NoTrans)
@@ -84,9 +84,9 @@ MatrixType conjTranspose(MatrixType& A)
 //--------------------------------------
 /// Converts rvalue refs to lvalue refs.
 template<typename MatrixType>
-MatrixType conjTranspose(MatrixType&& A)
+MatrixType conj_transpose( MatrixType&& A )
 {
-    return conjTranspose(A);
+    return conj_transpose( A );
 }
 
 //------------------------------------------------------------------------------
@@ -98,16 +98,18 @@ MatrixType conjTranspose(MatrixType&& A)
 /// @ingroup util
 ///
 template<typename MatrixType>
-MatrixType conj_transpose(MatrixType& A)
+[[deprecated( "Use conj_transpose instead. Remove 2024-02." )]]
+MatrixType conjTranspose( MatrixType& A )
 {
-    return conjTranspose(A);
+    return conj_transpose( A );
 }
 
 //--------------------------------------
 template<typename MatrixType>
-MatrixType conj_transpose(MatrixType&& A)
+[[deprecated( "Use conj_transpose instead. Remove 2024-02." )]]
+MatrixType conjTranspose( MatrixType&& A )
 {
-    return conjTranspose(A);
+    return conj_transpose( A );
 }
 
 //------------------------------------------------------------------------------
@@ -158,11 +160,11 @@ public:
 
     /// Returns shallow copy of tile that is conjugate-transposed.
     template <typename TileType>
-    friend TileType conjTranspose(TileType& A);
+    friend TileType conj_transpose( TileType& A );
 
     /// @deprecated
     template <typename TileType>
-    friend TileType conj_transpose(TileType& A);
+    friend TileType conjTranspose( TileType& A );
 
     /// Returns number of rows of op(A), where A is this tile
     int64_t mb() const { return (op_ == Op::NoTrans ? mb_ : nb_); }

@@ -132,8 +132,9 @@ void verify_data_transpose_(slate::Tile<scalar_t>& A, int expect_rank,
 //
 // todo: setup data with imaginary bits.
 template <typename scalar_t>
-void verify_data_conjTranspose_(slate::Tile<scalar_t>& A, int expect_rank,
-                                 const char* file, int line)
+void verify_data_conj_transpose_(
+    slate::Tile<scalar_t>& A, int expect_rank,
+    const char* file, int line)
 {
     try {
         using blas::conj;
@@ -152,8 +153,8 @@ void verify_data_conjTranspose_(slate::Tile<scalar_t>& A, int expect_rank,
     }
 }
 
-#define verify_data_conjTranspose(A, expect_rank) \
-        verify_data_conjTranspose_(A, expect_rank, __FILE__, __LINE__)
+#define verify_data_conj_transpose( A, expect_rank ) \
+        verify_data_conj_transpose_( A, expect_rank, __FILE__, __LINE__ )
 
 //------------------------------------------------------------------------------
 /// Tests Tile() default constructor and simple data accessors.
@@ -330,9 +331,9 @@ void test_transpose_complex()
 }
 
 //------------------------------------------------------------------------------
-/// Tests conjTranspose(Tile).
+/// Tests conj_transpose( Tile ).
 template <typename scalar_t>
-void test_conjTranspose()
+void test_conj_transpose()
 {
     const int m = 20;
     const int n = 30;
@@ -341,8 +342,8 @@ void test_conjTranspose()
     slate::Tile<scalar_t> A(m, n, data, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
 
-    //----- conjTranspose
-    auto AC = conjTranspose(A);
+    //----- conj_transpose
+    auto AC = conj_transpose( A );
 
     test_assert(AC.mb() == n);  // trans
     test_assert(AC.nb() == m);  // trans
@@ -356,10 +357,10 @@ void test_conjTranspose()
     test_assert(AC.bytes() == sizeof(scalar_t) * m * n);
     test_assert(AC.size() == size_t(m * n));
 
-    verify_data_conjTranspose(AC, mpi_rank);
+    verify_data_conj_transpose( AC, mpi_rank );
 
-    //----- conjTranspose again
-    auto ACC = conjTranspose(AC);
+    //----- conj_transpose again
+    auto ACC = conj_transpose( AC );
 
     test_assert(ACC.mb() == m);  // restored
     test_assert(ACC.nb() == n);  // restored
@@ -377,8 +378,8 @@ void test_conjTranspose()
 
     auto AT = transpose(A);
     if (AT.is_real) {
-        //----- transpose + conjTranspose for real
-        auto ATC = conjTranspose(AT);
+        //----- transpose + conj_transpose for real
+        auto ATC = conj_transpose( AT );
 
         test_assert(ATC.mb() == m);  // restored
         test_assert(ATC.nb() == n);  // restored
@@ -394,7 +395,7 @@ void test_conjTranspose()
 
         verify_data(ATC, mpi_rank);
 
-        //----- conjTranspose + transpose for real
+        //----- conj_transpose + transpose for real
         auto ACT = transpose(AC);
 
         test_assert(ACT.mb() == m);  // restored
@@ -412,20 +413,20 @@ void test_conjTranspose()
         verify_data(ATC, mpi_rank);
     }
     else {
-        //----- transpose + conjTranspose is unsupported for complex
-        test_assert_throw_std(conjTranspose(AT) /* std::exception */);
+        //----- transpose + conj_transpose is unsupported for complex
+        test_assert_throw_std(conj_transpose( AT ) /* std::exception */);
         test_assert_throw_std(transpose(AC)      /* std::exception */);
     }
 }
 
-void test_conjTranspose_double()
+void test_conj_transpose_double()
 {
-    test_conjTranspose< double >();
+    test_conj_transpose< double >();
 }
 
-void test_conjTranspose_complex()
+void test_conj_transpose_complex()
 {
-    test_conjTranspose< std::complex<double> >();
+    test_conj_transpose< std::complex<double> >();
 }
 
 //------------------------------------------------------------------------------
@@ -455,12 +456,12 @@ void test_lower()
     test_assert(ATT.uploLogical()  == blas::Uplo::Lower);
     test_assert(ATT.uploPhysical() == blas::Uplo::Lower);
 
-    auto AC = conjTranspose(A);
+    auto AC = conj_transpose( A );
     test_assert(AC.uplo()         == blas::Uplo::Upper);
     test_assert(AC.uploLogical()  == blas::Uplo::Upper);
     test_assert(AC.uploPhysical() == blas::Uplo::Lower);
 
-    auto ACC = conjTranspose(AC);
+    auto ACC = conj_transpose( AC );
     test_assert(ACC.uplo()         == blas::Uplo::Lower);
     test_assert(ACC.uploLogical()  == blas::Uplo::Lower);
     test_assert(ACC.uploPhysical() == blas::Uplo::Lower);
@@ -503,12 +504,12 @@ void test_upper()
     test_assert(ATT.uploLogical()  == blas::Uplo::Upper);
     test_assert(ATT.uploPhysical() == blas::Uplo::Upper);
 
-    auto AC = conjTranspose(A);
+    auto AC = conj_transpose( A );
     test_assert(AC.uplo()         == blas::Uplo::Lower);
     test_assert(AC.uploLogical()  == blas::Uplo::Lower);
     test_assert(AC.uploPhysical() == blas::Uplo::Upper);
 
-    auto ACC = conjTranspose(AC);
+    auto ACC = conj_transpose( AC );
     test_assert(ACC.uplo()         == blas::Uplo::Upper);
     test_assert(ACC.uploLogical()  == blas::Uplo::Upper);
     test_assert(ACC.uploPhysical() == blas::Uplo::Upper);
@@ -785,11 +786,11 @@ void run_tests()
             test_transpose_complex,
             "transpose, complex");
         run_test(
-            test_conjTranspose_double,
-            "conjTranspose, double");
+            test_conj_transpose_double,
+            "conj_transpose, double");
         run_test(
-            test_conjTranspose_complex,
-            "conjTranspose, complex");
+            test_conj_transpose_complex,
+            "conj_transpose, complex");
         run_test(
             test_lower_double,
             "uplo(lower)");

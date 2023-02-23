@@ -84,8 +84,8 @@ void slate_syr2k(const char* uplostr, const char* transastr, const int n, const 
         B = transpose(B);
     }
     else if (trans == blas::Op::ConjTrans) {
-        A = conjTranspose(A);
-        B = conjTranspose(B);
+        A = conj_transpose( A );
+        B = conj_transpose( B );
     }
     assert(A.mt() == C.mt());
     assert(B.mt() == C.mt());

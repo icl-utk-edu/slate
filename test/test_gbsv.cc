@@ -184,7 +184,7 @@ void test_gbsv_work(Params& params, bool run)
             if (trans == slate::Op::Trans)
                 opA = transpose(A);
             else if (trans == slate::Op::ConjTrans)
-                opA = conjTranspose(A);
+                opA = conj_transpose( A );
 
             slate::lu_solve_using_factor(opA, pivots, B, opts);
             // Using traditional BLAS/LAPACK name
@@ -257,7 +257,7 @@ void test_gbsv_work(Params& params, bool run)
         if (trans == slate::Op::Trans)
             opAorig = transpose(Aorig);
         else if (trans == slate::Op::ConjTrans)
-            opAorig = conjTranspose(Aorig);
+            opAorig = conj_transpose( Aorig );
         slate::multiply(-one, opAorig, B, one, Bref);
         // Using traditional BLAS/LAPACK name
         // slate::gbmm(-one, opAorig, B, one, Bref);

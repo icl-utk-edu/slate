@@ -30,8 +30,13 @@ void getrf_tntpiv(
     using lapack::device_info_int;
     using lapack::device_pivot_int;
 
-
+    // Constants
     const scalar_t one = 1.0;
+    const int life_1 = 1;
+    const int priority_0 = 0;
+    const int priority_1 = 1;
+    const int queue_0 = 0;
+    const int queue_1 = 1;
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
@@ -52,16 +57,9 @@ void getrf_tntpiv(
     if (target == Target::Devices)
         target_layout = Layout::RowMajor;
 
-    const int priority_one = 1;
-    const int priority_zero = 0;
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
-    int life_factor_one = 1;
-    const int queue_0 = 0;
-    const int queue_1 = 1;
-    const int64_t batch_size_zero = 0;
-    const int num_queues = 2 + lookahead;
     bool is_shared = target == Target::Devices && lookahead > 0;
     pivots.resize(min_mt_nt);
 
@@ -73,7 +71,9 @@ void getrf_tntpiv(
     std::vector< scalar_t* > dwork_array( num_devices, nullptr );
 
     if (target == Target::Devices) {
-        A.allocateBatchArrays(batch_size_zero, num_queues);
+        const int64_t batch_size_default = 0;
+        int num_queues = 2 + lookahead;
+        A.allocateBatchArrays( batch_size_default, num_queues );
         A.reserveDeviceWorkspace();
 
         int64_t mlocal = 0;
@@ -148,7 +148,7 @@ void getrf_tntpiv(
 
             // panel, high priority
             #pragma omp task depend(inout:column[k]) \
-                             priority(priority_one)
+                             priority(1)
             {
                 auto Apanel = Awork.sub( k, A_mt-1, k, k );
                 Apanel.insertLocalTiles();
@@ -158,7 +158,7 @@ void getrf_tntpiv(
                 internal::getrf_tntpiv_panel<target>(
                     A.sub(k, A_mt-1, k, k), std::move(Apanel),
                     dwork_array, work_size, diag_len, ib,
-                    pivots.at(k), max_panel_threads, priority_one);
+                    pivots.at(k), max_panel_threads, priority_1 );
 
                 // Root broadcasts the pivot to all ranks.
                 // todo: Panel ranks send the pivots to the right.
@@ -174,7 +174,7 @@ void getrf_tntpiv(
                 int tag_k = k;
                 internal::permuteRows<target>(
                     Direction::Forward, A.sub(k, A_mt-1, k, k),
-                    pivots.at(k), target_layout, priority_one, tag_k, queue_0);
+                    pivots.at(k), target_layout, priority_1, tag_k, queue_0 );
 
                 // Copy factored diagonal tile into place.
                 internal::copy<Target::HostTask>(
@@ -187,7 +187,7 @@ void getrf_tntpiv(
                                                A.sub(k, k, k+1, A_nt-1)}});
 
                 A.template listBcast<target>(
-                    bcast_list_A, host_layout, tag_k, life_factor_one, is_shared);
+                    bcast_list_A, host_layout, tag_k, life_1, is_shared );
 
                 Apanel.clear();
             }
@@ -196,7 +196,7 @@ void getrf_tntpiv(
             // A_k+1:mt,k = A_k+1:mt,k * Tkk^{-1}
             #pragma omp task depend(inout:column[k]) \
                              depend(inout:listBcastMT_token) \
-                             priority(priority_one)
+                             priority(1)
             {
                 auto Akk = A.sub(k, k, k, k);
                 auto Tkk = TriangularMatrix<scalar_t>(
@@ -206,7 +206,7 @@ void getrf_tntpiv(
                     Side::Right,
                     one, std::move(Tkk),
                          A.sub( k+1, A_mt-1, k, k ),
-                    priority_one, Layout::ColMajor, queue_0);
+                    priority_1, Layout::ColMajor, queue_0 );
 
                 BcastListTag bcast_list;
                 // bcast the tiles of the panel to the right hand side
@@ -216,20 +216,21 @@ void getrf_tntpiv(
                     bcast_list.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}, tag});
                 }
                 A.template listBcastMT<target>(
-                    bcast_list, Layout::ColMajor, life_factor_one, is_shared);
+                    bcast_list, Layout::ColMajor, life_1, is_shared );
             }
 
             // update lookahead column(s), high priority
             for (int64_t j = k+1; j < k+1+lookahead && j < A_nt; ++j) {
                 #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[j]) \
-                                 priority(priority_one)
+                                 priority(1)
                 {
                     // swap rows in A(k:mt-1, j)
                     int tag_j = j;
+                    int queue_jk1 = j-k+1;
                     internal::permuteRows<target>(
                         Direction::Forward, A.sub(k, A_mt-1, j, j), pivots.at(k),
-                        target_layout, priority_one, tag_j, j-k+1);
+                        target_layout, priority_1, tag_j, queue_jk1 );
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk = TriangularMatrix<scalar_t>(
@@ -239,7 +240,7 @@ void getrf_tntpiv(
                     internal::trsm<target>(
                         Side::Left,
                         one, std::move( Tkk ), A.sub( k, k, j, j ),
-                        priority_one, Layout::ColMajor, j-k+1);
+                        priority_1, Layout::ColMajor, queue_jk1 );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
@@ -252,7 +253,7 @@ void getrf_tntpiv(
                         -one, A.sub( k+1, A_mt-1, k, k ),
                               A.sub( k, k, j, j ),
                         one,  A.sub( k+1, A_mt-1, j, j ),
-                        host_layout, priority_one, j-k+1);
+                        host_layout, priority_1, queue_jk1 );
                 }
             }
 
@@ -266,7 +267,7 @@ void getrf_tntpiv(
                     int tag = 1 + k + A_mt * 2;
                     internal::permuteRows<Target::HostTask>(
                         Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
-                        host_layout, priority_zero, tag, queue_0);
+                        host_layout, priority_0, tag, queue_0 );
                 }
             }
 
@@ -281,7 +282,7 @@ void getrf_tntpiv(
                     int tag_kl1 = k+1+lookahead;
                     internal::permuteRows<target>(
                         Direction::Forward, A.sub(k, A_mt-1, k+1+lookahead, A_nt-1),
-                        pivots.at(k), target_layout, priority_zero, tag_kl1, queue_1);
+                        pivots.at(k), target_layout, priority_0, tag_kl1, queue_1 );
 
                     auto Akk = A.sub(k, k, k, k);
                     auto Tkk =
@@ -292,7 +293,7 @@ void getrf_tntpiv(
                         Side::Left,
                         one, std::move( Tkk ),
                              A.sub( k, k, k+1+lookahead, A_nt-1 ),
-                        priority_zero, Layout::ColMajor, queue_1);
+                        priority_0, Layout::ColMajor, queue_1 );
 
                     // send A(k, kl+1:A_nt-1) across A(k+1:mt-1, kl+1:nt-1)
                     BcastListTag bcast_list;
@@ -310,7 +311,7 @@ void getrf_tntpiv(
                         -one, A.sub( k+1, A_mt-1, k, k ),
                               A.sub( k, k, k+1+lookahead, A_nt-1 ),
                         one,  A.sub( k+1, A_mt-1, k+1+lookahead, A_nt-1 ),
-                        host_layout, priority_zero, queue_1);
+                        host_layout, priority_0, queue_1 );
                 }
             }
             if (is_shared) {

@@ -107,7 +107,6 @@ void he2hb(
     // Since W( 0, 0 ) is otherwise unused, store TVAVT there.
     W.tileInsert( 0, 0 );
     auto TVAVT = W.sub( 0, 0, 0, 0 );
-    int num_queues = 10;
     int     panel_device = -1;
     std::vector< scalar_t* > dwork_array( num_devices, nullptr );
     size_t  work_size    = 0;
@@ -118,7 +117,7 @@ void he2hb(
     if (target == Target::Devices) {
         A.allocateBatchArrays();
         A.reserveDeviceWorkspace();
-        W.allocateBatchArrays( 0, num_queues );
+        W.allocateBatchArrays( batch_size_default, num_queues );
         W.reserveDeviceWorkspace();
 
         // Find largest panel size and device for copying to

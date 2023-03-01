@@ -243,7 +243,7 @@ void test_heev_work(Params& params, bool run)
         print_matrix( "Z_out", Z, params ); // Relevant when slate::eig_vals takes Z
     }
 
-    if (ref) {
+    if (check || ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // Run reference routine from ScaLAPACK
 

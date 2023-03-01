@@ -125,7 +125,7 @@ void he2hb(
         int64_t mlocal = 0;
         int64_t first_panel_seen = -1;
         for (int64_t j = 0; j < A.nt(); ++j) {
-            for (int64_t i = j; i < A.mt(); ++i) {
+            for (int64_t i = j+1; i < A.mt(); ++i) {
                 if (A.tileIsLocal(i, j)) {
                     if (first_panel_seen < 0) {
                         first_panel_seen = j;
@@ -389,7 +389,8 @@ void he2hb(
 
                     #pragma omp task depend( inout:block[ k ] )
                     {
-                        if (A.tileExists( i0, k )) {
+                        int dev_i0k = A.tileDevice(i0, k);
+                        if (A.tileExists( i0, k, dev_i0k)) {
                             A.tileGetForWriting( i0, k, HostNum, layout_conv );
                             // Save V0 and set upper(V0) to identity, to avoid trmm's.
                             Asave.tileInsert( i0, k );
@@ -559,7 +560,8 @@ void he2hb(
                     // Restore V0.
                     #pragma omp task depend( inout:block[ k ] )
                     {
-                        if (A.tileExists( i0, k )) {
+                        int dev_i0k = A.tileDevice(i0, k);
+                        if (A.tileExists( i0, k, dev_i0k )) {
                             A.tileGetForWriting( i0, k, layout_conv );
                             tile::gecopy( Asave( i0, k ), A( i0, k ) );
                             Asave.tileErase( i0, k );

@@ -14,10 +14,7 @@
 
 namespace slate {
 
-// specialization namespace differentiates, e.g.,
-// internal::getrs from internal::specialization::getrs
-namespace internal {
-namespace specialization {
+namespace impl {
 
 using ProgressVector = std::vector< std::atomic<int64_t> >;
 
@@ -41,9 +38,10 @@ using ProgressVector = std::vector< std::atomic<int64_t> >;
 ///     Steps in each sweep have consecutive numbers.
 ///
 template <typename scalar_t>
-void hb2st_step(HermitianBandMatrix<scalar_t>& A,
-                Matrix<scalar_t>& V,
-                int64_t sweep, int64_t step)
+void hb2st_step(
+    HermitianBandMatrix<scalar_t>& A,
+    Matrix<scalar_t>& V,
+    int64_t sweep, int64_t step)
 {
     int64_t n = A.n();
     int64_t band = A.bandwidth();
@@ -138,10 +136,11 @@ void hb2st_step(HermitianBandMatrix<scalar_t>& A,
 ///     progress table for synchronizing threads
 ///
 template <typename scalar_t>
-void hb2st_run(HermitianBandMatrix<scalar_t>& A,
-               Matrix<scalar_t>& V,
-               int thread_rank, int thread_size,
-               ProgressVector& progress)
+void hb2st_run(
+    HermitianBandMatrix<scalar_t>& A,
+    Matrix<scalar_t>& V,
+    int thread_rank, int thread_size,
+    ProgressVector& progress)
 {
     int64_t n = A.n();
     int64_t band = A.bandwidth();
@@ -192,12 +191,13 @@ void hb2st_run(HermitianBandMatrix<scalar_t>& A,
 //------------------------------------------------------------------------------
 /// @internal
 /// Reduces a band Hermitian matrix to a tridiagonal matrix using bulge chasing.
-/// @ingroup heev_specialization
+/// @ingroup heev_impl
 ///
 template <Target target, typename scalar_t>
-void hb2st(slate::internal::TargetType<target>,
-           HermitianBandMatrix<scalar_t>& A,
-           Matrix<scalar_t>& V)
+void hb2st(
+    HermitianBandMatrix<scalar_t>& A,
+    Matrix<scalar_t>& V,
+    Options const& opts )
 {
     const scalar_t zero = 0.0;
 
@@ -283,21 +283,7 @@ void hb2st(slate::internal::TargetType<target>,
     A.bandwidth(1);
 }
 
-} // namespace specialization
-} // namespace internal
-
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup heev_specialization
-///
-template <Target target, typename scalar_t>
-void hb2st(HermitianBandMatrix<scalar_t>& A,
-           Matrix<scalar_t>& V,
-           Options const& opts)
-{
-    internal::specialization::hb2st(internal::TargetType<target>(),
-                                    A, V);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Reduces a band Hermitian matrix to a bidiagonal matrix using bulge chasing.
@@ -325,25 +311,26 @@ void hb2st(HermitianBandMatrix<scalar_t>& A,
 /// @ingroup heev_computational
 ///
 template <typename scalar_t>
-void hb2st(HermitianBandMatrix<scalar_t>& A,
-           Matrix<scalar_t>& V,
-           Options const& opts)
+void hb2st(
+    HermitianBandMatrix<scalar_t>& A,
+    Matrix<scalar_t>& V,
+    Options const& opts)
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            hb2st<Target::HostTask>(A, V, opts);
+            impl::hb2st<Target::HostTask>(A, V, opts);
             break;
         case Target::HostNest:
-            hb2st<Target::HostNest>(A, V, opts);
+            impl::hb2st<Target::HostNest>(A, V, opts);
             break;
         case Target::HostBatch:
-            hb2st<Target::HostBatch>(A, V, opts);
+            impl::hb2st<Target::HostBatch>(A, V, opts);
             break;
         case Target::Devices:
-            hb2st<Target::Devices>(A, V, opts);
+            impl::hb2st<Target::Devices>(A, V, opts);
             break;
     }
 }

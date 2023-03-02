@@ -76,6 +76,8 @@ void heev(
     const real_t sqrt_sml = sqrt( sml_num );
     const real_t sqrt_big = sqrt( big_num );
 
+    Target target = get_option( opts, Option::Target, Target::HostTask );
+
     // Scale matrix to allowable range, if necessary.
     real_t Anorm = norm( Norm::Max, A );
     real_t alpha = 1.0;
@@ -142,7 +144,7 @@ void heev(
             MPI_Comm_size(A.mpiComm(), &mpi_size));
 
         Matrix<scalar_t> Z1d(Z.m(), Z.n(), Z.tileNb(0), 1, mpi_size, Z.mpiComm());
-        Z1d.insertLocalTiles();
+        Z1d.insertLocalTiles(target);
         Z1d.redistribute(Z);
         // Back-transform: Z = Q1 * Q2 * Z.
         unmtr_hb2st( Side::Left, Op::NoTrans, V, Z1d, opts );

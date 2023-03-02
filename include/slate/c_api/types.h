@@ -39,6 +39,11 @@ typedef enum slate_TileReleaseStrategy {
     slate_TileReleaseStrategy_All      = 'A', ///< slate::TileReleaseStrategy::All
 } slate_TileReleaseStrategy;                  ///< slate::TileReleaseStrategy
 
+typedef enum slate_Algorithm {
+    slate_Algorithm_EigenvalueQR = 'Q',   ///< slate::Algorithm::EigenvalueQR
+    slate_Algorithm_EigenvalueDC = 'C',   ///< slate::Algorithm::EigenvalueDC
+}
+
 typedef enum slate_Option {
     slate_Option_ChunkSize,           ///< slate::Option::ChunkSize
     slate_Option_Lookahead,           ///< slate::Option::Lookahead
@@ -48,6 +53,7 @@ typedef enum slate_Option {
     slate_Option_Tolerance,           ///< slate::Option::Tolerance
     slate_Option_Target,              ///< slate::Option::Target
     slate_Option_TileReleaseStrategy, ///< slate::Option::TileReleaseStrategy
+    slate_Option_Algorithm,           ///< slate::Option::Algorithm
 } slate_Option;                       ///< slate::Option
 
 //------------------------------------------------------------------------------
@@ -62,6 +68,7 @@ typedef union slate_OptionValue {
     double        tolerance;
     slate_Target  target;
     slate_TileReleaseStrategy tile_release_strategy;
+    slate_Algorithm algorithm;
 } slate_OptionValue;                  ///< slate::OptionValue
 
 typedef struct slate_Options {

@@ -93,6 +93,7 @@ public:
     testsweeper::ParamEnum< slate::GridOrder >      grid_order;
     testsweeper::ParamEnum< slate::TileReleaseStrategy > tile_release_strategy;
     testsweeper::ParamEnum< slate::Dist >           dev_dist;
+    testsweeper::ParamEnum< slate::Algorithm >      algorithm; // heev
     testsweeper::ParamEnum< slate::Layout >         layout;
     testsweeper::ParamEnum< lapack::Job >           jobz;   // heev
     testsweeper::ParamEnum< lapack::Job >           jobvl;  // geev
@@ -364,6 +365,28 @@ inline const char* target2str(slate::Target target)
         case slate::Target::HostBatch: return "batch";
         case slate::Target::Devices:   return "dev";
         case slate::Target::Host:      return "host";
+    }
+    return "?";
+}
+
+// -----------------------------------------------------------------------------
+inline slate::Algorithm str2algorithm(const char* algorithm)
+{
+    std::string algorithm_ = algorithm;
+    std::transform(algorithm_.begin(), algorithm_.end(), algorithm_.begin(), ::tolower);
+    if (algorithm_ == "q" || algorithm_ == "qr")
+        return slate::Algorithm::EigenvalueQR;
+    else if (algorithm_ == "d" || algorithm_ == "dc")
+        return slate::Algorithm::EigenvalueDC;
+    else
+        throw slate::Exception("unknown algorithm");
+}
+
+inline const char* algorithm2str(slate::Algorithm algorithm)
+{
+    switch (algorithm) {
+        case slate::Algorithm::EigenvalueQR:  return "qr";
+        case slate::Algorithm::EigenvalueDC:  return "dc";
     }
     return "?";
 }

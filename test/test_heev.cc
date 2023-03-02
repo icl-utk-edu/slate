@@ -48,6 +48,7 @@ void test_heev_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    slate::Algorithm algorithm = params.algorithm();
     params.matrix.mark();
 
     // mark non-standard output values
@@ -66,7 +67,8 @@ void test_heev_work(Params& params, bool run)
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
-        {slate::Option::InnerBlocking, ib}
+        {slate::Option::InnerBlocking, ib},
+        {slate::Option::Algorithm, algorithm}
     };
 
     // MPI variables
@@ -82,6 +84,15 @@ void test_heev_work(Params& params, bool run)
     if (p != q) {
         params.msg() = "skipping: requires square process grid (p == q).";
         return;
+    }
+    if (ref) {
+        #ifdef SLATE_HAVE_SCALAPACK
+        if (jobz == slate::Job::NoVec
+             and algorithm == slate::Algorithm::EigenvalueDC) {
+            params.msg() = "skipping: novec is not supported by ScaLAPACK.";
+            return;
+        }
+        #endif
     }
 
     // Figure out local size.
@@ -271,16 +282,34 @@ void test_heev_work(Params& params, bool run)
             scalapack_descinit(Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
             slate_assert(info == 0);
 
+            // todo: do we still need the part below?
+            // set num threads appropriately for parallel BLAS if possible
+            //int omp_num_threads = 1;
+            //#pragma omp parallel
+            //{ omp_num_threads = omp_get_num_threads(); }
+            //int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
+
             // query for workspace size
             int64_t info_tst = 0;
-            int64_t lwork = -1, lrwork = -1;
+            int64_t lwork = -1, lrwork = -1, liwork = -1;
             std::vector<scalar_t> work(1);
             std::vector<real_t> rwork(1);
-            scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
-                            &Aref_data[0], 1, 1, A_desc,
-                            &Lambda_ref[0], // global output
-                            &Z_data[0], 1, 1, Z_desc,
-                            &work[0], -1, &rwork[0], -1, &info_tst);
+            std::vector<int> iwork(1);
+            if (algorithm == slate::Algorithm::EigenvalueQR) {
+                scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
+                                &Aref_data[0], 1, 1, A_desc,
+                                &Lambda_ref[0], // global output
+                                &Z_data[0], 1, 1, Z_desc,
+                                &work[0], -1, &rwork[0], -1, &info_tst);
+            }
+            else if (algorithm == slate::Algorithm::EigenvalueDC) {
+                scalapack_pheevd(job2str(jobz), uplo2str(uplo), n,
+                                &Aref_data[0], 1, 1, A_desc,
+                                &Lambda_ref[0], // global output
+                                &Z_data[0], 1, 1, Z_desc,
+                                &work[0], -1, &rwork[0], -1,
+                                &iwork[0], -1, &info_tst);
+            }
             slate_assert(info_tst == 0);
             lwork = int64_t( real( work[0] ) );
             work.resize(lwork);
@@ -289,30 +318,53 @@ void test_heev_work(Params& params, bool run)
                 lrwork = int64_t( real( rwork[0] ) );
                 rwork.resize(lrwork);
             }
+            if (algorithm == slate::Algorithm::EigenvalueDC) {
+                liwork = int64_t( iwork[0] );
+                iwork.resize(liwork);
+            }
 
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
-                            &Aref_data[0], 1, 1, A_desc,
-                            &Lambda_ref[0],
-                            &Z_data[0], 1, 1, Z_desc,
-                            &work[0], lwork, &rwork[0], lrwork, &info_tst);
+            if (algorithm == slate::Algorithm::EigenvalueQR) {
+                scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
+                                &Aref_data[0], 1, 1, A_desc,
+                                &Lambda_ref[0],
+                                &Z_data[0], 1, 1, Z_desc,
+                                &work[0], lwork, &rwork[0], lrwork, &info_tst);
+            }
+            else if (algorithm == slate::Algorithm::EigenvalueDC) {
+                scalapack_pheevd(job2str(jobz), uplo2str(uplo), n,
+                                &Aref_data[0], 1, 1, A_desc,
+                                &Lambda_ref[0],
+                                &Z_data[0], 1, 1, Z_desc,
+                                &work[0], lwork, &rwork[0], lrwork,
+                                &iwork[0], liwork, &info_tst);
+            }
             slate_assert(info_tst == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             params.ref_time() = time;
 
-            // Reference Scalapack was run, check reference against test
-            // Perform a local operation to get differences Lambda = Lambda - Lambda_ref
-            blas::axpy( n, -1.0, &Lambda_ref[0], 1, &Lambda[0], 1 );
+            // todo: do we still need this?
+            // Reset omp thread number
+            //slate_set_num_blas_threads(saved_num_threads);
 
-            // Relative forward error: || Lambda_ref - Lambda || / || Lambda_ref ||.
-            params.error() = blas::asum( n, &Lambda[0], 1 )
-                           / blas::asum( n, &Lambda_ref[0], 1 );
+            if (! ref_only) {
+                // Reference Scalapack was run, check reference against test
+                // Perform a local operation to get differences Lambda = Lambda - Lambda_ref
+                blas::axpy( n, -1.0, &Lambda_ref[0], 1, &Lambda[0], 1 );
 
-            params.okay() = params.okay() && (params.error() <= tol);
+                // Relative forward error: || Lambda_ref - Lambda || / || Lambda_ref ||.
+                params.error() = blas::asum( n, &Lambda[0], 1 )
+                    / blas::asum( n, &Lambda_ref[0], 1 );
+
+                params.okay() = params.okay() && (params.error() <= tol);
+            }
+            else {
+                params.okay() = -1; // no check since slate was not run, only ref was run
+            }
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering

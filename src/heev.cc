@@ -76,6 +76,8 @@ void heev(
     const real_t sqrt_sml = sqrt( sml_num );
     const real_t sqrt_big = sqrt( big_num );
 
+    slate::Algorithm algorithm  = get_option<slate::Algorithm>
+        ( opts, Option::Algorithm, slate::Algorithm::EigenvalueQR);
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     // Scale matrix to allowable range, if necessary.
@@ -135,17 +137,17 @@ void heev(
         // Bcast the Lambda and E vectors (diagonal and sup/super-diagonal).
         MPI_Bcast( &Lambda[0], n,   mpi_real_type, 0, A.mpiComm() );
         MPI_Bcast( &E[0],      n-1, mpi_real_type, 0, A.mpiComm() );
-        // QR iteration to get eigenvalues and eigenvectors of tridiagonal.
-        steqr2( Job::Vec, Lambda, E, Z );
-
-        int mpi_size;
-        // Find the total number of processors.
-        slate_mpi_call(
-            MPI_Comm_size(A.mpiComm(), &mpi_size));
-
-        Matrix<scalar_t> Z1d(Z.m(), Z.n(), Z.tileNb(0), 1, mpi_size, Z.mpiComm());
-        Z1d.insertLocalTiles(target);
-        Z1d.redistribute(Z);
+        if (algorithm == slate::Algorithm::EigenvalueQR) {
+            // QR iteration to get eigenvalues and eigenvectors of tridiagonal.
+            steqr2( Job::Vec, Lambda, E, Z );
+        }
+        else if (algorithm == slate::Algorithm::EigenvalueDC) {
+            if constexpr (std::is_same<scalar_t, double>::value) { // TODO: stedc should support complex
+                // todo: call stedc instead
+                //stedc( Lambda, E, Z );
+                steqr2( Job::Vec, Lambda, E, Z );
+            }
+        }
         // Back-transform: Z = Q1 * Q2 * Z.
         unmtr_hb2st( Side::Left, Op::NoTrans, V, Z1d, opts );
 

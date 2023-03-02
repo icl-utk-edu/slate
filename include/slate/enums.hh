@@ -54,6 +54,15 @@ template <Target> class TargetType {};
 } // namespace internal
 
 //------------------------------------------------------------------------------
+/// Algorithm used in routines.
+/// @ingroup enum
+///
+enum class Algorithm : char {
+    EigenvalueQR      = 'Q',    ///< QR iteration for finding eigenvalues
+    EigenvalueDC      = 'D',    ///< Divide and conquer algorithm for finding eigenvalues
+};
+
+//------------------------------------------------------------------------------
 /// Keys for options to pass to SLATE routines.
 /// @ingroup enum
 ///
@@ -65,6 +74,7 @@ enum class Option : char {
     MaxPanelThreads,    ///< max number of threads for panel, >= 1
     Tolerance,          ///< tolerance for iterative methods, default epsilon
     Target,             ///< computation method (@see Target)
+    Algorithm,          ///< algorithm used in the routine
     TileReleaseStrategy,///< tile releasing strategy used by routines
     HoldLocalWorkspace, ///< do not erase local workspace tiles for enabling
                         ///< resue of the tiles by the next routine

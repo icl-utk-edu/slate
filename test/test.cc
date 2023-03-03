@@ -13,6 +13,7 @@
 #include "test.hh"
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
+#include "matrix_generator.hh"
 
 // -----------------------------------------------------------------------------
 using testsweeper::ParamType;
@@ -296,9 +297,6 @@ std::vector< testsweeper::routines_t > routines = {
 
 Params::Params():
     ParamsBase(),
-    matrix(),
-    matrixB(),
-    matrixC(),
 
     // w = width
     // p = precision
@@ -457,12 +455,14 @@ Params::Params():
     matrixB.cond.name( "condB" );
     matrixB.condD.name( "condD_B" );
     matrixB.seed.name( "seedB" );
+    matrixB.label.name( "B" );
 
     // change names of matrix C's params
     matrixC.kind.name( "matrixC" );
     matrixC.cond.name( "condC" );
     matrixC.condD.name( "condD_C" );
     matrixC.seed.name( "seedC" );
+    matrixC.label.name( "C" );
 
     // mark standard set of output fields as used
     okay();
@@ -585,18 +585,18 @@ int run(int argc, char** argv)
             // Version, id.
             char buf[100];
             int version = slate::version();
-            snprintf(buf, sizeof(buf), "SLATE version %04d.%02d.%02d, id %s\n",
-                     version / 10000, (version % 10000) / 100, version % 100,
-                     slate::id());
+            snprintf( buf, sizeof(buf), "%% SLATE version %04d.%02d.%02d, id %s\n",
+                      version / 10000, (version % 10000) / 100, version % 100,
+                      slate::id() );
             std::string args = buf;
 
             // Input line.
-            args += "input:";
+            args += "% input:";
             for (int i = 0; i < argc; ++i) {
                 args += ' ';
                 args += argv[i];
             }
-            args += "\n";
+            args += "\n% ";
 
             // Date and time, MPI, OpenMP, CUDA specs.
             std::time_t now = std::time(nullptr);
@@ -693,13 +693,13 @@ int run(int argc, char** argv)
 
         // run tests
         int repeat = params.repeat();
-        testsweeper::DataType last = params.datatype();
+        testsweeper::DataType last_datatype = params.datatype();
 
         if (print)
             params.header();
         do {
-            if (params.datatype() != last) {
-                last = params.datatype();
+            if (params.datatype() != last_datatype) {
+                last_datatype = params.datatype();
                 if (print)
                     printf("\n");
             }
@@ -728,11 +728,24 @@ int run(int argc, char** argv)
         } while (params.next());
 
         if (print) {
+            std::vector< std::string > sort_matrix_labels(
+                    matrix_labels.size() + 1 );
+            for (auto& name_label_pair : matrix_labels) {
+                sort_matrix_labels[ name_label_pair.second ]
+                    = name_label_pair.first;
+            }
+            printf( "\n%% Matrix kinds:\n" );
+            for (size_t i = 1; i < sort_matrix_labels.size(); ++i) {
+                printf( "%% %2lld: %s\n",
+                        llong( i ), sort_matrix_labels[ i ].c_str() );
+            }
+            printf( "\n" );
+
             if (status) {
-                printf( "%d tests FAILED: %s\n", status, routine );
+                printf( "%% %d tests FAILED: %s\n", status, routine );
             }
             else {
-                printf( "All tests passed: %s\n", routine );
+                printf( "%% All tests passed: %s\n", routine );
             }
         }
 
@@ -756,46 +769,6 @@ int run(int argc, char** argv)
         return status;
     else
         return 0;
-}
-
-// -----------------------------------------------------------------------------
-// Compare a == b, bitwise. Returns true if a and b are both the same NaN value,
-// unlike (a == b) which is false for NaNs.
-bool same( double a, double b );
-
-bool same( double a, double b )
-{
-    return (memcmp( &a, &b, sizeof(double) ) == 0);
-}
-
-// -----------------------------------------------------------------------------
-// Prints line describing matrix kind and cond, if kind or cond changed.
-// Updates kind and cond to current values.
-void print_matrix_header(
-    MatrixParams& params, const char* caption,
-    std::string* matrix, double* cond, double* condD );
-
-void print_matrix_header(
-    MatrixParams& params, const char* caption,
-    std::string* matrix, double* cond, double* condD )
-{
-    if (params.kind.used() &&
-        (*matrix != params.kind() ||
-         ! same( *cond,  params.cond_used() ) ||
-         ! same( *condD, params.condD() )))
-    {
-        *matrix = params.kind();
-        *cond   = params.cond_used();
-        *condD  = params.condD();
-        printf( "%s: %s, cond(S) = ", caption, matrix->c_str() );
-        if (std::isnan( *cond ))
-            printf( "NA" );
-        else
-            printf( "%.2e", *cond );
-        if (! std::isnan(*condD))
-            printf( ", cond(D) = %.2e", *condD );
-        printf( "\n" );
-    }
 }
 
 // -----------------------------------------------------------------------------

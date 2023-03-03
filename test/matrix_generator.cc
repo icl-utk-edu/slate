@@ -986,6 +986,9 @@ void decode_matrix(
                  "will not generate SPD matrix; use rand instead.%s\n",
                  ansi_red, kind.c_str(), ansi_normal );
     }
+
+    if (params.marked())
+        params.generate_label();
 }
 
 // -----------------------------------------------------------------------------

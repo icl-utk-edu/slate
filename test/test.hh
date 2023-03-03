@@ -47,11 +47,6 @@ public:
 
     Params();
 
-    // ----- test matrix parameters
-    MatrixParams matrix;
-    MatrixParams matrixB;
-    MatrixParams matrixC;
-
     // Field members are explicitly public.
     // Order here determines output order.
     // ----- test framework parameters
@@ -94,6 +89,12 @@ public:
     testsweeper::ParamEnum< slate::GridOrder >      grid_order;
     testsweeper::ParamEnum< slate::TileReleaseStrategy > tile_release_strategy;
     testsweeper::ParamEnum< slate::Dist >           dev_dist;
+
+    // ----- test matrix parameters
+    MatrixParams matrix;
+    MatrixParams matrixB;
+    MatrixParams matrixC;
+
     testsweeper::ParamEnum< slate::Layout >         layout;
     testsweeper::ParamEnum< lapack::Job >           jobz;   // heev
     testsweeper::ParamEnum< lapack::Job >           jobvl;  // geev

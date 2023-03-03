@@ -70,6 +70,8 @@ enum class TestMatrixDist {
     none,
 };
 
+const double inf = std::numeric_limits<double>::infinity();
+
 // -----------------------------------------------------------------------------
 // ANSI color codes
 using testsweeper::ansi_esc;
@@ -948,69 +950,38 @@ void decode_matrix(
         throw std::exception();
     }
 
-    if (type == TestMatrixType::zero      ||
-        type == TestMatrixType::one       ||
-        type == TestMatrixType::identity  ||
-        type == TestMatrixType::jordan    ||
-        type == TestMatrixType::chebspec  ||
-        type == TestMatrixType::circul    ||
-        type == TestMatrixType::fiedler   ||
-        type == TestMatrixType::gfpp      ||
-        type == TestMatrixType::kms       ||
-        type == TestMatrixType::orthog    ||
-        type == TestMatrixType::riemann   ||
-        type == TestMatrixType::ris       ||
-        type == TestMatrixType::zielkeNS  ||
-        type == TestMatrixType::randb     ||
-        type == TestMatrixType::randr     ||
-        type == TestMatrixType::randn     ||
-        type == TestMatrixType::rands     ||
-        type == TestMatrixType::rand)
-    {
-        // warn first time if user set cond and matrix doesn't use it
-        static std::string last;
-        if (! cond_default && last != kind) {
-            last = kind;
-            fprintf( stderr, "%sWarning: matrix '%s' ignores cond %.2e.%s\n",
-                     ansi_red, kind.c_str(), params.cond(), ansi_normal );
-        }
-        params.cond_used() = testsweeper::no_data_flag;
+    // Check if cond is known or unused.
+    if (type == TestMatrixType::zero || type == TestMatrixType::one) {
+        cond = inf;
     }
-    else if (dist == TestMatrixDist::randn ||
-             dist == TestMatrixDist::rands ||
-             dist == TestMatrixDist::rand)
-    {
-        // warn first time if user set cond and distribution doesn't use it
-        static std::string last;
-        if (! cond_default && last != kind) {
-            last = kind;
-            fprintf( stderr, "%sWarning: matrix '%s': rand, randn, and rands "
-                     "singular/eigenvalue distributions ignore cond %.2e.%s\n",
-                     ansi_red, kind.c_str(), params.cond(), ansi_normal );
-        }
-        params.cond_used() = testsweeper::no_data_flag;
+    else if (type == TestMatrixType::identity
+             || type == TestMatrixType::orthog) {
+        cond = 1;
     }
-    else {
-        params.cond_used() = cond;
+    else if (type != TestMatrixType::svd
+             && type != TestMatrixType::heev
+             && type != TestMatrixType::poev
+             && type != TestMatrixType::geev
+             && type != TestMatrixType::geevx) {
+        // cond unused
+        cond = testsweeper::no_data_flag;
+    }
+    params.cond_used() = cond;
+
+    // Warn if user set condD and matrix type doesn't use it.
+    if (! condD_default
+        && type != TestMatrixType::svd
+        && type != TestMatrixType::heev
+        && type != TestMatrixType::poev)
+    {
+        fprintf( stderr, "%sWarning: matrix '%s' ignores condD %.2e.%s\n",
+                 ansi_red, kind.c_str(), params.condD(), ansi_normal );
     }
 
-    if (! (type == TestMatrixType::svd ||
-           type == TestMatrixType::heev ||
-           type == TestMatrixType::poev))
-    {
-        // warn first time if user set condD and matrix doesn't use it
-        static std::string last;
-        if (! condD_default && last != kind) {
-            last = kind;
-            fprintf( stderr, "%sWarning: matrix '%s' ignores condD %.2e.%s\n",
-                     ansi_red, kind.c_str(), params.condD(), ansi_normal );
-        }
-    }
-
-    if (type == TestMatrixType::poev &&
-        (dist == TestMatrixDist::rands ||
-         dist == TestMatrixDist::randn))
-    {
+    // Warn if SPD requested, but distribution is not > 0.
+    if (type == TestMatrixType::poev
+        && (dist == TestMatrixDist::rands
+            || dist == TestMatrixDist::randn)) {
         fprintf( stderr, "%sWarning: matrix '%s' using rands or randn "
                  "will not generate SPD matrix; use rand instead.%s\n",
                  ansi_red, kind.c_str(), ansi_normal );

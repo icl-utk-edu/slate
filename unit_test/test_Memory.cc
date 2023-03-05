@@ -201,7 +201,6 @@ void test_alloc_device()
     mem.clearHostBlocks();
     for (int dev = 0; dev < mem.num_devices_; ++dev) {
         mem.clearDeviceBlocks(dev, dev_queues[dev] );
-        dev_queues[dev]->sync();
     }
 
     // free the device specific queues
@@ -276,7 +275,6 @@ void test_clearDeviceBlocks()
     // deallocate/clear memory before the slate::Memory destructer
     mem.clearHostBlocks();
     for (int dev = 0; dev < mem.num_devices_; ++dev) {
-       dev_queues[dev]->sync();
         mem.clearDeviceBlocks(dev, dev_queues[dev] );
         dev_queues[dev]->sync();
     }

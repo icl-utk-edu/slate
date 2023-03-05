@@ -96,7 +96,7 @@ HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
 force: ;
 
 # Auto-detect CUDA, HIP.
-ifneq ($(filter-out auto cuda hip none, $(gpu_backend)),)
+ifneq ($(filter-out auto cuda hip onemkl none, $(gpu_backend)),)
     $(error ERROR: gpu_backend = $(gpu_backend) is unknown)
 endif
 
@@ -122,6 +122,12 @@ ifneq ($(cuda),1)
             $(error ERROR: gpu_backend = $(gpu_backend), but HIPCC = $(HIPCC) not found)
         endif
     endif
+endif
+
+omptarget = 0
+ifneq ($(filter auto onemkl, $(gpu_backend)),)
+    # enable the omptarget offload kernels in SLATE
+    omptarget = 1
 endif
 
 # Default LD=ld won't work; use CXX. Can override in make.inc or environment.
@@ -478,12 +484,37 @@ cuda_hdr := \
 hip_src := $(patsubst src/cuda/%.cu,src/hip/%.hip.cc,$(cuda_src))
 hip_hdr := $(patsubst src/cuda/%.cuh,src/hip/%.hip.hh,$(cuda_hdr))
 
+# OpenMP implementations of device kernels
+omptarget_src := \
+        src/omptarget/device_geadd.cc \
+        src/omptarget/device_gecopy.cc \
+        src/omptarget/device_genorm.cc \
+        src/omptarget/device_gescale.cc \
+        src/omptarget/device_gescale_row_col.cc \
+        src/omptarget/device_geset.cc \
+        src/omptarget/device_henorm.cc \
+        src/omptarget/device_synorm.cc \
+        src/omptarget/device_transpose.cc \
+        src/omptarget/device_trnorm.cc \
+        src/omptarget/device_tzadd.cc \
+        src/omptarget/device_tzcopy.cc \
+        src/omptarget/device_tzscale.cc \
+        src/omptarget/device_tzset.cc \
+        # End. Add alphabetically.
+
+omptarget_hdr := \
+        src/omptarget/device_util.hh
+
 ifeq ($(cuda),1)
     libslate_src += $(cuda_src)
 endif
 
 ifeq ($(hip),1)
     libslate_src += ${hip_src}
+endif
+
+ifeq ($(omptarget),1)
+    libslate_src += $(omptarget_src)
 endif
 
 # driver

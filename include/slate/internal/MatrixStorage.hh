@@ -744,7 +744,7 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
                 blas::Queue* queue = comm_queues_[device];
 
                 // Free host arrays.
-                blas::device_free_pinned(array_host_[i][device], *queue);
+                blas::host_free_pinned(array_host_[i][device], *queue);
 
                 // Free device arrays.
                 blas::device_free(array_dev_[i][device], *queue);
@@ -757,7 +757,7 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
 
                 // Allocate host arrays;
                 array_host_[i][device]
-                    = blas::device_malloc_pinned<scalar_t*>(batch_size*3, *queue);
+                    = blas::host_malloc_pinned<scalar_t*>(batch_size*3, *queue);
 
                 // Allocate device arrays.
                 array_dev_[i][device]
@@ -788,7 +788,7 @@ void MatrixStorage<scalar_t>::clearBatchArrays()
 
             // Free host arrays.
             if (array_host_[i][device] != nullptr) {
-                blas::device_free_pinned(array_host_[i][device], *queue);
+                blas::host_free_pinned(array_host_[i][device], *queue);
                 array_host_[i][device] = nullptr;
             }
 

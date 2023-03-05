@@ -34,9 +34,12 @@ blas::Diag diags[] = {
 
 slate::Target targets[] = {
     slate::Target::HostTask,
-    slate::Target::HostNest,
-    slate::Target::HostBatch,
     slate::Target::Devices,
+    slate::Target::HostBatch,
+#if not defined SLATE_HAVE_OMPTARGET
+    // OMPTARGET does not support HostNest
+    slate::Target::HostNest,
+#endif
 };
 
 // -----------------------------------------------------------------------------
@@ -838,20 +841,21 @@ int main(int argc, char** argv)
     }
 
     // run tests
+    int numtargets = sizeof(targets)/sizeof(targets[0]);
     if (do_all || do_gemm) {
-        for (int it = 0; it < 4; ++it) {
+        for (int it = 0; it < numtargets; ++it) {
             test_gemm<double>(targets[it]);
             test_gemm< std::complex<double> >(targets[it]);
         }
     }
     if (do_all || do_syrk) {
-        for (int it = 0; it < 4; ++it) {
+        for (int it = 0; it < numtargets; ++it) {
             test_syrk<double>(targets[it]);
             test_syrk< std::complex<double> >(targets[it]);
         }
     }
     if (do_all || do_herk) {
-        for (int it = 0; it < 4; ++it) {
+        for (int it = 0; it < numtargets; ++it) {
             test_herk<double>(targets[it]);
             test_herk< std::complex<double> >(targets[it]);
         }

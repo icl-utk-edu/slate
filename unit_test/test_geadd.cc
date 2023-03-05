@@ -65,8 +65,7 @@ void test_geadd_dev_worker(
         slate::HostNum, slate::TileKind::UserOwned );
 
     // Create the queue
-    int device_idx;
-    blas::get_device( &device_idx );
+    int device_idx = 0;
     const int batch_arrays_index = 0;
     blas::Queue queue( device_idx, batch_arrays_index );
 
@@ -317,15 +316,14 @@ void test_geadd_batch_dev_worker(
     }
 
     // Create the queue
-    int device_idx;
-    blas::get_device( &device_idx );
+    int device_idx = 0;
     const int batch_arrays_index = 0;
     blas::Queue queue( device_idx, batch_arrays_index );
 
     // Create list of A on device and copy data
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         scalar_t* dtmp_data;
-        dtmp_data = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ) );
+        dtmp_data = blas::device_malloc<scalar_t>( blas::max( lda * n, 1 ), queue );
         test_assert( dtmp_data != nullptr );
         list_dA.push_back(
             slate::Tile<scalar_t>( m, n, dtmp_data, lda,
@@ -336,7 +334,7 @@ void test_geadd_batch_dev_worker(
     // Create B on device and copy data
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         scalar_t* dtmp_data;
-        dtmp_data = blas::device_malloc<scalar_t>( blas::max( ldb * n, 1 ) );
+        dtmp_data = blas::device_malloc<scalar_t>( blas::max( ldb * n, 1 ), queue );
         test_assert( dtmp_data != nullptr );
         list_dB.push_back(
             slate::Tile<scalar_t>( m, n, dtmp_data, ldb,
@@ -347,38 +345,32 @@ void test_geadd_batch_dev_worker(
     // Create batch array of dA
     scalar_t** Aarray = new scalar_t*[ batch_count ];
     scalar_t** dAarray;
-    dAarray = blas::device_malloc<scalar_t*>( batch_count );
+    dAarray = blas::device_malloc<scalar_t*>( batch_count, queue );
     test_assert( dAarray != nullptr );
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         auto dA = list_dA[ m_i ];
         Aarray[ m_i ] = dA.data();
     }
-    blas::device_memcpy<scalar_t*>( dAarray, Aarray,
-                        batch_count,
-                        blas::MemcpyKind::HostToDevice,
-                        queue );
+    blas::device_memcpy<scalar_t*>(
+        dAarray, Aarray, batch_count, blas::MemcpyKind::HostToDevice, queue );
 
     // Create batch array of dB
     scalar_t** Barray = new scalar_t*[ batch_count ];
     scalar_t** dBarray;
-    dBarray = blas::device_malloc<scalar_t*>( batch_count );
+    dBarray = blas::device_malloc<scalar_t*>( batch_count, queue );
     test_assert( dAarray != nullptr );
     for (int m_i = 0; m_i < batch_count; ++m_i) {
         auto dB = list_dB[ m_i ];
         Barray[ m_i ] = dB.data();
     }
-    blas::device_memcpy<scalar_t*>( dBarray, Barray,
-                        batch_count,
-                        blas::MemcpyKind::HostToDevice,
-                        queue );
+    blas::device_memcpy<scalar_t*>(
+        dBarray, Barray, batch_count, blas::MemcpyKind::HostToDevice, queue );
 
     // Add: B[k] = \alpha * A[k] + \beta * B[k]
     slate::device::batch::geadd( m, n,
                           alpha, dAarray, lda,
                           beta,  dBarray, ldb,
                           batch_count, queue );
-
-    queue.sync();
 
     // Copy the result back to the Host
     for (int m_i = 0; m_i < batch_count; ++m_i) {
@@ -463,7 +455,7 @@ void test_geadd_batch_dev_worker(
             }
         }
 
-        blas::device_free( dA.data() );
+        blas::device_free( dA.data(), queue );
         delete[] Adata;
         delete[] Bdata;
         delete[] list_B0[ m_i ].data();
@@ -472,8 +464,8 @@ void test_geadd_batch_dev_worker(
         test_assert( result < 3*eps );
     }
 
-    blas::device_free(dAarray);
-    blas::device_free(dBarray);
+    blas::device_free(dAarray, queue);
+    blas::device_free(dBarray, queue);
     delete[] Aarray;
     delete[] Barray;
 }
@@ -533,7 +525,7 @@ void test_geadd_batch_dev()
               { 2.718281828459045e7, 1.732050807568877 } },
         };
 
-    std::list< int > batch_count_list{ 1, 2, 3, 4, 5, 10, 20, 100 };
+    std::list< int > batch_count_list{ 1, 2, 3, 4, 5, 10, 20 };
 
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );

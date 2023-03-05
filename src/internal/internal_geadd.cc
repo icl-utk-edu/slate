@@ -15,6 +15,9 @@ namespace slate {
 
 namespace device {
 
+// CUBLAS/ROCBLAS need complex translation, others do not
+#if ! defined( SLATE_HAVE_OMPTARGET)
+
 template <>
 void geadd(
     int64_t m, int64_t n,
@@ -65,6 +68,8 @@ void geadd(
 #endif
 }
 
+#endif // ! defined( SLATE_HAVE_OMPTARGET)
+
 #if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.
 template <>
@@ -88,6 +93,9 @@ void geadd(
 
 //==============================================================================
 namespace batch {
+
+// CUBLAS/ROCBLAS need complex translation, others do not
+#if ! defined( SLATE_HAVE_OMPTARGET )
 
 template <>
 void geadd(
@@ -138,6 +146,8 @@ void geadd(
           batch_count, queue);
 #endif
 }
+
+#endif // if ! defined( SLATE_HAVE_OMPTARGET)
 
 #if ! defined( SLATE_HAVE_DEVICE )
 // Specializations to allow compilation without CUDA or HIP.

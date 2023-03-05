@@ -1829,7 +1829,7 @@ void test_Matrix_MOSI()
 /// Test tileLayoutConvert.
 void test_Matrix_tileLayoutConvert()
 {
-    int lda = roundup(m, nb);
+    int lda = roundup(m, mb);
     std::vector<double> Ad( lda*n );
 
     int64_t iseed[4] = { 0, 1, 2, 3 };

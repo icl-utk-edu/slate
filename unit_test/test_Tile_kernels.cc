@@ -999,7 +999,7 @@ void test_device_convert_layout(int m, int n)
     int repeat = 1;
     int device = 0;
 
-    // setup batch A and copy B on CPU
+    // setup batch A (Adata, Atiles) and copy B=A (Bdata, Btiles) on CPU
     int64_t iseed[4] = { 0, 1, 2, 3 };
     std::vector< scalar_t > Adata( lda * n * batch_count );
     lapack::larnv( 1, iseed, Adata.size(), Adata.data() );
@@ -1011,7 +1011,7 @@ void test_device_convert_layout(int m, int n)
         Btiles[k] = slate::Tile<scalar_t>( m, n, &Bdata[ k*lda*n ], lda, HostNum, slate::TileKind::UserOwned );
     }
 
-    // copy batch A to GPU
+    // copy batch A to GPU (Adata_dev)
     scalar_t* Adata_dev;
     const int batch_arrays_index = 0;
     blas::Queue queue(device, batch_arrays_index);
@@ -1025,6 +1025,7 @@ void test_device_convert_layout(int m, int n)
     scalar_t* Adata_dev_ext;
     Adata_dev_ext = blas::device_malloc<scalar_t>(Adata.size(), queue);
 
+    // Setup Atiles_dev[], Aarray[], Aarray_ext[] on CPU with pointers to Adata_dev[]
     std::vector< slate::Tile<scalar_t> > Atiles_dev( batch_count );
     std::vector< scalar_t* > Aarray( batch_count );
     std::vector< scalar_t* > Aarray_ext( batch_count );
@@ -1033,6 +1034,7 @@ void test_device_convert_layout(int m, int n)
         Aarray[k] = &Adata_dev[ k*lda*n ];
         Aarray_ext[k] = &Adata_dev_ext[ k*lda*n ];
     }
+    // Allocate Aarray_dev[] on device and copy Aarray to it
     scalar_t** Aarray_dev;
     Aarray_dev = blas::device_malloc<scalar_t*>(Aarray.size(), queue);
     blas::device_memcpy<scalar_t*>(Aarray_dev, Aarray.data(),
@@ -1040,6 +1042,7 @@ void test_device_convert_layout(int m, int n)
                         blas::MemcpyKind::HostToDevice,
                         queue);
 
+    // Allocate Aarray_dev_ext[] on device and copy Aarray[] to it
     scalar_t** Aarray_dev_ext;
     Aarray_dev_ext = blas::device_malloc<scalar_t*>(Aarray_ext.size(), queue);
     blas::device_memcpy<scalar_t*>(Aarray_dev_ext, Aarray_ext.data(),
@@ -1081,11 +1084,10 @@ void test_device_convert_layout(int m, int n)
     }
     if (verbose)
         printf( "\n" );
-    blas::device_memcpy<scalar_t>(Adata.data(),
-                        (m == n ? Adata_dev : Adata_dev_ext),
-                        Adata.size(),
-                        blas::MemcpyKind::DeviceToHost,
-                        queue);
+
+    // copy transposed data Adata_dev/Adata_dev_ext from device to Adata (cpu)
+    blas::device_memcpy<scalar_t>(
+        Adata.data(), (m == n ? Adata_dev : Adata_dev_ext), Adata.size(), queue);
 
     //-----------------------------------------
     // Run kernel.
@@ -1137,11 +1139,14 @@ void test_device_convert_layout(int m, int n)
     }
     if (verbose)
         printf( "\n" );
+
+    // fetch Adata_dev/Adata_dev_ext from device to Adata (cpu)
     blas::device_memcpy<scalar_t>(Adata.data(),
                         (m == n ? Adata_dev : Adata_dev_ext),
                         Adata.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);
+    queue.sync(); // sync before looking at data
 
     if (verbose > 1) {
         printf("AT = [\n");
@@ -1166,11 +1171,7 @@ void test_device_convert_layout(int m, int n)
             for (int i = 0; i < m; ++i) {
                 // A(i, j) takes col/row-major into account.
                 // Check that actual data is transposed.
-                int Adata_lda;
-                if (m == n)
-                    Adata_lda = lda;
-                else
-                    Adata_lda = ldat;
+                int Adata_lda = ( m == n ? lda : ldat );
                 if (Adata[ j + i*Adata_lda + k*lda*n ] != Bdata[ i + j*lda + k*lda*n ]) {
                     printf( "Adata[ j(%d) + i(%d)*lda + k(%d)*lda*n ] %5.2f\n"
                             "Bdata[ i(%d) + j(%d)*lda + k(%d)*lda*n ] %5.2f\n",
@@ -1190,13 +1191,13 @@ void test_device_convert_layout(int m, int n)
 
 void test_device_convert_layout()
 {
-    int m = 256, n = 256;
+    int m = 256, n = m; // square tiles
     test_device_convert_layout< float  >(m, n);
     test_device_convert_layout< double >(m, n);
     test_device_convert_layout< std::complex<float>  >(m, n);
     test_device_convert_layout< std::complex<double> >(m, n);
 
-    m = 128;
+    m = 128; n = 256; // rectangular tiles
     test_device_convert_layout< float  >(m, n);
     test_device_convert_layout< double >(m, n);
     test_device_convert_layout< std::complex<float>  >(m, n);

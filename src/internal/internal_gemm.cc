@@ -141,6 +141,10 @@ void gemm(internal::TargetType<Target::HostNest>,
           Layout layout, int priority, int64_t queue_index,
           Options const& opts )
 {
+#if defined(SLATE_HAVE_OMPTARGET) || defined(SLATE_SKIP_HOSTNEST)
+    // SYCL/OMP-target-offload can't process this section
+    slate_not_implemented("Target::HostNest isn't supported in this configuration.");
+#else
     // check dimensions
     assert(A.nt() == 1);
     assert(B.mt() == 1);
@@ -178,6 +182,7 @@ void gemm(internal::TargetType<Target::HostNest>,
 
     if (err)
         slate_error(err_msg+", line "+std::to_string(err));
+#endif // omit if SLATE_HAVE_OMPTARGET
 }
 
 //------------------------------------------------------------------------------

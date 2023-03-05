@@ -660,8 +660,7 @@ void test_copyData(int align_host, int align_dev)
     setup_data(B);
     clear_data(B);
 
-    int device_idx;
-    blas::get_device(&device_idx);
+    int device_idx = 0;
     const int batch_arrays_index = 0;
     blas::Queue queue(device_idx, batch_arrays_index);
 

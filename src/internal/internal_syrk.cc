@@ -139,6 +139,10 @@ void syrk(internal::TargetType<Target::HostNest>,
           int priority, int queue_index, Layout layout,
           Options const& opts)
 {
+#if defined(SLATE_HAVE_OMPTARGET) || defined(SLATE_SKIP_HOSTNEST)
+    // SYCL/OMP-target-offload can't process this section
+    slate_not_implemented("Target::HostNest isn't supported in this configuration.");
+#else
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::syrk()
     //       to take layout param
@@ -204,6 +208,7 @@ void syrk(internal::TargetType<Target::HostNest>,
 
     if (err)
         throw std::exception();
+#endif // omit if SLATE_HAVE_OMPTARGET
 }
 
 //------------------------------------------------------------------------------

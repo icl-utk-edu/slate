@@ -165,8 +165,7 @@ void test_genorm_dev(Norm norm)
     int64_t iseed[4] = { 1, 0, 2, 3 };
     lapack::larnv( idist, iseed, lda * n, A.data() );
 
-    int device_idx;
-    blas::get_device(&device_idx);
+    int device_idx = 0;
     const int batch_arrays_index = 0;
     blas::Queue queue(device_idx, batch_arrays_index);
 
@@ -210,6 +209,7 @@ void test_genorm_dev(Norm norm)
                         values.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);
+    queue.sync(); // sync before looking at values
 
     // check column & row sum results
     if (norm == lapack::Norm::One) {
@@ -387,8 +387,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
     setup_data(A);
     A.uplo( uplo );
 
-    int device_idx;
-    blas::get_device(&device_idx);
+    int device_idx = 0;
     const int batch_arrays_index = 0;
     blas::Queue queue(device_idx, batch_arrays_index);
 
@@ -430,6 +429,7 @@ void test_synorm_dev(Norm norm, Uplo uplo)
                         values.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);
+    queue.sync(); // sync before looking at values
 
     // check column & row sum results
     if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
@@ -556,8 +556,7 @@ void test_synorm_offdiag_dev(Norm norm)
     slate::Tile<double> A(m, n, Adata, lda, -1, slate::TileKind::UserOwned);
     setup_data(A);
 
-    int device_idx;
-    blas::get_device(&device_idx);
+    int device_idx = 0;
     const int batch_arrays_index = 0;
     blas::Queue queue(device_idx, batch_arrays_index);
 
@@ -593,6 +592,7 @@ void test_synorm_offdiag_dev(Norm norm)
                         values.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);
+    queue.sync(); // sync before looking at values
 
     // check column & row sum results
     if (norm == lapack::Norm::One || norm == lapack::Norm::Inf) {
@@ -802,8 +802,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
     setup_data(A);
     A.uplo( uplo );
 
-    int device_idx;
-    blas::get_device(&device_idx);
+    int device_idx = 0;
     const int batch_arrays_index = 0;
     blas::Queue queue(device_idx, batch_arrays_index);
 
@@ -848,6 +847,7 @@ void test_trnorm_dev(Norm norm, Uplo uplo, Diag diag)
                         values.size(),
                         blas::MemcpyKind::DeviceToHost,
                         queue);
+    queue.sync(); // sync before looking at values
 
     // check column & row sum results
     if (norm == lapack::Norm::One) {

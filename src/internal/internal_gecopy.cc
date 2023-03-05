@@ -15,6 +15,9 @@
 namespace slate {
 namespace device {
 
+// CUBLAS/ROCBLAS need complex translation, others do not
+#if ! defined( SLATE_HAVE_OMPTARGET )
+
 template <>
 void gecopy(
     int64_t m, int64_t n,
@@ -98,6 +101,8 @@ void gecopy(
            batch_count, queue);
 #endif
 }
+
+#endif // ! defined( SLATE_HAVE_OMPTARGET )
 
 //---------------------------------------------------
 #if ! defined( SLATE_HAVE_DEVICE )

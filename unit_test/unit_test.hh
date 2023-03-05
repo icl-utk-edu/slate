@@ -190,7 +190,7 @@ std::string output_skip(SkipException& e);
 template <typename scalar_t>
 void run_test(test_tpl_function<scalar_t> func, const char* name)
 {
-    printf( output_test(
+    printf( "%s", output_test(
           std::string( name ) + " - " + type_name<scalar_t>() ).c_str() );
     fflush( stdout );
     ++g_total;
@@ -198,28 +198,28 @@ void run_test(test_tpl_function<scalar_t> func, const char* name)
     try {
         // run function
         func();
-        printf( output_pass().c_str() );
+        printf( "%s", output_pass().c_str() );
         ++g_pass;
     }
     catch (SkipException& e) {
-        printf( output_skip(e).c_str() );
+        printf( "%s", output_skip(e).c_str() );
         --g_total;
         ++g_skip;
     }
     catch (AssertError& e) {
-        printf( output_fail(e).c_str() );
+        printf( "%s", output_fail(e).c_str() );
         ++g_fail;
     }
     catch (std::exception& e) {
         AssertError err( "unexpected exception: " + std::string( e.what() ),
                         __FILE__, __LINE__ );
-        printf( output_fail( err ).c_str() );
+        printf( "%s", output_fail( err ).c_str() );
         ++g_fail;
     }
     catch (...) {
         AssertError err( "unexpected exception: (unknown type)",
                         __FILE__, __LINE__ );
-        printf( output_fail( err ).c_str() );
+        printf( "%s", output_fail( err ).c_str() );
         ++g_fail;
     }
 }

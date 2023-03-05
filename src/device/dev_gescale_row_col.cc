@@ -44,6 +44,9 @@ void gescale_row_col_batch(
 #elif defined( BLAS_HAVE_ROCBLAS )
     typedef hipFloatComplex devFloatComplex;
     typedef hipDoubleComplex devDoubleComplex;
+#else // no std::complex mapping
+    typedef std::complex<float> devFloatComplex;
+    typedef std::complex<double> devDoubleComplex;
 #endif
 
 //----------------------------------------

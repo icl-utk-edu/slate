@@ -99,8 +99,8 @@ for its options, which include:
     blas_threaded
         Whether to search for multi-threaded or sequential BLAS.
         Currently applies to Intel MKL and IBM ESSL. One of:
-        1               multi-threaded BLAS
-        0               sequential BLAS (default in SLATE)
+        1 (yes)         multi-threaded BLAS
+        0 (no)          sequential BLAS (default in SLATE)
 
     blas_fortran
         Fortran interface to use. Currently applies only to Intel MKL.
@@ -127,6 +127,15 @@ for its options, which include:
         cuda            build with CUDA support
         hip             build with HIP/ROCm support
         none            do not build with GPU backend
+
+    gpu_aware_mpi
+        Whether MPI can transfer directly from GPU memory. Often this has
+        additional runtime requirements, such as
+        using `jsrun --smpiargs="-gpu"` on Summit,
+        or setting `export MPICH_GPU_SUPPORT_ENABLED=1` on Frontier;
+        see your platform's documentation.
+        1 (yes)         enable transfers from GPU memory
+        0 (no)          transfer only from CPU memory (default)
 
     color
         Whether to use ANSI colors in output. One of:

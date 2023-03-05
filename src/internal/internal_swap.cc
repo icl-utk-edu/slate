@@ -597,12 +597,12 @@ void permuteRows(
                             remote_count[r] = remote_index[r] - remote_offsets[r];
                         }
 
-                        #if defined(SLATE_WITH_GPU_AWARE_MPI)
-                        scalar_t* remote_rows = remote_rows_dev;
+                        #if defined( SLATE_HAVE_GPU_AWARE_MPI )
+                            scalar_t* remote_rows = remote_rows_dev;
                         #else
-                        int64_t remote_rows_size = remote_offsets[comm_size]*nb;
-                        std::vector<scalar_t> remote_rows_vect (remote_rows_size);
-                        scalar_t* remote_rows = remote_rows_vect.data();
+                            int64_t remote_rows_size = remote_offsets[comm_size]*nb;
+                            std::vector<scalar_t> remote_rows_vect( remote_rows_size );
+                            scalar_t* remote_rows = remote_rows_vect.data();
                         #endif
 
                         // Gather remote rows to root.
@@ -619,9 +619,10 @@ void permuteRows(
                         }
                         MPI_Waitall(request_count, requests.data(), MPI_STATUSES_IGNORE);
 
-                        #if !defined(SLATE_WITH_GPU_AWARE_MPI)
-                        blas::device_memcpy<scalar_t>(remote_rows_dev, remote_rows,
-                                                      remote_rows_size, *compute_queue);
+                        #if ! defined( SLATE_HAVE_GPU_AWARE_MPI )
+                            blas::device_memcpy<scalar_t>(
+                                remote_rows_dev, remote_rows,
+                                remote_rows_size, *compute_queue );
                         #endif
 
                         // Swap rows locally.
@@ -656,9 +657,10 @@ void permuteRows(
                         }
                         compute_queue->sync();
 
-                        #if !defined(SLATE_WITH_GPU_AWARE_MPI)
-                        blas::device_memcpy<scalar_t>(remote_rows, remote_rows_dev,
-                                                      remote_rows_size, *compute_queue);
+                        #if ! defined( SLATE_HAVE_GPU_AWARE_MPI )
+                            blas::device_memcpy<scalar_t>(
+                                remote_rows, remote_rows_dev,
+                                remote_rows_size, *compute_queue );
                         #endif
 
                         // Scatter remote rows.
@@ -714,14 +716,15 @@ void permuteRows(
                             compute_queue->sync();
 
                             // Send rows, then recv updated rows.
-                            #if defined(SLATE_WITH_GPU_AWARE_MPI)
-                            scalar_t* remote_rows = remote_rows_dev;
+                            #if defined( SLATE_HAVE_GPU_AWARE_MPI )
+                                scalar_t* remote_rows = remote_rows_dev;
                             #else
-                            int64_t remote_rows_size = remote_length*nb;
-                            std::vector<scalar_t> remote_rows_vect (remote_rows_size);
-                            scalar_t* remote_rows = remote_rows_vect.data();
-                            blas::device_memcpy<scalar_t>(remote_rows, remote_rows_dev,
-                                                          remote_rows_size, *compute_queue);
+                                int64_t remote_rows_size = remote_length*nb;
+                                std::vector<scalar_t> remote_rows_vect( remote_rows_size );
+                                scalar_t* remote_rows = remote_rows_vect.data();
+                                blas::device_memcpy<scalar_t>(
+                                    remote_rows, remote_rows_dev,
+                                    remote_rows_size, *compute_queue );
                             #endif
 
                             MPI_Send(remote_rows, remote_length, row_type,
@@ -729,9 +732,10 @@ void permuteRows(
                             MPI_Recv(remote_rows, remote_length, row_type,
                                      root_rank, tag, comm, MPI_STATUS_IGNORE);
 
-                            #if !defined(SLATE_WITH_GPU_AWARE_MPI)
-                            blas::device_memcpy<scalar_t>(remote_rows_dev, remote_rows,
-                                                          remote_rows_size, *compute_queue);
+                            #if ! defined( SLATE_HAVE_GPU_AWARE_MPI )
+                                blas::device_memcpy<scalar_t>(
+                                    remote_rows_dev, remote_rows,
+                                    remote_rows_size, *compute_queue );
                             #endif
 
                             // Unpack pivot rows from workspace.

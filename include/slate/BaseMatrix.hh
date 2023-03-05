@@ -2376,11 +2376,12 @@ void BaseMatrix<scalar_t>::tileIbcastToSet(
                                recv_from, send_to);
 
     int device = HostNum;
-    #if defined(SLATE_WITH_GPU_AWARE_MPI)
-    if (target == Target::Devices) {
-        device = tileDevice(i, j);
-    }
+    #if defined( SLATE_HAVE_GPU_AWARE_MPI )
+        if (target == Target::Devices) {
+            device = tileDevice( i, j );
+        }
     #endif
+
     // Receive.
     if (! recv_from.empty()) {
         // read tile

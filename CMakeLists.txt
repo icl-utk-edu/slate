@@ -50,6 +50,7 @@ option( use_mpi "Use MPI, if available" true )
 option( use_openmp "Use OpenMP, if available" true )
 option( c_api "Build C API" false )
 # todo: option( fortran_api "Build Fortran API. Requires C API." false )
+option( gpu_aware_mpi "Whether MPI can transfer from GPU memory" false )
 
 set( gpu_backend "auto" CACHE STRING "GPU backend to use" )
 set_property( CACHE gpu_backend PROPERTY STRINGS
@@ -339,6 +340,10 @@ if (MPI_FOUND)
     message( DEBUG "mpi_cxx_defines = '${mpi_cxx_defines}'" )
     set_target_properties( MPI::MPI_CXX PROPERTIES INTERFACE_COMPILE_OPTIONS
                            "${mpi_cxx_defines}" )
+
+    if (gpu_aware_mpi)
+        target_compile_definitions( slate PUBLIC "-DSLATE_HAVE_GPU_AWARE_MPI" )
+    endif()
 else()
     message( STATUS "No MPI support in SLATE" )
     target_sources(

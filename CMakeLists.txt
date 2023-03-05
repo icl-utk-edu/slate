@@ -56,19 +56,6 @@ set( gpu_backend "auto" CACHE STRING "GPU backend to use" )
 set_property( CACHE gpu_backend PROPERTY STRINGS
               auto cuda hip none )
 
-set( use_cuda "" CACHE STRING "Use CUDA, if available [deprecated: use gpu_backend]" )
-set( use_hip  "" CACHE STRING "Use HIP, if available [deprecated: use gpu_backend]" )
-
-if (use_cuda)
-    message( DEPRECATION "WARNING: Variable `use_cuda=$(use_cuda)` is deprecated; setting `gpu_backend = cuda`" )
-    set( gpu_backend "cuda" CACHE STRING "" )
-endif()
-
-if (use_hip)
-    message( DEPRECATION "WARNING: Variable `use_hip=$(use_hip)` is deprecated; setting `gpu_backend = hip`" )
-    set( gpu_backend "hip" CACHE STRING "" )
-endif()
-
 # Default prefix=/opt/slate
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT
     AND slate_is_project)
@@ -132,8 +119,6 @@ BUILD_SHARED_LIBS      = ${BUILD_SHARED_LIBS}
 build_tests            = ${build_tests}
 color                  = ${color}
 gpu_backend            = ${gpu_backend}
-use_cuda               = ${use_cuda}
-use_hip                = ${use_hip}
 use_mpi                = ${use_mpi}
 use_openmp             = ${use_openmp}
 c_api                  = ${c_api}

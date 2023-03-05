@@ -305,9 +305,6 @@ installed versions, it will use those instead of compiling new versions.
 Besides the Environment variables and Options listed above, additional
 options include:
 
-    use_cuda [deprecated; use gpu_backend]
-    use_hip  [deprecated; use gpu_backend]
-
     CMAKE_CUDA_ARCHITECTURES
         CUDA architectures, as semi-colon delimited list of 2-digit numbers.
         Each number can take optional `-real` or `-virtual` suffix.

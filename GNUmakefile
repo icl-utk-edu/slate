@@ -69,6 +69,8 @@ md5sum          ?= tools/md5sum.pl
 
 gpu_backend     ?= auto
 
+python          ?= python3
+
 # Strip whitespace from variables, in case make.inc had trailing spaces.
 mpi             := $(strip $(mpi))
 blas            := $(strip $(blas))
@@ -866,15 +868,15 @@ docs:
 # C API
 ifeq ($(c_api),1)
     include/slate/c_api/wrappers.h: src/c_api/wrappers.cc
-		python tools/c_api/generate_wrappers.py $< $@ \
+		${python} tools/c_api/generate_wrappers.py $< $@ \
 			src/c_api/wrappers_precisions.cc
 
     include/slate/c_api/matrix.h: include/slate/Tile.hh
-		python tools/c_api/generate_matrix.py $< $@ \
+		${python} tools/c_api/generate_matrix.py $< $@ \
 			src/c_api/matrix.cc
 
     include/slate/c_api/util.hh: include/slate/c_api/types.h
-		python tools/c_api/generate_util.py $< $@ \
+		${python} tools/c_api/generate_util.py $< $@ \
 			src/c_api/util.cc
 
     src/c_api/wrappers_precisions.cc: include/slate/c_api/wrappers.h
@@ -893,7 +895,7 @@ ifeq ($(fortran_api),1)
     src/fortran/slate_module.f90: include/slate/c_api/wrappers.h \
                                   include/slate/c_api/types.h \
                                   include/slate/c_api/matrix.h
-		python tools/fortran/generate_fortran_module.py $^ --output $@
+		${python} tools/fortran/generate_fortran_module.py $^ --output $@
 
     generate: src/fortran/slate_module.f90
 endif
@@ -995,8 +997,8 @@ test/check: check
 unit_test/check: check
 
 check: test unit_test
-	cd test; python run_tests.py --quick gesv posv gels heev gesvd
-	cd unit_test; python run_tests.py
+	cd test; ${python} run_tests.py --quick gesv posv gels heev gesvd
+	cd unit_test; ${python} run_tests.py
 
 #-------------------------------------------------------------------------------
 # unit testers

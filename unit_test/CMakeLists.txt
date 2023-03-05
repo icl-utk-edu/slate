@@ -32,7 +32,7 @@ if (slate_is_project)
     add_custom_target(
         unit_check
         COMMAND
-            python run_tests.py
+            python3 run_tests.py
         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     )
     add_dependencies( check unit_check )

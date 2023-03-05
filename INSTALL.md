@@ -169,7 +169,7 @@ SLATE specific options include:
 With Makefile, options are specified as environment variables or on the
 command line using `option=value` syntax, such as:
 
-    python configure.py blas=mkl
+    python3 configure.py blas=mkl
 
 With CMake, options are specified on the command line using
 `-Doption=value` syntax (not as environment variables), such as:

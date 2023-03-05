@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 #
 # Rejects commits that violate basic style rules:
 #   - no trailing whitespace

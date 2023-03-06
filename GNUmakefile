@@ -128,9 +128,14 @@ ifneq ($(cuda),1)
 endif
 
 omptarget = 0
-ifneq ($(filter auto onemkl, $(gpu_backend)),)
-    # enable the omptarget offload kernels in SLATE
-    omptarget = 1
+ifneq ($(cuda),1)
+ifneq ($(hip),1)
+    ifeq (${gpu_backend},onemkl)
+        # enable the omptarget offload kernels in SLATE
+        $(info Note: enabling onemkl)
+        omptarget = 1
+    endif
+endif
 endif
 
 # Default LD=ld won't work; use CXX. Can override in make.inc or environment.

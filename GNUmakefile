@@ -1351,6 +1351,11 @@ echo:
 	@echo "hip_hdr       = ${hip_hdr}"
 	@echo "md5_files     = $(md5_files)"
 	@echo
+	@echo "---------- oneMKL options"
+	@echo "omptarget     = '${omptarget}'"
+	@echo "omptarget_src = ${omptarget_src}"
+	@echo "omptarget_hdr = ${omptarget_hdr}"
+	@echo
 	@echo "---------- Fortran compiler"
 	@echo "FC            = $(FC)"
 	@echo "FCFLAGS       = $(FCFLAGS)"

@@ -205,7 +205,9 @@ void trsm_addmod(Side side, Uplo uplo,
                 {
                     // send A(k, k) to ranks owning block row B(k, :)
                     A .template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
-                    VT.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+                    if (blockFactorType != BlockFactor::QR) {
+                        VT.template tileBcast(k, k, B.sub(k, k, 0, nt-1), layout);
+                    }
 
                     // solve A(k, k) B(k, :) = alpha B(k, :)
                     internal::trsm_addmod<target>(
@@ -375,7 +377,9 @@ void trsm_addmod(Side side, Uplo uplo,
                 {
                     // send A(k, k) to ranks owning block column B(:, k)
                     A .template tileBcast(k, k, B.sub(0, mt-1, k, k), layout);
-                    VT.template tileBcast(k, k, B.sub(0, mt-1, k, k), layout);
+                    if (blockFactorType == BlockFactor::QR) {
+                        VT.template tileBcast(k, k, B.sub(0, mt-1, k, k), layout);
+                    }
 
                     // solve B(:, k) A(k, k) = alpha B(:, k)
                     internal::trsm_addmod<target>(

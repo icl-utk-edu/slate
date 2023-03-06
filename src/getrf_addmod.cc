@@ -159,8 +159,10 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                     bcast_list_A, layout, tag_k, life_factor_one, true);
                 W.U_factors.template listBcast<target>(
                     bcast_list_U, layout, tag_k, life_factor_one, true);
-                W.VT_factors.template listBcast<target>(
-                    bcast_list_VT, layout, tag_k, life_factor_one, true);
+                if (blockFactorType != BlockFactor::QR) {
+                    W.VT_factors.template listBcast<target>(
+                        bcast_list_VT, layout, tag_k, life_factor_one, true);
+                }
 
                 // Allow concurrent Bcast's
                 slate_mpi_call( MPI_Wait(&req_sig_vals, MPI_STATUS_IGNORE) );

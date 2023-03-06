@@ -61,7 +61,9 @@ void trsm_addmod(internal::TargetType<Target::HostTask>,
             U.tileGetForReading(0, 0, LayoutConvert(layout));
         }
         else {
-            VT.tileGetForReading(0, 0, LayoutConvert(layout));
+            if (blockFactorType != BlockFactor::QR) {
+                VT.tileGetForReading(0, 0, LayoutConvert(layout));
+            }
         }
     }
 
@@ -76,7 +78,18 @@ void trsm_addmod(internal::TargetType<Target::HostTask>,
                     firstprivate(i, layout, side, uplo, ib) priority(priority)
                 {
                     B.tileGetForWriting(i, 0, LayoutConvert(layout));
-                    auto U_VT = uplo == Uplo::Lower ? U(0, 0) : VT(0, 0);
+                    Tile<scalar_t> U_VT;
+                    if (uplo == Uplo::Lower) {
+                        U_VT = U(0, 0);
+                    }
+                    else {
+                        if (blockFactorType == BlockFactor::QR) {
+                            U_VT = A(0, 0); // Not used
+                        }
+                        else {
+                            U_VT = VT(0, 0);
+                        }
+                    }
                     tile::trsm_addmod(blockFactorType, ib, side, uplo, alpha,
                                       A(0, 0), U_VT, U_VT, S, B(i, 0));
                     A.tileTick(0, 0);
@@ -84,7 +97,9 @@ void trsm_addmod(internal::TargetType<Target::HostTask>,
                         U.tileTick(0, 0);
                     }
                     else {
-                        VT.tileTick(0, 0);
+                        if (blockFactorType != BlockFactor::QR) {
+                            VT.tileTick(0, 0);
+                        }
                     }
                 }
             }
@@ -99,7 +114,18 @@ void trsm_addmod(internal::TargetType<Target::HostTask>,
                     firstprivate(j, layout, side, uplo, ib) priority(priority)
                 {
                     B.tileGetForWriting(0, j, LayoutConvert(layout));
-                    auto U_VT = uplo == Uplo::Lower ? U(0, 0) : VT(0, 0);
+                    Tile<scalar_t> U_VT;
+                    if (uplo == Uplo::Lower) {
+                        U_VT = U(0, 0);
+                    }
+                    else {
+                        if (blockFactorType == BlockFactor::QR) {
+                            U_VT = A(0, 0); // Not used
+                        }
+                        else {
+                            U_VT = VT(0, 0);
+                        }
+                    }
                     tile::trsm_addmod(blockFactorType, ib, side, uplo, alpha,
                                       A(0, 0), U_VT, U_VT, S, B(0, j));
                     A.tileTick(0, 0);
@@ -107,7 +133,9 @@ void trsm_addmod(internal::TargetType<Target::HostTask>,
                         U.tileTick(0, 0);
                     }
                     else {
-                        VT.tileTick(0, 0);
+                        if (blockFactorType != BlockFactor::QR) {
+                            VT.tileTick(0, 0);
+                        }
                     }
                 }
             }

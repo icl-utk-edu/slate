@@ -166,7 +166,6 @@ void getrf_addmod(Tile<scalar_t> A,
                 VTkk[h + (iworkspace[h]-1)*ldvt] = one;
             }
 
-            //TODO
             s_vals = Akk;
             s_inc = lda+1;
         }

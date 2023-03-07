@@ -252,8 +252,8 @@ void unmqr(
         C.tileUpdateAllOrigin();
     }
 
-    A.clearWorkspace();
-    C.clearWorkspace();
+    A.releaseWorkspace();
+    C.releaseWorkspace();
 }
 
 } // namespace impl

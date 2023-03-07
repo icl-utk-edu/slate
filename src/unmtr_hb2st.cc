@@ -12,8 +12,7 @@
 
 namespace slate {
 
-namespace internal {
-namespace specialization {
+namespace impl {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel unmtr_hb2st.
@@ -21,7 +20,7 @@ namespace specialization {
 /// @ingroup heev_specialization
 ///
 template <Target target, typename scalar_t>
-void unmtr_hb2st(slate::internal::TargetType<target>,
+void unmtr_hb2st(
                  Side side, Op op,
                  Matrix<scalar_t>& V,
                  Matrix<scalar_t>& C,
@@ -53,22 +52,8 @@ void unmtr_hb2st(slate::internal::TargetType<target>,
     V.releaseWorkspace();
     C.releaseWorkspace();
 }
-} // namespace specialization
-} // namespace internal
 
-//------------------------------------------------------------------------------
-/// Version with target as template parameter.
-/// @ingroup heev_computational
-///
-template <Target target, typename scalar_t>
-void unmtr_hb2st(Side side, Op op,
-                 Matrix<scalar_t>& V,
-                 Matrix<scalar_t>& C,
-                 const std::map<Option, Value>& opts)
-{
-    internal::specialization::unmtr_hb2st(internal::TargetType<target>(),
-                                          side, op, V, C, opts);
-}
+} // namespace impl
 
 //------------------------------------------------------------------------------
 /// Multiplies the general m-by-n matrix C by Q from `slate::hb2st` as
@@ -130,14 +115,14 @@ void unmtr_hb2st(Side side, Op op,
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            unmtr_hb2st<Target::HostTask>( side, op, V, C, opts);
+            impl::unmtr_hb2st<Target::HostTask>( side, op, V, C, opts);
             break;
         case Target::HostNest:
             break;
         case Target::HostBatch:
             break;
         case Target::Devices:
-            unmtr_hb2st<Target::Devices>( side, op, V, C, opts);
+            impl::unmtr_hb2st<Target::Devices>( side, op, V, C, opts);
             break;
     }
     // todo: return value for errors?

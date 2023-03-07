@@ -130,7 +130,7 @@ void getrf_addmod(Tile<scalar_t> A,
                     Akk[i + j*lda] = zero;
                 }
             }
-            // use the non-pivoted LQ since LAPACK doesn't have one
+            // use the non-pivoted LQ since LAPACK doesn't have a pivoted one
             lapack::gelqf(kb, kb, Akk, lda, workspace+kb);
 
             // build left unitary matrix

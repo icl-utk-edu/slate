@@ -377,7 +377,7 @@ void trsm_addmod(Side side, Uplo uplo,
                 {
                     // send A(k, k) to ranks owning block column B(:, k)
                     A .template tileBcast(k, k, B.sub(0, mt-1, k, k), layout);
-                    if (blockFactorType == BlockFactor::QR) {
+                    if (blockFactorType != BlockFactor::QR) {
                         VT.template tileBcast(k, k, B.sub(0, mt-1, k, k), layout);
                     }
 

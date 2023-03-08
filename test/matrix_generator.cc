@@ -24,7 +24,6 @@
 
 // -----------------------------------------------------------------------------
 const int64_t idist_rand  = 1;
-const int64_t idist_rands = 2;
 const int64_t idist_randn = 3;
 
 enum class TestMatrixType {

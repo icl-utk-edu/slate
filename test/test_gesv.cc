@@ -148,7 +148,7 @@ void test_gesv_work(Params& params, bool run)
 
     // To generate matrix with non-uniform tile size using the Lambda constructor
     std::function< int64_t (int64_t j) >
-    tileNb = [n, nb](int64_t j) {
+    tileNb = [nb](int64_t j) {
         // for non-uniform tile size
         return (j % 2 != 0 ? nb/2 : nb);
     };

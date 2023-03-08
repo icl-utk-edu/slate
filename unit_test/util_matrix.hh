@@ -192,10 +192,6 @@ void get_2d_cyclic_dimensions(
 {
     using namespace test;  // for globals mpi_rank, etc.
 
-    int mpi_rank;
-    slate_mpi_call(
-        MPI_Comm_rank(mpi_comm, &mpi_rank));
-
     assert(p > 0 && q > 0);
     bool columnwise = true;
     int p_rank = (columnwise ? mpi_rank % p : mpi_rank / q);

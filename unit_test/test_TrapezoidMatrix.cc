@@ -412,11 +412,6 @@ void test_TrapezoidMatrix_fromDevices()
         }
     }
 
-    for (int dev = 0; dev < num_devices; ++dev) {
-        blas::device_free(Aarray[dev], *dev_queues[dev]);
-    }
-    delete[] Aarray;
-
     //----------
     // uplo=General fails
     test_assert_throw(
@@ -424,6 +419,11 @@ void test_TrapezoidMatrix_fromDevices()
             blas::Uplo::General, blas::Diag::Unit,
             m, n, Aarray, num_devices, lda, nb, p, q, mpi_comm ),
         slate::Exception);
+
+    for (int dev = 0; dev < num_devices; ++dev) {
+        blas::device_free(Aarray[dev], *dev_queues[dev]);
+    }
+    delete[] Aarray;
 
     // free the device specific queues
     for (int dev = 0; dev < num_devices; ++dev)

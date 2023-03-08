@@ -315,16 +315,9 @@ void test_gesv_work(Params& params, bool run)
             else if (trans == slate::Op::ConjTrans)
                 opA = conj_transpose( A );
 
-            if (params.routine == "getrs"
-                || params.routine == "getrf")
-            {
-                slate::lu_solve_using_factor(opA, pivots, B, opts);
-                // Using traditional BLAS/LAPACK name
-                // slate::getrs(opA, pivots, B, opts);
-            }
-            else {
-                slate_error("Unknown routine!");
-            }
+            slate::lu_solve_using_factor( opA, pivots, B, opts );
+            // Using traditional BLAS/LAPACK name
+            // slate::getrs(opA, pivots, B, opts);
 
             // compute and save timing/performance
             time2 = barrier_get_wtime(MPI_COMM_WORLD) - time2;

@@ -140,12 +140,16 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                                 blockFactorType, mod_tol, ib);
 
                 // broadcast singular values
-                MPI_Request req_sig_vals = MPI_REQUEST_NULL;
+                MPI_Request requests[2] = {MPI_REQUEST_NULL, MPI_REQUEST_NULL};
+                int64_t num_mods = local_mod_vals.size();
                 if (blockFactorType == BlockFactor::SVD) {
                     slate_mpi_call(
                         MPI_Ibcast(local_sig_vals.data(), mb, mpi_scalar_t,
-                                   A.tileRank(k, k), comm, &req_sig_vals) );
+                                   A.tileRank(k, k), comm, &requests[0]) );
                 }
+                slate_mpi_call(
+                    MPI_Ibcast(&num_mods, 1, MPI_INT64_T,
+                               A.tileRank(k, k), comm, &requests[1]) );
 
                 // Update panel
                 int tag_k = k;
@@ -165,24 +169,19 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                 }
 
                 // Allow concurrent Bcast's
-                slate_mpi_call( MPI_Wait(&req_sig_vals, MPI_STATUS_IGNORE) );
-            }
-
-            #pragma omp task depend(in:diag[k]) depend(in:diag[k+1])
-            {
-                int64_t kk_root = A.tileRank(k,k);
-
-                auto& local_mod_inds = W.modification_indices[k];
-                auto& local_mod_vals = W.modifications[k];
-                int64_t num_mods = local_mod_vals.size();
-
-                slate_mpi_call(
-                    MPI_Bcast(&num_mods, 1, MPI_INT64_T,
-                              kk_root, comm) );
-
+                slate_mpi_call( MPI_Waitall(2, requests, MPI_STATUSES_IGNORE) );
                 local_mod_vals.resize(num_mods);
                 local_mod_inds.resize(num_mods);
+            }
 
+            #pragma omp task depend(in:diag[k]) depend(in:diag[k+1]) \
+                             priority(priority_one)
+            {
+                auto& local_mod_inds = W.modification_indices[k];
+                auto& local_mod_vals = W.modifications[k];
+
+                int64_t kk_root = A.tileRank(k,k);
+                int64_t num_mods = local_mod_vals.size();
                 if (num_mods != 0) {
 
                     MPI_Request requests[2];

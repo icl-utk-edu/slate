@@ -88,7 +88,8 @@ void test_gesv_work(Params& params, bool run)
         timer_level = 1;
 
     slate::BlockFactor blockFactorType = slate::BlockFactor::SVD;
-    if (ends_with( params.routine, "_addmod" )) {
+    if (ends_with( params.routine, "_addmod" )
+        || ends_with( params.routine, "_addmod_ir" )) {
         blockFactorType = params.blockfactor();
     }
 

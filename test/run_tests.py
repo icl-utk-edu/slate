@@ -41,6 +41,10 @@ group_test.add_argument( '-t', '--test', action='store',
     help='test command to run, e.g., --test "mpirun -np 4 ./test"; default "%(default)s"; see also --np',
     default='./tester' )
 group_test.add_argument( '--xml', help='generate report.xml for jenkins' )
+group_test.add_argument( '--dry-run', action='store_true', help='print commands, but do not execute them' )
+group_test.add_argument( '--start',   action='store', help='routine to start with, helpful for restarting', default='' )
+group_test.add_argument( '-x', '--exclude', action='append', help='routines to exclude; repeatable', default=[] )
+group_test.add_argument( '--timeout', action='store', help='timeout in seconds for each routine', type=float )
 
 group_size = parser.add_argument_group( 'matrix dimensions (default is medium)' )
 group_size.add_argument( '--quick',  action='store_true', help='run quick "sanity check" of few, small tests' )
@@ -124,9 +128,6 @@ group_opt.add_argument( '--np',     action='store', help='number of MPI processe
 group_opt.add_argument( '--grid',   action='store', help='use p-by-q MPI process grid', default='' )
 group_opt.add_argument( '--repeat', action='store', help='times to repeat each test', default='' )
 group_opt.add_argument( '--thresh', action='store', help='default=%(default)s', default='1,0.5')
-group_opt.add_argument( '--dry-run', action='store_true', help='print the commands that would be executed, but do not execute them.' )
-group_opt.add_argument( '-x', '--exclude', action='append', help='routines to exclude; repeatable', default=[] )
-group_opt.add_argument( '--timeout', action='store', help='timeout in seconds for each routine', type=float )
 group_opt.add_argument( '--tee',    action='store_true', help='controls writing to both stdout and stderr' )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
@@ -154,6 +155,8 @@ if (not (opts.square or opts.tall or opts.wide or opts.mnk)):
 if (opts.tests or not any( map( lambda c: opts.__dict__[ c ], categories ))):
     for c in categories:
         opts.__dict__[ c ] = True
+
+start_routine = opts.start
 
 # ------------------------------------------------------------------------------
 # parameters
@@ -686,6 +689,11 @@ run_all = (ntests == 0)
 seen = set()
 for cmd in cmds:
     if ((run_all or cmd[0] in opts.tests) and cmd[0] not in opts.exclude):
+        if (start_routine and cmd[0] != start_routine):
+            print_tee( 'skipping', cmd[0] )
+            continue
+        start_routine = None
+
         seen.add( cmd[0] )
         (err, output) = run_test( cmd )
         if (err):

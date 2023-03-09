@@ -128,7 +128,6 @@ group_opt.add_argument( '--np',     action='store', help='number of MPI processe
 group_opt.add_argument( '--grid',   action='store', help='use p-by-q MPI process grid', default='' )
 group_opt.add_argument( '--repeat', action='store', help='times to repeat each test', default='' )
 group_opt.add_argument( '--thresh', action='store', help='default=%(default)s', default='1,0.5')
-group_opt.add_argument( '--tee',    action='store_true', help='controls writing to both stdout and stderr' )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -608,9 +607,10 @@ if (opts.aux):
     ]
 
 # ------------------------------------------------------------------------------
-# when output is redirected to file instead of TTY console,
-# print extra messages to stderr on TTY console.
-output_redirected = not sys.stdout.isatty()
+# When stdout is redirected to file instead of TTY console,
+# and  stderr is still going to a TTY console,
+# print extra summary messages to stderr.
+output_redirected = sys.stderr.isatty() and not sys.stdout.isatty()
 
 # ------------------------------------------------------------------------------
 # if output is redirected, prints to both stderr and stdout;
@@ -618,7 +618,7 @@ output_redirected = not sys.stdout.isatty()
 def print_tee( *args ):
     global output_redirected
     print( *args )
-    if (output_redirected and opts.tee):
+    if (output_redirected):
         print( *args, file=sys.stderr )
 # end
 
@@ -681,6 +681,10 @@ def run_test( cmd ):
 
 # ------------------------------------------------------------------------------
 # run each test
+
+start = time.time()
+print_tee( time.ctime() )
+
 failed_tests = []
 passed_tests = []
 ntests = len(opts.tests)
@@ -744,5 +748,9 @@ if opts.xml:
     tree = ET.ElementTree(root)
     tree.write( opts.xml )
 # end
+
+elapsed = time.time() - start
+print_tee( 'Elapsed %.2f sec' % elapsed )
+print_tee( time.ctime() )
 
 exit( nfailed )

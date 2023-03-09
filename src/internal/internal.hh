@@ -361,7 +361,7 @@ void trsmA(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
           int priority=0, Layout layout=Layout::ColMajor,
-          int64_t queue_index=0);
+          int64_t queue_index=0, Options const& opts = Options());
 
 //-----------------------------------------
 // trtri()

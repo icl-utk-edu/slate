@@ -78,10 +78,10 @@ void batch_gemm(
     int64_t      nb,
     int64_t      kb,
     scalar_t alpha,
-    std::vector<scalar_t*> Aarray, int64_t Ai, int64_t Aj, int64_t ldda,
-    std::vector<scalar_t*> Barray, int64_t Bi, int64_t Bj, int64_t lddb,
+    std::vector<scalar_t*>& Aarray, int64_t Ai, int64_t Aj, int64_t ldda,
+    std::vector<scalar_t*>& Barray, int64_t Bi, int64_t Bj, int64_t lddb,
     scalar_t beta,
-    std::vector<scalar_t*> Carray, int64_t Ci, int64_t Cj, int64_t lddc,
+    std::vector<scalar_t*>& Carray, int64_t Ci, int64_t Cj, int64_t lddc,
     const size_t batch,
     blas::Queue &queue )
 {
@@ -121,6 +121,54 @@ void batch_gemm(
         alpha_v, Aarray_v, ldda_v,
                  Barray_v, lddb_v,
         beta_v,  Carray_v, lddc_v,
+        batch, info, queue);
+}
+template <typename scalar_t>
+void batch_trsm(
+    blas::Layout layout,
+    blas::Side   side,
+    blas::Uplo   uplo,
+    blas::Op     trans,
+    blas::Diag   diag,
+    int64_t      mb,
+    int64_t      nb,
+    scalar_t alpha,
+    std::vector<scalar_t*>& Aarray, int64_t Ai, int64_t Aj, int64_t ldda,
+    std::vector<scalar_t*>& Barray, int64_t Bi, int64_t Bj, int64_t lddb,
+    const size_t batch,
+    blas::Queue &queue )
+{
+    std::vector<blas::Side> side_v {side};
+    std::vector<blas::Uplo> uplo_v {uplo};
+    std::vector<blas::Op>  trans_v {trans};
+    std::vector<blas::Diag> diag_v {diag};
+    std::vector<int64_t>  m_v {mb};
+    std::vector<int64_t>  n_v {nb};
+    std::vector<scalar_t> alpha_v {alpha};
+    std::vector<int64_t>  info (0);
+
+    std::vector<scalar_t*> Aarray_v(batch);
+    std::vector<int64_t>   ldda_v {ldda};
+    std::vector<scalar_t*> Barray_v(batch);
+    std::vector<int64_t>   lddb_v {lddb};
+
+    if (layout == blas::Layout::ColMajor) {
+        for (size_t i = 0; i < batch; ++i) {
+            Aarray_v[i] = Aarray[i] + Ai + Aj*ldda;
+            Barray_v[i] = Barray[i] + Bi + Bj*lddb;
+        }
+    }
+    else {
+        for (size_t i = 0; i < batch; ++i) {
+            Aarray_v[i] = Aarray[i] + Ai*ldda + Aj;
+            Barray_v[i] = Barray[i] + Bi*lddb + Bj;
+        }
+    }
+
+    blas::batch::trsm(
+        layout, side_v, uplo_v, trans_v, diag_v, m_v, n_v,
+        alpha_v, Aarray_v, ldda_v,
+                 Barray_v, lddb_v,
         batch, info, queue);
 }
 
@@ -498,11 +546,11 @@ void batch_trsm_addmod_diag(
     int64_t      mb,
     int64_t      nb,
     scalar_t     alpha,
-    std::vector<scalar_t*> Uarray, int64_t Ui, int64_t Uj, int64_t lddu,
-    std::vector<scalar_t*> VTarray, int64_t VTi, int64_t VTj, int64_t lddvt,
-    std::vector<blas::real_type<scalar_t>*> Sarray, int64_t Si,
-    std::vector<scalar_t*> Barray, int64_t Bi, int64_t Bj, int64_t lddb,
-    std::vector<scalar_t*> Warray, int64_t lddw,
+    std::vector<scalar_t*>& Uarray, int64_t Ui, int64_t Uj, int64_t lddu,
+    std::vector<scalar_t*>& VTarray, int64_t VTi, int64_t VTj, int64_t lddvt,
+    std::vector<blas::real_type<scalar_t>*>& Sarray, int64_t Si,
+    std::vector<scalar_t*>& Barray, int64_t Bi, int64_t Bj, int64_t lddb,
+    std::vector<scalar_t*>& Warray, int64_t lddw,
     const size_t batch,
     blas::Queue &queue )
 {
@@ -609,9 +657,9 @@ void batch_scale_copy(
     blas::Side side,
     int64_t      mb,
     int64_t      nb,
-    std::vector<blas::real_type<scalar_t>*> Sarray, int64_t Si,
-    std::vector<scalar_t*> Aarray, int64_t Ai, int64_t Aj, int64_t ldda,
-    std::vector<scalar_t*> Barray, int64_t Bi, int64_t Bj, int64_t lddb,
+    std::vector<blas::real_type<scalar_t>*>& Sarray, int64_t Si,
+    std::vector<scalar_t*>& Aarray, int64_t Ai, int64_t Aj, int64_t ldda,
+    std::vector<scalar_t*>& Barray, int64_t Bi, int64_t Bj, int64_t lddb,
     const size_t batch,
     blas::Queue &queue )
 {
@@ -688,8 +736,8 @@ void batch_copy(
     blas::Layout layout,
     int64_t      mb,
     int64_t      nb,
-    std::vector<scalar_t*> Aarray, int64_t Ai, int64_t Aj, int64_t ldda,
-    std::vector<scalar_t*> Barray, int64_t Bi, int64_t Bj, int64_t lddb,
+    std::vector<scalar_t*>& Aarray, int64_t Ai, int64_t Aj, int64_t ldda,
+    std::vector<scalar_t*>& Barray, int64_t Bi, int64_t Bj, int64_t lddb,
     const size_t batch,
     blas::Queue &queue )
 {
@@ -728,12 +776,12 @@ void batch_trsm_addmod_rec(
     int64_t      nb,
     int64_t      ib,
     scalar_t     alpha,
-    std::vector<scalar_t*>  Aarray, int64_t  Ai, int64_t  Aj, int64_t ldda,
-    std::vector<scalar_t*>  Uarray, int64_t  Ui, int64_t  Uj, int64_t lddu,
-    std::vector<scalar_t*> VTarray, int64_t VTi, int64_t VTj, int64_t lddvt,
-    std::vector<blas::real_type<scalar_t>*> Sarray, int64_t Si,
-    std::vector<scalar_t*>  Barray, int64_t  Bi, int64_t  Bj, int64_t lddb,
-    std::vector<scalar_t*>  Warray,
+    std::vector<scalar_t*>&  Aarray, int64_t  Ai, int64_t  Aj, int64_t ldda,
+    std::vector<scalar_t*>&  Uarray, int64_t  Ui, int64_t  Uj, int64_t lddu,
+    std::vector<scalar_t*>& VTarray, int64_t VTi, int64_t VTj, int64_t lddvt,
+    std::vector<blas::real_type<scalar_t>*>& Sarray, int64_t Si,
+    std::vector<scalar_t*>&  Barray, int64_t  Bi, int64_t  Bj, int64_t lddb,
+    std::vector<scalar_t*>&  Warray,
     const size_t batch,
     blas::Queue &queue )
 {
@@ -749,23 +797,40 @@ void batch_trsm_addmod_rec(
 
     blas::Op trans_op = std::is_same<scalar_t, blas::real_type<scalar_t>>::value ? blas::Op::Trans : blas::Op::ConjTrans;
 
-    static_assert(factorType == BlockFactor::SVD, "Only SVD supported on devices");
-
     if (isUpper && isLeft) {
         if (mb <= ib) {
             // halt recursion
-            if (ib < cublas_threshold) {
-                batch_trsm_addmod_diag<blas::Side::Left, blas::Uplo::Upper>(
-                            layout, mb, nb, alpha,
-                            Uarray,  Ui,  Uj, lddu,
-                           VTarray, VTi, VTj, lddvt,
-                            Sarray,  Si,
-                            Barray,  Bi,  Bj, lddb,
-                            Warray,           lddw,
+            if constexpr (factorType == BlockFactor::SVD) {
+                if (ib < cublas_threshold) {
+                    batch_trsm_addmod_diag<blas::Side::Left, blas::Uplo::Upper>(
+                                layout, mb, nb, alpha,
+                                Uarray,  Ui,  Uj, lddu,
+                               VTarray, VTi, VTj, lddvt,
+                                Sarray,  Si,
+                                Barray,  Bi,  Bj, lddb,
+                                Warray,           lddw,
+                                batch, queue);
+                } else {
+                    batch_scale_copy(layout, side, mb, nb,
+                            Sarray, Si,
+                            Barray, Bi, Bj, lddb,
+                            Warray,  0,  0, lddw,
                             batch, queue);
-            } else {
-                batch_scale_copy(layout, side, mb, nb,
-                        Sarray, Si,
+                    batch_gemm(layout, trans_op, blas::Op::NoTrans, mb, nb, mb,
+                            alpha, VTarray, VTi, VTj, lddvt,
+                                    Warray,   0,   0, lddw,
+                            zero,   Barray,  Bi,  Bj, lddb,
+                            batch, queue);
+                }
+            }
+            else if constexpr (factorType == BlockFactor::QLP
+                          || factorType == BlockFactor::QRCP) {
+                auto uplo = factorType == BlockFactor::QLP ? blas::Uplo::Lower : blas::Uplo::Upper;
+                batch_trsm(layout, blas::Side::Left, uplo, blas::Op::NoTrans, blas::Diag::NonUnit, mb, nb,
+                        one, Aarray, Ai, Aj, ldda,
+                             Barray, Bi, Bj, lddb,
+                        batch, queue);
+                batch_copy(layout, mb, nb,
                         Barray, Bi, Bj, lddb,
                         Warray,  0,  0, lddw,
                         batch, queue);
@@ -774,6 +839,15 @@ void batch_trsm_addmod_rec(
                                 Warray,   0,   0, lddw,
                         zero,   Barray,  Bi,  Bj, lddb,
                         batch, queue);
+            }
+            else if constexpr (factorType == BlockFactor::QR) {
+                batch_trsm(layout, blas::Side::Left, blas::Uplo::Upper, blas::Op::NoTrans, blas::Diag::NonUnit, mb, nb,
+                        one, Aarray, Ai, Aj, ldda,
+                             Barray, Bi, Bj, lddb,
+                        batch, queue);
+            }
+            else {
+                static_assert(factorType == BlockFactor::SVD, "Unsupported block factor");
             }
         }
         else {
@@ -807,26 +881,54 @@ void batch_trsm_addmod_rec(
     else if (isUpper && !isLeft) {
         if (nb <= ib) {
             // halt recursion
-            if (ib < cublas_threshold) {
-                batch_trsm_addmod_diag<blas::Side::Right, blas::Uplo::Upper>(
-                            layout, mb, nb, alpha,
-                            Uarray, Ui, Uj, lddu,
-                           VTarray, VTi, VTj, lddvt,
-                            Sarray, Si,
-                            Barray, Bi, Bj, lddb,
-                            Warray, lddw,
+            if constexpr (factorType == BlockFactor::SVD) {
+                if (ib < cublas_threshold) {
+                    batch_trsm_addmod_diag<blas::Side::Right, blas::Uplo::Upper>(
+                                layout, mb, nb, alpha,
+                                Uarray,  Ui,  Uj, lddu,
+                               VTarray, VTi, VTj, lddvt,
+                                Sarray,  Si,
+                                Barray,  Bi,  Bj, lddb,
+                                Warray,           lddw,
+                                batch, queue);
+                } else {
+                    batch_gemm(layout, blas::Op::NoTrans, trans_op, mb, nb, nb,
+                            alpha,  Barray,  Bi,  Bj, lddb,
+                                   VTarray, VTi, VTj, lddvt,
+                            zero,   Warray,   0,   0, lddw,
                             batch, queue);
-            } else {
+                    batch_scale_copy(layout, side, mb, nb,
+                            Sarray, Si,
+                            Warray,  0,  0, lddw,
+                            Barray, Bi, Bj, lddb,
+                            batch, queue);
+                }
+            }
+            else if constexpr (factorType == BlockFactor::QLP
+                          || factorType == BlockFactor::QRCP) {
                 batch_gemm(layout, blas::Op::NoTrans, trans_op, mb, nb, nb,
                         alpha,  Barray,  Bi,  Bj, lddb,
                                VTarray, VTi, VTj, lddvt,
                         zero,   Warray,   0,   0, lddw,
                         batch, queue);
-                batch_scale_copy(layout, side, mb, nb,
-                        Sarray, Si,
+                batch_copy(layout, mb, nb,
                         Warray,  0,  0, lddw,
                         Barray, Bi, Bj, lddb,
                         batch, queue);
+                auto uplo = factorType == BlockFactor::QLP ? blas::Uplo::Lower : blas::Uplo::Upper;
+                batch_trsm(layout, blas::Side::Right, uplo, blas::Op::NoTrans, blas::Diag::NonUnit, mb, nb,
+                        one, Aarray, Ai, Aj, ldda,
+                             Barray, Bi, Bj, lddb,
+                        batch, queue);
+            }
+            else if constexpr (factorType == BlockFactor::QR) {
+                batch_trsm(layout, blas::Side::Right, blas::Uplo::Upper, blas::Op::NoTrans, blas::Diag::NonUnit, mb, nb,
+                        one, Aarray, Ai, Aj, ldda,
+                             Barray, Bi, Bj, lddb,
+                        batch, queue);
+            }
+            else {
+                static_assert(factorType == BlockFactor::SVD, "Unsupported block factor");
             }
         }
         else {
@@ -860,24 +962,33 @@ void batch_trsm_addmod_rec(
     else if (!isUpper && isLeft) {
         if (mb <= ib) {
             // halt recursion
-            if (ib < cublas_threshold) {
-                batch_trsm_addmod_diag<blas::Side::Left, blas::Uplo::Lower>(layout, /*side, uplo,*/ mb, nb, alpha,
-                            Uarray,  Ui,  Uj, lddu,
-                           VTarray, VTi, VTj, lddvt,
-                            Sarray,  Si,
-                            Barray,  Bi,  Bj, lddb,
-                            Warray, lddw,
+            if constexpr (factorType == BlockFactor::SVD
+                          || factorType == BlockFactor::QLP
+                          || factorType == BlockFactor::QRCP
+                          || factorType == BlockFactor::QR) {
+                if (ib < cublas_threshold) {
+                    batch_trsm_addmod_diag<blas::Side::Left, blas::Uplo::Lower>(
+                                layout, /*side, uplo,*/ mb, nb, alpha,
+                                Uarray,  Ui,  Uj, lddu,
+                               VTarray, VTi, VTj, lddvt,
+                                Sarray,  Si,
+                                Barray,  Bi,  Bj, lddb,
+                                Warray, lddw,
+                                batch, queue);
+                } else {
+                    batch_copy(layout, mb, nb,
+                            Barray, Bi, Bj, lddb,
+                            Warray,  0,  0, lddw,
                             batch, queue);
-            } else {
-                batch_copy(layout, mb, nb,
-                        Barray, Bi, Bj, lddb,
-                        Warray,  0,  0, lddw,
-                        batch, queue);
-                batch_gemm(layout, trans_op, blas::Op::NoTrans, mb, nb, mb,
-                        alpha, Uarray, Ui, Uj, lddu,
-                               Warray,  0,  0, lddw,
-                        zero,  Barray, Bi, Bj, lddb,
-                        batch, queue);
+                    batch_gemm(layout, trans_op, blas::Op::NoTrans, mb, nb, mb,
+                            alpha, Uarray, Ui, Uj, lddu,
+                                   Warray,  0,  0, lddw,
+                            zero,  Barray, Bi, Bj, lddb,
+                            batch, queue);
+                }
+            }
+            else {
+                static_assert(factorType == BlockFactor::SVD, "Unsupported block factor");
             }
         }
         else {
@@ -911,26 +1022,34 @@ void batch_trsm_addmod_rec(
     else if (!isUpper && !isLeft) {
         if (nb <= ib) {
             // halt recursion
-            if (ib < cublas_threshold) {
-                batch_trsm_addmod_diag<blas::Side::Right, blas::Uplo::Lower>(layout, /*side, uplo,*/ mb, nb, alpha,
-                            Uarray,  Ui,  Uj, lddu,
-                           VTarray, VTi, VTj, lddvt,
-                            Sarray,  Si,
-                            Barray,  Bi,  Bj, lddb,
-                            Warray, lddw,
+            if constexpr (factorType == BlockFactor::SVD
+                          || factorType == BlockFactor::QLP
+                          || factorType == BlockFactor::QRCP
+                          || factorType == BlockFactor::QR) {
+                if (ib < cublas_threshold) {
+                    batch_trsm_addmod_diag<blas::Side::Right, blas::Uplo::Lower>(
+                                layout, /*side, uplo,*/ mb, nb, alpha,
+                                Uarray,  Ui,  Uj, lddu,
+                               VTarray, VTi, VTj, lddvt,
+                                Sarray,  Si,
+                                Barray,  Bi,  Bj, lddb,
+                                Warray, lddw,
+                                batch, queue);
+                } else {
+                    batch_gemm(layout, blas::Op::NoTrans, trans_op, mb, nb, nb,
+                            alpha, Barray, Bi, Bj, lddb,
+                                   Uarray, Ui, Uj, ldda,
+                            zero,  Warray,  0,  0, lddw,
                             batch, queue);
-            } else {
-                batch_gemm(layout, blas::Op::NoTrans, trans_op, mb, nb, nb,
-                        alpha, Barray, Bi, Bj, lddb,
-                               Uarray, Ui, Uj, ldda,
-                        zero,  Warray,  0,  0, lddw,
-                        batch, queue);
-                batch_copy(layout, mb, nb,
-                        Warray,  0,  0, lddw,
-                        Barray, Bi, Bj, lddb,
-                        batch, queue);
+                    batch_copy(layout, mb, nb,
+                            Warray,  0,  0, lddw,
+                            Barray, Bi, Bj, lddb,
+                            batch, queue);
+                }
             }
-
+            else {
+                static_assert(factorType == BlockFactor::SVD, "Unsupported block factor");
+            }
         }
         else {
             // recurse
@@ -987,6 +1106,33 @@ void batch_trsm_addmod(
 
     if (factorType == BlockFactor::SVD) {
         batch_trsm_addmod_rec<BlockFactor::SVD>(layout, side, uplo, mb, nb, ib, alpha,
+                Aarray, 0, 0, ldda,
+                Uarray, 0, 0, lddu,
+               VTarray, 0, 0, lddvt,
+                Sarray, 0,
+                Barray, 0, 0, lddb,
+                Warray, batch, queue);
+    }
+    else if (factorType == BlockFactor::QLP) {
+        batch_trsm_addmod_rec<BlockFactor::QLP>(layout, side, uplo, mb, nb, ib, alpha,
+                Aarray, 0, 0, ldda,
+                Uarray, 0, 0, lddu,
+               VTarray, 0, 0, lddvt,
+                Sarray, 0,
+                Barray, 0, 0, lddb,
+                Warray, batch, queue);
+    }
+    else if (factorType == BlockFactor::QRCP) {
+        batch_trsm_addmod_rec<BlockFactor::QRCP>(layout, side, uplo, mb, nb, ib, alpha,
+                Aarray, 0, 0, ldda,
+                Uarray, 0, 0, lddu,
+               VTarray, 0, 0, lddvt,
+                Sarray, 0,
+                Barray, 0, 0, lddb,
+                Warray, batch, queue);
+    }
+    else if (factorType == BlockFactor::QR) {
+        batch_trsm_addmod_rec<BlockFactor::QR>(layout, side, uplo, mb, nb, ib, alpha,
                 Aarray, 0, 0, ldda,
                 Uarray, 0, 0, lddu,
                VTarray, 0, 0, lddvt,

@@ -349,8 +349,6 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
     inner_dim *= useWoodbury; // discard inner_dim unless using Woodbury formula
     W.num_modifications = inner_dim;
     if (inner_dim > 0) {
-        slate_assert(blockFactorType == BlockFactor::SVD);
-
         auto A_tileMb     = A.tileMbFunc();
         auto A_tileRank   = A.tileRankFunc();
         auto A_tileDevice = A.tileDeviceFunc();
@@ -387,65 +385,100 @@ void getrf_addmod(Matrix<scalar_t>& A, AddModFactors<scalar_t>& W,
                     int64_t chunk = std::min(num_mods - mod_offset,
                                              W.capacitance_matrix.tileMb(tile) - tile_offset);
 
-                    if (W.S_VT_Rinv.tileIsLocal(tile, i)) {
-                        #pragma omp task firstprivate(tile, i, chunk, mod_offset) \
-                                         firstprivate(mod_inds, mod_vals, num_mods)
-                        {
-                            W.VT_factors.tileRecv(i, i, A.tileRank(i, i), layout, 2*i);
-                            W.VT_factors.tileGetForReading(i, i, LayoutConvert(layout));
-                            auto tile_VT = W.VT_factors(i, i);
-                            W.S_VT_Rinv.tileGetForWriting(tile, i, LayoutConvert(layout));
-                            auto tile_CVT = W.S_VT_Rinv(tile, i);
+                    if (blockFactorType == BlockFactor::SVD
+                        || blockFactorType == BlockFactor::QLP
+                        || blockFactorType == BlockFactor::QRCP) {
 
-                            for (int ii = 0; ii < chunk; ++ii) {
-                                auto s = mod_vals[mod_offset+ii];
-                                auto ind = mod_inds[mod_offset+ii];
-                                auto col_offset = (ind / ib)*ib;
+                        if (W.S_VT_Rinv.tileIsLocal(tile, i)) {
+                            #pragma omp task firstprivate(tile, i, chunk, mod_offset) \
+                                             firstprivate(mod_inds, mod_vals, num_mods)
+                            {
+                                W.VT_factors.tileRecv(i, i, A.tileRank(i, i), layout, 2*i);
+                                W.VT_factors.tileGetForReading(i, i, LayoutConvert(layout));
+                                auto tile_VT = W.VT_factors(i, i);
+                                W.S_VT_Rinv.tileGetForWriting(tile, i, LayoutConvert(layout));
+                                auto tile_CVT = W.S_VT_Rinv(tile, i);
 
-                                int64_t kb = std::min(A.tileNb(i)-col_offset, ib);
-                                for (int jj = 0; jj < kb; ++jj) {
-                                    tile_CVT.at(tile_offset+ii, jj+col_offset)
-                                        = s*tile_VT(ind, jj+col_offset);
+                                for (int ii = 0; ii < chunk; ++ii) {
+                                    auto s = mod_vals[mod_offset+ii];
+                                    auto ind = mod_inds[mod_offset+ii];
+                                    auto col_offset = (ind / ib)*ib;
+
+                                    int64_t kb = std::min(A.tileNb(i)-col_offset, ib);
+                                    for (int jj = 0; jj < kb; ++jj) {
+                                        tile_CVT.at(tile_offset+ii, jj+col_offset)
+                                            = s*tile_VT(ind, jj+col_offset);
+                                    }
+                                }
+                                W.VT_factors.tileTick(i, i);
+                            }
+                        }
+                        else if (W.VT_factors.tileIsLocal(i, i)) {
+                            #pragma omp task firstprivate(tile, i)
+                            {
+                                W.VT_factors.tileSend(i, i, W.S_VT_Rinv.tileRank(tile, i), 2*i);
+                            }
+                        }
+                    }
+                    else if (blockFactorType == BlockFactor::QR) {
+                        if (W.S_VT_Rinv.tileIsLocal(tile, i)) {
+                            #pragma omp task firstprivate(tile, i, chunk, mod_offset) \
+                                             firstprivate(mod_inds, mod_vals, num_mods)
+                            {
+                                W.S_VT_Rinv.tileGetForWriting(tile, i, LayoutConvert(layout));
+                                auto tile_CVT = W.S_VT_Rinv(tile, i);
+
+                                for (int ii = 0; ii < chunk; ++ii) {
+                                    auto s = mod_vals[mod_offset+ii];
+                                    auto ind = mod_inds[mod_offset+ii];
+
+                                    // tile_VT is (matrix-free) identity block
+                                    tile_CVT.at(tile_offset+ii, ind) = s;
                                 }
                             }
-                            W.VT_factors.tileTick(i, i);
                         }
                     }
-                    else if (W.VT_factors.tileIsLocal(i, i)) {
-                        #pragma omp task firstprivate(tile, i)
-                        {
-                            W.VT_factors.tileSend(i, i, W.S_VT_Rinv.tileRank(tile, i), 2*i);
-                        }
+                    else {
+                        slate_not_implemented("Unsupported block factor");
                     }
 
-                    if (W.Linv_U.tileIsLocal(i, tile)) {
-                        #pragma omp task firstprivate(tile, i, chunk, mod_offset) \
-                                         firstprivate(mod_inds, mod_vals, num_mods)
-                        {
-                            W.U_factors.tileRecv(i, i, W.U_factors.tileRank(i, i), layout, 2*i+1);
-                            W.U_factors.tileGetForReading(i, i, LayoutConvert(layout));
-                            auto tile_U = W.U_factors(i, i);
-                            W.Linv_U.tileGetForWriting(i, tile, LayoutConvert(layout));
-                            auto tile_CU = W.Linv_U(i, tile);
+                    if (blockFactorType == BlockFactor::SVD
+                        || blockFactorType == BlockFactor::QLP
+                        || blockFactorType == BlockFactor::QRCP
+                        || blockFactorType == BlockFactor::QR) {
 
-                            for (int jj = 0; jj < chunk; ++jj) {
-                                auto ind = mod_inds[mod_offset+jj];
-                                auto row_offset = (ind / ib)*ib;
+                        if (W.Linv_U.tileIsLocal(i, tile)) {
+                            #pragma omp task firstprivate(tile, i, chunk, mod_offset) \
+                                             firstprivate(mod_inds, mod_vals, num_mods)
+                            {
+                                W.U_factors.tileRecv(i, i, W.U_factors.tileRank(i, i), layout, 2*i+1);
+                                W.U_factors.tileGetForReading(i, i, LayoutConvert(layout));
+                                auto tile_U = W.U_factors(i, i);
+                                W.Linv_U.tileGetForWriting(i, tile, LayoutConvert(layout));
+                                auto tile_CU = W.Linv_U(i, tile);
 
-                                int64_t kb = std::min(A.tileMb(i)-row_offset, ib);
-                                for (int ii = 0; ii < kb; ++ii) {
-                                    tile_CU.at(ii+row_offset, tile_offset+jj)
-                                        = tile_U(ii+row_offset, ind);
+                                for (int jj = 0; jj < chunk; ++jj) {
+                                    auto ind = mod_inds[mod_offset+jj];
+                                    auto row_offset = (ind / ib)*ib;
+
+                                    int64_t kb = std::min(A.tileMb(i)-row_offset, ib);
+                                    for (int ii = 0; ii < kb; ++ii) {
+                                        tile_CU.at(ii+row_offset, tile_offset+jj)
+                                            = tile_U(ii+row_offset, ind);
+                                    }
                                 }
+                                W.U_factors.tileTick(i, i);
                             }
-                            W.U_factors.tileTick(i, i);
+                        }
+                        else if (W.U_factors.tileIsLocal(i, i)) {
+                            #pragma omp task firstprivate(tile, i)
+                            {
+                                W.U_factors.tileSend(i, i, W.Linv_U.tileRank(i, tile), 2*i+1);
+                            }
                         }
                     }
-                    else if (W.U_factors.tileIsLocal(i, i)) {
-                        #pragma omp task firstprivate(tile, i)
-                        {
-                            W.U_factors.tileSend(i, i, W.Linv_U.tileRank(i, tile), 2*i+1);
-                        }
+                    else {
+                        slate_not_implemented("Unsupported block factor");
                     }
 
                     tile_offset += chunk;

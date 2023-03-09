@@ -255,7 +255,9 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
                     U.tileGetForReading(0, 0, device, LayoutConvert(layout));
                 }
                 else {
-                    VT.tileGetForReading(0, 0, device, LayoutConvert(layout));
+                    if (blockFactorType != BlockFactor::QR) {
+                        VT.tileGetForReading(0, 0, device, LayoutConvert(layout));
+                    }
                 }
                 B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
 
@@ -277,7 +279,9 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
                     u_array0.reserve( batch_size );
                 }
                 else {
-                    vt_array0.reserve( batch_size );
+                    if (blockFactorType != BlockFactor::QR) {
+                        vt_array0.reserve( batch_size );
+                    }
                     s_array0.reserve( batch_size );
                 }
 
@@ -318,8 +322,10 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
                             }
                             else {
                                 s_array0.push_back( dS.data() );
-                                vt_array0.push_back( VT(0, 0, device).data() );
-                                ldvt0 = VT(0, 0, device).stride();
+                                if (blockFactorType != BlockFactor::QR) {
+                                    vt_array0.push_back( VT(0, 0, device).data() );
+                                    ldvt0 = VT(0, 0, device).stride();
+                                }
                             }
                         }
                     }
@@ -338,8 +344,10 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
                             }
                             else {
                                 s_array1.push_back( dS.data() );
-                                vt_array1.push_back( VT(0, 0, device).data() );
-                                ldvt1 = VT(0, 0, device).stride();
+                                if (blockFactorType != BlockFactor::QR) {
+                                    vt_array1.push_back( VT(0, 0, device).data() );
+                                    ldvt1 = VT(0, 0, device).stride();
+                                }
                             }
                         }
                     }
@@ -359,8 +367,10 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
                             }
                             else {
                                 s_array0.push_back( dS.data() );
-                                vt_array0.push_back( VT(0, 0, device).data() );
-                                ldvt0 = VT(0, 0, device).stride();
+                                if (blockFactorType != BlockFactor::QR) {
+                                    vt_array0.push_back( VT(0, 0, device).data() );
+                                    ldvt0 = VT(0, 0, device).stride();
+                                }
                             }
                         }
                     }
@@ -379,8 +389,10 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
                             }
                             else {
                                 s_array1.push_back( dS.data() );
-                                vt_array1.push_back( VT(0, 0, device).data() );
-                                ldvt1 = VT(0, 0, device).stride();
+                                if (blockFactorType != BlockFactor::QR) {
+                                    vt_array1.push_back( VT(0, 0, device).data() );
+                                    ldvt1 = VT(0, 0, device).stride();
+                                }
                             }
                         }
                     }
@@ -448,9 +460,11 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
                         }
                     }
                     else {
-                        VT.tileRelease(0, 0, device);
-                        for (auto i = 0; i < batch_size; ++i) {
-                            VT.tileTick(0, 0);
+                        if (blockFactorType != BlockFactor::QR) {
+                            VT.tileRelease(0, 0, device);
+                            for (auto i = 0; i < batch_size; ++i) {
+                                VT.tileTick(0, 0);
+                            }
                         }
                     }
                 }

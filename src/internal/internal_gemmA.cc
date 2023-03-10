@@ -8,6 +8,7 @@
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
 #include "internal/internal_batch.hh"
+#include "../auxiliary/Debug.hh"
 
 namespace slate {
 namespace internal {
@@ -100,17 +101,17 @@ void gemmA(internal::TargetType<Target::HostTask>,
                     firstprivate(i, j, layout) priority(priority)
                 {
                     try {
-                        A.tileGetForReading( i, j, LayoutConvert( layout ) );
+                        A.tileGetForReading( i, j, HostNum, LayoutConvert( layout ) );
                         for (int64_t k = 0; k < B.nt(); ++k) {
                             B.tileGetForReading(
-                                j, k, LayoutConvert( layout ) );
+                                j, k, HostNum, LayoutConvert( layout ) );
 
                             if (C.tileIsLocal( i, k )) {
                                 C.tileGetForWriting(
-                                    i, k, LayoutConvert( layout ) );
+                                    i, k, HostNum, LayoutConvert( layout ) );
                             }
                             else {
-                                if (! C.tileExists( i, k )) {
+                                if (! C.tileExists( i, k, HostNum )) {
                                     c_tile_acquired = 1;
                                     #pragma omp critical
                                     {
@@ -134,9 +135,9 @@ void gemmA(internal::TargetType<Target::HostTask>,
                     #pragma omp task slate_omp_default_none \
                         shared( C, beta ) firstprivate( i, j, layout )
                     {
-                        C.tileGetForWriting( i, j, LayoutConvert( layout ) );
+                        C.tileGetForWriting( i, j, HostNum, LayoutConvert( layout ) );
                         if (beta == zero) {
-                            C( i, j ).set( beta );
+                            C( i, j ).set( zero );
                         }
                         else {
                             tile::scale( beta, C( i, j ) );
@@ -254,29 +255,76 @@ void gemmA(internal::TargetType<Target::Devices>,
     const scalar_t zero = 0;
     const scalar_t one  = 1.0;
 
+    // if op(C) is NoTrans, invert opA, opB if possible
+    Op opA = A.op();
+    if (C.op() != Op::NoTrans) {
+        if (opA == Op::NoTrans)
+            opA = C.op();
+        else if (A.op() == C.op() || C.is_real) {
+            // A and C are both Trans or both ConjTrans;
+            // Trans == ConjTrans if real
+            opA = Op::NoTrans;
+        }
+        else {
+            err = __LINE__;  // ConjNoTrans not supported
+        }
+    }
+
+    Op opB = B.op();
+    if (C.op() != Op::NoTrans) {
+        if (opB == Op::NoTrans)
+            opB = C.op();
+        else if (opB == C.op() || C.is_real) {
+            // B and C are both Trans or both ConjTrans;
+            // Trans == ConjTrans if real
+            opB = Op::NoTrans;
+        }
+        else {
+            err = __LINE__;  // ConjNoTrans not supported
+        }
+    }
+
+    if (err)
+        slate_error( std::to_string( err ) );
+
+    if (C.op() == Op::ConjTrans) {
+        alpha = conj( alpha );
+        beta  = conj( beta );
+    }
+
+
     // In the case where some C tiles are not touched locally but involved
     // in the reduce process, we scale it here first.
     if (beta != one) {
         #pragma omp taskgroup
         for (int64_t i = 0; i < A.mt(); ++i) {
-            int cpt = 0;
+            int nlocal_A_row_i_tiles_touched = 0;
             for (int64_t j = 0; j < A.nt(); ++j) {
                 if (A.tileIsLocal( i, j )) {
-                    ++cpt;
+                    nlocal_A_row_i_tiles_touched++;
                 }
             }
-            if (cpt == 0 && C.tileIsLocal( i, 0 )) {
-                #pragma omp task shared( beta ) firstprivate( i )
+
+            if (nlocal_A_row_i_tiles_touched == 0 && C.tileIsLocal( i, 0 )) {
+                #pragma omp task slate_omp_default_none \
+                    shared( C ) \
+                    firstprivate(i, beta, layout, queue_index) \
+                    priority(priority)
                 {
                     // TODO Perform the scaling where the tile origins.
                     // Unless it got modified and so it should be
                     // performed where it was last modified.
                     int device = C.tileDevice( i, 0 );
+
                     C.tileGetForWriting(
                         i, 0, device, LayoutConvert( layout ) );
+
                     blas::Queue* queue = A.compute_queue( device, queue_index );
                     assert( queue != nullptr );
                     auto T = C( i, 0, device );
+                    if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
+                        T = transpose( T );
+
                     if (beta == zero) {
                         device::geset( T.mb(), T.nb(), beta, beta,
                             T.data(), T.stride(), *queue );
@@ -292,43 +340,9 @@ void gemmA(internal::TargetType<Target::Devices>,
 
     #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared(A, B, C, err) priority(priority) \
+        #pragma omp task shared(A, B, C) priority(priority) \
             firstprivate(alpha, beta, layout, queue_index, device, tile_release_strategy)
         {
-            // if op(C) is NoTrans, invert opA, opB if possible
-            Op opA = A.op();
-            if (C.op() != Op::NoTrans) {
-                if (opA == Op::NoTrans)
-                    opA = C.op();
-                else if (A.op() == C.op() || C.is_real) {
-                    // A and C are both Trans or both ConjTrans;
-                    // Trans == ConjTrans if real
-                    opA = Op::NoTrans;
-                }
-                else {
-                    err = __LINE__;  // ConjNoTrans not supported
-                }
-            }
-
-            Op opB = B.op();
-            if (C.op() != Op::NoTrans) {
-                if (opB == Op::NoTrans)
-                    opB = C.op();
-                else if (opB == C.op() || C.is_real) {
-                    // B and C are both Trans or both ConjTrans;
-                    // Trans == ConjTrans if real
-                    opB = Op::NoTrans;
-                }
-                else {
-                    err = __LINE__;  // ConjNoTrans not supported
-                }
-            }
-
-            if (C.op() == Op::ConjTrans) {
-                alpha = conj( alpha );
-                beta  = conj( beta );
-            }
-
             blas::Queue* queue = A.compute_queue( device, queue_index );
             assert( queue != nullptr );
 
@@ -352,6 +366,7 @@ void gemmA(internal::TargetType<Target::Devices>,
                                 auto T = C( i, 0, device );
                                 if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
                                     T = transpose( T );
+
                                 device::geset( T.mb(), T.nb(), zero, zero,
                                     T.data(), T.stride(), *queue );
                             }
@@ -721,8 +736,6 @@ void gemmA(internal::TargetType<Target::Devices>,
                                     A.tileRelease( i, j, device );
                                     // erase tmp local and remote device tiles;
                                     B.tileRelease( j, 0, device ); // XXX Should it stay here?
-                                    // decrement life for remote tiles
-                                    B.tileTick( j, 0 );
                                 }
                             }
                         }
@@ -731,9 +744,6 @@ void gemmA(internal::TargetType<Target::Devices>,
             }
         }
     }
-
-    if (err)
-        slate_error( std::to_string( err ) );
 }
 
 //------------------------------------------------------------------------------

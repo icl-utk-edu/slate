@@ -210,6 +210,12 @@ public:
         return storage_->find(globalIndex(i, j, device)) != storage_->end();
     }
 
+    /// returns true if tile exists on at least one device
+    bool tileExistsAnywhere( int64_t i, int64_t j)
+    {
+        return storage_->find(globalIndex(i, j)) != storage_->end();
+    }
+
     /// Returns MPI rank of tile {i, j} of op(A).
     int tileRank(int64_t i, int64_t j) const
     {
@@ -2448,7 +2454,7 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
 
     if (! (send_to.empty() && recv_from.empty())) {
         // read tile on host memory
-        tileGetForWriting(i, j, LayoutConvert(layout));
+        tileGetForReading(i, j, LayoutConvert(layout));
 
         auto Aij = at(i, j);
 
@@ -2460,6 +2466,7 @@ void BaseMatrix<scalar_t>::tileReduceFromSet(
         for (int src : recv_from) {
             // Receive.
             tile.recv(new_vec[src], mpi_comm_, layout, tag);
+            tileGetForWriting(i, j, LayoutConvert(layout));
             // Accumulate.
             tile::add( one, tile, Aij );
         }
@@ -4139,12 +4146,10 @@ void BaseMatrix<scalar_t>::eraseRemoteWorkspaceTile(int64_t i, int64_t j)
             // failed: Can only destroy unlocked lockss.
             //
             // LockGuard guard_tile( tile_node.getLock() );
-            if (tileExists( i, j )) {
-                if (tileReceiveCount( i, j ) > 0) {
-                    tileDecrementReceiveCount( i, j );
-                    if (tileReceiveCount( i, j ) == 0) {
-                        tileErase( i, j, AllDevices );
-                    }
+            if (tileExistsAnywhere( i, j )) {
+                tileDecrementReceiveCount( i, j );
+                if (tileReceiveCount( i, j ) <= 0) {
+                    tileErase( i, j, AllDevices );
                 }
             }
         }

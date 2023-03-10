@@ -44,12 +44,22 @@ void gemmA(
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
+    auto tileStrategy = get_option<TileReleaseStrategy>(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::Slate );
+
+    Options local_opts = opts;
+    local_opts[ Option::Lookahead ] = lookahead;
+
+    // XXX This should be removed later, based on Kadir's comment.
+    local_opts[ Option::TileReleaseStrategy ] = tileStrategy;
 
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector( A.nt() );
     std::vector<uint8_t> gemmA_vector( A.nt() );
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemmA = gemmA_vector.data();
+    const int priority_0 = 0;
+    const int queue_0 = 0;
 
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -70,11 +80,12 @@ void gemmA(
             for (int64_t i = 0; i < B.mt(); ++i)
                 bcast_list_B.push_back(
                     {i, 0, {A.sub( 0, A.mt()-1, i, i )}} );
-            B.template listBcast<target>( bcast_list_B, layout );
+            B.template listBcast<target>( bcast_list_B, layout, 0 );
         }
 
         // broadcast lookahead block cols of B
         for (int64_t k = 1; k < lookahead+1 && k < B.nt(); ++k) {
+            // XXX is the in depend clause needed?
             #pragma omp task depend(in:bcast[k-1]) \
                              depend(out:bcast[k])
             {
@@ -99,7 +110,7 @@ void gemmA(
                 alpha, std::move(A),
                        B.sub( 0, B.mt()-1, 0, 0 ),
                 beta,  C.sub( 0, C.mt()-1, 0, 0 ),
-                layout );
+                layout, priority_0, queue_0, local_opts );
 
             // reduce C(:, 0)
             using ReduceList = typename Matrix<scalar_t>::ReduceList;
@@ -110,14 +121,21 @@ void gemmA(
                                           C.sub( i, i, 0, 0 ),
                                           {A.sub( i, i, 0, A.nt()-1 )}
                                         } );
-            C.template listReduce( reduce_list_C, layout );
+            C.template listReduce( reduce_list_C, layout, 0 );
         }
         // Clean the memory introduced by internal::gemmA on Devices
         if (target == Target::Devices) {
             #pragma omp task depend( in:gemmA[ 0 ] ) \
-                              shared( C )
+                              shared( B, C )
             {
-                C.sub( 0, C.mt() - 1, 0, 0 ).releaseWorkspace();
+                auto B_col_0 = B.sub( 0, B.mt()-1, 0, 0 );
+                B_col_0.eraseRemoteWorkspace();
+                B_col_0.eraseLocalWorkspace();
+
+                auto C_col_0 = C.sub( 0, C.mt()-1, 0, 0 );
+                C_col_0.eraseRemoteWorkspace();
+                C_col_0.tileUpdateAllOrigin();
+                C_col_0.eraseLocalWorkspace();
             }
         }
 
@@ -126,6 +144,7 @@ void gemmA(
 
             // send next block col of B
             if (k+lookahead < B.nt()) {
+                // XXX Why a depend on gemmA?
                 #pragma omp task depend(in:gemmA[k-1]) \
                                  depend(in:bcast[k+lookahead-1]) \
                                  depend(out:bcast[k+lookahead])
@@ -153,7 +172,7 @@ void gemmA(
                     alpha, std::move(A),
                            B.sub( 0, B.mt()-1, k, k ),
                     beta,  C.sub( 0, C.mt()-1, k, k ),
-                    layout );
+                    layout, priority_0, queue_0, local_opts );
 
                 // reduce C(:, k)
                 using ReduceList = typename Matrix<scalar_t>::ReduceList;
@@ -164,21 +183,28 @@ void gemmA(
                                               C.sub( i, i, k, k ),
                                               {A.sub( i, i, 0, A.nt()-1 )}
                                             } );
-                C.template listReduce( reduce_list_C, layout );
+                C.template listReduce( reduce_list_C, layout, k );
             }
             // Clean the memory introduced by internal::gemmA on Devices
             if (target == Target::Devices) {
                 #pragma omp task depend( in:gemmA[ k ] ) \
-                                  shared( C ) \
+                                  shared( B, C ) \
                                   firstprivate( k )
                 {
-                    C.sub( 0, C.mt() - 1, k, k ).releaseWorkspace();
+                    auto B_col_k = B.sub( 0, B.mt()-1, k, k );
+                    B_col_k.eraseRemoteWorkspace();
+                    B_col_k.eraseLocalWorkspace();
+
+                    auto C_col_k = C.sub( 0, C.mt()-1, k, k );
+                    C_col_k.eraseRemoteWorkspace();
+                    C_col_k.tileUpdateAllOrigin();
+                    C_col_k.eraseLocalWorkspace();
                 }
             }
         }
         #pragma omp taskwait
 
-        C.tileUpdateAllOrigin();
+        A.eraseLocalWorkspace();
     }
 }
 

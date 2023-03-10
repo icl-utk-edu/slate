@@ -15,6 +15,8 @@ namespace internal {
 
 //------------------------------------------------------------------------------
 /// Triangular solve matrix (multiple right-hand sides).
+/// We assume A is a single tile and that the calling rank owns it
+/// as well as it has [a copy of] all the tiles in B
 /// Dispatches to target implementations.
 /// @ingroup trsm_internal
 ///
@@ -25,11 +27,14 @@ void trsmA(Side side,
            int priority, Layout layout, int64_t queue_index,
            Options const& opts)
 {
-    trsmA(internal::TargetType<target>(),
+    assert( A.mt() == 1 );
+    assert( side == Side::Left ? A.mt() == B.mt() : A.mt() == B.nt() );
+
+    trsmA( internal::TargetType<target>(),
           side,
           alpha, A,
                  B,
-          priority, layout, queue_index, opts);
+          priority, layout, queue_index, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -45,53 +50,45 @@ void trsmA(internal::TargetType<Target::HostTask>,
            int priority, Layout layout, int64_t queue_index,
            Options const& opts)
 {
+
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::trsm()
     //       to take layout param
     // todo: optimize for the number of layout conversions,
     //       by watching 'layout' and 'B(i, j).layout()'
-    assert(layout == Layout::ColMajor);
-    assert(A.mt() == 1);
+    assert( layout == Layout::ColMajor );
 
-    if (B.numLocalTiles() > 0 && A.tileIsLocal(0, 0)) {
-        A.tileGetForReading(0, 0, LayoutConvert(layout));
-    }
+    A.tileGetForReading( 0, 0, HostNum, LayoutConvert( layout ) );
+
     // alternatively, if (side == right), (conj)-transpose both A and B,
     // then assume side == left; see slate::trsm
-    #pragma omp taskgroup
     if (side == Side::Right) {
-        assert(B.nt() == 1);
+        #pragma omp taskgroup
         for (int64_t i = 0; i < B.mt(); ++i) {
-            if (B.tileIsLocal(i, 0)) {
-                #pragma omp task slate_omp_default_none \
-                    shared( A, B ) \
-                    firstprivate(i, layout, side, alpha) priority(priority)
-                {
-                    B.tileGetForWriting(i, 0, LayoutConvert(layout));
-                    tile::trsm(
-                        side, A.diag(),
-                        alpha, A(0, 0), B(i, 0) );
-                    // todo: should tileRelease()?
-                    A.tileTick(0, 0);
-                }
+            #pragma omp task slate_omp_default_none \
+                shared( A, B ) \
+                firstprivate(i, layout, side, alpha) priority(priority)
+            {
+                B.tileGetForWriting( i, 0, HostNum, LayoutConvert( layout ) );
+
+                tile::trsm(
+                    side, A.diag(),
+                    alpha, A( 0, 0 ), B( i, 0 ) );
             }
         }
     }
     else {
-        assert(B.mt() == 1);
-        if (A.tileIsLocal(0, 0)) {
-            for (int64_t j = 0; j < B.nt(); ++j) {
-                #pragma omp task slate_omp_default_none \
-                    shared( A, B ) \
-                    firstprivate(j, layout, side, alpha) priority(priority)
-                {
-                    B.tileGetForWriting(0, j, LayoutConvert(layout));
-                    tile::trsm(
-                        side, A.diag(),
-                        alpha, A(0, 0), B(0, j) );
-                    // todo: should tileRelease()?
-                    //A.tileTick(0, 0);
-                }
+        #pragma omp taskgroup
+        for (int64_t j = 0; j < B.nt(); ++j) {
+            #pragma omp task slate_omp_default_none \
+                shared( A, B ) \
+                firstprivate(j, layout, side, alpha) priority(priority)
+            {
+                B.tileGetForWriting( 0, j, HostNum, LayoutConvert( layout ) );
+
+                tile::trsm(
+                    side, A.diag(),
+                    alpha, A( 0, 0 ), B( 0, j ) );
             }
         }
     }
@@ -110,7 +107,10 @@ void trsmA(internal::TargetType<Target::HostNest>,
            int priority, Layout layout, int64_t queue_index,
            Options const& opts)
 {
-    slate_not_implemented("Target::HostNest isn't yet supported.");
+    trsmA( internal::TargetType<Target::HostTask>(),
+            side,
+            alpha, A, B,
+            priority, layout, queue_index, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -126,7 +126,10 @@ void trsmA(internal::TargetType<Target::HostBatch>,
            int priority, Layout layout, int64_t queue_index,
            Options const& opts)
 {
-    slate_not_implemented("Target::HostBatch isn't yet supported.");
+    trsmA( internal::TargetType<Target::HostTask>(),
+            side,
+            alpha, A, B,
+            priority, layout, queue_index, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -154,10 +157,7 @@ void trsmA(internal::TargetType<Target::Devices>,
     assert(layout == Layout::ColMajor);
 
     assert(B.num_devices() > 0);
-    assert(A.mt() == 1);
     assert(B.uploPhysical() == Uplo::General);
-    assert(A.mt() == A.nt());  // square
-    assert(side == Side::Left ? A.mt() == B.mt() : A.mt() == B.nt());
 
     TileReleaseStrategy tile_release_strategy = get_option(
             opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
@@ -168,14 +168,14 @@ void trsmA(internal::TargetType<Target::Devices>,
     Side sideA = side;
 
     if (B.op() != Op::NoTrans) {
-        if (A.is_complex && A.op() != Op::NoTrans && A.op() != B.op())
+        if (A.is_complex && opA != Op::NoTrans && opA != B.op())
             throw std::exception();
 
         // switch op(A) <=> op(B), side left <=> right, m <=> n
         sideA = (side == Side::Left ? Side::Right : Side::Left);
-        if (A.op() == Op::NoTrans)
+        if (opA == Op::NoTrans)
             opA = B.op();
-        else if (A.op() == B.op() || A.is_real) {
+        else if (opA == B.op() || A.is_real) {
             // A and B are both Trans or both ConjTrans;
             // Trans == ConjTrans if real
             opA = Op::NoTrans;
@@ -187,10 +187,7 @@ void trsmA(internal::TargetType<Target::Devices>,
             alpha = conj(alpha);
     }
 
-    if (! A.tileIsLocal( 0, 0))
-        return;
-
-    // We assume the tile A( 0, 0 ) may be duplicated across multiple devices
+    // We know that the tile A( 0, 0 ) may be duplicated across multiple devices
     // so that when B has several block columns the trsm can be parallelized.
     // However, trsmA is designed for a tall and short B.
     // So is it relevant/needed?
@@ -213,8 +210,6 @@ void trsmA(internal::TargetType<Target::Devices>,
             }
             else {
                 for (int64_t j = 0; j < B.nt(); ++j) {
-                    //TODO Scale if B is local, instead of outside this routine
-                    //TODO Create tiles that are not local
                     if (B.tileIsLocal( 0, j )
                         || B.tileExists( 0, j, device ))
                     {
@@ -224,10 +219,11 @@ void trsmA(internal::TargetType<Target::Devices>,
             }
 
             int64_t batch_size = B_tiles_set.size();
-            if (batch_size > 0) {
 
-                A.tileGetForReading(0, 0, device, LayoutConvert(layout));
-                B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
+            if (batch_size > 0) {
+                A.tileGetForReading( 0, 0, device, LayoutConvert( layout ) );
+                B.tileGetForWriting(
+                    B_tiles_set, device, LayoutConvert( layout ) );
 
                 // interior col or row
                 std::vector<scalar_t*> a_array0;
@@ -250,24 +246,29 @@ void trsmA(internal::TargetType<Target::Devices>,
                 int64_t mb1 = B.tileMb(B.mt()-1);
                 int64_t nb1 = B.tileNb(B.nt()-1);
 
+                auto A00d = A( 0, 0, device );
+                auto dAdata = A00d.data();
+                lda1 = lda0 = A00d.stride();
+
                 if (side == Side::Right) {
+                    // TODO loop over B_tiles_set instead of looking for again.
                     for (int64_t i = 0; i < B.mt()-1; ++i) {
                         if (B.tileExists( i, 0, device ))
                         {
-                            a_array0.push_back( A( 0, 0, device ).data() );
-                            b_array0.push_back( B( i, 0, device ).data() );
-                            lda0 = A( 0, 0, device ).stride();
-                            ldb0 = B( i, 0, device ).stride();
+                            auto Bi0d = B( i, 0, device );
+                            a_array0.push_back( dAdata );
+                            b_array0.push_back( Bi0d.data() );
+                            ldb0 = Bi0d.stride();
                         }
                     }
                     {
                         int64_t i = B.mt()-1;
                         if (B.tileExists( i, 0, device ))
                         {
-                            a_array1.push_back( A( 0, 0, device ).data() );
-                            b_array1.push_back( B( i, 0, device ).data() );
-                            lda1 = A( 0, 0, device ).stride();
-                            ldb1 = B( i, 0, device ).stride();
+                            auto Bi0d = B( i, 0, device );
+                            a_array1.push_back( dAdata );
+                            b_array1.push_back( Bi0d.data() );
+                            ldb1 = Bi0d.stride();
                         }
                     }
                 }
@@ -275,47 +276,48 @@ void trsmA(internal::TargetType<Target::Devices>,
                     for (int64_t j = 0; j < B.nt()-1; ++j) {
                         if (B.tileExists( 0, j, device ))
                         {
-                            a_array0.push_back( A( 0, 0, device ).data() );
-                            b_array0.push_back( B( 0, j, device ).data() );
-                            lda0 = A( 0, 0, device ).stride();
-                            ldb0 = B( 0, j, device ).stride();
+                            auto B0jd = B( 0, j, device );
+                            a_array0.push_back( dAdata );
+                            b_array0.push_back( B0jd.data() );
+                            ldb0 = B0jd.stride();
                         }
                     }
                     {
                         int64_t j = B.nt()-1;
                         if (B.tileExists( 0, j, device ))
                         {
-                            a_array1.push_back( A( 0, 0, device ).data() );
-                            b_array1.push_back( B( 0, j, device ).data() );
-                            lda1 = A( 0, 0, device ).stride();
-                            ldb1 = B( 0, j, device ).stride();
+                            auto B0jd = B( 0, j, device );
+                            a_array1.push_back( dAdata );
+                            b_array1.push_back( B0jd.data() );
+                            ldb1 = B0jd.stride();
                         }
                     }
                 }
 
                 if (B.op() != Op::NoTrans) {
-                    swap(mb0, nb0);
-                    swap(mb1, nb1);
+                    swap( mb0, nb0 );
+                    swap( mb1, nb1 );
                 }
 
                 {
                     trace::Block trace_block("blas::batch::trsmA");
 
-                    std::vector<Side>      side_(1, sideA);
-                    std::vector<Uplo>      uplo_(1, uploA);
-                    std::vector<Op>         opA_(1, opA  );
-                    std::vector<Diag>      diag_(1, diagA);
-                    std::vector<scalar_t> alpha_(1, alpha);
-                    std::vector<int64_t> info; // FIXME remove (1)
+                    std::vector<Side>      side_( 1, sideA );
+                    std::vector<Uplo>      uplo_( 1, uploA );
+                    std::vector<Op>         opA_( 1, opA   );
+                    std::vector<Diag>      diag_( 1, diagA );
+                    std::vector<scalar_t> alpha_( 1, alpha );
+                    std::vector<int64_t> info;
 
-                    blas::Queue* queue = A.compute_queue(device, queue_index);
-                    assert(queue != nullptr);
+                    blas::Queue* queue = A.compute_queue( device, queue_index );
+                    assert( queue != nullptr );
 
                     if (a_array0.size() > 0) {
-                        std::vector<int64_t>    m(1,  mb0);
-                        std::vector<int64_t>    n(1,  nb0);
-                        std::vector<int64_t>  lda(1, lda0);
-                        std::vector<int64_t>  ldb(1, ldb0);
+                        std::vector<int64_t>    m( 1,  mb0 );
+                        std::vector<int64_t>    n( 1,  nb0 );
+                        std::vector<int64_t>  lda( 1, lda0 );
+                        std::vector<int64_t>  ldb( 1, ldb0 );
+
                         blas::batch::trsm(
                             layout, side_, uplo_, opA_, diag_,
                             m, n,
@@ -329,17 +331,13 @@ void trsmA(internal::TargetType<Target::Devices>,
                         std::vector<int64_t>   n(1,  nb1);
                         std::vector<int64_t> lda(1, lda1);
                         std::vector<int64_t> ldb(1, ldb1);
-                      //queue->sync();
-                      //cudaDeviceSynchronize();
-                      //printf( "[CUDA] %s\n",
-                      //        cudaGetErrorString( cudaGetLastError() ) );
+
                         blas::batch::trsm(
                             layout, side_, uplo_, opA_, diag_,
                             m, n,
                             alpha_, a_array1, lda,
                                     b_array1, ldb,
                             a_array1.size(), info, *queue);
-                      //queue->sync();
                     }
 
                     queue->sync();

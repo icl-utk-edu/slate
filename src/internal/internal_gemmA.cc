@@ -296,6 +296,7 @@ void gemmA(internal::TargetType<Target::Devices>,
     // In the case where some C tiles are not touched locally but involved
     // in the reduce process, we scale it here first.
     if (beta != one) {
+        std::set<int> queues_to_sync;
         #pragma omp taskgroup
         for (int64_t i = 0; i < A.mt(); ++i) {
             int nlocal_A_row_i_tiles_touched = 0;
@@ -306,6 +307,7 @@ void gemmA(internal::TargetType<Target::Devices>,
             }
 
             if (nlocal_A_row_i_tiles_touched == 0 && C.tileIsLocal( i, 0 )) {
+                queues_to_sync.insert( C.tileDevice( i, 0 ) );
                 #pragma omp task slate_omp_default_none \
                     shared( C ) \
                     firstprivate(i, beta, layout, queue_index) \
@@ -335,6 +337,11 @@ void gemmA(internal::TargetType<Target::Devices>,
                     }
                 }
             }
+        }
+        for (int device : queues_to_sync) {
+            blas::Queue* queue = A.compute_queue( device, queue_index );
+            assert( queue != nullptr );
+            queue->sync();
         }
     }
 

@@ -1312,6 +1312,7 @@ void generate_matrix(
                             #pragma omp task firstprivate(i, j, mb, nb, \
                                                           i_global, j_global)
                             {
+                                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
                                 for (int64_t ii = 0; ii < mb; ++ii) {
                                     for (int64_t jj = 0; jj < nb; ++jj) {
@@ -1367,6 +1368,7 @@ void generate_matrix(
                             #pragma omp task firstprivate(i, j, mb, nb, \
                                                           i_global, j_global)
                             {
+                                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
                                 for (int64_t ii = 0; ii < mb; ++ii) {
                                     for (int64_t jj = 0; jj < nb; ++jj) {
@@ -1400,6 +1402,7 @@ void generate_matrix(
                         if (A.tileIsLocal(i, j)) {
                             #pragma omp task firstprivate(i, j, mb, nb, i_global, j_global)
                             {
+                                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
                                 for (int64_t ii = 0; ii < mb; ++ii) {
                                     for (int64_t jj = 0; jj < nb; ++jj) {
@@ -1424,6 +1427,7 @@ void generate_matrix(
             for (int64_t i = 0; i < mt; ++i) {
                 for (int64_t j = 0; j < nt; ++j) {
                     if (A.tileIsLocal(i, j)) {
+                        A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                         auto A_ij = A(i, j);
                         const int64_t mb = A.tileMb(i);
                         const int64_t nb = A.tileNb(j);
@@ -1468,6 +1472,7 @@ void generate_matrix(
                             #pragma omp task firstprivate(i, j, mb, nb, \
                                                           i_global, j_global)
                             {
+                                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
                                 for (int64_t ii = 0; ii < mb; ++ii) {
                                     for (int64_t jj = 0; jj < nb; ++jj) {
@@ -1506,6 +1511,7 @@ void generate_matrix(
                             #pragma omp task firstprivate(i, j, mb, nb, \
                                                           i_global, j_global)
                             {
+                                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
                                 for (int64_t ii = 0; ii < mb; ++ii) {
                                     for (int64_t jj = 0; jj < nb; ++jj) {
@@ -1540,6 +1546,7 @@ void generate_matrix(
                             #pragma omp task firstprivate(i, j, mb, nb, \
                                                           i_global, j_global)
                             {
+                                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
                                 for (int64_t ii = 0; ii < mb; ++ii) {
                                     for (int64_t jj = 0; jj < nb; ++jj) {
@@ -1579,6 +1586,7 @@ void generate_matrix(
                             #pragma omp task firstprivate(i, j, mb, nb, \
                                                           i_global, j_global)
                             {
+                                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
                                 for (int64_t ii = 0; ii < mb; ++ii) {
                                     for (int64_t jj = 0; jj < nb; ++jj) {
@@ -1612,6 +1620,7 @@ void generate_matrix(
                             #pragma omp task firstprivate(i, j, mb, nb, \
                                                           i_global, j_global)
                             {
+                                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
                                 for (int64_t ii = 0; ii < mb; ++ii) {
                                     for (int64_t jj = 0; jj < nb; ++jj) {

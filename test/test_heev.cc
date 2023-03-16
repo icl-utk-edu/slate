@@ -85,15 +85,6 @@ void test_heev_work(Params& params, bool run)
         params.msg() = "skipping: requires square process grid (p == q).";
         return;
     }
-    if (ref) {
-        #ifdef SLATE_HAVE_SCALAPACK
-        if (jobz == slate::Job::NoVec
-             and method_eig == slate::MethodEig::DC) {
-            params.msg() = "skipping: novec is not supported by ScaLAPACK.";
-            return;
-        }
-        #endif
-    }
 
     // Figure out local size.
     // matrix A (local input), m-by-n, symmetric matrix
@@ -282,27 +273,13 @@ void test_heev_work(Params& params, bool run)
             scalapack_descinit(Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
             slate_assert(info == 0);
 
-            // todo: do we still need the part below?
-            // set num threads appropriately for parallel BLAS if possible
-            //int omp_num_threads = 1;
-            //#pragma omp parallel
-            //{ omp_num_threads = omp_get_num_threads(); }
-            //int saved_num_threads = slate_set_num_blas_threads(omp_num_threads);
-
             // query for workspace size
             int64_t info_tst = 0;
             int64_t lwork = -1, lrwork = -1, liwork = -1;
             std::vector<scalar_t> work(1);
             std::vector<real_t> rwork(1);
             std::vector<int> iwork(1);
-            if (method_eig == slate::MethodEig::QR) {
-                scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
-                                &Aref_data[0], 1, 1, A_desc,
-                                &Lambda_ref[0], // global output
-                                &Z_data[0], 1, 1, Z_desc,
-                                &work[0], -1, &rwork[0], -1, &info_tst);
-            }
-            else if (method_eig == slate::MethodEig::DC) {
+            if (method_eig == slate::MethodEig::DC && jobz == slate::Job::Vec) {
                 scalapack_pheevd(job2str(jobz), uplo2str(uplo), n,
                                 &Aref_data[0], 1, 1, A_desc,
                                 &Lambda_ref[0], // global output
@@ -310,6 +287,14 @@ void test_heev_work(Params& params, bool run)
                                 &work[0], -1, &rwork[0], -1,
                                 &iwork[0], -1, &info_tst);
             }
+            else {
+                scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
+                                &Aref_data[0], 1, 1, A_desc,
+                                &Lambda_ref[0], // global output
+                                &Z_data[0], 1, 1, Z_desc,
+                                &work[0], -1, &rwork[0], -1, &info_tst);
+            }
+
             slate_assert(info_tst == 0);
             lwork = int64_t( real( work[0] ) );
             work.resize(lwork);
@@ -327,14 +312,7 @@ void test_heev_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            if (method_eig == slate::MethodEig::QR) {
-                scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
-                                &Aref_data[0], 1, 1, A_desc,
-                                &Lambda_ref[0],
-                                &Z_data[0], 1, 1, Z_desc,
-                                &work[0], lwork, &rwork[0], lrwork, &info_tst);
-            }
-            else if (method_eig == slate::MethodEig::DC) {
+            if (method_eig == slate::MethodEig::DC && jobz == slate::Job::Vec) {
                 scalapack_pheevd(job2str(jobz), uplo2str(uplo), n,
                                 &Aref_data[0], 1, 1, A_desc,
                                 &Lambda_ref[0],
@@ -342,14 +320,17 @@ void test_heev_work(Params& params, bool run)
                                 &work[0], lwork, &rwork[0], lrwork,
                                 &iwork[0], liwork, &info_tst);
             }
+            else {
+                scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
+                                &Aref_data[0], 1, 1, A_desc,
+                                &Lambda_ref[0],
+                                &Z_data[0], 1, 1, Z_desc,
+                                &work[0], lwork, &rwork[0], lrwork, &info_tst);
+            }
             slate_assert(info_tst == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             params.ref_time() = time;
-
-            // todo: do we still need this?
-            // Reset omp thread number
-            //slate_set_num_blas_threads(saved_num_threads);
 
             if (! ref_only) {
                 // Reference Scalapack was run, check reference against test
@@ -361,9 +342,6 @@ void test_heev_work(Params& params, bool run)
                     / blas::asum( n, &Lambda_ref[0], 1 );
 
                 params.okay() = params.okay() && (params.error() <= tol);
-            }
-            else {
-                params.okay() = -1; // no check since slate was not run, only ref was run
             }
 
             Cblacs_gridexit(ictxt);

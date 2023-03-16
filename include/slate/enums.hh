@@ -54,12 +54,12 @@ template <Target> class TargetType {};
 } // namespace internal
 
 //------------------------------------------------------------------------------
-/// Algorithm used in routines.
+/// Eigenvalue algorithm to used in heev routine.
 /// @ingroup enum
 ///
-enum class Algorithm : char {
-    EigenvalueQR      = 'Q',    ///< QR iteration for finding eigenvalues
-    EigenvalueDC      = 'D',    ///< Divide and conquer algorithm for finding eigenvalues
+enum class MethodEig : char {
+    QR        = 'Q',    ///< QR iteration for finding eigenvalues
+    DC        = 'D',    ///< Divide and conquer algorithm for finding eigenvalues
 };
 
 //------------------------------------------------------------------------------
@@ -74,7 +74,6 @@ enum class Option : char {
     MaxPanelThreads,    ///< max number of threads for panel, >= 1
     Tolerance,          ///< tolerance for iterative methods, default epsilon
     Target,             ///< computation method (@see Target)
-    Algorithm,          ///< algorithm used in the routine
     TileReleaseStrategy,///< tile releasing strategy used by routines
     HoldLocalWorkspace, ///< do not erase local workspace tiles for enabling
                         ///< resue of the tiles by the next routine
@@ -93,6 +92,7 @@ enum class Option : char {
 
     // Methods, listed alphabetically.
     MethodCholQR,       ///< Select the algorithm to compute A^H * A
+    MethodEig,          ///< Select the algorithm to compute eigenpairs of tridiagonal matrix
     MethodGels,         ///< Select the gels algorithm
     MethodGemm,         ///< Select the gemm algorithm
     MethodHemm,         ///< Select the hemm algorithm

@@ -48,7 +48,7 @@ void test_heev_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
-    slate::Algorithm algorithm = params.algorithm();
+    slate::MethodEig method_eig = params.method_eig();
     params.matrix.mark();
 
     // mark non-standard output values
@@ -68,7 +68,7 @@ void test_heev_work(Params& params, bool run)
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib},
-        {slate::Option::Algorithm, algorithm}
+        {slate::Option::MethodEig, method_eig},
     };
 
     // MPI variables
@@ -88,7 +88,7 @@ void test_heev_work(Params& params, bool run)
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
         if (jobz == slate::Job::NoVec
-             and algorithm == slate::Algorithm::EigenvalueDC) {
+             and method_eig == slate::MethodEig::DC) {
             params.msg() = "skipping: novec is not supported by ScaLAPACK.";
             return;
         }
@@ -295,14 +295,14 @@ void test_heev_work(Params& params, bool run)
             std::vector<scalar_t> work(1);
             std::vector<real_t> rwork(1);
             std::vector<int> iwork(1);
-            if (algorithm == slate::Algorithm::EigenvalueQR) {
+            if (method_eig == slate::MethodEig::QR) {
                 scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
                                 &Aref_data[0], 1, 1, A_desc,
                                 &Lambda_ref[0], // global output
                                 &Z_data[0], 1, 1, Z_desc,
                                 &work[0], -1, &rwork[0], -1, &info_tst);
             }
-            else if (algorithm == slate::Algorithm::EigenvalueDC) {
+            else if (method_eig == slate::MethodEig::DC) {
                 scalapack_pheevd(job2str(jobz), uplo2str(uplo), n,
                                 &Aref_data[0], 1, 1, A_desc,
                                 &Lambda_ref[0], // global output
@@ -318,7 +318,7 @@ void test_heev_work(Params& params, bool run)
                 lrwork = int64_t( real( rwork[0] ) );
                 rwork.resize(lrwork);
             }
-            if (algorithm == slate::Algorithm::EigenvalueDC) {
+            if (method_eig == slate::MethodEig::DC) {
                 liwork = int64_t( iwork[0] );
                 iwork.resize(liwork);
             }
@@ -327,14 +327,14 @@ void test_heev_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            if (algorithm == slate::Algorithm::EigenvalueQR) {
+            if (method_eig == slate::MethodEig::QR) {
                 scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
                                 &Aref_data[0], 1, 1, A_desc,
                                 &Lambda_ref[0],
                                 &Z_data[0], 1, 1, Z_desc,
                                 &work[0], lwork, &rwork[0], lrwork, &info_tst);
             }
-            else if (algorithm == slate::Algorithm::EigenvalueDC) {
+            else if (method_eig == slate::MethodEig::DC) {
                 scalapack_pheevd(job2str(jobz), uplo2str(uplo), n,
                                 &Aref_data[0], 1, 1, A_desc,
                                 &Lambda_ref[0],

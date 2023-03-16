@@ -93,7 +93,7 @@ public:
     testsweeper::ParamEnum< slate::GridOrder >      grid_order;
     testsweeper::ParamEnum< slate::TileReleaseStrategy > tile_release_strategy;
     testsweeper::ParamEnum< slate::Dist >           dev_dist;
-    testsweeper::ParamEnum< slate::Algorithm >      algorithm; // heev
+    testsweeper::ParamEnum< slate::MethodEig >      method_eig; // heev
     testsweeper::ParamEnum< slate::Layout >         layout;
     testsweeper::ParamEnum< lapack::Job >           jobz;   // heev
     testsweeper::ParamEnum< lapack::Job >           jobvl;  // geev
@@ -370,23 +370,23 @@ inline const char* target2str(slate::Target target)
 }
 
 // -----------------------------------------------------------------------------
-inline slate::Algorithm str2algorithm(const char* algorithm)
+inline slate::MethodEig str2methodEig(const char* method_eig)
 {
-    std::string algorithm_ = algorithm;
-    std::transform(algorithm_.begin(), algorithm_.end(), algorithm_.begin(), ::tolower);
-    if (algorithm_ == "q" || algorithm_ == "qr")
-        return slate::Algorithm::EigenvalueQR;
-    else if (algorithm_ == "d" || algorithm_ == "dc")
-        return slate::Algorithm::EigenvalueDC;
+    std::string method_eig_ = method_eig;
+    std::transform(method_eig_.begin(), method_eig_.end(), method_eig_.begin(), ::tolower);
+    if (method_eig_ == "q" || method_eig_ == "qr")
+        return slate::MethodEig::QR;
+    else if (method_eig_ == "d" || method_eig_ == "dc")
+        return slate::MethodEig::DC;
     else
         throw slate::Exception("unknown algorithm");
 }
 
-inline const char* algorithm2str(slate::Algorithm algorithm)
+inline const char* methodEig2str(slate::MethodEig method_eig)
 {
-    switch (algorithm) {
-        case slate::Algorithm::EigenvalueQR:  return "qr";
-        case slate::Algorithm::EigenvalueDC:  return "dc";
+    switch (method_eig) {
+        case slate::MethodEig::QR:  return "qr";
+        case slate::MethodEig::DC:  return "dc";
     }
     return "?";
 }

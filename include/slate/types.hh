@@ -49,7 +49,7 @@ public:
     OptionValue(TileReleaseStrategy t) : i_(int(t))
     {}
 
-    OptionValue(Algorithm a) : i_(int(a))
+    OptionValue(MethodEig m) : i_(int(m))
     {}
 
     union {

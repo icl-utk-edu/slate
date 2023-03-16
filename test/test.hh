@@ -84,6 +84,7 @@ public:
     testsweeper::ParamEnum< slate::Target >         target;
 
     testsweeper::ParamEnum< slate::Method >         method_cholQR;
+    testsweeper::ParamEnum< slate::MethodEig >      method_eig;
     testsweeper::ParamEnum< slate::Method >         method_gels;
     testsweeper::ParamEnum< slate::Method >         method_gemm;
     testsweeper::ParamEnum< slate::Method >         method_hemm;
@@ -93,7 +94,6 @@ public:
     testsweeper::ParamEnum< slate::GridOrder >      grid_order;
     testsweeper::ParamEnum< slate::TileReleaseStrategy > tile_release_strategy;
     testsweeper::ParamEnum< slate::Dist >           dev_dist;
-    testsweeper::ParamEnum< slate::MethodEig >      method_eig; // heev
     testsweeper::ParamEnum< slate::Layout >         layout;
     testsweeper::ParamEnum< lapack::Job >           jobz;   // heev
     testsweeper::ParamEnum< lapack::Job >           jobvl;  // geev

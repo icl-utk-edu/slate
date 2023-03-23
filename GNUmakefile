@@ -646,6 +646,7 @@ endif
 tester_src += \
         test/matrix_generator.cc \
         test/matrix_params.cc \
+        test/random.cc \
         test/test.cc \
         test/test_add.cc \
         test/test_bdsqr.cc \

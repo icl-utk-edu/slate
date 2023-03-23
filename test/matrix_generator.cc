@@ -21,17 +21,15 @@
 
 #include "matrix_params.hh"
 #include "matrix_generator.hh"
+#include "random.hh"
 
 // -----------------------------------------------------------------------------
-const int64_t idist_rand  = 1;
-const int64_t idist_rands = 2;
-const int64_t idist_randn = 3;
 
 enum class TestMatrixType {
-    rand  = idist_rand,   // 1
-    rands = idist_rands,  // 2
-    randn = idist_randn,  // 3
-    randb,
+    rand  = int(slate::random::Dist::Uniform),
+    rands = int(slate::random::Dist::UniformSigned),
+    randn = int(slate::random::Dist::Normal),
+    randb = int(slate::random::Dist::Binary),
     zero,
     one,
     identity,
@@ -52,9 +50,9 @@ enum class TestMatrixType {
 };
 
 enum class TestMatrixDist {
-    rand  = idist_rand,   // 1
-    rands = idist_rands,  // 2
-    randn = idist_randn,  // 3
+    rand  = int(slate::random::Dist::Uniform),
+    rands = int(slate::random::Dist::UniformSigned),
+    randn = int(slate::random::Dist::Normal),
     arith,
     geo,
     cluster0,
@@ -115,7 +113,7 @@ void generate_sigma(
     blas::real_type<typename matrix_type::value_type> sigma_max,
     matrix_type& A,
     std::vector< blas::real_type<typename matrix_type::value_type> >& Sigma,
-    int64_t iseed[4] )
+    int64_t seed )
 {
     using scalar_t = typename matrix_type::value_type;
     using real_t = blas::real_type<scalar_t>;
@@ -187,7 +185,9 @@ void generate_sigma(
 
         case TestMatrixDist::logrand: {
             real_t range = log( 1/cond );
-            lapack::larnv( idist_rand, iseed, Sigma.size(), Sigma.data() );
+            slate::random::generate(slate::random::Dist::Uniform, seed,
+                                    Sigma.size(), 1, 0, 0,
+                                    Sigma.data(), Sigma.size());
             for (int64_t i = 0; i < min_mn; ++i) {
                 Sigma[i] = exp( Sigma[i] * range );
             }
@@ -202,8 +202,10 @@ void generate_sigma(
         case TestMatrixDist::randn:
         case TestMatrixDist::rands:
         case TestMatrixDist::rand: {
-            int64_t idist = (int64_t) dist;
-            lapack::larnv( idist, iseed, Sigma.size(), Sigma.data() );
+            auto rand_dist = slate::random::Dist(int(dist));
+            slate::random::generate(rand_dist, seed,
+                                    Sigma.size(), 1, 0, 0,
+                                    Sigma.data(), 1);
             break;
         }
 
@@ -226,7 +228,10 @@ void generate_sigma(
         // apply random signs
         for (int64_t i = 0; i < min_mn; ++i) {
             float rand;
-            lapack::larnv( idist_rand, iseed, 1, &rand );
+            // use distinct random values from above
+            slate::random::generate(slate::random::Dist::Uniform, seed,
+                                    1, 1, i, 1,
+                                    &rand, 1);
             if (rand > 0.5) {
                 Sigma[i] = -Sigma[i];
             }
@@ -328,7 +333,7 @@ void generate_svd(
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
-    int64_t iseed[4] )
+    int64_t seed )
 {
     using real_t = blas::real_type<scalar_t>;
     assert( A.m() >= A.n() );
@@ -344,7 +349,8 @@ void generate_svd(
     slate::TriangularFactors<scalar_t> T;
 
     // ----------
-    generate_sigma( params, dist, false, cond, sigma_max, A, Sigma, iseed );
+    generate_sigma( params, dist, false, cond, sigma_max, A, Sigma, seed );
+    seed += 1;
 
     // for generate correlation factor, need sum sigma_i^2 = n
     // scaling doesn't change cond
@@ -369,38 +375,29 @@ void generate_svd(
     }
 
     // random U, m-by-min_mn
-    auto Tmp = U.emptyLike();
-    #pragma omp parallel for collapse(2)
-    for (int64_t j = 0; j < nt; ++j) {
-        for (int64_t i = 0; i < mt; ++i) {
-            if (U.tileIsLocal(i, j)) {
-                // lapack assume input tile is contigous in memory
-                // if the tiles are not contigous in memory, then
-                // insert temperory tiles to be passed to lapack
-                // then copy output tile to U.tile
-                Tmp.tileInsert(i, j);
-                auto Tmpij = Tmp(i, j);
-                scalar_t* data = Tmpij.data();
-                int64_t ldt = Tmpij.stride();
-                //lapack::larnv( idist_randn, params.iseed,
-                //    U.tileMb(i)*U.tileNb(j), Tmpij.data() );
-
-                // Added local seed array for each process to prevent race condition contention of iseed
-                int64_t tile_iseed[4];
-                tile_iseed[0] = (iseed[0] + i/4096) % 4096;
-                tile_iseed[1] = (iseed[1] + j/2048) % 4096;
-                tile_iseed[2] = (iseed[2] + i)      % 4096;
-                tile_iseed[3] = (iseed[3] + j*2)    % 4096;
-                for (int64_t k = 0; k < Tmpij.nb(); ++k) {
-                    lapack::larnv(idist_randn, tile_iseed, Tmpij.mb(), &data[k*ldt]);
+    #pragma omp parallel
+    #pragma omp master
+    {
+        int64_t joffset = 0;
+        for (int64_t j = 0; j < nt; ++j) {
+            int64_t ioffset = 0;
+            for (int64_t i = 0; i < mt; ++i) {
+                if (A.tileIsLocal(i, j)) {
+                    #pragma omp task
+                    {
+                        U.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                        auto Uij = U(i, j);
+                        slate::random::generate(slate::random::Dist::Normal, seed,
+                                                Uij.mb(), Uij.nb(), ioffset, joffset,
+                                                Uij.data(), Uij.stride());
+                    }
                 }
-                slate::tile::gecopy( Tmp(i, j), U(i, j) );
-                Tmp.tileErase(i, j);
+                ioffset += A.tileMb(i);
             }
+            joffset += A.tileNb(j);
         }
     }
-    // Hack to update iseed between matrices.
-    iseed[2] = (iseed[2]*31) % 4096;
+    seed += 1;
 
     // we need to make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
@@ -413,32 +410,29 @@ void generate_svd(
 
     // random V, n-by-min_mn (stored column-wise in U)
     auto V = U.slice(0, n-1, 0, n-1);
-    auto Tmp_V = Tmp.slice(0, n-1, 0, n-1);
-    #pragma omp parallel for collapse(2)
-    for (int64_t j = 0; j < min_mt_nt; ++j) {
-        for (int64_t i = 0; i < nt; ++i) {
-            if (V.tileIsLocal(i, j)) {
-                Tmp_V.tileInsert(i, j);
-                auto Tmpij = Tmp_V(i, j);
-                scalar_t* data = Tmpij.data();
-                int64_t ldt = Tmpij.stride();
-
-                // Added local seed array for each process to prevent race condition contention of iseed
-                int64_t tile_iseed[4];
-                tile_iseed[0] = (iseed[0] + i/4096) % 4096;
-                tile_iseed[1] = (iseed[1] + j/2048) % 4096;
-                tile_iseed[2] = (iseed[2] + i)      % 4096;
-                tile_iseed[3] = (iseed[3] + j*2)    % 4096;
-                for (int64_t k = 0; k < Tmpij.nb(); ++k) {
-                    lapack::larnv(idist_randn, tile_iseed, Tmpij.mb(), &data[k*ldt]);
+    #pragma omp parallel
+    #pragma omp master
+    {
+        int64_t joffset = 0;
+        for (int64_t j = 0; j < nt; ++j) {
+            int64_t ioffset = 0;
+            for (int64_t i = 0; i < mt; ++i) {
+                if (A.tileIsLocal(i, j)) {
+                    #pragma omp task
+                    {
+                        V.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                        auto Vij = V(i, j);
+                        slate::random::generate(slate::random::Dist::Normal, seed,
+                                                Vij.mb(), Vij.nb(), ioffset, joffset,
+                                                Vij.data(), Vij.stride());
+                    }
                 }
-                slate::tile::gecopy( Tmp_V(i, j), V(i, j) );
-                Tmp_V.tileErase(i, j);
+                ioffset += A.tileMb(i);
             }
+            joffset += A.tileNb(j);
         }
     }
-    // Hack to update iseed between matrices.
-    iseed[2] = (iseed[2]*31) % 4096;
+    seed += 1;
 
     slate::geqrf(V, T);
 
@@ -454,7 +448,9 @@ void generate_svd(
         // A = A*D col scaling
         std::vector<real_t> D( n );
         real_t range = log( condD );
-        lapack::larnv( idist_rand, iseed, D.size(), D.data() );
+        slate::random::generate(slate::random::Dist::Uniform, seed,
+                                n, 1, 0, 0,
+                                D.data(), n);
         for (auto& D_i: D) {
             D_i = exp( D_i * range );
         }
@@ -501,7 +497,7 @@ void generate_heev(
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
-    int64_t iseed[4] )
+    int64_t seed )
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -515,38 +511,36 @@ void generate_heev(
     slate::TriangularFactors<scalar_t> T;
 
     // ----------
-    generate_sigma( params, dist, rand_sign, cond, sigma_max, A, Sigma, iseed );
+    generate_sigma( params, dist, rand_sign, cond, sigma_max, A, Sigma, seed );
+    seed += 1;
 
     // random U, m-by-min_mn
     int64_t nt = U.nt();
     int64_t mt = U.mt();
-    auto Tmp = U.emptyLike();
 
-    #pragma omp parallel for collapse(2)
-    for (int64_t j = 0; j < nt; ++j) {
-        for (int64_t i = 0; i < mt; ++i) {
-            if (U.tileIsLocal(i, j)) {
-                Tmp.tileInsert(i, j);
-                auto Tmpij = Tmp(i, j);
-                scalar_t* data = Tmpij.data();
-                int64_t ldt = Tmpij.stride();
-
-                // Added local seed array for each process to prevent race condition contention of iseed
-                int64_t tile_iseed[4];
-                tile_iseed[0] = (iseed[0] + i/4096) % 4096;
-                tile_iseed[1] = (iseed[1] + j/2048) % 4096;
-                tile_iseed[2] = (iseed[2] + i)      % 4096;
-                tile_iseed[3] = (iseed[3] + j*2)    % 4096;
-                for (int64_t k = 0; k < Tmpij.nb(); ++k) {
-                    lapack::larnv(idist_rand, tile_iseed, Tmpij.mb(), &data[k*ldt]);
+    #pragma omp parallel
+    #pragma omp master
+    {
+        int64_t joffset = 0;
+        for (int64_t j = 0; j < nt; ++j) {
+            int64_t ioffset = 0;
+            for (int64_t i = 0; i < mt; ++i) {
+                if (A.tileIsLocal(i, j)) {
+                    #pragma omp task
+                    {
+                        U.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                        auto Uij = U(i, j);
+                        slate::random::generate(slate::random::Dist::Normal, seed,
+                                                Uij.mb(), Uij.nb(), ioffset, joffset,
+                                                Uij.data(), Uij.stride());
+                    }
                 }
-                slate::tile::gecopy( Tmp(i, j), U(i, j) );
-                Tmp.tileErase(i, j);
+                ioffset += A.tileMb(i);
             }
+            joffset += A.tileNb(j);
         }
     }
-    // Hack to update iseed between matrices.
-    iseed[2] = (iseed[2]*31) % 4096;
+    seed += 1;
 
     // we need to make each random column into a Householder vector;
     // no need to update subsequent columns (as in geqrf).
@@ -577,7 +571,9 @@ void generate_heev(
         // A = D*A*D row & column scaling
         std::vector<real_t> D( n );
         real_t range = log( condD );
-        lapack::larnv( idist_rand, iseed, n, D.data() );
+        slate::random::generate(slate::random::Dist::Uniform, seed,
+                                n, 1, 0, 0,
+                                D.data(), n);
         for (int64_t i = 0; i < n; ++i) {
             D[i] = exp( D[i] * range );
         }
@@ -620,7 +616,7 @@ void generate_geev(
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
-    int64_t iseed[4] )
+    int64_t seed )
 {
     throw std::exception();  // not implemented
 }
@@ -641,7 +637,7 @@ void generate_geevx(
     blas::real_type<scalar_t> sigma_max,
     slate::Matrix<scalar_t>& A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
-    int64_t iseed[4] )
+    int64_t seed )
 {
     throw std::exception();  // not implemented
 }
@@ -991,7 +987,7 @@ void decode_matrix(
 
 // -----------------------------------------------------------------------------
 /// Generates an arbitrary seed that is unlikely to be repeated
-void configure_seed(MPI_Comm comm, int64_t user_seed, int64_t iseed[4])
+int64_t configure_seed(MPI_Comm comm, int64_t user_seed)
 {
 
     // if the given seed is -1, generate a new seed
@@ -1000,21 +996,12 @@ void configure_seed(MPI_Comm comm, int64_t user_seed, int64_t iseed[4])
         using namespace std::chrono;
         user_seed = duration_cast<high_resolution_clock::duration>(
                         high_resolution_clock::now().time_since_epoch()).count();
-        // higher order bits cannot affect the final seed
-        user_seed %= int64_t(1) << 48;
-        // scramble low order bits with a prime number less than 2^15
-        user_seed *= 10477;
     }
-
 
     // ensure seeds are uniform across MPI ranks
     slate_mpi_call(MPI_Bcast(&user_seed, 1, MPI_INT64_T, 0, comm));
 
-    // Assign bits across output seed
-    iseed[0] = (user_seed >> 35) % 4096;
-    iseed[1] = (user_seed >> 23) % 4096;
-    iseed[2] = (user_seed >> 11) % 4096;
-    iseed[3] = 2*(user_seed % 2048) + 1;
+    return user_seed;
 }
 
 // -----------------------------------------------------------------------------
@@ -1183,13 +1170,13 @@ void generate_matrix(
     bool dominant;
     decode_matrix<scalar_t>(params, A, type, dist, cond, condD, sigma_max, dominant);
 
-    int64_t iseed[4];
-    configure_seed(A.mpiComm(), params.seed(), iseed);
+    int64_t seed = configure_seed(A.mpiComm(), params.seed());
 
     int64_t n = A.n();
     int64_t m = A.m();
     int64_t nt = A.nt();
     int64_t mt = A.mt();
+    auto start = testsweeper::get_wtime();
     // ----- generate matrix
     switch (type) {
         case TestMatrixType::zero:
@@ -1484,80 +1471,73 @@ void generate_matrix(
         case TestMatrixType::rands:
         case TestMatrixType::randn:
         case TestMatrixType::randb: {
-            int64_t idist = (int64_t) type;
-            if (type == TestMatrixType::randb) {
-                idist = (int64_t) TestMatrixType::rand;
-            }
-            auto Tmp = A.emptyLike();
-            #pragma omp parallel for collapse(2)
-            for (int64_t j = 0; j < nt; ++j) {
-                for (int64_t i = 0; i < mt; ++i) {
-                    if (A.tileIsLocal(i, j)) {
-                        A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
-                        auto Aij = A(i, j);
-                        scalar_t* data = Aij.data();
-                        int64_t lda = Aij.stride();
-                        // Added local seed array for each process to prevent race condition contention of iseed
-                        int64_t tile_iseed[4];
-                        tile_iseed[0] = (iseed[0] + i/4096) % 4096;
-                        tile_iseed[1] = (iseed[1] + j/2048) % 4096;
-                        tile_iseed[2] = (iseed[2] + i)      % 4096;
-                        tile_iseed[3] = (iseed[3] + j*2)    % 4096;
-                        for (int64_t k = 0; k < Aij.nb(); ++k) {
-                            lapack::larnv(idist, tile_iseed, Aij.mb(), &data[k*lda]);
-                        }
-                        if (type == TestMatrixType::randb) {
-                            for (int64_t jj = 0; jj < Aij.nb(); ++jj) {
-                                for (int64_t ii = 0; ii < Aij.mb(); ++ii) {
-                                    Aij.at(ii, jj) = (std::fabs(Aij.at(ii, jj)) >= 0.5);
-                                }
-                            }
-                        }
+            auto rand_dist = slate::random::Dist(int(type));
+            #pragma omp parallel
+            #pragma omp master
+            {
+                int64_t joffset = 0;
+                for (int64_t j = 0; j < nt; ++j) {
+                    int64_t ioffset = 0;
+                    for (int64_t i = 0; i < mt; ++i) {
+                        if (A.tileIsLocal(i, j)) {
+                            #pragma omp task
+                            {
+                                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                                auto Aij = A(i, j);
+                                slate::random::generate(rand_dist, seed,
+                                                        Aij.mb(), Aij.nb(), ioffset, joffset,
+                                                        Aij.data(), Aij.stride());
 
-                        // Make it diagonally dominant
-                        if (dominant) {
-                            if (i == j) {
-                                int bound = std::min( Aij.mb(), Aij.nb() );
-                                for (int ii = 0; ii < bound; ++ii) {
-                                    Aij.at(ii, ii) += n;
+                                // Make it diagonally dominant
+                                if (dominant) {
+                                    if (i == j) {
+                                        int bound = std::min( Aij.mb(), Aij.nb() );
+                                        for (int ii = 0; ii < bound; ++ii) {
+                                            Aij.at(ii, ii) += n;
+                                        }
+                                    }
+                                }
+                                // Scale the matrix
+                                if (sigma_max != 1) {
+                                    scalar_t s = sigma_max;
+                                    tile::scale( s, Aij );
                                 }
                             }
                         }
-                        // Scale the matrix
-                        if (sigma_max != 1) {
-                            scalar_t s = sigma_max;
-                            tile::scale( s, Aij );
-                        }
+                        ioffset += A.tileMb(i);
                     }
+                    joffset += A.tileNb(j);
                 }
             }
             break;
         }
 
         case TestMatrixType::diag:
-            generate_sigma( params, dist, false, cond, sigma_max, A, Sigma, iseed );
+            generate_sigma( params, dist, false, cond, sigma_max, A, Sigma, seed );
             break;
 
         case TestMatrixType::svd:
-            generate_svd( params, dist, cond, condD, sigma_max, A, Sigma, iseed );
+            generate_svd( params, dist, cond, condD, sigma_max, A, Sigma, seed );
             break;
 
         case TestMatrixType::poev:
-            generate_heev( params, dist, false, cond, condD, sigma_max, A, Sigma, iseed );
+            generate_heev( params, dist, false, cond, condD, sigma_max, A, Sigma, seed );
             break;
 
         case TestMatrixType::heev:
-            generate_heev( params, dist, true, cond, condD, sigma_max, A, Sigma, iseed );
+            generate_heev( params, dist, true, cond, condD, sigma_max, A, Sigma, seed );
             break;
 
         case TestMatrixType::geev:
-            generate_geev( params, dist, cond, sigma_max, A, Sigma, iseed );
+            generate_geev( params, dist, cond, sigma_max, A, Sigma, seed );
             break;
 
         case TestMatrixType::geevx:
-            generate_geevx( params, dist, cond, sigma_max, A, Sigma, iseed );
+            generate_geevx( params, dist, cond, sigma_max, A, Sigma, seed );
             break;
     }
+    auto end = testsweeper::get_wtime();
+    std::cout << A.mpiRank() << ":" << (end - start) << std::endl;
 
     if (! (type == TestMatrixType::rand  ||
            type == TestMatrixType::rands ||
@@ -1604,8 +1584,7 @@ void generate_matrix(
     bool dominant;
     decode_matrix<scalar_t>(params, A, type, dist, cond, condD, sigma_max, dominant);
 
-    int64_t iseed[4];
-    configure_seed(A.mpiComm(), params.seed(), iseed);
+    int64_t seed = configure_seed(A.mpiComm(), params.seed());
 
     int64_t n = A.n();
     int64_t nt = A.nt();
@@ -1688,105 +1667,78 @@ void generate_matrix(
         case TestMatrixType::rands:
         case TestMatrixType::randn:
         case TestMatrixType::randb: {
-            int64_t idist = (int64_t) type;
-            if (type == TestMatrixType::randb) {
-                idist = (int64_t) TestMatrixType::rand;
-            }
-            if (A.uplo() == Uplo::Lower) {
-                // TODO: Enable the following pragma to collapse loops for OpenMP 5.0.
-                // OpenMP can parallelize the outer loop,
-                // but since the inner loop depends on the outer loop,
-                // it runs into issues. It appears this is solved in OpenMP 5.0,
-                // but that requires gcc 11, which is under development.
-                #pragma omp parallel for
-                for (int64_t j=0; j < nt; ++j) {
-                    for (int64_t i = j; i < mt; ++i) {
-                        if (A.tileIsLocal(i, j)) {
-                            A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
-                            auto Aij = A(i, j);
-                            scalar_t* data = Aij.data();
-                            int64_t lda = Aij.stride();
-                            // Added local seed array for each process to prevent race condition contention of iseed
-                            int64_t tile_iseed[4];
-                            tile_iseed[0] = (iseed[0] + i/4096) % 4096;
-                            tile_iseed[1] = (iseed[1] + j/2048) % 4096;
-                            tile_iseed[2] = (iseed[2] + i)      % 4096;
-                            tile_iseed[3] = (iseed[3] + j*2)    % 4096;
-                            for (int64_t k = 0; k < Aij.nb(); ++k) {
-                                lapack::larnv(idist, tile_iseed, Aij.mb(), &data[k*lda]);
-                            }
-                            if (type == TestMatrixType::randb) {
-                                for (int64_t jj = 0; jj < Aij.nb(); ++jj) {
-                                    for (int64_t ii = 0; ii < Aij.mb(); ++ii) {
-                                        Aij.at(ii, jj) = (std::fabs(Aij.at(ii, jj)) >= 0.5);
-                                    }
-                                }
-                            }
+            auto rand_dist = slate::random::Dist(int(type));
+            #pragma omp parallel
+            #pragma omp master
+            {
+                if (A.uplo() == Uplo::Lower) {
+                    int64_t joffset = 0;
+                    for (int64_t j = 0; j < nt; ++j) {
+                        int64_t ioffset = 0;
+                        for (int64_t i = j; i < mt; ++i) { // lower trapezoid
+                            if (A.tileIsLocal(i, j)) {
+                                #pragma omp task
+                                {
+                                    A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                                    auto Aij = A(i, j);
+                                    slate::random::generate(rand_dist, seed,
+                                                            Aij.mb(), Aij.nb(), ioffset, joffset,
+                                                            Aij.data(), Aij.stride());
 
-                            // Make it diagonally dominant
-                            if (dominant) {
-                                if (i == j) {
-                                    int bound = std::min( Aij.mb(), Aij.nb() );
-                                    for (int ii = 0; ii < bound; ++ii) {
-                                        Aij.at(ii, ii) += n;
+                                    // Make it diagonally dominant
+                                    if (dominant) {
+                                        if (i == j) {
+                                            int bound = std::min( Aij.mb(), Aij.nb() );
+                                            for (int ii = 0; ii < bound; ++ii) {
+                                                Aij.at(ii, ii) += n;
+                                            }
+                                        }
+                                    }
+                                    // Scale the matrix
+                                    if (sigma_max != 1) {
+                                        scalar_t s = sigma_max;
+                                        tile::scale( s, Aij );
                                     }
                                 }
                             }
-                            // Scale the matrix
-                            if (sigma_max != 1) {
-                                scalar_t s = sigma_max;
-                                tile::scale( s, Aij );
-                            }
+                            ioffset += A.tileMb(i);
                         }
+                        joffset += A.tileNb(j);
                     }
                 }
-            }
-            else { // upper
-                // TODO: Enable the following pragma to collapse loops for OpenMP 5.0.
-                // OpenMP can parallelize the outer loop,
-                // but since the inner loop depends on the outer loop,
-                // it runs into issues. It appears this is solved in OpenMP 5.0,
-                // but that requires gcc 11, which is under development.
-                #pragma omp parallel for
-                for (int64_t j = 0; j < nt; ++j) {
-                    for (int64_t i = 0; i <= j && i < mt; ++i) {  // upper trapezoid
-                        if (A.tileIsLocal(i, j)) {
-                            A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
-                            auto Aij = A(i, j);
-                            scalar_t* data = Aij.data();
-                            int64_t lda = Aij.stride();
-                            // Added local seed array for each process to prevent race condition contention of iseed
-                            int64_t tile_iseed[4];
-                            tile_iseed[0] = (iseed[0] + i/4096) % 4096;
-                            tile_iseed[1] = (iseed[1] + j/2048) % 4096;
-                            tile_iseed[2] = (iseed[2] + i)      % 4096;
-                            tile_iseed[3] = (iseed[3] + j*2)    % 4096;
-                            for (int64_t k = 0; k < Aij.nb(); ++k) {
-                                lapack::larnv(idist, tile_iseed, Aij.mb(), &data[k*lda]);
-                            }
-                            if (type == TestMatrixType::randb) {
-                                for (int64_t jj = 0; jj < Aij.nb(); ++jj) {
-                                    for (int64_t ii = 0; ii < Aij.mb(); ++ii) {
-                                        Aij.at(ii, jj) = (std::fabs(Aij.at(ii, jj)) >= 0.5);
-                                    }
-                                }
-                            }
+                else { // upper
+                    int64_t joffset = 0;
+                    for (int64_t j = 0; j < nt; ++j) {
+                        int64_t ioffset = 0;
+                        for (int64_t i = 0; i <= j && i < mt; ++i) {  // upper trapezoid
+                            if (A.tileIsLocal(i, j)) {
+                                #pragma omp task
+                                {
+                                    A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                                    auto Aij = A(i, j);
+                                    slate::random::generate(rand_dist, seed,
+                                                            Aij.mb(), Aij.nb(), ioffset, joffset,
+                                                            Aij.data(), Aij.stride());
 
-                            // Make it diagonally dominant
-                            if (dominant) {
-                                if (i == j) {
-                                    int bound = std::min( Aij.mb(), Aij.nb() );
-                                    for (int ii = 0; ii < bound; ++ii) {
-                                        Aij.at(ii, ii) += n;
+                                    // Make it diagonally dominant
+                                    if (dominant) {
+                                        if (i == j) {
+                                            int bound = std::min( Aij.mb(), Aij.nb() );
+                                            for (int ii = 0; ii < bound; ++ii) {
+                                                Aij.at(ii, ii) += n;
+                                            }
+                                        }
+                                    }
+                                    // Scale the matrix
+                                    if (sigma_max != 1) {
+                                        scalar_t s = sigma_max;
+                                        tile::scale( s, Aij );
                                     }
                                 }
                             }
-                            // Scale the matrix
-                            if (sigma_max != 1) {
-                                scalar_t s = sigma_max;
-                                tile::scale( s, Aij );
-                            }
+                            ioffset += A.tileMb(i);
                         }
+                        joffset += A.tileNb(j);
                     }
                 }
             }
@@ -1794,7 +1746,7 @@ void generate_matrix(
         }
 
         case TestMatrixType::diag:
-            generate_sigma( params, dist, false, cond, sigma_max, A, Sigma, iseed );
+            generate_sigma( params, dist, false, cond, sigma_max, A, Sigma, seed );
             break;
 
         case TestMatrixType::poev:

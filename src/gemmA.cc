@@ -80,7 +80,8 @@ void gemmA(
             for (int64_t i = 0; i < B.mt(); ++i)
                 bcast_list_B.push_back(
                     {i, 0, {A.sub( 0, A.mt()-1, i, i )}} );
-            B.template listBcast<target>( bcast_list_B, layout, 0 );
+            int tag_0 = 0;
+            B.template listBcast<target>( bcast_list_B, layout, tag_0 );
         }
 
         // broadcast lookahead block cols of B
@@ -121,7 +122,8 @@ void gemmA(
                                           C.sub( i, i, 0, 0 ),
                                           {A.sub( i, i, 0, A.nt()-1 )}
                                         } );
-            C.template listReduce( reduce_list_C, layout, 0 );
+            int tag_0 = 0;
+            C.template listReduce( reduce_list_C, layout, tag_0 );
         }
         // Clean the memory introduced by internal::gemmA on Devices
         if (target == Target::Devices) {
@@ -183,7 +185,8 @@ void gemmA(
                                               C.sub( i, i, k, k ),
                                               {A.sub( i, i, 0, A.nt()-1 )}
                                             } );
-                C.template listReduce( reduce_list_C, layout, k );
+                int tag_k = k;
+                C.template listReduce( reduce_list_C, layout, tag_k );
             }
             // Clean the memory introduced by internal::gemmA on Devices
             if (target == Target::Devices) {

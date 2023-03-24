@@ -789,7 +789,6 @@ void gemmA< Target::HostTask, std::complex<double> >(
     Options const& opts);
 
 // ----------------------------------------
-// Devices instantiation
 template
 void gemmA<Target::HostNest, float>(
     float alpha, Matrix<float>&& A,
@@ -823,7 +822,6 @@ void gemmA< Target::HostNest, std::complex<double> >(
     Options const& opts);
 
 // ----------------------------------------
-// HostBatch instantiation
 template
 void gemmA<Target::HostBatch, float>(
     float alpha, Matrix<float>&& A,
@@ -857,7 +855,6 @@ void gemmA< Target::HostBatch, std::complex<double> >(
     Options const& opts);
 
 // ----------------------------------------
-// Devices instantiation
 template
 void gemmA<Target::Devices, float>(
     float alpha, Matrix<float>&& A,

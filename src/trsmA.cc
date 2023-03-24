@@ -41,9 +41,9 @@ void trsmA(
         // and the batch_arrays_index starts from
         // the number of kernels without lookahead, and then incremented by 1
         // for every execution for the internal::gemm with lookahead
-        const int64_t batch_size_zero = 0;
+        const int64_t batch_size_0 = 0;
         const int64_t num_queues = 2 + lookahead;
-        A.allocateBatchArrays( batch_size_zero, num_queues );
+        A.allocateBatchArrays( batch_size_0, num_queues );
         A.reserveDeviceWorkspace();
     }
 

@@ -112,10 +112,7 @@ void gemmA(internal::TargetType<Target::HostTask>,
                             else {
                                 if (! C.tileExists( i, k, HostNum )) {
                                     c_tile_acquired = 1;
-                                    #pragma omp critical
-                                    {
-                                        C.tileAcquire( i, k, HostNum, layout );
-                                    }
+                                    C.tileAcquire( i, k, HostNum, layout );
                                 }
                             }
                         }

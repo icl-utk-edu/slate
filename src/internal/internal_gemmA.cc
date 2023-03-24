@@ -8,7 +8,6 @@
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
 #include "internal/internal_batch.hh"
-#include "../auxiliary/Debug.hh"
 
 namespace slate {
 namespace internal {
@@ -133,7 +132,7 @@ void gemmA(internal::TargetType<Target::HostTask>,
             for (int64_t j = 0; j < B.nt(); ++j) {
                 if (C.tileIsLocal( i, j )) {
                     #pragma omp task slate_omp_default_none \
-                        shared( C, beta ) firstprivate( i, j, layout )
+                        shared( C, beta ) firstprivate( i, j, zero, layout )
                     {
                         C.tileGetForWriting( i, j, HostNum, LayoutConvert( layout ) );
                         if (beta == zero) {
@@ -156,7 +155,8 @@ void gemmA(internal::TargetType<Target::HostTask>,
     for (int64_t i = 0; i < A.mt(); ++i) {
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, err ) \
-            firstprivate(i, alpha, beta, c_tile_acquired) priority(priority)
+            firstprivate(i, alpha, beta, zero, one, c_tile_acquired) \
+            priority(priority)
         {
             try {
                 scalar_t beta_j;
@@ -309,8 +309,8 @@ void gemmA(internal::TargetType<Target::Devices>,
             if (nlocal_A_row_i_tiles_touched == 0 && C.tileIsLocal( i, 0 )) {
                 queues_to_sync.insert( C.tileDevice( i, 0 ) );
                 #pragma omp task slate_omp_default_none \
-                    shared( C ) \
-                    firstprivate(i, beta, layout, queue_index) \
+                    shared( A, C ) \
+                    firstprivate(i, beta, zero, one, layout, queue_index) \
                     priority(priority)
                 {
                     // TODO Perform the scaling where the tile origins.

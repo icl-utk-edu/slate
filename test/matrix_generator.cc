@@ -1176,7 +1176,6 @@ void generate_matrix(
     int64_t m = A.m();
     int64_t nt = A.nt();
     int64_t mt = A.mt();
-    auto start = testsweeper::get_wtime();
     // ----- generate matrix
     switch (type) {
         case TestMatrixType::zero:
@@ -1536,8 +1535,6 @@ void generate_matrix(
             generate_geevx( params, dist, cond, sigma_max, A, Sigma, seed );
             break;
     }
-    auto end = testsweeper::get_wtime();
-    std::cout << A.mpiRank() << ":" << (end - start) << std::endl;
 
     if (! (type == TestMatrixType::rand  ||
            type == TestMatrixType::rands ||

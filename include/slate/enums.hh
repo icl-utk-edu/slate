@@ -123,6 +123,7 @@ enum class GridOrder : char {
 //------------------------------------------------------------------------------
 const int HostNum = -1;
 const int AllDevices = -2;
+const int AnyDevice  = -3;
 
 } // namespace slate
 

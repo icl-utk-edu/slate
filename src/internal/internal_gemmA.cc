@@ -307,22 +307,24 @@ void gemmA(internal::TargetType<Target::Devices>,
             }
 
             if (nlocal_A_row_i_tiles_touched == 0 && C.tileIsLocal( i, 0 )) {
-                queues_to_sync.insert( C.tileDevice( i, 0 ) );
+                int device = C.tileDevice( i, 0 );
+
+                blas::Queue* queue = A.compute_queue( device, queue_index );
+                assert( queue != nullptr );
+                queues_to_sync.insert( device );
+
                 #pragma omp task slate_omp_default_none \
-                    shared( A, C ) \
-                    firstprivate(i, beta, zero, one, layout, queue_index) \
-                    priority(priority)
+                    shared( C ) \
+                    firstprivate( i, beta, zero, one, layout, device, queue ) \
+                    priority( priority )
                 {
                     // TODO Perform the scaling where the tile origins.
                     // Unless it got modified and so it should be
                     // performed where it was last modified.
-                    int device = C.tileDevice( i, 0 );
 
                     C.tileGetForWriting(
                         i, 0, device, LayoutConvert( layout ) );
 
-                    blas::Queue* queue = A.compute_queue( device, queue_index );
-                    assert( queue != nullptr );
                     auto T = C( i, 0, device );
                     if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
                         T = transpose( T );

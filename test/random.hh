@@ -7,7 +7,7 @@
 namespace slate {
 namespace random {
 
-enum Dist {
+enum class Dist {
     Uniform=1,
     UniformSigned,
     Normal,

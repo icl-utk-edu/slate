@@ -10,7 +10,8 @@
 namespace slate {
 namespace random {
 
-// Compute 128-bit product of 64-bit x 64-bit multiplication
+//------------------------------------------------------------------------------
+/// Compute 128-bit product of 64-bit x 64-bit multiplication
 inline std::array<uint64_t, 2> full_mul(uint64_t val1, uint64_t val2)
 {
     #ifdef __SIZEOF_INT128__
@@ -35,17 +36,17 @@ inline std::array<uint64_t, 2> full_mul(uint64_t val1, uint64_t val2)
     return {product_lo, product_hi};
 }
 
-// Based on Salmon et al. "Parallel Random Numbers: As Easy as 1, 2, 3", 2011
-template<typename T>
-std::array<T, 2> philox_sbox(std::array<T, 2>& state, T multiplier, T seed)
-{
-    T L = state[0];
-    T R = state[1];
-
-    auto product = full_mul(R, multiplier);
-
-    return {product[0], product[1]^seed^L};
-}
+//------------------------------------------------------------------------------
+/// Generates 128 pseudorandom bits using the Philox-2x64 generator
+/// Based on Salmon et al. "Parallel Random Numbers: As Easy as 1, 2, 3", 2011
+///
+/// @param[in] state
+///     The counter indicating which entry of the sequence should be generated.
+///
+/// @param[in] seed
+///     The seed indicating which pseudorandom sequence to generate.
+///
+/// @return 128 pseudorandom bits.bits.
 inline std::array<uint64_t, 2> philox_2x64(std::array<uint64_t, 2> state, uint64_t seed)
 {
     // Constants chosen emperically in the Salmon paper
@@ -58,13 +59,21 @@ inline std::array<uint64_t, 2> philox_2x64(std::array<uint64_t, 2> state, uint64
             // bump seed
             seed += seed_inc;
         }
-        state = philox_sbox( state, multiplier, seed );
+
+        // Philox S-Box
+        uint64_t L = state[0];
+        uint64_t R = state[1];
+
+        auto product = full_mul(R, multiplier);
+
+        state = {product[0], product[1]^seed^L};
     }
     return state;
 }
 
 
-// Helper function to make real number in [0, 1) from psuedorandom bits
+//------------------------------------------------------------------------------
+/// Helper function to make a real number in [0, 1) from psuedorandom bits.
 template<typename real_t>
 real_t rand_to_real(uint64_t bits)
 {
@@ -75,6 +84,8 @@ real_t rand_to_real(uint64_t bits)
     return real_t(bits>>(64-digits)) / real_t(UINT64_C(1)<<digits);
 }
 
+//------------------------------------------------------------------------------
+/// Generates a single float for a specific distribution, seed, and (i,j) index.
 template<typename scalar_t, Dist dist>
 scalar_t generate_float(int64_t seed, int64_t i, int64_t j)
 {
@@ -144,6 +155,8 @@ scalar_t generate_float(int64_t seed, int64_t i, int64_t j)
     return blas::make_scalar<scalar_t>(re, im);
 }
 
+//------------------------------------------------------------------------------
+/// Helper function to convert the distribution to a template parameter.
 template<Dist dist, typename scalar_t>
 void generate_helper(int64_t seed,
                           int64_t m, int64_t n, int64_t ioffset, int64_t joffset,
@@ -156,6 +169,32 @@ void generate_helper(int64_t seed,
     }
 }
 
+//------------------------------------------------------------------------------
+/// Generates a sub-matrix with random entries.
+///
+/// @param[in] dist
+///     The distribution to take elements from.
+///
+/// @param[in] seed
+///     The value to seed the random number generator.
+///
+/// @param[in] m
+///     The number of rows.
+///
+/// @param[in] n
+///     The number of columns.
+///
+/// @param[in] ioffset
+///     The first row of the sub-matrix in the global matrix.
+///
+/// @param[in] joffset
+///     The first column of the sub-matrix in the global matrix.
+///
+/// @param[out]A
+///     The m-by-n, column-major sub-matrix to fill with random values.
+///
+/// @param[in]lda
+///     The leading dimension of the matrix.
 template<typename scalar_t>
 void generate(Dist dist, int64_t seed,
               int64_t m, int64_t n, int64_t ioffset, int64_t joffset,

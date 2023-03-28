@@ -34,6 +34,7 @@ void ge2tb(
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const int queue_0 = 0;
 
     // Options
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
@@ -138,9 +139,7 @@ void ge2tb(
         // Allocate memory to factorize V and VT
         if (panel_device >= 0 || VTpanel_device >=0) {
 
-            blas::set_device( panel_device );
-
-            lapack::Queue* queue = A.compute_queue(panel_device, 0);
+            lapack::Queue* queue = A.compute_queue( panel_device, queue_0 );
 
             // Find the max needed allocation
             int64_t mlocal_max = std::max(nlocal, mlocal);
@@ -158,8 +157,9 @@ void ge2tb(
                         + ceildiv(sizeof(device_info_t), sizeof(scalar_t));
 
             for (int64_t dev = 0; dev < num_devices; ++dev) {
-                blas::set_device(dev);
-                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size);
+                blas::Queue* dev_queue = A.compute_queue( dev, queue_0 );
+                dwork_array[dev] =
+                  blas::device_malloc<scalar_t>( work_size, *dev_queue );
             }
         }
     }
@@ -454,13 +454,12 @@ void ge2tb(
 
     if (target == Target::Devices) {
         for (int64_t dev = 0; dev < num_devices; ++dev) {
-            blas::set_device(dev);
-            blas::device_free( dwork_array[dev] );
+            blas::Queue* queue = A.compute_queue( dev, queue_0 );
+
+            blas::device_free( dwork_array[dev], *queue );
             dwork_array[dev] = nullptr;
-        }
-        for (int64_t dev = 0; dev < num_devices; ++dev) {
-            blas::set_device(dev);
-            blas::device_free( VTdwork_array[dev] );
+
+            blas::device_free( VTdwork_array[dev], *queue );
             VTdwork_array[dev] = nullptr;
         }
     }

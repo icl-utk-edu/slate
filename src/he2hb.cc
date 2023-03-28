@@ -43,6 +43,7 @@ void he2hb(
     const int priority_1 = 1;
     const int batch_size_default = 0;
     const int num_queues = 10;
+    const int queue_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layout_conv = LayoutConvert( layout );
@@ -147,9 +148,7 @@ void he2hb(
 
         if (panel_device >= 0) {
 
-            blas::set_device( panel_device );
-
-            lapack::Queue* queue = A.compute_queue(panel_device, 0);
+            lapack::Queue* queue = A.compute_queue( panel_device, queue_0 );
 
             int64_t nb       = A.tileNb(0);
             size_t  size_tau = (size_t) std::min( mlocal, nb );
@@ -165,8 +164,9 @@ void he2hb(
                 + ceildiv(sizeof(device_info_t), sizeof(scalar_t));
 
             for (int64_t dev = 0; dev < num_devices; ++dev) {
-                blas::set_device(dev);
-                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size);
+                blas::Queue* dev_queue = A.compute_queue( dev, queue_0 );
+                dwork_array[dev] =
+                  blas::device_malloc<scalar_t>( work_size, *dev_queue );
             }
         }
     }
@@ -653,8 +653,9 @@ void he2hb(
 
     if (target == Target::Devices) {
         for (int64_t dev = 0; dev < num_devices; ++dev) {
-            blas::set_device(dev);
-            blas::device_free( dwork_array[dev] );
+            blas::Queue* queue = A.compute_queue( dev, queue_0 );
+
+            blas::device_free( dwork_array[dev], *queue );
             dwork_array[dev] = nullptr;
         }
     }

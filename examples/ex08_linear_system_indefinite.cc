@@ -21,6 +21,7 @@ void test_hesv()
         A( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     slate::Matrix<double> B( n, nrhs, nb, grid_p, grid_q, MPI_COMM_WORLD );
     A.insertLocalTiles();
+    B.insertLocalTiles();
     random_matrix( A );
     random_matrix( B );
 
@@ -49,6 +50,7 @@ void test_hetrf()
         A( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     slate::Matrix<double> B( n, nrhs, nb, grid_p, grid_q, MPI_COMM_WORLD );
     A.insertLocalTiles();
+    B.insertLocalTiles();
     random_matrix( A );
     random_matrix( B );
 

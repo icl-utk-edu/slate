@@ -25,21 +25,42 @@ template <typename scalar_t>
 void gesvd(
     Matrix<scalar_t> A,
     std::vector< blas::real_type<scalar_t> >& S,
+    Matrix<scalar_t>& U,
+    Matrix<scalar_t>& VT,
     Options const& opts)
 {
     using real_t = blas::real_type<scalar_t>;
     using std::swap;
 
+    // Constants
     scalar_t zero = 0;
+    scalar_t one  = 1;
+
+    const auto mpi_real_type = mpi_type< blas::real_type<scalar_t> >::value;
+
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
     int64_t m = A.m();
     int64_t n = A.n();
+
+    bool wantu  = (U.mt() > 0);
+    bool wantvt = (VT.mt() > 0);
 
     bool flip = m < n; // Flip for fat matrix.
     if (flip) {
         slate_not_implemented("m < n not yet supported");
         swap(m, n);
         A = conj_transpose( A );
+    }
+
+    Job jobu  = Job::NoVec;
+    Job jobvt = Job::NoVec;
+    if (wantu) {
+        jobu = Job::Vec;
+    }
+
+    if (wantvt) {
+        jobvt = Job::Vec;
     }
 
     // Scale matrix to allowable range, if necessary.
@@ -84,22 +105,86 @@ void gesvd(
     Aband.insertLocalTiles();
     Aband.ge2tbGather(Ahat);
 
-    // Currently, hb2st and sterf are run on a single node.
-    slate::Matrix<scalar_t> U;
-    slate::Matrix<scalar_t> VT;
+    // Currently, tb2bd and bdsqr run on a single node.
+    //slate::Matrix<scalar_t> U2;
+    //slate::Matrix<scalar_t> V2T;
 
+    // Currently, tb2bd and bdsqr run on a single node.
     S.resize(n);
+    std::vector<real_t> E(n - 1);
+
     if (A.mpiRank() == 0) {
         // 2. Reduce band to bi-diagonal.
         tb2bd(Aband, opts);
 
         // Copy diagonal and super-diagonal to vectors.
-        std::vector<real_t> E(n - 1);
         internal::copytb2bd(Aband, S, E);
+    }
 
-        // 3. Bi-diagonal SVD solver.
+    slate::set( zero, one, U );
+    slate::set( zero, one, VT );
+
+    // 3. Bi-diagonal SVD solver.
+    if (wantu || wantvt) {
+        // Bcast the Lambda and E vectors (diagonal and sup/super-diagonal).
+        MPI_Bcast( &S[0], n,   mpi_real_type, 0, A.mpiComm() );
+        MPI_Bcast( &E[0], n-1, mpi_real_type, 0, A.mpiComm() );
+
         // QR iteration
-        bdsqr<scalar_t>(slate::Job::NoVec, slate::Job::NoVec, S, E, U, VT, opts);
+        bdsqr<scalar_t>(jobu, jobvt, S, E, U, VT, opts);
+
+        int mpi_size;
+        // Find the total number of processors.
+        slate_mpi_call(
+            MPI_Comm_size(A.mpiComm(), &mpi_size));
+
+        //Matrix<scalar_t> U1d(U.m(), U.n(), U.tileNb(0), 1, mpi_size, U.mpiComm());
+        //U1d.insertLocalTiles(target);
+        //U1d.redistribute(U);
+
+        //Matrix<scalar_t> VT1d(VT.m(), VT.n(), VT.tileNb(0), 1, mpi_size, VT.mpiComm());
+        //VT1d.insertLocalTiles(target);
+        //VT1d.redistribute(VT);
+
+        // Back-transform: U = U1 * U2 * U.
+        // U1 is the output of ge2tb and it is saved in A
+        // U2 is the output of tb2bd
+        // U initially has left singular vectors of the bidiagonal matrix
+        //unmbr_tb2bd( Side::Left, Op::NoTrans, U2, U1d, opts );
+        //U.redistribute(U1d);
+        if (wantu) {
+            //unmqr(Side::Left, Op::NoTrans, Ahat, TU, U, opts);
+            unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, U, opts );
+        }
+
+        // Back-transform: VT = VT * V2T * V1T.
+        // V1T is the output of ge2tb and it is saved in A
+        // V2T is the output of tb2bd
+        // VT initially has right singular vectors of the bidiagonal matrix
+
+
+        //unmbr_tb2bd( Side::Right, Op::NoTrans, V2T, VT1d, opts );
+        //VT.redistribute(VT1d);
+        //unmtr_he2hb( Side::Right, Op::NoTrans, A, TV, VT, opts );
+
+        if (wantvt) {
+            //auto A_sub = Ahat.sub(0, Ahat.mt()-1, 1, Ahat.nt()-1);
+            //auto VT_sub = VT.sub(0, A.mt()-1, 1, A.nt()-1);
+            //slate::TriangularFactors<scalar_t> TV_sub = {
+            //    TV[ 0 ].sub( 0, A.mt()-1, 1, A.nt()-1 ),
+            //    TV[ 1 ].sub( 0, A.mt()-1, 1, A.nt()-1 )
+            //};
+            //unmlq(Side::Right, Op::NoTrans, A_sub, TV_sub, VT_sub, opts);
+            unmbr_ge2tb( Side::Right, Op::NoTrans, Ahat, TV, VT, opts );
+        }
+    }
+    else {
+        if (A.mpiRank() == 0) {
+            // QR iteration
+            bdsqr<scalar_t>(jobu, jobvt, S, E, U, VT, opts);
+        }
+        // Bcast singular nvalues.
+        MPI_Bcast( &S[0], n, mpi_real_type, 0, A.mpiComm() );
     }
 
     // If matrix was scaled, then rescale singular values appropriately.
@@ -123,24 +208,32 @@ template
 void gesvd<float>(
      Matrix<float> A,
      std::vector<float>& S,
+     Matrix<float>& U,
+     Matrix<float>& VT,
      Options const& opts);
 
 template
 void gesvd<double>(
      Matrix<double> A,
      std::vector<double>& S,
+     Matrix<double>& U,
+     Matrix<double>& VT,
      Options const& opts);
 
 template
 void gesvd< std::complex<float> >(
      Matrix< std::complex<float> > A,
      std::vector<float>& S,
+     Matrix< std::complex<float> >& U,
+     Matrix< std::complex<float> >& VT,
      Options const& opts);
 
 template
 void gesvd< std::complex<double> >(
      Matrix< std::complex<double> > A,
      std::vector<double>& S,
+     Matrix< std::complex<double> >& U,
+     Matrix< std::complex<double> >& VT,
      Options const& opts);
 
 } // namespace slate

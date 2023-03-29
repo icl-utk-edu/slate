@@ -860,12 +860,34 @@ void unmlq(
 //------------------------------------------------------------------------------
 // SVD
 
-//-----------------------------------------
-// gesvd()
 template <typename scalar_t>
 void gesvd(
     Matrix<scalar_t> A,
     std::vector< blas::real_type<scalar_t> >& S,
+    Matrix<scalar_t>& U,
+    Matrix<scalar_t>& VT,
+    Options const& opts = Options());
+
+/// Without U and VT, compute only singular values.
+template <typename scalar_t>
+void gesvd(
+    Matrix<scalar_t> A,
+    std::vector< blas::real_type<scalar_t> >& S,
+    Options const& opts = Options())
+{
+    Matrix<scalar_t> U;
+    Matrix<scalar_t> VT;
+    gesvd( A, S, U, VT, opts );
+}
+
+//-----------------------------------------
+// unmbr_ge2tb()
+template <typename scalar_t>
+void unmbr_ge2tb(
+    Side side, Op op,
+    Matrix<scalar_t>& A,
+    TriangularFactors<scalar_t> T,
+    Matrix<scalar_t>& C,
     Options const& opts = Options());
 
 //-----------------------------------------

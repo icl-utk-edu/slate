@@ -694,7 +694,31 @@ void svd_vals(
     std::vector< blas::real_type<scalar_t> >& Sigma,
     Options const& opts = Options())
 {
-    gesvd(A, Sigma, opts);
+    Matrix<scalar_t> U;
+    Matrix<scalar_t> VT;
+    gesvd(A, Sigma, U, VT, opts);
+}
+
+/// Without U and VT, compute only singular values. Same as svd_vals.
+template <typename scalar_t>
+void svd(
+    Matrix<scalar_t> A,
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    Options const& opts = Options())
+{
+    svd_vals(A, Sigma, opts);
+}
+
+/// With U and VT, compute singular values and singular vectors.
+template <typename scalar_t>
+void svd(
+    Matrix<scalar_t> A,
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    Matrix<scalar_t>& U,
+    Matrix<scalar_t>& VT,
+    Options const& opts = Options())
+{
+    gesvd(A, Sigma, U, VT, opts);
 }
 
 //------------------------------------------------------------------------------

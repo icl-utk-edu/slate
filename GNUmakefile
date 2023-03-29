@@ -605,6 +605,7 @@ ifneq ($(only_unit),1)
         src/trtri.cc \
         src/trtrm.cc \
         src/unmlq.cc \
+        src/unmbr_ge2tb.cc \
         src/unmqr.cc \
         src/unmtr_hb2st.cc \
         src/unmtr_he2hb.cc \

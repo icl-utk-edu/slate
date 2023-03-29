@@ -26,6 +26,10 @@ void test_gesvd_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
+    // Constants
+    const scalar_t zero = 0;
+    const scalar_t one  = 1;
+
     // get & mark input values
     lapack::Job jobu = params.jobu();
     lapack::Job jobvt = params.jobvt();
@@ -48,8 +52,13 @@ void test_gesvd_work(Params& params, bool run)
 
     params.time();
     params.ref_time();
-    // params.gflops();
-    // params.ref_gflops();
+    params.error2();
+    params.ortho_U();
+    params.ortho_V();
+    params.error.name( "value err" );
+    params.error2.name( "back err" );
+    params.ortho_U.name( "U orth." );
+    params.ortho_V.name( "VT orth." );
 
     if (! run)
         return;
@@ -67,10 +76,10 @@ void test_gesvd_work(Params& params, bool run)
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
     // skip unsupported
-    if (jobu != lapack::Job::NoVec || jobvt != lapack::Job::NoVec) {
-        params.msg() = "skipping: Only singular values supported (vectors not yet supported)";
-        return;
-    }
+    //if (jobu != lapack::Job::NoVec || jobvt != lapack::Job::NoVec) {
+    //    params.msg() = "skipping: Only singular values supported (vectors not yet supported)";
+    //    return;
+    //}
 
     int64_t min_mn = std::min(m, n);
 
@@ -145,9 +154,13 @@ void test_gesvd_work(Params& params, bool run)
         printf( "%% VT  %6lld-by-%6lld\n", llong(  VT.m() ), llong(  VT.n() ) );
     }
 
+    real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
+
     print_matrix( "A",  A, params );
-    print_matrix( "U",  U, params );
-    print_matrix( "VT", VT, params );
+    if (wantu)
+        print_matrix( "U",  U, params );
+    if (wantvt)
+        print_matrix( "VT", VT, params );
 
     //params.matrix.kind.set_default("svd");
     //params.matrix.cond.set_default(1.e16);
@@ -175,9 +188,17 @@ void test_gesvd_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::svd_vals(A, Sigma, opts);
-        // Using traditional BLAS/LAPACK name
-        // slate::gesvd(A, Sigma, opts);
+        if (jobu == slate::Job::NoVec && jobvt == slate::Job::NoVec) {
+            slate::svd_vals(A, Sigma, opts);
+            // Using traditional BLAS/LAPACK name
+            //slate::gesvd(A, Sigma, opts);
+        }
+        else {
+            // todo: call slate::svd()
+            slate::gesvd(A, Sigma, U, VT, opts);
+            // Using traditional BLAS/LAPACK name
+            // slate::gesvd(A, Sigma, opts);
+        }
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -187,8 +208,10 @@ void test_gesvd_work(Params& params, bool run)
         params.time() = time;
 
         print_matrix( "A",  A, params );
-        print_matrix( "U",  U, params );
-        print_matrix( "VT", VT, params );
+        if (wantu)
+            print_matrix( "U",  U, params );
+        if (wantvt)
+            print_matrix( "VT", VT, params );
     }
 
     if (check || ref) {
@@ -268,7 +291,6 @@ void test_gesvd_work(Params& params, bool run)
             params.error() = blas::asum(Sigma.size(), &Sigma[0], 1)
                            / blas::asum(Sigma_ref.size(), &Sigma_ref[0], 1);
 
-            real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
             params.okay() = (params.error() <= tol);
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
@@ -277,6 +299,25 @@ void test_gesvd_work(Params& params, bool run)
                 printf( "ScaLAPACK not available\n" );
         #endif
     }
+
+    if (check && jobu == slate::Job::Vec) {
+        // I - U^H U
+        slate::set( zero, one, Aref );
+        auto UH = conj_transpose( U );
+        slate::gemm( -one, UH, U, one, Aref );
+        params.ortho_U() = slate::norm( slate::Norm::One, Aref ) / n;
+        params.okay() = params.okay() && (params.ortho_U() <= tol);
+    }
+
+    if (check && jobvt == slate::Job::Vec) {
+        // I - U^H U
+        slate::set( zero, one, Aref );
+        auto V = conj_transpose( VT );
+        slate::gemm( -one, VT, V, one, Aref );
+        params.ortho_V() = slate::norm( slate::Norm::One, Aref ) / n;
+        params.okay() = params.okay() && (params.ortho_V() <= tol);
+    }
+
 }
 
 // -----------------------------------------------------------------------------

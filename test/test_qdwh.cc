@@ -81,11 +81,6 @@ void test_qdwh_work(Params& params, bool run)
     int64_t lldH  = blas::max(1, mlocH); // local leading dimension of H
     std::vector<scalar_t> H_data;
 
-    // matrix QR, for checking result
-    slate::Matrix<scalar_t> Id;
-    Id = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
-    Id.insertLocalTiles();
-
     slate::Matrix<scalar_t> A;
     slate::Matrix<scalar_t> H;
     //slate::HermitianMatrix<scalar_t> H;
@@ -186,20 +181,6 @@ void test_qdwh_work(Params& params, bool run)
 
     if (check) {
         //==================================================
-        // Test results by checking the orthogonality of U factor
-        //
-        //      || A'A - I ||_f
-        //     ---------------- < tol * epsilon
-        //            n
-        //
-        //==================================================
-        auto AT = conj_transpose(A);
-        set(zero, one, Id);
-        slate::gemm(one, AT, A, -one, Id, opts);
-        real_t orth = slate::norm(slate::Norm::Fro, Id);
-        params.ortho() = orth / sqrt(n);
-
-        //==================================================
         // Test results by checking backwards error
         //
         //      || A'H - Aref ||_f
@@ -214,6 +195,20 @@ void test_qdwh_work(Params& params, bool run)
         //slate::hemm(slate::Side::Right, one, H, A, -one, Aref, opts);
         real_t berr = slate::norm(slate::Norm::Fro, Aref, opts);
         params.error() = berr / normA;
+
+        //==================================================
+        // Test results by checking the orthogonality of U factor
+        //
+        //      || A'A - I ||_f
+        //     ---------------- < tol * epsilon
+        //            n
+        //
+        //==================================================
+        auto AT = conj_transpose(A);
+        set(zero, one, Aref);
+        slate::gemm(one, AT, A, -one, Aref, opts);
+        real_t orth = slate::norm(slate::Norm::Fro, Aref);
+        params.ortho() = orth / sqrt(n);
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = ((params.error() <= tol) && (params.ortho() <= tol));

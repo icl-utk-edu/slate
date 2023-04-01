@@ -19,7 +19,7 @@ MatrixParams::MatrixParams():
     cond      ("cond",   0, 1, ParamType::List, testsweeper::no_data_flag, 0,  inf,  "matrix condition number" ),
     cond_used ("cond",   0, 1, ParamType::List, testsweeper::no_data_flag, 0,  inf,  "actual condition number used" ),
     condD     ("condD",  0, 1, ParamType::List, testsweeper::no_data_flag, 0,  inf,  "matrix D condition number" ),
-    seed      ("seed",   0,    ParamType::List, -1,                        -1, (int64_t(1)<<47)-1, "Randomization seed (-1 randomizes the seed for each matrix)")
+    seed      ("seed",   0,    ParamType::List, -1,                        -1, std::numeric_limits<int64_t>::max(), "Randomization seed (-1 randomizes the seed for each matrix)")
 {
 }
 

@@ -29,11 +29,14 @@ static inline double pow10( int y )
 /// - small values < 0.01 or large values > threshold are printed with %w.pg
 /// - modest values are printed with %w.pf.
 /// To ensure data fits, set threshold = 10^(w - p - 2) and w >= p + 6.
-template <typename real_t>
+template <typename real_t,
+          std::enable_if_t< std::is_floating_point< real_t >::value >* >
 int snprintf_value(
     char* buf, size_t buf_len,
     int width, int precision,
-    real_t value)
+    real_t value
+    //typename std::enable_if< std::is_floating_point< real_t >::value, void >::type* = nullptr
+     /* = nullptr */ )
 {
     real_t abs_val = std::abs( value );
     real_t threshold = pow10( width - precision - 2 );
@@ -56,6 +59,19 @@ int snprintf_value(
                         " %#*.*f", width, precision, value );
     }
     return len;
+}
+
+//------------------------------------------------------------------------------
+/// Overload to print integer values.
+template <typename integer_t,
+          enable_if_t< std::is_integral< integer_t >::value >* >
+int snprintf_value(
+    char* buf, size_t buf_len,
+    int width, int precision,
+    integer_t value
+     /* = nullptr */ )
+{
+    return snprintf( buf, buf_len, " %*lld", width, llong( value ) );
 }
 
 //------------------------------------------------------------------------------
@@ -101,13 +117,25 @@ template
 int snprintf_value(
     char* buf, size_t buf_len,
     int width, int precision,
-    float value);
+    int value );
 
 template
 int snprintf_value(
     char* buf, size_t buf_len,
     int width, int precision,
-    double value);
+    int64_t value );
+
+template
+int snprintf_value(
+    char* buf, size_t buf_len,
+    int width, int precision,
+    float value );
+
+template
+int snprintf_value(
+    char* buf, size_t buf_len,
+    int width, int precision,
+    double value );
 
 template
 int snprintf_value(
@@ -1166,6 +1194,18 @@ void print(
 template
 void print(
     const char* label,
+    int64_t n, int const* x, int64_t incx,
+    Options const& opts);
+
+template
+void print(
+    const char* label,
+    int64_t n, int64_t const* x, int64_t incx,
+    Options const& opts);
+
+template
+void print(
+    const char* label,
     int64_t n, float const* x, int64_t incx,
     slate::Options const& opts);
 
@@ -1203,6 +1243,18 @@ void print(
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
+template
+void print(
+    const char* label,
+    std::vector<int> const& x,
+    slate::Options const& opts);
+
+template
+void print(
+    const char* label,
+    std::vector<int64_t> const& x,
+    slate::Options const& opts);
+
 template
 void print(
     const char* label,

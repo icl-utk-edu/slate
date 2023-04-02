@@ -18,11 +18,20 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
-template <typename real_t>
+template <typename real_t,
+          enable_if_t< std::is_floating_point< real_t >::value >* = nullptr>
 int snprintf_value(
     char* buf, size_t buf_len,
     int width, int precision,
-    real_t value);
+    real_t value );
+
+// Overload for integer types.
+template <typename integer_t,
+          enable_if_t< std::is_integral< integer_t >::value >* = nullptr>
+int snprintf_value(
+    char* buf, size_t buf_len,
+    int width, int precision,
+    integer_t value );
 
 // Overload for complex.
 template <typename real_t>

@@ -83,9 +83,6 @@ using testsweeper::ansi_normal;
 /// See https://stackoverflow.com/questions/53849
 /// @ingroup util
 std::vector< std::string >
-    split( const std::string& str, const std::string& delims );
-
-std::vector< std::string >
     split( const std::string& str, const std::string& delims )
 {
     size_t npos = std::string::npos;
@@ -232,7 +229,7 @@ void generate_sigma(
         // apply random signs
         for (int64_t i = 0; i < min_mn; ++i) {
             float rand;
-            // use distinct random values from above
+            // use j_offset==1 to get different random values than above
             slate::random::generate(slate::random::Dist::Uniform, seed,
                                     1, 1, i, 1,
                                     &rand, 1);
@@ -392,9 +389,9 @@ void generate_svd(
     #pragma omp parallel
     #pragma omp master
     {
-        int64_t joffset = 0;
+        int64_t j_global = 0;
         for (int64_t j = 0; j < nt; ++j) {
-            int64_t ioffset = 0;
+            int64_t i_global = 0;
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task
@@ -402,13 +399,13 @@ void generate_svd(
                         U.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                         auto Uij = U(i, j);
                         slate::random::generate(slate::random::Dist::Normal, seed,
-                                                Uij.mb(), Uij.nb(), ioffset, joffset,
+                                                Uij.mb(), Uij.nb(), i_global, j_global,
                                                 Uij.data(), Uij.stride());
                     }
                 }
-                ioffset += A.tileMb(i);
+                i_global += A.tileMb(i);
             }
-            joffset += A.tileNb(j);
+            j_global += A.tileNb(j);
         }
     }
     seed += 1;
@@ -427,9 +424,9 @@ void generate_svd(
     #pragma omp parallel
     #pragma omp master
     {
-        int64_t joffset = 0;
+        int64_t j_global = 0;
         for (int64_t j = 0; j < nt; ++j) {
-            int64_t ioffset = 0;
+            int64_t i_global = 0;
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task
@@ -437,13 +434,13 @@ void generate_svd(
                         V.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                         auto Vij = V(i, j);
                         slate::random::generate(slate::random::Dist::Normal, seed,
-                                                Vij.mb(), Vij.nb(), ioffset, joffset,
+                                                Vij.mb(), Vij.nb(), i_global, j_global,
                                                 Vij.data(), Vij.stride());
                     }
                 }
-                ioffset += A.tileMb(i);
+                i_global += A.tileMb(i);
             }
-            joffset += A.tileNb(j);
+            j_global += A.tileNb(j);
         }
     }
     seed += 1;
@@ -536,9 +533,9 @@ void generate_heev(
     #pragma omp parallel
     #pragma omp master
     {
-        int64_t joffset = 0;
+        int64_t j_global = 0;
         for (int64_t j = 0; j < nt; ++j) {
-            int64_t ioffset = 0;
+            int64_t i_global = 0;
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task
@@ -546,13 +543,13 @@ void generate_heev(
                         U.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                         auto Uij = U(i, j);
                         slate::random::generate(slate::random::Dist::Normal, seed,
-                                                Uij.mb(), Uij.nb(), ioffset, joffset,
+                                                Uij.mb(), Uij.nb(), i_global, j_global,
                                                 Uij.data(), Uij.stride());
                     }
                 }
-                ioffset += A.tileMb(i);
+                i_global += A.tileMb(i);
             }
-            joffset += A.tileNb(j);
+            j_global += A.tileNb(j);
         }
     }
     seed += 1;
@@ -1196,6 +1193,7 @@ void generate_matrix(
     const real_t d_one  = 1;
     const scalar_t zero = 0;
     const scalar_t one  = 1;
+    const real_t pi = 3.1415926535897932385;
 
     // ----------
     // set Sigma to unknown (nan)
@@ -1298,7 +1296,6 @@ void generate_matrix(
 
         case TestMatrixType::chebspec: {
             const int64_t max_mn = std::max(m, n);
-            const real_t pi = acos(real_t(-1));
             #pragma omp parallel
             #pragma omp master
             {
@@ -1496,8 +1493,7 @@ void generate_matrix(
         case TestMatrixType::orthog: {
             const int64_t max_mn = std::max(n, m);
             const scalar_t outer_const = sqrt(scalar_t(2)/scalar_t(max_mn+1));
-            // pi = acos(-1)
-            const scalar_t inner_const = scalar_t(acos(-1))/scalar_t(max_mn+1);
+            const scalar_t inner_const = pi/scalar_t(max_mn+1);
             #pragma omp parallel
             #pragma omp master
             {
@@ -1658,9 +1654,9 @@ void generate_matrix(
             #pragma omp parallel
             #pragma omp master
             {
-                int64_t joffset = 0;
+                int64_t j_global = 0;
                 for (int64_t j = 0; j < nt; ++j) {
-                    int64_t ioffset = 0;
+                    int64_t i_global = 0;
                     for (int64_t i = 0; i < mt; ++i) {
                         if (A.tileIsLocal(i, j)) {
                             #pragma omp task
@@ -1668,7 +1664,7 @@ void generate_matrix(
                                 A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto Aij = A(i, j);
                                 slate::random::generate(rand_dist, seed,
-                                                        Aij.mb(), Aij.nb(), ioffset, joffset,
+                                                        Aij.mb(), Aij.nb(), i_global, j_global,
                                                         Aij.data(), Aij.stride());
 
                                 // Make it diagonally dominant
@@ -1687,9 +1683,9 @@ void generate_matrix(
                                 }
                             }
                         }
-                        ioffset += A.tileMb(i);
+                        i_global += A.tileMb(i);
                     }
-                    joffset += A.tileNb(j);
+                    j_global += A.tileNb(j);
                 }
             }
             break;
@@ -1855,9 +1851,9 @@ void generate_matrix(
             #pragma omp master
             {
                 if (A.uplo() == Uplo::Lower) {
-                    int64_t joffset = 0;
+                    int64_t j_global = 0;
                     for (int64_t j = 0; j < nt; ++j) {
-                        int64_t ioffset = 0;
+                        int64_t i_global = 0;
                         for (int64_t i = j; i < mt; ++i) { // lower trapezoid
                             if (A.tileIsLocal(i, j)) {
                                 #pragma omp task
@@ -1865,7 +1861,7 @@ void generate_matrix(
                                     A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                     auto Aij = A(i, j);
                                     slate::random::generate(rand_dist, seed,
-                                                            Aij.mb(), Aij.nb(), ioffset, joffset,
+                                                            Aij.mb(), Aij.nb(), i_global, j_global,
                                                             Aij.data(), Aij.stride());
 
                                     // Make it diagonally dominant
@@ -1884,15 +1880,15 @@ void generate_matrix(
                                     }
                                 }
                             }
-                            ioffset += A.tileMb(i);
+                            i_global += A.tileMb(i);
                         }
-                        joffset += A.tileNb(j);
+                        j_global += A.tileNb(j);
                     }
                 }
                 else { // upper
-                    int64_t joffset = 0;
+                    int64_t j_global = 0;
                     for (int64_t j = 0; j < nt; ++j) {
-                        int64_t ioffset = 0;
+                        int64_t i_global = 0;
                         for (int64_t i = 0; i <= j && i < mt; ++i) {  // upper trapezoid
                             if (A.tileIsLocal(i, j)) {
                                 #pragma omp task
@@ -1900,7 +1896,7 @@ void generate_matrix(
                                     A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                     auto Aij = A(i, j);
                                     slate::random::generate(rand_dist, seed,
-                                                            Aij.mb(), Aij.nb(), ioffset, joffset,
+                                                            Aij.mb(), Aij.nb(), i_global, j_global,
                                                             Aij.data(), Aij.stride());
 
                                     // Make it diagonally dominant
@@ -1919,9 +1915,9 @@ void generate_matrix(
                                     }
                                 }
                             }
-                            ioffset += A.tileMb(i);
+                            i_global += A.tileMb(i);
                         }
-                        joffset += A.tileNb(j);
+                        j_global += A.tileNb(j);
                     }
                 }
             }

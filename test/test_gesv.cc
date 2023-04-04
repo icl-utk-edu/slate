@@ -221,8 +221,9 @@ void test_gesv_work(Params& params, bool run)
 
     slate::Pivots pivots;
 
-    slate::generate_matrix(params.matrix,  A);
-    slate::generate_matrix(params.matrixB, B);
+    slate::Options matgen_opts = {{slate::Option::Target, target}};
+    slate::generate_matrix(params.matrix,  A, matgen_opts);
+    slate::generate_matrix(params.matrixB, B, matgen_opts);
 
     // If check/ref is required, copy test data.
     slate::Matrix<scalar_t> Aref, Bref;

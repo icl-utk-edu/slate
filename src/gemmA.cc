@@ -207,6 +207,9 @@ void gemmA(
         }
         #pragma omp taskwait
 
+        // TODO add an if statement similar to potrf on device.
+        // Reason: this should be called only when needed.
+        C.tileUpdateAllOrigin();
         A.eraseLocalWorkspace();
     }
 }

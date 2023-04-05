@@ -453,7 +453,7 @@ void gemmA(internal::TargetType<Target::Devices>,
                 int64_t nb1_ = C.tileNb( 0 );
                 // same kb as above
                 {
-                    if (A.nt() > 1 && A.mt() > 1) {
+                    if (A.nt() > 1) {
                         int64_t i = A.mt()-1;
                         int j = 0;
                         if (A.tileIsLocal( i, j )) {

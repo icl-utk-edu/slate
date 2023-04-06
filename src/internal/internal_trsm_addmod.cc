@@ -261,10 +261,10 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
                 }
                 B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
 
-                DevVector< real_t > dS;
+                real_t* dS_ptr;
                 if (uplo == Uplo::Upper) {
-                    dS.resize( S.size(), device, *queue );
-                    blas::device_memcpy( dS.data(), S.data(), S.size(), *queue );
+                    dS_ptr = (real_t*)A.allocWorkspaceBuffer(device, S.size());
+                    blas::device_memcpy( dS_ptr, S.data(), S.size(), *queue );
                 }
 
                 // interior col or row
@@ -321,7 +321,7 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
                                 ldu0 = U(0, 0, device).stride();
                             }
                             else {
-                                s_array0.push_back( dS.data() );
+                                s_array0.push_back( dS_ptr );
                                 if (blockFactorType != BlockFactor::QR) {
                                     vt_array0.push_back( VT(0, 0, device).data() );
                                     ldvt0 = VT(0, 0, device).stride();
@@ -343,7 +343,7 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
                                 ldu1 = U(0, 0, device).stride();
                             }
                             else {
-                                s_array1.push_back( dS.data() );
+                                s_array1.push_back( dS_ptr );
                                 if (blockFactorType != BlockFactor::QR) {
                                     vt_array1.push_back( VT(0, 0, device).data() );
                                     ldvt1 = VT(0, 0, device).stride();
@@ -366,7 +366,7 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
                                 ldu0 = U(0, 0, device).stride();
                             }
                             else {
-                                s_array0.push_back( dS.data() );
+                                s_array0.push_back( dS_ptr );
                                 if (blockFactorType != BlockFactor::QR) {
                                     vt_array0.push_back( VT(0, 0, device).data() );
                                     ldvt0 = VT(0, 0, device).stride();
@@ -388,7 +388,7 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
                                 ldu1 = U(0, 0, device).stride();
                             }
                             else {
-                                s_array1.push_back( dS.data() );
+                                s_array1.push_back( dS_ptr );
                                 if (blockFactorType != BlockFactor::QR) {
                                     vt_array1.push_back( VT(0, 0, device).data() );
                                     ldvt1 = VT(0, 0, device).stride();
@@ -399,19 +399,13 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
                 }
 
                 {
-                    size_t total_batch = a_array0.size() + a_array1.size();
-                    int64_t work_per_batch = std::max(mb0*nb0, mb1*nb1);
-
-                    DevVector< scalar_t > dwork ( total_batch*work_per_batch, device, *queue );
                     std::vector<scalar_t*> workarray0 (a_array0.size());
                     std::vector<scalar_t*> workarray1 (a_array1.size());
-                    scalar_t* dwork_ptr = dwork.data();
                     for (size_t i = 0; i < a_array0.size(); ++i) {
-                        workarray0[i] = dwork_ptr + i*work_per_batch;
+                        workarray0[i] = A.allocWorkspaceBuffer(device, mb0*nb0);
                     }
-                    dwork_ptr += a_array0.size() * work_per_batch;
                     for (size_t i = 0; i < a_array1.size(); ++i) {
-                        workarray1[i] = dwork_ptr + i*work_per_batch;
+                        workarray1[i] = A.allocWorkspaceBuffer(device, mb1*nb1);
                     }
 
                     if (a_array0.size() > 0) {
@@ -442,8 +436,13 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
 
                     queue->sync();
 
-                    // DevVector doesn't automatically release memory
-                    dwork.clear(*queue);
+                    // return workspace memory
+                    for (size_t i = 0; i < a_array0.size(); ++i) {
+                        A.freeWorkspaceBuffer(device, workarray0[i]);
+                    }
+                    for (size_t i = 0; i < a_array1.size(); ++i) {
+                        A.freeWorkspaceBuffer(device, workarray1[i]);
+                    }
                 }
 
                 if (tile_release_strategy == TileReleaseStrategy::Internal
@@ -469,8 +468,10 @@ void trsm_addmod(internal::TargetType<Target::Devices>,
                     }
                 }
 
-                // DevVector doesn't automatically release memory
-                dS.clear( *queue );
+                // return workspace memory
+                if (uplo == Uplo::Upper) {
+                    A.freeWorkspaceBuffer( device, (scalar_t*)dS_ptr );
+                }
             }
         }
     }

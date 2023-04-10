@@ -108,9 +108,7 @@ void geqrf_qdwh_full(
 
         if (panel_device >= 0) {
 
-            blas::set_device( panel_device );
-
-            lapack::Queue* queue = A.compute_queue(panel_device, 0);
+            lapack::Queue* comm_queue = A.comm_queue(panel_device);
 
             int64_t nb       = A.tileNb(0);
             size_t  size_tau = (size_t) std::min( mlocal, nb );
@@ -119,15 +117,15 @@ void geqrf_qdwh_full(
 
             // Find size of the workspace needed
             lapack::geqrf_work_size_bytes( mlocal, nb, dwork_array[0], mlocal,
-                                           &dsize, &hsize, *queue );
+                                           &dsize, &hsize, *comm_queue );
 
             // Size of dA, dtau, dwork and dinfo
             work_size = size_A + size_tau + ceildiv(dsize, sizeof(scalar_t))
                         + ceildiv(sizeof(device_info_t), sizeof(scalar_t));
 
             for (int64_t dev = 0; dev < num_devices; ++dev) {
-                blas::set_device(dev);
-                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size);
+                lapack::Queue* queue = A.comm_queue( dev );
+                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size, *queue);
             }
         }
     }
@@ -325,8 +323,8 @@ void geqrf_qdwh_full(
 
     if (target == Target::Devices) {
         for (int64_t dev = 0; dev < num_devices; ++dev) {
-            blas::set_device(dev);
-            blas::device_free( dwork_array[dev] );
+            blas::Queue* queue = A.comm_queue( dev );
+            blas::device_free( dwork_array[dev], *queue );
             dwork_array[dev] = nullptr;
         }
     }

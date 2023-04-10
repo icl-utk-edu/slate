@@ -106,7 +106,7 @@ norm2est(
         scale(r_one, normX, XL, opts);
 
         // Compute Ax = A * sx
-        gemm(one, A, XL, zero, AX, opts);
+        gemmC(one, A, XL, zero, AX, opts);
 
         // todo: still need to add the following
         //if nnz(Sx) == 0
@@ -114,11 +114,11 @@ norm2est(
         //end
 
         // Compute x = A' * A * x = A' * Ax
-        auto AT = conjTranspose(A);
+        auto AT = conj_transpose(A);
 
         // todo: why this set is needed when using multiple mpi rank and using gemmA
         set(zero, zero, XL);
-        gemm(one, AT, AX, zero, XL, opts);
+        gemmC(one, AT, AX, zero, XL, opts);
 
         // Compute ||X||, ||AX||
         normX  = norm(Norm::Fro, XL, opts);

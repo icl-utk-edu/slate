@@ -87,6 +87,16 @@ void test_tb2bd_work(Params& params, bool run)
     }
 
     std::vector<real_t> Sigma1(min_mn);
+
+    int64_t vm = 2*nb;
+    int64_t nt = Afull.nt();
+    int64_t vn = nt*(nt + 1)/2*nb;
+    slate::Matrix<scalar_t> V(vm, vn, vm, nb, 1, 1, MPI_COMM_WORLD);
+    V.insertLocalTiles();
+
+    slate::Matrix<scalar_t> U(vm, vn, vm, nb, 1, 1, MPI_COMM_WORLD);
+    U.insertLocalTiles();
+
     if (check && mpi_rank == 0) {
         //==================================================
         // For checking results, compute SVD of original matrix A.
@@ -109,7 +119,7 @@ void test_tb2bd_work(Params& params, bool run)
     // Currently runs only on rank 0.
     //==================================================
     if (mpi_rank == 0) {
-        slate::tb2bd(Aband);
+        slate::tb2bd(Aband, U, V);
     }
 
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;

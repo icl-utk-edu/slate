@@ -47,70 +47,80 @@ using Progress = std::vector< std::atomic<int64_t> >;
 ///     Lock for protecting access to reflectors.
 ///
 template <typename scalar_t>
-void tb2bd_step(TriangularBandMatrix<scalar_t>& A, int64_t band,
+void tb2bd_step(TriangularBandMatrix<scalar_t>& A,
+                Matrix<scalar_t>& U,
+                Matrix<scalar_t>& V,
+                int64_t band,
                 int64_t sweep, int64_t step,
                 Reflectors<scalar_t>& reflectors, omp_lock_t& lock)
 {
-    int64_t task = step == 0 ? 0 : (step+1)%2 + 1;
-    int64_t block = (step+1)/2;
+    int64_t Am = A.m();
+    int64_t An = A.n();
+
+    int64_t task = step == 0 ? 0 : (step + 1) % 2 + 1;
+    int64_t block = (step + 1)/2;
     int64_t i;
     int64_t j;
+
+    // V will be similar to V in hb2st
+    int64_t vj = sweep % band;
+    int64_t vi = vj + 1;
+    int64_t k  = sweep / band;
+    int64_t vindex = k*A.nt() - k*(k - 1)/2;
+
+    int64_t uj = sweep % band;
+    int64_t ui = uj + 1;
+    int64_t uindex = k*A.nt() - k*(k - 1)/2;
 
     switch (task) {
         // task 0 - the first task of the sweep
         case 0:
-            i =   sweep;
-            j = 1+sweep;
-            if (i < A.m() && j < A.n()) {
-                omp_set_lock(&lock);
-                auto& v1 = reflectors[{i, j}];
-                auto& v2 = reflectors[{i+1, j}];
-                omp_unset_lock(&lock);
-                int64_t m = std::min(i+band,   A.m()-1) - i;
-                int64_t n = std::min(j+band-1, A.n()-1) - j + 1;
-                v1.resize(m);
-                v2.resize(n);
+            i = sweep;
+            j = sweep + 1;
+            if (i < Am && j < An) {
+                int64_t m = std::min(i+band,   Am-1) - i;
+                int64_t n = std::min(j+band-1, An-1) - j + 1;
+                auto V1 = V(0, vindex);
+                auto U1 = U(0, vindex);
                 internal::gebr1<Target::HostTask>(
-                    A.slice(i, std::min(i+band,   A.m()-1),
-                            j, std::min(j+band-1, A.n()-1)),
-                    v1.size(), v1.data(),
-                    v2.size(), v2.data());
+                    A.slice(i, std::min(i+band,   Am-1),
+                            j, std::min(j+band-1, An-1)),
+                    m, &V1.at(vi, vj),
+                    n, &U1.at(ui, uj));
             }
             break;
         // task 1 - an off-diagonal block in the sweep
         case 1:
-            i = (block-1)*band+1+sweep;
-            j =  block   *band+1+sweep;
-            if (i < A.m() && j < A.n()) {
-                omp_set_lock(&lock);
-                auto& v1 = reflectors[{i, j-band}];
-                auto& v2 = reflectors[{i, j}];
-                omp_unset_lock(&lock);
-                int64_t n = std::min(j+band-1, A.n()-1) - j + 1;
-                v2.resize(n);
+            i = (block-1)*band + 1 + sweep;
+            j =  block   *band + 1 + sweep;
+            if (i < Am && j < An) {
+                int64_t n1 = std::min(i+band-1, Am-1) - i + 1;
+                int64_t n2 = std::min(j+band-1, An-1) - j + 1;
+                auto V1 = U(0, vindex + (step-1)/2);
+                auto V2 = V(0, vindex + (step+1)/2);
+
                 internal::gebr2<Target::HostTask>(
-                    v1.size(), v1.data(),
-                    A.slice(i, std::min(i+band-1, A.m()-1),
-                            j, std::min(j+band-1, A.n()-1)),
-                    v2.size(), v2.data());
+                    n1, &V1.at(vi, vj),
+                    A.slice(i, std::min(i+band-1, Am-1),
+                            j, std::min(j+band-1, An-1)),
+                    n2, &V2.at(vi, vj));
             }
             break;
         // task 2 - a diagonal block in the sweep
         case 2:
-            i = block*band+1+sweep;
-            j = block*band+1+sweep;
-            if (i < A.m() && j < A.n()) {
-                omp_set_lock(&lock);
-                auto& v1 = reflectors[{i-band, j}];
-                auto& v2 = reflectors[{i, j}];
-                omp_unset_lock(&lock);
-                int64_t m = std::min(i+band-1, A.m()-1) - i + 1;
-                v2.resize(m);
+            i = block*band + 1 + sweep;
+            j = block*band + 1 + sweep;
+            if (i < Am && j < An) {
+                int64_t m1 = std::min(j+band-1, An-1) - j;
+                int64_t m2 = std::min(i+band-1, Am-1) - i + 1;
+                auto U1 = V(0, vindex + step/2);
+                auto U2 = U(0, vindex + step/2);
+
                 internal::gebr3<Target::HostTask>(
-                    v1.size(), v1.data(),
-                    A.slice(i, std::min(i+band-1, A.m()-1),
-                            j, std::min(j+band-1, A.n()-1)),
-                    v2.size(), v2.data());
+                    m1, &U1.at(ui, uj),
+                    A.slice(i, std::min(i+band-1, Am-1),
+                            j, std::min(j+band-1, An-1)),
+                    m2, &U2.at(ui, uj));
             }
             break;
     }
@@ -149,6 +159,8 @@ void tb2bd_step(TriangularBandMatrix<scalar_t>& A, int64_t band,
 ///
 template <typename scalar_t>
 void tb2bd_run(TriangularBandMatrix<scalar_t>& A,
+               Matrix<scalar_t>& U,
+               Matrix<scalar_t>& V,
                int64_t band, int64_t diag_len,
                int64_t pass_size,
                int thread_rank, int thread_size,
@@ -184,7 +196,7 @@ void tb2bd_run(TriangularBandMatrix<scalar_t>& A,
                         while (progress.at(sweep).load() < step-1) {}
                     }
                     ///printf( "tid %d pass %lld, task %lld, %lld\n", thread_rank, pass, sweep, step );
-                    tb2bd_step(A, band, sweep, step,
+                    tb2bd_step(A, U, V, band, sweep, step,
                                reflectors, lock);
 
                     // Mark step as done.
@@ -205,6 +217,8 @@ void tb2bd_run(TriangularBandMatrix<scalar_t>& A,
 template <Target target, typename scalar_t>
 void tb2bd(
     TriangularBandMatrix<scalar_t>& A,
+    Matrix<scalar_t>& U,
+    Matrix<scalar_t>& V,
     Options const& opts )
 {
     const scalar_t zero = 0.0;
@@ -215,6 +229,9 @@ void tb2bd(
     omp_lock_t lock;
     omp_init_lock(&lock);
     Reflectors<scalar_t> reflectors;
+
+    set(zero, U);
+    set(zero, V);
 
     Progress progress(diag_len-1);
     for (int64_t i = 0; i < diag_len-1; ++i)
@@ -286,6 +303,7 @@ void tb2bd(
         #endif
         for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
             tb2bd_run(A,
+                      U, V,
                       band, diag_len,
                       pass_size,
                       thread_rank, thread_size,
@@ -326,6 +344,8 @@ void tb2bd(
 template <typename scalar_t>
 void tb2bd(
     TriangularBandMatrix<scalar_t>& A,
+    Matrix<scalar_t>& U,
+    Matrix<scalar_t>& V,
     Options const& opts )
 {
     using internal::TargetType;
@@ -335,19 +355,19 @@ void tb2bd(
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::tb2bd<Target::HostTask>( A, opts );
+            impl::tb2bd<Target::HostTask>( A, U, V, opts );
             break;
 
         case Target::HostNest:
-            impl::tb2bd<Target::HostNest>( A, opts );
+            impl::tb2bd<Target::HostNest>( A, U, V, opts );
             break;
 
         case Target::HostBatch:
-            impl::tb2bd<Target::HostBatch>( A, opts );
+            impl::tb2bd<Target::HostBatch>( A, U, V, opts );
             break;
 
         case Target::Devices:
-            impl::tb2bd<Target::Devices>( A, opts );
+            impl::tb2bd<Target::Devices>( A, U, V, opts );
             break;
     }
     // todo: return value for errors?
@@ -358,21 +378,29 @@ void tb2bd(
 template
 void tb2bd<float>(
     TriangularBandMatrix<float>& A,
+    Matrix<float>& U,
+    Matrix<float>& V,
     Options const& opts);
 
 template
 void tb2bd<double>(
     TriangularBandMatrix<double>& A,
+    Matrix<double>& U,
+    Matrix<double>& V,
     Options const& opts);
 
 template
 void tb2bd< std::complex<float> >(
     TriangularBandMatrix< std::complex<float> >& A,
+    Matrix< std::complex<float> >& U,
+    Matrix< std::complex<float> >& V,
     Options const& opts);
 
 template
 void tb2bd< std::complex<double> >(
     TriangularBandMatrix< std::complex<double> >& A,
+    Matrix< std::complex<double> >& U,
+    Matrix< std::complex<double> >& V,
     Options const& opts);
 
 } // namespace slate

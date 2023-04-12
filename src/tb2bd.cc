@@ -78,15 +78,15 @@ void tb2bd_step(TriangularBandMatrix<scalar_t>& A,
             i = sweep;
             j = sweep + 1;
             if (i < Am && j < An) {
-                int64_t m = std::min(i+band,   Am-1) - i;
-                int64_t n = std::min(j+band-1, An-1) - j + 1;
+                int64_t n = std::min(i+band,   Am-1) - i;
+                int64_t m = std::min(j+band-1, An-1) - j + 1;
                 auto V1 = V(0, vindex);
                 auto U1 = U(0, vindex);
                 internal::gebr1<Target::HostTask>(
                     A.slice(i, std::min(i+band,   Am-1),
                             j, std::min(j+band-1, An-1)),
-                    m, &V1.at(vi, vj),
-                    n, &U1.at(ui, uj));
+                    n, &V1.at(vi, vj),
+                    m, &U1.at(ui, uj));
             }
             break;
         // task 1 - an off-diagonal block in the sweep
@@ -94,16 +94,16 @@ void tb2bd_step(TriangularBandMatrix<scalar_t>& A,
             i = (block-1)*band + 1 + sweep;
             j =  block   *band + 1 + sweep;
             if (i < Am && j < An) {
-                int64_t n1 = std::min(i+band-1, Am-1) - i + 1;
-                int64_t n2 = std::min(j+band-1, An-1) - j + 1;
-                auto V1 = U(0, vindex + (step-1)/2);
-                auto V2 = V(0, vindex + (step+1)/2);
+                int64_t m = std::min(i+band-1, Am-1) - i + 1;
+                int64_t n = std::min(j+band-1, An-1) - j + 1;
+                auto U1 = U(0, vindex + (step-1)/2);
+                auto V1 = V(0, vindex + (step+1)/2);
 
                 internal::gebr2<Target::HostTask>(
-                    n1, &V1.at(vi, vj),
+                    m, &U1.at(vi, vj),
                     A.slice(i, std::min(i+band-1, Am-1),
                             j, std::min(j+band-1, An-1)),
-                    n2, &V2.at(vi, vj));
+                    n, &V1.at(vi, vj));
             }
             break;
         // task 2 - a diagonal block in the sweep
@@ -111,16 +111,16 @@ void tb2bd_step(TriangularBandMatrix<scalar_t>& A,
             i = block*band + 1 + sweep;
             j = block*band + 1 + sweep;
             if (i < Am && j < An) {
-                int64_t m1 = std::min(j+band-1, An-1) - j;
-                int64_t m2 = std::min(i+band-1, Am-1) - i + 1;
-                auto U1 = V(0, vindex + step/2);
-                auto U2 = U(0, vindex + step/2);
+                int64_t n = std::min(j+band-1, An-1) - j;
+                int64_t m = std::min(i+band-1, Am-1) - i + 1;
+                auto V1 = V(0, vindex + step/2);
+                auto U1 = U(0, vindex + step/2);
 
                 internal::gebr3<Target::HostTask>(
-                    m1, &U1.at(ui, uj),
+                    n, &V1.at(ui, uj),
                     A.slice(i, std::min(i+band-1, Am-1),
                             j, std::min(j+band-1, An-1)),
-                    m2, &U2.at(ui, uj));
+                    m, &U1.at(ui, uj));
             }
             break;
     }

@@ -905,6 +905,8 @@ void ge2tb(
 template <typename scalar_t>
 void tb2bd(
     TriangularBandMatrix<scalar_t>& A,
+    Matrix<scalar_t>& U,
+    Matrix<scalar_t>& V,
     Options const& opts = Options());
 
 //-----------------------------------------

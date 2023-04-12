@@ -18,8 +18,6 @@
 #include <cstdlib>
 #include <utility>
 
-#define SLATE_HAVE_SCALAPACK
-
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_stedc_sort_work( Params& params, bool run )
@@ -139,12 +137,6 @@ void test_stedc_sort_work( Params& params, bool run )
 
     if (ref && m == n) {
         #ifdef SLATE_HAVE_SCALAPACK
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads( omp_num_threads );
-
             // BLACS/MPI variables
             int ictxt, p_, q_, myrow_, mycol_, info;
             int Zref_desc[9];
@@ -176,8 +168,6 @@ void test_stedc_sort_work( Params& params, bool run )
             slate_assert( info == 0 );
 
             params.ref_time() = barrier_get_wtime( MPI_COMM_WORLD ) - time;
-
-            slate_set_num_blas_threads( saved_num_threads );
 
             //print_vector( "Dout", D,    params );
             //print_vector( "Dref", Dref, params );

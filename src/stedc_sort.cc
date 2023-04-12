@@ -98,9 +98,13 @@ void stedc_sort(
     int64_t m = Q.m();
     int64_t mb = Q.tileMb( 0 );  // assume fixed
     int64_t nb = Q.tileNb( 0 );  // assume fixed
+
+    // Assumes matrix is 2D block cyclic.
+    GridOrder grid_order;
     int nprow, npcol, myrow, mycol;
-    Q.gridinfo( &nprow, &npcol, &myrow, &mycol );
-    assert( nprow > 0 );  // require 2D block-cyclic
+    Q.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
+    slate_assert( nprow > 0 );  // require 2D block-cyclic
+    slate_assert( grid_order == GridOrder::Col );
     int64_t mlocal = num_local_rows_cols( m, mb, myrow, 0, nprow );
 
     // Quick return.

@@ -105,8 +105,12 @@ void stedc_merge(
     const real_t zero = 0.;
     const real_t one  = 1.;
 
+    // Assumes matrix is 2D block cyclic.
+    GridOrder grid_order;
     int nprow, npcol, myrow, mycol;
-    Q.gridinfo( &nprow, &npcol, &myrow, &mycol );
+    Q.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
+    slate_assert( nprow > 0 );  // require 2D block-cyclic
+    slate_assert( grid_order == GridOrder::Col );
 
     int64_t nb  = Q.tileNb( 0 );
     int64_t nt  = Q.nt();

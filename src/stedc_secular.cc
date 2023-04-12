@@ -89,11 +89,11 @@ void stedc_secular(
     int64_t info = 0, iinfo;
 
     // Assumes matrix is 2D block cyclic.
-    int nprow, npcol, my_row, my_col;
-    U.gridinfo( &nprow, &npcol, &my_row, &my_col );
-    if (nprow <= 0) {
-        throw Exception( "requires 2D block cyclic distribution" );
-    }
+    GridOrder grid_order;
+    int nprow, npcol, myrow, mycol;
+    U.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
+    slate_assert( nprow > 0 );  // require 2D block-cyclic
+    slate_assert( grid_order == GridOrder::Col );
 
     //----------
     // Phase 1: compute Lambda and ztilde.
@@ -150,9 +150,8 @@ void stedc_secular(
                         &Lambda_local[ 0 ], &recv_cnts[ 0 ], &recv_offsets[ 0 ],
                         mpi_real_t, U.mpiComm() ) );
 
-    // todo: throw
     if (info != 0)
-        printf( "Warning: %s: info %lld\n", __func__, llong( info ) );
+        slate_error( "info " + std::to_string( info ) );
 
     //----------
     // Phase 2: using computed Lambda and ztilde, compute U.
@@ -189,10 +188,10 @@ void stedc_secular(
         int64_t jq = ibar[ j ];
         assert( 0 <= jq && jq < n );
         Lambda[ jq ] = Lambda_local[ j ];
-        if (pcols[ jq ] == my_col) {
+        if (pcols[ jq ] == mycol) {
             icol.push_back( j );
         }
-        if (prows[ jq ] == my_row) {
+        if (prows[ jq ] == myrow) {
             irow.push_back( j );
         }
     }

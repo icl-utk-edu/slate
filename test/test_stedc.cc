@@ -12,13 +12,12 @@
 #include "band_utils.hh"
 #include "grid_utils.hh"
 #include "scale.hh"
+#include "matrix_generator.hh"
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <utility>
-
-#define SLATE_HAVE_SCALAPACK
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
@@ -49,9 +48,7 @@ void test_stedc_work( Params& params, bool run )
     slate::Target target = params.target();
     params.matrix.mark();
 
-    // printf( "matrix iseed %4lld, %4lld, %4lld, %4lld  ",
-    //         params.matrix.iseed[0], params.matrix.iseed[1],
-    //         params.matrix.iseed[2], params.matrix.iseed[3] );
+    int64_t iseed[4] = { 83, 76, 84, 69 };
 
     // mark non-standard output values
     params.time();
@@ -89,12 +86,12 @@ void test_stedc_work( Params& params, bool run )
         std::fill( &E[0], &E[n-1], zero );
     }
     else if (params.matrix.kind() == "diag") {
-        lapack::larnv( idist, params.matrix.iseed, D.size(), D.data() );
+        lapack::larnv( idist, iseed, D.size(), D.data() );
         std::fill( &E[0], &E[n-1], zero );
     }
     else {
-        lapack::larnv( idist, params.matrix.iseed, D.size(), D.data() );
-        lapack::larnv( idist, params.matrix.iseed, E.size(), E.data() );
+        lapack::larnv( idist, iseed, D.size(), D.data() );
+        lapack::larnv( idist, iseed, E.size(), E.data() );
     }
     std::vector<real_t> Dref = D;
     std::vector<real_t> Eref = E;
@@ -220,12 +217,6 @@ void test_stedc_work( Params& params, bool run )
                         "\n\n\n" );
             }
 
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads( omp_num_threads );
-
             // BLACS/MPI variables
             int ictxt, p_, q_, myrow_, mycol_, info;
             int Zref_desc[9];
@@ -282,8 +273,6 @@ void test_stedc_work( Params& params, bool run )
             slate_assert( info == 0 );
 
             params.ref_time() = barrier_get_wtime( MPI_COMM_WORLD ) - time;
-
-            slate_set_num_blas_threads( saved_num_threads );
 
             print_matrix( "Zout", Z,    params );
             print_matrix( "Zref", Zref, params );

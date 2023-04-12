@@ -244,10 +244,11 @@ void stedc_deflate(
     std::fill( &coltype[ n1 ], &coltype[ n  ], 3 );
 
     // Assumes matrix is 2D block cyclic.
+    GridOrder grid_order;
     int nprow, npcol, myrow, mycol;
-    Q.gridinfo( &nprow, &npcol, &myrow, &mycol );
-    if (nprow <= 0)
-        throw Exception( "requires 2D block cyclic distribution" );
+    Q.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
+    slate_assert( nprow > 0 );  // require 2D block-cyclic
+    slate_assert( grid_order == GridOrder::Col );
 
     // Set pcols( j ) = process column of D(j).
     int64_t nb = Q.tileNb( 0 );

@@ -17,8 +17,6 @@
 #include <cstdlib>
 #include <utility>
 
-#define SLATE_HAVE_SCALAPACK
-
 //------------------------------------------------------------------------------
 inline void warn_if_( bool cond, const char* cond_msg )
 {
@@ -232,8 +230,8 @@ void test_stedc_deflate_work( Params& params, bool run )
         printf( "-------------------- SLATE input\n" );
     print_matrix( "Q", Q, params );
     if (verbose >= 1 && mpi_rank == 0) {
-        print_vector( "D", D );
-        print_vector( "z", z );
+        print_vector( "D", D, params );
+        print_vector( "z", z, params );
     }
 
     std::vector<int64_t> ibar( n, -1 );
@@ -280,19 +278,19 @@ void test_stedc_deflate_work( Params& params, bool run )
                 printf( " %10d", Q.tileRank( 0, j/nb ) );
             }
             printf( " ]';\n" );
-            print_vector( "Dorig   ", Dorig );
-            print_vector( "zorig   ", zorig );
-            print_vector( "Dout    ", D );
-            print_vector( "zout    ", z );
-            print_vector( "Dsecular", Dsecular );
-            print_vector( "zsecular", zsecular );
-            //print_vector( "ibar", ibar );
+            print_vector( "Dorig   ", Dorig,    params );
+            print_vector( "zorig   ", zorig,    params );
+            print_vector( "Dout    ", D,        params );
+            print_vector( "zout    ", z,        params );
+            print_vector( "Dsecular", Dsecular, params );
+            print_vector( "zsecular", zsecular, params );
+            //print_vector( "ibar",     ibar,     params );
 
-            //print_vector( "isort",    isort    );
-            //print_vector( "iglobal",  iglobal  );
-            //print_vector( "ideflate", ideflate );
-            //print_vector( "pcols   ", pcols    );
-            //print_vector( "coltype ", coltype  );
+            //print_vector( "isort",    isort,    params );
+            //print_vector( "iglobal",  iglobal,  params );
+            //print_vector( "ideflate", ideflate, params );
+            //print_vector( "pcols   ", pcols,    params );
+            //print_vector( "coltype ", coltype,  params );
         }
         MPI_Barrier( MPI_COMM_WORLD );
 
@@ -308,12 +306,6 @@ void test_stedc_deflate_work( Params& params, bool run )
 
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads( omp_num_threads );
-
             // BLACS/MPI variables
             int ictxt, p_, q_, myrow_, mycol_;
 
@@ -326,8 +318,8 @@ void test_stedc_deflate_work( Params& params, bool run )
                 printf( "-------------------- ScaLAPACK input\n" );
             print_matrix( "Qref", Qref, params );
             if (verbose >= 1 && mpi_rank == 0) {
-                print_vector( "Dref", Dref );
-                print_vector( "zref", zref );
+                print_vector( "Dref", Dref, params );
+                print_vector( "zref", zref, params );
             }
 
             // q = npcol
@@ -365,8 +357,6 @@ void test_stedc_deflate_work( Params& params, bool run )
                 &nQ12_ref, &nQ23_ref, &Q12_begin_ref, &Q23_begin_ref );
 
             params.ref_time() = barrier_get_wtime( MPI_COMM_WORLD ) - time;
-
-            slate_set_num_blas_threads( saved_num_threads );
 
             // convert to 1-based
             for (int j = 0; j < n; ++j) {
@@ -422,35 +412,35 @@ void test_stedc_deflate_work( Params& params, bool run )
                 }
                 printf( " ]';\n" );
 
-                print_vector( "Dorig    ", Dorig );
-                print_vector( "zorig    ", zorig );
-                print_vector( "D        ", D    );
-                print_vector( "D*       ", Dref );
-                print_vector( "z        ", z    );
-                print_vector( "z*       ", zref );
-                print_vector( "Dsecular ", Dsecular     );
-                print_vector( "Dsecular*", Dsecular_ref );
-                print_vector( "zsecular ", zsecular     );
-                print_vector( "zsecular*", zsecular_ref );
+                print_vector( "Dorig    ", Dorig,        params );
+                print_vector( "zorig    ", zorig,        params );
+                print_vector( "D        ", D,            params );
+                print_vector( "D*       ", Dref,         params );
+                print_vector( "z        ", z,            params );
+                print_vector( "z*       ", zref,         params );
+                print_vector( "Dsecular ", Dsecular,     params );
+                print_vector( "Dsecular*", Dsecular_ref, params );
+                print_vector( "zsecular ", zsecular,     params );
+                print_vector( "zsecular*", zsecular_ref, params );
 
-                //print_vector( "ibar ", ibar     );
-                //print_vector( "ibar*", ibar_ref );
+                //print_vector( "ibar ", ibar,     params );
+                //print_vector( "ibar*", ibar_ref, params );
                 //warn_if( err_ibar != 0 );
 
-                //print_vector( "iglobal ", iglobal     );
-                //print_vector( "iglobal*", iglobal_ref );
+                //print_vector( "iglobal ", iglobal,     params );
+                //print_vector( "iglobal*", iglobal_ref, params );
                 //warn_if( err_iglobal != 0 );
 
-                //print_vector( "ideflate ", ideflate     );
-                //print_vector( "ideflate*", ideflate_ref );
+                //print_vector( "ideflate ", ideflate,     params );
+                //print_vector( "ideflate*", ideflate_ref, params );
                 //warn_if( err_ideflate != 0 );
 
-                //print_vector( "pcols    ", pcols     );
-                //print_vector( "pcols*   ", pcols_ref );
+                //print_vector( "pcols    ", pcols,     params );
+                //print_vector( "pcols*   ", pcols_ref, params );
                 //warn_if( err_pcols != 0 );
 
-                //print_vector( "coltype  ", coltype     );
-                //print_vector( "coltype* ", coltype_ref );
+                //print_vector( "coltype  ", coltype,     params );
+                //print_vector( "coltype* ", coltype_ref, params );
                 //warn_if( err_coltype != 0 );
 
                 //printf( "ct_count\n" );
@@ -460,8 +450,8 @@ void test_stedc_deflate_work( Params& params, bool run )
                 //        printf( " %4lld", llong( ct_count( i, j ) ) );
                 //    printf( "\n" );
                 //}
-                //print_vector( "ct_count*", ct_count_ref );
-                //print_vector( "ct_idx   ", ct_idx_local );
+                //print_vector( "ct_count*", ct_count_ref, params );
+                //print_vector( "ct_idx   ", ct_idx_local, params );
             }
             MPI_Barrier( MPI_COMM_WORLD );
 

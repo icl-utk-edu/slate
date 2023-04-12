@@ -17,8 +17,6 @@
 #include <cstdlib>
 #include <utility>
 
-#define SLATE_HAVE_SCALAPACK
-
 //------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_stedc_z_vector_work( Params& params, bool run )
@@ -113,7 +111,7 @@ void test_stedc_z_vector_work( Params& params, bool run )
         slate::trace::Trace::finish();
 
     if (verbose >= 2 && mpi_rank == 0) {
-        print_vector( "zout", z.size(), &z[0], 1 );
+        print_vector( "zout", z.size(), &z[0], 1, params );
     }
 
     if (check || ref) {
@@ -155,8 +153,8 @@ void test_stedc_z_vector_work( Params& params, bool run )
             params.ref_time() = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
             if (verbose >= 2 && mpi_rank == 0) {
-                print_vector( "zref", zref.size(), &zref[0], 1 );
-                print_vector( "work", work.size(), &work[0], 1 );
+                print_vector( "zref", zref.size(), &zref[0], 1, params );
+                print_vector( "work", work.size(), &work[0], 1, params );
             }
 
             // Forward error || z - zref || should be zero.

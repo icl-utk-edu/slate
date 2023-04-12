@@ -21,8 +21,6 @@
 #include <utility>
 #include <numeric>
 
-#define SLATE_HAVE_SCALAPACK
-
 //------------------------------------------------------------------------------
 inline void warn_if_( bool cond, const char* cond_msg )
 {
@@ -147,8 +145,8 @@ void test_stedc_secular_work( Params& params, bool run )
     if (verbose >= 1 && mpi_rank == 0) {
         printf( "-------------------- SLATE input\n" );
         printf( "rho = %7.4f\n", rho );
-        print_vector( "D", D );
-        print_vector( "z", z );
+        print_vector( "D", D, params );
+        print_vector( "z", z, params );
 
         printf( "ct_count( q=%d, 5 ) = [\n", q );
         for (int i = 0; i < q; ++i) {  // loop over process cols.
@@ -184,7 +182,7 @@ void test_stedc_secular_work( Params& params, bool run )
     if (! ref) {
         if (verbose >= 1 && mpi_rank == 0) {
             printf( "-------------------- SLATE output\n" );
-            print_vector( "Lambda", Lambda );
+            print_vector( "Lambda", Lambda, params );
         }
         print_matrix( "U", U, params );
         MPI_Barrier( MPI_COMM_WORLD );
@@ -192,12 +190,6 @@ void test_stedc_secular_work( Params& params, bool run )
 
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
-            // set MKL num threads appropriately for parallel BLAS
-            int omp_num_threads;
-            #pragma omp parallel
-            { omp_num_threads = omp_get_num_threads(); }
-            int saved_num_threads = slate_set_num_blas_threads( omp_num_threads );
-
             // BLACS/MPI variables
             int ictxt, p_, q_, myrow_, mycol_;
 
@@ -260,19 +252,18 @@ void test_stedc_secular_work( Params& params, bool run )
             assert( info == 0 );
 
             params.ref_time() = barrier_get_wtime( MPI_COMM_WORLD ) - time;
-            slate_set_num_blas_threads( saved_num_threads );
 
             if (verbose >= 1 && mpi_rank == 0) {
-                print_vector( "D      ", D );
-                print_vector( "z      ", z );
-                //print_vector( "ztilde ", ztilde     );
-                print_vector( "ztilde*", ztilde_ref );
-                print_vector( "Lambda ", Lambda     );
-                print_vector( "Lambda*", Lambda_ref );
-                //print_vector( "prows  ", prows      );
-                //print_vector( "prows* ", prows_ref  );
-                //print_vector( "pcols  ", pcols      );
-                //print_vector( "pcols* ", pcols_ref  );
+                print_vector( "D      ", D, params );
+                print_vector( "z      ", z, params );
+                //print_vector( "ztilde ", ztilde,     params );
+                print_vector( "ztilde*", ztilde_ref, params );
+                print_vector( "Lambda ", Lambda,     params );
+                print_vector( "Lambda*", Lambda_ref, params );
+                //print_vector( "prows  ", prows,      params );
+                //print_vector( "prows* ", prows_ref,  params );
+                //print_vector( "pcols  ", pcols,      params );
+                //print_vector( "pcols* ", pcols_ref,  params );
 
                 scalar_t error = 0;
                 //blas::axpy( n, -1.0, &ztilde[0], 1, &ztilde_ref[0], 1 );

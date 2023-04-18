@@ -109,15 +109,27 @@ void gesvd(
     //slate::Matrix<scalar_t> U2;
     //slate::Matrix<scalar_t> V2T;
 
+    Matrix<scalar_t> U2, VT2;
+    int64_t nb = A.tileNb(0);
+    int64_t vm = 2*nb;
+    int64_t nt = A.nt();
+    int64_t vn = nt*(nt + 1)/2*nb;
+    VT2 = Matrix<scalar_t>(vm, vn, vm, nb, 1, 1, A.mpiComm());
+    U2 = Matrix<scalar_t>(vm, vn, vm, nb, 1, 1, A.mpiComm());
+
     // Currently, tb2bd and bdsqr run on a single node.
     S.resize(n);
     std::vector<real_t> E(n - 1);
 
     if (A.mpiRank() == 0) {
+        VT2.insertLocalTiles();
+        U2.insertLocalTiles();
+
         // 2. Reduce band to bi-diagonal.
-        tb2bd(Aband, opts);
+        tb2bd(Aband, U2, VT2, opts);
 
         // Copy diagonal and super-diagonal to vectors.
+        // todo: S to Sigma
         internal::copytb2bd(Aband, S, E);
     }
 
@@ -138,43 +150,39 @@ void gesvd(
         slate_mpi_call(
             MPI_Comm_size(A.mpiComm(), &mpi_size));
 
-        //Matrix<scalar_t> U1d(U.m(), U.n(), U.tileNb(0), 1, mpi_size, U.mpiComm());
-        //U1d.insertLocalTiles(target);
-        //U1d.redistribute(U);
-
-        //Matrix<scalar_t> VT1d(VT.m(), VT.n(), VT.tileNb(0), 1, mpi_size, VT.mpiComm());
-        //VT1d.insertLocalTiles(target);
-        //VT1d.redistribute(VT);
 
         // Back-transform: U = U1 * U2 * U.
         // U1 is the output of ge2tb and it is saved in A
         // U2 is the output of tb2bd
         // U initially has left singular vectors of the bidiagonal matrix
-        //unmbr_tb2bd( Side::Left, Op::NoTrans, U2, U1d, opts );
-        //U.redistribute(U1d);
         if (wantu) {
-            //unmqr(Side::Left, Op::NoTrans, Ahat, TU, U, opts);
+            Matrix<scalar_t> U1d(U.m(), U.n(), U.tileNb(0), 1, mpi_size, U.mpiComm());
+            U1d.insertLocalTiles(target);
+
+            U1d.redistribute(U);
+            unmtr_hb2st( Side::Left, Op::NoTrans, U2, U1d, opts );
+
+            U.redistribute(U1d);
             unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, U, opts );
         }
 
-        // Back-transform: VT = VT * V2T * V1T.
-        // V1T is the output of ge2tb and it is saved in A
-        // V2T is the output of tb2bd
+        // Back-transform: VT = VT * VT2 * VT1.
+        // VT1 is the output of ge2tb and it is saved in A
+        // VT2 is the output of tb2bd
         // VT initially has right singular vectors of the bidiagonal matrix
-
-
-        //unmbr_tb2bd( Side::Right, Op::NoTrans, V2T, VT1d, opts );
-        //VT.redistribute(VT1d);
-        //unmtr_he2hb( Side::Right, Op::NoTrans, A, TV, VT, opts );
-
         if (wantvt) {
-            //auto A_sub = Ahat.sub(0, Ahat.mt()-1, 1, Ahat.nt()-1);
-            //auto VT_sub = VT.sub(0, A.mt()-1, 1, A.nt()-1);
-            //slate::TriangularFactors<scalar_t> TV_sub = {
-            //    TV[ 0 ].sub( 0, A.mt()-1, 1, A.nt()-1 ),
-            //    TV[ 1 ].sub( 0, A.mt()-1, 1, A.nt()-1 )
-            //};
-            //unmlq(Side::Right, Op::NoTrans, A_sub, TV_sub, VT_sub, opts);
+            Matrix<scalar_t> V1d(VT.m(), VT.n(), VT.tileNb(0), 1, mpi_size, VT.mpiComm());
+            V1d.insertLocalTiles(target);
+            V1d.redistribute(VT);
+
+            //auto VT2T = conj_transpose(VT2);
+            unmbr_tb2bd( Side::Left, Op::NoTrans, VT2, V1d, opts );
+
+            //auto VTT = conj_transpose(VT);
+            //VTT.redistribute(V1dT);
+            //auto VTT2 = conj_transpose(VTT);
+            VT.redistribute(V1d);
+            //auto VTT = conj_transpose(VT);
             unmbr_ge2tb( Side::Right, Op::NoTrans, Ahat, TV, VT, opts );
         }
     }

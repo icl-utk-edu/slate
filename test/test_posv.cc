@@ -100,6 +100,12 @@ void test_posv_work(Params& params, bool run)
         return;
     }
 
+    if (params.routine == "posvMixed"
+        && target == slate::Target::Devices) {
+        params.msg() = "skipping: unsupported mixed precision; no devices support";
+        return;
+    }
+
     // Matrix A: figure out local size.
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);

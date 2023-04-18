@@ -94,6 +94,7 @@ void test_stedc_work( Params& params, bool run )
     }
     std::vector<real_t> Dref = D;
     std::vector<real_t> Eref = E;
+    real_t Anorm = lapack::lanht( lapack::Norm::One, n, D.data(), E.data() );
 
     // Matrix Z: figure out local size.
     int64_t mlocZ = num_local_rows_cols( n, nb, myrow, p );
@@ -163,11 +164,10 @@ void test_stedc_work( Params& params, bool run )
 
         //==================================================
         // Test results by checking the backward error.
-        // todo formula
         //
-        //     || A - Z Lambda Z^H ||_f
+        //     || A - Z Lambda Z^H ||_1
         //     ------------------------- < tol * epsilon
-        //           n
+        //           n || A ||_1
         //
         //==================================================
         // Reset R with D on diag, E on sub- & super-diagonal.
@@ -201,8 +201,8 @@ void test_stedc_work( Params& params, bool run )
         slate::copy( Z, Z_Lambda, opts );
         slate::scale_row_col( slate::Equed::Col, D, D, Z_Lambda, opts );
         slate::gemm( -one, Z_Lambda, ZT, one, R, opts );
-        // todo: normalization
-        params.error() = slate::norm( slate::Norm::Fro, R, opts ) / n;
+        params.error() = slate::norm( slate::Norm::One, R, opts )
+                       / (n * Anorm);
         params.okay() = (params.ortho() <= tol
                          && params.error() <= tol);
     }

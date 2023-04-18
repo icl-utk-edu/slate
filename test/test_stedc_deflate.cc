@@ -255,9 +255,8 @@ void test_stedc_deflate_work( Params& params, bool run )
 
     std::vector<int64_t> itype( n, -1 );
     int64_t nsecular = 0;
-    int64_t nU123 = -1;
-    int64_t Q12_begin = -1, Q12_end = -1;
-    int64_t Q23_begin = -1, Q23_end = -1;
+    int64_t Qt12_begin = -1, Qt12_end = -1;
+    int64_t Qt23_begin = -1, Qt23_end = -1;
 
     //std::vector<int64_t> isort   ( n, -1 );
     //std::vector<int64_t> ideflate( n, -1 );
@@ -280,9 +279,10 @@ void test_stedc_deflate_work( Params& params, bool run )
     stedc_deflate( n, n1, rho,
                    &D[0], &Dsecular[0], &z[0], &zsecular[0],
                    Q, Qtype, &itype[0],
-                   nsecular, nU123,
-                   Q12_begin, Q12_end, Q23_begin, Q23_end,
+                   nsecular, Qt12_begin, Qt12_end, Qt23_begin, Qt23_end,
                    opts );
+    int64_t nU123 = std::max( Qt12_end, Qt23_end )
+                  - std::min( Qt12_begin, Qt23_begin );
 
     params.time() = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
@@ -290,8 +290,8 @@ void test_stedc_deflate_work( Params& params, bool run )
         slate::trace::Trace::finish();
 
     int nsecular_ref = -1, nU123_ref = -1,
-        nQ12_ref = -1, Q12_begin_ref = -1,
-        nQ23_ref = -1, Q23_begin_ref = -1,
+        nQt12_ref = -1, Qt12_begin_ref = -1,
+        nQt23_ref = -1, Qt23_begin_ref = -1,
         err_itype = 0;
     std::vector<scalar_t>
         Dsecular_ref( n, nan("") ),
@@ -343,7 +343,7 @@ void test_stedc_deflate_work( Params& params, bool run )
                 &ct_count_ref[0], &ct_idx_local[0], q,
                 &itype_ref[0], &iglobal_ref[0], &ideflate_ref[0],
                 &pcols_ref[0], &coltype_ref[0], &nU123_ref,
-                &nQ12_ref, &nQ23_ref, &Q12_begin_ref, &Q23_begin_ref );
+                &nQt12_ref, &nQt23_ref, &Qt12_begin_ref, &Qt23_begin_ref );
 
             params.ref_time() = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
@@ -381,10 +381,10 @@ void test_stedc_deflate_work( Params& params, bool run )
             params.error4() = slate::norm( slate::Norm::One, Qtype_ref );
 
             warn_if( nU123 != nU123_ref );
-            warn_if( Q12_begin != Q12_begin_ref - 1 );  // _ref is 1-based
-            warn_if( Q23_begin != Q23_begin_ref - 1 );
-            warn_if( Q12_end - Q12_begin != nQ12_ref );
-            warn_if( Q23_end - Q23_begin != nQ23_ref );
+            warn_if( Qt12_begin != Qt12_begin_ref - 1 );  // _ref is 1-based
+            warn_if( Qt23_begin != Qt23_begin_ref - 1 );
+            warn_if( Qt12_end - Qt12_begin != nQt12_ref );
+            warn_if( Qt23_end - Qt23_begin != nQt23_ref );
         #endif
 
         params.okay() = (params.error() <= tol)
@@ -491,19 +491,19 @@ void test_stedc_deflate_work( Params& params, bool run )
 
         printf( "%% SLATE:\n"
                 "nsecular = %lld; nU123 = %lld;\n"
-                "Q12 = [ %3lld : %3lld-1 ]+1; nQ12 = %lld;\n"
-                "Q23 = [ %3lld : %3lld-1 ]+1; nQ23 = %lld;\n",
+                "Qt12 = [ %3lld : %3lld-1 ]+1; nQt12 = %lld;\n"
+                "Qt23 = [ %3lld : %3lld-1 ]+1; nQt23 = %lld;\n",
                 llong( nsecular ), llong( nU123 ),
-                llong( Q12_begin ), llong( Q12_end ), llong( Q12_end - Q12_begin ),
-                llong( Q23_begin ), llong( Q23_end ), llong( Q23_end - Q23_begin ) );
+                llong( Qt12_begin ), llong( Qt12_end ), llong( Qt12_end - Qt12_begin ),
+                llong( Qt23_begin ), llong( Qt23_end ), llong( Qt23_end - Qt23_begin ) );
         if (ref) {
             printf( "%% ScaLAPACK:\n"
                     "nsecular_ref = %lld; nU123_ref = %lld;\n"
-                    "Q12_ref = [ %3lld : %3lld ]; nQ12_ref = %lld;\n"
-                    "Q23_ref = [ %3lld : %3lld ]; nQ23_ref = %lld;\n",
+                    "Qt12_ref = [ %3lld : %3lld ]; nQt12_ref = %lld;\n"
+                    "Qt23_ref = [ %3lld : %3lld ]; nQt23_ref = %lld;\n",
                     llong( nsecular_ref ), llong( nU123_ref ),
-                    llong( Q12_begin_ref ), llong( Q12_begin_ref + nQ12_ref - 1 ), llong( nQ12_ref ),
-                    llong( Q23_begin_ref ), llong( Q23_begin_ref + nQ23_ref - 1 ), llong( nQ23_ref  ));
+                    llong( Qt12_begin_ref ), llong( Qt12_begin_ref + nQt12_ref - 1 ), llong( nQt12_ref ),
+                    llong( Qt23_begin_ref ), llong( Qt23_begin_ref + nQt23_ref - 1 ), llong( nQt23_ref  ));
         }
         printf( "done\n" );
     }

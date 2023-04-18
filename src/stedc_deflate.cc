@@ -119,12 +119,6 @@ namespace slate {
 /// @param[out] nsecular
 ///     On exit, number of non-deflated eigenvalues. (Was: k)
 ///
-/// @param[out] nU123
-///     Number of columns of U sub-matrix in stedc_merge spanning
-///     column types 1, 2, 3.
-///     Because of local permutation, this may include columns of
-///     type 4, hence nsecular <= nU123 <= n. (Was: nn)
-///
 /// @param[out] Qtype12_begin
 ///     On exit, index of first column in Qtype sub-matrix spanning
 ///     column types 1 and 2.
@@ -167,7 +161,6 @@ void stedc_deflate(
     Matrix<real_t>& Qtype,
     int64_t* itype,
     int64_t& nsecular,
-    int64_t& nU123,
     int64_t& Qtype12_begin, int64_t& Qtype12_end,
     int64_t& Qtype23_begin, int64_t& Qtype23_end,
     Options const& opts )
@@ -200,7 +193,6 @@ void stedc_deflate(
     slate_assert( grid_order == GridOrder::Col );
 
     // Initial values, if all eigenvalues were deflated.
-    nU123         = 0;
     Qtype12_begin = 0;
     Qtype12_end   = 0;
     Qtype23_begin = 0;
@@ -565,10 +557,6 @@ void stedc_deflate(
         Qtype23_end   = blas::max( Qtype23_end,   iglobal[ j ] + 1 );
     }
 
-    // Size of U123 sub-matrix (ctypes 1, 2, and 3).
-    nU123 = std::max( Qtype12_end, Qtype23_end )
-            - std::min( Qtype12_begin, Qtype23_begin );
-    assert( nU123 >= nsecular );
 }
 
 //------------------------------------------------------------------------------
@@ -585,7 +573,6 @@ void stedc_deflate<float>(
     Matrix<float>& Qtype,
     int64_t* itype,
     int64_t& nsecular,
-    int64_t& nU123,
     int64_t& Qtype12_begin, int64_t& Qtype12_end,
     int64_t& Qtype23_begin, int64_t& Qtype23_end,
     Options const& opts );
@@ -601,7 +588,6 @@ void stedc_deflate<double>(
     Matrix<double>& Qtype,
     int64_t* itype,
     int64_t& nsecular,
-    int64_t& nU123,
     int64_t& Qtype12_begin, int64_t& Qtype12_end,
     int64_t& Qtype23_begin, int64_t& Qtype23_end,
     Options const& opts );

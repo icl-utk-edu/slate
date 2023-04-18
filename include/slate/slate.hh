@@ -1174,7 +1174,6 @@ void stedc_deflate(
     Matrix<real_t>& Qtype,
     int64_t* itype,
     int64_t& nsecular,
-    int64_t& nU123,
     int64_t& Qtype12_begin, int64_t& Qtype12_end,
     int64_t& Qtype23_begin, int64_t& Qtype23_end,
     Options const& opts = Options());

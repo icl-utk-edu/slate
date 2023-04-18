@@ -139,7 +139,6 @@ void stedc_merge(
     std::vector<int64_t> itype( n );
 
     int64_t nsecular   = 0;
-    int64_t nU123      = -1;
     int64_t Qt12_begin = -1, Qt12_end = -1;
     int64_t Qt23_begin = -1, Qt23_end = -1;
 
@@ -149,7 +148,7 @@ void stedc_merge(
                    &D[0], &Dsecular[0],
                    &z[0], &zsecular[0],
                    Q, Qtype, &itype[0],
-                   nsecular, nU123,
+                   nsecular,
                    Qt12_begin, Qt12_end,
                    Qt23_begin, Qt23_end,
                    opts );
@@ -189,7 +188,7 @@ void stedc_merge(
 
         // U123 begin to end are cols in U1, U2, and U3.
         int64_t U123_begin = std::min( Qt12_begin, Qt23_begin );
-        int64_t U123_end   = U123_begin + nU123;
+        int64_t U123_end   = std::max( Qt12_end, Qt23_end );
         // Convert to tile indices. todo: assumes fixed size tiles.
         U123_begin /= nb;
         U123_end = (U123_end - 1) / nb;

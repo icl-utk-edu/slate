@@ -18,14 +18,18 @@ namespace slate {
 /// @param[in,out] D
 ///     On entry, the diagonal elements of the tridiagonal matrix.
 ///     On exit, the eigenvalues in ascending order.
+///     D is duplicated on all MPI ranks.
 ///
 /// @param[in,out] E
 ///     On entry, the subdiagonal elements of the tridiagonal matrix.
 ///     On exit, E has been destroyed.
+///     E is duplicated on all MPI ranks.
 ///
 /// @param[out] Q
 ///     On exit, Q contains the orthonormal eigenvectors of the
 ///     symmetric tridiagonal matrix.
+///     Code currently requires that Q has a 2D block-cyclic distribution,
+///     with column-major grid order, which is the default for a SLATE Matrix.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:

@@ -40,6 +40,16 @@ inline scalar_t sqr(scalar_t x)
 }
 
 //------------------------------------------------------------------------------
+/// Sign (signum) function.
+/// @return -1 if val <  0,
+///          0 if val == 0,
+///         +1 if val >  0.
+template <typename real_t> real_t sign( real_t val )
+{
+    return (real_t(0) < val) - (val < real_t(0));
+}
+
+//------------------------------------------------------------------------------
 /// Adds two scaled, sum-of-squares representations.
 /// On exit, scale1 and sumsq1 are updated such that:
 ///

@@ -11,7 +11,6 @@
 #include "scalapack_support_routines.hh"
 #include "band_utils.hh"
 #include "grid_utils.hh"
-#include "scale.hh"
 #include "matrix_generator.hh"
 
 #include <cmath>
@@ -197,11 +196,11 @@ void test_stedc_work( Params& params, bool run )
             jj += R.tileNb( j );
         }
         print_matrix( "R", R, params );
-        slate::Matrix<scalar_t> ZL( n, n, nb, p, q, MPI_COMM_WORLD );
-        ZL.insertLocalTiles();
-        copy( Z, ZL );
-        col_scale( ZL, D );
-        gemm( -one, ZL, ZT, one, R );
+        slate::Matrix<scalar_t> Z_Lambda( n, n, nb, p, q, MPI_COMM_WORLD );
+        Z_Lambda.insertLocalTiles();
+        copy( Z, Z_Lambda );
+        slate::scale_row_col( slate::Equed::Col, D, D, Z_Lambda );
+        gemm( -one, Z_Lambda, ZT, one, R );
         // todo: normalization
         params.error() = slate::norm( slate::Norm::Fro, R ) / n;
         params.okay() = (params.ortho() <= tol

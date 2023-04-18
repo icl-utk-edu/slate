@@ -1171,12 +1171,12 @@ void stedc_deflate(
     real_t* D, real_t* Dhat,
     real_t* z, real_t* zhat,
     Matrix<real_t>& Q,
-    Matrix<real_t>& Qbar,
-    int64_t* ibar,
+    Matrix<real_t>& Qtype,
+    int64_t* itype,
     int64_t& nsecular,
     int64_t& nU123,
-    int64_t& Qbar12_begin, int64_t& Qbar12_end,
-    int64_t& Qbar23_begin, int64_t& Qbar23_end,
+    int64_t& Qtype12_begin, int64_t& Qtype12_end,
+    int64_t& Qtype23_begin, int64_t& Qtype23_end,
     Options const& opts = Options());
 
 template <typename real_t>
@@ -1185,7 +1185,7 @@ void stedc_merge(
     real_t rho,
     real_t* D,
     Matrix<real_t>& Q,
-    Matrix<real_t>& Qbar,
+    Matrix<real_t>& Qtype,
     Matrix<real_t>& U,
     Options const& opts = Options());
 
@@ -1197,7 +1197,7 @@ void stedc_secular(
     real_t* z,
     real_t* Lambda,
     Matrix<real_t>& U,
-    int64_t* idx_Q_global,
+    int64_t* itype,
     Options const& opts = Options() );
 
 template <typename real_t>

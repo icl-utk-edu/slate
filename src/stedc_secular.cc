@@ -43,19 +43,18 @@ namespace slate {
 /// @param[in,out] Lambda
 ///     On entry, Lambda contains the (n - nsecular) deflated eigenvalues,
 ///     as output by stedc_deflate in D.
-///     On exit, Lambda contains all n eigenvalues, unordered.
+///     On exit, Lambda contains all n eigenvalues, permuted by itype.
 ///
 /// @param[out] U
 ///     On exit, U contains the orthonormal eigenvectors from the secular
-///     equation.
+///     equation, permuted by itype.
 ///
-/// @param[in] ibar
-///     todo
-///     The permutation such that Qbar( :, ibar ) is arranged
-///     globally into 4 groups:
-///         Qbar = [ Q11  Q12       Q14 ],
-///                [      Q22  Q23  Q24 ]
+/// @param[in] itype
+///     Permutation that arranged Qtype locally into 4 groups by column type,
+///         Qtype = [ Q11  Q12       Q14 ],
+///                 [      Q22  Q23  Q24 ]
 ///     as output by stedc_deflate.
+///     Used to permute Lambda and U to match Qtype.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -76,7 +75,7 @@ void stedc_secular(
     real_t* z,
     real_t* Lambda,
     Matrix<real_t>& U,
-    int64_t* ibar,
+    int64_t* itype,
     Options const& opts )
 {
     const MPI_Datatype mpi_real_t = mpi_type<real_t>::value;
@@ -181,11 +180,11 @@ void stedc_secular(
         }
     }
 
-    // Permute Lambda by ibar.
+    // Permute Lambda by itype.
     // Build icol and irow to find local cols and rows of U.
     std::vector<int64_t> icol, irow;
     for (int64_t j = 0; j < nsecular; ++j) {
-        int64_t jq = ibar[ j ];
+        int64_t jq = itype[ j ];
         assert( 0 <= jq && jq < n );
         Lambda[ jq ] = Lambda_local[ j ];
         if (pcols[ jq ] == mycol) {
@@ -204,7 +203,7 @@ void stedc_secular(
     // rather than redundantly calling laed4.
     for (int64_t jj = 0; jj < col_cnt; ++jj) {
         int64_t j  = icol[ jj ];
-        int64_t jq = ibar[ j ];
+        int64_t jq = itype[ j ];
         int64_t jq_tile   = jq / nb;
         int64_t jq_offset = jq % nb;
 
@@ -229,7 +228,7 @@ void stedc_secular(
         }
         for (int64_t ii = 0; ii < row_cnt; ++ii) {
             int64_t i  = irow[ ii ];
-            int64_t iq = ibar[ i ];
+            int64_t iq = itype[ i ];
             int64_t iq_tile   = iq / nb;
             int64_t iq_offset = iq % nb;
 
@@ -255,7 +254,7 @@ void stedc_secular<float>(
     float* z,
     float* Lambda,
     Matrix<float>& U,
-    int64_t* ibar,
+    int64_t* itype,
     Options const& opts );
 
 template
@@ -266,7 +265,7 @@ void stedc_secular<double>(
     double* z,
     double* Lambda,
     Matrix<double>& U,
-    int64_t* ibar,
+    int64_t* itype,
     Options const& opts );
 
 } // namespace slate

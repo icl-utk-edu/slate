@@ -29,6 +29,7 @@ namespace slate {
 ///     the last row of Q1 and the first row of Q2:
 ///         z = Q^T [ e_{n_1} ] = [ Q1^T e_{n_1} ].
 ///                 [ e_1     ]   [ Q2^T e_1     ]
+///     z is duplicated on all MPI ranks.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:

@@ -12,14 +12,19 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 /// Sorts the two sets of eigenvalues together into a single sorted set,
-/// then tries to deflate the size of the problem. There are two ways in
+/// then deflates eigenvalues, which both resolves stability issues (division
+/// by zero) and reduces the size of the problem. There are two ways in
 /// which deflation can occur:
-///   1) there is a zero or tiny entry in the z vector, or
-///   2) two eigenvalues are identical or close together.
+///   1) There is a zero or tiny entry in the z vector, indicating an
+///      eigenvalue of the subproblems is already converged to an
+///      eigenvalue of the merged problem, so it can be deflated.
+///   2) Two eigenvalues are (nearly) identical. In this case, a Givens
+///      rotation is applied to zero an entry of z, and the corresponding
+///      eigenvalue can be deflated.
 /// For each such occurrence the order of the related secular equation
 /// problem is reduced by one.
 ///
-/// Corresponds to ScaLAPACK pdlaed2.
+/// Corresponds to ScaLAPACK pdlaed2. (Was: indicates ScaLAPACK names.)
 //------------------------------------------------------------------------------
 /// @tparam real_t
 ///     One of float, double.
@@ -43,40 +48,56 @@ namespace slate {
 ///     On entry,
 ///     D1 = D[ 0 : n1-1 ] contains eigenvalues of the first subproblem,
 ///     D2 = D[ n1 : n-1 ] contains eigenvalues of the second subproblem.
-///     On exit, D[ nsecular : n-1 ] contains deflated eigenvalues,
-///     sorted in increasing order.
-///     todo: is that right? Or their distributed by some permutation?
+///     On exit, deflated eigenvalues are in decreasing order at the
+///     *local* end within a process column (pcol) per the 2D block
+///     cyclic distribution of Q.
+///     Example on 2 ranks with nb = 4. To easily track values,
+///     let D1 be multiples of 3, and D2 be even numbers.
+///     Deflate arbitrary values 6, 9, 21, 4, 12 (see ^ marks). Value 6
+///     is type 2 deflation since it is repeated; the rest are type 1
+///     deflation. Note 9, 6, 4 stay on pcol 0, and 21, 12 stay on pcol 1.
+///         pcol     = [ 0  0  0  0 |  1  1  1  1 |  0  0  0  0 |  1  1  1  1 ]
+///         D_in     = [ 3  6  9 12 | 15 18 21 24 |  2  4  6  8 | 10 12 14 16 ]
+///                    [    ^  ^    |        ^    |     ^       |     ^       ]
+///         D_out    = [ #  #  #  # |  #  #  #  # |  #  9  6  4 |  #  # 21 12 ]
+///                    [            |             |     ^  ^  ^ |        ^  ^ ]
+///         Dsecular = [ 2  3  6  8 | 10 12 14 15 | 16 18 24  # |  #  #  #  # ]
+///     where | separate blocks, and # values are not set.
 ///
 /// @param[out] Dsecular
 ///     Real vector of dimension n.
 ///     On exit, Dsecular[ 0 : nsecular-1 ] contains non-deflated eigenvalues,
-///     sorted in increasing order.
+///     sorted in increasing order. (Was: dlamda)
 ///
-/// @param[in] z
+/// @param[in,out] z
 ///     Real vector of dimension n.
 ///     On entry, z is the updating vector,
 ///         z = Q^T v = [ Q1^T  0    ] [ e_n1 ],
 ///                     [ 0     Q2^T ] [ e_1  ]
-///     that is the last row of Q1 and the first row of Q2.
+///     which is the last row of Q1 and the first row of Q2.
 ///     On exit, the contents of z are destroyed.
 ///
-/// @param[in] zsecular
+/// @param[out] zsecular
 ///     Real vector of dimension n.
-///     On exit, zsecular[ 0 : nsecular-1 ] has the deflation-altered z vector,
-///     for use by laed3_secular.
+///     On exit, zsecular[ 0 : nsecular-1 ] has non-deflated entries of z,
+///     as updated by normalizing and applying Givens rotations in deflation,
+///     for use by stedc_secular. (Was: w)
 ///
 /// @param[in,out] Q
 ///     Real n-by-n matrix.
 ///     On entry, the eigenvectors of the two subproblems,
 ///         Q = [ Q1  0  ].
 ///             [ 0   Q2 ]
-///     On exit, the eigenvectors associated with deflated eigenvalues
-///     are in the last (n - nsecular) columns.
-///     todo: is that right? Or they are distributed by some permutation?
+///     On exit, eigenvectors associated with type 2 deflation have been
+///     modified.
 ///
-/// @param[in,out] Qbar
+/// @param[in,out] Qtype
 ///     Real n-by-n matrix.
-///     todo
+///     A copy of all the eigenvectors locally ordered by column type such that
+///         Qtype(:, itype) = Q(:, ideflate).
+///     Non-deflated eigenvectors will be used by stedc_merge in a matrix
+///     multiply (gemm) to solve for the new eigenvectors; deflated
+///     eigenvectors will be copied back to Q in the correct place.
 ///
 /// @param[out] ct_count
 ///     Integer npcol-by-5 array.
@@ -84,42 +105,45 @@ namespace slate {
 ///     column type ctype on process column pcol.
 ///     ctype = 1:4, column ctype = 0 is unused.
 ///
-/// @param[out] ibar
+/// @param[out] itype
 ///     Integer vector of dimension n.
-///     On exit, permutation to arrange columns of Qbar locally into 4
-///     column types:
+///     On exit, permutation to arrange columns of Qtype locally into 4
+///     column types based on block structure:
 ///     1: non-zero in upper half only (rows 0 : n1-1).
-///     2: dense; non-deflated eigenvector from type 2 deflation.
+///     2: non-zero in all rows; non-deflated eigenvector from type 2 deflation
+///         when one vector is from Q1 and the other vector is from Q2.
 ///     3: non-zero in lower half only (rows n1 : n-1).
-///     4: dense; deflated eigenvectors.
+///     4: may be non-zero in all rows; deflated eigenvectors.
+///     (Was: indx)
 ///
 /// @param[out] nsecular
-///     On exit, number of non-deflated eigenvalues.
+///     On exit, number of non-deflated eigenvalues. (Was: k)
 ///
 /// @param[out] nU123
-///     Number of columns in U sub-matrix spanning column types 1, 2, 3.
+///     Number of columns of U sub-matrix in stedc_merge spanning
+///     column types 1, 2, 3.
 ///     Because of local permutation, this may include columns of
-///     type 4, hence nsecular <= nU123 <= n.
+///     type 4, hence nsecular <= nU123 <= n. (Was: nn)
 ///
-/// @param[out] Qbar12_begin
-///     On exit, index of first column in Qbar sub-matrix spanning
+/// @param[out] Qtype12_begin
+///     On exit, index of first column in Qtype sub-matrix spanning
 ///     column types 1 and 2.
 ///     Because of local permutation, this may include columns of
-///     types 3 and 4.
+///     types 3 and 4. (Was: ib1)
 ///
-/// @param[out] Qbar12_end
-///     On exit, index of last column + 1 in Qbar sub-matrix spanning
-///     column types 1 and 2.
+/// @param[out] Qtype12_end
+///     On exit, index of last column + 1 in Qtype sub-matrix spanning
+///     column types 1 and 2. (Was: ib1 + nn1)
 ///
-/// @param[out] Qbar23_begin
-///     On exit, index of first column in Qbar sub-matrix spanning
+/// @param[out] Qtype23_begin
+///     On exit, index of first column in Qtype sub-matrix spanning
 ///     column types 2 and 3.
 ///     Because of local permutation, this may include columns of
-///     types 1 and 4.
+///     types 1 and 4. (Was: ib2)
 ///
-/// @param[out] Qbar23_end
-///     On exit, index of last column + 1 in Qbar sub-matrix spanning
-///     column types 2 and 3.
+/// @param[out] Qtype23_end
+///     On exit, index of last column + 1 in Qtype sub-matrix spanning
+///     column types 2 and 3. (Was: ib2 + nn2)
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -140,19 +164,18 @@ void stedc_deflate(
     real_t* D, real_t* Dsecular,
     real_t* z, real_t* zsecular,
     Matrix<real_t>& Q,
-    Matrix<real_t>& Qbar,
-    int64_t* ibar,
+    Matrix<real_t>& Qtype,
+    int64_t* itype,
     int64_t& nsecular,
     int64_t& nU123,
-    int64_t& Qbar12_begin, int64_t& Qbar12_end,
-    int64_t& Qbar23_begin, int64_t& Qbar23_end,
+    int64_t& Qtype12_begin, int64_t& Qtype12_end,
+    int64_t& Qtype23_begin, int64_t& Qtype23_end,
     Options const& opts )
 {
     int mpi_rank = Q.mpiRank();
     MPI_Comm comm = Q.mpiComm();
 
     // Constants.
-    const real_t one = 1.0;
     const int tag_0 = 0;
     const MPI_Datatype mpi_real_t = mpi_type<real_t>::value;
 
@@ -164,39 +187,42 @@ void stedc_deflate(
     assert( nt == Q.mt() );  // square
     assert( n == Q.n() );
     assert( n == Q.m() );
-    assert( Q.mt() == Qbar.mt() );
-    assert( Q.nt() == Qbar.nt() );
-    assert( Q.m() == Qbar.m() );
-    assert( Q.n() == Qbar.n() );
+    assert( Q.mt() == Qtype.mt() );
+    assert( Q.nt() == Qtype.nt() );
+    assert( Q.m() == Qtype.m() );
+    assert( Q.n() == Qtype.n() );
+
+    // Assumes matrix is 2D block cyclic.
+    GridOrder grid_order;
+    int nprow, npcol, myrow, mycol;
+    Q.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
+    slate_assert( nprow > 0 );  // require 2D block-cyclic
+    slate_assert( grid_order == GridOrder::Col );
 
     // Initial values, if all eigenvalues were deflated.
-    nU123        = 0;
-    Qbar12_begin = 0;
-    Qbar12_end   = 0;
-    Qbar23_begin = 0;
-    Qbar23_end   = 0;
+    nU123         = 0;
+    Qtype12_begin = 0;
+    Qtype12_end   = 0;
+    Qtype23_begin = 0;
+    Qtype23_end   = 0;
 
     // nsecular is number of non-deflated eig;
-    // idx_deflate is index past-the-last of deflated eig, counting backwards:
-    //     D( idx( 0           : nsecular-1    ) ) are non-deflated.
-    //     D( idx( nsecular    : idx_deflate-1 ) ) are not yet processed.
-    //     D( idx( idx_deflate : n-1           ) ) are deflated.
+    // idx_deflate is index past-the-last of deflated eig, counting backwards.
+    // In the ideflate permutation:
+    //     ideflate( 0           : nsecular-1    ) are non-deflated.
+    //     ideflate( nsecular    : idx_deflate-1 ) are not yet set.
+    //     ideflate( idx_deflate : n-1           ) are deflated.
     nsecular = 0;
     int64_t idx_deflate = n;
 
-    // Apply theta = sign( beta ) to z2 = z[ n1 : n-1 ].
-    // todo: can merge these 2 scal for single pass:
-    //     scal( n1, 1/sqrt(2), z )
-    //     scal( n2, sign(rho) * 1/sqrt(2), z[n1] )
-    if (rho < 0) {
-        blas::scal( n2, -one, &z[ n1 ], 1 );
-    }
-
-    // rho = theta beta = |beta|.
     // Normalize so || z ||_2 = 1.
-    // z1 and z2 are already normalized, so just divide by sqrt(2).
+    // z1 and z2 are already normalized, since they are rows from
+    // unitary matrices Q1 and Q2, so just divide by sqrt(2).
+    // Secular equation solver (laed4) requires rho > 0, so move sign to z2.
     // rho = abs( || z_orig ||^2 * rho ) = abs( 2 * rho )
-    blas::scal( n, 1/sqrt(2), z, 1 );
+    constexpr real_t r_sqrt2 = 1/sqrt(2);
+    blas::scal( n1, r_sqrt2, z, 1 );  // scale z1
+    blas::scal( n2, r_sqrt2 * sign( rho ), &z[ n1 ], 1 );  // scale z2
     rho = std::abs( 2 * rho );
 
     // Calculate the allowable deflation tolerance
@@ -206,7 +232,7 @@ void stedc_deflate(
 
     // Deflation tolerance, per (Sca)LAPACK; doesn't quite match paper.
     // || z ||_2 = 1, so zmax isn't too large or small: 1/sqrt(n) <= zmax <= 1.
-    // Note lamch('e') == unit_roundoff.
+    // Note lamch('e') == unit_roundoff == 0.5 * epsilon.
     real_t unit_roundoff = 0.5 * std::numeric_limits<real_t>::epsilon();
     real_t tol = 8 * unit_roundoff * std::max( dmax, zmax );
 
@@ -223,13 +249,17 @@ void stedc_deflate(
 
     //-----
     // Local variables & arrays, after quick return.
+    // D( isort ) are ascending.
+    // After deflation:
+    //     D( ideflate( 0 : nsecular-1 ) ) are non-deflated, ascending;
+    //     D( ideflate( nsecular : n-1 ) ) are deflated, descending.
     std::vector<real_t> buf_vector( n );  // todo: only need nb?
     real_t* buf = buf_vector.data();
-    std::vector<int64_t> isort( n );
-    std::vector<int64_t> ideflate( n );
-    std::vector<int64_t> iglobal( n );
+    std::vector<int64_t> isort( n );        // (Was: indx, as workspace)
+    std::vector<int64_t> ideflate( n );     // (Was: indxp)
+    std::vector<int64_t> iglobal( n );      // (Was: indxc)
 
-    // Determine permutation isort that sorts eigenvalues in D ascending.
+    // Determine permutation isort so eigenvalues D[ isort ] are ascending.
     // iota fills isort = [ 0, 1, ..., n-1 ]
     std::iota( isort.begin(), isort.end(), 0 );
     std::sort( isort.begin(), isort.end(),
@@ -242,13 +272,6 @@ void stedc_deflate(
     std::vector<int> coltype( n );
     std::fill( &coltype[ 0  ], &coltype[ n1 ], 1 );
     std::fill( &coltype[ n1 ], &coltype[ n  ], 3 );
-
-    // Assumes matrix is 2D block cyclic.
-    GridOrder grid_order;
-    int nprow, npcol, myrow, mycol;
-    Q.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
-    slate_assert( nprow > 0 );  // require 2D block-cyclic
-    slate_assert( grid_order == GridOrder::Col );
 
     // Set pcols( j ) = process column of D(j).
     int64_t nb = Q.tileNb( 0 );
@@ -274,13 +297,14 @@ void stedc_deflate(
     // z( js1 ) is most recently found non-negligible candidate;
     // -1 indicates none found yet.
     // Finds next non-negligible value, z( js2 ), and checks if we can rotate
-    // [ z(js1), z(js2) ] to eliminate z(js1) while , deflating it.
+    // [ z(js1), z(js2) ] to eliminate z(js1) while keeping the off-diagonal
+    // element negligible; if so, deflate js1.
     // Otherwise stores js1 as next eigenvalue.
     // js1 = js2 as next non-negligible candidate to consider.
     // After loop, store last js1 as last eigenvalue.
-    int64_t js1 = -1;
+    int64_t js1 = -1;                   // (Was: pj, prev j)
     for (int64_t j = 0; j < n; ++j) {
-        int64_t js2 = isort[ j ];
+        int64_t js2 = isort[ j ];       // (Was: nj, next j)
 
         if (std::abs( rho * z[ js2 ] ) <= tol) {
             // Deflate due to small z component.
@@ -301,8 +325,8 @@ void stedc_deflate(
             s /= tau;
             c /= tau;
             // Check off-diagonal element after applying G on both sides:
-            //     [ D(js1)   offdiag ] = G * [ D(js1)        ] * G^T.
-            //     [ offdiag  D(js2)  ]       [ 0      D(js2) ]
+            //     [ D(js1)   offdiag ] = G * [ D(js1)  0      ] * G^T.
+            //     [ offdiag  D(js2)  ]       [ 0       D(js2) ]
             real_t offdiag = c * s * (D[ js2 ] - D[ js1 ]);
             if (std::abs( offdiag ) <= tol) {
                 // Deflation is possible.
@@ -312,8 +336,8 @@ void stedc_deflate(
 
                 // If one of js1, js2 is in Q1 (col type 1)
                 //      and the other is in Q2 (col type 3),
-                // or js1 is already col type 2 (dense) from earlier deflation,
-                // then js2 moves to col type 2 (dense) due to Givens rotation.
+                // or js1 is already col type 2 from earlier deflation,
+                // then js2 moves to col type 2 due to Givens rotation.
                 // js1 moves to col type 4 (deflated).
                 if (coltype[ js1 ] != coltype[ js2 ]) {
                     coltype[ js2 ] = 2;
@@ -330,37 +354,37 @@ void stedc_deflate(
                 // Q( :, [js1, js2] ) = Q( :, [js1, js2] ) * G';
                 for (int64_t ii = 0; ii < nt; ++ii) {
                     int64_t mb = Q.tileMb( ii );
-                    int r1 = Q.tileRank( ii, jj1 );
-                    int r2 = Q.tileRank( ii, jj2 );
-                    if (r1 == mpi_rank && r2 == mpi_rank) {
+                    int rank1 = Q.tileRank( ii, jj1 );
+                    int rank2 = Q.tileRank( ii, jj2 );
+                    if (rank1 == mpi_rank && rank2 == mpi_rank) {
                         // Both tiles are local; apply rot.
                         auto T1 = Q( ii, jj1 );
                         auto T2 = Q( ii, jj2 );
-                        real_t* x1 = &T1.at( 0, jj1_offset );  //T1.data() + jj1_offset*T1.stride();
-                        real_t* x2 = &T2.at( 0, jj2_offset );  //T2.data() + jj2_offset*T2.stride();
+                        real_t* x1 = &T1.at( 0, jj1_offset );
+                        real_t* x2 = &T2.at( 0, jj2_offset );
                         blas::rot( mb, x1, 1, x2, 1, c, s );
                     }
-                    else if (r1 == mpi_rank) {
+                    else if (rank1 == mpi_rank) {
                         // js1 is local; send js1, recv js2, apply rot.
-                        // rot is applied redundantly on both r1 and r2;
+                        // rot is applied redundantly on both rank1 and rank2;
                         // buf contents are discarded.
                         auto T1 = Q( ii, jj1 );
-                        real_t* x1 = &T1.at( 0, jj1_offset );  //T1.data() + jj1_offset*T1.stride();
+                        real_t* x1 = &T1.at( 0, jj1_offset );
                         slate_mpi_call(
                             MPI_Sendrecv(
-                                x1,  mb, mpi_real_t, r2, tag_0,
-                                buf, mb, mpi_real_t, r2, tag_0,
+                                x1,  mb, mpi_real_t, rank2, tag_0,
+                                buf, mb, mpi_real_t, rank2, tag_0,
                                 comm, MPI_STATUS_IGNORE ));
                         blas::rot( mb, x1, 1, buf, 1, c, s );
                     }
-                    else if (r2 == mpi_rank) {
+                    else if (rank2 == mpi_rank) {
                         // js2 is local; recv js1, send js2, apply rot as above.
                         auto T2 = Q( ii, jj2 );
-                        real_t* x2 = &T2.at( 0, jj2_offset );  //T2.data() + jj2_offset*T2.stride();
+                        real_t* x2 = &T2.at( 0, jj2_offset );
                         slate_mpi_call(
                             MPI_Sendrecv(
-                                x2,  mb, mpi_real_t, r1, tag_0,
-                                buf, mb, mpi_real_t, r1, tag_0,
+                                x2,  mb, mpi_real_t, rank1, tag_0,
+                                buf, mb, mpi_real_t, rank1, tag_0,
                                 comm, MPI_STATUS_IGNORE ));
                         blas::rot( mb, buf, 1, x2, 1, c, s );
                     }
@@ -372,11 +396,10 @@ void stedc_deflate(
                 D[ js1 ] = D_js1*(c*c) + D[ js2 ]*(s*s);
                 D[ js2 ] = D_js1*(s*s) + D[ js2 ]*(c*c);
 
-                idx_deflate -= 1;
-
                 // Shift deflated eigenvalues down until we find where to
                 // insert D( js1 ) in descending order.
-                int64_t i = idx_deflate + 1;
+                int64_t i = idx_deflate;
+                idx_deflate -= 1;
                 while (i < n) {
                     if (D[ js1 ] >= D[ ideflate[ i ] ])
                         break;
@@ -415,10 +438,14 @@ void stedc_deflate(
 
     //----------------------------------------
     // Locally permute to sort col types:
-    //     Qbar = [ Q11  Q12  0    Q14 ]
-    //            [ 0    Q22  Q23  Q24 ]
-    // col type:      1    2    3    4
-    // Globally Qbar does not have this structure. The iglobal permutation ...
+    //     Qtype_local = [ Q11  Q12  0    Q14 ]
+    //                   [ 0    Q22  Q23  Q24 ]
+    // col type:             1    2    3    4
+    // Globally Qtype does not have this structure. See SWAN 13 for examples.
+    // Pg = iglobal is another permutation such that (Pg Pt^T Pd coltype)
+    // is ordered globally. It is used here only to compute
+    // Qtype{12,23}_{begin,end}, the first and last+1 columns
+    // of Qtype of column types (1,2) and (2,3), respectively.
 
     // Note in all these arrays, column ctype == 0 is ignored for
     // compatibility with Fortran numbering.
@@ -434,7 +461,7 @@ void stedc_deflate(
     }
 
     // ct_idx_local is local start of each col type on each process col.
-    // (was PSM = Position in SubMatrix)
+    // (Was: PSM = Position in SubMatrix)
     internal::Array2D<int64_t> ct_idx_local( npcol, 5 );
     for (int pcol = 0; pcol < npcol; ++pcol) {
         ct_idx_local( pcol, 1 ) = 0;
@@ -444,7 +471,7 @@ void stedc_deflate(
     }
 
     // ct_idx_global is global start of each col type across all processes.
-    // (was PTT)
+    // (Was: PTT)
     std::vector<int64_t> ct_idx_global( 5 );
     ct_idx_global[ 1 ] = 0;
     for (int ctype = 2; ctype <= 4; ++ctype) {
@@ -455,59 +482,56 @@ void stedc_deflate(
         ct_idx_global[ ctype ] = ct_idx_global[ ctype-1 ] + sum;
     }
 
-    // Fill in iglobal to order all type 1 columns first, then type 2,
+    // Fill in itype to locally order all type 1 columns first, then type 2,
     // then type 3, then type 4.
+    //
     // This merges 3 loops from ScaLAPACK.
     // For permuting D, uses z as workspace, since z was copied to zsecular.
     std::copy( &D[ 0 ], &D[ n ], z );
-    //std::vector<real_t> Dorig( &D[ 0 ], &D[ n ] );
     for (int64_t j = 0; j < n; ++j) {
-        int64_t jd, jbar, jbar_local, jg;
+        int64_t jd, jt, jt_local, jg;
         int pcol, ctype;
-        // jd   is index after deflation.
-        // jbar is for Q_bar,    locally  permuted to order coltype.
-        // jg   is for Q_global, globally permuted to order coltype.
+        // jd is index after deflation.
+        // jt is for Qtype,   locally  permuted to order coltype.
+        // jg is for Qglobal, globally permuted to order coltype.
         jd = ideflate[ j ];
         pcol = pcols[ jd ];
         ctype = coltype[ jd ];
-        jbar_local = ct_idx_local( pcol, ctype )++;
-        jbar = local2global( jbar_local, nb, pcol, dcol, npcol );
-        ibar[ j ] = jbar;  // was isort (INDX)
+        jt_local = ct_idx_local( pcol, ctype )++;
+        jt = local2global( jt_local, nb, pcol, dcol, npcol );
+        itype[ j ] = jt;  // was isort (INDX)
         jg = ct_idx_global[ ctype ]++;
-        iglobal[ jg ] = jbar;
+        iglobal[ jg ] = jt;
 
-        // Copy & permute Q(:, ideflate(j)) => Qbar(:, ibar(j)), if local.
+        // Copy & permute Q(:, ideflate(j)) => Qtype(:, itype(j)),
+        // if this process owns them.
         if (pcol == mycol) {
-            // todo: assert( jbar_local == global2local( jbar, nb, npcol ) );
-            // todo: int64_t jd_local = 0;  // todo: global2local( jd, nb, npcol );
-            // todo: Q2( :, jbar_local ) = Q( :, jd_local );
-            int64_t jjd          = jd / nb;
-            int64_t jjd_offset   = jd % nb;
-            int64_t jjbar        = jbar / nb;
-            int64_t jjbar_offset = jbar % nb;
+            int64_t jjd        = jd / nb;
+            int64_t jjd_offset = jd % nb;
+            int64_t jjt        = jt / nb;
+            int64_t jjt_offset = jt % nb;
             for (int64_t ii = 0; ii < nt; ++ii) {
                 int64_t mb = Q.tileMb( ii );
                 if (Q.tileIsLocal( ii, jjd )) {
-                    assert( Qbar.tileIsLocal( ii, jjbar ) );
-                    auto T1 =    Q( ii, jjd );
-                    auto T2 = Qbar( ii, jjbar );
-                    real_t* x1 = &T1.at( 0, jjd_offset );  //data() + jjd_offset*T1.stride();
-                    real_t* x2 = &T2.at( 0, jjbar_offset );  //T2.data() + jjbar_offset*T2.stride();
+                    assert( Qtype.tileIsLocal( ii, jjt ) );
+                    auto T1 =     Q( ii, jjd );
+                    auto T2 = Qtype( ii, jjt );
+                    real_t* x1 = &T1.at( 0, jjd_offset );
+                    real_t* x2 = &T2.at( 0, jjt_offset );
                     blas::copy( mb, x1, 1, x2, 1 );
                 }
             }
         }
 
         // The deflated eigenvalues and their corresponding vectors go
-        // into the last (n - nsecular_local) local slots of D and Qbar,
-        // respectively. Qbar is handled above.
+        // into the last (n_local - nsecular_local) local slots of D and Qtype,
+        // respectively. Qtype is handled above.
         if (j >= nsecular) {
-            D[ jbar ] = z[ jd ];  // i.e., Dorig[ jd ]
-            //z[ jbar ] = z[ jd ];
+            D[ jt ] = z[ jd ];  // i.e., Dorig[ jd ] stored in z.
         }
         //else {
-        //    D[ jbar ] = nan("");
-        //    //z[ jbar ] = nan("");
+        //    // For debugging, set non-deflated entries to NaN for easy id.
+        //    D[ jt ] = nan("");
         //}
     }
 
@@ -526,24 +550,24 @@ void stedc_deflate(
     // This implementation starts with empty array, then grows it,
     // unlike ScaLAPACK which starts with a 1-element array and can't
     // make an empty array.
-    Qbar12_begin = iglobal[ ct_idx_global[ 1 ] ];
-    Qbar12_end   = Qbar12_begin;
+    Qtype12_begin = iglobal[ ct_idx_global[ 1 ] ];
+    Qtype12_end   = Qtype12_begin;
     for (int64_t j = ct_idx_global[ 1 ]; j < ct_idx_global[ 3 ]; ++j) {
-        Qbar12_begin = blas::min( Qbar12_begin, iglobal[ j ] );
-        Qbar12_end   = blas::max( Qbar12_end,   iglobal[ j ] + 1 );
+        Qtype12_begin = blas::min( Qtype12_begin, iglobal[ j ] );
+        Qtype12_end   = blas::max( Qtype12_end,   iglobal[ j ] + 1 );
     }
 
     // Find begin and end of Q23 (ctype 2 and 3).
-    Qbar23_begin = iglobal[ ct_idx_global[ 2 ] ];
-    Qbar23_end   = Qbar23_end;
+    Qtype23_begin = iglobal[ ct_idx_global[ 2 ] ];
+    Qtype23_end   = Qtype23_end;
     for (int64_t j = ct_idx_global[ 2 ]; j < ct_idx_global[ 4 ]; ++j) {
-        Qbar23_begin = blas::min( Qbar23_begin, iglobal[ j ] );
-        Qbar23_end   = blas::max( Qbar23_end,   iglobal[ j ] + 1 );
+        Qtype23_begin = blas::min( Qtype23_begin, iglobal[ j ] );
+        Qtype23_end   = blas::max( Qtype23_end,   iglobal[ j ] + 1 );
     }
 
-    // Size of U123 sub-matrix.
-    nU123 = std::max( Qbar12_end, Qbar23_end )
-            - std::min( Qbar12_begin, Qbar23_begin );
+    // Size of U123 sub-matrix (ctypes 1, 2, and 3).
+    nU123 = std::max( Qtype12_end, Qtype23_end )
+            - std::min( Qtype12_begin, Qtype23_begin );
     assert( nU123 >= nsecular );
 }
 
@@ -558,12 +582,12 @@ void stedc_deflate<float>(
     float* D, float* Dsecular,
     float* z, float* zsecular,
     Matrix<float>& Q,
-    Matrix<float>& Qbar,
-    int64_t* ibar,
+    Matrix<float>& Qtype,
+    int64_t* itype,
     int64_t& nsecular,
     int64_t& nU123,
-    int64_t& Qbar12_begin, int64_t& Qbar12_end,
-    int64_t& Qbar23_begin, int64_t& Qbar23_end,
+    int64_t& Qtype12_begin, int64_t& Qtype12_end,
+    int64_t& Qtype23_begin, int64_t& Qtype23_end,
     Options const& opts );
 
 template
@@ -574,12 +598,12 @@ void stedc_deflate<double>(
     double* D, double* Dsecular,
     double* z, double* zsecular,
     Matrix<double>& Q,
-    Matrix<double>& Qbar,
-    int64_t* ibar,
+    Matrix<double>& Qtype,
+    int64_t* itype,
     int64_t& nsecular,
     int64_t& nU123,
-    int64_t& Qbar12_begin, int64_t& Qbar12_end,
-    int64_t& Qbar23_begin, int64_t& Qbar23_end,
+    int64_t& Qtype12_begin, int64_t& Qtype12_end,
+    int64_t& Qtype23_begin, int64_t& Qtype23_end,
     Options const& opts );
 
 } // namespace slate

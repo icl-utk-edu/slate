@@ -405,7 +405,9 @@ Params::Params():
                "given rank waits for debugger (gdb/lldb) to attach"),
     pivot_threshold(
                "thresh",  6, 2, ParamType::List, 1.0,   0.0,     1.0, "threshold for pivoting a remote row"),
-    deflate   ("deflate", 12,   ParamType::List, "", "columns or ranges to deflate in stedc_deflate"),
+    deflate   ("deflate", 12,   ParamType::List, "",
+               "multiple space-separated (index or /-separated index pairs)"
+               " to deflate, e.g., --deflate '1 2/4 3/5'"),
 
     // ----- output parameters
     // min, max are ignored

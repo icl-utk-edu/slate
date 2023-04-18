@@ -71,14 +71,32 @@ void copy_col(
 /// @tparam real_t
 ///     One of float, double.
 //------------------------------------------------------------------------------
+/// @param[in] n
+///     Size of merged system. n = n1 + n2.
+///
+/// @param[in] n1
+///     Size of first subproblem, D1.
+///     Size of second subproblem, D2, is n2 = n - n1.
+///
+/// @param[in,out] rho
+///     On entry, the off-diagonal element associated with the rank-1
+///     cut that originally split the two submatrices to be merged.
+///     On exit, updated by deflation process.
+///
 /// @param[in,out] D
 ///     On entry, the eigenvalues of two subproblems.
-///     On exit, the eigenvalues of the merged problem. (Not sorted?)
+///     On exit, the eigenvalues of the merged problem, not sorted.
 ///
 /// @param[in,out] Q
 ///     On entry, Q contains eigenvectors of subproblems.
 ///     On exit, Q contains the orthonormal eigenvectors of the
 ///     merged problem.
+///
+/// @param[out] Qtype
+///     Qtype is a workspace, the same size as Q.
+///
+/// @param[out] U
+///     U is a workspace, the same size as Q.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -97,7 +115,7 @@ void stedc_merge(
     real_t rho,
     real_t* D,
     Matrix<real_t>& Q,
-    Matrix<real_t>& Qbar,
+    Matrix<real_t>& Qtype,
     Matrix<real_t>& U,
     Options const& opts )
 {
@@ -118,88 +136,101 @@ void stedc_merge(
     assert( n1 == nt1 * nb );
 
     std::vector<real_t>  Dsecular( n ), z( n ), zsecular( n );
-    std::vector<int64_t> ibar( n );
+    std::vector<int64_t> itype( n );
 
-    int64_t nsecular  = 0;
-    int64_t nU123     = -1;
-    int64_t Q12_begin = -1, Q12_end = -1;
-    int64_t Q23_begin = -1, Q23_end = -1;
+    int64_t nsecular   = 0;
+    int64_t nU123      = -1;
+    int64_t Qt12_begin = -1, Qt12_end = -1;
+    int64_t Qt23_begin = -1, Qt23_end = -1;
 
     stedc_z_vector( Q, z );
 
     stedc_deflate( n, n1, rho,
                    &D[0], &Dsecular[0],
                    &z[0], &zsecular[0],
-                   Q, Qbar, &ibar[0],
+                   Q, Qtype, &itype[0],
                    nsecular, nU123,
-                   Q12_begin, Q12_end,
-                   Q23_begin, Q23_end,
+                   Qt12_begin, Qt12_end,
+                   Qt23_begin, Qt23_end,
                    opts );
 
     if (nsecular > 0) {
-        // todo: Is there reason to set U? It gets overwritten, right?
-        set( zero, one, U );  // U = Identity
+        // Set U = Identity for deflated eigenvectors (lower right of U).
+        set( zero, one, U );
 
         stedc_secular( nsecular, n, rho,
                        &Dsecular[0], &zsecular[0], &D[0], U,
-                       &ibar[0], opts );
+                       &itype[0], opts );
 
         // Compute the updated eigenvectors.
-        // Q = [ Q11  Q12   0   Q13 ]  N1 (size of Q1 before deflation)
-        //     [  0   Q21  Q22  Q23 ]  N2 (size of Q2 before deflation)
-        //        n1   r    n2   k'    r = n - n1 - n2 - k', k' = min( k1, k2 )
+        // Qt is Qtype, locally permuted into col types 1, 2, 3, and 4:
+        //     Qt = [ Qt_{1,1}  Qt_{1,2}  0         |  Qt_{1,4} ]  N1 rows
+        //          [ 0         Qt_{2,2}  Qt_{2,3}  |  Qt_{2,4} ]  N2 rows
+        // col type:  1         2         3         |  4
+        // N1, N2 are the size of the Q1, Q2 subproblems before deflation.
         //
-        // Q*U = N1 [ Q11  Q12   0   Q13 ] [ U1    ] n1
-        //       N2 [  0   Q21  Q22  Q23 ] [ U2    ] r = n - n1 - n2 - k'
-        //                                 [ U3    ] n2
-        //                                 [     I ] k'
+        // Due to Pt being a local permutation, in the parallel algorithm
+        // the global structure is more complicated than this. Qt12 and
+        // Qt23 can include columns of other column types. See SWAN 13.
         //
-        // Q*U = { [ Q11  Q12 ] [ U1 ] }
-        //       {              [ U2 ] }
-        //       {                     }
-        //       { [ Q21  Q22 ] [ U2 ] }
-        //       {              [ U3 ] }
+        // Qt*U = [ Qt_{1,1}  Qt_{1,2}  0         |  Qt_{1,4} ]*[ U_1    ]
+        //        [ 0         Qt_{2,2}  Qt_{2,3}  |  Qt_{2,4} ] [ U_2    ]
+        //                                                      [ U_3    ]
+        //                                                      [      I ]
         //
-        int64_t U_begin = std::min( Q12_begin, Q23_begin );
-        int64_t U_end   = U_begin + nU123;
+        //      = [ Qt_{1,1:2} * U_{1:2}  |  Qt_{1,4} ]
+        //        [ Qt_{2,2:3} * U_{2:3}  |  Qt_{2,4} ]
+        //
+        //      = [ Qt12 * U12  |  Qt_{1,4} ]
+        //        [ Qt23 * U23  |  Qt_{2,4} ]
+        //
+        // Variable Qt12 is Qt_{1,1:2}, Qt23 is Qt_{2,2:3},
+        // U12 is U_{1:2}, U23 is U_{2:3}, U123 is U_{1:3}.
 
+        // U123 begin to end are cols in U1, U2, and U3.
+        int64_t U123_begin = std::min( Qt12_begin, Qt23_begin );
+        int64_t U123_end   = U123_begin + nU123;
         // Convert to tile indices. todo: assumes fixed size tiles.
-        U_begin /= nb;
-        U_end = (U_end - 1) / nb;
-        if (Q12_begin < Q12_end) {
+        U123_begin /= nb;
+        U123_end = (U123_end - 1) / nb;
+
+        // Qt12_begin to end includes all cols of types 1 and 2, forming Qt12.
+        // Due to local permutation, it can have some cols of types 3 and 4.
+        if (Qt12_begin < Qt12_end) {
             // Convert to tile indices. todo: assumes fixed size tiles.
             // todo: could slice matrices, but gemm<Devices> doesn't
             // support arbitrary slices.
-            Q12_begin /= nb;
-            Q12_end = (Q12_end - 1) / nb;
-            auto Qbar12 = Qbar.sub( 0, nt1 - 1, Q12_begin, Q12_end );
-            auto U12 = U.sub( Q12_begin, Q12_end, U_begin, U_end );
-            auto Q12 = Q.sub( 0, nt1 - 1, U_begin, U_end );
-            gemm( one, Qbar12, U12, zero, Q12 );
+            Qt12_begin /= nb;
+            Qt12_end = (Qt12_end - 1) / nb;
+            auto Qt12 = Qtype.sub( 0, nt1 - 1, Qt12_begin, Qt12_end );
+            auto U12 = U.sub( Qt12_begin, Qt12_end, U123_begin, U123_end );
+            auto Q12 = Q.sub( 0, nt1 - 1, U123_begin, U123_end );
+            gemm( one, Qt12, U12, zero, Q12, opts );
         }
 
-        if (Q23_begin < Q23_end) {
+        // Qt23_begin to end includes all cols of types 2 and 3, forming Qt23.
+        // Due to local permutation, it can have some cols of types 3 and 4.
+        if (Qt23_begin < Qt23_end) {
             // Convert to tile indices. todo: see above.
-            Q23_begin /= nb;
-            Q23_end = (Q23_end - 1) / nb;
-            auto Qbar23 = Qbar.sub( nt1, nt - 1, Q23_begin, Q23_end );
-            auto U23 = U.sub( Q23_begin, Q23_end, U_begin, U_end );
-            auto Q23 = Q.sub( nt1, nt - 1, U_begin, U_end );
-            gemm( one, Qbar23, U23, zero, Q23 );
+            Qt23_begin /= nb;
+            Qt23_end = (Qt23_end - 1) / nb;
+            auto Qt23 = Qtype.sub( nt1, nt - 1, Qt23_begin, Qt23_end );
+            auto U23 = U.sub( Qt23_begin, Qt23_end, U123_begin, U123_end );
+            auto Q23 = Q.sub( nt1, nt - 1, U123_begin, U123_end );
+            gemm( one, Qt23, U23, zero, Q23, opts );
         }
 
         int r0 = Q.tileRank( 0, 0 );
         int dcol = r0 / nprow;  // todo: assumes col-major grid
 
-        // Copy deflated eigenvectors from Qbar to Q (local operation).
-        // Why not just put them into Q in the first place??? Ah... permuting.
+        // Copy deflated eigenvectors from Qtype to Q (local operation).
         for (int64_t j = nsecular; j < n; ++j) {
-            int64_t kg = ibar[ j ]; // global index
+            int64_t kg = itype[ j ]; // global index
             int64_t k  = kg / nb;   // block index
             int64_t kk = kg % nb;   // offset within block
             int64_t pk = (k + dcol) % npcol; // process column
             if (pk == mycol) {
-                copy_col( Qbar, k, kk, Q, k, kk );
+                copy_col( Qtype, k, kk, Q, k, kk );
             }
         }
     }
@@ -214,7 +245,7 @@ void stedc_merge<float>(
     float rho,
     float* D,
     Matrix<float>& Q,
-    Matrix<float>& Qbar,
+    Matrix<float>& Qtype,
     Matrix<float>& U,
     Options const& opts );
 
@@ -224,7 +255,7 @@ void stedc_merge<double>(
     double rho,
     double* D,
     Matrix<double>& Q,
-    Matrix<double>& Qbar,
+    Matrix<double>& Qtype,
     Matrix<double>& U,
     Options const& opts );
 

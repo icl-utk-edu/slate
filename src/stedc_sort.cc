@@ -81,7 +81,22 @@ void copy_col(
 }
 
 //------------------------------------------------------------------------------
+/// Sorts eigenvalues in D and apply same permutation to eigenvectors in Q.
 /// Corresponds to ScaLAPACK pdlasrt.
+///
+/// @param[in,out] D
+///     On entry, unsorted eigenvalues.
+///     On exit, eigenvalues in ascending order.
+///
+/// @param[in] Q
+///     Eigenvectors corresponding to D.
+///
+/// @param[out] Qout
+///     On exit, the eigenvectors ordered according to sorted D.
+///
+/// @param[in] opts
+///     Currently unused.
+///
 template <typename real_t>
 void stedc_sort(
     std::vector<real_t>& D,

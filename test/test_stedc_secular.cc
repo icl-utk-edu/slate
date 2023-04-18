@@ -120,8 +120,9 @@ void test_stedc_secular_work( Params& params, bool run )
                    n, n, &Uref_data[0], lldU, nb, p, q, MPI_COMM_WORLD );
     }
 
-    std::vector<int64_t> ibar( n, -1 );
-    std::iota( &ibar[0], &ibar[n], 0 );
+    // Set itype to identity permutation, 0..n-1.
+    std::vector<int64_t> itype( n );
+    std::iota( &itype[0], &itype[n], 0 );
 
     std::vector<scalar_t> Lambda( n, -1 );
 
@@ -171,7 +172,7 @@ void test_stedc_secular_work( Params& params, bool run )
     //==================================================
     stedc_secular( nsecular, n, rho,
                    &D[0], &z[0], &Lambda[0],
-                   U, &ibar[0], opts );
+                   U, &itype[0], opts );
 
     params.time() = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
@@ -198,7 +199,7 @@ void test_stedc_secular_work( Params& params, bool run )
             Cblacs_gridinit( &ictxt, "Col", p, q );
             Cblacs_gridinfo( ictxt, &p_, &q_, &myrow_, &mycol_ );
 
-            std::vector<int> ibar_ref( n, -1 ),
+            std::vector<int> itype_ref( n, -1 ),
                              pcols_ref( n, -1 ),
                              prows_ref( n, -1 ),
                              irow( n, -1 ),
@@ -210,7 +211,7 @@ void test_stedc_secular_work( Params& params, bool run )
 
             // Copy & convert idx from 0-based to 1-based.
             for (int64_t j = 0; j < n; ++j) {
-                ibar_ref[ j ] = ibar[ j ] + 1;
+                itype_ref[ j ] = itype[ j ] + 1;
             }
 
             // Copy ct_count_ref( :, 0:3 ) = ct_count( :, 1:4 ).
@@ -224,15 +225,15 @@ void test_stedc_secular_work( Params& params, bool run )
 
             if (verbose >= 1 && mpi_rank == 0) {
                 printf( "-------------------- ScaLAPACK input\n" );
-                printf( "ibar_ref = [ " );
+                printf( "itype_ref = [ " );
                 for (int64_t j = 0; j < n; ++j) {
-                    printf( " %d", ibar_ref[ j ] );
+                    printf( " %d", itype_ref[ j ] );
                 }
                 printf( " ];\n" );
 
                 printf( "ct_count_ref = [ " );
                 for (int64_t j = 0; j < n; ++j) {
-                    printf( " %d", ibar_ref[ j ] );
+                    printf( " %d", itype_ref[ j ] );
                 }
                 printf( " ];\n" );
             }
@@ -246,7 +247,7 @@ void test_stedc_secular_work( Params& params, bool run )
                 ictxt, nsecular, n, nb,
                 &Lambda_ref[0], 0, 0, rho, &D[0], &z[0], &ztilde_ref[0],
                 &Uref_data[0], lldU, &buf[0],
-                &ibar_ref[0],
+                &itype_ref[0],
                 &pcols_ref[0], &prows_ref[0], &irow[0], &icol[0],
                 &ct_count_ref[0], q, &info );
             assert( info == 0 );

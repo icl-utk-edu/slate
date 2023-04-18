@@ -47,8 +47,7 @@ T next_power2( T x )
 //------------------------------------------------------------------------------
 /// @param[in,out] D
 ///     On entry, the diagonal elements of the tridiagonal matrix.
-///     On exit, the eigenvalues in ascending order.
-///     todo: descending, per pdlaed0?
+///     On exit, the eigenvalues, not sorted.
 ///
 /// @param[in,out] E
 ///     On entry, the subdiagonal elements of the tridiagonal matrix.
@@ -58,6 +57,12 @@ T next_power2( T x )
 ///     On entry, Q is the Identity.
 ///     On exit, Q contains the orthonormal eigenvectors of the
 ///     symmetric tridiagonal matrix.
+///
+/// @param[out] W
+///     W is a workspace, the same size as Q.
+///
+/// @param[out] U
+///     U is a workspace, the same size as Q.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:

@@ -4,81 +4,11 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
+#include "internal/internal_copy_col.hh"
 
 #include <numeric>
 
 namespace slate {
-
-//------------------------------------------------------------------------------
-/// Copy local rows of column from matrix A, tile j, column jj, to array x.
-///
-template <typename real_t>
-void copy_col(
-    Matrix<real_t>& A, int64_t j, int64_t jj,
-    real_t* x )
-{
-    int64_t mt = A.mt();
-    int64_t ii = 0;
-    for (int64_t i = 0; i < mt; ++i) {
-        if (A.tileIsLocal( i, j )) {
-            auto Aij = A( i, j );
-            int64_t mb = Aij.mb();
-            blas::copy( mb, &Aij.at( 0, jj ), 1, &x[ ii ], 1 );
-            ii += mb;
-        }
-    }
-    //assert( ii == mlocal );
-}
-
-//------------------------------------------------------------------------------
-/// Copy local rows of column from array x to matrix A, tile j, column jj.
-///
-template <typename real_t>
-void copy_col(
-    real_t* x,
-    Matrix<real_t>& A, int64_t j, int64_t jj )
-{
-    int64_t mt = A.mt();
-    int64_t ii = 0;
-    for (int64_t i = 0; i < mt; ++i) {
-        if (A.tileIsLocal( i, j )) {
-            auto Aij = A( i, j );
-            int64_t mb = Aij.mb();
-            blas::copy( mb, &x[ ii ], 1, &Aij.at( 0, jj ), 1 );
-            ii += mb;
-        }
-    }
-    //assert( ii == mlocal );
-}
-
-//------------------------------------------------------------------------------
-/// Copy local rows of column from matrix A, tile j, column jj,
-/// to matrix B, tile k, column kk.
-/// A and B must have the same distribution, number of rows, and tile mb;
-/// they may differ in the number of columns.
-///
-template <typename real_t>
-void copy_col(
-    Matrix<real_t>& A, int64_t j, int64_t jj,
-    Matrix<real_t>& B, int64_t k, int64_t kk )
-{
-    assert( A.mt() == B.mt() );
-
-    int64_t mt = A.mt();
-    int64_t ii = 0;
-    for (int64_t i = 0; i < mt; ++i) {
-        if (A.tileIsLocal( i, j )) {
-            assert( B.tileIsLocal( i, j ) );
-            auto Aij = A( i, j );
-            auto Bik = B( i, k );
-            int64_t mb = Aij.mb();
-            assert( mb == Bik.mb() );
-            blas::copy( mb, &Aij.at( 0, jj ), 1, &Bik.at( 0, kk ), 1 );
-            ii += mb;
-        }
-    }
-    //assert( ii == mlocal );
-}
 
 //------------------------------------------------------------------------------
 /// Sorts eigenvalues in D and apply same permutation to eigenvectors in Q.
@@ -190,11 +120,11 @@ void stedc_sort(
                     kg = isort_inv[ jg + jj ];
                     k  = kg / nb;
                     kk = kg % nb;
-                    copy_col( Q, j, jj, Qout, k, kk );
+                    internal::copy_col( Q, j, jj, Qout, k, kk );
                 }
                 else {
                     kk = poffset[ pk ]++;
-                    copy_col( Q, j, jj, &work[ kk*mlocal ] );
+                    internal::copy_col( Q, j, jj, &work[ kk*mlocal ] );
                 }
             }
 
@@ -229,7 +159,7 @@ void stedc_sort(
                 kg = imine[ jj ];
                 k  = kg / nb;
                 kk = kg % nb;
-                copy_col( &work[ jj*mlocal ], Qout, k, kk );
+                internal::copy_col( &work[ jj*mlocal ], Qout, k, kk );
             }
         }
 

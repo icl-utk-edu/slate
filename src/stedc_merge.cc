@@ -4,38 +4,9 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
+#include "internal/internal_copy_col.hh"
 
 namespace slate {
-
-//------------------------------------------------------------------------------
-/// Copy local rows of column from matrix A, tile j, column jj,
-/// to matrix B, tile k, column kk.
-/// A and B must have the same distribution, number of rows, and tile mb;
-/// they may differ in the number of columns.
-///
-/// todo: duplicated from stedc_sort.cc
-///
-template <typename real_t>
-void copy_col(
-    Matrix<real_t>& A, int64_t j, int64_t jj,
-    Matrix<real_t>& B, int64_t k, int64_t kk )
-{
-    assert( A.mt() == B.mt() );
-
-    int64_t mt = A.mt();
-    int64_t ii = 0;
-    for (int64_t i = 0; i < mt; ++i) {
-        if (A.tileIsLocal( i, j )) {
-            assert( B.tileIsLocal( i, j ) );
-            auto Aij = A( i, j );
-            auto Bik = B( i, k );
-            int64_t mb = Aij.mb();
-            assert( mb == Bik.mb() );
-            blas::copy( mb, &Aij.at( 0, jj ), 1, &Bik.at( 0, kk ), 1 );
-            ii += mb;
-        }
-    }
-}
 
 //------------------------------------------------------------------------------
 /// Computes the updated eigensystem of a diagonal matrix after
@@ -229,7 +200,7 @@ void stedc_merge(
             int64_t kk = kg % nb;   // offset within block
             int64_t pk = (k + dcol) % npcol; // process column
             if (pk == mycol) {
-                copy_col( Qtype, k, kk, Q, k, kk );
+                internal::copy_col( Qtype, k, kk, Q, k, kk );
             }
         }
     }

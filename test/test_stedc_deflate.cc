@@ -115,7 +115,7 @@ void test_stedc_deflate_work( Params& params, bool run )
         Qtype = slate::Matrix<scalar_t>::fromScaLAPACK(
                    n, n, &Qtype_data[0], lldQ, nb, p, q, MPI_COMM_WORLD );
     }
-    slate::set( zero, Q );
+    slate::set( zero, Q, opts );
     int64_t nt = Q.nt();
     int64_t nt1 = int64_t( nt/2 );
     int64_t nt2 = nt - nt1;
@@ -276,11 +276,11 @@ void test_stedc_deflate_work( Params& params, bool run )
     //==================================================
     // Run SLATE test.
     //==================================================
-    stedc_deflate( n, n1, rho,
-                   &D[0], &Dsecular[0], &z[0], &zsecular[0],
-                   Q, Qtype, &itype[0],
-                   nsecular, Qt12_begin, Qt12_end, Qt23_begin, Qt23_end,
-                   opts );
+    slate::stedc_deflate( n, n1, rho,
+                          &D[0], &Dsecular[0], &z[0], &zsecular[0],
+                          Q, Qtype, &itype[0],
+                          nsecular, Qt12_begin, Qt12_end, Qt23_begin, Qt23_end,
+                          opts );
     int64_t nU123 = std::max( Qt12_end, Qt23_end )
                   - std::min( Qt12_begin, Qt23_begin );
 
@@ -374,11 +374,11 @@ void test_stedc_deflate_work( Params& params, bool run )
             blas::axpy( nsecular, -one, &zsecular[0], 1, &zsecular_ref[0], 1 );
             params.error2() = blas::nrm2( nsecular, &zsecular_ref[0], 1 );
 
-            slate::add( -one, Q, one, Qref );
-            params.error3() = slate::norm( slate::Norm::One, Qref );
+            slate::add( -one, Q, one, Qref, opts );
+            params.error3() = slate::norm( slate::Norm::One, Qref, opts );
 
-            slate::add( -one, Qtype, one, Qtype_ref );
-            params.error4() = slate::norm( slate::Norm::One, Qtype_ref );
+            slate::add( -one, Qtype, one, Qtype_ref, opts );
+            params.error4() = slate::norm( slate::Norm::One, Qtype_ref, opts );
 
             warn_if( nU123 != nU123_ref );
             warn_if( Qt12_begin != Qt12_begin_ref - 1 );  // _ref is 1-based

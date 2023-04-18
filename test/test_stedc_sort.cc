@@ -52,6 +52,13 @@ void test_stedc_sort_work( Params& params, bool run )
         return;
     }
 
+    slate::Options const opts =  {
+        // {slate::Option::Target,         target },
+        {slate::Option::PrintVerbose,   params.verbose() },
+        {slate::Option::PrintPrecision, params.print_precision() },
+        {slate::Option::PrintWidth,     params.print_width() },
+    };
+
     // MPI variables
     int mpi_rank, myrow, mycol;
     MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
@@ -104,7 +111,7 @@ void test_stedc_sort_work( Params& params, bool run )
         Zref_data.resize( lldZ*nlocZ );
         Zref = slate::Matrix<scalar_t>::fromScaLAPACK(
                    n, n, &Zref_data[0], lldZ, nb, p, q, MPI_COMM_WORLD );
-        slate::copy( Z, Zref );
+        slate::copy( Z, Zref, opts );
     }
 
     auto Zout = Z.emptyLike();
@@ -122,7 +129,7 @@ void test_stedc_sort_work( Params& params, bool run )
     //==================================================
     // Run SLATE test.
     //==================================================
-    stedc_sort( D, Z, Zout );
+    slate::stedc_sort( D, Z, Zout, opts );
 
     params.time() = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
@@ -179,8 +186,8 @@ void test_stedc_sort_work( Params& params, bool run )
             params.okay() = params.okay() && (params.error2() == 0);
 
             // || Zout - Zref || should be exactly 0.
-            slate::add( -one, Zout, one, Zref );
-            params.error2() = slate::norm( slate::Norm::Max, Zref );
+            slate::add( -one, Zout, one, Zref, opts );
+            params.error2() = slate::norm( slate::Norm::Max, Zref, opts );
             params.okay() = (params.error() == 0
                              && params.error2() == 0);
         #endif

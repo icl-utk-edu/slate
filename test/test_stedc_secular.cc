@@ -99,7 +99,7 @@ void test_stedc_secular_work( Params& params, bool run )
         U = slate::Matrix<scalar_t>::fromScaLAPACK(
                 n, n, &U_data[0], lldU, nb, p, q, MPI_COMM_WORLD );
     }
-    slate::set( nan_, U );
+    slate::set( nan_, U, opts );
 
     std::vector<scalar_t> D( nsecular );
     std::vector<scalar_t> z( nsecular );
@@ -170,9 +170,9 @@ void test_stedc_secular_work( Params& params, bool run )
     //==================================================
     // Run SLATE test.
     //==================================================
-    stedc_secular( nsecular, n, rho,
-                   &D[0], &z[0], &Lambda[0],
-                   U, &itype[0], opts );
+    slate::stedc_secular( nsecular, n, rho,
+                          &D[0], &z[0], &Lambda[0],
+                          U, &itype[0], opts );
 
     params.time() = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
@@ -290,15 +290,15 @@ void test_stedc_secular_work( Params& params, bool run )
             // orthogonality error = || U^H U - I || / n
             slate::Matrix<scalar_t> R( n, n, nb, p, q, MPI_COMM_WORLD );
             R.insertLocalTiles();
-            slate::set( zero, one, R );  // R = Identity
+            slate::set( zero, one, R, opts );  // R = Identity
             auto UH = conj_transpose( U );
-            slate::multiply( one, UH, U, -one, R );
-            params.ortho() = slate::norm( slate::Norm::One, R ) / n;
+            slate::multiply( one, UH, U, -one, R, opts );
+            params.ortho() = slate::norm( slate::Norm::One, R, opts ) / n;
 
             // rel forward error = || U - U_ref ||_1 / || U_ref ||_1
-            slate::add( -one, Uref, one, U );
-            params.error2() = slate::norm( slate::Norm::One, U )
-                              / slate::norm( slate::Norm::One, Uref );
+            slate::add( -one, Uref, one, U, opts );
+            params.error2() = slate::norm( slate::Norm::One, U,    opts )
+                            / slate::norm( slate::Norm::One, Uref, opts );
 
             params.okay() = (params.error() <= tol)
                             && (params.error2() <= tol)

@@ -49,6 +49,13 @@ void test_stedc_z_vector_work( Params& params, bool run )
     if (! run)
         return;
 
+    slate::Options const opts =  {
+        // {slate::Option::Target,         target },
+        {slate::Option::PrintVerbose,   params.verbose() },
+        {slate::Option::PrintPrecision, params.print_precision() },
+        {slate::Option::PrintWidth,     params.print_width() },
+    };
+
     // MPI variables
     int mpi_rank, myrow, mycol;
     MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
@@ -71,7 +78,7 @@ void test_stedc_z_vector_work( Params& params, bool run )
         Q = slate::Matrix<scalar_t>::fromScaLAPACK(
                 n, n, &Q_data[0], lldQ, nb, p, q, MPI_COMM_WORLD );
     }
-    slate::set( zero, Q );
+    slate::set( zero, Q, opts );
     int64_t nt = Q.nt();
     int64_t nt1 = int64_t( nt/2 );
     auto Q1 = Q.sub( 0,   nt1 - 1, 0,   nt1 - 1 );
@@ -103,7 +110,7 @@ void test_stedc_z_vector_work( Params& params, bool run )
     //==================================================
     // Run SLATE test.
     //==================================================
-    stedc_z_vector( Q, z );
+    slate::stedc_z_vector( Q, z, opts );
 
     params.time() = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 

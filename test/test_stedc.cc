@@ -137,7 +137,7 @@ void test_stedc_work( Params& params, bool run )
     //==================================================
     // Run SLATE test.
     //==================================================
-    stedc( D, E, Z, opts );
+    slate::stedc( D, E, Z, opts );
 
     params.time() = barrier_get_wtime( MPI_COMM_WORLD ) - time;
 
@@ -155,10 +155,10 @@ void test_stedc_work( Params& params, bool run )
         //==================================================
         slate::Matrix<scalar_t> R( n, n, nb, p, q, MPI_COMM_WORLD );
         R.insertLocalTiles();
-        set( zero, one, R );
+        slate::set( zero, one, R, opts );
         auto ZT = conj_transpose( Z );
-        slate::gemm( one, ZT, Z, -one, R );
-        params.ortho() = slate::norm( slate::Norm::Fro, R ) / n;
+        slate::gemm( one, ZT, Z, -one, R, opts );
+        params.ortho() = slate::norm( slate::Norm::Fro, R, opts ) / n;
         //printf( "ortho %.2e\n", params.ortho() );
 
         //==================================================
@@ -171,7 +171,7 @@ void test_stedc_work( Params& params, bool run )
         //
         //==================================================
         // Reset R with D on diag, E on sub- & super-diagonal.
-        set( zero, R );
+        slate::set( zero, R, opts );
         int64_t jj = 0;  // global index of 1st col of tile j.
         int64_t nt = R.nt();
         for (int64_t j = 0; j < nt; ++j) {
@@ -198,11 +198,11 @@ void test_stedc_work( Params& params, bool run )
         print_matrix( "R", R, params );
         slate::Matrix<scalar_t> Z_Lambda( n, n, nb, p, q, MPI_COMM_WORLD );
         Z_Lambda.insertLocalTiles();
-        copy( Z, Z_Lambda );
-        slate::scale_row_col( slate::Equed::Col, D, D, Z_Lambda );
-        gemm( -one, Z_Lambda, ZT, one, R );
+        slate::copy( Z, Z_Lambda, opts );
+        slate::scale_row_col( slate::Equed::Col, D, D, Z_Lambda, opts );
+        slate::gemm( -one, Z_Lambda, ZT, one, R, opts );
         // todo: normalization
-        params.error() = slate::norm( slate::Norm::Fro, R ) / n;
+        params.error() = slate::norm( slate::Norm::Fro, R, opts ) / n;
         params.okay() = (params.ortho() <= tol
                          && params.error() <= tol);
     }

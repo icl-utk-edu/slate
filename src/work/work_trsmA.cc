@@ -116,7 +116,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 // Scale the RHS in order to be consistent with the upper case
                 // XXX This inserts all tiles on the device...
                 if (k == 0 && alpha != one) {
-                    // XXX Call scale( alpha, one, B, local_opts ) when 
+                    // XXX Call scale( alpha, one, B, local_opts ) when
                     // transpose will be handled.
                     for (int64_t i = 0; i < mt; ++i) {
                         for (int64_t j = 0; j < nt; ++j) {
@@ -156,7 +156,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             if (target == Target::Devices) {
                                 int device = A.tileDevice( k, k );
                                 if (! B.tileExists( k, j, device )) {
-                                    B.tileInsertWorkspace( k, j, device );
+                                    B.tileInsertWorkspace( k, j, device, layout );
                                     B.tileModified( k, j, device );
 
                                     // XXX maybe reset the memory in case it got created from a previous call.
@@ -166,8 +166,6 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                     if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
                                         T = transpose( T );
 
-                                    B.tileGetForWriting( k, j, device,
-                                            LayoutConvert( layout ) );
                                     device::geset( T.mb(), T.nb(), zero, zero,
                                             T.data(), T.stride(), *queue );
                                     queue->sync();
@@ -175,11 +173,9 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             }
                             else {
                                 if (! B.tileExists( k, j )) {
-                                    B.tileInsertWorkspace( k, j, HostNum );
+                                    B.tileInsertWorkspace( k, j, HostNum, layout );
                                     B.tileModified( k, j, HostNum );
 
-                                    B.tileGetForWriting( k, j,
-                                            LayoutConvert( layout ) );
                                     B( k, j ).set( 0, 0 );
                                 }
                             }
@@ -316,7 +312,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                 // Scale the RHS to handle the alpha issue since B is moved
                 // around instead of the A as in trsm
                 if (k == mt-1 && alpha != one) {
-                    // XXX Call scale( alpha, one, B, local_opts ) when 
+                    // XXX Call scale( alpha, one, B, local_opts ) when
                     // transpose will be handled.
                     for (int64_t i = 0; i < mt; ++i) {
                         for (int64_t j = 0; j < nt; ++j) {
@@ -354,7 +350,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             if (target == Target::Devices) {
                                 int device = A.tileDevice( k, k );
                                 if (! B.tileExists( k, j, device )) {
-                                    B.tileInsertWorkspace( k, j, device );
+                                    B.tileInsertWorkspace( k, j, device, layout );
                                     B.tileModified( k, j, device );
 
                                     blas::Queue* queue = A.compute_queue( device, queue_0 );
@@ -363,9 +359,6 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                     if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
                                         T = transpose( T );
 
-                                    B.tileGetForWriting( k, j, device,
-                                            LayoutConvert( layout ) );
-
                                     device::geset( T.mb(), T.nb(), zero, zero,
                                             T.data(), T.stride(), *queue );
                                     queue->sync();
@@ -373,11 +366,9 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                             }
                             else {
                                 if (! B.tileExists( k, j )) {
-                                    B.tileInsertWorkspace( k, j, HostNum );
+                                    B.tileInsertWorkspace( k, j, HostNum, layout );
                                     B.tileModified( k, j, HostNum );
 
-                                    B.tileGetForWriting( k, j,
-                                            LayoutConvert( layout ) );
                                     B( k, j ).set( 0, 0 );
                                 }
                             }

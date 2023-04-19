@@ -272,7 +272,7 @@ void gesv_mixed_gmres(
 
             // orthogonalize w/ CGS2
             auto V0j = V.slice( 0, V.m()-1, 0, j );
-            auto V0jT = conjTranspose( V0j );
+            auto V0jT = conj_transpose( V0j );
             auto Hj = H.slice( 0, j, j, j );
             gemm<scalar_hi>(
                 one,  V0jT,

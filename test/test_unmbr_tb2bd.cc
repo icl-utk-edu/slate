@@ -218,16 +218,44 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
     //R.insertLocalTiles();
     //copy(V, R);
     //print_matrix("V", V, params);
+    int64_t nb_A = VT.tileNb( 0 );
+    slate::GridOrder grid_order;
+    int nprow, npcol;
+    VT.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
+    std::function<int64_t (int64_t j)>
+        tileNb = [n, nb_A] (int64_t j) {
+            return (j + 1)*nb_A > n ? n%nb_A : nb_A;
+        };
+
+    std::function<int (std::tuple<int64_t, int64_t> ij)>
+        tileRank = [nprow, npcol]( std::tuple<int64_t, int64_t> ij ) {
+            int64_t i = std::get<0>( ij );
+            int64_t j = std::get<1>( ij );
+            return int( (i%nprow)*npcol + j%npcol );
+        };
+
+    int num_devices = blas::get_device_count();
+    std::function<int (std::tuple<int64_t, int64_t> ij)>
+        tileDevice = [nprow, num_devices]( std::tuple<int64_t, int64_t> ij ) {
+            int64_t i = std::get<0>( ij );
+            return int( i/nprow )%num_devices;
+        };
+
+
+    slate::Matrix<scalar_t> V(
+           n, n, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD );
+    V.insertLocalTiles();
+    copy(R, V);
     //
-    V1d.redistribute(R);
+    V1d.redistribute(V);
     print_matrix( "V1d", V1d, params );
     //V1d.redistribute(VT);
 
     //slate::unmbr_tb2bd(slate::Side::Left, slate::Op::NoTrans, V1, V, opts);
     slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, V1, V1d, opts);
     //VT.redistribute(V1d);
-    R.redistribute(V1d);
-    print_matrix( "R", R, params );
+    V.redistribute(V1d);
+    print_matrix( "V", V, params );
 
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -250,10 +278,10 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
         set(zero, one, Iden);
 
         //auto VT2 = conj_transpose(VT);
-        auto VT2 = conj_transpose(R);
+        auto VT2 = conj_transpose(V);
 
         //slate::gemm(-one, VT, VT2, one, Iden);
-        slate::gemm(-one, VT2, R, one, Iden);
+        slate::gemm(-one, VT2, V, one, Iden);
         print_matrix( "I_VH*V", Iden, params );
 
         params.ortho() = slate::norm(slate::Norm::One, Iden) / n;
@@ -278,38 +306,15 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
         // Scale V by Sigma to get Sigma V
         //copy(VT2, R);
         slate::scale_row_col( slate::Equed::Col, Sigma, Sigma, U );
-        #if 0
-        int64_t mt = VT2.mt();
-        int64_t jj = 0;
-        for (int64_t j = 0; j < VT2.nt(); ++j) {
-            #pragma omp parallel for slate_omp_default_none \
-                firstprivate( mt, j, jj ) shared( VT2, Sigma )
-            for (int64_t i = 0; i < mt; ++i) {
-                if (VT2.tileIsLocal( i, j )) {
-                    auto T = VT2( i, j );
-                    scalar_t* T_data = T.data();
-                    int64_t ldt = T.stride();
-                    int64_t mb  = T.mb();
-                    int64_t nb2  = T.nb();
-                    for (int64_t tj = 0; tj < nb2; ++tj)
-                        for (int64_t ti = 0; ti < mb; ++ti)
-                            T_data[ ti + tj*ldt ] *= Sigma[ jj + tj ];
-                }
-            }
-            jj += VT2.tileNb( j );
-        }
-        #endif
 
         slate::gemm( -one, U, VT2, one, Afull );
 
         print_matrix( "Aful_-U*S*VT", Afull, params );
 
-        params.error2() = slate::norm( slate::Norm::One, Afull ) / (Anorm * n);
+        params.error() = slate::norm( slate::Norm::One, Afull ) / (Anorm * n);
 
         real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon() / 2;
-        params.okay() = (params.ortho() <= tol && params.error2() <= tol);
-#if 0
-#endif
+        params.okay() = (params.ortho() <= tol && params.error() <= tol);
     }
 }
 

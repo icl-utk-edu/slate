@@ -67,6 +67,14 @@ void stedc(
     lapack::lascl( MatrixType::General, 0, 0, Anorm, one, n,   1, &D[0], n   );
     lapack::lascl( MatrixType::General, 0, 0, Anorm, one, n-1, 1, &E[0], n-1 );
 
+    // For now, the algorithm is CPU-only.
+    // Move Q to the CPU and reset target.
+    // todo: the MOSI API doesn't have a way to do Hold + Modified in one call.
+    Q.tileGetAndHoldAll( HostNum, LayoutConvert::ColMajor ); // get for reading
+    Q.tileGetAllForWriting( HostNum, LayoutConvert::ColMajor );
+    Options opts_local( opts );
+    opts_local[ Option::Target ] = Target::HostTask;
+
     // Allocate workspace matrices W and U needed in stedc_merge.
     auto W = Q.emptyLike();
     W.insertLocalTiles();
@@ -78,17 +86,20 @@ void stedc(
     bool sort = true;  // todo pass via opts
     if (sort) {
         // Computing eigenvectors in W and sorting into Q saves a copy.
-        set( zero, one, W, opts );
-        stedc_solve( D, E, W, Q, U, opts );
-        stedc_sort( D, W, Q, opts );
+        set( zero, one, W, opts_local );
+        stedc_solve( D, E, W, Q, U, opts_local );
+        stedc_sort( D, W, Q, opts_local );
     }
     else {
-        set( zero, one, Q, opts );
-        stedc_solve( D, E, Q, W, U, opts );
+        // Compute eigenvectors directly in Q.
+        set( zero, one, Q, opts_local );
+        stedc_solve( D, E, Q, W, U, opts_local );
     }
 
     // Scale eigenvalues back.
     lapack::lascl( MatrixType::General, 0, 0, one, Anorm, n, 1, &D[0], n );
+
+    Q.tileUnsetHoldAll( HostNum );
 }
 
 //------------------------------------------------------------------------------

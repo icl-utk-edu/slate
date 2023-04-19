@@ -100,9 +100,9 @@ void test_posv_work(Params& params, bool run)
         return;
     }
 
-    if (params.routine == "posvMixed"
+    if ((params.routine == "posvMixed" || params.routine == "posv_mixed_gmres")
         && target == slate::Target::Devices) {
-        params.msg() = "skipping: unsupported mixed precision; no devices support";
+        params.msg() = "skipping: unsupported devices support";
         return;
     }
 

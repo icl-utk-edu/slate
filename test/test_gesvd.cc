@@ -89,6 +89,7 @@ void test_gesvd_work(Params& params, bool run)
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector<scalar_t> A_data;
+    std::vector<scalar_t> Acpy_data;
 
     // matrix U (local output), U(m, min_mn), singular values of A
     int64_t mlocU = num_local_rows_cols(m, nb, myrow, p);
@@ -108,6 +109,7 @@ void test_gesvd_work(Params& params, bool run)
     slate::Matrix<scalar_t> A; // (m, n);
     slate::Matrix<scalar_t> U; // (m, min_mn);
     slate::Matrix<scalar_t> VT; // (min_mn, n);
+    slate::Matrix<scalar_t> Acpy;
 
     bool wantu  = (jobu  == slate::Job::Vec
                    || jobu  == slate::Job::AllVec
@@ -121,6 +123,9 @@ void test_gesvd_work(Params& params, bool run)
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
+
+        Acpy = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
+        Acpy.insertLocalTiles(origin_target);
 
         if (wantu) {
             U = slate::Matrix<scalar_t>(m, min_mn, nb, p, q, MPI_COMM_WORLD);
@@ -136,6 +141,11 @@ void test_gesvd_work(Params& params, bool run)
         A_data.resize( lldA * nlocA );
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
                 m, n, &A_data[0],  lldA,  nb, p, q, MPI_COMM_WORLD);
+
+        Acpy_data.resize( lldA * nlocA );
+        Acpy = slate::Matrix<scalar_t>::fromScaLAPACK(
+                m, n, &A_data[0],  lldA,  nb, p, q, MPI_COMM_WORLD);
+
         if (wantu) {
             U_data.resize(lldU*nlocU);
             U = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -177,6 +187,7 @@ void test_gesvd_work(Params& params, bool run)
         Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
                    m, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
         slate::copy( A, Aref );
+        slate::copy( A, Acpy );
     }
 
     if (! ref_only) {
@@ -208,10 +219,12 @@ void test_gesvd_work(Params& params, bool run)
         params.time() = time;
 
         print_matrix( "A",  A, params );
-        if (wantu)
+        if (wantu) {
             print_matrix( "U",  U, params );
-        if (wantvt)
+        }
+        if (wantvt) {
             print_matrix( "VT", VT, params );
+        }
     }
 
     if (check || ref) {
@@ -285,11 +298,12 @@ void test_gesvd_work(Params& params, bool run)
 
             // Reference Scalapack was run, check reference against test
             // Perform a local operation to get differences Sigma = Sigma - Sigma_ref
-            blas::axpy(Sigma_ref.size(), -1.0, &Sigma_ref[0], 1, &Sigma[0], 1);
+            real_t Sigma_ref_norm = blas::asum(Sigma_ref.size(), &Sigma_ref[0], 1);
+            blas::axpy(Sigma_ref.size(), -1.0, &Sigma[0], 1, &Sigma_ref[0], 1);
 
             // Relative forward error: || Sigma_ref - Sigma || / || Sigma_ref ||.
-            params.error() = blas::asum(Sigma.size(), &Sigma[0], 1)
-                           / blas::asum(Sigma_ref.size(), &Sigma_ref[0], 1);
+            params.error() = blas::asum(Sigma.size(), &Sigma_ref[0], 1)
+                           / Sigma_ref_norm;
 
             params.okay() = (params.error() <= tol);
             Cblacs_gridexit(ictxt);
@@ -300,24 +314,38 @@ void test_gesvd_work(Params& params, bool run)
         #endif
     }
 
-    if (check && jobu == slate::Job::Vec) {
-        // I - U^H U
-        slate::set( zero, one, Aref );
-        auto UH = conj_transpose( U );
-        slate::gemm( -one, UH, U, one, Aref );
-        params.ortho_U() = slate::norm( slate::Norm::One, Aref ) / n;
-        params.okay() = params.okay() && (params.ortho_U() <= tol);
-    }
+    if (check) {
+        if (jobu == slate::Job::Vec) {
+            // I - U^H U
+            slate::set( zero, one, Aref );
+            auto UH = conj_transpose( U );
+            slate::gemm( -one, UH, U, one, Aref );
+            params.ortho_U() = slate::norm( slate::Norm::One, Aref ) / n;
+            params.okay() = params.okay() && (params.ortho_U() <= tol);
+        }
 
-    if (check && jobvt == slate::Job::Vec) {
-        // I - U^H U
-        slate::set( zero, one, Aref );
-        auto V = conj_transpose( VT );
-        slate::gemm( -one, VT, V, one, Aref );
-        params.ortho_V() = slate::norm( slate::Norm::One, Aref ) / n;
-        params.okay() = params.okay() && (params.ortho_V() <= tol);
-    }
+        if (jobvt == slate::Job::Vec) {
+            // I - V^H V
+            slate::set( zero, one, Aref );
+            auto V = conj_transpose( VT );
+            slate::gemm( -one, VT, V, one, Aref );
+            params.ortho_V() = slate::norm( slate::Norm::One, Aref ) / n;
+            params.okay() = params.okay() && (params.ortho_V() <= tol);
+        }
 
+        if (jobu == slate::Job::Vec && jobvt == slate::Job::Vec) {
+            print_matrix( "A", Acpy, params );
+
+            slate::Matrix<scalar_t> R( n, n, nb, 1, 1, MPI_COMM_WORLD );
+            R.insertLocalTiles();
+            slate::scale_row_col( slate::Equed::Col, Sigma, Sigma, U );
+
+            real_t Anorm = slate::norm( slate::Norm::One, Acpy );
+            slate::gemm( -one, U, VT, one, Acpy );
+            params.error2() = slate::norm( slate::Norm::One, Acpy ) / (Anorm * n);
+            print_matrix( "A-USVT", Acpy, params );
+        }
+    }
 }
 
 // -----------------------------------------------------------------------------

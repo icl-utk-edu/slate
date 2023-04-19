@@ -63,6 +63,33 @@ void gesvd(
         jobvt = Job::Vec;
     }
 
+    // Generate a matrix with row-major grid to copy V to it
+    // todo: will delete this when redistribute fixed to work on transposed matrices
+    int64_t nb_V = VT.tileNb( 0 );
+    slate::GridOrder grid_order;
+    int nprow, npcol, myrow, mycol;
+    VT.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
+    std::function<int64_t (int64_t j)>
+        tileNb = [n, nb_V] (int64_t j) {
+            return (j + 1)*nb_V > n ? n%nb_V : nb_V;
+        };
+
+    std::function<int (std::tuple<int64_t, int64_t> ij)>
+        tileRank = [nprow, npcol]( std::tuple<int64_t, int64_t> ij ) {
+            int64_t i = std::get<0>( ij );
+            int64_t j = std::get<1>( ij );
+            return int( (i%nprow)*npcol + j%npcol );
+        };
+
+    int num_devices = blas::get_device_count();
+    std::function<int (std::tuple<int64_t, int64_t> ij)>
+        tileDevice = [nprow, num_devices]( std::tuple<int64_t, int64_t> ij ) {
+            int64_t i = std::get<0>( ij );
+            return int( i/nprow )%num_devices;
+        };
+    slate::Matrix<scalar_t> V(
+           n, n, tileNb, tileNb, tileRank, tileDevice, VT.mpiComm() );
+
     // Scale matrix to allowable range, if necessary.
     // todo
 
@@ -83,7 +110,7 @@ void gesvd(
         TriangularMatrix<scalar_t> R(Uplo::Upper, Diag::NonUnit, R_);
 
         Ahat = R_.emptyLike();
-        Ahat.insertLocalTiles();
+        Ahat.insertLocalTiles(target);
         set(zero, Ahat);  // todo: only lower
 
         TriangularMatrix<scalar_t> Ahat_tr(Uplo::Upper, Diag::NonUnit, Ahat);
@@ -173,16 +200,17 @@ void gesvd(
         if (wantvt) {
             Matrix<scalar_t> V1d(VT.m(), VT.n(), VT.tileNb(0), 1, mpi_size, VT.mpiComm());
             V1d.insertLocalTiles(target);
-            V1d.redistribute(VT);
 
-            //auto VT2T = conj_transpose(VT2);
-            unmbr_tb2bd( Side::Left, Op::NoTrans, VT2, V1d, opts );
+            auto R = conj_transpose(VT);
+            V.insertLocalTiles();
+            copy(R, V);
+            V1d.redistribute(V);
+            //unmbr_tb2bd( Side::Left, Op::NoTrans, VT2, V1d, opts );
+            unmtr_hb2st( Side::Left, Op::NoTrans, VT2, V1d, opts );
 
-            //auto VTT = conj_transpose(VT);
-            //VTT.redistribute(V1dT);
-            //auto VTT2 = conj_transpose(VTT);
-            VT.redistribute(V1d);
-            //auto VTT = conj_transpose(VT);
+            V.redistribute(V1d);
+            auto RT = conj_transpose(V);
+            copy(RT, VT);
             unmbr_ge2tb( Side::Right, Op::NoTrans, Ahat, TV, VT, opts );
         }
     }

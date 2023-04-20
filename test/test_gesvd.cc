@@ -334,8 +334,7 @@ void test_gesvd_work(Params& params, bool run)
         }
 
         if (jobu == slate::Job::Vec && jobvt == slate::Job::Vec) {
-            print_matrix( "A", Acpy, params );
-
+            // Acpy - U Sigma VT
             slate::Matrix<scalar_t> R( n, n, nb, 1, 1, MPI_COMM_WORLD );
             R.insertLocalTiles();
             slate::scale_row_col( slate::Equed::Col, Sigma, Sigma, U );

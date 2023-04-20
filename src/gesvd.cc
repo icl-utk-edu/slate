@@ -24,7 +24,7 @@ namespace slate {
 template <typename scalar_t>
 void gesvd(
     Matrix<scalar_t> A,
-    std::vector< blas::real_type<scalar_t> >& S,
+    std::vector< blas::real_type<scalar_t> >& Sigma,
     Matrix<scalar_t>& U,
     Matrix<scalar_t>& VT,
     Options const& opts)
@@ -124,28 +124,22 @@ void gesvd(
     TriangularFactors<scalar_t> TU, TV;
     ge2tb(Ahat, TU, TV, opts);
 
-    // Copy band.
-    // Currently, gathers band matrix to rank 0.
+    // Currently, tb2bd and bdsqr run on a single node, gathers band matrix to rank 0.
     TriangularBandMatrix<scalar_t> Aband(Uplo::Upper, Diag::NonUnit,
                                          n, A.tileNb(0), A.tileNb(0),
                                          1, 1, A.mpiComm());
     Aband.insertLocalTiles();
     Aband.ge2tbGather(Ahat);
 
-    // Currently, tb2bd and bdsqr run on a single node.
-    //slate::Matrix<scalar_t> U2;
-    //slate::Matrix<scalar_t> V2T;
-
-    Matrix<scalar_t> U2, VT2;
     int64_t nb = A.tileNb(0);
     int64_t vm = 2*nb;
     int64_t nt = A.nt();
     int64_t vn = nt*(nt + 1)/2*nb;
+    Matrix<scalar_t> U2, VT2;
     VT2 = Matrix<scalar_t>(vm, vn, vm, nb, 1, 1, A.mpiComm());
     U2 = Matrix<scalar_t>(vm, vn, vm, nb, 1, 1, A.mpiComm());
 
-    // Currently, tb2bd and bdsqr run on a single node.
-    S.resize(n);
+    Sigma.resize(n);
     std::vector<real_t> E(n - 1);
 
     if (A.mpiRank() == 0) {
@@ -156,8 +150,7 @@ void gesvd(
         tb2bd(Aband, U2, VT2, opts);
 
         // Copy diagonal and super-diagonal to vectors.
-        // todo: S to Sigma
-        internal::copytb2bd(Aband, S, E);
+        internal::copytb2bd(Aband, Sigma, E);
     }
 
     slate::set( zero, one, U );
@@ -165,31 +158,39 @@ void gesvd(
 
     // 3. Bi-diagonal SVD solver.
     if (wantu || wantvt) {
-        // Bcast the Lambda and E vectors (diagonal and sup/super-diagonal).
-        MPI_Bcast( &S[0], n,   mpi_real_type, 0, A.mpiComm() );
+        // Bcast the Sigma and E vectors (diagonal and sup/super-diagonal).
+        MPI_Bcast( &Sigma[0], n,   mpi_real_type, 0, A.mpiComm() );
         MPI_Bcast( &E[0], n-1, mpi_real_type, 0, A.mpiComm() );
 
         // QR iteration
-        bdsqr<scalar_t>(jobu, jobvt, S, E, U, VT, opts);
+        bdsqr<scalar_t>(jobu, jobvt, Sigma, E, U, VT, opts);
 
         int mpi_size;
         // Find the total number of processors.
         slate_mpi_call(
             MPI_Comm_size(A.mpiComm(), &mpi_size));
 
-
         // Back-transform: U = U1 * U2 * U.
         // U1 is the output of ge2tb and it is saved in A
         // U2 is the output of tb2bd
         // U initially has left singular vectors of the bidiagonal matrix
+        // First, U = U2 * U
+        // Second, U = U1 * U
         if (wantu) {
+            // Create a 1-D matrix to redistribute U
             Matrix<scalar_t> U1d(U.m(), U.n(), U.tileNb(0), 1, mpi_size, U.mpiComm());
             U1d.insertLocalTiles(target);
 
+            // Redistribute U into 1-D U1d
             U1d.redistribute(U);
+            // First, back transform the vectors for the second stage (reduction to bidiagonal)
+            // and the bidiagonal SVD (bdsqr). U1d = U2 * U1d
             unmtr_hb2st( Side::Left, Op::NoTrans, U2, U1d, opts );
 
+            // Redistribute U1d into U
             U.redistribute(U1d);
+            // Second, back transform the vectors from the previous step and the
+            // first stage (reduction to band). U = U1 * U = Ahat * U
             unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, U, opts );
         }
 
@@ -197,6 +198,9 @@ void gesvd(
         // VT1 is the output of ge2tb and it is saved in A
         // VT2 is the output of tb2bd
         // VT initially has right singular vectors of the bidiagonal matrix
+        // V = VT'
+        // First, V  = VT2 * V
+        // Second, V = VT1 * VT
         if (wantvt) {
             Matrix<scalar_t> V1d(VT.m(), VT.n(), VT.tileNb(0), 1, mpi_size, VT.mpiComm());
             V1d.insertLocalTiles(target);
@@ -204,23 +208,28 @@ void gesvd(
             auto R = conj_transpose(VT);
             V.insertLocalTiles();
             copy(R, V);
+            // Redistribute V into 1-D V1d
             V1d.redistribute(V);
-            //unmbr_tb2bd( Side::Left, Op::NoTrans, VT2, V1d, opts );
+            // First, back transform the vectors for the second stage (reduction to bidiagonal)
+            // and the bidiagonal SVD (bdsqr). V1d = VT2 * V1d
             unmtr_hb2st( Side::Left, Op::NoTrans, VT2, V1d, opts );
 
+            // Redistribute V1d into V
             V.redistribute(V1d);
             auto RT = conj_transpose(V);
             copy(RT, VT);
+            // Second, back transform the vectors from the previous step and the
+            // first stage (reduction to band). VT = VT1 * VT = Ahat * VT
             unmbr_ge2tb( Side::Right, Op::NoTrans, Ahat, TV, VT, opts );
         }
     }
     else {
         if (A.mpiRank() == 0) {
             // QR iteration
-            bdsqr<scalar_t>(jobu, jobvt, S, E, U, VT, opts);
+            bdsqr<scalar_t>(jobu, jobvt, Sigma, E, U, VT, opts);
         }
-        // Bcast singular nvalues.
-        MPI_Bcast( &S[0], n, mpi_real_type, 0, A.mpiComm() );
+        // Bcast singular values.
+        MPI_Bcast( &Sigma[0], n, mpi_real_type, 0, A.mpiComm() );
     }
 
     // If matrix was scaled, then rescale singular values appropriately.
@@ -229,12 +238,20 @@ void gesvd(
     // todo: bcast S.
 
     if (qr_path) {
+        // todo: test it
         // When initial QR was used.
         // U = Q*U;
+        unmqr(Side::Left, slate::Op::NoTrans, A, TQ, U, opts);
     }
 
     if (flip) {
+        // todo: test it
         // todo: swap(U, V);
+        // U = V
+        // VT = U'
+        //auto UT = conj_transpose(U);
+        //VT = UT;
+        //U  = V;
     }
 }
 

@@ -279,6 +279,8 @@ std::vector< testsweeper::routines_t > routines = {
     { "syset",              test_set,          Section::aux },
     { "heset",              test_set,          Section::aux },
     { "",                   nullptr,           Section::newline },
+
+    { "qdwh",              test_qdwh,          Section::qr },
 };
 
 // -----------------------------------------------------------------------------

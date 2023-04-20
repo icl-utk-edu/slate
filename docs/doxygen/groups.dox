@@ -146,6 +146,14 @@
     @}
 
     ------------------------------------------------------------
+    @defgroup group_qdwh Polar Decomposition
+    @{
+        @defgroup qdwh                      Driver
+        @brief                              $A = U H$
+
+    @}
+
+    ------------------------------------------------------------
     @defgroup group_blas2_top     Level 2 BLAS and Auxiliary: O(n^2) work
     @brief    Matrix and Matrix-vector operations that perform $O(n^2)$ work on $O(n^2)$ data.
     @{

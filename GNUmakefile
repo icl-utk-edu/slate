@@ -553,6 +553,7 @@ ifneq ($(only_unit),1)
         src/gemmA.cc \
         src/gemmC.cc \
         src/geqrf.cc \
+        src/geqrf_qdwh_full.cc \
         src/gesv.cc \
         src/gesvMixed.cc \
         src/gesv_nopiv.cc \
@@ -579,6 +580,7 @@ ifneq ($(only_unit),1)
         src/hetrf.cc \
         src/hetrs.cc \
         src/norm.cc \
+        src/norm2est.cc \
         src/pbsv.cc \
         src/pbtrf.cc \
         src/pbtrs.cc \
@@ -588,6 +590,7 @@ ifneq ($(only_unit),1)
         src/potri.cc \
         src/potrs.cc \
         src/print.cc \
+        src/qdwh.cc \
         src/scale.cc \
         src/scale_row_col.cc \
         src/set.cc \
@@ -610,6 +613,7 @@ ifneq ($(only_unit),1)
         src/unmqr.cc \
         src/unmtr_hb2st.cc \
         src/unmtr_he2hb.cc \
+        src/unmqr_qdwh_full.cc \
         src/work/work_trmm.cc \
         src/work/work_trsm.cc \
         src/work/work_trsmA.cc \
@@ -681,6 +685,7 @@ tester_src += \
         test/test_pbsv.cc \
         test/test_posv.cc \
         test/test_potri.cc \
+        test/test_qdwh.cc \
         test/test_scale.cc \
         test/test_scale_row_col.cc \
         test/test_set.cc \

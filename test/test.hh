@@ -261,6 +261,9 @@ void test_scale  (Params& params, bool run);
 void test_scale_row_col(Params& params, bool run);
 void test_set    (Params& params, bool run);
 
+// polar decomposition
+void test_qdwh  (Params& params, bool run);
+
 // -----------------------------------------------------------------------------
 inline slate::Dist str2dist(const char* dist)
 {

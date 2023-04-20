@@ -10,6 +10,7 @@
 #define SLATE_INTERNAL_UTIL_HH
 
 #include "slate/internal/mpi.hh"
+#include "slate/Matrix.hh"
 
 #include <cmath>
 #include <complex>
@@ -67,6 +68,45 @@ inline bool compareSecond(
     std::pair<T1, T2> const& b)
 {
     return a.second < b.second;
+}
+
+//------------------------------------------------------------------------------
+/// An auxiliary routine to find each rank's first (top-most) row
+/// in panel k.
+///
+/// @param[in] A_panel
+///     Current panel, which is a sub of the input matrix $A$.
+///
+/// @param[in] k
+///     Index of the current panel in the input matrix $A$.
+///
+/// @param[out] first_indices
+///     The array of computed indices.
+///
+/// @ingroup geqrf_impl
+///
+template <typename scalar_t>
+void geqrf_compute_first_indices(
+    Matrix<scalar_t>& A_panel, int64_t k,
+    std::vector< int64_t >& first_indices )
+{
+    // Find ranks in this column.
+    std::set<int> ranks_set;
+    A_panel.getRanks(&ranks_set);
+    assert(ranks_set.size() > 0);
+
+    // Find each rank's first (top-most) row in this panel,
+    // where the triangular tile resulting from local geqrf panel
+    // will reside.
+    first_indices.reserve(ranks_set.size());
+    for (int r: ranks_set) {
+        for (int64_t i = 0; i < A_panel.mt(); ++i) {
+            if (A_panel.tileRank(i, 0) == r) {
+                first_indices.push_back(i+k);
+                break;
+            }
+        }
+    }
 }
 
 } // namespace internal

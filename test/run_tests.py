@@ -79,6 +79,7 @@ categories = [
     group_cat.add_argument( '--aux',           action='store_true', help='run auxiliary routine tests' ),
     group_cat.add_argument( '--norms',         action='store_true', help='run norm tests' ),
     group_cat.add_argument( '--cond',          action='store_true', help='run condition number estimate tests' ),
+    group_cat.add_argument( '--qdwh',          action='store_true', help='run the polar decomposition qdwh' ),
 ]
 # map category objects to category names: ['lu', 'chol', ...]
 categories = list( map( lambda x: x.dest, categories ) )
@@ -574,6 +575,12 @@ if (opts.cond):
     #[ 'gbcon', gen + dtype + la + n  + kl + ku ],
     #[ 'pocon', gen + dtype + la + n + uplo ],
     #[ 'pbcon', gen + dtype + la + n + kd + uplo ],
+    ]
+
+# polar
+if (opts.qdwh):
+    cmds += [
+    [ 'qdwh', gen + dtype + n + tall ],
     ]
 
 # aux

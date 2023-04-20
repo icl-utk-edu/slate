@@ -23,21 +23,21 @@ namespace impl {
 /// @ingroup geqrf_impl
 ///
 template <Target target, typename scalar_t>
-void geqrf(
-    Matrix<scalar_t>& A,
-    TriangularFactors<scalar_t>& T,
-    Options const& opts )
+void geqrf_qdwh_full(
+           Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           Options const& opts )
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
-    using lapack::device_info_int;
+    using device_info_t = lapack::device_info_int;
     using blas::real;
 
-    // Constants
-    const int life_1 = 1;
-    const int priority_0 = 0;
-    const int priority_1 = 1;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+
+    const int priority_zero = 0;
+    const int priority_one = 1;
+    const int life_factor_one = 1;
 
     // Options
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
@@ -69,11 +69,11 @@ void geqrf(
     std::vector< scalar_t* > dwork_array( num_devices, nullptr );
 
     if (target == Target::Devices) {
-        const int64_t batch_size_default = 0; // use default batch size
-        int num_queues = 3 + lookahead;
-        A.allocateBatchArrays( batch_size_default, num_queues );
+        const int64_t batch_size_zero = 0; // use default batch size
+        const int64_t num_queues = 3 + lookahead;
+        A.allocateBatchArrays(batch_size_zero, num_queues);
         A.reserveDeviceWorkspace();
-        W.allocateBatchArrays( batch_size_default, num_queues );
+        W.allocateBatchArrays(batch_size_zero, num_queues);
         // todo: this is demanding too much device workspace memory
         // only one tile-row of matrix W per MPI process is going to be used,
         // but W with size of whole A is being allocated
@@ -121,7 +121,7 @@ void geqrf(
 
             // Size of dA, dtau, dwork and dinfo
             work_size = size_A + size_tau + ceildiv(dsize, sizeof(scalar_t))
-                        + ceildiv(sizeof(device_info_int), sizeof(scalar_t));
+                        + ceildiv(sizeof(device_info_t), sizeof(scalar_t));
 
             for (int64_t dev = 0; dev < num_devices; ++dev) {
                 lapack::Queue* queue = A.comm_queue( dev );
@@ -142,23 +142,25 @@ void geqrf(
     #pragma omp master
     {
         for (int64_t k = 0; k < A_min_mtnt; ++k) {
-            auto  A_panel =       A.sub(k, A_mt-1, k, k);
-            auto Tl_panel =  Tlocal.sub(k, A_mt-1, k, k);
-            auto Tr_panel = Treduce.sub(k, A_mt-1, k, k);
+            int64_t i_end = A_mt - A_nt + k;
+
+            auto  A_panel =       A.sub(k, i_end, k, k);
+            auto Tl_panel =  Tlocal.sub(k, i_end, k, k);
+            auto Tr_panel = Treduce.sub(k, i_end, k, k);
 
             std::vector< int64_t > first_indices;
             internal::geqrf_compute_first_indices(A_panel, k, first_indices);
             // todo: pass first_indices into internal geqrf or ttqrt?
 
             // panel, high priority
-            #pragma omp task depend(inout:block[k]) priority(1)
+            #pragma omp task depend(inout:block[k]) priority(priority_one)
             {
                 // local panel factorization
                 internal::geqrf<target>(
                                 std::move(A_panel),
                                 std::move(Tl_panel),
                                 dwork_array, work_size,
-                                ib, max_panel_threads, priority_1 );
+                                ib, max_panel_threads, priority_one);
 
                 // triangle-triangle reductions
                 // ttqrt handles tile transfers internally
@@ -170,10 +172,10 @@ void geqrf(
                 if (k < A_nt-1) {
 
                     // bcast V across row for trailing matrix update
-                    if (k < A_mt) {
+                    if (k < i_end) {
                         BcastList bcast_list_V_first;
                         BcastList bcast_list_V;
-                        for (int64_t i = k; i < A_mt; ++i) {
+                        for (int64_t i = k; i < i_end+1; ++i) {
                             // send A(i, k) across row A(i, k+1:nt-1)
                             // Vs in first_indices (except the main diagonal one) need three lives
                             if ((std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end()) && (i > k))
@@ -181,13 +183,8 @@ void geqrf(
                             else
                                 bcast_list_V.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                         }
-                        const int tag_0  = 0;
-                        const int life_3 = 3;
-                        const int life_2 = 2;
-                        A.template listBcast<target>(
-                            bcast_list_V_first, layout, tag_0, life_3, set_hold );
-                        A.template listBcast<target>(
-                            bcast_list_V, layout, tag_0, life_2, set_hold );
+                        A.template listBcast<target>(bcast_list_V_first, layout, 0, 3, set_hold);
+                        A.template listBcast<target>(bcast_list_V, layout, 0, 2, set_hold);
                     }
 
                     // bcast Tlocal across row for trailing matrix update
@@ -196,10 +193,7 @@ void geqrf(
                         for (int64_t row : first_indices) {
                             bcast_list_T.push_back({row, k, {Tlocal.sub(row, row, k+1, A_nt-1)}});
                         }
-                        int tag_k = k;
-                        Tlocal.template listBcast<target>(
-                            bcast_list_T, layout,
-                            tag_k, life_1, set_hold );
+                        Tlocal.template listBcast<target>(bcast_list_T, layout, k, life_factor_one, set_hold);
                     }
 
                     // bcast Treduce across row for trailing matrix update
@@ -216,62 +210,59 @@ void geqrf(
 
             // update lookahead column(s) on CPU, high priority
             for (int64_t j = k+1; j < (k+1+lookahead) && j < A_nt; ++j) {
-                auto A_trail_j = A.sub(k, A_mt-1, j, j);
+
+                auto A_trail_j = A.sub(k, i_end, j, j);
 
                 #pragma omp task depend(in:block[k]) \
                                  depend(inout:block[j]) \
-                                 priority(1)
+                                 priority(priority_one)
                 {
                     // Apply local reflectors
-                    int queue_jk1 = j-k+1;
                     internal::unmqr<target>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
-                                    W.sub(k, A_mt-1, j, j),
-                                    priority_1, queue_jk1 );
+                                    W.sub(k, i_end, j, j),
+                                    priority_one, j-k+1);
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmqr handles the tile broadcasting internally
-                    int tag_j = j;
                     internal::ttmqr<Target::HostTask>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_j),
-                                    tag_j );
+                                    j);
                 }
             }
 
             // update trailing submatrix, normal priority
             if (k+1+lookahead < A_nt) {
                 int64_t j = k+1+lookahead;
-                auto A_trail_j = A.sub(k, A_mt-1, j, A_nt-1);
+                auto A_trail_j = A.sub(k, i_end, j, A_nt-1);
 
                 #pragma omp task depend(in:block[k]) \
                                  depend(inout:block[k+1+lookahead]) \
                                  depend(inout:block[A_nt-1])
                 {
                     // Apply local reflectors.
-                    int queue_jk1 = j-k+1;
                     internal::unmqr<target>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
-                                    W.sub(k, A_mt-1, j, A_nt-1),
-                                    priority_0, queue_jk1 );
+                                    W.sub(k, i_end, j, A_nt-1),
+                                    priority_zero, j-k+1);
 
                     // Apply triangle-triangle reduction reflectors.
                     // ttmqr handles the tile broadcasting internally.
-                    int tag_j = j;
                     internal::ttmqr<Target::HostTask>(
                                     Side::Left, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_j),
-                                    tag_j );
+                                    j);
                 }
             }
             if (target == Target::Devices) {
@@ -286,7 +277,8 @@ void geqrf(
                                      depend(inout:block[k+1])
                     {
                         int64_t k_la = k-lookahead;
-                        for (int64_t i = k_la; i < A_mt; ++i) {
+                        int64_t i_end_la = A_min_mtnt + k_la;
+                        for (int64_t i = k_la; i < i_end_la; ++i) {
                             if (A.tileIsLocal(i, k_la)) {
                                 A.tileUpdateOrigin(i, k_la);
 
@@ -300,7 +292,7 @@ void geqrf(
                             }
                         }
 
-                        auto A_panel_k_la = A.sub(k_la, A_mt-1, k_la, k_la);
+                        auto A_panel_k_la = A.sub(k_la, i_end_la, k_la, k_la);
                         std::vector< int64_t > first_indices_k_la;
                         internal::geqrf_compute_first_indices(A_panel_k_la, k_la, first_indices_k_la);
                         if (first_indices.size() > 0) {
@@ -341,9 +333,15 @@ void geqrf(
 } // namespace impl
 
 //------------------------------------------------------------------------------
-/// Distributed parallel QR factorization.
+/// Distributed parallel customized QR factorization.
+/// Required for the QR-based iterations in the polar decomposition QDWH.
 ///
-/// Computes a QR factorization of an m-by-n matrix $A$.
+/// Computes a QR factorization of m-by-n matrix $A$, m \ge 2n,
+/// and takes advantage of the trailing identity matrix structure.
+/// A = [ A0 ]  full matrix ( m0-by-n, where m0 = m - n, which the size of the
+/// original matrix in qdwh)
+///     [ A1 ]  identity matrix (n-by-n)
+/// Avoids doing computaions on the zero tiles below the diagonal of $A1$.
 /// The factorization has the form
 /// \[
 ///     A = QR,
@@ -352,16 +350,21 @@ void geqrf(
 /// (or upper trapezoidal if m < n).
 ///
 /// Complexity (in real):
-/// - for $m \ge n$, $\approx 2 m n^{2} - \frac{2}{3} n^{3}$ flops;
-/// - for $m \le n$, $\approx 2 m^{2} n - \frac{2}{3} m^{3}$ flops;
-/// - for $m = n$,   $\approx \frac{4}{3} n^{3}$ flops.
+/// The size of matrix $A$ is $m = m0 + n$;
+/// Since the lower n-by-n of the matrix $A$ is the identity, then the
+/// k householder vectors has m0 - k + k + 1 = m0 + 1 rows.
+/// - for $m \ge n$, \Sigma_{k=1}^{n-1} 4 (n - k) (m0 + 1) =
+/// $\approx 2 m0 n^{2} + 2 m0 n +  n^{2}$ flops;
 /// .
 //------------------------------------------------------------------------------
 /// @tparam scalar_t
 ///     One of float, double, std::complex<float>, std::complex<double>.
 //------------------------------------------------------------------------------
 /// @param[in,out] A
-///     On entry, the m-by-n matrix $A$.
+///     On entry, the m-by-n matrix $A$, m \ge 2n,
+///     A = [ A0 ]  full matrix ( m0-by-n, where m0 = m - n)
+///         [ A1 ]  identity matrix (n-by-n)
+///
 ///     On exit, the elements on and above the diagonal of the array contain
 ///     the min(m,n)-by-n upper trapezoidal matrix $R$ (upper triangular
 ///     if m >= n); the elements below the diagonal represent the unitary
@@ -389,29 +392,29 @@ void geqrf(
 /// @ingroup geqrf_computational
 ///
 template <typename scalar_t>
-void geqrf(
-    Matrix<scalar_t>& A,
-    TriangularFactors<scalar_t>& T,
-    Options const& opts )
+void geqrf_qdwh_full(
+           Matrix<scalar_t>& A,
+           TriangularFactors<scalar_t>& T,
+           Options const& opts)
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::geqrf<Target::HostTask>( A, T, opts );
+            impl::geqrf_qdwh_full<Target::HostTask>( A, T, opts );
             break;
 
         case Target::HostNest:
-            impl::geqrf<Target::HostNest>( A, T, opts );
+            impl::geqrf_qdwh_full<Target::HostNest>( A, T, opts );
             break;
 
         case Target::HostBatch:
-            impl::geqrf<Target::HostBatch>( A, T, opts );
+            impl::geqrf_qdwh_full<Target::HostBatch>( A, T, opts );
             break;
 
         case Target::Devices:
-            impl::geqrf<Target::Devices>( A, T, opts );
+            impl::geqrf_qdwh_full<Target::Devices>( A, T, opts );
             break;
     }
     // todo: return value for errors?
@@ -420,25 +423,25 @@ void geqrf(
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void geqrf<float>(
+void geqrf_qdwh_full<float>(
     Matrix<float>& A,
     TriangularFactors<float>& T,
     Options const& opts);
 
 template
-void geqrf<double>(
+void geqrf_qdwh_full<double>(
     Matrix<double>& A,
     TriangularFactors<double>& T,
     Options const& opts);
 
 template
-void geqrf< std::complex<float> >(
+void geqrf_qdwh_full< std::complex<float> >(
     Matrix< std::complex<float> >& A,
     TriangularFactors< std::complex<float> >& T,
     Options const& opts);
 
 template
-void geqrf< std::complex<double> >(
+void geqrf_qdwh_full< std::complex<double> >(
     Matrix< std::complex<double> >& A,
     TriangularFactors< std::complex<double> >& T,
     Options const& opts);

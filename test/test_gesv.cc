@@ -255,7 +255,6 @@ void test_gesv_work(Params& params, bool run)
 
     double gflop;
     if (params.routine == "gesv"
-        || params.routine == "gesv_nopiv"
         || params.routine == "gesvMixed"
         || params.routine == "gesv_mixed_gmres")
         gflop = lapack::Gflop<scalar_t>::gesv(n, nrhs);

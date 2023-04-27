@@ -166,17 +166,11 @@ void test_gesvd_work(Params& params, bool run)
 
     real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
 
-    print_matrix( "A",  A, params );
-    if (wantu)
-        print_matrix( "U",  U, params );
-    if (wantvt)
-        print_matrix( "VT", VT, params );
-
     //params.matrix.kind.set_default("svd");
     //params.matrix.cond.set_default(1.e16);
 
     slate::generate_matrix( params.matrix, A);
-    print_matrix( "A0",  A, params );
+    print_matrix( "A",  A, params );
 
     slate::Matrix<scalar_t> Aref;
     std::vector<real_t> Sigma_ref;
@@ -218,7 +212,6 @@ void test_gesvd_work(Params& params, bool run)
         // compute and save timing/performance
         params.time() = time;
 
-        print_matrix( "A",  A, params );
         if (wantu) {
             print_matrix( "U",  U, params );
         }
@@ -259,19 +252,22 @@ void test_gesvd_work(Params& params, bool run)
             scalapack_descinit(VT_desc, min_mn, n, nb, nb, 0, 0, ictxt, mlocVT, &info);
             slate_assert(info == 0);
 
+            // todo: if will check on the vectors computed by scalapack,
+            // then compute U and VT. But, for now we call scalapck just to check on
+            // singular values.
             // Allocate if not already allocated.
-            if (wantu) {
-                U_data.resize( lldU * nlocU );
-            }
-            if (wantvt) {
-                VT_data.resize( lldVT * nlocVT );
-            }
+            //if (wantu) {
+            //    U_data.resize( lldU * nlocU );
+            //}
+            //if (wantvt) {
+            //    VT_data.resize( lldVT * nlocVT );
+            //}
 
             // query for workspace size
             int64_t info_ref = 0;
             scalar_t dummy_work;
             real_t dummy_rwork;
-            scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
+            scalapack_pgesvd(job2str(slate::Job::NoVec), job2str(slate::Job::NoVec), m, n,
                              &Aref_data[0],  1, 1, A_desc, &Sigma_ref[0],
                              &U_data[0],  1, 1, U_desc,
                              &VT_data[0], 1, 1, VT_desc,
@@ -286,7 +282,7 @@ void test_gesvd_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
+            scalapack_pgesvd(job2str(slate::Job::NoVec), job2str(slate::Job::NoVec), m, n,
                              &Aref_data[0],  1, 1, A_desc, &Sigma_ref[0],
                              &U_data[0],  1, 1, U_desc,
                              &VT_data[0], 1, 1, VT_desc,
@@ -315,33 +311,38 @@ void test_gesvd_work(Params& params, bool run)
     }
 
     if (check) {
+        slate::Matrix<scalar_t> Iden;
+        if (jobu == slate::Job::Vec || jobvt == slate::Job::Vec) {
+            Iden = slate::Matrix<scalar_t>(min_mn, min_mn, nb, p, q, MPI_COMM_WORLD);
+            Iden.insertLocalTiles();
+        }
+
         if (jobu == slate::Job::Vec) {
             // I - U^H U
-            slate::set( zero, one, Aref );
+            slate::set( zero, one, Iden );
             auto UH = conj_transpose( U );
-            slate::gemm( -one, UH, U, one, Aref );
-            params.ortho_U() = slate::norm( slate::Norm::One, Aref ) / n;
+            slate::gemm( -one, UH, U, one, Iden );
+            params.ortho_U() = slate::norm( slate::Norm::One, Iden ) / n;
             params.okay() = params.okay() && (params.ortho_U() <= tol);
         }
 
         if (jobvt == slate::Job::Vec) {
             // I - V^H V
-            slate::set( zero, one, Aref );
+            slate::set( zero, one, Iden );
             auto V = conj_transpose( VT );
-            slate::gemm( -one, VT, V, one, Aref );
-            params.ortho_V() = slate::norm( slate::Norm::One, Aref ) / n;
+            slate::gemm( -one, VT, V, one, Iden );
+            params.ortho_V() = slate::norm( slate::Norm::One, Iden ) / n;
             params.okay() = params.okay() && (params.ortho_V() <= tol);
         }
 
         if (jobu == slate::Job::Vec && jobvt == slate::Job::Vec) {
             // Acpy - U Sigma VT
-            slate::Matrix<scalar_t> R( n, n, nb, 1, 1, MPI_COMM_WORLD );
-            R.insertLocalTiles();
             slate::scale_row_col( slate::Equed::Col, Sigma, Sigma, U );
 
             real_t Anorm = slate::norm( slate::Norm::One, Acpy );
             slate::gemm( -one, U, VT, one, Acpy );
             params.error2() = slate::norm( slate::Norm::One, Acpy ) / (Anorm * n);
+            params.okay() = params.okay() && (params.error2() <= tol);
             print_matrix( "A-USVT", Acpy, params );
         }
     }

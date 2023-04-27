@@ -116,17 +116,25 @@ void gesvd(
 
         TriangularMatrix<scalar_t> Ahat_tr(Uplo::Upper, Diag::NonUnit, Ahat);
         copy(R, Ahat_tr);
-        if (wantu)
+        if (wantu) {
+            slate::set( zero, one, U );
             Uhat = U.slice( 0, U.n()-1, 0, U.n()-1 );
-        if (wantvt)
+        }
+        if (wantvt) {
+            slate::set( zero, one, VT );
             VThat = VT;
+        }
     }
     else {
         Ahat = A;
-        if (wantu)
+        if (wantu) {
+            slate::set( zero, one, U );
             Uhat = U;
-        if (wantvt)
+        }
+        if (wantvt) {
+            slate::set( zero, one, VT );
             VThat = VT;
+        }
     }
 
     // 1. Reduce to band form.
@@ -170,13 +178,6 @@ void gesvd(
         internal::copytb2bd(Aband, Sigma, E);
     }
 
-    if (wantu)
-        slate::set( zero, one, U );
-    if (wantvt)
-        slate::set( zero, one, VT );
-
-    auto Uhat_ = Uhat.slice( 0, Uhat.n()-1, 0, Uhat.n()-1 );
-    #if 1
     // 3. Bi-diagonal SVD solver.
     if (wantu || wantvt) {
         // Bcast the Sigma and E vectors (diagonal and sup/super-diagonal).
@@ -274,7 +275,6 @@ void gesvd(
         //VT = UT;
         //U  = V;
     }
-    #endif
 }
 
 //------------------------------------------------------------------------------

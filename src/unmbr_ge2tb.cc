@@ -87,7 +87,7 @@ void unmbr_ge2tb(
             T[1].sub(0, T[1].mt()-1, 1, T[1].nt()-1)
         };
 
-        slate::unmlq(slate::Side::Right, slate::Op::NoTrans,
+        slate::unmlq(slate::Side::Right, op,
                 Asub, Tsub, Csub, opts);
     }
 

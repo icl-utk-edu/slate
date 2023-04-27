@@ -111,10 +111,10 @@ void herk(
             auto A_colblock = A.sub(0, A.mt()-1, 0, 0);
 
             // Erase remote tiles on all devices including host
-            A_colblock.eraseRemoteWorkspace();
+            A_colblock.releaseRemoteWorkspace();
 
             // Erase local workspace on devices.
-            A_colblock.eraseLocalWorkspace();
+            A_colblock.releaseLocalWorkspace();
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -150,10 +150,10 @@ void herk(
                 auto A_colblock = A.sub(0, A.mt()-1, k, k);
 
                 // Erase remote tiles on all devices including host
-                A_colblock.eraseRemoteWorkspace();
+                A_colblock.releaseRemoteWorkspace();
 
                 // Erase local workspace on devices.
-                A_colblock.eraseLocalWorkspace();
+                A_colblock.releaseLocalWorkspace();
             }
         }
 

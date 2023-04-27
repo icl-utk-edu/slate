@@ -131,13 +131,13 @@ void gemmA(
                               shared( B, C )
             {
                 auto B_col_0 = B.sub( 0, B.mt()-1, 0, 0 );
-                B_col_0.eraseRemoteWorkspace();
-                B_col_0.eraseLocalWorkspace();
+                B_col_0.releaseRemoteWorkspace();
+                B_col_0.releaseLocalWorkspace();
 
                 auto C_col_0 = C.sub( 0, C.mt()-1, 0, 0 );
-                C_col_0.eraseRemoteWorkspace();
+                C_col_0.releaseRemoteWorkspace();
                 C_col_0.tileUpdateAllOrigin();
-                C_col_0.eraseLocalWorkspace();
+                C_col_0.releaseLocalWorkspace();
             }
         }
 
@@ -195,13 +195,13 @@ void gemmA(
                                   firstprivate( k )
                 {
                     auto B_col_k = B.sub( 0, B.mt()-1, k, k );
-                    B_col_k.eraseRemoteWorkspace();
-                    B_col_k.eraseLocalWorkspace();
+                    B_col_k.releaseRemoteWorkspace();
+                    B_col_k.releaseLocalWorkspace();
 
                     auto C_col_k = C.sub( 0, C.mt()-1, k, k );
-                    C_col_k.eraseRemoteWorkspace();
+                    C_col_k.releaseRemoteWorkspace();
                     C_col_k.tileUpdateAllOrigin();
-                    C_col_k.eraseLocalWorkspace();
+                    C_col_k.releaseLocalWorkspace();
                 }
             }
         }
@@ -210,7 +210,7 @@ void gemmA(
         // TODO add an if statement similar to potrf on device.
         // Reason: this should be called only when needed.
         C.tileUpdateAllOrigin();
-        A.eraseLocalWorkspace();
+        A.releaseLocalWorkspace();
     }
 }
 

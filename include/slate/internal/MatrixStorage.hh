@@ -971,6 +971,7 @@ void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
 /// If tile node becomes empty, deletes it.
 /// If tile's memory was allocated by SLATE, then its memory is freed back
 /// to the allocator memory pool.
+/// device can be AllDevices.
 ///
 // todo: currently ignores if ijdev doesn't exist; is that right?
 template <typename scalar_t>
@@ -987,15 +988,22 @@ void MatrixStorage<scalar_t>::release(ijdev_tuple ijdev)
         int64_t j  = std::get<1>(ijdev);
         int device = std::get<2>(ijdev);
 
-        if (tile_node[device].tile()->workspace() &&
-            ! (tile_node[device].stateOn(MOSI::OnHold) ||
-               tile_node[device].stateOn(MOSI::Modified))
-            ) {
-            freeTileMemory(tile_node[device].tile());
-            tile_node.eraseOn(device);
+        int begin = device;
+        int end   = device + 1;
+        if (device == AllDevices) {
+            begin = HostNum;
+            end   = num_devices_;
+        }
+        for (int dev = begin; dev < end; ++dev) {
+            if (tile_node[ dev ].tile()->workspace()
+                 && ! (tile_node[ dev ].stateOn( MOSI::OnHold )
+                       || tile_node[ dev ].stateOn( MOSI::Modified ))) {
+                freeTileMemory( tile_node[ dev ].tile() );
+                tile_node.eraseOn( device );
+            }
         }
         if (tile_node.empty())
-            erase({i, j});
+            erase( { i, j } );
     }
 }
 

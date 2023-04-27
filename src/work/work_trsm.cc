@@ -175,16 +175,16 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
             #pragma omp task depend(inout:row[k])
             {
                 auto A_panel = A.sub(k, mt-1, k, k);
-                A_panel.eraseRemoteWorkspace();
-                A_panel.eraseLocalWorkspace();
+                A_panel.releaseRemoteWorkspace();
+                A_panel.releaseLocalWorkspace();
 
                 auto B_panel = B.sub(k, k, 0, nt-1);
-                B_panel.eraseRemoteWorkspace();
+                B_panel.releaseRemoteWorkspace();
 
                 // Copy back modifications to tiles in the B panel
                 // before they are erased.
                 B_panel.tileUpdateAllOrigin();
-                B_panel.eraseLocalWorkspace();
+                B_panel.releaseLocalWorkspace();
             }
         }
     }
@@ -256,16 +256,16 @@ void trsm(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
             #pragma omp task depend(inout:row[k])
             {
                 auto A_panel = A.sub(0, k, k, k);
-                A_panel.eraseRemoteWorkspace();
-                A_panel.eraseLocalWorkspace();
+                A_panel.releaseRemoteWorkspace();
+                A_panel.releaseLocalWorkspace();
 
                 auto B_panel = B.sub(k, k, 0, nt-1);
-                B_panel.eraseRemoteWorkspace();
+                B_panel.releaseRemoteWorkspace();
 
                 // Copy back modifications to tiles in the B panel
                 // before they are erased.
                 B_panel.tileUpdateAllOrigin();
-                B_panel.eraseLocalWorkspace();
+                B_panel.releaseLocalWorkspace();
             }
         }
     }

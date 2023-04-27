@@ -291,14 +291,14 @@ void potrf(
                 auto panel = A.sub( k, A_nt-1, k, k );
 
                 // Erase remote tiles on all devices including host
-                panel.eraseRemoteWorkspace();
+                panel.releaseRemoteWorkspace();
 
                 // Update the origin tiles before their
                 // workspace copies on devices are erased.
                 panel.tileUpdateAllOrigin();
 
                 // Erase local workspace on devices.
-                panel.eraseLocalWorkspace();
+                panel.releaseLocalWorkspace();
             }
         }
         #pragma omp taskwait

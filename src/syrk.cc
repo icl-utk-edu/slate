@@ -114,10 +114,10 @@ void syrk(
                 priority_0, queue_0, layout, opts_local );
 
             // Erase remote tiles on all devices including host
-            A_col0.eraseRemoteWorkspace();
+            A_col0.releaseRemoteWorkspace();
 
             // Erase local workspace on devices.
-            A_col0.eraseLocalWorkspace();
+            A_col0.releaseLocalWorkspace();
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -153,10 +153,10 @@ void syrk(
                     priority_0, queue_0, layout, opts_local );
 
                 // Erase remote tiles on all devices including host
-                A_colk.eraseRemoteWorkspace();
+                A_colk.releaseRemoteWorkspace();
 
                 // Erase local workspace on devices.
-                A_colk.eraseLocalWorkspace();
+                A_colk.releaseLocalWorkspace();
             }
         }
 

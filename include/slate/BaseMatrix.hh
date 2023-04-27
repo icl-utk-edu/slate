@@ -3258,7 +3258,7 @@ void BaseMatrix<scalar_t>::tileGetAndHoldAll(int device, LayoutConvert layout)
                 tiles_set.insert({i, j});
             }
 
-    tileGetAndHold(tiles_set, layout, device);
+    tileGetAndHold( tiles_set, device, layout );
 }
 
 //------------------------------------------------------------------------------

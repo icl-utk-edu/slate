@@ -101,9 +101,10 @@ void gesvd(
     // Different in practice because stages have different flop rates.
     double threshold = 5/3.;
     bool qr_path = m > threshold*n;
-    Matrix<scalar_t> Ahat;
+    Matrix<scalar_t> Ahat, Uhat, VThat;
     TriangularFactors<scalar_t> TQ;
     if (qr_path) {
+        printf("\n QR path\n");
         geqrf(A, TQ, opts);
 
         auto R_ = A.slice(0, n-1, 0, n-1);
@@ -115,9 +116,17 @@ void gesvd(
 
         TriangularMatrix<scalar_t> Ahat_tr(Uplo::Upper, Diag::NonUnit, Ahat);
         copy(R, Ahat_tr);
+        if (wantu)
+            Uhat = U.slice( 0, U.n()-1, 0, U.n()-1 );
+        if (wantvt)
+            VThat = VT;
     }
     else {
         Ahat = A;
+        if (wantu)
+            Uhat = U;
+        if (wantvt)
+            VThat = VT;
     }
 
     // 1. Reduce to band form.
@@ -129,15 +138,23 @@ void gesvd(
                                          n, A.tileNb(0), A.tileNb(0),
                                          1, 1, A.mpiComm());
     Aband.insertLocalTiles();
-    Aband.ge2tbGather(Ahat);
+    auto Ahat_ = Ahat.slice( 0, Ahat.n()-1, 0, Ahat.n()-1 );
+    //auto Ahat_ = Ahat.sub( 0, Ahat.nt()-1, 0, Ahat.nt()-1 );
+    Aband.ge2tbGather(Ahat_);
 
-    int64_t nb = A.tileNb(0);
+    int64_t nb = Ahat.tileNb(0);
+    int64_t mt = Ahat.mt();
+    int64_t nt = Ahat.nt();
+
     int64_t vm = 2*nb;
-    int64_t nt = A.nt();
     int64_t vn = nt*(nt + 1)/2*nb;
+
+    int64_t un = mt*(mt + 1)/2*nb;
+    int64_t um = 2*nb;
+
     Matrix<scalar_t> U2, VT2;
     VT2 = Matrix<scalar_t>(vm, vn, vm, nb, 1, 1, A.mpiComm());
-    U2 = Matrix<scalar_t>(vm, vn, vm, nb, 1, 1, A.mpiComm());
+    U2 = Matrix<scalar_t>(um, un, um, nb, 1, 1, A.mpiComm());
 
     Sigma.resize(n);
     std::vector<real_t> E(n - 1);
@@ -153,9 +170,13 @@ void gesvd(
         internal::copytb2bd(Aband, Sigma, E);
     }
 
-    slate::set( zero, one, U );
-    slate::set( zero, one, VT );
+    if (wantu)
+        slate::set( zero, one, U );
+    if (wantvt)
+        slate::set( zero, one, VT );
 
+    auto Uhat_ = Uhat.slice( 0, Uhat.n()-1, 0, Uhat.n()-1 );
+    #if 1
     // 3. Bi-diagonal SVD solver.
     if (wantu || wantvt) {
         // Bcast the Sigma and E vectors (diagonal and sup/super-diagonal).
@@ -163,7 +184,7 @@ void gesvd(
         MPI_Bcast( &E[0], n-1, mpi_real_type, 0, A.mpiComm() );
 
         // QR iteration
-        bdsqr<scalar_t>(jobu, jobvt, Sigma, E, U, VT, opts);
+        bdsqr<scalar_t>(jobu, jobvt, Sigma, E, Uhat, VThat, opts);
 
         int mpi_size;
         // Find the total number of processors.
@@ -178,20 +199,20 @@ void gesvd(
         // Second, U = U1 * U
         if (wantu) {
             // Create a 1-D matrix to redistribute U
-            Matrix<scalar_t> U1d(U.m(), U.n(), U.tileNb(0), 1, mpi_size, U.mpiComm());
+            Matrix<scalar_t> U1d(Uhat.m(), Uhat.n(), Uhat.tileNb(0), 1, mpi_size, Uhat.mpiComm());
             U1d.insertLocalTiles(target);
 
             // Redistribute U into 1-D U1d
-            U1d.redistribute(U);
+            U1d.redistribute(Uhat);
             // First, back transform the vectors for the second stage (reduction to bidiagonal)
             // and the bidiagonal SVD (bdsqr). U1d = U2 * U1d
             unmtr_hb2st( Side::Left, Op::NoTrans, U2, U1d, opts );
 
             // Redistribute U1d into U
-            U.redistribute(U1d);
+            Uhat.redistribute(U1d);
             // Second, back transform the vectors from the previous step and the
             // first stage (reduction to band). U = U1 * U = Ahat * U
-            unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, U, opts );
+            unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, Uhat, opts );
         }
 
         // Back-transform: VT = VT * VT2 * VT1.
@@ -202,10 +223,10 @@ void gesvd(
         // First, V  = VT2 * V
         // Second, V = VT1 * VT
         if (wantvt) {
-            Matrix<scalar_t> V1d(VT.m(), VT.n(), VT.tileNb(0), 1, mpi_size, VT.mpiComm());
+            Matrix<scalar_t> V1d(VThat.m(), VThat.n(), VThat.tileNb(0), 1, mpi_size, VThat.mpiComm());
             V1d.insertLocalTiles(target);
 
-            auto R = conj_transpose(VT);
+            auto R = transpose(VThat);
             V.insertLocalTiles();
             copy(R, V);
             // Redistribute V into 1-D V1d
@@ -216,11 +237,11 @@ void gesvd(
 
             // Redistribute V1d into V
             V.redistribute(V1d);
-            auto RT = conj_transpose(V);
-            copy(RT, VT);
+            auto RT = transpose(V);
+            copy(RT, VThat);
             // Second, back transform the vectors from the previous step and the
             // first stage (reduction to band). VT = VT1 * VT = Ahat * VT
-            unmbr_ge2tb( Side::Right, Op::NoTrans, Ahat, TV, VT, opts );
+            unmbr_ge2tb( Side::Right, Op::NoTrans, Ahat, TV, VThat, opts );
         }
     }
     else {
@@ -253,6 +274,7 @@ void gesvd(
         //VT = UT;
         //U  = V;
     }
+    #endif
 }
 
 //------------------------------------------------------------------------------

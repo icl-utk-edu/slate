@@ -129,7 +129,7 @@ void gesvd(
         Ahat = A;
         if (wantu) {
             slate::set( zero, one, U );
-            Uhat = U;
+            Uhat = U.slice(0, U.n()-1, 0, U.n()-1);
         }
         if (wantvt) {
             slate::set( zero, one, VT );
@@ -150,9 +150,9 @@ void gesvd(
     //auto Ahat_ = Ahat.sub( 0, Ahat.nt()-1, 0, Ahat.nt()-1 );
     Aband.ge2tbGather(Ahat_);
 
-    int64_t nb = Ahat.tileNb(0);
-    int64_t mt = Ahat.mt();
-    int64_t nt = Ahat.nt();
+    int64_t nb = Uhat.tileNb(0);
+    int64_t mt = Uhat.mt();
+    int64_t nt = Uhat.nt();
 
     int64_t vm = 2*nb;
     int64_t vn = nt*(nt + 1)/2*nb;
@@ -213,7 +213,11 @@ void gesvd(
             Uhat.redistribute(U1d);
             // Second, back transform the vectors from the previous step and the
             // first stage (reduction to band). U = U1 * U = Ahat * U
-            unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, Uhat, opts );
+            // todo: why unmbr_ge2tb need U not Uhat?
+            if (qr_path)
+                unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, Uhat, opts );
+            else
+                unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, U, opts );
         }
 
         // Back-transform: VT = VT * VT2 * VT1.

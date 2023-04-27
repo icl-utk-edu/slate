@@ -85,6 +85,8 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
     std::vector<scalar_t> Afull_data( lda*n );
     lapack::larnv(1, seed, Afull_data.size(), &Afull_data[0]);
 
+    #if 0
+    // if want to start the test with a band matrix
     // Zero outside the band.
     for (int64_t j = 0; j < n; ++j) {
         if (upper) {
@@ -102,10 +104,43 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
         // Diagonal from ge2tb is real.
         Afull_data[j + j*lda] = real( Afull_data[j + j*lda] );
     }
+    copy(Afull, Acopy);
+    #endif
 
     slate::Target origin_target = origin2target(origin);
     auto Afull = slate::Matrix<scalar_t>::fromLAPACK(
         m, n, &Afull_data[0], lda, nb, p, q, MPI_COMM_WORLD);
+    std::vector<scalar_t> Acopy_data( lda*n );
+    auto Acopy = slate::Matrix<scalar_t>::fromLAPACK(
+        m, n, &Acopy_data[0], lda, nb, p, q, MPI_COMM_WORLD);
+
+    // 1. Reduce to band form.
+    #if 1
+    // if want to start the test with a full matrix
+    copy(Afull, Acopy);
+    slate::TriangularFactors<scalar_t> TU, TV;
+    ge2tb(Afull, TU, TV, opts);
+
+    #if 1
+    // if want to start the test with a band matrix using ge2tb to reduce it.
+    // Zero outside the band.
+    copy(Afull, Acopy);
+    for (int64_t j = 0; j < n; ++j) {
+        if (upper) {
+            for (int64_t i = 0; i < m; ++i) {
+                if (j > i+band || j < i)
+                    Acopy_data[i + j*lda] = 0;
+            }
+        }
+        else { // lower
+            for (int64_t i = 0; i < n; ++i) {
+                if (j < i-band || j > i)
+                    Acopy_data[i + j*lda] = 0;
+            }
+        }
+    }
+    #endif
+    #endif
 
     print_matrix( "Afull", Afull, params );
 
@@ -198,8 +233,9 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
     //==================================================
     U1d.redistribute(Uhat);
     slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, U1, U1d, opts);
-    //slate::unmbr_tb2bd(slate::Side::Left, slate::Op::NoTrans, U1, U1d, opts);
+
     Uhat.redistribute(U1d);
+    slate::unmbr_ge2tb( slate::Side::Left, slate::Op::NoTrans, Afull, TU, U, opts );
     print_matrix( "U", U, params );
 
     //auto V = conj_transpose(VT);
@@ -239,10 +275,13 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
     copy(R, V);
     V1d.redistribute(V);
 
-    //slate::unmbr_tb2bd(slate::Side::Left, slate::Op::NoTrans, V1, V, opts);
     slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, V1, V1d, opts);
-    //VT.redistribute(V1d);
     V.redistribute(V1d);
+
+    VT = conj_transpose(V);
+    //copy(V, R);
+    slate::unmbr_ge2tb( slate::Side::Right, slate::Op::NoTrans, Afull, TV, VT, opts );
+
     print_matrix( "V", V, params );
 
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
@@ -271,6 +310,7 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
         params.error() = blas::nrm2(Sigma_ref.size(), &Sigma_ref[0], 1)
                        / Sigma_norm;
         params.okay() = params.error() <= tol;
+
         //==================================================
         // Test results
         // || I - V^H V || / n < tol
@@ -312,7 +352,6 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
         // Test results
         // || A - U S V^H || / (n || A ||) < tol
         //==================================================
-
         // Compute norm Afull to scale error
         real_t Anorm = slate::norm( slate::Norm::One, Afull );
 
@@ -320,11 +359,11 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
         //copy(VT2, R);
         slate::scale_row_col( slate::Equed::Col, Sigma, Sigma, U );
 
-        slate::gemm( -one, U, VT2, one, Afull );
+        slate::gemm( -one, U, VT2, one, Acopy );
 
-        print_matrix( "Afull-U*S*VT", Afull, params );
+        print_matrix( "Afull-U*S*VT", Acopy, params );
 
-        params.error2() = slate::norm( slate::Norm::One, Afull ) / (Anorm * n);
+        params.error2() = slate::norm( slate::Norm::One, Acopy ) / (Anorm * n);
 
         params.okay() = params.okay() && (params.error2() <= tol);
     }

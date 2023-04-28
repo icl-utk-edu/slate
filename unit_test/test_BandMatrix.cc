@@ -387,7 +387,7 @@ void test_TriangularBandMatrix_gatherAll(slate::Uplo uplo)
         jj += A.tileNb(j);
     }
     // if (mpi_rank == 0) {
-    //     slate::Debug::PRINTTILESMOSI(A);
+    //     slate::Debug::printTiles( A, Field_MOSI );
     // }
 
     // Find the set of participating ranks.
@@ -397,7 +397,7 @@ void test_TriangularBandMatrix_gatherAll(slate::Uplo uplo)
     // gather A on each rank
     A.gatherAll(rank_set);
     // if (mpi_rank == 0) {
-    //     slate::Debug::PRINTTILESMOSI(A);
+    //     slate::Debug::printTiles( A, Field_MOSI );
     // }
 
     // print_matrix( "A", A, 4, 1);

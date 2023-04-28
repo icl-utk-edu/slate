@@ -13,6 +13,16 @@
 
 namespace slate {
 
+//------------------------------------------------------------------------------
+// Not 'enum class' because we want to OR values together.
+enum Fields {
+    Field_Kind   = 0x01,
+    Field_MOSI   = 0x02,
+    Field_Layout = 0x04,
+    Field_Buffer = 0x08,
+    Field_Life   = 0x10,
+};
+
 // -----------------------------------------------------------------------------
 /// Slate::Debug - helper class used for debugging during development.
 ///
@@ -40,17 +50,12 @@ public:
     static bool checkTilesLayout( BaseMatrix<scalar_t> const& A );
 
     template <typename scalar_t>
-    static void printTilesLives(BaseMatrix<scalar_t> const& A);
+    static void printTiles_(
+        BaseMatrix<scalar_t> const& A, const char* name, int fields,
+        const char* func, const char* file, int line );
 
-    template <typename scalar_t>
-    static void printTilesMaps(BaseMatrix<scalar_t> const& A);
-
-    template <typename scalar_t>
-    static void printTilesMOSI(BaseMatrix<scalar_t> const& A, const char* name,
-                               const char* func, const char* file, int line);
-
-    #define PRINTTILESMOSI(A) \
-            printTilesMOSI(A, #A, __func__, __FILE__, __LINE__);
+    #define printTiles( A, fields ) \
+            printTiles_( A, #A, fields, __func__, __FILE__, __LINE__ )
 
     //-------------
     // Memory class

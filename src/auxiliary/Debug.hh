@@ -25,17 +25,19 @@ public:
     static void off() { Debug::debug_ = false; }
 
     template <typename scalar_t>
-    static void diffLapackMatrices(int64_t m, int64_t n,
-                                   scalar_t const* A, int64_t lda,
-                                   scalar_t const* B, int64_t ldb,
-                                   int64_t mb, int64_t nb);
+    static void diffLapackMatrices(
+        int64_t m, int64_t n,
+        scalar_t const* A, int64_t lda,
+        scalar_t const* B, int64_t ldb,
+        int64_t mb, int64_t nb );
+
     //-------------
     // BaseMatrix class
     template <typename scalar_t>
-    static void checkTilesLives(BaseMatrix<scalar_t> const& A);
+    static void checkTilesLives( BaseMatrix<scalar_t> const& A );
 
     template <typename scalar_t>
-    static bool checkTilesLayout(BaseMatrix<scalar_t> const& A);
+    static bool checkTilesLayout( BaseMatrix<scalar_t> const& A );
 
     template <typename scalar_t>
     static void printTilesLives(BaseMatrix<scalar_t> const& A);
@@ -52,19 +54,18 @@ public:
 
     //-------------
     // Memory class
-    static void printNumFreeMemBlocks(Memory const& m);
-    static void checkHostMemoryLeaks(Memory const& m);
-    static void checkDeviceMemoryLeaks(Memory const& m, int device);
+    static void printNumFreeMemBlocks( Memory const& m );
+    static void checkHostMemoryLeaks( Memory const& m );
+    static void checkDeviceMemoryLeaks( Memory const& m, int device );
 
     template <typename scalar_t>
-    static void printNumFreeMemBlocks(BaseMatrix<scalar_t> const& A)
+    static void printNumFreeMemBlocks( BaseMatrix<scalar_t> const& A )
     {
-        printNumFreeMemBlocks(A.storage_->memory_);
+        printNumFreeMemBlocks( A.storage_->memory_ );
     }
 
 private:
     static bool debug_;
-
 };
 
 } // namespace slate

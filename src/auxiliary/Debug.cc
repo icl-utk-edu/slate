@@ -22,10 +22,11 @@ bool Debug::debug_ = true;
 ///     [ d h - - l p ]              -----------
 ///
 template <typename scalar_t>
-void Debug::diffLapackMatrices(int64_t m, int64_t n,
-                               scalar_t const* A, int64_t lda,
-                               scalar_t const* B, int64_t ldb,
-                               int64_t mb, int64_t nb)
+void Debug::diffLapackMatrices(
+    int64_t m, int64_t n,
+    scalar_t const* A, int64_t lda,
+    scalar_t const* B, int64_t ldb,
+    int64_t mb, int64_t nb)
 {
     using real_t = blas::real_type<scalar_t>;
     const real_t eps = std::numeric_limits<real_t>::epsilon();
@@ -62,28 +63,28 @@ void Debug::diffLapackMatrices(int64_t m, int64_t n,
 //------------------------------------------------------------------------------
 /// Prints information about tiles that have non-zero life.
 template <typename scalar_t>
-void Debug::checkTilesLives(BaseMatrix<scalar_t> const& A)
+void Debug::checkTilesLives( BaseMatrix<scalar_t> const& A )
 {
     if (! debug_) return;
     // i, j are global indices
-    for (auto it = A.storage_->tiles_.begin();
-             it != A.storage_->tiles_.end(); ++it) {
-        int64_t i = std::get<0>(it->first);
-        int64_t j = std::get<1>(it->first);
+    for (auto iter = A.storage_->tiles_.begin();
+              iter != A.storage_->tiles_.end(); ++iter) {
+        int64_t i = std::get<0>(iter->first);
+        int64_t j = std::get<1>(iter->first);
 
         if (! A.tileIsLocal(i, j)) {
-            if (it->second->lives() != 0 ||
-                it->second->numInstances() != 0) {
+            if (iter->second->lives() != 0 ||
+                iter->second->numInstances() != 0) {
 
                 std::cout << "RANK "  << std::setw(3) << A.mpi_rank_
-                          << " TILE " << std::setw(3) << std::get<0>(it->first)
-                          << " "      << std::setw(3) << std::get<1>(it->first)
+                          << " TILE " << std::setw(3) << std::get<0>(iter->first)
+                          << " "      << std::setw(3) << std::get<1>(iter->first)
                           << " LIFE " << std::setw(3)
-                          << it->second->lives();
+                          << iter->second->lives();
                 for (int d = HostNum; d < A.num_devices(); ++d) {
-                    if (it->second->existsOn(d)) {
+                    if (iter->second->existsOn(d)) {
                         std::cout << " DEV "  << d
-                                  << " data " << it->second->at(d).tile()->data() << "\n";
+                                  << " data " << iter->second->at(d).tile()->data() << "\n";
                     }
                 }
             }
@@ -96,7 +97,7 @@ void Debug::checkTilesLives(BaseMatrix<scalar_t> const& A)
 /// matrix.
 ///
 template <typename scalar_t>
-bool Debug::checkTilesLayout(BaseMatrix<scalar_t> const& A)
+bool Debug::checkTilesLayout( BaseMatrix<scalar_t> const& A )
 {
     if (! debug_) return true;
 
@@ -355,9 +356,9 @@ void Debug::printNumFreeMemBlocks(Memory const& m)
 {
     if (! debug_) return;
     printf("\n");
-    for (auto it = m.free_blocks_.begin(); it != m.free_blocks_.end(); ++it) {
-        printf("\tdevice: %d\tfree blocks: %lu\n", it->first,
-               (unsigned long) it->second.size());
+    for (auto iter = m.free_blocks_.begin(); iter != m.free_blocks_.end(); ++iter) {
+        printf("\tdevice: %d\tfree blocks: %lu\n", iter->first,
+               (unsigned long) iter->second.size());
     }
 }
 

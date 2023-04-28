@@ -78,7 +78,15 @@ namespace MethodGemm {
 
     template <typename TA, typename TB>
     inline Method select_algo(TA& A, TB& B, Options& opts) {
+        // TODO replace the default value by a unique value located elsewhere
+        Target target = get_option( opts, Option::Target, Target::HostTask );
+        int n_devices = A.num_devices();
+
         Method method = (B.nt() < 2 ? GemmA : GemmC);
+
+        if (method == GemmA && target == Target::Devices && n_devices > 1)
+          method = GemmC;
+
         return method;
     }
 

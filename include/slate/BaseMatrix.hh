@@ -4055,7 +4055,9 @@ std::tuple<int64_t, int64_t, int>
 {
     assert(0 <= i && i < mt());
     assert(0 <= j && j < nt());
-    assert( device == HostNum || (0 <= device && device < num_devices_) );
+    // Given AnyDevice = -3, AllDevices = -2, HostNum = -1,
+    // GPU devices 0, 1, ..., num_devices-1.
+    assert( AnyDevice <= device && device < num_devices_ );
     if (op_ == Op::NoTrans)
         return { ioffset_ + i, joffset_ + j, device };
     else

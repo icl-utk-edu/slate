@@ -979,14 +979,12 @@ void MatrixStorage<scalar_t>::release(ijdev_tuple ijdev)
 {
     LockGuard guard(getTilesMapLock());
 
-    auto iter = find(ijdev);
+    int64_t i  = std::get<0>(ijdev);
+    int64_t j  = std::get<1>(ijdev);
+    int device = std::get<2>(ijdev);
+    auto iter = find( { i, j } ); // not device, to allow AllDevices
     if (iter != end()) {
-
         auto& tile_node = *(iter->second);
-
-        int64_t i  = std::get<0>(ijdev);
-        int64_t j  = std::get<1>(ijdev);
-        int device = std::get<2>(ijdev);
 
         int begin = device;
         int end   = device + 1;
@@ -995,11 +993,12 @@ void MatrixStorage<scalar_t>::release(ijdev_tuple ijdev)
             end   = num_devices_;
         }
         for (int dev = begin; dev < end; ++dev) {
-            if (tile_node[ dev ].tile()->workspace()
-                 && ! (tile_node[ dev ].stateOn( MOSI::OnHold )
-                       || tile_node[ dev ].stateOn( MOSI::Modified ))) {
+            if (tile_node.existsOn( dev )
+                && tile_node[ dev ].tile()->workspace()
+                && ! (tile_node[ dev ].stateOn( MOSI::OnHold )
+                      || tile_node[ dev ].stateOn( MOSI::Modified ))) {
                 freeTileMemory( tile_node[ dev ].tile() );
-                tile_node.eraseOn( device );
+                tile_node.eraseOn( dev );
             }
         }
         if (tile_node.empty())

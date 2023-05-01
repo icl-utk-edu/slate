@@ -151,6 +151,18 @@ void copy(
     Matrix<std::complex<double> >& B,
     Options const& opts);
 
+template
+void copy(
+    Matrix< float >& A,
+    Matrix< std::complex<float> >& B,
+    Options const& opts);
+
+template
+void copy(
+    Matrix< double  >& A,
+    Matrix< std::complex<double> >& B,
+    Options const& opts);
+
 //---------------------------------------
 // template
 // void copy(

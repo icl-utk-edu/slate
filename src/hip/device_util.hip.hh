@@ -220,6 +220,22 @@ inline void copy(hipDoubleComplex a, hipFloatComplex& b)
     b.y = a.y;
 }
 
+/// Sets b = a, converting from float to complex-float.
+__host__ __device__
+inline void copy( float a, hipFloatComplex& b )
+{
+    b.x = a;
+    b.y = 0;
+}
+
+/// Sets b = a, converting from double to complex-double.
+__host__ __device__
+inline void copy( double a, hipDoubleComplex& b )
+{
+    b.x = a;
+    b.y = 0;
+}
+
 //------------------------------------------------------------------------------
 /// Square of number.
 /// @return x^2

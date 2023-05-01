@@ -61,6 +61,7 @@ cmds = [
     'test_TriangularMatrix',
     'test_Tile',
     'test_Tile_kernels',
+    'test_c_api',
     'test_geadd',
     'test_gecopy',
     'test_geset',

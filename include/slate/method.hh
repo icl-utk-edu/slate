@@ -33,7 +33,14 @@ namespace MethodTrsm {
 
     template <typename TA, typename TB>
     inline Method select_algo(TA& A, TB& B, Options const& opts) {
+        Target target = get_option( opts, Option::Target, Target::HostTask );
+        int n_devices = A.num_devices();
+
         Method method = (B.nt() < 2 ? TrsmA : TrsmB);
+
+        if (method == TrsmA && target == Target::Devices && n_devices > 1)
+          method = TrsmB;
+
         return method;
     }
 

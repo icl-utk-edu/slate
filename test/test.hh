@@ -112,7 +112,6 @@ public:
     testsweeper::ParamEnum< slate::Direction >      direction;
     testsweeper::ParamEnum< slate::Equed >          equed;
     testsweeper::ParamEnum< lapack::StoreV >        storev;
-    testsweeper::ParamEnum< lapack::MatrixType >    matrixtype;
 
     testsweeper::ParamInt3   dim;  // m, n, k
     testsweeper::ParamInt    kd;

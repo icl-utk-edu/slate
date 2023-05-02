@@ -347,7 +347,7 @@ Params::Params():
     method_lu     ("lu",     5, ParamType::List, slate::MethodLU::PartialPiv, str2methodLU, methodLU2str, "PartialPiv, CALU, NoPiv"),
     method_trsm   ("trsm",   4, ParamType::List, 0, str2methodTrsm,   methodTrsm2str,   "auto=auto, A=trsmA, B=trsmB"),
 
-    grid_order("grid-order", 3, ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) MPI grid order: c=Col, r=Row"),
+    grid_order("go",      3, ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) MPI grid order: c=Col, r=Row"),
     tile_release_strategy ("trs", 3, ParamType::List, slate::TileReleaseStrategy::All, str2tile_release_strategy,   tile_release_strategy2str,   "tile release strategy: n=none, i=only internal routines, s=only top-level routines in slate namespace, a=all routines"),
     dev_dist  ("dev-dist",9,    ParamType::List, slate::Dist::Col,        str2dist,     dist2str,     "matrix tiles distribution across local devices (one-dimensional block-cyclic): col=column, row=row"),
 
@@ -371,10 +371,6 @@ Params::Params():
     equed     ("equed",   5,    ParamType::List, slate::Equed::Both, lapack::char2equed, lapack::equed2char, lapack::equed2str, "row & col scaling (equilibration): b=both, r=row, c=col, n=none"),
     storev    ("storev", 10,    ParamType::List, lapack::StoreV::Columnwise, lapack::char2storev, lapack::storev2char, lapack::storev2str, "store vectors: c=columnwise, r=rowwise"),
 
-    matrixtype( "matrixtype", 10, ParamType::List, lapack::MatrixType::General,
-                lapack::char2matrixtype, lapack::matrixtype2char, lapack::matrixtype2str,
-                "matrix type: g=general, l=lower, u=upper, h=Hessenberg, z=band-general, b=band-lower, q=band-upper" ),
-
     //         name,      w, p, type,        default,   min,     max, help
     dim       ("dim",     6,    ParamType::List,          0, 1000000, "m x n x k dimensions"),
     kd        ("kd",      6,    ParamType::List,  10,     0, 1000000, "bandwidth"),
@@ -395,9 +391,8 @@ Params::Params():
     nb        ("nb",      4,    ParamType::List, 384,     0, 1000000, "block size"),
     ib        ("ib",      2,    ParamType::List, 32,      0, 1000000, "inner blocking"),
     grid      ("grid",    3,    ParamType::List, "1x1",   0, 1000000, "MPI grid p x q dimensions"),
-    lookahead ("lookahead", 2,  ParamType::List, 1,       0, 1000000, "(la) number of lookahead panels"),
-    panel_threads("panel-threads",
-                          2,    ParamType::List, std::max( omp_get_max_threads() / 2, 1 ),
+    lookahead ("la",      2,    ParamType::List, 1,       0, 1000000, "(la) number of lookahead panels"),
+    panel_threads("pt",   2,    ParamType::List, std::max( omp_get_max_threads() / 2, 1 ),
                                                           0, 1000000, "(pt) max number of threads used in panel; default omp_num_threads / 2"),
     align     ("align",   5,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
     nonuniform_nb("nonuniform_nb",
@@ -491,6 +486,7 @@ Params::Params():
 
     //  change names of grid elements
     grid.names("p", "q");
+    grid.width( 3 );
 
     // routine's parameters are marked by the test routine; see main
 }

@@ -750,7 +750,6 @@ unit_src = \
     unit_test/test_TrapezoidMatrix.cc \
     unit_test/test_TriangularBandMatrix.cc \
     unit_test/test_TriangularMatrix.cc \
-    unit_test/test_c_api.cc \
     unit_test/test_geadd.cc \
     unit_test/test_gecopy.cc \
     unit_test/test_gescale.cc \
@@ -759,11 +758,16 @@ unit_src = \
     unit_test/test_norm.cc \
     # End. Add alphabetically.
 
+ifeq (${c_api},1)
+    unit_src += \
+        unit_test/test_c_api.cc
+endif
+
 ifneq ($(only_unit),1)
-unit_src += \
-    unit_test/test_lq.cc \
-    unit_test/test_qr.cc \
-    # End. Add alphabetically.
+    unit_src += \
+        unit_test/test_lq.cc \
+        unit_test/test_qr.cc \
+        # End. Add alphabetically.
 endif
 
 # unit test framework

@@ -4,6 +4,9 @@ file(
     CONFIGURE_DEPENDS
     test_*.cc
 )
+if (NOT ${c_api})
+    list( FILTER unit_src EXCLUDE REGEX "c_api" )
+endif()
 
 # Use -std=c++17 on all unit testers.
 # CMake inexplicably allows gnu++17 or "decay" to c++11 or 14; prohibit those.

@@ -61,7 +61,7 @@ cmds = [
     'test_TriangularMatrix',
     'test_Tile',
     'test_Tile_kernels',
-    'test_c_api',
+    #'test_c_api',  # only if c_api was compiled
     'test_geadd',
     'test_gecopy',
     'test_geset',

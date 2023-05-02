@@ -76,7 +76,7 @@ void heev(
     const real_t sqrt_sml = sqrt( sml_num );
     const real_t sqrt_big = sqrt( big_num );
 
-    MethodEig method  = get_option( opts, Option::MethodEig, MethodEig::QR);
+    MethodEig method = get_option( opts, Option::MethodEig, MethodEig::QR );
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     // Scale matrix to allowable range, if necessary.
@@ -136,20 +136,27 @@ void heev(
         // Bcast the Lambda and E vectors (diagonal and sup/super-diagonal).
         MPI_Bcast( &Lambda[0], n,   mpi_real_type, 0, A.mpiComm() );
         MPI_Bcast( &E[0],      n-1, mpi_real_type, 0, A.mpiComm() );
-        if (method == slate::MethodEig::QR) {
+        if (method == MethodEig::QR) {
             // QR iteration to get eigenvalues and eigenvectors of tridiagonal.
             steqr2( Job::Vec, Lambda, E, Z );
         }
-        else if (method == slate::MethodEig::DC) {
-            if constexpr (std::is_same<scalar_t, double>::value) { // TODO: stedc should support complex
-                // todo: call stedc instead
-                //stedc( Lambda, E, Z );
-                steqr2( Job::Vec, Lambda, E, Z );
+        else {
+            // Divide and conquer to get eigvals and eigvecs of tridiagonal.
+            if constexpr (! is_complex<scalar_t>::value) {
+                // real
+                stedc( Lambda, E, Z );
+            }
+            else {
+                // D&C computes real Z, then copy to complex Z to back-transform.
+                auto Zreal = Z.template emptyLike<real_t>();
+                Zreal.insertLocalTiles();
+                stedc( Lambda, E, Zreal );
+                copy( Zreal, Z );
             }
         }
 
-        int mpi_size;
         // Find the total number of processors.
+        int mpi_size;
         slate_mpi_call(
             MPI_Comm_size(A.mpiComm(), &mpi_size));
 

@@ -245,7 +245,8 @@ void test_heev_work(Params& params, bool run)
         print_matrix( "Z_out", Z, params ); // Relevant when slate::eig_vals takes Z
     }
 
-    if (check || ref) {
+    // Checking Lambda requires the user to request --ref y.
+    if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // Run reference routine from ScaLAPACK
 
@@ -298,6 +299,7 @@ void test_heev_work(Params& params, bool run)
             slate_assert(info_tst == 0);
             lwork = int64_t( real( work[0] ) );
             work.resize(lwork);
+
             // The lrwork, rwork parameters are only valid for complex
             if (slate::is_complex<scalar_t>::value) {
                 lrwork = int64_t( real( rwork[0] ) );

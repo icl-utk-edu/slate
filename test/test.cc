@@ -339,13 +339,13 @@ Params::Params():
     origin    ("origin",  6,    ParamType::List, slate::Origin::Host,     str2origin,   origin2str,   "origin: h=Host, s=ScaLAPACK, d=Devices"),
     target    ("target",  6,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNest, b=HostBatch, d=Devices"),
 
-    method_cholQR ("method-cholQR", 6, ParamType::List, 0, str2methodCholQR, methodCholQR2str, "method-cholQR: auto=auto, herkC, gemmA, gemmC"),
-    method_eig    ("method_eig",    6, ParamType::List, slate::MethodEig::QR, str2methodEig, methodEig2str, "method_eig: q=QR iteration d=Divide and conquer"),
-    method_gels   ("method-gels",   6, ParamType::List, 0, str2methodGels,   methodGels2str,   "method-gels: auto=auto, qr, cholqr"),
-    method_gemm   ("method-gemm",   4, ParamType::List, 0, str2methodGemm,   methodGemm2str,   "method-gemm: auto=auto, A=gemmA, C=gemmC"),
-    method_hemm   ("method-hemm",   4, ParamType::List, 0, str2methodHemm,   methodHemm2str,   "method-hemm: auto=auto, A=hemmA, C=hemmC"),
-    method_lu     ("method-lu",     5, ParamType::List, slate::MethodLU::PartialPiv, str2methodLU, methodLU2str, "method-lu: PartialPiv, CALU, NoPiv"),
-    method_trsm   ("method-trsm",   4, ParamType::List, 0, str2methodTrsm,   methodTrsm2str,   "method-trsm: auto=auto, A=trsmA, B=trsmB"),
+    method_cholQR ("cholQR", 6, ParamType::List, 0, str2methodCholQR, methodCholQR2str, "auto=auto, herkC, gemmA, gemmC"),
+    method_eig    ("eig",    3, ParamType::List, slate::MethodEig::QR, str2methodEig, methodEig2str, "q=QR iteration, d=Divide and conquer"),
+    method_gels   ("gels",   6, ParamType::List, 0, str2methodGels,   methodGels2str,   "auto=auto, qr, cholqr"),
+    method_gemm   ("gemm",   4, ParamType::List, 0, str2methodGemm,   methodGemm2str,   "auto=auto, A=gemmA, C=gemmC"),
+    method_hemm   ("hemm",   4, ParamType::List, 0, str2methodHemm,   methodHemm2str,   "auto=auto, A=hemmA, C=hemmC"),
+    method_lu     ("lu",     5, ParamType::List, slate::MethodLU::PartialPiv, str2methodLU, methodLU2str, "PartialPiv, CALU, NoPiv"),
+    method_trsm   ("trsm",   4, ParamType::List, 0, str2methodTrsm,   methodTrsm2str,   "auto=auto, A=trsmA, B=trsmB"),
 
     grid_order("grid-order", 3, ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) MPI grid order: c=Col, r=Row"),
     tile_release_strategy ("trs", 3, ParamType::List, slate::TileReleaseStrategy::All, str2tile_release_strategy,   tile_release_strategy2str,   "tile release strategy: n=none, i=only internal routines, s=only top-level routines in slate namespace, a=all routines"),
@@ -450,6 +450,7 @@ Params::Params():
 
     // Change name for the methods to use less space in the stdout
     method_cholQR.name("cholQR", "method-cholQR");
+    method_eig.name("eig", "method-eig");
     method_gels.name("gels", "method-gels");
     method_gemm.name("gemm", "method-gemm");
     method_hemm.name("hemm", "method-hemm");

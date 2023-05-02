@@ -497,11 +497,14 @@ if (opts.rq):
 
 # symmetric/Hermitian eigenvalues
 if (opts.syev):
-    cmds += [
-    # todo: uplo, jobz
-    [ 'heev',  gen + dtype + la + n ],
-    #[ 'ungtr', gen + dtype + la + n + uplo ],
+    # todo: uplo
+    if ('n' in jobz):
+        # Requires ref to check. Only QR.
+        cmds += [[ 'heev', gen + dtype + la + n + ' --jobz n --ref y --method-eig qr' ]]
+    if ('v' in jobz):
+        cmds += [[ 'heev', gen + dtype + la + n + ' --jobz v --method-eig qr,dc' ]]
 
+    cmds += [
     # todo uplo, nk
     [ 'unmtr_he2hb', gen + dtype_real    + side + trans    + n ],  # real does trans = N, T, C
     [ 'unmtr_he2hb', gen + dtype_complex + side + trans_nc + n ],  # complex does trans = N, C

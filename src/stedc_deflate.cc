@@ -212,7 +212,7 @@ void stedc_deflate(
     // unitary matrices Q1 and Q2, so just divide by sqrt(2).
     // Secular equation solver (laed4) requires rho > 0, so move sign to z2.
     // rho = abs( || z_orig ||^2 * rho ) = abs( 2 * rho )
-    constexpr real_t r_sqrt2 = 1/sqrt(2);
+    const real_t r_sqrt2 = 1/sqrt(2);
     blas::scal( n1, r_sqrt2, z, 1 );  // scale z1
     blas::scal( n2, r_sqrt2 * sign( rho ), &z[ n1 ], 1 );  // scale z2
     rho = std::abs( 2 * rho );
@@ -551,7 +551,7 @@ void stedc_deflate(
 
     // Find begin and end of Q23 (ctype 2 and 3).
     Qtype23_begin = iglobal[ ct_idx_global[ 2 ] ];
-    Qtype23_end   = Qtype23_end;
+    Qtype23_end   = Qtype23_begin;
     for (int64_t j = ct_idx_global[ 2 ]; j < ct_idx_global[ 4 ]; ++j) {
         Qtype23_begin = blas::min( Qtype23_begin, iglobal[ j ] );
         Qtype23_end   = blas::max( Qtype23_end,   iglobal[ j ] + 1 );

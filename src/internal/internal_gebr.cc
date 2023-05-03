@@ -172,8 +172,10 @@ void gebr1(internal::TargetType<Target::HostTask>,
     // Apply Q^H A => conjugate tau.
     auto A2 = A.slice(1, A.m()-1, 0, A.n()-1);
     gerfg(A2, n2, v2);
+
     v2[0] = conj( v2[0] );
     gerf(n2, v2, A2);
+    v2[0] = conj( v2[0] );
 }
 
 //------------------------------------------------------------------------------
@@ -214,9 +216,12 @@ void gebr2(internal::TargetType<Target::HostTask>,
            int priority)
 {
     trace::Block trace_block("internal::gebr2");
+    using blas::conj;
 
     // Apply the second reflector from task 1: Q^H A.
+    v1[0] = conj( v1[0] );
     gerf(n1, v1, A);
+    v1[0] = conj( v1[0] );
 
     // Zero A[0, 1:n-1].
     // Apply A Q^H => becomes Q A^H.
@@ -274,6 +279,7 @@ void gebr3(internal::TargetType<Target::HostTask>,
     gerfg(A, n2, v2);
     v2[0] = conj( v2[0] );
     gerf(n2, v2, A);
+    v2[0] = conj( v2[0] );
 }
 
 //------------------------------------------------------------------------------

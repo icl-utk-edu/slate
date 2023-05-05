@@ -34,6 +34,7 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     int64_t nb = params.nb();
+    int64_t ib = params.ib();
     int64_t band = nb;  // for now use band == nb.
     int64_t p = params.grid.m();
     int64_t q = params.grid.n();
@@ -71,7 +72,8 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
     }
 
     slate::Options const opts =  {
-        {slate::Option::Target, target}
+        {slate::Option::Target, target},
+        {slate::Option::InnerBlocking, ib}
     };
 
     // MPI variables
@@ -82,49 +84,36 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
     int64_t lda = m;
     int64_t seed[] = {0, 1, 2, 3};
 
+    slate::Target origin_target = origin2target(origin);
+    //slate::Matrix<scalar_t> Afull(m, n, nb, p, q, MPI_COMM_WORLD);
+    //Afull.insertLocalTiles(origin_target);
+    //slate::generate_matrix( params.matrix, Afull);
     std::vector<scalar_t> Afull_data( lda*n );
+    auto Afull = slate::Matrix<scalar_t>::fromLAPACK(
+            m, n, &Afull_data[0], lda, nb, p, q, MPI_COMM_WORLD);
     lapack::larnv(1, seed, Afull_data.size(), &Afull_data[0]);
 
-    #if 0
-    // if want to start the test with a band matrix
-    // Zero outside the band.
-    for (int64_t j = 0; j < n; ++j) {
-        if (upper) {
-            for (int64_t i = 0; i < m; ++i) {
-                if (j > i+band || j < i)
-                    Afull_data[i + j*lda] = 0;
-            }
-        }
-        else { // lower
-            for (int64_t i = 0; i < n; ++i) {
-                if (j < i-band || j > i)
-                    Afull_data[i + j*lda] = 0;
-            }
-        }
-        // Diagonal from ge2tb is real.
-        Afull_data[j + j*lda] = real( Afull_data[j + j*lda] );
-    }
-    copy(Afull, Acopy);
-    #endif
-
-    slate::Target origin_target = origin2target(origin);
-    auto Afull = slate::Matrix<scalar_t>::fromLAPACK(
-        m, n, &Afull_data[0], lda, nb, p, q, MPI_COMM_WORLD);
+    //slate::Matrix<scalar_t> Acopy(m, n, nb, p, q, MPI_COMM_WORLD);
+    //Acopy.insertLocalTiles(origin_target);
     std::vector<scalar_t> Acopy_data( lda*n );
     auto Acopy = slate::Matrix<scalar_t>::fromLAPACK(
-        m, n, &Acopy_data[0], lda, nb, p, q, MPI_COMM_WORLD);
+            m, n, &Acopy_data[0], lda, nb, p, q, MPI_COMM_WORLD);
+
+    print_matrix( "Afull", Afull, params );
 
     // 1. Reduce to band form.
     #if 1
-    // if want to start the test with a full matrix
+    // Test full matrix.
+    printf("\n Test full matrix.\n");
     copy(Afull, Acopy);
     slate::TriangularFactors<scalar_t> TU, TV;
     ge2tb(Afull, TU, TV, opts);
 
-    #if 1
-    // if want to start the test with a band matrix using ge2tb to reduce it.
+    #if 0
+    printf("\n Test band matrix reduced using ge2tb to reduce it. \n");
+    // Test band matrix reduced using ge2tb to reduce it.
     // Zero outside the band.
-    copy(Afull, Acopy);
+    slate::copy(Afull, Acopy, opts);
     for (int64_t j = 0; j < n; ++j) {
         if (upper) {
             for (int64_t i = 0; i < m; ++i) {
@@ -139,10 +128,9 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
             }
         }
     }
+    print_matrix( "Aband", Acopy, params );
     #endif
     #endif
-
-    print_matrix( "Afull", Afull, params );
 
     // Copy band of Afull, currently to rank 0.
     auto Aband = slate::TriangularBandMatrix<scalar_t>(
@@ -159,17 +147,19 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
 
     // 1-d V matrix
     slate::Matrix<scalar_t> V1d(VT.m(), VT.n(), VT.tileNb(0), 1, p*q, MPI_COMM_WORLD);
-    V1d.insertLocalTiles(target);
+    V1d.insertLocalTiles(origin_target);
 
     // Set U = Identity.
     slate::Matrix<scalar_t> U(m, n, nb, p, q, MPI_COMM_WORLD);
     U.insertLocalTiles(origin_target);
     set(zero, one, U);
+    print_matrix( "U_iden", U, params );
     auto Uhat = U.slice(0, U.n()-1, 0, U.n()-1);
+    print_matrix( "Uhat", Uhat, params );
 
     // 1-d U matrix
     slate::Matrix<scalar_t> U1d(Uhat.m(), Uhat.n(), Uhat.tileNb(0), 1, p*q, MPI_COMM_WORLD);
-    U1d.insertLocalTiles(target);
+    U1d.insertLocalTiles(origin_target);
 
     //--------------------
     // [code copied from heev.cc]
@@ -189,14 +179,14 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
     std::vector<real_t> Sigma(min_mn);
     std::vector<real_t> E(min_mn - 1);  // super-diagonal
 
-    slate::Matrix<scalar_t> V1(vm, vn, vm, nb, 1, 1, MPI_COMM_WORLD);
-    slate::Matrix<scalar_t> U1(um, un, um, nb, 1, 1, MPI_COMM_WORLD);
+    slate::Matrix<scalar_t> V2(vm, vn, vm, nb, 1, 1, MPI_COMM_WORLD);
+    slate::Matrix<scalar_t> U2(um, un, um, nb, 1, 1, MPI_COMM_WORLD);
 
     // Compute tridiagonal and Householder vectors V.
     if (mpi_rank == 0) {
-        V1.insertLocalTiles(origin_target);
-        U1.insertLocalTiles(origin_target);
-        slate::tb2bd(Aband, U1, V1);
+        V2.insertLocalTiles(origin_target);
+        U2.insertLocalTiles(origin_target);
+        slate::tb2bd(Aband, U2, V2);
         // Copy diagonal & super-diagonal.
         slate::internal::copytb2bd(Aband, Sigma, E);
     }
@@ -232,16 +222,24 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
     // Run SLATE test.
     //==================================================
     U1d.redistribute(Uhat);
-    slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, U1, U1d, opts);
+    slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, U2, U1d, opts);
+
+    print_matrix( "before_redistribute_U1d", U1d, params );
 
     Uhat.redistribute(U1d);
+
+    print_matrix( "After_redistribute_Uhat", Uhat, params );
+
+    print_matrix( "U_before_ge2tb", U, params );
+    print_matrix("TUlocal",  TU[0], params);
+    print_matrix("TUreduce", TU[1], params);
     slate::unmbr_ge2tb( slate::Side::Left, slate::Op::NoTrans, Afull, TU, U, opts );
     print_matrix( "U", U, params );
 
     //auto V = conj_transpose(VT);
     //auto R = V.emptyLike();
     //R.insertLocalTiles();
-    //copy(V, R);
+    //slate::copy(V, R, opts);
     //print_matrix("V", V, params);
     int64_t nb_A = VT.tileNb( 0 );
     slate::GridOrder grid_order;
@@ -269,20 +267,22 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
 
     slate::Matrix<scalar_t> V(
            n, n, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD );
-    V.insertLocalTiles();
+    V.insertLocalTiles(origin_target);
     auto R = conj_transpose(VT);
 
     copy(R, V);
     V1d.redistribute(V);
 
-    slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, V1, V1d, opts);
+    slate::unmbr_tb2bd(slate::Side::Left, slate::Op::NoTrans, V2, V1d, opts);
     V.redistribute(V1d);
 
-    VT = conj_transpose(V);
-    //copy(V, R);
-    slate::unmbr_ge2tb( slate::Side::Right, slate::Op::NoTrans, Afull, TV, VT, opts );
-
+    auto RT = conj_transpose(V);
+    copy(RT, VT);
+    print_matrix( "VT", VT, params );
+    print_matrix( "RT", RT, params );
     print_matrix( "V", V, params );
+
+    slate::unmbr_ge2tb( slate::Side::Right, slate::Op::NoTrans, Afull, TV, VT, opts );
 
     time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -316,14 +316,13 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
         // || I - V^H V || / n < tol
         //==================================================
         slate::Matrix<scalar_t> Iden( n, n, nb, p, q, MPI_COMM_WORLD );
-        Iden.insertLocalTiles();
+        Iden.insertLocalTiles(origin_target);
         set(zero, one, Iden);
 
-        //auto VT2 = conj_transpose(VT);
-        auto VT2 = conj_transpose(V);
+        auto VT2 = conj_transpose(VT);
 
         //slate::gemm(-one, VT, VT2, one, Iden);
-        slate::gemm(-one, VT2, V, one, Iden);
+        slate::gemm(-one, VT2, VT, one, Iden);
         print_matrix( "I_VH*V", Iden, params );
 
         params.ortho_V() = slate::norm(slate::Norm::One, Iden) / n;
@@ -334,6 +333,7 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
         // check is implemented.
         if (slate::norm(slate::Norm::One, Iden) == zero) {
             params.okay() = false;
+            printf("\n Why zero ?\n");
             return;
         }
         params.okay() = params.okay() && (params.ortho_V() <= tol);
@@ -359,7 +359,7 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
         //copy(VT2, R);
         slate::scale_row_col( slate::Equed::Col, Sigma, Sigma, U );
 
-        slate::gemm( -one, U, VT2, one, Acopy );
+        slate::gemm( -one, U, VT, one, Acopy );
 
         print_matrix( "Afull-U*S*VT", Acopy, params );
 

@@ -905,10 +905,10 @@ void MatrixStorage<scalar_t>::releaseWorkspace()
     for (auto iter = begin(); iter != end(); /* incremented below */) {
         auto& tile_node = *(iter->second);
         for (int d = HostNum; d < num_devices_; ++d) {
-            if (tile_node.existsOn(d) &&
-                tile_node[d].tile()->workspace() &&
-                ! (tile_node[d].stateOn(MOSI::OnHold) ||
-                   tile_node[d].stateOn(MOSI::Modified))
+            if (tile_node.existsOn(d)
+                && tile_node[d].tile()->workspace()
+                && ! (tile_node[d].stateOn(MOSI::OnHold)
+                      || (tileIsLocal(iter->first) && tile_node[d].stateOn(MOSI::Modified)))
                 )
             {
                 freeTileMemory(tile_node[d].tile());
@@ -996,7 +996,7 @@ void MatrixStorage<scalar_t>::release(ijdev_tuple ijdev)
             if (tile_node.existsOn( dev )
                 && tile_node[ dev ].tile()->workspace()
                 && ! (tile_node[ dev ].stateOn( MOSI::OnHold )
-                      || tile_node[ dev ].stateOn( MOSI::Modified ))) {
+                      || (tileIsLocal({i,j}) && tile_node[ dev ].stateOn( MOSI::Modified )))) {
                 freeTileMemory( tile_node[ dev ].tile() );
                 tile_node.eraseOn( dev );
             }

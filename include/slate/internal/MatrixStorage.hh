@@ -413,6 +413,9 @@ public:
     void erase(ijdev_tuple ijdev);
     void erase(ij_tuple ij);
     void release(ijdev_tuple ijdev);
+private:
+    void release(typename TilesMap::iterator iter, int device);
+public:
     void freeTileMemory(Tile<scalar_t>* tile);
     void clear();
 
@@ -898,30 +901,17 @@ void MatrixStorage<scalar_t>::clearWorkspace()
 //------------------------------------------------------------------------------
 /// Clears all host and device workspace tiles that are not OnHold nor Modified.
 ///
+/// Note that Modified, local tiles are currently not released but that this
+/// behavior may change in the future and should not be relied apon.
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::releaseWorkspace()
 {
     LockGuard guard(getTilesMapLock());
     for (auto iter = begin(); iter != end(); /* incremented below */) {
-        auto& tile_node = *(iter->second);
-        for (int d = HostNum; d < num_devices_; ++d) {
-            if (tile_node.existsOn(d)
-                && tile_node[d].tile()->workspace()
-                && ! (tile_node[d].stateOn(MOSI::OnHold)
-                      || (tileIsLocal(iter->first) && tile_node[d].stateOn(MOSI::Modified)))
-                )
-            {
-                freeTileMemory(tile_node[d].tile());
-                tile_node.eraseOn(d);
-            }
-        }
-        if (tile_node.empty())
-            // Since we can't increment the iterator after deleting the
-            // element, use post-fix iter++ to increment it but
-            // erase the current value.
-            erase((iter++)->first);
-        else
-            ++iter;
+        // Since we can't increment the iterator after deleting the element
+        // and release deletes empty nodes, use post-fix iter++ to
+        // increment it but pass the current value to release.
+        release(iter++, AllDevices);
     }
     // Free host & device memory only if there are no unallocated blocks
     // from non-workspace (SlateOwned) tiles.
@@ -973,6 +963,49 @@ void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
 /// to the allocator memory pool.
 /// device can be AllDevices.
 ///
+/// This is an internal version to share logic between release and
+/// releaseWorkspace.
+template <typename scalar_t>
+void MatrixStorage<scalar_t>::release(
+    typename MatrixStorage<scalar_t>::TilesMap::iterator iter,
+    int device)
+{
+    auto& tile_node = *(iter->second);
+
+    int begin = device;
+    int end   = device + 1;
+    if (device == AllDevices) {
+        begin = HostNum;
+        end   = num_devices_;
+    }
+
+    bool localTile = tileIsLocal(iter->first);
+
+    for (int dev = begin; dev < end; ++dev) {
+        if (tile_node.existsOn( dev )
+            && tile_node[ dev ].tile()->workspace()
+            && ! tile_node[ dev ].stateOn( MOSI::OnHold )
+            && ! (localTile && tile_node[ dev ].stateOn( MOSI::Modified ))) {
+
+            freeTileMemory( tile_node[ dev ].tile() );
+            tile_node.eraseOn( dev );
+        }
+    }
+    if (tile_node.empty())
+        erase( iter->first );
+}
+
+//------------------------------------------------------------------------------
+/// Remove a tile instance on device and delete it
+/// if it is a workspace and not OnHold nor Modified.
+/// If tile node becomes empty, deletes it.
+/// If tile's memory was allocated by SLATE, then its memory is freed back
+/// to the allocator memory pool.
+/// device can be AllDevices.
+///
+/// Note that Modified, local tiles are currently not released but that this
+/// behavior may change in the future and should not be relied apon.
+///
 // todo: currently ignores if ijdev doesn't exist; is that right?
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::release(ijdev_tuple ijdev)
@@ -984,25 +1017,7 @@ void MatrixStorage<scalar_t>::release(ijdev_tuple ijdev)
     int device = std::get<2>(ijdev);
     auto iter = find( { i, j } ); // not device, to allow AllDevices
     if (iter != end()) {
-        auto& tile_node = *(iter->second);
-
-        int begin = device;
-        int end   = device + 1;
-        if (device == AllDevices) {
-            begin = HostNum;
-            end   = num_devices_;
-        }
-        for (int dev = begin; dev < end; ++dev) {
-            if (tile_node.existsOn( dev )
-                && tile_node[ dev ].tile()->workspace()
-                && ! (tile_node[ dev ].stateOn( MOSI::OnHold )
-                      || (tileIsLocal({i,j}) && tile_node[ dev ].stateOn( MOSI::Modified )))) {
-                freeTileMemory( tile_node[ dev ].tile() );
-                tile_node.eraseOn( dev );
-            }
-        }
-        if (tile_node.empty())
-            erase( { i, j } );
+        release(iter, device);
     }
 }
 

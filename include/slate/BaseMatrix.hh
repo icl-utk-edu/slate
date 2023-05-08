@@ -566,6 +566,9 @@ public:
     }
 
     /// Clear all workspace tiles that are not on hold or modified.
+    ///
+    /// Note that Modified, local tiles are currently not released but that this
+    /// behavior may change in the future and should not be relied apon.
     void releaseWorkspace()
     {
         storage_->releaseWorkspace();
@@ -1565,6 +1568,9 @@ void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 /// If tile's memory was allocated by SLATE,
 /// via tileInsert(i, j, dev) or tileInsertWorkspace(i, j, dev),
 /// then the memory is released to the allocator pool.
+///
+/// Note that Modified, local tiles are currently not released but that this
+/// behavior may change in the future and should not be relied apon.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.

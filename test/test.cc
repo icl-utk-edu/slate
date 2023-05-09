@@ -412,7 +412,7 @@ Params::Params():
     deflate   ("deflate", 12,   ParamType::List, "",
                "multiple space-separated (index or /-separated index pairs)"
                " to deflate, e.g., --deflate '1 2/4 3/5'"),
-    refine    ("refine",  6,    ParamType::List,  1,     -1, 1000000, "Number of iterations of refinement"),
+    itermax   ("itermax", 7,    ParamType::List, 30,     -1, 1000000, "Maximum number of iterations for refinement"),
     depth     ("depth",   5,    ParamType::List,  2,      0, 1000,    "Number of butterflies to apply"),
 
     // ----- output parameters

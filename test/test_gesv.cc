@@ -113,9 +113,12 @@ void test_gesv_work(Params& params, bool run)
         || params.routine == "gesv_rbt") {
         params.iters();
     }
+
+    int64_t itermax = 0,
+            depth = 0;
     if (params.routine == "gesv_rbt") {
-        params.refine();
-        params.depth();
+        itermax = params.itermax();
+        depth = params.depth();
     }
 
     if (! run)
@@ -152,8 +155,8 @@ void test_gesv_work(Params& params, bool run)
         {slate::Option::MethodLU, method_lu},
         {slate::Option::MethodGemm, methodGemm},
         {slate::Option::MethodTrsm, methodTrsm},
-        {slate::Option::Depth, params.routine == "gesv_rbt" ? params.depth() : 0},
-        {slate::Option::MaxIterations, params.routine == "gesv_rbt" ? params.refine() : 0},
+        {slate::Option::Depth, depth},
+        {slate::Option::MaxIterations, itermax},
     };
 
     int64_t info = 0;

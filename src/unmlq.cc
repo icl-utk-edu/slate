@@ -143,9 +143,7 @@ void unmlq(
                         j0 = j;
                         j1 = j;
                     }
-                    // Vs in first_indices (except the left-most one)
-                    // need three lives
-                    if (j > k && std::find(first_indices.begin(), first_indices.end(), j) != first_indices.end()) {
+                    if (std::find(first_indices.begin(), first_indices.end(), j) != first_indices.end()) {
                         bcast_list_V_top.push_back(
                             {k, j, {C.sub(i0, i1, j0, j1)}});
                     }
@@ -154,7 +152,10 @@ void unmlq(
                             {k, j, {C.sub(i0, i1, j0, j1)}});
                     }
                 }
-                A.template listBcast(bcast_list_V_top, layout, 0, 3);
+                // V tiles in first_indices need up to 5 lives: 1 for ttmqr,
+                // 2 + extra 2 if mb > nb (trapezoid) for Vs in unmqr I-VTV^T.
+                // This may leak a few tiles that A.clearWorkspace will cleanup.
+                A.template listBcast(bcast_list_V_top, layout, 0, 5);
                 A.template listBcast(bcast_list_V, layout, 0, 2);
 
                 // Send Tlocal(j) across row C(j, 0:nt-1) or col C(0:mt-1, j).
@@ -246,7 +247,9 @@ void unmlq(
         #pragma omp taskwait
         C.tileUpdateAllOrigin();
     }
-    C.clearWorkspace();
+
+    A.releaseWorkspace();
+    C.releaseWorkspace();
 }
 
 } // namespace impl

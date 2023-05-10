@@ -841,6 +841,7 @@ void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
 template <typename scalar_t>
 void BaseTrapezoidMatrix<scalar_t>::insertLocalTiles(Target origin)
 {
+    this->origin_ = origin;
     bool on_devices = (origin == Target::Devices);
     if (on_devices)
         reserveDeviceWorkspace();

@@ -811,6 +811,8 @@ void Matrix<scalar_t>::gather(scalar_t* A, int64_t lda)
 template <typename scalar_t>
 void Matrix<scalar_t>::insertLocalTiles(Target origin)
 {
+    this->origin_ = origin;
+
     bool on_devices = (origin == Target::Devices);
     if (on_devices)
         reserveDeviceWorkspace();

@@ -469,6 +469,7 @@ ifneq ($(only_unit),1)
         src/internal/internal_unmlq.cc \
         src/internal/internal_unmqr.cc \
         src/internal/internal_unmtr_hb2st.cc \
+        src/internal/internal_unmbr_tb2bd.cc \
         # End. Add alphabetically.
 endif
 
@@ -608,6 +609,7 @@ ifneq ($(only_unit),1)
         src/unmbr_ge2tb.cc \
         src/unmqr.cc \
         src/unmtr_hb2st.cc \
+        src/unmbr_tb2bd.cc \
         src/unmtr_he2hb.cc \
         src/work/work_trmm.cc \
         src/work/work_trsm.cc \
@@ -696,8 +698,10 @@ tester_src += \
         test/test_trsm.cc \
         test/test_trtri.cc \
         test/test_unmqr.cc \
+        test/test_unmbr_ge2tb.cc \
         test/test_unmtr_hb2st.cc \
         test/test_unmtr_he2hb.cc \
+        test/test_unmbr_tb2bd.cc \
         # End. Add alphabetically.
 
 # Compile fixes for ScaLAPACK routines if Fortran compiler $(FC) exists.

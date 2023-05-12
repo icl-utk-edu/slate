@@ -15,6 +15,21 @@
 namespace slate {
 namespace device {
 
+//------------------------------------------------------------------------------
+// In copy.cc, provide overload for non-matching types, which throws an error.
+//
+template <typename x_scalar_t, typename y_scalar_t>
+void transpose_batch(
+    int64_t m, int64_t n,
+    x_scalar_t **dA_array,  int64_t lda,
+    y_scalar_t **dAT_array, int64_t ldat,
+    int64_t batch_count,
+    blas::Queue& queue)
+{
+    using std::real;
+    throw std::exception();  // not implemented
+}
+
 // CUBLAS/ROCBLAS need complex translation, others do not
 #if ! defined( SLATE_HAVE_OMPTARGET )
 
@@ -251,6 +266,7 @@ void copy(internal::TargetType<Target::Devices>,
         { B.nt()-1, B.nt()   },
         { B.nt()-1, B.nt()   }
     };
+    printf("\n A.m() %ld A.n() %ld B.m() %ld B.n() %ld \n", A.m(), A.n(), B.m(), B.n());
 
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
@@ -305,6 +321,7 @@ void copy(internal::TargetType<Target::Devices>,
             src_scalar_t** a_array_dev = A.array_device(device, queue_index);
             dst_scalar_t** b_array_dev = B.array_device(device, queue_index);
 
+            src_scalar_t** a_array_dev1 = A.array_device(device, queue_index);
             blas::Queue* queue = B.compute_queue(device, queue_index);
 
             blas::device_memcpy<src_scalar_t*>(a_array_dev, a_array_host,
@@ -319,10 +336,20 @@ void copy(internal::TargetType<Target::Devices>,
 
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
-                    device::gecopy(mb[q], nb[q],
-                                   a_array_dev, lda[q],
-                                   b_array_dev, ldb[q],
-                                   group_count[q], *queue);
+                    bool is_conj = (A.op() != B.op());
+                    if (is_conj) {
+                        device::transpose_batch(
+                                nb[q], mb[q],
+                                a_array_dev, lda[q],
+                                b_array_dev, ldb[q],
+                                group_count[q], *queue);
+                    }
+                    else {
+                        device::gecopy(mb[q], nb[q],
+                                a_array_dev, lda[q],
+                                b_array_dev, ldb[q],
+                                group_count[q], *queue);
+                    }
                     a_array_dev += group_count[q];
                     b_array_dev += group_count[q];
                 }

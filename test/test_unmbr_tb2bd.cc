@@ -277,7 +277,7 @@ void test_unmbr_tb2bd_work(Params& params, bool run)
     V.redistribute(V1d);
 
     auto RT = conj_transpose(V);
-    copy(RT, VT);
+    slate::copy(RT, VT, opts);
     print_matrix( "VT", VT, params );
     print_matrix( "RT", RT, params );
     print_matrix( "V", V, params );

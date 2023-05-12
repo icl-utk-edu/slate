@@ -231,6 +231,8 @@ std::vector< testsweeper::routines_t > routines = {
     { "ge2tb",              test_ge2tb,        Section::svd },
     { "tb2bd",              test_tb2bd,        Section::svd },
     { "bdsqr",              test_bdsqr,        Section::svd },
+    { "unmbr_tb2bd",        test_unmbr_tb2bd,  Section::svd },
+    { "unmbr_ge2tb",        test_unmbr_ge2tb,  Section::svd },
     { "",                   nullptr,           Section::newline },
 
     // -----

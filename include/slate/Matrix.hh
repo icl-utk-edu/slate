@@ -487,6 +487,8 @@ Matrix<scalar_t>::Matrix(
     GridOrder order, int p, int q, MPI_Comm mpi_comm, bool is_scalapack)
     : BaseMatrix<scalar_t>( m, n, mb, nb, order, p, q, mpi_comm )
 {
+    this->origin_ = Target::Host;
+
     // ii, jj are row, col indices
     // ii_local and jj_local are the local array indices in A
     // block-cyclic layout (indxg2l)
@@ -529,6 +531,8 @@ Matrix<scalar_t>::Matrix(
     : BaseMatrix<scalar_t>(m, n, mb, nb, p, q, mpi_comm)
 {
     slate_error_if(this->num_devices() != num_devices);
+
+    this->origin_ = Target::Devices;
 
     // ii, jj are row, col indices
     // ii_local and jj_local are the local array indices in A

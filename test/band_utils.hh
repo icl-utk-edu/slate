@@ -129,15 +129,20 @@ void zeroOutsideBand(
     for (int64_t jj = 0; jj < n; ++jj) {
         int pcol = (jj / nb) % q;
         if (pcol == mycol) {
-            int64_t jlocal = global2local(jj, nb, q, mycol);
+            int64_t jlocal = global2local( jj, nb, q, mycol );
 
             // set rows [0 : k - ku - 1] = 0
-            int64_t i0 = max(global2local(0,       nb, p, myrow), 0);
-            int64_t i1 = min(global2local(jj - ku, nb, p, myrow), m);
+            int64_t i0 = global2local( 0,       nb, p, myrow );
+            int64_t i1 = global2local( jj - ku, nb, p, myrow );
 
             // set rows [k + kl + 1 : m - 1] = 0
-            int64_t i2 = max(global2local(jj + kl + 1, nb, p, myrow), 0);
-            int64_t i3 = min(global2local(m,           nb, p, myrow), m);
+            int64_t i2 = global2local( jj + kl + 1, nb, p, myrow );
+            int64_t i3 = global2local( m,           nb, p, myrow );
+
+            i0 = min( max( i0, 0 ), lldA );
+            i1 = min( max( i1, 0 ), lldA );
+            i2 = min( max( i2, 0 ), lldA );
+            i3 = min( max( i3, 0 ), lldA );
 
             for (int64_t i = i0; i < i1; ++i) {
                 A[ i + jlocal*lldA ] = 0;
@@ -204,37 +209,44 @@ void zeroOutsideBand(
     for (int64_t jj = 0; jj < n; ++jj) {
         int pcol = (jj / nb) % q;
         if (pcol == mycol) {
-            int64_t jlocal = global2local(jj, nb, q, mycol);
+            int64_t jlocal = global2local( jj, nb, q, mycol );
 
             if (uplo == slate::Uplo::Upper) {
                 // set rows [0 : k - kd - 1] = 0
-                int64_t i0 = max(global2local(0,       nb, p, myrow), 0);
-                int64_t i1 = min(global2local(jj - kd, nb, p, myrow), n);
+                int64_t i0 = global2local( 0,          nb, p, myrow );
+                int64_t i1 = global2local( jj - kd,    nb, p, myrow );
+                int64_t i2 = global2local( jj + 0 + 1, nb, p, myrow );
+                int64_t i3 = global2local( n,          nb, p, myrow );
+
+                i0 = min( max( i0, 0 ), lldA );
+                i1 = min( max( i1, 0 ), lldA );
+                i2 = min( max( i2, 0 ), lldA );
+                i3 = min( max( i3, 0 ), lldA );
 
                 for (int64_t i = i0; i < i1; ++i) {
                     A[ i + jlocal*lldA ] = 0;
                 }
-
-                int64_t i2 = max(global2local(jj + 0 + 1, nb, p, myrow), 0);
-                int64_t i3 = min(global2local(n,          nb, p, myrow), n);
-
                 for (int64_t i = i2; i < i3; ++i) {
                     A[ i + jlocal*lldA ] = 0;
                 }
 
             }
             else if (uplo == slate::Uplo::Lower) {
-                int64_t i0 = max(global2local(0,       nb, p, myrow), 0);
-                int64_t i1 = min(global2local(jj - 0,  nb, p, myrow), n);
+                int64_t i0 = global2local( 0,       nb, p, myrow );
+                int64_t i1 = global2local( jj - 0,  nb, p, myrow );
+
+                // set rows [k + kd + 1 : m - 1] = 0
+                int64_t i2 = global2local( jj + kd + 1, nb, p, myrow );
+                int64_t i3 = global2local( n,           nb, p, myrow );
+
+                i0 = min( max( i0, 0 ), lldA );
+                i1 = min( max( i1, 0 ), lldA );
+                i2 = min( max( i2, 0 ), lldA );
+                i3 = min( max( i3, 0 ), lldA );
 
                 for (int64_t i = i0; i < i1; ++i) {
                     A[ i + jlocal*lldA ] = 0;
                 }
-
-                // set rows [k + kd + 1 : m - 1] = 0
-                int64_t i2 = max(global2local(jj + kd + 1, nb, p, myrow), 0);
-                int64_t i3 = min(global2local(n,           nb, p, myrow), n);
-
                 for (int64_t i = i2; i < i3; ++i) {
                     A[ i + jlocal*lldA ] = 0;
                 }

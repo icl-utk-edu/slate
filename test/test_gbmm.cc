@@ -137,10 +137,11 @@ void test_gbmm_work(Params& params, bool run)
     print_matrix("B", B, params);
     print_matrix("C", C, params);
 
-    if (verbose > 1) {
-        printf("alpha = %.4f + %.4fi;\nbeta  = %.4f + %.4fi;\n",
-               real(alpha), imag(alpha),
-               real(beta), imag(beta));
+    if (verbose > 1 && mpi_rank == 0) {
+        printf( "alpha = %.4f + %.4fi;\n"
+                "beta  = %.4f + %.4fi;\n",
+                real( alpha ), imag( alpha ),
+                real( beta  ), imag( beta  ) );
     }
 
     //printf("%% trans\n");
@@ -180,7 +181,7 @@ void test_gbmm_work(Params& params, bool run)
     params.time() = time;
     params.gflops() = gflop / time;
 
-    print_matrix("C2", C, params);
+    print_matrix( "C_out", C, params );
 
     if (check || ref) {
         //printf("%% check & ref\n");
@@ -191,7 +192,7 @@ void test_gbmm_work(Params& params, bool run)
         else if (transA == slate::Op::ConjTrans)
             A = conj_transpose( A );
 
-        print_matrix("Cref", Cref, params);
+        print_matrix( "Cref_in", Cref, params );
 
         // Get norms of the original data.
         real_t A_norm = slate::norm( norm, A );
@@ -202,8 +203,13 @@ void test_gbmm_work(Params& params, bool run)
         // Run SLATE non-band routine
         //==================================================
         time = barrier_get_wtime(MPI_COMM_WORLD);
+
         slate::multiply( alpha, A, B, beta, Cref, opts );
+
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
+
+        print_matrix( "Cref", Cref, params );
+
         // get differences Cref = Cref - C
         slate::add( -one, C, one, Cref );
         real_t C_diff_norm = slate::norm( norm, Cref ); // norm of residual
@@ -222,7 +228,6 @@ void test_gbmm_work(Params& params, bool run)
         real_t eps = std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= 3*eps);
     }
-    //printf("%% done\n");
 }
 
 // -----------------------------------------------------------------------------

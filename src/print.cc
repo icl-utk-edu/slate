@@ -156,17 +156,15 @@ int snprintf_value(
 template <typename scalar_t>
 void print(
     const char* label,
-    slate::Tile<scalar_t>& A,
+    Tile<scalar_t>& A,
     blas::Queue& queue,
-    slate::Options const& opts)
+    Options const& opts)
 {
     using std::to_string;
 
-    int precision
-        = slate::get_option<int>( opts, slate::Option::PrintPrecision, 4 );
-    int width = precision + 6;
-    int verbose
-        = slate::get_option<int>( opts, slate::Option::PrintVerbose,   4 );
+    int precision = get_option<int>( opts, Option::PrintPrecision, 4 );
+    int width     = precision + 6;
+    int verbose   = get_option<int>( opts, Option::PrintVerbose,   4 );
     if (verbose == 0)
         return;
 
@@ -191,7 +189,7 @@ void print(
 
     // todo: kind, MSI
     std::string msg
-        = std::string( "% " ) + label + ": slate::Tile "
+        = std::string( "% " ) + label + ": Tile "
         + to_string( mb ) + "-by-" + to_string( nb )
         + ", stride = "    + to_string( A.stride() )
         + ", device = "    + to_string( A.device() )
@@ -223,30 +221,30 @@ void print(
 template
 void print(
     const char* label,
-    slate::Tile<float>& A,
+    Tile<float>& A,
     blas::Queue& queue,
-    slate::Options const& opts);
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::Tile<double>& A,
+    Tile<double>& A,
     blas::Queue& queue,
-    slate::Options const& opts);
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::Tile<std::complex<float>>& A,
+    Tile<std::complex<float>>& A,
     blas::Queue& queue,
-    slate::Options const& opts);
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::Tile<std::complex<double>>& A,
+    Tile<std::complex<double>>& A,
     blas::Queue& queue,
-    slate::Options const& opts);
+    Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Sends tiles A(i, j) and receives it on rank 0.
@@ -256,7 +254,7 @@ void print(
 ///
 template <typename scalar_t>
 void send_recv_tile(
-    slate::BaseMatrix<scalar_t>& A, int64_t i, int64_t j,
+    BaseMatrix<scalar_t>& A, int64_t i, int64_t j,
     int mpi_rank, MPI_Comm comm)
 {
     int flag_exist   = 0;
@@ -299,23 +297,23 @@ void send_recv_tile(
 ///
 template <typename scalar_t>
 std::string tile_row_string(
-    slate::BaseMatrix<scalar_t>& A, int64_t i, int64_t j, int64_t ti,
-    slate::Options const& opts,
+    BaseMatrix<scalar_t>& A, int64_t i, int64_t j, int64_t ti,
+    Options const& opts,
     const char* opposite="",
     bool is_last_abbrev_cols = false)
 {
-    int64_t width     = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 10 );
-    int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
-    int64_t verbose   = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
-    int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
+    using real_t = blas::real_type<scalar_t>;
+
+    int width     = get_option<int>( opts, Option::PrintWidth,     10 );
+    int precision = get_option<int>( opts, Option::PrintPrecision,  4 );
+    int verbose   = get_option<int>( opts, Option::PrintVerbose,    4 );
+    int edgeitems = get_option<int>( opts, Option::PrintEdgeItems, 16 );
     assert( verbose >= 2 );
 
     if (verbose == 5)
         verbose = 2;
 
-    const int64_t abbrev_cols = edgeitems;
-
-    using real_t = blas::real_type<scalar_t>;
+    int64_t abbrev_cols = edgeitems;
 
     real_t nan_ = nan("");
 
@@ -323,10 +321,10 @@ std::string tile_row_string(
     char buf[ 80 ];
     std::string msg;
     try {
-        A.tileGetForReading( i, j, slate::LayoutConvert::None );
+        A.tileGetForReading( i, j, LayoutConvert::None );
         tile_columns = A.tileNb(j);
         auto T = A(i, j);
-        slate::Uplo uplo = T.uplo();
+        Uplo uplo = T.uplo();
         int64_t nb    = T.nb();
         int64_t begin = 0;
         int64_t end   = nb;
@@ -347,9 +345,9 @@ std::string tile_row_string(
             step = (verbose == 3 && nb > 1 ? nb - 1 : 1);
         }
         for (int64_t tj = begin; tj < end; tj += step) {
-            if ((uplo == slate::Uplo::General)
-                || (uplo == slate::Uplo::Lower && ti >= tj)
-                || (uplo == slate::Uplo::Upper && ti <= tj))
+            if ((uplo == Uplo::General)
+                || (uplo == Uplo::Lower && ti >= tj)
+                || (uplo == Uplo::Upper && ti <= tj))
             {
                 snprintf_value( buf, sizeof(buf), width, precision,
                                 T(ti, tj) );
@@ -403,14 +401,14 @@ std::string tile_row_string(
 ///
 template <typename scalar_t>
 std::string tile_row_string(
-    slate::BaseMatrix<scalar_t>& A, int64_t i, int64_t j, int64_t ti,
+    BaseMatrix<scalar_t>& A, int64_t i, int64_t j, int64_t ti,
     int width, int precision,
     const char* opposite="")
 {
-    const slate::Options opts = {
-        { slate::Option::PrintWidth, width},
-        { slate::Option::PrintPrecision, precision},
-        { slate::Option::PrintVerbose, 4 }
+    const Options opts = {
+        { Option::PrintWidth, width},
+        { Option::PrintPrecision, precision},
+        { Option::PrintVerbose, 4 }
     };
     return tile_row_string( A, i, j, ti, opts, opposite );
 }
@@ -428,18 +426,18 @@ std::string tile_row_string(
 template <typename scalar_t>
 void print_work(
     const char* label,
-    slate::BaseMatrix<scalar_t>& A,
+    BaseMatrix<scalar_t>& A,
     int64_t klt,
     int64_t kut,
-    slate::Options const& opts_)
+    Options const& opts_)
 {
     using real_t = blas::real_type<scalar_t>;
-    slate::Options opts(opts_);
+    Options opts( opts_ );
 
-    int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 10 );
-    int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
-    int64_t edgeitems = slate::get_option<int64_t>( opts, slate::Option::PrintEdgeItems, 16 );
+    int width     = get_option<int>( opts, Option::PrintWidth,     10 );
+    int precision = get_option<int>( opts, Option::PrintPrecision,  4 );
+    int verbose   = get_option<int>( opts, Option::PrintVerbose,    4 );
+    int edgeitems = get_option<int>( opts, Option::PrintEdgeItems, 16 );
     if (verbose <= 1)
         return;
 
@@ -453,15 +451,15 @@ void print_work(
         else if ((nrows > 2*edgeitems) && (ncolumns <= 2*edgeitems))
             verbose = 6; // abbreviate rows, print all columns
 
-        opts[slate::Option::PrintVerbose] = verbose;
+        opts[ Option::PrintVerbose ] = verbose;
     }
 
     width = std::max(width, precision + 6);
-    opts[slate::Option::PrintWidth] = width;
+    opts[ Option::PrintWidth ] = width;
     real_t nan_ = nan("");
 
-    const int64_t abbrev_rows = edgeitems;
-    const int64_t abbrev_cols = edgeitems;
+    int64_t abbrev_rows = edgeitems;
+    int64_t abbrev_cols = edgeitems;
 
     int mpi_rank = A.mpiRank();
     MPI_Comm comm = A.mpiComm();
@@ -471,24 +469,24 @@ void print_work(
 
     // for entries in opposite triangle from A.uplo
     char opposite[ 80 ];
-    if (slate::is_complex<scalar_t>::value) {
-        snprintf(opposite, sizeof(opposite), " %*f   %*s ",
-                 (int)width, nan_, (int)width, "");
+    if (is_complex<scalar_t>::value) {
+        snprintf( opposite, sizeof(opposite), " %*f   %*s ",
+                  width, nan_, width, "" );
     }
     else {
-        snprintf(opposite, sizeof(opposite), " %*f",
-                 (int)width, nan_);
+        snprintf( opposite, sizeof(opposite), " %*f",
+                  width, nan_ );
     }
 
     // for tiles outside bandwidth
     char outside_bandwidth[ 80 ];
-    if (slate::is_complex<scalar_t>::value) {
-        snprintf(outside_bandwidth, sizeof(outside_bandwidth), " %*.0f   %*s ",
-                 (int)width, 0., (int)width, "");
+    if (is_complex<scalar_t>::value) {
+        snprintf( outside_bandwidth, sizeof(outside_bandwidth), " %*.0f   %*s ",
+                  width, 0., width, "" );
     }
     else {
-        snprintf(outside_bandwidth, sizeof(outside_bandwidth), " %*.0f",
-                 (int)width, 0.);
+        snprintf( outside_bandwidth, sizeof(outside_bandwidth), " %*.0f",
+                  width, 0. );
     }
 
     int64_t tile_row_step = 1;
@@ -509,9 +507,9 @@ void print_work(
         // gather block row to rank 0
         for (int64_t j = 0; j < A.nt(); j += tile_col_step) {
             // for verbose=2 only tile column j = 0 and j = nt-1
-            if ((A.uplo() == slate::Uplo::General && -klt <= j - i && j - i <= kut)
-                || (A.uplo() == slate::Uplo::Lower && i <= j + klt && j <= i)
-                || (A.uplo() == slate::Uplo::Upper && i >= j - kut && j >= i))
+            if ((A.uplo() == Uplo::General && -klt <= j - i && j - i <= kut)
+                || (A.uplo() == Uplo::Lower && i <= j + klt && j <= i)
+                || (A.uplo() == Uplo::Upper && i >= j - kut && j >= i))
             {
                 // inside bandwidth
                 send_recv_tile(A, i, j, mpi_rank, comm);
@@ -581,17 +579,17 @@ void print_work(
                             else
                                 break;
 
-                            if ((A.uplo() == slate::Uplo::General && -klt <= j - i && j - i <= kut)
-                                || (A.uplo() == slate::Uplo::Lower && i <= j + klt && j <= i)
-                                || (A.uplo() == slate::Uplo::Upper && i >= j - kut && j >= i))
+                            if ((A.uplo() == Uplo::General && -klt <= j - i && j - i <= kut)
+                                || (A.uplo() == Uplo::Lower && i <= j + klt && j <= i)
+                                || (A.uplo() == Uplo::Upper && i >= j - kut && j >= i))
                             {
                                 // inside bandwidth
                                 msg += tile_row_string(A, i, j, ti, opts, opposite, is_last_abbrev_cols);
                             }
                             else {
                                 for (int64_t tj = start_col; tj < max_cols; ++tj) {
-                                    if ((A.uplo() == slate::Uplo::Lower && j <= i)
-                                        || (A.uplo() == slate::Uplo::Upper && j >= i))
+                                    if ((A.uplo() == Uplo::Lower && j <= i)
+                                        || (A.uplo() == Uplo::Upper && j >= i))
                                     {
                                         msg += outside_bandwidth;
                                     }
@@ -612,9 +610,9 @@ void print_work(
                 int64_t row_step = (verbose == 3 && A.tileMb(i) > 1 ? A.tileMb(i) - 1 : 1);
                 for (int64_t ti = 0; ti < A.tileMb(i); ti += row_step) {
                     for (int64_t j = 0; j < A.nt(); ++j) {
-                        if ((A.uplo() == slate::Uplo::General && -klt <= j - i && j - i <= kut)
-                            || (A.uplo() == slate::Uplo::Lower && i <= j + klt && j <= i)
-                            || (A.uplo() == slate::Uplo::Upper && i >= j - kut && j >= i))
+                        if ((A.uplo() == Uplo::General && -klt <= j - i && j - i <= kut)
+                            || (A.uplo() == Uplo::Lower && i <= j + klt && j <= i)
+                            || (A.uplo() == Uplo::Upper && i >= j - kut && j >= i))
                         {
                             // inside bandwidth
                             msg += tile_row_string(A, i, j, ti, opts, opposite);
@@ -623,8 +621,8 @@ void print_work(
                             // for verbose=3 only j = 0 and j = tileNb-1
                             int64_t col_step = (verbose == 3 && A.tileNb(j) > 1 ? A.tileNb(j) - 1 : 1);
                             for (int64_t tj = 0; tj < A.tileNb(j); tj += col_step) {
-                                if ((A.uplo() == slate::Uplo::Lower && j <= i)
-                                    || (A.uplo() == slate::Uplo::Upper && j >= i))
+                                if ((A.uplo() == Uplo::Lower && j <= i)
+                                    || (A.uplo() == Uplo::Upper && j >= i))
                                 {
                                     msg += outside_bandwidth;
                                 }
@@ -671,15 +669,15 @@ void print_work(
 template <typename scalar_t>
 void print(
     const char* label,
-    slate::Matrix<scalar_t>& A,
-    slate::Options const& opts)
+    Matrix<scalar_t>& A,
+    Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
+    int verbose = get_option<int>( opts, Option::PrintVerbose, 4 );
     if (verbose == 0)
         return;
 
     if (A.mpiRank() == 0) {
-        std::string msg = std::string( "% " ) + label + ": slate::Matrix ";
+        std::string msg = std::string( "% " ) + label + ": Matrix ";
         msg += std::to_string( A.m() ) + "-by-" + std::to_string( A.n() ) + ", "
             +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
             +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
@@ -698,26 +696,26 @@ void print(
 template
 void print(
     const char* label,
-    slate::Matrix<float>& A,
-    slate::Options const& opts);
+    Matrix<float>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::Matrix<double>& A,
-    slate::Options const& opts);
+    Matrix<double>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::Matrix<std::complex<float>>& A,
-    slate::Options const& opts);
+    Matrix<std::complex<float>>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::Matrix<std::complex<double>>& A,
-    slate::Options const& opts);
+    Matrix<std::complex<double>>& A,
+    Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed band matrix.
@@ -729,15 +727,15 @@ void print(
 template <typename scalar_t>
 void print(
     const char* label,
-    slate::BandMatrix<scalar_t>& A,
-    slate::Options const& opts)
+    BandMatrix<scalar_t>& A,
+    Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
+    int verbose = get_option<int>( opts, Option::PrintVerbose, 4 );
     if (verbose == 0)
         return;
 
     if (A.mpiRank() == 0) {
-        std::string msg = "\n% slate::BandMatrix ";
+        std::string msg = "\n% BandMatrix ";
         msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  )
             + ", "
             +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
@@ -750,8 +748,8 @@ void print(
     }
 
     // todo: initially, assume fixed size, square tiles for simplicity
-    int64_t klt = slate::ceildiv(A.lowerBandwidth(), A.tileNb(0));
-    int64_t kut = slate::ceildiv(A.upperBandwidth(), A.tileNb(0));
+    int64_t klt = ceildiv( A.lowerBandwidth(), A.tileNb( 0 ) );
+    int64_t kut = ceildiv( A.upperBandwidth(), A.tileNb( 0 ) );
     print_work( label, A, klt, kut, opts );
 }
 
@@ -760,26 +758,26 @@ void print(
 template
 void print(
     const char* label,
-    slate::BandMatrix<float>& A,
-    slate::Options const& opts);
+    BandMatrix<float>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::BandMatrix<double>& A,
-    slate::Options const& opts);
+    BandMatrix<double>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::BandMatrix<std::complex<float>>& A,
-    slate::Options const& opts);
+    BandMatrix<std::complex<float>>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::BandMatrix<std::complex<double>>& A,
-    slate::Options const& opts);
+    BandMatrix<std::complex<double>>& A,
+    Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed BaseTriangular (triangular, symmetric, and
@@ -802,15 +800,15 @@ void print(
 template <typename scalar_t>
 void print(
     const char* label,
-    slate::BaseTriangularBandMatrix<scalar_t>& A,
-    slate::Options const& opts)
+    BaseTriangularBandMatrix<scalar_t>& A,
+    Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
+    int verbose = get_option<int>( opts, Option::PrintVerbose, 4 );
     if (verbose == 0)
         return;
 
     if (A.mpiRank() == 0) {
-        std::string msg = "\n% slate::BaseTriangularBandMatrix ";
+        std::string msg = "\n% BaseTriangularBandMatrix ";
         msg += std::to_string( A.m()  ) + "-by-" + std::to_string( A.n()  ) + ", "
             +  std::to_string( A.mt() ) + "-by-" + std::to_string( A.nt() )
             +  " tiles, tileSize " + std::to_string( A.tileMb(0) ) + "-by-"
@@ -821,9 +819,9 @@ void print(
         printf( "%s", msg.c_str() );
     }
 
-    int64_t kdt = slate::ceildiv(A.bandwidth(), A.tileNb(0));
+    int64_t kdt = ceildiv( A.bandwidth(), A.tileNb( 0 ) );
     int64_t klt, kut;
-    if (A.uplo() == slate::Uplo::Lower) {
+    if (A.uplo() == Uplo::Lower) {
         klt = kdt;
         kut = 0;
     }
@@ -839,26 +837,26 @@ void print(
 template
 void print(
     const char* label,
-    slate::BaseTriangularBandMatrix<float>& A,
-    slate::Options const& opts);
+    BaseTriangularBandMatrix<float>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::BaseTriangularBandMatrix<double>& A,
-    slate::Options const& opts);
+    BaseTriangularBandMatrix<double>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::BaseTriangularBandMatrix<std::complex<float>>& A,
-    slate::Options const& opts);
+    BaseTriangularBandMatrix<std::complex<float>>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::BaseTriangularBandMatrix<std::complex<double>>& A,
-    slate::Options const& opts);
+    BaseTriangularBandMatrix<std::complex<double>>& A,
+    Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed Hermitian matrix.
@@ -868,16 +866,16 @@ void print(
 template <typename scalar_t>
 void print(
     const char* label,
-    slate::HermitianMatrix<scalar_t>& A,
-    slate::Options const& opts)
+    HermitianMatrix<scalar_t>& A,
+    Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
+    int verbose = get_option<int>( opts, Option::PrintVerbose, 4 );
     if (verbose == 0)
         return;
 
     if (A.mpiRank() == 0) {
         printf( "\n"
-                "%% %s: slate::HermitianMatrix %lld-by-%lld, %lld-by-%lld tiles, "
+                "%% %s: HermitianMatrix %lld-by-%lld, %lld-by-%lld tiles, "
                 "tileSize %lld-by-%lld, uplo %c\n",
                 label,
                 llong( A.m() ), llong( A.n() ),
@@ -889,7 +887,7 @@ void print(
     snprintf( buf, sizeof(buf), "%s_", label );
 
     int64_t klt, kut;
-    if (A.uplo() == slate::Uplo::Lower) {
+    if (A.uplo() == Uplo::Lower) {
         klt = std::max ( A.mt(), A.nt() );
         kut = 0;
     }
@@ -900,7 +898,7 @@ void print(
 
     print_work( buf, A, klt, kut, opts );
     if (A.mpiRank() == 0) {
-        if (A.uplo() == slate::Uplo::Lower) {
+        if (A.uplo() == Uplo::Lower) {
             printf( "%s = tril( %s_ ) + tril( %s_, -1 )';\n\n",
                     label, label, label );
         }
@@ -916,26 +914,26 @@ void print(
 template
 void print(
     const char* label,
-    slate::HermitianMatrix<float>& A,
-    slate::Options const& opts);
+    HermitianMatrix<float>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::HermitianMatrix<double>& A,
-    slate::Options const& opts);
+    HermitianMatrix<double>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::HermitianMatrix<std::complex<float>>& A,
-    slate::Options const& opts);
+    HermitianMatrix<std::complex<float>>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::HermitianMatrix<std::complex<double>>& A,
-    slate::Options const& opts);
+    HermitianMatrix<std::complex<double>>& A,
+    Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed symmetric matrix.
@@ -944,16 +942,16 @@ void print(
 template <typename scalar_t>
 void print(
     const char* label,
-    slate::SymmetricMatrix<scalar_t>& A,
-    slate::Options const& opts)
+    SymmetricMatrix<scalar_t>& A,
+    Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
+    int verbose = get_option<int>( opts, Option::PrintVerbose, 4 );
     if (verbose == 0)
         return;
 
     if (A.mpiRank() == 0) {
         printf( "\n"
-                "%% %s: slate::SymmetricMatrix %lld-by-%lld, %lld-by-%lld tiles, "
+                "%% %s: SymmetricMatrix %lld-by-%lld, %lld-by-%lld tiles, "
                 "tileSize %lld-by-%lld, uplo %c\n",
                 label,
                 llong( A.m() ), llong( A.n() ),
@@ -963,7 +961,7 @@ void print(
     }
 
     int64_t klt, kut;
-    if (A.uplo() == slate::Uplo::Lower) {
+    if (A.uplo() == Uplo::Lower) {
         klt = std::max ( A.mt(), A.nt() );
         kut = 0;
     }
@@ -973,7 +971,7 @@ void print(
     }
     print_work( label, A, klt, kut, opts );
     if (A.mpiRank() == 0) {
-        if (A.uplo() == slate::Uplo::Lower) {
+        if (A.uplo() == Uplo::Lower) {
             printf( "%s = tril( %s_ ) + tril( %s_, -1 ).';\n\n",
                     label, label, label );
         }
@@ -989,26 +987,26 @@ void print(
 template
 void print(
     const char* label,
-    slate::SymmetricMatrix<float>& A,
-    slate::Options const& opts);
+    SymmetricMatrix<float>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::SymmetricMatrix<double>& A,
-    slate::Options const& opts);
+    SymmetricMatrix<double>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::SymmetricMatrix<std::complex<float>>& A,
-    slate::Options const& opts);
+    SymmetricMatrix<std::complex<float>>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::SymmetricMatrix<std::complex<double>>& A,
-    slate::Options const& opts);
+    SymmetricMatrix<std::complex<double>>& A,
+    Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed trapezoid matrix.
@@ -1018,16 +1016,16 @@ void print(
 template <typename scalar_t>
 void print(
     const char* label,
-    slate::TrapezoidMatrix<scalar_t>& A,
-    slate::Options const& opts)
+    TrapezoidMatrix<scalar_t>& A,
+    Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
+    int verbose = get_option<int>( opts, Option::PrintVerbose, 4 );
     if (verbose == 0)
         return;
 
     if (A.mpiRank() == 0) {
         printf( "\n"
-                "%% %s: slate::TrapezoidMatrix %lld-by-%lld, %lld-by-%lld tiles, "
+                "%% %s: TrapezoidMatrix %lld-by-%lld, %lld-by-%lld tiles, "
                 "tileSize %lld-by-%lld, uplo %c diag %c\n",
                 label,
                 llong( A.m() ), llong( A.n() ),
@@ -1039,7 +1037,7 @@ void print(
     snprintf( buf, sizeof(buf), "%s_", label );
 
     int64_t klt, kut;
-    if (A.uplo() == slate::Uplo::Lower) {
+    if (A.uplo() == Uplo::Lower) {
         klt = std::max ( A.mt(), A.nt() );
         kut = 0;
     }
@@ -1049,7 +1047,7 @@ void print(
     }
     print_work( buf, A, klt, kut, opts );
     if (A.mpiRank() == 0) {
-        if (A.uplo() == slate::Uplo::Lower) {
+        if (A.uplo() == Uplo::Lower) {
             printf( "%s = tril( %s_ );\n\n", label, label );
         }
         else {
@@ -1063,26 +1061,26 @@ void print(
 template
 void print(
     const char* label,
-    slate::TrapezoidMatrix<float>& A,
-    slate::Options const& opts);
+    TrapezoidMatrix<float>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::TrapezoidMatrix<double>& A,
-    slate::Options const& opts);
+    TrapezoidMatrix<double>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::TrapezoidMatrix<std::complex<float>>& A,
-    slate::Options const& opts);
+    TrapezoidMatrix<std::complex<float>>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::TrapezoidMatrix<std::complex<double>>& A,
-    slate::Options const& opts);
+    TrapezoidMatrix<std::complex<double>>& A,
+    Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Print a SLATE distributed triangular matrix.
@@ -1092,16 +1090,16 @@ void print(
 template <typename scalar_t>
 void print(
     const char* label,
-    slate::TriangularMatrix<scalar_t>& A,
-    slate::Options const& opts)
+    TriangularMatrix<scalar_t>& A,
+    Options const& opts)
 {
-    int64_t verbose = slate::get_option<int64_t>( opts, slate::Option::PrintVerbose, 4 );
+    int verbose = get_option<int>( opts, Option::PrintVerbose, 4 );
     if (verbose == 0)
         return;
 
     if (A.mpiRank() == 0) {
         printf( "\n"
-                "%% %s: slate::TriangularMatrix %lld-by-%lld, %lld-by-%lld tiles, "
+                "%% %s: TriangularMatrix %lld-by-%lld, %lld-by-%lld tiles, "
                 "tileSize %lld-by-%lld, uplo %c diag %c\n",
                 label,
                 llong( A.m() ), llong( A.n() ),
@@ -1113,7 +1111,7 @@ void print(
     snprintf( buf, sizeof(buf), "%s_", label );
 
     int64_t klt, kut;
-    if (A.uplo() == slate::Uplo::Lower) {
+    if (A.uplo() == Uplo::Lower) {
         klt = std::max ( A.mt(), A.nt() );
         kut = 0;
     }
@@ -1123,7 +1121,7 @@ void print(
     }
     print_work( buf, A, klt, kut, opts );
     if (A.mpiRank() == 0) {
-        if (A.uplo() == slate::Uplo::Lower) {
+        if (A.uplo() == Uplo::Lower) {
             printf( "%s = tril( %s_ );\n\n", label, label );
         }
         else {
@@ -1137,26 +1135,26 @@ void print(
 template
 void print(
     const char* label,
-    slate::TriangularMatrix<float>& A,
-    slate::Options const& opts);
+    TriangularMatrix<float>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::TriangularMatrix<double>& A,
-    slate::Options const& opts);
+    TriangularMatrix<double>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::TriangularMatrix<std::complex<float>>& A,
-    slate::Options const& opts);
+    TriangularMatrix<std::complex<float>>& A,
+    Options const& opts);
 
 template
 void print(
     const char* label,
-    slate::TriangularMatrix<std::complex<double>>& A,
-    slate::Options const& opts);
+    TriangularMatrix<std::complex<double>>& A,
+    Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Print a vector.
@@ -1167,13 +1165,13 @@ template <typename scalar_t>
 void print(
     const char* label,
     int64_t n, scalar_t const* x, int64_t incx,
-    slate::Options const& opts)
+    Options const& opts)
 {
     slate_assert( n >= 0 );
     slate_assert( incx != 0 );
 
-    int64_t width = slate::get_option<int64_t>( opts, slate::Option::PrintWidth, 10 );
-    int64_t precision = slate::get_option<int64_t>( opts, slate::Option::PrintPrecision, 4 );
+    int width     = get_option<int>( opts, Option::PrintWidth,     10 );
+    int precision = get_option<int>( opts, Option::PrintPrecision,  4 );
 
     width = std::max(width, precision + 6);
 
@@ -1207,25 +1205,25 @@ template
 void print(
     const char* label,
     int64_t n, float const* x, int64_t incx,
-    slate::Options const& opts);
+    Options const& opts);
 
 template
 void print(
     const char* label,
     int64_t n, double const* x, int64_t incx,
-    slate::Options const& opts);
+    Options const& opts);
 
 template
 void print(
     const char* label,
     int64_t n, std::complex<float> const* x, int64_t incx,
-    slate::Options const& opts);
+    Options const& opts);
 
 template
 void print(
     const char* label,
     int64_t n, std::complex<double> const* x, int64_t incx,
-    slate::Options const& opts);
+    Options const& opts);
 
 //------------------------------------------------------------------------------
 /// Print a vector.
@@ -1236,7 +1234,7 @@ template <typename scalar_type>
 void print(
     const char* label,
     std::vector<scalar_type> const& x,
-    slate::Options const& opts)
+    Options const& opts)
 {
     print( label, x.size(), x.data(), 1, opts );
 }
@@ -1247,36 +1245,36 @@ template
 void print(
     const char* label,
     std::vector<int> const& x,
-    slate::Options const& opts);
+    Options const& opts);
 
 template
 void print(
     const char* label,
     std::vector<int64_t> const& x,
-    slate::Options const& opts);
+    Options const& opts);
 
 template
 void print(
     const char* label,
     std::vector<float> const& x,
-    slate::Options const& opts);
+    Options const& opts);
 
 template
 void print(
     const char* label,
     std::vector<double> const& x,
-    slate::Options const& opts);
+    Options const& opts);
 
 template
 void print(
     const char* label,
     std::vector<std::complex<float>> const& x,
-    slate::Options const& opts);
+    Options const& opts);
 
 template
 void print(
     const char* label,
     std::vector<std::complex<double>> const& x,
-    slate::Options const& opts);
+    Options const& opts);
 
 } // namespace slate

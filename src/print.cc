@@ -102,8 +102,8 @@ int snprintf_value(
 
         l = snprintf_value( buf, buf_len, width, precision, im );
         len     += l;
-        buf     += len;
-        buf_len -= len;
+        buf     += l;
+        buf_len -= l;
 
         l = snprintf( buf, buf_len, "i" );
         len += l;

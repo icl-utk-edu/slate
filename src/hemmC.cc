@@ -8,8 +8,6 @@
 
 namespace slate {
 
-// impl namespace differentiates, e.g.,
-// internal::hemm from impl::hemm
 namespace impl {
 
 //------------------------------------------------------------------------------
@@ -22,9 +20,10 @@ namespace impl {
 /// - bcasts can get ahead of hemms by the value of lookahead.
 /// Note A, B, and C are passed by value, so we can transpose if needed
 /// (for side = right) without affecting caller.
-/// @ingroup hemm_impl
 ///
 /// ColMajor layout is assumed
+///
+/// @ingroup hemm_impl
 ///
 template <Target target, typename scalar_t>
 void hemmC(
@@ -35,7 +34,7 @@ void hemmC(
     Options const& opts)
 {
     // Due to the symmetry, each off diagonal tile is sent twice, once as part
-    // of A and once as art of A^T. In principle, this could be avoided by
+    // of A and once as part of A^T. In principle, this could be avoided by
     // sending each tile only once and retaining it until it is used twice.
     // This would, however, violate the upper bound on the size of communication
     // buffers.
@@ -77,7 +76,7 @@ void hemmC(
 
     int64_t lookahead = get_option<int64_t>( opts_local, Option::Lookahead, 1 );
 
-    // OpenMP needs pointer  types, but vectors are exception safe
+    // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> bcast_vector( A.nt() );
     std::vector<uint8_t>  gemm_vector( A.nt() );
     uint8_t* bcast = bcast_vector.data();
@@ -529,11 +528,12 @@ void hemmC(
 /// @ingroup hemm
 ///
 template <typename scalar_t>
-void hemmC( Side side,
-            scalar_t alpha, HermitianMatrix<scalar_t>& A,
-                            Matrix<scalar_t>& B,
-            scalar_t beta,  Matrix<scalar_t>& C,
-            Options const& opts)
+void hemmC(
+    Side side,
+    scalar_t alpha, HermitianMatrix<scalar_t>& A,
+                    Matrix<scalar_t>& B,
+    scalar_t beta,  Matrix<scalar_t>& C,
+    Options const& opts)
 {
     using internal::TargetType;
     Target target = get_option( opts, Option::Target, Target::HostTask );

@@ -23,6 +23,9 @@ namespace impl {
 /// - bcasts can get ahead of symms by the value of lookahead.
 /// Note A, B, and C are passed by value, so we can transpose if needed
 /// (for side = right) without affecting caller.
+///
+/// ColMajor layout is assumed
+///
 /// @ingroup symm_impl
 ///
 template <Target target, typename scalar_t>
@@ -41,7 +44,7 @@ void symm(
     // The same happens in the hemm routine.
     // See also the implementation remarks in the BaseMatrix::listBcast routine.
 
-    using BcastList = typename Matrix<scalar_t>::BcastList;
+    using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
     // Constants
@@ -60,10 +63,10 @@ void symm(
     }
 
     // B and C are mt-by-nt, A is mt-by-mt (assuming side = left)
-    assert(A.mt() == B.mt());
-    assert(A.nt() == B.mt());
-    assert(B.mt() == C.mt());
-    assert(B.nt() == C.nt());
+    assert( A.mt() == B.mt() );
+    assert( A.nt() == B.mt() );
+    assert( B.mt() == C.mt() );
+    assert( B.nt() == C.nt() );
 
     // Use only TileReleaseStrategy::Slate for hemm.
     // Internal hemm and gemm routines called here won't release
@@ -98,16 +101,18 @@ void symm(
             #pragma omp task depend(out:bcast[0])
             {
                 // broadcast A(i, 0) to ranks owning block row C(i, :)
-                BcastList bcast_list_A;
+                BcastListTag bcast_list_A;
                 for (int64_t i = 0; i < A.mt(); ++i)
-                    bcast_list_A.push_back({i, 0, {C.sub(i, i, 0, C.nt()-1)}});
-                A.template listBcast<target>(bcast_list_A, layout);
+                    bcast_list_A.push_back(
+                        {i, 0, {C.sub( i, i, 0, C.nt()-1 )}, i} );
+                A.template listBcastMT<target>( bcast_list_A, layout );
 
                 // broadcast B(0, j) to ranks owning block col C(:, j)
-                BcastList bcast_list_B;
+                BcastListTag bcast_list_B;
                 for (int64_t j = 0; j < B.nt(); ++j)
-                    bcast_list_B.push_back({0, j, {C.sub(0, C.mt()-1, j, j)}});
-                B.template listBcast<target>(bcast_list_B, layout);
+                    bcast_list_B.push_back(
+                        {0, j, {C.sub( 0, C.mt()-1, j, j )}, j} );
+                B.template listBcastMT<target>( bcast_list_B, layout );
             }
 
             // send next lookahead block cols of A and block rows of B
@@ -117,28 +122,28 @@ void symm(
                 {
                     // broadcast A(k, i) or A(i, k)
                     // to ranks owning block row C(i, :)
-                    BcastList bcast_list_A;
+                    BcastListTag bcast_list_A;
                     for (int64_t i = 0; i < k && i < A.mt(); ++i) {
                         bcast_list_A.push_back(
-                            {k, i, {C.sub(i, i, 0, C.nt()-1)}});
+                            {k, i, {C.sub( i, i, 0, C.nt()-1 )}, i} );
                     }
                     for (int64_t i = k; i < A.mt(); ++i) {
                         bcast_list_A.push_back(
-                            {i, k, {C.sub(i, i, 0, C.nt()-1)}});
+                            {i, k, {C.sub( i, i, 0, C.nt()-1 )}, i} );
                     }
-                    A.template listBcast<target>(bcast_list_A, layout);
+                    A.template listBcastMT<target>( bcast_list_A, layout );
 
                     // broadcast B(k, j) to ranks owning block col C(0:k, j)
-                    BcastList bcast_list_B;
+                    BcastListTag bcast_list_B;
                     for (int64_t j = 0; j < B.nt(); ++j) {
                         bcast_list_B.push_back(
-                            {k, j, {C.sub(0, C.mt()-1, j, j)}});
+                            {k, j, {C.sub( 0, C.mt()-1, j, j )}, j} );
                     }
-                    B.template listBcast<target>(bcast_list_B, layout);
+                    B.template listBcastMT<target>( bcast_list_B, layout );
                 }
             }
 
-            // multiply alpha A(:, 0) B(0, :), which is: (symm / gemm):
+            // multiply alpha A(:, 0) B(0, :), which is (symm / gemm):
             // C(0, :)      = alpha [ A(0, 0)      B(0, :) ] + beta C(0, :)
             // C(1:mt-1, :) = alpha [ A(1:mt-1, 0) B(0, :) ] + beta C(1:mt-1, :)
             #pragma omp task depend(in:bcast[0]) \
@@ -168,7 +173,7 @@ void symm(
                     Acol_0.releaseLocalWorkspace();
 
                     std::set<ij_tuple> tile_set;
-                    for (int64_t i = 0; i < A.mt(); ++i) {
+                    for (int64_t i = 1; i < A.mt(); ++i) {
                         if (! A.tileIsLocal( i, 0 ) ) {
                             for (int64_t j = 0; j < C.nt(); ++j) {
                                 if (C.tileIsLocal( i, j )) {
@@ -194,25 +199,28 @@ void symm(
                     {
                         // broadcast A(k+la, i) or A(i, k+la)
                         // to ranks owning block row C(i, :)
-                        BcastList bcast_list_A;
+                        BcastListTag bcast_list_A;
                         for (int64_t i = 0; i < k+lookahead; ++i) {
                             bcast_list_A.push_back(
-                                {k+lookahead, i, {C.sub(i, i, 0, C.nt()-1)}});
+                                {k+lookahead, i,
+                                    {C.sub( i, i, 0, C.nt()-1 )}, i} );
                         }
                         for (int64_t i = k+lookahead; i < A.mt(); ++i) {
                             bcast_list_A.push_back(
-                                {i, k+lookahead, {C.sub(i, i, 0, C.nt()-1)}});
+                                {i, k+lookahead,
+                                    {C.sub( i, i, 0, C.nt()-1 )}, i} );
                         }
-                        A.template listBcast<target>(bcast_list_A, layout);
+                        A.template listBcastMT<target>( bcast_list_A, layout );
 
                         // broadcast B(k+la, j) to ranks
                         // owning block col C(0:k+la, j)
-                        BcastList bcast_list_B;
+                        BcastListTag bcast_list_B;
                         for (int64_t j = 0; j < B.nt(); ++j) {
                             bcast_list_B.push_back(
-                                {k+lookahead, j, {C.sub(0, C.mt()-1, j, j)}});
+                                {k+lookahead, j,
+                                    {C.sub( 0, C.mt()-1, j, j )}, j} );
                         }
-                        B.template listBcast<target>(bcast_list_B, layout);
+                        B.template listBcastMT<target>( bcast_list_B, layout );
                     }
                 }
 
@@ -256,7 +264,7 @@ void symm(
                         Acol_k.releaseLocalWorkspace();
 
                         std::set<ij_tuple> tile_set;
-                        for (int64_t i = 0; i < A.mt(); ++i) {
+                        for (int64_t i = k+1; i < A.mt(); ++i) {
                             if (! A.tileIsLocal( i, k ) ) {
                                 for (int64_t j = 0; j < C.nt(); ++j) {
                                     if (C.tileIsLocal( i, j )) {
@@ -281,16 +289,18 @@ void symm(
             #pragma omp task depend(out:bcast[0])
             {
                 // broadcast A(i, 0) to ranks owning block row C(i, :)
-                BcastList bcast_list_A;
+                BcastListTag bcast_list_A;
                 for (int64_t i = 0; i < A.mt(); ++i)
-                    bcast_list_A.push_back({0, i, {C.sub(i, i, 0, C.nt()-1)}});
-                A.template listBcast<target>(bcast_list_A, layout);
+                    bcast_list_A.push_back(
+                        {0, i, {C.sub( i, i, 0, C.nt()-1 )}, i} );
+                A.template listBcastMT<target>( bcast_list_A, layout );
 
-                BcastList bcast_list_B;
+                BcastListTag bcast_list_B;
                 // broadcast B(0, j) to ranks owning block col C(:, j)
                 for (int64_t j = 0; j < B.nt(); ++j)
-                    bcast_list_B.push_back({0, j, {C.sub(0, C.mt()-1, j, j)}});
-                B.template listBcast<target>(bcast_list_B, layout);
+                    bcast_list_B.push_back(
+                        {0, j, {C.sub( 0, C.mt()-1, j, j )}, j} );
+                B.template listBcastMT<target>( bcast_list_B, layout );
             }
 
             // send next lookahead block cols of A and block rows of B
@@ -300,24 +310,24 @@ void symm(
                 {
                     // broadcast A(k, i) or A(i, k)
                     // to ranks owning block row C(i, :)
-                    BcastList bcast_list_A;
+                    BcastListTag bcast_list_A;
                     for (int64_t i = 0; i < k && i < A.mt(); ++i) {
                         bcast_list_A.push_back(
-                            {i, k, {C.sub(i, i, 0, C.nt()-1)}});
+                            {i, k, {C.sub( i, i, 0, C.nt()-1 )}, i} );
                     }
                     for (int64_t i = k; i < A.mt(); ++i) {
                         bcast_list_A.push_back(
-                            {k, i, {C.sub(i, i, 0, C.nt()-1)}});
+                            {k, i, {C.sub( i, i, 0, C.nt()-1 )}, i} );
                     }
-                    A.template listBcast<target>(bcast_list_A, layout);
+                    A.template listBcastMT<target>( bcast_list_A, layout );
 
                     // broadcast B(k, j) to ranks owning block col C(0:k, j)
-                    BcastList bcast_list_B;
+                    BcastListTag bcast_list_B;
                     for (int64_t j = 0; j < B.nt(); ++j) {
                         bcast_list_B.push_back(
-                            {k, j, {C.sub(0, C.mt()-1, j, j)}});
+                            {k, j, {C.sub( 0, C.mt()-1, j, j )}, j} );
                     }
-                    B.template listBcast<target>(bcast_list_B, layout);
+                    B.template listBcastMT<target>( bcast_list_B, layout );
                 }
             }
 
@@ -335,6 +345,9 @@ void symm(
                     beta,  C.sub( 0, 0, 0, C.nt()-1 ),
                     priority_0, opts_local );
 
+                A.releaseRemoteWorkspaceTile( 0, 0 );
+                A.releaseLocalWorkspaceTile( 0, 0 );
+
                 if (A.mt()-1 > 0) {
                     auto Arow_0 = A.sub( 0, 0, 1, A.mt()-1 );
                     internal::gemm<target>(
@@ -346,7 +359,7 @@ void symm(
                     Arow_0.releaseLocalWorkspace();
 
                     std::set<ij_tuple> tile_set;
-                    for (int64_t i = 0; i < A.mt(); ++i) {
+                    for (int64_t i = 1; i < A.mt(); ++i) {
                         for (int64_t j = 0; j < C.nt(); ++j) {
                             if (C.tileIsLocal( i, j ) && ! A.tileIsLocal( 0, i )) {
                                 tile_set.insert( {0, i} );
@@ -370,25 +383,28 @@ void symm(
                     {
                         // broadcast A(k+la, i) or A(i, k+la)
                         // to ranks owning block row C(i, :)
-                        BcastList bcast_list_A;
+                        BcastListTag bcast_list_A;
                         for (int64_t i = 0; i < k+lookahead; ++i) {
                             bcast_list_A.push_back(
-                                {i, k+lookahead, {C.sub(i, i, 0, C.nt()-1)}});
+                                {i, k+lookahead,
+                                    {C.sub( i, i, 0, C.nt()-1 )}, i} );
                         }
                         for (int64_t i = k+lookahead; i < A.mt(); ++i) {
                             bcast_list_A.push_back(
-                                {k+lookahead, i, {C.sub(i, i, 0, C.nt()-1)}});
+                                {k+lookahead, i,
+                                    {C.sub( i, i, 0, C.nt()-1 )}, i} );
                         }
-                        A.template listBcast<target>(bcast_list_A, layout);
+                        A.template listBcastMT<target>( bcast_list_A, layout );
 
                         // broadcast B(k+la, j) to ranks
                         // owning block col C(0:k+la, j)
-                        BcastList bcast_list_B;
+                        BcastListTag bcast_list_B;
                         for (int64_t j = 0; j < B.nt(); ++j) {
                             bcast_list_B.push_back(
-                                {k+lookahead, j, {C.sub(0, C.mt()-1, j, j)}});
+                                {k+lookahead, j,
+                                    {C.sub( 0, C.mt()-1, j, j )}, j} );
                         }
-                        B.template listBcast<target>(bcast_list_B, layout);
+                        B.template listBcastMT<target>( bcast_list_B, layout );
                     }
                 }
 
@@ -432,7 +448,7 @@ void symm(
                         Arow_k.releaseLocalWorkspace();
 
                         std::set<ij_tuple> tile_set;
-                        for (int64_t i = 0; i < A.mt(); ++i) {
+                        for (int64_t i = k+1; i < A.mt(); ++i) {
                             for (int64_t j = 0; j < C.nt(); ++j) {
                                 if (C.tileIsLocal( i, j ) && ! A.tileIsLocal( k, i )) {
                                     tile_set.insert( {k, i} );
@@ -447,11 +463,12 @@ void symm(
                 }
             }
         }
+
         #pragma omp taskwait
         C.tileUpdateAllOrigin();
     }
 
-    C.clearWorkspace();
+    C.releaseWorkspace();
 }
 
 } // namespace impl
@@ -511,11 +528,12 @@ void symm(
 /// @ingroup symm
 ///
 template <typename scalar_t>
-void symm(Side side,
-          scalar_t alpha, SymmetricMatrix<scalar_t>& A,
-                          Matrix<scalar_t>& B,
-          scalar_t beta,  Matrix<scalar_t>& C,
-          Options const& opts)
+void symm(
+    Side side,
+    scalar_t alpha, SymmetricMatrix<scalar_t>& A,
+                    Matrix<scalar_t>& B,
+    scalar_t beta,  Matrix<scalar_t>& C,
+    Options const& opts)
 {
     using internal::TargetType;
     Target target = get_option( opts, Option::Target, Target::HostTask );

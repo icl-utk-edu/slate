@@ -343,7 +343,6 @@ void test_gesvd_work(Params& params, bool run)
             slate::gemm( -one, U, VT, one, Acpy );
             params.error2() = slate::norm( slate::Norm::One, Acpy ) / (Anorm * n);
             params.okay() = params.okay() && (params.error2() <= tol);
-            print_matrix( "A-USVT", Acpy, params );
         }
     }
 }

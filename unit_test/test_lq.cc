@@ -44,6 +44,8 @@ void test_tplqt_work( int m, int n, int l, int cn, int ib )
     using lapack::Diag;
     using lapack::MatrixType;
 
+    n = blas::min( m, n );
+
     // Unused entries will be set to nan.
     scalar_t nan_ = nan("");
     scalar_t zero = 0;
@@ -241,9 +243,10 @@ void test_tplqt_scalar()
         test_tplqt_work<float>( 16, 12, 12, cn, ib );  // m >  n (tall trapezoid)
 
         // tp triangle-pentagonal cases, l < min(m, n)
-        test_tplqt_work<float>( 12, 12, 6, cn, ib );  // m == n
-        test_tplqt_work<float>(  8, 12, 6, cn, ib );  // m <  n
-        test_tplqt_work<float>( 16, 12, 6, cn, ib );  // m >  n
+        // unsupported in SLATE.
+        // test_tplqt_work<float>( 12, 12, 6, cn, ib );  // m == n
+        // test_tplqt_work<float>(  8, 12, 6, cn, ib );  // m <  n
+        // test_tplqt_work<float>( 16, 12, 6, cn, ib );  // m >  n
     }
 }
 

@@ -66,9 +66,9 @@ cmds = [
     'test_gecopy',
     'test_geset',
     'test_internal_blas',
-    #'test_lq', todo hanging on dopamine
+    'test_lq',
     'test_norm',
-    #'test_qr',  # todo: failing
+    'test_qr',
 ]
 
 # ------------------------------------------------------------------------------
@@ -89,6 +89,11 @@ def print_tee( *args ):
 # ------------------------------------------------------------------------------
 # cmd is a string: tester
 def run_test( cmd ):
+    # QR and LQ testers are really slow if GPU devices are present.
+    if (cmd in ('test_qr', 'test_lq')):
+        os.environ['CUDA_VISIBLE_DEVICES'] = ''
+        os.environ['ROCR_VISIBLE_DEVICES'] = ''
+
     print( '-' * 80 )
     cmd = opts.test +' ./' + cmd
     print_tee( cmd )

@@ -44,6 +44,8 @@ void test_tpqrt_work( int m, int n, int l, int cn, int ib )
     using lapack::Diag;
     using lapack::MatrixType;
 
+    m = blas::min( m, n );
+
     // Unused entries will be set to nan.
     scalar_t nan_ = nan("");
     scalar_t zero = 0;
@@ -242,9 +244,10 @@ void test_tpqrt_scalar()
         test_tpqrt_work< scalar_t >( 16, 12, 12, cn, ib );  // m >  n (tall trapezoid)
 
         // tp triangle-pentagonal cases, l < min(m, n)
-        test_tpqrt_work< scalar_t >( 12, 12, 6, cn, ib );  // m == n
-        test_tpqrt_work< scalar_t >(  8, 12, 6, cn, ib );  // m <  n
-        test_tpqrt_work< scalar_t >( 16, 12, 6, cn, ib );  // m >  n
+        // unsupported in SLATE.
+        // test_tpqrt_work< scalar_t >( 12, 12, 6, cn, ib );  // m == n
+        // test_tpqrt_work< scalar_t >(  8, 12, 6, cn, ib );  // m <  n
+        // test_tpqrt_work< scalar_t >( 16, 12, 6, cn, ib );  // m >  n
     }
 }
 

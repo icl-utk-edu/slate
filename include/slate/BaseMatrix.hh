@@ -3716,7 +3716,8 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
                     work_array_dev, bucket->second.second.data(),
                     batch_count, blas::MemcpyKind::HostToDevice, *queue);
 
-                device::transpose_batch(layout == Layout::ColMajor ? nb : mb,
+                device::transpose_batch(false,
+                                        layout == Layout::ColMajor ? nb : mb,
                                         layout == Layout::ColMajor ? mb : nb,
                                         array_dev, stride,
                                         work_array_dev, work_stride,

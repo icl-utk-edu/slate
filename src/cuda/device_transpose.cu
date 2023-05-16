@@ -139,6 +139,7 @@ static const int NY = 8;   ///< y dim of thread block size for transpose_func
 ///
 template <typename scalar_t, int NX>
 __device__ void transpose_func(
+    bool is_conj,
     int m, int n,
     const scalar_t *A,  int64_t lda,
           scalar_t *AT, int64_t ldat)
@@ -163,7 +164,7 @@ __device__ void transpose_func(
             #pragma unroll
             for (int j2=0; j2 < NB; j2 += NY) {
                 if (j + j2 < n) {
-                    sA[ty + j2][tx] = A[j2*lda];
+                    sA[ty + j2][tx] = conj(A[j2*lda]);
                 }
             }
         }
@@ -221,7 +222,7 @@ __global__ void transpose_kernel(
     const scalar_t *A,  int64_t lda,
           scalar_t *AT, int64_t ldat)
 {
-    transpose_func<scalar_t, NX>(m, n, A, lda, AT, ldat);
+    transpose_func<scalar_t, NX>(false, m, n, A, lda, AT, ldat);
 }
 
 //------------------------------------------------------------------------------
@@ -230,11 +231,12 @@ __global__ void transpose_kernel(
 ///
 template <typename scalar_t, int NX>
 __global__ void transpose_batch_kernel(
+    bool is_conj,
     int m, int n,
     scalar_t **dA_array,  int64_t lda,
     scalar_t **dAT_array, int64_t ldat)
 {
-    transpose_func<scalar_t, NX>(m, n, dA_array[blockIdx.x], lda, dAT_array[blockIdx.x], ldat);
+    transpose_func<scalar_t, NX>(is_conj, m, n, dA_array[blockIdx.x], lda, dAT_array[blockIdx.x], ldat);
 }
 
 //------------------------------------------------------------------------------
@@ -433,6 +435,7 @@ void transpose(
 ///
 template <typename scalar_t, int NX>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     scalar_t **dA_array,  int64_t lda,
     scalar_t **dAT_array, int64_t ldat,
@@ -452,10 +455,11 @@ void transpose_batch(
     assert(nt <= 65535);                // CUDA limitation
     assert(batch_count <= 2147483647);  // CUDA limitation, 2^31 - 1
 
+    printf("\n m %ld n %ld lda %ld ldat %ld mt %ld nt %ld batch_count %ld \n", m, n, lda, ldat, mt, nt, batch_count );
     dim3 grid( uint(batch_count), mt, nt );
     dim3 threads( NX, NY, 1 );
     transpose_batch_kernel<scalar_t, NX><<< grid, threads, 0, queue.stream() >>>
-        ( m, n, dA_array, lda, dAT_array, ldat );
+        ( is_conj, m, n, dA_array, lda, dAT_array, ldat );
 
     cudaError_t error = cudaGetLastError();
     slate_assert(error == cudaSuccess);
@@ -577,6 +581,7 @@ void transpose(
 // ----------------------------------------
 template<>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     float **dA_array,  int64_t lda,
     float **dAT_array, int64_t ldat,
@@ -584,6 +589,7 @@ void transpose_batch(
     blas::Queue& queue)
 {
     transpose_batch<float,32>(
+        is_conj,
         m, n,
         dA_array,  lda,
         dAT_array, ldat,
@@ -593,6 +599,7 @@ void transpose_batch(
 
 template<>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     double **dA_array,  int64_t lda,
     double **dAT_array, int64_t ldat,
@@ -600,6 +607,7 @@ void transpose_batch(
     blas::Queue& queue)
 {
     transpose_batch<double,32>(
+        is_conj,
         m, n,
         dA_array,  lda,
         dAT_array, ldat,
@@ -609,6 +617,7 @@ void transpose_batch(
 
 template<>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     cuFloatComplex **dA_array,  int64_t lda,
     cuFloatComplex **dAT_array, int64_t ldat,
@@ -616,6 +625,7 @@ void transpose_batch(
     blas::Queue& queue)
 {
     transpose_batch<cuFloatComplex,32>(
+        is_conj,
         m, n,
         dA_array,  lda,
         dAT_array, ldat,
@@ -625,6 +635,7 @@ void transpose_batch(
 
 template<>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     cuDoubleComplex **dA_array,  int64_t lda,
     cuDoubleComplex **dAT_array, int64_t ldat,
@@ -632,6 +643,7 @@ void transpose_batch(
     blas::Queue& queue)
 {
     transpose_batch<cuDoubleComplex,16>(
+        is_conj,
         m, n,
         dA_array,  lda,
         dAT_array, ldat,

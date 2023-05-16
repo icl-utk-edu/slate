@@ -20,6 +20,7 @@ namespace device {
 //
 template <typename x_scalar_t, typename y_scalar_t>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     x_scalar_t **dA_array,  int64_t lda,
     y_scalar_t **dAT_array, int64_t ldat,
@@ -339,6 +340,7 @@ void copy(internal::TargetType<Target::Devices>,
                     bool is_conj = (A.op() != B.op());
                     if (is_conj) {
                         device::transpose_batch(
+                                is_conj,
                                 nb[q], mb[q],
                                 a_array_dev, lda[q],
                                 b_array_dev, ldb[q],

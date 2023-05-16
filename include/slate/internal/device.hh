@@ -248,6 +248,7 @@ void transpose(
 
 template <typename scalar_t>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     scalar_t** dA_array,  int64_t lda,
     scalar_t** dAT_array, int64_t ldat,

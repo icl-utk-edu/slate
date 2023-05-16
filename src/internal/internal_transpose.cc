@@ -124,6 +124,7 @@ void transpose(
 //--------------------
 template <>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     std::complex<float>** Aarray, int64_t lda,
     std::complex<float>** ATarray, int64_t ldat,
@@ -131,12 +132,12 @@ void transpose_batch(
     blas::Queue& queue)
 {
 #if defined( BLAS_HAVE_CUBLAS )
-    transpose_batch(m, n,
+    transpose_batch(is_conj, m, n,
                     (cuFloatComplex**) Aarray, lda,
                     (cuFloatComplex**) ATarray, ldat, batch_count, queue);
 
 #elif defined( BLAS_HAVE_ROCBLAS )
-    transpose_batch(m, n,
+    transpose_batch(is_conj, m, n,
                     (hipFloatComplex**) Aarray, lda,
                     (hipFloatComplex**) ATarray, ldat, batch_count, queue);
 #endif
@@ -144,6 +145,7 @@ void transpose_batch(
 
 template <>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     std::complex<double>** Aarray, int64_t lda,
     std::complex<double>** ATarray, int64_t ldat,
@@ -151,12 +153,12 @@ void transpose_batch(
     blas::Queue& queue)
 {
 #if defined( BLAS_HAVE_CUBLAS )
-    transpose_batch(m, n,
+    transpose_batch(is_conj, m, n,
                     (cuDoubleComplex**) Aarray, lda,
                     (cuDoubleComplex**) ATarray, ldat, batch_count, queue);
 
 #elif defined( BLAS_HAVE_ROCBLAS )
-    transpose_batch(m, n,
+    transpose_batch(is_conj, m, n,
                     (hipDoubleComplex**) Aarray, lda,
                     (hipDoubleComplex**) ATarray, ldat, batch_count, queue);
 #endif
@@ -224,6 +226,7 @@ void transpose(
 //--------------------
 template <>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     float** Aarray, int64_t lda,
     float** ATarray, int64_t ldat,
@@ -234,6 +237,7 @@ void transpose_batch(
 
 template <>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     double** Aarray, int64_t lda,
     double** ATarray, int64_t ldat,

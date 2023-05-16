@@ -141,6 +141,8 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                                 j_dst = k_dst;
                             }
                             int dst = C.tileRank(i_dst, j_dst);
+                            // GetForWriting because it will be received in the later loop
+                            C.tileGetForWriting(i, j, LayoutConvert(layout));
                             C.tileSend(i, j, dst, tag);
                         }
                     }
@@ -188,18 +190,18 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                             shared( A, T, C ) \
                             firstprivate(i, j, layout, rank_ind, i1, j1, side, op)
                         {
-                        A.tileGetForReading(0, rank_ind, LayoutConvert(layout));
-                        T.tileGetForReading(0, rank_ind, LayoutConvert(layout));
-                        C.tileGetForWriting(i, j, LayoutConvert(layout));
+                            A.tileGetForReading(0, rank_ind, LayoutConvert(layout));
+                            T.tileGetForReading(0, rank_ind, LayoutConvert(layout));
+                            C.tileGetForWriting(i, j, LayoutConvert(layout));
 
-                        // Apply Q.
-                        tpmlqt(side, op, std::min(A.tileMb(0), A.tileNb(rank_ind)),
-                               A(0, rank_ind), T(0, rank_ind),
-                               C(i1, j1), C(i, j));
+                            // Apply Q.
+                            tpmlqt(side, op, std::min(A.tileMb(0), A.tileNb(rank_ind)),
+                                   A(0, rank_ind), T(0, rank_ind),
+                                   C(i1, j1), C(i, j));
 
-                        // todo: should tileRelease()?
-                        A.tileTick(0, rank_ind);
-                        T.tileTick(0, rank_ind);
+                            // todo: should tileRelease()?
+                            A.tileTick(0, rank_ind);
+                            T.tileTick(0, rank_ind);
                         }
                     }
                 }
@@ -228,6 +230,7 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                                 j_dst = k_dst;
                             }
                             int dst = C.tileRank(i_dst, j_dst);
+                            assert( (C.tileState( i, j, HostNum ) & MOSI::Modified) != 0 );
                             C.tileRecv(i, j, dst, layout, tag);
                         }
                     }

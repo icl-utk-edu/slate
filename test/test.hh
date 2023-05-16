@@ -47,11 +47,6 @@ public:
 
     Params();
 
-    // ----- test matrix parameters
-    MatrixParams matrix;
-    MatrixParams matrixB;
-    MatrixParams matrixC;
-
     // Field members are explicitly public.
     // Order here determines output order.
     // ----- test framework parameters
@@ -84,6 +79,7 @@ public:
     testsweeper::ParamEnum< slate::Target >         target;
 
     testsweeper::ParamEnum< slate::Method >         method_cholQR;
+    testsweeper::ParamEnum< slate::MethodEig >      method_eig;
     testsweeper::ParamEnum< slate::Method >         method_gels;
     testsweeper::ParamEnum< slate::Method >         method_gemm;
     testsweeper::ParamEnum< slate::Method >         method_hemm;
@@ -93,6 +89,12 @@ public:
     testsweeper::ParamEnum< slate::GridOrder >      grid_order;
     testsweeper::ParamEnum< slate::TileReleaseStrategy > tile_release_strategy;
     testsweeper::ParamEnum< slate::Dist >           dev_dist;
+
+    // ----- test matrix parameters
+    MatrixParams matrix;
+    MatrixParams matrixB;
+    MatrixParams matrixC;
+
     testsweeper::ParamEnum< slate::Layout >         layout;
     testsweeper::ParamEnum< lapack::Job >           jobz;   // heev
     testsweeper::ParamEnum< lapack::Job >           jobvl;  // geev
@@ -111,7 +113,6 @@ public:
     testsweeper::ParamEnum< slate::Direction >      direction;
     testsweeper::ParamEnum< slate::Equed >          equed;
     testsweeper::ParamEnum< lapack::StoreV >        storev;
-    testsweeper::ParamEnum< lapack::MatrixType >    matrixtype;
 
     testsweeper::ParamInt3   dim;  // m, n, k
     testsweeper::ParamInt    kd;
@@ -138,6 +139,7 @@ public:
     testsweeper::ParamChar   nonuniform_nb;
     testsweeper::ParamInt    debug;
     testsweeper::ParamDouble pivot_threshold;
+    testsweeper::ParamString deflate;
 
     // ----- output parameters
     testsweeper::ParamScientific value;
@@ -227,12 +229,19 @@ void test_trcondest (Params& params, bool run);
 
 // symmetric/Hermitian eigenvalues
 void test_heev   (Params& params, bool run);
-void test_he2hb  (Params& params, bool run);
-void test_hb2st  (Params& params, bool run);
 void test_sterf  (Params& params, bool run);
 void test_steqr2 (Params& params, bool run);
-void test_unmtr_he2hb(Params& params, bool run);
-void test_unmtr_hb2st(Params& params, bool run);
+void test_stedc  (Params& params, bool run);
+
+void test_stedc_deflate  (Params& params, bool run);
+void test_stedc_secular  (Params& params, bool run);
+void test_stedc_sort     (Params& params, bool run);
+void test_stedc_z_vector (Params& params, bool run);
+
+void test_he2hb       (Params& params, bool run);
+void test_hb2st       (Params& params, bool run);
+void test_unmtr_he2hb (Params& params, bool run);
+void test_unmtr_hb2st (Params& params, bool run);
 
 // generalized symmetric/Hermitian eigenvalues
 void test_hegv   (Params& params, bool run);
@@ -356,6 +365,28 @@ inline const char* target2str(slate::Target target)
         case slate::Target::HostBatch: return "batch";
         case slate::Target::Devices:   return "dev";
         case slate::Target::Host:      return "host";
+    }
+    return "?";
+}
+
+// -----------------------------------------------------------------------------
+inline slate::MethodEig str2methodEig(const char* method_eig)
+{
+    std::string method_eig_ = method_eig;
+    std::transform(method_eig_.begin(), method_eig_.end(), method_eig_.begin(), ::tolower);
+    if (method_eig_ == "q" || method_eig_ == "qr")
+        return slate::MethodEig::QR;
+    else if (method_eig_ == "d" || method_eig_ == "dc")
+        return slate::MethodEig::DC;
+    else
+        throw slate::Exception("unknown algorithm");
+}
+
+inline const char* methodEig2str(slate::MethodEig method_eig)
+{
+    switch (method_eig) {
+        case slate::MethodEig::QR:  return "qr";
+        case slate::MethodEig::DC:  return "dc";
     }
     return "?";
 }

@@ -252,7 +252,7 @@ void test_gemm_work(Params& params, bool run)
         // Check error, C*X - Y.
         real_t y_norm = slate::norm( norm, Y, opts );
         // Y = C * X - Y
-        slate::multiply( one, C, X, -one, Y );
+        slate::multiply( one, C, X, -one, Y, opts );
         // error = norm( Y ) / y_norm
         real_t error = slate::norm( norm, Y, opts )/y_norm;
         params.error() = error;

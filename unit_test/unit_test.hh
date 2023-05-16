@@ -10,6 +10,7 @@
 #include <stdexcept>
 #include <string>
 #include <memory> // unique_ptr
+#include <omp.h>
 
 // For type_name<>() to demangle on non-Microsoft platforms.
 #ifndef _MSC_VER
@@ -172,16 +173,16 @@ extern int g_pass;
 extern int g_fail;
 extern int g_skip;
 
-std::string output_test(const std::string str);
+std::string output_test( std::string const& str );
 
 /// Returns string for "pass".
 std::string output_pass();
 
 /// Returns string for "failed" and error message.
-std::string output_fail(AssertError& e);
+std::string output_fail( AssertError const& ex );
 
 /// Returns string for "skipped" and message.
-std::string output_skip(SkipException& e);
+std::string output_skip( SkipException const& ex );
 
 //------------------------------------------------------------------------------
 /// Runs a templated single test.
@@ -197,29 +198,32 @@ void run_test(test_tpl_function<scalar_t> func, const char* name)
 
     try {
         // run function
+        double time = omp_get_wtime();
         func();
-        printf( "%s", output_pass().c_str() );
+        time = omp_get_wtime() - time;
+        printf( "%s, %7.4f sec\n", output_pass().c_str(), time );
         ++g_pass;
     }
-    catch (SkipException& e) {
-        printf( "%s", output_skip(e).c_str() );
+    catch (SkipException const& ex) {
+        printf( "%s\n", output_skip( ex ).c_str() );
         --g_total;
         ++g_skip;
     }
-    catch (AssertError& e) {
-        printf( "%s", output_fail(e).c_str() );
+    catch (AssertError const& ex) {
+        printf( "%s\n", output_fail( ex ).c_str() );
         ++g_fail;
     }
-    catch (std::exception& e) {
-        AssertError err( "unexpected exception: " + std::string( e.what() ),
-                        __FILE__, __LINE__ );
-        printf( "%s", output_fail( err ).c_str() );
+    catch (std::exception const& ex) {
+        // Create new exception with error message.
+        AssertError ex2( "unexpected exception: " + std::string( ex.what() ),
+                         __FILE__, __LINE__ );
+        printf( "%s\n", output_fail( ex2 ).c_str() );
         ++g_fail;
     }
     catch (...) {
-        AssertError err( "unexpected exception: (unknown type)",
-                        __FILE__, __LINE__ );
-        printf( "%s", output_fail( err ).c_str() );
+        AssertError ex2( "unexpected exception: (unknown type)",
+                         __FILE__, __LINE__ );
+        printf( "%s\n", output_fail( ex2 ).c_str() );
         ++g_fail;
     }
 }

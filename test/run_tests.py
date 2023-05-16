@@ -41,6 +41,10 @@ group_test.add_argument( '-t', '--test', action='store',
     help='test command to run, e.g., --test "mpirun -np 4 ./test"; default "%(default)s"; see also --np',
     default='./tester' )
 group_test.add_argument( '--xml', help='generate report.xml for jenkins' )
+group_test.add_argument( '--dry-run', action='store_true', help='print commands, but do not execute them' )
+group_test.add_argument( '--start',   action='store', help='routine to start with, helpful for restarting', default='' )
+group_test.add_argument( '-x', '--exclude', action='append', help='routines to exclude; repeatable', default=[] )
+group_test.add_argument( '--timeout', action='store', help='timeout in seconds for each routine', type=float )
 
 group_size = parser.add_argument_group( 'matrix dimensions (default is medium)' )
 group_size.add_argument( '--quick',  action='store_true', help='run quick "sanity check" of few, small tests' )
@@ -124,10 +128,6 @@ group_opt.add_argument( '--np',     action='store', help='number of MPI processe
 group_opt.add_argument( '--grid',   action='store', help='use p-by-q MPI process grid', default='' )
 group_opt.add_argument( '--repeat', action='store', help='times to repeat each test', default='' )
 group_opt.add_argument( '--thresh', action='store', help='default=%(default)s', default='1,0.5')
-group_opt.add_argument( '--dry-run', action='store_true', help='print the commands that would be executed, but do not execute them.' )
-group_opt.add_argument( '-x', '--exclude', action='append', help='routines to exclude; repeatable', default=[] )
-group_opt.add_argument( '--timeout', action='store', help='timeout in seconds for each routine', type=float )
-group_opt.add_argument( '--tee',    action='store_true', help='controls writing to both stdout and stderr' )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -154,6 +154,8 @@ if (not (opts.square or opts.tall or opts.wide or opts.mnk)):
 if (opts.tests or not any( map( lambda c: opts.__dict__[ c ], categories ))):
     for c in categories:
         opts.__dict__[ c ] = True
+
+start_routine = opts.start
 
 # ------------------------------------------------------------------------------
 # parameters
@@ -379,7 +381,8 @@ if (opts.lu):
     [ 'getriOOP', gen + dtype + la + n ],
     #[ 'gerfs', gen + dtype + la + n + trans ],
     #[ 'geequ', gen + dtype + la + n ],
-    [ 'gesvMixed',  gen + dtype_double + la + n ],
+    [ 'gesv_mixed',   gen + dtype_double + la + n ],
+    [ 'gesv_mixed_gmres',  gen + dtype_double + la + n + ' --nrhs 1' ],
     ]
 
 # LU banded
@@ -401,7 +404,8 @@ if (opts.chol):
     [ 'potri', gen + dtype + la + n + uplo ],
     #[ 'porfs', gen + dtype + la + n + uplo ],
     #[ 'poequ', gen + dtype + la + n ],  # only diagonal elements (no uplo)
-    [ 'posvMixed',  gen + dtype_double + la + n + uplo ],
+    [ 'posv_mixed', gen + dtype_double + la + n + uplo ],
+    [ 'posv_mixed_gmres',  gen + dtype_double + la + n + uplo + ' --nrhs 1' ],
     [ 'trtri', gen + dtype + la + n + uplo + diag ],
     ]
 
@@ -493,11 +497,14 @@ if (opts.rq):
 
 # symmetric/Hermitian eigenvalues
 if (opts.syev):
-    cmds += [
-    # todo: uplo, jobz
-    [ 'heev',  gen + dtype + la + n ],
-    #[ 'ungtr', gen + dtype + la + n + uplo ],
+    # todo: uplo
+    if ('n' in jobz):
+        # Requires ref to check. Only QR.
+        cmds += [[ 'heev', gen + dtype + la + n + ' --jobz n --ref y --method-eig qr' ]]
+    if ('v' in jobz):
+        cmds += [[ 'heev', gen + dtype + la + n + ' --jobz v --method-eig qr,dc' ]]
 
+    cmds += [
     # todo uplo, nk
     [ 'unmtr_he2hb', gen + dtype_real    + side + trans    + n ],  # real does trans = N, T, C
     [ 'unmtr_he2hb', gen + dtype_complex + side + trans_nc + n ],  # complex does trans = N, C
@@ -509,6 +516,13 @@ if (opts.syev):
     # todo: uplo
     [ 'he2hb', gen_no_target + dtype + n ],
     [ 'hb2st', gen_no_target + dtype + n ],
+
+    [ 'stedc', gen + n ],
+    # Components of stedc; let's not test separately unless there's an issue.
+    [ 'stedc_deflate',  gen_no_target + ' --ref y' + n ],
+    [ 'stedc_secular',  gen_no_target + ' --ref y' + n ],
+    [ 'stedc_sort',     gen_no_target + ' --ref y' + n ],
+    [ 'stedc_z_vector', gen_no_target + ' --ref y' + n ],
 
     # sterf doesn't take origin, target, nb, uplo
     [ 'sterf',  grid + check + ref + tol + repeat + dtype + n ],
@@ -605,9 +619,10 @@ if (opts.aux):
     ]
 
 # ------------------------------------------------------------------------------
-# when output is redirected to file instead of TTY console,
-# print extra messages to stderr on TTY console.
-output_redirected = not sys.stdout.isatty()
+# When stdout is redirected to file instead of TTY console,
+# and  stderr is still going to a TTY console,
+# print extra summary messages to stderr.
+output_redirected = sys.stderr.isatty() and not sys.stdout.isatty()
 
 # ------------------------------------------------------------------------------
 # if output is redirected, prints to both stderr and stdout;
@@ -615,7 +630,7 @@ output_redirected = not sys.stdout.isatty()
 def print_tee( *args ):
     global output_redirected
     print( *args )
-    if (output_redirected and opts.tee):
+    if (output_redirected):
         print( *args, file=sys.stderr )
 # end
 
@@ -678,6 +693,10 @@ def run_test( cmd ):
 
 # ------------------------------------------------------------------------------
 # run each test
+
+start = time.time()
+print_tee( time.ctime() )
+
 failed_tests = []
 passed_tests = []
 ntests = len(opts.tests)
@@ -686,6 +705,11 @@ run_all = (ntests == 0)
 seen = set()
 for cmd in cmds:
     if ((run_all or cmd[0] in opts.tests) and cmd[0] not in opts.exclude):
+        if (start_routine and cmd[0] != start_routine):
+            print_tee( 'skipping', cmd[0] )
+            continue
+        start_routine = None
+
         seen.add( cmd[0] )
         (err, output) = run_test( cmd )
         if (err):
@@ -736,5 +760,9 @@ if opts.xml:
     tree = ET.ElementTree(root)
     tree.write( opts.xml )
 # end
+
+elapsed = time.time() - start
+print_tee( 'Elapsed %.2f sec' % elapsed )
+print_tee( time.ctime() )
 
 exit( nfailed )

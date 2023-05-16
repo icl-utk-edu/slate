@@ -114,6 +114,7 @@ void ttlqt(internal::TargetType<Target::HostTask>,
 
                 // Factor tiles, which eliminates local tile A(j, 0).
                 T.tileInsert(0, j);
+                T( 0, j ).set( 0 );
                 int64_t l = std::min(A.tileMb(0), A.tileNb(j));
                 tplqt(l, A(0, j_src), A(0, j), T(0, j));
 

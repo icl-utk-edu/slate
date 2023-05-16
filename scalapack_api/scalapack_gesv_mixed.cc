@@ -15,7 +15,7 @@ extern "C" void Cblacs_gridinfo(int context, int* np_row, int* np_col, int*  my_
 
 // Type generic function calls the SLATE routine
 template< typename scalar_t >
-void slate_pgesvMixed(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* b, int ib, int jb, int* descb, scalar_t* x, int ix, int jx, int* descx, int* iter, int* info);
+void slate_pgesv_mixed(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* b, int ib, int jb, int* descb, scalar_t* x, int ix, int jx, int* descx, int* iter, int* info);
 
 // -----------------------------------------------------------------------------
 // C interfaces (FORTRAN_UPPER, FORTRAN_LOWER, FORTRAN_UNDERSCORE)
@@ -25,39 +25,39 @@ void slate_pgesvMixed(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, 
 
 extern "C" void PDSGESV(int* n, int* nrhs, double* a, int* ia, int* ja, int* desca, int* ipiv, double* b, int* ib, int* jb, int* descb, double* x, int* ix, int* jx, int* descx, int* iter, int* info)
 {
-    slate_pgesvMixed(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, x, *ix, *jx, descx, iter, info);
+    slate_pgesv_mixed(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, x, *ix, *jx, descx, iter, info);
 }
 
 extern "C" void pdsgesv(int* n, int* nrhs, double* a, int* ia, int* ja, int* desca, int* ipiv, double* b, int* ib, int* jb, int* descb, double* x, int* ix, int* jx, int* descx, int* iter, int* info)
 {
-    slate_pgesvMixed(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, x, *ix, *jx, descx, iter, info);
+    slate_pgesv_mixed(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, x, *ix, *jx, descx, iter, info);
 }
 
 extern "C" void pdsgesv_(int* n, int* nrhs, double* a, int* ia, int* ja, int* desca, int* ipiv, double* b, int* ib, int* jb, int* descb, double* x, int* ix, int* jx, int* descx, int* iter, int* info)
 {
-    slate_pgesvMixed(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, x, *ix, *jx, descx, iter, info);
+    slate_pgesv_mixed(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, x, *ix, *jx, descx, iter, info);
 }
 
 // -----------------------------------------------------------------------------
 
 extern "C" void PZCGESV(int* n, int* nrhs, std::complex<double>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<double>* b, int* ib, int* jb, int* descb, std::complex<double>* x, int* ix, int* jx, int* descx, int* iter, int* info)
 {
-    slate_pgesvMixed(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, x, *ix, *jx, descx, iter, info);
+    slate_pgesv_mixed(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, x, *ix, *jx, descx, iter, info);
 }
 
 extern "C" void pzcgesv(int* n, int* nrhs, std::complex<double>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<double>* b, int* ib, int* jb, int* descb, std::complex<double>* x, int* ix, int* jx, int* descx, int* iter, int* info)
 {
-    slate_pgesvMixed(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, x, *ix, *jx, descx, iter, info);
+    slate_pgesv_mixed(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, x, *ix, *jx, descx, iter, info);
 }
 
 extern "C" void pzcgesv_(int* n, int* nrhs, std::complex<double>* a, int* ia, int* ja, int* desca, int* ipiv, std::complex<double>* b, int* ib, int* jb, int* descb, std::complex<double>* x, int* ix, int* jx, int* descx, int* iter, int* info)
 {
-    slate_pgesvMixed(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, x, *ix, *jx, descx, iter, info);
+    slate_pgesv_mixed(*n, *nrhs, a, *ia, *ja, desca, ipiv, b, *ib, *jb, descb, x, *ix, *jx, descx, iter, info);
 }
 
 // -----------------------------------------------------------------------------
 template< typename scalar_t >
-void slate_pgesvMixed(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* b, int ib, int jb, int* descb, scalar_t* x, int ix, int jx, int* descx, int* iter, int* info)
+void slate_pgesv_mixed(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, int* ipiv, scalar_t* b, int ib, int jb, int* descb, scalar_t* x, int ix, int jx, int* descx, int* iter, int* info)
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -92,15 +92,16 @@ void slate_pgesvMixed(int n, int nrhs, scalar_t* a, int ia, int ja, int* desca, 
     X = slate_scalapack_submatrix(Xm, Xn, X, ix, jx, descx);
 
     if (verbose && myprow == 0 && mypcol == 0)
-        logprintf("%s\n", "gesvMixed");
+        logprintf("%s\n", "gesv_mixed");
 
     if (std::is_same<real_t, double>::value) {
-        slate::gesvMixed(A, pivots, B, X, *iter, {
-                {slate::Option::Lookahead, lookahead},
-                {slate::Option::Target, target},
-                {slate::Option::MaxPanelThreads, panel_threads},
-                {slate::Option::InnerBlocking, inner_blocking}
-            });
+        slate::gesv_mixed(
+            A, pivots, B, X, *iter, {
+            {slate::Option::Lookahead, lookahead},
+            {slate::Option::Target, target},
+            {slate::Option::MaxPanelThreads, panel_threads},
+            {slate::Option::InnerBlocking, inner_blocking}
+        });
     }
 
     // Extract pivots from SLATE's global Pivots structure into ScaLAPACK local ipiv array

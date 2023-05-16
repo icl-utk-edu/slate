@@ -129,12 +129,12 @@ void gemmC(
             auto B_rowblock = B.sub(0, 0, 0, B.nt()-1);
 
             // Erase remote tiles on all devices including host
-            A_colblock.eraseRemoteWorkspace();
-            B_rowblock.eraseRemoteWorkspace();
+            A_colblock.releaseRemoteWorkspace();
+            B_rowblock.releaseRemoteWorkspace();
 
             // Erase local workspace on devices.
-            A_colblock.eraseLocalWorkspace();
-            B_rowblock.eraseLocalWorkspace();
+            A_colblock.releaseLocalWorkspace();
+            B_rowblock.releaseLocalWorkspace();
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -178,12 +178,12 @@ void gemmC(
                 auto B_rowblock = B.sub(k, k, 0, B.nt()-1);
 
                 // Erase remote tiles on all devices including host
-                A_colblock.eraseRemoteWorkspace();
-                B_rowblock.eraseRemoteWorkspace();
+                A_colblock.releaseRemoteWorkspace();
+                B_rowblock.releaseRemoteWorkspace();
 
                 // Erase local workspace on devices.
-                A_colblock.eraseLocalWorkspace();
-                B_rowblock.eraseLocalWorkspace();
+                A_colblock.releaseLocalWorkspace();
+                B_rowblock.releaseLocalWorkspace();
             }
         }
         #pragma omp taskwait

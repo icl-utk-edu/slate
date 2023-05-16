@@ -17,7 +17,7 @@ namespace slate {
 ///
 /// ATTENTION: only host computation supported for now
 ///
-/// @ingroup svd_computational
+/// @ingroup heev_computational
 ///
 template <typename scalar_t>
 void sterf(

@@ -30,9 +30,11 @@ void ge2tb(
 {
     using BcastList = typename Matrix<scalar_t>::BcastList;
     using blas::real;
+    using device_info_t = lapack::device_info_int;
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const int queue_0 = 0;
 
     // Options
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
@@ -54,6 +56,7 @@ void ge2tb(
     // and TVreduce have fixed, rectangular ib-by-nb tiles.
     // Otherwise, edge tiles are the wrong size: mb-by-nb instead of nb-by-mb.
     int64_t nb = A.tileNb(0);
+    int64_t mb = A.tileMb(0);
     TV.clear();
     TV.push_back(A.emptyLike(nb, nb));
     TV.push_back(A.emptyLike(ib, nb));
@@ -63,6 +66,14 @@ void ge2tb(
 
     // workspace
     auto W = A.emptyLike();
+
+    int64_t num_devices  = A.num_devices();
+    int     panel_device = -1;
+    size_t  work_size    = 0;
+    std::vector< scalar_t* > dwork_array( num_devices, nullptr );
+
+    int     VTpanel_device = -1;
+    std::vector< scalar_t* > VTdwork_array( num_devices, nullptr );
 
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -74,6 +85,83 @@ void ge2tb(
         // thus limiting the matrix size that can be processed
         // For now, allocate workspace tiles 1-by-1.
         //W.reserveDeviceWorkspace();
+
+        // Find largest panel size and device for copying to
+        // contiguous memory within internal geqrf routine
+        int64_t mlocal = 0;
+        int64_t first_panel_seen = -1;
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            for (int64_t i = j; i < A.mt(); ++i) {
+                if (A.tileIsLocal(i, j)) {
+                    if (first_panel_seen < 0) {
+                        first_panel_seen = j;
+                    }
+                    if (first_panel_seen == j) {
+                        if (panel_device < 0) {
+                            panel_device = A.tileDevice(i, j);
+                        }
+                        mlocal += A.tileMb(i);
+                        // Asserting 1-D distribution for device
+                        assert( panel_device == A.tileDevice(i, j) );
+                    }
+                }
+            }
+            if (first_panel_seen >= 0) {
+                break;
+            }
+        }
+
+        // Find largest panel size and device for copying to
+        // contiguous memory within internal geqrf routine to factorize VT_panel
+        int64_t nlocal = 0;
+        int64_t first_VTpanel_seen = -1;
+        for (int64_t i = 0; i < A.mt(); ++i) {
+            for (int64_t j = i+1; j < A.nt(); ++j) {
+                if (A.tileIsLocal(i, j)) {
+                    if (first_VTpanel_seen < 0) {
+                        first_VTpanel_seen = i;
+                    }
+                    if (first_VTpanel_seen == i) {
+                        if (VTpanel_device < 0) {
+                            VTpanel_device = A.tileDevice(i, j);
+                        }
+                        nlocal += A.tileNb(j);
+                        // Asserting 1-D distribution for device
+                        //assert( VTpanel_device == A.tileDevice(i, j) );
+                    }
+                }
+            }
+            if (first_VTpanel_seen >= 0) {
+                break;
+            }
+        }
+
+        // Allocate memory to factorize V and VT
+        if (panel_device >= 0 || VTpanel_device >=0) {
+
+            lapack::Queue* queue = A.compute_queue( panel_device, queue_0 );
+
+            // Find the max needed allocation
+            int64_t mlocal_max = std::max(nlocal, mlocal);
+            int64_t nb_max = std::max(nb, mb);
+            size_t  size_tau = (size_t) std::min( mlocal_max, nb_max );
+            size_t  size_A   = (size_t) blas::max( 1, mlocal_max ) * nb_max;
+            size_t  hsize, dsize;
+
+            // Find size of the workspace needed
+            lapack::geqrf_work_size_bytes( mlocal_max, nb_max, dwork_array[0], mlocal_max,
+                                           &dsize, &hsize, *queue );
+
+            // Size of dA, dtau, dwork and dinfo
+            work_size = size_A + size_tau + ceildiv(dsize, sizeof(scalar_t))
+                        + ceildiv(sizeof(device_info_t), sizeof(scalar_t));
+
+            for (int64_t dev = 0; dev < num_devices; ++dev) {
+                blas::Queue* dev_queue = A.compute_queue( dev, queue_0 );
+                dwork_array[dev] =
+                  blas::device_malloc<scalar_t>( work_size, *dev_queue );
+            }
+        }
     }
 
     // Workspace for transposed panels needs one column of tiles.
@@ -119,9 +207,10 @@ void ge2tb(
             //--------------------
             // QR of U panel
             // local panel factorization
-            internal::geqrf<Target::HostTask>(
+            internal::geqrf<target>(
                             std::move(U_panel),
                             std::move(TUl_panel),
+                            dwork_array, work_size,
                             ib, max_panel_threads);
 
             // triangle-triangle reductions
@@ -247,9 +336,10 @@ void ge2tb(
                 }
 
                 // local panel factorization
-                internal::geqrf<Target::HostTask>(
+                internal::geqrf<target>(
                                 std::move(VT_panel),
                                 std::move(TVlT_panel),
+                                dwork_array, work_size,
                                 ib, max_panel_threads);
 
                 // Find first local tile, which is triangular factor
@@ -361,6 +451,18 @@ void ge2tb(
     }
 
     A.releaseWorkspace();
+
+    if (target == Target::Devices) {
+        for (int64_t dev = 0; dev < num_devices; ++dev) {
+            blas::Queue* queue = A.compute_queue( dev, queue_0 );
+
+            blas::device_free( dwork_array[dev], *queue );
+            dwork_array[dev] = nullptr;
+
+            blas::device_free( VTdwork_array[dev], *queue );
+            VTdwork_array[dev] = nullptr;
+        }
+    }
 }
 
 } // namespace impl

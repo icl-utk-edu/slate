@@ -13,6 +13,7 @@
 #include "test.hh"
 #include "slate/internal/mpi.hh"
 #include "slate/internal/openmp.hh"
+#include "matrix_generator.hh"
 
 // -----------------------------------------------------------------------------
 using testsweeper::ParamType;
@@ -110,7 +111,8 @@ std::vector< testsweeper::routines_t > routines = {
     { "gesv",               test_gesv,         Section::gesv },
     { "gesv_nopiv",         test_gesv,         Section::gesv },
     { "gesv_tntpiv",        test_gesv,         Section::gesv },
-    { "gesvMixed",          test_gesv,         Section::gesv },
+    { "gesv_mixed",         test_gesv,         Section::gesv },
+    { "gesv_mixed_gmres",   test_gesv,         Section::gesv },
     { "gbsv",               test_gbsv,         Section::gesv },
     { "",                   nullptr,           Section::newline },
 
@@ -137,7 +139,8 @@ std::vector< testsweeper::routines_t > routines = {
     // -----
     // Cholesky
     { "posv",               test_posv,         Section::posv },
-    { "posvMixed",          test_posv,         Section::posv },
+    { "posv_mixed",         test_posv,         Section::posv },
+    { "posv_mixed_gmres",   test_posv,         Section::posv },
     { "pbsv",               test_pbsv,         Section::posv },
     { "",                   nullptr,           Section::newline },
 
@@ -207,6 +210,13 @@ std::vector< testsweeper::routines_t > routines = {
     { "sterf",              test_sterf,        Section::heev },
     { "steqr2",             test_steqr2,       Section::heev },
     { "",                   nullptr,           Section::newline },
+
+    { "stedc",              test_stedc,          Section::heev },
+    { "stedc_deflate",      test_stedc_deflate,  Section::heev },
+    { "stedc_secular",      test_stedc_secular,  Section::heev },
+    { "stedc_sort",         test_stedc_sort,     Section::heev },
+    { "stedc_z_vector",     test_stedc_z_vector, Section::heev },
+    { "",                   nullptr,             Section::newline },
 
     { "he2hb",              test_he2hb,        Section::heev },
     { "unmtr_he2hb",        test_unmtr_he2hb,  Section::heev },
@@ -289,9 +299,6 @@ std::vector< testsweeper::routines_t > routines = {
 
 Params::Params():
     ParamsBase(),
-    matrix(),
-    matrixB(),
-    matrixC(),
 
     // w = width
     // p = precision
@@ -332,14 +339,15 @@ Params::Params():
     origin    ("origin",  6,    ParamType::List, slate::Origin::Host,     str2origin,   origin2str,   "origin: h=Host, s=ScaLAPACK, d=Devices"),
     target    ("target",  6,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNest, b=HostBatch, d=Devices"),
 
-    method_cholQR ("method-cholQR", 6, ParamType::List, 0, str2methodCholQR, methodCholQR2str, "method-cholQR: auto=auto, herkC, gemmA, gemmC"),
-    method_gels   ("method-gels",   6, ParamType::List, 0, str2methodGels,   methodGels2str,   "method-gels: auto=auto, qr, cholqr"),
-    method_gemm   ("method-gemm",   4, ParamType::List, 0, str2methodGemm,   methodGemm2str,   "method-gemm: auto=auto, A=gemmA, C=gemmC"),
-    method_hemm   ("method-hemm",   4, ParamType::List, 0, str2methodHemm,   methodHemm2str,   "method-hemm: auto=auto, A=hemmA, C=hemmC"),
-    method_lu     ("method-lu",     5, ParamType::List, slate::MethodLU::PartialPiv, str2methodLU, methodLU2str, "method-lu: PartialPiv, CALU, NoPiv"),
-    method_trsm   ("method-trsm",   4, ParamType::List, 0, str2methodTrsm,   methodTrsm2str,   "method-trsm: auto=auto, A=trsmA, B=trsmB"),
+    method_cholQR ("cholQR", 6, ParamType::List, 0, str2methodCholQR, methodCholQR2str, "auto=auto, herkC, gemmA, gemmC"),
+    method_eig    ("eig",    3, ParamType::List, slate::MethodEig::QR, str2methodEig, methodEig2str, "q=QR iteration, d=Divide and conquer"),
+    method_gels   ("gels",   6, ParamType::List, 0, str2methodGels,   methodGels2str,   "auto=auto, qr, cholqr"),
+    method_gemm   ("gemm",   4, ParamType::List, 0, str2methodGemm,   methodGemm2str,   "auto=auto, A=gemmA, C=gemmC"),
+    method_hemm   ("hemm",   4, ParamType::List, 0, str2methodHemm,   methodHemm2str,   "auto=auto, A=hemmA, C=hemmC"),
+    method_lu     ("lu",     5, ParamType::List, slate::MethodLU::PartialPiv, str2methodLU, methodLU2str, "PartialPiv, CALU, NoPiv"),
+    method_trsm   ("trsm",   4, ParamType::List, 0, str2methodTrsm,   methodTrsm2str,   "auto=auto, A=trsmA, B=trsmB"),
 
-    grid_order("grid-order", 3, ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) MPI grid order: c=Col, r=Row"),
+    grid_order("go",      3, ParamType::List, slate::GridOrder::Col,   str2grid_order, grid_order2str, "(go) MPI grid order: c=Col, r=Row"),
     tile_release_strategy ("trs", 3, ParamType::List, slate::TileReleaseStrategy::All, str2tile_release_strategy,   tile_release_strategy2str,   "tile release strategy: n=none, i=only internal routines, s=only top-level routines in slate namespace, a=all routines"),
     dev_dist  ("dev-dist",9,    ParamType::List, slate::Dist::Col,        str2dist,     dist2str,     "matrix tiles distribution across local devices (one-dimensional block-cyclic): col=column, row=row"),
 
@@ -363,10 +371,6 @@ Params::Params():
     equed     ("equed",   5,    ParamType::List, slate::Equed::Both, lapack::char2equed, lapack::equed2char, lapack::equed2str, "row & col scaling (equilibration): b=both, r=row, c=col, n=none"),
     storev    ("storev", 10,    ParamType::List, lapack::StoreV::Columnwise, lapack::char2storev, lapack::storev2char, lapack::storev2str, "store vectors: c=columnwise, r=rowwise"),
 
-    matrixtype( "matrixtype", 10, ParamType::List, lapack::MatrixType::General,
-                lapack::char2matrixtype, lapack::matrixtype2char, lapack::matrixtype2str,
-                "matrix type: g=general, l=lower, u=upper, h=Hessenberg, z=band-general, b=band-lower, q=band-upper" ),
-
     //         name,      w, p, type,        default,   min,     max, help
     dim       ("dim",     6,    ParamType::List,          0, 1000000, "m x n x k dimensions"),
     kd        ("kd",      6,    ParamType::List,  10,     0, 1000000, "bandwidth"),
@@ -387,9 +391,8 @@ Params::Params():
     nb        ("nb",      4,    ParamType::List, 384,     0, 1000000, "block size"),
     ib        ("ib",      2,    ParamType::List, 32,      0, 1000000, "inner blocking"),
     grid      ("grid",    3,    ParamType::List, "1x1",   0, 1000000, "MPI grid p x q dimensions"),
-    lookahead ("lookahead", 2,  ParamType::List, 1,       0, 1000000, "(la) number of lookahead panels"),
-    panel_threads("panel-threads",
-                          2,    ParamType::List, std::max( omp_get_max_threads() / 2, 1 ),
+    lookahead ("la",      2,    ParamType::List, 1,       0, 1000000, "(la) number of lookahead panels"),
+    panel_threads("pt",   2,    ParamType::List, std::max( omp_get_max_threads() / 2, 1 ),
                                                           0, 1000000, "(pt) max number of threads used in panel; default omp_num_threads / 2"),
     align     ("align",   5,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
     nonuniform_nb("nonuniform_nb",
@@ -398,6 +401,9 @@ Params::Params():
                "given rank waits for debugger (gdb/lldb) to attach"),
     pivot_threshold(
                "thresh",  6, 2, ParamType::List, 1.0,   0.0,     1.0, "threshold for pivoting a remote row"),
+    deflate   ("deflate", 12,   ParamType::List, "",
+               "multiple space-separated (index or /-separated index pairs)"
+               " to deflate, e.g., --deflate '1 2/4 3/5'"),
 
     // ----- output parameters
     // min, max are ignored
@@ -439,6 +445,7 @@ Params::Params():
 
     // Change name for the methods to use less space in the stdout
     method_cholQR.name("cholQR", "method-cholQR");
+    method_eig.name("eig", "method-eig");
     method_gels.name("gels", "method-gels");
     method_gemm.name("gemm", "method-gemm");
     method_hemm.name("hemm", "method-hemm");
@@ -450,12 +457,14 @@ Params::Params():
     matrixB.cond.name( "condB" );
     matrixB.condD.name( "condD_B" );
     matrixB.seed.name( "seedB" );
+    matrixB.label.name( "B" );
 
     // change names of matrix C's params
     matrixC.kind.name( "matrixC" );
     matrixC.cond.name( "condC" );
     matrixC.condD.name( "condD_C" );
     matrixC.seed.name( "seedC" );
+    matrixC.label.name( "C" );
 
     // mark standard set of output fields as used
     okay();
@@ -479,6 +488,7 @@ Params::Params():
 
     //  change names of grid elements
     grid.names("p", "q");
+    grid.width( 3 );
 
     // routine's parameters are marked by the test routine; see main
 }
@@ -577,18 +587,18 @@ int run(int argc, char** argv)
             // Version, id.
             char buf[100];
             int version = slate::version();
-            snprintf(buf, sizeof(buf), "SLATE version %04d.%02d.%02d, id %s\n",
-                     version / 10000, (version % 10000) / 100, version % 100,
-                     slate::id());
+            snprintf( buf, sizeof(buf), "%% SLATE version %04d.%02d.%02d, id %s\n",
+                      version / 10000, (version % 10000) / 100, version % 100,
+                      slate::id() );
             std::string args = buf;
 
             // Input line.
-            args += "input:";
+            args += "% input:";
             for (int i = 0; i < argc; ++i) {
                 args += ' ';
                 args += argv[i];
             }
-            args += "\n";
+            args += "\n% ";
 
             // Date and time, MPI, OpenMP, CUDA specs.
             std::time_t now = std::time(nullptr);
@@ -685,13 +695,13 @@ int run(int argc, char** argv)
 
         // run tests
         int repeat = params.repeat();
-        testsweeper::DataType last = params.datatype();
+        testsweeper::DataType last_datatype = params.datatype();
 
         if (print)
             params.header();
         do {
-            if (params.datatype() != last) {
-                last = params.datatype();
+            if (params.datatype() != last_datatype) {
+                last_datatype = params.datatype();
                 if (print)
                     printf("\n");
             }
@@ -720,11 +730,24 @@ int run(int argc, char** argv)
         } while (params.next());
 
         if (print) {
+            std::vector< std::string > sort_matrix_labels(
+                    matrix_labels.size() + 1 );
+            for (auto& name_label_pair : matrix_labels) {
+                sort_matrix_labels[ name_label_pair.second ]
+                    = name_label_pair.first;
+            }
+            printf( "\n%% Matrix kinds:\n" );
+            for (size_t i = 1; i < sort_matrix_labels.size(); ++i) {
+                printf( "%% %2lld: %s\n",
+                        llong( i ), sort_matrix_labels[ i ].c_str() );
+            }
+            printf( "\n" );
+
             if (status) {
-                printf( "%d tests FAILED: %s\n", status, routine );
+                printf( "%% %d tests FAILED: %s\n", status, routine );
             }
             else {
-                printf( "All tests passed: %s\n", routine );
+                printf( "%% All tests passed: %s\n", routine );
             }
         }
 
@@ -748,46 +771,6 @@ int run(int argc, char** argv)
         return status;
     else
         return 0;
-}
-
-// -----------------------------------------------------------------------------
-// Compare a == b, bitwise. Returns true if a and b are both the same NaN value,
-// unlike (a == b) which is false for NaNs.
-bool same( double a, double b );
-
-bool same( double a, double b )
-{
-    return (memcmp( &a, &b, sizeof(double) ) == 0);
-}
-
-// -----------------------------------------------------------------------------
-// Prints line describing matrix kind and cond, if kind or cond changed.
-// Updates kind and cond to current values.
-void print_matrix_header(
-    MatrixParams& params, const char* caption,
-    std::string* matrix, double* cond, double* condD );
-
-void print_matrix_header(
-    MatrixParams& params, const char* caption,
-    std::string* matrix, double* cond, double* condD )
-{
-    if (params.kind.used() &&
-        (*matrix != params.kind() ||
-         ! same( *cond,  params.cond_used() ) ||
-         ! same( *condD, params.condD() )))
-    {
-        *matrix = params.kind();
-        *cond   = params.cond_used();
-        *condD  = params.condD();
-        printf( "%s: %s, cond(S) = ", caption, matrix->c_str() );
-        if (std::isnan( *cond ))
-            printf( "NA" );
-        else
-            printf( "%.2e", *cond );
-        if (! std::isnan(*condD))
-            printf( ", cond(D) = %.2e", *condD );
-        printf( "\n" );
-    }
 }
 
 // -----------------------------------------------------------------------------

@@ -26,12 +26,14 @@ void trsmA(
     // Options
     int64_t lookahead = get_option<int64_t>(opts, Option::Lookahead, 1);
 
+    Options opts_local = opts;
+    opts_local[ Option::Lookahead ] = lookahead;
+
     if (target == Target::Devices) {
         // Allocate batch arrays = number of kernels without
         // lookahead + lookahead
         // number of kernels without lookahead = 2
         // (internal::gemm & internal::trsm)
-        // TODO
         // whereas internal::gemm with lookahead will be executed as many as
         // lookaheads, thus
         // internal::gemm with lookahead needs batch arrays equal to the
@@ -39,10 +41,10 @@ void trsmA(
         // and the batch_arrays_index starts from
         // the number of kernels without lookahead, and then incremented by 1
         // for every execution for the internal::gemm with lookahead
-        const int64_t batch_size_default = 0;
-        int num_queues = 2; // Number of kernels without lookahead
-        B.allocateBatchArrays( batch_size_default, num_queues );
-        B.reserveDeviceWorkspace();
+        const int64_t batch_size_0 = 0;
+        const int64_t num_queues = 2 + lookahead;
+        A.allocateBatchArrays( batch_size_0, num_queues );
+        A.reserveDeviceWorkspace();
     }
 
     // OpenMP needs pointer types, but vectors are exception safe
@@ -57,7 +59,7 @@ void trsmA(
     {
         #pragma omp task
         {
-            work::trsmA<target, scalar_t>(side, alpha, A, B, row, lookahead);
+            work::trsmA<target, scalar_t>( side, alpha, A, B, row, opts_local );
             B.tileUpdateAllOrigin();
         }
     }

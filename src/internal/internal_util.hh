@@ -10,6 +10,7 @@
 #define SLATE_INTERNAL_UTIL_HH
 
 #include "slate/internal/mpi.hh"
+#include "slate/Matrix.hh"
 
 #include <cmath>
 #include <complex>
@@ -68,6 +69,47 @@ inline bool compareSecond(
 {
     return a.second < b.second;
 }
+
+
+//------------------------------------------------------------------------------
+/// Helper function to check convergence in iterative methods
+template <typename scalar_t>
+bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
+                      std::vector<scalar_t>& colnorms_X,
+                      scalar_t cte)
+{
+    assert(colnorms_X.size() == colnorms_R.size());
+    bool value = true;
+    int64_t size = colnorms_X.size();
+
+    for (int64_t i = 0; i < size; i++) {
+        if (colnorms_R[i] > colnorms_X[i] * cte) {
+            value = false;
+            break;
+        }
+    }
+
+    return value;
+}
+
+//------------------------------------------------------------------------------
+/// Helper function to allocate a krylov basis
+template<typename scalar_t>
+slate::Matrix<scalar_t> alloc_basis(slate::BaseMatrix<scalar_t>& A, int64_t n,
+                                    Target target)
+{
+    auto mpiComm = A.mpiComm();
+    auto tileMbFunc = A.tileMbFunc();
+    auto tileNbFunc = A.tileNbFunc();
+    auto tileRankFunc = A.tileRankFunc();
+    auto tileDeviceFunc = A.tileDeviceFunc();
+    Matrix<scalar_t> V(A.m(), n, tileMbFunc, tileNbFunc,
+                       tileRankFunc, tileDeviceFunc, mpiComm);
+    V.insertLocalTiles(target);
+    return V;
+}
+
+
 
 } // namespace internal
 } // namespace slate

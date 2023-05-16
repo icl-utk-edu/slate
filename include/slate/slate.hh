@@ -482,9 +482,9 @@ void gesv_nopiv(
     Options const& opts = Options());
 
 //-----------------------------------------
-// gesvMixed()
+// gesv_mixed()
 template <typename scalar_t>
-void gesvMixed(
+void gesv_mixed(
     Matrix<scalar_t>& A, Pivots& pivots,
     Matrix<scalar_t>& B,
     Matrix<scalar_t>& X,
@@ -492,7 +492,49 @@ void gesvMixed(
     Options const& opts = Options());
 
 template <typename scalar_hi, typename scalar_lo>
+void gesv_mixed(
+    Matrix<scalar_hi>& A, Pivots& pivots,
+    Matrix<scalar_hi>& B,
+    Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts = Options());
+
+template <typename scalar_t>
+[[deprecated( "Use gesv_mixed instead. Will be removed 2024-02." )]]
 void gesvMixed(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Matrix<scalar_t>& B,
+    Matrix<scalar_t>& X,
+    int& iter,
+    Options const& opts = Options())
+{
+    gesv_mixed( A, pivots, B, X, iter, opts );
+}
+
+template <typename scalar_hi, typename scalar_lo>
+[[deprecated( "Use gesv_mixed instead. Will be removed 2024-02." )]]
+void gesvMixed(
+    Matrix<scalar_hi>& A, Pivots& pivots,
+    Matrix<scalar_hi>& B,
+    Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts = Options())
+{
+    gesv_mixed( A, pivots, B, X, iter, opts );
+}
+
+//-----------------------------------------
+// gesv_mixed_gmres()
+template <typename scalar_t>
+void gesv_mixed_gmres(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Matrix<scalar_t>& B,
+    Matrix<scalar_t>& X,
+    int& iter,
+    Options const& opts = Options());
+
+template <typename scalar_hi, typename scalar_lo>
+void gesv_mixed_gmres(
     Matrix<scalar_hi>& A, Pivots& pivots,
     Matrix<scalar_hi>& B,
     Matrix<scalar_hi>& X,
@@ -600,9 +642,9 @@ void posv(
 }
 
 //-----------------------------------------
-// posvMixed()
+// posv_mixed()
 template <typename scalar_t>
-void posvMixed(
+void posv_mixed(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
              Matrix<scalar_t>& X,
@@ -610,14 +652,58 @@ void posvMixed(
     Options const& opts = Options());
 
 template <typename scalar_hi, typename scalar_lo>
-void posvMixed(
+void posv_mixed(
     HermitianMatrix<scalar_hi>& A,
              Matrix<scalar_hi>& B,
              Matrix<scalar_hi>& X,
     int& iter,
     Options const& opts = Options());
 
-// todo: forward real-symmetric matrices to posvMixed?
+// todo: forward real-symmetric matrices to posv_mixed?
+
+template <typename scalar_t>
+[[deprecated( "Use posv_mixed instead. Will be removed 2024-02." )]]
+void posvMixed(
+    HermitianMatrix<scalar_t>& A,
+             Matrix<scalar_t>& B,
+             Matrix<scalar_t>& X,
+    int& iter,
+    Options const& opts = Options())
+{
+    posv_mixed( A, B, X, iter, opts );
+}
+
+template <typename scalar_hi, typename scalar_lo>
+[[deprecated( "Use posv_mixed instead. Will be removed 2024-02." )]]
+void posvMixed(
+    HermitianMatrix<scalar_hi>& A,
+             Matrix<scalar_hi>& B,
+             Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts = Options())
+{
+    posv_mixed( A, B, X, iter, opts );
+}
+
+//-----------------------------------------
+// posv_mixed_gmres()
+template <typename scalar_t>
+void posv_mixed_gmres(
+    HermitianMatrix<scalar_t>& A,
+             Matrix<scalar_t>& B,
+             Matrix<scalar_t>& X,
+    int& iter,
+    Options const& opts = Options());
+
+template <typename scalar_hi, typename scalar_lo>
+void posv_mixed_gmres(
+    HermitianMatrix<scalar_hi>& A,
+             Matrix<scalar_hi>& B,
+             Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts = Options());
+
+// todo: forward real-symmetric matrices to posv_mixed_gmres?
 
 //-----------------------------------------
 // pbtrf()
@@ -795,7 +881,7 @@ void gels_cholqr(
 
 // Backward compatibility
 template <typename scalar_t>
-[[deprecated( "Use gels( A, BX[, opts] ) instead." )]]
+[[deprecated( "Use gels( A, BX[, opts] ) instead. Will be removed 2024-02." )]]
 void gels(
     Matrix<scalar_t>& A, TriangularFactors<scalar_t>& T,
     Matrix<scalar_t>& BX,
@@ -971,7 +1057,7 @@ void syev(
 }
 
 //------------------------------------------------------------------------------
-// Generalized symmetric/hermitian
+// Generalized symmetric/Hermitian eigenvalues
 
 template <typename scalar_t>
 void hegv(
@@ -1055,6 +1141,7 @@ void sygst(
 
 //------------------------------------------------------------------------------
 // Symmetric/Hermitian eigenvalue reductions
+// Reduction to band (he2hb), then tridiagonal (hb2st).
 
 //-----------------------------------------
 // he2hb()
@@ -1089,6 +1176,72 @@ void unmtr_hb2st(
     Side side, Op op,
     Matrix<scalar_t>& V,
     Matrix<scalar_t>& C,
+    Options const& opts = Options());
+
+//------------------------------------------------------------------------------
+// Tridiagonal Symmetric eigenvalue solvers
+
+template <typename real_t>
+void stedc(
+    std::vector<real_t>& D, std::vector<real_t>& E,
+    Matrix<real_t>& Q,
+    Options const& opts = Options());
+
+template <typename real_t>
+void stedc_deflate(
+    int64_t n,
+    int64_t n1,
+    real_t& rho,
+    real_t* D, real_t* Dhat,
+    real_t* z, real_t* zhat,
+    Matrix<real_t>& Q,
+    Matrix<real_t>& Qtype,
+    int64_t* itype,
+    int64_t& nsecular,
+    int64_t& Qtype12_begin, int64_t& Qtype12_end,
+    int64_t& Qtype23_begin, int64_t& Qtype23_end,
+    Options const& opts = Options());
+
+template <typename real_t>
+void stedc_merge(
+    int64_t n, int64_t n1,
+    real_t rho,
+    real_t* D,
+    Matrix<real_t>& Q,
+    Matrix<real_t>& Qtype,
+    Matrix<real_t>& U,
+    Options const& opts = Options());
+
+template <typename real_t>
+void stedc_secular(
+    int64_t nsecular, int64_t n,
+    real_t rho,
+    real_t* D,
+    real_t* z,
+    real_t* Lambda,
+    Matrix<real_t>& U,
+    int64_t* itype,
+    Options const& opts = Options() );
+
+template <typename real_t>
+void stedc_solve(
+    std::vector<real_t>& D, std::vector<real_t>& E,
+    Matrix<real_t>& Q,
+    Matrix<real_t>& W,
+    Matrix<real_t>& U,
+    Options const& opts = Options());
+
+template <typename real_t>
+void stedc_sort(
+    std::vector<real_t>& D,
+    Matrix<real_t>& Q,
+    Matrix<real_t>& Qout,
+    Options const& opts = Options());
+
+template <typename real_t>
+void stedc_z_vector(
+    Matrix<real_t>& Q,
+    std::vector<real_t>& z,
     Options const& opts = Options());
 
 //-----------------------------------------

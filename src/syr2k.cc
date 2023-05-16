@@ -127,12 +127,12 @@ void syr2k(
                 priority_0, queue_0, layout, opts_local );
 
             // Erase remote tiles on all devices including host
-            A_col0.eraseRemoteWorkspace();
-            B_col0.eraseRemoteWorkspace();
+            A_col0.releaseRemoteWorkspace();
+            B_col0.releaseRemoteWorkspace();
 
             // Erase local workspace on devices.
-            A_col0.eraseLocalWorkspace();
-            B_col0.eraseLocalWorkspace();
+            A_col0.releaseLocalWorkspace();
+            B_col0.releaseLocalWorkspace();
         }
 
         for (int64_t k = 1; k < A.nt(); ++k) {
@@ -174,12 +174,12 @@ void syr2k(
                     priority_0, queue_0, layout, opts_local );
 
                 // Erase remote tiles on all devices including host
-                A_colk.eraseRemoteWorkspace();
-                B_colk.eraseRemoteWorkspace();
+                A_colk.releaseRemoteWorkspace();
+                B_colk.releaseRemoteWorkspace();
 
                 // Erase local workspace on devices.
-                A_colk.eraseLocalWorkspace();
-                B_colk.eraseLocalWorkspace();
+                A_colk.releaseLocalWorkspace();
+                B_colk.releaseLocalWorkspace();
             }
         }
 

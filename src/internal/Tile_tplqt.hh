@@ -27,96 +27,117 @@ namespace slate {
 ///
 /// @param[in] l
 ///     The number of columns of the lower trapezoidal part of A2.
-///     min(m, n) >= l >= 0. See Further Details.
+///     min( k, n ) >= l >= 0. See Further Details.
 ///
 /// @param[in,out] A1
-///     On entry, the m-by-m lower triangular tile A1.
-///     A1 can be m-by-k for k >= m; only the lower m-by-m portion is used.
+///     On entry, the k-by-k lower triangular matrix A1,
+///     in an k-by-k1 tile, where k1 >= k.
 ///
 /// @param[in,out] A2
-///     On entry, the m-by-n pentagonal tile A2.
+///     On entry, the k-by-n lower pentagonal matrix A2,
+///     in an k-by-n2 tile, where n2 >= n.
 ///     On exit, the rows represent the Householder reflectors.
-///     The left m-by-(n-l) portion is rectangular,
-///     the right m-by-l portion is lower trapezoidal.
+///     The left k-by-(n-l) portion is rectangular,
+///     the right k-by-l portion is lower trapezoidal.
 ///
 /// @param[out] T
-///     Tile of size ib-by-m, where ib is the internal blocking to use.
-///     m >= ib >= 1.
+///     Array of size ib-by-k, where ib is the internal blocking to use,
+///     1 <= ib <= k, in an ib3-by-k3 tile, ib3 >= ib and k3 >= k.
 ///     On exit, stores a sequence of ib-by-ib upper triangular T matrices
 ///     representing the block Householder reflectors. See Further Details.
 ///
 /// Further Details
 /// ---------------
 ///
-/// Let A be the m-by-(m + n) matrix
+/// Let A be the k-by-(k + n) matrix
 ///
 ///     A = [ A1  A2 ]
 ///
-/// where A1 is m-by-m lower triangular, and A2 is m-by-n lower pentagonal.
+/// where A1 is k-by-k lower triangular, and A2 is k-by-n lower pentagonal.
 ///
-/// For example, with m = 4, n = 5, l = 3, the non-zeros of A1 and A2 are
+/// For all cases, A1 is lower triangular.
+/// Example with k = 4, where "." represent non-zeros.
 ///
-///     A1 = [ .       ]       A2 = [ . . | .     ]
-///          [ . .     ]            [ . . | . .   ]
-///          [ . . .   ]            [ . . | . . . ]
-///          [ . . . . ]            [ . . | . . . ]
-///          m-by-m lower    m-by-(n - l) | m-by-l
-///          triangular       rectangular | trapezoidal
+///     A1 = [ .        |  0 ]
+///          [ . .      |  0 ]
+///          [ . . .    |  0 ]
+///          [ . . . .  |  0 ]
+///       k-by-k lower    if k1 > k,
+///         triangular    all-zero columns are ignored
 ///
-/// Depending on m, n, l, there are several cases.
-/// If l < min(m, n), A2 is pentagonal, as shown above.
-/// If l = 0, it becomes just the rectangular portion:
+/// Depending on n, k, l, there are several cases for A2.
+/// Currently, SLATE supports only cases 1, 2, and 3.
+/// It assumes n = min( A2.mb, A2.nb ), and l = n or l = 0.
 ///
-///     A2 = [ . . ]
-///          [ . . ]
-///          [ . . ]
-///          [ . . ]
-///          m-by-n rectangular
+/// Case 1: n = k = l, A2 is lower triangular.
+/// Example with n = k = l = 4.
 ///
-/// If m < n and l = min(m, n) = m, it becomes lower trapezoidal (wide):
+///     A1 = [ .       ]      A2 = [ .        |  0 ]
+///          [ . .     ]           [ . .      |  0 ]
+///          [ . . .   ]           [ . . .    |  0 ]
+///          [ . . . . ]           [ . . . .  |  0 ]
+///                             k-by-l lower     if n2 > n,
+//                                triangular     all-zero columns are ignored
 ///
-///         A2 = [ . | .       ]
-///              [ . | . .     ]
-///              [ . | . . .   ]
-///              [ . | . . . . ]
-///     m-by-(n - l) | m-by-l
-///      rectangular | trapezoidal (triangular)
+/// Case 2: n < k and l = min( n, k ) = n, A2 is lower trapezoidal (tall).
+/// Example with n = l = 3, k = 4.
 ///
-/// If m > n and l = min(m, n) = n, it becomes lower trapezoidal (tall):
+///     A1 = [ .       ]      A2 = [ .     ]  <== k-by-l lower trapezoidal
+///          [ . .     ]           [ . .   ]
+///          [ . . .   ]           [ . . . ]
+///          [ . . . . ]           [ . . . ]
 ///
-///     A2 = [ .     ]
-///          [ . .   ]
-///          [ . . . ]
-///          [ . . . ]
-///            m-by-l trapezoidal
+/// Case 3: l = 0, A2 is just the rectangular portion.
+/// Currently unused in SLATE, but should work.
+/// Example with n = 3, l = 0, k = 4.
 ///
-/// If m = n = l, it becomes lower triangular:
+///     A1 = [ .       ]      A2 = [ . . . ]  <== k-by-n rectangular
+///          [ . .     ]           [ . . . ]
+///          [ . . .   ]           [ . . . ]
+///          [ . . . . ]           [ . . . ]
 ///
-///     A2 = [ .       ]
-///          [ . .     ]
-///          [ . . .   ]
-///          [ . . . . ]
-///            m-by-l trapezoidal (triangular)
+/// Case 4: n > k and l = k, A2 is upper trapezoidal (wide).
+/// Currently unsupported in SLATE; would require explicitly passing n.
+/// Example with n = 6, l = k = 4.
+///
+///     A1 = [ .       ]      A2 = [ . . | .       ]
+///          [ . .     ]           [ . . | . .     ]
+///          [ . . .   ]           [ . . | . . .   ]
+///          [ . . . . ]           [ . . | . . . . ]
+///                         k-by-(n - l)   k-by-l lower
+//                           rectangular   triangular
+///
+/// Case 5: 0 < l < min( n, k ), A2 is lower pentagonal.
+/// Currently unsupported in SLATE; would require explicitly passing n.
+/// Example with n = 5, l = 3, k = 4.
+///
+///     A1 = [ .       ]      A2 = [ . . | .     ]
+///          [ . .     ]           [ . . | . .   ]
+///          [ . . .   ]           [ . . | . . . ]
+///          [ . . . . ]           [ . . | . . . ]
+///         k-by-k lower    k-by-(n - l)   k-by-l lower
+///           triangular     rectangular   trapezoidal
 ///
 /// After factoring, the vector representing the elementary reflector H(i) is in
-/// the i-th row of the m-by-(m+n) matrix V:
+/// the i-th row of the k-by-(k+n) matrix V:
 ///
 ///     V = [ I  V2 ]
 ///
-/// where I is the m-by-m identity and V2 is m-by-n pentagonal, same form as A2.
+/// where I is the k-by-k identity and V2 is k-by-n pentagonal, same form as A2.
 ///
 /// Thus, all of the information needed for V is contained in V2, which
 /// has the same form as A2 and overwrites A2 on exit.
 ///
-/// The number of blocks is r = ceiling(m/ib), where each
+/// The number of blocks is r = ceiling( k/ib ), where each
 /// block is of order ib except for the last block, which is of order
-/// rb = m - (r-1)*ib. For each of the r blocks, an upper triangular block
+/// rb = k - (r-1)*ib. For each of the r blocks, an upper triangular block
 /// reflector factor is computed: T1, T2, ..., Tr. The ib-by-ib (and rb-by-rb
-/// for the last block) T's are stored in the ib-by-m matrix T as
+/// for the last block) T's are stored in the ib-by-k matrix T as
 ///
 ///     T = [ T1 T2 ... Tr ]
 ///
-/// Note in LAPACK, A = A1, B = A2, W = V, V = V2.
+/// Note: compared to LAPACK, A is renamed here => A1, B => A2, W => V,
+/// V => V2, and m => k. This makes k match k in tpmlqt.
 ///
 /// @ingroup gelqf_tile
 ///
@@ -130,19 +151,23 @@ void tplqt(
 #if LAPACK_VERSION >= 30700
     trace::Block trace_block("lapack::tplqt");
 
-    int64_t m = A2.mb();
-    int64_t n = A2.nb();
+    // Lower trapezoid of A2 is k-by-n, with n <= k.
+    int64_t k = A2.mb();
+    int64_t n = std::min( A2.nb(), k );
+    assert( l == n || l == 0 );
 
-    assert(A1.mb() == m);
-    assert(A1.nb() >= m);  // k >= m
-    assert(std::min(m, n) >= l);
-    assert(T.nb() == m);
+    // Lower triangle of A1 is k-by-k.
+    assert( A1.mb() == k );
+    assert( A1.nb() >= k );  // k1 >= k
 
-    int64_t ib = std::min( T.mb(), m );
-    lapack::tplqt(m, n, l, ib,
-                  A1.data(), A1.stride(),
-                  A2.data(), A2.stride(),
-                  T.data(), T.stride());
+    // T is ib-by-k, with ib <= k.
+    int64_t ib = std::min( T.mb(), k );
+    assert( T.nb() >= k );
+
+    lapack::tplqt( k, n, l, ib,
+                   A1.data(), A1.stride(),
+                   A2.data(), A2.stride(),
+                   T.data(), T.stride() );
 #else
     slate_not_implemented( "In gelqf: tplqt requires LAPACK >= 3.7" );
 #endif

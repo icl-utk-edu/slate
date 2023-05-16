@@ -8,27 +8,9 @@
 #include "slate/Matrix.hh"
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
+#include "internal/internal_util.hh"
 
 namespace slate {
-
-template <typename scalar_t>
-bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
-                      std::vector<scalar_t>& colnorms_X,
-                      scalar_t cte)
-{
-    assert(colnorms_X.size() == colnorms_R.size());
-    bool value = true;
-    int64_t size = colnorms_X.size();
-
-    for (int64_t i = 0; i < size; ++i) {
-        if (colnorms_R[i] > colnorms_X[i] * cte) {
-            value = false;
-            break;
-        }
-    }
-
-    return value;
-}
 
 //------------------------------------------------------------------------------
 /// Distributed parallel iterative-refinement LU factorization and solve.
@@ -39,7 +21,7 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
 /// \]
 /// where $A$ is an n-by-n matrix and $X$ and $B$ are n-by-nrhs matrices.
 ///
-/// gesvMixed first factorizes the matrix using getrf in low precision (single)
+/// gesv_mixed first factorizes the matrix using getrf in low precision (single)
 /// and uses this factorization within an iterative refinement procedure to
 /// produce a solution with high precision (double) normwise backward error
 /// quality (see below). If the approach fails, the method falls back to a
@@ -53,14 +35,14 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
 ///
 /// The iterative refinement process is stopped if iter > itermax or
 /// for all the RHS, $1 \le j \le nrhs$, we have:
-///     $\norm{r_j}_{inf} < \sqrt{n} \norm{x_j}_{inf} \norm{A}_{inf} \epsilon,$
+///     $\norm{r_j}_{inf} < \sqrt{n} \norm{x_j}_{inf} \norm{A}_{inf} \epsilon_{\mathrm{hi}},$
 /// where:
 /// - iter is the number of the current iteration in the iterative refinement
 ///    process
 /// - $\norm{r_j}_{inf}$ is the infinity-norm of the residual, $r_j = Ax_j - b_j$
 /// - $\norm{x_j}_{inf}$ is the infinity-norm of the solution
 /// - $\norm{A}_{inf}$ is the infinity-operator-norm of the matrix $A$
-/// - $\epsilon$ is the machine epsilon.
+/// - $\epsilon_{\mathrm{hi}}$ is the machine epsilon of double precision.
 ///
 /// The value itermax is fixed to 30.
 ///
@@ -115,11 +97,12 @@ bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
 /// @ingroup gesv
 ///
 template <typename scalar_hi, typename scalar_lo>
-void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
-                Matrix<scalar_hi>& B,
-                Matrix<scalar_hi>& X,
-                int& iter,
-                Options const& opts)
+void gesv_mixed(
+    Matrix<scalar_hi>& A, Pivots& pivots,
+    Matrix<scalar_hi>& B,
+    Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts)
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
@@ -205,7 +188,7 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
     colNorms( Norm::Max, X, colnorms_X.data(), opts );
     colNorms( Norm::Max, R, colnorms_R.data(), opts );
 
-    if (iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
+    if (internal::iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
         iter = 0;
         converged = true;
     }
@@ -236,7 +219,7 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
         colNorms( Norm::Max, X, colnorms_X.data(), opts );
         colNorms( Norm::Max, R, colnorms_R.data(), opts );
 
-        if (iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
+        if (internal::iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
             iter = iiter+1;
             converged = true;
         }
@@ -270,25 +253,25 @@ void gesvMixed( Matrix<scalar_hi>& A, Pivots& pivots,
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template <>
-void gesvMixed<double>(
+void gesv_mixed<double>(
     Matrix<double>& A, Pivots& pivots,
     Matrix<double>& B,
     Matrix<double>& X,
     int& iter,
     Options const& opts)
 {
-    gesvMixed<double, float>( A, pivots, B, X, iter, opts );
+    gesv_mixed<double, float>( A, pivots, B, X, iter, opts );
 }
 
 template <>
-void gesvMixed< std::complex<double> >(
+void gesv_mixed< std::complex<double> >(
     Matrix< std::complex<double> >& A, Pivots& pivots,
     Matrix< std::complex<double> >& B,
     Matrix< std::complex<double> >& X,
     int& iter,
     Options const& opts)
 {
-    gesvMixed<std::complex<double>, std::complex<float>>(
+    gesv_mixed<std::complex<double>, std::complex<float>>(
         A, pivots, B, X, iter, opts );
 }
 

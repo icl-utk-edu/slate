@@ -144,6 +144,10 @@ void test_copy_work(Params& params, bool run)
         if (trace) slate::trace::Trace::on();
         else slate::trace::Trace::off();
 
+        // Force the matrix to reside based on its origin.
+        A.releaseLocalWorkspace();
+        B.releaseLocalWorkspace();
+
         //==================================================
         // Run SLATE test.
         // Copy A to B.

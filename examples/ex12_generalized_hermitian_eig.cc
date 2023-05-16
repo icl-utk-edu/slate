@@ -10,6 +10,8 @@
 
 int mpi_size = 0;
 int mpi_rank = 0;
+int grid_p = 0;
+int grid_q = 0;
 
 //------------------------------------------------------------------------------
 template <typename T>
@@ -20,10 +22,10 @@ void test_hermitian_eig()
     print_func( mpi_rank );
 
     // TODO: failing if n not divisible by nb?
-    int64_t n=1000, nb=100, p=2, q=2;
-    assert( mpi_size == p*q );
-    slate::HermitianMatrix<T> A( slate::Uplo::Lower, n, nb, p, q, MPI_COMM_WORLD );
-    slate::HermitianMatrix<T> B( slate::Uplo::Lower, n, nb, p, q, MPI_COMM_WORLD );
+    int64_t n=1000, nb=100;
+
+    slate::HermitianMatrix<T> A( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::HermitianMatrix<T> B( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     A.insertLocalTiles();
     B.insertLocalTiles();
     std::vector<real_t> Lambda( n );
@@ -54,7 +56,7 @@ void test_hermitian_eig()
 
     //--------------------
     // Eigenvectors
-    slate::Matrix<T> Z( n, n, nb, p, q, MPI_COMM_WORLD );
+    slate::Matrix<T> Z( n, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     Z.insertLocalTiles();
 
     random_matrix( A );
@@ -74,15 +76,19 @@ int main( int argc, char** argv )
     assert( err == 0 );
     assert( provided == MPI_THREAD_MULTIPLE );
 
-    err = MPI_Comm_size( MPI_COMM_WORLD, &mpi_size );
-    assert( err == 0 );
-    if (mpi_size != 4) {
-        printf( "Usage: mpirun -np 4 %s  # 4 ranks hard coded\n", argv[0] );
-        return -1;
-    }
+    slate_mpi_call(
+        MPI_Comm_size( MPI_COMM_WORLD, &mpi_size ) );
 
-    err = MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
-    assert( err == 0 );
+    slate_mpi_call(
+        MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank ) );
+
+    // Determine p-by-q grid for this MPI size.
+    // Hermitian eig requires square MPI grid.
+    grid_size_square( mpi_size, &grid_p, &grid_q );
+    if (mpi_rank == 0) {
+        printf( "mpi_size %d, grid_p %d, grid_q %d\n",
+                mpi_size, grid_p, grid_q );
+    }
 
     // so random_matrix is different on different ranks.
     srand( 100 * mpi_rank );
@@ -92,6 +98,8 @@ int main( int argc, char** argv )
     test_hermitian_eig< std::complex<float> >();
     test_hermitian_eig< std::complex<double> >();
 
-    err = MPI_Finalize();
-    assert( err == 0 );
+    slate_mpi_call(
+        MPI_Finalize() );
+
+    return 0;
 }

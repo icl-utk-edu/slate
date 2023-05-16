@@ -298,8 +298,12 @@ void copy(internal::TargetType<Target::Devices>,
                             B_diag_tiles.insert( { i, j } );
                         }
                         else {
+                            int tile_device =
+                              (A.tileExists( i, j, device ) ? device : HostNum );
+
                             // no need to convert layout
-                            B.tileAcquire(  i, j, device, A(i, j).layout() );
+                            B.tileAcquire(
+                                i, j, device, A( i, j, tile_device ).layout() );
                             B.tileModified( i, j, device, true );
                         }
                     }

@@ -48,6 +48,7 @@ void test_heev_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    slate::MethodEig method_eig = params.method_eig();
     params.matrix.mark();
 
     // mark non-standard output values
@@ -66,7 +67,8 @@ void test_heev_work(Params& params, bool run)
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
-        {slate::Option::InnerBlocking, ib}
+        {slate::Option::InnerBlocking, ib},
+        {slate::Option::MethodEig, method_eig},
     };
 
     // MPI variables
@@ -243,6 +245,7 @@ void test_heev_work(Params& params, bool run)
         print_matrix( "Z_out", Z, params ); // Relevant when slate::eig_vals takes Z
     }
 
+    // Checking Lambda requires the user to request --ref y.
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // Run reference routine from ScaLAPACK
@@ -273,46 +276,75 @@ void test_heev_work(Params& params, bool run)
 
             // query for workspace size
             int64_t info_tst = 0;
-            int64_t lwork = -1, lrwork = -1;
+            int64_t lwork = -1, lrwork = -1, liwork = -1;
             std::vector<scalar_t> work(1);
             std::vector<real_t> rwork(1);
-            scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
-                            &Aref_data[0], 1, 1, A_desc,
-                            &Lambda_ref[0], // global output
-                            &Z_data[0], 1, 1, Z_desc,
-                            &work[0], -1, &rwork[0], -1, &info_tst);
+            std::vector<int> iwork(1);
+            if (method_eig == slate::MethodEig::DC && jobz == slate::Job::Vec) {
+                scalapack_pheevd(job2str(jobz), uplo2str(uplo), n,
+                                &Aref_data[0], 1, 1, A_desc,
+                                &Lambda_ref[0], // global output
+                                &Z_data[0], 1, 1, Z_desc,
+                                &work[0], -1, &rwork[0], -1,
+                                &iwork[0], -1, &info_tst);
+            }
+            else {
+                scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
+                                &Aref_data[0], 1, 1, A_desc,
+                                &Lambda_ref[0], // global output
+                                &Z_data[0], 1, 1, Z_desc,
+                                &work[0], -1, &rwork[0], -1, &info_tst);
+            }
+
             slate_assert(info_tst == 0);
             lwork = int64_t( real( work[0] ) );
             work.resize(lwork);
+
             // The lrwork, rwork parameters are only valid for complex
             if (slate::is_complex<scalar_t>::value) {
                 lrwork = int64_t( real( rwork[0] ) );
                 rwork.resize(lrwork);
+            }
+            if (method_eig == slate::MethodEig::DC) {
+                liwork = int64_t( iwork[0] );
+                iwork.resize(liwork);
             }
 
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
-                            &Aref_data[0], 1, 1, A_desc,
-                            &Lambda_ref[0],
-                            &Z_data[0], 1, 1, Z_desc,
-                            &work[0], lwork, &rwork[0], lrwork, &info_tst);
+            if (method_eig == slate::MethodEig::DC && jobz == slate::Job::Vec) {
+                scalapack_pheevd(job2str(jobz), uplo2str(uplo), n,
+                                &Aref_data[0], 1, 1, A_desc,
+                                &Lambda_ref[0],
+                                &Z_data[0], 1, 1, Z_desc,
+                                &work[0], lwork, &rwork[0], lrwork,
+                                &iwork[0], liwork, &info_tst);
+            }
+            else {
+                scalapack_pheev(job2str(jobz), uplo2str(uplo), n,
+                                &Aref_data[0], 1, 1, A_desc,
+                                &Lambda_ref[0],
+                                &Z_data[0], 1, 1, Z_desc,
+                                &work[0], lwork, &rwork[0], lrwork, &info_tst);
+            }
             slate_assert(info_tst == 0);
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             params.ref_time() = time;
 
-            // Reference Scalapack was run, check reference against test
-            // Perform a local operation to get differences Lambda = Lambda - Lambda_ref
-            blas::axpy( n, -1.0, &Lambda_ref[0], 1, &Lambda[0], 1 );
+            if (! ref_only) {
+                // Reference Scalapack was run, check reference against test
+                // Perform a local operation to get differences Lambda = Lambda - Lambda_ref
+                blas::axpy( n, -1.0, &Lambda_ref[0], 1, &Lambda[0], 1 );
 
-            // Relative forward error: || Lambda_ref - Lambda || / || Lambda_ref ||.
-            params.error() = blas::asum( n, &Lambda[0], 1 )
-                           / blas::asum( n, &Lambda_ref[0], 1 );
+                // Relative forward error: || Lambda_ref - Lambda || / || Lambda_ref ||.
+                params.error() = blas::asum( n, &Lambda[0], 1 )
+                    / blas::asum( n, &Lambda_ref[0], 1 );
 
-            params.okay() = params.okay() && (params.error() <= tol);
+                params.okay() = params.okay() && (params.error() <= tol);
+            }
 
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering

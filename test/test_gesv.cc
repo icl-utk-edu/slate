@@ -41,7 +41,9 @@ void test_gesv_work(Params& params, bool run)
         params.routine = params.routine.substr( 0, params.routine.size() - 6 );
         params.method_lu() = slate::MethodLU::NoPiv;
     }
-    auto method = params.method_lu();
+    auto method_lu   = params.method_lu();
+    auto methodTrsm = params.method_trsm();
+    auto methodGemm = params.method_gemm();
 
     // get & mark input values
     slate::Op trans = slate::Op::NoTrans;
@@ -92,7 +94,7 @@ void test_gesv_work(Params& params, bool run)
     bool do_getrs = params.routine == "getrs"
                     || (check && params.routine == "getrf");
 
-    if (params.routine == "gesvMixed") {
+    if (params.routine == "gesv_mixed" || params.routine == "gesv_mixed_gmres") {
         params.iters();
     }
 
@@ -115,15 +117,9 @@ void test_gesv_work(Params& params, bool run)
         origin = slate::Origin::Host;
     }
 
-    if (params.routine == "gesvMixed"
+    if ((params.routine == "gesv_mixed" || params.routine == "gesv_mixed_gmres")
         && ! std::is_same<real_t, double>::value) {
         params.msg() = "skipping: unsupported mixed precision; must be type=d or z";
-        return;
-    }
-
-    if (params.routine == "gesvMixed"
-        && target == slate::Target::Devices) {
-        params.msg() = "skipping: unsupported mixed precision; no devices support";
         return;
     }
 
@@ -133,7 +129,9 @@ void test_gesv_work(Params& params, bool run)
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib},
         {slate::Option::PivotThreshold, pivot_threshold},
-        {slate::Option::MethodLU, method},
+        {slate::Option::MethodLU, method_lu},
+        {slate::Option::MethodGemm, methodGemm},
+        {slate::Option::MethodTrsm, methodTrsm},
     };
 
     // Matrix A: figure out local size.
@@ -189,7 +187,7 @@ void test_gesv_work(Params& params, bool run)
         A.insertLocalTiles(origin_target);
         B.insertLocalTiles(origin_target);
 
-        if (params.routine == "gesvMixed") {
+        if (params.routine == "gesv_mixed" || params.routine == "gesv_mixed_gmres") {
             X_data.resize(lldB*nlocB);
             if (nonuniform_nb) {
                 X = slate::Matrix<scalar_t>(n, nrhs, tileNb, tileNb, tileRank,
@@ -212,7 +210,7 @@ void test_gesv_work(Params& params, bool run)
         B = slate::Matrix<scalar_t>::fromScaLAPACK(
             n, nrhs, &B_data[0], lldB, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
 
-        if (params.routine == "gesvMixed") {
+        if (params.routine == "gesv_mixed" || params.routine == "gesv_mixed_gmres") {
             X_data.resize(lldB*nlocB);
             X = slate::Matrix<scalar_t>::fromScaLAPACK(
                 n, nrhs, &X_data[0], lldB, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
@@ -221,8 +219,9 @@ void test_gesv_work(Params& params, bool run)
 
     slate::Pivots pivots;
 
-    slate::generate_matrix(params.matrix,  A);
-    slate::generate_matrix(params.matrixB, B);
+    slate::Options matgen_opts = {{slate::Option::Target, target}};
+    slate::generate_matrix(params.matrix,  A, matgen_opts);
+    slate::generate_matrix(params.matrixB, B, matgen_opts);
 
     // If check/ref is required, copy test data.
     slate::Matrix<scalar_t> Aref, Bref;
@@ -251,9 +250,13 @@ void test_gesv_work(Params& params, bool run)
         slate::copy(B, Bref);
     }
 
+    print_matrix( "A", A, params );
+    print_matrix( "B", B, params );
+
     double gflop;
     if (params.routine == "gesv"
-        || params.routine == "gesvMixed")
+        || params.routine == "gesv_mixed"
+        || params.routine == "gesv_mixed_gmres")
         gflop = lapack::Gflop<scalar_t>::gesv(n, nrhs);
     else
         gflop = lapack::Gflop<scalar_t>::getrf(m, n);
@@ -280,10 +283,17 @@ void test_gesv_work(Params& params, bool run)
             // Using traditional BLAS/LAPACK name
             // slate::gesv(A, pivots, B, opts);
         }
-        else if (params.routine == "gesvMixed") {
+        else if (params.routine == "gesv_mixed") {
             if constexpr (std::is_same<real_t, double>::value) {
                 int iters = 0;
-                slate::gesvMixed(A, pivots, B, X, iters, opts);
+                slate::gesv_mixed( A, pivots, B, X, iters, opts );
+                params.iters() = iters;
+            }
+        }
+        else if (params.routine == "gesv_mixed_gmres") {
+            if constexpr (std::is_same<real_t, double>::value) {
+                int iters = 0;
+                slate::gesv_mixed_gmres(A, pivots, B, X, iters, opts);
                 params.iters() = iters;
             }
         }
@@ -305,16 +315,9 @@ void test_gesv_work(Params& params, bool run)
             else if (trans == slate::Op::ConjTrans)
                 opA = conj_transpose( A );
 
-            if (params.routine == "getrs"
-                || params.routine == "getrf")
-            {
-                slate::lu_solve_using_factor(opA, pivots, B, opts);
-                // Using traditional BLAS/LAPACK name
-                // slate::getrs(opA, pivots, B, opts);
-            }
-            else {
-                slate_error("Unknown routine!");
-            }
+            slate::lu_solve_using_factor( opA, pivots, B, opts );
+            // Using traditional BLAS/LAPACK name
+            // slate::getrs(opA, pivots, B, opts);
 
             // compute and save timing/performance
             time2 = barrier_get_wtime(MPI_COMM_WORLD) - time2;
@@ -324,6 +327,7 @@ void test_gesv_work(Params& params, bool run)
 
         if (trace) slate::trace::Trace::finish();
     }
+    print_matrix( "X_out", X, params );
 
     if (check) {
         //==================================================
@@ -337,7 +341,7 @@ void test_gesv_work(Params& params, bool run)
 
         // Norm of updated-rhs/solution matrix: || X ||_1
         real_t X_norm;
-        if (params.routine == "gesvMixed")
+        if (params.routine == "gesv_mixed" || params.routine == "gesv_mixed_gmres")
             X_norm = slate::norm(slate::Norm::One, X);
         else
             X_norm = slate::norm(slate::Norm::One, B);
@@ -355,7 +359,7 @@ void test_gesv_work(Params& params, bool run)
             opAref = Aref;
 
         // Bref -= op(Aref)*B
-        if (params.routine == "gesvMixed") {
+        if (params.routine == "gesv_mixed" || params.routine == "gesv_mixed_gmres") {
             slate::multiply(-one, opAref, X, one, Bref);
             // Using traditional BLAS/LAPACK name
             // slate::gemm(-one, opAref, X, one, Bref);
@@ -373,7 +377,7 @@ void test_gesv_work(Params& params, bool run)
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
-        if (params.routine == "gesvMixed")
+        if (params.routine == "gesv_mixed" || params.routine == "gesv_mixed_gmres")
             params.okay() = params.okay() && params.iters() >= 0;
     }
 

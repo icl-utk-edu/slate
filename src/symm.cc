@@ -153,9 +153,9 @@ void symm(
                     priority_0, opts_local );
 
                 // Erase remote tile on all devices including host
-                A.eraseRemoteWorkspaceTile( 0, 0 );
+                A.releaseRemoteWorkspaceTile( 0, 0 );
                 // Erase local workspace on devices.
-                A.eraseLocalWorkspaceTile( 0, 0 );
+                A.releaseLocalWorkspaceTile( 0, 0 );
 
                 if (A.mt()-1 > 0) {
                     auto Acol_0 = A.sub( 1, A.mt()-1, 0, 0 );
@@ -165,7 +165,7 @@ void symm(
                         beta,  C.sub( 1, C.mt()-1, 0, C.nt()-1 ),
                         layout, priority_0, queue_0, opts_local );
 
-                    Acol_0.eraseLocalWorkspace();
+                    Acol_0.releaseLocalWorkspace();
 
                     std::set<ij_tuple> tile_set;
                     for (int64_t i = 0; i < A.mt(); ++i) {
@@ -177,11 +177,11 @@ void symm(
                             }
                         }
                     }
-                    A.eraseRemoteWorkspace( tile_set );
+                    A.releaseRemoteWorkspace( tile_set );
                 }
 
-                Brow_0.eraseRemoteWorkspace();
-                Brow_0.eraseLocalWorkspace();
+                Brow_0.releaseRemoteWorkspace();
+                Brow_0.releaseLocalWorkspace();
             }
 
             for (int64_t k = 1; k < A.nt(); ++k) {
@@ -232,8 +232,8 @@ void symm(
                         one,    C.sub( 0, k-1, 0, C.nt()-1 ),
                         layout, priority_0, queue_0, opts_local );
 
-                    Arow_k.eraseRemoteWorkspace();
-                    Arow_k.eraseLocalWorkspace();
+                    Arow_k.releaseRemoteWorkspace();
+                    Arow_k.releaseLocalWorkspace();
 
                     internal::symm<Target::HostTask>(
                         Side::Left,
@@ -242,8 +242,8 @@ void symm(
                         one,    C.sub( k, k, 0, C.nt()-1 ),
                         priority_0, opts_local );
 
-                    A.eraseRemoteWorkspaceTile( k, k );
-                    A.eraseLocalWorkspaceTile( k, k );
+                    A.releaseRemoteWorkspaceTile( k, k );
+                    A.releaseLocalWorkspaceTile( k, k );
 
                     if (A.mt()-1 > k) {
                         auto Acol_k = A.sub( k+1, A.mt()-1, k, k );
@@ -253,7 +253,7 @@ void symm(
                             one,    C.sub( k+1, C.mt()-1, 0, C.nt()-1 ),
                             layout, priority_0, queue_0, opts_local );
 
-                        Acol_k.eraseLocalWorkspace();
+                        Acol_k.releaseLocalWorkspace();
 
                         std::set<ij_tuple> tile_set;
                         for (int64_t i = 0; i < A.mt(); ++i) {
@@ -265,11 +265,11 @@ void symm(
                                 }
                             }
                         }
-                        A.eraseRemoteWorkspace( tile_set );
+                        A.releaseRemoteWorkspace( tile_set );
                     }
 
-                    Brow_k.eraseRemoteWorkspace();
-                    Brow_k.eraseLocalWorkspace();
+                    Brow_k.releaseRemoteWorkspace();
+                    Brow_k.releaseLocalWorkspace();
                 }
             }
         }
@@ -343,7 +343,7 @@ void symm(
                         beta,  C.sub( 1, C.mt()-1, 0, C.nt()-1 ),
                         layout, priority_0, queue_0, opts_local );
 
-                    Arow_0.eraseLocalWorkspace();
+                    Arow_0.releaseLocalWorkspace();
 
                     std::set<ij_tuple> tile_set;
                     for (int64_t i = 0; i < A.mt(); ++i) {
@@ -353,11 +353,11 @@ void symm(
                             }
                         }
                     }
-                    A.eraseRemoteWorkspace( tile_set );
+                    A.releaseRemoteWorkspace( tile_set );
                 }
 
-                Brow_0.eraseRemoteWorkspace();
-                Brow_0.eraseLocalWorkspace();
+                Brow_0.releaseRemoteWorkspace();
+                Brow_0.releaseLocalWorkspace();
             }
 
             for (int64_t k = 1; k < A.nt(); ++k) {
@@ -408,8 +408,8 @@ void symm(
                         one,    C.sub( 0, k-1, 0, C.nt()-1 ),
                         layout, priority_0, queue_0, opts_local );
 
-                    Acol_k.eraseRemoteWorkspace();
-                    Acol_k.eraseLocalWorkspace();
+                    Acol_k.releaseRemoteWorkspace();
+                    Acol_k.releaseLocalWorkspace();
 
                     internal::symm<Target::HostTask>(
                         Side::Left,
@@ -418,8 +418,8 @@ void symm(
                         one,    C.sub( k, k, 0, C.nt()-1 ),
                         priority_0, opts_local );
 
-                    A.eraseRemoteWorkspaceTile( k, k );
-                    A.eraseLocalWorkspaceTile( k, k );
+                    A.releaseRemoteWorkspaceTile( k, k );
+                    A.releaseLocalWorkspaceTile( k, k );
 
                     if (A.mt()-1 > k) {
                         auto Arow_k = A.sub( k, k, k+1, A.mt()-1 );
@@ -429,7 +429,7 @@ void symm(
                             one,    C.sub( k+1, C.mt()-1, 0, C.nt()-1 ),
                             layout, priority_0, queue_0, opts_local );
 
-                        Arow_k.eraseLocalWorkspace();
+                        Arow_k.releaseLocalWorkspace();
 
                         std::set<ij_tuple> tile_set;
                         for (int64_t i = 0; i < A.mt(); ++i) {
@@ -439,11 +439,11 @@ void symm(
                                 }
                             }
                         }
-                        A.eraseRemoteWorkspace( tile_set );
+                        A.releaseRemoteWorkspace( tile_set );
                     }
 
-                    Brow_k.eraseRemoteWorkspace();
-                    Brow_k.eraseLocalWorkspace();
+                    Brow_k.releaseRemoteWorkspace();
+                    Brow_k.releaseLocalWorkspace();
                 }
             }
         }

@@ -54,6 +54,15 @@ template <Target> class TargetType {};
 } // namespace internal
 
 //------------------------------------------------------------------------------
+/// Eigenvalue algorithm to used in heev routine.
+/// @ingroup enum
+///
+enum class MethodEig : char {
+    QR        = 'Q',    ///< QR iteration for finding eigenvalues
+    DC        = 'D',    ///< Divide and conquer algorithm for finding eigenvalues
+};
+
+//------------------------------------------------------------------------------
 /// Keys for options to pass to SLATE routines.
 /// @ingroup enum
 ///
@@ -83,6 +92,7 @@ enum class Option : char {
 
     // Methods, listed alphabetically.
     MethodCholQR,       ///< Select the algorithm to compute A^H * A
+    MethodEig,          ///< Select the algorithm to compute eigenpairs of tridiagonal matrix
     MethodGels,         ///< Select the gels algorithm
     MethodGemm,         ///< Select the gemm algorithm
     MethodHemm,         ///< Select the hemm algorithm
@@ -123,6 +133,7 @@ enum class GridOrder : char {
 //------------------------------------------------------------------------------
 const int HostNum = -1;
 const int AllDevices = -2;
+const int AnyDevice  = -3;
 
 } // namespace slate
 

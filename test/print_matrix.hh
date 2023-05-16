@@ -267,6 +267,31 @@ void print_matrix(
 template <typename scalar_t>
 void print_vector(
     const char* label,
+    int64_t n, scalar_t const* x, int64_t incx,
+    Params& params)
+{
+    if (params.verbose() == 0)
+        return;
+
+    // Set defaults
+    const slate::Options opts = {
+        { slate::Option::PrintWidth, params.print_width() },
+        { slate::Option::PrintPrecision, params.print_precision() },
+        { slate::Option::PrintVerbose, params.verbose() },
+        { slate::Option::PrintEdgeItems, params.print_edgeitems() },
+    };
+
+    slate::print( label, n, x, incx, opts );
+}
+
+//------------------------------------------------------------------------------
+/// Print a vector.
+/// Every MPI rank does its own printing, so protect with `if (mpi_rank == 0)`
+/// as desired.
+///
+template <typename scalar_t>
+void print_vector(
+    const char* label,
     std::vector<scalar_t>& x,
     Params& params)
 {

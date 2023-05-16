@@ -24,21 +24,19 @@ namespace slate {
 ///
 /// If side == Left:
 ///
-///     C = [ C1 ]  <- k-by-n
-///         [ C2 ]  <- m-by-n
+///     V = [ I  V2 ]      C = [ C1 ]  <== k-by-n
+///      k-by-k  k-by-m        [ C2 ]  <== m-by-n
 ///
 /// and on exit, $C = op(Q) C$.
-/// C is (k+m)-by-n, C1 is k-by-n, C2 is m-by-n, and V2 is k-by-m.
-/// l is the same in tplqt; m = tplqt's n; k = tplqt's m; n here is different.
+/// l, k are the same in tplqt; m = tplqt's n; n here is different.
 ///
 /// If side == Right:
 ///
-///     C = [ C1  C2 ]
-///       m-by-k  m-by-n
+///     C = [ C1  C2 ]      V = [ I  V2 ]
+///       m-by-k  m-by-n     k-by-k  k-by-n
 ///
 /// and on exit, $C = C op(Q)$.
-/// C is m-by-(k+n), C1 is m-by-k, C2 is m-by-n, and V2 is k-by-n.
-/// n, l are the same in tplqt; k = tplqt's m; m here is different.
+/// l, k, n are the same in tplqt; m here is different.
 ///
 /// Q is a product of block reflectors,
 ///
@@ -60,15 +58,17 @@ namespace slate {
 ///
 /// @param[in] l
 ///     The number of columns of the lower trapezoidal part of V2.
-///     - If side = left,  min(m, k) >= l >= 0.
-///     - If side = right, min(n, k) >= l >= 0.
+///     - If side = left,  min( m, k ) >= l >= 0.
+///     - If side = right, min( n, k ) >= l >= 0.
 ///
 /// @param[in] V2
-///     - If side == Left,  the k-by-m lower pentagonal tile V2.
-///     - If side == Right, the k-by-n lower pentagonal tile V2.
+///     The k-by-N, lower pentagonal matrix V2,
+///     in an k-by-N2 tile, where N2 >= N.
+///     - If side == Left,  N = m.
+///     - If side == Right, N = n.
 ///     The i-th row must contain the vector which defines the
 ///     elementary reflector H(i), for i = 1, 2, ..., k, as returned by
-///     tplqt in A2. The left k-by-(m-l) or k-by-(n-l) portion is rectangular,
+///     tplqt in A2. The left k-by-(N-l) portion is rectangular,
 ///     the right k-by-l portion is lower trapezoidal.
 ///     See Further Details in tplqt.
 ///
@@ -77,19 +77,19 @@ namespace slate {
 ///     as returned by tplqt, stored as an ib-by-k tile.
 ///
 /// @param[in,out] C1
-///     - If side == Left,  the k-by-n tile C1.
-///       C1 can be k2-by-n for k2 >= k; only the upper k-by-n portion is used.
-///     - If side == Right, the m-by-k tile C1.
-///       C1 can be m-by-k2 for k2 >= k; only the left m-by-k portion is used.
+///     - If side == Left,  the k-by-n matrix C1, in a  k1-by-n tile, k1 >= k.
+///     - If side == Right, the m-by-k matrix C1, in an m-by-k1 tile, k1 >= k.
 ///     On exit, C1 is overwritten by the corresponding block of
 ///     $op(Q) C$ or $C op(Q)$.
 ///
 /// @param[in,out] C2
-///     The m-by-n tile C2.
+///     The m-by-n matrix C2.
+///     - If side == Left,  C2 is in an m2-by-n tile, m2 >= m.
+///     - If side == Right, C2 is in an m-by-n2 tile, n2 >= n.
 ///     On exit, C2 is overwritten by the corresponding block of
 ///     $op(Q) C$ or $C op(Q)$.
 ///
-/// Note in LAPACK, A = C1, B = C2, V = V2.
+/// Note: compared to LAPACK, A is renamed here => C1, B => C2, V => V2.
 ///
 /// @ingroup gelqf_tile
 ///
@@ -104,26 +104,39 @@ void tpmlqt(
 #if LAPACK_VERSION >= 30700
     trace::Block trace_block("lapack::tpmlqt");
 
-    int64_t k = V2.mb();
-    int64_t m = C2.mb();
-    int64_t n = C2.nb();
-
+    int64_t m, n, k;
     if (side == Side::Left) {
-        assert(C1.mb() >= k);
-        assert(C1.nb() == n);
-        assert(V2.nb() == m);
-        assert(std::min(m, k) >= l);
+        // Lower trapezoid of V2 is k-by-m, with m <= k. Compare tplqt.
+        k = V2.mb();
+        m = std::min( V2.nb(), k );
+        assert( l == m || l == 0 );
+
+        // C1 is k-by-n.
+        assert( C1.mb() >= k );  // k1 >= k
+        n = C1.nb();
+
+        // C2 is m-by-n.
+        assert( C2.mb() >= m );  // m2 >= m
+        assert( C2.nb() == n );
     }
-    else {
-        assert(C1.mb() == m);
-        assert(C1.nb() >= k);
-        assert(V2.nb() == n);
-        assert(std::min(n, k) >= l);
+    else { // Right
+        // Lower trapezoid of V2 is k-by-n, with n <= k. Compare tplqt.
+        k = V2.mb();
+        n = std::min( V2.nb(), k );
+        assert( l == n || l == 0 );
+
+        // C1 is m-by-k.
+        m = C1.mb();
+        assert( C1.nb() >= k );  // k1 >= k
+
+        // C2 is m-by-n.
+        assert( C2.mb() == m );
+        assert( C2.nb() >= n );  // n2 >= n
     }
 
+    // T is ib-by-k with ib <= k.
     int64_t ib = std::min( T.mb(), k );
-    assert(k >= ib);
-    assert(T.nb() == k);
+    assert( T.nb() >= k );
 
     lapack::tpmlqt(side, op, m, n, k, l, ib,
                    V2.data(), V2.stride(),

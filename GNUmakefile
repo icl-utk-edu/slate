@@ -88,6 +88,8 @@ prefix          := $(strip $(prefix))
 c_api           := $(strip $(c_api))
 fortran_api     := $(strip $(fortran_api))
 
+abs_prefix      := ${abspath ${prefix}}
+
 #-------------------------------------------------------------------------------
 # Export variables to sub-make for testsweeper, BLAS++, LAPACK++.
 export CXX blas blas_int blas_threaded openmp static gpu_backend
@@ -377,7 +379,7 @@ ifeq ($(hip),1)
     # Generate hipcc target options for all gfx in hip_arch_.
     amdgpu_targets = $(foreach arch, $(gfx),--amdgpu-target=$(arch))
     HIPCCFLAGS += $(amdgpu_targets)
-    FLAGS += -D__HIP_PLATFORM_HCC__
+    FLAGS += -D__HIP_PLATFORM_AMD__
     LIBS += -L$(ROCM_DIR)/lib -lrocsolver -lrocblas -lamdhip64
 
     # ROCm 4.0 has errors in its headers that produce excessive warnings.
@@ -553,7 +555,8 @@ ifneq ($(only_unit),1)
         src/gemmC.cc \
         src/geqrf.cc \
         src/gesv.cc \
-        src/gesvMixed.cc \
+        src/gesv_mixed.cc \
+        src/gesv_mixed_gmres.cc \
         src/gesv_nopiv.cc \
         src/gesvd.cc \
         src/getrf.cc \
@@ -582,7 +585,8 @@ ifneq ($(only_unit),1)
         src/pbtrf.cc \
         src/pbtrs.cc \
         src/posv.cc \
-        src/posvMixed.cc \
+        src/posv_mixed.cc \
+        src/posv_mixed_gmres.cc \
         src/potrf.cc \
         src/potri.cc \
         src/potrs.cc \
@@ -590,6 +594,13 @@ ifneq ($(only_unit),1)
         src/scale.cc \
         src/scale_row_col.cc \
         src/set.cc \
+        src/stedc.cc \
+        src/stedc_deflate.cc \
+        src/stedc_merge.cc \
+        src/stedc_secular.cc \
+        src/stedc_solve.cc \
+        src/stedc_sort.cc \
+        src/stedc_z_vector.cc \
         src/steqr2.cc \
         src/sterf.cc \
         src/symm.cc \
@@ -649,6 +660,7 @@ endif
 tester_src += \
         test/matrix_generator.cc \
         test/matrix_params.cc \
+        test/random.cc \
         test/test.cc \
         test/test_add.cc \
         test/test_bdsqr.cc \
@@ -684,6 +696,11 @@ tester_src += \
         test/test_scale.cc \
         test/test_scale_row_col.cc \
         test/test_set.cc \
+        test/test_stedc.cc \
+        test/test_stedc_deflate.cc \
+        test/test_stedc_secular.cc \
+        test/test_stedc_sort.cc \
+        test/test_stedc_z_vector.cc \
         test/test_steqr2.cc \
         test/test_sterf.cc \
         test/test_symm.cc \
@@ -746,11 +763,16 @@ unit_src = \
     unit_test/test_norm.cc \
     # End. Add alphabetically.
 
+ifeq (${c_api},1)
+    unit_src += \
+        unit_test/test_c_api.cc
+endif
+
 ifneq ($(only_unit),1)
-unit_src += \
-    unit_test/test_lq.cc \
-    unit_test/test_qr.cc \
-    # End. Add alphabetically.
+    unit_src += \
+        unit_test/test_lq.cc \
+        unit_test/test_qr.cc \
+        # End. Add alphabetically.
 endif
 
 # unit test framework
@@ -835,7 +857,8 @@ UNIT_LIBS    += -lslate -ltestsweeper
 .DEFAULT_GOAL := all
 
 all: lib unit_test hooks
-install: lib
+
+pkg = lib/pkgconfig/slate.pc
 
 ifneq ($(only_unit),1)
     all: tester lapack_api
@@ -846,32 +869,36 @@ ifneq ($(only_unit),1)
     endif
 endif
 
-install:
-	cd blaspp   && $(MAKE) install prefix=${prefix}
+install: lib ${pkg}
+	cd blaspp   && ${MAKE} install prefix=${abs_prefix}
 	@echo
-	cd lapackpp && $(MAKE) install prefix=${prefix}
+	cd lapackpp && ${MAKE} install prefix=${abs_prefix}
 	@echo
-	mkdir -p $(DESTDIR)$(prefix)/include/slate/internal
-	mkdir -p $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)
-	cp include/slate/*.hh          $(DESTDIR)$(prefix)/include/slate
-	cp include/slate/internal/*.hh $(DESTDIR)$(prefix)/include/slate/internal
-	cp lib/lib*                    $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)
-	if [ $(c_api) -eq 1 ]; then \
-		mkdir -p $(DESTDIR)$(prefix)/include/slate/c_api; \
-		cp include/slate/c_api/*.h  $(DESTDIR)$(prefix)/include/slate/c_api; \
-		cp include/slate/c_api/*.hh $(DESTDIR)$(prefix)/include/slate/c_api; \
+	mkdir -p ${DESTDIR}${abs_prefix}/include/slate/internal
+	mkdir -p ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}
+	mkdir -p ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}/pkgconfig
+	cp include/slate/*.hh          ${DESTDIR}${abs_prefix}/include/slate/
+	cp include/slate/internal/*.hh ${DESTDIR}${abs_prefix}/include/slate/internal/
+	cp lib/lib*                    ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}
+	cp ${pkg}                      ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}/pkgconfig/
+	if [ ${c_api} -eq 1 ]; then \
+		mkdir -p ${DESTDIR}${abs_prefix}/include/slate/c_api; \
+		cp include/slate/c_api/*.h  ${DESTDIR}${abs_prefix}/include/slate/c_api; \
+		cp include/slate/c_api/*.hh ${DESTDIR}${abs_prefix}/include/slate/c_api; \
 	fi
 	if [ ${fortran_api} -eq 1 ]; then \
-		cp slate.mod                $(DESTDIR)$(prefix)/include/; \
+		cp slate.mod                ${DESTDIR}${abs_prefix}/include/; \
 	fi
 
 uninstall:
-	cd blaspp   && $(MAKE) uninstall prefix=${prefix}
+	cd blaspp   && ${MAKE} uninstall prefix=${abs_prefix}
 	@echo
-	cd lapackpp && $(MAKE) uninstall prefix=${prefix}
+	cd lapackpp && ${MAKE} uninstall prefix=${abs_prefix}
 	@echo
-	$(RM) -r $(DESTDIR)$(prefix)/include/slate
-	$(RM)    $(DESTDIR)$(prefix)/lib$(LIB_SUFFIX)/libslate*
+	${RM}    ${DESTDIR}${abs_prefix}/include/slate.mod
+	${RM} -r ${DESTDIR}${abs_prefix}/include/slate
+	${RM}    ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}/libslate*
+	${RM}    ${DESTDIR}${abs_prefix}/lib${LIB_SUFFIX}/pkgconfig/slate.pc
 
 docs:
 	doxygen docs/doxygen/doxyfile.conf
@@ -1037,7 +1064,7 @@ scalapack_api_src += \
         scalapack_api/scalapack_gels.cc \
         scalapack_api/scalapack_gemm.cc \
         scalapack_api/scalapack_gesv.cc \
-        scalapack_api/scalapack_gesvMixed.cc \
+        scalapack_api/scalapack_gesv_mixed.cc \
         scalapack_api/scalapack_getrf.cc \
         scalapack_api/scalapack_getrs.cc \
         scalapack_api/scalapack_hemm.cc \
@@ -1095,7 +1122,7 @@ lapack_api_src += \
         lapack_api/lapack_gels.cc \
         lapack_api/lapack_gemm.cc \
         lapack_api/lapack_gesv.cc \
-        lapack_api/lapack_gesvMixed.cc \
+        lapack_api/lapack_gesv_mixed.cc \
         lapack_api/lapack_getrf.cc \
         lapack_api/lapack_getri.cc \
         lapack_api/lapack_getrs.cc \
@@ -1196,6 +1223,25 @@ src/hip:
 	mkdir -p $@
 
 #-------------------------------------------------------------------------------
+# pkgconfig
+# Keep -std=c++11 in CXXFLAGS. Keep -fopenmp in LDFLAGS.
+CXXFLAGS_clean = ${filter-out -O% -W% -pedantic -D% -I./% -MMD -fPIC, ${CXXFLAGS}}
+CPPFLAGS_clean = ${filter-out -O% -W% -pedantic -D% -I./% -MMD -fPIC, ${CPPFLAGS}}
+LDFLAGS_clean  = ${filter-out -fPIC -L./%, ${LDFLAGS}}
+
+.PHONY: ${pkg}
+${pkg}:
+	perl -pe "s'#VERSION'2023.01.00'; \
+	          s'#PREFIX'${abs_prefix}'; \
+	          s'#CXX\b'${CXX}'; \
+	          s'#CXXFLAGS'${CXXFLAGS_clean}'; \
+	          s'#CPPFLAGS'${CPPFLAGS_clean}'; \
+	          s'#LDFLAGS'${LDFLAGS_clean}'; \
+	          s'#LIBS'${LIBS}'; \
+	          s'#SCALAPACK'${SCALAPACK_LIBRARIES}';" \
+	          $@.in > $@
+
+#-------------------------------------------------------------------------------
 # general rules
 
 lib: $(libslate)
@@ -1228,6 +1274,10 @@ hooks: ${hooks}
 		cp $< $@ ; \
 	fi
 
+#-------------------------------------------------------------------------------
+# Compile object files
+
+# .hip.cc rule before .cc rule.
 %.hip.o: %.hip.cc | $(hip_hdr)
 	$(HIPCC) $(HIPCCFLAGS) -c $< -o $@
 
@@ -1243,12 +1293,16 @@ hooks: ${hooks}
 %.o: %.cu
 	$(NVCC) $(NVCCFLAGS) -c $< -o $@
 
-# preprocess source
+#-------------------------------------------------------------------------------
+# Preprocess source
+
 # test/%.i depend on testsweeper; for simplicity just add it here.
 %.i: %.cc
 	$(CXX) $(CXXFLAGS) -I./testsweeper -E $< -o $@
 
-# precompile header to check for errors
+#-------------------------------------------------------------------------------
+# Precompile header to check for errors
+
 # test/%.gch depend on testsweeper; for simplicity just add it here.
 %.gch: %.hh
 	$(CXX) $(CXXFLAGS) -I./testsweeper -c $< -o $@
@@ -1279,6 +1333,7 @@ echo:
 	@echo "static        = '$(static)'"
 	@echo "gpu_backend   = '${gpu_backend}'"
 	@echo "prefix        = '${prefix}'"
+	@echo "abs_prefix    = '${abs_prefix}'"
 	@echo "c_api         = '${c_api}'"
 	@echo "fortran_api   = '${fortran_api}'"
 	@echo "SCALAPACK_LIBRARIES = '${SCALAPACK_LIBRARIES}'"
@@ -1298,6 +1353,7 @@ echo:
 	@echo "libslate_a    = $(libslate_a)"
 	@echo "libslate_so   = $(libslate_so)"
 	@echo "libslate      = $(libslate)"
+	@echo "pkg           = ${pkg}"
 	@echo
 	@echo "---------- Files"
 	@echo "libslate_src  = $(libslate_src)"
@@ -1323,6 +1379,9 @@ echo:
 	@echo "---------- C++ compiler"
 	@echo "CXX           = $(CXX)"
 	@echo "CXXFLAGS      = $(CXXFLAGS)"
+	@echo "CXXFLAGS_clean= $(CXXFLAGS_clean)"
+	@echo "CPPFLAGS      = $(CPPFLAGS)"
+	@echo "CPPFLAGS_clean= $(CPPFLAGS_clean)"
 	@echo
 	@echo "---------- CUDA options"
 	@echo "cuda          = '$(cuda)'"

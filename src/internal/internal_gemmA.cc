@@ -81,6 +81,9 @@ void gemmA(internal::TargetType<Target::HostTask>,
     assert( A.nt() == B.mt() );
     assert( A.mt() == C.mt() );
 
+    const scalar_t zero = 0.0;
+    const scalar_t one  = 1.0;
+
     int err   = 0;
     // This assumes that if a tile has to be acquired, then all tiles
     // have to be acquired
@@ -88,24 +91,26 @@ void gemmA(internal::TargetType<Target::HostTask>,
     int c_tile_acquired = 0;
     #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
+        int nlocal_A_tiles = 0;
         for (int64_t j = 0; j < A.nt(); ++j) {
             if (A.tileIsLocal( i, j )) {
+                nlocal_A_tiles++;
                 #pragma omp task slate_omp_default_none \
                     shared( A, B, C, err, c_tile_acquired ) \
                     firstprivate(i, j, layout) priority(priority)
                 {
                     try {
-                        A.tileGetForReading( i, j, LayoutConvert( layout ) );
+                        A.tileGetForReading( i, j, HostNum, LayoutConvert( layout ) );
                         for (int64_t k = 0; k < B.nt(); ++k) {
                             B.tileGetForReading(
-                                j, k, LayoutConvert( layout ) );
+                                j, k, HostNum, LayoutConvert( layout ) );
 
                             if (C.tileIsLocal( i, k )) {
                                 C.tileGetForWriting(
-                                    i, k, LayoutConvert( layout ) );
+                                    i, k, HostNum, LayoutConvert( layout ) );
                             }
                             else {
-                                if (! C.tileExists( i, k )) {
+                                if (! C.tileExists( i, k, HostNum )) {
                                     c_tile_acquired = 1;
                                     #pragma omp critical
                                     {
@@ -121,18 +126,39 @@ void gemmA(internal::TargetType<Target::HostTask>,
                 }
             }
         }
+        // Set or scale tiles of C when the tiles are not updated but
+        // are part of the distribution, i.e., will be used for the reduction.
+        if (nlocal_A_tiles == 0 && beta != one) {
+            for (int64_t j = 0; j < B.nt(); ++j) {
+                if (C.tileIsLocal( i, j )) {
+                    #pragma omp task slate_omp_default_none \
+                        shared( C, beta ) firstprivate( i, j, zero, layout )
+                    {
+                        C.tileGetForWriting( i, j, HostNum, LayoutConvert( layout ) );
+                        if (beta == zero) {
+                            C( i, j ).set( zero );
+                        }
+                        else {
+                            tile::scale( beta, C( i, j ) );
+                        }
+                    }
+                }
+            }
+        }
     }
+
+    if (err)
+        slate_error(
+            std::string( "Error in omp-task line: " ) + std::to_string( err ) );
 
     #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, err ) \
-            firstprivate(i, alpha, beta, c_tile_acquired) priority(priority)
+            firstprivate(i, alpha, beta, zero, one, c_tile_acquired) \
+            priority(priority)
         {
             try {
-                const scalar_t zero = 0.0;
-                const scalar_t one  = 1.0;
-
                 scalar_t beta_j;
                 for (int64_t k = 0; k < B.nt(); ++k) {
                     if (! c_tile_acquired || C.tileIsLocal( i, k )) {
@@ -171,6 +197,30 @@ void gemmA(internal::TargetType<Target::HostTask>,
             std::string( "Error in omp-task line: " ) + std::to_string( err ) );
 }
 
+template <typename scalar_t>
+void gemmA(internal::TargetType<Target::HostNest>,
+           scalar_t alpha, Matrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
+           scalar_t beta,  Matrix<scalar_t>& C,
+           Layout layout, int priority, int queue_index,
+           Options const& opts)
+{
+    gemmA( internal::TargetType<Target::HostTask>(),
+            alpha, A, B, beta, C, layout, priority, queue_index, opts );
+}
+
+template <typename scalar_t>
+void gemmA(internal::TargetType<Target::HostBatch>,
+           scalar_t alpha, Matrix<scalar_t>& A,
+                           Matrix<scalar_t>& B,
+           scalar_t beta,  Matrix<scalar_t>& C,
+           Layout layout, int priority, int queue_index,
+           Options const& opts)
+{
+    gemmA( internal::TargetType<Target::HostTask>(),
+            alpha, A, B, beta, C, layout, priority, queue_index, opts );
+}
+
 //------------------------------------------------------------------------------
 /// General matrix multiply for a left-looking update
 /// where TODO
@@ -192,6 +242,7 @@ void gemmA(internal::TargetType<Target::Devices>,
 
     TileReleaseStrategy tile_release_strategy = get_option(
             opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
     // check dimensions
     // TODO add more?
     assert( A.mt() == C.mt() );
@@ -201,69 +252,108 @@ void gemmA(internal::TargetType<Target::Devices>,
     assert(C.num_devices() > 0);
 
     int err = 0;
-    const scalar_t one = 1.0;
+    const scalar_t zero = 0;
+    const scalar_t one  = 1.0;
+
+    // if op(C) is NoTrans, invert opA, opB if possible
+    Op opA = A.op();
+    if (C.op() != Op::NoTrans) {
+        if (opA == Op::NoTrans)
+            opA = C.op();
+        else if (A.op() == C.op() || C.is_real) {
+            // A and C are both Trans or both ConjTrans;
+            // Trans == ConjTrans if real
+            opA = Op::NoTrans;
+        }
+        else {
+            err = __LINE__;  // ConjNoTrans not supported
+        }
+    }
+
+    Op opB = B.op();
+    if (C.op() != Op::NoTrans) {
+        if (opB == Op::NoTrans)
+            opB = C.op();
+        else if (opB == C.op() || C.is_real) {
+            // B and C are both Trans or both ConjTrans;
+            // Trans == ConjTrans if real
+            opB = Op::NoTrans;
+        }
+        else {
+            err = __LINE__;  // ConjNoTrans not supported
+        }
+    }
+
+    if (err)
+        slate_error( std::to_string( err ) );
+
+    if (C.op() == Op::ConjTrans) {
+        alpha = conj( alpha );
+        beta  = conj( beta );
+    }
+
 
     // In the case where some C tiles are not touched locally but involved
     // in the reduce process, we scale it here first.
     if (beta != one) {
+        std::set<int> queues_to_sync;
         #pragma omp taskgroup
         for (int64_t i = 0; i < A.mt(); ++i) {
-            int cpt = 0;
+            int nlocal_A_row_i_tiles_touched = 0;
             for (int64_t j = 0; j < A.nt(); ++j) {
                 if (A.tileIsLocal( i, j )) {
-                    ++cpt;
+                    nlocal_A_row_i_tiles_touched++;
                 }
             }
-            if (cpt == 0 && C.tileIsLocal( i, 0 )) {
-                #pragma omp task shared( beta ) firstprivate( i )
+
+            if (nlocal_A_row_i_tiles_touched == 0 && C.tileIsLocal( i, 0 )) {
+                int device = C.tileDevice( i, 0 );
+
+                blas::Queue* queue = A.compute_queue( device, queue_index );
+                assert( queue != nullptr );
+                queues_to_sync.insert( device );
+
+                #pragma omp task slate_omp_default_none \
+                    shared( C ) \
+                    firstprivate( i, beta, zero, one, layout, device, queue ) \
+                    priority( priority )
                 {
                     // TODO Perform the scaling where the tile origins.
                     // Unless it got modified and so it should be
                     // performed where it was last modified.
-                    tile::scale( beta, C( i, 0 ) );
+
+                    C.tileGetForWriting(
+                        i, 0, device, LayoutConvert( layout ) );
+
+                    auto T = C( i, 0, device );
+                    if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
+                        T = transpose( T );
+
+                    if (beta == zero) {
+                        device::geset( T.mb(), T.nb(), beta, beta,
+                            T.data(), T.stride(), *queue );
+                    }
+                    else{
+                        device::gescale( T.mb(), T.nb(), beta, one,
+                            T.data(), T.stride(), *queue );
+                    }
                 }
             }
+        }
+        for (int device : queues_to_sync) {
+            blas::Queue* queue = A.compute_queue( device, queue_index );
+            assert( queue != nullptr );
+            queue->sync();
         }
     }
 
     #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared(A, B, C, err) priority(priority) \
+        #pragma omp task shared(A, B, C) priority(priority) \
             firstprivate(alpha, beta, layout, queue_index, device, tile_release_strategy)
         {
-            // if op(C) is NoTrans, invert opA, opB if possible
-            Op opA = A.op();
-            if (C.op() != Op::NoTrans) {
-                if (opA == Op::NoTrans)
-                    opA = C.op();
-                else if (A.op() == C.op() || C.is_real) {
-                    // A and C are both Trans or both ConjTrans;
-                    // Trans == ConjTrans if real
-                    opA = Op::NoTrans;
-                }
-                else {
-                    err = __LINE__;  // ConjNoTrans not supported
-                }
-            }
-
-            Op opB = B.op();
-            if (C.op() != Op::NoTrans) {
-                if (opB == Op::NoTrans)
-                    opB = C.op();
-                else if (opB == C.op() || C.is_real) {
-                    // B and C are both Trans or both ConjTrans;
-                    // Trans == ConjTrans if real
-                    opB = Op::NoTrans;
-                }
-                else {
-                    err = __LINE__;  // ConjNoTrans not supported
-                }
-            }
-
-            if (C.op() == Op::ConjTrans) {
-                alpha = conj( alpha );
-                beta  = conj( beta );
-            }
+            blas::Queue* queue = A.compute_queue( device, queue_index );
+            assert( queue != nullptr );
 
             std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
             for (int64_t i = 0; i < A.mt(); ++i) {
@@ -274,16 +364,20 @@ void gemmA(internal::TargetType<Target::Devices>,
                             B_tiles_set.insert( {j, 0} );
                             C_tiles_set.insert( {i, 0} );
 
-                            if ((! C.tileExists( i, 0, device ))
-                                && (! C.tileExists( i, 0, HostNum )))
+                            if (! C.tileExists( i, 0, device )
+                                && ! C.tileExists( i, 0, HostNum ))
                             {
                                 // XXX since at least cuBLAS does not
                                 // take beta as a vector, we have to
                                 // set new tiles to 0 explicitly.
-                                // TODO we should insert and set it directly
-                                // on the device.
-                                C.tileInsert( i, 0 );
-                                C( i, 0 ).set( 0 );
+                                C.tileInsertWorkspace( i, 0, device );
+                                C.tileModified( i, 0, device );
+                                auto T = C( i, 0, device );
+                                if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
+                                    T = transpose( T );
+
+                                device::geset( T.mb(), T.nb(), zero, zero,
+                                    T.data(), T.stride(), *queue );
                             }
                         }
                     }
@@ -362,7 +456,7 @@ void gemmA(internal::TargetType<Target::Devices>,
                 int64_t nb1_ = C.tileNb( 0 );
                 // same kb as above
                 {
-                    if (A.nt() > 1 && A.mt() > 1) {
+                    if (A.nt() > 1) {
                         int64_t i = A.mt()-1;
                         int j = 0;
                         if (A.tileIsLocal( i, j )) {
@@ -548,9 +642,6 @@ void gemmA(internal::TargetType<Target::Devices>,
                     // info size 0 disables slow checks in batched BLAS++.
                     std::vector<int64_t> info;
 
-                    blas::Queue* queue = A.compute_queue( device, queue_index );
-                    assert( queue != nullptr );
-
                     if (c_array0_.size() > 0) {
                         std::vector<int64_t>    m( 1,  mb0_ );
                         std::vector<int64_t>    n( 1,  nb0_ );
@@ -645,15 +736,15 @@ void gemmA(internal::TargetType<Target::Devices>,
                 }
 
                 if (tile_release_strategy == TileReleaseStrategy::Internal
-                    || tile_release_strategy == TileReleaseStrategy::All) {
+                    || tile_release_strategy == TileReleaseStrategy::All)
+                {
                     for (int64_t i = 0; i < A.mt(); ++i) {
                         for (int64_t j = 0; j < A.nt(); ++j) {
                             if (A.tileIsLocal( i, j )) {
                                 if (device == A.tileDevice( i, j )) {
+                                    A.tileRelease( i, j, device );
                                     // erase tmp local and remote device tiles;
-                                    B.tileRelease( j, 0, device );
-                                    // decrement life for remote tiles
-                                    B.tileTick( j, 0 );
+                                    B.tileRelease( j, 0, device ); // XXX Should it stay here?
                                 }
                             }
                         }
@@ -662,9 +753,6 @@ void gemmA(internal::TargetType<Target::Devices>,
             }
         }
     }
-
-    if (err)
-        slate_error( std::to_string( err ) );
 }
 
 //------------------------------------------------------------------------------
@@ -701,10 +789,75 @@ void gemmA< Target::HostTask, std::complex<double> >(
     std::complex<double> beta,  Matrix< std::complex<double> >&& C,
     Layout layout, int priority, int64_t queue_index,
     Options const& opts);
-template
 
 // ----------------------------------------
-// Devices instantiation
+template
+void gemmA<Target::HostNest, float>(
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+template
+void gemmA<Target::HostNest, double>(
+    double alpha, Matrix<double>&& A,
+                  Matrix<double>&& B,
+    double beta,  Matrix<double>&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+template
+void gemmA< Target::HostNest, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+template
+void gemmA< Target::HostNest, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
+    std::complex<double> beta,  Matrix< std::complex<double> >&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+// ----------------------------------------
+template
+void gemmA<Target::HostBatch, float>(
+    float alpha, Matrix<float>&& A,
+                 Matrix<float>&& B,
+    float beta,  Matrix<float>&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+template
+void gemmA<Target::HostBatch, double>(
+    double alpha, Matrix<double>&& A,
+                  Matrix<double>&& B,
+    double beta,  Matrix<double>&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+template
+void gemmA< Target::HostBatch, std::complex<float> >(
+    std::complex<float> alpha, Matrix< std::complex<float> >&& A,
+                               Matrix< std::complex<float> >&& B,
+    std::complex<float> beta,  Matrix< std::complex<float> >&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+template
+void gemmA< Target::HostBatch, std::complex<double> >(
+    std::complex<double> alpha, Matrix< std::complex<double> >&& A,
+                                Matrix< std::complex<double> >&& B,
+    std::complex<double> beta,  Matrix< std::complex<double> >&& C,
+    Layout layout, int priority, int64_t queue_index,
+    Options const& opts);
+
+// ----------------------------------------
+template
 void gemmA<Target::Devices, float>(
     float alpha, Matrix<float>&& A,
                  Matrix<float>&& B,

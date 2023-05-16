@@ -39,6 +39,12 @@ typedef enum slate_TileReleaseStrategy {
     slate_TileReleaseStrategy_All      = 'A', ///< slate::TileReleaseStrategy::All
 } slate_TileReleaseStrategy;                  ///< slate::TileReleaseStrategy
 
+typedef enum slate_MethodEig {
+    slate_MethodEig_QR = 'Q',   ///< slate::MethodEig::QR
+    slate_MethodEig_DC = 'D',   ///< slate::MethodEig::DC
+} slate_MethodEig;
+
+// todo: auto sync with include/slate/enums.hh
 typedef enum slate_Option {
     slate_Option_ChunkSize,           ///< slate::Option::ChunkSize
     slate_Option_Lookahead,           ///< slate::Option::Lookahead
@@ -48,11 +54,25 @@ typedef enum slate_Option {
     slate_Option_Tolerance,           ///< slate::Option::Tolerance
     slate_Option_Target,              ///< slate::Option::Target
     slate_Option_TileReleaseStrategy, ///< slate::Option::TileReleaseStrategy
+    slate_Option_HoldLocalWorkspace,  ///< slate::Option::HoldLocalWorkspace
+    slate_Option_PrintVerbose,        ///< slate::Option::PrintVerbose
+    slate_Option_PrintEdgeItems,      ///< slate::Option::PrintEdgeItems
+    slate_Option_PrintWidth,          ///< slate::Option::PrintWidth
+    slate_Option_PrintPrecision,      ///< slate::Option::PrintPrecision
+    slate_Option_PivotThreshold,      ///< slate::Option::PivotThreshold
+    slate_Option_MethodCholQR,        ///< slate::Option::MethodCholQR
+    slate_Option_MethodEig,           ///< slate::Option::MethodEig
+    slate_Option_MethodGels,          ///< slate::Option::MethodGels
+    slate_Option_MethodGemm,          ///< slate::Option::MethodGemm
+    slate_Option_MethodHemm,          ///< slate::Option::MethodHemm
+    slate_Option_MethodLU,            ///< slate::Option::MethodLU
+    slate_Option_MethodTrsm,          ///< slate::Option::MethodTrsm
 } slate_Option;                       ///< slate::Option
 
 //------------------------------------------------------------------------------
 // slate/include/slate/types.hh
 
+// todo: should this be just i_ and d_, with cast from enums to int64_t?
 typedef union slate_OptionValue {
     int64_t       chunk_size;
     int64_t       lookahead;
@@ -95,8 +115,8 @@ typedef enum slate_Side {
 } slate_Side;                         ///< slate::Side
 
 typedef enum slate_Layout {
-    slate_Layout_ColMajor = 'C',      ///< slate::Layou::ColMajor
-    slate_Layout_RowMajor = 'R',      ///< slate::Layou::RowMajor
+    slate_Layout_ColMajor = 'C',      ///< slate::Layout::ColMajor
+    slate_Layout_RowMajor = 'R',      ///< slate::Layout::RowMajor
 } slate_Layout;                       ///< slate::Layout
 
 //------------------------------------------------------------------------------

@@ -40,6 +40,16 @@ inline scalar_t sqr(scalar_t x)
 }
 
 //------------------------------------------------------------------------------
+/// Sign (signum) function.
+/// @return -1 if val <  0,
+///          0 if val == 0,
+///         +1 if val >  0.
+template <typename real_t> real_t sign( real_t val )
+{
+    return (real_t(0) < val) - (val < real_t(0));
+}
+
+//------------------------------------------------------------------------------
 /// Adds two scaled, sum-of-squares representations.
 /// On exit, scale1 and sumsq1 are updated such that:
 ///
@@ -141,6 +151,112 @@ private:
     int count_;
     std::atomic<int> passed_;
 };
+
+//------------------------------------------------------------------------------
+/// @return global index corresponding to local index,
+/// for a 2D block-cyclic distributed matrix.
+///
+/// @param[in] local
+///     The local index of the distributed matrix entry.
+///
+/// @param[in] nb
+///     Block size the distributed matrix is split into.
+///
+/// @param[in] iproc
+///     The coordinate of the process whose local array row or
+///     col is to be determined.
+///
+/// @param[in] isrcproc
+///     The coordinate of the process that possesses the first
+///     row/col of the distributed matrix.
+///
+/// @param[in] nprocs
+///     The total number processes over which the distributed
+///     matrix is distributed.
+///
+/// Corresponds to ScaLAPACK's indxg2l.
+///
+inline int64_t local2global(
+    int64_t local,
+    int64_t nb,
+    int iproc,
+    int isrcproc,
+    int nprocs )
+{
+    return (nprocs*(local/nb) + (nprocs + iproc - isrcproc) % nprocs)*nb
+            + (local % nb);
+}
+
+//------------------------------------------------------------------------------
+/// @return local index corresponding to global index,
+/// for a 2D block-cyclic distributed matrix.
+///
+/// @param[in] global
+///     The global index of the distributed matrix entry.
+///
+/// @param[in] nb
+///     Block size, size of the blocks the distributed matrix is
+///     split into.
+///
+/// @param[in] nprocs
+///     The total number processes over which the distributed
+///     matrix is distributed.
+///
+/// Corresponds to ScaLAPACK's indxl2g.
+/// Dummy arguments iproc, isrcproc are excluded.
+///
+inline int64_t global2local(
+    int64_t global,
+    int64_t nb,
+    // iproc    was dummy
+    // isrcproc was dummy
+    int nprocs )
+{
+    return (global/(nb*nprocs))*nb + (global % nb);
+}
+
+//------------------------------------------------------------------------------
+/// Computes the number of rows or cols of a distributed
+/// matrix owned by the process iproc.
+/// for a 2D block-cyclic distributed matrix.
+///
+/// @param[in] n
+///     The number of rows/cols in distributed matrix.
+///
+/// @param[in] nb
+///     Block size in block-cyclic distribution.
+///
+/// @param[in] iproc
+///     The coordinate of the process whose local number of rows/cols is
+///     to be determined.
+///
+/// @param[in] isrcproc
+///     The coordinate of the process that possesses the first
+///     row or col of the distributed matrix.
+///
+/// @param[in] nprocs
+///     The total number processes over which the matrix is distributed.
+///
+/// Corresponds to ScaLAPACK's numroc.
+///
+inline int64_t num_local_rows_cols(
+    int64_t n, int64_t nb, int iproc, int isrcproc, int nprocs )
+{
+    // iproc's distance from source process.
+    int dist = (nprocs + iproc - isrcproc) % nprocs;
+    int64_t nblocks = n / nb;
+    int64_t num = (nblocks / nprocs) * nb;
+    int64_t extra_blocks = nblocks % nprocs;
+    if (dist < extra_blocks) {
+        // extra full block
+        num += nb;
+    }
+    else if (dist == extra_blocks) {
+        // last partial block
+        num += n % nb;
+    }
+    return num;
+}
 
 //------------------------------------------------------------------------------
 /// Use to silence compiler warnings regarding an unused variable var.

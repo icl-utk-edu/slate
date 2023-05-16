@@ -106,7 +106,7 @@ void gecopy(
 
     hipSetDevice( queue.device() );
 
-    hipLaunchKernelGGL(gecopy_kernel, dim3(batch_count), dim3(nthreads), 0, queue.stream(),
+    gecopy_kernel<<<batch_count, nthreads, 0, queue.stream()>>>(
           m, n,
           Aarray, lda,
           Barray, ldb);
@@ -117,6 +117,8 @@ void gecopy(
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
+
+// float => float
 template
 void gecopy(
     int64_t m, int64_t n,
@@ -124,6 +126,7 @@ void gecopy(
     float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
+// float => double
 template
 void gecopy(
     int64_t m, int64_t n,
@@ -131,6 +134,7 @@ void gecopy(
     double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
+// double => double
 template
 void gecopy(
     int64_t m, int64_t n,
@@ -138,6 +142,7 @@ void gecopy(
     double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
+// double => float
 template
 void gecopy(
     int64_t m, int64_t n,
@@ -145,6 +150,7 @@ void gecopy(
     float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
+// complex-float => complex-float
 template
 void gecopy(
     int64_t m, int64_t n,
@@ -152,6 +158,7 @@ void gecopy(
     hipFloatComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
+// complex-float => complex-double
 template
 void gecopy(
     int64_t m, int64_t n,
@@ -159,6 +166,7 @@ void gecopy(
     hipDoubleComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
+// complex-double => complex-double
 template
 void gecopy(
     int64_t m, int64_t n,
@@ -166,11 +174,28 @@ void gecopy(
     hipDoubleComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
+// complex-double => complex-float
 template
 void gecopy(
     int64_t m, int64_t n,
     hipDoubleComplex const* const* Aarray, int64_t lda,
     hipFloatComplex** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue);
+
+// float => complex-float
+template
+void gecopy(
+    int64_t m, int64_t n,
+    float const* const* Aarray, int64_t lda,
+    hipFloatComplex** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue);
+
+// double => complex-double
+template
+void gecopy(
+    int64_t m, int64_t n,
+    double const* const* Aarray, int64_t lda,
+    hipDoubleComplex** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
 } // namespace device

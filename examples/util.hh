@@ -2,7 +2,9 @@
 #define UTIL_H
 
 #include <blas.hh>
+
 #include <stdio.h>
+#include <math.h>
 
 //------------------------------------------------------------------------------
 void print_func_( int rank, const char* func )
@@ -132,6 +134,32 @@ void print_matrix( const char* label, int m, int n, scalar_type* A, int lda )
         printf( "\n" );
     }
     printf( "];\n" );
+}
+
+//------------------------------------------------------------------------------
+/// Determine a square or short-wide p-by-q grid that is as square as
+/// possible to fit the MPI size. Worst case is p=1, q=mpi_size.
+///
+void grid_size( int mpi_size, int* p_out, int* q_out )
+{
+    int p, q;
+    for (p = int( sqrt( mpi_size ) ); p > 0; --p) {
+        q = int( mpi_size / p );
+        if (p*q == mpi_size)
+            break;
+    }
+    assert( p*q == mpi_size );
+    *p_out = p;
+    *q_out = q;
+}
+
+//------------------------------------------------------------------------------
+/// Determine a square p-by-p grid to fit the MPI size.
+///
+void grid_size_square( int mpi_size, int* p_out, int* q_out )
+{
+    *p_out = int( sqrt( mpi_size ) );
+    *q_out = *p_out;
 }
 
 //------------------------------------------------------------------------------

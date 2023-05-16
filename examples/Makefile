@@ -1,139 +1,55 @@
-# Assumes BLAS++ and LAPACK++ are installed in SLATE directory.
-# Otherwise would need to add
-#   -I${blaspp_dir}/include -I${lapackpp_dir}/include to CXXFLAGS,
-#   -L${blaspp_dir}/lib -L${lapackpp_dir}/lib and corresponding rpaths to LDFLAGS.
-#
-# Assumes everything built as shared libraries, so transitive dependencies
-# are handled implicitly. That is, linking with -lslate implicitly links with
-# -lblaspp -llapackpp -lopenblas.
-# Substitute your choice of BLAS/LAPACK library for -lopenblas.
+# Queries pkg-config for all libraries to link with.
+# User should not generally need to put anything in make.inc.
+# LIBS can be used if something like -lgfortran is missing.
 
 -include make.inc
 
-slate_dir      ?= ../install
-
-# CXXFLAGS add /opt/slate/include to include path.
-# LDFLAGS  add /opt/slate/lib     to lib path.
-# Using -rpath avoids need to add ${slate_dir}/lib to $LD_LIBRARY_PATH.
-CXX      = mpicxx
-CXXFLAGS = -fopenmp -Wall -std=c++17 -MMD -I${slate_dir}/include
-LDFLAGS  = -fopenmp -L${slate_dir}/lib -Wl,-rpath,${slate_dir}/lib
-LIBS     = -llapackpp -lblaspp
-
-# auto-detect OS
-# $OSTYPE may not be exported from the shell, so echo it
-ostype := $(shell echo $${OSTYPE})
-ifneq ($(findstring darwin, $(ostype)),)
-    # MacOS is darwin
-    macos = 1
-    LDD = otool -L
-else
-    LDD = ldd
+pkg_exists := ${shell pkg-config --exists slate; echo $$?}
+ifneq (${pkg_exists},0)
+    ${error pkg-config could not find slate. Install SLATE, then add /prefix/lib/pkgconfig with your prefix to $$PKG_CONFIG_PATH.}
 endif
 
-#-------------------------------------------------------------------------------
-# BLAS and LAPACK
-
-ifeq ($(blas),mkl)
-    # MKL on MacOS doesn't include ScaLAPACK; use default.
-    # For others, link with appropriate version of ScaLAPACK and BLACS.
-    ifneq ($(macos),1)
-        ifeq ($(mkl_blacs),openmpi)
-            ifeq ($(blas_int),int64)
-                scalapack_libs ?= -lmkl_scalapack_ilp64 -lmkl_blacs_openmpi_ilp64
-            else
-                scalapack_libs ?= -lmkl_scalapack_lp64 -lmkl_blacs_openmpi_lp64
-            endif
-        else
-            ifeq ($(blas_int),int64)
-                scalapack_libs ?= -lmkl_scalapack_ilp64 -lmkl_blacs_intelmpi_ilp64
-            else
-                scalapack_libs ?= -lmkl_scalapack_lp64 -lmkl_blacs_intelmpi_lp64
-            endif
-        endif
-    endif
-else ifeq ($(blas),essl)
-    # IBM ESSL
-    # todo threaded, int64
-    # hmm... likely LAPACK won't be int64 even if ESSL is.
-    LIBS += -lessl -llapack
-else ifeq ($(blas),openblas)
-    # OpenBLAS
-    LIBS += -lopenblas
-else ifeq ($(blas),libsci)
-    # Cray LibSci
-    # no LIBS to add
-    scalapack_libs ?=
-else
-    $(error ERROR: unknown `blas=$(blas)`. Set blas to one of mkl, essl, openblas, libsci.)
-endif
+CXX            = ${shell pkg-config --variable=CXX       slate}
+CXXFLAGS      += ${shell pkg-config --cflags             slate}
+LDFLAGS       += ${shell pkg-config --libs-only-L        slate}
+LDFLAGS       += ${shell pkg-config --libs-only-other    slate}
+slate_libs     = ${shell pkg-config --libs-only-l        slate}
+scalapack_libs = ${shell pkg-config --variable=scalapack slate}
 
 #-------------------------------------------------------------------------------
-# Check if SLATE was compiled with cublas. If so, explicitly link cublas
-# since it is called in the SLATE headers.
-# todo: is this still needed?
-
-grep_cuda := ${shell ${LDD} ${slate_dir}/lib/libslate.so | grep cublas}
-ifeq (${grep_cuda},)
-    ${info SLATE was compiled without CUDA}
-    ${info}
-else
-    cuda_nvcc := ${shell which nvcc}
-    CUDA_ROOT ?= $(cuda_nvcc:/bin/nvcc=)
-    ${info SLATE with CUDA ${CUDA_ROOT}}
-    ifeq (${cuda_nvcc},)
-        ${error SLATE was compiled with CUDA, but cannot find nvcc.}
-    endif
-
-    CXXFLAGS += -I${CUDA_ROOT}/include
-    LDFLAGS  += -L${CUDA_ROOT}/lib -Wl,-rpath,${CUDA_ROOT}/lib
-    LIBS     += -lcusolver -lcublas -lcudart
-endif
-
-#-------------------------------------------------------------------------------
-# ScaLAPACK examples
-# Link with -lslate_scalapack_api -lscalapack.
-# Implicitly links with -lslate -lblaspp -llapackpp -lopenblas.
+# SLATE's ScaLAPACK API example
+# Link with -lslate_scalapack_api -lscalapack -lslate -lblaspp -llapackpp.
+# If RUNPATH was set on libslate_scalapack_api.so when it was installed,
+# here we could implicitly link with -lslate -lblaspp -llapackpp.
+# Implicitly links with your BLAS library.
 
 scalapack_src = ${wildcard *scalapack*.cc}
 scalapack_exe = ${basename ${scalapack_src}}
-scalapack_txt = ${addsuffix .txt, ${scalapack_exe}}
 exe += ${scalapack_exe}
 
 scalapack: ${scalapack_exe}
 
 ${scalapack_exe}: %: %.o
 	${CXX} -o $@ $^ \
-		${LDFLAGS} \
-		-lslate_scalapack_api ${LIBS} \
-		${scalapack_libs}
-
-run_scalapack:
-	${MAKE} -j1 run_scalapack_serial
-
-run_scalapack_serial: ${scalapack_txt}
+		${LDFLAGS} -lslate_scalapack_api ${slate_libs} ${scalapack_libs} ${LIBS}
 
 #-------------------------------------------------------------------------------
 # SLATE examples
-# Link with -lslate.
-# Implicitly links with -lblaspp -llapackpp -lopenblas.
+# Link with -lslate -llapackpp -lblaspp.
+# Implicitly links with your BLAS library.
 
 slate_src = ${filter-out ${scalapack_src}, ${wildcard *.cc}}
 slate_exe = ${basename ${slate_src}}
-slate_txt = ${addsuffix .txt, ${slate_exe}}
 exe += ${slate_exe}
 
 slate: ${slate_exe}
 
 ${slate_exe}: %: %.o
 	${CXX} -o $@ $^ \
-		${LDFLAGS} \
-		-lslate ${LIBS}
+		${LDFLAGS} ${slate_libs} ${LIBS}
 
-run:
-	${MAKE} -j1 run_serial
-
-run_serial: ${slate_txt}
+check: ${exe}
+	./run_tests.py
 
 #-------------------------------------------------------------------------------
 # Generic rules.
@@ -147,46 +63,30 @@ all: ${exe}
 	${CXX} ${CXXFLAGS} -c -o $@ $<
 
 clean:
-	-rm -f ${exe} *.o *.d
+	${RM} ${exe} *.o *.d
 
 clean_exe:
-	-rm -f ${exe}
+	${RM} ${exe}
 
 distclean: clean
-	-rm -f ${slate_txt} ${scalapack_txt}
 
 -include *.d
-
-#-------------------------------------------------------------------------------
-# Run examples.
-# Ignore errors. pipe to sort also has the side-effect of ignoring errors.
-%.txt: %
-	-mpirun -np 4 ./$< | sort -s -k 2n > $@
 
 #-------------------------------------------------------------------------------
 # Debugging
 
 echo:
-	@echo "CXX       = ${CXX}"
-	@echo "CXXFLAGS  = ${CXXFLAGS}"
-	@echo "LDFLAGS   = ${LDFLAGS}"
-	@echo "LIBS      = ${LIBS}"
-	@echo "LDD       = ${LDD}"
-	@echo
-	@echo "macos     = ${macos}"
-	@echo "grep_cuda = ${grep_cuda}"
-	@echo "cuda_nvcc = ${cuda_nvcc}"
-	@echo "CUDA_ROOT = ${CUDA_ROOT}"
-	@echo
-	@echo "slate_dir      = ${slate_dir}"
+	@echo "CXX            = ${CXX}"
+	@echo "CXXFLAGS       = ${CXXFLAGS}"
+	@echo "LDFLAGS        = ${LDFLAGS}"
+	@echo "LIBS           = ${LIBS}"
+	@echo "slate_libs     = ${slate_libs}"
 	@echo "scalapack_libs = ${scalapack_libs}"
 	@echo
 	@echo "slate_src      = ${slate_src}"
 	@echo "slate_exe      = ${slate_exe}"
-	@echo "slate_exe      = ${slate_exe}"
 	@echo
 	@echo "scalapack_src  = ${scalapack_src}"
-	@echo "scalapack_exe  = ${scalapack_exe}"
 	@echo "scalapack_exe  = ${scalapack_exe}"
 	@echo
 	@echo "exe            = ${exe}"

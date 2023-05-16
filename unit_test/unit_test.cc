@@ -35,13 +35,15 @@ using testsweeper::ansi_normal;
 
 //------------------------------------------------------------------------------
 /// Returns a string that is sprintf formatted.
-std::string string_printf(const char* format, ...)
+std::string string_printf( const char* format, ... )
 {
+    // same code in printf_gather
     char buf[ 1024 ];
     va_list va;
-    va_start(va, format);
-    vsnprintf(buf, sizeof(buf), format, va);
-    return std::string(buf);
+    va_start( va, format );
+    vsnprintf( buf, sizeof(buf), format, va );
+    va_end( va );
+    return std::string( buf );
 }
 
 //==============================================================================
@@ -83,7 +85,7 @@ std::string output_test(const char* str)
     return string_printf("%-60s", str);
 }
 
-std::string output_test(const std::string str)
+std::string output_test( std::string const& str )
 {
     return output_test( str.c_str() );
 }
@@ -104,23 +106,23 @@ std::string output_test(const std::string str, int rank)
 /// Returns string for "pass".
 std::string output_pass()
 {
-    return std::string(ansi_blue) + "pass" + ansi_normal + "\n";
+    return std::string( ansi_blue ) + "pass" + ansi_normal;
 }
 
 //------------------------------------------------------------------------------
 /// Returns string for "failed" and error message.
-std::string output_fail(AssertError& e)
+std::string output_fail( AssertError const& ex )
 {
-    return std::string(ansi_bold) + ansi_red + "FAILED:" + ansi_normal
-            + "\n\t" + ansi_gray + e.what() + ansi_normal + "\n";
+    return std::string( ansi_bold ) + ansi_red + "FAILED:" + ansi_normal
+            + "\n\t" + ansi_gray + ex.what() + ansi_normal;
 }
 
 //------------------------------------------------------------------------------
 /// Returns string for "skipped" and message.
-std::string output_skip(SkipException& e)
+std::string output_skip( SkipException const& ex )
 {
-    return std::string(ansi_magenta) + "skipped: " + ansi_normal
-            + ansi_gray + e.what() + ansi_normal + "\n";
+    return std::string( ansi_magenta ) + "skipped: " + ansi_normal
+            + ansi_gray + ex.what() + ansi_normal + "\n";
 }
 
 //------------------------------------------------------------------------------
@@ -159,14 +161,15 @@ void printf_gather(int root, MPI_Comm comm, const std::string& str)
 
 //------------------------------------------------------------------------------
 /// Root node prints output from all MPI ranks.
-void printf_gather(int root, MPI_Comm comm, const char* format, ...)
+void printf_gather( int root, MPI_Comm comm, const char* format, ... )
 {
     // same code in string_printf
     char buf[ 1024 ];
     va_list va;
-    va_start(va, format);
-    vsnprintf(buf, sizeof(buf), format, va);
-    printf_gather(root, comm, std::string(buf));
+    va_start( va, format );
+    vsnprintf( buf, sizeof(buf), format, va );
+    va_end( va );
+    printf_gather( root, comm, std::string( buf ) );
 }
 
 //------------------------------------------------------------------------------
@@ -180,29 +183,32 @@ void run_test(test_function* func, const char* name)
 
     try {
         // run function
+        double time = omp_get_wtime();
         func();
-        printf("%s", output_pass().c_str());
+        time = omp_get_wtime() - time;
+        printf( "%s, %7.4f sec\n", output_pass().c_str(), time );
         ++g_pass;
     }
-    catch (SkipException& e) {
-        printf("%s", output_skip(e).c_str());
+    catch (SkipException const& ex) {
+        printf( "%s\n", output_skip( ex ).c_str() );
         --g_total;
         ++g_skip;
     }
-    catch (AssertError& e) {
-        printf("%s", output_fail(e).c_str());
+    catch (AssertError const& ex) {
+        printf( "%s\n", output_fail( ex ).c_str() );
         ++g_fail;
     }
-    catch (std::exception& e) {
-        AssertError err("unexpected exception: " + std::string(e.what()),
-                        __FILE__, __LINE__);
-        printf("%s", output_fail(err).c_str());
+    catch (std::exception const& ex) {
+        // Create new exception with error message.
+        AssertError ex2( "unexpected exception: " + std::string( ex.what() ),
+                         __FILE__, __LINE__ );
+        printf( "%s\n", output_fail( ex2 ).c_str() );
         ++g_fail;
     }
     catch (...) {
-        AssertError err("unexpected exception: (unknown type)",
-                        __FILE__, __LINE__);
-        printf("%s", output_fail(err).c_str());
+        AssertError ex2( "unexpected exception: (unknown type)",
+                         __FILE__, __LINE__ );
+        printf( "%s\n", output_fail( ex2 ).c_str() );
         ++g_fail;
     }
 }
@@ -221,29 +227,34 @@ void run_test(test_function* func, const char* name, MPI_Comm comm)
     ++g_total;
 
     try {
+        double time = omp_get_wtime();
         func();
-        output += output_pass();
+        time = omp_get_wtime() - time;
+        output += output_pass() + string_printf( ", %7.4f sec\n", time );
         ++g_pass;
     }
-    catch (SkipException& e) {
-        output += output_skip(e);
+    catch (SkipException const& ex) {
+        output += output_skip( ex );
+        output += "\n";
         --g_total;
         ++g_skip;
     }
-    catch (AssertError& e) {
-        output += output_fail(e);
+    catch (AssertError const& ex) {
+        output += output_fail( ex ) + "\n";
+        output += "\n";
         ++g_fail;
     }
-    catch (std::exception& e) {
-        AssertError err("unexpected exception: " + std::string(e.what()),
-                        __FILE__, __LINE__);
-        output += output_fail(err);
+    catch (std::exception const& ex) {
+        // Create new exception with error message.
+        AssertError ex2( "unexpected exception: " + std::string( ex.what() ),
+                         __FILE__, __LINE__ );
+        output += output_fail( ex2 ) + "\n";
         ++g_fail;
     }
     catch (...) {
-        AssertError err("unexpected exception: (unknown type)",
-                        __FILE__, __LINE__);
-        output += output_fail(err);
+        AssertError ex2( "unexpected exception: (unknown type)",
+                         __FILE__, __LINE__ );
+        output += output_fail( ex2 );
         ++g_fail;
     }
     printf_gather(0, comm, output);
@@ -261,8 +272,11 @@ void run_test(test_function* func, const char* name, MPI_Comm comm)
 /// @retval -1 if any failed.
 int unit_test_main()
 {
+    double time = omp_get_wtime();
     test::run_tests();
+    time = omp_get_wtime() - time;
 
+    printf( "total %7.4f sec\n", time );
     if (g_pass == g_total) {
         printf("\n%spassed all tests (%d of %d)%s\n",
                ansi_blue, g_pass, g_total, ansi_normal);
@@ -293,7 +307,9 @@ int unit_test_main()
 int unit_test_main(MPI_Comm comm)
 {
 #ifndef SLATE_NO_MPI
+    double time = omp_get_wtime();
     test::run_tests();
+    time = omp_get_wtime() - time;
 
     int mpi_rank;
     MPI_Comm_rank(comm, &mpi_rank);
@@ -304,9 +320,13 @@ int unit_test_main(MPI_Comm comm)
     MPI_Allreduce(&g_fail,  &sum_fail,  1, MPI_INT, MPI_SUM, comm);
     MPI_Allreduce(&g_skip,  &sum_skip,  1, MPI_INT, MPI_SUM, comm);
 
+    if (mpi_rank == 0) {
+        printf( "\ntotal %7.4f sec\n", time );
+    }
+
     if (sum_pass == sum_total) {
         if (mpi_rank == 0) {
-            printf("\n%spassed all tests (%d of %d)%s\n",
+            printf("%spassed all tests (%d of %d)%s\n",
                    ansi_blue, sum_pass, sum_total, ansi_normal);
             if (sum_skip > 0) {
                 printf("%sskipped %d tests%s\n",
@@ -317,7 +337,7 @@ int unit_test_main(MPI_Comm comm)
     }
     else {
         if (mpi_rank == 0) {
-            printf("\n%spassed:  %3d of %3d tests%s\n"
+            printf("%spassed:  %3d of %3d tests%s\n"
                    "%s%sfailed:  %3d of %3d tests%s\n",
                    ansi_blue, sum_pass, sum_total, ansi_normal,
                    ansi_bold, ansi_red, sum_fail, sum_total, ansi_normal);

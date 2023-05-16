@@ -31,11 +31,11 @@ MPI_Comm mpi_comm;
 /// Test tplqt and tpmlqt, LQ of 2 tiles and multiply by Q.
 ///
 template <typename scalar_t>
-void test_tplqt_work( int m, int n, int l, int cn, int ib )
+void test_tplqt_work( int k, int n2, int l, int cn, int ib )
 {
     if (verbose) {
-        printf( "%s( m=%3d, n=%3d, l=%3d, cn=%3d, ib=%3d )",  // no \n
-                __func__, m, n, l, cn, ib );
+        printf( "%s( k=%3d, n2=%3d, l=%3d, cn=%3d, ib=%3d )",  // no \n
+                __func__, k, n2, l, cn, ib );
     }
 
     using real_t = blas::real_type<scalar_t>;
@@ -44,38 +44,39 @@ void test_tplqt_work( int m, int n, int l, int cn, int ib )
     using lapack::Diag;
     using lapack::MatrixType;
 
-    n = blas::min( m, n );
+    // Currently SLATE assumes n <= k.
+    int n = blas::min( n2, k );
 
     // Unused entries will be set to nan.
     scalar_t nan_ = nan("");
     scalar_t zero = 0;
 
-    int lda1 = m;
-    int lda2 = m;
-    std::vector< scalar_t > A1data( lda1*m, nan_ );
-    std::vector< scalar_t > A2data( lda2*n, zero ); // not nan, for lange
-    std::vector< scalar_t >  Tdata( ib*m,   nan_ );
+    int lda1 = k;
+    int lda2 = k;
+    std::vector< scalar_t > A1data( lda1*k,  nan_ );
+    std::vector< scalar_t > A2data( lda2*n2, zero ); // not nan, for lange
+    std::vector< scalar_t >  Tdata( ib*k,    nan_ );
 
     slate::Tile< scalar_t >
-        A1( m,  m, A1data.data(), lda1, HostNum, slate::TileKind::UserOwned ),
-        A2( m,  n, A2data.data(), lda2, HostNum, slate::TileKind::UserOwned ),
-        T(  ib, m, Tdata.data(),  ib,   HostNum, slate::TileKind::UserOwned );
+        A1( k,  k,  A1data.data(), lda1, HostNum, slate::TileKind::UserOwned ),
+        A2( k,  n2, A2data.data(), lda2, HostNum, slate::TileKind::UserOwned ),
+        T(  ib, k,  Tdata.data(),  ib,   HostNum, slate::TileKind::UserOwned );
 
-    // A1 is lower triangular, m-by-m.
+    // A1 is lower triangular, k-by-k.
     srand( 1234 );
-    for (int j = 0; j < m; ++j)
-        for (int i = j; i < m; ++i)  // lower
+    for (int j = 0; j < k; ++j)
+        for (int i = j; i < k; ++i)  // lower
             A1.at( i, j ) = rand() / real_t(RAND_MAX);
 
-    // A2 is lower pentagonal, m-by-n.
+    // A2 is lower pentagonal, k-by-n.
     for (int j = 0; j < n; ++j)
-        for (int i = std::max( 0, j - (n - l) ); i < m; ++i)  // lower pent.
+        for (int i = std::max( 0, j - (n - l) ); i < k; ++i)  // lower pent.
             A2.at( i, j ) = rand() / real_t(RAND_MAX);
 
     // || A1 ||_1 + || A2 ||_1, bound on || A ||_1.
     auto Anorm = lapack::lantr( Norm::One, Uplo::Lower,
-                                Diag::NonUnit, m, m, A1.data(), A1.stride() )
-               + lapack::lange( Norm::One, m, n, A2.data(), A2.stride() );
+                                Diag::NonUnit, k, k, A1.data(), A1.stride() )
+               + lapack::lange( Norm::One, k, n, A2.data(), A2.stride() );
 
     auto A1save = A1data;
     auto A2save = A2data;
@@ -98,10 +99,10 @@ void test_tplqt_work( int m, int n, int l, int cn, int ib )
     //---------------------
     // Error check || L Q - A ||_1 / || A ||_1 < tol.
     std::vector< scalar_t > L2data( lda2*n, zero );
-    slate::Tile< scalar_t > L2( m, n, L2data.data(), lda2, HostNum, slate::TileKind::UserOwned );
+    slate::Tile< scalar_t > L2( k, n, L2data.data(), lda2, HostNum, slate::TileKind::UserOwned );
 
     // Zero out L1 (A1) above diag.
-    lapack::laset( MatrixType::Upper, m-1, m-1, zero, zero,
+    lapack::laset( MatrixType::Upper, k-1, k-1, zero, zero,
                    &A1.at(0, 1), A1.stride() );
 
     // Form Ahat = L Q, where Q = I - V T V^H, V = [ I  V2 ], L = [ A1  L2 ]
@@ -117,13 +118,14 @@ void test_tplqt_work( int m, int n, int l, int cn, int ib )
     for (size_t i = 0; i < A2data.size(); ++i)
         L2data[i] -= A2save[i];
     auto err = lapack::lantr( Norm::One, Uplo::Lower,
-                              Diag::NonUnit, m, m, A1.data(), A1.stride() )
-             + lapack::lange( Norm::One, m, n, L2.data(), L2.stride() );
+                              Diag::NonUnit, k, k, A1.data(), A1.stride() )
+             + lapack::lange( Norm::One, k, n, L2.data(), L2.stride() );
     real_t eps = std::numeric_limits< real_t >::epsilon();
     real_t tol = 50*eps;
     if (verbose) {
-        printf( " err %8.2e, Anorm %8.2e, err/Anorm %8.2e, %s\n",
-                err, Anorm, err/Anorm, (err/Anorm < tol ? "pass" : "FAILED") );
+        printf( " err %8.2e, Anorm %8.2e, err/Anorm %8.2e, tol %8.2e, %s\n",
+                err, Anorm, err/Anorm, tol,
+                (err/Anorm < tol ? "pass" : "FAILED") );
     }
     test_assert( err/Anorm < tol );
 
@@ -134,16 +136,16 @@ void test_tplqt_work( int m, int n, int l, int cn, int ib )
     // segfaults are caught, but doesn't yet check numerical error.
     // Could allocate A1, A2 as one LAPACK matrix, and C1, C2 as one LAPACK
     // matrix, then compare with LAPACK's unmqr output?
-    int ldc1 = m;
+    int ldc1 = k;
     int ldc2 = n;
-    std::vector< scalar_t > C1data( ldc1*cn );  // m-by-cn
+    std::vector< scalar_t > C1data( ldc1*cn );  // k-by-cn
     std::vector< scalar_t > C2data( ldc2*cn );  // n-by-cn
     slate::Tile< scalar_t >
-        C1( m, cn, C1data.data(), ldc1, HostNum, slate::TileKind::UserOwned ),
+        C1( k, cn, C1data.data(), ldc1, HostNum, slate::TileKind::UserOwned ),
         C2( n, cn, C2data.data(), ldc2, HostNum, slate::TileKind::UserOwned );
 
     for (int j = 0; j < cn; ++j)
-        for (int i = 0; i < m; ++i)
+        for (int i = 0; i < k; ++i)
             C1.at( i, j ) = rand() / real_t(RAND_MAX);
 
     for (int j = 0; j < cn; ++j)
@@ -175,6 +177,8 @@ void test_tplqt_work( int m, int n, int l, int cn, int ib )
         }
     }
     else {
+        // LAPACK xerbla may print error, e.g.,
+        // "On entry to ZTPMLQT parameter number  2 had an illegal value"
         test_assert_throw_std(
             slate::tpmlqt( slate::Side::Left, slate::Op::Trans, l, A2, T, C1, C2 ));
     }
@@ -182,13 +186,13 @@ void test_tplqt_work( int m, int n, int l, int cn, int ib )
     //---------------------
     // Right: C = C op(Q)
     int ldd = cn;
-    std::vector< scalar_t > D1data( ldd*m );  // cn-by-m
+    std::vector< scalar_t > D1data( ldd*k );  // cn-by-k
     std::vector< scalar_t > D2data( ldd*n );  // cn-by-n
     slate::Tile< scalar_t >
-        D1( cn, m, D1data.data(), ldd, HostNum, slate::TileKind::UserOwned ),
+        D1( cn, k, D1data.data(), ldd, HostNum, slate::TileKind::UserOwned ),
         D2( cn, n, D2data.data(), ldd, HostNum, slate::TileKind::UserOwned );
 
-    for (int j = 0; j < m; ++j)
+    for (int j = 0; j < k; ++j)
         for (int i = 0; i < cn; ++i)
             D1.at( i, j ) = rand() / real_t(RAND_MAX);
 
@@ -221,6 +225,8 @@ void test_tplqt_work( int m, int n, int l, int cn, int ib )
         }
     }
     else {
+        // LAPACK xerbla may print error, e.g.,
+        // "On entry to ZTPMLQT parameter number  2 had an illegal value"
         test_assert_throw_std(
             slate::tpmlqt( slate::Side::Right, slate::Op::Trans, l, A2, T, D1, D2 ));
     }
@@ -230,23 +236,23 @@ template <typename scalar_t>
 void test_tplqt_scalar()
 {
     int cn = 13;
-    // tplqt requires ib <= m.
+    // tplqt requires ib <= k. [fixed?]
     for (int ib = 4; ib <= 8; ++ib) {
         // ts triangle-square (rectangle) kernel cases, l == 0
-        test_tplqt_work<float>( 12, 12, 0, cn, ib );  // m == n (square)
-        test_tplqt_work<float>(  8, 12, 0, cn, ib );  // m <  n (wide rectangle)
-        test_tplqt_work<float>( 16, 12, 0, cn, ib );  // m >  n (tall rectangle)
+        test_tplqt_work< scalar_t >( 12, 12, 0, cn, ib );  // k == n (square)
+        test_tplqt_work< scalar_t >(  8, 12, 0, cn, ib );  // k <  n (wide rectangle)
+        test_tplqt_work< scalar_t >( 16, 12, 0, cn, ib );  // k >  n (tall rectangle)
 
         // tt triangle-triangle (trapezoid) kernel cases, l == min(m, n)
-        test_tplqt_work<float>( 12, 12, 12, cn, ib );  // m == n (triangle)
-        test_tplqt_work<float>(  8, 12,  8, cn, ib );  // m <  n (wide trapezoid)
-        test_tplqt_work<float>( 16, 12, 12, cn, ib );  // m >  n (tall trapezoid)
+        test_tplqt_work< scalar_t >( 12, 12, 12, cn, ib );  // k == n (triangle)
+        test_tplqt_work< scalar_t >(  8, 12,  8, cn, ib );  // k <  n (wide trapezoid)
+        test_tplqt_work< scalar_t >( 16, 12, 12, cn, ib );  // k >  n (tall trapezoid)
 
-        // tp triangle-pentagonal cases, l < min(m, n)
+        // tp triangle-pentagonal cases, l < min(k, n)
         // unsupported in SLATE.
-        // test_tplqt_work<float>( 12, 12, 6, cn, ib );  // m == n
-        // test_tplqt_work<float>(  8, 12, 6, cn, ib );  // m <  n
-        // test_tplqt_work<float>( 16, 12, 6, cn, ib );  // m >  n
+        // test_tplqt_work< scalar_t >( 12, 12, 6, cn, ib );  // k == n
+        // test_tplqt_work< scalar_t >(  8, 12, 6, cn, ib );  // k <  n
+        // test_tplqt_work< scalar_t >( 16, 12, 6, cn, ib );  // k >  n
     }
 }
 
@@ -257,6 +263,8 @@ void test_tplqt()
     test_tplqt_scalar< std::complex<float> >();
     test_tplqt_scalar< std::complex<double> >();
 }
+
+
 
 //------------------------------------------------------------------------------
 /// Test ttlqt and ttmlq.
@@ -440,6 +448,8 @@ void test_ttlqt()
 
 //------------------------------------------------------------------------------
 /// Test unmqr.
+/// C is m-by-n. V is k-by-m (left) or k-by-n (right).
+/// This m, n, k are of the whole C or V matrix, not the individual tiles.
 ///
 template <typename scalar_t>
 void test_unmlq_work( slate::Side side, slate::Op op, int m, int n, int k )
@@ -451,6 +461,7 @@ void test_unmlq_work( slate::Side side, slate::Op op, int m, int n, int k )
                 __func__, char(side), char(op), m, n, k );
     }
 
+    assert( side == slate::Side::Right );
     assert( n >= k ); // assuming right
 
     int64_t idist = 1;
@@ -530,11 +541,13 @@ void test_unmlq_work( slate::Side side, slate::Op op, int m, int n, int k )
     if (verbose >= 2) {
         slate::print( "C - Cref",  C );
     }
-    if (verbose > 0 && mpi_rank == 0) {
-        printf( "error %.2e, Cnorm %.2e\n", error, Cnorm );
-    }
     real_t eps = std::numeric_limits<real_t>::epsilon();
     real_t tol = 50 * eps;
+    if (verbose > 0 && mpi_rank == 0) {
+        printf( "error %8.2e, Cnorm %8.2e, error/Cnorm %8.2e, tol %8.2e, %s\n",
+                error, Cnorm, error/Cnorm, tol,
+                (error/Cnorm < tol ? "pass" : "FAILED") );
+    }
     test_assert( error < tol );
 }
 
@@ -546,10 +559,10 @@ void test_unmlq()
     }
     else {
         // Try various sizes.
-        for (int m = 8; m <= 16; ++m) {
-            for (int n = 8; n <= 16; ++n) {
+        for (int m = 8; m <= 16; m += 4) {
+            for (int n = 8; n <= 16; n += 4) {
                 for (int k = 4; k < 16; k += 4) {
-                    // todo: side = Right not implemented.
+                    // todo: side = Left not implemented.
                     //if (m >= k) {
                     //    test_unmlq_work<float>( slate::Side::Left, slate::Op::NoTrans,   m, n, k );
                     //    test_unmlq_work<float>( slate::Side::Left, slate::Op::ConjTrans, m, n, k );
@@ -591,10 +604,10 @@ enum Section {
 
 //------------------------------------------------------------------------------
 std::vector< routines_t > routines = {
-    { "ttlqt",  test_ttlqt,  Section::lq },
-    { "ttlqt",  test_ttlqt,  Section::lq },
-    { "unmlq",  test_unmlq,  Section::lq },
-    { "",       nullptr,     Section::newline },
+    { "tile::tplqt",     test_tplqt,  Section::lq },
+    { "internal::ttlqt", test_ttlqt,  Section::lq },
+    { "internal::unmlq", test_unmlq,  Section::lq },
+    { "",                nullptr,     Section::newline },
 };
 
 //------------------------------------------------------------------------------
@@ -688,6 +701,10 @@ int main(int argc, char** argv)
     MPI_Comm_size(mpi_comm, &mpi_size);
 
     num_devices = blas::get_device_count();
+
+    printf( "Note: depending on xerbla implementation, this may print errors like,\n"
+            "\"On entry to CTPMLQT parameter number  2 had an illegal value\".\n"
+            "As long as these errors are caught, this is normal.\n\n" );
 
     int err = unit_test_main(mpi_comm);  // which calls run_tests()
 

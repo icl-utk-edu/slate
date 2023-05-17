@@ -118,9 +118,7 @@ void gesvd(
 
     // 1. Reduce to band form.
     TriangularFactors<scalar_t> TU, TV;
-    ge2tb(Ahat, TU, TV);
-    // todo: tester hangs when pass opts to ge2tb.
-    //ge2tb(Ahat, TU, TV, opts);
+    ge2tb(Ahat, TU, TV, opts);
 
     // Currently, tb2bd and bdsqr run on a single node, gathers band matrix to rank 0.
     TriangularBandMatrix<scalar_t> Aband( Uplo::Upper, Diag::NonUnit,
@@ -273,7 +271,7 @@ void gesvd(
                     return int( (i%nprow)*npcol + j%npcol );
                 };
 
-            int num_devices = blas::get_device_count();
+            int num_devices = VT.num_devices();
             std::function<int (std::tuple<int64_t, int64_t> ij)>
                 tileDevice = [nprow, num_devices]( std::tuple<int64_t, int64_t> ij ) {
                     int64_t i = std::get<0>( ij );

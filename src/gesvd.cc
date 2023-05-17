@@ -57,15 +57,16 @@ void gesvd(
         A = conj_transpose( A );
     }
 
-    Job jobu  = Job::NoVec;
-    Job jobvt = Job::NoVec;
-    if (wantu) {
-        jobu = Job::Vec;
-    }
+    // these are needed if we call slate::bdsqr.
+    //Job jobu  = Job::NoVec;
+    //Job jobvt = Job::NoVec;
+    //if (wantu) {
+    //    jobu = Job::Vec;
+    //}
 
-    if (wantvt) {
-        jobvt = Job::Vec;
-    }
+    //if (wantvt) {
+    //    jobvt = Job::Vec;
+    //}
 
     // todo: Scale matrix to allowable range, if necessary.
 
@@ -133,7 +134,6 @@ void gesvd(
 
     // Allocate U2 and VT2 matrices for tb2bd.
     int64_t nb = Ahat.tileNb(0);
-    int64_t mt = Ahat.mt();
     int64_t nt = Ahat.nt();
 
     int64_t vm = 2*nb;
@@ -166,7 +166,6 @@ void gesvd(
     scalar_t dummy[1];
 
     int mpi_size;
-    // Find the total number of processors.
     slate_mpi_call(
         MPI_Comm_size(A.mpiComm(), &mpi_size));
 
@@ -174,18 +173,17 @@ void gesvd(
     // Build the 1-dim distributed U and VT
     slate::Matrix<scalar_t> U1d_tall, V1d;
     if (wantu) {
-        m = Uhat.m();
+        int64_t m_U = Uhat.m();
         int64_t mb = Uhat.tileMb(0);
         myrow = Uhat.mpiRank();
-        nru  = numberLocalRowOrCol(m, mb, myrow, izero, mpi_size);
+        nru  = numberLocalRowOrCol(m_U, mb, myrow, izero, mpi_size);
         ldu = max( 1, nru );
         u1d.resize(ldu*min_mn);
         U1d_tall = slate::Matrix<scalar_t>::fromScaLAPACK(
-                m, min_mn, &u1d[0], ldu, nb, mpi_size, 1, U.mpiComm() );
+                m_U, min_mn, &u1d[0], ldu, nb, mpi_size, 1, U.mpiComm() );
         set( zero, one, U1d_tall, opts );
     }
     if (wantvt) {
-        int64_t n = VThat.n();
         mycol = VThat.mpiRank();
         ncvt = numberLocalRowOrCol(n, nb, mycol, izero, mpi_size);
         ldvt = max( 1, min_mn );

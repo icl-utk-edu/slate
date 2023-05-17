@@ -45,6 +45,8 @@ void gesvd(
     int64_t n = A.n();
     int64_t min_mn = std::min(m, n);
 
+    int nprow, npcol, myrow, mycol;
+
     bool wantu  = (U.mt() > 0);
     bool wantvt = (VT.mt() > 0);
 
@@ -64,33 +66,6 @@ void gesvd(
     if (wantvt) {
         jobvt = Job::Vec;
     }
-
-    // Generate a matrix with row-major grid to copy V to it
-    // todo: will delete this when redistribute fixed to work on transposed matrices
-    int64_t nb_V = VT.tileNb( 0 );
-    slate::GridOrder grid_order;
-    int nprow, npcol, myrow, mycol;
-    VT.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
-    std::function<int64_t (int64_t j)>
-        tileNb = [n, nb_V] (int64_t j) {
-            return (j + 1)*nb_V > n ? n%nb_V : nb_V;
-        };
-
-    std::function<int (std::tuple<int64_t, int64_t> ij)>
-        tileRank = [nprow, npcol]( std::tuple<int64_t, int64_t> ij ) {
-            int64_t i = std::get<0>( ij );
-            int64_t j = std::get<1>( ij );
-            return int( (i%nprow)*npcol + j%npcol );
-        };
-
-    int num_devices = blas::get_device_count();
-    std::function<int (std::tuple<int64_t, int64_t> ij)>
-        tileDevice = [nprow, num_devices]( std::tuple<int64_t, int64_t> ij ) {
-            int64_t i = std::get<0>( ij );
-            return int( i/nprow )%num_devices;
-        };
-    slate::Matrix<scalar_t> V(
-           n, n, tileNb, tileNb, tileRank, tileDevice, VT.mpiComm() );
 
     // todo: Scale matrix to allowable range, if necessary.
 
@@ -157,9 +132,9 @@ void gesvd(
     Aband.ge2tbGather(Ahat_);
 
     // Allocate U2 and VT2 matrices for tb2bd.
-    int64_t nb = Uhat.tileNb(0);
-    int64_t mt = Uhat.mt();
-    int64_t nt = Uhat.nt();
+    int64_t nb = Ahat.tileNb(0);
+    int64_t mt = Ahat.mt();
+    int64_t nt = Ahat.nt();
 
     int64_t vm = 2*nb;
     int64_t vn = nt*(nt + 1)/2*nb;
@@ -184,7 +159,7 @@ void gesvd(
     }
 
     int izero = 0;
-    int64_t ncvt, nru, ldvt, ldu;
+    int64_t ncvt = 0, nru = 0, ldvt = 1, ldu = 1;
 
     std::vector<scalar_t> u1d(1);
     std::vector<scalar_t> vt1d(1);
@@ -261,6 +236,12 @@ void gesvd(
                 unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, Uhat, opts );
             else
                 unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, U, opts );
+
+            if (qr_path) {
+                // When initial QR was used.
+                // U = Q*U;
+                unmqr( Side::Left, slate::Op::NoTrans, A, TQ, U, opts );
+            }
         }
 
         // Back-transform: VT = VT * VT2 * VT1.
@@ -276,6 +257,32 @@ void gesvd(
             // The following V1d allocation needed if call slate::bdsqr
             //Matrix<scalar_t> V1d(VThat.m(), VThat.n(), VThat.tileNb(0), 1, mpi_size, VThat.mpiComm());
             //V1d.insertLocalTiles(target);
+
+            // Generate a matrix with row-major grid to copy V to it
+            // todo: will delete this when redistribute fixed to work on transposed matrices
+            int64_t nb_V = VT.tileNb( 0 );
+            slate::GridOrder grid_order;
+            VT.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
+            std::function<int64_t (int64_t j)>
+                tileNb = [n, nb_V] (int64_t j) {
+                    return (j + 1)*nb_V > n ? n%nb_V : nb_V;
+                };
+
+            std::function<int (std::tuple<int64_t, int64_t> ij)>
+                tileRank = [nprow, npcol]( std::tuple<int64_t, int64_t> ij ) {
+                    int64_t i = std::get<0>( ij );
+                    int64_t j = std::get<1>( ij );
+                    return int( (i%nprow)*npcol + j%npcol );
+                };
+
+            int num_devices = blas::get_device_count();
+            std::function<int (std::tuple<int64_t, int64_t> ij)>
+                tileDevice = [nprow, num_devices]( std::tuple<int64_t, int64_t> ij ) {
+                    int64_t i = std::get<0>( ij );
+                    return int( i/nprow )%num_devices;
+                };
+            slate::Matrix<scalar_t> V(
+                    n, n, tileNb, tileNb, tileRank, tileDevice, VT.mpiComm() );
 
             // todo: will delete this when redistribute fixed to work on transposed matrices
             VThat.redistribute(V1d);
@@ -310,12 +317,6 @@ void gesvd(
     }
 
     // todo: If matrix was scaled, then rescale singular values appropriately.
-
-    if (qr_path) {
-        // When initial QR was used.
-        // U = Q*U;
-        unmqr( Side::Left, slate::Op::NoTrans, A, TQ, U, opts );
-    }
 
     if (flip) {
         // todo: test it

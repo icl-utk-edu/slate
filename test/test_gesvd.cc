@@ -194,13 +194,13 @@ void test_gesvd_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         if (wantu && wantvt) {
-            slate::svd_vals(A, Sigma, opts);
+            slate::gesvd(A, Sigma, U, VT, opts);
             // Using traditional BLAS/LAPACK name
-            //slate::gesvd(A, Sigma, opts);
+            //slate::gesvd(A, Sigma, U, VT, opts);
         }
         else {
             // todo: call slate::svd()
-            slate::gesvd(A, Sigma, U, VT, opts);
+            slate::svd_vals(A, Sigma, opts);
             // Using traditional BLAS/LAPACK name
             // slate::gesvd(A, Sigma, opts);
         }

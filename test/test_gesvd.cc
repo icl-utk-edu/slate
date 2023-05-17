@@ -193,7 +193,7 @@ void test_gesvd_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        if (jobu == slate::Job::NoVec && jobvt == slate::Job::NoVec) {
+        if (wantu && wantvt) {
             slate::svd_vals(A, Sigma, opts);
             // Using traditional BLAS/LAPACK name
             //slate::gesvd(A, Sigma, opts);
@@ -292,12 +292,17 @@ void test_gesvd_work(Params& params, bool run)
 
             params.ref_time() = time;
 
-            // Reference Scalapack was run, check reference against test
-            // Perform a local operation to get differences Sigma = Sigma - Sigma_ref
+            //==================================================
+            // Test results by checking relative forward error
+            //
+            //      || Sigma_ref - Sigma ||
+            //     ------------------------- < tol * epsilon
+            //         || Sigma_ref ||
+            //==================================================
             real_t Sigma_ref_norm = blas::asum(Sigma_ref.size(), &Sigma_ref[0], 1);
+            // Perform a local operation to get differences Sigma = Sigma - Sigma_ref
             blas::axpy(Sigma_ref.size(), -1.0, &Sigma[0], 1, &Sigma_ref[0], 1);
 
-            // Relative forward error: || Sigma_ref - Sigma || / || Sigma_ref ||.
             params.error() = blas::asum(Sigma.size(), &Sigma_ref[0], 1)
                            / Sigma_ref_norm;
 
@@ -310,15 +315,19 @@ void test_gesvd_work(Params& params, bool run)
         #endif
     }
 
-    if (check) {
+    if (check && (wantu || wantvt)) {
         slate::Matrix<scalar_t> Iden;
-        if (jobu == slate::Job::Vec || jobvt == slate::Job::Vec) {
-            Iden = slate::Matrix<scalar_t>(min_mn, min_mn, nb, p, q, MPI_COMM_WORLD);
-            Iden.insertLocalTiles();
-        }
+        Iden = slate::Matrix<scalar_t>(min_mn, min_mn, nb, p, q, MPI_COMM_WORLD);
+        Iden.insertLocalTiles();
 
-        if (jobu == slate::Job::Vec) {
-            // I - U^H U
+        if (wantu) {
+            //==================================================
+            // Test results by checking orthogonality of U
+            //
+            //      || I - U^H U ||_1
+            //     ------------------- < tol * epsilon
+            //              N
+            //==================================================
             slate::set( zero, one, Iden );
             auto UH = conj_transpose( U );
             slate::gemm( -one, UH, U, one, Iden );
@@ -326,8 +335,14 @@ void test_gesvd_work(Params& params, bool run)
             params.okay() = params.okay() && (params.ortho_U() <= tol);
         }
 
-        if (jobvt == slate::Job::Vec) {
-            // I - V^H V
+        if (wantvt) {
+            //==================================================
+            // Test results by checking orthogonality of VT
+            //
+            //      || I - V V^H ||_1
+            //     ------------------- < tol * epsilon
+            //              N
+            //==================================================
             slate::set( zero, one, Iden );
             auto V = conj_transpose( VT );
             slate::gemm( -one, VT, V, one, Iden );
@@ -335,8 +350,15 @@ void test_gesvd_work(Params& params, bool run)
             params.okay() = params.okay() && (params.ortho_V() <= tol);
         }
 
-        if (jobu == slate::Job::Vec && jobvt == slate::Job::Vec) {
-            // Acpy - U Sigma VT
+        if (wantu && wantvt) {
+            //==================================================
+            // Test results by checking backwards error
+            //
+            //      || Acpy - U Sigma VT ||_1
+            //     --------------------------- < tol * epsilon
+            //            || A ||_1 * N
+            //
+            //==================================================
             slate::scale_row_col( slate::Equed::Col, Sigma, Sigma, U );
 
             real_t Anorm = slate::norm( slate::Norm::One, Acpy );

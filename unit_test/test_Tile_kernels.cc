@@ -1073,7 +1073,7 @@ void test_device_convert_layout(int m, int n)
         if (m == n)
             slate::device::transpose_batch(n, Aarray_dev, lda, batch_count, queue);
         else
-            slate::device::transpose_batch(m, n, Aarray_dev, lda, Aarray_dev_ext, ldat, batch_count, queue);
+            slate::device::transpose_batch(false, m, n, Aarray_dev, lda, Aarray_dev_ext, ldat, batch_count, queue);
 
         queue.sync();
         time = omp_get_wtime() - time;

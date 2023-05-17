@@ -455,7 +455,6 @@ void transpose_batch(
     assert(nt <= 65535);                // CUDA limitation
     assert(batch_count <= 2147483647);  // CUDA limitation, 2^31 - 1
 
-    printf("\n m %ld n %ld lda %ld ldat %ld mt %ld nt %ld batch_count %ld \n", m, n, lda, ldat, mt, nt, batch_count );
     dim3 grid( uint(batch_count), mt, nt );
     dim3 threads( NX, NY, 1 );
     transpose_batch_kernel<scalar_t, NX><<< grid, threads, 0, queue.stream() >>>

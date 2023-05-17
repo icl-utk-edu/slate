@@ -315,7 +315,6 @@ void copy(internal::TargetType<Target::Devices>,
         { B.nt()-1, B.nt()   },
         { B.nt()-1, B.nt()   }
     };
-    printf("\n A.m() %ld A.n() %ld B.m() %ld B.n() %ld \n", A.m(), A.n(), B.m(), B.n());
 
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {

@@ -70,7 +70,6 @@ void tb2bd_step(TriangularBandMatrix<scalar_t>& A,
 
     int64_t uj = sweep % band;
     int64_t ui = uj + 1;
-    int64_t uindex = k*A.nt() - k*(k - 1)/2;
 
     switch (task) {
         // task 0 - the first task of the sweep

@@ -369,7 +369,6 @@ void copy(internal::TargetType<Target::Devices>,
             src_scalar_t** a_array_dev = A.array_device(device, queue_index);
             dst_scalar_t** b_array_dev = B.array_device(device, queue_index);
 
-            src_scalar_t** a_array_dev1 = A.array_device(device, queue_index);
             blas::Queue* queue = B.compute_queue(device, queue_index);
 
             blas::device_memcpy<src_scalar_t*>(a_array_dev, a_array_host,

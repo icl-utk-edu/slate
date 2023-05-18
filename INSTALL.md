@@ -8,11 +8,11 @@ Synopsis
 
 Checkout or download. SLATE uses git modules, which require an update step:
 
-    git clone --recursive https://bitbucket.org/icl/slate
+    git clone --recursive https://github.com/icl-utk-edu/slate.git
 
 or
 
-    git clone https://bitbucket.org/icl/slate
+    git clone https://github.com/icl-utk-edu/slate.git
     git submodule update --init
 
 If you have an existing git repository and pull updates, you may need to
@@ -21,8 +21,8 @@ also update submodules, if they changed:
     git pull
     git submodule update
 
-Or download the release tar file, which includes BLAS++ and LAPACK++, from
-[downloads](https://bitbucket.org/icl/slate/downloads/).
+Or download a [release tar file](https://github.com/icl-utk-edu/slate/releases),
+which includes BLAS++ and LAPACK++.
 
 --------------------------------------------------------------------------------
 
@@ -70,7 +70,7 @@ These include:
 Options (Makefile and CMake)
 --------------------------------------------------------------------------------
 
-See the BLAS++ [INSTALL.md](https://bitbucket.org/icl/blaspp/src/master/INSTALL.md)
+See the BLAS++ [INSTALL.md](https://github.com/icl-utk-edu/blaspp/blob/master/INSTALL.md)
 for its options, which include:
 
 (Note: SLATE's Makefile uses 1 or 0 instead of yes or no. CMake can use either.)
@@ -144,7 +144,7 @@ for its options, which include:
         yes             (default with CMake)
         no
 
-See the LAPACK++ [INSTALL.md](https://bitbucket.org/icl/lapackpp/src/master/INSTALL.md)
+See the LAPACK++ [INSTALL.md](https://github.com/icl-utk-edu/lapackpp/blob/master/INSTALL.md)
 for its options, which include:
 
     lapack [CMake only]
@@ -292,9 +292,9 @@ directory under the SLATE root directory:
     make install
 
 SLATE uses the
-[BLAS++](https://bitbucket.org/icl/blaspp),
-[LAPACK++](https://bitbucket.org/icl/lapackpp), and
-[TestSweeper](https://bitbucket.org/icl/testsweeper) libraries.
+[BLAS++](https://github.com/icl-utk-edu/blaspp),
+[LAPACK++](https://github.com/icl-utk-edu/lapackpp), and
+[TestSweeper](https://github.com/icl-utk-edu/testsweeper) libraries.
 These are generally checked out as git submodules in the slate directory,
 so the user does not have to install them beforehand. If CMake finds already
 installed versions, it will use those instead of compiling new versions.

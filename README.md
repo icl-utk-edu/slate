@@ -74,8 +74,8 @@ For assistance, visit the *SLATE User Forum* at
 Join by signing in with your Google credentials, then clicking
 *Join group to post*.
 
-Bug reports can be filed directly on Bitbucket's issue tracker:
-<https://bitbucket.org/icl/slate/issues?status=new&status=open>.
+Bug reports can be filed directly on GitHub's issue tracker:
+<https://github.com/icl-utk-edu/slate/issues>.
 
 * * *
 
@@ -86,9 +86,9 @@ Resources
   for more information about the SLATE project.
 * Visit the [SLATE Working Notes](http://www.icl.utk.edu/publications/series/swans)
   to find out more about ongoing SLATE developments.
-* Visit the [BLAS++ repository](https://bitbucket.org/icl/blaspp)
+* Visit the [BLAS++ repository](https://github.com/icl-utk-edu/blaspp)
   for more information about the C++ API for BLAS.
-* Visit the [LAPACK++ repository](https://bitbucket.org/icl/lapackpp)
+* Visit the [LAPACK++ repository](https://github.com/icl-utk-edu/lapackpp)
   for more information about the C++ API for LAPACK.
 * Visit the [ECP website](https://exascaleproject.org)
   to find out more about the DOE Exascale Computing Initiative.
@@ -99,7 +99,7 @@ Contributing
 --------------------------------------------------------------------------------
 
 The SLATE project welcomes contributions from new developers.
-Contributions can be offered through the standard Bitbucket pull request model.
+Contributions can be offered through the standard GitHub pull request model.
 We strongly encourage you to coordinate large contributions with the SLATE
 development team early in the process.
 

@@ -1,3 +1,7 @@
+Pending
+  - Moved repo to <https://github.com/icl-utk-edu/slate>
+  - Fixed `gemm` and `trsm` when n is small
+
 2022.07.00
   - Improved performance of QR factorization on GPUs by moving panel to GPU:
     5.5x faster on tall-skinny problem

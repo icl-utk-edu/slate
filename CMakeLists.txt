@@ -1,11 +1,4 @@
-# CMake script for SLATE library
-# repo: http://bitbucket.org/icl/slate
-# Requires BLAS++ library from
-#     http://bitbucket.org/icl/blaspp
-# Requires LAPACK++ library from
-#     http://bitbucket.org/icl/lapackpp
-# Tests require TestSweeper library from
-#     http://bitbucket.org/icl/testsweeper
+# CMake script for SLATE library. See INSTALL.md for directions.
 
 cmake_minimum_required( VERSION 3.18 )
 # 3.1  target_compile_features

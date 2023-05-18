@@ -43,7 +43,7 @@ if (NOT TARGET testsweeper)
                           "${CMAKE_BINARY_DIR}/testsweeper" )
 
     else()
-        set( url "https://bitbucket.org/icl/testsweeper" )
+        set( url "https://github.com/icl-utk-edu/testsweeper.git" )
         message( "" )
         message( "---------- TestSweeper" )
         message( STATUS "Fetching TestSweeper from ${url}" )

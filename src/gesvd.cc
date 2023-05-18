@@ -228,16 +228,14 @@ void gesvd(
 
             // todo: why unmbr_ge2tb need U not Uhat?
             // Second, U = U1 * U ===> U = Ahat * U
-            if (qr_path)
-                unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, Uhat, opts );
-            else
-                unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, U, opts );
-
             if (qr_path) {
+                unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, Uhat, opts );
                 // When initial QR was used.
                 // U = Q*U;
                 unmqr( Side::Left, slate::Op::NoTrans, A, TQ, U, opts );
             }
+            else
+                unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, U, opts );
         }
 
         // Back-transform: VT = VT * VT2 * VT1.

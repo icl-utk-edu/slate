@@ -47,15 +47,16 @@ void gesvd(
 
     int nprow, npcol, myrow, mycol;
 
+    // todo: still need to add if part of U or part of VT are needed.
     bool wantu  = (U.mt() > 0);
     bool wantvt = (VT.mt() > 0);
 
-    bool flip = m < n; // Flip for fat matrix.
-    if (flip) {
-        slate_not_implemented("m < n not yet supported");
-        swap(m, n);
-        A = conj_transpose( A );
-    }
+    //bool flip = m < n; // Flip for fat matrix.
+    //if (flip) {
+    //    slate_not_implemented("m < n not yet supported");
+    //    swap(m, n);
+    //    A = conj_transpose( A );
+    //}
 
     // these are needed if we call slate::bdsqr.
     //Job jobu  = Job::NoVec;
@@ -78,6 +79,7 @@ void gesvd(
     // Different in practice because stages have different flop rates.
     double threshold = 5/3.;
     bool qr_path = m > threshold*n;
+    bool lq_path = n > threshold*m;
     Matrix<scalar_t> Ahat, Uhat, VThat;
     TriangularFactors<scalar_t> TQ;
     if (qr_path) {
@@ -97,11 +99,36 @@ void gesvd(
 
         if (wantu) {
             slate::set( zero, one, U, opts );
-            Uhat = U.slice( 0, U.n()-1, 0, U.n()-1 );
+            Uhat = U.slice( 0, n-1, 0, n-1 );
         }
         if (wantvt) {
             slate::set( zero, one, VT, opts );
             VThat = VT;
+        }
+    }
+    else if (lq_path) {
+        gelqf( A, TQ, opts );
+        swap(m, n);
+
+        // Lower triangular part of A (R).
+        auto R_ = A.slice(0, n-1, 0, n-1);
+        TriangularMatrix<scalar_t> R( Uplo::Lower, Diag::NonUnit, R_ );
+
+        // Copy the upper triangular part to a new matrix Ahat.
+        Ahat = R_.emptyLike();
+        Ahat.insertLocalTiles(target);
+        set( zero, Ahat, opts );  // todo: only upper
+
+        TriangularMatrix<scalar_t> Ahat_tr( Uplo::Lower, Diag::NonUnit, Ahat );
+        slate::copy( R, Ahat_tr, opts );
+
+        if (wantu) {
+            slate::set( zero, one, U, opts );
+            Uhat = U;
+        }
+        if (wantvt) {
+            slate::set( zero, one, VT, opts );
+            VThat = VT.slice( 0, n-1, 0, n-1 );
         }
     }
     else {
@@ -167,35 +194,34 @@ void gesvd(
     slate_mpi_call(
         MPI_Comm_size(A.mpiComm(), &mpi_size));
 
-    // Compute the local number of the eigenvectors.
-    // Build the 1-dim distributed U and VT
-    slate::Matrix<scalar_t> U1d_tall, V1d;
-    if (wantu) {
-        int64_t m_U = Uhat.m();
-        int64_t mb = Uhat.tileMb(0);
-        myrow = Uhat.mpiRank();
-        nru  = numberLocalRowOrCol(m_U, mb, myrow, izero, mpi_size);
-        ldu = max( 1, nru );
-        u1d.resize(ldu*min_mn);
-        U1d_tall = slate::Matrix<scalar_t>::fromScaLAPACK(
-                m_U, min_mn, &u1d[0], ldu, nb, mpi_size, 1, U.mpiComm() );
-        set( zero, one, U1d_tall, opts );
-    }
-    if (wantvt) {
-        mycol = VThat.mpiRank();
-        ncvt = numberLocalRowOrCol(n, nb, mycol, izero, mpi_size);
-        ldvt = max( 1, min_mn );
-        vt1d.resize(ldvt*ncvt);
-        V1d = slate::Matrix<scalar_t>::fromScaLAPACK(
-                min_mn, n, &vt1d[0], ldvt, nb, 1, mpi_size, VT.mpiComm() );
-        set( zero, one, V1d, opts );
-    }
-
     // 3. Bi-diagonal SVD solver.
     if (wantu || wantvt) {
         // Bcast the Sigma and E vectors (diagonal and sup/super-diagonal).
         MPI_Bcast( &Sigma[0], n,   mpi_real_type, 0, A.mpiComm() );
         MPI_Bcast( &E[0], n-1, mpi_real_type, 0, A.mpiComm() );
+
+        // Build the 1-dim distributed U and VT needed for bdsqr
+        slate::Matrix<scalar_t> U1d_tall, V1d;
+        if (wantu) {
+            int64_t m_U = Uhat.m();
+            int64_t mb = Uhat.tileMb(0);
+            myrow = Uhat.mpiRank();
+            nru  = numberLocalRowOrCol(m_U, mb, myrow, izero, mpi_size);
+            ldu = max( 1, nru );
+            u1d.resize(ldu*min_mn);
+            U1d_tall = slate::Matrix<scalar_t>::fromScaLAPACK(
+                    m_U, min_mn, &u1d[0], ldu, nb, mpi_size, 1, U.mpiComm() );
+            set( zero, one, U1d_tall, opts );
+        }
+        if (wantvt) {
+            mycol = VThat.mpiRank();
+            ncvt = numberLocalRowOrCol(n, nb, mycol, izero, mpi_size);
+            ldvt = max( 1, min_mn );
+            vt1d.resize(ldvt*ncvt);
+            V1d = slate::Matrix<scalar_t>::fromScaLAPACK(
+                    min_mn, n, &vt1d[0], ldvt, nb, 1, mpi_size, VT.mpiComm() );
+            set( zero, one, V1d, opts );
+        }
 
         // QR iteration
         //bdsqr<scalar_t>(jobu, jobvt, Sigma, E, Uhat, VThat, opts);
@@ -203,6 +229,7 @@ void gesvd(
         lapack::bdsqr(Uplo::Upper, min_mn, ncvt, nru, 0,
                       &Sigma[0], &E[0], &vt1d[0], ldvt, &u1d[0], ldu, dummy, 1);
 
+        // 4. Back transformation to compute U and VT of the initial matrix.
         // Back-transform: U = U1 * U2 * U.
         // U1 is the output of ge2tb and it is saved in A
         // U2 is the output of tb2bd
@@ -254,9 +281,9 @@ void gesvd(
 
             // Generate a matrix with row-major grid to copy V to it
             // todo: will delete this when redistribute fixed to work on transposed matrices
-            int64_t nb_V = VT.tileNb( 0 );
+            int64_t nb_V = VThat.tileNb( 0 );
             slate::GridOrder grid_order;
-            VT.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
+            VThat.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
             std::function<int64_t (int64_t j)>
                 tileNb = [n, nb_V] (int64_t j) {
                     return (j + 1)*nb_V > n ? n%nb_V : nb_V;
@@ -297,6 +324,10 @@ void gesvd(
             auto RT = conj_transpose(V);
             slate::copy( RT, VThat, opts );
             unmbr_ge2tb( Side::Right, Op::NoTrans, Ahat, TV, VThat, opts );
+            if (lq_path) {
+                // VT = VT*Q;
+                unmlq( Side::Right, slate::Op::NoTrans, A, TQ, VT, opts );
+            }
         }
     }
     else {
@@ -311,16 +342,6 @@ void gesvd(
     }
 
     // todo: If matrix was scaled, then rescale singular values appropriately.
-
-    if (flip) {
-        // todo: test it
-        // todo: swap(U, V);
-        // U = V
-        // VT = U'
-        //auto UT = conj_transpose(U);
-        //VT = UT;
-        //U  = V;
-    }
 }
 
 //------------------------------------------------------------------------------

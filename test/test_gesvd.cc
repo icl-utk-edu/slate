@@ -144,7 +144,7 @@ void test_gesvd_work(Params& params, bool run)
 
         Acpy_data.resize( lldA * nlocA );
         Acpy = slate::Matrix<scalar_t>::fromScaLAPACK(
-                m, n, &A_data[0],  lldA,  nb, p, q, MPI_COMM_WORLD);
+                m, n, &Acpy_data[0],  lldA,  nb, p, q, MPI_COMM_WORLD);
 
         if (wantu) {
             U_data.resize(lldU*nlocU);
@@ -212,6 +212,7 @@ void test_gesvd_work(Params& params, bool run)
         // compute and save timing/performance
         params.time() = time;
 
+        print_matrix("D", 1, min_mn,   &Sigma[0], 1, params);
         if (wantu) {
             print_matrix( "U",  U, params );
         }
@@ -359,6 +360,7 @@ void test_gesvd_work(Params& params, bool run)
             //            || A ||_1 * N
             //
             //==================================================
+            // todo:
             slate::scale_row_col( slate::Equed::Col, Sigma, Sigma, U );
 
             real_t Anorm = slate::norm( slate::Norm::One, Acpy );

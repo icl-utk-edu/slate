@@ -109,8 +109,8 @@ group_opt.add_argument( '--norm',   action='store', help='default=%(default)s', 
 group_opt.add_argument( '--jobz',   action='store', help='default=%(default)s', default='n,v' )
 group_opt.add_argument( '--jobvl',  action='store', help='default=%(default)s', default='n,v' )
 group_opt.add_argument( '--jobvr',  action='store', help='default=%(default)s', default='n,v' )
-group_opt.add_argument( '--jobu',   action='store', help='default=%(default)s', default='n,s,o,a' )
-group_opt.add_argument( '--jobvt',  action='store', help='default=%(default)s', default='n,s,o,a' )
+group_opt.add_argument( '--jobu',   action='store', help='default=%(default)s', default='n,v' )
+group_opt.add_argument( '--jobvt',  action='store', help='default=%(default)s', default='n,v' )
 group_opt.add_argument( '--kd',     action='store', help='default=%(default)s', default='20,100' )
 group_opt.add_argument( '--kl',     action='store', help='default=%(default)s', default='20,100' )
 group_opt.add_argument( '--ku',     action='store', help='default=%(default)s', default='20,100' )
@@ -551,14 +551,13 @@ if (opts.geev):
 
 # svd
 if (opts.svd):
-    if ('n' in jobz):
-        cmds += [ 'gesvd', gen + dtype + la + n + tall + '--jobu n --jobvt n' ]]
-    if ('v' in jobz):
-        cmds += [[ 'gesvd', gen + dtype + la + n + tall + '--jobu v --jobvt v' ]]
+    if ('n' in jobu):
+        cmds += [[ 'gesvd', gen + dtype + la + n + mnk + ' --jobu n --jobvt n' ]]
+    if ('v' in jobu):
+        cmds += [[ 'gesvd', gen + dtype + la + n + mnk + ' --jobu v --jobvt v' ]]
 
     cmds += [
     # todo: mn (wide), nb, jobu, jobvt
-    [ 'gesvd', gen + dtype + la + n + tall ],
     [ 'ge2tb', gen + dtype + n + tall ],
     # tb2bd, bdsqr don't take origin, target
     [ 'tb2bd', gen_no_target + dtype + n ],

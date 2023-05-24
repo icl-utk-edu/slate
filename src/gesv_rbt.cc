@@ -147,17 +147,20 @@ void gesv_rbt(Matrix<scalar_t>& A,
     Matrix<scalar_t> A_copy = A.emptyLike();
     Matrix<scalar_t> R = B.emptyLike();
 
-    A_copy.insertLocalTiles( Target::Host );
-    R.insertLocalTiles( Target::Host );
+    real_t Anorm = 0;
+    if (itermax > 0) {
+        A_copy.insertLocalTiles( Target::Host );
+        R.insertLocalTiles( Target::Host );
+        slate::copy( A, A_copy, host_opts );
+        Anorm = norm( Norm::Inf, A, opts );
+    }
+
 
     slate::copy( B, X, opts );
-    slate::copy( A, A_copy, host_opts );
 
     std::vector<real_t> colnorms_X( X.n() );
     std::vector<real_t> colnorms_R( R.n() );
 
-    // norm of A
-    real_t Anorm = norm( Norm::Inf, A, opts );
     real_t cte = Anorm*tol;
     bool converged = false;
 
@@ -170,6 +173,9 @@ void gesv_rbt(Matrix<scalar_t>& A,
     getrs_nopiv( A, X, opts );
     gerbt( V, X );
 
+    if (itermax == 0) {
+        return;
+    }
 
     // refine
     slate::copy( B, R, host_opts );

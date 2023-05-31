@@ -51,24 +51,6 @@ void gesvd(
     bool wantu  = (U.mt() > 0);
     bool wantvt = (VT.mt() > 0);
 
-    //bool flip = m < n; // Flip for fat matrix.
-    //if (flip) {
-    //    slate_not_implemented("m < n not yet supported");
-    //    swap(m, n);
-    //    A = conj_transpose( A );
-    //}
-
-    // these are needed if we call slate::bdsqr.
-    //Job jobu  = Job::NoVec;
-    //Job jobvt = Job::NoVec;
-    //if (wantu) {
-    //    jobu = Job::Vec;
-    //}
-
-    //if (wantvt) {
-    //    jobvt = Job::Vec;
-    //}
-
     // todo: Scale matrix to allowable range, if necessary.
 
     // 0. If m >> n, use QR factorization to reduce matrix A to a square matrix.
@@ -135,7 +117,7 @@ void gesvd(
         Ahat = A;
         if (wantu) {
             slate::set( zero, one, U, opts );
-            Uhat = U.slice(0, U.n()-1, 0, U.n()-1);
+            Uhat = U;
         }
         if (wantvt) {
             slate::set( zero, one, VT );
@@ -197,8 +179,8 @@ void gesvd(
     // 3. Bi-diagonal SVD solver.
     if (wantu || wantvt) {
         // Bcast the Sigma and E vectors (diagonal and sup/super-diagonal).
-        MPI_Bcast( &Sigma[0], n,   mpi_real_type, 0, A.mpiComm() );
-        MPI_Bcast( &E[0], n-1, mpi_real_type, 0, A.mpiComm() );
+        MPI_Bcast( &Sigma[0], min_mn,   mpi_real_type, 0, A.mpiComm() );
+        MPI_Bcast( &E[0], min_mn-1, mpi_real_type, 0, A.mpiComm() );
 
         // Build the 1-dim distributed U and VT needed for bdsqr
         slate::Matrix<scalar_t> U1d_tall, V1d;
@@ -255,14 +237,12 @@ void gesvd(
 
             // todo: why unmbr_ge2tb need U not Uhat?
             // Second, U = U1 * U ===> U = Ahat * U
+            unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, Uhat, opts );
             if (qr_path) {
-                unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, Uhat, opts );
                 // When initial QR was used.
                 // U = Q*U;
                 unmqr( Side::Left, slate::Op::NoTrans, A, TQ, U, opts );
             }
-            else
-                unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, U, opts );
         }
 
         // Back-transform: VT = VT * VT2 * VT1.
@@ -322,7 +302,8 @@ void gesvd(
 
             // Second: VT = VT1 * VT ===> VT = Ahat * VT
             auto RT = conj_transpose(V);
-            slate::copy( RT, VThat, opts );
+            //slate::copy( RT, VThat, opts );
+            slate::copy( RT, VThat );
             unmbr_ge2tb( Side::Right, Op::NoTrans, Ahat, TV, VThat, opts );
             if (lq_path) {
                 // VT = VT*Q;
@@ -338,7 +319,7 @@ void gesvd(
                           &Sigma[0], &E[0], &vt1d[0], ldvt, &u1d[0], ldu, dummy, 1);
         }
         // Bcast singular values.
-        MPI_Bcast( &Sigma[0], n, mpi_real_type, 0, A.mpiComm() );
+        MPI_Bcast( &Sigma[0], min_mn, mpi_real_type, 0, A.mpiComm() );
     }
 
     // todo: If matrix was scaled, then rescale singular values appropriately.

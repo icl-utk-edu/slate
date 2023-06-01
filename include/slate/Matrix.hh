@@ -827,8 +827,8 @@ void Matrix<scalar_t>::insertLocalTiles(Target origin)
 }
 
 //------------------------------------------------------------------------------
-/// Redistribute a matrix A that has a 2-D grid distribution (p x q) into a matrix that
-/// has a 1-D grid distribution (1 x p*q or p*q x 1).
+/// Redistribute a matrix A from one distribution into a matrix with another
+/// distribution.
 /// The two matrices should have the same op, either both non-trans or both trans.
 template <typename scalar_t>
 void Matrix<scalar_t>::redistribute(Matrix<scalar_t>& A)
@@ -837,7 +837,7 @@ void Matrix<scalar_t>::redistribute(Matrix<scalar_t>& A)
     int64_t nt = this->nt();
 
     if (A.op() != this->op())
-        slate_not_implemented(" Redistribute matrices with different Op is not yet supported");
+        slate_not_implemented("Redistribute matrices with different Op is not yet supported");
 
     for (int64_t j = 0; j < nt; ++j) {
         for (int64_t i = 0; i < mt; ++i) {
@@ -854,6 +854,8 @@ void Matrix<scalar_t>::redistribute(Matrix<scalar_t>& A)
                     auto Bij = this->at(i, j);
                     if (Aij.data() != Bij.data() ) {
                         tile::gecopy( Aij, Bij );
+                        // deep conj tile after recieve if its square
+                        // if rectangular, recv in a tmp tile then transpose it
                     }
                 }
             }

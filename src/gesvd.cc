@@ -61,7 +61,14 @@ void gesvd(
     // Different in practice because stages have different flop rates.
     double threshold = 5/3.;
     bool qr_path = m > threshold*n;
-    bool lq_path = n > threshold*m;
+
+    // todo: if A is a little wide, we either:
+    // 1. shallow transpose A, then A is a little tall, but we need to debug geqrf
+    // 2. deep transpose A, then geqrf will work fine, but need to also transpose
+    // VT and U, and this need debugging.
+
+    //bool lq_path = n > threshold*m;
+    bool lq_path = n > m;
     Matrix<scalar_t> Ahat, Uhat, VThat;
     TriangularFactors<scalar_t> TQ;
     if (qr_path) {
@@ -168,8 +175,8 @@ void gesvd(
     int izero = 0;
     int64_t ncvt = 0, nru = 0, ldvt = 1, ldu = 1;
 
-    std::vector<scalar_t> u1d(1);
-    std::vector<scalar_t> vt1d(1);
+    std::vector<scalar_t> U1D_row_cyclic_data(1);
+    std::vector<scalar_t> VT1D_row_cyclic_data(1);
     scalar_t dummy[1];
 
     int mpi_size;
@@ -183,25 +190,24 @@ void gesvd(
         MPI_Bcast( &E[0], min_mn-1, mpi_real_type, 0, A.mpiComm() );
 
         // Build the 1-dim distributed U and VT needed for bdsqr
-        slate::Matrix<scalar_t> U1d_tall, V1d;
+        slate::Matrix<scalar_t> U1d_row_cyclic, V1d;
         if (wantu) {
             int64_t m_U = Uhat.m();
-            int64_t mb = Uhat.tileMb(0);
             myrow = Uhat.mpiRank();
-            nru  = numberLocalRowOrCol(m_U, mb, myrow, izero, mpi_size);
+            nru  = numberLocalRowOrCol(m_U, nb, myrow, izero, mpi_size);
             ldu = max( 1, nru );
-            u1d.resize(ldu*min_mn);
-            U1d_tall = slate::Matrix<scalar_t>::fromScaLAPACK(
-                    m_U, min_mn, &u1d[0], ldu, nb, mpi_size, 1, U.mpiComm() );
-            set( zero, one, U1d_tall, opts );
+            U1D_row_cyclic_data.resize(ldu*min_mn);
+            U1d_row_cyclic = slate::Matrix<scalar_t>::fromScaLAPACK(
+                    m_U, min_mn, &U1D_row_cyclic_data[0], ldu, nb, mpi_size, 1, U.mpiComm() );
+            set( zero, one, U1d_row_cyclic, opts );
         }
         if (wantvt) {
             mycol = VThat.mpiRank();
             ncvt = numberLocalRowOrCol(n, nb, mycol, izero, mpi_size);
             ldvt = max( 1, min_mn );
-            vt1d.resize(ldvt*ncvt);
+            VT1D_row_cyclic_data.resize(ldvt*ncvt);
             V1d = slate::Matrix<scalar_t>::fromScaLAPACK(
-                    min_mn, n, &vt1d[0], ldvt, nb, 1, mpi_size, VT.mpiComm() );
+                    min_mn, n, &VT1D_row_cyclic_data[0], ldvt, nb, 1, mpi_size, VT.mpiComm() );
             set( zero, one, V1d, opts );
         }
 
@@ -209,7 +215,10 @@ void gesvd(
         //bdsqr<scalar_t>(jobu, jobvt, Sigma, E, Uhat, VThat, opts);
         // Call the SVD
         lapack::bdsqr(Uplo::Upper, min_mn, ncvt, nru, 0,
-                      &Sigma[0], &E[0], &vt1d[0], ldvt, &u1d[0], ldu, dummy, 1);
+                      &Sigma[0], &E[0],
+                      &VT1D_row_cyclic_data[0], ldvt,
+                      &U1D_row_cyclic_data[0], ldu,
+                      dummy, 1);
 
         // 4. Back transformation to compute U and VT of the initial matrix.
         // Back-transform: U = U1 * U2 * U.
@@ -222,12 +231,13 @@ void gesvd(
         // first stage (reduction to band). U = U1 * U ===> U =  Ahat * U
         if (wantu) {
             // Create a 1-D matrix to redistribute U
-            Matrix<scalar_t> U1d( Uhat.m(), Uhat.n(), Uhat.tileNb(0), 1, mpi_size, Uhat.mpiComm() );
+            Matrix<scalar_t> U1d(
+                Uhat.m(), Uhat.n(), Uhat.tileNb(0), 1, mpi_size, Uhat.mpiComm() );
             U1d.insertLocalTiles(target);
 
             // Redistribute U into 1-D U1d
             //U1d.redistribute(Uhat); // needed if call slate::bdsqr
-            U1d.redistribute(U1d_tall);
+            U1d.redistribute(U1d_row_cyclic);
 
             // First, U = U2 * U ===> U1d = U2 * U1d
             unmtr_hb2st( Side::Left, Op::NoTrans, U2, U1d, opts );
@@ -261,29 +271,10 @@ void gesvd(
 
             // Generate a matrix with row-major grid to copy V to it
             // todo: will delete this when redistribute fixed to work on transposed matrices
-            int64_t nb_V = VThat.tileNb( 0 );
             slate::GridOrder grid_order;
             VThat.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
-            std::function<int64_t (int64_t j)>
-                tileNb = [n, nb_V] (int64_t j) {
-                    return (j + 1)*nb_V > n ? n%nb_V : nb_V;
-                };
-
-            std::function<int (std::tuple<int64_t, int64_t> ij)>
-                tileRank = [nprow, npcol]( std::tuple<int64_t, int64_t> ij ) {
-                    int64_t i = std::get<0>( ij );
-                    int64_t j = std::get<1>( ij );
-                    return int( (i%nprow)*npcol + j%npcol );
-                };
-
-            int num_devices = VT.num_devices();
-            std::function<int (std::tuple<int64_t, int64_t> ij)>
-                tileDevice = [nprow, num_devices]( std::tuple<int64_t, int64_t> ij ) {
-                    int64_t i = std::get<0>( ij );
-                    return int( i/nprow )%num_devices;
-                };
-            slate::Matrix<scalar_t> V(
-                    n, n, tileNb, tileNb, tileRank, tileDevice, VT.mpiComm() );
+            Matrix<scalar_t> V(
+                n, n, nb, nb, GridOrder::Row, nprow, npcol, VT.mpiComm() );
 
             // todo: will delete this when redistribute fixed to work on transposed matrices
             VThat.redistribute(V1d);
@@ -316,7 +307,10 @@ void gesvd(
             // QR iteration
             //bdsqr<scalar_t>(jobu, jobvt, Sigma, E, U, VT, opts);
             lapack::bdsqr(Uplo::Upper, min_mn, ncvt, nru, 0,
-                          &Sigma[0], &E[0], &vt1d[0], ldvt, &u1d[0], ldu, dummy, 1);
+                          &Sigma[0], &E[0],
+                          &VT1D_row_cyclic_data[0], ldvt,
+                          &U1D_row_cyclic_data[0], ldu,
+                          dummy, 1);
         }
         // Bcast singular values.
         MPI_Bcast( &Sigma[0], min_mn, mpi_real_type, 0, A.mpiComm() );

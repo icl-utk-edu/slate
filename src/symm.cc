@@ -157,9 +157,8 @@ void symm(
                     beta,  C.sub( 0, 0, 0, C.nt()-1 ),
                     priority_0, opts_local );
 
-                // Erase remote tile on all devices including host
+                // Erase local & remote tile on all devices including host.
                 A.releaseRemoteWorkspaceTile( 0, 0 );
-                // Erase local workspace on devices.
                 A.releaseLocalWorkspaceTile( 0, 0 );
 
                 if (A.mt()-1 > 0) {
@@ -170,8 +169,11 @@ void symm(
                         beta,  C.sub( 1, C.mt()-1, 0, C.nt()-1 ),
                         layout, priority_0, queue_0, opts_local );
 
-                    Acol_0.releaseLocalWorkspace();
+                    // Don't release local Acol_0 here, because it may be
+                    // bcast again, creating a race condition.
 
+                    // Figure out what tiles were bcast to this rank and
+                    // release them.
                     std::set<ij_tuple> tile_set;
                     for (int64_t i = 1; i < A.mt(); ++i) {
                         if (! A.tileIsLocal( i, 0 ) ) {
@@ -261,8 +263,11 @@ void symm(
                             one,    C.sub( k+1, C.mt()-1, 0, C.nt()-1 ),
                             layout, priority_0, queue_0, opts_local );
 
-                        Acol_k.releaseLocalWorkspace();
+                        // Don't release local Acol_k here, because it may be
+                        // bcast again, creating a race condition.
 
+                        // Figure out what tiles were bcast to this rank and
+                        // release them.
                         std::set<ij_tuple> tile_set;
                         for (int64_t i = k+1; i < A.mt(); ++i) {
                             if (! A.tileIsLocal( i, k ) ) {
@@ -295,8 +300,8 @@ void symm(
                         {0, i, {C.sub( i, i, 0, C.nt()-1 )}, i} );
                 A.template listBcastMT<target>( bcast_list_A, layout );
 
-                BcastListTag bcast_list_B;
                 // broadcast B(0, j) to ranks owning block col C(:, j)
+                BcastListTag bcast_list_B;
                 for (int64_t j = 0; j < B.nt(); ++j)
                     bcast_list_B.push_back(
                         {0, j, {C.sub( 0, C.mt()-1, j, j )}, j} );
@@ -356,8 +361,11 @@ void symm(
                         beta,  C.sub( 1, C.mt()-1, 0, C.nt()-1 ),
                         layout, priority_0, queue_0, opts_local );
 
-                    Arow_0.releaseLocalWorkspace();
+                    // Don't release local Arow_0 here, because it may be
+                    // bcast again, creating a race condition.
 
+                    // Figure out what tiles were bcast to this rank and
+                    // release them.
                     std::set<ij_tuple> tile_set;
                     for (int64_t i = 1; i < A.mt(); ++i) {
                         for (int64_t j = 0; j < C.nt(); ++j) {
@@ -445,8 +453,11 @@ void symm(
                             one,    C.sub( k+1, C.mt()-1, 0, C.nt()-1 ),
                             layout, priority_0, queue_0, opts_local );
 
-                        Arow_k.releaseLocalWorkspace();
+                        // Don't release local Arow_k here, because it may be
+                        // bcast again, creating a race condition.
 
+                        // Figure out what tiles were bcast to this rank and
+                        // release them.
                         std::set<ij_tuple> tile_set;
                         for (int64_t i = k+1; i < A.mt(); ++i) {
                             for (int64_t j = 0; j < C.nt(); ++j) {

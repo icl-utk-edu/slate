@@ -267,6 +267,7 @@ void send_recv_tile(
     if (tile_rank != 0) {
         if (A.tileIsLocal(i, j)) {
             try {
+                A.tileGetForReading( i, j, LayoutConvert::None );
                 auto T = A(i, j);
                 err = MPI_Send( &flag_exist, 1, MPI_INT, 0, 0, comm );
                 slate_assert(err == 0);

@@ -269,18 +269,8 @@ void gesvd(
             //Matrix<scalar_t> V1d(VThat.m(), VThat.n(), VThat.tileNb(0), 1, mpi_size, VThat.mpiComm());
             //V1d.insertLocalTiles(target);
 
-            // Generate a matrix with row-major grid to copy V to it
-            // todo: will delete this when redistribute fixed to work on transposed matrices
-            slate::GridOrder grid_order;
-            VThat.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
-            Matrix<scalar_t> V(
-                n, n, nb, nb, GridOrder::Row, nprow, npcol, VT.mpiComm() );
-
-            // todo: will delete this when redistribute fixed to work on transposed matrices
             VThat.redistribute(V1d);
-            auto R = conj_transpose(VThat);
-            V.insertLocalTiles();
-            slate::copy( R, V, opts );
+            auto V = conj_transpose(VThat);
 
             // Redistribute V into 1-D V1d
             V1d.redistribute(V);
@@ -289,12 +279,10 @@ void gesvd(
             unmtr_hb2st( Side::Left, Op::NoTrans, VT2, V1d, opts );
 
             // Redistribute V1d into V
-            V.redistribute(V1d);
+            auto V1dT = conj_transpose(V1d);
+            VThat.redistribute(V1dT);
 
             // Second: VT = VT1 * VT ===> VT = Ahat * VT
-            auto RT = conj_transpose(V);
-            //slate::copy( RT, VThat, opts );
-            slate::copy( RT, VThat );
             unmbr_ge2tb( Side::Right, Op::NoTrans, Ahat, TV, VThat, opts );
             if (lq_path) {
                 // VT = VT*Q;

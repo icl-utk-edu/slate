@@ -836,33 +836,77 @@ void Matrix<scalar_t>::redistribute(Matrix<scalar_t>& A)
     int64_t mt = this->mt();
     int64_t nt = this->nt();
 
-    if (A.op() != this->op())
-        slate_not_implemented("Redistribute matrices with different Op is not yet supported");
-
-    for (int64_t j = 0; j < nt; ++j) {
-        for (int64_t i = 0; i < mt; ++i) {
-            if (this->tileIsLocal(i, j)) {
-                this->tileGetForWriting( i, j, LayoutConvert::None );
-                if (! A.tileIsLocal(i, j)) {
-                    auto Bij = this->at(i, j);
-                    Bij.recv(A.tileRank(i, j), A.mpiComm(),  A.layout());
-                }
-                else {
-                    A.tileGetForReading(i, j, LayoutConvert::None);
-                    // copy local tiles if needed.
-                    auto Aij = A(i, j);
-                    auto Bij = this->at(i, j);
-                    if (Aij.data() != Bij.data() ) {
-                        tile::gecopy( Aij, Bij );
-                        // deep conj tile after recieve if its square
-                        // if rectangular, recv in a tmp tile then transpose it
+    if (A.op() != this->op()) {
+        auto BT = A.emptyLike();
+        for (int64_t j = 0; j < nt; ++j) {
+            for (int64_t i = 0; i < mt; ++i) {
+                if (this->tileIsLocal(i, j)) {
+                    this->tileGetForWriting( i, j, LayoutConvert::None );
+                    if (! A.tileIsLocal(i, j)) {
+                        auto Bij = this->at(i, j);
+                        if (Bij.mb() == Bij.nb()) {
+                            Bij.recv(A.tileRank(i, j), A.mpiComm(),  A.layout());
+                            this->tileGetForWriting( i, j, LayoutConvert::None );
+                            slate::tile::deepConjTranspose( std::move(Bij) );
+                        }
+                        else {
+                            BT.tileInsert(i, j);
+                            auto BTij = BT(i, j);
+                            BT.tileGetForWriting( i, j, LayoutConvert::None );
+                            BTij.recv(A.tileRank(i, j), A.mpiComm(),  A.layout());
+                            auto AijT = conj_transpose(BTij);
+                            slate::tile::deepConjTranspose( std::move(AijT), std::move(Bij) );
+                        }
+                    }
+                    else {
+                        A.tileGetForReading(i, j, LayoutConvert::None);
+                        // copy local tiles if needed.
+                        auto Aij = A(i, j);
+                        auto Bij = this->at(i, j);
+                        if (Bij.mb() == Bij.nb()) {
+                            //tile::gecopy( Aij, Bij );
+                            slate::tile::deepConjTranspose( std::move(Aij), std::move(Bij) );
+                        }
+                        else {
+                            auto AijT = conj_transpose(Aij);
+                            slate::tile::deepConjTranspose( std::move(AijT), std::move(Bij) );
+                        }
                     }
                 }
+                else if (A.tileIsLocal(i, j)) {
+                    A.tileGetForReading(i, j, LayoutConvert::None);
+                    auto Aij = A(i, j);
+                    Aij.send(this->tileRank(i, j), this->mpiComm());
+                }
             }
-            else if (A.tileIsLocal(i, j)) {
-                A.tileGetForReading(i, j, LayoutConvert::None);
-                auto Aij = A(i, j);
-                Aij.send(this->tileRank(i, j), this->mpiComm());
+        }
+    }
+    else {
+        for (int64_t j = 0; j < nt; ++j) {
+            for (int64_t i = 0; i < mt; ++i) {
+                if (this->tileIsLocal(i, j)) {
+                    this->tileGetForWriting( i, j, LayoutConvert::None );
+                    if (! A.tileIsLocal(i, j)) {
+                        auto Bij = this->at(i, j);
+                        Bij.recv(A.tileRank(i, j), A.mpiComm(),  A.layout());
+                    }
+                    else {
+                        A.tileGetForReading(i, j, LayoutConvert::None);
+                        // copy local tiles if needed.
+                        auto Aij = A(i, j);
+                        auto Bij = this->at(i, j);
+                        if (Aij.data() != Bij.data() ) {
+                            tile::gecopy( Aij, Bij );
+                            // deep conj tile after recieve if its square
+                            // if rectangular, recv in a tmp tile then transpose it
+                        }
+                    }
+                }
+                else if (A.tileIsLocal(i, j)) {
+                    A.tileGetForReading(i, j, LayoutConvert::None);
+                    auto Aij = A(i, j);
+                    Aij.send(this->tileRank(i, j), this->mpiComm());
+                }
             }
         }
     }

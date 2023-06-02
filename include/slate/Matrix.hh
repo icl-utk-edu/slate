@@ -836,7 +836,11 @@ void Matrix<scalar_t>::redistribute(Matrix<scalar_t>& A)
     int64_t mt = this->mt();
     int64_t nt = this->nt();
 
+    bool is_conj = false;
     if (A.op() != this->op()) {
+        if (A.op() == Op::ConjTrans || this->op() == Op::ConjTrans)
+            is_conj = true;
+
         auto BT = A.emptyLike();
         for (int64_t j = 0; j < nt; ++j) {
             for (int64_t i = 0; i < mt; ++i) {
@@ -847,15 +851,24 @@ void Matrix<scalar_t>::redistribute(Matrix<scalar_t>& A)
                         if (Bij.mb() == Bij.nb()) {
                             Bij.recv(A.tileRank(i, j), A.mpiComm(),  A.layout());
                             this->tileGetForWriting( i, j, LayoutConvert::None );
-                            slate::tile::deepConjTranspose( std::move(Bij) );
+                            if (is_conj)
+                                tile::deepConjTranspose( std::move(Bij) );
+                            else
+                                tile::deepTranspose( std::move(Bij) );
                         }
                         else {
                             BT.tileInsert(i, j);
                             auto BTij = BT(i, j);
                             BT.tileGetForWriting( i, j, LayoutConvert::None );
                             BTij.recv(A.tileRank(i, j), A.mpiComm(),  A.layout());
-                            auto AijT = conj_transpose(BTij);
-                            slate::tile::deepConjTranspose( std::move(AijT), std::move(Bij) );
+                            if (is_conj) {
+                                auto AijT = conj_transpose(BTij);
+                                tile::deepConjTranspose( std::move(AijT), std::move(Bij) );
+                            }
+                            else {
+                                auto AijT = transpose(BTij);
+                                tile::deepTranspose( std::move(AijT), std::move(Bij) );
+                            }
                         }
                     }
                     else {
@@ -864,12 +877,20 @@ void Matrix<scalar_t>::redistribute(Matrix<scalar_t>& A)
                         auto Aij = A(i, j);
                         auto Bij = this->at(i, j);
                         if (Bij.mb() == Bij.nb()) {
-                            //tile::gecopy( Aij, Bij );
-                            slate::tile::deepConjTranspose( std::move(Aij), std::move(Bij) );
+                            if (is_conj)
+                                tile::deepConjTranspose( std::move(Aij), std::move(Bij) );
+                            else
+                                tile::deepTranspose( std::move(Aij), std::move(Bij) );
                         }
                         else {
-                            auto AijT = conj_transpose(Aij);
-                            slate::tile::deepConjTranspose( std::move(AijT), std::move(Bij) );
+                            if (is_conj) {
+                                auto AijT = conj_transpose(Aij);
+                                tile::deepConjTranspose( std::move(AijT), std::move(Bij) );
+                            }
+                            else {
+                                auto AijT = transpose(Aij);
+                                tile::deepTranspose( std::move(AijT), std::move(Bij) );
+                            }
                         }
                     }
                 }

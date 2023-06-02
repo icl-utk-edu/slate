@@ -45,7 +45,7 @@ void gesvd(
     int64_t n = A.n();
     int64_t min_mn = std::min(m, n);
 
-    int nprow, npcol, myrow, mycol;
+    int myrow, mycol;
 
     // todo: still need to add if part of U or part of VT are needed.
     bool wantu  = (U.mt() > 0);

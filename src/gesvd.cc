@@ -51,7 +51,26 @@ void gesvd(
     bool wantu  = (U.mt() > 0);
     bool wantvt = (VT.mt() > 0);
 
-    // todo: Scale matrix to allowable range, if necessary.
+    // Scale A if max element outside range (smlnum, bignum).
+    real_t rzero = 0.;
+    real_t Anorm = norm( slate::Norm::Max, A );
+    real_t eps = std::numeric_limits<real_t>::epsilon();
+    real_t sfmin = std::numeric_limits< real_t >::min();
+    real_t smlnum = sqrt(sfmin) / eps;
+    real_t bignum = 1. / smlnum;
+    real_t scl;
+    bool is_scale = false;
+
+    if (Anorm > rzero && Anorm < smlnum) {
+       is_scale = true;
+       scl = smlnum;
+       scale( Anorm, scl, A, opts );
+    }
+    else if (Anorm > bignum) {
+       is_scale = true;
+       scl = bignum;
+       scale( Anorm, scl, A, opts );
+    }
 
     // 0. If m >> n, use QR factorization to reduce matrix A to a square matrix.
     // Theoretical thresholds based on flops:
@@ -220,6 +239,13 @@ void gesvd(
                       &U1D_row_cyclic_data[0], ldu,
                       dummy, 1);
 
+        // If matrix was scaled, then rescale singular values appropriately.
+        if (is_scale) {
+            for (int64_t i = 0; i < min_mn; ++i) {
+                Sigma[i] = (scl/Anorm) * Sigma[i];
+            }
+        }
+
         // 4. Back transformation to compute U and VT of the initial matrix.
         // Back-transform: U = U1 * U2 * U.
         // U1 is the output of ge2tb and it is saved in A
@@ -300,11 +326,17 @@ void gesvd(
                           &U1D_row_cyclic_data[0], ldu,
                           dummy, 1);
         }
+
+        // If matrix was scaled, then rescale singular values appropriately.
+        if (is_scale) {
+            for (int64_t i = 0; i < min_mn; ++i) {
+                Sigma[i] = (scl/Anorm) * Sigma[i];
+            }
+        }
+
         // Bcast singular values.
         MPI_Bcast( &Sigma[0], min_mn, mpi_real_type, 0, A.mpiComm() );
     }
-
-    // todo: If matrix was scaled, then rescale singular values appropriately.
 }
 
 //------------------------------------------------------------------------------

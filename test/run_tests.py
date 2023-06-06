@@ -527,7 +527,7 @@ if (opts.syev):
     [ 'unmtr_hb2st', gen_no_target + dtype_complex + n ],
 
     # todo: uplo
-    [ 'he2hb', gen_no_target + dtype + n ],
+    [ 'he2hb', gen + dtype + n ],
     [ 'hb2st', gen_no_target + dtype + n ],
 
     [ 'stedc', gen + n ],

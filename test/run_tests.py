@@ -518,9 +518,13 @@ if (opts.syev):
         cmds += [[ 'heev', gen + dtype + la + n + ' --jobz v --method-eig qr,dc' ]]
 
     cmds += [
+    # heev uses only side=l, no-trans. side=r and trans don't yet work
+    # with multiple ranks.
     # todo uplo, nk
-    [ 'unmtr_he2hb', gen + dtype_real    + side + trans    + n ],  # real does trans = N, T, C
-    [ 'unmtr_he2hb', gen + dtype_complex + side + trans_nc + n ],  # complex does trans = N, C
+    #[ 'unmtr_he2hb', gen + dtype_real    + side + trans    + n ],  # real does trans = N, T, C
+    #[ 'unmtr_he2hb', gen + dtype_complex + side + trans_nc + n ],  # complex does trans = N, C
+    [ 'unmtr_he2hb', gen + dtype_real    + ' --side l --trans n' + n ],
+    [ 'unmtr_he2hb', gen + dtype_complex + ' --side l --trans n' + n ],
 
     # todo: uplo, side, trans, nk
     [ 'unmtr_hb2st', gen_no_target + dtype_real    + n ],

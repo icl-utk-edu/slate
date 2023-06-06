@@ -311,7 +311,7 @@ gen_no_target =               grid + check + ref + tol + repeat + nb
 def filter_csv( values, csv ):
     f = list( filter( lambda x: x in values, csv.split( ',' ) ) )
     if (not f):
-        return values[0]
+        return '?'
     return ','.join( f )
 # end
 
@@ -656,6 +656,11 @@ def run_test( cmd ):
     print( '-' * 80 )
     cmd_str = opts.test +' '+ cmd[1] +' '+ cmd[0]
     print_tee( cmd_str )
+
+    if (re.search( r'\?', cmd_str )):
+        print_tee( 'skipping (see ?)' )
+        return (0, None)
+
     if (opts.dry_run):
         return (0, None)
 

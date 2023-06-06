@@ -4,7 +4,6 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/slate.hh"
-#include "auxiliary/Debug.hh"
 #include "slate/HermitianMatrix.hh"
 #include "internal/internal.hh"
 
@@ -46,7 +45,7 @@ void he2hb(
     const int queue_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-    const LayoutConvert layout_conv = LayoutConvert( layout );
+    const LayoutConvert layoutc = LayoutConvert( layout );
 
     // Options
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
@@ -56,6 +55,7 @@ void he2hb(
                                              max_panel_threads );
 
     int64_t nt = A.nt();
+    int mpi_rank = A.mpiRank();
 
     // todo: TriangularFactors takes Matrix, not BaseMatrix or HermitianMatrix.
     // This abuses the "conversion sub-matrix" constructor to get a Matrix.
@@ -112,8 +112,6 @@ void he2hb(
     std::vector< scalar_t* > dwork_array( num_devices, nullptr );
     size_t  work_size    = 0;
     using device_info_t = lapack::device_info_int;
-
-    int my_rank = A.mpiRank();
 
     if (target == Target::Devices) {
         A.allocateBatchArrays();
@@ -211,7 +209,11 @@ void he2hb(
             //--------------------
             // QR of panel
             // local panel factorization
-            #pragma omp task depend( inout:block[ k ] )
+            #pragma omp task slate_omp_default_none \
+                depend( inout:block[ k ] ) \
+                shared( dwork_array ) \
+                firstprivate(  A_panel, Tlocal_panel, Treduce_panel, \
+                               ib, max_panel_threads, work_size )
             {
                 internal::geqrf<target>(
                     std::move( A_panel ),
@@ -230,7 +232,10 @@ void he2hb(
             if (k < nt-1) {
                 //--------------------
                 // Bcast V, Treduce, Tlocal.
-                #pragma omp task depend( inout:block[ k ] )
+                #pragma omp task slate_omp_default_none \
+                    depend( inout:block[ k ] ) \
+                    shared( A, Treduce, Tlocal ) \
+                    firstprivate( A_panel, k, nt, panel_ranks, first_indices )
                 {
                     // Send V across row i & col i for trailing matrix update.
                     BcastListTag bcast_list_V_first;
@@ -304,7 +309,10 @@ void he2hb(
                 //--------------------
                 // Computation and data movement overlap:
                 // fetch data to be used in he2hb_hemm
-                #pragma omp task depend( inout:fetch_trailing[ 0 ] )
+                #pragma omp task slate_omp_default_none \
+                    depend( inout:fetch_trailing[ 0 ] ) \
+                    shared( A, W ) \
+                    firstprivate( zero, A_panel, k, nt, panel_ranks )
                 {
                     // todo: insert and set on device?
                     // todo: do we need entire column, or subset? needs W[ my_rows + my_cols ].
@@ -330,7 +338,9 @@ void he2hb(
                             // and  lower( A( panel_rank_rows, : ) )
                             // and  W( :, k ) to GPU.
                             for (int device = 0; device < W_panel.num_devices(); ++device) {
-                                #pragma omp task shared( A, W )
+                                #pragma omp task slate_omp_default_none \
+                                    shared( A, W ) \
+                                    firstprivate( k, nt, device, panel_rank_rows )
                                 {
                                     std::set<ij_tuple> A_tiles_set, A_panel_tiles_set, W_tiles_set;
                                     for (int64_t j : panel_rank_rows) {
@@ -353,13 +363,17 @@ void he2hb(
                                             }
                                         }
 
-                                        #pragma omp task default( shared )
+                                        #pragma omp task slate_omp_default_none \
+                                            shared( A, A_tiles_set ) \
+                                            firstprivate( device )
                                         {
-                                            A.tileGetForReading( A_tiles_set, device, layout_conv );
+                                            A.tileGetForReading( A_tiles_set, device, layoutc );
                                         }
-                                        #pragma omp task default( shared )
+                                        #pragma omp task slate_omp_default_none \
+                                            shared( W, W_tiles_set ) \
+                                            firstprivate( device )
                                         {
-                                            W.tileGetForWriting( W_tiles_set, device, layout_conv );
+                                            W.tileGetForWriting( W_tiles_set, device, layoutc );
                                         }
                                         #pragma omp taskwait
                                     }
@@ -390,10 +404,13 @@ void he2hb(
                     if (target == Target::Devices)
                         dev_i0k = A.tileDevice(i0, k);
 
-                    #pragma omp task depend( inout:block[ k ] )
+                    #pragma omp task slate_omp_default_none \
+                        depend( inout:block[ k ] ) \
+                        shared( A, Asave ) \
+                        firstprivate( zero, one, i0, k, dev_i0k )
                     {
                         if (A.tileExists( i0, k, dev_i0k)) {
-                            A.tileGetForWriting( i0, k, HostNum, layout_conv );
+                            A.tileGetForWriting( i0, k, HostNum, layoutc );
                             // Save V0 and set upper(V0) to identity, to avoid trmm's.
                             Asave.tileInsert( i0, k );
                             auto Aik = A( i0, k );
@@ -405,10 +422,15 @@ void he2hb(
 
                     //--------------------
                     // Update trailing submatrix.
-                    #pragma omp task depend( inout:block[ k ] ) \
-                                     depend( inout:block[ k+1 ] ) \
-                                     depend( inout:block[ nt-1 ] ) \
-                                     depend( inout:fetch_trailing[ 0 ] )
+                    #pragma omp task slate_omp_default_none \
+                        depend( inout:block[ k ] ) \
+                        depend( inout:block[ k+1 ] ) \
+                        depend( inout:block[ nt-1 ] ) \
+                        depend( inout:fetch_trailing[ 0 ] ) \
+                        shared( A, W, Wtmp, Tlocal, TVAVT ) \
+                        firstprivate( zero, half, one, i0, k, nt, panel_rank, \
+                                      panel_rank_rows, panel_rank_rows_sub, \
+                                      mpi_rank )
                     {
                         // Compute W = A V T.
                         // 1a. Wi_part = sum_j Aij Vj, local partial sum,
@@ -424,7 +446,9 @@ void he2hb(
                         // exchange partial sum with neighbor and both ranks sum Wi.
                         #pragma omp taskgroup
                         for (int64_t i = k+1; i < nt-1; ++i) {
-                            #pragma omp task
+                            #pragma omp task slate_omp_default_none \
+                                shared( A, W, Wtmp, panel_rank_rows ) \
+                                firstprivate( one, i, k, mpi_rank )
                             {
                                 int rank_lower = -1;
                                 int rank_upper = -1;
@@ -437,23 +461,23 @@ void he2hb(
                                     }
                                 }
                                 int neighbor = -1;
-                                if (rank_lower == my_rank)
+                                if (rank_lower == mpi_rank)
                                     neighbor = rank_upper;
-                                else if (rank_upper == my_rank)
+                                else if (rank_upper == mpi_rank)
                                     neighbor = rank_lower;
-                                if (neighbor != -1 && neighbor != my_rank) {
+                                if (neighbor != -1 && neighbor != mpi_rank) {
                                     Wtmp.tileInsert( i, k );
                                     int tag_i = i;
                                     int tag_i1 = i+1;
-                                    if (neighbor < my_rank) {
+                                    if (neighbor < mpi_rank) {
                                         W.tileGetForWriting( i, k, HostNum,
-                                                             layout_conv );
+                                                             layoutc );
                                         W   .tileSend( i, k, neighbor, tag_i );
                                         Wtmp.tileRecv( i, k, neighbor, layout, tag_i1 );
                                     }
                                     else {
                                         W.tileGetForWriting( i, k, HostNum,
-                                                             layout_conv );
+                                                             layoutc );
                                         Wtmp.tileRecv( i, k, neighbor, layout, tag_i );
                                         W   .tileSend( i, k, neighbor, tag_i1 );
                                     }
@@ -490,7 +514,7 @@ void he2hb(
                             // todo: potentially do gemm+reduce here (block inner-product)
                             // todo: shouldn't need to set TVAVT = 0 since beta = 0.
                             // todo: on GPU
-                            TVAVT.tileGetForWriting( 0, 0, HostNum, layout_conv );
+                            TVAVT.tileGetForWriting( 0, 0, HostNum, layoutc );
                             TVAVT( 0, 0 ).set( zero );
                             internal::he2hb_gemm<target>(
                                 one,  conj_transpose( A.sub( k+1, nt-1, k, k ) ),
@@ -515,8 +539,8 @@ void he2hb(
                             // todo: move to GPU
                             auto Tk0 = TriangularMatrix<scalar_t>(
                                 Uplo::Upper, Diag::NonUnit, T0 );
-                            Tk0.tileGetForReading( 0, 0, HostNum, layout_conv );
-                            TVAVT0.tileGetForWriting( 0, 0, HostNum, layout_conv );
+                            Tk0.tileGetForReading( 0, 0, HostNum, layoutc );
+                            TVAVT0.tileGetForWriting( 0, 0, HostNum, layoutc );
                             tile::trmm( Side::Left, Diag::NonUnit,
                                         one, conj_transpose( Tk0( 0, 0 ) ),
                                              std::move( TVAVT0( 0, 0 ) ) );
@@ -560,10 +584,13 @@ void he2hb(
                     }
 
                     // Restore V0.
-                    #pragma omp task depend( inout:block[ k ] )
+                    #pragma omp task slate_omp_default_none \
+                        depend( inout:block[ k ] ) \
+                        shared( A, Asave ) \
+                        firstprivate( i0, k, dev_i0k )
                     {
                         if (A.tileExists( i0, k, dev_i0k )) {
-                            A.tileGetForWriting( i0, k, layout_conv );
+                            A.tileGetForWriting( i0, k, layoutc );
                             tile::gecopy( Asave( i0, k ), A( i0, k ) );
                             Asave.tileErase( i0, k );
                         }
@@ -572,10 +599,13 @@ void he2hb(
 
                 //--------------------
                 // Update trailing matrix from triangle reductions.
-                #pragma omp task depend( in:block[ k ] ) \
-                                 depend( inout:block[ k+1 ] ) \
-                                 depend( inout:block[ nt-1 ] ) \
-                                 depend( inout:fetch_trailing[ 0 ] )
+                #pragma omp task slate_omp_default_none \
+                    depend( in:block[ k ] ) \
+                    depend( inout:block[ k+1 ] ) \
+                    depend( inout:block[ nt-1 ] ) \
+                    depend( inout:fetch_trailing[ 0 ] ) \
+                    shared( A ) \
+                    firstprivate( A_panel, Treduce_panel, k, nt )
                 {
                     // Do 2-sided Hermitian update:
                     // 3. A = Q^H A Q
@@ -589,7 +619,11 @@ void he2hb(
                 // Unhold and release tiles in A_panel and Tlocal.
                 if (target == Target::Devices) {
                     // todo: inout, right? what prevents this from executing during previous update?
-                    #pragma omp task depend( inout:block[ k ] )
+                    #pragma omp task slate_omp_default_none \
+                        depend( inout:block[ k ] ) \
+                        shared( A, Tlocal ) \
+                        firstprivate( A_panel, k, nt, \
+                                      panel_ranks, panel_rank_rows )
                     {
                         for (int64_t i = k; i < nt; ++i) {
                             if (A.tileIsLocal( i, k )) {

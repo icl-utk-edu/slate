@@ -52,17 +52,20 @@ void he2hb_trmm(
     int priority, int64_t queue_index)
 {
     const scalar_t one  = 1;
-    int my_rank = AH.mpiRank();
+    int mpi_rank = AH.mpiRank();
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-    const LayoutConvert layout_conv = LayoutConvert( layout );
+    const LayoutConvert layoutc = LayoutConvert( layout );
 
     auto A0 = A.sub( 0, 0, 0, 0 );
 
     #pragma omp taskgroup
     for (int64_t i = 0; i < B.mt(); ++i) {
-        #pragma omp task shared( AH, B )
+        #pragma omp task slate_omp_default_none \
+            shared( A0, AH, B, panel_rank_rows ) \
+            firstprivate( one, i, mpi_rank ) \
+            priority( priority )
         {
             int rank_lower = -1;
             int rank_upper = -1;
@@ -75,7 +78,7 @@ void he2hb_trmm(
                 }
             }
             // If I contributed to Bi, multiply by A.
-            if (rank_upper == my_rank || rank_lower == my_rank) {
+            if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
                 // Bi = Bi * A
                 auto Bi = B.sub( i, i, 0, 0 );
 
@@ -83,7 +86,7 @@ void he2hb_trmm(
                 int64_t nb = A0.tileNb( 0 );
                 bool trapezoid = (mb < nb);
 
-                B.tileGetForWriting( i, 0, layout_conv );
+                B.tileGetForWriting( i, 0, layoutc );
                 if (trapezoid) {
                     auto B00 = Bi( 0, 0 );
                     int64_t mb1 = B00.mb();
@@ -117,15 +120,18 @@ void he2hb_trmm(
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    int my_rank = AH.mpiRank();
+    int mpi_rank = AH.mpiRank();
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-    const LayoutConvert layout_conv = LayoutConvert( layout );
+    const LayoutConvert layoutc = LayoutConvert( layout );
 
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task shared( AH, B ) priority( priority )
+        #pragma omp task slate_omp_default_none \
+            shared( A, AH, B, panel_rank_rows ) \
+            firstprivate( device, queue_index, mpi_rank ) \
+            priority( priority )
         {
             std::set<ij_tuple> B_tiles_set, A0_tiles_set;
             int rank_lower = -1;
@@ -141,7 +147,7 @@ void he2hb_trmm(
                     }
                 }
 
-                if (rank_upper == my_rank || rank_lower == my_rank) {
+                if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
                     if (device == B.tileDevice( i, 0 )) {
                         B_tiles_set.insert( { i, 0 } );
                     }
@@ -160,8 +166,8 @@ void he2hb_trmm(
             if (batch_size > 0) {
 
                 auto A0 = A.sub( 0, 0, 0, 0 );
-                A0.tileGetForReading( 0, 0, device, layout_conv );
-                B.tileGetForWriting( B_tiles_set, device, layout_conv );
+                A0.tileGetForReading( 0, 0, device, layoutc );
+                B.tileGetForWriting( B_tiles_set, device, layoutc );
 
                 // interior
                 std::vector<scalar_t*> b_array0;
@@ -209,7 +215,7 @@ void he2hb_trmm(
                     }
                     auto T = TriangularMatrix<scalar_t>( Uplo::Upper, Diag::NonUnit, A0 );
 
-                    if (rank_upper == my_rank || rank_lower == my_rank) {
+                    if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
                         if (device == B.tileDevice( i, 0 )) {
                             a_array0.push_back( T( 0, 0, device ).data() );
                             b_array0.push_back( Bi( 0, 0, device ).data() );
@@ -247,7 +253,7 @@ void he2hb_trmm(
                         Bi = Bi.slice( 0, mb1-1, 0, mb-1 ); // first mb1-by-mb part
                     }
                     auto T = TriangularMatrix<scalar_t>( Uplo::Upper, Diag::NonUnit, A0 );
-                    if (rank_upper == my_rank || rank_lower == my_rank) {
+                    if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
                         if (device == B.tileDevice( i, 0 )) {
                             a_array1.push_back( T( 0, 0, device ).data() );
                             b_array1.push_back( Bi( 0, 0, device ).data() );

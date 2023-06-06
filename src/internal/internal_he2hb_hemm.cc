@@ -53,18 +53,20 @@ void he2hb_hemm(
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-    const LayoutConvert layout_conv = LayoutConvert( layout );
+    const LayoutConvert layoutc = LayoutConvert( layout );
 
     #pragma omp taskgroup
     for (int64_t i = 0; i < mt; ++i) {
-        #pragma omp task shared( A, B, C )
+        #pragma omp task slate_omp_default_none \
+            shared( A, B, C, panel_rank_rows ) \
+            firstprivate( one, i )
         {
             for (int64_t j : panel_rank_rows) {
                 if (i >= j) { // lower or diagonal
                     if (A.tileIsLocal( i, j )) {
-                        A.tileGetForReading( i, j, layout_conv );
-                        B.tileGetForReading( j, 0, layout_conv );
-                        C.tileGetForWriting( i, 0, layout_conv );
+                        A.tileGetForReading( i, j, layoutc );
+                        B.tileGetForReading( j, 0, layoutc );
+                        C.tileGetForWriting( i, 0, layoutc );
                         if (i == j) {
                             tile::hemm( Side::Left, one, A( i, j ), B( j, 0 ),
                                         one, C( i, 0 ) );
@@ -81,9 +83,9 @@ void he2hb_hemm(
                 }
                 else { // upper
                     if (A.tileIsLocal( j, i )) {
-                        A.tileGetForReading( j, i, layout_conv );
-                        B.tileGetForReading( j, 0, layout_conv );
-                        C.tileGetForWriting( i, 0, layout_conv );
+                        A.tileGetForReading( j, i, layoutc );
+                        B.tileGetForReading( j, 0, layoutc );
+                        C.tileGetForWriting( i, 0, layoutc );
                         tile::gemm( one, conj_transpose( A( j, i ) ), B( j, 0 ),
                                     one, C( i, 0 ) );
                         A.tileTick( j, i );
@@ -151,11 +153,14 @@ void he2hb_hemm(
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-    const LayoutConvert layout_conv = LayoutConvert( layout );
+    const LayoutConvert layoutc = LayoutConvert( layout );
 
     #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared( A, B, C ) priority( priority )
+        #pragma omp task slate_omp_default_none \
+            shared( A, B, C, panel_rank_rows ) \
+            firstprivate( device, mt, layoutc ) \
+            priority( priority )
         {
 
             std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
@@ -184,17 +189,23 @@ void he2hb_hemm(
 
             #pragma omp taskgroup
             {
-                #pragma omp task default( shared )
+                #pragma omp task slate_omp_default_none \
+                    shared( A, A_tiles_set ) \
+                    firstprivate( device, layoutc )
                 {
-                    A.tileGetForReading( A_tiles_set, device, layout_conv );
+                    A.tileGetForReading( A_tiles_set, device, layoutc );
                 }
-                #pragma omp task default( shared )
+                #pragma omp task slate_omp_default_none \
+                    shared( B, B_tiles_set ) \
+                    firstprivate( device, layoutc )
                 {
-                    B.tileGetForReading( B_tiles_set, device, layout_conv );
+                    B.tileGetForReading( B_tiles_set, device, layoutc );
                 }
-                #pragma omp task default( shared )
+                #pragma omp task slate_omp_default_none \
+                    shared( C, C_tiles_set ) \
+                    firstprivate( device, layoutc )
                 {
-                    C.tileGetForWriting( C_tiles_set, device, layout_conv );
+                    C.tileGetForWriting( C_tiles_set, device, layoutc );
                 }
             }
         }
@@ -204,7 +215,10 @@ void he2hb_hemm(
 
     #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared( A, B, C ) priority( priority )
+        #pragma omp task slate_omp_default_none \
+            shared( A, B, C, panel_rank_rows ) \
+            firstprivate( one, device, mt, num_queues ) \
+            priority( priority )
         {
             trace::Block trace_block( "blas::batch::he2hb_hemm" );
             // to have one queue and then fork several streams
@@ -324,7 +338,7 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
 
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-    const LayoutConvert layout_conv = LayoutConvert( layout );
+    const LayoutConvert layoutc = LayoutConvert( layout );
 
     assert( C.num_devices() > 0 );
     scalar_t alpha = 1.;
@@ -344,7 +358,9 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
 
     int err = 0;
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared( A, B, C, err ) priority( priority )
+        #pragma omp task slate_omp_default_none \
+            shared( A, B, C, err ) \
+            priority( priority )
         {
             std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
             for (int64_t j : panel_rank_rows) {
@@ -371,17 +387,23 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
 
                 #pragma omp taskgroup
                 {
-                    #pragma omp task default( shared )
+                    #pragma omp task slate_omp_default_none \
+                        shared( A, A_tiles_set ) \
+                        firstprivate( device, layoutc )
                     {
-                        A.tileGetForReading( A_tiles_set, device, layout_conv );
+                        A.tileGetForReading( A_tiles_set, device, layoutc );
                     }
-                    #pragma omp task default( shared )
+                    #pragma omp task slate_omp_default_none \
+                        shared( B, B_tiles_set ) \
+                        firstprivate( device, layoutc )
                     {
-                        B.tileGetForReading( B_tiles_set, device, layout_conv );
+                        B.tileGetForReading( B_tiles_set, device, layoutc );
                     }
-                    #pragma omp task default( shared )
+                    #pragma omp task slate_omp_default_none \
+                        shared( C, C_tiles_set ) \
+                        firstprivate( device, layoutc )
                     {
-                        C.tileGetForWriting( C_tiles_set, device, layout_conv );
+                        C.tileGetForWriting( C_tiles_set, device, layoutc );
                     }
                 }
 

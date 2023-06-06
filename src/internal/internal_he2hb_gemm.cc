@@ -50,20 +50,23 @@ void he2hb_gemm(
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-    const LayoutConvert layout_conv = LayoutConvert( layout );
+    const LayoutConvert layoutc = LayoutConvert( layout );
 
     assert( A.nt() == B.mt() );
 
     #pragma omp taskgroup
     for (int64_t i = 0; i < A.mt(); ++i) {
-        #pragma omp task priority( priority )
+        #pragma omp task slate_omp_default_none \
+            shared( A, B, C ) \
+            firstprivate( alpha, beta, panel_rank, i ) \
+            priority( priority )
         {
             scalar_t beta_ = beta;
             for (int64_t k = 0; k < A.nt(); ++k) {
                 if (A.tileRank( i, k ) == panel_rank) {
-                    A.tileGetForReading( i, k, layout_conv );
-                    B.tileGetForReading( k, 0, layout_conv );
-                    C.tileGetForWriting( i, 0, layout_conv );
+                    A.tileGetForReading( i, k, layoutc );
+                    B.tileGetForReading( k, 0, layoutc );
+                    C.tileGetForWriting( i, 0, layoutc );
                     tile::gemm( alpha, A( i, k ), B( k, 0 ),
                                 beta_, C( i, 0 ) );
                     A.tileTick( i, k );
@@ -90,7 +93,7 @@ void he2hb_gemm(
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-    const LayoutConvert layout_conv = LayoutConvert( layout );
+    const LayoutConvert layoutc = LayoutConvert( layout );
 
     using blas::conj;
     using std::swap;
@@ -108,7 +111,10 @@ void he2hb_gemm(
 
     #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared( A, B, C, err ) priority( priority )
+        #pragma omp task slate_omp_default_none \
+            shared( A, B, C, err ) \
+            firstprivate( alpha, beta, panel_rank, queue_index, device, layoutc ) \
+            priority( priority )
         {
             Op opA = A.op();
             Op opB = B.op();
@@ -125,17 +131,23 @@ void he2hb_gemm(
                 }
                 #pragma omp taskgroup
                 {
-                    #pragma omp task default( shared )
+                    #pragma omp task slate_omp_default_none \
+                        shared( A, A_tiles_set ) \
+                        firstprivate( device, layoutc )
                     {
-                        A.tileGetForReading( A_tiles_set, device, layout_conv );
+                        A.tileGetForReading( A_tiles_set, device, layoutc );
                     }
-                    #pragma omp task default( shared )
+                    #pragma omp task slate_omp_default_none \
+                        shared( B, B_tiles_set ) \
+                        firstprivate( device, layoutc )
                     {
-                        B.tileGetForReading( B_tiles_set, device, layout_conv );
+                        B.tileGetForReading( B_tiles_set, device, layoutc );
                     }
-                    #pragma omp task default( shared )
+                    #pragma omp task slate_omp_default_none \
+                        shared( C, C_tiles_set ) \
+                        firstprivate( device, layoutc )
                     {
-                        C.tileGetForWriting( C_tiles_set, device, layout_conv );
+                        C.tileGetForWriting( C_tiles_set, device, layoutc );
                     }
                 }
 
@@ -147,7 +159,6 @@ void he2hb_gemm(
 
                 // check if there are cleanup tiles
                 if (C.tileMb( mt-1 ) != C.tileMb( 0 )) {
-                    //if (C.m() % C.tileMb(0) != 0) {
                     i_interior = A.mt() - 1;
                     i_last = 1;
                 }

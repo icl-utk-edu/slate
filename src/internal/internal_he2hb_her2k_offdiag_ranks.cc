@@ -49,44 +49,48 @@ void he2hb_her2k_offdiag_ranks(
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-    const LayoutConvert layout_conv = LayoutConvert( layout );
+    const LayoutConvert layoutc = LayoutConvert( layout );
 
     int64_t nt = C.nt();
 
     // try to loop over one tile and do two gemm, similar to her2k
     #pragma omp taskgroup
     for (int64_t j = 0; j < nt; ++j) {
-        #pragma omp task
-        for (int64_t i : panel_rank_rows) {
-            // todo: if HermitianMatrix returned conjTrans
-            // tiles, could merge these two.
-            if (i > j) {  // lower
-                if (C.tileIsLocal( i, j )) {
-                    A.tileGetForReading( i, 0, layout_conv );
-                    B.tileGetForReading( j, 0, layout_conv );
-                    C.tileGetForWriting( i, j, layout_conv );
-                    // Aij -= Vik Wjk^H
-                    tile::gemm( alpha, A( i, 0 ), conj_transpose( B( j, 0 ) ),
-                                beta, C( i, j ) );
-                    A.tileTick( i, 0 );
-                    B.tileTick( j, 0 );
+        #pragma omp task slate_omp_default_none \
+            shared( A, B, C, panel_rank_rows ) \
+            firstprivate( alpha, beta, j )
+        {
+            for (int64_t i : panel_rank_rows) {
+                // todo: if HermitianMatrix returned conjTrans
+                // tiles, could merge these two.
+                if (i > j) {  // lower
+                    if (C.tileIsLocal( i, j )) {
+                        A.tileGetForReading( i, 0, layoutc );
+                        B.tileGetForReading( j, 0, layoutc );
+                        C.tileGetForWriting( i, j, layoutc );
+                        // Aij -= Vik Wjk^H
+                        tile::gemm( alpha, A( i, 0 ), conj_transpose( B( j, 0 ) ),
+                                    beta, C( i, j ) );
+                        A.tileTick( i, 0 );
+                        B.tileTick( j, 0 );
+                    }
                 }
-            }
-            else if (i < j) {  // upper
-                if (C.tileIsLocal( j, i )) {
-                    B.tileGetForReading( j, 0, layout_conv );
-                    A.tileGetForReading( i, 0, layout_conv );
-                    C.tileGetForWriting( j, i, layout_conv );
-                    // Aji -= Wjk Vik^H
-                    tile::gemm( alpha, B( j, 0 ), conj_transpose( A( i, 0 ) ),
-                                beta, C( j, i ) );
-                    B.tileTick( j, 0 );
-                    A.tileTick( i, 0 );
+                else if (i < j) {  // upper
+                    if (C.tileIsLocal( j, i )) {
+                        B.tileGetForReading( j, 0, layoutc );
+                        A.tileGetForReading( i, 0, layoutc );
+                        C.tileGetForWriting( j, i, layoutc );
+                        // Aji -= Wjk Vik^H
+                        tile::gemm( alpha, B( j, 0 ), conj_transpose( A( i, 0 ) ),
+                                    beta, C( j, i ) );
+                        B.tileTick( j, 0 );
+                        A.tileTick( i, 0 );
+                    }
                 }
-            }
-            else { // i == j
-                // Diagonal tiles dealt with above.
-                assert( ! C.tileIsLocal( i, j ) );
+                else { // i == j
+                    // Diagonal tiles dealt with above.
+                    assert( ! C.tileIsLocal( i, j ) );
+                }
             }
         }
     }
@@ -109,7 +113,7 @@ void he2hb_her2k_offdiag_ranks(
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-    const LayoutConvert layout_conv = LayoutConvert( layout );
+    const LayoutConvert layoutc = LayoutConvert( layout );
 
     int64_t nt = C.nt();
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
@@ -126,7 +130,10 @@ void he2hb_her2k_offdiag_ranks(
     int err = 0;
     #pragma omp taskgroup
     for (int device = 0; device < C.num_devices(); ++device) {
-        #pragma omp task shared( A, B, C, err ) priority( priority )
+        #pragma omp task slate_omp_default_none \
+            shared( A, B, C, err, panel_rank_rows ) \
+            firstprivate( alpha, beta, device, nt, layoutc, queue_index ) \
+            priority( priority )
         {
             Op opA = A.op();
             Op opB = B.op();
@@ -179,17 +186,23 @@ void he2hb_her2k_offdiag_ranks(
 
             #pragma omp taskgroup
             {
-                #pragma omp task default( shared )
+                #pragma omp task slate_omp_default_none \
+                    shared( A, A_tiles_set ) \
+                    firstprivate( device, layoutc )
                 {
-                    A.tileGetForReading( A_tiles_set, device, layout_conv );
+                    A.tileGetForReading( A_tiles_set, device, layoutc );
                 }
-                #pragma omp task default( shared )
+                #pragma omp task slate_omp_default_none \
+                    shared( B, B_tiles_set ) \
+                    firstprivate( device, layoutc )
                 {
-                    B.tileGetForReading( B_tiles_set, device, layout_conv );
+                    B.tileGetForReading( B_tiles_set, device, layoutc );
                 }
-                #pragma omp task default( shared )
+                #pragma omp task slate_omp_default_none \
+                    shared( C, C_tiles_set ) \
+                    firstprivate( device, layoutc )
                 {
-                    C.tileGetForWriting( C_tiles_set, device, layout_conv );
+                    C.tileGetForWriting( C_tiles_set, device, layoutc );
                 }
             }
 

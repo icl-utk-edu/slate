@@ -737,8 +737,8 @@ void he2hb(
 ///     - Option::Target:
 ///       Implementation to target. Possible values:
 ///       - HostTask:  OpenMP tasks on CPU host [default].
-///       - HostNest:  nested OpenMP parallel for loop on CPU host.
-///       - HostBatch: batched BLAS on CPU host.
+///       - HostNest:  not implemented.
+///       - HostBatch: not implemented.
 ///       - Devices:   batched BLAS on GPU device.
 ///     Note a lookahead is not possible with he2hb due to dependencies from
 ///     updating on both left and right sides.
@@ -753,18 +753,13 @@ void he2hb(
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
+    // HostNest and HostBatch not implemented; use HostTask.
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::he2hb<Target::HostTask>( A, T, opts );
-            break;
-
         case Target::HostNest:
-            impl::he2hb<Target::HostNest>( A, T, opts );
-            break;
-
         case Target::HostBatch:
-            impl::he2hb<Target::HostBatch>( A, T, opts );
+            impl::he2hb<Target::HostTask>( A, T, opts );
             break;
 
         case Target::Devices:

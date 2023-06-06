@@ -139,7 +139,7 @@ void test_he2hb_work(Params& params, bool run)
 
         slate::Matrix<scalar_t> B(n, n, nb, p, q, MPI_COMM_WORLD);
         B.insertLocalTiles();
-        he2gb(A, B);
+        copy_he2gb( A, B );
         print_matrix("B", B, params);
 
         slate::unmtr_he2hb(slate::Side::Left, slate::Op::NoTrans,

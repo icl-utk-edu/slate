@@ -13,7 +13,9 @@
 // B is stored as a non-symmetric matrix, so we can apply Q from left
 // and right separately.
 template <typename scalar_t>
-void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
+void copy_he2gb(
+    slate::HermitianMatrix<scalar_t> A,
+    slate::Matrix<scalar_t> B )
 {
     // It must be defined here to avoid having numerical error with complex
     // numbers when calling conj();
@@ -67,7 +69,9 @@ void he2gb(slate::HermitianMatrix< scalar_t > A, slate::Matrix< scalar_t > B)
 // off-diagonal tiles
 // todo: shouldn't assume the input HermitianMatrix has uplo=lower
 template <typename scalar_t>
-inline void he2ge(slate::HermitianMatrix<scalar_t> A, slate::Matrix<scalar_t> B)
+void copy_he2ge(
+    slate::HermitianMatrix<scalar_t> A,
+    slate::Matrix<scalar_t> B )
 {
     // todo:: shouldn't assume the input matrix has uplo=lower
     assert(A.uplo() == slate::Uplo::Lower);

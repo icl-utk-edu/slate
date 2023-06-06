@@ -274,30 +274,31 @@ void he2hb_hemm(
                 queue->sync();
             }
 
-            for (int64_t j : panel_rank_rows) {
-                for (int64_t i = 0; i < mt; ++i) {
-                    if (i >= j) { // lower or diagonal
-                        if (A.tileIsLocal( i, j )
-                            && device == C.tileDevice( i, 0 )) {
-                            C.tileModified( i, 0, device );
-                            A.tileRelease( i, j, device );
-                            B.tileRelease( j, 0, device );
-                            A.tileTick( i, j );
-                            B.tileTick( j, 0 );
-                        }
-                    }
-                    else { // upper
-                        if (A.tileIsLocal( j, i )
-                            && device == C.tileDevice( i, 0 )) {
-                            C.tileModified( i, 0, device );
-                            A.tileRelease( j, i, device );
-                            B.tileRelease( j, 0, device );
-                            A.tileTick( j, i );
-                            B.tileTick( j, 0 );
-                        }
-                    }
-                } //i loop
-            } // j loop
+            // todo: release tiles in top-level routine.
+            // for (int64_t j : panel_rank_rows) {
+            //     for (int64_t i = 0; i < mt; ++i) {
+            //         if (i >= j) { // lower or diagonal
+            //             if (A.tileIsLocal( i, j )
+            //                 && device == C.tileDevice( i, 0 )) {
+            //                 C.tileModified( i, 0, device );
+            //                 A.tileRelease( i, j, device );
+            //                 B.tileRelease( j, 0, device );
+            //                 A.tileTick( i, j );
+            //                 B.tileTick( j, 0 );
+            //             }
+            //         }
+            //         else { // upper
+            //             if (A.tileIsLocal( j, i )
+            //                 && device == C.tileDevice( i, 0 )) {
+            //                 C.tileModified( i, 0, device );
+            //                 A.tileRelease( j, i, device );
+            //                 B.tileRelease( j, 0, device );
+            //                 A.tileTick( j, i );
+            //                 B.tileTick( j, 0 );
+            //             }
+            //         }
+            //     } //i loop
+            // } // j loop
         } // pragma
     } // devices
 }
@@ -746,28 +747,29 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
 
                 queue->sync();
 
-                for (int64_t i = 0; i < mt; ++i) {
-                    if (i >= j) { // lower or diagonal
-                        if (A.tileIsLocal( i, j )) {
-                            if (device == C.tileDevice( i, 0 )) {
-                                A.tileRelease( i, j, device );
-                                B.tileRelease( j, 0, device );
-                                A.tileTick( i, j );
-                                B.tileTick( j, 0 );
-                            }
-                        }
-                    }
-                    else { // upper
-                        if (A.tileIsLocal( j, i )) {
-                            if (device == C.tileDevice( i, 0 )) {
-                                A.tileRelease( j, i, device );
-                                B.tileRelease( j, 0, device );
-                                A.tileTick( j, i );
-                                B.tileTick( j, 0 );
-                            }
-                        }
-                    }
-                }
+                // todo: release tiles in top-level routine.
+                // for (int64_t i = 0; i < mt; ++i) {
+                //     if (i >= j) { // lower or diagonal
+                //         if (A.tileIsLocal( i, j )) {
+                //             if (device == C.tileDevice( i, 0 )) {
+                //                 A.tileRelease( i, j, device );
+                //                 B.tileRelease( j, 0, device );
+                //                 A.tileTick( i, j );
+                //                 B.tileTick( j, 0 );
+                //             }
+                //         }
+                //     }
+                //     else { // upper
+                //         if (A.tileIsLocal( j, i )) {
+                //             if (device == C.tileDevice( i, 0 )) {
+                //                 A.tileRelease( j, i, device );
+                //                 B.tileRelease( j, 0, device );
+                //                 A.tileTick( j, i );
+                //                 B.tileTick( j, 0 );
+                //             }
+                //         }
+                //     }
+                // }
             } // j = panel_rank_rows
         } // task
     } // device

@@ -306,25 +306,26 @@ void he2hb_trmm(
                     queue->sync();
                 }
 
-                rank_lower = -1;
-                rank_upper = -1;
-                for (int64_t i = 0; i < B.mt(); ++i) {
-                    for (int64_t j : panel_rank_rows) {
-                        if (i >= j) { // lower
-                            rank_lower = AH.tileRank( i, j );
-                        }
-                        else { // upper
-                            rank_upper = AH.tileRank( j, i );
-                        }
-                    }
-
-                    if (rank_upper == my_rank || rank_lower == my_rank) {
-                        if (device == B.tileDevice( i, 0 )) {
-                            B.tileRelease( i, 0, device );
-                            B.tileTick( i, 0 );
-                        }
-                    }
-                }
+                // todo: release tiles in top-level routine.
+                // rank_lower = -1;
+                // rank_upper = -1;
+                // for (int64_t i = 0; i < B.mt(); ++i) {
+                //     for (int64_t j : panel_rank_rows) {
+                //         if (i >= j) { // lower
+                //             rank_lower = AH.tileRank( i, j );
+                //         }
+                //         else { // upper
+                //             rank_upper = AH.tileRank( j, i );
+                //         }
+                //     }
+                //
+                //     if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
+                //         if (device == B.tileDevice( i, 0 )) {
+                //             B.tileRelease( i, 0, device );
+                //             B.tileTick( i, 0 );
+                //         }
+                //     }
+                // }
             }
         }
     }

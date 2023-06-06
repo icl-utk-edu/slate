@@ -455,32 +455,34 @@ void he2hb_her2k_offdiag_ranks(
                 }
                 queue->sync();
             }
-            for (int64_t j = 0; j < nt; ++j) {
-                for (int64_t i : panel_rank_rows) {
-                    if (i > j) {
-                        if (C.tileIsLocal( i, j )
-                            && device == C.tileDevice( i, j )) {
-                            // erase tmp local and remote device tiles;
-                            A.tileRelease( i, 0, device );
-                            B.tileRelease( j, 0, device );
-                            // decrement life for remote tiles
-                            A.tileTick( i, 0 );
-                            B.tileTick( j, 0 );
-                        }
-                    }
-                    else if (i < j) {
-                        if (C.tileIsLocal( j, i )
-                            && device == C.tileDevice( j, i )) {
-                            // erase tmp local and remote device tiles;
-                            A.tileRelease( i, 0, device );
-                            B.tileRelease( j, 0, device );
-                            // decrement life for remote tiles
-                            A.tileTick( i, 0 );
-                            B.tileTick( j, 0 );
-                        }
-                    }
-                }
-            }
+
+            // todo: release tiles in top-level routine.
+            //for (int64_t j = 0; j < nt; ++j) {
+            //    for (int64_t i : panel_rank_rows) {
+            //        if (i > j) {
+            //            if (C.tileIsLocal( i, j )
+            //                && device == C.tileDevice( i, j )) {
+            //                // erase tmp local and remote device tiles;
+            //                A.tileRelease( i, 0, device );
+            //                B.tileRelease( j, 0, device );
+            //                // decrement life for remote tiles
+            //                A.tileTick( i, 0 );
+            //                B.tileTick( j, 0 );
+            //            }
+            //        }
+            //        else if (i < j) {
+            //            if (C.tileIsLocal( j, i )
+            //                && device == C.tileDevice( j, i )) {
+            //                // erase tmp local and remote device tiles;
+            //                A.tileRelease( i, 0, device );
+            //                B.tileRelease( j, 0, device );
+            //                // decrement life for remote tiles
+            //                A.tileTick( i, 0 );
+            //                B.tileTick( j, 0 );
+            //            }
+            //        }
+            //    }
+            //}
         }
     }
 

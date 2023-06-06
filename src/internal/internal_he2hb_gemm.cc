@@ -263,17 +263,18 @@ void he2hb_gemm(
                     queue->sync();
                 }
 
-                for (int64_t i = 0; i < A.mt(); ++i) {
-                    if (A.tileRank( i, k ) == panel_rank
-                        && device == C.tileDevice( i, 0 )) {
-                        // erase tmp local and remote device tiles;
-                        A.tileRelease( i, k, device );
-                        B.tileRelease( k, 0, device );
-                        // decrement life for remote tiles
-                        A.tileTick( i, k );
-                        B.tileTick( k, 0 );
-                    }
-                }
+                // todo: release tiles in top-level routine.
+                // for (int64_t i = 0; i < A.mt(); ++i) {
+                //     if (A.tileRank( i, k ) == panel_rank
+                //         && device == C.tileDevice( i, 0 )) {
+                //         // erase tmp local and remote device tiles;
+                //         A.tileRelease( i, k, device );
+                //         B.tileRelease( k, 0, device );
+                //         // decrement life for remote tiles
+                //         A.tileTick( i, k );
+                //         B.tileTick( k, 0 );
+                //     }
+                // }
                 beta = 1.0;
             } // for loop (k)
         } // pragma

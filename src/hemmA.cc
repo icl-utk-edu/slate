@@ -66,8 +66,10 @@ void hemmA(
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
 
-
     if (target == Target::Devices) {
+        if (A.num_devices() > 1)
+            slate_not_implemented( "hemmA doesn't support multiple GPUs" );
+
         C.allocateBatchArrays();
         C.reserveDeviceWorkspace();
     }

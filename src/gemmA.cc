@@ -62,6 +62,9 @@ void gemmA(
     const int queue_0 = 0;
 
     if (target == Target::Devices) {
+        if (A.num_devices() > 1)
+            slate_not_implemented( "gemmA doesn't support multiple GPUs" );
+
         A.allocateBatchArrays();
         A.reserveDeviceWorkspace();
     }

@@ -30,6 +30,9 @@ void trsmA(
     opts_local[ Option::Lookahead ] = lookahead;
 
     if (target == Target::Devices) {
+        if (A.num_devices() > 1)
+            slate_not_implemented( "trsmA doesn't support multiple GPUs" );
+
         // Allocate batch arrays = number of kernels without
         // lookahead + lookahead
         // number of kernels without lookahead = 2

@@ -30,6 +30,12 @@ void test_trsm_work(Params& params, bool run)
     // Constants
     const scalar_t one = 1;
 
+    // Decode routine, setting method.
+    if (params.routine == "trsmA")
+        params.method_trsm() = slate::MethodTrsm::TrsmA;
+    else if (params.routine == "trsmB")
+        params.method_trsm() = slate::MethodTrsm::TrsmB;
+
     // get & mark input values
     slate::Side side = params.side();
     slate::Uplo uplo = params.uplo();
@@ -48,6 +54,7 @@ void test_trsm_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    slate::Method method_trsm = params.method_trsm();
     params.matrix.mark();
     params.matrixB.mark();
 
@@ -67,7 +74,8 @@ void test_trsm_work(Params& params, bool run)
 
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
-        {slate::Option::Target, target}
+        {slate::Option::Target, target},
+        {slate::Option::MethodTrsm, method_trsm},
     };
 
     // Error analysis applies in these norms.
@@ -161,16 +169,10 @@ void test_trsm_work(Params& params, bool run)
     // Solve AX = alpha B (left) or XA = alpha B (right).
     //==================================================
     if (side == slate::Side::Left) {
-        if (params.routine == "trsmA")
-            slate::trsmA(side, alpha, opA, B, opts);
-        else
-            slate::triangular_solve(alpha, opA, B, opts);
+        slate::triangular_solve( alpha, opA, B, opts );
     }
     else if (side == slate::Side::Right) {
-        if (params.routine == "trsmA")
-            slate::trsmA(side, alpha, opA, B, opts);
-        else
-            slate::triangular_solve(alpha, B, opA, opts);
+        slate::triangular_solve( alpha, B, opA, opts );
     }
     else
         throw slate::Exception("unknown side");

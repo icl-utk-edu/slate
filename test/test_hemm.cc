@@ -28,6 +28,12 @@ void test_hemm_work(Params& params, bool run)
     // Constants
     const scalar_t zero = 0.0, one = 1.0;
 
+    // Decode routine, setting method.
+    if (params.routine == "hemmA")
+        params.method_hemm() = slate::MethodHemm::HemmA;
+    else if (params.routine == "hemmC")
+        params.method_hemm() = slate::MethodHemm::HemmC;
+
     // get & mark input values
     slate::Side side = params.side();
     slate::Uplo uplo = params.uplo();
@@ -47,6 +53,7 @@ void test_hemm_work(Params& params, bool run)
     int verbose = params.verbose();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
+    slate::Method method_hemm = params.method_hemm();
     params.matrix.mark();
     params.matrixB.mark();
     params.matrixC.mark();
@@ -67,8 +74,9 @@ void test_hemm_work(Params& params, bool run)
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
+        {slate::Option::MethodHemm, method_hemm},
         // TODO fix gemmA on device
-        {slate::Option::MethodGemm, slate::MethodGemm::GemmC}
+        //{slate::Option::MethodGemm, slate::MethodGemm::GemmC}
     };
 
     // Error analysis applies in these norms.
@@ -204,17 +212,12 @@ void test_hemm_work(Params& params, bool run)
     // C = alpha A B + beta C (left) or
     // C = alpha B A + beta C (right).
     //==================================================
-    if (params.routine == "hemm") {
-        if (side == slate::Side::Left)
-            slate::multiply(alpha, A, B, beta, C, opts);
-        else if (side == slate::Side::Right)
-            slate::multiply(alpha, B, A, beta, C, opts);
-        else
-            throw slate::Exception("unknown side");
-    }
-    else if (params.routine == "hemmA") {
-        slate::hemmA(side, alpha, A, B, beta, C, opts);
-    }
+    if (side == slate::Side::Left)
+        slate::multiply(alpha, A, B, beta, C, opts);
+    else if (side == slate::Side::Right)
+        slate::multiply(alpha, B, A, beta, C, opts);
+    else
+        throw slate::Exception("unknown side");
     // Using traditional BLAS/LAPACK name
     // slate::hemm(side, alpha, A, B, beta, C, opts);
 

@@ -86,11 +86,13 @@ std::vector< testsweeper::routines_t > routines = {
     // Level 3 BLAS
     { "gemm",               test_gemm,         Section::blas3 },
     { "gemmA",              test_gemm,         Section::blas3 },
+    { "gemmC",              test_gemm,         Section::blas3 },
     { "gbmm",               test_gbmm,         Section::blas3 },
     { "",                   nullptr,           Section::newline },
 
     { "hemm",               test_hemm,         Section::blas3 },
     { "hemmA",              test_hemm,         Section::blas3 },
+    { "hemmC",              test_hemm,         Section::blas3 },
     { "hbmm",               test_hbmm,         Section::blas3 },
     { "herk",               test_herk,         Section::blas3 },
     { "her2k",              test_her2k,        Section::blas3 },
@@ -104,6 +106,7 @@ std::vector< testsweeper::routines_t > routines = {
     { "trmm",               test_trmm,         Section::blas3 },
     { "trsm",               test_trsm,         Section::blas3 },
     { "trsmA",              test_trsm,         Section::blas3 },
+    { "trsmB",              test_trsm,         Section::blas3 },
     { "tbsm",               test_tbsm,         Section::blas3 },
 
     // -----

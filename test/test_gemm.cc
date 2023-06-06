@@ -28,6 +28,12 @@ void test_gemm_work(Params& params, bool run)
     // Constants
     const scalar_t zero = 0.0, one = 1.0;
 
+    // Decode routine, setting method.
+    if (params.routine == "gemmA")
+        params.method_gemm() = slate::MethodGemm::GemmA;
+    else if (params.routine == "gemmC")
+        params.method_gemm() = slate::MethodGemm::GemmC;
+
     // get & mark input values
     slate::Op transA = params.transA();
     slate::Op transB = params.transB();
@@ -70,8 +76,8 @@ void test_gemm_work(Params& params, bool run)
 
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
+        {slate::Option::Target, target},
         {slate::Option::MethodGemm, method_gemm},
-        {slate::Option::Target, target}
     };
 
     // Error analysis applies in these norms.
@@ -221,17 +227,9 @@ void test_gemm_work(Params& params, bool run)
         // Run SLATE test.
         // C = alpha A B + beta C.
         //==================================================
-        if (params.routine == "gemm") {
-            slate::multiply(
-                alpha, A, B, beta, C, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::gemm(
-            //     alpha, A, B, beta, C, opts);
-        }
-        else if (params.routine == "gemmA") {
-            slate::gemmA(
-                alpha, A, B, beta, C, opts);
-        }
+        slate::multiply( alpha, A, B, beta, C, opts );
+        // Using traditional BLAS/LAPACK name
+        // slate::gemm( alpha, A, B, beta, C, opts );
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 

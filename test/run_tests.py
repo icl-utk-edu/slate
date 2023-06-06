@@ -335,27 +335,40 @@ cmds = []
 if (opts.blas3):
     cmds += [
     [ 'gbmm',  gen + dtype + la + transA + transB + mnk + ab + kl + ku ],
+
     [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab ],
-    [ 'gemmA', origin + grid + check + ref + tol + repeat + nb + dtype + la + transA + transB + mnk + ab + ' --target=t' ],
+    [ 'gemmA', gen + dtype + la + transA + transB + mnk + ab ],
+    [ 'gemmC', gen + dtype + la + transA + transB + mnk + ab ],
 
     [ 'hemm',  gen + dtype         + la + side + uplo     + mn + ab ],
+    # todo: hemmA GPU support
+    [ 'hemmA', gen_no_target + dtype + la + side + uplo     + mn + ab ],
+    [ 'hemmC', gen + dtype         + la + side + uplo     + mn + ab ],
+
     [ 'hbmm',  gen + dtype         + la + side + uplo     + mn + ab + kd ],
+
     [ 'herk',  gen + dtype_real    + la + uplo + trans    + mn + ab ],
     [ 'herk',  gen + dtype_complex + la + uplo + trans_nc + mn + ab ],
+
     [ 'her2k', gen + dtype_real    + la + uplo + trans    + mn + ab ],
     [ 'her2k', gen + dtype_complex + la + uplo + trans_nc + mn + ab ],
 
     [ 'symm',  gen + dtype         + la + side + uplo     + mn + ab ],
+
     [ 'syr2k', gen + dtype_real    + la + uplo + trans    + mn + ab ],
     [ 'syr2k', gen + dtype_complex + la + uplo + trans_nt + mn + ab ],
+
     [ 'syrk',  gen + dtype_real    + la + uplo + trans    + mn + ab ],
     [ 'syrk',  gen + dtype_complex + la + uplo + trans_nt + mn + ab ],
 
     # todo: tbsm fails for nb=8 or 16 with --quick.
     [ 'tbsm',  gen_no_nb + ' --nb 32' + dtype + la + side + uplo + transA + diag + mn + a + kd ],
+
     [ 'trmm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
+
     [ 'trsm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
     [ 'trsmA', gen + dtype + la + side + uplo + transA + diag + mn + a ],
+    [ 'trsmB', gen + dtype + la + side + uplo + transA + diag + mn + a ],
     ]
 
 # LU

@@ -75,7 +75,7 @@ void steqr2(
 
     // Redstribute the 1-dim eigenvector matrix into 2-dim matrix.
     if (wantz) {
-        Z.redistribute(Z1d);
+        internal::redistribute(Z1d, Z);
     }
 }
 

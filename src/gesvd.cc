@@ -262,14 +262,13 @@ void gesvd(
             U1d.insertLocalTiles(target);
 
             // Redistribute U into 1-D U1d
-            //U1d.redistribute(Uhat); // needed if call slate::bdsqr
-            U1d.redistribute(U1d_row_cyclic);
+            internal::redistribute(U1d_row_cyclic, U1d);
 
             // First, U = U2 * U ===> U1d = U2 * U1d
             unmtr_hb2st( Side::Left, Op::NoTrans, U2, U1d, opts );
 
             // Redistribute U1d into U
-            Uhat.redistribute(U1d);
+            internal::redistribute(U1d, Uhat);
 
             // todo: why unmbr_ge2tb need U not Uhat?
             // Second, U = U1 * U ===> U = Ahat * U
@@ -295,18 +294,18 @@ void gesvd(
             //Matrix<scalar_t> V1d(VThat.m(), VThat.n(), VThat.tileNb(0), 1, mpi_size, VThat.mpiComm());
             //V1d.insertLocalTiles(target);
 
-            VThat.redistribute(V1d);
+            internal::redistribute(V1d, VThat);
             auto V = conj_transpose(VThat);
 
             // Redistribute V into 1-D V1d
-            V1d.redistribute(V);
+            internal::redistribute(V, V1d);
 
             // First: V  = VT2 * V ===> V1d = VT2 * V1d
             unmtr_hb2st( Side::Left, Op::NoTrans, VT2, V1d, opts );
 
             // Redistribute V1d into V
             auto V1dT = conj_transpose(V1d);
-            VThat.redistribute(V1dT);
+            internal::redistribute(V1dT, VThat);
 
             // Second: VT = VT1 * VT ===> VT = Ahat * VT
             unmbr_ge2tb( Side::Right, Op::NoTrans, Ahat, TV, VThat, opts );

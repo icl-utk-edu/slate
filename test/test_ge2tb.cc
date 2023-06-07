@@ -27,6 +27,8 @@ void test_ge2tb_work(Params& params, bool run)
     const scalar_t one = 1;
 
     // get & mark input values
+    lapack::Job jobu = params.jobu();
+    lapack::Job jobvt = params.jobvt();
     int64_t m = params.dim.m();
     int64_t n = params.dim.n();
     int64_t p = params.grid.m();
@@ -43,6 +45,11 @@ void test_ge2tb_work(Params& params, bool run)
     // mark non-standard output values
     params.time();
     params.gflops();
+    params.ortho_U();
+    params.ortho_V();
+    params.error.name( "UBV^H - A" );
+    params.ortho_U.name( "U orth" );
+    params.ortho_V.name( "VT orth" );
 
     if (! run)
         return;
@@ -52,6 +59,13 @@ void test_ge2tb_work(Params& params, bool run)
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib}
     };
+
+    bool wantu  = (jobu  == slate::Job::Vec
+                   || jobu  == slate::Job::AllVec
+                   || jobu  == slate::Job::SomeVec);
+    bool wantvt = (jobvt == slate::Job::Vec
+                   || jobvt == slate::Job::AllVec
+                   || jobvt == slate::Job::SomeVec);
 
     // MPI variables
     int mpi_rank, myrow, mycol;
@@ -87,6 +101,21 @@ void test_ge2tb_work(Params& params, bool run)
     Aref.insertLocalTiles();
     slate::copy(A, Aref);
 
+    slate::Matrix<scalar_t> U, VT;
+    // Create U and U1d. Set U to Identity.
+    if (wantu) {
+        U = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
+        U.insertLocalTiles(target);
+        set(zero, one, U);
+    }
+
+    // Create VT and V1d. Set VT to Identity.
+    if (wantvt) {
+        VT = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
+        VT.insertLocalTiles(target);
+        set(zero, one, VT);
+    }
+
     // todo
     //double gflop = lapack::Gflop<scalar_t>::ge2tb(m, n);
     double gflop = lapack::Gflop<scalar_t>::gebrd(m, n);
@@ -108,6 +137,16 @@ void test_ge2tb_work(Params& params, bool run)
     // compute and save timing/performance
     params.time() = time;
     params.gflops() = gflop / time;
+
+    //==================================================
+    // Back transform U and VT of the band matrix..
+    //==================================================
+    if (wantu) {
+        slate::unmbr_ge2tb( slate::Side::Left, slate::Op::NoTrans, A, TU, U, opts );
+    }
+    if (wantvt) {
+        slate::unmbr_ge2tb( slate::Side::Right, slate::Op::NoTrans, A, TV, VT, opts );
+    }
 
     print_matrix("A_factored", A, params);
     print_matrix("TUlocal",  TU[0], params);
@@ -188,6 +227,34 @@ void test_ge2tb_work(Params& params, bool run)
         params.error() = slate::norm(slate::Norm::One, B) / (m * A_norm);
         real_t tol = params.tol() * std::numeric_limits<real_t>::epsilon()/2;
         params.okay() = (params.error() <= tol);
+
+        if (wantu || wantvt) {
+            //==================================================
+            // Test results orthogonality of U.
+            // || I - U^H U || / n < tol
+            //==================================================
+            slate::Matrix<scalar_t> Iden( n, n, nb, p, q, MPI_COMM_WORLD );
+            Iden.insertLocalTiles(target);
+            set(zero, one, Iden);
+            if (wantu) {
+                set(zero, one, Iden);
+                auto UH = conj_transpose( U );
+                slate::gemm( -one, UH, U, one, Iden );
+                params.ortho_U() = slate::norm( slate::Norm::One, Iden ) / n;
+                params.okay() = params.okay() && (params.ortho_U() <= tol);
+            }
+            //==================================================
+            // Test results orthogonality of VT.
+            // || I - VT^H VT || / n < tol
+            //==================================================
+            if (wantvt) {
+                set(zero, one, Iden);
+                auto V = conj_transpose(VT);
+                slate::gemm(-one, V, VT, one, Iden);
+                params.ortho_V() = slate::norm(slate::Norm::One, Iden) / n;
+                params.okay() = params.okay() && (params.ortho_V() <= tol);
+            }
+        }
     }
 }
 

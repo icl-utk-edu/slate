@@ -55,10 +55,10 @@ void test_gesvd_work(Params& params, bool run)
     params.error2();
     params.ortho_U();
     params.ortho_V();
-    params.error.name( "value err" );
-    params.error2.name( "back err" );
-    params.ortho_U.name( "U orth." );
-    params.ortho_V.name( "VT orth." );
+    params.error.name( "S - Sref" );
+    params.error2.name( "Backward" );
+    params.ortho_U.name( "U orth" );
+    params.ortho_V.name( "VT orth" );
 
     if (! run)
         return;

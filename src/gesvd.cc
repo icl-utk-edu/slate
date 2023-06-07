@@ -13,11 +13,51 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
+/// Distributed parallel matrix singular value decomposition.
+/// gesvd Computes all singular values and, optionally, singular vectors of a
+/// matrix A. The matrix A is preliminary reduced to
+/// bidiagonal form using a two-stage approach:
+/// First stage: reduction to upper band bidiagonal form (see ge2tb);
+/// Second stage: reduction from band to bidiagonal form (see tb2bd).
 ///
-/// todo: document
+//------------------------------------------------------------------------------
+/// @tparam scalar_t
+///         One of float, double, std::complex<float>, std::complex<double>.
+//------------------------------------------------------------------------------
+/// @param[in] A
+///         On entry, the m-by-n matrix $A$.
+///         On exit, contents are destroyed.
+///
+/// @param[out] Sigma
+///     The vector Sigma of length min(m, n).
+///     If successful, the singular values in ascending order.
+///
+/// @param[out] U
+///     On entry, if U is empty, does not compute the left singular vectors.
+///     Otherwise, the m-by-min_mn matrix $U$ to store the left singular vectors.
+///     On exit, the left orthonormal singular vectors of the matrix A.
+///
+/// @param[out] VT
+///     On entry, if VT is empty, does not compute the right singular vectors.
+///     Otherwise, the min_mn-by-n matrix $VT$ to store the right singular vectors.
+///     On exit, the right orthonormal singular vectors of the matrix A.
+///
+/// @param[in] opts
+///     Additional options, as map of name = value pairs. Possible options:
+///     - Option::InnerBlocking:
+///       Inner blocking to use for panel. Default 16.
+///     - Option::MaxPanelThreads:
+///       Number of threads to use for panel. Default omp_get_max_threads()/2.
+///     - Option::Target:
+///       Implementation to target. Possible values:
+///       - HostTask:  OpenMP tasks on CPU host [default].
+///       - HostNest:  nested OpenMP parallel for loop on CPU host.
+///       - HostBatch: batched BLAS on CPU host.
+///       - Devices:   batched BLAS on GPU device.
 ///
 /// @ingroup svd
 ///
+//------------------------------------------------------------------------------
 /// Note A is passed by value, so we can transpose if needed
 /// without affecting caller.
 ///

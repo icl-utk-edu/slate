@@ -268,7 +268,8 @@ void he2hb_trmm(
                 {
                     trace::Block trace_block( "blas::batch::he2hb_trmm" );
                     blas::Queue* queue = B.compute_queue( device, queue_index );
-                    assert( queue != nullptr );
+                    // assert conflicts with default(none) in old gcc.
+                    //assert( queue != nullptr );
 
                     Side sideB = Side::Right;
                     Uplo uploB = Uplo::Upper;

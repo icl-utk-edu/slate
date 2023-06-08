@@ -237,7 +237,8 @@ void he2hb_gemm(
                     std::vector<int64_t> info;
 
                     blas::Queue* queue = C.compute_queue( device, queue_index );
-                    assert( queue != nullptr );
+                    // assert conflicts with default(none) in old gcc.
+                    //assert( queue != nullptr );
 
                     if (c_array00.size() > 0) {
                         std::vector<int64_t>    m( 1,  mb00 );

@@ -190,12 +190,15 @@ void he2hb_hemm(
             // to have one queue and then fork several streams
             //blas::Queue* queue = C.compute_queue( device, queue_index );
             //assert( queue != nullptr );
+
             for (int64_t j : panel_rank_rows) {
                 //queue->fork(); // to have multiple streams
                 for (int64_t i = 0; i < mt; ++i) {
                     // queue per iteration i
                     blas::Queue* queue = C.compute_queue( device, i % num_queues );
-                    assert( queue != nullptr );
+                    // assert conflicts with default(none) in old gcc.
+                    //assert( queue != nullptr );
+
                     if (i >= j) { // lower or diagonal
                         if (A.tileIsLocal( i, j )
                             && device == C.tileDevice( i, 0 )) {
@@ -532,7 +535,8 @@ void he2hb_hemm(internal::TargetType<Target::Devices>,
                 std::vector<int64_t> info;
 
                 blas::Queue* queue = C.compute_queue( device, queue_index );
-                assert( queue != nullptr );
+                // assert conflicts with default(none) in old gcc.
+                //assert( queue != nullptr );
                 //int cuerror;
 
                 {

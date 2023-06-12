@@ -341,7 +341,7 @@ Params::Params():
     target    ("target",  6,    ParamType::List, slate::Target::HostTask, str2target,   target2str,   "target: t=HostTask, n=HostNest, b=HostBatch, d=Devices"),
 
     method_cholQR ("cholQR", 6, ParamType::List, 0, str2methodCholQR, methodCholQR2str, "auto=auto, herkC, gemmA, gemmC"),
-    method_eig    ("eig",    3, ParamType::List, slate::MethodEig::QR, str2methodEig, methodEig2str, "q=QR iteration, d=Divide and conquer"),
+    method_eig    ("eig",    3, ParamType::List, slate::MethodEig::DC, str2methodEig, methodEig2str, "qr=QR iteration, dc=Divide and Conquer"),
     method_gels   ("gels",   6, ParamType::List, 0, str2methodGels,   methodGels2str,   "auto=auto, qr, cholqr"),
     method_gemm   ("gemm",   4, ParamType::List, 0, str2methodGemm,   methodGemm2str,   "auto=auto, A=gemmA, C=gemmC"),
     method_hemm   ("hemm",   4, ParamType::List, 0, str2methodHemm,   methodHemm2str,   "auto=auto, A=hemmA, C=hemmC"),

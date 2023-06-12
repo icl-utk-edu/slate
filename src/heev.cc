@@ -76,7 +76,7 @@ void heev(
     const real_t sqrt_sml = sqrt( sml_num );
     const real_t sqrt_big = sqrt( big_num );
 
-    MethodEig method = get_option( opts, Option::MethodEig, MethodEig::QR );
+    MethodEig method = get_option( opts, Option::MethodEig, MethodEig::DC );
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     // Scale matrix to allowable range, if necessary.

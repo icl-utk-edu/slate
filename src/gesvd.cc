@@ -76,6 +76,7 @@ void gesvd(
     // Constants
     scalar_t zero = 0;
     scalar_t one  = 1;
+    int64_t ione = 1;
 
     const auto mpi_real_type = mpi_type< blas::real_type<scalar_t> >::value;
 
@@ -92,23 +93,24 @@ void gesvd(
     bool wantvt = (VT.mt() > 0);
 
     // Scale A if max element outside range (smlnum, bignum).
-    real_t rzero = 0.;
     real_t Anorm = norm( slate::Norm::Max, A );
-    real_t eps = std::numeric_limits<real_t>::epsilon();
-    real_t sfmin = std::numeric_limits< real_t >::min();
-    real_t smlnum = sqrt(sfmin) / eps;
-    real_t bignum = 1. / smlnum;
-    real_t scl;
+    const real_t eps = std::numeric_limits<real_t>::epsilon();
+    const real_t safe_min = std::numeric_limits< real_t >::min();
+    const real_t sqrt_safe_min = sqrt(safe_min) / eps;
+    const real_t big_num = 1 / sqrt_safe_min;
+
+    real_t rzero = 0.;
+    real_t scl = 1.;
     bool is_scale = false;
 
-    if (Anorm > rzero && Anorm < smlnum) {
+    if (Anorm > rzero && Anorm < sqrt_safe_min) {
        is_scale = true;
-       scl = smlnum;
+       scl = sqrt_safe_min;
        scale( Anorm, scl, A, opts );
     }
-    else if (Anorm > bignum) {
+    else if (Anorm > big_num) {
        is_scale = true;
-       scl = bignum;
+       scl = big_num;
        scale( Anorm, scl, A, opts );
     }
 
@@ -281,9 +283,10 @@ void gesvd(
 
         // If matrix was scaled, then rescale singular values appropriately.
         if (is_scale) {
-            for (int64_t i = 0; i < min_mn; ++i) {
-                Sigma[i] = (scl/Anorm) * Sigma[i];
-            }
+            lapack::lascl(lapack::MatrixType::General, ione, ione,
+                Anorm, scl,
+                min_mn, ione,
+                &Sigma[0], ione);
         }
 
         // 4. Back transformation to compute U and VT of the initial matrix.
@@ -302,15 +305,14 @@ void gesvd(
             U1d.insertLocalTiles(target);
 
             // Redistribute U into 1-D U1d
-            internal::redistribute(U1d_row_cyclic, U1d);
+            redistribute(U1d_row_cyclic, U1d, opts);
 
             // First, U = U2 * U ===> U1d = U2 * U1d
             unmtr_hb2st( Side::Left, Op::NoTrans, U2, U1d, opts );
 
             // Redistribute U1d into U
-            internal::redistribute(U1d, Uhat);
+            redistribute(U1d, Uhat, opts);
 
-            // todo: why unmbr_ge2tb need U not Uhat?
             // Second, U = U1 * U ===> U = Ahat * U
             unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, Uhat, opts );
             if (qr_path) {
@@ -334,18 +336,18 @@ void gesvd(
             //Matrix<scalar_t> V1d(VThat.m(), VThat.n(), VThat.tileNb(0), 1, mpi_size, VThat.mpiComm());
             //V1d.insertLocalTiles(target);
 
-            internal::redistribute(V1d, VThat);
+            redistribute(V1d, VThat, opts);
             auto V = conj_transpose(VThat);
 
             // Redistribute V into 1-D V1d
-            internal::redistribute(V, V1d);
+            redistribute(V, V1d, opts);
 
             // First: V  = VT2 * V ===> V1d = VT2 * V1d
             unmtr_hb2st( Side::Left, Op::NoTrans, VT2, V1d, opts );
 
             // Redistribute V1d into V
             auto V1dT = conj_transpose(V1d);
-            internal::redistribute(V1dT, VThat);
+            redistribute(V1dT, VThat, opts);
 
             // Second: VT = VT1 * VT ===> VT = Ahat * VT
             unmbr_ge2tb( Side::Right, Op::NoTrans, Ahat, TV, VThat, opts );
@@ -368,9 +370,10 @@ void gesvd(
 
         // If matrix was scaled, then rescale singular values appropriately.
         if (is_scale) {
-            for (int64_t i = 0; i < min_mn; ++i) {
-                Sigma[i] = (scl/Anorm) * Sigma[i];
-            }
+            lapack::lascl(lapack::MatrixType::General, ione, ione,
+                Anorm, scl,
+                min_mn, ione,
+                &Sigma[0], ione);
         }
 
         // Bcast singular values.

@@ -154,7 +154,7 @@ void set(scalar_t offdiag_value, scalar_t diag_value,
          int priority=0, int queue_index=0);
 
 //-----------------------------------------
-// copytb2bd, copyhb2st, redistribute
+// copytb2bd, copyhb2st
 template <Target target=Target::HostTask, typename scalar_t>
 void copytb2bd(TriangularBandMatrix<scalar_t>& A,
                std::vector< blas::real_type<scalar_t> >& D,
@@ -164,10 +164,6 @@ template <Target target=Target::HostTask, typename scalar_t>
 void copyhb2st(HermitianBandMatrix<scalar_t>& A,
                std::vector< blas::real_type<scalar_t> >& D,
                std::vector< blas::real_type<scalar_t> >& E);
-
-template <Target target=Target::HostTask, typename scalar_t>
-void redistribute(Matrix<scalar_t>& A,
-               Matrix<scalar_t>& B);
 
 //------------------------------------------------------------------------------
 // Level 3 BLAS and LAPACK auxiliary

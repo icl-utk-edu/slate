@@ -104,7 +104,7 @@ void test_ge2tb_work(Params& params, bool run)
     slate::Matrix<scalar_t> U, VT;
     // Create U and U1d. Set U to Identity.
     if (wantu) {
-        U = slate::Matrix<scalar_t>(n, n, nb, p, q, MPI_COMM_WORLD);
+        U = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
         U.insertLocalTiles(target);
         set(zero, one, U);
     }

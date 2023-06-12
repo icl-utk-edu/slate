@@ -176,14 +176,14 @@ void test_tb2bd_work(Params& params, bool run)
     // Back transform U and VT of the band matrix..
     //==================================================
     if (wantu) {
-        slate::internal::redistribute(U, U1d);
+        slate::redistribute(U, U1d, opts);
         slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, U2, U1d, opts);
-        slate::internal::redistribute(U1d, U);
+        slate::redistribute(U1d, U, opts);
     }
     if (wantvt) {
-        slate::internal::redistribute(VT, V1d);
+        slate::redistribute(VT, V1d, opts);
         slate::unmtr_hb2st(slate::Side::Left, slate::Op::NoTrans, V2, V1d, opts);
-        slate::internal::redistribute(V1d, VT);
+        slate::redistribute(V1d, VT, opts);
     }
 
     if (check) {

@@ -449,7 +449,6 @@ ifneq ($(only_unit),1)
         src/internal/internal_hettmqr.cc \
         src/internal/internal_norm1est.cc \
         src/internal/internal_potrf.cc \
-        src/internal/internal_redistribute.cc \
         src/internal/internal_swap.cc \
         src/internal/internal_symm.cc \
         src/internal/internal_synorm.cc \
@@ -591,6 +590,7 @@ ifneq ($(only_unit),1)
         src/potri.cc \
         src/potrs.cc \
         src/print.cc \
+        src/redistribute.cc \
         src/scale.cc \
         src/scale_row_col.cc \
         src/set.cc \

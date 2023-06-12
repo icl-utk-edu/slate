@@ -162,12 +162,12 @@ void heev(
 
         Matrix<scalar_t> Z1d(Z.m(), Z.n(), Z.tileNb(0), 1, mpi_size, Z.mpiComm());
         Z1d.insertLocalTiles(target);
-        internal::redistribute(Z, Z1d);
+        redistribute(Z, Z1d, opts);
 
         // Back-transform: Z = Q1 * Q2 * Z.
         unmtr_hb2st( Side::Left, Op::NoTrans, V, Z1d, opts );
 
-        internal::redistribute(Z1d, Z);
+        redistribute(Z1d, Z, opts);
         unmtr_he2hb( Side::Left, Op::NoTrans, A, T, Z, opts );
     }
     else {

@@ -558,9 +558,9 @@ if (opts.svd):
 
     cmds += [
     # todo: mn (wide), nb, jobu, jobvt
-    [ 'ge2tb', gen + dtype + n + tall ],
+    [ 'ge2tb', gen + dtype + n + tall + ' --jobu v --jobvt v' ],
     # tb2bd, bdsqr don't take origin, target
-    [ 'tb2bd', gen_no_target + dtype + n ],
+    [ 'tb2bd', gen_no_target + dtype + n + ' --jobu v --jobvt v' ],
     [ 'bdsqr', gen_no_target + dtype + n + uplo ],
     ]
 

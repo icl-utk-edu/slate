@@ -394,6 +394,14 @@ void her2k(
 }
 
 //-----------------------------------------
+// redistribute()
+template <typename scalar_t>
+void redistribute(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Options const& opts = Options());
+
+//-----------------------------------------
 // syr2k()
 template <typename scalar_t>
 void syr2k(

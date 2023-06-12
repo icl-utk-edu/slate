@@ -106,10 +106,10 @@ void bdsqr(
 
     // Redistribute the 1-dim distributed U and VT into 2-dim matrices
     if (wantu) {
-        internal::redistribute(U1d, U);
+        redistribute(U1d, U, opts);
     }
     if (wantvt) {
-        internal::redistribute(VT1d, VT);
+        redistribute(VT1d, VT, opts);
     }
 }
 

@@ -96,22 +96,28 @@ void gesvd(
     real_t Anorm = norm( slate::Norm::Max, A );
     const real_t eps = std::numeric_limits<real_t>::epsilon();
     const real_t safe_min = std::numeric_limits< real_t >::min();
-    const real_t sqrt_safe_min = sqrt(safe_min) / eps;
-    const real_t big_num = 1 / sqrt_safe_min;
+    const real_t sml_num  = safe_min / eps;
+    const real_t sqrt_sml = sqrt( sml_num );
+    const real_t big_num = 1 / sqrt_sml;
 
     real_t rzero = 0.;
     real_t scl = 1.;
     bool is_scale = false;
 
-    if (Anorm > rzero && Anorm < sqrt_safe_min) {
+    if (std::isnan( Anorm ) || std::isinf( Anorm )) {
+        // todo: return error value? throw?
+        Sigma.assign( Sigma.size(), Anorm );
+        return;
+    }
+    else if (Anorm > rzero && Anorm < sqrt_sml) {
        is_scale = true;
-       scl = sqrt_safe_min;
-       scale( Anorm, scl, A, opts );
+       scl = sqrt_sml;
+       scale( scl, Anorm, A, opts );
     }
     else if (Anorm > big_num) {
        is_scale = true;
        scl = big_num;
-       scale( Anorm, scl, A, opts );
+       scale( scl, Anorm, A, opts );
     }
 
     // 0. If m >> n, use QR factorization to reduce matrix A to a square matrix.
@@ -283,8 +289,8 @@ void gesvd(
 
         // If matrix was scaled, then rescale singular values appropriately.
         if (is_scale) {
-            lapack::lascl(lapack::MatrixType::General, ione, ione,
-                Anorm, scl,
+            lapack::lascl(lapack::MatrixType::General, izero, izero,
+                scl, Anorm,
                 min_mn, ione,
                 &Sigma[0], ione);
         }
@@ -370,8 +376,8 @@ void gesvd(
 
         // If matrix was scaled, then rescale singular values appropriately.
         if (is_scale) {
-            lapack::lascl(lapack::MatrixType::General, ione, ione,
-                Anorm, scl,
+            lapack::lascl(lapack::MatrixType::General, izero, izero,
+                scl, Anorm,
                 min_mn, ione,
                 &Sigma[0], ione);
         }

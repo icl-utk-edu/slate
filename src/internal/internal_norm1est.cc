@@ -355,7 +355,7 @@ void norm1est(
                     } // if (X.tileIsLocal(i, j))
                 } // for i = 0:mt
 
-                MPI_Allreduce(&break_outer, &glo_break_outer, 1, MPI_INT, MPI_MAX, X.mpiComm() );
+                slate_mpi_call(MPI_Allreduce(&break_outer, &glo_break_outer, 1, MPI_INT, MPI_MAX, X.mpiComm()));
                 if (glo_break_outer == 1) {
                     *kase = 1;
                     isave[0] = 5;

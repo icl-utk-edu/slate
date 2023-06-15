@@ -58,6 +58,7 @@ void norm1est_set(Matrix<int64_t>& isgn, Matrix<scalar_t>& A)
 
     for (int64_t i = 0; i < mt; ++i) {
         if (A.tileIsLocal(i, 0)) {
+            A.tileGetForWriting( i, 0, LayoutConvert::ColMajor );
             auto Ai = A(i, 0);
             auto Ai_data = Ai.data();
             auto isgn0 = isgn(i, 0);
@@ -297,13 +298,13 @@ void norm1est(
             estold = *est;
             *est = slate::norm(slate::Norm::One, V);
 
-            if (*est <= estold) {
-                norm1est_altsgn( X );
-                *kase = 1;
-                isave[0] = 5;
-                return;
-            }
             if constexpr (blas::is_complex<scalar_t>::value) {
+                if (*est <= estold) {
+                    norm1est_altsgn( X );
+                    *kase = 1;
+                    isave[0] = 5;
+                    return;
+                }
                 for (int64_t i = 0; i < mt; ++i) {
                     if (X.tileIsLocal(i, 0)) {
                         auto Xi = X(i, 0);
@@ -327,6 +328,7 @@ void norm1est(
             }
             else {
                 int break_outer = -1;
+                int glo_break_outer = -1;
                 for (int64_t i = 0; i < mt; ++i) {
                     if (X.tileIsLocal(i, 0)) {
                         auto Xi = X(i, 0);
@@ -334,7 +336,7 @@ void norm1est(
                         auto isgn0 = isgn(i, 0);
                         auto isgn0_data = isgn0.data();
                         for (int64_t ii = 0; ii < X.tileMb(i); ++ii) {
-                            if (real( Xi_data[ii] ) > 0.) {
+                            if (real( Xi_data[ii] ) >= 0.) {
                                 sign_x = 1;
                             }
                             else {
@@ -342,13 +344,9 @@ void norm1est(
                             }
                             if (sign_x != isgn0_data[ii]) {
                                 if (*est <= estold) {
-                                    *kase = 1;
-                                    isave[0] = 5;
                                     break_outer = 1;
                                     break;
                                 }
-                                *kase = 2;
-                                isave[0] = 4;
                                 break_outer = 2;
                                 break;
                             } // if (sign_x != isgn[i])
@@ -356,20 +354,26 @@ void norm1est(
                         if (break_outer == 1 || break_outer == 2) break;
                     } // if (X.tileIsLocal(i, j))
                 } // for i = 0:mt
-                if (break_outer == 1) {
+
+                MPI_Allreduce(&break_outer, &glo_break_outer, 1, MPI_INT, MPI_MAX, X.mpiComm() );
+                if (glo_break_outer == 1) {
+                    *kase = 1;
+                    isave[0] = 5;
                     norm1est_altsgn( X );
                     return;
                 }
-                else if (break_outer == 2) {
+                else if (glo_break_outer == 2) {
+                    *kase = 2;
+                    isave[0] = 4;
                     norm1est_set( isgn, X );
                     return;
                 }
-            } // if constexpr
 
-            norm1est_altsgn( X );
-            *kase = 1;
-            isave[0] = 5;
-            return;
+                norm1est_altsgn( X );
+                *kase = 1;
+                isave[0] = 5;
+                return;
+            } // if constexpr
         }
         else if (isave[0] == 4) {
             // X has been overwritten by A^T*X

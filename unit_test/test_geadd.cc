@@ -11,7 +11,7 @@
 #include "slate/internal/util.hh"
 
 #include "unit_test.hh"
-#include "../testsweeper/testsweeper.hh"
+#include "testsweeper.hh"
 
 using slate::roundup;
 

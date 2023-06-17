@@ -756,6 +756,7 @@ unit_src = \
     unit_test/test_geset.cc \
     unit_test/test_internal_blas.cc \
     unit_test/test_norm.cc \
+    unit_test/test_util.cc \
     # End. Add alphabetically.
 
 ifeq (${c_api},1)

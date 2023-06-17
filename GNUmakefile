@@ -68,7 +68,6 @@ hipify          ?= hipify-perl
 md5sum          ?= tools/md5sum.pl
 
 gpu_backend     ?= auto
-gpu_aware_mpi   ?= 0
 
 python          ?= python3
 
@@ -204,10 +203,6 @@ else
     FLAGS += -DSLATE_NO_MPI
     libslate_src += src/stubs/mpi_stubs.cc
     fortran_api = 0
-endif
-
-ifeq (${gpu_aware_mpi},1)
-    FLAGS += -DSLATE_HAVE_GPU_AWARE_MPI
 endif
 
 #-------------------------------------------------------------------------------

@@ -128,15 +128,6 @@ for its options, which include:
         hip             build with HIP/ROCm support
         none            do not build with GPU backend
 
-    gpu_aware_mpi
-        Whether MPI can transfer directly from GPU memory. Often this has
-        additional runtime requirements, such as
-        using `jsrun --smpiargs="-gpu"` on Summit,
-        or setting `export MPICH_GPU_SUPPORT_ENABLED=1` on Frontier;
-        see your platform's documentation.
-        1 (yes)         enable transfers from GPU memory
-        0 (no)          transfer only from CPU memory (default)
-
     color
         Whether to use ANSI colors in output. One of:
         auto            uses color if output is a TTY

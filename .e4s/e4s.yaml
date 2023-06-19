@@ -2,4 +2,5 @@
   docs:  [README.md, LICENSE, CHANGELOG.md, INSTALL.md]
   Area: "Math libraries"
   Description: "SLATE provides distributed, GPU-accelerated dense linear algera solvers, as the next generation of ScaLAPACK."
-  MemberProduct: False
+  MemberProduct: True
+  Accelerable: True

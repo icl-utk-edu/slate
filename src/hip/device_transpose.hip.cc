@@ -7,7 +7,7 @@
 #include "slate/Exception.hh"
 #include "slate/internal/device.hh"
 
-#include "device_util.hip.hh"
+#include "device_util.cuh"
 
 #include <cstdio>
 
@@ -162,10 +162,20 @@ __device__ void transpose_func(
         i = iby + tx + tile*NX;
         j = ibz + ty;
         if (i < m) {
-            #pragma unroll
-            for (int j2=0; j2 < NB; j2 += NY) {
-                if (j + j2 < n) {
-                    sA[ty + j2][tx] = conj(A[j2*lda]);
+            if (is_conj) {
+                #pragma unroll
+                for (int j2=0; j2 < NB; j2 += NY) {
+                    if (j + j2 < n) {
+                        sA[ty + j2][tx] = conj(A[j2*lda]);
+                    }
+                }
+            }
+            else {
+                #pragma unroll
+                for (int j2=0; j2 < NB; j2 += NY) {
+                    if (j + j2 < n) {
+                        sA[ty + j2][tx] = A[j2*lda];
+                    }
                 }
             }
         }

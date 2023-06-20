@@ -72,7 +72,7 @@ void copyTile(
         {
             // Copy from device tile, if it exists, to ScaLAPACK.
             auto Aij = A(i, j, dev);
-            blas::Queue queue(dev, 0);
+            blas::Queue queue( dev );
             blas::device_copy_matrix(
                 Aij.mb(), Aij.nb(),
                 Aij.data(), Aij.stride(),

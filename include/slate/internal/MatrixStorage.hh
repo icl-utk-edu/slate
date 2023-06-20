@@ -655,8 +655,8 @@ void MatrixStorage<scalar_t>::initQueues()
 
     compute_queues_.at(0).resize(num_devices_, nullptr);
     for (int device = 0; device < num_devices_; ++device) {
-        comm_queues_         [device] = new lapack::Queue(device, 0);
-        compute_queues_.at(0)[device] = new lapack::Queue(device, 0);
+        comm_queues_        [ device ] = new lapack::Queue( device );
+        compute_queues_[ 0 ][ device ] = new lapack::Queue( device );
     }
 
     array_host_.resize(1);
@@ -756,7 +756,7 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
                 delete compute_queues_[i][device];
 
                 // Allocate queues.
-                compute_queues_[i][device] = new lapack::Queue(device, batch_size);
+                compute_queues_[ i ][ device ] = new lapack::Queue( device );
 
                 // Allocate host arrays;
                 array_host_[i][device]

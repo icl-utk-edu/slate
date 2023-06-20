@@ -66,8 +66,7 @@ void test_geadd_dev_worker(
 
     // Create the queue
     int device_idx = 0;
-    const int batch_arrays_index = 0;
-    blas::Queue queue( device_idx, batch_arrays_index );
+    blas::Queue queue( device_idx );
 
     // Create A on device and copy data
     scalar_t* dAdata;
@@ -317,8 +316,7 @@ void test_geadd_batch_dev_worker(
 
     // Create the queue
     int device_idx = 0;
-    const int batch_arrays_index = 0;
-    blas::Queue queue( device_idx, batch_arrays_index );
+    blas::Queue queue( device_idx );
 
     // Create list of A on device and copy data
     for (int m_i = 0; m_i < batch_count; ++m_i) {

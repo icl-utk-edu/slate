@@ -661,8 +661,7 @@ void test_copyData(int align_host, int align_dev)
     clear_data(B);
 
     int device_idx = 0;
-    const int batch_arrays_index = 0;
-    blas::Queue queue(device_idx, batch_arrays_index);
+    blas::Queue queue( device_idx );
 
     double* Adata_dev;
     double* Bdata_dev;
@@ -727,7 +726,7 @@ void test_print()
     scalar_t data[ lda * n ];
 
     int device = 0;
-    blas::Queue queue( device, 0 );
+    blas::Queue queue( device );
 
     // with device = -1, kind = UserOwned
     slate::Tile<scalar_t> A( m, n, data, lda, -1, slate::TileKind::UserOwned );

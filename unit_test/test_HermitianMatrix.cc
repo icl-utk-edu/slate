@@ -331,7 +331,7 @@ void test_HermitianMatrix_fromDevices()
     std::vector< blas::Queue* > dev_queues;
     dev_queues.resize(num_devices);
     for (int dev = 0; dev < num_devices; ++dev)
-        dev_queues[dev] = new blas::Queue(dev, 0);
+        dev_queues[ dev ] = new blas::Queue( dev );
 
     double** Aarray = new double*[ num_devices ];
     for (int dev = 0; dev < num_devices; ++dev) {

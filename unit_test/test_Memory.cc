@@ -65,7 +65,7 @@ void test_addDeviceBlocks()
     // device specific queues
     std::vector< blas::Queue* > dev_queues(mem.num_devices_);
     for (int dev = 0; dev < mem.num_devices_; ++dev)
-        dev_queues[dev] = new blas::Queue(dev, 0);
+        dev_queues[ dev ] = new blas::Queue( dev );
 
     const int cnt = 7;
     for (int dev = 0; dev < mem.num_devices_; ++dev) {
@@ -152,12 +152,11 @@ void test_alloc_device()
     }
 
     double* hx = new double[ nb*nb ];
-    const int batch_arrays_index = 0;
 
     // device specific queues
     std::vector< blas::Queue* > dev_queues(mem.num_devices_);
     for (int dev = 0; dev < mem.num_devices_; ++dev)
-        dev_queues[dev] = new blas::Queue(dev, batch_arrays_index);
+        dev_queues[ dev ] = new blas::Queue( dev );
 
     const int cnt = 5;
     for (int dev = 0; dev < mem.num_devices_; ++dev) {
@@ -250,7 +249,7 @@ void test_clearDeviceBlocks()
     // device specific queues
     std::vector< blas::Queue* > dev_queues(mem.num_devices_);
     for (int dev = 0; dev < mem.num_devices_; ++dev)
-        dev_queues[dev] = new blas::Queue(dev, 0);
+        dev_queues[ dev ] = new blas::Queue( dev );
 
     const int cnt = 13;
     for (int dev = 0; dev < mem.num_devices_; ++dev) {

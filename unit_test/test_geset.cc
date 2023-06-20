@@ -157,8 +157,7 @@ void test_geset_dev()
         };
 
     int device_idx = 0;
-    const int batch_arrays_index = 0;
-    blas::Queue queue( device_idx, batch_arrays_index );
+    blas::Queue queue( device_idx );
 
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );
@@ -349,8 +348,7 @@ void test_geset_batch_dev()
     std::list< int > batch_count_list{ 1, 2, 3, 4, 5, 10, 20, 100 };
 
     int device_idx = 0;
-    const int batch_arrays_index = 0;
-    blas::Queue queue( device_idx, batch_arrays_index );
+    blas::Queue queue( device_idx );
 
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );

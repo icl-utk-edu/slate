@@ -243,8 +243,7 @@ void test_gescale_dev()
       };
 
     int device_idx = 0;
-    const int batch_arrays_index = 0;
-    blas::Queue queue( device_idx, batch_arrays_index );
+    blas::Queue queue( device_idx );
 
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );
@@ -481,8 +480,7 @@ void test_gescale_batch_dev()
 
     // Create the queue
     int device_idx = 0;
-    const int batch_arrays_index = 0;
-    blas::Queue queue( device_idx, batch_arrays_index );
+    blas::Queue queue( device_idx );
 
     for (auto dims : dims_list) {
         int mA  = std::get<0>( dims );

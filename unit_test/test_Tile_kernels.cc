@@ -1013,8 +1013,7 @@ void test_device_convert_layout(int m, int n)
 
     // copy batch A to GPU (Adata_dev)
     scalar_t* Adata_dev;
-    const int batch_arrays_index = 0;
-    blas::Queue queue(device, batch_arrays_index);
+    blas::Queue queue( device );
 
     Adata_dev = blas::device_malloc<scalar_t>(Adata.size(), queue);
     blas::device_memcpy<scalar_t>(Adata_dev, Adata.data(),

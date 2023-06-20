@@ -47,8 +47,7 @@ void test_gecopy_dev()
     //gecopy( A, B );
 
     int device_idx = 0;
-    const int batch_arrays_index = 0;
-    blas::Queue queue(device_idx, batch_arrays_index);
+    blas::Queue queue( device_idx );
 
     double* dAdata;
     dAdata = blas::device_malloc<double>(lda * n, queue);

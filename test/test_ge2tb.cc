@@ -48,8 +48,6 @@ void test_ge2tb_work(Params& params, bool run)
     params.ortho_U();
     params.ortho_V();
     params.error.name( "UBV^H - A" );
-    params.ortho_U.name( "U orth" );
-    params.ortho_V.name( "VT orth" );
 
     if (! run)
         return;

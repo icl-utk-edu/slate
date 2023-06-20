@@ -57,8 +57,6 @@ void test_gesvd_work(Params& params, bool run)
     params.ortho_V();
     params.error.name( "S - Sref" );
     params.error2.name( "Backward" );
-    params.ortho_U.name( "U orth" );
-    params.ortho_V.name( "VT orth" );
 
     if (! run)
         return;
@@ -74,12 +72,6 @@ void test_gesvd_work(Params& params, bool run)
     int mpi_rank, myrow, mycol;
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
-
-    // skip unsupported
-    //if (jobu != lapack::Job::NoVec || jobvt != lapack::Job::NoVec) {
-    //    params.msg() = "skipping: Only singular values supported (vectors not yet supported)";
-    //    return;
-    //}
 
     int64_t min_mn = std::min(m, n);
 

@@ -29,6 +29,20 @@ using Progress = std::vector< std::atomic<int64_t> >;
 /// @param[in,out] A
 ///     The band matrix A.
 ///
+/// @param[out] U
+///     Matrix to store the householder vectors applied to the left of the band
+///     matrix A.
+///     U is 2*nb-by-nt*(nt + 1)/2*nb, where nb is the tile size (A.tileNb(0))
+///     and nt is the number of A tiles (A.nt()).
+///     U Matrix need to be allocated on mpi rank 0 where the band A matrix is.
+///
+/// @param[out] V
+///     Matrix to store the householder vectors applied to the right of the band
+///     matrix A.
+///     V is 2*nb-by-nt*(nt + 1)/2*nb, where nb is the tile size (A.tileNb(0))
+///     and nt is the number of A tiles (A.nt()).
+///     V Matrix need to be allocated on mpi rank 0 where the band A matrix is.
+///
 /// @param[in] band
 ///     The bandwidth of matrix A.
 ///

@@ -9,7 +9,6 @@
 #include "print_matrix.hh"
 #include "grid_utils.hh"
 #include "scalapack_support_routines.hh"
-#include "internal/internal.hh"
 
 #include <cmath>
 #include <cstdio>
@@ -53,8 +52,6 @@ void test_tb2bd_work(Params& params, bool run)
     params.error2();
     params.error.name( "S - Sref" );
     params.error2.name( "off-diag" );
-    params.ortho_U.name( "U orth" );
-    params.ortho_V.name( "VT orth" );
 
     if (! run)
         return;

@@ -63,7 +63,7 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @ingroup heev_computational
+/// @ingroup svd_computational
 ///
 template <typename scalar_t>
 void unmbr_ge2tb(

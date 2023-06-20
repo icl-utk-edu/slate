@@ -247,7 +247,8 @@ __global__ void transpose_batch_kernel(
     scalar_t **dA_array,  int64_t lda,
     scalar_t **dAT_array, int64_t ldat)
 {
-    transpose_func<scalar_t, NX>(is_conj, m, n, dA_array[blockIdx.x], lda, dAT_array[blockIdx.x], ldat);
+    transpose_func<scalar_t, NX>
+        (is_conj, m, n, dA_array[blockIdx.x], lda, dAT_array[blockIdx.x], ldat);
 }
 
 //------------------------------------------------------------------------------

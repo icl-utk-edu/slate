@@ -381,10 +381,15 @@ void copy(internal::TargetType<Target::Devices>,
                                 blas::MemcpyKind::HostToDevice,
                                 *queue);
 
+            bool is_trans = (A.op() != B.op());
+            bool is_conj = false;
+            if (is_trans) {
+                is_conj = (A.op() == Op::ConjTrans || B.op() == Op::ConjTrans);
+            }
+
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
-                    bool is_conj = (A.op() != B.op());
-                    if (is_conj) {
+                    if (is_trans) {
                         device::transpose_batch(
                                 is_conj,
                                 nb[q], mb[q],

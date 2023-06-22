@@ -2651,7 +2651,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
             int64_t phys_nb = src_tile->layout() == Layout::ColMajor ?
                               src_tile->nb() :
                               src_tile->mb();
-            device::transpose(phys_mb, phys_nb,
+            device::transpose(false, phys_mb, phys_nb,
                               work_data, work_stride,
                               dst_data, dst_tile->stride(),
                               *queue2);
@@ -2671,7 +2671,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
                               src_tile->nb() :
                               src_tile->mb();
 
-            device::transpose(phys_mb, phys_nb,
+            device::transpose(false, phys_mb, phys_nb,
                               src_data, src_tile->stride(),
                               work_data, work_stride,
                               *queue2);
@@ -3721,7 +3721,8 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
 
             if (mb == nb) {
                 // in-place transpose
-                device::transpose_batch(nb,
+                device::transpose_batch(false,
+                                        nb,
                                         array_dev, stride,
                                         batch_count, *queue);
             }

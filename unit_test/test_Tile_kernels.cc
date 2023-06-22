@@ -1071,7 +1071,7 @@ void test_device_convert_layout(int m, int n)
         double time = omp_get_wtime();
 
         if (m == n)
-            slate::device::transpose_batch(n, Aarray_dev, lda, batch_count, queue);
+            slate::device::transpose_batch(false, n, Aarray_dev, lda, batch_count, queue);
         else
             slate::device::transpose_batch(false, m, n, Aarray_dev, lda, Aarray_dev_ext, ldat, batch_count, queue);
 
@@ -1097,12 +1097,12 @@ void test_device_convert_layout(int m, int n)
 
         if (m == n) {
             for (int k = 0; k < batch_count; ++k) {
-                slate::device::transpose(n, Aarray[k], lda, queue);
+                slate::device::transpose(false, n, Aarray[k], lda, queue);
             }
         }
         else {
             for (int k = 0; k < batch_count; ++k) {
-                slate::device::transpose(m, n, Aarray[k], lda, Aarray_ext[k], ldat, queue);
+                slate::device::transpose(false, m, n, Aarray[k], lda, Aarray_ext[k], ldat, queue);
                 // Atiles[k].stride(ldat);
             }
         }

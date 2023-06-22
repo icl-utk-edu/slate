@@ -242,11 +242,13 @@ void trnorm(
 // In-place, square.
 template <typename scalar_t>
 void transpose(
+    bool is_conj,
     int64_t n,
     scalar_t* A, int64_t lda, blas::Queue& queue);
 
 template <typename scalar_t>
 void transpose_batch(
+    bool is_conj,
     int64_t n,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
@@ -255,6 +257,7 @@ void transpose_batch(
 // Out-of-place.
 template <typename scalar_t>
 void transpose(
+    bool is_conj,
     int64_t m, int64_t n,
     scalar_t* dA,  int64_t lda,
     scalar_t* dAT, int64_t ldat, blas::Queue& queue);

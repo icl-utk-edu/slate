@@ -803,7 +803,7 @@ void Tile<scalar_t>::layoutConvert(
     trace::Block trace_block("slate::convertLayout");
 
     if (mb() == nb()) { // square tile (in-place conversion)
-        device::transpose(mb(), data(), stride(), queue);
+        device::transpose(false, mb(), data(), stride(), queue);
         if (! async)
             queue.sync();
     }
@@ -826,6 +826,7 @@ void Tile<scalar_t>::layoutConvert(
             }
 
             device::transpose(
+                false,
                 layout() == Layout::ColMajor ? mb_ : nb_,
                 layout() == Layout::ColMajor ? nb_ : mb_,
                 src_data, src_stride, data_, stride_, queue);
@@ -839,6 +840,7 @@ void Tile<scalar_t>::layoutConvert(
             int64_t work_stride = layout() == Layout::ColMajor ? nb() : mb();
 
             device::transpose(
+                false,
                 layout() == Layout::ColMajor ? mb_ : nb_,
                 layout() == Layout::ColMajor ? nb_ : mb_,
                 data_, stride_, work_data, work_stride, queue);

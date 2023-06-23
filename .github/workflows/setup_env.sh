@@ -34,12 +34,12 @@ shopt -s expand_aliases
 
 
 print "======================================== Load compiler"
-quiet module load gcc@7.3.0
+quiet module load gcc@8.5.0
 quiet which g++
 g++ --version
 
 quiet module load intel-oneapi-mkl
-echo "MKLROOT=${MKLROOT}"
+print "MKLROOT=${MKLROOT}"
 
 #quiet module load python  # no module
 quiet which python
@@ -92,7 +92,7 @@ mpif90 --version
 if [ "${device}" = "gpu_nvidia" ]; then
     print "======================================== Load CUDA"
     quiet module load cuda
-    echo "CUDA_HOME=${CUDA_HOME}"
+    print "CUDA_HOME=${CUDA_HOME}"
     export PATH=${PATH}:${CUDA_HOME}/bin
     export CPATH=${CPATH}:${CUDA_HOME}/include
     export LIBRARY_PATH=${LIBRARY_PATH}:${CUDA_HOME}/lib64

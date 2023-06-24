@@ -11,8 +11,7 @@
 #include <unistd.h>
 
 #include "test.hh"
-#include "slate/internal/mpi.hh"
-#include "slate/internal/openmp.hh"
+#include "slate/slate.hh"
 #include "matrix_generator.hh"
 
 // -----------------------------------------------------------------------------
@@ -586,7 +585,7 @@ int run(int argc, char** argv)
         // print input so running `test [input] > out.txt` documents input
         if (print) {
             // Version, id.
-            char buf[100];
+            char buf[ 1024 ];
             int version = slate::version();
             snprintf( buf, sizeof(buf), "%% SLATE version %04d.%02d.%02d, id %s\n",
                       version / 10000, (version % 10000) / 100, version % 100,
@@ -603,16 +602,21 @@ int run(int argc, char** argv)
 
             // Date and time, MPI, OpenMP, CUDA specs.
             std::time_t now = std::time(nullptr);
-            char nowstr[100];
-            std::strftime(nowstr, sizeof(nowstr), "%F %T", std::localtime(&now));
-            args += nowstr;
-            args += ", MPI size " + std::to_string(mpi_size);
-            args += ", OpenMP threads " + std::to_string(omp_get_max_threads());
+            std::strftime( buf, sizeof( buf ), "%F %T", std::localtime( &now ) );
+            args += buf;
+            args += ", " + std::to_string( mpi_size ) + " MPI ranks";
+            if (slate::gpu_aware_mpi())
+                args += ", GPU-aware MPI";
+            else
+                args += ", CPU-only MPI";
+
+            args += ", " + std::to_string( omp_get_max_threads() )
+                  + " OpenMP threads";
 
             int num_devices = blas::get_device_count();
             if (num_devices > 0)
-                args += ", GPU devices available " + std::to_string(num_devices);
-            args += "\n";
+                args += ", " + std::to_string( num_devices ) +  " GPU devices";
+            args += " per MPI rank\n";
 
             printf("%s", args.c_str());
             slate::trace::Trace::comment(args);

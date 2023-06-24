@@ -9,6 +9,8 @@
 #include <string.h>
 #include <stdlib.h>
 
+namespace slate {
+
 //------------------------------------------------------------------------------
 /// Query whether MPI is GPU-aware.
 /// Currently checks if environment variable $SLATE_GPU_AWARE_MPI is set
@@ -70,5 +72,7 @@ inline void gpu_aware_mpi( bool value )
 {
     return GPU_Aware_MPI::value( value );
 }
+
+}  // namespace slate
 
 #endif // SLATE_CONFIG_HH

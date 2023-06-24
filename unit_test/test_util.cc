@@ -19,15 +19,15 @@ int num_devices;
 //------------------------------------------------------------------------------
 void test_gpu_aware_mpi()
 {
-    bool value = gpu_aware_mpi();
+    bool value = slate::gpu_aware_mpi();
     if (verbose)
         printf( "\ngpu_aware_mpi = %d\n", value );
 
-    gpu_aware_mpi( true );
-    test_assert( gpu_aware_mpi() );
+    slate::gpu_aware_mpi( true );
+    test_assert( slate::gpu_aware_mpi() );
 
-    gpu_aware_mpi( false );
-    test_assert( ! gpu_aware_mpi() );
+    slate::gpu_aware_mpi( false );
+    test_assert( ! slate::gpu_aware_mpi() );
 }
 
 //------------------------------------------------------------------------------

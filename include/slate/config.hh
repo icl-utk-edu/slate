@@ -13,11 +13,6 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 /// Query whether MPI is GPU-aware.
-/// Currently checks if environment variable $SLATE_GPU_AWARE_MPI is set
-/// and either empty or 1. In the future, could check
-/// `MPIX_GPU_query_support` (MPICH) or
-/// `MPIX_Query_cuda_support` (Open MPI).
-///
 class GPU_Aware_MPI
 {
 public:
@@ -59,7 +54,12 @@ private:
 };
 
 //------------------------------------------------------------------------------
-/// @return true if MPI is GPU-aware and not $SLATE_GPU_AWARE_MPI=0.
+/// @return true if MPI is GPU-aware.
+/// Initially checks if environment variable $SLATE_GPU_AWARE_MPI is set
+/// and either empty or 1. Can be overriden by gpu_aware_mpi( bool ).
+/// In the future, could also check
+/// `MPIX_GPU_query_support` (MPICH) or
+/// `MPIX_Query_cuda_support` (Open MPI).
 inline bool gpu_aware_mpi()
 {
     return GPU_Aware_MPI::value();
@@ -67,7 +67,7 @@ inline bool gpu_aware_mpi()
 
 //------------------------------------------------------------------------------
 /// Set whether MPI is GPU-aware. Overrides $SLATE_GPU_AWARE_MPI.
-/// @param[in] val: true if MPI is GPU-aware.
+/// @param[in] value: true if MPI is GPU-aware.
 inline void gpu_aware_mpi( bool value )
 {
     return GPU_Aware_MPI::value( value );

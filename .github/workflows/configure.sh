@@ -14,7 +14,8 @@ mydir=$(dirname $0)
 source ${mydir}/setup_env.sh
 
 print "======================================== Environment"
-env
+# Show environment variables, excluding functions.
+(set -o posix; set)
 
 print "======================================== Setup build"
 export color=no

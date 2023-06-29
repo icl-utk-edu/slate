@@ -1,6 +1,16 @@
-Pending
-  - Moved repo to <https://github.com/icl-utk-edu/slate>
-  - Fixed `gemm` and `trsm` when n is small
+2023.06.00
+  - Moved repo to GitHub: https://github.com/icl-utk-edu/slate
+  - Added Hermitian eigenvectors using divide and conquer algorithm
+  - Added CALU variant of LU factorization
+  - Added mixed-precision GMRES solver
+  - Added GPU-aware MPI support using `${SLATE_GPU_AWARE_MPI}` environment variable
+  - Improved CALU and QR performance by moving panel operations to the GPU
+  - Update to use BLAS++ queues for all operations, to support oneAPI
+  - Update test matrix generator so random matrices are the same
+    regardless of MPI distribution
+  - Fixed `gemm` and `trsm` when n is small (stationary A case)
+  - Enabled examples to be used as smoke tests to verify library installation
+  - Numerous bug fixes
 
 2022.07.00
   - Improved performance of QR factorization on GPUs by moving panel to GPU:

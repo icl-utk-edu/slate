@@ -384,8 +384,8 @@ ifeq ($(hip),1)
     endif
 
     # Generate hipcc target options for all gfx in hip_arch_.
-    amdgpu_targets = $(foreach arch, $(gfx),--amdgpu-target=$(arch))
-    HIPCCFLAGS += $(amdgpu_targets)
+    offload_arch = $(foreach arch, $(gfx),--offload_arch=$(arch))
+    HIPCCFLAGS += $(offload_arch)
     FLAGS += -I${ROCM_PATH}/include -D__HIP_PLATFORM_AMD__
     LIBS  += -L$(ROCM_PATH)/lib -Wl,-rpath,${ROCM_PATH}/lib -lrocsolver -lrocblas -lamdhip64
 
@@ -1410,7 +1410,7 @@ echo:
 	@echo "HIPCC_which   = $(HIPCC_which)"
 	@echo "ROCM_PATH     = $(ROCM_PATH)"
 	@echo "HIPCCFLAGS    = $(HIPCCFLAGS)"
-	@echo "amdgpu_targets = $(amdgpu_targets)"
+	@echo "offload_arch  = $(offload_arch)"
 	@echo "hipify        = ${hipify}"
 	@echo "cuda_src      = ${cuda_src}"
 	@echo "cuda_hdr      = ${cuda_hdr}"

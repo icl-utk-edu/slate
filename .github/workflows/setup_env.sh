@@ -94,8 +94,6 @@ if [ "${device}" = "gpu_nvidia" ]; then
     quiet module load cuda
     print "CUDA_HOME=${CUDA_HOME}"
     export PATH=${PATH}:${CUDA_HOME}/bin
-    export CPATH=${CPATH}:${CUDA_HOME}/include
-    export LIBRARY_PATH=${LIBRARY_PATH}:${CUDA_HOME}/lib64
     export gpu_backend=cuda
     quiet which nvcc
     nvcc --version
@@ -104,22 +102,19 @@ if [ "${device}" = "gpu_nvidia" ]; then
 
 elif [ "${device}" = "gpu_amd" ]; then
     print "======================================== Load ROCm"
-    export ROCM_HOME=/opt/rocm
+    export ROCM_PATH=/opt/rocm
     # Some hip utilities require /usr/sbin/lsmod
-    export PATH=${PATH}:${ROCM_HOME}/bin:/usr/sbin
-    export CPATH=${CPATH}:${ROCM_HOME}/include
-    export LIBRARY_PATH=${LIBRARY_PATH}:${ROCM_HOME}/lib:${ROCM_HOME}/lib64
-    export LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${ROCM_HOME}/lib:${ROCM_HOME}/lib64
+    export PATH=${PATH}:${ROCM_PATH}/bin:/usr/sbin
     export gpu_backend=hip
     quiet which hipcc
     hipcc --version
 
-    if [ -e ${ROCM_HOME}/lib/rocblas/library ]; then
+    if [ -e ${ROCM_PATH}/lib/rocblas/library ]; then
         # ROCm 5.2
-        export ROCBLAS_TENSILE_LIBPATH=${ROCM_HOME}/lib/rocblas/library
-    elif [ -e ${ROCM_HOME}/rocblas/lib/library ]; then
+        export ROCBLAS_TENSILE_LIBPATH=${ROCM_PATH}/lib/rocblas/library
+    elif [ -e ${ROCM_PATH}/rocblas/lib/library ]; then
         # ROCm 5.1
-        export ROCBLAS_TENSILE_LIBPATH=${ROCM_HOME}/rocblas/lib/library
+        export ROCBLAS_TENSILE_LIBPATH=${ROCM_PATH}/rocblas/lib/library
     fi
 
     # HIP headers have many errors; reduce noise.

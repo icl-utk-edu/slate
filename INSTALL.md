@@ -65,6 +65,9 @@ These include:
     LIBRARY_PATH        compile-time library search path
     LD_LIBRARY_PATH     runtime library search path
     DYLD_LIBRARY_PATH   runtime library search path on macOS
+    CUDA_PATH           path to CUDA, e.g., /usr/local/cuda
+    CUDA_HOME           also recognized for path to CUDA
+    ROCM_PATH           path to ROCm, e.g., /opt/rocm
 
 
 Options (Makefile and CMake)

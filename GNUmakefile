@@ -109,7 +109,13 @@ ifneq ($(filter auto cuda, $(gpu_backend)),)
     NVCC_which := $(shell which $(NVCC) 2>/dev/null)
     ifneq ($(NVCC_which),)
         cuda = 1
-        CUDA_DIR ?= $(call dir_strip, $(call dir_strip, $(NVCC_which)))
+        ifeq (${CUDA_PATH},)
+            ifneq (${CUDA_HOME},)
+                CUDA_PATH = ${CUDA_HOME}
+            else
+                CUDA_PATH = $(call dir_strip, $(call dir_strip, $(NVCC_which)))
+            endif
+        endif
     else ifeq ($(gpu_backend),cuda)
         $(error ERROR: gpu_backend = $(gpu_backend), but NVCC = $(NVCC) not found)
     endif
@@ -121,7 +127,7 @@ ifneq ($(cuda),1)
         HIPCC_which = $(shell which $(HIPCC) 2>/dev/null)
         ifneq ($(HIPCC_which),)
             hip = 1
-            ROCM_DIR ?= $(call dir_strip, $(call dir_strip, $(HIPCC_which)))
+            ROCM_PATH ?= $(call dir_strip, $(call dir_strip, $(HIPCC_which)))
         else ifeq ($(gpu_backend),hip)
             $(error ERROR: gpu_backend = $(gpu_backend), but HIPCC = $(HIPCC) not found)
         endif
@@ -340,7 +346,13 @@ ifeq ($(cuda),1)
 
     # Use all sm_XX (binary), and the last compute_XX (PTX) for forward compatibility.
     NVCCFLAGS += $(nv_sm) $(nv_compute_last)
-    LIBS += -lcusolver -lcublas -lcudart
+
+    libdir := ${CUDA_PATH}/lib64
+    ifeq (${wildcard ${libdir}},)
+        libdir := ${CUDA_PATH}/lib
+    endif
+    FLAGS += -I${CUDA_PATH}/include
+    LIBS  += -L${libdir} -Wl,-rpath,${libdir} -lcusolver -lcublas -lcudart
 endif
 
 #-------------------------------------------------------------------------------
@@ -374,8 +386,8 @@ ifeq ($(hip),1)
     # Generate hipcc target options for all gfx in hip_arch_.
     amdgpu_targets = $(foreach arch, $(gfx),--amdgpu-target=$(arch))
     HIPCCFLAGS += $(amdgpu_targets)
-    FLAGS += -D__HIP_PLATFORM_AMD__
-    LIBS += -L$(ROCM_DIR)/lib -lrocsolver -lrocblas -lamdhip64
+    FLAGS += -I${ROCM_PATH}/include -D__HIP_PLATFORM_AMD__
+    LIBS  += -L$(ROCM_PATH)/lib -Wl,-rpath,${ROCM_PATH}/lib -lrocsolver -lrocblas -lamdhip64
 
     # ROCm 4.0 has errors in its headers that produce excessive warnings.
     CXXFLAGS := $(filter-out -pedantic, $(CXXFLAGS))
@@ -1380,7 +1392,7 @@ echo:
 	@echo "cuda_arch_    = $(cuda_arch_)"
 	@echo "NVCC          = $(NVCC)"
 	@echo "NVCC_which    = $(NVCC_which)"
-	@echo "CUDA_DIR      = $(CUDA_DIR)"
+	@echo "CUDA_PATH     = $(CUDA_PATH)"
 	@echo "NVCCFLAGS     = $(NVCCFLAGS)"
 	@echo "sms           = $(sms)"
 	@echo "nv_sm         = $(nv_sm)"
@@ -1396,7 +1408,7 @@ echo:
 	@echo "gfx           = $(gfx)"
 	@echo "HIPCC         = $(HIPCC)"
 	@echo "HIPCC_which   = $(HIPCC_which)"
-	@echo "ROCM_DIR      = $(ROCM_DIR)"
+	@echo "ROCM_PATH     = $(ROCM_PATH)"
 	@echo "HIPCCFLAGS    = $(HIPCCFLAGS)"
 	@echo "amdgpu_targets = $(amdgpu_targets)"
 	@echo "hipify        = ${hipify}"

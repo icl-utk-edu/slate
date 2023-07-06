@@ -46,7 +46,7 @@ option( c_api "Build C API" false )
 
 set( gpu_backend "auto" CACHE STRING "GPU backend to use" )
 set_property( CACHE gpu_backend PROPERTY STRINGS
-              auto cuda hip none )
+              auto cuda hip onemkl none )
 
 # Default prefix=/opt/slate
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT
@@ -580,6 +580,53 @@ if (HIP_FOUND)
     endforeach()
 else()
     message( STATUS "Not building HIP/ROCm support in SLATE" )
+endif()
+
+#-------------------------------------------------------------------------------
+# OneMKL support.
+message( "" )
+message( "---------------------------------------- OneMKL: gpu_backend = ${gpu_backend}" )
+set( slate_use_onemkl false )  # output in slateConfig.cmake.in
+if (gpu_backend MATCHES "^(onemkl|auto)$")
+    message( STATUS "Looking for OneMKL" )
+    if ( TARGET MKL::MKL_DPCPP ) # Search for MKL only if not already been found
+        set( MKL_FOUND true )
+    endif()
+    if ( NOT MKL_FOUND ) # Search for MKL only if not already been found
+        if (gpu_backend STREQUAL "onemkl")
+            find_package( MKL CONFIG REQUIRED HINTS "$ENV{MKL_ROOT}")
+        else()
+            find_package( MKL CONFIG QUIET HINTS "$ENV{MKL_ROOT}")
+        endif()
+    endif()
+    # message(STATUS "Available targets: ${MKL_IMPORTED_TARGETS}")
+
+    if (MKL_FOUND)
+        set( gpu_backend "onemkl" )
+        set( slate_use_onemkl true )
+        # enable the omptarget offload kernels in SLATE
+        set( omptarget 1 )
+
+        file(
+            GLOB libslate_omptarget_src
+            CONFIGURE_DEPENDS  # glob at build time
+            src/omptarget/*.cc
+        )
+        target_sources(
+            slate
+            PRIVATE
+            ${libslate_omptarget_src}
+        )
+
+        # target_compile_options( slate PUBLIC -fsycl )
+        target_compile_options( slate PUBLIC -fp-model=precise )
+        target_compile_options( slate PUBLIC -fiopenmp -fopenmp-targets=spir64 )
+        target_link_options( slate PUBLIC -fiopenmp -fopenmp-targets=spir64 )
+        target_link_libraries( slate PUBLIC -lmkl_sycl -lsycl -lOpenCL )
+        message( STATUS "Building OneMKL (omptarget) support in SLATE" )
+    else()
+        message( STATUS "Not building OneMKL support in SLATE" )
+    endif()
 endif()
 
 #-------------------------------------------------------------------------------

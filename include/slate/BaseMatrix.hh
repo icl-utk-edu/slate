@@ -240,6 +240,8 @@ public:
     Uplo uploPhysical() const;
 
     Tile<scalar_t>* originTile(int64_t i, int64_t j);
+    /// Tile origin
+    Target origin() const { return origin_; }
 
     int64_t tileMb(int64_t i) const;
     int64_t tileNb(int64_t j) const;
@@ -721,6 +723,8 @@ protected:
     Uplo uplo_;         ///< upper or lower storage
     Op op_;             ///< transpose operation with respect to original matrix
     Layout layout_;     ///< intended layout of the matrix. defaults to ColMajor.
+    Target origin_;     ///< Tile origins. defaults to Host
+
 
     /// shared storage of tiles and buffers
     std::shared_ptr< MatrixStorage<scalar_t> > storage_;
@@ -754,6 +758,7 @@ BaseMatrix<scalar_t>::BaseMatrix()
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
+      origin_(Target::Host),
       storage_(nullptr)
 {}
 
@@ -807,6 +812,7 @@ BaseMatrix<scalar_t>::BaseMatrix(
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
+      origin_(Target::Host),
       storage_(std::make_shared< MatrixStorage< scalar_t > >(
           inTileMb, inTileNb, inTileRank, inTileDevice, mpi_comm)),
       mpi_comm_(mpi_comm)
@@ -893,6 +899,7 @@ BaseMatrix<scalar_t>::BaseMatrix(
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
+      origin_(Target::Host),
       storage_(std::make_shared< MatrixStorage< scalar_t > >(
           m, n, mb, nb, order, nprow, npcol, mpi_comm)),
       mpi_comm_(mpi_comm)

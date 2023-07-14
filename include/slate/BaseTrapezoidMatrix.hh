@@ -211,6 +211,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
 {
     slate_error_if(uplo == Uplo::General);
     this->uplo_ = uplo;
+    this->origin_ = Target::Host;
 
     // ii, jj are row, col indices
     // i, j are tile (block row, block col) indices
@@ -314,6 +315,7 @@ BaseTrapezoidMatrix<scalar_t>::BaseTrapezoidMatrix(
     slate_error_if(this->num_devices() != num_devices);
     slate_error_if(uplo == Uplo::General);
     this->uplo_ = uplo;
+    this->origin_ = Target::Devices;
 
     // ii, jj are row, col indices
     // ii_local and jj_local are the local array indices in A
@@ -841,6 +843,7 @@ void BaseTrapezoidMatrix<scalar_t>::tileUpdateAllOrigin()
 template <typename scalar_t>
 void BaseTrapezoidMatrix<scalar_t>::insertLocalTiles(Target origin)
 {
+    this->origin_ = origin;
     bool on_devices = (origin == Target::Devices);
     if (on_devices)
         reserveDeviceWorkspace();

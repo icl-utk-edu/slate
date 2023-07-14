@@ -158,9 +158,16 @@ void getrf(
                 {
                     // swap rows in A(k:mt-1, 0:k-1)
                     const int tag_0 = 0;
-                    internal::permuteRows<Target::HostTask>(
-                        Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
-                        host_layout, priority_0, tag_0, queue_0 );
+                    if (A.origin() == Target::Devices && target == Target::Devices) {
+                        internal::permuteRows<Target::Devices>(
+                            Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
+                            target_layout, priority_0, tag_0, queue_0 );
+                    }
+                    else {
+                        internal::permuteRows<Target::HostTask>(
+                            Direction::Forward, A.sub(k, A_mt-1, 0, k-1), pivots.at(k),
+                            host_layout, priority_0, tag_0, queue_0 );
+                    }
                 }
             }
             // update trailing submatrix, normal priority

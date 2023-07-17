@@ -309,9 +309,9 @@ void test_gesvd_work(Params& params, bool run)
     }
 
     if (check && (wantu || wantvt)) {
-        slate::Matrix<scalar_t> Iden;
-        Iden = slate::Matrix<scalar_t>(min_mn, min_mn, nb, p, q, MPI_COMM_WORLD);
-        Iden.insertLocalTiles();
+        // Residual matrix.
+        slate::Matrix<scalar_t> R( min_mn, min_mn, nb, p, q, MPI_COMM_WORLD );
+        R.insertLocalTiles();
 
         if (wantu) {
             //==================================================
@@ -321,10 +321,10 @@ void test_gesvd_work(Params& params, bool run)
             //     ------------------- < tol * epsilon
             //              N
             //==================================================
-            slate::set( zero, one, Iden );
+            slate::set( zero, one, R ); // identity
             auto UH = conj_transpose( U );
-            slate::gemm( -one, UH, U, one, Iden );
-            params.ortho_U() = slate::norm( slate::Norm::One, Iden ) / n;
+            slate::gemm( -one, UH, U, one, R );
+            params.ortho_U() = slate::norm( slate::Norm::One, R ) / n;
             params.okay() = params.okay() && (params.ortho_U() <= tol);
         }
 
@@ -336,10 +336,10 @@ void test_gesvd_work(Params& params, bool run)
             //     ------------------- < tol * epsilon
             //              N
             //==================================================
-            slate::set( zero, one, Iden );
+            slate::set( zero, one, R ); // identity
             auto V = conj_transpose( VT );
-            slate::gemm( -one, VT, V, one, Iden );
-            params.ortho_V() = slate::norm( slate::Norm::One, Iden ) / n;
+            slate::gemm( -one, VT, V, one, R );
+            params.ortho_V() = slate::norm( slate::Norm::One, R ) / n;
             params.okay() = params.okay() && (params.ortho_V() <= tol);
         }
 

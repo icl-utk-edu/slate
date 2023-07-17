@@ -40,10 +40,10 @@ int slate_dgetri_(int *n, double *a, int *lda, int *ipiv, double *work, int *lwo
 
 int main(int argc, char *argv[])
 {
-    int m, n, lda, minmn, info;
-    m = n = lda = minmn = 4;
+    int m, n, lda, min_mn, info;
+    m = n = lda = min_mn = 4;
     double *A = (double *)malloc( n * m * sizeof(double) );
-    int *ipiv = (int *)malloc( minmn * sizeof(int) );
+    int *ipiv = (int *)malloc( min_mn * sizeof(int) );
 
     printf("Setup matrix A\n");
     for (int j=0; j<n; ++j)

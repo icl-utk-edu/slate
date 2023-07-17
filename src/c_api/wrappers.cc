@@ -1236,8 +1236,8 @@ void slate_svd_vals_c64(
 
     auto* A_ = reinterpret_cast<matrix_A_t*>(A);
 
-    int64_t minmn = std::min(A_->m(), A_->n());
-    std::vector< blas::real_type<scalar_t> > Sigma_(minmn);
+    int64_t min_mn = std::min( A_->m(), A_->n() );
+    std::vector< blas::real_type<scalar_t> > Sigma_( min_mn );
 
     slate::Options opts_;
     slate::options2cpp(num_opts, opts, opts_);

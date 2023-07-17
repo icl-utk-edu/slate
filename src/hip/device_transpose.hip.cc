@@ -246,7 +246,7 @@ __global__ void transpose_kernel(
     const scalar_t *A,  int64_t lda,
           scalar_t *AT, int64_t ldat)
 {
-    transpose_func<scalar_t, NX>(false, m, n, A, lda, AT, ldat);
+    transpose_func<scalar_t, NX>( is_conj, m, n, A, lda, AT, ldat );
 }
 
 //------------------------------------------------------------------------------

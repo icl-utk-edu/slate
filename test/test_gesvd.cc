@@ -26,6 +26,10 @@ void test_gesvd_work(Params& params, bool run)
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
+    // Constants
+    const scalar_t zero = 0;
+    const scalar_t one  = 1;
+
     // get & mark input values
     lapack::Job jobu = params.jobu();
     lapack::Job jobvt = params.jobvt();
@@ -48,8 +52,11 @@ void test_gesvd_work(Params& params, bool run)
 
     params.time();
     params.ref_time();
-    // params.gflops();
-    // params.ref_gflops();
+    params.error2();
+    params.ortho_U();
+    params.ortho_V();
+    params.error.name( "S - Sref" );
+    params.error2.name( "Backward" );
 
     if (! run)
         return;
@@ -66,12 +73,6 @@ void test_gesvd_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
-    // skip unsupported
-    if (jobu != lapack::Job::NoVec || jobvt != lapack::Job::NoVec) {
-        params.msg() = "skipping: Only singular values supported (vectors not yet supported)";
-        return;
-    }
-
     int64_t min_mn = std::min(m, n);
 
     // Figure out local size.
@@ -80,6 +81,7 @@ void test_gesvd_work(Params& params, bool run)
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
     std::vector<scalar_t> A_data;
+    std::vector<scalar_t> Acpy_data;
 
     // matrix U (local output), U(m, min_mn), singular values of A
     int64_t mlocU = num_local_rows_cols(m, nb, myrow, p);
@@ -99,6 +101,7 @@ void test_gesvd_work(Params& params, bool run)
     slate::Matrix<scalar_t> A; // (m, n);
     slate::Matrix<scalar_t> U; // (m, min_mn);
     slate::Matrix<scalar_t> VT; // (min_mn, n);
+    slate::Matrix<scalar_t> Acpy;
 
     bool wantu  = (jobu  == slate::Job::Vec
                    || jobu  == slate::Job::AllVec
@@ -112,6 +115,9 @@ void test_gesvd_work(Params& params, bool run)
         slate::Target origin_target = origin2target(origin);
         A = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
         A.insertLocalTiles(origin_target);
+
+        Acpy = slate::Matrix<scalar_t>(m, n, nb, p, q, MPI_COMM_WORLD);
+        Acpy.insertLocalTiles(origin_target);
 
         if (wantu) {
             U = slate::Matrix<scalar_t>(m, min_mn, nb, p, q, MPI_COMM_WORLD);
@@ -127,6 +133,11 @@ void test_gesvd_work(Params& params, bool run)
         A_data.resize( lldA * nlocA );
         A = slate::Matrix<scalar_t>::fromScaLAPACK(
                 m, n, &A_data[0],  lldA,  nb, p, q, MPI_COMM_WORLD);
+
+        Acpy_data.resize( lldA * nlocA );
+        Acpy = slate::Matrix<scalar_t>::fromScaLAPACK(
+                m, n, &Acpy_data[0],  lldA,  nb, p, q, MPI_COMM_WORLD);
+
         if (wantu) {
             U_data.resize(lldU*nlocU);
             U = slate::Matrix<scalar_t>::fromScaLAPACK(
@@ -145,15 +156,13 @@ void test_gesvd_work(Params& params, bool run)
         printf( "%% VT  %6lld-by-%6lld\n", llong(  VT.m() ), llong(  VT.n() ) );
     }
 
-    print_matrix( "A",  A, params );
-    print_matrix( "U",  U, params );
-    print_matrix( "VT", VT, params );
+    real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
 
     //params.matrix.kind.set_default("svd");
     //params.matrix.cond.set_default(1.e16);
 
     slate::generate_matrix( params.matrix, A);
-    print_matrix( "A0",  A, params );
+    print_matrix( "A",  A, params );
 
     slate::Matrix<scalar_t> Aref;
     std::vector<real_t> Sigma_ref;
@@ -164,6 +173,7 @@ void test_gesvd_work(Params& params, bool run)
         Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
                    m, n, &Aref_data[0], lldA, nb, p, q, MPI_COMM_WORLD );
         slate::copy( A, Aref );
+        slate::copy( A, Acpy );
     }
 
     if (! ref_only) {
@@ -175,9 +185,17 @@ void test_gesvd_work(Params& params, bool run)
         //==================================================
         // Run SLATE test.
         //==================================================
-        slate::svd_vals(A, Sigma, opts);
-        // Using traditional BLAS/LAPACK name
-        // slate::gesvd(A, Sigma, opts);
+        if (wantu && wantvt) {
+            slate::gesvd(A, Sigma, U, VT, opts);
+            // Using traditional BLAS/LAPACK name
+            //slate::gesvd(A, Sigma, U, VT, opts);
+        }
+        else {
+            // todo: call slate::svd()
+            slate::svd_vals(A, Sigma, opts);
+            // Using traditional BLAS/LAPACK name
+            // slate::gesvd(A, Sigma, opts);
+        }
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
@@ -186,9 +204,13 @@ void test_gesvd_work(Params& params, bool run)
         // compute and save timing/performance
         params.time() = time;
 
-        print_matrix( "A",  A, params );
-        print_matrix( "U",  U, params );
-        print_matrix( "VT", VT, params );
+        print_matrix("D", 1, min_mn,   &Sigma[0], 1, params);
+        if (wantu) {
+            print_matrix( "U",  U, params );
+        }
+        if (wantvt) {
+            print_matrix( "VT", VT, params );
+        }
     }
 
     if (check || ref) {
@@ -223,19 +245,22 @@ void test_gesvd_work(Params& params, bool run)
             scalapack_descinit(VT_desc, min_mn, n, nb, nb, 0, 0, ictxt, mlocVT, &info);
             slate_assert(info == 0);
 
+            // todo: if will check on the vectors computed by scalapack,
+            // then compute U and VT. But, for now we call scalapck just to check on
+            // singular values.
             // Allocate if not already allocated.
-            if (wantu) {
-                U_data.resize( lldU * nlocU );
-            }
-            if (wantvt) {
-                VT_data.resize( lldVT * nlocVT );
-            }
+            //if (wantu) {
+            //    U_data.resize( lldU * nlocU );
+            //}
+            //if (wantvt) {
+            //    VT_data.resize( lldVT * nlocVT );
+            //}
 
             // query for workspace size
             int64_t info_ref = 0;
             scalar_t dummy_work;
             real_t dummy_rwork;
-            scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
+            scalapack_pgesvd(job2str(slate::Job::NoVec), job2str(slate::Job::NoVec), m, n,
                              &Aref_data[0],  1, 1, A_desc, &Sigma_ref[0],
                              &U_data[0],  1, 1, U_desc,
                              &VT_data[0], 1, 1, VT_desc,
@@ -250,7 +275,7 @@ void test_gesvd_work(Params& params, bool run)
             // Run ScaLAPACK reference routine.
             //==================================================
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_pgesvd(job2str(jobu), job2str(jobvt), m, n,
+            scalapack_pgesvd(job2str(slate::Job::NoVec), job2str(slate::Job::NoVec), m, n,
                              &Aref_data[0],  1, 1, A_desc, &Sigma_ref[0],
                              &U_data[0],  1, 1, U_desc,
                              &VT_data[0], 1, 1, VT_desc,
@@ -260,15 +285,20 @@ void test_gesvd_work(Params& params, bool run)
 
             params.ref_time() = time;
 
-            // Reference Scalapack was run, check reference against test
+            //==================================================
+            // Test results by checking relative forward error
+            //
+            //      || Sigma_ref - Sigma ||
+            //     ------------------------- < tol * epsilon
+            //         || Sigma_ref ||
+            //==================================================
+            real_t Sigma_ref_norm = blas::asum(Sigma_ref.size(), &Sigma_ref[0], 1);
             // Perform a local operation to get differences Sigma = Sigma - Sigma_ref
-            blas::axpy(Sigma_ref.size(), -1.0, &Sigma_ref[0], 1, &Sigma[0], 1);
+            blas::axpy(Sigma_ref.size(), -1.0, &Sigma[0], 1, &Sigma_ref[0], 1);
 
-            // Relative forward error: || Sigma_ref - Sigma || / || Sigma_ref ||.
-            params.error() = blas::asum(Sigma.size(), &Sigma[0], 1)
-                           / blas::asum(Sigma_ref.size(), &Sigma_ref[0], 1);
+            params.error() = blas::asum(Sigma.size(), &Sigma_ref[0], 1)
+                           / Sigma_ref_norm;
 
-            real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
             params.okay() = (params.error() <= tol);
             Cblacs_gridexit(ictxt);
             //Cblacs_exit(1) does not handle re-entering
@@ -276,6 +306,60 @@ void test_gesvd_work(Params& params, bool run)
             if (mpi_rank == 0)
                 printf( "ScaLAPACK not available\n" );
         #endif
+    }
+
+    if (check && (wantu || wantvt)) {
+        slate::Matrix<scalar_t> Iden;
+        Iden = slate::Matrix<scalar_t>(min_mn, min_mn, nb, p, q, MPI_COMM_WORLD);
+        Iden.insertLocalTiles();
+
+        if (wantu) {
+            //==================================================
+            // Test results by checking orthogonality of U
+            //
+            //      || I - U^H U ||_1
+            //     ------------------- < tol * epsilon
+            //              N
+            //==================================================
+            slate::set( zero, one, Iden );
+            auto UH = conj_transpose( U );
+            slate::gemm( -one, UH, U, one, Iden );
+            params.ortho_U() = slate::norm( slate::Norm::One, Iden ) / n;
+            params.okay() = params.okay() && (params.ortho_U() <= tol);
+        }
+
+        if (wantvt) {
+            //==================================================
+            // Test results by checking orthogonality of VT
+            //
+            //      || I - V V^H ||_1
+            //     ------------------- < tol * epsilon
+            //              N
+            //==================================================
+            slate::set( zero, one, Iden );
+            auto V = conj_transpose( VT );
+            slate::gemm( -one, VT, V, one, Iden );
+            params.ortho_V() = slate::norm( slate::Norm::One, Iden ) / n;
+            params.okay() = params.okay() && (params.ortho_V() <= tol);
+        }
+
+        if (wantu && wantvt) {
+            //==================================================
+            // Test results by checking backwards error
+            //
+            //      || Acpy - U Sigma VT ||_1
+            //     --------------------------- < tol * epsilon
+            //            || A ||_1 * N
+            //
+            //==================================================
+            // todo:
+            slate::scale_row_col( slate::Equed::Col, Sigma, Sigma, U );
+
+            real_t Anorm = slate::norm( slate::Norm::One, Acpy );
+            slate::gemm( -one, U, VT, one, Acpy );
+            params.error2() = slate::norm( slate::Norm::One, Acpy ) / (Anorm * n);
+            params.okay() = params.okay() && (params.error2() <= tol);
+        }
     }
 }
 

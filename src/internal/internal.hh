@@ -625,6 +625,14 @@ void unmtr_hb2st(Side side, Op op,
                  const std::map<Option, Value>& opts);
 
 //-----------------------------------------
+// unmbr_tb2bd()
+template <Target target=Target::HostTask, typename scalar_t>
+void unmbr_tb2bd(Side side, Op op,
+                 Matrix<scalar_t>& V,
+                 Matrix<scalar_t>& C,
+                 const std::map<Option, Value>& opts);
+
+//-----------------------------------------
 // potrf()
 template <Target target=Target::HostTask, typename scalar_t>
 void potrf(HermitianMatrix<scalar_t>&& A,

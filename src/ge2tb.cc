@@ -75,6 +75,8 @@ void ge2tb(
     int     VTpanel_device = -1;
     std::vector< scalar_t* > VTdwork_array( num_devices, nullptr );
 
+    int panel_VTpanel_device = -1;
+
     if (target == Target::Devices) {
         A.allocateBatchArrays();
         A.reserveDeviceWorkspace();
@@ -103,6 +105,7 @@ void ge2tb(
                         mlocal += A.tileMb(i);
                         // Asserting 1-D distribution for device
                         assert( panel_device == A.tileDevice(i, j) );
+                        panel_VTpanel_device = panel_device;
                     }
                 }
             }
@@ -128,6 +131,7 @@ void ge2tb(
                         nlocal += A.tileNb(j);
                         // Asserting 1-D distribution for device
                         //assert( VTpanel_device == A.tileDevice(i, j) );
+                        panel_VTpanel_device = VTpanel_device;
                     }
                 }
             }
@@ -137,9 +141,9 @@ void ge2tb(
         }
 
         // Allocate memory to factorize V and VT
-        if (panel_device >= 0 || VTpanel_device >=0) {
+        if (panel_VTpanel_device >= 0) {
 
-            lapack::Queue* queue = A.compute_queue( panel_device, queue_0 );
+            lapack::Queue* queue = A.compute_queue( panel_VTpanel_device, queue_0 );
 
             // Find the max needed allocation
             int64_t mlocal_max = std::max(nlocal, mlocal);

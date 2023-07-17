@@ -15,6 +15,22 @@
 namespace slate {
 namespace device {
 
+//------------------------------------------------------------------------------
+// In copy.cc, provide overload for non-matching types, which throws an error.
+//
+template <typename x_scalar_t, typename y_scalar_t>
+void transpose_batch(
+    bool is_conj,
+    int64_t m, int64_t n,
+    x_scalar_t **dA_array,  int64_t lda,
+    y_scalar_t **dAT_array, int64_t ldat,
+    int64_t batch_count,
+    blas::Queue& queue)
+{
+    using std::real;
+    throw std::exception();  // not implemented
+}
+
 // CUBLAS/ROCBLAS need complex translation, others do not
 #if ! defined( SLATE_HAVE_OMPTARGET )
 
@@ -365,12 +381,28 @@ void copy(internal::TargetType<Target::Devices>,
                                 blas::MemcpyKind::HostToDevice,
                                 *queue);
 
+            bool is_trans = (A.op() != B.op());
+            bool is_conj = false;
+            if (is_trans) {
+                is_conj = (A.op() == Op::ConjTrans || B.op() == Op::ConjTrans);
+            }
+
             for (int q = 0; q < 4; ++q) {
                 if (group_count[q] > 0) {
-                    device::gecopy(mb[q], nb[q],
-                                   a_array_dev, lda[q],
-                                   b_array_dev, ldb[q],
-                                   group_count[q], *queue);
+                    if (is_trans) {
+                        device::transpose_batch(
+                                is_conj,
+                                nb[q], mb[q],
+                                a_array_dev, lda[q],
+                                b_array_dev, ldb[q],
+                                group_count[q], *queue);
+                    }
+                    else {
+                        device::gecopy(mb[q], nb[q],
+                                a_array_dev, lda[q],
+                                b_array_dev, ldb[q],
+                                group_count[q], *queue);
+                    }
                     a_array_dev += group_count[q];
                     b_array_dev += group_count[q];
                 }

@@ -106,10 +106,10 @@ void bdsqr(
 
     // Redistribute the 1-dim distributed U and VT into 2-dim matrices
     if (wantu) {
-        U.redistribute(U1d);
+        redistribute(U1d, U, opts);
     }
     if (wantvt) {
-        VT.redistribute(VT1d);
+        redistribute(VT1d, VT, opts);
     }
 }
 

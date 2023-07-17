@@ -161,7 +161,6 @@ public:
     void reserveDeviceWorkspace();
     void gather(scalar_t* A, int64_t lda);
     void insertLocalTiles(Target origin=Target::Host);
-    void redistribute(Matrix<scalar_t>& A);
 };
 
 //------------------------------------------------------------------------------
@@ -831,41 +830,6 @@ void Matrix<scalar_t>::insertLocalTiles(Target origin)
         }
     }
 }
-
-//------------------------------------------------------------------------------
-template <typename scalar_t>
-void Matrix<scalar_t>::redistribute(Matrix<scalar_t>& A)
-{
-    int64_t mt = this->mt();
-    int64_t nt = this->nt();
-
-    for (int64_t j = 0; j < nt; ++j) {
-        for (int64_t i = 0; i < mt; ++i) {
-            if (this->tileIsLocal(i, j)) {
-                this->tileGetForWriting( i, j, LayoutConvert::None );
-                if (! A.tileIsLocal(i, j)) {
-                    auto Bij = this->at(i, j);
-                    Bij.recv(A.tileRank(i, j), A.mpiComm(),  A.layout());
-                }
-                else {
-                    A.tileGetForReading(i, j, LayoutConvert::None);
-                    // copy local tiles if needed.
-                    auto Aij = A(i, j);
-                    auto Bij = this->at(i, j);
-                    if (Aij.data() != Bij.data() ) {
-                        tile::gecopy( Aij, Bij );
-                    }
-                }
-            }
-            else if (A.tileIsLocal(i, j)) {
-                A.tileGetForReading(i, j, LayoutConvert::None);
-                auto Aij = A(i, j);
-                Aij.send(this->tileRank(i, j), this->mpiComm());
-            }
-        }
-    }
-}
-
 
 } // namespace slate
 

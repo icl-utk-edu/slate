@@ -26,6 +26,7 @@ template <typename src_scalar_t, typename dst_scalar_t>
 void gecopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
 {
 //  trace::Block trace_block("aux::copy");
+    using blas::conj;
 
     assert(A.mb() == B.mb());
     assert(A.nb() == B.nb());
@@ -40,11 +41,29 @@ void gecopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
     int64_t b_col_inc = B.colIncrement();
     int64_t b_row_inc = B.rowIncrement();
 
-    for (int64_t j = 0; j < B.nb(); ++j) {
-        const src_scalar_t* Aj = &A00[j*a_row_inc];
-        dst_scalar_t* Bj = &B00[j*b_row_inc];
-        for (int64_t i = 0; i < B.mb(); ++i)
-            Bj[i*b_col_inc] = Aj[i*a_col_inc];
+    bool A_is_conj = A.op() == Op::ConjTrans;
+    bool B_is_conj = B.op() == Op::ConjTrans;
+
+    if (A_is_conj != B_is_conj) {
+        // (A is conj) or (B is conj)
+        for (int64_t j = 0; j < B.nb(); ++j) {
+            const src_scalar_t* Aj = &A00[j*a_row_inc];
+            dst_scalar_t* Bj = &B00[j*b_row_inc];
+
+            for (int64_t i = 0; i < B.mb(); ++i) {
+                Bj[i*b_col_inc] = conj( Aj[i*a_col_inc] );
+            }
+        }
+    }
+    else {
+        for (int64_t j = 0; j < B.nb(); ++j) {
+            const src_scalar_t* Aj = &A00[j*a_row_inc];
+            dst_scalar_t* Bj = &B00[j*b_row_inc];
+
+            for (int64_t i = 0; i < B.mb(); ++i) {
+                Bj[i*b_col_inc] = Aj[i*a_col_inc];
+            }
+        }
     }
 
 }

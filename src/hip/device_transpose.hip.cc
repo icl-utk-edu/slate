@@ -50,6 +50,7 @@ static const int ib = 16;
 ///
 template <typename scalar_t>
 __device__ void transpose_func(
+    bool is_conj,
     int n,
     scalar_t* A, int64_t lda)
 {
@@ -90,7 +91,10 @@ __device__ void transpose_func(
 
         // Save transposed block, A(i, j) = trans(sA1).
         if (i + ii < n  &&  j + jj < n) {
-            *A1 = sA1[ii][jj];
+            if (is_conj)
+                *A1 = conj(sA1[ii][jj]);
+            else
+                *A1 = sA1[ii][jj];
         }
     }
     else { // off-diagonal block
@@ -106,10 +110,16 @@ __device__ void transpose_func(
 
         // Save transposed blocks, A(i, j) = trans(sA2), A(j, i) = trans(sA1).
         if (i + ii < n && j + jj < n) {
-            *A1 = sA2[ii][jj];
+            if (is_conj)
+                *A1 = conj(sA2[ii][jj]);
+            else
+                *A1 = sA2[ii][jj];
         }
         if (j + ii < n && i + jj < n) {
-            *A2 = sA1[ii][jj];
+            if (is_conj)
+                *A2 = conj(sA1[ii][jj]);
+            else
+                *A2 = sA1[ii][jj];
         }
     }
 }
@@ -140,6 +150,7 @@ static const int NY = 8;   ///< y dim of thread block size for transpose_func
 ///
 template <typename scalar_t, int NX>
 __device__ void transpose_func(
+    bool is_conj,
     int m, int n,
     const scalar_t *A,  int64_t lda,
           scalar_t *AT, int64_t ldat)
@@ -161,10 +172,20 @@ __device__ void transpose_func(
         i = iby + tx + tile*NX;
         j = ibz + ty;
         if (i < m) {
-            #pragma unroll
-            for (int j2=0; j2 < NB; j2 += NY) {
-                if (j + j2 < n) {
-                    sA[ty + j2][tx] = A[j2*lda];
+            if (is_conj) {
+                #pragma unroll
+                for (int j2=0; j2 < NB; j2 += NY) {
+                    if (j + j2 < n) {
+                        sA[ty + j2][tx] = conj(A[j2*lda]);
+                    }
+                }
+            }
+            else {
+                #pragma unroll
+                for (int j2=0; j2 < NB; j2 += NY) {
+                    if (j + j2 < n) {
+                        sA[ty + j2][tx] = A[j2*lda];
+                    }
                 }
             }
         }
@@ -196,20 +217,22 @@ __device__ void transpose_func(
 /// in-place transpose of a square buffer
 template <typename scalar_t>
 __global__ void transpose_kernel(
+    bool is_conj,
     int n,
     scalar_t* A, int64_t lda)
 {
-    transpose_func(n, A, lda);
+    transpose_func(is_conj, n, A, lda);
 }
 
 //------------------------------------------------------------------------------
 /// in-place transpose of array of square buffers
 template <typename scalar_t>
 __global__ void transpose_batch_kernel(
+    bool is_conj,
     int n,
     scalar_t** Aarray, int64_t lda)
 {
-    transpose_func(n, Aarray[blockIdx.x], lda);
+    transpose_func(is_conj, n, Aarray[blockIdx.x], lda);
 }
 
 //------------------------------------------------------------------------------
@@ -218,11 +241,12 @@ __global__ void transpose_batch_kernel(
 ///
 template <typename scalar_t, int NX>
 __global__ void transpose_kernel(
+    bool is_conj,
     int m, int n,
     const scalar_t *A,  int64_t lda,
           scalar_t *AT, int64_t ldat)
 {
-    transpose_func<scalar_t, NX>(m, n, A, lda, AT, ldat);
+    transpose_func<scalar_t, NX>(false, m, n, A, lda, AT, ldat);
 }
 
 //------------------------------------------------------------------------------
@@ -231,11 +255,13 @@ __global__ void transpose_kernel(
 ///
 template <typename scalar_t, int NX>
 __global__ void transpose_batch_kernel(
+    bool is_conj,
     int m, int n,
     scalar_t **dA_array,  int64_t lda,
     scalar_t **dAT_array, int64_t ldat)
 {
-    transpose_func<scalar_t, NX>(m, n, dA_array[blockIdx.x], lda, dAT_array[blockIdx.x], ldat);
+    transpose_func<scalar_t, NX>(
+        is_conj, m, n, dA_array[blockIdx.x], lda, dAT_array[blockIdx.x], ldat );
 }
 
 //------------------------------------------------------------------------------
@@ -256,6 +282,7 @@ __global__ void transpose_batch_kernel(
 ///
 template <typename scalar_t>
 void transpose(
+    bool is_conj,
     int64_t n,
     scalar_t* A, int64_t lda,
     blas::Queue& queue)
@@ -282,7 +309,8 @@ void transpose(
     }
     dim3 threads( ib, ib );
 
-    hipLaunchKernelGGL(transpose_kernel, dim3(blocks), dim3(threads), 0, queue.stream(), n, A, lda);
+    transpose_kernel<<< blocks, threads, 0, queue.stream() >>>
+        (is_conj, n, A, lda);
 
     hipError_t error = hipGetLastError();
     slate_assert(error == hipSuccess);
@@ -311,6 +339,7 @@ void transpose(
 ///
 template <typename scalar_t>
 void transpose_batch(
+    bool is_conj,
     int64_t n,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count,
@@ -339,7 +368,8 @@ void transpose_batch(
     }
     dim3 threads( ib, ib );
 
-    hipLaunchKernelGGL(transpose_batch_kernel, dim3(blocks), dim3(threads), 0, queue.stream(), n, Aarray, lda);
+    transpose_batch_kernel<<< blocks, threads, 0, queue.stream() >>>
+        ( is_conj, n, Aarray, lda );
 
     hipError_t error = hipGetLastError();
     slate_assert(error == hipSuccess);
@@ -372,6 +402,7 @@ void transpose_batch(
 ///
 template <typename scalar_t, int NX>
 void transpose(
+    bool is_conj,
     int64_t m, int64_t n,
     scalar_t* dA,  int64_t lda,
     scalar_t* dAT, int64_t ldat,
@@ -391,7 +422,8 @@ void transpose(
 
     dim3 grid( 1, mt, nt );
     dim3 threads( NX, NY );
-    hipLaunchKernelGGL(HIP_KERNEL_NAME(transpose_kernel<scalar_t, NX>), dim3(grid), dim3(threads), 0, queue.stream(),  m, n, dA, lda, dAT, ldat );
+    transpose_kernel<scalar_t, NX><<< grid, threads, 0, queue.stream() >>>
+        ( is_conj, m, n, dA, lda, dAT, ldat );
 
     hipError_t error = hipGetLastError();
     slate_assert(error == hipSuccess);
@@ -431,6 +463,7 @@ void transpose(
 ///
 template <typename scalar_t, int NX>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     scalar_t **dA_array,  int64_t lda,
     scalar_t **dAT_array, int64_t ldat,
@@ -452,7 +485,8 @@ void transpose_batch(
 
     dim3 grid( uint(batch_count), mt, nt );
     dim3 threads( NX, NY, 1 );
-    hipLaunchKernelGGL(HIP_KERNEL_NAME(transpose_batch_kernel<scalar_t, NX>), dim3(grid), dim3(threads), 0, queue.stream(),  m, n, dA_array, lda, dAT_array, ldat );
+    transpose_batch_kernel<scalar_t, NX><<< grid, threads, 0, queue.stream() >>>
+        ( is_conj, m, n, dA_array, lda, dAT_array, ldat );
 
     hipError_t error = hipGetLastError();
     slate_assert(error == hipSuccess);
@@ -462,24 +496,28 @@ void transpose_batch(
 // Explicit instantiations.
 template
 void transpose(
+    bool is_conj,
     int64_t n,
     float* A, int64_t lda,
     blas::Queue& queue);
 
 template
 void transpose(
+    bool is_conj,
     int64_t n,
     double* A, int64_t lda,
     blas::Queue& queue);
 
 template
 void transpose(
+    bool is_conj,
     int64_t n,
     hipFloatComplex* A, int64_t lda,
     blas::Queue& queue);
 
 template
 void transpose(
+    bool is_conj,
     int64_t n,
     hipDoubleComplex* A, int64_t lda,
     blas::Queue& queue);
@@ -487,6 +525,7 @@ void transpose(
 // ----------------------------------------
 template
 void transpose_batch(
+    bool is_conj,
     int64_t n,
     float** Aarray, int64_t lda,
     int64_t batch_count,
@@ -494,6 +533,7 @@ void transpose_batch(
 
 template
 void transpose_batch(
+    bool is_conj,
     int64_t n,
     double** Aarray, int64_t lda,
     int64_t batch_count,
@@ -501,6 +541,7 @@ void transpose_batch(
 
 template
 void transpose_batch(
+    bool is_conj,
     int64_t n,
     hipFloatComplex** Aarray, int64_t lda,
     int64_t batch_count,
@@ -508,6 +549,7 @@ void transpose_batch(
 
 template
 void transpose_batch(
+    bool is_conj,
     int64_t n,
     hipDoubleComplex** Aarray, int64_t lda,
     int64_t batch_count,
@@ -517,12 +559,14 @@ void transpose_batch(
 // ----------------------------------------
 template<>
 void transpose(
+    bool is_conj,
     int64_t m, int64_t n,
     float* dA,  int64_t lda,
     float* dAT, int64_t ldat,
     blas::Queue& queue)
 {
     transpose<float,32>(
+        is_conj,
         m, n,
         dA,  lda,
         dAT, ldat,
@@ -531,12 +575,14 @@ void transpose(
 
 template<>
 void transpose(
+    bool is_conj,
     int64_t m, int64_t n,
     double* dA,  int64_t lda,
     double* dAT, int64_t ldat,
     blas::Queue& queue)
 {
     transpose<double,32>(
+        is_conj,
         m, n,
         dA,  lda,
         dAT, ldat,
@@ -545,12 +591,14 @@ void transpose(
 
 template<>
 void transpose(
+    bool is_conj,
     int64_t m, int64_t n,
     hipFloatComplex* dA,  int64_t lda,
     hipFloatComplex* dAT, int64_t ldat,
     blas::Queue& queue)
 {
     transpose<hipFloatComplex,32>(
+        is_conj,
         m, n,
         dA,  lda,
         dAT, ldat,
@@ -559,12 +607,14 @@ void transpose(
 
 template<>
 void transpose(
+    bool is_conj,
     int64_t m, int64_t n,
     hipDoubleComplex* dA,  int64_t lda,
     hipDoubleComplex* dAT, int64_t ldat,
     blas::Queue& queue)
 {
     transpose<hipDoubleComplex,16>(
+        is_conj,
         m, n,
         dA,  lda,
         dAT, ldat,
@@ -574,6 +624,7 @@ void transpose(
 // ----------------------------------------
 template<>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     float **dA_array,  int64_t lda,
     float **dAT_array, int64_t ldat,
@@ -581,6 +632,7 @@ void transpose_batch(
     blas::Queue& queue)
 {
     transpose_batch<float,32>(
+        is_conj,
         m, n,
         dA_array,  lda,
         dAT_array, ldat,
@@ -590,6 +642,7 @@ void transpose_batch(
 
 template<>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     double **dA_array,  int64_t lda,
     double **dAT_array, int64_t ldat,
@@ -597,6 +650,7 @@ void transpose_batch(
     blas::Queue& queue)
 {
     transpose_batch<double,32>(
+        is_conj,
         m, n,
         dA_array,  lda,
         dAT_array, ldat,
@@ -606,6 +660,7 @@ void transpose_batch(
 
 template<>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     hipFloatComplex **dA_array,  int64_t lda,
     hipFloatComplex **dAT_array, int64_t ldat,
@@ -613,6 +668,7 @@ void transpose_batch(
     blas::Queue& queue)
 {
     transpose_batch<hipFloatComplex,32>(
+        is_conj,
         m, n,
         dA_array,  lda,
         dAT_array, ldat,
@@ -622,6 +678,7 @@ void transpose_batch(
 
 template<>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     hipDoubleComplex **dA_array,  int64_t lda,
     hipDoubleComplex **dAT_array, int64_t ldat,
@@ -629,6 +686,7 @@ void transpose_batch(
     blas::Queue& queue)
 {
     transpose_batch<hipDoubleComplex,16>(
+        is_conj,
         m, n,
         dA_array,  lda,
         dAT_array, ldat,

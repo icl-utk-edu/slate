@@ -98,10 +98,11 @@ void tb2bd_step(TriangularBandMatrix<scalar_t>& A,
                 internal::gebr1<Target::HostTask>(
                     A.slice(i, std::min(i+band,   Am-1),
                             j, std::min(j+band-1, An-1)),
-                    n, &V1.at(vi, vj),
-                    m, &U1.at(ui, uj));
+                            n, &V1.at(vi, vj),
+                            m, &U1.at(ui, uj));
             }
             break;
+
         // task 1 - an off-diagonal block in the sweep
         case 1:
             i = (block-1)*band + 1 + sweep;
@@ -116,9 +117,10 @@ void tb2bd_step(TriangularBandMatrix<scalar_t>& A,
                     m, &U1.at(vi, vj),
                     A.slice(i, std::min(i+band-1, Am-1),
                             j, std::min(j+band-1, An-1)),
-                    n, &V1.at(vi, vj));
+                            n, &V1.at(vi, vj));
             }
             break;
+
         // task 2 - a diagonal block in the sweep
         case 2:
             i = block*band + 1 + sweep;
@@ -133,7 +135,7 @@ void tb2bd_step(TriangularBandMatrix<scalar_t>& A,
                     n, &V1.at(ui, uj),
                     A.slice(i, std::min(i+band-1, Am-1),
                             j, std::min(j+band-1, An-1)),
-                    m, &U1.at(ui, uj));
+                            m, &U1.at(ui, uj));
             }
             break;
     }

@@ -569,9 +569,9 @@ if (opts.geev):
 # svd
 if (opts.svd):
     if ('n' in jobu):
-        cmds += [[ 'gesvd', gen + dtype + la + n + mnk + ' --jobu n --jobvt n' ]]
+        cmds += [[ 'svd', gen + dtype + la + n + mnk + ' --jobu n --jobvt n' ]]
     if ('v' in jobu):
-        cmds += [[ 'gesvd', gen + dtype + la + n + mnk + ' --jobu v --jobvt v' ]]
+        cmds += [[ 'svd', gen + dtype + la + n + mnk + ' --jobu v --jobvt v' ]]
 
     cmds += [
     # todo: mn (wide), nb, jobu, jobvt

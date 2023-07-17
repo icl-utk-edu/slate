@@ -23,26 +23,46 @@ void test_svd()
     int64_t min_mn = std::min( m, n );
     slate::Matrix<T> A( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     A.insertLocalTiles();
-    random_matrix( A );
     std::vector<real_t> Sigma( min_mn );
 
     // A = U Sigma V^H, singular values only
-    slate::svd_vals( A, Sigma );  // simplified API
+    random_matrix( A );
+    slate::svd_vals( A, Sigma );
 
     random_matrix( A );
+    slate::svd( A, Sigma );
 
-    slate::gesvd( A, Sigma );     // traditional API (deprecated)
+    // traditional LAPACK API deprecated
+    #ifdef DEPRECATED
+        random_matrix( A );
+        slate::gesvd( A, Sigma );
+    #endif
 
-    // TODO: singular vectors
     // U is m x min_mn (reduced SVD) or m x m (full SVD)
     // V is min_mn x n (reduced SVD) or n x n (full SVD)
-    // slate::Matrix<T>  U( m, min_mn, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    // slate::Matrix<T> VH( min_mn, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    // U.insertLocalTiles();
-    // VT.insertLocalTiles();
-    // slate::svd( A, U, Sigma, VH );  // both U and V^H
-    // slate::svd( A, U, Sigma     );  // only U
-    // slate::svd( A,    Sigma, VH );  // only V^H
+    // todo: full SVD not yet supported?
+    slate::Matrix<T>  U( m, min_mn, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<T> VH( min_mn, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    U.insertLocalTiles();
+    VH.insertLocalTiles();
+
+    // empty, 0x0 matrices as placeholders for U and VH.
+    slate::Matrix<T> Uempty, Vempty;
+
+    random_matrix( A );
+    slate::svd( A, Sigma, U, VH );  // both U and V^H
+
+    random_matrix( A );
+    slate::svd( A, Sigma, U, Vempty );  // only U
+
+    random_matrix( A );
+    slate::svd( A, Sigma, Uempty, VH );  // only V^H
+
+    // traditional LAPACK API deprecated
+    #ifdef DEPRECATED
+        random_matrix( A );
+        slate::gesvd( A, Sigma, U, VH );
+    #endif
 }
 
 //------------------------------------------------------------------------------

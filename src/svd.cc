@@ -62,7 +62,7 @@ namespace slate {
 /// without affecting caller.
 ///
 template <typename scalar_t>
-void gesvd(
+void svd(
     Matrix<scalar_t> A,
     std::vector< blas::real_type<scalar_t> >& Sigma,
     Matrix<scalar_t>& U,
@@ -392,7 +392,7 @@ void gesvd(
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void gesvd<float>(
+void svd<float>(
      Matrix<float> A,
      std::vector<float>& S,
      Matrix<float>& U,
@@ -400,7 +400,7 @@ void gesvd<float>(
      Options const& opts);
 
 template
-void gesvd<double>(
+void svd<double>(
      Matrix<double> A,
      std::vector<double>& S,
      Matrix<double>& U,
@@ -408,7 +408,7 @@ void gesvd<double>(
      Options const& opts);
 
 template
-void gesvd< std::complex<float> >(
+void svd< std::complex<float> >(
      Matrix< std::complex<float> > A,
      std::vector<float>& S,
      Matrix< std::complex<float> >& U,
@@ -416,7 +416,7 @@ void gesvd< std::complex<float> >(
      Options const& opts);
 
 template
-void gesvd< std::complex<double> >(
+void svd< std::complex<double> >(
      Matrix< std::complex<double> > A,
      std::vector<double>& S,
      Matrix< std::complex<double> >& U,

@@ -239,7 +239,7 @@ std::vector< testsweeper::routines_t > routines = {
 
     // -----
     // SVD
-    { "gesvd",              test_gesvd,        Section::svd },
+    { "svd",                test_svd,          Section::svd },
     { "ge2tb",              test_ge2tb,        Section::svd },
     { "tb2bd",              test_tb2bd,        Section::svd },
     { "bdsqr",              test_bdsqr,        Section::svd },

@@ -564,7 +564,6 @@ ifneq ($(only_unit),1)
         src/gesv_mixed.cc \
         src/gesv_mixed_gmres.cc \
         src/gesv_nopiv.cc \
-        src/gesvd.cc \
         src/getrf.cc \
         src/getrf_nopiv.cc \
         src/getrf_tntpiv.cc \
@@ -610,6 +609,7 @@ ifneq ($(only_unit),1)
         src/stedc_z_vector.cc \
         src/steqr2.cc \
         src/sterf.cc \
+        src/svd.cc \
         src/symm.cc \
         src/syr2k.cc \
         src/syrk.cc \
@@ -682,7 +682,6 @@ tester_src += \
         test/test_genorm.cc \
         test/test_geqrf.cc \
         test/test_gesv.cc \
-        test/test_gesvd.cc \
         test/test_getri.cc \
         test/test_hb2st.cc \
         test/test_hbmm.cc \
@@ -709,6 +708,7 @@ tester_src += \
         test/test_stedc_z_vector.cc \
         test/test_steqr2.cc \
         test/test_sterf.cc \
+        test/test_svd.cc \
         test/test_symm.cc \
         test/test_synorm.cc \
         test/test_syr2k.cc \
@@ -1044,7 +1044,7 @@ test/check: check
 unit_test/check: check
 
 check: test unit_test
-	cd test; ${python} run_tests.py --quick gesv posv gels heev gesvd
+	cd test; ${python} run_tests.py --quick gesv posv gels heev svd
 	cd unit_test; ${python} run_tests.py
 
 #-------------------------------------------------------------------------------

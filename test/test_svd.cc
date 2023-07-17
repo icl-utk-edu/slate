@@ -21,7 +21,7 @@
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void test_gesvd_work(Params& params, bool run)
+void test_svd_work( Params& params, bool run )
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
@@ -186,15 +186,10 @@ void test_gesvd_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         if (wantu && wantvt) {
-            slate::gesvd(A, Sigma, U, VT, opts);
-            // Using traditional BLAS/LAPACK name
-            //slate::gesvd(A, Sigma, U, VT, opts);
+            slate::svd( A, Sigma, U, VT, opts );
         }
         else {
-            // todo: call slate::svd()
-            slate::svd_vals(A, Sigma, opts);
-            // Using traditional BLAS/LAPACK name
-            // slate::gesvd(A, Sigma, opts);
+            slate::svd_vals( A, Sigma, opts );
         }
 
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
@@ -364,7 +359,7 @@ void test_gesvd_work(Params& params, bool run)
 }
 
 // -----------------------------------------------------------------------------
-void test_gesvd(Params& params, bool run)
+void test_svd( Params& params, bool run )
 {
     switch (params.datatype()) {
         case testsweeper::DataType::Integer:
@@ -372,19 +367,19 @@ void test_gesvd(Params& params, bool run)
             break;
 
         case testsweeper::DataType::Single:
-            test_gesvd_work<float> (params, run);
+            test_svd_work<float>( params, run );
             break;
 
         case testsweeper::DataType::Double:
-            test_gesvd_work<double> (params, run);
+            test_svd_work<double>( params, run );
             break;
 
         case testsweeper::DataType::SingleComplex:
-            test_gesvd_work<std::complex<float>> (params, run);
+            test_svd_work<std::complex<float>>( params, run );
             break;
 
         case testsweeper::DataType::DoubleComplex:
-            test_gesvd_work<std::complex<double>> (params, run);
+            test_svd_work<std::complex<double>>( params, run );
             break;
     }
 }

@@ -99,8 +99,8 @@ public:
     testsweeper::ParamEnum< lapack::Job >           jobz;   // heev
     testsweeper::ParamEnum< lapack::Job >           jobvl;  // geev
     testsweeper::ParamEnum< lapack::Job >           jobvr;  // geev
-    testsweeper::ParamEnum< lapack::Job >           jobu;   // gesvd, gesdd
-    testsweeper::ParamEnum< lapack::Job >           jobvt;  // gesvd
+    testsweeper::ParamEnum< lapack::Job >           jobu;   // svd
+    testsweeper::ParamEnum< lapack::Job >           jobvt;  // svd
     testsweeper::ParamEnum< lapack::Range >         range;
     testsweeper::ParamEnum< slate::Norm >           norm;
     testsweeper::ParamEnum< slate::NormScope >      scope;
@@ -248,7 +248,7 @@ void test_hegv   (Params& params, bool run);
 void test_hegst  (Params& params, bool run);
 
 // SVD
-void test_gesvd  (Params& params, bool run);
+void test_svd    (Params& params, bool run);
 void test_ge2tb  (Params& params, bool run);
 void test_tb2bd  (Params& params, bool run);
 void test_bdsqr  (Params& params, bool run);

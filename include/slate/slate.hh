@@ -955,23 +955,56 @@ void unmlq(
 // SVD
 
 template <typename scalar_t>
-void gesvd(
+void svd(
     Matrix<scalar_t> A,
-    std::vector< blas::real_type<scalar_t> >& S,
+    std::vector< blas::real_type<scalar_t> >& Sigma,
     Matrix<scalar_t>& U,
     Matrix<scalar_t>& VT,
     Options const& opts = Options());
 
-/// Without U and VT, compute only singular values.
+/// Without U and VT, compute only singular values. Same as svd_vals.
 template <typename scalar_t>
-void gesvd(
+void svd(
     Matrix<scalar_t> A,
-    std::vector< blas::real_type<scalar_t> >& S,
+    std::vector< blas::real_type<scalar_t> >& Sigma,
     Options const& opts = Options())
 {
     Matrix<scalar_t> U;
     Matrix<scalar_t> VT;
-    gesvd( A, S, U, VT, opts );
+    svd( A, Sigma, U, VT, opts );
+}
+
+/// Compute only singular values. Same as svd without U and VT.
+template <typename scalar_t>
+void svd_vals(
+    Matrix<scalar_t> A,
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    Options const& opts = Options())
+{
+    svd( A, Sigma, opts );
+}
+
+template <typename scalar_t>
+[[deprecated( "Use svd instead. To be removed 2024-07." )]]
+void gesvd(
+    Matrix<scalar_t> A,
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    Matrix<scalar_t>& U,
+    Matrix<scalar_t>& VT,
+    Options const& opts = Options())
+{
+    svd( A, Sigma, U, VT, opts );
+}
+
+/// Without U and VT, compute only singular values.
+template <typename scalar_t>
+[[deprecated( "Use svd instead. To be removed 2024-07." )]]
+void gesvd(
+    Matrix<scalar_t> A,
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    Options const& opts = Options())
+{
+    svd( A, Sigma, opts );
 }
 
 //-----------------------------------------

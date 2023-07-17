@@ -131,7 +131,7 @@ if (slate_is_project)
     add_custom_target(
         "check"
         COMMAND
-            python3 run_tests.py --quick gesv posv gels heev gesvd
+            python3 run_tests.py --quick gesv posv gels heev svd
         WORKING_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}"
     )
 endif()

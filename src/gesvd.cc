@@ -14,7 +14,7 @@ namespace slate {
 
 //------------------------------------------------------------------------------
 /// Distributed parallel matrix singular value decomposition.
-/// gesvd Computes all singular values and, optionally, singular vectors of a
+/// Computes all singular values and, optionally, singular vectors of a
 /// matrix A. The matrix A is preliminary reduced to
 /// bidiagonal form using a two-stage approach:
 /// First stage: reduction to upper band bidiagonal form (see ge2tb);
@@ -74,12 +74,21 @@ void gesvd(
     using blas::max;
 
     // Constants
-    scalar_t zero = 0;
-    scalar_t one  = 1;
-    int64_t ione = 1;
+    const scalar_t zero = 0;
+    const scalar_t one  = 1;
+    const real_t r_zero = 0.;
+    const int64_t izero = 0;
+    const int64_t ione  = 1;
+
+    const real_t eps      = std::numeric_limits<real_t>::epsilon();
+    const real_t safe_min = std::numeric_limits<real_t>::min();
+    const real_t sml_num  = safe_min / eps;
+    const real_t sqrt_sml = sqrt( sml_num );
+    const real_t big_num  = 1 / sqrt_sml;
 
     const auto mpi_real_type = mpi_type< blas::real_type<scalar_t> >::value;
 
+    // Options
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     int64_t m = A.m();
@@ -94,13 +103,7 @@ void gesvd(
 
     // Scale A if max element outside range (smlnum, bignum).
     real_t Anorm = norm( slate::Norm::Max, A );
-    const real_t eps = std::numeric_limits<real_t>::epsilon();
-    const real_t safe_min = std::numeric_limits< real_t >::min();
-    const real_t sml_num  = safe_min / eps;
-    const real_t sqrt_sml = sqrt( sml_num );
-    const real_t big_num = 1 / sqrt_sml;
 
-    real_t rzero = 0.;
     real_t scl = 1.;
     bool is_scale = false;
 
@@ -109,7 +112,7 @@ void gesvd(
         Sigma.assign( Sigma.size(), Anorm );
         return;
     }
-    else if (Anorm > rzero && Anorm < sqrt_sml) {
+    else if (Anorm > r_zero && Anorm < sqrt_sml) {
        is_scale = true;
        scl = sqrt_sml;
        scale( scl, Anorm, A, opts );
@@ -239,7 +242,6 @@ void gesvd(
         internal::copytb2bd(Aband, Sigma, E);
     }
 
-    int izero = 0;
     int64_t ncvt = 0, nru = 0, ldvt = 1, ldu = 1;
 
     std::vector<scalar_t> U1D_row_cyclic_data(1);

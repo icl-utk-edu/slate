@@ -45,7 +45,7 @@ void gecopy(Tile<src_scalar_t> const& A, Tile<dst_scalar_t>& B)
     bool B_is_conj = B.op() == Op::ConjTrans;
 
     if (A_is_conj != B_is_conj) {
-        // (A is conj) or (B is conj)
+        // (A is conj) xor (B is conj)
         for (int64_t j = 0; j < B.nb(); ++j) {
             const src_scalar_t* Aj = &A00[j*a_row_inc];
             dst_scalar_t* Bj = &B00[j*b_row_inc];

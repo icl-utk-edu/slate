@@ -99,8 +99,8 @@ HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
 
 force: ;
 
-# Auto-detect CUDA, HIP.
-ifneq ($(filter-out auto cuda hip onemkl none, $(gpu_backend)),)
+# Auto-detect CUDA, HIP, SYCL.
+ifneq ($(filter-out auto cuda hip sycl none, $(gpu_backend)),)
     $(error ERROR: gpu_backend = $(gpu_backend) is unknown)
 endif
 
@@ -137,9 +137,9 @@ endif
 omptarget = 0
 ifneq ($(cuda),1)
 ifneq ($(hip),1)
-    ifeq (${gpu_backend},onemkl)
-        # enable the omptarget offload kernels in SLATE
-        $(info Note: enabling onemkl)
+    ifeq (${gpu_backend},sycl)
+        # enable the omptarget offload kernels in SLATE for oneMKL-SYCL devices
+        $(info Note: enabling omp-target-offload kernels)
         omptarget = 1
     endif
 endif
@@ -1420,7 +1420,10 @@ echo:
 	@echo "hip_hdr       = ${hip_hdr}"
 	@echo "md5_files     = $(md5_files)"
 	@echo
-	@echo "---------- oneMKL options"
+	@echo "---------- SYCL options"
+	@echo "sycl          = '$(sycl)'"
+	@echo
+	@echo "---------- OMP target-offload kernel options"
 	@echo "omptarget     = '${omptarget}'"
 	@echo "omptarget_src = ${omptarget_src}"
 	@echo "omptarget_hdr = ${omptarget_hdr}"

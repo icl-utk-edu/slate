@@ -66,15 +66,15 @@ namespace slate {
 /// GPU device implementations of kernels.
 namespace device {
 
-// For the present, use omptarget-kernels when OneMKL is used
-#if defined( BLAS_HAVE_ONEMKL )
+// Use omp-target-kernels when OneMKL-SYCL is used
+#if defined( BLAS_HAVE_SYCL )
     #define SLATE_HAVE_OMPTARGET
 #endif
 
-// Simplify checking for GPU device support (CUDA / ROCm / OneMKL).
+// Simplify checking for GPU device support (CUDA / ROCm / SYCL).
 #if defined( BLAS_HAVE_CUBLAS ) \
     || defined( BLAS_HAVE_ROCBLAS ) \
-    || defined( SLATE_HAVE_OMPTARGET )
+    || defined( BLAS_HAVE_SYCL )
     #define SLATE_HAVE_DEVICE
 #endif
 

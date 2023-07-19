@@ -3,7 +3,7 @@ cmake_minimum_required( VERSION 3.15 )
 set( slate_use_openmp "@slate_use_openmp@" )
 set( slate_use_cuda   "@slate_use_cuda@" )
 set( slate_use_hip    "@slate_use_hip@" )
-set( slate_use_onemkl "@slate_use_onemkl@" )
+set( slate_use_sycl   "@slate_use_sycl@" )
 set( slate_use_mpi    "@slate_use_mpi@" )
 
 include( CMakeFindDependencyMacro )

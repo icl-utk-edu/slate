@@ -46,7 +46,7 @@ option( c_api "Build C API" false )
 
 set( gpu_backend "auto" CACHE STRING "GPU backend to use" )
 set_property( CACHE gpu_backend PROPERTY STRINGS
-              auto cuda hip onemkl none )
+              auto cuda hip sycl none )
 
 # Default prefix=/opt/slate
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT
@@ -98,7 +98,7 @@ set_property( CACHE CMAKE_CUDA_ARCHITECTURES PROPERTY STRINGS
 #-----------------------------------
 # BLAS options
 # SLATE defaults to single-threaded BLAS.
-set( blas_threaded "false" CACHE STRING
+set( blas_threaded "auto" CACHE STRING
      "Multi-threaded BLAS? (Passed to BLAS++.)" )
 set_property(
     CACHE blas_threaded PROPERTY STRINGS
@@ -583,17 +583,17 @@ else()
 endif()
 
 #-------------------------------------------------------------------------------
-# OneMKL support.
+# SYCL support.
 message( "" )
-message( "---------------------------------------- OneMKL: gpu_backend = ${gpu_backend}" )
-set( slate_use_onemkl false )  # output in slateConfig.cmake.in
-if (gpu_backend MATCHES "^(onemkl|auto)$")
-    message( STATUS "Looking for OneMKL" )
+message( "---------------------------------------- oneMKL-SYCL: gpu_backend = ${gpu_backend}" )
+set( slate_use_sycl false )  # output in slateConfig.cmake.in
+if (gpu_backend MATCHES "^(sycl|auto)$")
+    message( STATUS "Looking for oneMKL-SYCL" )
     if ( TARGET MKL::MKL_DPCPP ) # Search for MKL only if not already been found
         set( MKL_FOUND true )
     endif()
     if ( NOT MKL_FOUND ) # Search for MKL only if not already been found
-        if (gpu_backend STREQUAL "onemkl")
+        if (gpu_backend STREQUAL "sycl")
             find_package( MKL CONFIG REQUIRED HINTS "$ENV{MKL_ROOT}")
         else()
             find_package( MKL CONFIG QUIET HINTS "$ENV{MKL_ROOT}")
@@ -601,9 +601,14 @@ if (gpu_backend MATCHES "^(onemkl|auto)$")
     endif()
     # message(STATUS "Available targets: ${MKL_IMPORTED_TARGETS}")
 
-    if (MKL_FOUND)
-        set( gpu_backend "onemkl" )
-        set( slate_use_onemkl true )
+    # Check if compiler supports the SYCL flag
+    check_cxx_compiler_flag( "-fsycl" FSYCL_SUPPORT )
+
+    # If oneMKL is found and the compiler supports SYCL then
+    # enable oneMKL-SYCL-device support
+    if (MKL_FOUND AND FSYCL_SUPPORT)
+        set( gpu_backend "sycl" )
+        set( slate_use_sycl true )
         # enable the omptarget offload kernels in SLATE
         set( omptarget 1 )
 
@@ -618,14 +623,12 @@ if (gpu_backend MATCHES "^(onemkl|auto)$")
             ${libslate_omptarget_src}
         )
 
-        # target_compile_options( slate PUBLIC -fsycl )
-        target_compile_options( slate PUBLIC -fp-model=precise )
-        target_compile_options( slate PUBLIC -fiopenmp -fopenmp-targets=spir64 )
-        target_link_options( slate PUBLIC -fiopenmp -fopenmp-targets=spir64 )
         target_link_libraries( slate PUBLIC -lmkl_sycl -lsycl -lOpenCL )
-        message( STATUS "Building OneMKL (omptarget) support in SLATE" )
+        message( STATUS "Building OneMKL-SYCL device support" )
+    elseif (gpu_backend STREQUAL "sycl")
+        message( FATAL_ERROR "SYCL compiler not found" )
     else()
-        message( STATUS "Not building OneMKL support in SLATE" )
+        message( STATUS "No oneMKL-SYCL device support: oneMKL or SYCL compiler not found" )
     endif()
 endif()
 

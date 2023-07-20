@@ -21,8 +21,12 @@ namespace device {
 ///
 template <typename scalar_t>
 void transpose_sqr_batch_func(
-    int n, scalar_t** Aarray, int64_t lda, int batch_count, blas::Queue& queue)
+    bool is_conj,
+    int n,
+    scalar_t** Aarray, int64_t lda,
+    int batch_count, blas::Queue& queue)
 {
+    using blas::conj;
     static const int ib = 16;
     queue.sync(); // sync queue before switching to openmp device execution
     // i, j are row & column indices of top-left corner of each local block.
@@ -52,7 +56,8 @@ void transpose_sqr_batch_func(
                     #pragma omp parallel for simd collapse(2)
                     for (int ii = 0; ii < max_ii; ++ii)
                         for (int jj = 0; jj < max_jj; ++jj)
-                            A[i+ii + (j+jj)*lda] = sA1[ii][jj];
+                            A[i+ii + (j+jj)*lda] =
+                                (is_conj) ? conj(sA1[ii][jj]) : sA1[ii][jj];
                 }
                 else { // off-diagonal block
                     // Load blocks A(i, j) and A(j, i) into shared memory sA1 and sA2.
@@ -68,11 +73,15 @@ void transpose_sqr_batch_func(
                     #pragma omp parallel for simd collapse(2)
                     for (int ii = 0; ii < max_ii; ++ii)
                         for (int jj = 0; jj < max_jj; ++jj)
-                            A[i+ii + (j+jj)*lda] = sA2[jj][ii]; // A(i,j)=trans(sA2)=sA2(i,j)
+                            // A(i,j)=trans(sA2)=sA2(i,j)
+                            A[i+ii + (j+jj)*lda] =
+                                (is_conj) ? conj(sA2[jj][ii]) : sA2[jj][ii];
                     #pragma omp parallel for simd collapse(2)
                     for (int ii = 0; ii < max_ii; ++ii)
                         for (int jj = 0; jj < max_jj; ++jj)
-                            A[j+jj + (i+ii)*lda] = sA1[ii][jj]; // A(j,i)=trans(sA1)=sA1(j,i)
+                            // A(j,i)=trans(sA1)=sA1(j,i)
+                            A[j+jj + (i+ii)*lda] =
+                                (is_conj) ? conj(sA1[ii][jj]) : sA1[ii][jj];
                 }
             }
         }
@@ -88,8 +97,12 @@ void transpose_sqr_batch_func(
 ///
 template <typename scalar_t>
 void transpose_sqr_func(
-    int n, scalar_t* A, int64_t lda, blas::Queue& queue)
+    bool is_conj,
+    int n,
+    scalar_t* A, int64_t lda,
+    blas::Queue& queue)
 {
+    using blas::conj;
     // printf("%s:%d sqr queue.device() %d\n", __FILE__, __LINE__, queue.device());
 
     static const int ib = 16;
@@ -118,8 +131,9 @@ void transpose_sqr_func(
                 // Save transposed block, A(i, j) = trans(sA1).
                 #pragma omp parallel for simd collapse(2)
                 for (int ii = 0; ii < max_ii; ++ii)
-                        for (int jj = 0; jj < max_jj; ++jj)
-                            A[i+ii + (j+jj)*lda] = sA1[ii][jj];
+                    for (int jj = 0; jj < max_jj; ++jj)
+                        A[i+ii + (j+jj)*lda] =
+                            (is_conj) ? conj(sA1[ii][jj]) : sA1[ii][jj];
             }
             else { // off-diagonal block
                 // Load blocks A(i, j) and A(j, i) into shared memory sA1 and sA2.
@@ -135,11 +149,15 @@ void transpose_sqr_func(
                 #pragma omp parallel for simd collapse(2)
                 for (int ii = 0; ii < max_ii; ++ii)
                     for (int jj = 0; jj < max_jj; ++jj)
-                        A[i+ii + (j+jj)*lda] = sA2[jj][ii]; // A(i,j)=trans(sA2)=sA2(i,j)
+                        // A(i,j)=trans(sA2)=sA2(i,j)
+                        A[i+ii + (j+jj)*lda] =
+                            (is_conj) ? conj(sA2[jj][ii]) : sA2[jj][ii];
                 #pragma omp parallel for simd collapse(2)
                 for (int ii = 0; ii < max_ii; ++ii)
                     for (int jj = 0; jj < max_jj; ++jj)
-                        A[j+jj + (i+ii)*lda] = sA1[ii][jj]; // A(j,i)=trans(sA1)=sA1(j,i)
+                        // A(j,i)=trans(sA1)=sA1(j,i)
+                        A[j+jj + (i+ii)*lda] =
+                            (is_conj) ? conj(sA1[ii][jj]) : sA1[ii][jj];
             }
         }
     }
@@ -154,11 +172,13 @@ void transpose_sqr_func(
 ///
 template <typename scalar_t, int NX>
 void transpose_rect_batch_func(
+    bool is_conj,
     int m, int n,
     scalar_t** dAarray, int64_t lda,
     scalar_t** dATarray, int64_t ldat,
     int batch_count, blas::Queue& queue)
 {
+    using blas::conj;
     static const int NB = 32;
     queue.sync(); // sync queue before switching to openmp device execution
     // i, j are row & column indices of top-left corner of each local block.
@@ -187,7 +207,8 @@ void transpose_rect_batch_func(
                 #pragma omp parallel for simd collapse(2)
                 for (int ii = 0; ii < max_NX; ++ii)
                     for (int jj = 0; jj < max_NB; ++jj)
-                        dAT[j+jj + (i+ii)*ldat] = sA[ii][jj];
+                        dAT[j+jj + (i+ii)*ldat] =
+                            (is_conj) ? conj(sA[ii][jj]) : sA[ii][jj];
             }
         }
     }
@@ -202,11 +223,13 @@ void transpose_rect_batch_func(
 ///
 template <typename scalar_t, int NX>
 void transpose_rect_func(
+    bool is_conj,
     int m, int n,
     scalar_t* dA, int64_t lda,
     scalar_t* dAT, int64_t ldat,
     blas::Queue& queue)
 {
+    using blas::conj;
     static const int NB = 32;
     queue.sync(); // sync queue before switching to openmp device execution
     // i, j are row & column indices of top-left corner of each local block.
@@ -232,7 +255,8 @@ void transpose_rect_func(
             #pragma omp parallel for simd collapse(2)
             for (int ii = 0; ii < max_NX; ++ii)
                 for (int jj = 0; jj < max_NB; ++jj)
-                    dAT[j+jj + (i+ii)*ldat] = sA[ii][jj];
+                    dAT[j+jj + (i+ii)*ldat] =
+                        (is_conj) ? conj(sA[ii][jj]) : sA[ii][jj];
         }
     }
 }
@@ -255,6 +279,7 @@ void transpose_rect_func(
 ///
 template <typename scalar_t>
 void transpose(
+    bool is_conj,
     int64_t n,
     scalar_t* A, int64_t lda,
     blas::Queue& queue)
@@ -263,7 +288,7 @@ void transpose(
         return;
     assert(lda >= n);
 
-    transpose_sqr_func(n, A, lda, queue);
+    transpose_sqr_func(is_conj, n, A, lda, queue);
 }
 
 //------------------------------------------------------------------------------
@@ -289,6 +314,7 @@ void transpose(
 ///
 template <typename scalar_t>
 void transpose_batch(
+    bool is_conj,
     int64_t n,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count,
@@ -298,7 +324,8 @@ void transpose_batch(
         return;
     assert(lda >= n);
 
-    transpose_sqr_batch_func(n, Aarray, lda, batch_count, queue);
+    transpose_sqr_batch_func(
+        is_conj, n, Aarray, lda, batch_count, queue);
 }
 
 //------------------------------------------------------------------------------
@@ -331,6 +358,7 @@ void transpose_batch(
 ///
 template <typename scalar_t, int NX>
 void transpose(
+    bool is_conj,
     int64_t m, int64_t n,
     scalar_t* dA,  int64_t lda,
     scalar_t* dAT, int64_t ldat,
@@ -341,7 +369,8 @@ void transpose(
     assert(lda >= m);
     assert(ldat >= n);
 
-    transpose_rect_func<scalar_t, NX>( m, n, dA, lda, dAT, ldat, queue );
+    transpose_rect_func<scalar_t, NX>(
+        is_conj, m, n, dA, lda, dAT, ldat, queue );
 }
 
 //------------------------------------------------------------------------------
@@ -378,6 +407,7 @@ void transpose(
 ///
 template <typename scalar_t, int NX>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     scalar_t **dA_array,  int64_t lda,
     scalar_t **dAT_array, int64_t ldat,
@@ -389,7 +419,8 @@ void transpose_batch(
     assert(lda >= m);
     assert(ldat >= n);
 
-    transpose_rect_batch_func<scalar_t, NX>( m, n, dA_array, lda, dAT_array, ldat, batch_count, queue );
+    transpose_rect_batch_func<scalar_t, NX>(
+        is_conj, m, n, dA_array, lda, dAT_array, ldat, batch_count, queue );
 }
 
 //------------------------------------------------------------------------------
@@ -398,24 +429,28 @@ void transpose_batch(
 
 template
 void transpose(
+    bool is_conj,
     int64_t n,
     float* A, int64_t lda,
     blas::Queue& queue);
 
 template
 void transpose(
+    bool is_conj,
     int64_t n,
     double* A, int64_t lda,
     blas::Queue& queue);
 
 template
 void transpose(
+    bool is_conj,
     int64_t n,
     std::complex<float>* A, int64_t lda,
     blas::Queue& queue);
 
 template
 void transpose(
+    bool is_conj,
     int64_t n,
     std::complex<double>* A, int64_t lda,
     blas::Queue& queue);
@@ -426,6 +461,7 @@ void transpose(
 
 template
 void transpose_batch(
+    bool is_conj,
     int64_t n,
     float** Aarray, int64_t lda,
     int64_t batch_count,
@@ -433,6 +469,7 @@ void transpose_batch(
 
 template
 void transpose_batch(
+    bool is_conj,
     int64_t n,
     double** Aarray, int64_t lda,
     int64_t batch_count,
@@ -440,6 +477,7 @@ void transpose_batch(
 
 template
 void transpose_batch(
+    bool is_conj,
     int64_t n,
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count,
@@ -447,6 +485,7 @@ void transpose_batch(
 
 template
 void transpose_batch(
+    bool is_conj,
     int64_t n,
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count,
@@ -459,12 +498,14 @@ void transpose_batch(
 
 template<>
 void transpose(
+    bool is_conj,
     int64_t m, int64_t n,
     float* dA,  int64_t lda,
     float* dAT, int64_t ldat,
     blas::Queue& queue)
 {
     transpose<float,32>(
+        is_conj,
         m, n,
         dA,  lda,
         dAT, ldat,
@@ -473,12 +514,14 @@ void transpose(
 
 template<>
 void transpose(
+    bool is_conj,
     int64_t m, int64_t n,
     double* dA,  int64_t lda,
     double* dAT, int64_t ldat,
     blas::Queue& queue)
 {
     transpose<double,32>(
+        is_conj,
         m, n,
         dA,  lda,
         dAT, ldat,
@@ -487,12 +530,14 @@ void transpose(
 
 template<>
 void transpose(
+    bool is_conj,
     int64_t m, int64_t n,
     std::complex<float>* dA,  int64_t lda,
     std::complex<float>* dAT, int64_t ldat,
     blas::Queue& queue)
 {
     transpose<std::complex<float>,32>(
+        is_conj,
         m, n,
         dA,  lda,
         dAT, ldat,
@@ -501,12 +546,14 @@ void transpose(
 
 template<>
 void transpose(
+    bool is_conj,
     int64_t m, int64_t n,
     std::complex<double>* dA,  int64_t lda,
     std::complex<double>* dAT, int64_t ldat,
     blas::Queue& queue)
 {
     transpose<std::complex<double>,16>(
+        is_conj,
         m, n,
         dA,  lda,
         dAT, ldat,
@@ -519,6 +566,7 @@ void transpose(
 
 template<>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     float **dA_array,  int64_t lda,
     float **dAT_array, int64_t ldat,
@@ -526,6 +574,7 @@ void transpose_batch(
     blas::Queue& queue)
 {
     transpose_batch<float,32>(
+        is_conj,
         m, n,
         dA_array,  lda,
         dAT_array, ldat,
@@ -535,6 +584,7 @@ void transpose_batch(
 
 template<>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     double **dA_array,  int64_t lda,
     double **dAT_array, int64_t ldat,
@@ -542,6 +592,7 @@ void transpose_batch(
     blas::Queue& queue)
 {
     transpose_batch<double,32>(
+        is_conj,
         m, n,
         dA_array,  lda,
         dAT_array, ldat,
@@ -551,6 +602,7 @@ void transpose_batch(
 
 template<>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     std::complex<float> **dA_array,  int64_t lda,
     std::complex<float> **dAT_array, int64_t ldat,
@@ -558,6 +610,7 @@ void transpose_batch(
     blas::Queue& queue)
 {
     transpose_batch<std::complex<float>,32>(
+        is_conj,
         m, n,
         dA_array,  lda,
         dAT_array, ldat,
@@ -567,6 +620,7 @@ void transpose_batch(
 
 template<>
 void transpose_batch(
+    bool is_conj,
     int64_t m, int64_t n,
     std::complex<double> **dA_array,  int64_t lda,
     std::complex<double> **dAT_array, int64_t ldat,
@@ -574,6 +628,7 @@ void transpose_batch(
     blas::Queue& queue)
 {
     transpose_batch<std::complex<double>,16>(
+        is_conj,
         m, n,
         dA_array,  lda,
         dAT_array, ldat,

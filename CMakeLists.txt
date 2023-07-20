@@ -612,6 +612,12 @@ if (gpu_backend MATCHES "^(sycl|auto)$")
         # enable the omptarget offload kernels in SLATE
         set( omptarget 1 )
 
+        # Avoid "comparison with NaN" warnings from the SYCL
+        # Intel-IntelLLVM compiler while compiling omptarget offload
+        # routines. (the compiler uses fast floating point mode by
+        # default).
+        target_compile_options( slate PRIVATE -fp-model=precise )
+
         file(
             GLOB libslate_omptarget_src
             CONFIGURE_DEPENDS  # glob at build time

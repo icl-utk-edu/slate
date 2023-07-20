@@ -92,6 +92,13 @@ set_target_properties(
     CXX_EXTENSIONS false        # prohibit gnu++17
 )
 
+# Avoid "comparison with NaN" warnings from the SYCL Intel-IntelLLVM
+# compiler while compiling test/matrix_generator.cc (the compiler uses
+# fast floating point mode by default).
+if (gpu_backend STREQUAL "sycl" )
+   target_compile_options( ${tester} PRIVATE -fp-model=precise )
+endif()
+
 target_link_libraries(
     ${tester}
     testsweeper

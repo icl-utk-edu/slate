@@ -249,8 +249,8 @@ void generate_sigma(
     #pragma omp master
     for (int64_t i = 0; i < min_mt_nt; ++i) {
         if (A.tileIsLocal(i, i)) {
-            #pragma omp task slate_omp_default_none shared(A) \
-                firstprivate(i, Sigma, S_index)
+            #pragma omp task slate_omp_default_none shared(A, Sigma) \
+                firstprivate(i, S_index)
             {
                 A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
                 auto T = A(i, i);
@@ -375,8 +375,8 @@ void generate_svd(
         #pragma omp master
         for (int64_t i = 0; i < min_mt_nt; ++i) {
             if (A.tileIsLocal(i, i)) {
-                #pragma omp task slate_omp_default_none shared(A) \
-                    firstprivate(i, Sigma, S_index)
+                #pragma omp task slate_omp_default_none shared(A, Sigma) \
+                    firstprivate(i, S_index)
                 {
                     A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
                     auto Aii = A(i, i);

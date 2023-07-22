@@ -384,7 +384,7 @@ ifeq ($(hip),1)
     endif
 
     # Generate hipcc target options for all gfx in hip_arch_.
-    offload_arch = $(foreach arch, $(gfx),--offload_arch=$(arch))
+    offload_arch = $(foreach arch, $(gfx),--offload-arch=$(arch))
     HIPCCFLAGS += $(offload_arch)
     FLAGS += -I${ROCM_PATH}/include -D__HIP_PLATFORM_AMD__
     LIBS  += -L$(ROCM_PATH)/lib -Wl,-rpath,${ROCM_PATH}/lib -lrocsolver -lrocblas -lamdhip64

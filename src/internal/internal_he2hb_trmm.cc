@@ -64,7 +64,7 @@ void he2hb_trmm(
     for (int64_t i = 0; i < B.mt(); ++i) {
         #pragma omp task slate_omp_default_none \
             shared( A0, AH, B, panel_rank_rows ) \
-            firstprivate( one, i, mpi_rank ) \
+            firstprivate( one, i, mpi_rank, layoutc ) \
             priority( priority )
         {
             int rank_lower = -1;
@@ -130,7 +130,7 @@ void he2hb_trmm(
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none \
             shared( A, AH, B, panel_rank_rows ) \
-            firstprivate( device, queue_index, mpi_rank ) \
+            firstprivate( device, queue_index, mpi_rank, layout, layoutc ) \
             priority( priority )
         {
             std::set<ij_tuple> B_tiles_set, A0_tiles_set;

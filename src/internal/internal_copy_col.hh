@@ -122,7 +122,6 @@ void copy_col(
     assert( A.mt() == B.mt() );
 
     int64_t mt = A.mt();
-    int64_t ii = 0;
     for (int64_t i = 0; i < mt; ++i) {
         if (A.tileIsLocal( i, j )) {
             assert( B.tileIsLocal( i, j ) );
@@ -131,10 +130,8 @@ void copy_col(
             int64_t mb = Aij.mb();
             assert( mb == Bik.mb() );
             blas::copy( mb, &Aij.at( 0, jj ), 1, &Bik.at( 0, kk ), 1 );
-            ii += mb;
         }
     }
-    //assert( ii == mlocal );
 }
 
 } // namespace internal

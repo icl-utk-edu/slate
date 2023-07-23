@@ -172,7 +172,7 @@ void he2hb(
     // tracks dependencies by block-column.
     std::vector< uint8_t > block_vector( nt + 2 );
     uint8_t* block = block_vector.data();
-    uint8_t* fetch_trailing  = &block_vector[ nt+1 ];
+    uint8_t* fetch_trailing = &block_vector[ nt+1 ];
     SLATE_UNUSED( block ); // Used only by OpenMP
     SLATE_UNUSED( fetch_trailing ); // Used only by OpenMP
 
@@ -215,7 +215,7 @@ void he2hb(
                 depend( inout:block[ k ] ) \
                 shared( dwork_array ) \
                 firstprivate(  A_panel, Tlocal_panel, Treduce_panel, \
-                               ib, max_panel_threads, work_size )
+                               ib, max_panel_threads, work_size, priority_1 )
             {
                 internal::geqrf<target>(
                     std::move( A_panel ),
@@ -237,7 +237,8 @@ void he2hb(
                 #pragma omp task slate_omp_default_none \
                     depend( inout:block[ k ] ) \
                     shared( A, Treduce, Tlocal ) \
-                    firstprivate( A_panel, k, nt, panel_ranks, first_indices )
+                    firstprivate( A_panel, k, nt, panel_ranks, first_indices, \
+                                  set_hold, layout )
                 {
                     // Send V across row i & col i for trailing matrix update.
                     BcastListTag bcast_list_V_first;
@@ -314,7 +315,7 @@ void he2hb(
                 #pragma omp task slate_omp_default_none \
                     depend( inout:fetch_trailing[ 0 ] ) \
                     shared( A, W ) \
-                    firstprivate( zero, A_panel, k, nt, panel_ranks )
+                    firstprivate( zero, A_panel, k, nt, panel_ranks, layoutc )
                 {
                     // todo: insert and set on device?
                     // todo: do we need entire column, or subset? needs W[ my_rows + my_cols ].
@@ -342,7 +343,8 @@ void he2hb(
                             for (int device = 0; device < W_panel.num_devices(); ++device) {
                                 #pragma omp task slate_omp_default_none \
                                     shared( A, W ) \
-                                    firstprivate( k, nt, device, panel_rank_rows )
+                                    firstprivate( k, nt, device, panel_rank_rows, \
+                                                  layoutc )
                                 {
                                     std::set<ij_tuple> A_tiles_set, A_panel_tiles_set, W_tiles_set;
                                     for (int64_t j : panel_rank_rows) {
@@ -367,13 +369,13 @@ void he2hb(
 
                                         #pragma omp task slate_omp_default_none \
                                             shared( A, A_tiles_set ) \
-                                            firstprivate( device )
+                                            firstprivate( device, layoutc )
                                         {
                                             A.tileGetForReading( A_tiles_set, device, layoutc );
                                         }
                                         #pragma omp task slate_omp_default_none \
                                             shared( W, W_tiles_set ) \
-                                            firstprivate( device )
+                                            firstprivate( device, layoutc )
                                         {
                                             W.tileGetForWriting( W_tiles_set, device, layoutc );
                                         }
@@ -409,7 +411,7 @@ void he2hb(
                     #pragma omp task slate_omp_default_none \
                         depend( inout:block[ k ] ) \
                         shared( A, Asave ) \
-                        firstprivate( zero, one, i0, k, dev_i0k )
+                        firstprivate( zero, one, i0, k, dev_i0k, layoutc )
                     {
                         if (A.tileExists( i0, k, dev_i0k)) {
                             A.tileGetForWriting( i0, k, HostNum, layoutc );
@@ -430,9 +432,10 @@ void he2hb(
                         depend( inout:block[ nt-1 ] ) \
                         depend( inout:fetch_trailing[ 0 ] ) \
                         shared( A, W, Wtmp, Tlocal, TVAVT ) \
-                        firstprivate( zero, half, one, i0, k, nt, panel_rank, \
-                                      panel_rank_rows, panel_rank_rows_sub, \
-                                      mpi_rank )
+                        firstprivate( zero, half, one, r_one, i0, k, nt, \
+                                      panel_rank, panel_rank_rows, \
+                                      panel_rank_rows_sub, mpi_rank, \
+                                      layout, layoutc )
                     {
                         // Compute W = A V T.
                         // 1a. Wi_part = sum_j Aij Vj, local partial sum,
@@ -450,7 +453,7 @@ void he2hb(
                         for (int64_t i = k+1; i < nt-1; ++i) {
                             #pragma omp task slate_omp_default_none \
                                 shared( A, W, Wtmp, panel_rank_rows ) \
-                                firstprivate( one, i, k, mpi_rank )
+                                firstprivate( one, i, k, mpi_rank, layout, layoutc )
                             {
                                 int rank_lower = -1;
                                 int rank_upper = -1;
@@ -589,7 +592,7 @@ void he2hb(
                     #pragma omp task slate_omp_default_none \
                         depend( inout:block[ k ] ) \
                         shared( A, Asave ) \
-                        firstprivate( i0, k, dev_i0k )
+                        firstprivate( i0, k, dev_i0k, layoutc )
                     {
                         if (A.tileExists( i0, k, dev_i0k )) {
                             A.tileGetForWriting( i0, k, layoutc );

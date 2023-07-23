@@ -17,6 +17,9 @@ parser.add_argument( '--run', action='store', default='mpirun -np',
 parser.add_argument( '--np', action='store', default='4',
                      help='number of MPI processes; default=%(default)s' )
 
+parser.add_argument( '--type', action='store', default='s d c z',
+                     help='data types, space separated; default=%(default)s' )
+
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 
 opts = parser.parse_args()
@@ -54,11 +57,11 @@ tests = [
     './ex05_blas',
     './ex06_linear_system_lu',
     './ex07_linear_system_cholesky',
-    #'./ex08_linear_system_indefinite',       # failing
+    './ex08_linear_system_indefinite',
     './ex09_least_squares',
     './ex10_svd',
-    #'./ex11_hermitian_eig',                  # failing
-    #'./ex12_generalized_hermitian_eig',      # failing
+    './ex11_hermitian_eig',
+    './ex12_generalized_hermitian_eig',
     './ex13_non_uniform_block_size',
     './ex14_scalapack_gemm',
 ]
@@ -72,8 +75,9 @@ print( 'runner', runner )
 
 failed_tests = []
 
+types = opts.type.split()
 for test in tests:
-    cmd = runner + test.split()
+    cmd = runner + test.split() + types
     err = run_test( cmd )
     if (err):
         failed_tests.append( test )

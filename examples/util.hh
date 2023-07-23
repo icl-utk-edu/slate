@@ -9,7 +9,8 @@
 //------------------------------------------------------------------------------
 void print_func_( int rank, const char* func )
 {
-    printf( "rank %d: %s\n", rank, func );
+    if (rank == 0)
+        printf( "rank %d: %s\n", rank, func );
 }
 
 #ifdef __GNUC__
@@ -165,5 +166,40 @@ void grid_size_square( int mpi_size, int* p_out, int* q_out )
 //------------------------------------------------------------------------------
 // suppress compiler "unused" warning for variable x
 #define unused( x ) ((void) x)
+
+//------------------------------------------------------------------------------
+// Parse command line options:
+// s = single,         sets types[ 0 ]
+// d = double,         sets types[ 1 ]
+// c = complex,        sets types[ 2 ]
+// z = double-complex, sets types[ 3 ]
+// If no options, sets all types to true.
+// Throws error for unknown options.
+void parse_args( int argc, char** argv, bool types[ 4 ] )
+{
+    if (argc == 1) {
+        types[ 0 ] = types[ 1 ] = types[ 2 ] = types[ 3 ] = true;
+    }
+    else {
+        types[ 0 ] = types[ 1 ] = types[ 2 ] = types[ 3 ] = false;
+    }
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[ i ];
+        if (arg == "s")
+            types[ 0 ] = true;
+        else if (arg == "d")
+            types[ 1 ] = true;
+        else if (arg == "c")
+            types[ 2 ] = true;
+        else if (arg == "z")
+            types[ 3 ] = true;
+        else {
+            throw std::runtime_error(
+                "unknown option: \"" + arg + "\"\n"
+                + "Usage: " + argv[ 0 ] + " [s] [d] [c] [z]\n"
+                + "for single, double, complex, double-complex.\n" );
+        }
+    }
+}
 
 #endif // UTIL_H

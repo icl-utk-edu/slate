@@ -39,15 +39,23 @@ set(
     ex05_blas.cc
     ex06_linear_system_lu.cc
     ex07_linear_system_cholesky.cc
-    # ex08_linear_system_indefinite.cc      # failing
+    ex08_linear_system_indefinite.cc
     ex09_least_squares.cc
     ex10_svd.cc
-    # ex11_hermitian_eig.cc                 # failing
-    # ex12_generalized_hermitian_eig.cc     # failing
+    ex11_hermitian_eig.cc
+    ex12_generalized_hermitian_eig.cc
     ex13_non_uniform_block_size.cc
+    # ex14_scalapack_gemm.cc  # requires -lscalapack
 )
 
 enable_testing()
+
+# Get precisions to test. See .github/workflows/test.sh
+set( test_args $ENV{test_args} )
+if (NOT test_args)
+    set( test_args "s d c z" )
+endif()
+string( REPLACE " " ";" test_args ${test_args} ) # convert to list
 
 foreach (src IN LISTS src_list)
     string( REPLACE ".cc" ""     exe "${src}" )
@@ -60,23 +68,11 @@ foreach (src IN LISTS src_list)
     list( APPEND txt_list "${txt}" )
     list( APPEND exe_list "${exe}" )
 
-    # Can use custom targets and add dependency to serialize execution,
-    # but then if a test fails `make run` halts. Otherwise, need to
-    # use `make -k -j1 run`.
-    ## add_custom_target(
-    ##     "${txt}"
-    ##     DEPENDS "${exe}"  ### ${last_txt}
-    ##     COMMAND mpirun -np 4 ./${exe} > ${txt}
-    ## )
-    ### set( last_txt "${txt}" )
-
     # ctest can't redirect the output of each test to a file.
     # It saves all the output to Testing/Temporary/LastTest.log
     # Using `make test ARGS="-V"` prints output to terminal,
     # with test ID prefixed.
-    add_test( NAME "${exe}" COMMAND mpirun -np 4 ./${exe} )
+    add_test( NAME "${exe}" COMMAND mpirun -np 4 ./${exe} ${test_args} )
 endforeach()
 
 set_tests_properties( ${exe_list} PROPERTIES RUN_SERIAL true )
-
-## add_custom_target( run DEPENDS ${txt_list} )

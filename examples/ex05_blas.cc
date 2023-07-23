@@ -191,54 +191,76 @@ void test_trmm_trsm()
 //------------------------------------------------------------------------------
 int main( int argc, char** argv )
 {
-    int provided = 0;
-    int err = MPI_Init_thread( &argc, &argv, MPI_THREAD_MULTIPLE, &provided );
-    assert( err == 0 );
-    assert( provided == MPI_THREAD_MULTIPLE );
+    try {
+        // Parse command line to set types for s, d, c, z precisions.
+        bool types[ 4 ];
+        parse_args( argc, argv, types );
 
-    slate_mpi_call(
-        MPI_Comm_size( MPI_COMM_WORLD, &mpi_size ) );
+        int provided = 0;
+        slate_mpi_call(
+            MPI_Init_thread( &argc, &argv, MPI_THREAD_MULTIPLE, &provided ) );
+        assert( provided == MPI_THREAD_MULTIPLE );
 
-    slate_mpi_call(
-        MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank ) );
+        slate_mpi_call(
+            MPI_Comm_size( MPI_COMM_WORLD, &mpi_size ) );
 
-    // Determine p-by-q grid for this MPI size.
-    grid_size( mpi_size, &grid_p, &grid_q );
-    if (mpi_rank == 0) {
-        printf( "mpi_size %d, grid_p %d, grid_q %d\n",
-                mpi_size, grid_p, grid_q );
+        slate_mpi_call(
+            MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank ) );
+
+        // Determine p-by-q grid for this MPI size.
+        grid_size( mpi_size, &grid_p, &grid_q );
+        if (mpi_rank == 0) {
+            printf( "mpi_size %d, grid_p %d, grid_q %d\n",
+                    mpi_size, grid_p, grid_q );
+        }
+
+        // so random_matrix is different on different ranks.
+        srand( 100 * mpi_rank );
+
+        if (types[ 0 ]) {
+            test_gemm< float >();
+            test_gemm_transpose< float >();
+            test_symm< float >();
+            test_syrk_syr2k< float >();
+            test_trmm_trsm< float >();
+        }
+        if (mpi_rank == 0)
+            printf( "\n" );
+
+        if (types[ 1 ]) {
+            test_gemm< double >();
+            test_gemm_transpose< double >();
+            test_symm< double >();
+            test_syrk_syr2k< double >();
+            test_trmm_trsm< double >();
+        }
+        if (mpi_rank == 0)
+            printf( "\n" );
+
+        if (types[ 2 ]) {
+            test_gemm< std::complex<float> >();
+            test_gemm_transpose< std::complex<float> >();
+            test_symm< std::complex<float> >();
+            test_syrk_syr2k< std::complex<float> >();
+            test_trmm_trsm< std::complex<float> >();
+        }
+        if (mpi_rank == 0)
+            printf( "\n" );
+
+        if (types[ 3 ]) {
+            test_gemm< std::complex<double> >();
+            test_gemm_transpose< std::complex<double> >();
+            test_symm< std::complex<double> >();
+            test_syrk_syr2k< std::complex<double> >();
+            test_trmm_trsm< std::complex<double> >();
+        }
+
+        slate_mpi_call(
+            MPI_Finalize() );
     }
-
-    // so random_matrix is different on different ranks.
-    srand( 100 * mpi_rank );
-
-    test_gemm< float >();
-    test_gemm< double >();
-    test_gemm< std::complex<float> >();
-    test_gemm< std::complex<double> >();
-
-    test_gemm_transpose< float >();
-    test_gemm_transpose< double >();
-    test_gemm_transpose< std::complex<float> >();
-    test_gemm_transpose< std::complex<double> >();
-
-    test_symm< float >();
-    test_symm< double >();
-    test_symm< std::complex<float> >();
-    test_symm< std::complex<double> >();
-
-    test_syrk_syr2k< float >();
-    test_syrk_syr2k< double >();
-    test_syrk_syr2k< std::complex<float> >();
-    test_syrk_syr2k< std::complex<double> >();
-
-    test_trmm_trsm< float >();
-    test_trmm_trsm< double >();
-    test_trmm_trsm< std::complex<float> >();
-    test_trmm_trsm< std::complex<double> >();
-
-    slate_mpi_call(
-        MPI_Finalize() );
-
+    catch (std::exception const& ex) {
+        fprintf( stderr, "%s", ex.what() );
+        return 1;
+    }
     return 0;
 }

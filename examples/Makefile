@@ -48,8 +48,12 @@ ${slate_exe}: %: %.o
 	${CXX} -o $@ $^ \
 		${LDFLAGS} ${slate_libs} ${LIBS}
 
+test_args ?= s d c z
+
+# CMake uses `make test`, GNU autotools uses `make check`; allow both.
+test: check
 check: ${exe}
-	./run_tests.py
+	./run_tests.py --type "${test_args}"
 
 #-------------------------------------------------------------------------------
 # Generic rules.

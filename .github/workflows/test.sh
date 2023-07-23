@@ -49,17 +49,24 @@ cd ${top}/examples
 if [ "${maker}" = "make" ]; then
     export PKG_CONFIG_PATH+=:${top}/install/lib/pkgconfig
     make clean || exit 20
-    make -j8   || exit 21
-    ./run_tests.py
-    (( err += $? ))
 
 elif [ "${maker}" = "cmake" ]; then
     rm -rf build && mkdir build && cd build
-    cmake "-DCMAKE_PREFIX_PATH=${top}/install" .. || exit 22
-    make -j8 || exit 23
-    make test
-    (( err += $? ))
+    cmake "-DCMAKE_PREFIX_PATH=${top}/install" .. || exit 30
 fi
+
+# Makefile or CMakeLists.txt picks up ${test_args}.
+if [ "${device}" = "gpu_intel" ]; then
+    # Our Intel GPU supports only single precision.
+    export test_args="s c"
+else
+    export test_args="s d c z"
+fi
+
+# ARGS=-V causes CTest to print output. Makefile doesn't use it.
+make -j8 || exit 40
+make test ARGS=-V
+(( err += $? ))
 
 print "======================================== Check HIP files are up-to-date"
 if [ "${maker}" = "make" ]; then

@@ -24,7 +24,8 @@ void slate_mpi_call_( int err, const char* file, int line )
         slate_mpi_call_( err, __FILE__, __LINE__ )
 
 //------------------------------------------------------------------------------
-void test_pdgemm()
+template <typename scalar_type>
+void test_pgemm()
 {
     print_func( mpi_rank );
 
@@ -51,7 +52,7 @@ void test_pdgemm()
     int descA[9];
     descinit( descA, &m, &k, &nb, &nb, &izero, &izero, &ictxt, &lldA, &info );
     assert( info == 0 );
-    std::vector<double> dataA( lldA * nlocA );
+    std::vector<scalar_type> dataA( lldA * nlocA );
     random_matrix( mlocA, nlocA, &dataA[0], lldA );
 
     // matrix B: get local size, allocate, create descriptor, initialize
@@ -61,7 +62,7 @@ void test_pdgemm()
     int descB[9];
     descinit( descB, &k, &n, &nb, &nb, &izero, &izero, &ictxt, &lldB, &info );
     assert( info == 0 );
-    std::vector<double> dataB( lldB * nlocB );
+    std::vector<scalar_type> dataB( lldB * nlocB );
     random_matrix( mlocB, nlocB, &dataB[0], lldB );
 
     // matrix C: get local size, allocate, create descriptor, initialize
@@ -71,47 +72,90 @@ void test_pdgemm()
     int descC[9];
     descinit( descC, &m, &n, &nb, &nb, &izero, &izero, &ictxt, &lldC, &info );
     assert( info == 0 );
-    std::vector<double> dataC( lldC * nlocC );
+    std::vector<scalar_type> dataC( lldC * nlocC );
     random_matrix( mlocC, nlocC, &dataC[0], lldC );
 
-    double alpha = 2.7183;
-    double beta  = 3.1415;
+    scalar_type alpha = 2.7183;
+    scalar_type beta  = 3.1415;
 
     // gemm: C = alpha A B + beta C
-    pdgemm( "notrans", "notrans", &m, &n, &k,
-            &alpha, &dataA[0], &ione, &ione, descA,
-                    &dataB[0], &ione, &ione, descB,
-            &beta,  &dataC[0], &ione, &ione, descC );
+    if constexpr (std::is_same< scalar_type, float >::value) {
+        psgemm( "notrans", "notrans", &m, &n, &k,
+                &alpha, &dataA[0], &ione, &ione, descA,
+                        &dataB[0], &ione, &ione, descB,
+                &beta,  &dataC[0], &ione, &ione, descC );
+    }
+    else if constexpr (std::is_same< scalar_type, double >::value) {
+        pdgemm( "notrans", "notrans", &m, &n, &k,
+                &alpha, &dataA[0], &ione, &ione, descA,
+                        &dataB[0], &ione, &ione, descB,
+                &beta,  &dataC[0], &ione, &ione, descC );
+    }
+    else if constexpr (std::is_same< scalar_type, std::complex<float> >::value) {
+        pcgemm( "notrans", "notrans", &m, &n, &k,
+                &alpha, &dataA[0], &ione, &ione, descA,
+                        &dataB[0], &ione, &ione, descB,
+                &beta,  &dataC[0], &ione, &ione, descC );
+    }
+    else if constexpr (std::is_same< scalar_type, std::complex<double> >::value) {
+        pzgemm( "notrans", "notrans", &m, &n, &k,
+                &alpha, &dataA[0], &ione, &ione, descA,
+                        &dataB[0], &ione, &ione, descB,
+                &beta,  &dataC[0], &ione, &ione, descC );
+    }
 }
 
 //------------------------------------------------------------------------------
 int main( int argc, char** argv )
 {
-    int provided = 0;
-    int err = MPI_Init_thread( &argc, &argv, MPI_THREAD_MULTIPLE, &provided );
-    assert( err == 0 );
-    assert( provided == MPI_THREAD_MULTIPLE );
+    try {
+        // Parse command line to set types for s, d, c, z precisions.
+        bool types[ 4 ];
+        parse_args( argc, argv, types );
 
-    slate_mpi_call(
-        MPI_Comm_size( MPI_COMM_WORLD, &mpi_size ) );
+        int provided = 0;
+        slate_mpi_call(
+            MPI_Init_thread( &argc, &argv, MPI_THREAD_MULTIPLE, &provided ) );
+        assert( provided == MPI_THREAD_MULTIPLE );
 
-    slate_mpi_call(
-        MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank ) );
+        slate_mpi_call(
+            MPI_Comm_size( MPI_COMM_WORLD, &mpi_size ) );
 
-    // Determine p-by-q grid for this MPI size.
-    grid_size( mpi_size, &grid_p, &grid_q );
-    if (mpi_rank == 0) {
-        printf( "mpi_size %d, grid_p %d, grid_q %d\n",
-                mpi_size, grid_p, grid_q );
+        slate_mpi_call(
+            MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank ) );
+
+        // Determine p-by-q grid for this MPI size.
+        grid_size( mpi_size, &grid_p, &grid_q );
+        if (mpi_rank == 0) {
+            printf( "mpi_size %d, grid_p %d, grid_q %d\n",
+                    mpi_size, grid_p, grid_q );
+        }
+
+        // so random_matrix is different on different ranks.
+        srand( 100 * mpi_rank );
+
+        if (types[ 0 ]) {
+            test_pgemm< float >();
+        }
+
+        if (types[ 1 ]) {
+            test_pgemm< double >();
+        }
+
+        if (types[ 2 ]) {
+            test_pgemm< std::complex<float> >();
+        }
+
+        if (types[ 3 ]) {
+            test_pgemm< std::complex<double> >();
+        }
+
+        slate_mpi_call(
+            MPI_Finalize() );
     }
-
-    // so random_matrix is different on different ranks.
-    srand( 100 * mpi_rank );
-
-    test_pdgemm();
-
-    slate_mpi_call(
-        MPI_Finalize() );
-
+    catch (std::exception const& ex) {
+        fprintf( stderr, "%s", ex.what() );
+        return 1;
+    }
     return 0;
 }

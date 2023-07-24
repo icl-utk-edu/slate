@@ -58,6 +58,9 @@ void gemmA(
     std::vector<uint8_t> gemmA_vector( A.nt() );
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemmA = gemmA_vector.data();
+    SLATE_UNUSED( bcast ); // Used only by OpenMP
+    SLATE_UNUSED( gemmA ); // Used only by OpenMP
+
     const int priority_0 = 0;
     const int queue_0 = 0;
 

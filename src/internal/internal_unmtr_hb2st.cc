@@ -114,6 +114,7 @@ void unmtr_hb2st( internal::TargetType<target>,
     // Add one phantom row at bottom to ease specifying dependencies.
     std::vector< uint8_t > row_vector(mt+1);
     uint8_t* row = row_vector.data();
+    SLATE_UNUSED( row ); // Used only by OpenMP
 
     // See SWAN13 for the definition of parallel tasks.
     //

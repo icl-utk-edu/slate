@@ -52,6 +52,7 @@ void gbtrf(
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
+    SLATE_UNUSED( column ); // Used only by OpenMP
 
     int64_t kl = A.lowerBandwidth();
     int64_t ku = A.upperBandwidth();

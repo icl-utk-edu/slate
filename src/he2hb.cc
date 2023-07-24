@@ -173,6 +173,8 @@ void he2hb(
     std::vector< uint8_t > block_vector( nt + 2 );
     uint8_t* block = block_vector.data();
     uint8_t* fetch_trailing  = &block_vector[ nt+1 ];
+    SLATE_UNUSED( block ); // Used only by OpenMP
+    SLATE_UNUSED( fetch_trailing ); // Used only by OpenMP
 
     // set min number for omp nested active parallel regions
     slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );

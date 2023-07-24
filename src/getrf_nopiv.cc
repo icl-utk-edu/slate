@@ -58,10 +58,13 @@ void getrf_nopiv(
     std::vector< uint8_t > diag_vector(A_nt);
     uint8_t* column = column_vector.data();
     uint8_t* diag = diag_vector.data();
+    SLATE_UNUSED( column ); // Used only by OpenMP
+    SLATE_UNUSED( diag   ); // Used only by OpenMP
+
     // Running two listBcastMT's simultaneously can hang due to task ordering
     // This dependency avoids that
     uint8_t listBcastMT_token;
-    SLATE_UNUSED(listBcastMT_token); // Only used by OpenMP
+    SLATE_UNUSED( listBcastMT_token ); // Used only by OpenMP
 
     // set min number for omp nested active parallel regions
     slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );

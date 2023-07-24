@@ -56,11 +56,15 @@ void hetrf(
     std::vector< uint8_t > column_vectorT(A_mt);
     uint8_t* columnL = column_vectorL.data();
     uint8_t* columnT = column_vectorT.data();
+    SLATE_UNUSED( columnL ); // Used only by OpenMP
+    SLATE_UNUSED( columnT ); // Used only by OpenMP
 
     std::vector< uint8_t > column_vectorH1(A_mt);
     std::vector< uint8_t > column_vectorH2(A_mt);
     uint8_t* columnH1 = column_vectorH1.data();
     uint8_t* columnH2 = column_vectorH2.data();
+    SLATE_UNUSED( columnH1 ); // Used only by OpenMP
+    SLATE_UNUSED( columnH2 ); // Used only by OpenMP
 
     //std::vector< uint8_t > Ind1(1);
     //std::vector< uint8_t > Ind2(A_mt);
@@ -124,6 +128,8 @@ void hetrf(
         if (T.tileIsLocal(k, k)) {
             // Intel icpc doesn't like std::max in omp task depend clause.
             int64_t k_1 = std::max(izero, k-1);
+            SLATE_UNUSED( k_1 ); // Used only by OpenMP
+
             #pragma omp task depend(in:columnL[k_1]) \
                              depend(out:columnT[k])
             {

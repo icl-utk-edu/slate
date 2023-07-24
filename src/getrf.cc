@@ -67,6 +67,7 @@ void getrf(
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
+    SLATE_UNUSED( column ); // Used only by OpenMP
 
     // Communication of the jth tile column uses the MPI tag j
     // So, the data dependencies protect the corresponding MPI tags

@@ -135,6 +135,7 @@ void gelqf(
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > block_vector(A_mt);
     uint8_t* block = block_vector.data();
+    SLATE_UNUSED( block ); // Used only by OpenMP
 
     // set min number for omp nested active parallel regions
     slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );

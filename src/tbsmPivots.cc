@@ -70,6 +70,7 @@ void tbsm(
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector<uint8_t> row_vector(A.nt());
     uint8_t* row = row_vector.data();
+    SLATE_UNUSED( row ); // Used only by OpenMP
 
     // todo: initially, assume fixed size, square tiles for simplicity
     int64_t kdt = ceildiv( A.bandwidth(), A.tileNb(0) );

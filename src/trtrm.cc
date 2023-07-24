@@ -43,6 +43,7 @@ void trtrm(
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > row_vector(A_nt);
     uint8_t* row = row_vector.data();
+    SLATE_UNUSED( row ); // Used only by OpenMP
 
     if (target == Target::Devices) {
         A.allocateBatchArrays();

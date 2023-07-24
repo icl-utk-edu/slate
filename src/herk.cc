@@ -55,6 +55,9 @@ void herk(
     std::vector<uint8_t>  gemm_vector(A.nt());
     uint8_t* bcast = bcast_vector.data();
     uint8_t* gemm  =  gemm_vector.data();
+    SLATE_UNUSED( bcast ); // Used only by OpenMP
+    SLATE_UNUSED( gemm  ); // Used only by OpenMP
+
     const int priority_0 = 0;
     const int queue_0 = 0;
 

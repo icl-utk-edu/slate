@@ -45,6 +45,8 @@ void trtri(
     std::vector< uint8_t > row_vector(A_nt);
     uint8_t* col = col_vector.data();
     uint8_t* row = row_vector.data();
+    SLATE_UNUSED( col ); // Used only by OpenMP
+    SLATE_UNUSED( row ); // Used only by OpenMP
 
     int tag = 0;
 

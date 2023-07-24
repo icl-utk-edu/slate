@@ -46,6 +46,7 @@ void potrf(
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
+    SLATE_UNUSED( column ); // Used only by OpenMP
 
     // set min number for omp nested active parallel regions
     slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
@@ -177,6 +178,7 @@ void potrf(
     // OpenMP needs pointer types, but vectors are exception safe
     std::vector< uint8_t > column_vector(A_nt);
     uint8_t* column = column_vector.data();
+    SLATE_UNUSED( column ); // Used only by OpenMP
 
     // Allocate batch arrays = number of kernels without lookahead + lookahead
     // number of kernels without lookahead = 3

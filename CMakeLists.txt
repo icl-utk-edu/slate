@@ -14,6 +14,8 @@ project(
     LANGUAGES CXX Fortran
 )
 
+include( CheckCXXCompilerFlag )
+
 # When built as a sub-project, add a namespace to make targets unique,
 # e.g., `make tester` becomes `make slate_tester`.
 if (CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)

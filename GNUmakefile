@@ -165,6 +165,14 @@ ifneq ($(c_api),1)
 endif
 
 #-------------------------------------------------------------------------------
+ifeq (${papi},1)
+    CXXFLAGS  += -DBLAS_HAVE_PAPI -I ${PAPI_DIR}/include
+    LDFLAGS   += -L ${PAPI_DIR}/lib -Wl,-rpath,${abspath ${PAPI_DIR}/lib}
+    LIBS      += -lsde
+    TEST_LIBS += -lpapi
+endif
+
+#-------------------------------------------------------------------------------
 # if shared
 ifneq ($(static),1)
     CXXFLAGS   += -fPIC

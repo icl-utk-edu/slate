@@ -56,6 +56,7 @@ public:
     testsweeper::ParamChar   hold_local_workspace;
     testsweeper::ParamChar   trace;
     testsweeper::ParamDouble trace_scale;
+    testsweeper::ParamChar   papi;
     testsweeper::ParamDouble tol;
     testsweeper::ParamInt    repeat;
     testsweeper::ParamInt    verbose;

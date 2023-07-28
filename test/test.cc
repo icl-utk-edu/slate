@@ -10,9 +10,16 @@
 #include <string.h>
 #include <unistd.h>
 
+#include <blas.hh>
+
 #include "test.hh"
 #include "slate/slate.hh"
 #include "matrix_generator.hh"
+
+#include "blas/counter.hh"
+#ifdef BLAS_HAVE_PAPI
+    #include "papi.h"
+#endif
 
 // -----------------------------------------------------------------------------
 using testsweeper::ParamType;
@@ -310,6 +317,7 @@ Params::Params():
     hold_local_workspace("hold-local-workspace", 0, ParamType::Value, 'n', "ny",  "do not erase tiles in local workspace"),
     trace     ("trace",   0,    ParamType::Value, 'n', "ny",  "enable/disable traces"),
     trace_scale("trace-scale", 0, 0, ParamType::Value, 1000, 1e-3, 1e6, "horizontal scale for traces, in pixels per sec"),
+    papi      ("papi",    0,    ParamType::Value, 'n', "ny",  "run papi instrumentation"),
 
     //         name,      w, p, type,         default, min,  max, help
     tol       ("tol",     0, 0, ParamType::Value,  50,   1, 1000, "tolerance (e.g., error < tol*epsilon to pass)"),
@@ -477,6 +485,7 @@ Params::Params():
     ref();
     trace();
     trace_scale();
+    papi();
     tol();
     repeat();
     verbose();
@@ -555,6 +564,19 @@ int print_reduce_error(
     }
 
     return err_first.err;
+}
+
+// -----------------------------------------------------------------------------
+void setup_PAPI( int *event_set )
+{
+    blas::counter::get();
+    #ifdef BLAS_HAVE_PAPI
+        slate_assert( PAPI_library_init( PAPI_VER_CURRENT ) == PAPI_VER_CURRENT );
+
+        slate_assert( PAPI_create_eventset( event_set ) == PAPI_OK );
+
+        slate_assert( PAPI_add_named_event( *event_set, "sde:::blas::counter" ) == PAPI_OK );
+    #endif
 }
 
 // -----------------------------------------------------------------------------
@@ -712,6 +734,18 @@ int run(int argc, char** argv)
             }
 
             for (int iter = 0; iter < repeat; ++iter) {
+                #ifdef BLAS_HAVE_PAPI
+                    int event_set = PAPI_NULL;
+                    long long counter_values[1];
+
+                    if (params.papi() == 'y') {
+                        // initialize papi
+                        setup_PAPI( &event_set );
+
+                        slate_assert( PAPI_start( event_set ) == PAPI_OK );
+                    }
+                #endif
+
                 try {
                     test_routine(params, true);
                 }
@@ -728,6 +762,17 @@ int run(int argc, char** argv)
                 status += ! params.okay();
                 params.reset_output();
                 msg.clear();
+
+                #ifdef BLAS_HAVE_PAPI
+                    if (params.papi() == 'y') {
+                        // stop papi
+                        slate_assert( PAPI_stop( event_set, counter_values ) == PAPI_OK );
+
+                        // print papi instrumentation
+                        blas::counter::print( (cset_list_object_t *)counter_values[0] );
+                        printf( "\n" );
+                    }
+                #endif
             }
             if (repeat > 1 && print) {
                 printf("\n");

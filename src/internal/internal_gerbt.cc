@@ -38,7 +38,7 @@ void gerbt(Matrix<scalar_t> A11,
     const int64_t nt_full = A11.nt();
 
     std::vector<MPI_Request> requests;
-    #pragma omp task firstprivate(A11, A12, A21, A22, U1, U2, V1, V2) \
+    #pragma omp task shared(A11, A12, A21, A22, U1, U2, V1, V2) \
                      shared(requests) priority(2) depend(out:requests)
     {
         for (int64_t ii = 0; ii < mt; ++ii) {
@@ -115,7 +115,7 @@ void gerbt(Matrix<scalar_t> A11,
     for (int64_t ii = 0; ii < mt; ++ii) {
         for (int64_t jj = 0; jj < nt; ++jj) {
             if (A11.tileIsLocal(ii, jj)) {
-                #pragma omp task firstprivate(A11, A12, A21, A22, U1, U2, V1, V2) \
+                #pragma omp task shared(A11, A12, A21, A22, U1, U2, V1, V2) \
                                  firstprivate(ii, jj) priority(1)
                 {
                     const int64_t tag = 4*(ii*nt_full + jj);
@@ -148,7 +148,7 @@ void gerbt(Matrix<scalar_t> A11,
     for (int64_t ii = 0; ii < mt; ++ii) {
         for (int64_t jj = nt; jj < nt_full; ++jj) {
             if (A11.tileIsLocal(ii, jj)) {
-                #pragma omp task firstprivate(A11, A21, U1, U2, ii, jj) \
+                #pragma omp task shared(A11, A21, U1, U2) firstprivate(ii, jj) \
                                  priority(1)
                 {
                     const int64_t tag = 4*(ii*nt_full + jj);
@@ -171,7 +171,7 @@ void gerbt(Matrix<scalar_t> A11,
     for (int64_t ii = mt; ii < mt_full; ++ii) {
         for (int64_t jj = 0; jj < nt; ++jj) {
             if (A11.tileIsLocal(ii, jj)) {
-                #pragma omp task firstprivate(A11, A12, V1, V2, ii, jj) \
+                #pragma omp task shared(A11, A12, V1, V2) firstprivate(ii, jj) \
                                  priority(1)
                 {
                     const int64_t tag = 4*(ii*nt_full + jj);
@@ -250,7 +250,7 @@ void gerbt(Side side,
 
     std::vector<MPI_Request> requests;
     #pragma omp task depend(out:requests) priority(2) \
-                     firstprivate(B1, B2) shared(requests)
+                     shared(B1, B2) shared(requests)
     for (int64_t ii = 0; ii < mt; ++ii) {
         for (int64_t jj = 0; jj < nt; ++jj) {
             if (! B1.tileIsLocal(ii, jj) && B2.tileIsLocal(ii, jj)) {
@@ -270,7 +270,7 @@ void gerbt(Side side,
     for (int64_t ii = 0; ii < mt; ++ii) {
         for (int64_t jj = 0; jj < nt; ++jj) {
             if (B1.tileIsLocal(ii, jj)) {
-                #pragma omp task firstprivate (B1, B2, U1, U2, ii, jj) \
+                #pragma omp task shared(B1, B2, U1, U2) firstprivate(ii, jj) \
                                  priority(1)
                 {
                     const int64_t tag = ii*nt + jj;

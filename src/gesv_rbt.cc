@@ -156,7 +156,7 @@ void gesv_rbt(Matrix<scalar_t>& A,
     }
 
 
-    slate::copy( B, X, opts );
+    slate::copy( B, X, host_opts );
 
     std::vector<real_t> colnorms_X( X.n() );
     std::vector<real_t> colnorms_R( R.n() );
@@ -184,8 +184,8 @@ void gesv_rbt(Matrix<scalar_t>& A,
 
     // Check whether the nrhs normwise backward error satisfies the
     // stopping criterion. If yes, set iter=0 and return.
-    colNorms( Norm::Max, X, colnorms_X.data(), opts );
-    colNorms( Norm::Max, R, colnorms_R.data(), opts );
+    colNorms( Norm::Max, X, colnorms_X.data(), host_opts );
+    colNorms( Norm::Max, R, colnorms_R.data(), host_opts );
 
     if (iterRefConverged<real_t>( colnorms_R, colnorms_X, cte )) {
         iter = 0;
@@ -203,8 +203,8 @@ void gesv_rbt(Matrix<scalar_t>& A,
 
         // Check whether nrhs normwise backward error satisfies the
         // stopping criterion. If yes, set iter = iiter > 0 and return.
-        colNorms( Norm::Max, X, colnorms_X.data(), opts );
-        colNorms( Norm::Max, R, colnorms_R.data(), opts );
+        colNorms( Norm::Max, X, colnorms_X.data(), host_opts );
+        colNorms( Norm::Max, R, colnorms_R.data(), host_opts );
 
         if (iterRefConverged<real_t>( colnorms_R, colnorms_X, cte )) {
             iter = iiter+1;

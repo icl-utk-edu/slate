@@ -963,13 +963,15 @@ void BaseMatrix<scalar_t>::initSubmatrix(
     assert((0 <= j1 && j1 < nt()) || (j1 > j2));  // todo: remove || ... clause?
     assert((0 <= j2 && j2 < nt()) || (j1 > j2));
 
+    const int64_t izero = 0;
+
     // adjust i2, j2 for empty matrix
     i2 = std::max(i2, i1 - 1);
     j2 = std::max(j2, j1 - 1);
 
     if (op_ == Op::NoTrans) {
-        last_mb_ = tileMb(i2);
-        last_nb_ = tileNb(j2);
+        last_mb_ = tileMb(std::max(i2, izero));
+        last_nb_ = tileNb(std::max(j2, izero));
         ioffset_ += i1;
         joffset_ += j1;
         mt_ = i2 - i1 + 1;
@@ -983,8 +985,8 @@ void BaseMatrix<scalar_t>::initSubmatrix(
         }
     }
     else {
-        last_nb_ = tileMb(i2);
-        last_mb_ = tileNb(j2);
+        last_nb_ = tileMb(std::max(i2, izero));
+        last_mb_ = tileNb(std::max(j2, izero));
         ioffset_ += j1;
         joffset_ += i1;
         mt_ = j2 - j1 + 1;

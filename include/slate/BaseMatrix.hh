@@ -1252,7 +1252,14 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::gridinfo(
     GridOrder* order, int* nprow, int* npcol, int* myrow, int* mycol ) const
 {
-    if (nprow_ > 0) {
+    int mpi_size;
+    MPI_Comm_size(mpiComm(), &mpi_size);
+    if (mpi_size == 1) {
+        *order = GridOrder::Col;
+        *nprow = *npcol = 1;
+        *myrow = *mycol = 0;
+    }
+    else if (nprow_ > 0) {
         *order = order_;
         *nprow = nprow_;
         *npcol = npcol_;

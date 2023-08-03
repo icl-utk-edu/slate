@@ -68,9 +68,6 @@ else()
     message( STATUS "Using CMAKE_INSTALL_PREFIX = ${CMAKE_INSTALL_PREFIX}" )
 endif()
 
-# GNU Filesystem Conventions
-include( GNUInstallDirs )
-
 # the RPATH to be used when installing, but only if it's not a system directory
 list( FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES
       "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}" isSystemDir )
@@ -653,7 +650,14 @@ if (slate_is_project)
 endif()
 
 #-------------------------------------------------------------------------------
-set( install_configdir "${CMAKE_INSTALL_LIBDIR}/slate" )
+# Install rules.
+# GNU Filesystem Conventions
+include( GNUInstallDirs )
+if (WIN32)
+    set( install_configdir "slate" )
+else()
+    set( install_configdir "${CMAKE_INSTALL_LIBDIR}/cmake/slate" )
+endif()
 
 # Install library and add to <package>Targets.cmake
 install(
@@ -661,6 +665,7 @@ install(
     EXPORT slateTargets
     LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
     ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
+    RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
 )
 
 # Install header files

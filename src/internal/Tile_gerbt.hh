@@ -19,6 +19,9 @@ void gerbt(Tile<scalar_t> A11,
            Tile<scalar_t> V1,
            Tile<scalar_t> V2)
 {
+    const scalar_t inv_sqrt_2 = 1.0 / std::sqrt(2.0);
+    const scalar_t inv_2 = 1.0 / 2.0;
+
     slate_assert(A11.mb() >= A22.mb());
     slate_assert(A11.nb() >= A22.nb());
     const int64_t mb = A22.mb();
@@ -44,10 +47,10 @@ void gerbt(Tile<scalar_t> A11,
             const scalar_t dif1 = a11 - a12;
             const scalar_t dif2 = a21 - a22;
 
-            A11.at(i, j) = u1*(sum1 + sum2)*v1;
-            A12.at(i, j) = u1*(dif1 + dif2)*v2;
-            A21.at(i, j) = u2*(sum1 - sum2)*v1;
-            A22.at(i, j) = u2*(dif1 - dif2)*v2;
+            A11.at(i, j) = inv_2*u1*(sum1 + sum2)*v1;
+            A12.at(i, j) = inv_2*u1*(dif1 + dif2)*v2;
+            A21.at(i, j) = inv_2*u2*(sum1 - sum2)*v1;
+            A22.at(i, j) = inv_2*u2*(dif1 - dif2)*v2;
         }
     }
 
@@ -61,8 +64,8 @@ void gerbt(Tile<scalar_t> A11,
             const scalar_t a11 = A11(i, j);
             const scalar_t a12 = A12(i, j);
 
-            A11.at(i, j) = u1*(a11 + a12)*v1;
-            A12.at(i, j) = u1*(a11 - a12)*v2;
+            A11.at(i, j) = inv_sqrt_2*u1*(a11 + a12)*v1;
+            A12.at(i, j) = inv_sqrt_2*u1*(a11 - a12)*v2;
         }
     }
 
@@ -76,8 +79,8 @@ void gerbt(Tile<scalar_t> A11,
             const scalar_t a11 = A11(i, j);
             const scalar_t a12 = A21(i, j);
 
-            A11.at(i, j) = u1*(a11 + a12)*v1;
-            A21.at(i, j) = u2*(a11 - a12)*v1;
+            A11.at(i, j) = inv_sqrt_2*u1*(a11 + a12)*v1;
+            A21.at(i, j) = inv_sqrt_2*u2*(a11 - a12)*v1;
         }
     }
 
@@ -100,6 +103,8 @@ void gerbt_left_notrans(Tile<scalar_t> B1,
                         Tile<scalar_t> U1,
                         Tile<scalar_t> U2)
 {
+    const scalar_t inv_sqrt_2 = 1.0 / std::sqrt(2);
+
     slate_assert(B1.mb() >= B2.mb());
     const int64_t mb = B2.mb();
     const int64_t mb_full = B1.mb();
@@ -113,8 +118,8 @@ void gerbt_left_notrans(Tile<scalar_t> B1,
             const scalar_t b1 = B1(i, j);
             const scalar_t b2 = B2(i, j);
 
-            B1.at(i, j) = u1*b1 + u2*b2;
-            B2.at(i, j) = u1*b1 - u2*b2;
+            B1.at(i, j) = inv_sqrt_2*(u1*b1 + u2*b2);
+            B2.at(i, j) = inv_sqrt_2*(u1*b1 - u2*b2);
         }
     }
     for (int64_t i = mb; i < mb_full; ++i) {
@@ -134,6 +139,8 @@ void gerbt_right_notrans(Tile<scalar_t> B1,
                          Tile<scalar_t> U1,
                          Tile<scalar_t> U2)
 {
+    const scalar_t inv_sqrt_2 = 1.0 / std::sqrt(2);
+
     slate_assert(B1.nb() >= B2.nb());
     const int64_t nb = B2.nb();
     const int64_t nb_full = B1.nb();
@@ -147,8 +154,8 @@ void gerbt_right_notrans(Tile<scalar_t> B1,
             const scalar_t b1 = B1(i, j);
             const scalar_t b2 = B2(i, j);
 
-            B1.at(i, j) = u1*(b1 + b2);
-            B2.at(i, j) = u2*(b1 - b2);
+            B1.at(i, j) = inv_sqrt_2*u1*(b1 + b2);
+            B2.at(i, j) = inv_sqrt_2*u2*(b1 - b2);
         }
     }
     for (int64_t j = nb; j < nb_full; ++j) {
@@ -168,6 +175,8 @@ void gerbt_left_trans(Tile<scalar_t> B1,
                       Tile<scalar_t> U1,
                       Tile<scalar_t> U2)
 {
+    const scalar_t inv_sqrt_2 = 1.0 / std::sqrt(2);
+
     slate_assert(B1.mb() >= B2.mb());
     const int64_t mb = B2.mb();
     const int64_t mb_full = B1.mb();
@@ -181,8 +190,8 @@ void gerbt_left_trans(Tile<scalar_t> B1,
             const scalar_t b1 = B1(i, j);
             const scalar_t b2 = B2(i, j);
 
-            B1.at(i, j) = u1*(b1 + b2);
-            B2.at(i, j) = u2*(b1 - b2);
+            B1.at(i, j) = inv_sqrt_2*u1*(b1 + b2);
+            B2.at(i, j) = inv_sqrt_2*u2*(b1 - b2);
         }
     }
     for (int64_t i = mb; i < mb_full; ++i) {
@@ -202,6 +211,8 @@ void gerbt_right_trans(Tile<scalar_t> B1,
                         Tile<scalar_t> U1,
                         Tile<scalar_t> U2)
 {
+    const scalar_t inv_sqrt_2 = 1.0 / std::sqrt(2);
+
     slate_assert(B1.nb() >= B2.nb());
     const int64_t nb = B2.nb();
     const int64_t nb_full = B1.nb();
@@ -215,8 +226,8 @@ void gerbt_right_trans(Tile<scalar_t> B1,
             const scalar_t b1 = B1(i, j);
             const scalar_t b2 = B2(i, j);
 
-            B1.at(i, j) = u1*b1 + u2*b2;
-            B2.at(i, j) = u1*b1 - u2*b2;
+            B1.at(i, j) = inv_sqrt_2*(u1*b1 + u2*b2);
+            B2.at(i, j) = inv_sqrt_2*(u1*b1 - u2*b2);
         }
     }
     for (int64_t j = nb; j < nb_full; ++j) {

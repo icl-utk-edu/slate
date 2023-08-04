@@ -17,12 +17,12 @@ namespace internal {
 
 template<typename scalar_t>
 void rbt_fill(Matrix<scalar_t>& U, const int64_t seed) {
+    using real_t = blas::real_type<scalar_t>;
 
     const int64_t d = U.n();
     slate_assert(d == U.tileNb(0));
     slate_assert(U.nt() == 1);
-    const scalar_t inv_sqrt_2 = scalar_t(1)/sqrt(scalar_t(2));
-    const scalar_t scale_20 = 20.0;
+    const real_t scale_20 = 20.0;
 
     U.insertLocalTiles( Target::Host );
     for (int64_t i = 0; i < U.mt(); i++) {
@@ -37,10 +37,10 @@ void rbt_fill(Matrix<scalar_t>& U, const int64_t seed) {
                 int64_t iseed[4] = {(seed + i) % 4096, 578, 361, 115};
                 lapack::larnv( 2, iseed, mb*d, U_i.data() );
 
-                for(int64_t k = 0; k < d; k++) {
+                for (int64_t k = 0; k < d; k++) {
                     for (int64_t jj = 0; jj < mb; jj++) {
-                        U_i.at(jj, k) = inv_sqrt_2
-                                        *std::exp(U_i.at(jj, k)/scale_20);
+                        real_t U_jk = blas::real( U_i.at(jj, k) );
+                        U_i.at(jj, k) = std::exp( U_jk/scale_20 );
                     }
                 }
             }

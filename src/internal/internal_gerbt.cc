@@ -154,15 +154,25 @@ void gerbt(Matrix<scalar_t> A11,
                     const int64_t tag = 4*(ii*nt_full + jj);
                     A21.tileRecv( ii, jj, A21.tileRank(ii, jj),
                                   Layout::ColMajor, tag+2 );
-                    gerbt_left_trans( A11(ii, jj),
-                                      A21(ii, jj),
-                                      U1(ii, 0),
-                                      U2(ii, 0) );
+
+                    Tile<scalar_t> a11 = A11(ii, jj);
+                    Tile<scalar_t> a21 = A21(ii, jj);
+                    Tile<scalar_t> a12 (a11.mb(), 0, nullptr, 0, 0,
+                                        TileKind::UserOwned, Layout::ColMajor);
+                    Tile<scalar_t> a22 (a21.mb(), 0, nullptr, 0, 0,
+                                        TileKind::UserOwned, Layout::ColMajor);
+                    Tile<scalar_t> v1 = V1(jj, 0);
+                    Tile<scalar_t> v2 (0, v1.nb(), nullptr, 0, 0,
+                                        TileKind::UserOwned, Layout::ColMajor);
+
+                    gerbt( a11, a12, a21, a22,
+                           U1(ii, 0), U2(ii, 0), v1, v2 );
 
                     A21.tileSend(ii, jj, A21.tileRank(ii, jj), tag+2);
                     A21.tileRelease(ii, jj);
                     U1.tileTick(ii, 0);
                     U2.tileTick(ii, 0);
+                    V1.tileTick(ii, 0);
                 }
             }
         }
@@ -177,13 +187,55 @@ void gerbt(Matrix<scalar_t> A11,
                     const int64_t tag = 4*(ii*nt_full + jj);
                     A12.tileRecv( ii, jj, A12.tileRank(ii, jj),
                                   Layout::ColMajor, tag+1 );
-                    gerbt_right_notrans( A11(ii, jj), A12(ii, jj),
-                                         V1(jj, 0), V2(jj, 0) );
+
+                    Tile<scalar_t> a11 = A11(ii, jj);
+                    Tile<scalar_t> a12 = A12(ii, jj);
+                    Tile<scalar_t> a21 (0, a11.nb(), nullptr, 0, 0,
+                                        TileKind::UserOwned, Layout::ColMajor);
+                    Tile<scalar_t> a22 (0, a12.nb(), nullptr, 0, 0,
+                                        TileKind::UserOwned, Layout::ColMajor);
+                    Tile<scalar_t> u1 = U1(ii, 0);
+                    Tile<scalar_t> u2 (0, u1.nb(), nullptr, 0, 0,
+                                        TileKind::UserOwned, Layout::ColMajor);
+
+                    gerbt( a11, a12, a21, a22,
+                           u1, u2, V1(jj, 0), V2(jj, 0) );
 
                     A12.tileSend( ii, jj, A12.tileRank(ii, jj), tag+1 );
                     A12.tileRelease(ii, jj);
+                    U1.tileTick(jj, 0);
                     V1.tileTick(jj, 0);
                     V2.tileTick(jj, 0);
+                }
+            }
+        }
+    }
+    for (int64_t ii = mt; ii < mt_full; ++ii) {
+        for (int64_t jj = nt; jj < nt_full; ++jj) {
+            if (A11.tileIsLocal(ii, jj)) {
+                #pragma omp task shared(A11, A12, V1, V2) firstprivate(ii, jj) \
+                                 priority(1)
+                {
+
+                    Tile<scalar_t> a11 = A11(ii, jj);
+                    Tile<scalar_t> a12 (0, a11.nb(), nullptr, 0, 0,
+                                        TileKind::UserOwned, Layout::ColMajor);
+                    Tile<scalar_t> a21 (a11.mb(), 0, nullptr, 0, 0,
+                                        TileKind::UserOwned, Layout::ColMajor);
+                    Tile<scalar_t> a22 (0, 0, nullptr, 0, 0,
+                                        TileKind::UserOwned, Layout::ColMajor);
+                    Tile<scalar_t> u1 = U1(ii, 0);
+                    Tile<scalar_t> u2 (0, u1.nb(), nullptr, 0, 0,
+                                        TileKind::UserOwned, Layout::ColMajor);
+                    Tile<scalar_t> v1 = V1(jj, 0);
+                    Tile<scalar_t> v2 (0, v1.nb(), nullptr, 0, 0,
+                                        TileKind::UserOwned, Layout::ColMajor);
+
+                    gerbt( a11, a12, a21, a22,
+                           u1, u2, v1, v2 );
+
+                    U1.tileTick(jj, 0);
+                    V1.tileTick(jj, 0);
                 }
             }
         }
@@ -243,8 +295,12 @@ void gerbt(Side side,
            Matrix<scalar_t> U1,
            Matrix<scalar_t> U2)
 {
-    const int64_t mt = std::min(B1.mt(), B2.mt());
-    const int64_t nt = std::min(B1.nt(), B2.nt());
+    slate_assert(B1.mt() >= B2.mt());
+    slate_assert(B1.nt() >= B2.nt());
+    const int64_t mt      = B2.mt();
+    const int64_t mt_full = B1.mt();
+    const int64_t nt      = B2.nt();
+    const int64_t nt_full = B1.nt();
     const bool leftp = side == Side::Left;
     const bool transp = trans == Op::Trans;
 
@@ -311,6 +367,58 @@ void gerbt(Side side,
                     }
                     B2.tileSend( ii, jj, B2.tileRank(ii, jj), tag );
                     B2.tileRelease(ii, jj);
+                }
+            }
+        }
+    }
+    if (leftp) {
+        for (int64_t ii = mt; ii < mt_full; ++ii) {
+            for (int64_t jj = 0; jj < nt; ++jj) {
+                if (B1.tileIsLocal(ii, jj)) {
+                    #pragma omp task shared(B1, U1) firstprivate(ii, jj) \
+                                     priority(1)
+                    {
+                        Tile<scalar_t> b1 = B1(ii, jj);
+                        Tile<scalar_t> b2 (0, b1.nb(), nullptr, 0, 0,
+                                           TileKind::UserOwned, Layout::ColMajor);
+                        Tile<scalar_t> u1 = U1(ii, 0);
+                        Tile<scalar_t> u2 (0, u1.nb(), nullptr, 0, 0,
+                                            TileKind::UserOwned, Layout::ColMajor);
+
+                        if (transp) {
+                            gerbt_left_trans( b1, b2, u1, u2 );
+                        }
+                        else {
+                            gerbt_left_notrans( b1, b2, u1, u2 );
+                        }
+                        U1.tileTick(ii, 0);
+                    }
+                }
+            }
+        }
+    }
+    else {
+        for (int64_t ii = 0; ii < mt; ++ii) {
+            for (int64_t jj = nt; jj < nt_full; ++jj) {
+                if (B1.tileIsLocal(ii, jj)) {
+                    #pragma omp task shared(B1, U1) firstprivate(ii, jj) \
+                                     priority(1)
+                    {
+                        Tile<scalar_t> b1 = B1(ii, jj);
+                        Tile<scalar_t> b2 (b1.mb(), 0, nullptr, 0, 0,
+                                           TileKind::UserOwned, Layout::ColMajor);
+                        Tile<scalar_t> u1 = U1(jj, 0);
+                        Tile<scalar_t> u2 (u1.mb(), 0, nullptr, 0, 0,
+                                            TileKind::UserOwned, Layout::ColMajor);
+
+                        if (transp) {
+                            gerbt_right_trans( b1, b2, u1, u2 );
+                        }
+                        else {
+                            gerbt_right_notrans( b1, b2, u1, u2 );
+                        }
+                        U1.tileTick(jj, 0);
+                    }
                 }
             }
         }

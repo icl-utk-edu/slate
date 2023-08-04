@@ -148,14 +148,13 @@ void gerbt(Matrix<scalar_t>& U_in,
                     int64_t j1, int64_t j2, int64_t j3) {
 
                     auto A11 = A.sub(i1, i2-1, j1, j2-1);
-                    if (i2 < i3) {
+                    internal::gerbt_setup_bcast( Side::Left, A11, i1, i2, bcast_list_U );
+                    internal::gerbt_setup_bcast( Side::Right, A11, j1, j2, bcast_list_V );
 
-                        internal::gerbt_setup_bcast( Side::Left, A11, i1, i2, bcast_list_U );
+                    if (i2 < i3) {
                         internal::gerbt_setup_bcast( Side::Left, A11, i2, i3, bcast_list_U );
                     }
                     if (j2 < j3) {
-
-                        internal::gerbt_setup_bcast( Side::Right, A11, j1, j2, bcast_list_V );
                         internal::gerbt_setup_bcast( Side::Right, A11, j2, j3, bcast_list_V );
                     }
                 });
@@ -172,43 +171,17 @@ void gerbt(Matrix<scalar_t>& U_in,
                 [&](int64_t i1, int64_t i2, int64_t i3,
                     int64_t j1, int64_t j2, int64_t j3) {
 
-                    if (j2 < j3) {
-                        if (i2 < i3) {
-                            auto A11 = A.sub(i1, i2-1, j1, j2-1);
-                            auto A12 = A.sub(i1, i2-1, j2, j3-1);
-                            auto A21 = A.sub(i2, i3-1, j1, j2-1);
-                            auto A22 = A.sub(i2, i3-1, j2, j3-1);
+                    auto A11 = A.sub(i1, i2-1, j1, j2-1);
+                    auto A12 = A.sub(i1, i2-1, j2, j3-1);
+                    auto A21 = A.sub(i2, i3-1, j1, j2-1);
+                    auto A22 = A.sub(i2, i3-1, j2, j3-1);
 
-                            auto U1 = U.sub(i1, i2-1, 0, 0);
-                            auto U2 = U.sub(i2, i3-1, 0, 0);
-                            auto V1 = V.sub(j1, j2-1, 0, 0);
-                            auto V2 = V.sub(j2, j3-1, 0, 0);
+                    auto U1 = U.sub(i1, i2-1, 0, 0);
+                    auto U2 = U.sub(i2, i3-1, 0, 0);
+                    auto V1 = V.sub(j1, j2-1, 0, 0);
+                    auto V2 = V.sub(j2, j3-1, 0, 0);
 
-                            internal::gerbt( A11, A12, A21, A22, U1, U2, V1, V2 );
-                        }
-                        else {
-                            auto A11 = A.sub(i1, nt-1, j1, j2-1);
-                            auto A12 = A.sub(i1, nt-1, j2, j3-1);
-
-                            auto V1 = V.sub(j1, j2-1, 0, 0);
-                            auto V2 = V.sub(j2, j3-1, 0, 0);
-
-                            internal::gerbt( Side::Right, Op::NoTrans,
-                                             A11, A12, V1, V2 );
-                        }
-                    }
-                    else {
-                        if (i2 < i3) {
-                            auto A11 = A.sub(i1, i2-1, j1, nt-1);
-                            auto A21 = A.sub(i2, i3-1, j1, nt-1);
-
-                            auto U1 = U.sub(i1, i2-1, 0, 0);
-                            auto U2 = U.sub(i2, i3-1, 0, 0);
-
-                            internal::gerbt( Side::Left, Op::Trans,
-                                             A11, A21, U1, U2 );
-                        }
-                    }
+                    internal::gerbt( A11, A12, A21, A22, U1, U2, V1, V2 );
             });
     }
 }

@@ -17,8 +17,23 @@ print "======================================== Environment"
 # Show environment variables, excluding functions.
 (set -o posix; set)
 
+print "======================================== Modules"
+quiet module list -l
+
+print "======================================== Query GPUs"
+if   [ "${device}" = "gpu_nvidia" ]; then
+    nvidia-smi
+elif [ "${device}" = "gpu_amd" ]; then
+    rocm-smi
+elif [ "${device}" = "gpu_intel" ]; then
+    clinfo
+    sycl-ls
+fi
+
 print "======================================== Setup build"
-export color=no
+# Note: set all env variables in setup_env.sh,
+# else build.sh and test.sh won't see them.
+
 rm -rf ${top}/install
 if [ "${maker}" = "make" ]; then
     make distclean
@@ -27,7 +42,10 @@ if [ "${maker}" = "make" ]; then
          || exit 10
 
 elif [ "${maker}" = "cmake" ]; then
-    cmake -Dcolor=no -DCMAKE_CXX_FLAGS="-Werror" \
+    # Intel icpx needs -Wno-unused-command-line-argument to avoid
+    # warnings: 'linker' input unused, which prevent CMake finding OpenMP.
+    cmake -Dcolor=no \
+          -DCMAKE_CXX_FLAGS="-Werror -Wno-unused-command-line-argument" \
           -DCMAKE_INSTALL_PREFIX=${top}/install \
           -Dgpu_backend=${gpu_backend} .. \
           || exit 12

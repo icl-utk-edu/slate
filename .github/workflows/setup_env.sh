@@ -32,16 +32,10 @@ export top=$(pwd)
 
 shopt -s expand_aliases
 
-
-print "======================================== Load compiler"
-quiet module load gcc@8.5.0
-quiet which g++
-g++ --version
-
 quiet module load intel-oneapi-mkl
 print "MKLROOT=${MKLROOT}"
 
-#quiet module load python  # no module
+quiet module load python
 quiet which python
 quiet which python3
 python  --version
@@ -50,45 +44,68 @@ python3 --version
 quiet module load pkgconf
 quiet which pkg-config
 
-# CMake will find CUDA in /usr/local/cuda, so need to explicitly set
-# gpu_backend.
+# CMake finds CUDA in /usr/local/cuda, so need to explicitly set gpu_backend.
 export gpu_backend=none
 export color=no
+# Don't use `export CXXFLAGS` here because then that
+# is exported to BLAS++ and it inherits the -D defines.
 
 # For simplicity, create make.inc regardless of ${maker}
 cat > make.inc << END
-CXX    = mpicxx
-FC     = mpif90
-blas   = mkl
-prefix = ${top}/install
-md5sum = md5sum
+CXXFLAGS = -Werror -Dslate_omp_default_none='default(none)'
+CXX      = mpicxx
+CC       = mpicc
+FC       = mpif90
+blas     = mkl
+prefix   = ${top}/install
+md5sum   = md5sum
 END
 
+#----------------------------------------------------------------- Compiler
+if [ "${device}" = "gpu_intel" ]; then
+    print "======================================== Load Intel oneAPI compiler"
+    quiet module load intel-oneapi-compilers
+else
+    print "======================================== Load GNU compiler"
+    quiet module load gcc@8.5.0
+fi
+print "---------------------------------------- Verify compiler"
+print "CXX = $CXX"
+print "CC  = $CC"
+print "FC  = $FC"
+${CXX} --version
+${CC}  --version
+${FC}  --version
+
+#----------------------------------------------------------------- MPI
+# Test Open MPI with CPU and CUDA.
+# Test Intel MPI with ROCm and SYCL.
+# Note: Open MPI hides SYCL devices, at least in our current CI.
 if [ "${device}" = "cpu" -o "${device}" = "gpu_nvidia" ]; then
     print "======================================== Load Open MPI"
     quiet module load openmpi
     export OMPI_CXX=${CXX}
+    export OMPI_CC=${CC}
+    export OMPI_FC=${FC}
 
-    cat >> make.inc << END
-CXXFLAGS  = -Werror -Dslate_omp_default_none='default(none)'
-mkl_blacs = openmpi
-END
+    echo "mkl_blacs = openmpi" >> make.inc
 else
-    print "======================================== Load Intel MPI"
-    quiet module load intel-mpi
+    print "======================================== Load Intel oneAPI MPI"
+    quiet module load intel-oneapi-mpi
     export FI_PROVIDER=tcp
+    export I_MPI_CXX=${CXX}
+    export I_MPI_CC=${CC}
+    export I_MPI_FC=${FC}
 
-    # AMD has header warnings, so don't use -Werror.
-    cat >> make.inc << END
-mkl_blacs = intelmpi
-END
+    echo "mkl_blacs = intelmpi" >> make.inc
 fi
-print "======================================== Verify MPI"
+print "---------------------------------------- Verify MPI"
 quiet which mpicxx
 quiet which mpif90
 mpicxx --version
 mpif90 --version
 
+#----------------------------------------------------------------- GPU
 if [ "${device}" = "gpu_nvidia" ]; then
     print "======================================== Load CUDA"
     quiet module load cuda
@@ -117,12 +134,15 @@ elif [ "${device}" = "gpu_amd" ]; then
         export ROCBLAS_TENSILE_LIBPATH=${ROCM_PATH}/rocblas/lib/library
     fi
 
-    # HIP headers have many errors; reduce noise.
-    perl -pi -e 's/-pedantic//' GNUmakefile
+elif [ "${device}" = "gpu_intel" ]; then
+    # Intel oneAPI SYCL compiler loaded above
+    export gpu_backend=sycl
+    echo "LIBS += -lifcore" >> make.inc
 fi
 
 echo "gpu_backend = ${gpu_backend}" >> make.inc
 
+#----------------------------------------------------------------- CMake
 if [ "${maker}" = "cmake" ]; then
     print "======================================== Load cmake"
     quiet module load cmake
@@ -130,5 +150,3 @@ if [ "${maker}" = "cmake" ]; then
     cmake --version
     cd build
 fi
-
-quiet module list

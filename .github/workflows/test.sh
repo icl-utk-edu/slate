@@ -30,8 +30,7 @@ if [ "$device" = "cpu" ]; then
     origin="s"
     tests=""
 else
-    # trsmA currently fails device tests. Enable when it is fixed.
-    tests="-x trsmA"
+    tests=""
 fi
 
 if [ "$maker" = "cmake" ]; then

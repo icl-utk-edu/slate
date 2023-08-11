@@ -34,8 +34,6 @@ if [ "$device" = "cpu" ]; then
     args+=" --target h --origin s"
 else
     args+=" --target d --origin d"
-    # trsmA currently fails device tests. Enable when it is fixed.
-    args+=" -x trsmA"
 fi
 
 if [ "${device}" = "gpu_intel" ]; then

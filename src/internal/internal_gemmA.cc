@@ -326,15 +326,18 @@ void gemmA(internal::TargetType<Target::Devices>,
                         i, 0, device, LayoutConvert( layout ) );
 
                     auto T = C( i, 0, device );
-                    if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
-                        T = transpose( T );
+                    int64_t T_mb = T.mb();
+                    int64_t T_nb = T.nb();
+                    if (T.op() != Op::NoTrans) {
+                        swap( T_mb, T_nb );
+                    }
 
                     if (beta == zero) {
-                        device::geset( T.mb(), T.nb(), beta, beta,
+                        device::geset( T_mb, T_nb, beta, beta,
                             T.data(), T.stride(), *queue );
                     }
                     else{
-                        device::gescale( T.mb(), T.nb(), beta, one,
+                        device::gescale( T_mb, T_nb, beta, one,
                             T.data(), T.stride(), *queue );
                     }
                 }
@@ -373,10 +376,13 @@ void gemmA(internal::TargetType<Target::Devices>,
                                 C.tileInsertWorkspace( i, 0, device );
                                 C.tileModified( i, 0, device );
                                 auto T = C( i, 0, device );
-                                if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
-                                    T = transpose( T );
+                                int64_t T_mb = T.mb();
+                                int64_t T_nb = T.nb();
+                                if (T.op() != Op::NoTrans) {
+                                    swap( T_mb, T_nb );
+                                }
 
-                                device::geset( T.mb(), T.nb(), zero, zero,
+                                device::geset( T_mb, T_nb, zero, zero,
                                     T.data(), T.stride(), *queue );
                             }
                         }

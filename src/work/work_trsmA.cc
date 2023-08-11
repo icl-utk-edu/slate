@@ -59,6 +59,7 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     using BcastList = typename Matrix<scalar_t>::BcastList;
     using std::real;
     using std::imag;
+    using std::swap;
 
     // Constants
     const scalar_t zero = 0.0;
@@ -105,6 +106,51 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
     if (target == Target::Devices)
         assert(A.numComputeQueues() >= 2);
 
+    // Scale the RHS to handle the alpha issue since B is moved
+    // around instead of the A as in trsm
+    // TODO Call scale( alpha, one, B, local_opts ) when
+    // transpose will be handled.
+    if (alpha != one) {
+        if (target == Target::Devices) {
+            for (int64_t i = 0; i < mt; ++i) {
+                for (int64_t j = 0; j < nt; ++j) {
+                    scalar_t alpha_ = alpha;
+                    if (B.tileIsLocal( i, j )) {
+                        int device = B.tileDevice( i, j );
+
+                        B.tileGetForWriting( i, j, device,
+                                LayoutConvert( layout ) );
+
+                        blas::Queue* queue = A.compute_queue( device, queue_0 );
+                        assert( queue != nullptr );
+                        auto T = B( i, j, device );
+                        int64_t T_mb = T.mb();
+                        int64_t T_nb = T.nb();
+                        if (T.op() != Op::NoTrans) {
+                            swap( T_mb, T_nb );
+                            if (T.op() == Op::ConjTrans)
+                                alpha_ = conj( alpha );
+                        }
+
+                        device::gescale( T_mb, T_nb, alpha_, one,
+                                T.data(), T.stride(), *queue );
+                        queue->sync();
+                    }
+                }
+            }
+        }
+        else {
+            for (int64_t i = 0; i < mt; ++i) {
+                for (int64_t j = 0; j < nt; ++j) {
+                    if (B.tileIsLocal( i, j )) {
+                        B.tileGetForWriting( i, j, LayoutConvert( layout ) );
+                        tile::scale( alpha, B(i, j) );
+                    }
+                }
+            }
+        }
+    }
+
     if (A.uplo() == Uplo::Lower) {
         // ----------------------------------------
         // Lower/NoTrans or Upper/Trans, Left case
@@ -113,40 +159,6 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
             // panel (Akk tile)
             #pragma omp task depend(inout:row[k]) priority(1)
             {
-                // Scale the RHS in order to be consistent with the upper case
-                // XXX This inserts all tiles on the device...
-                if (k == 0 && alpha != one) {
-                    // XXX Call scale( alpha, one, B, local_opts ) when
-                    // transpose will be handled.
-                    for (int64_t i = 0; i < mt; ++i) {
-                        for (int64_t j = 0; j < nt; ++j) {
-                            if (B.tileIsLocal(i, j)) {
-                                if (target == Target::Devices) {
-                                    int device = B.tileDevice( i, j );
-
-                                    B.tileGetForWriting( i, j, device,
-                                            LayoutConvert( layout ) );
-
-                                    blas::Queue* queue = A.compute_queue( device, queue_0 );
-                                    assert( queue != nullptr );
-                                    auto T = B( i, j, device );
-                                    if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
-                                        T = transpose( T );
-
-                                    device::gescale( T.mb(), T.nb(), alpha, one,
-                                            T.data(), T.stride(), *queue );
-                                    queue->sync();
-                                }
-                                else {
-                                    B.tileGetForWriting( i, j,
-                                            LayoutConvert( layout ) );
-                                    tile::scale( alpha, B(i, j) );
-                                }
-                            }
-                        }
-                    }
-                }
-
                 // Create the local B tiles where A(k,k) is located
                 if (A.tileIsLocal(k, k)) {
                     // XXX insert only what is needed for this iteration, otherwise,
@@ -163,10 +175,13 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                     blas::Queue* queue = A.compute_queue( device, queue_0 );
                                     assert( queue != nullptr );
                                     auto T = B( k, j, device );
-                                    if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
-                                        T = transpose( T );
+                                    int64_t T_mb = T.mb();
+                                    int64_t T_nb = T.nb();
+                                    if (T.op() != Op::NoTrans) {
+                                        swap( T_mb, T_nb );
+                                    }
 
-                                    device::geset( T.mb(), T.nb(), zero, zero,
+                                    device::geset( T_mb, T_nb, zero, zero,
                                             T.data(), T.stride(), *queue );
                                     queue->sync();
                                 }
@@ -309,40 +324,6 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
             // panel (Akk tile)
             #pragma omp task depend(inout:row[k]) priority(1)
             {
-                // Scale the RHS to handle the alpha issue since B is moved
-                // around instead of the A as in trsm
-                if (k == mt-1 && alpha != one) {
-                    // XXX Call scale( alpha, one, B, local_opts ) when
-                    // transpose will be handled.
-                    for (int64_t i = 0; i < mt; ++i) {
-                        for (int64_t j = 0; j < nt; ++j) {
-                            if (B.tileIsLocal(i, j)) {
-                                if (target == Target::Devices) {
-                                    int device = B.tileDevice( i, j );
-
-                                    B.tileGetForWriting( i, j, device,
-                                            LayoutConvert( layout ) );
-
-                                    blas::Queue* queue = A.compute_queue( device, queue_0 );
-                                    assert( queue != nullptr );
-                                    auto T = B( i, j, device );
-                                    if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
-                                        T = transpose( T );
-
-                                    device::gescale( T.mb(), T.nb(), alpha, one,
-                                            T.data(), T.stride(), *queue );
-                                    queue->sync();
-                                }
-                                else {
-                                    B.tileGetForWriting( i, j,
-                                            LayoutConvert( layout ) );
-                                    tile::scale( alpha, B(i, j) );
-                                }
-                            }
-                        }
-                    }
-                }
-
                 // Create the local B tiles where A(k,k) is located
                 if (A.tileIsLocal(k, k)) {
                     for (int64_t j = 0; j < nt; ++j) {
@@ -356,10 +337,13 @@ void trsmA(Side side, scalar_t alpha, TriangularMatrix<scalar_t> A,
                                     blas::Queue* queue = A.compute_queue( device, queue_0 );
                                     assert( queue != nullptr );
                                     auto T = B( k, j, device );
-                                    if (T.op() == Op::Trans || T.op() == Op::ConjTrans)
-                                        T = transpose( T );
+                                    int64_t T_mb = T.mb();
+                                    int64_t T_nb = T.nb();
+                                    if (T.op() != Op::NoTrans) {
+                                        swap( T_mb, T_nb );
+                                    }
 
-                                    device::geset( T.mb(), T.nb(), zero, zero,
+                                    device::geset( T_mb, T_nb, zero, zero,
                                             T.data(), T.stride(), *queue );
                                     queue->sync();
                                 }

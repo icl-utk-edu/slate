@@ -1287,7 +1287,8 @@ void generate_matrix(
                         const int64_t nb = A.tileNb(j);
                         if (A.tileIsLocal(i, j)) {
                             #pragma omp task slate_omp_default_none shared( A ) \
-                                firstprivate( i, j, mb, nb, i_global, j_global, max_mn, one )
+                                firstprivate( i, j, mb, nb, i_global, j_global, \
+                                              max_mn, one, pi )
                             {
                                 A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);

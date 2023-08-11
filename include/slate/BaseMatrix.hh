@@ -759,7 +759,8 @@ BaseMatrix<scalar_t>::BaseMatrix()
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
       origin_(Target::Host),
-      storage_(nullptr)
+      storage_(nullptr),
+      mpi_comm_( MPI_COMM_SELF )
 {}
 
 //------------------------------------------------------------------------------
@@ -1252,14 +1253,7 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::gridinfo(
     GridOrder* order, int* nprow, int* npcol, int* myrow, int* mycol ) const
 {
-    int mpi_size;
-    MPI_Comm_size(mpiComm(), &mpi_size);
-    if (mpi_size == 1) {
-        *order = GridOrder::Col;
-        *nprow = *npcol = 1;
-        *myrow = *mycol = 0;
-    }
-    else if (nprow_ > 0) {
+    if (nprow_ > 0) {
         *order = order_;
         *nprow = nprow_;
         *npcol = npcol_;
@@ -1273,8 +1267,18 @@ void BaseMatrix<scalar_t>::gridinfo(
         }
     }
     else {
-        *order = GridOrder::Unknown;
-        *nprow = *npcol = *myrow = *mycol = -1;
+        int mpi_size;
+        slate_mpi_call(
+            MPI_Comm_size(mpiComm(), &mpi_size));
+        if (mpi_size == 1) {
+            *order = GridOrder::Col;
+            *nprow = *npcol = 1;
+            *myrow = *mycol = 0;
+        }
+        else {
+            *order = GridOrder::Unknown;
+            *nprow = *npcol = *myrow = *mycol = -1;
+        }
     }
 }
 

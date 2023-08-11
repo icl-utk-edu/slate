@@ -613,7 +613,7 @@ if (gpu_backend MATCHES "^(sycl|auto)$")
         # Intel-IntelLLVM compiler while compiling omptarget offload
         # routines. (the compiler uses fast floating point mode by
         # default).
-        target_compile_options( slate PRIVATE -fp-model=precise )
+        target_compile_options( slate PRIVATE "-fp-model=precise" )
 
         # -Wno-unused-command-line-argument avoids
         # icpx warning: -Wl,-rpath,...: 'linker' input unused.
@@ -624,13 +624,15 @@ if (gpu_backend MATCHES "^(sycl|auto)$")
         # -Wno-pass-failed avoids (on src/omptarget/device_transpose.cc)
         # icpx warning: loop not vectorized.
         #
-        target_compile_options( slate PRIVATE -Wno-unused-command-line-argument )
-        target_compile_options( slate PRIVATE -Wno-c99-extensions )
-        target_compile_options( slate PRIVATE -Wno-pass-failed )
+        target_compile_options(
+            slate PRIVATE
+            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-unused-command-line-argument>"
+            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-c99-extensions>"
+            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-pass-failed>" )
 
         # Intel icpx options for OpenMP offload.
-        target_compile_options( slate PRIVATE -fopenmp-targets=spir64 )
-        target_link_options(    slate PRIVATE -fopenmp-targets=spir64 )
+        target_compile_options( slate PRIVATE "-fopenmp-targets=spir64" )
+        target_link_options(    slate PRIVATE "-fopenmp-targets=spir64" )
 
         file(
             GLOB libslate_omptarget_src

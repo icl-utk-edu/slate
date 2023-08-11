@@ -249,7 +249,8 @@ void generate_sigma(
     #pragma omp master
     for (int64_t i = 0; i < min_mt_nt; ++i) {
         if (A.tileIsLocal(i, i)) {
-            #pragma omp task
+            #pragma omp task slate_omp_default_none shared( A, Sigma ) \
+                firstprivate( i, S_index )
             {
                 A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
                 auto T = A(i, i);
@@ -374,7 +375,8 @@ void generate_svd(
         #pragma omp master
         for (int64_t i = 0; i < min_mt_nt; ++i) {
             if (A.tileIsLocal(i, i)) {
-                #pragma omp task
+                #pragma omp task slate_omp_default_none shared( A, Sigma ) \
+                    firstprivate( i, S_index )
                 {
                     A.tileGetForWriting( i, i, LayoutConvert::ColMajor );
                     auto Aii = A(i, i);
@@ -396,7 +398,8 @@ void generate_svd(
             int64_t i_global = 0;
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
-                    #pragma omp task
+                    #pragma omp task slate_omp_default_none shared( U ) \
+                        firstprivate( i, j, i_global, j_global, seed )
                     {
                         U.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                         auto Uij = U(i, j);
@@ -431,7 +434,8 @@ void generate_svd(
             int64_t i_global = 0;
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
-                    #pragma omp task
+                    #pragma omp task slate_omp_default_none shared( V ) \
+                        firstprivate( i, j, i_global, j_global, seed )
                     {
                         V.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                         auto Vij = V(i, j);
@@ -540,7 +544,8 @@ void generate_heev(
             int64_t i_global = 0;
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
-                    #pragma omp task
+                    #pragma omp task slate_omp_default_none shared( U ) \
+                        firstprivate( i, j, i_global, j_global, seed )
                     {
                         U.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                         auto Uij = U(i, j);
@@ -599,7 +604,8 @@ void generate_heev(
             int64_t I_index = 0;
             for (int64_t i = 0; i < mt; ++i) {
                 if (A.tileIsLocal(i, j)) {
-                    #pragma omp task
+                    #pragma omp task slate_omp_default_none shared( A, D ) \
+                        firstprivate( i, j, I_index, J_index )
                     {
                         A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                         auto Aij = A(i, j);
@@ -1221,8 +1227,8 @@ void generate_matrix(
                 for (int64_t j = 0; j < nt; ++j) {
                     int64_t ii = 0;
                     for (int64_t i = 0; i < mt; ++i) {
-                        #pragma omp task slate_omp_default_none \
-                            firstprivate( i, j, ii, jj, s ) shared( A )
+                        #pragma omp task slate_omp_default_none shared( A ) \
+                            firstprivate( i, j, ii, jj, s )
                         {
                             if (A.tileIsLocal( i, j )) {
                                 A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
@@ -1280,8 +1286,8 @@ void generate_matrix(
                     for (int64_t j = 0; j < nt; ++j) {
                         const int64_t nb = A.tileNb(j);
                         if (A.tileIsLocal(i, j)) {
-                            #pragma omp task firstprivate(i, j, mb, nb, \
-                                                          i_global, j_global)
+                            #pragma omp task slate_omp_default_none shared( A ) \
+                                firstprivate( i, j, mb, nb, i_global, j_global, max_mn, one )
                             {
                                 A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
@@ -1336,8 +1342,8 @@ void generate_matrix(
                     for (int64_t j = 0; j < nt; ++j) {
                         const int64_t nb = A.tileNb(j);
                         if (A.tileIsLocal(i, j)) {
-                            #pragma omp task firstprivate(i, j, mb, nb, \
-                                                          i_global, j_global)
+                            #pragma omp task slate_omp_default_none shared( A ) \
+                                firstprivate( i, j, mb, nb, i_global, j_global, max_mn )
                             {
                                 A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
@@ -1371,7 +1377,8 @@ void generate_matrix(
                     for (int64_t j = 0; j < nt; ++j) {
                         const int64_t nb = A.tileNb(j);
                         if (A.tileIsLocal(i, j)) {
-                            #pragma omp task firstprivate(i, j, mb, nb, i_global, j_global)
+                            #pragma omp task slate_omp_default_none shared( A ) \
+                                firstprivate( i, j, mb, nb, i_global, j_global )
                             {
                                 A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
@@ -1440,8 +1447,8 @@ void generate_matrix(
                     for (int64_t j = 0; j < nt; ++j) {
                         const int64_t nb = A.tileNb(j);
                         if (A.tileIsLocal(i, j)) {
-                            #pragma omp task firstprivate(i, j, mb, nb, \
-                                                          i_global, j_global)
+                            #pragma omp task slate_omp_default_none shared( A ) \
+                                firstprivate( i, j, mb, nb, i_global, j_global, rho )
                             {
                                 A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
@@ -1478,8 +1485,9 @@ void generate_matrix(
                     for (int64_t j = 0; j < nt; ++j) {
                         const int64_t nb = A.tileNb(j);
                         if (A.tileIsLocal(i, j)) {
-                            #pragma omp task firstprivate(i, j, mb, nb, \
-                                                          i_global, j_global)
+                            #pragma omp task slate_omp_default_none shared( A ) \
+                                firstprivate( i, j, mb, nb, i_global, j_global, \
+                                              inner_const, outer_const )
                             {
                                 A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
@@ -1513,8 +1521,8 @@ void generate_matrix(
                     for (int64_t j = 0; j < nt; ++j) {
                         const int64_t nb = A.tileNb(j);
                         if (A.tileIsLocal(i, j)) {
-                            #pragma omp task firstprivate(i, j, mb, nb, \
-                                                          i_global, j_global)
+                            #pragma omp task slate_omp_default_none shared( A ) \
+                                firstprivate( i, j, mb, nb, i_global, j_global )
                             {
                                 A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
@@ -1553,8 +1561,8 @@ void generate_matrix(
                     for (int64_t j = 0; j < nt; ++j) {
                         const int64_t nb = A.tileNb(j);
                         if (A.tileIsLocal(i, j)) {
-                            #pragma omp task firstprivate(i, j, mb, nb, \
-                                                          i_global, j_global)
+                            #pragma omp task slate_omp_default_none shared( A ) \
+                                firstprivate( i, j, mb, nb, i_global, j_global, max_mn )
                             {
                                 A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
@@ -1587,8 +1595,9 @@ void generate_matrix(
                     for (int64_t j = 0; j < nt; ++j) {
                         const int64_t nb = A.tileNb(j);
                         if (A.tileIsLocal(i, j)) {
-                            #pragma omp task firstprivate(i, j, mb, nb, \
-                                                          i_global, j_global)
+                            #pragma omp task slate_omp_default_none shared( A ) \
+                                firstprivate( i, j, mb, nb, i_global, j_global, \
+                                              max_mn, one, a )
                             {
                                 A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto A_ij = A(i, j);
@@ -1633,7 +1642,9 @@ void generate_matrix(
                     int64_t i_global = 0;
                     for (int64_t i = 0; i < mt; ++i) {
                         if (A.tileIsLocal(i, j)) {
-                            #pragma omp task
+                            #pragma omp task slate_omp_default_none shared( A ) \
+                                firstprivate( i, j, j_global, i_global, dominant, \
+                                              n, sigma_max, seed, rand_dist )
                             {
                                 A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                 auto Aij = A(i, j);
@@ -1830,7 +1841,9 @@ void generate_matrix(
                         int64_t i_global = 0;
                         for (int64_t i = j; i < mt; ++i) { // lower trapezoid
                             if (A.tileIsLocal(i, j)) {
-                                #pragma omp task
+                                #pragma omp task slate_omp_default_none shared( A ) \
+                                    firstprivate( i, j, j_global, i_global, dominant, \
+                                                  n, sigma_max, seed, rand_dist )
                                 {
                                     A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                     auto Aij = A(i, j);
@@ -1865,7 +1878,9 @@ void generate_matrix(
                         int64_t i_global = 0;
                         for (int64_t i = 0; i <= j && i < mt; ++i) {  // upper trapezoid
                             if (A.tileIsLocal(i, j)) {
-                                #pragma omp task
+                                #pragma omp task slate_omp_default_none shared( A ) \
+                                    firstprivate( i, j, i_global, j_global, dominant, \
+                                                  n, sigma_max, seed, rand_dist )
                                 {
                                     A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
                                     auto Aij = A(i, j);

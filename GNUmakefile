@@ -141,6 +141,19 @@ ifneq ($(hip),1)
         # enable the omptarget offload kernels in SLATE for oneMKL-SYCL devices
         $(info Note: enabling omp-target-offload kernels)
         omptarget = 1
+
+        # -Wno-unused-command-line-argument avoids
+        # icpx warning: -Wl,-rpath,...: 'linker' input unused.
+        #
+        # -Wno-c99-extensions avoids
+        # icpx warning: '_Complex' is a C99 extension.
+        #
+        # -Wno-pass-failed avoids (on src/omptarget/device_transpose.cc)
+        # icpx warning: loop not vectorized.
+        #
+        CXXFLAGS += -fsycl -fp-model=precise -Wno-unused-command-line-argument \
+                    -Wno-c99-extensions -Wno-pass-failed
+        LIBS += -lsycl
     endif
 endif
 endif
@@ -186,8 +199,15 @@ endif
 #-------------------------------------------------------------------------------
 # if OpenMP
 ifeq ($(openmp),1)
-    CXXFLAGS += -fopenmp
-    LDFLAGS  += -fopenmp
+    ifeq (${gpu_backend},sycl)
+        # Intel icpx options for OpenMP offload.
+        CXXFLAGS += -fiopenmp -fopenmp-targets=spir64
+        LDFLAGS  += -fiopenmp -fopenmp-targets=spir64
+    else
+        # Most other compilers recognize this.
+        CXXFLAGS += -fopenmp
+        LDFLAGS  += -fopenmp
+    endif
 else
     libslate_src += src/stubs/openmp_stubs.cc
 endif

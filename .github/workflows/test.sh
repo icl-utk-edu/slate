@@ -14,36 +14,52 @@ export OMP_NUM_THREADS=8
 export CUDA_VISIBLE_DEVICES=0
 export ROCR_VISIBLE_DEVICES=0
 
+# Currently, OpenMP offload tests don't work on our Intel GPU.
+# CI checks only compilation.
+if [ "${device}" != "gpu_intel" ]; then
+
 print "======================================== Unit tests"
 cd unit_test
 
 ./run_tests.py --timeout 300 --xml ${top}/report-unit-${maker}.xml
 (( err += $? ))
 
-print "======================================== Tests"
-cd ../test
+cd ..
 
-target="d"
-origin="d"
+print "======================================== Tests"
+cd test
+
+args="--quick --timeout 1200"
 if [ "$device" = "cpu" ]; then
-    target="t"
-    origin="s"
-    tests=""
+    args+=" --target h --origin s"
 else
-    tests=""
+    args+=" --target d --origin d"
 fi
 
+if [ "${device}" = "gpu_intel" ]; then
+    # Our Intel GPU supports only single precision.
+    args+=" --type s,c"
+fi
+
+tests=""
 if [ "$maker" = "cmake" ]; then
    # Limit cmake to running a minimal sanity test.
    tests="potrf"
 fi
 
-./run_tests.py --timeout 1200 --origin ${origin} --target ${target} --quick \
-               --xml ${top}/report-${maker}.xml ${tests}
+./run_tests.py ${args} --xml ${top}/report-${maker}.xml ${tests}
 (( err += $? ))
 
 print "======================================== Smoke tests"
 cd ${top}/examples
+
+# Makefile or CMakeLists.txt picks up ${test_args}.
+if [ "${device}" = "gpu_intel" ]; then
+    # Our Intel GPU supports only single precision.
+    export test_args="s c"
+else
+    export test_args="s d c z"
+fi
 
 if [ "${maker}" = "make" ]; then
     export PKG_CONFIG_PATH+=:${top}/install/lib/pkgconfig
@@ -52,14 +68,6 @@ if [ "${maker}" = "make" ]; then
 elif [ "${maker}" = "cmake" ]; then
     rm -rf build && mkdir build && cd build
     cmake "-DCMAKE_PREFIX_PATH=${top}/install" .. || exit 30
-fi
-
-# Makefile or CMakeLists.txt picks up ${test_args}.
-if [ "${device}" = "gpu_intel" ]; then
-    # Our Intel GPU supports only single precision.
-    export test_args="s c"
-else
-    export test_args="s d c z"
 fi
 
 # ARGS=-V causes CTest to print output. Makefile doesn't use it.
@@ -78,6 +86,8 @@ if [ "${maker}" = "make" ]; then
         err=30
     fi
 fi
+
+fi  # device != gpu_intel
 
 print "======================================== Finished test"
 exit ${err}

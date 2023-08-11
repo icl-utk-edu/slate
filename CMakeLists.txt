@@ -608,14 +608,31 @@ if (gpu_backend MATCHES "^(sycl|auto)$")
     if (MKL_FOUND AND FSYCL_SUPPORT)
         set( gpu_backend "sycl" )
         set( slate_use_sycl true )
-        # enable the omptarget offload kernels in SLATE
-        set( omptarget 1 )
 
         # Avoid "comparison with NaN" warnings from the SYCL
         # Intel-IntelLLVM compiler while compiling omptarget offload
         # routines. (the compiler uses fast floating point mode by
         # default).
-        target_compile_options( slate PRIVATE -fp-model=precise )
+        target_compile_options( slate PRIVATE "-fp-model=precise" )
+
+        # -Wno-unused-command-line-argument avoids
+        # icpx warning: -Wl,-rpath,...: 'linker' input unused.
+        #
+        # -Wno-c99-extensions avoids
+        # icpx warning: '_Complex' is a C99 extension.
+        #
+        # -Wno-pass-failed avoids (on src/omptarget/device_transpose.cc)
+        # icpx warning: loop not vectorized.
+        #
+        target_compile_options(
+            slate PRIVATE
+            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-unused-command-line-argument>"
+            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-c99-extensions>"
+            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-pass-failed>" )
+
+        # Intel icpx options for OpenMP offload.
+        target_compile_options( slate PRIVATE "-fopenmp-targets=spir64" )
+        target_link_options(    slate PRIVATE "-fopenmp-targets=spir64" )
 
         file(
             GLOB libslate_omptarget_src

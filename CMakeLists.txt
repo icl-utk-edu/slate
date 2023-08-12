@@ -1,11 +1,17 @@
+# Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+# SPDX-License-Identifier: BSD-3-Clause
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
+#
 # CMake script for SLATE library. See INSTALL.md for directions.
 
 cmake_minimum_required( VERSION 3.18 )
 # 3.1  target_compile_features
-# 3.8  target_compile_features( cxx_std_11 )
+# 3.8  target_compile_features( cxx_std_17 )
 # 3.14 install( LIBRARY DESTINATION lib ) default
 # 3.15 $<$COMPILE_LANG_AND_ID  # optional
 # 3.15 message DEBUG, string REPEAT
+# 3.17 find_package( CUDAToolkit )
 # 3.18 CMAKE_CUDA_ARCHITECTURES
 
 project(
@@ -50,6 +56,14 @@ set( gpu_backend "auto" CACHE STRING "GPU backend to use" )
 set_property( CACHE gpu_backend PROPERTY STRINGS
               auto cuda hip sycl none )
 
+# After setting $color.
+include( "cmake/util.cmake" )
+
+# Recognize CTest's BUILD_TESTING flag. (Quotes required.)
+if (NOT "${BUILD_TESTING}" STREQUAL "")
+    set( build_tests "${BUILD_TESTING}" )
+endif()
+
 # Default prefix=/opt/slate
 if (CMAKE_INSTALL_PREFIX_INITIALIZED_TO_DEFAULT
     AND slate_is_project)
@@ -70,8 +84,8 @@ endif()
 
 # the RPATH to be used when installing, but only if it's not a system directory
 list( FIND CMAKE_PLATFORM_IMPLICIT_LINK_DIRECTORIES
-      "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}" isSystemDir )
-if ("${isSystemDir}" STREQUAL "-1")
+      "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}" is_system_dir )
+if ("${is_system_dir}" STREQUAL "-1")
     list( APPEND CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR}" )
 endif()
 
@@ -250,6 +264,7 @@ set_target_properties(
     CUDA_STANDARD 11
     CXX_STANDARD_REQUIRED true  # prohibit < c++17
     CXX_EXTENSIONS false        # prohibit gnu++17
+    WINDOWS_EXPORT_ALL_SYMBOLS ON
 )
 
 if (CMAKE_VERSION VERSION_GREATER_EQUAL 3.15)
@@ -269,17 +284,17 @@ if (NOT use_openmp)
     message( STATUS "User has requested to NOT use OpenMP" )
 else()
     find_package( OpenMP )
-endif()
-if (OpenMP_CXX_FOUND)
-    target_link_libraries( slate PUBLIC "OpenMP::OpenMP_CXX" )
-    set( slate_use_openmp true )
-else()
-    message( STATUS "No OpenMP support in SLATE" )
-    target_sources(
-        slate
-        PRIVATE
-        src/stubs/openmp_stubs.cc
-    )
+    if (OpenMP_CXX_FOUND)
+        target_link_libraries( slate PUBLIC "OpenMP::OpenMP_CXX" )
+        set( slate_use_openmp true )
+    else()
+        message( STATUS "No OpenMP support in SLATE" )
+        target_sources(
+            slate
+            PRIVATE
+            src/stubs/openmp_stubs.cc
+        )
+    endif()
 endif()
 
 #-------------------------------------------------------------------------------
@@ -324,15 +339,15 @@ message( "" )
 message( "---------------------------------------- oneMKL-SYCL: gpu_backend = ${gpu_backend}" )
 set( slate_use_sycl false )  # output in slateConfig.cmake.in
 if (gpu_backend MATCHES "^(sycl|auto)$")
-    message( STATUS "Looking for oneMKL-SYCL" )
-    if ( TARGET MKL::MKL_DPCPP ) # Search for MKL only if not already been found
+    message( STATUS "${bold}Looking for SYCL${not_bold} (gpu_backend = ${gpu_backend})" )
+    if (TARGET MKL::MKL_DPCPP) # Search for MKL only if not already been found
         set( MKL_FOUND true )
     endif()
-    if ( NOT MKL_FOUND ) # Search for MKL only if not already been found
+    if (NOT MKL_FOUND) # Search for MKL only if not already been found
         if (gpu_backend STREQUAL "sycl")
-            find_package( MKL CONFIG REQUIRED HINTS "$ENV{MKL_ROOT}")
+            find_package( MKL CONFIG REQUIRED HINTS "$ENV{MKL_ROOT}" )
         else()
-            find_package( MKL CONFIG QUIET HINTS "$ENV{MKL_ROOT}")
+            find_package( MKL CONFIG QUIET HINTS "$ENV{MKL_ROOT}" )
         endif()
     endif()
     # message(STATUS "Available targets: ${MKL_IMPORTED_TARGETS}")
@@ -383,12 +398,14 @@ if (gpu_backend MATCHES "^(sycl|auto)$")
         )
 
         target_link_libraries( slate PUBLIC -lmkl_sycl -lsycl -lOpenCL )
-        message( STATUS "Building oneMKL-SYCL device support" )
+        message( STATUS "Building SYCL support" )
     elseif (gpu_backend STREQUAL "sycl")
-        message( FATAL_ERROR "SYCL compiler not found" )
+        message( FATAL_ERROR "${red}SYCL compiler not found${plain}" )
     else()
-        message( STATUS "No oneMKL-SYCL device support: oneMKL or SYCL compiler not found" )
+        message( STATUS "${red}No SYCL support: oneMKL or SYCL compiler not found${plain}" )
     endif()
+else()
+    message( STATUS "${red}No SYCL support: gpu_backend = ${gpu_backend}${plain}" )
 endif()
 
 #-------------------------------------------------------------------------------
@@ -513,11 +530,10 @@ endif()
 
 #-------------------------------------------------------------------------------
 # HIP/ROCm support.
+message( "" )
 set( slate_use_hip false )  # output in slateConfig.cmake.in
-if (NOT CMAKE_CUDA_COMPILER
-    AND gpu_backend MATCHES "^(auto|hip)$")
-
-    message( STATUS "Looking for HIP/ROCm" )
+if (gpu_backend MATCHES "^(auto|hip)$")
+    message( STATUS "${bold}Looking for HIP/ROCm${not_bold} (gpu_backend = ${gpu_backend})" )
     if (gpu_backend STREQUAL "hip")
         find_package( HIP REQUIRED )
     else()
@@ -533,6 +549,7 @@ if (HIP_FOUND)
     find_package( hip REQUIRED )
     find_package( rocblas REQUIRED )
     set( slate_use_hip true )
+    set( gpu_backend "hip" )
 
     # For ROCm >= 3.5, wipe hip-clang specific interface options which are propagated
     set_target_properties( hip::device PROPERTIES INTERFACE_COMPILE_OPTIONS "-fPIC" )
@@ -661,19 +678,19 @@ if (HIP_FOUND)
         endif()
     endforeach()
 else()
-    message( STATUS "Not building HIP/ROCm support in SLATE" )
-endif()
-
-#-------------------------------------------------------------------------------
-if (build_tests)
-    add_subdirectory( test )
-    add_subdirectory( unit_test )
+    message( STATUS "${red}No HIP/ROCm support: gpu_backend = ${gpu_backend}${plain}" )
 endif()
 
 #-------------------------------------------------------------------------------
 # Add 'make lib' target.
 if (slate_is_project)
     add_custom_target( lib DEPENDS slate )
+endif()
+
+#-------------------------------------------------------------------------------
+if (build_tests)
+    add_subdirectory( test )
+    add_subdirectory( unit_test )
 endif()
 
 #-------------------------------------------------------------------------------

@@ -486,46 +486,42 @@ target_link_libraries( slate PUBLIC blaspp lapackpp )
 #-------------------------------------------------------------------------------
 # CUDA support.
 message( "" )
-message( "---------------------------------------- CUDA or HIP/ROCm: gpu_backend = ${gpu_backend}" )
+message( "---------------------------------------- GPU support" )
 
 set( slate_use_cuda false )  # output in slateConfig.cmake.in
 if (gpu_backend MATCHES "^(auto|cuda)$")
-    message( STATUS "Looking for CUDA" )
-    include( CheckLanguage )
-    check_language( CUDA )
-    if (gpu_backend STREQUAL "cuda" AND NOT CMAKE_CUDA_COMPILER)
-        message( FATAL_ERROR "gpu_backend = $(gpu_backend), but CUDA was not found")
+    message( STATUS "${bold}Looking for CUDA${not_bold} (gpu_backend = ${gpu_backend})" )
+    if (gpu_backend STREQUAL "cuda")
+        find_package( CUDAToolkit REQUIRED )
+    else()
+        find_package( CUDAToolkit QUIET )
     endif()
-endif()
-if (CMAKE_CUDA_COMPILER)
-    enable_language( CUDA )
-    set( slate_use_cuda true )
+    if (CUDAToolkit_FOUND)
+        set( gpu_backend "cuda" )
+        set( slate_use_cuda true )
 
-    file(
-        GLOB libslate_cuda_src
-        CONFIGURE_DEPENDS  # glob at build time
-        src/cuda/*.cu
-    )
-    target_sources(
-        slate
-        PRIVATE
-        ${libslate_cuda_src}
-    )
+        # Some platforms need these to be public libraries.
+        target_link_libraries(
+            slate PUBLIC CUDA::cudart CUDA::cublas )
 
-    # CMake 3.17 adds find_package( CUDAToolkit )
-    # with CUDA::cudart and CUDA::cublas targets.
-    # For compatibility with older CMake, for now do search ourselves.
-    find_library( cudart_lib cudart ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES} )
-    find_library( cublas_lib cublas ${CMAKE_CUDA_IMPLICIT_LINK_DIRECTORIES} )
+        enable_language( CUDA )
+        file(
+            GLOB libslate_cuda_src
+            CONFIGURE_DEPENDS  # glob at build time
+            src/cuda/*.cu
+        )
+        target_sources(
+            slate
+            PRIVATE
+            ${libslate_cuda_src}
+        )
 
-    # Some platforms need these to be public libraries.
-    target_link_libraries(
-        slate PUBLIC "${cudart_lib}" "${cublas_lib}" )
-    target_include_directories(
-        slate PUBLIC "${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}" )
-    message( STATUS "Building CUDA support in SLATE" )
+        message( STATUS "${blue}Building CUDA support${plain}" )
+    else()
+        message( STATUS "${red}No CUDA support: CUDA not found${plain}" )
+    endif()
 else()
-    message( STATUS "Not building CUDA support in SLATE" )
+    message( STATUS "${red}No CUDA support: gpu_backend = ${gpu_backend}${plain}" )
 endif()
 
 #-------------------------------------------------------------------------------

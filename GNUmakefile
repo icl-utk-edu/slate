@@ -244,6 +244,12 @@ ifeq ($(blas),mkl)
     ifeq ($(CXX),icpc)
         blas_fortran = ifort
     endif
+    # BLAS is Intel MKL and SLATE is using the SYCL backend
+    # Use ifort, threaded-blas and mkl_intel_thread
+    ifeq ($(gpu_backend),sycl)
+        blas_fortran = ifort
+        blas_threaded = 1
+    endif
     ifeq ($(macos),1)
         # MKL on MacOS (version 20180001) has only Intel Fortran version
         blas_fortran = ifort

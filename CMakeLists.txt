@@ -96,7 +96,10 @@ set_property( CACHE CMAKE_CUDA_ARCHITECTURES PROPERTY STRINGS
 
 #-----------------------------------
 # BLAS options
-# SLATE defaults to single-threaded BLAS.
+# Auto-detect blas_threaded support (single-threaded, multi-threaded)
+# Using blas_threaded=false causes OneMKL configuration problems
+# because OneMKL requires multi-threaded BLAS.  Note: This setting may
+# need to be revisited if a BLAS library is not OpenMP-aware.
 set( blas_threaded "auto" CACHE STRING
      "Multi-threaded BLAS? (Passed to BLAS++.)" )
 set_property(

@@ -102,7 +102,7 @@ for its options, which include:
     blas_threaded
         Whether to search for multi-threaded or sequential BLAS.
         Currently applies to Intel MKL and IBM ESSL. One of:
-        1 (yes)         multi-threaded BLAS
+        1 (yes)         multi-threaded BLAS (set for Intel-OneMKL (SYCL))
         0 (no)          sequential BLAS (default in SLATE)
 
     blas_fortran
@@ -126,9 +126,10 @@ for its options, which include:
         cmake -DBLAS_LIBRARIES='-lopenblas' ..
 
     gpu_backend
-        auto            auto-detect CUDA or HIP/ROCm (default)
+        auto            auto-detect CUDA or HIP/ROCm or SYCL (default)
         cuda            build with CUDA support
         hip             build with HIP/ROCm support
+        sycl            build with SYCL/OneMKL support
         none            do not build with GPU backend
 
     color

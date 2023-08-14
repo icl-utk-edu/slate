@@ -36,6 +36,7 @@ BLAS++, LAPACK++, and TestSweeper.
     CXX  = mpicxx    # MPI compiler wrappers recommended
     FC   = mpif90
     blas = openblas
+    CXXFLAGS = -DSLATE_HAVE_MT_BCAST
 
 Compile and install:
 
@@ -45,6 +46,7 @@ Compile and install:
 
     export CXX=g++      # or your preferred C++ compiler
     export FC=gfortran  # or your preferred Fortran compiler
+    export CXXFLAGS = -DSLATE_HAVE_MT_BCAST
     mkdir build && cd build
     cmake -Dblas=openblas ..
     make && make install
@@ -58,6 +60,13 @@ These include:
 
     CXX                 C++ compiler
     CXXFLAGS            C++ compiler flags
+        * SLATE_HAVE_MT_BCAST uses multiple OMP threads for MPI broadcast communication.
+        Using this flag to enable multithreading broadcast communication achieves
+        better performance but causes hangs on certain systems, particularly Frontier.
+        using make.inc file:
+            CXXFLAGS = -DSLATE_HAVE_MT_BCAST
+        using cmake:
+            export CXXFLAGS = -DSLATE_HAVE_MT_BCAST
     FC                  Fortran compiler
     FCFLAGS             Fortran compiler flags
     LDFLAGS             linker flags

@@ -46,11 +46,11 @@ void test_SymmetricMatrix_default()
     GridOrder order;
     int myp, myq, myrow, mycol;
     A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
-    test_assert( order == GridOrder::Unknown );
-    test_assert( myp == -1 );
-    test_assert( myq == -1 );
-    test_assert( myrow == -1 );
-    test_assert( mycol == -1 );
+    test_assert( order == GridOrder::Col );
+    test_assert( myp == 1 );
+    test_assert( myq == 1 );
+    test_assert( myrow == 0 );
+    test_assert( mycol == 0 );
 }
 
 //------------------------------------------------------------------------------

@@ -95,17 +95,6 @@ set_property( CACHE CMAKE_CUDA_ARCHITECTURES PROPERTY STRINGS
               30 35 50 60 70 75 80 90 )
 
 #-----------------------------------
-# BLAS options
-# Auto-detect blas_threaded support (single-threaded, multi-threaded)
-# Using blas_threaded=false causes oneMKL configuration problems
-# because oneMKL requires multi-threaded BLAS.  Note: This setting may
-# need to be revisited if a BLAS library is not OpenMP-aware.
-set( blas_threaded "auto" CACHE STRING
-     "Multi-threaded BLAS? (Passed to BLAS++.)" )
-set_property(
-    CACHE blas_threaded PROPERTY STRINGS
-    "auto" "true" "false" )
-
 message( DEBUG "Settings:
 CMAKE_INSTALL_PREFIX   = ${CMAKE_INSTALL_PREFIX}
 CMAKE_BUILD_TYPE       = ${CMAKE_BUILD_TYPE}
@@ -328,6 +317,97 @@ else()
     )
     target_compile_definitions( slate PUBLIC "-DSLATE_NO_MPI" )
 endif()
+
+#-------------------------------------------------------------------------------
+# SYCL support.
+message( "" )
+message( "---------------------------------------- oneMKL-SYCL: gpu_backend = ${gpu_backend}" )
+set( slate_use_sycl false )  # output in slateConfig.cmake.in
+if (gpu_backend MATCHES "^(sycl|auto)$")
+    message( STATUS "Looking for oneMKL-SYCL" )
+    if ( TARGET MKL::MKL_DPCPP ) # Search for MKL only if not already been found
+        set( MKL_FOUND true )
+    endif()
+    if ( NOT MKL_FOUND ) # Search for MKL only if not already been found
+        if (gpu_backend STREQUAL "sycl")
+            find_package( MKL CONFIG REQUIRED HINTS "$ENV{MKL_ROOT}")
+        else()
+            find_package( MKL CONFIG QUIET HINTS "$ENV{MKL_ROOT}")
+        endif()
+    endif()
+    # message(STATUS "Available targets: ${MKL_IMPORTED_TARGETS}")
+
+    # Check if compiler supports the SYCL flag
+    check_cxx_compiler_flag( "-fsycl" FSYCL_SUPPORT )
+
+    # If oneMKL is found and the compiler supports SYCL then
+    # enable oneMKL-SYCL-device support
+    if (MKL_FOUND AND FSYCL_SUPPORT)
+        set( gpu_backend "sycl" )
+        set( slate_use_sycl true )
+
+        # Avoid "comparison with NaN" warnings from the SYCL
+        # Intel-IntelLLVM compiler while compiling omptarget offload
+        # routines. (the compiler uses fast floating point mode by
+        # default).
+        target_compile_options( slate PRIVATE "-fp-model=precise" )
+
+        # -Wno-unused-command-line-argument avoids
+        # icpx warning: -Wl,-rpath,...: 'linker' input unused.
+        #
+        # -Wno-c99-extensions avoids
+        # icpx warning: '_Complex' is a C99 extension.
+        #
+        # -Wno-pass-failed avoids (on src/omptarget/device_transpose.cc)
+        # icpx warning: loop not vectorized.
+        #
+        target_compile_options(
+            slate PRIVATE
+            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-unused-command-line-argument>"
+            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-c99-extensions>"
+            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-pass-failed>" )
+
+        # Intel icpx options for OpenMP offload.
+        target_compile_options( slate PRIVATE "-fopenmp-targets=spir64" )
+        target_link_options(    slate PRIVATE "-fopenmp-targets=spir64" )
+
+        file(
+            GLOB libslate_omptarget_src
+            CONFIGURE_DEPENDS  # glob at build time
+            src/omptarget/*.cc
+        )
+        target_sources(
+            slate
+            PRIVATE
+            ${libslate_omptarget_src}
+        )
+
+        target_link_libraries( slate PUBLIC -lmkl_sycl -lsycl -lOpenCL )
+        message( STATUS "Building oneMKL-SYCL device support" )
+    elseif (gpu_backend STREQUAL "sycl")
+        message( FATAL_ERROR "SYCL compiler not found" )
+    else()
+        message( STATUS "No oneMKL-SYCL device support: oneMKL or SYCL compiler not found" )
+    endif()
+endif()
+
+#-------------------------------------------------------------------------------
+# BLAS options
+# Set blas_threaded support (single-threaded, multi-threaded)
+# Note: oneMKL requires multi-threaded BLAS.
+if (slate_use_sycl AND MKL_FOUND)
+    # oneMKL requires using threaded-blas
+    set( blas_threaded "true" CACHE STRING
+         "Multi-threaded BLAS? (Passed to BLAS++.)" )
+else()
+    # otherwise use sequential-blas
+    set( blas_threaded "false" CACHE STRING
+         "Multi-threaded BLAS? (Passed to BLAS++.)" )
+endif()
+ set_property(
+     CACHE blas_threaded PROPERTY STRINGS
+     "auto" "true" "false" )
+message( DEBUG "blas_threaded = ${blas_threaded}" )
 
 #-------------------------------------------------------------------------------
 # Search for BLAS library, if not already included.
@@ -582,79 +662,6 @@ if (HIP_FOUND)
     endforeach()
 else()
     message( STATUS "Not building HIP/ROCm support in SLATE" )
-endif()
-
-#-------------------------------------------------------------------------------
-# SYCL support.
-message( "" )
-message( "---------------------------------------- oneMKL-SYCL: gpu_backend = ${gpu_backend}" )
-set( slate_use_sycl false )  # output in slateConfig.cmake.in
-if (gpu_backend MATCHES "^(sycl|auto)$")
-    message( STATUS "Looking for oneMKL-SYCL" )
-    if ( TARGET MKL::MKL_DPCPP ) # Search for MKL only if not already been found
-        set( MKL_FOUND true )
-    endif()
-    if ( NOT MKL_FOUND ) # Search for MKL only if not already been found
-        if (gpu_backend STREQUAL "sycl")
-            find_package( MKL CONFIG REQUIRED HINTS "$ENV{MKL_ROOT}")
-        else()
-            find_package( MKL CONFIG QUIET HINTS "$ENV{MKL_ROOT}")
-        endif()
-    endif()
-    # message(STATUS "Available targets: ${MKL_IMPORTED_TARGETS}")
-
-    # Check if compiler supports the SYCL flag
-    check_cxx_compiler_flag( "-fsycl" FSYCL_SUPPORT )
-
-    # If oneMKL is found and the compiler supports SYCL then
-    # enable oneMKL-SYCL-device support
-    if (MKL_FOUND AND FSYCL_SUPPORT)
-        set( gpu_backend "sycl" )
-        set( slate_use_sycl true )
-
-        # Avoid "comparison with NaN" warnings from the SYCL
-        # Intel-IntelLLVM compiler while compiling omptarget offload
-        # routines. (the compiler uses fast floating point mode by
-        # default).
-        target_compile_options( slate PRIVATE "-fp-model=precise" )
-
-        # -Wno-unused-command-line-argument avoids
-        # icpx warning: -Wl,-rpath,...: 'linker' input unused.
-        #
-        # -Wno-c99-extensions avoids
-        # icpx warning: '_Complex' is a C99 extension.
-        #
-        # -Wno-pass-failed avoids (on src/omptarget/device_transpose.cc)
-        # icpx warning: loop not vectorized.
-        #
-        target_compile_options(
-            slate PRIVATE
-            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-unused-command-line-argument>"
-            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-c99-extensions>"
-            "$<$<COMPILE_LANGUAGE:CXX>:-Wno-pass-failed>" )
-
-        # Intel icpx options for OpenMP offload.
-        target_compile_options( slate PRIVATE "-fopenmp-targets=spir64" )
-        target_link_options(    slate PRIVATE "-fopenmp-targets=spir64" )
-
-        file(
-            GLOB libslate_omptarget_src
-            CONFIGURE_DEPENDS  # glob at build time
-            src/omptarget/*.cc
-        )
-        target_sources(
-            slate
-            PRIVATE
-            ${libslate_omptarget_src}
-        )
-
-        target_link_libraries( slate PUBLIC -lmkl_sycl -lsycl -lOpenCL )
-        message( STATUS "Building oneMKL-SYCL device support" )
-    elseif (gpu_backend STREQUAL "sycl")
-        message( FATAL_ERROR "SYCL compiler not found" )
-    else()
-        message( STATUS "No oneMKL-SYCL device support: oneMKL or SYCL compiler not found" )
-    endif()
 endif()
 
 #-------------------------------------------------------------------------------

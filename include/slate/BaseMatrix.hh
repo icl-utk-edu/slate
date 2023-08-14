@@ -2098,7 +2098,7 @@ void BaseMatrix<scalar_t>::listBcastMT(
     using BcastTag =
         std::tuple< int64_t, int64_t, std::list<BaseMatrix<scalar_t> >, int64_t >;
 
-    #if defined( SLATE_HAVE_listBcastMT )
+    #if defined( SLATE_HAVE_MT_BCAST )
         #pragma omp taskloop slate_omp_default_none \
             shared( bcast_list ) \
             firstprivate(life_factor, layout, mpi_size, is_shared)

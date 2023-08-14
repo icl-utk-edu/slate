@@ -97,8 +97,8 @@ set_property( CACHE CMAKE_CUDA_ARCHITECTURES PROPERTY STRINGS
 #-----------------------------------
 # BLAS options
 # Auto-detect blas_threaded support (single-threaded, multi-threaded)
-# Using blas_threaded=false causes OneMKL configuration problems
-# because OneMKL requires multi-threaded BLAS.  Note: This setting may
+# Using blas_threaded=false causes oneMKL configuration problems
+# because oneMKL requires multi-threaded BLAS.  Note: This setting may
 # need to be revisited if a BLAS library is not OpenMP-aware.
 set( blas_threaded "auto" CACHE STRING
      "Multi-threaded BLAS? (Passed to BLAS++.)" )
@@ -649,7 +649,7 @@ if (gpu_backend MATCHES "^(sycl|auto)$")
         )
 
         target_link_libraries( slate PUBLIC -lmkl_sycl -lsycl -lOpenCL )
-        message( STATUS "Building OneMKL-SYCL device support" )
+        message( STATUS "Building oneMKL-SYCL device support" )
     elseif (gpu_backend STREQUAL "sycl")
         message( FATAL_ERROR "SYCL compiler not found" )
     else()

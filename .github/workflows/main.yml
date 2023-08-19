@@ -20,10 +20,9 @@ jobs:
     strategy:
       matrix:
         maker: [make, cmake]
-        device: [cpu, gpu_amd]
+        device: [cpu, gpu_nvidia, gpu_amd, gpu_intel]
       fail-fast: false
-    runs-on: dopamine
-#${{ matrix.device }}
+    runs-on: ${{ matrix.device }}
     steps:
       - uses: actions/checkout@v3
       - name: Configure

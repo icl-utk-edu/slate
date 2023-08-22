@@ -5,33 +5,9 @@
 
 #include "slate/slate.hh"
 #include "internal/internal.hh"
+#include "internal/internal_util.hh"
 
 namespace slate {
-
-//------------------------------------------------------------------------------
-/// todo: replicated in gesvMixed.cc; move to common header.
-/// @ingroup posv_specialization
-///
-template <typename scalar_t>
-bool iterRefConverged(std::vector<scalar_t>& colnorms_R,
-                      std::vector<scalar_t>& colnorms_X,
-                      scalar_t cte)
-{
-    assert(colnorms_X.size() == colnorms_R.size());
-    bool value = true;
-    int64_t size = colnorms_X.size();
-
-    for (int64_t i = 0; i < size; i++) {
-        // Use negated condition for correct NaN behavior
-        if (! (colnorms_R[i] <= colnorms_X[i] * cte)) {
-            value = false;
-            break;
-        }
-    }
-
-    return value;
-}
-
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LU factorization and solve.
@@ -187,7 +163,7 @@ void gesv_rbt(Matrix<scalar_t>& A,
     colNorms( Norm::Max, X, colnorms_X.data(), host_opts );
     colNorms( Norm::Max, R, colnorms_R.data(), host_opts );
 
-    if (iterRefConverged<real_t>( colnorms_R, colnorms_X, cte )) {
+    if (internal::iterRefConverged<real_t>( colnorms_R, colnorms_X, cte )) {
         iter = 0;
         converged = true;
     }
@@ -206,7 +182,7 @@ void gesv_rbt(Matrix<scalar_t>& A,
         colNorms( Norm::Max, X, colnorms_X.data(), host_opts );
         colNorms( Norm::Max, R, colnorms_R.data(), host_opts );
 
-        if (iterRefConverged<real_t>( colnorms_R, colnorms_X, cte )) {
+        if (internal::iterRefConverged<real_t>( colnorms_R, colnorms_X, cte )) {
             iter = iiter+1;
             converged = true;
         }

@@ -80,8 +80,15 @@ void test_posv_work(Params& params, bool run)
         params.time3.name( "potrs (s)" );
     }
 
-    if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres") {
+    bool is_iterative = params.routine == "posv_mixed"
+                        || params.routine == "posv_mixed_gmres";
+
+    int64_t itermax = 0;
+    bool fallback = true;
+    if (is_iterative) {
         params.iters();
+        fallback = params.fallback() == 'y';
+        itermax = params.itermax();
     }
 
     if (! run) {
@@ -96,6 +103,8 @@ void test_posv_work(Params& params, bool run)
         {slate::Option::HoldLocalWorkspace, hold_local_workspace},
         {slate::Option::MethodTrsm, methodTrsm},
         {slate::Option::MethodHemm, methodHemm},
+        {slate::Option::MaxIterations, itermax},
+        {slate::Option::UseFallbackSolver, fallback},
     };
 
     // MPI variables
@@ -170,7 +179,7 @@ void test_posv_work(Params& params, bool run)
 
         B.insertLocalTiles(origin_target);
 
-        if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres") {
+        if (is_iterative) {
             X_data.resize(lldB*nlocB);
             X = slate::Matrix<scalar_t>(n, nrhs, nb, p, q, MPI_COMM_WORLD);
             X.insertLocalTiles(origin_target);
@@ -184,7 +193,7 @@ void test_posv_work(Params& params, bool run)
                 uplo, n, &A_data[0], lldA, nb, p, q, MPI_COMM_WORLD);
         B = slate::Matrix<scalar_t>::fromScaLAPACK(
                 n, nrhs, &B_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
-        if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres") {
+        if (is_iterative) {
             X_data.resize(lldB*nlocB);
             X = slate::Matrix<scalar_t>::fromScaLAPACK(
                     n, nrhs, &X_data[0], lldB, nb, p, q, MPI_COMM_WORLD);
@@ -312,13 +321,13 @@ void test_posv_work(Params& params, bool run)
 
         // Norm of updated-rhs/solution matrix: || X ||_1
         real_t X_norm;
-        if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres")
+        if (is_iterative)
             X_norm = slate::norm(slate::Norm::One, X);
         else
             X_norm = slate::norm(slate::Norm::One, B);
 
         // Bref -= Aref*B
-        if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres") {
+        if (is_iterative) {
             slate::multiply(-one, Aref, X, one, Bref);
             // Using traditional BLAS/LAPACK name
             // slate::hemm(slate::Side::Left, -one, Aref, X, one, Bref);
@@ -336,7 +345,7 @@ void test_posv_work(Params& params, bool run)
 
         real_t tol = params.tol() * 0.5 * std::numeric_limits<real_t>::epsilon();
         params.okay() = (params.error() <= tol);
-        if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres")
+        if (is_iterative)
             params.okay() = params.okay() && params.iters() >= 0;
     }
 

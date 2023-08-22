@@ -113,16 +113,16 @@ void test_gesv_work(Params& params, bool run)
                         || params.routine == "gesv_rbt";
 
 
+    int64_t itermax = 0;
+    bool fallback = true;
     if (is_iterative) {
         params.iters();
-    }
-
-    int64_t itermax = 0,
-            depth = 0;
-    bool fallback = true;
-    if (params.routine == "gesv_rbt") {
         fallback = params.fallback() == 'y';
         itermax = params.itermax();
+    }
+
+    int64_t depth = 0;
+    if (params.routine == "gesv_rbt") {
         depth = params.depth();
     }
 

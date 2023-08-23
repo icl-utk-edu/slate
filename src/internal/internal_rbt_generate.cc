@@ -16,7 +16,8 @@ namespace slate {
 namespace internal {
 
 template<typename scalar_t>
-void rbt_fill(Matrix<scalar_t>& U, const int64_t seed) {
+void rbt_fill(Matrix<scalar_t>& U, const int64_t seed)
+{
     using real_t = blas::real_type<scalar_t>;
 
     const int64_t d = U.n();

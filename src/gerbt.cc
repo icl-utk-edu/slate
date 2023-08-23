@@ -36,7 +36,6 @@ void gerbt_setup_bcast(Side side, Matrix<scalar_t> A, int64_t i1, int64_t i2,
 template<typename scalar_t>
 void gerbt_bcast_filter_duplicates(typename Matrix<scalar_t>::BcastListTag& bcast_list)
 {
-
     for (auto outer = bcast_list.begin(); outer < bcast_list.end(); ++outer) {
         for (auto inner = outer+1; inner < bcast_list.end(); ) {
             if (std::get<0>(*outer) == std::get<0>(*inner)
@@ -109,7 +108,6 @@ void gerbt(Matrix<scalar_t>& U_in,
            Matrix<scalar_t>& V)
 {
     using BcastListTag = typename Matrix<scalar_t>::BcastListTag;
-
 
     slate_assert(U_in.op() == Op::Trans);
     slate_assert(V.op() == Op::NoTrans);

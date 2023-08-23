@@ -339,7 +339,6 @@ void gerbt(Side side,
         }
     }
 
-
     for (int64_t ii = 0; ii < mt; ++ii) {
         for (int64_t jj = 0; jj < nt; ++jj) {
             if (B1.tileIsLocal(ii, jj)) {

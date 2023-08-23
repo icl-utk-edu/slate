@@ -97,7 +97,6 @@ void gesv_rbt(Matrix<scalar_t>& A,
               int& iter,
               Options const& opts)
 {
-
     using real_t = blas::real_type<scalar_t>;
 
     // gemmA and rbt are currently only implemented on the host

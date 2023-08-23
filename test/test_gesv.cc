@@ -112,7 +112,6 @@ void test_gesv_work(Params& params, bool run)
                         || params.routine == "gesv_mixed_gmres"
                         || params.routine == "gesv_rbt";
 
-
     int64_t itermax = 0;
     bool fallback = true;
     if (is_iterative) {

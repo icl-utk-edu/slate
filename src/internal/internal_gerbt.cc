@@ -136,10 +136,6 @@ void gerbt(Matrix<scalar_t> A11,
                     A12.tileRelease(ii, jj);
                     A21.tileRelease(ii, jj);
                     A22.tileRelease(ii, jj);
-                    U1.tileTick(ii, 0);
-                    U2.tileTick(ii, 0);
-                    V1.tileTick(jj, 0);
-                    V2.tileTick(jj, 0);
                 }
             }
         }
@@ -172,9 +168,6 @@ void gerbt(Matrix<scalar_t> A11,
 
                     A21.tileSend(ii, jj, A21.tileRank(ii, jj), tag+2);
                     A21.tileRelease(ii, jj);
-                    U1.tileTick(ii, 0);
-                    U2.tileTick(ii, 0);
-                    V1.tileTick(ii, 0);
                 }
             }
         }
@@ -207,9 +200,6 @@ void gerbt(Matrix<scalar_t> A11,
 
                     A12.tileSend( ii, jj, A12.tileRank(ii, jj), tag+1 );
                     A12.tileRelease(ii, jj);
-                    U1.tileTick(jj, 0);
-                    V1.tileTick(jj, 0);
-                    V2.tileTick(jj, 0);
                 }
             }
         }
@@ -238,9 +228,6 @@ void gerbt(Matrix<scalar_t> A11,
 
                     gerbt( a11, a12, a21, a22,
                            u1, u2, v1, v2 );
-
-                    U1.tileTick(ii, 0);
-                    V1.tileTick(jj, 0);
                 }
             }
         }
@@ -351,8 +338,6 @@ void gerbt(Side side,
                                                 U1(ii, 0),
                                                 U2(ii, 0) );
                         }
-                        U1.tileTick(ii, 0);
-                        U2.tileTick(ii, 0);
                     }
                     else {
                         if (transp) {
@@ -367,8 +352,6 @@ void gerbt(Side side,
                                                  U1(jj, 0),
                                                  U2(jj, 0) );
                         }
-                        U1.tileTick(jj, 0);
-                        U2.tileTick(jj, 0);
                     }
                     B2.tileSend( ii, jj, B2.tileRank(ii, jj), tag );
                     B2.tileRelease(ii, jj);
@@ -398,7 +381,6 @@ void gerbt(Side side,
                         else {
                             gerbt_left_notrans( b1, b2, u1, u2 );
                         }
-                        U1.tileTick(ii, 0);
                     }
                 }
             }
@@ -426,7 +408,6 @@ void gerbt(Side side,
                         else {
                             gerbt_right_notrans( b1, b2, u1, u2 );
                         }
-                        U1.tileTick(jj, 0);
                     }
                 }
             }

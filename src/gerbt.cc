@@ -183,6 +183,13 @@ void gerbt(Matrix<scalar_t>& U_in,
 
                     internal::gerbt( A11, A12, A21, A22, U1, U2, V1, V2 );
             });
+
+        #pragma omp taskwait
+        // Manage U and V life here
+        U.releaseRemoteWorkspace();
+        U.releaseLocalWorkspace();
+        V.releaseRemoteWorkspace();
+        V.releaseLocalWorkspace();
     }
 }
 
@@ -267,6 +274,11 @@ void gerbt(Matrix<scalar_t>& Uin,
 
                     internal::gerbt( Side::Left, trans, B1, B2, U1, U2 );
                 });
+
+        #pragma omp taskwait
+        // Manage U life here
+        U.releaseRemoteWorkspace();
+        U.releaseLocalWorkspace();
     }
 }
 

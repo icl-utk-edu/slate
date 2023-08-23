@@ -19,13 +19,13 @@ void gerbt_setup_bcast(Side side, Matrix<scalar_t> A, int64_t i1, int64_t i2,
 {
     int64_t n = i2-i1;
     if (side == Side::Left) {
-        for (int64_t ii = 0; ii < n; ++ii) {
+        for (int64_t ii = 0; ii < n && ii < A.mt(); ++ii) {
             int64_t tag = ii+i1;
             bcast_list.push_back( {ii+i1, 0, {A.sub(ii, ii, 0, A.nt()-1)}, tag} );
         }
     }
     else {
-        for (int64_t jj = 0; jj < n; ++jj) {
+        for (int64_t jj = 0; jj < n && jj < A.nt(); ++jj) {
             int64_t tag = jj+i1;
             bcast_list.push_back( {jj+i1, 0, {A.sub(0, A.mt()-1, jj, jj)}, tag} );
         }
@@ -66,11 +66,11 @@ void gerbt_iterate_2d(int64_t d, int64_t inner_len, int64_t mt, int64_t nt,
 
         for (int64_t bi = 0; bi < num_bt; ++bi) {
             const int64_t i1 = bi*2*half_len;
-            const int64_t i2 = i1+half_len;
+            const int64_t i2 = std::min(i1+half_len, mt);
             const int64_t i3 = std::min(i2+half_len, mt);
             for (int64_t bj = 0; bj < num_bt; ++bj) {
                 const int64_t j1 = bj*2*half_len;
-                const int64_t j2 = j1+half_len;
+                const int64_t j2 = std::min(j1+half_len, nt);
                 const int64_t j3 = std::min(j2+half_len, nt);
 
                 body(i1, i2, i3, j1, j2, j3);
@@ -93,7 +93,7 @@ void gerbt_iterate_1d(Op trans, int64_t d, int64_t inner_len, int64_t mt,
 
         for (int64_t bi = 0; bi < num_bt; ++bi) {
             const int64_t i1 = bi*2*half_len;
-            const int64_t i2 = i1+half_len;
+            const int64_t i2 = std::min(i1+half_len, mt);
             const int64_t i3 = std::min(i2+half_len, mt);
 
             body(i1, i2, i3);
@@ -259,16 +259,13 @@ void gerbt(Matrix<scalar_t>& Uin,
 
         internal::gerbt_iterate_1d(trans, d, inner_len, mt,
                 [&](int64_t i1, int64_t i2, int64_t i3) {
+                    auto B1 = B.sub(i1, i2-1, 0, nt-1);
+                    auto B2 = B.sub(i2, i3-1, 0, nt-1);
 
-                    if (i2 < i3) {
-                        auto B1 = B.sub(i1, i2-1, 0, nt-1);
-                        auto B2 = B.sub(i2, i3-1, 0, nt-1);
+                    auto U1 = U.sub(i1, i2-1, 0, 0);
+                    auto U2 = U.sub(i2, i3-1, 0, 0);
 
-                        auto U1 = U.sub(i1, i2-1, 0, 0);
-                        auto U2 = U.sub(i2, i3-1, 0, 0);
-
-                        internal::gerbt( Side::Left, trans, B1, B2, U1, U2 );
-                    }
+                    internal::gerbt( Side::Left, trans, B1, B2, U1, U2 );
                 });
     }
 }

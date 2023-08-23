@@ -59,7 +59,7 @@ void gerbt(Tile<scalar_t> A11,
         const scalar_t v2 = V2(j, 0);
 
         for (int64_t i = mb; i < mb_full; ++i) {
-            const scalar_t u1 = U1(j, 0);
+            const scalar_t u1 = U1(i, 0);
 
             const scalar_t a11 = A11(i, j);
             const scalar_t a12 = A12(i, j);
@@ -77,10 +77,10 @@ void gerbt(Tile<scalar_t> A11,
             const scalar_t u2 = U2(i, 0);
 
             const scalar_t a11 = A11(i, j);
-            const scalar_t a12 = A21(i, j);
+            const scalar_t a21 = A21(i, j);
 
-            A11.at(i, j) = inv_sqrt_2*u1*(a11 + a12)*v1;
-            A21.at(i, j) = inv_sqrt_2*u2*(a11 - a12)*v1;
+            A11.at(i, j) = inv_sqrt_2*u1*(a11 + a21)*v1;
+            A21.at(i, j) = inv_sqrt_2*u2*(a11 - a21)*v1;
         }
     }
 

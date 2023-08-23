@@ -151,18 +151,20 @@ void gerbt(Matrix<scalar_t> A11,
                 #pragma omp task shared(A11, A21, U1, U2) firstprivate(ii, jj) \
                                  priority(1)
                 {
+                    scalar_t dummy;
+
                     const int64_t tag = 4*(ii*nt_full + jj);
                     A21.tileRecv( ii, jj, A21.tileRank(ii, jj),
                                   Layout::ColMajor, tag+2 );
 
                     Tile<scalar_t> a11 = A11(ii, jj);
                     Tile<scalar_t> a21 = A21(ii, jj);
-                    Tile<scalar_t> a12 (a11.mb(), 0, nullptr, 0, 0,
+                    Tile<scalar_t> a12 (a11.mb(), 0, &dummy, a11.mb(), 0,
                                         TileKind::UserOwned, Layout::ColMajor);
-                    Tile<scalar_t> a22 (a21.mb(), 0, nullptr, 0, 0,
+                    Tile<scalar_t> a22 (a21.mb(), 0, &dummy, a11.mb(), 0,
                                         TileKind::UserOwned, Layout::ColMajor);
                     Tile<scalar_t> v1 = V1(jj, 0);
-                    Tile<scalar_t> v2 (0, v1.nb(), nullptr, 0, 0,
+                    Tile<scalar_t> v2 (0, v1.nb(), &dummy, 0, 0,
                                         TileKind::UserOwned, Layout::ColMajor);
 
                     gerbt( a11, a12, a21, a22,
@@ -184,18 +186,20 @@ void gerbt(Matrix<scalar_t> A11,
                 #pragma omp task shared(A11, A12, V1, V2) firstprivate(ii, jj) \
                                  priority(1)
                 {
+                    scalar_t dummy;
+
                     const int64_t tag = 4*(ii*nt_full + jj);
                     A12.tileRecv( ii, jj, A12.tileRank(ii, jj),
                                   Layout::ColMajor, tag+1 );
 
                     Tile<scalar_t> a11 = A11(ii, jj);
                     Tile<scalar_t> a12 = A12(ii, jj);
-                    Tile<scalar_t> a21 (0, a11.nb(), nullptr, 0, 0,
+                    Tile<scalar_t> a21 (0, a11.nb(), &dummy, 0, 0,
                                         TileKind::UserOwned, Layout::ColMajor);
-                    Tile<scalar_t> a22 (0, a12.nb(), nullptr, 0, 0,
+                    Tile<scalar_t> a22 (0, a12.nb(), &dummy, 0, 0,
                                         TileKind::UserOwned, Layout::ColMajor);
                     Tile<scalar_t> u1 = U1(ii, 0);
-                    Tile<scalar_t> u2 (0, u1.nb(), nullptr, 0, 0,
+                    Tile<scalar_t> u2 (0, u1.nb(), &dummy, 0, 0,
                                         TileKind::UserOwned, Layout::ColMajor);
 
                     gerbt( a11, a12, a21, a22,
@@ -216,25 +220,26 @@ void gerbt(Matrix<scalar_t> A11,
                 #pragma omp task shared(A11, A12, V1, V2) firstprivate(ii, jj) \
                                  priority(1)
                 {
+                    scalar_t dummy;
 
                     Tile<scalar_t> a11 = A11(ii, jj);
-                    Tile<scalar_t> a12 (0, a11.nb(), nullptr, 0, 0,
+                    Tile<scalar_t> a12 (0, a11.nb(), &dummy, 0, 0,
                                         TileKind::UserOwned, Layout::ColMajor);
-                    Tile<scalar_t> a21 (a11.mb(), 0, nullptr, 0, 0,
+                    Tile<scalar_t> a21 (a11.mb(), 0, &dummy, a11.mb(), 0,
                                         TileKind::UserOwned, Layout::ColMajor);
-                    Tile<scalar_t> a22 (0, 0, nullptr, 0, 0,
+                    Tile<scalar_t> a22 (0, 0, &dummy, 0, 0,
                                         TileKind::UserOwned, Layout::ColMajor);
                     Tile<scalar_t> u1 = U1(ii, 0);
-                    Tile<scalar_t> u2 (0, u1.nb(), nullptr, 0, 0,
+                    Tile<scalar_t> u2 (0, u1.nb(), &dummy, 0, 0,
                                         TileKind::UserOwned, Layout::ColMajor);
                     Tile<scalar_t> v1 = V1(jj, 0);
-                    Tile<scalar_t> v2 (0, v1.nb(), nullptr, 0, 0,
+                    Tile<scalar_t> v2 (0, v1.nb(), &dummy, 0, 0,
                                         TileKind::UserOwned, Layout::ColMajor);
 
                     gerbt( a11, a12, a21, a22,
                            u1, u2, v1, v2 );
 
-                    U1.tileTick(jj, 0);
+                    U1.tileTick(ii, 0);
                     V1.tileTick(jj, 0);
                 }
             }
@@ -378,11 +383,13 @@ void gerbt(Side side,
                     #pragma omp task shared(B1, U1) firstprivate(ii, jj) \
                                      priority(1)
                     {
+                        scalar_t dummy;
+
                         Tile<scalar_t> b1 = B1(ii, jj);
-                        Tile<scalar_t> b2 (0, b1.nb(), nullptr, 0, 0,
+                        Tile<scalar_t> b2 (0, b1.nb(), &dummy, 0, 0,
                                            TileKind::UserOwned, Layout::ColMajor);
                         Tile<scalar_t> u1 = U1(ii, 0);
-                        Tile<scalar_t> u2 (0, u1.nb(), nullptr, 0, 0,
+                        Tile<scalar_t> u2 (0, u1.nb(), &dummy, 0, 0,
                                             TileKind::UserOwned, Layout::ColMajor);
 
                         if (transp) {
@@ -404,11 +411,13 @@ void gerbt(Side side,
                     #pragma omp task shared(B1, U1) firstprivate(ii, jj) \
                                      priority(1)
                     {
+                        scalar_t dummy;
+
                         Tile<scalar_t> b1 = B1(ii, jj);
-                        Tile<scalar_t> b2 (b1.mb(), 0, nullptr, 0, 0,
+                        Tile<scalar_t> b2 (b1.mb(), 0, &dummy, b1.mb(), 0,
                                            TileKind::UserOwned, Layout::ColMajor);
                         Tile<scalar_t> u1 = U1(jj, 0);
-                        Tile<scalar_t> u2 (u1.mb(), 0, nullptr, 0, 0,
+                        Tile<scalar_t> u2 (0, u1.nb(), &dummy, 0, 0,
                                             TileKind::UserOwned, Layout::ColMajor);
 
                         if (transp) {

@@ -193,25 +193,24 @@ void test_geadd_dev()
         };
 
     // Each tuple contains (alpha, beta)
-    std::list<
-              std::tuple< std::complex<double>, std::complex<double> >
-             > values_list{
+    std::list< std::tuple< std::complex<double>, std::complex<double> > >
+        values_list{
             // All 0
             { {   0,   0 },
               {   0,   0 } },
-            // 1 and 1
+            // alpha == 1, beta == 1
             { {   1,   0 },
               {   1,   0 } },
-            // Offdiag 0, diag != 0
+            // alpha == 0, beta != 0
             { {   0,   0 },
               { 0.5, 0.5 } },
-            // Offdiag != 0, diag 0
+            // alpha != 0, beta == 0
             { { 0.3, 0.3 },
               {   0,   0 } },
-            // Real != 0, Imag 0
+            // Real == 0, Imag != 0
             { {   0, 0.3 },
               {   0, 0.5 } },
-            // Real = 0, Imag != 0
+            // Real != 0, Imag == 0
             { { 0.3,   0 },
               { 0.5,   0 } },
             // Standard case
@@ -494,22 +493,24 @@ void test_geadd_batch_dev()
         };
 
     // Each tuple contains (alpha, beta)
-    std::list<
-              std::tuple< std::complex<double>, std::complex<double> >
-             > values_list{
+    std::list< std::tuple< std::complex<double>, std::complex<double> > >
+        values_list{
             // All 0
             { {   0,   0 },
               {   0,   0 } },
-            // Offdiag 0, diag != 0
+            // alpha == 1, beta == 1
+            { {   1,   0 },
+              {   1,   0 } },
+            // alpha == 0, beta != 0
             { {   0,   0 },
               { 0.5, 0.5 } },
-            // Offdiag != 0, diag 0
+            // alpha != 0, beta == 0
             { { 0.3, 0.3 },
               {   0,   0 } },
-            // Real != 0, Imag 0
+            // Real == 0, Imag != 0
             { {   0, 0.3 },
               {   0, 0.5 } },
-            // Real = 0, Imag != 0
+            // Real != 0, Imag == 0
             { { 0.3,   0 },
               { 0.5,   0 } },
             // Standard case

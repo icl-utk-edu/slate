@@ -170,6 +170,7 @@ void test_tpqrt_work( int m2, int k, int l, int cn, int ib )
         print( "Q^H C2", C2 );
     }
 
+    // Trans applies only to real.
     if (! blas::is_complex< scalar_t >::value) {
         slate::tpmqrt( slate::Side::Left, slate::Op::Trans, l, A2, T, C1, C2 );
         if (verbose > 1) {
@@ -180,8 +181,9 @@ void test_tpqrt_work( int m2, int k, int l, int cn, int ib )
     else {
         // LAPACK xerbla may print error, e.g.,
         // "On entry to ZTPMQRT parameter number  2 had an illegal value"
-        test_assert_throw_std(
-            slate::tpmqrt( slate::Side::Left, slate::Op::Trans, l, A2, T, C1, C2 ));
+        // By default, xerbla will exit, so disable this for routine testing.
+        //test_assert_throw_std(
+        //    slate::tpmqrt( slate::Side::Left, slate::Op::Trans, l, A2, T, C1, C2 ));
     }
 
     //---------------------
@@ -218,6 +220,7 @@ void test_tpqrt_work( int m2, int k, int l, int cn, int ib )
         print( "D2 Q^H", D2 );
     }
 
+    // Trans applies only to real.
     if (! blas::is_complex< scalar_t >::value) {
         slate::tpmqrt( slate::Side::Right, slate::Op::Trans, l, A2, T, D1, D2 );
         if (verbose > 1) {
@@ -228,8 +231,9 @@ void test_tpqrt_work( int m2, int k, int l, int cn, int ib )
     else {
         // LAPACK xerbla may print error, e.g.,
         // "On entry to ZTPMQRT parameter number  2 had an illegal value"
-        test_assert_throw_std(
-            slate::tpmqrt( slate::Side::Right, slate::Op::Trans, l, A2, T, D1, D2 ));
+        // By default, xerbla will exit, so disable this for routine testing.
+        //test_assert_throw_std(
+        //    slate::tpmqrt( slate::Side::Right, slate::Op::Trans, l, A2, T, D1, D2 ));
     }
 }
 

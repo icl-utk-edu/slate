@@ -66,9 +66,9 @@ void getrf_tntpiv(
     // setting up dummy variables for case the when target == host
     int64_t num_devices  = A.num_devices();
     int     panel_device = -1;
-    size_t  work_size    = 0;
+    size_t  dwork_bytes  = 0;
 
-    std::vector< scalar_t* > dwork_array( num_devices, nullptr );
+    std::vector< char* > dwork_array( num_devices, nullptr );
 
     if (target == Target::Devices) {
         const int64_t batch_size_default = 0;
@@ -100,25 +100,32 @@ void getrf_tntpiv(
         }
 
         if (panel_device >= 0) {
-
             lapack::Queue* comm_queue = A.comm_queue(panel_device);
 
-            int64_t nb       = A.tileNb(0);
-            int64_t size_A   = blas::max( 1, mlocal ) * nb;
-            int64_t diag_len = blas::min( A.tileMb(0), nb );
-            size_t  hsize, dsize;
+            int64_t nb           = A.tileNb(0);
+            int64_t diag_len     = blas::min( A.tileMb(0), nb );
+            size_t  size_A_bytes = blas::max( 1, mlocal ) * nb * sizeof( scalar_t );
+            size_t  ipiv_bytes   = diag_len * sizeof( device_pivot_int );
 
             // Find size of the workspace needed
-            lapack::getrf_work_size_bytes( mlocal, nb, dwork_array[0], mlocal,
+            scalar_t* dA = (scalar_t*) dwork_array[ 0 ];
+            size_t hsize, dsize;
+            lapack::getrf_work_size_bytes( mlocal, nb, dA, mlocal,
                                            &dsize, &hsize, *comm_queue );
 
-            // Size of dA, dipiv, dwork and dinfo
-            work_size = size_A + diag_len + ceildiv(dsize, sizeof(scalar_t))
-                        + ceildiv(sizeof(device_info_int), sizeof(scalar_t));
+            // Pad arrays to 8-byte boundaries.
+            dsize        = roundup( dsize,        size_t( 8 ) );
+            size_A_bytes = roundup( size_A_bytes, size_t( 8 ) );
+            ipiv_bytes   = roundup( ipiv_bytes,   size_t( 8 ) );
+
+            // Size of dA, dwork, dipiv, and dinfo in bytes.
+            dwork_bytes = dsize + size_A_bytes + ipiv_bytes
+                        + sizeof( device_info_int );
 
             for (int64_t dev = 0; dev < num_devices; ++dev) {
                 lapack::Queue* queue = A.comm_queue( dev );
-                dwork_array[dev] = blas::device_malloc<scalar_t>(work_size, *queue);
+                dwork_array[ dev ]
+                    = blas::device_malloc<char>( dwork_bytes, *queue );
             }
         }
     }
@@ -158,7 +165,7 @@ void getrf_tntpiv(
                 // pivots and diagonal tile, Akk in workspace Apanel.
                 internal::getrf_tntpiv_panel<target>(
                     A.sub(k, A_mt-1, k, k), std::move(Apanel),
-                    dwork_array, work_size, diag_len, ib,
+                    dwork_array, dwork_bytes, diag_len, ib,
                     pivots.at(k), max_panel_threads, priority_1 );
 
                 // Root broadcasts the pivot to all ranks.

@@ -497,8 +497,7 @@ void getrf_nopiv(Matrix<scalar_t>&& A,
 template <Target target=Target::HostTask, typename scalar_t>
 void getrf_tntpiv_panel(
     Matrix<scalar_t>&& A, Matrix<scalar_t>&& Awork,
-    std::vector< scalar_t* > dwork_array,
-    size_t work_size,
+    std::vector< char* > dwork_array, size_t dwork_bytes,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     int max_panel_threads, int priority=0);

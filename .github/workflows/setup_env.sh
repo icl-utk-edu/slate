@@ -67,7 +67,7 @@ if [ "${device}" = "gpu_intel" ]; then
     quiet module load intel-oneapi-compilers
 else
     print "======================================== Load GNU compiler"
-    quiet module load gcc@11.3.1
+    quiet module load gcc@11.3
 fi
 print "---------------------------------------- Verify compiler"
 print "CXX = $CXX"

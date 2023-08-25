@@ -5,9 +5,8 @@
 
 '''
 Tags project with version based on current date, and creates tar file.
-Tag is yyyy.mm.rr, where yyyy.mm is current year and month,
-and rr is a release counter within current month, starting at 0.
-Version is an integer yyyymmrr, to allow simple comparisons.
+Tag is yyyy.mm.dd, based on current year, month, and day.
+Version is an integer yyyymmdd, to allow simple comparisons.
 
 Requires Python >= 3.7.
 
@@ -95,6 +94,8 @@ def file_sub( filename, search, replace, **kwargs ):
     if (txt != txt2):
         #print( 'writing', filename )
         open( filename, mode='w' ).write( txt2 )
+    else:
+        print( '##### Warning: no change in', filename, '#####' )
 # end
 
 #-------------------------------------------------------------------------------
@@ -139,22 +140,13 @@ def make( project, version_h, version_c ):
     today = datetime.date.today()
     year  = today.year
     month = today.month
-    release = 0
+    mday  = today.day
 
     top_dir = os.getcwd()
 
-    # Search for latest tag this month and increment release if found.
-    tags = myrun( 'git tag', stdout=PIPE, text=True ).rstrip().split( '\n' )
-    tags.sort( reverse=True )
-    pattern = r'%04d\.%02d\.(\d+)' % (year, month)
-    for tag in tags:
-        s = re.search( pattern, tag )
-        if (s):
-            release = int( s.group(1) ) + 1
-            break
-
-    tag = '%04d.%02d.%02d' % (year, month, release)
-    version = '%04d%02d%02d' % (year, month, release)
+    tag = '%04d.%02d.%02d' % (year, month, mday)
+    vtag = 'v' + tag
+    version = '%04d%02d%02d' % (year, month, mday)
     print( '\n>> Tag '+ tag +', Version '+ version )
 
     #--------------------
@@ -173,8 +165,8 @@ def make( project, version_h, version_c ):
 
     print( '\n>> Updating version in: GNUmakefile' )
     file_sub( 'GNUmakefile',
-              r'VERSION:\d\d\d\d.\d\d.\d\d',
-              r'VERSION:%s' % (tag), count=1 )
+              r'(VERSION.)\d\d\d\d.\d\d.\d\d',
+              r'\g<1>%s' % (tag), count=1 )
 
     print( '\n>> Updating version in: CMakeLists.txt' )
     file_sub( 'CMakeLists.txt',
@@ -195,7 +187,7 @@ def make( project, version_h, version_c ):
         exit(1)
 
     myrun( ['git', 'commit', '-m', 'Version '+ tag, '.'] )
-    myrun( ['git', 'tag', tag, '-a', '-m', 'Version '+ tag] )
+    myrun( ['git', 'tag', vtag, '-a', '-m', 'Version '+ tag] )
 
     #--------------------
     # Prepare tar file.

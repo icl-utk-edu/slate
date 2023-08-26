@@ -1,3 +1,18 @@
+2023.08.25
+  - Added oneMKL/SYCL support
+  - Added singular value decomposition (SVD) vectors
+  - Deprecated `gesvd` in favor of `svd` routine name
+  - Use yyyy.mm.dd version scheme, instead of yyyy.mm.release
+  - Improved support for Intel clang compiler
+  - Updated CMake to use `find_package( CUDAToolkit )`
+  - Updated LU to left pivot using target origin
+  - Changed gridinfo to return 1x1 grid if only 1 MPI process
+  - Disabled multi-threaded bcast by default, which caused hangs on Frontier
+  - Fixed CALU workspace bug for float
+  - Fixed trsm bug with large A, complex, right, conj-trans
+  - More robust Makefile configure doesn't require CUDA or ROCm to be in
+    compiler search paths (CPATH, LIBRARY_PATH, etc.)
+
 2023.06.00
   - Moved repo to GitHub: https://github.com/icl-utk-edu/slate
   - Added Hermitian eigenvectors using divide and conquer algorithm

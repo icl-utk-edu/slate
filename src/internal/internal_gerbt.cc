@@ -126,6 +126,15 @@ void gerbt(Matrix<scalar_t> A11,
                     A22.tileRecv( ii, jj, A22.tileRank(ii, jj),
                                   Layout::ColMajor, tag+3 );
 
+                    A11.tileGetForWriting(ii, jj, LayoutConvert::None);
+                    A12.tileGetForWriting(ii, jj, LayoutConvert::None);
+                    A21.tileGetForWriting(ii, jj, LayoutConvert::None);
+                    A22.tileGetForWriting(ii, jj, LayoutConvert::None);
+                    U1.tileGetForReading(ii, 0, LayoutConvert::None);
+                    U2.tileGetForReading(ii, 0, LayoutConvert::None);
+                    V1.tileGetForReading(jj, 0, LayoutConvert::None);
+                    V2.tileGetForReading(jj, 0, LayoutConvert::None);
+
                     gerbt( A11(ii, jj), A12(ii, jj), A21(ii, jj), A22(ii, jj),
                            U1(ii, 0), U2(ii, 0), V1(jj, 0), V2(jj, 0) );
 
@@ -152,6 +161,12 @@ void gerbt(Matrix<scalar_t> A11,
                     const int64_t tag = 4*(ii*nt_full + jj);
                     A21.tileRecv( ii, jj, A21.tileRank(ii, jj),
                                   Layout::ColMajor, tag+2 );
+
+                    A11.tileGetForWriting(ii, jj, LayoutConvert::None);
+                    A21.tileGetForWriting(ii, jj, LayoutConvert::None);
+                    U1.tileGetForReading(ii, 0, LayoutConvert::None);
+                    U2.tileGetForReading(ii, 0, LayoutConvert::None);
+                    V1.tileGetForReading(jj, 0, LayoutConvert::None);
 
                     Tile<scalar_t> a11 = A11(ii, jj);
                     Tile<scalar_t> a21 = A21(ii, jj);
@@ -185,6 +200,12 @@ void gerbt(Matrix<scalar_t> A11,
                     A12.tileRecv( ii, jj, A12.tileRank(ii, jj),
                                   Layout::ColMajor, tag+1 );
 
+                    A11.tileGetForWriting(ii, jj, LayoutConvert::None);
+                    A12.tileGetForWriting(ii, jj, LayoutConvert::None);
+                    U1.tileGetForReading(ii, 0, LayoutConvert::None);
+                    V1.tileGetForReading(jj, 0, LayoutConvert::None);
+                    V2.tileGetForReading(jj, 0, LayoutConvert::None);
+
                     Tile<scalar_t> a11 = A11(ii, jj);
                     Tile<scalar_t> a12 = A12(ii, jj);
                     Tile<scalar_t> a21 (0, a11.nb(), &dummy, 0, 0,
@@ -211,6 +232,10 @@ void gerbt(Matrix<scalar_t> A11,
                                  priority(1)
                 {
                     scalar_t dummy;
+
+                    A11.tileGetForWriting(ii, jj, LayoutConvert::None);
+                    U1.tileGetForReading(ii, 0, LayoutConvert::None);
+                    V1.tileGetForReading(jj, 0, LayoutConvert::None);
 
                     Tile<scalar_t> a11 = A11(ii, jj);
                     Tile<scalar_t> a12 (0, a11.nb(), &dummy, 0, 0,
@@ -325,6 +350,11 @@ void gerbt(Side side,
                     B2.tileRecv( ii, jj, B2.tileRank(ii, jj),
                                  Layout::ColMajor, tag );
 
+                    B1.tileGetForWriting(ii, jj, LayoutConvert::None);
+                    B2.tileGetForWriting(ii, jj, LayoutConvert::None);
+                    U1.tileGetForReading(ii, 0, LayoutConvert::None);
+                    U2.tileGetForReading(ii, 0, LayoutConvert::None);
+
                     if (leftp) {
                         if (transp) {
                             gerbt_left_trans( B1(ii, jj),
@@ -368,6 +398,9 @@ void gerbt(Side side,
                     {
                         scalar_t dummy;
 
+                        B1.tileGetForWriting(ii, jj, LayoutConvert::None);
+                        U1.tileGetForReading(ii, 0, LayoutConvert::None);
+
                         Tile<scalar_t> b1 = B1(ii, jj);
                         Tile<scalar_t> b2 (0, b1.nb(), &dummy, 0, 0,
                                            TileKind::UserOwned, Layout::ColMajor);
@@ -394,6 +427,9 @@ void gerbt(Side side,
                                      priority(1)
                     {
                         scalar_t dummy;
+
+                        B1.tileGetForWriting(ii, jj, LayoutConvert::None);
+                        U1.tileGetForReading(ii, 0, LayoutConvert::None);
 
                         Tile<scalar_t> b1 = B1(ii, jj);
                         Tile<scalar_t> b2 (b1.mb(), 0, &dummy, b1.mb(), 0,

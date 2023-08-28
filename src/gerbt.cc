@@ -166,6 +166,8 @@ void gerbt(Matrix<scalar_t>& U_in,
         U.template listBcastMT(bcast_list_U, Layout::ColMajor);
         V.template listBcastMT(bcast_list_V, Layout::ColMajor);
 
+        // NB: only tasks created so far are in listBcastMT
+
         // Do computation
         internal::gerbt_iterate_2d(d, inner_len, mt, nt,
                 [&](int64_t i1, int64_t i2, int64_t i3,
@@ -182,6 +184,7 @@ void gerbt(Matrix<scalar_t>& U_in,
                     auto V2 = V.sub(j2, j3-1, 0, 0);
 
                     internal::gerbt( A11, A12, A21, A22, U1, U2, V1, V2 );
+                    // NB internal::gerbt ends with taskwait
             });
 
         #pragma omp taskwait
@@ -190,7 +193,10 @@ void gerbt(Matrix<scalar_t>& U_in,
         U.releaseLocalWorkspace();
         V.releaseRemoteWorkspace();
         V.releaseLocalWorkspace();
+
+        A.tileUpdateAllOrigin();
     }
+    A.clearWorkspace();
 }
 
 template
@@ -264,6 +270,8 @@ void gerbt(Matrix<scalar_t>& Uin,
         internal::gerbt_bcast_filter_duplicates<scalar_t>(bcast_list);
         U.template listBcastMT(bcast_list, Layout::ColMajor);
 
+        // NB: only tasks created so far are in listBcastMT
+
         internal::gerbt_iterate_1d(trans, d, inner_len, mt,
                 [&](int64_t i1, int64_t i2, int64_t i3) {
                     auto B1 = B.sub(i1, i2-1, 0, nt-1);
@@ -273,13 +281,17 @@ void gerbt(Matrix<scalar_t>& Uin,
                     auto U2 = U.sub(i2, i3-1, 0, 0);
 
                     internal::gerbt( Side::Left, trans, B1, B2, U1, U2 );
+                    // NB internal::gerbt ends with taskwait
                 });
 
         #pragma omp taskwait
         // Manage U life here
         U.releaseRemoteWorkspace();
         U.releaseLocalWorkspace();
+
+        B.tileUpdateAllOrigin();
     }
+    B.clearWorkspace();
 }
 
 template

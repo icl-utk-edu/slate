@@ -202,9 +202,7 @@ void permuteRows(
     Matrix<scalar_t>& A, std::vector<Pivot>& pivot,
     Layout layout, int priority, int tag_base, int queue_index)
 {
-    // todo: for performance optimization, merge with the loops below,
-    // at least with lookahead, probably selectively
-    A.tileGetAllForWriting( HostNum, LayoutConvert(layout) );
+    using ij_tuple = typename Matrix<scalar_t>::ij_tuple;
 
     MPI_Comm comm = A.mpiComm();
     int comm_size;
@@ -212,6 +210,13 @@ void permuteRows(
 
     {
         trace::Block trace_block("internal::permuteRows");
+
+        // Compute the relavant tile rows
+        std::set<int64_t> pivoted_tile_rows;
+        pivoted_tile_rows.insert(0);
+        for (Pivot& p : pivot) {
+            pivoted_tile_rows.insert(p.tileIndex());
+        }
 
         MPI_Datatype mpi_scalar = mpi_type<scalar_t>::value;
 
@@ -234,6 +239,15 @@ void permuteRows(
                 end   = -1;
                 inc   = -1;
             }
+
+            // Get tiles needed locally for this block column
+            std::set< ij_tuple > local_tiles;
+            for (int64_t i : pivoted_tile_rows) {
+                if (A.tileIsLocal(i, j)) {
+                    local_tiles.insert({i, j});
+                }
+            }
+            A.tileGetForWriting( local_tiles, LayoutConvert(layout) );
 
             // process pivots
             int64_t nb = A.tileNb(j);

@@ -2816,8 +2816,9 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
         (  tile_node[dst_device].getState() == MOSI::Invalid)) {
 
         // find a valid source (Modified/Shared) tile
-
-        for (int d = HostNum; d < num_devices(); ++d) {
+        for (int d = num_devices()-1; d >= HostNum; --d) {
+            // Most current systems have higher GPU->GPU than GPU->CPU
+            // TODO Poll hardware topolgy to determine order
             if (d != dst_device && tile_node.existsOn(d)) {
                 if (tile_node[d].getState() != MOSI::Invalid) {
                     src_device = d;
@@ -2827,8 +2828,6 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
             }
         }
 
-        // todo: find the shortest path / closest source
-        // including possibility of device peer-to-peer copy
         if (src_device == invalid_dev) {
             slate_error(std::string("Error copying tile(")
                          + std::to_string(i) + ", " + std::to_string(j)

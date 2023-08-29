@@ -2849,39 +2849,12 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
 
     if (dst_tile_instance->getState() == MOSI::Invalid) {
         // Update the destination tile's data.
-        if (dst_device != HostNum && src_device != HostNum) {
-            // todo: device to device copy
-            auto host_tile_instance = &tile_node[ HostNum ];
-            {
-                // LockGuard host_guard(host_tile_instance->getLock());
 
-                if (! tile_node.existsOn( HostNum )) {
-                    // Create a copy on the host.
-                    storage_->tileAcquire( globalIndex( i, j, HostNum ),
-                                           target_layout );
-                }
-
-                if (tile_node[ HostNum ].getState() == MOSI::Invalid) {
-                    tileCopyDataLayout( src_tile_instance->tile(),
-                                        host_tile_instance->tile(),
-                                        target_layout,
-                                        async);
-                    host_tile_instance->setState(MOSI::Shared);
-                }
-
-                tileCopyDataLayout( host_tile_instance->tile(),
-                                    dst_tile_instance->tile(),
-                                    target_layout,
-                                    async);
-            }
-        }
-        else {
-            // LockGuard guard(src_tile_instance->get_lock());
-            tileCopyDataLayout( src_tile_instance->tile(),
-                                dst_tile_instance->tile(),
-                                target_layout,
-                                async);
-        }
+        // LockGuard guard(src_tile_instance->get_lock());
+        tileCopyDataLayout( src_tile_instance->tile(),
+                            dst_tile_instance->tile(),
+                            target_layout,
+                            async);
 
         dst_tile_instance->setState(MOSI::Shared);
         if (src_tile_instance->stateOn(MOSI::Modified))

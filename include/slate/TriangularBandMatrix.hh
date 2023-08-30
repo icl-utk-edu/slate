@@ -82,6 +82,8 @@ TriangularBandMatrix<scalar_t>::TriangularBandMatrix()
 /// where tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
 ///
+/// See slate::func for common functions.
+///
 template <typename scalar_t>
 TriangularBandMatrix<scalar_t>::TriangularBandMatrix(
     Uplo uplo, Diag diag, int64_t n, int64_t kd,

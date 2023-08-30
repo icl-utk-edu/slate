@@ -135,6 +135,8 @@ HermitianMatrix<scalar_t>::HermitianMatrix()
 /// where tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
 ///
+/// See slate::func for common functions.
+///
 template <typename scalar_t>
 HermitianMatrix<scalar_t>::HermitianMatrix(
     Uplo uplo, int64_t n,

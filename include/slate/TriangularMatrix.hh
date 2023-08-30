@@ -151,6 +151,8 @@ TriangularMatrix<scalar_t>::TriangularMatrix()
 /// where tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
 ///
+/// See slate::func for common functions.
+///
 template <typename scalar_t>
 TriangularMatrix<scalar_t>::TriangularMatrix(
     Uplo uplo, Diag diag, int64_t n,

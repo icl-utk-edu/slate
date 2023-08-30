@@ -153,6 +153,8 @@ TrapezoidMatrix<scalar_t>::TrapezoidMatrix()
 /// where tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
 ///
+/// See slate::func for common functions.
+///
 template <typename scalar_t>
 TrapezoidMatrix<scalar_t>::TrapezoidMatrix(
     Uplo uplo, Diag diag, int64_t m, int64_t n,

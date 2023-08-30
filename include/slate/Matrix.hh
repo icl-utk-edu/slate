@@ -175,6 +175,8 @@ Matrix<scalar_t>::Matrix():
 /// where tileMb, tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
 ///
+/// See slate::func for common functions.
+///
 /// @param[in] m
 ///     Number of rows of the matrix. m >= 0.
 ///

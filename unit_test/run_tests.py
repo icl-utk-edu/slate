@@ -62,6 +62,7 @@ cmds = [
     'test_Tile',
     'test_Tile_kernels',
     #'test_c_api',  # only if c_api was compiled
+    'test_func',
     'test_geadd',
     'test_gecopy',
     'test_geset',

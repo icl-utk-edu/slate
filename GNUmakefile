@@ -785,6 +785,7 @@ unit_src = \
     unit_test/test_TrapezoidMatrix.cc \
     unit_test/test_TriangularBandMatrix.cc \
     unit_test/test_TriangularMatrix.cc \
+    unit_test/test_func.cc \
     unit_test/test_geadd.cc \
     unit_test/test_gecopy.cc \
     unit_test/test_gescale.cc \

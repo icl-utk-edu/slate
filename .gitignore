@@ -20,6 +20,7 @@ make.inc
 slate-*
 test/tester
 unit_test/test_norm
+unit_test/test_func
 unit_test/test_geadd
 unit_test/test_Tile_kernels
 unit_test/test_TriangularMatrix

@@ -6,6 +6,7 @@
 #ifndef SLATE_STORAGE_HH
 #define SLATE_STORAGE_HH
 
+#include "slate/func.hh"
 #include "slate/internal/Memory.hh"
 #include "slate/Tile.hh"
 #include "slate/types.hh"
@@ -547,37 +548,23 @@ MatrixStorage<scalar_t>::MatrixStorage(
     // TODO: these all assume 2D block cyclic with fixed size tiles (mb x nb)
     // lambdas that capture m, n, mb, nb for
     // computing tile's mb (rows) and nb (cols)
-    tileMb = [m, mb](int64_t i) { return (i + 1)*mb > m ? m%mb : mb; };
-    tileNb = [n, nb](int64_t j) { return (j + 1)*nb > n ? n%nb : nb; };
+    tileMb = slate::func::uniform_blocksize(m, mb);
+    tileNb = slate::func::uniform_blocksize(n, nb);
 
-    // lambda that captures p, q for computing tile's rank,
-    // assuming 2D block cyclic
+    // function for computing the tile's rank, assuming 2D block cyclic
     if (order == GridOrder::Col) {
-        tileRank = [p, q]( ij_tuple ij ) {
-            int64_t i = std::get<0>( ij );
-            int64_t j = std::get<1>( ij );
-            return int((i%p) + (j%q)*p);
-        };
+        tileRank = slate::func::grid_2d_cyclic( slate::Layout::ColMajor, p, q );
     }
     else if (order == GridOrder::Row) {
-        tileRank = [p, q]( ij_tuple ij ) {
-            int64_t i = std::get<0>( ij );
-            int64_t j = std::get<1>( ij );
-            return int((i%p)*q + (j%q));
-        };
+        tileRank = slate::func::grid_2d_cyclic( slate::Layout::RowMajor, p, q );
     }
     else {
         slate_error( "invalid GridOrder, must be Col or Row" );
     }
-
-    // lambda that captures q, num_devices to distribute local matrix
-    // in 1D column block cyclic fashion among devices
+    // function for computing the tile's device, assuming 1d block cyclic
     if (num_devices_ > 0) {
-        int num_devices = num_devices_;  // local copy to capture
-        tileDevice = [q, num_devices](ij_tuple ij) {
-            int64_t j = std::get<1>(ij);
-            return int(j/q)%num_devices;
-        };
+        tileDevice = slate::func::grid_1d_block_cyclic( slate::Layout::RowMajor,
+                                                        q, num_devices_ );
     }
     else {
         tileDevice = []( ij_tuple ij ) {

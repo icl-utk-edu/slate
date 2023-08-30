@@ -1225,8 +1225,8 @@ void MatrixStorage<scalar_t>::tileMakeTransposable(Tile<scalar_t>* tile)
         return;
 
     int device = tile->device();
-    int64_t mb = tileMb(0);
-    int64_t nb = tileNb(0);
+    int64_t mb = tile->mb();
+    int64_t nb = tile->nb();
     // if device==HostNum (-1) use nullptr as queue (not comm_queues_[-1])
     blas::Queue* queue = ( device == HostNum ? nullptr : comm_queues_[device]);
     scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);

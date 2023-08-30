@@ -112,25 +112,9 @@ void test_TriangularMatrix_lambda()
     {
         return (j % 2 == 0 ? 2*nb_ : nb_);
     };
-
-    // 1D block column cyclic
-    int p_ = p;  // local copy to capture
-    std::function< int (std::tuple<int64_t, int64_t> ij) >
-    tileRank = [p_](std::tuple<int64_t, int64_t> ij)
-    {
-        int64_t i = std::get<0>(ij);
-        int64_t j = std::get<1>(ij);
-        return int(i%p_ + j*p_);
-    };
-
-    // 1D block row cyclic
-    int num_devices_ = num_devices;  // local copy to capture
-    std::function< int (std::tuple<int64_t, int64_t> ij) >
-    tileDevice = [num_devices_](std::tuple<int64_t, int64_t> ij)
-    {
-        int64_t i = std::get<0>(ij);
-        return int(i)%num_devices_;
-    };
+    auto tileRank = slate::func::grid_1d_cyclic( slate::Layout::ColMajor, p );
+    auto tileDevice = slate::func::grid_1d_cyclic( slate::Layout::RowMajor,
+                                                   num_devices );
 
     // ----------
     // lower

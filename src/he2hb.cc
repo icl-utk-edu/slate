@@ -82,24 +82,11 @@ void he2hb(
     A.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
     assert( grid_order == GridOrder::Col );  // todo: update for Row
 
-    std::function<int64_t (int64_t j)>
-        tileNb = [n, nb_A] (int64_t j) {
-            return (j + 1)*nb_A > n ? n%nb_A : nb_A;
-        };
-
-    std::function<int (std::tuple<int64_t, int64_t> ij)>
-        tileRank = [nprow, npcol]( std::tuple<int64_t, int64_t> ij ) {
-            int64_t i = std::get<0>( ij );
-            int64_t j = std::get<1>( ij );
-            return int( i%nprow + (j%npcol)*nprow );
-        };
-
+    auto tileNb = slate::func::uniform_blocksize( n, nb_A );
+    auto tileRank = slate::func::grid_2d_cyclic( Layout::ColMajor, nprow, npcol );
     int num_devices = blas::get_device_count();
-    std::function<int (std::tuple<int64_t, int64_t> ij)>
-        tileDevice = [nprow, num_devices]( std::tuple<int64_t, int64_t> ij ) {
-            int64_t i = std::get<0>( ij );
-            return int( i/nprow )%num_devices;
-        };
+    auto tileDevice = slate::func::grid_1d_block_cyclic( Layout::ColMajor,
+                                                         nprow, num_devices );
 
     // W is like A, but within node the GPU distribution is row-cyclic.
     slate::HermitianMatrix<scalar_t> W(

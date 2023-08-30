@@ -163,6 +163,24 @@ inline dist_func_t grid_1d_block_cyclic(Layout layout,
     }
 }
 
+//------------------------------------------------------------------------------
+/// Transposes the given tile distribution function
+///
+/// @param[in] old_func
+///     The original distribution function
+///
+/// @retval The transposed distribution function
+///
+inline dist_func_t grid_transpose(dist_func_t old_func)
+{
+    return [old_func]( ij_tuple ij ) {
+        int64_t i = std::get<0>( ij );
+        int64_t j = std::get<1>( ij );
+
+        return old_func( ij_tuple({ j, i }) );
+    };
+}
+
 
 } // namespace func
 } // namespace slate

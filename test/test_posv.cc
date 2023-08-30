@@ -130,27 +130,13 @@ void test_posv_work(Params& params, bool run)
             // slate_assert(target == slate::Target::Devices);
             // todo: doesn't work when lookahead is greater than 2
             // slate_assert(lookahead < 3);
-            // std::function<int64_t (int64_t i)> tileMb = [nrhs, nb] (int64_t i)
-            //    { return (i + 1)*mb > nrhs ? nrhs%mb : mb; };
-            std::function<int64_t (int64_t j)> tileNb = [n, nb] (int64_t j) {
-                return (j + 1)*nb > n ? n%nb : nb;
-            };
 
-            std::function<int (std::tuple<int64_t, int64_t> ij)>
-            tileRank = [p, q](std::tuple<int64_t, int64_t> ij) {
-                int64_t i = std::get<0>(ij);
-                int64_t j = std::get<1>(ij);
-                return int(i%p + (j%q)*p);
-            };
-
+            auto tileNb = slate::func::uniform_blocksize( n, nb );
+            auto tileRank = slate::func::grid_2d_cyclic( slate::Layout::ColMajor,
+                                                         p, q );
             int num_devices = blas::get_device_count();
-            slate_assert(num_devices > 0);
-
-            std::function<int (std::tuple<int64_t, int64_t> ij)>
-            tileDevice = [p, num_devices](std::tuple<int64_t, int64_t> ij) {
-                int64_t i = std::get<0>(ij);
-                return int(i/p)%num_devices;
-            };
+            auto tileDevice = slate::func::grid_1d_block_cyclic(
+                                    slate::Layout::ColMajor, p, num_devices );
 
             A = slate::HermitianMatrix<scalar_t>(
                     uplo, n, tileNb, tileRank, tileDevice, MPI_COMM_WORLD);

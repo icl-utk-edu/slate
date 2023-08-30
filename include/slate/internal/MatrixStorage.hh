@@ -545,9 +545,7 @@ MatrixStorage<scalar_t>::MatrixStorage(
     // todo: similar code in BaseMatrix(...) and MatrixStorage(...)
     num_devices_ = memory_.num_devices_;
 
-    // TODO: these all assume 2D block cyclic with fixed size tiles (mb x nb)
-    // lambdas that capture m, n, mb, nb for
-    // computing tile's mb (rows) and nb (cols)
+    // functions for computing the tile's size
     tileMb = slate::func::uniform_blocksize(m, mb);
     tileNb = slate::func::uniform_blocksize(n, nb);
 

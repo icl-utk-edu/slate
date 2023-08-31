@@ -2552,7 +2552,9 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
     bool src_extended  = src_tile->extended();
     bool dst_extended  = dst_tile->extended();
 
-    int work_device = HostNum;
+    int work_device = dst_tile->device() == HostNum
+                          ? src_tile->device()
+                          : dst_tile->device();
 
     // do we need to convert layout? then, setup workspace
     if (src_tile->layout() != target_layout) {
@@ -2631,86 +2633,63 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
         }
     }
 
-    if (need_convert && (! is_square)) {
-        assert( work_device != HostNum );
-    }
-
-    if (need_workspace) {
-        work_data = storage_->allocWorkspaceBuffer(work_device);
-    }
-
-    lapack::Queue* queue = comm_queue( dst_tile->device() == HostNum
-                                     ? src_tile->device()
-                                     : dst_tile->device() );
-
+    lapack::Queue* queue = comm_queue( work_device );
     if (is_square || (! need_convert)) {
         src_tile->copyData(dst_tile, *queue, async);
-    }
 
-    if (need_convert) {
-        if (is_square) {
+        if (need_convert) {
             dst_tile->layoutConvert(*queue, async);
         }
-        else if (copy_first) {
-            lapack::Queue* queue2 = comm_queue(work_device);
+    }
+    else {
+        if (need_workspace) {
+            work_data = storage_->allocWorkspaceBuffer(work_device);
+        }
 
-            int64_t work_stride = src_tile->stride();
+        int64_t phys_mb = src_tile->layout() == Layout::ColMajor
+                          ? src_tile->mb()
+                          : src_tile->nb();
+        int64_t phys_nb = src_tile->layout() == Layout::ColMajor
+                          ? src_tile->nb()
+                          : src_tile->mb();
+        int64_t work_stride = phys_nb;
+        Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
+                                 work_stride, work_device,
+                                 TileKind::Workspace, src_tile->layout());
 
-            Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
-                                     work_stride, work_device,
-                                     TileKind::Workspace, src_tile->layout());
-            src_tile->copyData(&work_tile, *queue2, async);
+        if (copy_first) {
+            src_tile->copyData(&work_tile, *queue, true);
 
             if (dst_tile->isContiguous()) {
-                dst_tile->stride( src_tile->layout() == Layout::ColMajor ?
-                                  src_tile->nb() :
-                                  src_tile->mb());
+                dst_tile->stride( work_stride );
             }
-            int64_t phys_mb = src_tile->layout() == Layout::ColMajor ?
-                              src_tile->mb() :
-                              src_tile->nb();
-            int64_t phys_nb = src_tile->layout() == Layout::ColMajor ?
-                              src_tile->nb() :
-                              src_tile->mb();
             device::transpose(false, phys_mb, phys_nb,
                               work_data, work_stride,
                               dst_data, dst_tile->stride(),
-                              *queue2);
-            if (! async)
-                queue2->sync();
+                              *queue);
         }
         else {
-            lapack::Queue* queue2 = comm_queue(work_device);
-
-            int64_t work_stride = src_tile->layout() == Layout::ColMajor ?
-                                  src_tile->nb() :
-                                  src_tile->mb();
-            int64_t phys_mb = src_tile->layout() == Layout::ColMajor ?
-                              src_tile->mb() :
-                              src_tile->nb();
-            int64_t phys_nb = src_tile->layout() == Layout::ColMajor ?
-                              src_tile->nb() :
-                              src_tile->mb();
-
             device::transpose(false, phys_mb, phys_nb,
                               src_data, src_tile->stride(),
                               work_data, work_stride,
-                              *queue2);
-            Tile<scalar_t> work_tile(src_tile->mb(), src_tile->nb(), work_data,
-                                     work_stride, work_device,
-                                     TileKind::Workspace, target_layout);
+                              *queue);
             if (dst_tile->isContiguous())
                 dst_tile->stride(work_stride);
 
-            work_tile.copyData(dst_tile, *queue2, async);
-
-            if (! async)
-                queue2->sync();
+            work_tile.copyData(dst_tile, *queue, true);
+        }
+        // Above kernels are asynchronous
+        if (! async || need_workspace) {
+            queue->sync();
+        }
+        if (need_workspace) {
+            storage_->releaseWorkspaceBuffer(work_data, work_device);
         }
     }
 
-    if (need_workspace) {
-        storage_->releaseWorkspaceBuffer(work_data, work_device);
+    // TODO Need dependency in both Queues for async to behave correctly
+    if (async && dst_tile->device() != HostNum && src_tile->device() != HostNum) {
+        queue->sync();
     }
 }
 
@@ -3550,7 +3529,8 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
         }
         else {
             lapack::Queue* queue = comm_queue(tile->device());
-            tile->layoutConvert(work_data, *queue, async && (! need_workspace));
+            bool use_async = async && ! need_workspace && ! reset;
+            tile->layoutConvert(work_data, *queue, use_async);
         }
 
         // release the workspace buffer if allocated

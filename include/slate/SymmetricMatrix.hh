@@ -135,7 +135,7 @@ SymmetricMatrix<scalar_t>::SymmetricMatrix()
 /// where tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
 ///
-/// See slate::func for common functions.
+/// @see slate::func for common functions.
 ///
 template <typename scalar_t>
 SymmetricMatrix<scalar_t>::SymmetricMatrix(

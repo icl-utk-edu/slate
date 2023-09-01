@@ -34,6 +34,8 @@ using ij_tuple = std::tuple<int64_t, int64_t>;
 ///
 /// @retval The requested blocksize function
 ///
+/// @ingroup func
+///
 inline std::function<int64_t(int64_t)> uniform_blocksize(int64_t n, int64_t nb)
 {
     return [n, nb](int64_t j) { return (j + 1)*nb > n ? n%nb : nb; };
@@ -62,6 +64,8 @@ inline std::function<int64_t(int64_t)> uniform_blocksize(int64_t n, int64_t nb)
 ///     The number of columns in the process grid
 ///
 /// @retval The distribution function
+///
+/// @ingroup func
 ///
 inline std::function<int(ij_tuple)>
 grid_2d_block_cyclic(Layout layout, int64_t m, int64_t n, int64_t p, int64_t q)
@@ -96,6 +100,8 @@ grid_2d_block_cyclic(Layout layout, int64_t m, int64_t n, int64_t p, int64_t q)
 ///
 /// @retval The distribution function
 ///
+/// @ingroup func
+///
 inline std::function<int(ij_tuple)>
 grid_2d_cyclic(Layout layout, int64_t p, int64_t q)
 {
@@ -113,6 +119,8 @@ grid_2d_cyclic(Layout layout, int64_t p, int64_t q)
 ///     The number of processes
 ///
 /// @retval The distribution function
+///
+/// @ingroup func
 ///
 inline std::function<int(ij_tuple)> grid_1d_cyclic(Layout layout, int size)
 {
@@ -140,6 +148,8 @@ inline std::function<int(ij_tuple)> grid_1d_cyclic(Layout layout, int size)
 ///
 /// @retval The distribution function
 ///
+/// @ingroup func
+///
 inline std::function<int(ij_tuple)>
 grid_1d_block_cyclic(Layout layout, int64_t block_size, int size)
 {
@@ -158,6 +168,8 @@ grid_1d_block_cyclic(Layout layout, int64_t block_size, int size)
 ///     The original distribution function
 ///
 /// @retval The transposed distribution function
+///
+/// @ingroup func
 ///
 inline std::function<int(ij_tuple)>
 grid_transpose(std::function<int(ij_tuple)> old_func)

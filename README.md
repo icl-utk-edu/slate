@@ -124,7 +124,7 @@ which is a DOE Office of Science User Facility supported under Contract DE-AC02-
 License
 --------------------------------------------------------------------------------
 
-Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted provided that the following conditions are met:

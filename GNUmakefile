@@ -57,10 +57,20 @@ dir_strip = $(patsubst %/,%,$(dir $(1)))
 prefix          ?= /opt/slate
 
 blas_int        ?= int
-blas_threaded   ?= 0
 openmp          ?= 1
 c_api           ?= 0
 fortran_api     ?= 0
+
+# Strip whitespace.
+blas            := $(strip $(blas))
+
+# MKL doesn't oversubscribe within OpenMP tasks, so it's safe and
+# desirable to use multi-threaded BLAS.
+ifeq ($(blas),mkl)
+    blas_threaded ?= 1
+else
+    blas_threaded ?= 0
+endif
 
 NVCC            ?= nvcc
 HIPCC           ?= hipcc
@@ -73,7 +83,6 @@ python          ?= python3
 
 # Strip whitespace from variables, in case make.inc had trailing spaces.
 mpi             := $(strip $(mpi))
-blas            := $(strip $(blas))
 blas_int        := $(strip $(blas_int))
 blas_threaded   := $(strip $(blas_threaded))
 blas_fortran    := $(strip $(blas_fortran))

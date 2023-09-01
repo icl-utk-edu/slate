@@ -411,9 +411,9 @@ else()
     set( blas_threaded "false" CACHE STRING
          "Multi-threaded BLAS? (Passed to BLAS++.)" )
 endif()
- set_property(
-     CACHE blas_threaded PROPERTY STRINGS
-     "auto" "true" "false" )
+set_property(
+    CACHE blas_threaded PROPERTY STRINGS
+    "auto" "true" "false" )
 message( DEBUG "blas_threaded = ${blas_threaded}" )
 
 #-------------------------------------------------------------------------------

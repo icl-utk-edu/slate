@@ -209,6 +209,134 @@ transpose_grid(std::function<int(ij_tuple)> old_func)
     };
 }
 
+//------------------------------------------------------------------------------
+/// Checks whether two tile maps are identical
+///
+/// @ingroup func
+///
+inline bool is_same_map(int64_t mt, int64_t nt, std::function<int(ij_tuple)> func1,
+                                                std::function<int(ij_tuple)> func2)
+{
+    for (int64_t i = 0; i < mt; ++i) {
+        for (int64_t j = 0; j < nt; ++j) {
+            if (func1( {i, j} ) != func2( {i, j} )) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+
+//------------------------------------------------------------------------------
+/// Checks whether the given tile map is a 2d cyclic grid.
+///
+/// @param[in] mt
+///     The number of tile rows to consider
+///
+/// @param[in] nt
+///     The number of tile columns to consider
+///
+/// @param[in] func
+///     The tile map to inspect
+///
+/// @param[out] order
+///     The GridOrder detected.
+///
+/// @param[out] p
+///     The number of rows in the grid
+///
+/// @param[out] q
+///     The number of columns in the grid
+///
+/// @retval Whether the map is a 2d cyclic grid
+///
+/// @ingroup func
+///
+inline bool is_grid_2d_cyclic(int64_t mt, int64_t nt, std::function<int(ij_tuple)> func,
+                              GridOrder& order, int64_t& p, int64_t& q)
+{
+    if (mt == 0 || nt == 0 || (mt == 1 && nt == 1)) {
+        order = GridOrder::Col;
+        p = 1;
+        q = 1;
+        return true;
+    }
+
+    order = GridOrder::Unknown;
+    p = -1;
+    q = -1;
+
+    GridOrder pred_order = GridOrder::Unknown;
+    if (mt == 1 || nt == 1) {
+        // 1d distribution
+        // Ambiguous layout, so just choose col major
+        pred_order = GridOrder::Col;
+    }
+    else if (func( {1, 0} ) == 1) {
+        pred_order = GridOrder::Col;
+    }
+    else if (func( {0, 1} ) == 1) {
+        pred_order = GridOrder::Row;
+    }
+    else if (func( {1, 0} ) == 0 && func( {0, 1} ) == 0) {
+        pred_order = GridOrder::Col;
+    }
+    else {
+        return false;
+    }
+
+    int64_t pred_p = 0;
+    int64_t pred_q = 0;
+    if (pred_order == GridOrder::Col) {
+        while (pred_p < mt && func( {pred_p, 0} ) == pred_p) {
+            ++pred_p;
+        }
+        while (pred_q < nt && func( {0, pred_q} ) == pred_q*pred_p) {
+            ++pred_q;
+        }
+    }
+    else { // pred_order == GridOrder::Row
+        while (pred_q < nt && func( {0, pred_q} ) == pred_q) {
+            ++pred_q;
+        }
+        while (pred_p < mt && func( {pred_p, 0} ) == pred_p*pred_q) {
+            ++pred_p;
+        }
+    }
+
+    auto ref = grid_2d_cyclic( Layout(pred_order), pred_p, pred_q );
+    auto is_same = is_same_map( mt, nt, ref, func );
+    if (is_same) {
+        order = pred_order;
+        p = pred_p;
+        q = pred_q;
+    }
+    return is_same;
+}
+
+//------------------------------------------------------------------------------
+/// Checks whether the given tile map is a 2d cyclic grid.
+///
+/// @param[in] mt
+///     The number of tile rows to consider
+///
+/// @param[in] nt
+///     The number of tile columns to consider
+///
+/// @param[in] func
+///     The tile map to inspect
+///
+/// @retval Whether the map is a 2d cyclic grid
+///
+/// @ingroup func
+///
+inline bool is_grid_2d_cyclic(int64_t mt, int64_t nt, std::function<int(ij_tuple)> func)
+{
+    GridOrder order;
+    int64_t p, q;
+    return is_grid_2d_cyclic(mt, nt, func, order, p, q);
+}
 
 } // namespace func
 } // namespace slate

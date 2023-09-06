@@ -753,9 +753,6 @@ private:
     int64_t joffset_;   ///< block col offset with respect to original matrix
     int64_t mt_;        ///< number of local block rows in this view
     int64_t nt_;        ///< number of local block cols in this view
-    int64_t nprow_;     ///< number of process rows if 2D block cyclic
-    int64_t npcol_;     ///< number of process cols if 2D block cyclic
-    GridOrder order_;   ///< order to map MPI processes to tile grid
 
 protected:
     Uplo uplo_;         ///< upper or lower storage
@@ -790,9 +787,6 @@ BaseMatrix<scalar_t>::BaseMatrix()
       joffset_(0),
       mt_(0),
       nt_(0),
-      nprow_(-1),
-      npcol_(-1),
-      order_( GridOrder::Col ),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
@@ -831,7 +825,6 @@ BaseMatrix<scalar_t>::BaseMatrix()
 ///
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
-///     nprow * npcol <= MPI_Comm_size( mpi_comm ).
 ///
 template <typename scalar_t>
 BaseMatrix<scalar_t>::BaseMatrix(
@@ -845,9 +838,6 @@ BaseMatrix<scalar_t>::BaseMatrix(
       col0_offset_(0),
       ioffset_(0),
       joffset_(0),
-      nprow_(-1),
-      npcol_(-1),
-      order_( GridOrder::Unknown ),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
@@ -932,9 +922,6 @@ BaseMatrix<scalar_t>::BaseMatrix(
       joffset_(0),
       mt_(ceildiv(m, mb)),
       nt_(ceildiv(n, nb)),
-      nprow_(nprow),
-      npcol_(npcol),
-      order_(order),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
@@ -1228,10 +1215,6 @@ BaseMatrix<out_scalar_t> BaseMatrix<scalar_t>::baseEmptyLike(
         std::swap(mt, nt);
     }
 
-    B.nprow_ = nprow_;
-    B.npcol_ = npcol_;
-    B.order_ = order_;
-
     // Apply operation and return sub-matrix.
     if (this->op() == Op::Trans) {
         B = transpose( B );
@@ -1287,23 +1270,10 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::gridinfo(
     GridOrder* order, int* nprow, int* npcol, int* myrow, int* mycol ) const
 {
-    if (nprow_ > 0) {
-        *order = order_;
-        *nprow = nprow_;
-        *npcol = npcol_;
-        if (order_ == GridOrder::Col) {
-            *myrow = mpi_rank_ % nprow_;
-            *mycol = mpi_rank_ / nprow_;
-        }
-        else {
-            *myrow = mpi_rank_ / npcol_;
-            *mycol = mpi_rank_ % npcol_;
-        }
-    }
-    else {
+    // When matrix is empty, storage_ may be null
+    if (mt_ == 0 || nt_ == 0) {
         int mpi_size;
-        slate_mpi_call(
-            MPI_Comm_size(mpiComm(), &mpi_size));
+        slate_mpi_call(MPI_Comm_size(mpiComm(), &mpi_size));
         if (mpi_size == 1) {
             *order = GridOrder::Col;
             *nprow = *npcol = 1;
@@ -1313,6 +1283,31 @@ void BaseMatrix<scalar_t>::gridinfo(
             *order = GridOrder::Unknown;
             *nprow = *npcol = *myrow = *mycol = -1;
         }
+        return;
+    }
+
+    int64_t nprow_i64, npcol_i64;
+    func::is_grid_2d_cyclic(mt(), nt(), tileRankFunc(), *order, nprow_i64, npcol_i64);
+    *nprow = nprow_i64;
+    *npcol = npcol_i64;
+
+    if (*order == GridOrder::Unknown || mpi_rank_ >= nprow_i64*npcol_i64) {
+        *myrow = -1;
+        *mycol = -1;
+    }
+    else if (*order == GridOrder::Col) {
+        if (mpi_rank_ < nprow_i64 * npcol_i64) {
+            *myrow = mpi_rank_ % *nprow;
+            *mycol = mpi_rank_ / *nprow;
+        }
+        else {
+            *myrow = mpi_rank_ % *nprow;
+            *mycol = mpi_rank_ / *nprow;
+        }
+    }
+    else { // *order == GridOrder::Row
+        *myrow = mpi_rank_ / *npcol;
+        *mycol = mpi_rank_ % *npcol;
     }
 }
 

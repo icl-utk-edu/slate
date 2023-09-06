@@ -15,8 +15,6 @@ namespace slate {
 /// of a triangular matrix A, in either the 1-norm or the infinity-norm.
 /// Generic implementation for any target.
 ///
-/// ColMajor layout is assumed
-///
 /// The reciprocal of the condition number computed as:
 /// \[
 ///     rcond = \frac{1}{\|\|A\|\| \times \|\|A^{-1}\|\|}
@@ -72,47 +70,41 @@ void trcondest(
     }
 
     int64_t m = A.m();
-    int64_t nb = A.tileNb(0);
-    int p, q;
-    int myrow, mycol, mpi_size;
-    int izero = 0;
 
     // Quick return
     *rcond = 0.;
-    if (m == 0) {
+    if (m <= 0) {
         *rcond = 1.;
+        return;
     }
 
     scalar_t alpha = 1.;
     real_t Ainvnorm = 0.0;
 
-    GridOrder grid_order;
-    A.gridinfo(&grid_order, &p, &q, &myrow, &mycol);
-    slate_mpi_call(
-            MPI_Comm_size(A.mpiComm(), &mpi_size));
-    //myrow = A.mpiRank();
-    int64_t mloc  = numberLocalRowOrCol(m, nb, myrow, izero, p);
-    int64_t lldA  = blas::max(1, mloc);
-
-    std::vector<scalar_t> X_data(lldA);
-    std::vector<scalar_t> V_data(lldA);
-    std::vector<int64_t> isgn_data(lldA);
-    std::vector<int64_t> isave(3);
+    std::vector<int64_t> isave(4);
     isave[0] = 0;
     isave[1] = 0;
     isave[2] = 0;
+    isave[3] = 0;
 
-    auto X = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, 1, &X_data[0], lldA, nb, 1, p, q, A.mpiComm() );
-    auto V = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, 1, &V_data[0], lldA, nb, 1, p, q, A.mpiComm() );
-    auto isgn = slate::Matrix<int64_t>::fromScaLAPACK(
-            m, 1, &isgn_data[0], lldA, nb, 1, p, q, A.mpiComm() );
+    auto tileMb = A.tileMbFunc();
+    auto tileNb = func::uniform_blocksize(1, 1);
+    auto tileRank = A.tileRankFunc();
+    auto tileDevice = A.tileDeviceFunc();
+    slate::Matrix<scalar_t> X (m, 1, tileMb, tileNb,
+                               tileRank, tileDevice, A.mpiComm());
+    X.insertLocalTiles(Target::Host);
+    slate::Matrix<scalar_t> V (m, 1, tileMb, tileNb,
+                               tileRank, tileDevice, A.mpiComm());
+    V.insertLocalTiles(Target::Host);
+    slate::Matrix<int64_t> isgn (m, 1, tileMb, tileNb,
+                                 tileRank, tileDevice, A.mpiComm());
+    isgn.insertLocalTiles(Target::Host);
 
     // initial and final value of kase is 0
     kase = 0;
     internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);
-    MPI_Bcast( &isave[0], 3, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
+    MPI_Bcast( &isave[0], 4, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
     MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
 
     while (kase != 0) {
@@ -127,7 +119,7 @@ void trcondest(
         }
 
         internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);
-        MPI_Bcast( &isave[0], 3, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
+        MPI_Bcast( &isave[0], 4, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
         MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
     } // while (kase != 0)
 

@@ -32,7 +32,35 @@ void test_uniform_blocksize()
 }
 
 //------------------------------------------------------------------------------
+<<<<<<< HEAD
 void test_process_2d_grid()
+=======
+void test_max_blocksize()
+{
+    auto error = []( int64_t i ) {
+        test_assert( false );
+        return -1;
+    };
+    test_assert( slate::func::max_blocksize( 0, error ) == 0 );
+
+    auto uni_100_16 = slate::func::uniform_blocksize( 100, 16 );
+    test_assert( slate::func::max_blocksize( 7, uni_100_16 ) == 16 );
+    test_assert( slate::func::max_blocksize( 1, uni_100_16 ) == 16 );
+
+    auto uni_75_25 = slate::func::uniform_blocksize( 75, 25 );
+    test_assert( slate::func::max_blocksize( 3, uni_75_25 ) == 25 );
+
+    auto growing = []( int64_t i ) {
+        return i+1;
+    };
+    for (int64_t i = 1; i < 100; ++i) {
+        test_assert( slate::func::max_blocksize( i, growing ) == i );
+    }
+}
+
+//------------------------------------------------------------------------------
+void test_grid_2d_block_cyclic()
+>>>>>>> efcf1925 (Improve Memory allocations when tile size is nonuniform)
 {
     auto grid_col = slate::func::process_2d_grid(slate::Layout::ColMajor, 4, 5);
 
@@ -432,14 +460,14 @@ void test_is_grid_2d_cyclic()
 /// Runs all tests. Called by unit test main().
 void run_tests()
 {
-    run_test(test_uniform_blocksize, "test_uniform_blocksize");
-    run_test(test_process_2d_grid,   "test_process_2d_grid");
-    run_test(test_process_1d_grid,   "test_process_1d_grid");
-    run_test(test_device_2d_grid,    "test_device_2d_grid");
-    run_test(test_device_1d_grid,    "test_device_1d_grid");
-    run_test(test_grid_transpose,    "test_transpose_grid");
-    run_test(test_is_same_map,       "test_is_same_map");
-    run_test(test_is_grid_2d_cyclic, "test_is_grid_2d_cyclic");
+    run_test( test_uniform_blocksize, "test_uniform_blocksize" );
+    run_test( test_process_2d_grid,   "test_process_2d_grid" );
+    run_test( test_process_1d_grid,   "test_process_1d_grid" );
+    run_test( test_device_2d_grid,    "test_device_2d_grid" );
+    run_test( test_device_1d_grid,    "test_device_1d_grid" );
+    run_test( test_grid_transpose,    "test_transpose_grid" );
+    run_test( test_is_same_map,       "test_is_same_map" );
+    run_test( test_is_grid_2d_cyclic, "test_is_grid_2d_cyclic" );
 }
 
 }  // namespace test

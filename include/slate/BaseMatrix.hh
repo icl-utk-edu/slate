@@ -842,8 +842,6 @@ BaseMatrix<scalar_t>::BaseMatrix(
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
       origin_(Target::Host),
-      storage_(std::make_shared< MatrixStorage< scalar_t > >(
-          inTileMb, inTileNb, inTileRank, inTileDevice, mpi_comm)),
       mpi_comm_(mpi_comm)
 {
     // Count number of block rows.
@@ -865,6 +863,10 @@ BaseMatrix<scalar_t>::BaseMatrix(
         jj += last_nb_;
         ++nt_;
     }
+
+    storage_ = std::make_shared< MatrixStorage< scalar_t > >(
+                                           mt_, nt_, inTileMb, inTileNb,
+                                           inTileRank, inTileDevice, mpi_comm );
 
     slate_mpi_call(
         MPI_Comm_rank(mpi_comm_, &mpi_rank_));

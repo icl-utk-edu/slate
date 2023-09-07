@@ -172,11 +172,12 @@ public:
     MatrixStorage( int64_t m, int64_t n, int64_t mb, int64_t nb,
                    GridOrder order, int p, int q, MPI_Comm mpi_comm );
 
-    MatrixStorage(std::function<int64_t (int64_t i)>& inTileMb,
-                  std::function<int64_t (int64_t j)>& inTileNb,
-                  std::function<int (ij_tuple ij)>& inTileRank,
-                  std::function<int (ij_tuple ij)>& inTileDevice,
-                  MPI_Comm mpi_comm);
+    MatrixStorage( int64_t mt, int64_t nt,
+                   std::function<int64_t (int64_t i)>& inTileMb,
+                   std::function<int64_t (int64_t j)>& inTileNb,
+                   std::function<int (ij_tuple ij)>& inTileRank,
+                   std::function<int (ij_tuple ij)>& inTileDevice,
+                   MPI_Comm mpi_comm);
 
 
     // 1. destructor
@@ -518,9 +519,10 @@ MatrixStorage<scalar_t>::MatrixStorage(
 }
 
 //------------------------------------------------------------------------------
-/// For memory, assumes tiles of size mb = inTileMb(0) x nb = inTileNb(0).
 template <typename scalar_t>
 MatrixStorage<scalar_t>::MatrixStorage(
+    int64_t mt,
+    int64_t nt,
     std::function<int64_t (int64_t i)>& inTileMb,
     std::function<int64_t (int64_t j)>& inTileNb,
     std::function<int (ij_tuple ij)>& inTileRank,
@@ -531,7 +533,8 @@ MatrixStorage<scalar_t>::MatrixStorage(
       tileRank(inTileRank),
       tileDevice(inTileDevice),
       tiles_(),
-      memory_(sizeof(scalar_t) * inTileMb(0) * inTileNb(0)),  // block size in bytes
+      memory_(sizeof(scalar_t) * func::max_blocksize(mt, inTileMb) // block size in bytes
+                               * func::max_blocksize(nt, inTileNb)),
       batch_array_size_(0)
 {
     slate_mpi_call(

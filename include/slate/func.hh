@@ -41,6 +41,29 @@ inline std::function<int64_t(int64_t)> uniform_blocksize(int64_t n, int64_t nb)
     return [n, nb](int64_t j) { return (j + 1)*nb > n ? n%nb : nb; };
 }
 
+//------------------------------------------------------------------------------
+/// Computes the largest block given a blocksize function
+///
+/// @param[in] nt
+///     Number of tiles
+///
+/// @param[in] size
+///     Block size function
+///
+/// @retval The maximum blocksize
+///
+/// @ingroup func
+///
+inline int64_t max_blocksize(int64_t nt, std::function<int64_t(int64_t)> size)
+{
+    int64_t max = 0;
+    for (int64_t i = 0; i < nt; ++i) {
+        int64_t size_i = size(i);
+        max = max < size_i ? size_i : max;
+    }
+    return max;
+}
+
 
 //------------------------------------------------------------------------------
 // Process & device distribution functions

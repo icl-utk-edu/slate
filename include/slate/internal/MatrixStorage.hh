@@ -218,7 +218,7 @@ public:
     void clearWorkspace();
     void releaseWorkspace();
 
-    scalar_t* allocWorkspaceBuffer(int device);
+    scalar_t* allocWorkspaceBuffer(int device, int size);
     void      releaseWorkspaceBuffer(scalar_t* data, int device);
 
 private:
@@ -1020,15 +1020,15 @@ void MatrixStorage<scalar_t>::clear()
 /// @param[in] device
 ///     Device ID (GPU or Host) where the memory block is needed.
 ///
+/// @param[in] size
+///     Number of scalars needed in the memory block
+///
 template <typename scalar_t>
-scalar_t* MatrixStorage<scalar_t>::allocWorkspaceBuffer(int device)
+scalar_t* MatrixStorage<scalar_t>::allocWorkspaceBuffer(int device, int size)
 {
-    int64_t mb = tileMb(0);
-    int64_t nb = tileNb(0);
     // if device==HostNum (-1) use nullptr as queue (not comm_queues_[-1])
     blas::Queue* queue = ( device == HostNum ? nullptr : comm_queues_[device]);
-    scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);
-    return data;
+    return (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * size, queue);
 }
 
 //------------------------------------------------------------------------------

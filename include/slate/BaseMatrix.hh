@@ -1535,8 +1535,7 @@ Tile<scalar_t> BaseMatrix<scalar_t>::tileInsertWorkspace(
 template<typename scalar_t>
 scalar_t* BaseMatrix<scalar_t>::allocWorkspaceBuffer(int device, int64_t size)
 {
-    assert(size <= storage_->tileMb(0)*storage_->tileNb(0));
-    return storage_->allocWorkspaceBuffer(device);
+    return storage_->allocWorkspaceBuffer(device, size);
 }
 
 //------------------------------------------------------------------------------
@@ -2475,7 +2474,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
 
         bool need_workspace = work_data == nullptr;
         if (need_workspace) {
-            work_data = storage_->allocWorkspaceBuffer( work_device );
+            work_data = storage_->allocWorkspaceBuffer( work_device, mb*nb );
             work_stride = ( copy_first ? phys_mb : dst_stride );
         }
         Layout work_layout = ( copy_first ? src_layout : target_layout );
@@ -3288,7 +3287,8 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
         bool need_workspace = tile->mb() != tile->nb() && (! tile->extended());
 
         if (need_workspace)
-            work_data = storage_->allocWorkspaceBuffer(tile->device());
+            work_data = storage_->allocWorkspaceBuffer(tile->device(),
+                                                       tile->mb()*tile->nb());
 
         if (tile->device() == HostNum) {
             tile->layoutConvert(work_data);
@@ -3369,6 +3369,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
             int64_t j = std::get<1>(*iter);
 
             auto tile = storage_->at( globalIndex(i, j, device) );
+            auto mb = tile->mb(), nb = tile->nb();
 
             // if we need to convert layout
             if (tile->layout() != layout) {
@@ -3378,30 +3379,26 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
                 }
                 tile->setLayout( layout );
 
-                int64_t work_stride = layout == Layout::ColMajor
-                                      ? tile->nb()
-                                      : tile->mb();
+                int64_t work_stride = (layout == Layout::ColMajor) ? nb : mb;
 
                 // bucket index
-                mnss_tuple mns = {tile->mb(), tile->nb(),
-                                  tile->extended(),
-                                  tile->stride(),
-                                  tile->mb() != tile->nb()
-                                    ? (tile->extended() ?
-                                        tile->layoutBackStride() : work_stride)
+                mnss_tuple mns = {mb, nb, tile->extended(), tile->stride(),
+                                  mb != nb
+                                    ? (tile->extended()
+                                        ? tile->layoutBackStride() : work_stride)
                                     : 0};
 
                 // add this tile's data to the corrsponding bucket of batch array
                 tilesBuckets[mns].first.push_back(tile->data());
 
                 // if rectangular, prepare a workspace
-                if (tile->mb() != tile->nb()) {
+                if (mb != nb) {
                     if (tile->extended())
                         tilesBuckets[mns].second.push_back(
                             tile->layoutBackData());
                     else
                         tilesBuckets[mns].second.push_back(
-                            storage_->allocWorkspaceBuffer(device));
+                            storage_->allocWorkspaceBuffer(device, mb*nb) );
                 }
             }
         }

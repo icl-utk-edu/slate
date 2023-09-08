@@ -2528,7 +2528,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
 
     int src_device = src_tile->device();
     int dst_device = dst_tile->device();
-    int work_device = dst_device == HostNum ? src_device : dst_device;
+    int work_device = ( dst_device == HostNum ? src_device : dst_device );
 
     Layout src_layout = src_tile->layout();
     bool need_convert = src_layout != target_layout;
@@ -2542,20 +2542,20 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
 
     // make sure dst_tile can fit the data in its target_layout
     if (dst_tile->layout() != target_layout && ! dst_tile->isTransposable()) {
-        storage_->tileMakeTransposable(dst_tile);
+        storage_->tileMakeTransposable( dst_tile );
         dst_extended = true;
     }
     if (dst_extended) {
-        dst_tile->layoutSetFrontDataExt(target_layout != dst_tile->userLayout());
+        dst_tile->layoutSetFrontDataExt( target_layout != dst_tile->userLayout() );
     }
 
     if (is_square || ! need_convert) {
         lapack::Queue* queue = comm_queue( work_device );
-        src_tile->copyData(dst_tile, *queue, async);
+        src_tile->copyData( dst_tile, *queue, async );
 
         if (need_convert) {
             // NB. if dst is a host tile, the queue is ignored
-            dst_tile->layoutConvert(*queue, async);
+            dst_tile->layoutConvert( *queue, async );
         }
     }
     else {
@@ -2574,45 +2574,45 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
         }
 
         lapack::Queue* queue = comm_queue( work_device );
-        bool copy_first = work_device == dst_device;
-        int64_t phys_mb = src_layout == Layout::ColMajor ? mb : nb;
-        int64_t phys_nb = src_layout == Layout::ColMajor ? nb : mb;
-        int64_t dst_stride = target_layout == Layout::ColMajor ? mb : nb;
+        bool copy_first = ( work_device == dst_device );
+        int64_t phys_mb = ( src_layout == Layout::ColMajor ? mb : nb );
+        int64_t phys_nb = ( src_layout == Layout::ColMajor ? nb : mb );
+        int64_t dst_stride = ( target_layout == Layout::ColMajor ? mb : nb );
 
         bool need_workspace = work_data == nullptr;
         if (need_workspace) {
-            work_data = storage_->allocWorkspaceBuffer(work_device);
-            work_stride = copy_first ? phys_mb : dst_stride;
+            work_data = storage_->allocWorkspaceBuffer( work_device );
+            work_stride = ( copy_first ? phys_mb : dst_stride );
         }
-        Layout work_layout = copy_first ? src_layout : target_layout;
-        Tile<scalar_t> work_tile(mb, nb, work_data, work_stride, work_device,
-                                 TileKind::Workspace, work_layout);
+        Layout work_layout = ( copy_first ? src_layout : target_layout );
+        Tile<scalar_t> work_tile( mb, nb, work_data, work_stride, work_device,
+                                  TileKind::Workspace, work_layout);
 
         dst_tile->layout( target_layout );
         if (dst_tile->isContiguous()) {
             dst_tile->stride( dst_stride );
         }
         if (copy_first) {
-            src_tile->copyData(&work_tile, *queue, true);
+            src_tile->copyData( &work_tile, *queue, true );
 
-            device::transpose(false, phys_mb, phys_nb,
-                              work_data, work_stride,
-                              dst_tile->data(), dst_tile->stride(),
-                              *queue);
+            device::transpose( false, phys_mb, phys_nb,
+                               work_data, work_stride,
+                               dst_tile->data(), dst_tile->stride(),
+                               *queue );
         }
         else {
-            device::transpose(false, phys_mb, phys_nb,
-                              src_tile->data(), src_tile->stride(),
-                              work_data, work_stride,
-                              *queue);
-            work_tile.copyData(dst_tile, *queue, true);
+            device::transpose( false, phys_mb, phys_nb,
+                               src_tile->data(), src_tile->stride(),
+                               work_data, work_stride,
+                               *queue );
+            work_tile.copyData( dst_tile, *queue, true );
         }
         // Above kernels are asynchronous
         if (! async || need_workspace) {
             queue->sync();
         }
         if (need_workspace) {
-            storage_->releaseWorkspaceBuffer(work_data, work_device);
+            storage_->releaseWorkspaceBuffer( work_data, work_device );
         }
     }
 }

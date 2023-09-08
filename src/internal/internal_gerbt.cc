@@ -37,231 +37,181 @@ void gerbt(Matrix<scalar_t> A11,
     const int64_t mt_full = A11.mt();
     const int64_t nt_full = A11.nt();
 
+    // Used to manage OpenMP task dependencies
+    std::vector<uint8_t> task_vect (mt_full*nt_full);
+    uint8_t* task = task_vect.data();
+    SLATE_UNUSED( task ); // Used only by OpenMP
+
     std::vector<MPI_Request> requests;
-    #pragma omp task shared(A11, A12, A21, A22, U1, U2, V1, V2) \
-                     shared(requests) priority(2) depend(out:requests)
-    {
-        for (int64_t ii = 0; ii < mt; ++ii) {
-            for (int64_t jj = 0; jj < nt; ++jj) {
-                if (! A11.tileIsLocal(ii, jj)) {
-                    const int64_t tag = 4*(ii*nt_full + jj);
-                    const int64_t compute_rank = A11.tileRank(ii, jj);
-                    if (A12.tileIsLocal(ii, jj)) {
-                        MPI_Request r;
-                        A12.tileIsend( ii, jj, compute_rank, tag+1, &r );
-                        MPI_Request_free(&r);
-
-                        A12.tileIrecv( ii, jj, compute_rank, Layout::ColMajor,
-                                       tag+1, &r );
+    for (int64_t ii = 0; ii < mt_full; ++ii) {
+        for (int64_t jj = 0; jj < nt_full; ++jj) {
+            const int64_t tag = 4*(ii*nt_full + jj);
+            MPI_Request r;
+            if (A11.tileIsLocal(ii, jj)) {
+                if (jj < nt) {
+                    A12.tileIrecv( ii, jj, A12.tileRank(ii, jj),
+                                  Layout::ColMajor, tag+1, &r );
+                    if (r != MPI_REQUEST_NULL) {
                         requests.push_back(r);
                     }
-                    if (A21.tileIsLocal(ii, jj)) {
-                        MPI_Request r;
-                        A21.tileIsend( ii, jj, compute_rank, tag+2, &r );
-                        MPI_Request_free(&r);
-
-                        A21.tileIrecv( ii, jj, compute_rank, Layout::ColMajor,
-                                       tag+2, &r );
+                }
+                if (ii < mt) {
+                    A21.tileIrecv( ii, jj, A21.tileRank(ii, jj),
+                                  Layout::ColMajor, tag+2, &r );
+                    if (r != MPI_REQUEST_NULL) {
                         requests.push_back(r);
                     }
-                    if (A22.tileIsLocal(ii, jj)) {
-                        MPI_Request r;
-                        A22.tileIsend(ii, jj, compute_rank, tag+3, &r);
-                        MPI_Request_free(&r);
-
-                        A22.tileIrecv( ii, jj, compute_rank, Layout::ColMajor,
-                                       tag+3, &r );
+                }
+                if (ii < mt && jj < nt) {
+                    A22.tileIrecv( ii, jj, A22.tileRank(ii, jj),
+                                  Layout::ColMajor, tag+3, &r );
+                    if (r != MPI_REQUEST_NULL) {
                         requests.push_back(r);
                     }
                 }
             }
-        }
-
-        for (int64_t ii = 0; ii < mt; ++ii) {
-            for (int64_t jj = nt; jj < nt_full; ++jj) {
-                if (! A11.tileIsLocal(ii, jj) && A21.tileIsLocal(ii, jj)) {
-                    const int64_t tag = 4*(ii*nt_full + jj);
-                    const int64_t compute_rank = A11.tileRank(ii, jj);
-
-                    MPI_Request r;
-                    A21.tileIsend(ii, jj, compute_rank, tag+2, &r);
+            else {
+                const int64_t compute_rank = A11.tileRank(ii, jj);
+                // Don't need to keep the requests since we don't touch the tile
+                // until recieving the finished data
+                if (jj < nt && A12.tileIsLocal(ii, jj)) {
+                    A12.tileIsend( ii, jj, compute_rank, tag+1, &r );
                     MPI_Request_free(&r);
-
-                    A21.tileIrecv( ii, jj, compute_rank, Layout::ColMajor,
-                                   tag+2, &r );
-                    requests.push_back(r);
+                }
+                if (ii < mt && A21.tileIsLocal(ii, jj)) {
+                    A21.tileIsend( ii, jj, compute_rank, tag+2, &r );
+                    MPI_Request_free(&r);
+                }
+                if (ii < mt && jj < nt && A22.tileIsLocal(ii, jj)) {
+                    A22.tileIsend( ii, jj, compute_rank, tag+3, &r );
+                    MPI_Request_free(&r);
                 }
             }
         }
+    }
+    slate_mpi_call(MPI_Waitall(requests.size(), requests.data(),
+                               MPI_STATUSES_IGNORE));
+    requests.clear();
 
-        for (int64_t ii = mt; ii < mt_full; ++ii) {
-            for (int64_t jj = 0; jj < nt; ++jj) {
-                if (! A11.tileIsLocal(ii, jj) && A12.tileIsLocal(ii, jj)) {
-                    const int64_t tag = 4*(ii*nt_full + jj);
-                    const int64_t compute_rank = A11.tileRank(ii, jj);
+    for (int64_t ii = 0; ii < mt_full; ++ii) {
+        for (int64_t jj = 0; jj < nt_full; ++jj) {
+            if (A11.tileIsLocal(ii, jj)) {
 
-                    MPI_Request r;
-                    A12.tileIsend(ii, jj, compute_rank, tag+1, &r);
-                    MPI_Request_free(&r);
+                #pragma omp task shared(A11, A12, A21, A22, U1, U2, V1, V2) \
+                                 firstprivate(ii, jj) priority(1) \
+                                 depend(inout:task[ii*nt_full + jj])
+                {
+                    scalar_t dummy;
 
+                    A11.tileGetForWriting(ii, jj, LayoutConvert::None);
+                    U1.tileGetForReading(ii, 0, LayoutConvert::None);
+                    V1.tileGetForReading(jj, 0, LayoutConvert::None);
+                    Tile<scalar_t> a11 = A11(ii, jj);
+                    Tile<scalar_t> u1 = U1(ii, 0);
+                    Tile<scalar_t> v1 = V1(jj, 0);
+
+                    Tile<scalar_t> a12;
+                    Tile<scalar_t> a21;
+                    Tile<scalar_t> a22;
+                    Tile<scalar_t> u2;
+                    Tile<scalar_t> v2;
+
+                    if (ii < mt) {
+                        A21.tileGetForWriting(ii, jj, LayoutConvert::None);
+                        U2.tileGetForWriting(ii, 0, LayoutConvert::None);
+                        a21 = A21(ii, jj);
+                        u2 = U2(ii, 0);
+                    }
+                    else {
+                        a21 = Tile<scalar_t>(0, a11.nb(), &dummy, 0, HostNum,
+                                             TileKind::UserOwned, Layout::ColMajor);
+                        u2  = Tile<scalar_t>(0, u1.nb(), &dummy, 0, HostNum,
+                                             TileKind::UserOwned, Layout::ColMajor);
+                    }
+
+                    if (jj < nt) {
+                        A12.tileGetForWriting(ii, jj, LayoutConvert::None);
+                        V2.tileGetForWriting(jj, 0, LayoutConvert::None);
+                        a12 = A12(ii, jj);
+                        v2 = V2(jj, 0);
+                    }
+                    else {
+                        a12 = Tile<scalar_t>(a11.mb(), 0, &dummy, a11.mb(), HostNum,
+                                             TileKind::UserOwned, Layout::ColMajor);
+                        v2  = Tile<scalar_t>(0, v1.nb(), &dummy, 0, HostNum,
+                                             TileKind::UserOwned, Layout::ColMajor);
+                    }
+
+                    if (ii < mt && jj < nt) {
+                        A22.tileGetForWriting(ii, jj, LayoutConvert::None);
+                        a22 = A22(ii, jj);
+                    }
+                    else {
+                        a22 = Tile<scalar_t>(a21.mb(), a12.nb(), &dummy, a21.mb(), HostNum,
+                                             TileKind::UserOwned, Layout::ColMajor);
+                    }
+                    gerbt( a11, a12, a21, a22, u1, u2, v1, v2 );
+                }
+            }
+        }
+    }
+
+    for (int64_t ii = 0; ii < mt_full; ++ii) {
+        for (int64_t jj = 0; jj < nt_full; ++jj) {
+            MPI_Request r;
+            const int64_t tag = 4*(ii*nt_full + jj);
+            if (A11.tileIsLocal(ii, jj)) {
+                // Use undefered task as a selective barrier
+                // TODO change to taskwait depend(...) once OpenMP 5.0 supported
+                #pragma omp task if(false) depend(in:task[ii*nt_full + jj])
+                {}
+                if (jj < nt) {
+                    A12.tileIsend( ii, jj, A12.tileRank(ii, jj), tag+1, &r );
+                    if (r != MPI_REQUEST_NULL) {
+                        requests.push_back(r);
+                    }
+                }
+                if (ii < mt) {
+                    A21.tileIsend( ii, jj, A21.tileRank(ii, jj), tag+2, &r );
+                    if (r != MPI_REQUEST_NULL) {
+                        requests.push_back(r);
+                    }
+                }
+                if (ii < mt && jj < nt) {
+                    A22.tileIsend( ii, jj, A22.tileRank(ii, jj), tag+3, &r );
+                    if (r != MPI_REQUEST_NULL) {
+                        requests.push_back(r);
+                    }
+                }
+            }
+            else {
+                const int64_t compute_rank = A11.tileRank(ii, jj);
+                if (jj < nt && A12.tileIsLocal(ii, jj)) {
                     A12.tileIrecv( ii, jj, compute_rank, Layout::ColMajor,
                                    tag+1, &r );
                     requests.push_back(r);
                 }
-            }
-        }
-    }
-
-    for (int64_t ii = 0; ii < mt; ++ii) {
-        for (int64_t jj = 0; jj < nt; ++jj) {
-            if (A11.tileIsLocal(ii, jj)) {
-                #pragma omp task shared(A11, A12, A21, A22, U1, U2, V1, V2) \
-                                 firstprivate(ii, jj) priority(1)
-                {
-                    const int64_t tag = 4*(ii*nt_full + jj);
-                    A12.tileRecv( ii, jj, A12.tileRank(ii, jj),
-                                  Layout::ColMajor, tag+1 );
-                    A21.tileRecv( ii, jj, A21.tileRank(ii, jj),
-                                  Layout::ColMajor, tag+2 );
-                    A22.tileRecv( ii, jj, A22.tileRank(ii, jj),
-                                  Layout::ColMajor, tag+3 );
-
-                    A11.tileGetForWriting(ii, jj, LayoutConvert::None);
-                    A12.tileGetForWriting(ii, jj, LayoutConvert::None);
-                    A21.tileGetForWriting(ii, jj, LayoutConvert::None);
-                    A22.tileGetForWriting(ii, jj, LayoutConvert::None);
-                    U1.tileGetForReading(ii, 0, LayoutConvert::None);
-                    U2.tileGetForReading(ii, 0, LayoutConvert::None);
-                    V1.tileGetForReading(jj, 0, LayoutConvert::None);
-                    V2.tileGetForReading(jj, 0, LayoutConvert::None);
-
-                    gerbt( A11(ii, jj), A12(ii, jj), A21(ii, jj), A22(ii, jj),
-                           U1(ii, 0), U2(ii, 0), V1(jj, 0), V2(jj, 0) );
-
-                    A12.tileSend( ii, jj, A12.tileRank(ii, jj), tag+1 );
-                    A21.tileSend( ii, jj, A21.tileRank(ii, jj), tag+2 );
-                    A22.tileSend( ii, jj, A22.tileRank(ii, jj), tag+3 );
-
-                    A12.tileRelease(ii, jj);
-                    A21.tileRelease(ii, jj);
-                    A22.tileRelease(ii, jj);
+                if (ii < mt && A21.tileIsLocal(ii, jj)) {
+                    A21.tileIrecv( ii, jj, compute_rank, Layout::ColMajor,
+                                   tag+2, &r );
+                    requests.push_back(r);
+                }
+                if (ii < mt && jj < nt && A22.tileIsLocal(ii, jj)) {
+                    A22.tileIrecv( ii, jj, compute_rank, Layout::ColMajor,
+                                   tag+3, &r );
+                    requests.push_back(r);
                 }
             }
         }
     }
 
-    for (int64_t ii = 0; ii < mt; ++ii) {
-        for (int64_t jj = nt; jj < nt_full; ++jj) {
-            if (A11.tileIsLocal(ii, jj)) {
-                #pragma omp task shared(A11, A21, U1, U2) firstprivate(ii, jj) \
-                                 priority(1)
-                {
-                    scalar_t dummy;
-
-                    const int64_t tag = 4*(ii*nt_full + jj);
-                    A21.tileRecv( ii, jj, A21.tileRank(ii, jj),
-                                  Layout::ColMajor, tag+2 );
-
-                    A11.tileGetForWriting(ii, jj, LayoutConvert::None);
-                    A21.tileGetForWriting(ii, jj, LayoutConvert::None);
-                    U1.tileGetForReading(ii, 0, LayoutConvert::None);
-                    U2.tileGetForReading(ii, 0, LayoutConvert::None);
-                    V1.tileGetForReading(jj, 0, LayoutConvert::None);
-
-                    Tile<scalar_t> a11 = A11(ii, jj);
-                    Tile<scalar_t> a21 = A21(ii, jj);
-                    Tile<scalar_t> a12 (a11.mb(), 0, &dummy, a11.mb(), 0,
-                                        TileKind::UserOwned, Layout::ColMajor);
-                    Tile<scalar_t> a22 (a21.mb(), 0, &dummy, a11.mb(), 0,
-                                        TileKind::UserOwned, Layout::ColMajor);
-                    Tile<scalar_t> v1 = V1(jj, 0);
-                    Tile<scalar_t> v2 (0, v1.nb(), &dummy, 0, 0,
-                                        TileKind::UserOwned, Layout::ColMajor);
-
-                    gerbt( a11, a12, a21, a22,
-                           U1(ii, 0), U2(ii, 0), v1, v2 );
-
-                    A21.tileSend(ii, jj, A21.tileRank(ii, jj), tag+2);
-                    A21.tileRelease(ii, jj);
-                }
-            }
-        }
-    }
-
-    for (int64_t ii = mt; ii < mt_full; ++ii) {
-        for (int64_t jj = 0; jj < nt; ++jj) {
-            if (A11.tileIsLocal(ii, jj)) {
-                #pragma omp task shared(A11, A12, V1, V2) firstprivate(ii, jj) \
-                                 priority(1)
-                {
-                    scalar_t dummy;
-
-                    const int64_t tag = 4*(ii*nt_full + jj);
-                    A12.tileRecv( ii, jj, A12.tileRank(ii, jj),
-                                  Layout::ColMajor, tag+1 );
-
-                    A11.tileGetForWriting(ii, jj, LayoutConvert::None);
-                    A12.tileGetForWriting(ii, jj, LayoutConvert::None);
-                    U1.tileGetForReading(ii, 0, LayoutConvert::None);
-                    V1.tileGetForReading(jj, 0, LayoutConvert::None);
-                    V2.tileGetForReading(jj, 0, LayoutConvert::None);
-
-                    Tile<scalar_t> a11 = A11(ii, jj);
-                    Tile<scalar_t> a12 = A12(ii, jj);
-                    Tile<scalar_t> a21 (0, a11.nb(), &dummy, 0, 0,
-                                        TileKind::UserOwned, Layout::ColMajor);
-                    Tile<scalar_t> a22 (0, a12.nb(), &dummy, 0, 0,
-                                        TileKind::UserOwned, Layout::ColMajor);
-                    Tile<scalar_t> u1 = U1(ii, 0);
-                    Tile<scalar_t> u2 (0, u1.nb(), &dummy, 0, 0,
-                                        TileKind::UserOwned, Layout::ColMajor);
-
-                    gerbt( a11, a12, a21, a22,
-                           u1, u2, V1(jj, 0), V2(jj, 0) );
-
-                    A12.tileSend( ii, jj, A12.tileRank(ii, jj), tag+1 );
-                    A12.tileRelease(ii, jj);
-                }
-            }
-        }
-    }
-    for (int64_t ii = mt; ii < mt_full; ++ii) {
-        for (int64_t jj = nt; jj < nt_full; ++jj) {
-            if (A11.tileIsLocal(ii, jj)) {
-                #pragma omp task shared(A11, A12, V1, V2) firstprivate(ii, jj) \
-                                 priority(1)
-                {
-                    scalar_t dummy;
-
-                    A11.tileGetForWriting(ii, jj, LayoutConvert::None);
-                    U1.tileGetForReading(ii, 0, LayoutConvert::None);
-                    V1.tileGetForReading(jj, 0, LayoutConvert::None);
-
-                    Tile<scalar_t> a11 = A11(ii, jj);
-                    Tile<scalar_t> a12 (0, a11.nb(), &dummy, 0, 0,
-                                        TileKind::UserOwned, Layout::ColMajor);
-                    Tile<scalar_t> a21 (a11.mb(), 0, &dummy, a11.mb(), 0,
-                                        TileKind::UserOwned, Layout::ColMajor);
-                    Tile<scalar_t> a22 (0, 0, &dummy, 0, 0,
-                                        TileKind::UserOwned, Layout::ColMajor);
-                    Tile<scalar_t> u1 = U1(ii, 0);
-                    Tile<scalar_t> u2 (0, u1.nb(), &dummy, 0, 0,
-                                        TileKind::UserOwned, Layout::ColMajor);
-                    Tile<scalar_t> v1 = V1(jj, 0);
-                    Tile<scalar_t> v2 (0, v1.nb(), &dummy, 0, 0,
-                                        TileKind::UserOwned, Layout::ColMajor);
-
-                    gerbt( a11, a12, a21, a22,
-                           u1, u2, v1, v2 );
-                }
-            }
-        }
-    }
-
-    #pragma omp task depend(in:requests) shared(requests)
-    slate_mpi_call(MPI_Waitall(requests.size(), requests.data(), MPI_STATUSES_IGNORE));
-
+    slate_mpi_call(MPI_Waitall(requests.size(), requests.data(),
+                               MPI_STATUSES_IGNORE));
     #pragma omp taskwait
+
+    A12.releaseRemoteWorkspace();
+    A21.releaseRemoteWorkspace();
+    A22.releaseRemoteWorkspace();
 }
 
 template
@@ -321,34 +271,42 @@ void gerbt(Side side,
     const bool leftp = side == Side::Left;
     const bool transp = trans == Op::Trans;
 
+    // Used to manage OpenMP task dependencies
+    std::vector<uint8_t> task_vect (mt_full*nt_full);
+    uint8_t* task = task_vect.data();
+    SLATE_UNUSED( task ); // Used only by OpenMP
+
     std::vector<MPI_Request> requests;
-    #pragma omp task depend(out:requests) priority(2) \
-                     shared(B1, B2) shared(requests)
     for (int64_t ii = 0; ii < mt; ++ii) {
         for (int64_t jj = 0; jj < nt; ++jj) {
-            if (! B1.tileIsLocal(ii, jj) && B2.tileIsLocal(ii, jj)) {
-                const int64_t tag = ii*nt + jj;
+            const int64_t tag = ii*nt + jj;
+            MPI_Request r;
+            if (B1.tileIsLocal(ii, jj)) {
+                //B2.tileRecv( ii, jj, B2.tileRank(ii, jj),
+                //              Layout::ColMajor, tag );
+                B2.tileIrecv( ii, jj, B2.tileRank(ii, jj),
+                              Layout::ColMajor, tag, &r );
+                if (r != MPI_REQUEST_NULL) {
+                    requests.push_back(r);
+                }
+            }
+            else if (B2.tileIsLocal(ii, jj)) {
                 const int64_t compute_rank = B1.tileRank(ii, jj);
-                MPI_Request r;
                 B2.tileIsend( ii, jj, compute_rank, tag, &r );
                 MPI_Request_free(&r);
-
-                B2.tileIrecv( ii, jj, compute_rank, Layout::ColMajor, tag, &r );
-                requests.push_back(r);
             }
         }
     }
+    slate_mpi_call(MPI_Waitall(requests.size(), requests.data(),
+                               MPI_STATUSES_IGNORE));
+    requests.clear();
 
     for (int64_t ii = 0; ii < mt; ++ii) {
         for (int64_t jj = 0; jj < nt; ++jj) {
             if (B1.tileIsLocal(ii, jj)) {
                 #pragma omp task shared(B1, B2, U1, U2) firstprivate(ii, jj) \
-                                 priority(1)
+                                 priority(1) depend(inout:task[ii*nt_full + jj])
                 {
-                    const int64_t tag = ii*nt + jj;
-                    B2.tileRecv( ii, jj, B2.tileRank(ii, jj),
-                                 Layout::ColMajor, tag );
-
                     B1.tileGetForWriting(ii, jj, LayoutConvert::None);
                     B2.tileGetForWriting(ii, jj, LayoutConvert::None);
                     U1.tileGetForReading(ii, 0, LayoutConvert::None);
@@ -382,8 +340,6 @@ void gerbt(Side side,
                                                  U2(jj, 0) );
                         }
                     }
-                    B2.tileSend( ii, jj, B2.tileRank(ii, jj), tag );
-                    B2.tileRelease(ii, jj);
                 }
             }
         }
@@ -393,7 +349,7 @@ void gerbt(Side side,
             for (int64_t jj = 0; jj < nt; ++jj) {
                 if (B1.tileIsLocal(ii, jj)) {
                     #pragma omp task shared(B1, U1) firstprivate(ii, jj) \
-                                     priority(1)
+                                     priority(1) depend(inout:task[ii*nt_full + jj])
                     {
                         scalar_t dummy;
 
@@ -423,7 +379,7 @@ void gerbt(Side side,
             for (int64_t jj = nt; jj < nt_full; ++jj) {
                 if (B1.tileIsLocal(ii, jj)) {
                     #pragma omp task shared(B1, U1) firstprivate(ii, jj) \
-                                     priority(1)
+                                     priority(1) depend(inout:task[ii*nt_full + jj])
                     {
                         scalar_t dummy;
 
@@ -449,11 +405,31 @@ void gerbt(Side side,
         }
     }
 
-    #pragma omp task depend(inout:requests) shared(requests)
+    for (int64_t ii = 0; ii < mt; ++ii) {
+        for (int64_t jj = 0; jj < nt; ++jj) {
+            const int64_t tag = ii*nt + jj;
+            MPI_Request r = MPI_REQUEST_NULL;
+            if (B1.tileIsLocal(ii, jj)) {
+                // Use undefered task as a selective barrier
+                #pragma omp task if(false) depend(in:task[ii*nt_full + jj])
+                {}
+                B2.tileIsend( ii, jj, B2.tileRank(ii, jj), tag, &r );
+                if (r != MPI_REQUEST_NULL) {
+                    requests.push_back(r);
+                }
+            }
+            else if (B2.tileIsLocal(ii, jj)) {
+                const int64_t compute_rank = B1.tileRank(ii, jj);
+                B2.tileIrecv( ii, jj, compute_rank, Layout::ColMajor, tag, &r );
+                requests.push_back(r);
+            }
+        }
+    }
+
     slate_mpi_call(MPI_Waitall(requests.size(), requests.data(),
                                MPI_STATUSES_IGNORE));
-
     #pragma omp taskwait
+    B1.releaseRemoteWorkspace();
 }
 
 template

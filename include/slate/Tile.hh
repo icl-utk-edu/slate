@@ -934,9 +934,6 @@ void Tile<scalar_t>::copyData(
         // device to device copy
         device = this->device_;
         memcpy_kind = blas::MemcpyKind::DeviceToDevice;
-        // todo: handle peer to peer copy
-        if (this->device_ != dst_tile->device())
-            assert(0);
     }
     else {
         // silence compiler warnings

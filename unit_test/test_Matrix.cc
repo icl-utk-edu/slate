@@ -241,11 +241,20 @@ void test_Matrix_lambda()
     GridOrder order;
     int myp, myq, myrow, mycol;
     A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
-    test_assert( order == GridOrder::Col );
-    test_assert( myp == 1 );
-    test_assert( myq == 1 );
-    test_assert( myrow == 0 );
-    test_assert( mycol == 0 );
+    if (mpi_size == 1) {
+        test_assert( order == GridOrder::Col );
+        test_assert( myp == 1 );
+        test_assert( myq == 1 );
+        test_assert( myrow == 0 );
+        test_assert( mycol == 0 );
+    }
+    else {
+        test_assert( order == GridOrder::Unknown );
+        test_assert( myp == -1 );
+        test_assert( myq == -1 );
+        test_assert( myrow == -1 );
+        test_assert( mycol == -1 );
+    }
 
     auto tileMb_     = A.tileMbFunc();
     auto tileNb_     = A.tileNbFunc();
@@ -1834,6 +1843,40 @@ void test_Matrix_MOSI()
                 test_Tile_compare_layout(A(i, j), B(i, j), true);
             }
         }
+    }
+
+    if (num_devices <= 1) {
+        test_skip("remainder of test requires num_devices > 1");
+    }
+
+    // Test copying
+    if (A.tileIsLocal(0, 0)) {
+        double copy;
+
+        // Set on host
+        A.tileGetForWriting(0, 0, HostNum, slate::LayoutConvert::None);
+        A(0, 0).at(0, 0) = -1;
+
+        // Copy to device 0
+        A.tileGetForWriting(0, 0, 0, slate::LayoutConvert::None);
+
+        blas::device_copy_vector(1, A(0, 0, 0).data(), 1, &copy, 1, *A.comm_queue(0));
+        test_assert(copy == -1);
+        copy = 0;
+        blas::device_copy_vector(1, &copy, 1, A(0, 0, 0).data(), 1, *A.comm_queue(0));
+
+        // Copy to device 1
+        A.tileGetForWriting(0, 0, 1, slate::LayoutConvert::None);
+
+        blas::device_copy_vector(1, A(0, 0, 1).data(), 1, &copy, 1, *A.comm_queue(1));
+        test_assert(copy == 0);
+        copy = 1;
+        blas::device_copy_vector(1, &copy, 1, A(0, 0, 1).data(), 1, *A.comm_queue(1));
+
+        // Copy to host
+        A.tileGetForWriting(0, 0, slate::LayoutConvert::None);
+
+        test_assert(A(0, 0)(0, 0) == 1);
     }
 }
 

@@ -188,9 +188,8 @@ void potrf(
                 panel.releaseLocalWorkspace();
             }
         }
-        #pragma omp taskwait
-        A.tileUpdateAllOrigin();
     }
+    A.tileUpdateAllOrigin();
 
     if (hold_local_workspace == false) {
         A.releaseWorkspace();

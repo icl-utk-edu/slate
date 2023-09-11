@@ -93,12 +93,18 @@ void potrf(
     {
         for (int64_t k = 0; k < A_nt; ++k) {
             // Panel, normal priority
-            #pragma omp task depend(inout:column[k])
+            #pragma omp task depend(inout:column[k]) priority( priority_0 )
             {
                 // factor A(k, k)
-                internal::potrf<target>(
-                    A.sub(k, k), priority_0, queue_2,
-                    device_info_array[ A.tileDevice( k, k ) ] );
+                if (target == Target::Devices) {
+                    internal::potrf<target>(
+                        A.sub(k, k), priority_0, queue_2,
+                        device_info_array[ A.tileDevice( k, k ) ] );
+                }
+                else {
+                    internal::potrf<target>(
+                        A.sub(k, k), priority_0, queue_2 );
+                }
 
                 // send A(k, k) down col A(k+1:nt-1, k)
                 if (k+1 <= A_nt-1)
@@ -129,7 +135,6 @@ void potrf(
             }
 
             // update trailing submatrix, normal priority
-            //if (target == Target::Devices && k+1+lookahead < A_nt) {
             if (k+1+lookahead < A_nt) {
                 #pragma omp task depend(in:column[k]) \
                                  depend(inout:column[k+1+lookahead]) \

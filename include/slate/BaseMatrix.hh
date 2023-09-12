@@ -3986,15 +3986,8 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::releaseLocalWorkspaceTile(int64_t i, int64_t j)
 {
     if (this->tileIsLocal( i, j )) {
-        auto& tile_node = this->storage_->at( this->globalIndex( i, j ) );
-
-        LockGuard guard( tile_node.getLock() );
-
         for (int device = HostNum; device < this->num_devices(); ++device) {
-            if (tile_node.existsOn( device )
-                && tile_node[ device ].tile()->workspace()) {
-                tileRelease( i, j, device );
-            }
+            tileRelease( i, j, device );
         }
     }
 }

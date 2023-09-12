@@ -346,11 +346,14 @@ public:
     scalar_t* allocWorkspaceBuffer(int device);
     void      releaseWorkspaceBuffer(scalar_t* data, int device);
 
+private:
+    // Iterator routines should only be called with in a Tiles Map LockGuard
+    // Otherwise, there may be race conditions with the returned iterator
+
     //--------------------------------------------------------------------------
     /// @return TileNode(i, j) if it has instance on device, end() otherwise
     typename TilesMap::iterator find(ijdev_tuple ijdev)
     {
-        LockGuard guard(getTilesMapLock());
         int64_t i  = std::get<0>(ijdev);
         int64_t j  = std::get<1>(ijdev);
         int device = std::get<2>(ijdev);
@@ -365,7 +368,6 @@ public:
     /// @return TileNode(i, j) if found, end() otherwise
     typename TilesMap::iterator find(ij_tuple ij)
     {
-        LockGuard guard(getTilesMapLock());
         return tiles_.find(ij);
     }
 
@@ -373,7 +375,6 @@ public:
     /// @return begin iterator of TileNode map
     typename TilesMap::iterator begin()
     {
-        LockGuard guard(getTilesMapLock());
         return tiles_.begin();
     }
 
@@ -381,10 +382,10 @@ public:
     /// @return begin iterator of TileNode map
     typename TilesMap::iterator end()
     {
-        LockGuard guard(getTilesMapLock());
         return tiles_.end();
     }
 
+public:
     //--------------------------------------------------------------------------
     /// @return reference to single tile instance.
     /// Throws exception if instance doesn't exist.
@@ -458,6 +459,19 @@ public:
         Layout layout=Layout::ColMajor);
     TileInstance<scalar_t>& tileAcquire(ijdev_tuple ijdev, Layout layout);
 
+    bool tileExists( ijdev_tuple ijdev ) {
+        LockGuard guard( getTilesMapLock() );
+        int64_t i  = std::get<0>(ijdev);
+        int64_t j  = std::get<1>(ijdev);
+        int device = std::get<2>(ijdev);
+        if (device == AnyDevice) {
+            return find( {i, j} ) != end();
+        }
+        else {
+            return find( ijdev ) != end();
+        }
+    }
+
     void tileMakeTransposable(Tile<scalar_t>* tile);
     void tileLayoutReset(Tile<scalar_t>* tile);
 
@@ -501,6 +515,63 @@ public:
     {
         LockGuard guard( getTilesMapLock() );
         tiles_.at( ij )->receiveCount()--;
+    }
+
+    /// Ensures the tile node exists and increments both the tile life and
+    /// recieve count
+    void tilePrepareToRecieve(ij_tuple ij, int life, Layout layout)
+    {
+        if (! tileIsLocal(ij)) {
+            // Create tile to receive data, with life span.
+            // If tile already exists, add to its life span.
+            //
+            LockGuard guard( getTilesMapLock() );
+            int64_t i  = std::get<0>( ij );
+            int64_t j  = std::get<1>( ij );
+
+            auto iter = find( ij );
+
+            if (iter == end())
+                tileInsert( {i, j, HostNum}, TileKind::Workspace, layout );
+            else
+                life += tileLife( ij );
+            tileLife( ij, life );
+            tileIncrementReceiveCount( ij );
+        }
+    }
+
+    // MOSI management
+    /// Gets the state of the given tile
+    MOSI tileState(ijdev_tuple ijdev)
+    {
+        LockGuard guard( getTilesMapLock() );
+        auto iter = find( ijdev );
+        assert(iter != end());
+
+        int device = std::get<2>(ijdev);
+        return iter->second->at(device).getState();
+    }
+
+    /// Checks whether the given tile is on hold
+    MOSI tileOnHold(ijdev_tuple ijdev)
+    {
+        LockGuard guard( getTilesMapLock() );
+        auto iter = find( ijdev );
+        assert(iter != end());
+
+        int device = std::get<2>(ijdev);
+        return iter->second->at(device).stateOn(MOSI::OnHold);
+    }
+
+    /// Unsets any hold on the given tile
+    void tileUnsetHold(ijdev_tuple ijdev)
+    {
+        LockGuard guard( getTilesMapLock() );
+        auto iter = find( ijdev );
+        if (iter != end()) {
+            int device = std::get<2>(ijdev);
+            iter->second->at(device).setState(~MOSI::OnHold);
+        }
     }
 
 private:

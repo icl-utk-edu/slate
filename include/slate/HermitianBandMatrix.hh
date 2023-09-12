@@ -285,19 +285,8 @@ void HermitianBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag, 
         for (int64_t i = istart; i <= iend; ++i) {
 
             // If receiving the tile.
-            if (! this->tileIsLocal(i, j)) {
-                // Create tile to receive data, with life span.
-                // If tile already exists, add to its life span.
-                LockGuard guard(this->storage_->getTilesMapLock()); // todo: accessor
-                auto iter = this->storage_->find( this->globalIndex( i, j, HostNum ) );
-
-                int64_t life = life_factor;
-                if (iter == this->storage_->end())
-                    this->tileInsertWorkspace( i, j, HostNum );
-                else
-                    life += this->tileLife(i, j); // todo: use temp tile to receive
-                this->tileLife(i, j, life);
-            }
+            this->storage_->tilePrepareToRecieve( this->globalIndex( i, j ),
+                                                 life_factor, this->layout_ );
 
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, rank_set);

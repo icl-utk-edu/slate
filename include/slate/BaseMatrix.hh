@@ -519,19 +519,19 @@ public:
     /// Returns Layout of tile(i, j, device)
     Layout tileLayout( int64_t i, int64_t j, int device=HostNum )
     {
-        return storage_->at(globalIndex(i, j, device)).tile()->layout();
+        return storage_->at( globalIndex(i, j, device) )->layout();
     }
 
     /// Sets Layout of tile(i, j, device)
     void tileLayout(int64_t i, int64_t j, int device, Layout layout)
     {
-        storage_->at(globalIndex(i, j, device)).tile()->layout(layout);
+        storage_->at( globalIndex(i, j, device) )->layout(layout);
     }
 
     /// Sets Layout of tile(i, j, host)
     void tileLayout(int64_t i, int64_t j, Layout layout)
     {
-        storage_->at( globalIndex( i, j, HostNum ) ).tile()->layout( layout );
+        storage_->at( globalIndex(i, j, HostNum) )->layout( layout );
     }
 
     bool tileLayoutIsConvertible( int64_t i, int64_t j, int device=HostNum );
@@ -1338,7 +1338,7 @@ template <typename scalar_t>
 Tile<scalar_t> BaseMatrix<scalar_t>::operator()(
     int64_t i, int64_t j, int device)
 {
-    auto tile = *(storage_->at(globalIndex(i, j, device)).tile());
+    auto tile = *(storage_->at( globalIndex(i, j, device) ));
 
     // Set op first, before setting offset, mb, nb!
     tile.op(op_);
@@ -3271,7 +3271,7 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
 template <typename scalar_t>
 bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int device)
 {
-    return storage_->at(globalIndex(i, j, device)).tile()->isTransposable();
+    return storage_->at( globalIndex(i, j, device) )->isTransposable();
 }
 
 //------------------------------------------------------------------------------
@@ -3301,8 +3301,9 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileLayoutConvert(
     int64_t i, int64_t j, int device, Layout layout, bool reset, bool async)
 {
-    LockGuard guard(storage_->at(globalIndex(i, j, device)).getLock());
-    auto tile = storage_->at(globalIndex(i, j, device)).tile();
+    auto& tile_node = storage_->at( globalIndex(i, j) );
+    LockGuard guard( tile_node.getLock() );
+    auto tile = tile_node[ HostNum ].tile();
     if (tile->layout() != layout) {
         if (! tile->isTransposable()) {
             assert(! reset); // cannot reset if not transposable
@@ -3394,7 +3395,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
             int64_t i = std::get<0>(*iter);
             int64_t j = std::get<1>(*iter);
 
-            auto tile = storage_->at(globalIndex(i, j, device)).tile();
+            auto tile = storage_->at( globalIndex(i, j, device) );
 
             // if we need to convert layout
             if (tile->layout() != layout) {
@@ -3534,7 +3535,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
                 {
                     int64_t i = std::get<0>(*iter);
                     int64_t j = std::get<1>(*iter);
-                    auto tile = storage_->at(globalIndex(i, j, device)).tile();
+                    auto tile = storage_->at( globalIndex(i, j, device) );
                     storage_->tileLayoutReset(tile);
                 }
             }

@@ -293,7 +293,7 @@ public:
 
     using ijdev_tuple = std::tuple<int64_t, int64_t, int>;
     using ij_tuple    = std::tuple<int64_t, int64_t>;
-    using TilesMap = std::map< ij_tuple, std::unique_ptr<TileNode_t> >;
+    using TilesMap = std::map< ij_tuple, std::shared_ptr<TileNode_t> >;
 
     MatrixStorage( int64_t m, int64_t n, int64_t mb, int64_t nb,
                    GridOrder order, int p, int q, MPI_Comm mpi_comm );
@@ -387,21 +387,6 @@ private:
 
 public:
     //--------------------------------------------------------------------------
-    /// @return reference to single tile instance.
-    /// Throws exception if instance doesn't exist.
-    // at() doesn't create new (null) entries in map as operator[] would
-    TileInstance_t& at(ijdev_tuple ijdev)
-    {
-        LockGuard guard(getTilesMapLock());
-        int64_t i  = std::get<0>(ijdev);
-        int64_t j  = std::get<1>(ijdev);
-        int device = std::get<2>(ijdev);
-        auto& tile_node = tiles_.at({i, j});
-        slate_assert(tile_node->existsOn(device));
-        return tile_node->at(device);
-    }
-
-    //--------------------------------------------------------------------------
     /// @return reference to TileNode(i, j).
     /// Throws exception if entry doesn't exist.
     // at() doesn't create new (null) entries in map as operator[] would
@@ -409,6 +394,18 @@ public:
     {
         LockGuard guard(getTilesMapLock());
         return *(tiles_.at(ij));
+    }
+
+    /// @return pointer to an actual Tile object
+    /// Throws exception if entry doesn't exist.
+    Tile<scalar_t>* at(ijdev_tuple ijdev) {
+        int64_t i  = std::get<0>(ijdev);
+        int64_t j  = std::get<1>(ijdev);
+        int device = std::get<2>(ijdev);
+        auto& tile_node = at( {i, j} );
+
+        LockGuard guard(tile_node.getLock());
+        return tile_node.at(device).tile();
     }
 
     void erase(ijdev_tuple ijdev);
@@ -1209,7 +1206,7 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
     // find the tileNode
     // if not found, insert new-entry in TilesMap
     if (find({i, j}) == end()) {
-        tiles_[{i, j}] = std::unique_ptr<TileNode_t>( new TileNode_t( num_devices_ ) );
+        tiles_[{i, j}] = std::make_shared<TileNode_t>( num_devices_ );
     }
     auto& tile_node = this->at({i, j});
 
@@ -1251,7 +1248,7 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
 
     assert(find({i, j}) == end());
     // insert new-entry in map
-    tiles_[{i, j}] = std::unique_ptr<TileNode_t>( new TileNode_t( num_devices_ ) );
+    tiles_[{i, j}] = std::make_shared<TileNode_t>( num_devices_ );
 
     auto& tile_node = this->at({i, j});
 

@@ -899,10 +899,12 @@ void MatrixStorage<scalar_t>::clearWorkspace()
 }
 
 //------------------------------------------------------------------------------
-/// Clears all host and device workspace tiles that are not OnHold nor Modified.
+/// Clears all host and device workspace tiles that are not OnHold.
+/// For local tiles, it ensures that a valid copy remains.
 ///
-/// Note that Modified, local tiles are currently not released but that this
-/// behavior may change in the future and should not be relied apon.
+/// Note that local tiles are currently not released if it would leave all
+/// remaining tiles invalid, but this behavior may change in the future
+/// and should not be relied on.
 template <typename scalar_t>
 void MatrixStorage<scalar_t>::releaseWorkspace()
 {
@@ -956,8 +958,8 @@ void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
 }
 
 //------------------------------------------------------------------------------
-/// Remove a tile instance on device and delete it
-/// if it is a workspace and not OnHold nor Modified.
+/// Remove a tile instance on device and delete it if it is a workspace,
+/// not OnHold, and not the last valid instance of a local tile.
 /// If tile node becomes empty, deletes it.
 /// If tile's memory was allocated by SLATE, then its memory is freed back
 /// to the allocator memory pool.
@@ -979,13 +981,25 @@ void MatrixStorage<scalar_t>::release(
         end   = num_devices_;
     }
 
-    bool localTile = tileIsLocal(iter->first);
+    // Don't release tiles if it'd delete the last valid copy
+    // Remote tiles never have the last valid copy
+    bool last_valid = tileIsLocal( iter->first );
+    for (int dev = HostNum; dev < num_devices_; ++dev) {
+        if (tile_node.existsOn( dev )
+            && (dev < begin || dev >= end || tile_node[ dev ].tile()->origin())
+            && ! tile_node[ dev ].stateOn( MOSI::Invalid )) {
+
+            last_valid = false;
+            break;
+        }
+    }
+    // TODO consider copying to origin when last_valid
 
     for (int dev = begin; dev < end; ++dev) {
         if (tile_node.existsOn( dev )
             && tile_node[ dev ].tile()->workspace()
             && ! tile_node[ dev ].stateOn( MOSI::OnHold )
-            && ! (localTile && tile_node[ dev ].stateOn( MOSI::Modified ))) {
+            && (! last_valid || tile_node[ dev ].stateOn( MOSI::Invalid ))) {
 
             freeTileMemory( tile_node[ dev ].tile() );
             tile_node.eraseOn( dev );
@@ -997,14 +1011,16 @@ void MatrixStorage<scalar_t>::release(
 
 //------------------------------------------------------------------------------
 /// Remove a tile instance on device and delete it
-/// if it is a workspace and not OnHold nor Modified.
+/// if it is a workspace and not OnHold.
 /// If tile node becomes empty, deletes it.
 /// If tile's memory was allocated by SLATE, then its memory is freed back
 /// to the allocator memory pool.
+/// For local tiles, it ensures that a valid copy remains.
 /// device can be AllDevices.
 ///
-/// Note that Modified, local tiles are currently not released but that this
-/// behavior may change in the future and should not be relied apon.
+/// Note that local tiles are currently not released if it would leave all
+/// remaining tiles invalid, but this behavior may change in the future
+/// and should not be relied on.
 ///
 // todo: currently ignores if ijdev doesn't exist; is that right?
 template <typename scalar_t>

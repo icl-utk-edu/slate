@@ -568,10 +568,12 @@ public:
         storage_->clear();
     }
 
-    /// Clear all workspace tiles that are not on hold or modified.
+    /// Clears all workspace tiles that are not OnHold.
+    /// For local tiles, it ensures that a valid copy remains.
     ///
-    /// Note that Modified, local tiles are currently not released but that this
-    /// behavior may change in the future and should not be relied apon.
+    /// Note that local tiles are currently not released if it would leave all
+    /// remaining tiles invalid, but this behavior may change in the future
+    /// and should not be relied on.
     void releaseWorkspace()
     {
         storage_->releaseWorkspace();
@@ -1584,14 +1586,16 @@ void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 }
 
 //------------------------------------------------------------------------------
-/// Erase the tile {i, j}'s instance on device if it is a workspace tile
-/// that is not modified and no hold is set on it.
+/// Erase the tile {i, j}'s instance on device if it is a workspace tile with
+/// no hold is set on it.
 /// If tile's memory was allocated by SLATE,
 /// via tileInsert(i, j, dev) or tileInsertWorkspace(i, j, dev),
 /// then the memory is released to the allocator pool.
+/// For local tiles, it ensures that a valid copy remains.
 ///
-/// Note that Modified, local tiles are currently not released but that this
-/// behavior may change in the future and should not be relied apon.
+/// Note that local tiles are currently not released if it would leave all
+/// remaining tiles invalid, but this behavior may change in the future
+/// and should not be relied on.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.

@@ -301,14 +301,6 @@ public:
 
     MOSI tileState( int64_t i, int64_t j, int device=HostNum );
 
-    void tileState(int64_t i, int64_t j, int device, MOSI mosi);
-
-    /// Sets tile(i, j)'s state on host.
-    void tileState(int64_t i, int64_t j, MOSI mosi)
-    {
-        tileState( i, j, HostNum, mosi );
-    }
-
     bool tileOnHold( int64_t i, int64_t j, int device=HostNum );
 
     void tileUnsetHold( int64_t i, int64_t j, int device=HostNum );
@@ -1633,28 +1625,6 @@ MOSI BaseMatrix<scalar_t>::tileState(int64_t i, int64_t j, int device)
     assert(iter != storage_->end());
 
     return iter->second->at(device).getState();
-}
-
-//------------------------------------------------------------------------------
-/// Sets tile(i, j)'s state on device.
-/// Asserts if tile does not exist.
-///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
-///
-/// @param[in] j
-///     Tile's block column index. 0 <= j < nt.
-///
-/// @param[in] device
-///     Tile's device ID.
-///
-template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileState(int64_t i, int64_t j, int device, MOSI mosi)
-{
-    auto tileIter = storage_->find(globalIndex(i, j, device));
-    assert(tileIter != storage_->end());
-
-    tileIter->second->at(device).setState(mosi);
 }
 
 //------------------------------------------------------------------------------

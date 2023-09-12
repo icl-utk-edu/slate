@@ -2815,6 +2815,22 @@ void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
                                    LayoutConvert in_layoutConvert, bool modify, bool hold,
                                    bool async)
 {
+    if (device != HostNum) {
+        LockGuard guard(storage_->getTilesMapLock());
+
+        // find number of aready existing tiles on the device
+        int64_t existing_tiles = 0;
+        for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
+            int64_t i = std::get<0>(*iter);
+            int64_t j = std::get<1>(*iter);
+            existing_tiles += tileExists(i, j, device);
+        }
+
+        // ensure workspace exists for the rest
+        if (tile_set.size() > size_t(existing_tiles))
+            storage_->ensureDeviceWorkspace(device, tile_set.size() - existing_tiles);
+    }
+
     LayoutConvert layoutConvert = (device == HostNum)
                                   ? in_layoutConvert
                                   : LayoutConvert::None;
@@ -2823,7 +2839,7 @@ void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
         int64_t i = std::get<0>(*iter);
         int64_t j = std::get<1>(*iter);
         {
-            tileGet(i, j, device, layoutConvert, modify, hold, async);
+            tileGet(i, j, device, layoutConvert, modify, hold, true);
         }
     }
 
@@ -2831,6 +2847,9 @@ void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
     if (device != HostNum && in_layoutConvert != LayoutConvert::None) {
         tileLayoutConvert(tile_set, device, Layout(in_layoutConvert));
     }
+
+    if (! async && device != HostNum)
+        comm_queue(device)->sync();
 }
 
 //------------------------------------------------------------------------------
@@ -2887,29 +2906,7 @@ void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
                                              int device,
                                              LayoutConvert layout)
 {
-    if (device != HostNum) {
-        LockGuard guard(storage_->getTilesMapLock());
-
-        // find number of already existing tiles on the device
-        int64_t existing_tiles = 0;
-        for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
-            int64_t i = std::get<0>(*iter);
-            int64_t j = std::get<1>(*iter);
-            existing_tiles += tileExists(i, j, device);
-        }
-
-        // ensure workspace exists for the rest
-        if (tile_set.size() > size_t(existing_tiles))
-            storage_->ensureDeviceWorkspace(
-                device, tile_set.size() - existing_tiles);
-    }
-
-    //todo: was tileGet( tile_set, device, layout, false, false, device != HostNum );
-    //todo: changed async to false to make it work using HIP
     tileGet(tile_set, device, layout, false, false, false);
-
-    if (device != HostNum)
-        comm_queue(device)->sync();
 }
 
 //------------------------------------------------------------------------------
@@ -2934,9 +2931,7 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
                                              LayoutConvert layout, int from_device)
 {
-    tileGet( tile_set, HostNum, layout, false, false, true );
-
-    comm_queue(from_device)->sync();
+    tileGet( tile_set, HostNum, layout, false, false, false );
 }
 
 //------------------------------------------------------------------------------
@@ -2990,27 +2985,7 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetForWriting(std::set<ij_tuple>& tile_set,
                                              int device, LayoutConvert layout)
 {
-    if (device != HostNum) {
-        LockGuard guard(storage_->getTilesMapLock());
-
-        // find number of aready existing tiles on the device
-        int64_t existing_tiles = 0;
-        for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
-            int64_t i = std::get<0>(*iter);
-            int64_t j = std::get<1>(*iter);
-            existing_tiles += tileExists(i, j, device);
-        }
-
-        // ensure workspace exists for the rest
-        if (tile_set.size() > size_t(existing_tiles))
-            storage_->ensureDeviceWorkspace(
-                device, tile_set.size() - existing_tiles);
-    }
-
-    tileGet( tile_set, device, layout, true, false, device != HostNum );
-
-    if (device != HostNum)
-        comm_queue(device)->sync();
+    tileGet( tile_set, device, layout, true, false, false );
 }
 
 //------------------------------------------------------------------------------
@@ -3061,26 +3036,7 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAndHold(std::set<ij_tuple>& tile_set, int device,
                                           LayoutConvert layout)
 {
-    if (device != HostNum) {
-        LockGuard guard(storage_->getTilesMapLock());
-
-        // find number of aready existing tiles on the device
-        int64_t existing_tiles = 0;
-        for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
-            int64_t i = std::get<0>(*iter);
-            int64_t j = std::get<1>(*iter);
-            existing_tiles += tileExists(i, j, device);
-        }
-
-        // ensure workspace exists for the rest
-        if (tile_set.size() > size_t(existing_tiles))
-            storage_->ensureDeviceWorkspace(device, tile_set.size() - existing_tiles);
-    }
-
-    tileGet( tile_set, device, layout, false, true, device != HostNum );
-
-    if (device != HostNum)
-        comm_queue(device)->sync();
+    tileGet( tile_set, device, layout, false, true, false );
 }
 
 //------------------------------------------------------------------------------

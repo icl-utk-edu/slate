@@ -1127,35 +1127,7 @@ template <typename scalar_t>
 TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileAcquire(
     ijdev_tuple ijdev, Layout layout)
 {
-    int64_t i  = std::get<0>(ijdev);
-    int64_t j  = std::get<1>(ijdev);
-    int device = std::get<2>(ijdev);
-
-    LockGuard tiles_guard(getTilesMapLock());
-
-    // find the tileNode
-    // if not found, insert new-entry in TilesMap
-    // todo: is this needed?
-    if (find({i, j}) == end()) {
-        tiles_[{i, j}] = std::unique_ptr<TileNode_t>( new TileNode_t( num_devices_ ) );
-    }
-
-    auto& tile_node = this->at({i, j});
-
-    // if tile instance does not exist, insert new instance
-    if (! tile_node.existsOn(device)) {
-        int64_t mb = tileMb(i);
-        int64_t nb = tileNb(j);
-        // if device==HostNum (-1) use nullptr as queue (not comm_queues_[-1])
-        blas::Queue* queue = ( device == HostNum ? nullptr : comm_queues_[device]);
-        scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);
-        int64_t stride = layout == Layout::ColMajor ? mb : nb;
-        Tile<scalar_t>* tile
-            = new Tile<scalar_t>(
-                  mb, nb, data, stride, device, TileKind::Workspace, layout);
-        tile_node.insertOn(device, tile, MOSI::Invalid);
-    }
-    return tile_node[device];
+    return tileInsert( ijdev, TileKind::Workspace, layout );
 }
 
 //------------------------------------------------------------------------------
@@ -1192,7 +1164,6 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
         // if device==HostNum (-1) use nullptr as queue (not comm_queues_[-1])
         blas::Queue* queue = ( device == HostNum ? nullptr : comm_queues_[device]);
         scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);
-        //scalar_t* data = new scalar_t[mb*nb];
         int64_t stride = layout == Layout::ColMajor ? mb : nb;
         Tile<scalar_t>* tile
             = new Tile<scalar_t>(mb, nb, data, stride, device, kind, layout);
@@ -1237,7 +1208,6 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
                   mb, nb, data, lda, device, TileKind::UserOwned, layout);
         tile_node.insertOn(device, tile, MOSI::Shared);
     }
-    //printf("\n tileInsert2 \n");
     return tile_node[device];
 }
 

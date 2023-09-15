@@ -13,6 +13,46 @@ namespace slate {
 namespace impl {
 
 //------------------------------------------------------------------------------
+/// An auxiliary routine to find each rank's first (top-most) row
+/// in panel k.
+///
+/// @param[in] A_panel
+///     Current panel, which is a sub of the input matrix $A$.
+///
+/// @param[in] k
+///     Index of the current panel in the input matrix $A$.
+///
+/// @param[out] first_indices
+///     The array of computed indices.
+///
+/// @ingroup geqrf_impl
+///
+template <typename scalar_t>
+void gelqf_compute_first_indices(
+    Matrix<scalar_t>& A_panel, int64_t k,
+    std::vector< int64_t >& first_indices )
+{
+    // Find ranks in this row.
+    std::set<int> ranks_set;
+    A_panel.getRanks(&ranks_set);
+    assert(ranks_set.size() > 0);
+
+    // Find each rank's first (left-most) col in this panel,
+    // where the triangular tile resulting from local gelqf panel
+    // will reside.
+    first_indices.reserve(ranks_set.size());
+    for (int r: ranks_set) {
+        for (int64_t j = 0; j < A_panel.nt(); ++j) {
+            if (A_panel.tileRank(0, j) == r) {
+                first_indices.push_back(j+k);
+                break;
+            }
+        }
+    }
+    // TODO try to combine this w/ geqrf version
+}
+
+//------------------------------------------------------------------------------
 /// Distributed parallel LQ factorization.
 /// Generic implementation for any target.
 /// Panel and lookahead computed on host using Host OpenMP task.
@@ -31,7 +71,15 @@ void gelqf(
     using lapack::device_info_int;
     using blas::real;
 
+    // Use only TileReleaseStrategy::Slate for geqrf
+    // Internal routines called here won't release any
+    // tiles. This routine will clean up tiles.
+    Options opts2 = opts;
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
+
     // Constants
+    const int life_1 = 1;
+    const int priority_0 = 0;
     const int priority_1 = 1;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -69,9 +117,11 @@ void gelqf(
     std::vector< scalar_t* > dwork_array( num_devices, nullptr );
 
     if (target == Target::Devices) {
-        A.allocateBatchArrays();
+        const int64_t batch_size_default = 0; // use default batch size
+        int num_queues = 3 + lookahead;
+        A.allocateBatchArrays( batch_size_default, num_queues );
         A.reserveDeviceWorkspace();
-        W.allocateBatchArrays();
+        W.allocateBatchArrays( batch_size_default, num_queues );
         // todo: this is demanding too much device workspace memory
         // only one tile-row of matrix W per MPI process is going to be used,
         // but W with size of whole A is being allocated
@@ -79,8 +129,8 @@ void gelqf(
         // For now, allocate workspace tiles 1-by-1.
         //W.reserveDeviceWorkspace();
 
-        // Needed for calling internal::geqrf on device.
-        int64_t mlocal = 0;
+        // Find largest panel size and device for copying to
+        // contiguous memory within internal geqrf routine
         int64_t nlocal = 0;
         int64_t first_panel_seen = -1;
         // Assume transpose on panel-evaluation
@@ -89,8 +139,6 @@ void gelqf(
                 if (A.tileIsLocal( i, j )) {
                     if (first_panel_seen < 0) {
                         first_panel_seen = i;
-                        mlocal = A.tileMb( i );
-                        nlocal = A.tileNb( i );
                     }
                     if (first_panel_seen == i) {
                         if (panel_device < 0) {
@@ -109,11 +157,12 @@ void gelqf(
 
             queue = A.compute_queue( panel_device );
 
-            size_t  size_tau = (size_t) std::min( nlocal, mlocal );
-            size_t  size_A   = (size_t) blas::max( 1, nlocal ) * mlocal;
+            int64_t mb       = A.tileMb(0);
+            size_t  size_tau = (size_t) std::min( nlocal, mb );
+            size_t  size_A   = (size_t) blas::max( 1, nlocal ) * mb;
             size_t  hsize, dsize;
 
-            lapack::geqrf_work_size_bytes( nlocal, mlocal, dwork_array[0], nlocal,
+            lapack::geqrf_work_size_bytes( nlocal, mb, dwork_array[0], nlocal,
                                            &dsize, &hsize, *queue );
 
             work_size = size_A + size_tau + ceildiv( dsize, sizeof( scalar_t ) )
@@ -128,8 +177,6 @@ void gelqf(
 
     // Workspace for transposed panels needs one column of tiles.
     auto AT = A.emptyLike(0, 0, Op::ConjTrans);
-    // todo: we really only want to insert 1 column's worth at a time.
-    AT.insertLocalTiles();
 
     // LQ tracks dependencies by block-row.
     // OpenMP needs pointer types, but vectors are exception safe
@@ -151,24 +198,10 @@ void gelqf(
             auto  AT_panel =      AT.sub(k, A_nt-1, k, k);
             auto TlT_panel = TlocalT.sub(k, A_nt-1, k, k);
 
-            // Find ranks in this row.
-            std::set<int> ranks_set;
-            A_panel.getRanks(&ranks_set);
-            assert(ranks_set.size() > 0);
+            AT_panel.insertLocalTiles();
 
-            // Find each rank's first (left-most) col in this panel,
-            // where the triangular tile resulting from local gelqf panel
-            // will reside.
             std::vector< int64_t > first_indices;
-            first_indices.reserve(ranks_set.size());
-            for (int r: ranks_set) {
-                for (int64_t j = 0; j < A_panel.nt(); ++j) {
-                    if (A_panel.tileRank(0, j) == r) {
-                        first_indices.push_back(j+k);
-                        break;
-                    }
-                }
-            }
+            gelqf_compute_first_indices(A_panel, k, first_indices);
 
             // panel, high priority
             #pragma omp task depend(inout:block[k]) priority(1)
@@ -218,25 +251,22 @@ void gelqf(
                 // ttlqt handles tile transfers internally
                 internal::ttlqt<Target::HostTask>(
                                 std::move(A_panel),
-                                std::move(Tr_panel));
+                                std::move(Tr_panel),
+                                opts2);
 
                 // if a trailing matrix exists
                 if (k < A_mt-1) {
 
                     // bcast V down col for trailing matrix update
                     if (k < A_nt) {
-                        BcastList bcast_list_V_first;
                         BcastList bcast_list_V;
                         for (int64_t j = k; j < A_nt; ++j) {
                             // send A(k, j) down col A(k+1:mt-1, j)
-                            // Vs in first_indices (except the main diagonal one) need three lives
-                            if ((std::find(first_indices.begin(), first_indices.end(), j) != first_indices.end()) && (j > k))
-                                bcast_list_V_first.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
-                            else
-                                bcast_list_V.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
+                            bcast_list_V.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
                         }
-                        A.template listBcast(bcast_list_V_first, layout, 0, 3);
-                        A.template listBcast(bcast_list_V, layout, 0, 2);
+                        const int tag_0 = 0;
+                        A.template listBcast<target>(
+                            bcast_list_V, layout, tag_0, life_1 );
                     }
 
                     // bcast Tlocal down col for trailing matrix update
@@ -245,7 +275,10 @@ void gelqf(
                         for (int64_t col : first_indices) {
                             bcast_list_T.push_back({k, col, {Tlocal.sub(k+1, A_mt-1, col, col)}});
                         }
-                        Tlocal.template listBcast(bcast_list_T, layout);
+                        int tag_k = k;
+                        Tlocal.template listBcast<target>(
+                            bcast_list_T, layout,
+                            tag_k, life_1 );
                     }
 
                     // bcast Treduce down col for trailing matrix update
@@ -269,21 +302,24 @@ void gelqf(
                                  priority(1)
                 {
                     // Apply local reflectors
-                    internal::unmlq<Target::HostTask>(
+                    int queue_ik1 = i-k+1;
+                    internal::unmlq<target>(
                                     Side::Right, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_i),
-                                    W.sub(i, i, k, A_nt-1));
+                                    W.sub(i, i, k, A_nt-1),
+                                    priority_1, queue_ik1, opts2);
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmlq handles the tile broadcasting internally
+                    int tag_i = i;
                     internal::ttmlq<Target::HostTask>(
                                     Side::Right, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_i),
-                                    i);
+                                    tag_i, opts2);
                 }
             }
 
@@ -297,22 +333,55 @@ void gelqf(
                                  depend(inout:block[A_mt-1])
                 {
                     // Apply local reflectors
+                    int queue_ik1 = i-k+1;
                     internal::unmlq<target>(
                                     Side::Right, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tl_panel),
                                     std::move(A_trail_i),
-                                    W.sub(i, A_mt-1, k, A_nt-1));
+                                    W.sub(i, A_mt-1, k, A_nt-1),
+                                    priority_0, queue_ik1, opts2 );
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmlq handles the tile broadcasting internally
+                    int tag_i = i;
                     internal::ttmlq<Target::HostTask>(
                                     Side::Right, Op::ConjTrans,
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_i),
-                                    i);
+                                    tag_i, opts2 );
                 }
+            }
+
+            #pragma omp task depend(inout:block[k])
+            {
+                // Release the whole row, not just the panel
+                for (int64_t j = 0; j < A_nt; ++j) {
+                    if (A.tileIsLocal(k, j)) {
+                        A.tileUpdateOrigin(k, j);
+                        A.releaseLocalWorkspaceTile(k, j);
+                        AT.tileErase(j, k, AllDevices);
+                    }
+                    else {
+                        A.releaseRemoteWorkspaceTile(k, j);
+                        AT.releaseRemoteWorkspaceTile(j, k);
+                    }
+                }
+
+                for (int64_t j : first_indices) {
+                    if (Tlocal.tileIsLocal(k, j)) {
+                        Tlocal.tileUpdateOrigin(k, j);
+
+                        Tlocal.releaseLocalWorkspaceTile(k, j);
+                    }
+                    else {
+                        Tlocal.releaseRemoteWorkspaceTile(k, j);
+                    }
+                }
+
+                Tr_panel.releaseLocalWorkspace();
+                Tr_panel.releaseRemoteWorkspace();
             }
         }
 

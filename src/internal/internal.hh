@@ -569,12 +569,14 @@ void he2hb_her2k_offdiag_ranks(
 // ttqrt()
 template <Target target=Target::HostTask, typename scalar_t>
 void ttqrt(Matrix<scalar_t>&& A,
-           Matrix<scalar_t>&& T);
+           Matrix<scalar_t>&& T,
+           Options const& opts = Options());
 
 // ttlqt()
 template <Target target=Target::HostTask, typename scalar_t>
 void ttlqt(Matrix<scalar_t>&& A,
-           Matrix<scalar_t>&& T);
+           Matrix<scalar_t>&& T,
+           Options const& opts = Options());
 
 //-----------------------------------------
 // ttmqr()

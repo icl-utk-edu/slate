@@ -112,7 +112,8 @@ template <Target target=Target::HostTask,
           typename src_scalar_t, typename dst_scalar_t>
 void copy(Matrix<src_scalar_t>&& A,
           Matrix<dst_scalar_t>&& B,
-          int priority=0, int queue_index=0);
+          int priority=0, int queue_index=0,
+          Options const& opts = Options());
 
 template <Target target=Target::HostTask,
           typename src_scalar_t, typename dst_scalar_t>
@@ -343,7 +344,8 @@ template <Target target=Target::HostTask, typename scalar_t>
 void trmm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
-          int priority=0, int64_t queue_index=0);
+          int priority=0, int64_t queue_index=0,
+          Options const& opts = Options());
 
 //-----------------------------------------
 // trsm()
@@ -581,7 +583,8 @@ void ttmqr(Side side, Op op,
            Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
-           int tag=0);
+           int tag=0,
+           Options const& opts = Options());
 
 // ttmlq()
 template <Target target=Target::HostTask, typename scalar_t>
@@ -589,7 +592,8 @@ void ttmlq(Side side, Op op,
            Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
-           int tag=0);
+           int tag=0,
+           Options const& opts = Options());
 
 // hettmqr()
 template <Target target=Target::HostTask, typename scalar_t>

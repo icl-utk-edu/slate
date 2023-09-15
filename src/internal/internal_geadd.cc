@@ -41,9 +41,9 @@ void add(scalar_t alpha, Matrix<scalar_t>&& A,
 /// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::HostTask>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-           scalar_t beta, Matrix<scalar_t>& B,
-           int priority, int queue_index, Options const& opts)
+         scalar_t alpha, Matrix<scalar_t>& A,
+         scalar_t beta, Matrix<scalar_t>& B,
+         int priority, int queue_index, Options const& opts)
 {
     // trace::Block trace_block("add");
 
@@ -85,9 +85,9 @@ void add(internal::TargetType<Target::HostTask>,
 /// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::HostNest>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-           scalar_t beta, Matrix<scalar_t>& B,
-           int priority, int queue_index, Options const& opts)
+         scalar_t alpha, Matrix<scalar_t>& A,
+         scalar_t beta, Matrix<scalar_t>& B,
+         int priority, int queue_index, Options const& opts)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
@@ -96,9 +96,9 @@ void add(internal::TargetType<Target::HostNest>,
 /// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::HostBatch>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-           scalar_t beta, Matrix<scalar_t>& B,
-           int priority, int queue_index, Options const& opts)
+         scalar_t alpha, Matrix<scalar_t>& A,
+         scalar_t beta, Matrix<scalar_t>& B,
+         int priority, int queue_index, Options const& opts)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
@@ -113,9 +113,9 @@ void add(internal::TargetType<Target::HostBatch>,
 /// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::Devices>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-           scalar_t beta, Matrix<scalar_t>& B,
-           int priority, int queue_index, Options const& opts)
+         scalar_t alpha, Matrix<scalar_t>& A,
+         scalar_t beta, Matrix<scalar_t>& B,
+         int priority, int queue_index, Options const& opts)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 

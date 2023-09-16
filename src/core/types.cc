@@ -8,6 +8,9 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
+MPI_Datatype mpi_type<int    >::value = MPI_INT;
+MPI_Datatype mpi_type<int64_t>::value = MPI_INT64_T;
+
 MPI_Datatype mpi_type<float >::value = MPI_FLOAT;
 MPI_Datatype mpi_type<double>::value = MPI_DOUBLE;
 MPI_Datatype mpi_type< std::complex<float>  >::value = MPI_C_COMPLEX;

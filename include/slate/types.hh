@@ -99,9 +99,21 @@ using Pivots = std::vector< std::vector<Pivot> >;
 
 //------------------------------------------------------------------------------
 /// Gives mpi_type based on actual scalar_t.
-//  Constants are initialized in slate_types.cc
+//  Constants are initialized in src/core/types.cc
 template <typename scalar_t>
 class mpi_type {};
+
+template<>
+class mpi_type<int> {
+public:
+    static MPI_Datatype value; // = MPI_INT
+};
+
+template<>
+class mpi_type<int64_t> {
+public:
+    static MPI_Datatype value; // = MPI_INT64_T
+};
 
 template<>
 class mpi_type<float> {

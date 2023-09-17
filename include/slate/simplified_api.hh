@@ -238,13 +238,13 @@ void lu_solve(
 
 // gesv
 template <typename scalar_t>
-void lu_solve(
+int64_t lu_solve(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     Options const& opts = Options())
 {
     Pivots pivots;
-    gesv(A, pivots, B, opts);
+    return gesv( A, pivots, B, opts );
 }
 
 //-----------------------------------------
@@ -286,11 +286,11 @@ void lu_factor(
 
 // getrf
 template <typename scalar_t>
-void lu_factor(
+int64_t lu_factor(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts = Options())
 {
-    getrf(A, pivots, opts);
+    return getrf( A, pivots, opts );
 }
 
 //-----------------------------------------
@@ -515,7 +515,7 @@ void chol_inverse_using_factor(
 
 // hesv
 template <typename scalar_t>
-void indefinite_solve(
+int64_t indefinite_solve(
     HermitianMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options())
@@ -528,13 +528,13 @@ void indefinite_solve(
     auto T = slate::BandMatrix<scalar_t>::emptyLike(A, kl, ku);
 
     Pivots pivots, pivots2;
-    hesv(A, pivots, T, pivots2, H, B, opts);
+    return hesv( A, pivots, T, pivots2, H, B, opts );
 }
 
 // forward real-symmetric matrices to hesv;
 // disabled for complex
 template <typename scalar_t>
-void indefinite_solve(
+int64_t indefinite_solve(
     SymmetricMatrix<scalar_t>& A,
              Matrix<scalar_t>& B,
     Options const& opts = Options(),
@@ -548,7 +548,7 @@ void indefinite_solve(
     auto T = slate::BandMatrix<scalar_t>::emptyLike(A, kl, ku);
 
     Pivots pivots, pivots2;
-    sysv(A, pivots, T, pivots2, H, B, opts);
+    return sysv( A, pivots, T, pivots2, H, B, opts );
 }
 
 //-----------------------------------------
@@ -556,26 +556,26 @@ void indefinite_solve(
 
 // hetrf
 template <typename scalar_t>
-void indefinite_factor(
+int64_t indefinite_factor(
     HermitianMatrix<scalar_t>& A, Pivots& pivots,
          BandMatrix<scalar_t>& T, Pivots& pivots2,
              Matrix<scalar_t>& H,
     Options const& opts = Options())
 {
-    hetrf(A, pivots, T, pivots2, H, opts);
+    return hetrf( A, pivots, T, pivots2, H, opts );
 }
 
 // forward real-symmetric matrices to hetrf;
 // disabled for complex
 template <typename scalar_t>
-void indefinite_factor(
+int64_t indefinite_factor(
     SymmetricMatrix<scalar_t>& A, Pivots& pivots,
          BandMatrix<scalar_t>& T, Pivots& pivots2,
              Matrix<scalar_t>& H,
     Options const& opts = Options(),
     enable_if_t< ! is_complex<scalar_t>::value >* = nullptr)
 {
-    sytrf(A, pivots, T, pivots2, H, opts);
+    return sytrf( A, pivots, T, pivots2, H, opts );
 }
 
 //-----------------------------------------

@@ -97,7 +97,7 @@ namespace slate {
 /// @ingroup gesv
 ///
 template <typename scalar_hi, typename scalar_lo>
-void gesv_mixed(
+int64_t gesv_mixed(
     Matrix<scalar_hi>& A, Pivots& pivots,
     Matrix<scalar_hi>& B,
     Matrix<scalar_hi>& X,
@@ -167,45 +167,16 @@ void gesv_mixed(
     copy( A, A_lo, opts );
 
     // Compute the LU factorization of A_lo.
-    getrf( A_lo, pivots, opts );
-
-
-    // Solve the system A_lo * X_lo = B_lo.
-    getrs( A_lo, pivots, X_lo, opts );
-
-    // Convert X_lo to high precision.
-    copy( X_lo, X, opts );
-
-    // Compute R = B - A * X.
-    slate::copy( B, R, opts );
-    gemm<scalar_hi>(
-        -one_hi, A,
-                 X,
-        one_hi,  R, opts );
-
-    // Check whether the nrhs normwise backward error satisfies the
-    // stopping criterion. If yes, set iter=0 and return.
-    colNorms( Norm::Max, X, colnorms_X.data(), opts );
-    colNorms( Norm::Max, R, colnorms_R.data(), opts );
-
-    if (internal::iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
-        iter = 0;
-        converged = true;
+    int64_t info = getrf( A_lo, pivots, opts );
+    if (info != 0) {
+        iter = -3;
     }
-
-    // iterative refinement
-    for (int iiter = 0; iiter < itermax && ! converged; ++iiter) {
-        // Convert R from high to low precision, store result in X_lo.
-        copy( R, X_lo, opts );
-
-        // Solve the system A_lo * X_lo = R_lo.
+    else {
+        // Solve the system A_lo * X_lo = B_lo.
         getrs( A_lo, pivots, X_lo, opts );
 
-        // Convert X_lo back to double precision and update the current iterate.
-        copy( X_lo, R, opts );
-        add<scalar_hi>(
-              one_hi, R,
-              one_hi, X, opts );
+        // Convert X_lo to high precision.
+        copy( X_lo, X, opts );
 
         // Compute R = B - A * X.
         slate::copy( B, R, opts );
@@ -214,30 +185,65 @@ void gesv_mixed(
                      X,
             one_hi,  R, opts );
 
-        // Check whether nrhs normwise backward error satisfies the
-        // stopping criterion. If yes, set iter = iiter > 0 and return.
+        // Check whether the nrhs normwise backward error satisfies the
+        // stopping criterion. If yes, set iter=0 and return.
         colNorms( Norm::Max, X, colnorms_X.data(), opts );
         colNorms( Norm::Max, R, colnorms_R.data(), opts );
 
         if (internal::iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
-            iter = iiter+1;
+            iter = 0;
             converged = true;
+        }
+
+        // iterative refinement
+        for (int iiter = 0; iiter < itermax && ! converged; ++iiter) {
+            // Convert R from high to low precision, store result in X_lo.
+            copy( R, X_lo, opts );
+
+            // Solve the system A_lo * X_lo = R_lo.
+            getrs( A_lo, pivots, X_lo, opts );
+
+            // Convert X_lo back to double precision and update the current iterate.
+            copy( X_lo, R, opts );
+            add<scalar_hi>(
+                  one_hi, R,
+                  one_hi, X, opts );
+
+            // Compute R = B - A * X.
+            slate::copy( B, R, opts );
+            gemm<scalar_hi>(
+                -one_hi, A,
+                         X,
+                one_hi,  R, opts );
+
+            // Check whether nrhs normwise backward error satisfies the
+            // stopping criterion. If yes, set iter = iiter > 0 and return.
+            colNorms( Norm::Max, X, colnorms_X.data(), opts );
+            colNorms( Norm::Max, R, colnorms_R.data(), opts );
+
+            if (internal::iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
+                iter = iiter+1;
+                converged = true;
+            }
         }
     }
 
     if (! converged) {
-        // If we are at this place of the code, this is because we have performed
-        // iter = itermax iterations and never satisfied the stopping criterion,
-        // set up the iter flag accordingly and follow up with double precision
-        // routine.
-        iter = -itermax - 1;
+        if (info == 0) {
+            // If we performed iter = itermax iterations and never satisfied
+            // the stopping criterion, set up the iter flag accordingly.
+            iter = -itermax - 1;
+        }
 
+        // Fall back to double precision factor and solve.
         // Compute the LU factorization of A.
-        getrf( A, pivots, opts );
+        info = getrf( A, pivots, opts );
 
         // Solve the system A * X = B.
-        slate::copy( B, X, opts );
-        getrs( A, pivots, X, opts );
+        if (info == 0) {
+            slate::copy( B, X, opts );
+            getrs( A, pivots, X, opts );
+        }
     }
 
     if (target == Target::Devices) {
@@ -246,32 +252,31 @@ void gesv_mixed(
         B.clearWorkspace();
         X.clearWorkspace();
     }
-
-    // todo: return value for errors?
+    return info;
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template <>
-void gesv_mixed<double>(
+int64_t gesv_mixed<double>(
     Matrix<double>& A, Pivots& pivots,
     Matrix<double>& B,
     Matrix<double>& X,
     int& iter,
     Options const& opts)
 {
-    gesv_mixed<double, float>( A, pivots, B, X, iter, opts );
+    return gesv_mixed<double, float>( A, pivots, B, X, iter, opts );
 }
 
 template <>
-void gesv_mixed< std::complex<double> >(
+int64_t gesv_mixed< std::complex<double> >(
     Matrix< std::complex<double> >& A, Pivots& pivots,
     Matrix< std::complex<double> >& B,
     Matrix< std::complex<double> >& X,
     int& iter,
     Options const& opts)
 {
-    gesv_mixed<std::complex<double>, std::complex<float>>(
+    return gesv_mixed<std::complex<double>, std::complex<float>>(
         A, pivots, B, X, iter, opts );
 }
 

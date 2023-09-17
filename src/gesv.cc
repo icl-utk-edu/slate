@@ -75,18 +75,18 @@ namespace slate {
 ///       - NoPiv: no pivoting.
 ///         Note pivots vector is currently ignored for NoPiv.
 ///
-/// TODO: return value
 /// @retval 0 successful exit
-/// @retval >0 for return value = $i$, the computed $U(i,i)$ is exactly zero.
+/// @retval i > 0, $U(i,i)$ is exactly zero, where i is a 1-based index.
 ///         The factorization has been completed, but the factor U is exactly
 ///         singular, so the solution could not be computed.
 ///
 /// @ingroup gesv
 ///
 template <typename scalar_t>
-void gesv(Matrix<scalar_t>& A, Pivots& pivots,
-          Matrix<scalar_t>& B,
-          Options const& opts)
+int64_t gesv(
+    Matrix<scalar_t>& A, Pivots& pivots,
+    Matrix<scalar_t>& B,
+    Options const& opts)
 {
     Timer t_gesv;
 
@@ -95,41 +95,42 @@ void gesv(Matrix<scalar_t>& A, Pivots& pivots,
 
     // factorization
     Timer t_getrf;
-    getrf(A, pivots, opts);
+    int64_t info = getrf(A, pivots, opts);
     timers[ "gesv::getrf" ] = t_getrf.stop();
 
     // solve
     Timer t_getrs;
-    getrs(A, pivots, B, opts);
+    if (info == 0) {
+        getrs( A, pivots, B, opts );
+    }
     timers[ "gesv::getrs" ] = t_getrs.stop();
 
-    // todo: return value for errors?
-
     timers[ "gesv" ] = t_gesv.stop();
+    return info;
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void gesv<float>(
+int64_t gesv<float>(
     Matrix<float>& A, Pivots& pivots,
     Matrix<float>& B,
     Options const& opts);
 
 template
-void gesv<double>(
+int64_t gesv<double>(
     Matrix<double>& A, Pivots& pivots,
     Matrix<double>& B,
     Options const& opts);
 
 template
-void gesv< std::complex<float> >(
+int64_t gesv< std::complex<float> >(
     Matrix< std::complex<float> >& A, Pivots& pivots,
     Matrix< std::complex<float> >& B,
     Options const& opts);
 
 template
-void gesv< std::complex<double> >(
+int64_t gesv< std::complex<double> >(
     Matrix< std::complex<double> >& A, Pivots& pivots,
     Matrix< std::complex<double> >& B,
     Options const& opts);

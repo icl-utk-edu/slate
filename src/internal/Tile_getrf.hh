@@ -20,8 +20,9 @@
 #include <lapack.hh>
 
 namespace slate {
-namespace internal {
-// todo: Perhaps we should put all Tile routines in "internal".
+namespace tile {
+
+using slate::internal::AuxPivot;
 
 //------------------------------------------------------------------------------
 /// Swap a single row in the panel factorization.
@@ -149,6 +150,12 @@ void getrf_swap(
 /// @param[in] pivot_threshold
 ///     threshold for pivoting.  1 is partial pivoting, 0 is no pivoting
 ///
+/// @param[in,out] info
+///     Exit status, updated by only the thread with the diagonal tile.
+///     * 0: successful exit
+///     * i > 0: U(i,i) is exactly zero (1-based index). The factorization
+///       has been completed but the factor U is exactly singular.
+///
 /// @ingroup gesv_tile
 ///
 template <typename scalar_t>
@@ -164,7 +171,8 @@ void getrf(
     std::vector<int64_t>& max_index,
     std::vector<int64_t>& max_offset,
     std::vector<scalar_t>& top_block,
-    blas::real_type<scalar_t> pivot_threshold)
+    blas::real_type<scalar_t> pivot_threshold,
+    int64_t* info )
 {
     trace::Block trace_block("lapack::getrf");
 
@@ -175,6 +183,8 @@ void getrf(
 
     bool root = mpi_rank == mpi_root;
     int64_t nb = tiles[0].nb();
+
+    *info = 0;
 
     // Loop over ib-wide stripes.
     for (int64_t k = 0; k < diag_len; k += ib) {
@@ -351,10 +361,10 @@ void getrf(
                             tile.at(i, j) /= pivot[j].value();
                     }
                 }
-                else {
-                    // pivot[j].value() = 0, The factorization has been completed
-                    // but the factor U is exactly singular
-                    // todo: how to handle a zero pivot
+                else if (*info == 0 && i_index == 0) {
+                    // U(j,j) = 0; save info on thread with diagonal tile,
+                    // using 1-based index.
+                    *info = j + 1;
                 }
 
                 // trailing update
@@ -438,7 +448,7 @@ void getrf(
     }
 }
 
-} // namespace internal
+} // namespace tile
 } // namespace slate
 
 #endif // SLATE_TILE_GETRF_HH

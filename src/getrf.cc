@@ -21,7 +21,7 @@ namespace impl {
 /// @ingroup gesv_impl
 ///
 template <Target target, typename scalar_t>
-void getrf(
+int64_t getrf(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts )
 {
@@ -57,6 +57,7 @@ void getrf(
     if (target == Target::Devices)
         target_layout = Layout::RowMajor;
 
+    int64_t info = 0;
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
@@ -85,6 +86,7 @@ void getrf(
     #pragma omp parallel
     #pragma omp master
     {
+        int64_t kk = 0;  // column index (not block-column)
         for (int64_t k = 0; k < min_mt_nt; ++k) {
 
             int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
@@ -94,9 +96,12 @@ void getrf(
             #pragma omp task depend(inout:column[k]) priority(1)
             {
                 // factor A(k:mt-1, k)
+                int64_t iinfo;
                 internal::getrf_panel<Target::HostTask>(
                     A.sub(k, A_mt-1, k, k), diag_len, ib, pivots.at(k),
-                    pivot_threshold, max_panel_threads, priority_1, k );
+                    pivot_threshold, max_panel_threads, priority_1, k, &iinfo );
+                if (info == 0 && iinfo > 0)
+                    info = kk + iinfo;
 
                 BcastList bcast_list_A;
                 int tag_k = k;
@@ -232,12 +237,16 @@ void getrf(
                     }
                 }
             }
+            kk += A.tileNb( k );
         }
         #pragma omp taskwait
 
         A.tileLayoutReset();
     }
     A.clearWorkspace();
+
+    internal::reduce_info( &info, A.mpiComm() );
+    return info;
 }
 
 } // namespace impl
@@ -294,33 +303,34 @@ void getrf(
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-///    - Option::PivotThreshold:
-///      Strictness of the pivot selection.  Between 0 and 1 with 1 giving
-///      partial pivoting and 0 giving no pivoting.  Default 1.
+///     - Option::PivotThreshold:
+///       Strictness of the pivot selection.  Between 0 and 1 with 1 giving
+///       partial pivoting and 0 giving no pivoting.  Default 1.
 ///
-///    - Option::MethodLU:
-///      Algorithm for LU factorization.
+///     - Option::MethodLU:
+///       Algorithm for LU factorization.
 ///       - MethodLU::PartialPiv: partial pivoting [default].
 ///       - MethodLU::CALU: communication avoiding (tournament pivoting).
 ///       - MethodLU::NoPiv: no pivoting.
 ///         Note pivots vector is currently ignored for NoPiv.
 ///
-/// TODO: return value
 /// @retval 0 successful exit
-/// @retval >0 for return value = $i$, $U(i,i)$ is exactly zero. The
-///         factorization has been completed, but the factor $U$ is exactly
+/// @retval i > 0, $U(i,i)$ is exactly zero, where i is a 1-based index.
+///         The factorization has been completed, but the factor $U$ is exactly
 ///         singular, and division by zero will occur if it is used
 ///         to solve a system of equations.
 ///
 /// @ingroup gesv_computational
 ///
 template <typename scalar_t>
-void getrf(
+int64_t getrf(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts )
 {
     Method method = get_option( opts, Option::MethodLU, MethodLU::PartialPiv );
+    int64_t info = 0;
 
+    // todo: info for tntpiv, nopiv
     if (method == MethodLU::CALU) {
         getrf_tntpiv( A, pivots, opts );
     }
@@ -334,47 +344,47 @@ void getrf(
         switch (target) {
             case Target::Host:
             case Target::HostTask:
-                impl::getrf<Target::HostTask>( A, pivots, opts );
+                info = impl::getrf<Target::HostTask>( A, pivots, opts );
                 break;
 
             case Target::HostNest:
-                impl::getrf<Target::HostNest>( A, pivots, opts );
+                info = impl::getrf<Target::HostNest>( A, pivots, opts );
                 break;
 
             case Target::HostBatch:
-                impl::getrf<Target::HostBatch>( A, pivots, opts );
+                info = impl::getrf<Target::HostBatch>( A, pivots, opts );
                 break;
 
             case Target::Devices:
-                impl::getrf<Target::Devices>( A, pivots, opts );
+                info = impl::getrf<Target::Devices>( A, pivots, opts );
                 break;
         }
     }
     else {
         throw Exception( "unknown value for MethodLU" );
     }
-    // todo: return value for errors?
+    return info;
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void getrf<float>(
+int64_t getrf<float>(
     Matrix<float>& A, Pivots& pivots,
     Options const& opts);
 
 template
-void getrf<double>(
+int64_t getrf<double>(
     Matrix<double>& A, Pivots& pivots,
     Options const& opts);
 
 template
-void getrf< std::complex<float> >(
+int64_t getrf< std::complex<float> >(
     Matrix< std::complex<float> >& A, Pivots& pivots,
     Options const& opts);
 
 template
-void getrf< std::complex<double> >(
+int64_t getrf< std::complex<double> >(
     Matrix< std::complex<double> >& A, Pivots& pivots,
     Options const& opts);
 

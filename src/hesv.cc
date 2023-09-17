@@ -86,7 +86,6 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// TODO: return value
 /// @retval 0 successful exit
 /// @retval >0 for return value = $i$, the band LU factorization failed on the
 ///         $i$-th column.
@@ -94,11 +93,12 @@ namespace slate {
 /// @ingroup hesv
 ///
 template <typename scalar_t>
-void hesv(HermitianMatrix<scalar_t>& A, Pivots& pivots,
-               BandMatrix<scalar_t>& T, Pivots& pivots2,
-                   Matrix<scalar_t>& H,
-          Matrix<scalar_t>& B,
-          Options const& opts)
+int64_t hesv(
+    HermitianMatrix<scalar_t>& A, Pivots& pivots,
+         BandMatrix<scalar_t>& T, Pivots& pivots2,
+             Matrix<scalar_t>& H,
+             Matrix<scalar_t>& B,
+    Options const& opts )
 {
     assert(B.mt() == A.mt());
 
@@ -109,16 +109,19 @@ void hesv(HermitianMatrix<scalar_t>& A, Pivots& pivots,
         A_ = conj_transpose( A_ );
 
     // factorization
-    hetrf(A_, pivots, T, pivots2, H, opts);
+    int64_t info = hetrf( A_, pivots, T, pivots2, H, opts );
 
     // solve
-    hetrs(A_, pivots, T, pivots2, B, opts);
+    if (info == 0) {
+        hetrs( A_, pivots, T, pivots2, B, opts );
+    }
+    return info;
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void hesv<float>(
+int64_t hesv<float>(
     HermitianMatrix<float>& A, Pivots& pivots,
          BandMatrix<float>& T, Pivots& pivots2,
              Matrix<float>& H,
@@ -126,7 +129,7 @@ void hesv<float>(
     Options const& opts);
 
 template
-void hesv<double>(
+int64_t hesv<double>(
     HermitianMatrix<double>& A, Pivots& pivots,
          BandMatrix<double>& T, Pivots& pivots2,
              Matrix<double>& H,
@@ -134,7 +137,7 @@ void hesv<double>(
     Options const& opts);
 
 template
-void hesv< std::complex<float> >(
+int64_t hesv< std::complex<float> >(
     HermitianMatrix< std::complex<float> >& A, Pivots& pivots,
          BandMatrix< std::complex<float> >& T, Pivots& pivots2,
              Matrix< std::complex<float> >& H,
@@ -142,7 +145,7 @@ void hesv< std::complex<float> >(
     Options const& opts);
 
 template
-void hesv< std::complex<double> >(
+int64_t hesv< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A, Pivots& pivots,
          BandMatrix< std::complex<double> >& T, Pivots& pivots2,
              Matrix< std::complex<double> >& H,

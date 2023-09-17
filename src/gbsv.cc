@@ -75,44 +75,47 @@ namespace slate {
 /// @ingroup gbsv
 ///
 template <typename scalar_t>
-void gbsv(BandMatrix<scalar_t>& A, Pivots& pivots,
-          Matrix<scalar_t>& B,
-          Options const& opts)
+int64_t gbsv(
+    BandMatrix<scalar_t>& A, Pivots& pivots,
+    Matrix<scalar_t>& B,
+    Options const& opts)
 {
-    slate_assert(A.mt() == A.nt());  // square
-    slate_assert(B.mt() == A.mt());
+    slate_assert( A.mt() == A.nt() );  // square
+    slate_assert( B.mt() == A.mt() );
 
     // factorization
-    gbtrf(A, pivots, opts);
+    int64_t info = gbtrf( A, pivots, opts );
 
     // solve
-    gbtrs(A, pivots, B, opts);
+    if (info == 0) {
+        gbtrs( A, pivots, B, opts );
+    }
 
-    // todo: return value for errors?
+    return info;
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void gbsv<float>(
+int64_t gbsv<float>(
     BandMatrix<float>& A, Pivots& pivots,
     Matrix<float>& B,
     Options const& opts);
 
 template
-void gbsv<double>(
+int64_t gbsv<double>(
     BandMatrix<double>& A, Pivots& pivots,
     Matrix<double>& B,
     Options const& opts);
 
 template
-void gbsv< std::complex<float> >(
+int64_t gbsv< std::complex<float> >(
     BandMatrix< std::complex<float> >& A, Pivots& pivots,
     Matrix< std::complex<float> >& B,
     Options const& opts);
 
 template
-void gbsv< std::complex<double> >(
+int64_t gbsv< std::complex<double> >(
     BandMatrix< std::complex<double> >& A, Pivots& pivots,
     Matrix< std::complex<double> >& B,
     Options const& opts);

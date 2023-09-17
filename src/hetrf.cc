@@ -24,12 +24,13 @@ namespace impl {
 /// @ingroup hesv_impl
 ///
 template <Target target, typename scalar_t>
-void hetrf(
+int64_t hetrf(
     HermitianMatrix<scalar_t>& A, Pivots& pivots,
          BandMatrix<scalar_t>& T, Pivots& pivots2,
              Matrix<scalar_t>& H,
     Options const& opts)
 {
+    using real_t = blas::real_type<scalar_t>;
     using blas::conj;
     using BcastList  = typename Matrix<scalar_t>::BcastList;
     using ReduceList = typename Matrix<scalar_t>::ReduceList;
@@ -40,16 +41,20 @@ void hetrf(
     const int64_t ione  = 1;
     const int64_t izero = 0;
     const int priority_1 = 1;
+    const int tag_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
     // Options
+    real_t pivot_threshold
+        = get_option<double>( opts, Option::PivotThreshold, 1.0 );
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
     int64_t max_panel_threads = std::max( omp_get_max_threads()/2, 1 );
     max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
                                              max_panel_threads );
 
+    int64_t info = 0;
     int64_t A_mt = A.mt();
 
     std::vector< uint8_t > column_vectorL(A_mt);
@@ -376,8 +381,8 @@ void hetrf(
             {
                 //printf( " >> LU panel(%ld:%ld,%ld) diag_len=%ld on rank-%d <<\n", k+1, A_mt-1, k, diag_len, rank); fflush(stdout);
                 internal::getrf_panel<Target::HostTask>(
-                    A.sub(k+1, A_mt-1, k, k), diag_len, ib,
-                    pivots.at(k+1), max_panel_threads, priority_1 );
+                    A.sub(k+1, A_mt-1, k, k), diag_len, ib, pivots.at(k+1),
+                    pivot_threshold, max_panel_threads, priority_1, tag_0, &info );
 
                 // copy U(k, k) into T(k+1, k)
                 //printf( " >> compute T(%ld,%ld) on rank-%d <<\n", k+1, k, rank); fflush(stdout);
@@ -499,7 +504,8 @@ void hetrf(
 
     A.clearWorkspace();
 
-    // Debug::printTilesMaps(A);
+    internal::reduce_info( &info, A.mpiComm() );
+    return info;
 }
 
 } // namespace impl
@@ -563,60 +569,61 @@ void hetrf(
 /// @ingroup hesv_computational
 ///
 template <typename scalar_t>
-void hetrf(
+int64_t hetrf(
     HermitianMatrix<scalar_t>& A, Pivots& pivots,
          BandMatrix<scalar_t>& T, Pivots& pivots2,
              Matrix<scalar_t>& H,
     Options const& opts)
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
+    int64_t info = 0;
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::hetrf<Target::HostTask>( A, pivots, T, pivots2, H, opts );
+            info = impl::hetrf<Target::HostTask>( A, pivots, T, pivots2, H, opts );
             break;
 
         case Target::HostNest:
-            impl::hetrf<Target::HostNest>( A, pivots, T, pivots2, H, opts );
+            info = impl::hetrf<Target::HostNest>( A, pivots, T, pivots2, H, opts );
             break;
 
         case Target::HostBatch:
-            impl::hetrf<Target::HostBatch>( A, pivots, T, pivots2, H, opts );
+            info = impl::hetrf<Target::HostBatch>( A, pivots, T, pivots2, H, opts );
             break;
 
         case Target::Devices:
             slate_not_implemented( "hetrf not yet implemented for GPU devices" );
             break;
     }
-    // todo: return value for errors?
+    return info;
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void hetrf<float>(
+int64_t hetrf<float>(
     HermitianMatrix<float>& A, Pivots& pivots,
          BandMatrix<float>& T, Pivots& pivots2,
              Matrix<float>& H,
     Options const& opts);
 
 template
-void hetrf<double>(
+int64_t hetrf<double>(
     HermitianMatrix<double>& A, Pivots& pivots,
          BandMatrix<double>& T, Pivots& pivots2,
              Matrix<double>& H,
     Options const& opts);
 
 template
-void hetrf< std::complex<float> >(
+int64_t hetrf< std::complex<float> >(
     HermitianMatrix< std::complex<float> >& A, Pivots& pivots,
          BandMatrix< std::complex<float> >& T, Pivots& pivots2,
              Matrix< std::complex<float> >& H,
     Options const& opts);
 
 template
-void hetrf< std::complex<double> >(
+int64_t hetrf< std::complex<double> >(
     HermitianMatrix< std::complex<double> >& A, Pivots& pivots,
          BandMatrix< std::complex<double> >& T, Pivots& pivots2,
              Matrix< std::complex<double> >& H,

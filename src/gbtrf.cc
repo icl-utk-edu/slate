@@ -22,11 +22,11 @@ namespace impl {
 /// Warning: ColMajor layout is assumed
 ///
 template <Target target, typename scalar_t>
-void gbtrf(
+int64_t gbtrf(
     BandMatrix<scalar_t>& A, Pivots& pivots,
     Options const& opts )
 {
-    // using real_t = blas::real_type<scalar_t>;
+    using real_t = blas::real_type<scalar_t>;
     using BcastList = typename BandMatrix<scalar_t>::BcastList;
 
     // Constants
@@ -34,16 +34,20 @@ void gbtrf(
     const scalar_t one = 1.0;
     const int priority_0 = 0;
     const int priority_1 = 1;
+    const int tag_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
     // Options
+    real_t pivot_threshold
+        = get_option<double>( opts, Option::PivotThreshold, 1.0 );
     int64_t lookahead = get_option<int64_t>( opts, Option::Lookahead, 1 );
     int64_t ib = get_option<int64_t>( opts, Option::InnerBlocking, 16 );
     int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
     max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
                                              max_panel_threads );
 
+    int64_t info = 0;
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
@@ -103,8 +107,8 @@ void gbtrf(
             {
                 // factor A(k:mt-1, k)
                 internal::getrf_panel<Target::HostTask>(
-                    A.sub(k, i_end-1, k, k), diag_len, ib,
-                    pivots.at(k), max_panel_threads, priority_1 );
+                    A.sub(k, i_end-1, k, k), diag_len, ib, pivots.at(k),
+                    pivot_threshold, max_panel_threads, priority_1, tag_0, &info );
 
                 BcastList bcast_list_A;
                 int tag_k = k;
@@ -206,6 +210,8 @@ void gbtrf(
 
     A.releaseWorkspace();
 
+    internal::reduce_info( &info, A.mpiComm() );
+    return info;
 }
 
 } // namespace impl
@@ -243,13 +249,17 @@ void gbtrf(
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
+///
 ///     - Option::Lookahead:
 ///       Number of panels to overlap with matrix updates.
 ///       lookahead >= 0. Default 1.
+///
 ///     - Option::InnerBlocking:
 ///       Inner blocking to use for panel. Default 16.
+///
 ///     - Option::MaxPanelThreads:
 ///       Number of threads to use for panel. Default omp_get_max_threads()/2.
+///
 ///     - Option::Target:
 ///       Implementation to target. Possible values:
 ///       - HostTask:  OpenMP tasks on CPU host [default].
@@ -257,62 +267,66 @@ void gbtrf(
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// TODO: return value
+///    - Option::PivotThreshold:
+///      Strictness of the pivot selection.  Between 0 and 1 with 1 giving
+///      partial pivoting and 0 giving no pivoting.  Default 1.
+///
 /// @retval 0 successful exit
-/// @retval >0 for return value = $i$, $U(i,i)$ is exactly zero. The
-///         factorization has been completed, but the factor $U$ is exactly
+/// @retval i > 0, $U(i,i)$ is exactly zero, where i is a 1-based index.
+///         The factorization has been completed, but the factor $U$ is exactly
 ///         singular, and division by zero will occur if it is used
 ///         to solve a system of equations.
 ///
 /// @ingroup gbsv_computational
 ///
 template <typename scalar_t>
-void gbtrf(
+int64_t gbtrf(
     BandMatrix<scalar_t>& A, Pivots& pivots,
     Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
+    int64_t info = 0;
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::gbtrf<Target::HostTask>( A, pivots, opts );
+            info = impl::gbtrf<Target::HostTask>( A, pivots, opts );
             break;
 
         case Target::HostNest:
-            impl::gbtrf<Target::HostNest>( A, pivots, opts );
+            info = impl::gbtrf<Target::HostNest>( A, pivots, opts );
             break;
 
         case Target::HostBatch:
-            impl::gbtrf<Target::HostBatch>( A, pivots, opts );
+            info = impl::gbtrf<Target::HostBatch>( A, pivots, opts );
             break;
 
         case Target::Devices:
-            impl::gbtrf<Target::Devices>( A, pivots, opts );
+            info = impl::gbtrf<Target::Devices>( A, pivots, opts );
             break;
     }
-    // todo: return value for errors?
+    return info;
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void gbtrf<float>(
+int64_t gbtrf<float>(
     BandMatrix<float>& A, Pivots& pivots,
     Options const& opts);
 
 template
-void gbtrf<double>(
+int64_t gbtrf<double>(
     BandMatrix<double>& A, Pivots& pivots,
     Options const& opts);
 
 template
-void gbtrf< std::complex<float> >(
+int64_t gbtrf< std::complex<float> >(
     BandMatrix< std::complex<float> >& A, Pivots& pivots,
     Options const& opts);
 
 template
-void gbtrf< std::complex<double> >(
+int64_t gbtrf< std::complex<double> >(
     BandMatrix< std::complex<double> >& A, Pivots& pivots,
     Options const& opts);
 

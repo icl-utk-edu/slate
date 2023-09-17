@@ -148,6 +148,8 @@ void test_gesv_work(Params& params, bool run)
         {slate::Option::MethodTrsm, methodTrsm},
     };
 
+    int64_t info = 0;
+
     // Matrix A: figure out local size.
     int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
@@ -278,26 +280,26 @@ void test_gesv_work(Params& params, bool run)
         double time = barrier_get_wtime(MPI_COMM_WORLD);
 
         if (params.routine == "getrf" || params.routine == "getrs") {
-            slate::lu_factor(A, pivots, opts);
+            info = slate::lu_factor(A, pivots, opts);
             // Using traditional BLAS/LAPACK name
             // slate::getrf(A, pivots, opts);
         }
         else if (params.routine == "gesv") {
-            slate::lu_solve(A, B, opts);
+            info = slate::lu_solve(A, B, opts);
             // Using traditional BLAS/LAPACK name
             // slate::gesv(A, pivots, B, opts);
         }
         else if (params.routine == "gesv_mixed") {
             if constexpr (std::is_same<real_t, double>::value) {
                 int iters = 0;
-                slate::gesv_mixed( A, pivots, B, X, iters, opts );
+                info = slate::gesv_mixed( A, pivots, B, X, iters, opts );
                 params.iters() = iters;
             }
         }
         else if (params.routine == "gesv_mixed_gmres") {
             if constexpr (std::is_same<real_t, double>::value) {
                 int iters = 0;
-                slate::gesv_mixed_gmres(A, pivots, B, X, iters, opts);
+                info = slate::gesv_mixed_gmres( A, pivots, B, X, iters, opts );
                 params.iters() = iters;
             }
         }
@@ -315,7 +317,7 @@ void test_gesv_work(Params& params, bool run)
         // Run SLATE test: getrs
         // getrs: Solve AX = B after factoring A above.
         //==================================================
-        if (do_getrs) {
+        if (do_getrs && info == 0) {
             double time2 = barrier_get_wtime(MPI_COMM_WORLD);
 
             auto opA = A;
@@ -335,10 +337,22 @@ void test_gesv_work(Params& params, bool run)
         }
 
         if (trace) slate::trace::Trace::finish();
+
+        if (info != 0) {
+            char buf[ 80 ];
+            snprintf( buf, sizeof(buf), "info = %lld, cond = %.2e",
+                      llong( info ), params.matrix.cond_actual() );
+            params.msg() = buf;
+        }
     }
     print_matrix( "X_out", X, params );
 
-    if (check) {
+    if (info != 0 || std::isinf( params.matrix.cond_actual() )) {
+        // info != 0 if and only if cond == inf (singular matrix).
+        // Matrices with unknown cond (nan) that are singular are marked failed.
+        params.okay() = info != 0 && std::isinf( params.matrix.cond_actual() );
+    }
+    else if (check) {
         //==================================================
         // Test results by checking the residual
         //
@@ -399,7 +413,7 @@ void test_gesv_work(Params& params, bool run)
             }
 
             // BLACS/MPI variables
-            int ictxt, myrow_, mycol_, info, p_, q_;
+            int ictxt, myrow_, mycol_, p_, q_, iinfo;
             int mpi_rank_ = 0, nprocs = 1;
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
@@ -416,12 +430,12 @@ void test_gesv_work(Params& params, bool run)
 
             // ScaLAPACK descriptor for the reference matrix
             int Aref_desc[9];
-            scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
+            scalapack_descinit( Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &iinfo );
+            slate_assert( iinfo == 0 );
 
             int Bref_desc[9];
-            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
-            slate_assert(info == 0);
+            scalapack_descinit( Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &iinfo );
+            slate_assert( iinfo == 0 );
 
             // ScaLAPACK data for pivots.
             std::vector<int> ipiv_ref(lldA + nb);

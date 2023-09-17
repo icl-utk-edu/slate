@@ -23,10 +23,12 @@ void getrf_panel(
     Matrix<scalar_t>& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     blas::real_type<scalar_t> pivot_threshold,
-    int max_panel_threads, int priority, int tag)
+    int max_panel_threads, int priority, int tag, int64_t* info )
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
     assert(A.nt() == 1);
+
+    *info = 0;
 
     // Move the panel to the host.
     std::set<ij_tuple> A_tiles_set;
@@ -82,29 +84,29 @@ void getrf_panel(
         #if 1
             // Launching new threads for the panel guarantees progression.
             // This should never deadlock, but may be detrimental to performance.
-            #pragma omp parallel for num_threads(thread_size) slate_omp_default_none \
-                shared(thread_barrier, max_value, max_index, max_offset) \
-                shared(top_block, aux_pivot, tiles, bcast_comm) \
+            #pragma omp parallel for num_threads( thread_size ) slate_omp_default_none \
+                shared( thread_barrier, max_value, max_index, max_offset ) \
+                shared( top_block, aux_pivot, tiles, bcast_comm, info ) \
                 firstprivate( tile_indices, bcast_root, bcast_rank, ib, \
                               diag_len, thread_size, pivot_threshold )
         #else
             // Issuing panel operation as tasks may cause a deadlock.
             #pragma omp taskloop num_tasks(thread_size) slate_omp_default_none \
-                shared(thread_barrier, max_value, max_index, max_offset) \
-                shared(top_block, aux_pivot, tiles, bcast_comm) \
+                shared( thread_barrier, max_value, max_index, max_offset ) \
+                shared( top_block, aux_pivot, tiles, bcast_comm, info ) \
                 firstprivate( tile_indices, bcast_root, bcast_rank, ib, \
                               diag_len, thread_size, pivot_threshold )
         #endif
         for (int thread_rank = 0; thread_rank < thread_size; ++thread_rank) {
             // Factor the panel in parallel.
-            getrf(diag_len, ib,
-                  tiles, tile_indices,
-                  aux_pivot,
-                  bcast_rank, bcast_root, bcast_comm,
-                  thread_rank, thread_size,
-                  thread_barrier,
-                  max_value, max_index, max_offset, top_block,
-                  pivot_threshold);
+            tile::getrf( diag_len, ib,
+                         tiles, tile_indices,
+                         aux_pivot,
+                         bcast_rank, bcast_root, bcast_comm,
+                         thread_rank, thread_size,
+                         thread_barrier,
+                         max_value, max_index, max_offset, top_block,
+                         pivot_threshold, info );
         }
 
         // Copy pivot information from aux_pivot to pivot.
@@ -128,12 +130,12 @@ void getrf_panel(
     Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     blas::real_type<scalar_t> pivot_threshold,
-    int max_panel_threads, int priority, int tag)
+    int max_panel_threads, int priority, int tag, int64_t* info )
 {
     getrf_panel(
         internal::TargetType<target>(),
         A, diag_len, ib, pivot,
-        pivot_threshold, max_panel_threads, priority, tag );
+        pivot_threshold, max_panel_threads, priority, tag, info );
 }
 
 //------------------------------------------------------------------------------
@@ -143,32 +145,32 @@ template
 void getrf_panel<Target::HostTask, float>(
     Matrix<float>&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
-    blas::real_type<float> pivot_threshold,
-    int max_panel_threads, int priority, int tag);
+    float pivot_threshold,
+    int max_panel_threads, int priority, int tag, int64_t* info );
 
 // ----------------------------------------
 template
 void getrf_panel<Target::HostTask, double>(
     Matrix<double>&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
-    blas::real_type<double> pivot_threshold,
-    int max_panel_threads, int priority, int tag);
+    double pivot_threshold,
+    int max_panel_threads, int priority, int tag, int64_t* info );
 
 // ----------------------------------------
 template
 void getrf_panel< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
-    blas::real_type<std::complex<float>> pivot_threshold,
-    int max_panel_threads, int priority, int tag);
+    float pivot_threshold,
+    int max_panel_threads, int priority, int tag, int64_t* info );
 
 // ----------------------------------------
 template
 void getrf_panel< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
-    blas::real_type<std::complex<double>> pivot_threshold,
-    int max_panel_threads, int priority, int tag);
+    double pivot_threshold,
+    int max_panel_threads, int priority, int tag, int64_t* info );
 
 } // namespace internal
 } // namespace slate

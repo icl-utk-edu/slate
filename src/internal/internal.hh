@@ -486,7 +486,7 @@ void getrf_panel(
     Matrix<scalar_t>&& A, int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
     blas::real_type<scalar_t> remote_pivot_threshold,
-    int max_panel_threads, int priority=0, int tag=0);
+    int max_panel_threads, int priority, int tag, int64_t* info );
 
 //-----------------------------------------
 // getrf_nopiv()
@@ -668,6 +668,10 @@ void norm1est(
     int* kase,
     std::vector<int64_t>& isave,
     Options const& opts = Options());
+
+//------------------------------------------------------------------------------
+// MPI reduce info, used in getrf, hetrf, etc.
+void reduce_info( int64_t* info, MPI_Comm mpi_comm );
 
 } // namespace internal
 } // namespace slate

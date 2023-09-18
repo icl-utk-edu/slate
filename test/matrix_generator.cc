@@ -780,7 +780,7 @@ void decode_matrix(
     std::string kind = params.kind();
 
     //---------------
-    cond = params.cond();
+    cond = params.cond_request();
     bool cond_default = std::isnan( cond );
     if (cond_default) {
         cond = 1 / sqrt( eps );
@@ -994,7 +994,7 @@ void decode_matrix(
         // cond unused
         cond = testsweeper::no_data_flag;
     }
-    params.cond_used() = cond;
+    params.cond_actual() = cond;
 
     // Warn if user set condD and matrix type doesn't use it.
     if (! condD_default

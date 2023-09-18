@@ -455,14 +455,14 @@ Params::Params():
 
     // change names of matrix B's params
     matrixB.kind.name( "matrixB" );
-    matrixB.cond.name( "condB" );
+    matrixB.cond_request.name( "condB" );
     matrixB.condD.name( "condD_B" );
     matrixB.seed.name( "seedB" );
     matrixB.label.name( "B" );
 
     // change names of matrix C's params
     matrixC.kind.name( "matrixC" );
-    matrixC.cond.name( "condC" );
+    matrixC.cond_request.name( "condC" );
     matrixC.condD.name( "condD_C" );
     matrixC.seed.name( "seedC" );
     matrixC.label.name( "C" );

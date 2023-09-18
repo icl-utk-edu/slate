@@ -29,141 +29,22 @@
 namespace slate {
 
 //------------------------------------------------------------------------------
-/// A tile state in the MOSI coherency protocol
-enum MOSI {
-    Modified = 0x100,   ///< tile data is modified, other instances should be Invalid, cannot be purged
-    OnHold = 0x1000,  ///< a hold is placed on this tile instance, cannot be purged
-    Shared = 0x010,   ///< tile data is up-to-date, other instances may be Shared, or Invalid, may be purged
-    Invalid = 0x001,   ///< tile data is obsolete, other instances may be Modified, Shared, or Invalid, may be purged
-};
-typedef short MOSI_State;
-
-//------------------------------------------------------------------------------
-///
-template <typename scalar_t>
-class TileInstance {
-private:
-    Tile<scalar_t>* tile_;
-    MOSI_State state_;
-    mutable omp_nest_lock_t lock_;
-
-public:
-    TileInstance()
-        : tile_(nullptr),
-          state_(MOSI::Invalid)
-    {
-        omp_init_nest_lock(&lock_);
-    }
-
-    /// Destructor for TileInstance class
-    ~TileInstance()
-    {
-        omp_destroy_nest_lock(&lock_);
-        assert(tile_ == nullptr);
-    }
-
-    //--------------------------------------------------------------------------
-    // 2. copy constructor -- not allowed; lock_ is not copyable
-    // 3. move constructor -- not allowed; lock_ is not copyable
-    // 4. copy assignment  -- not allowed; lock_ is not copyable
-    // 5. move assignment  -- not allowed; lock_ is not copyable
-    TileInstance(TileInstance&  orig) = delete;
-    TileInstance(TileInstance&& orig) = delete;
-    TileInstance& operator = (TileInstance&  orig) = delete;
-    TileInstance& operator = (TileInstance&& orig) = delete;
-
-    //--------------------------------------------------------------------------
-    /// Get and Set tile pointer
-    Tile<scalar_t>* tile() const { return tile_; }
-    void tile(Tile<scalar_t>* tile) { tile_ = tile; }
-
-    //--------------------------------------------------------------------------
-    /// Returns whether this tile instance is valid (Tile instance exists)
-    bool valid() const { return tile_ != nullptr; }
-
-    //--------------------------------------------------------------------------
-    /// Initialize tile pointer and MOSI state
-    void init(Tile<scalar_t>* tile, MOSI_State state)
-    {
-        slate_assert(tile_ == nullptr);
-        slate_assert(tile  != nullptr);
-        tile_ = tile;
-        state_ = state;
-    }
-
-    //--------------------------------------------------------------------------
-    /// Retrun pointer to tile instance OMP lock
-    omp_nest_lock_t* getLock()
-    {
-        return &lock_;
-    }
-
-    //--------------------------------------------------------------------------
-    /// Set the state to: Modified/Shared/Invalid, or set On/Off the OnHold flag
-    void setState(MOSI_State stateIn)
-    {
-        switch (stateIn) {
-            case MOSI::Modified:
-            case MOSI::Shared:
-            case MOSI::Invalid:
-                state_ = (state_ & MOSI::OnHold) | stateIn;
-                break;
-            case MOSI::OnHold:
-                state_ |= stateIn;
-                break;
-            case ~MOSI::OnHold:
-                state_ &= stateIn;
-                break;
-            default:
-                assert(false);  // Unknown state
-                break;
-        }
-    }
-
-    /// Returns the current MOSI state (Modified/Shared/Invalid)
-    /// to check the OnHold flag use stateOn
-    MOSI getState() const
-    {
-        return MOSI(state_ & MOSI_State(~MOSI::OnHold));
-    }
-
-    /// returns whether the Modified/Shared/Invalid state or the OnHold flag is On
-    bool stateOn(MOSI_State stateIn) const
-    {
-        switch (stateIn) {
-            case MOSI::Modified:
-            case MOSI::Shared:
-            case MOSI::Invalid:
-                return (state_ & ~MOSI::OnHold) == stateIn;
-                break;
-            case MOSI::OnHold:
-                return (state_ & MOSI::OnHold) == stateIn;
-                break;
-            default:
-                assert(false);  // Unknown state
-                break;
-        }
-        return false;
-    }
-};
-
-//------------------------------------------------------------------------------
 ///
 template <typename scalar_t>
 class TileNode {
 private:
-    typedef TileInstance<scalar_t> TileInstance_t;
+    typedef Tile<scalar_t> Tile_t;
     /// vector of tile instances indexed by device id.
-    using TileInstances = std::vector< std::unique_ptr<TileInstance_t> >;
+    using Tiles = std::vector< Tile_t* >;
 
-    TileInstances tile_instances_;
+    Tiles tile_instances_;
     int num_instances_;
     int64_t life_;
     /// number of times a tile is received.
     /// This variable is used for only MPI communications.
     int64_t receive_count_;
 
-    /// OMP lock used to protect operations that modify the TileInstances within
+    /// OMP lock used to protect operations that modify the Tiles within
     mutable omp_nest_lock_t lock_;
 
 public:
@@ -176,8 +57,7 @@ public:
         slate_assert(num_devices >= 0);
         omp_init_nest_lock(&lock_);
         for (int d = 0; d < num_devices+1; ++d) {
-            tile_instances_.push_back(
-                std::unique_ptr<TileInstance_t>( new TileInstance_t() ));
+            tile_instances_.push_back( nullptr );
         }
     }
 
@@ -211,8 +91,9 @@ public:
     void insertOn(int device, Tile<scalar_t>* tile, MOSI_State state)
     {
         slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
-        slate_assert(! tile_instances_[device+1]->valid());
-        tile_instances_[device+1]->init(tile, state);
+        slate_assert(tile_instances_[device+1] == nullptr);
+        tile->mosiState( MOSI(state) );
+        tile_instances_[device+1] = tile;
         ++num_instances_;
     }
 
@@ -221,7 +102,7 @@ public:
     bool existsOn(int device) const
     {
         slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
-        return tile_instances_[device+1]->valid();
+        return tile_instances_[device+1] != nullptr;
     }
 
     //--------------------------------------------------------------------------
@@ -230,28 +111,28 @@ public:
     void eraseOn(int device)
     {
         slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
-        if (tile_instances_[device+1]->valid()) {
+        if (tile_instances_[device+1] != nullptr) {
             tile_instances_[device+1]->setState(MOSI::Invalid);
-            delete tile_instances_[device+1]->tile();
-            tile_instances_[device+1]->tile(nullptr);
+            delete tile_instances_[device+1];
+            tile_instances_[device+1] = nullptr;
             --num_instances_;
         }
     }
 
     //--------------------------------------------------------------------------
-    /// Returns a reference to the tile instance at device
-    TileInstance_t& operator[](int device) const
+    /// Returns a pointer to the tile instance at device
+    Tile_t* operator[](int device) const
     {
         slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
-        return *(tile_instances_[device+1]);
+        return tile_instances_[device+1];
     }
 
     //--------------------------------------------------------------------------
-    /// Returns a reference to the tile instance at device
-    TileInstance_t& at(int dev) const
+    /// Returns a pointer to the tile instance at device
+    Tile_t* at(int dev) const
     {
         slate_assert(dev >= -1 && dev+1 < int(tile_instances_.size()));
-        return *(tile_instances_[dev+1]);
+        return tile_instances_[dev+1];
     }
 
     int numInstances() const
@@ -288,7 +169,7 @@ public:
     template <typename T>
     friend class BaseMatrix;
 
-    typedef TileInstance<scalar_t> TileInstance_t;
+    typedef Tile<scalar_t> Tile_t;
     typedef TileNode<scalar_t> TileNode_t;
 
     using ijdev_tuple = std::tuple<int64_t, int64_t, int>;
@@ -398,14 +279,15 @@ public:
 
     /// @return pointer to an actual Tile object
     /// Throws exception if entry doesn't exist.
-    Tile<scalar_t>* at(ijdev_tuple ijdev) {
+    Tile<scalar_t>* at(ijdev_tuple ijdev)
+    {
         int64_t i  = std::get<0>(ijdev);
         int64_t j  = std::get<1>(ijdev);
         int device = std::get<2>(ijdev);
         auto& tile_node = at( {i, j} );
 
         LockGuard guard(tile_node.getLock());
-        return tile_node.at(device).tile();
+        return tile_node.at(device);
     }
 
     void erase(ijdev_tuple ijdev);
@@ -449,9 +331,9 @@ public:
         return tileRank(ij) == mpi_rank_;
     }
 
-    TileInstance<scalar_t>& tileInsert(
+    Tile<scalar_t>* tileInsert(
         ijdev_tuple ijdev, TileKind, Layout layout=Layout::ColMajor);
-    TileInstance<scalar_t>& tileInsert(
+    Tile<scalar_t>* tileInsert(
         ijdev_tuple ijdev, scalar_t* data, int64_t lda,
         Layout layout=Layout::ColMajor);
 
@@ -546,7 +428,7 @@ public:
         assert(iter != end());
 
         int device = std::get<2>(ijdev);
-        return iter->second->at(device).getState();
+        return iter->second->at(device)->getState();
     }
 
     /// Checks whether the given tile is on hold
@@ -557,7 +439,7 @@ public:
         assert(iter != end());
 
         int device = std::get<2>(ijdev);
-        return iter->second->at(device).stateOn(MOSI::OnHold);
+        return iter->second->at(device)->stateOn(MOSI::OnHold);
     }
 
     /// Unsets any hold on the given tile
@@ -567,7 +449,7 @@ public:
         auto iter = find( ijdev );
         if (iter != end()) {
             int device = std::get<2>(ijdev);
-            iter->second->at(device).setState(~MOSI::OnHold);
+            iter->second->at(device)->setState(~MOSI::OnHold);
         }
     }
 
@@ -938,9 +820,9 @@ void MatrixStorage<scalar_t>::clearWorkspace()
         auto& tile_node = *(iter->second);
         for (int d = HostNum; d < num_devices_; ++d) {
             if (tile_node.existsOn(d) &&
-                tile_node[d].tile()->workspace())
+                tile_node[d]->workspace())
             {
-                freeTileMemory(tile_node[d].tile());
+                freeTileMemory(tile_node[d]);
                 tile_node.eraseOn(d);
             }
         }
@@ -1017,7 +899,7 @@ void MatrixStorage<scalar_t>::erase(ijdev_tuple ijdev)
         int64_t j  = std::get<1>(ijdev);
         int device = std::get<2>(ijdev);
 
-        freeTileMemory(tile_node[device].tile());
+        freeTileMemory(tile_node[device]);
         tile_node.eraseOn(device);
 
         if (tile_node.empty())
@@ -1054,8 +936,8 @@ void MatrixStorage<scalar_t>::release(
     bool last_valid = tileIsLocal( iter->first );
     for (int dev = HostNum; dev < num_devices_; ++dev) {
         if (tile_node.existsOn( dev )
-            && (dev < begin || dev >= end || tile_node[ dev ].tile()->origin())
-            && ! tile_node[ dev ].stateOn( MOSI::Invalid )) {
+            && (dev < begin || dev >= end || tile_node[ dev ]->origin())
+            && ! tile_node[ dev ]->stateOn( MOSI::Invalid )) {
 
             last_valid = false;
             break;
@@ -1065,11 +947,11 @@ void MatrixStorage<scalar_t>::release(
 
     for (int dev = begin; dev < end; ++dev) {
         if (tile_node.existsOn( dev )
-            && tile_node[ dev ].tile()->workspace()
-            && ! tile_node[ dev ].stateOn( MOSI::OnHold )
-            && (! last_valid || tile_node[ dev ].stateOn( MOSI::Invalid ))) {
+            && tile_node[ dev ]->workspace()
+            && ! tile_node[ dev ]->stateOn( MOSI::OnHold )
+            && (! last_valid || tile_node[ dev ]->stateOn( MOSI::Invalid ))) {
 
-            freeTileMemory( tile_node[ dev ].tile() );
+            freeTileMemory( tile_node[ dev ] );
             tile_node.eraseOn( dev );
         }
     }
@@ -1124,7 +1006,7 @@ void MatrixStorage<scalar_t>::erase(ij_tuple ij)
 
         for (int d = HostNum; (! tile_node->empty()) && d < num_devices_; ++d) {
             if (tile_node->existsOn(d)) {
-                freeTileMemory(tile_node->at(d).tile());
+                freeTileMemory(tile_node->at(d));
                 tile_node->eraseOn(d);
             }
         }
@@ -1189,10 +1071,10 @@ void MatrixStorage<scalar_t>::releaseWorkspaceBuffer(scalar_t* data, int device)
 /// Creates TileNode(i, j) if not already exists (Tile's life is set 0).
 /// Tile kind should be either TileKind::Workspace or TileKind::SlateOwned.
 ///
-/// @return Reference to newly inserted TileInstance.
+/// @return Pointer to newly inserted Tile.
 ///
 template <typename scalar_t>
-TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
+Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
     ijdev_tuple ijdev, TileKind kind, Layout layout)
 {
     assert(kind == TileKind::Workspace ||
@@ -1233,10 +1115,10 @@ TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
 /// wrapping existing memory for it.
 /// Sets tile kind = TileKind::UserOwned.
 /// This will be the origin tile, thus TileNode(i, j) should not pre-exist.
-/// @return Pointer to newly inserted TileInstance.
+/// @return Pointer to newly inserted Tile.
 ///
 template <typename scalar_t>
-TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileInsert(
+Tile<scalar_t>* MatrixStorage<scalar_t>::tileInsert(
     ijdev_tuple ijdev, scalar_t* data, int64_t lda, Layout layout)
 {
     int64_t i  = std::get<0>(ijdev);

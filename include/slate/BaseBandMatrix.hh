@@ -300,12 +300,12 @@ void BaseBandMatrix<scalar_t>::tileUpdateAllOrigin()
 
                 // find on host
                 if (tile_node.existsOn( HostNum )
-                    && tile_node[ HostNum ].tile()->origin()) {
-                    if (tile_node[ HostNum ].stateOn( MOSI::Invalid )) {
+                    && tile_node[ HostNum ]->origin()) {
+                    if (tile_node[ HostNum ]->stateOn( MOSI::Invalid )) {
                         // tileGetForReading(i, j, LayoutConvert::None);
                         for (int d = 0; d < this->num_devices(); ++d) {
                             if (tile_node.existsOn(d)
-                                && tile_node[d].getState() != MOSI::Invalid)
+                                && tile_node[d]->getState() != MOSI::Invalid)
                             {
                                 tiles_set_host[d].insert({i, j});
                                 break;
@@ -316,8 +316,8 @@ void BaseBandMatrix<scalar_t>::tileUpdateAllOrigin()
                 else {
                     auto device = this->tileDevice(i, j);
                     if (tile_node.existsOn(device) &&
-                        tile_node[device].tile()->origin()) {
-                        if (tile_node[device].stateOn(MOSI::Invalid)) {
+                        tile_node[device]->origin()) {
+                        if (tile_node[device]->stateOn(MOSI::Invalid)) {
                             // tileGetForReading(i, j, device, LayoutConvert::None);
                             tiles_set_dev[device].insert({i, j});
                         }

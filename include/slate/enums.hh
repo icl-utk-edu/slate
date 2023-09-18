@@ -135,6 +135,17 @@ const int HostNum = -1;
 const int AllDevices = -2;
 const int AnyDevice  = -3;
 
+//------------------------------------------------------------------------------
+/// A tile state in the MOSI coherency protocol
+enum MOSI {
+    Modified = 0x100,   ///< tile data is modified, other instances should be Invalid, cannot be purged
+    OnHold = 0x1000,  ///< a hold is placed on this tile instance, cannot be purged
+    Shared = 0x010,   ///< tile data is up-to-date, other instances may be Shared, or Invalid, may be purged
+    Invalid = 0x001,   ///< tile data is obsolete, other instances may be Modified, Shared, or Invalid, may be purged
+};
+typedef short MOSI_State;
+
+
 } // namespace slate
 
 #endif // SLATE_ENUMS_HH

@@ -336,7 +336,7 @@ int64_t getrf(
     }
     else if (method == MethodLU::NoPiv) {
         // todo: fill in pivots vector?
-        getrf_nopiv( A, opts );
+        info = getrf_nopiv( A, opts );
     }
     else if (method == MethodLU::PartialPiv) {
         Target target = get_option( opts, Option::Target, Target::HostTask );

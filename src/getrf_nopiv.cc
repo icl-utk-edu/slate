@@ -21,7 +21,7 @@ namespace impl {
 /// @ingroup gesv_impl
 ///
 template <Target target, typename scalar_t>
-void getrf_nopiv(
+int64_t getrf_nopiv(
     Matrix<scalar_t>& A,
     Options const& opts )
 {
@@ -48,6 +48,7 @@ void getrf_nopiv(
         A.reserveDeviceWorkspace();
     }
 
+    int64_t info = 0;
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
@@ -72,6 +73,7 @@ void getrf_nopiv(
     #pragma omp parallel
     #pragma omp master
     {
+        int64_t kk = 0;  // column index (not block-column)
         for (int64_t k = 0; k < min_mt_nt; ++k) {
 
             // panel, high priority
@@ -80,8 +82,12 @@ void getrf_nopiv(
                              priority(1)
             {
                 // factor A(k, k)
+                int64_t iinfo;
                 internal::getrf_nopiv<Target::HostTask>(
-                    A.sub(k, k, k, k), ib, priority_1 );
+                    A.sub(k, k, k, k), ib, priority_1, &iinfo );
+                if (info == 0 && iinfo > 0) {
+                    info = kk + iinfo;
+                }
 
                 // Update panel
                 int tag_k = k;
@@ -227,12 +233,16 @@ void getrf_nopiv(
                     }
                 }
             }
+            kk += A.tileNb( k );
         }
 
         #pragma omp taskwait
         A.tileUpdateAllOrigin();
     }
     A.clearWorkspace();
+
+    internal::reduce_info( &info, A.mpiComm() );
+    return info;
 }
 
 } // namespace impl
@@ -275,17 +285,15 @@ void getrf_nopiv(
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// TODO: return value
 /// @retval 0 successful exit
-/// @retval >0 for return value = $i$, $U(i,i)$ is exactly zero. The
-///         factorization has been completed, but the factor $U$ is exactly
-///         singular, and division by zero will occur if it is used
-///         to solve a system of equations.
+/// @retval i < 0: the i-th argument had an illegal value.
+/// @retval i > 0: U(i,i) is exactly zero (1-based index). The factorization
+///         will have NaN due to division by zero.
 ///
 /// @ingroup gesv_computational
 ///
 template <typename scalar_t>
-void getrf_nopiv(
+int64_t getrf_nopiv(
     Matrix<scalar_t>& A,
     Options const& opts )
 {
@@ -294,43 +302,43 @@ void getrf_nopiv(
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::getrf_nopiv<Target::HostTask>( A, opts );
+            return impl::getrf_nopiv<Target::HostTask>( A, opts );
             break;
 
         case Target::HostNest:
-            impl::getrf_nopiv<Target::HostNest>( A, opts );
+            return impl::getrf_nopiv<Target::HostNest>( A, opts );
             break;
 
         case Target::HostBatch:
-            impl::getrf_nopiv<Target::HostBatch>( A, opts );
+            return impl::getrf_nopiv<Target::HostBatch>( A, opts );
             break;
 
         case Target::Devices:
-            impl::getrf_nopiv<Target::Devices>( A, opts );
+            return impl::getrf_nopiv<Target::Devices>( A, opts );
             break;
     }
-    // todo: return value for errors?
+    return -2;  // shouldn't happen
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void getrf_nopiv<float>(
+int64_t getrf_nopiv<float>(
     Matrix<float>& A,
     Options const& opts);
 
 template
-void getrf_nopiv<double>(
+int64_t getrf_nopiv<double>(
     Matrix<double>& A,
     Options const& opts);
 
 template
-void getrf_nopiv< std::complex<float> >(
+int64_t getrf_nopiv< std::complex<float> >(
     Matrix< std::complex<float> >& A,
     Options const& opts);
 
 template
-void getrf_nopiv< std::complex<double> >(
+int64_t getrf_nopiv< std::complex<double> >(
     Matrix< std::complex<double> >& A,
     Options const& opts);
 

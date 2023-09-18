@@ -17,26 +17,38 @@ namespace internal {
 /// @ingroup gesv_internal
 ///
 template <Target target, typename scalar_t>
-void getrf_nopiv(Matrix< scalar_t >&& A, int64_t ib, int priority)
+void getrf_nopiv(
+    Matrix< scalar_t >&& A,
+    int64_t ib, int priority, int64_t* info )
 {
-    getrf_nopiv(internal::TargetType<target>(), A, ib, priority);
+    getrf_nopiv( internal::TargetType<target>(), A, ib, priority, info );
 }
 
 //------------------------------------------------------------------------------
 /// LU factorization of single tile without pivoting, host implementation.
+///
+/// @param[in,out] info
+///     Exit status.
+///     * 0: successful exit
+///     * i > 0: U(i,i) is exactly zero (1-based index). The factorization
+///       will have NaN due to division by zero.
+///
 /// @ingroup gesv_internal
 ///
 template <typename scalar_t>
-void getrf_nopiv(internal::TargetType<Target::HostTask>,
-                 Matrix<scalar_t>& A,
-                 int64_t ib, int priority)
+void getrf_nopiv(
+    internal::TargetType<Target::HostTask>,
+    Matrix<scalar_t>& A,
+    int64_t ib, int priority, int64_t* info )
 {
     assert(A.mt() == 1);
     assert(A.nt() == 1);
 
+    *info = 0;
+
     if (A.tileIsLocal(0, 0)) {
         A.tileGetForWriting(0, 0, LayoutConvert::ColMajor);
-        getrf_nopiv(A(0, 0), ib);
+        tile::getrf_nopiv( A( 0, 0 ), ib, info );
     }
 }
 
@@ -47,28 +59,32 @@ template
 void getrf_nopiv<Target::HostTask, float>(
     Matrix<float>&& A,
     int64_t ib,
-    int priority);
+    int priority,
+    int64_t* info );
 
 // ----------------------------------------
 template
 void getrf_nopiv<Target::HostTask, double>(
     Matrix<double>&& A,
     int64_t ib,
-    int priority);
+    int priority,
+    int64_t* info );
 
 // ----------------------------------------
 template
 void getrf_nopiv< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     int64_t ib,
-    int priority);
+    int priority,
+    int64_t* info );
 
 // ----------------------------------------
 template
 void getrf_nopiv< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     int64_t ib,
-    int priority);
+    int priority,
+    int64_t* info );
 
 } // namespace internal
 } // namespace slate

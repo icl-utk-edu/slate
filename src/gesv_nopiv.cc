@@ -58,16 +58,14 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// TODO: return value
 /// @retval 0 successful exit
-/// @retval >0 for return value = $i$, the computed $U(i,i)$ is exactly zero.
-///         The factorization has been completed, but the factor U is exactly
-///         singular, so the solution could not be computed.
+/// @retval i > 0: U(i,i) is exactly zero (1-based index). The factorization
+///         will have NaN due to division by zero.
 ///
 /// @ingroup gesv
 ///
 template <typename scalar_t>
-void gesv_nopiv(
+int64_t gesv_nopiv(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     Options const& opts)
@@ -76,36 +74,37 @@ void gesv_nopiv(
     slate_assert(B.mt() == A.mt());
 
     // factorization
-    getrf_nopiv(A, opts);
+    int64_t info = getrf_nopiv( A, opts );
 
     // solve
-    getrs_nopiv(A, B, opts);
-
-    // todo: return value for errors?
+    if (info == 0) {
+        getrs_nopiv( A, B, opts );
+    }
+    return info;
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void gesv_nopiv<float>(
+int64_t gesv_nopiv<float>(
     Matrix<float>& A,
     Matrix<float>& B,
     Options const& opts);
 
 template
-void gesv_nopiv<double>(
+int64_t gesv_nopiv<double>(
     Matrix<double>& A,
     Matrix<double>& B,
     Options const& opts);
 
 template
-void gesv_nopiv< std::complex<float> >(
+int64_t gesv_nopiv< std::complex<float> >(
     Matrix< std::complex<float> >& A,
     Matrix< std::complex<float> >& B,
     Options const& opts);
 
 template
-void gesv_nopiv< std::complex<double> >(
+int64_t gesv_nopiv< std::complex<double> >(
     Matrix< std::complex<double> >& A,
     Matrix< std::complex<double> >& B,
     Options const& opts);

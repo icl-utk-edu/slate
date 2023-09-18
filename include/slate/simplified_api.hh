@@ -250,26 +250,15 @@ int64_t lu_solve(
 //-----------------------------------------
 // lu_solve_nopiv()
 
-// todo
-// gbsv_nopiv
-// template <typename scalar_t>
-// void lu_solve_nopiv(
-//     BandMatrix<scalar_t>& A,
-//         Matrix<scalar_t>& B,
-//     Options const& opts = Options())
-// {
-//     gbsv_nopiv(A, B, opts);
-// }
-
 // gesv_nopiv
-// todo: deprecate, use lu_solve( ..., { MethodLU: NoPiv } )
 template <typename scalar_t>
-void lu_solve_nopiv(
+[[deprecated( "Use lu_solve( A, { Option::MethodLU, MethodLU::NoPiv } ) instead. Will be removed 2024-09." )]]
+int64_t lu_solve_nopiv(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     Options const& opts = Options())
 {
-    gesv_nopiv(A, B, opts);
+    return gesv_nopiv( A, B, opts );
 }
 
 //-----------------------------------------
@@ -296,24 +285,14 @@ int64_t lu_factor(
 //-----------------------------------------
 // lu_factor_nopiv()
 
-// todo
-// gbtrf_nopiv
-// template <typename scalar_t>
-// void lu_factor_nopiv(
-//     BandMatrix<scalar_t>& A,
-//     Options const& opts = Options())
-// {
-//     gbtrf_nopiv(A, opts);
-// }
-
 // getrf_nopiv
-// todo: deprecate, use lu_factor_nopiv( ..., { MethodLU: NoPiv } )
 template <typename scalar_t>
-void lu_factor_nopiv(
+[[deprecated( "Use lu_factor( A, { Option::MethodLU, MethodLU::NoPiv } ) instead. Will be removed 2024-09." )]]
+int64_t lu_factor_nopiv(
     Matrix<scalar_t>& A,
     Options const& opts = Options())
 {
-    getrf_nopiv(A, opts);
+    return getrf_nopiv( A, opts );
 }
 
 //-----------------------------------------
@@ -342,20 +321,9 @@ void lu_solve_using_factor(
 //-----------------------------------------
 // lu_solve_using_factor_nopiv()
 
-// todo
-// gbtrs_nopiv
-// template <typename scalar_t>
-// void lu_solve_using_factor_nopiv(
-//     BandMatrix<scalar_t>& A,
-//         Matrix<scalar_t>& B,
-//     Options const& opts = Options())
-// {
-//     gbtrs_nopiv(A, B, opts);
-// }
-
 // getrs_nopiv
-// todo: deprecate, use lu_solve_using_factor( ..., { MethodLU: NoPiv } )
 template <typename scalar_t>
+[[deprecated( "Use lu_solve_using_factor( A, { Option::MethodLU, MethodLU::NoPiv } ) instead. Will be removed 2024-09." )]]
 void lu_solve_using_factor_nopiv(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,

@@ -14,7 +14,8 @@
 #include <lapack.hh>
 
 namespace slate {
-namespace internal {
+namespace tile {
+
 //------------------------------------------------------------------------------
 /// Compute the LU factorization of a tile without pivoting.
 ///
@@ -24,11 +25,19 @@ namespace internal {
 /// @param[in,out] tile
 ///     tile to factor
 ///
+/// @param[in,out] info
+///     Exit status.
+///     * 0: successful exit
+///     * i > 0: U(i,i) is exactly zero (1-based index). The factorization
+///       will have NaN due to division by zero.
+///
 /// @ingroup gesv_tile
 ///
 template <typename scalar_t>
-void getrf_nopiv(Tile<scalar_t> tile, int64_t ib)
+void getrf_nopiv(
+    Tile<scalar_t> tile, int64_t ib, int64_t* info )
 {
+    const scalar_t zero = 0.0;
     const scalar_t one = 1.0;
     int64_t nb = tile.nb();
     int64_t mb = tile.mb();
@@ -44,9 +53,14 @@ void getrf_nopiv(Tile<scalar_t> tile, int64_t ib)
         // Loop over ib columns of a stripe.
         for (int64_t j = k; j < k+kb; ++j) {
 
+            // Detect exact singularity.
+            scalar_t pivot = tile( j, j );
+            if (*info == 0 && pivot == zero)
+                *info = j + 1;
+
             if (j+1 < mb) {
                 // Update column
-                blas::scal(mb-j-1, one/tile(j, j), &tile.at(j+1, j), 1);
+                blas::scal( mb-j-1, one/pivot, &tile.at( j+1, j ), 1 );
             }
 
             // trailing update within ib block

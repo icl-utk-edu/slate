@@ -690,7 +690,7 @@ void generate_matrix_usage()
     "fiedler   |  matrix entry i,j equal to |i - j|\n"
     "gfpp      |  growth factor for gesv of 1.5^n\n"
     "kms       |  Kac-Murdock-Szego Toeplitz matrix\n"
-    "orthog    |  matrix entry i,j equal to sqrt(2/(n+1))sin(i*j*pi/(n+1))\n"
+    "orthog    |  matrix entry i,j equal to sqrt(2/(n+1))sin((i+1)(j+1)pi/(n+1))\n"
     "riemann   |  matrix entry i,j equal to i+1 if j+2 divides i+2 else -1\n"
     "ris       |  matrix entry i,j equal to 0.5/(n-i-j+1.5)\n"
     "zielkeNS  |  nonsymmetric matrix of Zielke\n"
@@ -1088,7 +1088,7 @@ int64_t configure_seed(MPI_Comm comm, int64_t user_seed)
 /// fiedler  | A matrix with entry i,j equal to |i - j|
 /// gfpp     | A matrix with a growth factor of 1.5^n for gesv
 /// kms      | Kac-Murdock-Szego Toeplitz matrix
-/// orthog   | A matrix with entry i,j equal to sqrt(2/(n+1))sin(i*j*pi/(n+1))
+/// orthog   | A matrix with entry i,j equal to sqrt(2/(n+1))sin((i+1)(j+1)pi/(n+1))
 /// riemann  | A matrix with entry i,j equal to i+1 if j+2 divides i+2 elso -1
 /// ris      | A matrix with entry i,j equal to 0.5/(n-i-j+1.5)
 /// zielkeNS | A nonsymmetric matrix of Zielke
@@ -1515,10 +1515,10 @@ void generate_matrix(
             #pragma omp parallel
             #pragma omp master
             {
-                int64_t i_global = 1;
+                int64_t i_global = 0;
                 for (int64_t i = 0; i < mt; ++i) {
                     const int64_t mb = A.tileMb(i);
-                    int64_t j_global = 1;
+                    int64_t j_global = 0;
                     for (int64_t j = 0; j < nt; ++j) {
                         const int64_t nb = A.tileNb(j);
                         if (A.tileIsLocal(i, j)) {

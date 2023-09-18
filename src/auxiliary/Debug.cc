@@ -74,7 +74,7 @@ void Debug::checkTilesLives( BaseMatrix<scalar_t> const& A )
 
         if (! A.tileIsLocal(i, j)) {
             if (iter->second->lives() != 0 ||
-                iter->second->numInstances() != 0) {
+                ! iter->second->empty()) {
 
                 std::cout << "RANK "  << std::setw(3) << A.mpi_rank_
                           << " TILE " << std::setw(3) << std::get<0>(iter->first)
@@ -209,7 +209,7 @@ void Debug::printTiles_(
                                 : 'w';
                     }
                     if (do_mosi) {
-                        char ch = to_char( iter->second->at( device )->getState() );
+                        char ch = to_char( iter->second->at( device )->mosiState() );
                         if (iter->second->at( device )->stateOn( MOSI::OnHold ))
                             ch = toupper( ch );
                         msg += ch;

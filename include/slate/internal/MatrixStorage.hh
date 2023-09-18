@@ -33,11 +33,8 @@ namespace slate {
 template <typename scalar_t>
 class TileNode {
 private:
-    typedef Tile<scalar_t> Tile_t;
     /// vector of tile instances indexed by device id.
-    using Tiles = std::vector< Tile_t* >;
-
-    Tiles tile_instances_;
+    std::vector< Tile<scalar_t>* > tiles_;
     int num_instances_;
     int64_t life_;
     /// number of times a tile is received.
@@ -57,7 +54,7 @@ public:
         slate_assert(num_devices >= 0);
         omp_init_nest_lock(&lock_);
         for (int d = 0; d < num_devices+1; ++d) {
-            tile_instances_.push_back( nullptr );
+            tiles_.push_back( nullptr );
         }
     }
 
@@ -70,10 +67,10 @@ public:
     }
 
     //--------------------------------------------------------------------------
-    // 2. copy constructor -- not allowed; lock_ and tile_instances_ are not copyable
-    // 3. move constructor -- not allowed; lock_ and tile_instances_ are not copyable
-    // 4. copy assignment  -- not allowed; lock_ and tile_instances_ are not copyable
-    // 5. move assignment  -- not allowed; lock_ and tile_instances_ are not copyable
+    // 2. copy constructor -- not allowed; lock_ and tiles_ are not copyable
+    // 3. move constructor -- not allowed; lock_ and tiles_ are not copyable
+    // 4. copy assignment  -- not allowed; lock_ and tiles_ are not copyable
+    // 5. move assignment  -- not allowed; lock_ and tiles_ are not copyable
     TileNode(TileNode&  orig) = delete;
     TileNode(TileNode&& orig) = delete;
     TileNode& operator = (TileNode&  orig) = delete;
@@ -90,10 +87,10 @@ public:
     /// Inserts a tile instance at device and increments the number of resident instances
     void insertOn(int device, Tile<scalar_t>* tile, MOSI_State state)
     {
-        slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
-        slate_assert(tile_instances_[device+1] == nullptr);
+        slate_assert(device >= -1 && device+1 < int(tiles_.size()));
+        slate_assert(tiles_[device+1] == nullptr);
         tile->mosiState( MOSI(state) );
-        tile_instances_[device+1] = tile;
+        tiles_[device+1] = tile;
         ++num_instances_;
     }
 
@@ -101,8 +98,8 @@ public:
     /// Returns whether a tile instance exists at device
     bool existsOn(int device) const
     {
-        slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
-        return tile_instances_[device+1] != nullptr;
+        slate_assert(device >= -1 && device+1 < int(tiles_.size()));
+        return tiles_[device+1] != nullptr;
     }
 
     //--------------------------------------------------------------------------
@@ -110,34 +107,29 @@ public:
     // CAUTION: tile's memory must have been already released to MatrixStorage Memory
     void eraseOn(int device)
     {
-        slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
-        if (tile_instances_[device+1] != nullptr) {
-            tile_instances_[device+1]->setState(MOSI::Invalid);
-            delete tile_instances_[device+1];
-            tile_instances_[device+1] = nullptr;
+        slate_assert(device >= -1 && device+1 < int(tiles_.size()));
+        if (tiles_[device+1] != nullptr) {
+            tiles_[device+1]->mosiState(MOSI::Invalid);
+            delete tiles_[device+1];
+            tiles_[device+1] = nullptr;
             --num_instances_;
         }
     }
 
     //--------------------------------------------------------------------------
     /// Returns a pointer to the tile instance at device
-    Tile_t* operator[](int device) const
+    Tile<scalar_t>* operator[](int device) const
     {
-        slate_assert(device >= -1 && device+1 < int(tile_instances_.size()));
-        return tile_instances_[device+1];
+        slate_assert(device >= -1 && device+1 < int(tiles_.size()));
+        return tiles_[device+1];
     }
 
     //--------------------------------------------------------------------------
     /// Returns a pointer to the tile instance at device
-    Tile_t* at(int dev) const
+    Tile<scalar_t>* at(int dev) const
     {
-        slate_assert(dev >= -1 && dev+1 < int(tile_instances_.size()));
-        return tile_instances_[dev+1];
-    }
-
-    int numInstances() const
-    {
-        return num_instances_;
+        slate_assert(dev >= -1 && dev+1 < int(tiles_.size()));
+        return tiles_[dev+1];
     }
 
     int64_t& lives()
@@ -428,7 +420,7 @@ public:
         assert(iter != end());
 
         int device = std::get<2>(ijdev);
-        return iter->second->at(device)->getState();
+        return iter->second->at(device)->mosiState();
     }
 
     /// Checks whether the given tile is on hold
@@ -449,7 +441,7 @@ public:
         auto iter = find( ijdev );
         if (iter != end()) {
             int device = std::get<2>(ijdev);
-            iter->second->at(device)->setState(~MOSI::OnHold);
+            iter->second->at(device)->mosiState(~MOSI::OnHold);
         }
     }
 

@@ -325,11 +325,6 @@ public:
     {
         return MOSI(mosi_state_ & MOSI_State(~MOSI::OnHold));
     }
-    // TODO remove this in favor of clearer names
-    MOSI getState()
-    {
-        return mosiState();
-    }
 
     /// returns whether the Modified/Shared/Invalid state or the OnHold flag is On
     bool stateOn(MOSI_State stateIn) const
@@ -404,11 +399,6 @@ protected:
                 assert(false);  // Unknown state
                 break;
         }
-    }
-    // TODO remove this in favor of clearer names
-    void setState(MOSI_State stateIn)
-    {
-        mosiState(stateIn);
     }
 
     //--------------------

@@ -67,6 +67,8 @@ void test_getri_work(Params& params, bool run)
     MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
     gridinfo(mpi_rank, p, q, &myrow, &mycol);
 
+    int64_t info = 0;
+
     // Matrix A: figure out local size.
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
@@ -152,11 +154,17 @@ void test_getri_work(Params& params, bool run)
         // Run SLATE test.
         //==================================================
         // factor then invert; measure time for both
-        slate::lu_factor(A, pivots, opts);
+        info = slate::lu_factor(A, pivots, opts);
         // Using traditional BLAS/LAPACK name
         // slate::getrf(A, pivots, opts);
 
-        if (params.routine == "getri") {
+        if (info != 0) {
+            char buf[ 80 ];
+            snprintf( buf, sizeof(buf), "info = %lld, cond = %.2e",
+                      llong( info ), params.matrix.cond_actual() );
+            params.msg() = buf;
+        }
+        else if (params.routine == "getri") {
             // call in-place inversion
             slate::lu_inverse_using_factor(A, pivots, opts);
             // Using traditional BLAS/LAPACK name
@@ -178,14 +186,19 @@ void test_getri_work(Params& params, bool run)
         params.gflops() = gflop / time;
     }
 
-    if (check) {
+    if (info != 0 || std::isinf( params.matrix.cond_actual() )) {
+        // info != 0 if and only if cond == inf (singular matrix).
+        // Matrices with unknown cond (nan) that are singular are marked failed.
+        params.okay() = info != 0 && std::isinf( params.matrix.cond_actual() );
+    }
+    else if (check) {
         #ifdef SLATE_HAVE_SCALAPACK
             //==================================================
             // Check  || I - inv(A)*A || / ( || A || * N ) <=  tol * eps
             // TODO: implement check using SLATE.
 
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
+            int ictxt, p_, q_, myrow_, mycol_, iinfo;
             int A_desc[9], Aref_desc[9];
             int Cchk_desc[9];
             int mpi_rank_ = 0, nprocs = 1;
@@ -202,14 +215,14 @@ void test_getri_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
+            scalapack_descinit( A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &iinfo );
+            slate_assert( iinfo == 0 );
 
-            scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
+            scalapack_descinit( Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &iinfo );
+            slate_assert( iinfo == 0 );
 
-            scalapack_descinit(Cchk_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
-            slate_assert(info == 0);
+            scalapack_descinit( Cchk_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &iinfo );
+            slate_assert( iinfo == 0 );
 
             if (origin != slate::Origin::ScaLAPACK) {
                 // Copy SLATE result back from GPU or CPU tiles.

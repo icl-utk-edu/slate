@@ -127,7 +127,10 @@ group_opt.add_argument( '--nt',     action='store', help='default=%(default)s', 
 group_opt.add_argument( '--np',     action='store', help='number of MPI processes; default=%(default)s', default='1' )
 group_opt.add_argument( '--grid',   action='store', help='use p-by-q MPI process grid', default='' )
 group_opt.add_argument( '--repeat', action='store', help='times to repeat each test', default='' )
-group_opt.add_argument( '--thresh', action='store', help='default=%(default)s', default='1,0.5')
+group_opt.add_argument( '--thresh', action='store', help='default=%(default)s', default='1,0.5' )
+group_opt.add_argument( '--matrix',  action='store', help='default=%(default)s', default='' )
+group_opt.add_argument( '--matrixB', action='store', help='default=%(default)s', default='' )
+group_opt.add_argument( '--matrixC', action='store', help='default=%(default)s', default='' )
 
 parser.add_argument( 'tests', nargs=argparse.REMAINDER )
 opts = parser.parse_args()
@@ -299,11 +302,18 @@ nt     = ' --nt '     + opts.nt     if (opts.nt)     else ''
 grid   = ' --grid '   + opts.grid   if (opts.grid)   else ''
 repeat = ' --repeat ' + opts.repeat if (opts.repeat) else ''
 thresh = ' --thresh ' + opts.thresh if (opts.thresh) else ''
+matrix  = ' --matrix  ' + opts.matrix  if (opts.matrix)  else ''
+matrixB = ' --matrixB ' + opts.matrixB if (opts.matrixB) else ''
+matrixC = ' --matrixC ' + opts.matrixC if (opts.matrixC) else ''
+matrixBC = matrixB + matrixC
 
 # general options for all routines
 gen       = origin + target + grid + check + ref + tol + repeat + nb
 gen_no_nb = origin + target + grid + check + ref + tol + repeat
 gen_no_target =               grid + check + ref + tol + repeat + nb
+
+if (opts.matrix):
+    gen += matrix
 
 # ------------------------------------------------------------------------------
 # filters a comma separated list csv based on items in list values.
@@ -334,41 +344,41 @@ cmds = []
 # Level 3
 if (opts.blas3):
     cmds += [
-    [ 'gbmm',  gen + dtype + la + transA + transB + mnk + ab + kl + ku ],
+    [ 'gbmm',  gen + dtype + la + transA + transB + mnk + ab + kl + ku + matrixBC ],
 
-    [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab ],
-    [ 'gemmA', gen + dtype + la + transA + transB + mnk + ab ],
-    [ 'gemmC', gen + dtype + la + transA + transB + mnk + ab ],
+    [ 'gemm',  gen + dtype + la + transA + transB + mnk + ab + matrixBC ],
+    [ 'gemmA', gen + dtype + la + transA + transB + mnk + ab + matrixBC ],
+    [ 'gemmC', gen + dtype + la + transA + transB + mnk + ab + matrixBC ],
 
-    [ 'hemm',  gen + dtype         + la + side + uplo     + mn + ab ],
+    [ 'hemm',  gen + dtype         + la + side + uplo     + mn + ab + matrixBC ],
     # todo: hemmA GPU support
-    [ 'hemmA', gen_no_target + dtype + la + side + uplo     + mn + ab ],
-    [ 'hemmC', gen + dtype         + la + side + uplo     + mn + ab ],
+    [ 'hemmA', gen_no_target + dtype + la + side + uplo   + mn + ab + matrixBC ],
+    [ 'hemmC', gen + dtype         + la + side + uplo     + mn + ab + matrixBC],
 
-    [ 'hbmm',  gen + dtype         + la + side + uplo     + mn + ab + kd ],
+    [ 'hbmm',  gen + dtype         + la + side + uplo     + mn + ab + kd + matrixBC ],
 
-    [ 'herk',  gen + dtype_real    + la + uplo + trans    + mn + ab ],
-    [ 'herk',  gen + dtype_complex + la + uplo + trans_nc + mn + ab ],
+    [ 'herk',  gen + dtype_real    + la + uplo + trans    + mn + ab + matrixC ],
+    [ 'herk',  gen + dtype_complex + la + uplo + trans_nc + mn + ab + matrixC ],
 
-    [ 'her2k', gen + dtype_real    + la + uplo + trans    + mn + ab ],
-    [ 'her2k', gen + dtype_complex + la + uplo + trans_nc + mn + ab ],
+    [ 'her2k', gen + dtype_real    + la + uplo + trans    + mn + ab + matrixBC ],
+    [ 'her2k', gen + dtype_complex + la + uplo + trans_nc + mn + ab + matrixBC ],
 
-    [ 'symm',  gen + dtype         + la + side + uplo     + mn + ab ],
+    [ 'symm',  gen + dtype         + la + side + uplo     + mn + ab + matrixBC ],
 
-    [ 'syr2k', gen + dtype_real    + la + uplo + trans    + mn + ab ],
-    [ 'syr2k', gen + dtype_complex + la + uplo + trans_nt + mn + ab ],
+    [ 'syr2k', gen + dtype_real    + la + uplo + trans    + mn + ab + matrixC ],
+    [ 'syr2k', gen + dtype_complex + la + uplo + trans_nt + mn + ab + matrixC ],
 
-    [ 'syrk',  gen + dtype_real    + la + uplo + trans    + mn + ab ],
-    [ 'syrk',  gen + dtype_complex + la + uplo + trans_nt + mn + ab ],
+    [ 'syrk',  gen + dtype_real    + la + uplo + trans    + mn + ab + matrixBC ],
+    [ 'syrk',  gen + dtype_complex + la + uplo + trans_nt + mn + ab + matrixBC ],
 
     # todo: tbsm fails for nb=8 or 16 with --quick.
-    [ 'tbsm',  gen_no_nb + ' --nb 32' + dtype + la + side + uplo + transA + diag + mn + a + kd ],
+    [ 'tbsm',  gen_no_nb + ' --nb 32' + dtype + la + side + uplo + transA + diag + mn + a + kd + matrixB ],
 
-    [ 'trmm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
+    [ 'trmm',  gen + dtype + la + side + uplo + transA + diag + mn + a + matrixB ],
 
-    [ 'trsm',  gen + dtype + la + side + uplo + transA + diag + mn + a ],
-    [ 'trsmA', gen + dtype + la + side + uplo + transA + diag + mn + a ],
-    [ 'trsmB', gen + dtype + la + side + uplo + transA + diag + mn + a ],
+    [ 'trsm',  gen + dtype + la + side + uplo + transA + diag + mn + a + matrixB ],
+    [ 'trsmA', gen + dtype + la + side + uplo + transA + diag + mn + a + matrixB ],
+    [ 'trsmB', gen + dtype + la + side + uplo + transA + diag + mn + a + matrixB ],
     ]
 
 # LU

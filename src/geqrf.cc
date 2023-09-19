@@ -78,7 +78,6 @@ void geqrf(
 
 
     // Constants
-    const int life_1 = 1;
     const int priority_0 = 0;
     const int priority_1 = 1;
     // Assumes column major
@@ -219,9 +218,7 @@ void geqrf(
                             // send A(i, k) across row A(i, k+1:nt-1)
                             bcast_list_V.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                         }
-                        const int tag_0  = 0;
-                        A.template listBcast<target>(
-                            bcast_list_V, layout, tag_0, life_1 );
+                        A.template listBcast<target>( bcast_list_V, layout );
                     }
 
                     // bcast Tlocal across row for trailing matrix update
@@ -230,10 +227,7 @@ void geqrf(
                         for (int64_t row : first_indices) {
                             bcast_list_T.push_back({row, k, {Tlocal.sub(row, row, k+1, A_nt-1)}});
                         }
-                        int tag_k = k;
-                        Tlocal.template listBcast<target>(
-                            bcast_list_T, layout,
-                            tag_k, life_1 );
+                        Tlocal.template listBcast<target>( bcast_list_T, layout );
                     }
 
                     // bcast Treduce across row for trailing matrix update

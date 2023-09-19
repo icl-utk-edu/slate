@@ -78,7 +78,6 @@ void gelqf(
     opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     // Constants
-    const int life_1 = 1;
     const int priority_0 = 0;
     const int priority_1 = 1;
     // Assumes column major
@@ -264,9 +263,7 @@ void gelqf(
                             // send A(k, j) down col A(k+1:mt-1, j)
                             bcast_list_V.push_back({k, j, {A.sub(k+1, A_mt-1, j, j)}});
                         }
-                        const int tag_0 = 0;
-                        A.template listBcast<target>(
-                            bcast_list_V, layout, tag_0, life_1 );
+                        A.template listBcast<target>( bcast_list_V, layout );
                     }
 
                     // bcast Tlocal down col for trailing matrix update
@@ -275,10 +272,7 @@ void gelqf(
                         for (int64_t col : first_indices) {
                             bcast_list_T.push_back({k, col, {Tlocal.sub(k+1, A_mt-1, col, col)}});
                         }
-                        int tag_k = k;
-                        Tlocal.template listBcast<target>(
-                            bcast_list_T, layout,
-                            tag_k, life_1 );
+                        Tlocal.template listBcast<target>( bcast_list_T, layout );
                     }
 
                     // bcast Treduce down col for trailing matrix update

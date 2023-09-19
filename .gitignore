@@ -17,6 +17,7 @@ lib/*.a
 lib/*.so
 lib/pkgconfig/*.pc
 make.inc
+src/cuda/*.md5
 slate-*
 test/tester
 unit_test/run_tests.py

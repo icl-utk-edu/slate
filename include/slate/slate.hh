@@ -579,7 +579,7 @@ int64_t getrf_nopiv(
 //-----------------------------------------
 // getrf_tntpiv()
 template <typename scalar_t>
-void getrf_tntpiv(
+int64_t getrf_tntpiv(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts = Options());
 

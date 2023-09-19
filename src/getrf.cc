@@ -315,7 +315,7 @@ int64_t getrf(
 ///         Note pivots vector is currently ignored for NoPiv.
 ///
 /// @retval 0 successful exit
-/// @retval i > 0, $U(i,i)$ is exactly zero, where i is a 1-based index.
+/// @retval i > 0: $U(i,i)$ is exactly zero, where i is a 1-based index.
 ///         The factorization has been completed, but the factor $U$ is exactly
 ///         singular, and division by zero will occur if it is used
 ///         to solve a system of equations.
@@ -328,15 +328,14 @@ int64_t getrf(
     Options const& opts )
 {
     Method method = get_option( opts, Option::MethodLU, MethodLU::PartialPiv );
-    int64_t info = 0;
 
     // todo: info for tntpiv, nopiv
     if (method == MethodLU::CALU) {
-        getrf_tntpiv( A, pivots, opts );
+        return getrf_tntpiv( A, pivots, opts );
     }
     else if (method == MethodLU::NoPiv) {
         // todo: fill in pivots vector?
-        info = getrf_nopiv( A, opts );
+        return getrf_nopiv( A, opts );
     }
     else if (method == MethodLU::PartialPiv) {
         Target target = get_option( opts, Option::Target, Target::HostTask );
@@ -344,26 +343,26 @@ int64_t getrf(
         switch (target) {
             case Target::Host:
             case Target::HostTask:
-                info = impl::getrf<Target::HostTask>( A, pivots, opts );
+                return impl::getrf<Target::HostTask>( A, pivots, opts );
                 break;
 
             case Target::HostNest:
-                info = impl::getrf<Target::HostNest>( A, pivots, opts );
+                return impl::getrf<Target::HostNest>( A, pivots, opts );
                 break;
 
             case Target::HostBatch:
-                info = impl::getrf<Target::HostBatch>( A, pivots, opts );
+                return impl::getrf<Target::HostBatch>( A, pivots, opts );
                 break;
 
             case Target::Devices:
-                info = impl::getrf<Target::Devices>( A, pivots, opts );
+                return impl::getrf<Target::Devices>( A, pivots, opts );
                 break;
         }
     }
     else {
         throw Exception( "unknown value for MethodLU" );
     }
-    return info;
+    return -2;  // shouldn't happen
 }
 
 //------------------------------------------------------------------------------

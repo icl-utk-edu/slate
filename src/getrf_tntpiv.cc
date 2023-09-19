@@ -21,7 +21,7 @@ namespace impl {
 /// @ingroup gesv_impl
 ///
 template <Target target, typename scalar_t>
-void getrf_tntpiv(
+int64_t getrf_tntpiv(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts)
 {
@@ -57,6 +57,7 @@ void getrf_tntpiv(
     if (target == Target::Devices)
         target_layout = Layout::RowMajor;
 
+    int64_t info = 0;
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
@@ -149,6 +150,7 @@ void getrf_tntpiv(
     #pragma omp parallel
     #pragma omp master
     {
+        int64_t kk = 0;
         for (int64_t k = 0; k < min_mt_nt; ++k) {
 
             int64_t diag_len = std::min(A.tileMb(k), A.tileNb(k));
@@ -163,10 +165,14 @@ void getrf_tntpiv(
 
                 // Factor A(k:mt-1, k) using tournament pivoting to get
                 // pivots and diagonal tile, Akk in workspace Apanel.
+                int64_t iinfo;
                 internal::getrf_tntpiv_panel<target>(
                     A.sub(k, A_mt-1, k, k), std::move(Apanel),
                     dwork_array, dwork_bytes, diag_len, ib,
-                    pivots.at(k), max_panel_threads, priority_1 );
+                    pivots.at(k), max_panel_threads, priority_1, &iinfo );
+                if (info == 0 && iinfo > 0) {
+                    info = kk + iinfo;
+                }
 
                 // Root broadcasts the pivot to all ranks.
                 // todo: Panel ranks send the pivots to the right.
@@ -340,6 +346,7 @@ void getrf_tntpiv(
                     }
                 }
             }
+            kk += A.tileNb( k );
         }
         #pragma omp taskwait
 
@@ -353,6 +360,9 @@ void getrf_tntpiv(
             dwork_array[dev] = nullptr;
         }
     }
+
+    internal::reduce_info( &info, A.mpiComm() );
+    return info;
 }
 
 } // namespace impl
@@ -403,15 +413,16 @@ void getrf_tntpiv(
 ///
 /// TODO: return value
 /// @retval 0 successful exit
-/// @retval >0 for return value = $i$, $U(i,i)$ is exactly zero. The
-///         factorization has been completed, but the factor $U$ is exactly
+/// @retval i < 0: the i-th argument had an illegal value.
+/// @retval i > 0: $U(i,i)$ is exactly zero, where i is a 1-based index.
+///         The factorization has been completed, but the factor $U$ is exactly
 ///         singular, and division by zero will occur if it is used
 ///         to solve a system of equations.
 ///
 /// @ingroup gesv_computational
 ///
 template <typename scalar_t>
-void getrf_tntpiv(
+int64_t getrf_tntpiv(
     Matrix<scalar_t>& A, Pivots& pivots,
     Options const& opts)
 {
@@ -420,43 +431,43 @@ void getrf_tntpiv(
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            impl::getrf_tntpiv<Target::HostTask>( A, pivots, opts );
+            return impl::getrf_tntpiv<Target::HostTask>( A, pivots, opts );
             break;
 
         case Target::HostNest:
-            impl::getrf_tntpiv<Target::HostNest>( A, pivots, opts );
+            return impl::getrf_tntpiv<Target::HostNest>( A, pivots, opts );
             break;
 
         case Target::HostBatch:
-            impl::getrf_tntpiv<Target::HostBatch>( A, pivots, opts );
+            return impl::getrf_tntpiv<Target::HostBatch>( A, pivots, opts );
             break;
 
         case Target::Devices:
-            impl::getrf_tntpiv<Target::Devices>( A, pivots, opts );
+            return impl::getrf_tntpiv<Target::Devices>( A, pivots, opts );
             break;
     }
-    // todo: return value for errors?
+    return -2;  // shouldn't happen
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void getrf_tntpiv<float>(
+int64_t getrf_tntpiv<float>(
     Matrix<float>& A, Pivots& pivots,
     Options const& opts);
 
 template
-void getrf_tntpiv<double>(
+int64_t getrf_tntpiv<double>(
     Matrix<double>& A, Pivots& pivots,
     Options const& opts);
 
 template
-void getrf_tntpiv< std::complex<float> >(
+int64_t getrf_tntpiv< std::complex<float> >(
     Matrix< std::complex<float> >& A, Pivots& pivots,
     Options const& opts);
 
 template
-void getrf_tntpiv< std::complex<double> >(
+int64_t getrf_tntpiv< std::complex<double> >(
     Matrix< std::complex<double> >& A, Pivots& pivots,
     Options const& opts);
 

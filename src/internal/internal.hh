@@ -503,7 +503,7 @@ void getrf_tntpiv_panel(
     std::vector< char* > dwork_array, size_t dwork_bytes,
     int64_t diag_len, int64_t ib,
     std::vector<Pivot>& pivot,
-    int max_panel_threads, int priority=0);
+    int max_panel_threads, int priority, int64_t* info );
 
 //-----------------------------------------
 // geqrf()

@@ -88,9 +88,9 @@ void ttmlq(internal::TargetType<Target::HostTask>,
     int nlevels = int( ceil( log2( nranks ) ) );
 
     // Apply reduction tree.
-    // If Left, NoTrans or Right, Trans, apply descending from root to leaves,
+    // If Left, Trans or Right, NoTrans, apply descending from root to leaves,
     // i.e., in reverse order of how they were created.
-    // If Left, Trans or Right, NoTrans, apply ascending from leaves to root,
+    // If Left, NoTrans or Right, Trans, apply ascending from leaves to root,
     // i.e., in same order as they were created.
     // Example for A.mt == 8.
     // Leaves:
@@ -103,7 +103,7 @@ void ttmlq(internal::TargetType<Target::HostTask>,
     //     ttqrt( a4, a6 )
     // Root:
     //     ttqrt( a0, a4 )
-    bool descend = (side == Side::Left) == (op == Op::NoTrans);
+    bool descend = (side == Side::Left) != (op == Op::NoTrans);
     int step;
     if (descend)
         step = pow(2, nlevels - 1);

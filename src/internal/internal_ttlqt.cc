@@ -81,7 +81,7 @@ void ttlqt(internal::TargetType<Target::HostTask>,
         int nranks = rank_cols.size();
         int nlevels = int( ceil( log2( nranks ) ) );
 
-        // Example: 2D cyclic, p = 7, q = 1, row k = 9
+        // Example: 2D cyclic, p = 1, q = 7, row k = 9
         //                                           Levels
         //               { rank, col }        index  L=0  L=1  L=2
         // rank_cols = [ {    2,   9 },    // 0      src  src  src

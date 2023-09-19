@@ -197,8 +197,6 @@ void gelqf(
             auto  AT_panel =      AT.sub(k, A_nt-1, k, k);
             auto TlT_panel = TlocalT.sub(k, A_nt-1, k, k);
 
-            AT_panel.insertLocalTiles();
-
             std::vector< int64_t > first_indices;
             gelqf_compute_first_indices(A_panel, k, first_indices);
 
@@ -212,7 +210,9 @@ void gelqf(
                 for (int64_t j = 0; j < A_panel.nt(); ++j) {
                     if (A_panel.tileIsLocal(0, j)) {
                         // Needed if origin is device
-                        A_panel.tileGetForWriting( 0, j, LayoutConvert( layout ) );
+                        A_panel.tileGetForReading( 0, j, LayoutConvert( layout ) );
+                        AT_panel.tileInsert( j, 0 );
+                        AT_panel.tileModified( j, 0, HostNum );
                         tile::deepConjTranspose( A_panel(0, j), AT_panel(j, 0) );
                     }
                 }
@@ -231,6 +231,7 @@ void gelqf(
                         // the tile for reading on Host, it is not updated
                         TlT_panel.tileGetForReading( i, 0, LayoutConvert( layout ) );
                         Tl_panel.tileInsert(0, i);
+                        Tl_panel.tileModified( 0, i, HostNum );
                         tile::gecopy( TlT_panel(i, 0), Tl_panel(0, i) );
                         break;
                     }
@@ -240,6 +241,7 @@ void gelqf(
                     if (A_panel.tileIsLocal(0, j)) {
                         // Same as above for TlT
                         AT_panel.tileGetForReading( j, 0, LayoutConvert( layout ) );
+                        A_panel.tileGetForWriting( 0, j, LayoutConvert( layout ) );
                         tile::deepConjTranspose( AT_panel(j, 0), A_panel(0, j) );
                     }
                 }

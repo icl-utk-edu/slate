@@ -31,8 +31,8 @@ enum class TestMatrixType {
     randn = int(slate::random::Dist::Normal),
     randb = int(slate::random::Dist::Binary),
     randr = int(slate::random::Dist::BinarySigned),
-    zero,
-    one,
+    zeros,
+    ones,
     identity,
     ij,
     jordan,
@@ -680,8 +680,8 @@ void generate_matrix_usage()
     "\n"
     "%sMatrix%s    |  %sDescription%s\n"
     "----------|-------------\n"
-    "zero      |  all zero\n"
-    "one       |  all one\n"
+    "zeros     |  all zero\n"
+    "ones      |  all one\n"
     "identity  |  ones on diagonal, rest zero\n"
     "ij        |  Aij = i + j / 10^ceil( log10( max( m, n ) ) )\n"
     "jordan    |  ones on diagonal and first subdiagonal, rest zero\n"
@@ -804,8 +804,8 @@ void decode_matrix(
     std::string base = *token_iter;
     ++token_iter;
     type = TestMatrixType::identity;
-    if      (base == "zero"    ) { type = TestMatrixType::zero;     }
-    else if (base == "one"     ) { type = TestMatrixType::one;      }
+    if      (base == "zeros"   ) { type = TestMatrixType::zeros;    }
+    else if (base == "ones"    ) { type = TestMatrixType::ones;     }
     else if (base == "identity") { type = TestMatrixType::identity; }
     else if (base == "ij"      ) { type = TestMatrixType::ij;       }
     else if (base == "jordan"  ) { type = TestMatrixType::jordan;   }
@@ -976,15 +976,14 @@ void decode_matrix(
     }
 
     // Check if cond is known or unused.
-    if (type == TestMatrixType::zero || type == TestMatrixType::one) {
+    if (type == TestMatrixType::zeros
+        || type == TestMatrixType::ones
+        || zero_col >= 0) {
         cond = inf;
     }
     else if (type == TestMatrixType::identity
              || type == TestMatrixType::orthog) {
         cond = 1;
-    }
-    else if (zero_col >= 0) {
-        cond = inf;
     }
     else if (type != TestMatrixType::svd
              && type != TestMatrixType::heev
@@ -1101,8 +1100,8 @@ int64_t configure_seed(MPI_Comm comm, int64_t user_seed)
 ///
 /// Matrix   | Description
 /// ---------|------------
-/// zero     | all zero
-/// one      | all one
+/// zeros    | all zero
+/// ones     | all one
 /// identity | ones on diagonal, rest zero
 /// jordan   | ones on diagonal and first subdiagonal, rest zero
 /// chebspec | Nonsingular Chebyshev spectral differential matrix
@@ -1222,13 +1221,13 @@ void generate_matrix(
 
     // ----- generate matrix
     switch (type) {
-        case TestMatrixType::zero:
+        case TestMatrixType::zeros:
             set(zero, zero, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_zero, d_zero, Sigma.data(), Sigma.size() );
             break;
 
-        case TestMatrixType::one:
+        case TestMatrixType::ones:
             set(one, one, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_zero, d_one, Sigma.data(), Sigma.size() );
@@ -1815,13 +1814,13 @@ void generate_matrix(
     int64_t mt = A.mt();
     // ----- generate matrix
     switch (type) {
-        case TestMatrixType::zero:
+        case TestMatrixType::zeros:
             set(zero, zero, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_zero, d_zero, Sigma.data(), Sigma.size() );
             break;
 
-        case TestMatrixType::one:
+        case TestMatrixType::ones:
             set(one, one, A);
             lapack::laset( lapack::MatrixType::General, Sigma.size(), 1,
                 d_zero, d_one, Sigma.data(), Sigma.size() );

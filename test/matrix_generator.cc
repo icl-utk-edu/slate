@@ -739,6 +739,8 @@ void generate_matrix_usage()
     "%s@ Modifier%s      |  %sDescription%s\n"
     "----------------|-------------\n"
     "_dominant       |  make matrix diagonally dominant\n"
+    "_zerocolN       |  set column N to zero, 0 <= N < n\n"
+    "_zerocolFRAC    |  set column FRAC * (n-1) to zero, 0 <= FRAC <= 1.0\n"
     "\n",
         ansi_bold, ansi_normal,
         ansi_bold, ansi_normal,
@@ -764,7 +766,8 @@ void decode_matrix(
     blas::real_type<scalar_t>& cond,
     blas::real_type<scalar_t>& condD,
     blas::real_type<scalar_t>& sigma_max,
-    bool& dominant)
+    bool& dominant,
+    int64_t& zero_col )
 {
     using real_t = blas::real_type<scalar_t>;
 
@@ -866,6 +869,34 @@ void decode_matrix(
 
         // ----- decode modifiers
         else if (token == "dominant") { dominant = true; }
+        else if (token.find( "zerocol" ) == 0) {
+            // zeroN for integer N, or zeroR for
+            token = token.substr( 7 );  // skip "zerocol"
+            size_t pos;
+            zero_col = std::stoi( token, &pos, 0 );
+            if (pos < token.size()) {
+                double fraction = std::stod( token, &pos );
+                if (pos < token.size()) {
+                    snprintf( msg, sizeof( msg ),
+                              "in '%s': can't parse number after 'zerocol'",
+                              kind.c_str() );
+                    throw std::runtime_error( msg );
+                }
+                if (fraction < 0.0 || fraction > 1.0) {
+                    snprintf( msg, sizeof( msg ),
+                              "in '%s': fraction outside [0.0, 1.0]",
+                              kind.c_str() );
+                    throw std::runtime_error( msg );
+                }
+                zero_col = int64_t( fraction * (A.n() - 1) );
+            }
+            if (zero_col < 0 || zero_col >= A.n()) {
+                snprintf( msg, sizeof(msg),
+                          "in '%s', column index %lld outside [0, n=%lld)",
+                          kind.c_str(), llong( zero_col ), llong( A.n() ) );
+                throw std::runtime_error( msg );
+            }
+        }
         else {
             snprintf( msg, sizeof( msg ), "in '%s': unknown suffix '%s'",
                       kind.c_str(), token.c_str() );
@@ -951,6 +982,9 @@ void decode_matrix(
     else if (type == TestMatrixType::identity
              || type == TestMatrixType::orthog) {
         cond = 1;
+    }
+    else if (zero_col >= 0) {
+        cond = inf;
     }
     else if (type != TestMatrixType::svd
              && type != TestMatrixType::heev
@@ -1175,7 +1209,9 @@ void generate_matrix(
     real_t condD;
     real_t sigma_max;
     bool dominant;
-    decode_matrix<scalar_t>(params, A, type, dist, cond, condD, sigma_max, dominant);
+    int64_t zero_col;
+    decode_matrix<scalar_t>(
+        params, A, type, dist, cond, condD, sigma_max, dominant, zero_col );
 
     int64_t seed = configure_seed(A.mpiComm(), params.seed());
 
@@ -1701,6 +1737,36 @@ void generate_matrix(
                   params.kind().c_str() );
         throw std::runtime_error( msg );
     }
+
+    // Set A( :, zero_col ) = 0.
+    if (zero_col >= 0) {
+        #pragma omp parallel
+        #pragma omp master
+        {
+            int64_t j_global = 0;
+            for (int64_t j = 0; j < nt; ++j) {
+                int64_t jj = zero_col - j_global;
+                if (0 <= jj && jj < A.tileNb( j )) {
+                    for (int64_t i = 0; i < mt; ++i) {
+                        if (A.tileIsLocal( i, j )) {
+                            #pragma omp task slate_omp_default_none shared( A ) \
+                                firstprivate( i, j, jj, zero )
+                            {
+                                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                                auto Aij = A( i, j );
+                                lapack::laset(
+                                    lapack::MatrixType::General,
+                                    Aij.mb(), 1, zero, zero,
+                                    &Aij.at( 0, jj ), Aij.stride() );
+                            }
+                        }
+                    }
+                }
+                j_global += A.tileNb( j );
+            }
+        }
+    }
+
     A.tileUpdateAllOrigin();
 }
 
@@ -1738,7 +1804,9 @@ void generate_matrix(
     real_t condD;
     real_t sigma_max;
     bool dominant;
-    decode_matrix<scalar_t>(params, A, type, dist, cond, condD, sigma_max, dominant);
+    int64_t zero_col;
+    decode_matrix<scalar_t>(
+        params, A, type, dist, cond, condD, sigma_max, dominant, zero_col );
 
     int64_t seed = configure_seed(A.mpiComm(), params.seed());
 

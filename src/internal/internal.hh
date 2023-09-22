@@ -394,12 +394,14 @@ void permuteRowsCols(
 template <Target target=Target::HostTask, typename scalar_t>
 void add(scalar_t alpha, Matrix<scalar_t>&& A,
          scalar_t beta,  Matrix<scalar_t>&& B,
-         int priority=0, int queue_index=0);
+         int priority=0, int queue_index=0,
+         Options const& opts = Options());
 
 template <Target target=Target::HostTask, typename scalar_t>
 void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>&& A,
          scalar_t beta,  BaseTrapezoidMatrix<scalar_t>&& B,
-         int priority=0, int queue_index=0);
+         int priority=0, int queue_index=0,
+         Options const& opts = Options());
 
 //------------------------------------------------------------------------------
 // Bidiagonal band reduction

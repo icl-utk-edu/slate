@@ -169,14 +169,14 @@ void unmlq(internal::TargetType<target>,
                 priority, queue_index, opts);
         internal::trmm<target>(
                 Side::Left,
-                one, conj_transpose( V0tr ),
+                one, std::move(V0tr),
                      std::move(Wr),
                 priority, queue_index, opts);
 
         if (trapezoid) {
             // W <- V0b C0b + W
             internal::gemm<target>(
-                    one, conj_transpose( V0b ),
+                    one, std::move(V0b),
                          std::move(C0b),
                     one, std::move(Wr),
                     layout,
@@ -192,7 +192,7 @@ void unmlq(internal::TargetType<target>,
                 Ci.tileGetAndHoldAllOnDevices(LayoutConvert(layout));
             }
             internal::gemm<target>(
-                    one, conj_transpose( V.sub( row, row, 0, 0 ) ),
+                    one, V.sub(0, 0, row, row),
                          std::move(Ci),
                     one, std::move(Wr),
                     layout,

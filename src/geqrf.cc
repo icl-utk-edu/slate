@@ -317,18 +317,22 @@ void geqrf(
                 }
 
                 for (int64_t i : first_indices) {
-                    if (Tlocal.tileIsLocal(i, k)) {
-                        Tlocal.tileUpdateOrigin(i, k);
-
-                        Tlocal.releaseLocalWorkspaceTile(i, k);
+                    if (Tlocal.tileIsLocal( i, k )) {
+                        // Tlocal and Treduce have the have process distribution
+                        Tlocal.tileUpdateOrigin( i, k );
+                        Tlocal.releaseLocalWorkspaceTile( i, k );
+                        if (i != k) {
+                            // i == k is the root of the reduction tree
+                            // Treduce( k, k ) isn't allocated
+                            Treduce.tileUpdateOrigin( i, k );
+                            Treduce.releaseLocalWorkspaceTile( i, k );
+                        }
                     }
                     else {
-                        Tlocal.releaseRemoteWorkspaceTile(i, k);
+                        Tlocal.releaseRemoteWorkspaceTile( i, k );
+                        Treduce.releaseRemoteWorkspaceTile( i, k );
                     }
                 }
-
-                Tr_panel.releaseLocalWorkspace();
-                Tr_panel.releaseRemoteWorkspace();
             }
         }
 

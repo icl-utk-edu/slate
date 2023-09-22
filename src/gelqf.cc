@@ -243,9 +243,9 @@ void gelqf(
                         AT_panel.tileGetForReading( j, 0, LayoutConvert( layout ) );
                         A_panel.tileGetForWriting( 0, j, LayoutConvert( layout ) );
                         tile::deepConjTranspose( AT_panel(j, 0), A_panel(0, j) );
+                        AT_panel.tileErase(j, 0, AllDevices);
                     }
                 }
-                // todo: AT_panel.clear();
                 //--------------------
 
                 // triangle-triangle reductions
@@ -357,27 +357,29 @@ void gelqf(
                     if (A.tileIsLocal(k, j)) {
                         A.tileUpdateOrigin(k, j);
                         A.releaseLocalWorkspaceTile(k, j);
-                        AT.tileErase(j, k, AllDevices);
                     }
                     else {
                         A.releaseRemoteWorkspaceTile(k, j);
-                        AT.releaseRemoteWorkspaceTile(j, k);
                     }
                 }
 
                 for (int64_t j : first_indices) {
-                    if (Tlocal.tileIsLocal(k, j)) {
-                        Tlocal.tileUpdateOrigin(k, j);
-
-                        Tlocal.releaseLocalWorkspaceTile(k, j);
+                    if (Tlocal.tileIsLocal( k, j )) {
+                        // Tlocal and Treduce have the have process distribution
+                        Tlocal.tileUpdateOrigin( k, j );
+                        Tlocal.releaseLocalWorkspaceTile( k, j );
+                        if (j != k) {
+                            // j == k is the root of the reduction tree
+                            // Treduce( k, k ) isn't allocated
+                            Treduce.tileUpdateOrigin( k, j );
+                            Treduce.releaseLocalWorkspaceTile( k, j );
+                        }
                     }
                     else {
-                        Tlocal.releaseRemoteWorkspaceTile(k, j);
+                        Tlocal.releaseRemoteWorkspaceTile( k, j );
+                        Treduce.releaseRemoteWorkspaceTile( k, j );
                     }
                 }
-
-                Tr_panel.releaseLocalWorkspace();
-                Tr_panel.releaseRemoteWorkspace();
             }
         }
 

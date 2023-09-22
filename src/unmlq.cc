@@ -245,16 +245,24 @@ void unmlq(
 
             #pragma omp task depend(in:block[k])
             {
-                auto Tlocal_panel = Tlocal.sub(k, k, k, A_nt-1);
-                auto Treduce_panel = Treduce.sub(k, k, k, A_nt-1);
-
                 A_panel.releaseRemoteWorkspace();
-                Tlocal_panel.releaseRemoteWorkspace();
-                Treduce_panel.releaseRemoteWorkspace();
-
                 A_panel.releaseLocalWorkspace();
-                Tlocal_panel.releaseLocalWorkspace();
-                Treduce_panel.releaseLocalWorkspace();
+
+                for (int64_t j : first_indices) {
+                    if (Tlocal.tileIsLocal( k, j )) {
+                        // Tlocal and Treduce have the have process distribution
+                        Tlocal.releaseLocalWorkspaceTile( k, j );
+                        if (j != k) {
+                            // j == k is the root of the reduction tree
+                            // Treduce( k, k ) isn't allocated
+                            Treduce.releaseLocalWorkspaceTile( k, j );
+                        }
+                    }
+                    else {
+                        Tlocal.releaseRemoteWorkspaceTile( k, j );
+                        Treduce.releaseRemoteWorkspaceTile( k, j );
+                    }
+                }
             }
 
             lastk = k;

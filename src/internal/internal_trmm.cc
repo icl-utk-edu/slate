@@ -67,7 +67,7 @@ void trmm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, 0)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B ) \
-                    firstprivate(i, layout, side, alpha)
+                    firstprivate( i, layout, side, alpha, call_tile_tick )
                 {
                     A.tileGetForReading(0, 0, LayoutConvert(layout));
                     B.tileGetForWriting(i, 0, LayoutConvert(layout));
@@ -88,7 +88,7 @@ void trmm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(0, j)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B ) \
-                    firstprivate(j, layout, side, alpha)
+                    firstprivate( j, layout, side, alpha, call_tile_tick )
                 {
                     A.tileGetForReading(0, 0, LayoutConvert(layout));
                     B.tileGetForWriting(0, j, LayoutConvert(layout));
@@ -196,7 +196,8 @@ void trmm(internal::TargetType<Target::Devices>,
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared(A, B) priority(priority) \
-            firstprivate(device, side, sideA, uploA, opA, diagA, alpha, queue_index, layout)
+            firstprivate( device, side, sideA, uploA, opA, diagA, alpha ) \
+            firstprivate( queue_index, layout, call_tile_tick )
         {
             std::set<ij_tuple> B_tiles_set;
             if (side == Side::Right) {

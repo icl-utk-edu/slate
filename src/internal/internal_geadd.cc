@@ -64,7 +64,7 @@ void add(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, j)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B ) \
-                    firstprivate(i, j, alpha, beta, call_tile_tick)  priority(priority)
+                    firstprivate( i, j, alpha, beta, call_tile_tick )  priority(priority)
                 {
                     A.tileGetForReading(i, j, LayoutConvert::None);
                     B.tileGetForWriting(i, j, LayoutConvert::None);
@@ -143,7 +143,8 @@ void add(internal::TargetType<Target::Devices>,
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared(A, B) \
-            firstprivate(device, irange, jrange, queue_index, beta, alpha) priority(priority)
+            firstprivate( device, irange, jrange, queue_index, beta, alpha, call_tile_tick) \
+            priority(priority)
         {
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already

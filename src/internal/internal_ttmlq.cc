@@ -196,7 +196,8 @@ void ttmlq(internal::TargetType<Target::HostTask>,
 
                         #pragma omp task slate_omp_default_none \
                             shared( A, T, C ) \
-                            firstprivate(i, j, layout, rank_ind, i1, j1, side, op)
+                            firstprivate( i, j, layout, rank_ind, i1, j1, side, op ) \
+                            firstprivate( call_tile_tick )
                         {
                             A.tileGetForReading(0, rank_ind, LayoutConvert(layout));
                             T.tileGetForReading(0, rank_ind, LayoutConvert(layout));

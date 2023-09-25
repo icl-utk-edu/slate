@@ -146,7 +146,7 @@ void add(internal::TargetType<Target::HostTask>,
                 if (B.tileIsLocal(i, j)) {
                     #pragma omp task slate_omp_default_none \
                         shared( A, B ) \
-                        firstprivate(i, j, alpha, beta) priority(priority)
+                        firstprivate(i, j, alpha, beta, call_tile_tick) priority(priority)
                     {
                         A.tileGetForReading(i, j, LayoutConvert::None);
                         B.tileGetForWriting(i, j, LayoutConvert::None);
@@ -167,7 +167,7 @@ void add(internal::TargetType<Target::HostTask>,
                 if (A.tileIsLocal(i, j)) {
                     #pragma omp task slate_omp_default_none \
                         shared( A, B ) \
-                        firstprivate(i, j, alpha, beta) priority(priority)
+                        firstprivate(i, j, alpha, beta, call_tile_tick) priority(priority)
                     {
                         A.tileGetForReading(i, j, LayoutConvert::None);
                         B.tileGetForWriting(i, j, LayoutConvert::None);

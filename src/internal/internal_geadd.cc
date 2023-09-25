@@ -388,10 +388,10 @@ void add(internal::TargetType<Target::Devices>,
 
             queue->sync();
 
-            for (int64_t i = 0; i < B.mt(); ++i) {
-                for (int64_t j = 0; j < B.nt(); ++j) {
-                    if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
-                        if (call_tile_tick) {
+            if (call_tile_tick) {
+                for (int64_t i = 0; i < B.mt(); ++i) {
+                    for (int64_t j = 0; j < B.nt(); ++j) {
+                        if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
                             // erase tmp local and remote device tiles;
                             A.tileRelease(i, j, device);
                             // decrement life for remote tiles

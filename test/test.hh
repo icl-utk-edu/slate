@@ -159,6 +159,14 @@ public:
     testsweeper::ParamDouble     gflops;
     testsweeper::ParamDouble     time2;
     testsweeper::ParamDouble     gflops2;
+    testsweeper::ParamDouble     time3;
+    testsweeper::ParamDouble     time4;
+    testsweeper::ParamDouble     time5;
+    testsweeper::ParamDouble     time6;
+    testsweeper::ParamDouble     time7;
+    testsweeper::ParamDouble     time8;
+    testsweeper::ParamDouble     time9;
+    testsweeper::ParamDouble     time10;
     testsweeper::ParamInt        iters;
 
     testsweeper::ParamDouble     ref_time;

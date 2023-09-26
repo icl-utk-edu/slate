@@ -426,8 +426,16 @@ Params::Params():
     // 12.3 allows 99999999.999 Gflop/s = 100 Pflop/s
     time      ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "time to solution"),
     gflops    ("gflop/s",      12, 3, ParamType::Output, no_data_flag,   0,   0, "Gflop/s rate"),
-    time2     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "time to solution"),
+    time2     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
     gflops2   ("gflop/s",      12, 3, ParamType::Output, no_data_flag,   0,   0, "Gflop/s rate"),
+    time3     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time4     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time5     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time6     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time7     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time8     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time9     ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
+    time10    ("time (s)",      9, 3, ParamType::Output, no_data_flag,   0,   0, "extra timer"),
     iters     ("iters",         5,    ParamType::Output,            0,   0,   0, "iterations to solution"),
 
     ref_time  ("ref time (s)", 12, 3, ParamType::Output, no_data_flag,   0,   0, "reference time to solution"),

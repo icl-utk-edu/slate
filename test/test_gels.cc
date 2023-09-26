@@ -20,6 +20,18 @@
 #include <utility>
 
 //------------------------------------------------------------------------------
+// Defined in src/gels_qr.cc
+// todo: add as PAPI SDE counters?
+namespace slate {
+
+extern double time_gels;
+extern double time_gels_geqrf;
+extern double time_gels_unmqr;
+extern double time_gels_trsm;
+
+}
+
+//------------------------------------------------------------------------------
 template <typename scalar_t>
 void test_gels_work(Params& params, bool run)
 {
@@ -64,6 +76,12 @@ void test_gels_work(Params& params, bool run)
     params.gflops();
     params.ref_time();
     params.ref_gflops();
+    params.time2();
+    params.time3();
+    params.time4();
+    params.time2.name( "geqrf (s)" );
+    params.time3.name( "unmqr (s)" );
+    params.time4.name( "trsm (s)" );
 
     if (! run)
         return;
@@ -232,6 +250,9 @@ void test_gels_work(Params& params, bool run)
         // compute and save timing/performance
         params.time() = time;
         params.gflops() = gflop / time;
+        params.time2() = slate::time_gels_geqrf;
+        params.time3() = slate::time_gels_unmqr;
+        params.time4() = slate::time_gels_trsm;
 
         print_matrix( "A2", A, params );
         print_matrix( "BX2", BX, params );

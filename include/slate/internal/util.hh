@@ -262,6 +262,33 @@ inline int64_t num_local_rows_cols(
 /// Use to silence compiler warnings regarding an unused variable var.
 #define SLATE_UNUSED(var)  ((void)var)
 
+//------------------------------------------------------------------------------
+/// Simple class around wall-clock timer; currently uses MPI_Wtime.
+class Timer
+{
+public:
+    /// Starts the timer.
+    Timer()
+    {
+        start();
+    }
+
+    /// Starts the timer.
+    void start()
+    {
+        start_ = MPI_Wtime();
+    }
+
+    /// @return time in seconds since timer was started.
+    double stop()
+    {
+        return MPI_Wtime() - start_;
+    }
+
+private:
+    double start_;
+};
+
 } // namespace slate
 
 #endif // SLATE_UTIL_HH

@@ -2543,7 +2543,6 @@ void BaseMatrix<scalar_t>::tileAcquire(int64_t i, int64_t j, int device,
             storage_->tileMakeTransposable(tile);
         }
         tile->setLayout( layout );
-        // tileLayoutConvert(i, j, device, Layout(layout), false);
     }
 }
 

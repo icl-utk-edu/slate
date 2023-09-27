@@ -2551,7 +2551,8 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileAcquire(int64_t i, int64_t j, int device,
                                        Layout layout)
 {
-    auto& tile_instance = storage_->tileAcquire(globalIndex(i, j, device), layout);
+    auto& tile_instance = storage_->tileInsert( globalIndex(i, j, device),
+                                                TileKind::Workspace, layout );
     auto tile = tile_instance.tile();
 
     // Change ColMajor <=> RowMajor if needed.
@@ -2656,7 +2657,8 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
 
     if (! tile_node.existsOn(dst_device)) {
         // Create a copy on the destination.
-        storage_->tileAcquire(globalIndex(i, j, dst_device), target_layout);
+        storage_->tileInsert( globalIndex(i, j, dst_device),
+                              TileKind::Workspace, target_layout );
     }
 
     if (dst_tile_instance->getState() == MOSI::Invalid) {

@@ -457,7 +457,6 @@ public:
     TileInstance<scalar_t>& tileInsert(
         ijdev_tuple ijdev, scalar_t* data, int64_t lda,
         Layout layout=Layout::ColMajor);
-    TileInstance<scalar_t>& tileAcquire(ijdev_tuple ijdev, Layout layout);
 
     bool tileExists( ijdev_tuple ijdev )
     {
@@ -1185,21 +1184,6 @@ template <typename scalar_t>
 void MatrixStorage<scalar_t>::releaseWorkspaceBuffer(scalar_t* data, int device)
 {
     memory_.free(data, device);
-}
-
-//------------------------------------------------------------------------------
-/// Acquires tile {i, j} on given device, which can be host,
-/// allocating new memory for it.
-/// TileNode(i, j) is assumed to pre-exist (equivalently the origin tile),
-/// thus, tile kind is set to TileKind::Workspace,
-///
-/// @return Reference to newly inserted TileInstance.
-///
-template <typename scalar_t>
-TileInstance<scalar_t>& MatrixStorage<scalar_t>::tileAcquire(
-    ijdev_tuple ijdev, Layout layout)
-{
-    return tileInsert( ijdev, TileKind::Workspace, layout );
 }
 
 //------------------------------------------------------------------------------

@@ -347,8 +347,8 @@ public:
     void      releaseWorkspaceBuffer(scalar_t* data, int device);
 
 private:
-    // Iterator routines should only be called with in a Tiles Map LockGuard
-    // Otherwise, there may be race conditions with the returned iterator
+    // Iterator routines should be called only within a Tiles Map LockGuard.
+    // Otherwise, there may be race conditions with the returned iterator.
 
     //--------------------------------------------------------------------------
     /// @return TileNode(i, j) if it has instance on device, end() otherwise
@@ -459,7 +459,8 @@ public:
         Layout layout=Layout::ColMajor);
     TileInstance<scalar_t>& tileAcquire(ijdev_tuple ijdev, Layout layout);
 
-    bool tileExists( ijdev_tuple ijdev ) {
+    bool tileExists( ijdev_tuple ijdev )
+    {
         LockGuard guard( getTilesMapLock() );
         int64_t i  = std::get<0>(ijdev);
         int64_t j  = std::get<1>(ijdev);

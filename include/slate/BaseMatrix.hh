@@ -296,7 +296,7 @@ public:
 
     //--------------------------------------------------------------------------
     /// Returns tile(i, j)'s state on device (defaults to host).
-    /// Asserts if tile does not exist.
+    /// Asserts that the tile exists.
     ///
     /// @param[in] i
     ///     Tile's block row index. 0 <= i < mt.
@@ -314,7 +314,7 @@ public:
 
     //------------------------------------------------------------------------------
     /// Returns whether tile(i, j) is OnHold on device (defaults to host).
-    /// Asserts if tile does not exist.
+    /// Asserts that the tile exists.
     ///
     /// @param[in] i
     ///     Tile's block row index. 0 <= i < mt.
@@ -1621,7 +1621,7 @@ void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 
 //------------------------------------------------------------------------------
 /// Erase the tile {i, j}'s instance on device if it is a workspace tile with
-/// no hold is set on it.
+/// no hold set on it.
 /// If tile's memory was allocated by SLATE,
 /// via tileInsert(i, j, dev) or tileInsertWorkspace(i, j, dev),
 /// then the memory is released to the allocator pool.
@@ -2724,7 +2724,7 @@ void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
     if (device != HostNum) {
         LockGuard guard(storage_->getTilesMapLock());
 
-        // find number of aready existing tiles on the device
+        // find number of already existing tiles on the device
         int64_t existing_tiles = 0;
         for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
             int64_t i = std::get<0>(*iter);

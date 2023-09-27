@@ -740,7 +740,9 @@ void generate_matrix_usage()
     "----------------|-------------\n"
     "_dominant       |  make matrix diagonally dominant\n"
     "_zerocolN       |  set column N to zero, 0 <= N < n\n"
-    "_zerocolFRAC    |  set column FRAC * (n-1) to zero, 0 <= FRAC <= 1.0\n"
+    "_zerocolFRAC    |  set column N = FRAC * (n-1) to zero, 0 <= FRAC <= 1.0\n"
+    "                |  For Hermitian and symmetric matrices (and currently any\n"
+    "                |  trapezoid matrix), sets row and column N to zero.\n"
     "\n",
         ansi_bold, ansi_normal,
         ansi_bold, ansi_normal,
@@ -1737,7 +1739,7 @@ void generate_matrix(
         throw std::runtime_error( msg );
     }
 
-    // Set A( :, zero_col ) = 0.
+    // Set col A( :, zero_col ) = 0.
     if (zero_col >= 0) {
         #pragma omp parallel
         #pragma omp master
@@ -1812,6 +1814,7 @@ void generate_matrix(
     int64_t n = A.n();
     int64_t nt = A.nt();
     int64_t mt = A.mt();
+
     // ----- generate matrix
     switch (type) {
         case TestMatrixType::zeros:
@@ -1895,79 +1898,43 @@ void generate_matrix(
             #pragma omp parallel
             #pragma omp master
             {
-                if (A.uplo() == Uplo::Lower) {
-                    int64_t j_global = 0;
-                    for (int64_t j = 0; j < nt; ++j) {
-                        int64_t i_global = 0;
-                        for (int64_t i = j; i < mt; ++i) { // lower trapezoid
-                            if (A.tileIsLocal(i, j)) {
-                                #pragma omp task slate_omp_default_none shared( A ) \
-                                    firstprivate( i, j, j_global, i_global, dominant, \
-                                                  n, sigma_max, seed, rand_dist )
-                                {
-                                    A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
-                                    auto Aij = A(i, j);
-                                    slate::random::generate(rand_dist, seed,
-                                                            Aij.mb(), Aij.nb(), i_global, j_global,
-                                                            Aij.data(), Aij.stride());
+                int64_t j_global = 0;
+                for (int64_t j = 0; j < nt; ++j) {
+                    int64_t i_global = 0;
+                    // lower trapezoid is [ j .. mt )
+                    // upper trapezoid is [ 0 .. min( j+1, mt ) )
+                    int64_t i_start = A.uplo() == Uplo::Lower ? j  : 0;
+                    int64_t i_end   = A.uplo() == Uplo::Lower ? mt : std::min( j+1, mt );
+                    for (int64_t i = i_start; i < i_end; ++i) {
+                        if (A.tileIsLocal( i, j )) {
+                            #pragma omp task slate_omp_default_none shared( A ) \
+                                firstprivate( i, j, j_global, i_global, dominant, \
+                                              n, sigma_max, seed, rand_dist )
+                            {
+                                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                                auto Aij = A( i, j );
+                                slate::random::generate(
+                                    rand_dist, seed,
+                                    Aij.mb(), Aij.nb(), i_global, j_global,
+                                    Aij.data(), Aij.stride() );
 
-                                    // Make it diagonally dominant
-                                    if (dominant) {
-                                        if (i == j) {
-                                            int bound = std::min( Aij.mb(), Aij.nb() );
-                                            for (int ii = 0; ii < bound; ++ii) {
-                                                Aij.at(ii, ii) += n;
-                                            }
-                                        }
-                                    }
-                                    // Scale the matrix
-                                    if (sigma_max != 1) {
-                                        scalar_t s = sigma_max;
-                                        tile::scale( s, Aij );
+                                // Make it diagonally dominant
+                                if (dominant && i == j) {
+                                    int bound = std::min( Aij.mb(), Aij.nb() );
+                                    for (int ii = 0; ii < bound; ++ii) {
+                                        Aij.at( ii, ii ) += n;
                                     }
                                 }
-                            }
-                            i_global += A.tileMb(i);
-                        }
-                        j_global += A.tileNb(j);
-                    }
-                }
-                else { // upper
-                    int64_t j_global = 0;
-                    for (int64_t j = 0; j < nt; ++j) {
-                        int64_t i_global = 0;
-                        for (int64_t i = 0; i <= j && i < mt; ++i) {  // upper trapezoid
-                            if (A.tileIsLocal(i, j)) {
-                                #pragma omp task slate_omp_default_none shared( A ) \
-                                    firstprivate( i, j, i_global, j_global, dominant, \
-                                                  n, sigma_max, seed, rand_dist )
-                                {
-                                    A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
-                                    auto Aij = A(i, j);
-                                    slate::random::generate(rand_dist, seed,
-                                                            Aij.mb(), Aij.nb(), i_global, j_global,
-                                                            Aij.data(), Aij.stride());
-
-                                    // Make it diagonally dominant
-                                    if (dominant) {
-                                        if (i == j) {
-                                            int bound = std::min( Aij.mb(), Aij.nb() );
-                                            for (int ii = 0; ii < bound; ++ii) {
-                                                Aij.at(ii, ii) += n;
-                                            }
-                                        }
-                                    }
-                                    // Scale the matrix
-                                    if (sigma_max != 1) {
-                                        scalar_t s = sigma_max;
-                                        tile::scale( s, Aij );
-                                    }
+                                // Scale the matrix
+                                if (sigma_max != 1) {
+                                    scalar_t s = sigma_max;
+                                    tile::scale( s, Aij );
                                 }
                             }
-                            i_global += A.tileMb(i);
                         }
-                        j_global += A.tileNb(j);
+                        i_global += A.tileMb( i );
                     }
+                    j_global += A.tileNb( j );
                 }
             }
             break;
@@ -1993,6 +1960,75 @@ void generate_matrix(
         snprintf( msg, sizeof( msg ), "in '%s', dominant not yet implemented",
                   params.kind().c_str() );
         throw std::runtime_error( msg );
+    }
+
+    if (zero_col >= 0) {
+        // Set col A( :, zero_col ) = 0.
+        #pragma omp parallel
+        #pragma omp master
+        {
+            int64_t j_global = 0;
+            for (int64_t j = 0; j < nt; ++j) {
+                int64_t jj = zero_col - j_global;
+                if (0 <= jj && jj < A.tileNb( j )) {
+                    // lower trapezoid is i in [ j, mt )
+                    // upper trapezoid is i in [ 0, min( j+1, mt ) )
+                    int64_t i_start = A.uplo() == Uplo::Lower ? j  : 0;
+                    int64_t i_end   = A.uplo() == Uplo::Lower ? mt : std::min( j+1, mt );
+                    for (int64_t i = i_start; i < i_end; ++i) {
+                        if (A.tileIsLocal( i, j )) {
+                            #pragma omp task slate_omp_default_none shared( A ) \
+                                firstprivate( i, j, jj, zero )
+                            {
+                                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                                auto Aij = A( i, j );
+                                lapack::laset(
+                                    lapack::MatrixType::General,
+                                    Aij.mb(), 1, zero, zero,
+                                    &Aij.at( 0, jj ), Aij.stride() );
+                            }
+                        }
+                    }
+                }
+                j_global += A.tileNb( j );
+            }
+        }
+
+        // Set row A( zero_col, : ) = 0.
+        // Merging this with the above omp parallel would require
+        // todo: this should apply only to Hermitian or symmetric matrices,
+        // not to triangular or trapezoid matrices. Perhaps
+        //     generate_matrix( ..., HermitianMatrix, ... )
+        // could set a flag when calling this routine.
+        #pragma omp parallel
+        #pragma omp master
+        {
+            int64_t i_global = 0;
+            for (int64_t i = 0; i < mt; ++i) {
+                int64_t ii = zero_col - i_global;
+                if (0 <= ii && ii < A.tileMb( i )) {
+                    // upper trapezoid is j in [ i, nt )
+                    // lower trapezoid is j in [ 0, min( i+1, nt ) )
+                    int64_t j_start = A.uplo() == Uplo::Upper ? i  : 0;
+                    int64_t j_end   = A.uplo() == Uplo::Upper ? nt : std::min( i+1, nt );
+                    for (int64_t j = j_start; j < j_end; ++j) {
+                        if (A.tileIsLocal( i, j )) {
+                            #pragma omp task slate_omp_default_none shared( A ) \
+                                firstprivate( i, j, ii, zero )
+                            {
+                                A.tileGetForWriting( i, j, LayoutConvert::ColMajor );
+                                auto Aij = A( i, j );
+                                lapack::laset(
+                                    lapack::MatrixType::General,
+                                    1, Aij.nb(), zero, zero,
+                                    &Aij.at( ii, 0 ), Aij.stride() );
+                            }
+                        }
+                    }
+                }
+                i_global += A.tileMb( i );
+            }
+        }
     }
 
     A.tileUpdateAllOrigin();

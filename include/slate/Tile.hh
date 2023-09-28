@@ -321,7 +321,7 @@ public:
     /// To check the OnHold flag, use stateOn.
     /// Note that this is the MOSI state from when the tile was accessed and
     /// may not be up to date with the canonical version.
-    MOSI mosiState()
+    MOSI state()
     {
         return MOSI(mosi_state_ & MOSI_State(~MOSI::OnHold));
     }
@@ -381,7 +381,7 @@ protected:
         ext_data_ = data;
     }
 
-    void mosiState(MOSI_State stateIn)
+    void state(MOSI_State stateIn)
     {
         switch (stateIn) {
             case MOSI::Modified:

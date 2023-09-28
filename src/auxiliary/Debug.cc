@@ -209,7 +209,7 @@ void Debug::printTiles_(
                                 : 'w';
                     }
                     if (do_mosi) {
-                        char ch = to_char( iter->second->at( device )->mosiState() );
+                        char ch = to_char( iter->second->at( device )->state() );
                         if (iter->second->at( device )->stateOn( MOSI::OnHold ))
                             ch = toupper( ch );
                         msg += ch;

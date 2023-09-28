@@ -89,7 +89,7 @@ public:
     {
         slate_assert(device >= -1 && device+1 < int(tiles_.size()));
         slate_assert(tiles_[device+1] == nullptr);
-        tile->mosiState( MOSI(state) );
+        tile->state( MOSI(state) );
         tiles_[device+1] = tile;
         ++num_instances_;
     }
@@ -109,7 +109,7 @@ public:
     {
         slate_assert(device >= -1 && device+1 < int(tiles_.size()));
         if (tiles_[device+1] != nullptr) {
-            tiles_[device+1]->mosiState(MOSI::Invalid);
+            tiles_[device+1]->state(MOSI::Invalid);
             delete tiles_[device+1];
             tiles_[device+1] = nullptr;
             --num_instances_;
@@ -420,7 +420,7 @@ public:
         assert(iter != end());
 
         int device = std::get<2>(ijdev);
-        return iter->second->at(device)->mosiState();
+        return iter->second->at(device)->state();
     }
 
     /// Checks whether the given tile is on hold
@@ -441,7 +441,7 @@ public:
         auto iter = find( ijdev );
         if (iter != end()) {
             int device = std::get<2>(ijdev);
-            iter->second->at(device)->mosiState(~MOSI::OnHold);
+            iter->second->at(device)->state(~MOSI::OnHold);
         }
     }
 

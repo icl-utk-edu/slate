@@ -1702,13 +1702,13 @@ void BaseMatrix<scalar_t>::tileModified(int64_t i, int64_t j, int device, bool p
     if (tile->stateOn(MOSI::Modified))
         return;
 
-    tile->mosiState(MOSI::Modified);
+    tile->state(MOSI::Modified);
 
     for (int d = HostNum; d < num_devices(); ++d) {
         if (d != device && tile_node.existsOn(d)) {
             if (! permissive)
                 slate_assert(tile_node[d]->stateOn(MOSI::Modified) == false);
-            tile_node[d]->mosiState(MOSI::Invalid);
+            tile_node[d]->state(MOSI::Invalid);
         }
     }
 }
@@ -2622,14 +2622,14 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
     LockGuard guard(tile_node.getLock());
 
     if ((! tile_node.existsOn(dst_device)) ||
-        (  tile_node[dst_device]->mosiState() == MOSI::Invalid)) {
+        (  tile_node[dst_device]->state() == MOSI::Invalid)) {
 
         // find a valid source (Modified/Shared) tile
         for (int d = num_devices()-1; d >= HostNum; --d) {
             // Most current systems have higher GPU->GPU than GPU->CPU
             // TODO Poll hardware topolgy to determine order
             if (d != dst_device && tile_node.existsOn(d)) {
-                if (tile_node[d]->mosiState() != MOSI::Invalid) {
+                if (tile_node[d]->state() != MOSI::Invalid) {
                     src_device = d;
                     src_tile = tile_node[d];
                     break;
@@ -2657,20 +2657,20 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
     }
 
     Tile<scalar_t>* dst_tile = tile_node[dst_device];
-    if (dst_tile->mosiState() == MOSI::Invalid) {
+    if (dst_tile->state() == MOSI::Invalid) {
         // Update the destination tile's data.
 
         tileCopyDataLayout( src_tile, dst_tile, target_layout, async );
 
-        dst_tile->mosiState(MOSI::Shared);
+        dst_tile->state(MOSI::Shared);
         if (src_tile->stateOn(MOSI::Modified))
-            src_tile->mosiState(MOSI::Shared);
+            src_tile->state(MOSI::Shared);
     }
     if (modify) {
         tileModified(i, j, dst_device);
     }
     if (hold) {
-        dst_tile->mosiState(MOSI::OnHold);
+        dst_tile->state(MOSI::OnHold);
     }
 
     // Change ColMajor <=> RowMajor if needed.
@@ -3199,7 +3199,7 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
                         // tileGetForReading(i, j, LayoutConvert::None);
                         for (int d = 0; d < num_devices(); ++d) {
                             if (tile_node.existsOn(d)
-                                && tile_node[d]->mosiState() != MOSI::Invalid)
+                                && tile_node[d]->state() != MOSI::Invalid)
                             {
                                 tiles_set_host[d].insert({i, j});
                                 break;

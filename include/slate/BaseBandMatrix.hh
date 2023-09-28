@@ -305,7 +305,7 @@ void BaseBandMatrix<scalar_t>::tileUpdateAllOrigin()
                         // tileGetForReading(i, j, LayoutConvert::None);
                         for (int d = 0; d < this->num_devices(); ++d) {
                             if (tile_node.existsOn(d)
-                                && tile_node[d]->mosiState() != MOSI::Invalid)
+                                && tile_node[d]->state() != MOSI::Invalid)
                             {
                                 tiles_set_host[d].insert({i, j});
                                 break;

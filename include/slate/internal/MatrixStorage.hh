@@ -519,7 +519,7 @@ public:
 
     /// Ensures the tile node exists and increments both the tile life and
     /// recieve count
-    void tilePrepareToRecieve(ij_tuple ij, int life, Layout layout)
+    void tilePrepareToReceive(ij_tuple ij, int life, Layout layout)
     {
         if (! tileIsLocal(ij)) {
             // Create tile to receive data, with life span.

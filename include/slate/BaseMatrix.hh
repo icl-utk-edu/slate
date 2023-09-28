@@ -1779,7 +1779,7 @@ void BaseMatrix<scalar_t>::tileRecv(
     int64_t i, int64_t j, int src_rank, Layout layout, int tag)
 {
     if (src_rank != mpiRank()) {
-        storage_->tilePrepareToRecieve( globalIndex( i, j ), 1, layout );
+        storage_->tilePrepareToReceive( globalIndex( i, j ), 1, layout );
         tileAcquire(i, j, layout);
 
         // Receive data.
@@ -1915,7 +1915,7 @@ void BaseMatrix<scalar_t>::listBcast(
         if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
 
             // If receiving the tile.
-            storage_->tilePrepareToRecieve( globalIndex( i, j ), life, layout_ );
+            storage_->tilePrepareToReceive( globalIndex( i, j ), life, layout_ );
 
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
@@ -2067,7 +2067,7 @@ void BaseMatrix<scalar_t>::listBcastMT(
             // If this rank is in the set.
             if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
                 // If receiving the tile.
-                storage_->tilePrepareToRecieve( globalIndex( i, j ), life, layout_ );
+                storage_->tilePrepareToReceive( globalIndex( i, j ), life, layout_ );
 
                 // Send across MPI ranks.
                 // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);

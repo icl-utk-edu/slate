@@ -86,6 +86,11 @@ void test_svd_work( Params& params, bool run )
     if (! run)
         return;
 
+    if (check && ! ref
+        && (jobu == slate::Job::NoVec || jobvt == slate::Job::NoVec)) {
+        params.msg() = "job = NoVec requires --ref y to check singular values";
+    }
+
     slate::Options const opts =  {
         {slate::Option::Lookahead, lookahead},
         {slate::Option::Target, target},
@@ -108,11 +113,11 @@ void test_svd_work( Params& params, bool run )
     std::vector<scalar_t> A_data;
     std::vector<scalar_t> Acpy_data;
 
-    // U  is either m-by-min( m, n ) for some vec, or m-by-m for all vec);
-    // VT is either min( m, n )-by-n for some vec, or n-by-n for all vec).
+    // U  is either m-by-min( m, n ) for some vec, or m-by-m for all vec;
+    // VT is either min( m, n )-by-n for some vec, or n-by-n for all vec.
     int64_t Um  = m;
-    int64_t Un  = jobu == slate::Job::AllVec ? m : min_mn;
-    int64_t VTm = jobu == slate::Job::AllVec ? n : min_mn;
+    int64_t Un  = jobu  == slate::Job::AllVec ? m : min_mn;
+    int64_t VTm = jobvt == slate::Job::AllVec ? n : min_mn;
     int64_t VTn = n;
 
     // matrix U (local output), U(m, min_mn), singular values of A
@@ -217,7 +222,7 @@ void test_svd_work( Params& params, bool run )
         //==================================================
         // Run SLATE test.
         //==================================================
-        if (wantu && wantvt) {
+        if (wantu || wantvt) {
             slate::svd( A, Sigma, U, VT, opts );
         }
         else {
@@ -255,9 +260,19 @@ void test_svd_work( Params& params, bool run )
         }
     }
 
+    // Initialize okay if any check will be run.
+    if (check && (wantu || wantvt || ref)) {
+        params.okay() = true;
+    }
+
     if (check && (wantu || wantvt)) {
         // Residual matrix.
-        slate::Matrix<scalar_t> R( min_mn, min_mn, nb, p, q, MPI_COMM_WORLD );
+        int64_t Rm = min_mn;
+        if (jobu == slate::Job::AllVec)
+            Rm = blas::max( Rm, m );
+        if (jobvt == slate::Job::AllVec)
+            Rm = blas::max( Rm, n );
+        slate::Matrix<scalar_t> R( Rm, Rm, nb, p, q, MPI_COMM_WORLD );
         R.insertLocalTiles();
 
         if (wantu) {
@@ -268,10 +283,16 @@ void test_svd_work( Params& params, bool run )
             //     ------------------- < tol * epsilon
             //              N
             //==================================================
-            slate::set( zero, one, R ); // identity
+            slate::Matrix<scalar_t> Ru;
+            if (jobu == slate::Job::AllVec)
+                Ru = R.slice( 0, m-1, 0, m-1 );
+            else
+                Ru = R.slice( 0, min_mn-1, 0, min_mn-1 );
+
+            slate::set( zero, one, Ru ); // identity
             auto UH = conj_transpose( U );
-            slate::gemm( -one, UH, U, one, R );
-            params.ortho_U() = slate::norm( slate::Norm::One, R ) / n;
+            slate::gemm( -one, UH, U, one, Ru );
+            params.ortho_U() = slate::norm( slate::Norm::One, Ru ) / n;
             params.okay() = params.okay() && (params.ortho_U() <= tol);
         }
 
@@ -279,14 +300,20 @@ void test_svd_work( Params& params, bool run )
             //==================================================
             // Test results by checking orthogonality of VT
             //
-            //      || I - V V^H ||_1
+            //      || I - V^H V ||_1
             //     ------------------- < tol * epsilon
             //              N
             //==================================================
-            slate::set( zero, one, R ); // identity
+            slate::Matrix<scalar_t> Rv;
+            if (jobvt == slate::Job::AllVec)
+                Rv = R.slice( 0, n-1, 0, n-1 );
+            else
+                Rv = R.slice( 0, min_mn-1, 0, min_mn-1 );
+
+            slate::set( zero, one, Rv ); // identity
             auto V = conj_transpose( VT );
-            slate::gemm( -one, VT, V, one, R );
-            params.ortho_V() = slate::norm( slate::Norm::One, R ) / n;
+            slate::gemm( -one, VT, V, one, Rv );
+            params.ortho_V() = slate::norm( slate::Norm::One, Rv ) / n;
             params.okay() = params.okay() && (params.ortho_V() <= tol);
         }
 
@@ -298,12 +325,16 @@ void test_svd_work( Params& params, bool run )
             //     --------------------------- < tol * epsilon
             //            || A ||_1 * N
             //
+            // using only economy-size U, VT.
             //==================================================
-            // todo:
-            slate::scale_row_col( slate::Equed::Col, Sigma, Sigma, U );
+            slate::Matrix<scalar_t>  Ueco =  U.slice( 0, m-1, 0, min_mn-1 );
+            slate::Matrix<scalar_t> VTeco = VT.slice( 0, min_mn-1, 0, n-1 );
+
+            // U = U Sigma
+            slate::scale_row_col( slate::Equed::Col, Sigma, Sigma, Ueco );
 
             real_t Anorm = slate::norm( slate::Norm::One, Acpy );
-            slate::gemm( -one, U, VT, one, Acpy );
+            slate::gemm( -one, Ueco, VTeco, one, Acpy );
             params.error2() = slate::norm( slate::Norm::One, Acpy ) / (Anorm * n);
             params.okay() = params.okay() && (params.error2() <= tol);
         }
@@ -406,7 +437,7 @@ void test_svd_work( Params& params, bool run )
                 params.error() = blas::asum( min_mn, &Sigma_ref[0], 1 )
                                / Sigma_ref_norm;
 
-                params.okay() = (params.error() <= tol);
+                params.okay() = params.okay() && (params.error() <= tol);
             }
 
             Cblacs_gridexit(ictxt);

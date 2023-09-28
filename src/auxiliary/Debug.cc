@@ -199,6 +199,7 @@ void Debug::printTiles_(
                 if (multi && device > HostNum)
                     msg += ' ';
 
+                LockGuard guard(A.storage_->getTilesMapLock());
                 auto iter = A.storage_->find( A.globalIndex( i, j, device ) );
                 if (iter != A.storage_->end()) {
                     auto tile = iter->second->at( device ).tile();

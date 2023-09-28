@@ -208,12 +208,7 @@ public:
     /// returns true if tile exists on specified device
     bool tileExists( int64_t i, int64_t j, int device=HostNum )
     {
-        if (device == AnyDevice) {
-            return storage_->find(globalIndex(i, j)) != storage_->end();
-        }
-        else {
-            return storage_->find(globalIndex(i, j, device)) != storage_->end();
-        }
+        return storage_->tileExists( globalIndex( i, j, device ) );
     }
 
     /// Returns MPI rank of tile {i, j} of op(A).
@@ -299,19 +294,58 @@ private:
 
 public:
 
-    MOSI tileState( int64_t i, int64_t j, int device=HostNum );
-
-    void tileState(int64_t i, int64_t j, int device, MOSI mosi);
-
-    /// Sets tile(i, j)'s state on host.
-    void tileState(int64_t i, int64_t j, MOSI mosi)
+    //--------------------------------------------------------------------------
+    /// Returns tile(i, j)'s state on device (defaults to host).
+    /// Asserts that the tile exists.
+    ///
+    /// @param[in] i
+    ///     Tile's block row index. 0 <= i < mt.
+    ///
+    /// @param[in] j
+    ///     Tile's block column index. 0 <= j < nt.
+    ///
+    /// @param[in] device
+    ///     Tile's device ID.
+    ///
+    MOSI tileState( int64_t i, int64_t j, int device=HostNum )
     {
-        tileState( i, j, HostNum, mosi );
+        return storage_->tileState( globalIndex( i, j, device ) );
     }
 
-    bool tileOnHold( int64_t i, int64_t j, int device=HostNum );
+    //------------------------------------------------------------------------------
+    /// Returns whether tile(i, j) is OnHold on device (defaults to host).
+    /// Asserts that the tile exists.
+    ///
+    /// @param[in] i
+    ///     Tile's block row index. 0 <= i < mt.
+    ///
+    /// @param[in] j
+    ///     Tile's block column index. 0 <= j < nt.
+    ///
+    /// @param[in] device
+    ///     Tile's device ID.
+    ///
+    bool tileOnHold( int64_t i, int64_t j, int device=HostNum )
+    {
+        return storage_->tileOnHold( globalIndex( i, j, device ) );
+    }
 
-    void tileUnsetHold( int64_t i, int64_t j, int device=HostNum );
+    //------------------------------------------------------------------------------
+    /// Unsets the hold of tile(i, j) on device (defaults to host) if it was OnHold.
+    ///
+    /// @param[in] i
+    ///     Tile's block row index. 0 <= i < mt.
+    ///
+    /// @param[in] j
+    ///     Tile's block column index. 0 <= j < nt.
+    ///
+    /// @param[in] device
+    ///     Tile's device ID.
+    ///
+    void tileUnsetHold( int64_t i, int64_t j, int device=HostNum )
+    {
+        storage_->tileUnsetHold( globalIndex( i, j, device ) );
+    }
 
     void tileUnsetHoldAll( int device=HostNum );
 
@@ -568,10 +602,12 @@ public:
         storage_->clear();
     }
 
-    /// Clear all workspace tiles that are not on hold or modified.
+    /// Clears all workspace tiles that are not OnHold.
+    /// For local tiles, it ensures that a valid copy remains.
     ///
-    /// Note that Modified, local tiles are currently not released but that this
-    /// behavior may change in the future and should not be relied apon.
+    /// Note that local tiles are currently not released if it would leave all
+    /// remaining tiles invalid, but this behavior may change in the future
+    /// and should not be relied on.
     void releaseWorkspace()
     {
         storage_->releaseWorkspace();
@@ -1584,14 +1620,16 @@ void BaseMatrix<scalar_t>::tileErase(int64_t i, int64_t j, int device)
 }
 
 //------------------------------------------------------------------------------
-/// Erase the tile {i, j}'s instance on device if it is a workspace tile
-/// that is not modified and no hold is set on it.
+/// Erase the tile {i, j}'s instance on device if it is a workspace tile with
+/// no hold set on it.
 /// If tile's memory was allocated by SLATE,
 /// via tileInsert(i, j, dev) or tileInsertWorkspace(i, j, dev),
 /// then the memory is released to the allocator pool.
+/// For local tiles, it ensures that a valid copy remains.
 ///
-/// Note that Modified, local tiles are currently not released but that this
-/// behavior may change in the future and should not be relied apon.
+/// Note that local tiles are currently not released if it would leave all
+/// remaining tiles invalid, but this behavior may change in the future
+/// and should not be relied on.
 ///
 /// @param[in] i
 ///     Tile's block row index. 0 <= i < mt.
@@ -1606,93 +1644,6 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileRelease(int64_t i, int64_t j, int device)
 {
     storage_->release(globalIndex(i, j, device));
-}
-
-
-//------------------------------------------------------------------------------
-/// Returns tile(i, j)'s state on device (defaults to host).
-/// Asserts if tile does not exist.
-///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
-///
-/// @param[in] j
-///     Tile's block column index. 0 <= j < nt.
-///
-/// @param[in] device
-///     Tile's device ID.
-///
-template <typename scalar_t>
-MOSI BaseMatrix<scalar_t>::tileState(int64_t i, int64_t j, int device)
-{
-    auto iter = storage_->find(globalIndex(i, j, device));
-    assert(iter != storage_->end());
-
-    return iter->second->at(device).getState();
-}
-
-//------------------------------------------------------------------------------
-/// Sets tile(i, j)'s state on device.
-/// Asserts if tile does not exist.
-///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
-///
-/// @param[in] j
-///     Tile's block column index. 0 <= j < nt.
-///
-/// @param[in] device
-///     Tile's device ID.
-///
-template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileState(int64_t i, int64_t j, int device, MOSI mosi)
-{
-    auto tileIter = storage_->find(globalIndex(i, j, device));
-    assert(tileIter != storage_->end());
-
-    tileIter->second->at(device).setState(mosi);
-}
-
-//------------------------------------------------------------------------------
-/// Returns whether tile(i, j) is OnHold on device (defaults to host).
-/// Asserts if tile does not exist.
-///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
-///
-/// @param[in] j
-///     Tile's block column index. 0 <= j < nt.
-///
-/// @param[in] device
-///     Tile's device ID.
-///
-template <typename scalar_t>
-bool BaseMatrix<scalar_t>::tileOnHold(int64_t i, int64_t j, int device)
-{
-    auto iter = storage_->find(globalIndex(i, j, device));
-    assert(iter != storage_->end());
-
-    return iter->second->at(device).stateOn(MOSI::OnHold);
-}
-
-//------------------------------------------------------------------------------
-/// Unsets the hold of tile(i, j) on device (defaults to host) if it was OnHold.
-///
-/// @param[in] i
-///     Tile's block row index. 0 <= i < mt.
-///
-/// @param[in] j
-///     Tile's block column index. 0 <= j < nt.
-///
-/// @param[in] device
-///     Tile's device ID.
-///
-template <typename scalar_t>
-void BaseMatrix<scalar_t>::tileUnsetHold(int64_t i, int64_t j, int device)
-{
-    auto iter = storage_->find(globalIndex(i, j, device));
-    if (iter != storage_->end())
-        iter->second->at(device).setState(~MOSI::OnHold);
 }
 
 //------------------------------------------------------------------------------
@@ -1828,23 +1779,8 @@ void BaseMatrix<scalar_t>::tileRecv(
     int64_t i, int64_t j, int src_rank, Layout layout, int tag)
 {
     if (src_rank != mpiRank()) {
-        if (! tileIsLocal(i, j)) {
-            // Create tile to receive data, with life span.
-            // If tile already exists, add to its life span.
-            LockGuard guard(storage_->getTilesMapLock());
-            auto iter = storage_->find( globalIndex( i, j, HostNum ) );
-
-            int64_t life = 1;
-            if (iter == storage_->end())
-                tileInsertWorkspace( i, j, HostNum, layout );
-            else
-                life += tileLife(i, j);
-            tileLife(i, j, life);
-            tileIncrementReceiveCount( i, j );
-        }
-        else {
-            tileAcquire(i, j, layout);
-        }
+        storage_->tilePrepareToReceive( globalIndex( i, j ), 1, layout );
+        tileAcquire(i, j, layout);
 
         // Receive data.
         at(i, j).recv(src_rank, mpiComm(), layout, tag);
@@ -1964,6 +1900,11 @@ void BaseMatrix<scalar_t>::listBcast(
         auto j = std::get<1>(bcast);
         auto submatrices_list = std::get<2>(bcast);
 
+        int64_t life = 0;
+        for (auto submatrix : submatrices_list) {
+            life += submatrix.numLocalTiles() * life_factor;
+        }
+
         // Find the set of participating ranks.
         std::set<int> bcast_set;
         bcast_set.insert(tileRank(i, j));       // Insert root.
@@ -1974,24 +1915,7 @@ void BaseMatrix<scalar_t>::listBcast(
         if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
 
             // If receiving the tile.
-            if (! tileIsLocal(i, j)) {
-
-                // Create tile to receive data, with life span.
-                // If tile already exists, add to its life span.
-                LockGuard guard(storage_->getTilesMapLock());
-                auto iter = storage_->find( globalIndex( i, j, HostNum ) );
-
-                int64_t life = 0;
-                for (auto submatrix : submatrices_list)
-                    life += submatrix.numLocalTiles() * life_factor;
-
-                if (iter == storage_->end())
-                    tileInsertWorkspace( i, j, HostNum );
-                else
-                    life += tileLife(i, j); // todo: use temp tile to receive
-                tileLife(i, j, life);
-                tileIncrementReceiveCount( i, j );
-            }
+            storage_->tilePrepareToReceive( globalIndex( i, j ), life, layout_ );
 
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
@@ -2125,6 +2049,11 @@ void BaseMatrix<scalar_t>::listBcastMT(
         auto tagij = std::get<3>(bcast);
         int tag = int(tagij) % 32768;  // MPI_TAG_UB is at least 32767
 
+        int64_t life = 0;
+        for (auto submatrix : submatrices_list) {
+            life += submatrix.numLocalTiles() * life_factor;
+        }
+
         {
             trace::Block trace_block(
                 std::string("listBcast("+std::to_string(i)+","+std::to_string(j)+")").c_str());
@@ -2138,26 +2067,7 @@ void BaseMatrix<scalar_t>::listBcastMT(
             // If this rank is in the set.
             if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
                 // If receiving the tile.
-                if (! tileIsLocal(i, j)) {
-
-                    // Create tile to receive data, with life span.
-                    // If tile already exists, add to its life span.
-                    LockGuard guard(storage_->getTilesMapLock());
-                    auto iter = storage_->find( globalIndex( i, j, HostNum ) );
-
-                    int64_t life = 0;
-                    for (auto submatrix : submatrices_list) {
-                        life += submatrix.numLocalTiles() * life_factor;
-                    }
-                    if (iter == storage_->end()) {
-                        tileInsertWorkspace( i, j, HostNum );
-                    }
-                    else {
-                        life += tileLife( i, j ); // todo: use temp tile to receive
-                    }
-                    tileLife( i, j, life );
-                    tileIncrementReceiveCount( i, j );
-                }
+                storage_->tilePrepareToReceive( globalIndex( i, j ), life, layout_ );
 
                 // Send across MPI ranks.
                 // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
@@ -2641,7 +2551,8 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileAcquire(int64_t i, int64_t j, int device,
                                        Layout layout)
 {
-    auto& tile_instance = storage_->tileAcquire(globalIndex(i, j, device), layout);
+    auto& tile_instance = storage_->tileInsert( globalIndex(i, j, device),
+                                                TileKind::Workspace, layout );
     auto tile = tile_instance.tile();
 
     // Change ColMajor <=> RowMajor if needed.
@@ -2746,7 +2657,8 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
 
     if (! tile_node.existsOn(dst_device)) {
         // Create a copy on the destination.
-        storage_->tileAcquire(globalIndex(i, j, dst_device), target_layout);
+        storage_->tileInsert( globalIndex(i, j, dst_device),
+                              TileKind::Workspace, target_layout );
     }
 
     if (dst_tile_instance->getState() == MOSI::Invalid) {
@@ -2811,6 +2723,22 @@ void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
                                    LayoutConvert in_layoutConvert, bool modify, bool hold,
                                    bool async)
 {
+    if (device != HostNum) {
+        LockGuard guard(storage_->getTilesMapLock());
+
+        // find number of already existing tiles on the device
+        int64_t existing_tiles = 0;
+        for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
+            int64_t i = std::get<0>(*iter);
+            int64_t j = std::get<1>(*iter);
+            existing_tiles += tileExists(i, j, device);
+        }
+
+        // ensure workspace exists for the rest
+        if (tile_set.size() > size_t(existing_tiles))
+            storage_->ensureDeviceWorkspace(device, tile_set.size() - existing_tiles);
+    }
+
     LayoutConvert layoutConvert = (device == HostNum)
                                   ? in_layoutConvert
                                   : LayoutConvert::None;
@@ -2819,7 +2747,7 @@ void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
         int64_t i = std::get<0>(*iter);
         int64_t j = std::get<1>(*iter);
         {
-            tileGet(i, j, device, layoutConvert, modify, hold, async);
+            tileGet(i, j, device, layoutConvert, modify, hold, true);
         }
     }
 
@@ -2827,6 +2755,9 @@ void BaseMatrix<scalar_t>::tileGet(std::set<ij_tuple>& tile_set, int device,
     if (device != HostNum && in_layoutConvert != LayoutConvert::None) {
         tileLayoutConvert(tile_set, device, Layout(in_layoutConvert));
     }
+
+    if (! async && device != HostNum)
+        comm_queue(device)->sync();
 }
 
 //------------------------------------------------------------------------------
@@ -2883,29 +2814,7 @@ void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
                                              int device,
                                              LayoutConvert layout)
 {
-    if (device != HostNum) {
-        LockGuard guard(storage_->getTilesMapLock());
-
-        // find number of already existing tiles on the device
-        int64_t existing_tiles = 0;
-        for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
-            int64_t i = std::get<0>(*iter);
-            int64_t j = std::get<1>(*iter);
-            existing_tiles += tileExists(i, j, device);
-        }
-
-        // ensure workspace exists for the rest
-        if (tile_set.size() > size_t(existing_tiles))
-            storage_->ensureDeviceWorkspace(
-                device, tile_set.size() - existing_tiles);
-    }
-
-    //todo: was tileGet( tile_set, device, layout, false, false, device != HostNum );
-    //todo: changed async to false to make it work using HIP
     tileGet(tile_set, device, layout, false, false, false);
-
-    if (device != HostNum)
-        comm_queue(device)->sync();
 }
 
 //------------------------------------------------------------------------------
@@ -2930,9 +2839,7 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetForReading(std::set<ij_tuple>& tile_set,
                                              LayoutConvert layout, int from_device)
 {
-    tileGet( tile_set, HostNum, layout, false, false, true );
-
-    comm_queue(from_device)->sync();
+    tileGet( tile_set, HostNum, layout, false, false, false );
 }
 
 //------------------------------------------------------------------------------
@@ -2986,27 +2893,7 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetForWriting(std::set<ij_tuple>& tile_set,
                                              int device, LayoutConvert layout)
 {
-    if (device != HostNum) {
-        LockGuard guard(storage_->getTilesMapLock());
-
-        // find number of aready existing tiles on the device
-        int64_t existing_tiles = 0;
-        for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
-            int64_t i = std::get<0>(*iter);
-            int64_t j = std::get<1>(*iter);
-            existing_tiles += tileExists(i, j, device);
-        }
-
-        // ensure workspace exists for the rest
-        if (tile_set.size() > size_t(existing_tiles))
-            storage_->ensureDeviceWorkspace(
-                device, tile_set.size() - existing_tiles);
-    }
-
-    tileGet( tile_set, device, layout, true, false, device != HostNum );
-
-    if (device != HostNum)
-        comm_queue(device)->sync();
+    tileGet( tile_set, device, layout, true, false, false );
 }
 
 //------------------------------------------------------------------------------
@@ -3057,26 +2944,7 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::tileGetAndHold(std::set<ij_tuple>& tile_set, int device,
                                           LayoutConvert layout)
 {
-    if (device != HostNum) {
-        LockGuard guard(storage_->getTilesMapLock());
-
-        // find number of aready existing tiles on the device
-        int64_t existing_tiles = 0;
-        for (auto iter = tile_set.begin(); iter != tile_set.end(); ++iter) {
-            int64_t i = std::get<0>(*iter);
-            int64_t j = std::get<1>(*iter);
-            existing_tiles += tileExists(i, j, device);
-        }
-
-        // ensure workspace exists for the rest
-        if (tile_set.size() > size_t(existing_tiles))
-            storage_->ensureDeviceWorkspace(device, tile_set.size() - existing_tiles);
-    }
-
-    tileGet( tile_set, device, layout, false, true, device != HostNum );
-
-    if (device != HostNum)
-        comm_queue(device)->sync();
+    tileGet( tile_set, device, layout, false, true, false );
 }
 
 //------------------------------------------------------------------------------
@@ -3982,15 +3850,8 @@ template <typename scalar_t>
 void BaseMatrix<scalar_t>::releaseLocalWorkspaceTile(int64_t i, int64_t j)
 {
     if (this->tileIsLocal( i, j )) {
-        auto& tile_node = this->storage_->at( this->globalIndex( i, j ) );
-
-        LockGuard guard( tile_node.getLock() );
-
         for (int device = HostNum; device < this->num_devices(); ++device) {
-            if (tile_node.existsOn( device )
-                && tile_node[ device ].tile()->workspace()) {
-                tileRelease( i, j, device );
-            }
+            tileRelease( i, j, device );
         }
     }
 }
@@ -4040,25 +3901,10 @@ void BaseMatrix<scalar_t>::releaseRemoteWorkspaceTile(int64_t i, int64_t j)
         // remove this tile from the map of tiles.
         LockGuard guard( storage_->getTilesMapLock() );
 
-        auto iter = this->storage_->find( this->globalIndex( i, j ) );
-        if (iter != this->storage_->end()) {
-
-            // auto& tile_node = *(iter->second);
-
-            // This lock ensures that no other thread is trying to
-            // modify the tile.
-            // The following lock causes the following runtime
-            // error on Crusher
-            //
-            // FATAL ERROR (libmp/x86_64/omp_lock.c:297): omp_destroy_lock
-            // failed: Can only destroy unlocked lockss.
-            //
-            // LockGuard guard_tile( tile_node.getLock() );
-            if (tileExists( i, j, AnyDevice )) {
-                tileDecrementReceiveCount( i, j );
-                if (tileReceiveCount( i, j ) <= 0) {
-                    tileRelease( i, j, AllDevices );
-                }
+        if (tileExists( i, j, AnyDevice )) {
+            tileDecrementReceiveCount( i, j );
+            if (tileReceiveCount( i, j ) <= 0) {
+                tileRelease( i, j, AllDevices );
             }
         }
     }

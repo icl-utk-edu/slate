@@ -115,7 +115,7 @@ void test_tplqt_work( int k, int n2, int l, int cn, int ib )
     // || L1 Q - A1 ||_1 + || L2 Q - A2 ||_1, bound on || L Q - A ||_1.
     for (size_t i = 0; i < A1data.size(); ++i)
         A1data[i] -= A1save[i];
-    for (size_t i = 0; i < A2data.size(); ++i)
+    for (size_t i = 0; i < L2data.size(); ++i)
         L2data[i] -= A2save[i];
     auto err = lapack::lantr( Norm::One, Uplo::Lower,
                               Diag::NonUnit, k, k, A1.data(), A1.stride() )

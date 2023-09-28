@@ -265,17 +265,19 @@ void tb2bd(
                  ( ii < jj && (jj - (ii + A.tileMb(i) - 1)) <= (band+1) ) ) )
             {
                 if (i == j && i > 0) {
-                    auto T_ptr = A.tileInsertWorkspace( i, j-1 );
+                    auto tile = A.tileInsertWorkspace( i, j-1 );
+                    A.tileModified( i, j-1 );
                     lapack::laset(
-                        lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                        0, 0, T_ptr->data(), T_ptr->stride());
+                        lapack::MatrixType::General, tile.mb(), tile.nb(),
+                        0, 0, tile.data(), tile.stride());
                 }
 
                 if ((j < A.nt()-1) && (i == (j - 1))) {
-                    auto T_ptr = A.tileInsertWorkspace( i, j+1 );
+                    auto tile = A.tileInsertWorkspace( i, j+1 );
+                    A.tileModified( i, j+1 );
                     lapack::laset(
-                        lapack::MatrixType::General, T_ptr->mb(), T_ptr->nb(),
-                        0, 0, T_ptr->data(), T_ptr->stride());
+                        lapack::MatrixType::General, tile.mb(), tile.nb(),
+                        0, 0, tile.data(), tile.stride());
                 }
 
                 if (i == j) {

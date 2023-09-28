@@ -134,9 +134,11 @@ public:
     Tile();
 
     Tile(int64_t mb, int64_t nb,
-         scalar_t* A, int64_t lda, int device, TileKind kind, Layout layout=Layout::ColMajor);
+         scalar_t* A, int64_t lda, int device, TileKind kind,
+         Layout layout=Layout::ColMajor, MOSI_State mosi_state=MOSI::Invalid);
 
-    Tile(Tile<scalar_t> src_tile, scalar_t* A, int64_t lda, TileKind kind);
+    Tile(Tile<scalar_t> src_tile, scalar_t* A, int64_t lda, TileKind kind,
+         MOSI_State mosi_state=MOSI::Invalid);
 
     // defaults okay (tile doesn't own data, doesn't allocate/deallocate data)
     // 1. destructor
@@ -314,14 +316,90 @@ public:
         layoutConvert(nullptr, queue, async);
     }
 
+    /// Returns the MOSI status of the tile.
+    ///
+    /// To check the OnHold flag, use stateOn.
+    /// Note that this is the MOSI state from when the tile was accessed and
+    /// may not be up to date with the canonical version.
+    MOSI state()
+    {
+        return MOSI(mosi_state_ & MOSI_State(~MOSI::OnHold));
+    }
+
+    /// returns whether the Modified/Shared/Invalid state or the OnHold flag is On
+    bool stateOn(MOSI_State stateIn) const
+    {
+        switch (stateIn) {
+            case MOSI::Modified:
+            case MOSI::Shared:
+            case MOSI::Invalid:
+                return (mosi_state_ & ~MOSI::OnHold) == stateIn;
+                break;
+            case MOSI::OnHold:
+                return (mosi_state_ & MOSI::OnHold) == stateIn;
+                break;
+            default:
+                assert(false);  // Unknown state
+                break;
+        }
+        return false;
+    }
+
 protected:
     // BaseMatrix sets mb, nb, offset.
     template <typename T>
     friend class BaseMatrix;
 
+    // MatrixStorage manages the tiles it owns
+    template <typename T>
+    friend class TileNode;
+    template <typename T>
+    friend class MatrixStorage;
+
+
     void mb(int64_t in_mb);
     void nb(int64_t in_nb);
     void offset(int64_t i, int64_t j);
+
+    void kind(TileKind kind)
+    {
+        kind_ = kind;
+    }
+
+    void data(scalar_t* data)
+    {
+        data_ = data;
+    }
+
+    void userData(scalar_t* data)
+    {
+        user_data_ = data;
+    }
+
+    void extData(scalar_t* data)
+    {
+        ext_data_ = data;
+    }
+
+    void state(MOSI_State stateIn)
+    {
+        switch (stateIn) {
+            case MOSI::Modified:
+            case MOSI::Shared:
+            case MOSI::Invalid:
+                mosi_state_ = (mosi_state_ & MOSI::OnHold) | stateIn;
+                break;
+            case MOSI::OnHold:
+                mosi_state_ |= stateIn;
+                break;
+            case ~MOSI::OnHold:
+                mosi_state_ &= stateIn;
+                break;
+            default:
+                assert(false);  // Unknown state
+                break;
+        }
+    }
 
     //--------------------
     // begin/end markup used by generate_matrix.py script; do not modify!
@@ -347,6 +425,7 @@ protected:
     Layout user_layout_; // Temporarily store user-provided-memory's layout
 
     int device_;
+    MOSI_State mosi_state_;
 
     // @end data members
     //--------------------
@@ -368,7 +447,8 @@ Tile<scalar_t>::Tile()
       kind_(TileKind::UserOwned),
       layout_(Layout::ColMajor),
       user_layout_(Layout::ColMajor),
-      device_(HostNum)
+      device_(HostNum),
+      mosi_state_(MOSI::Invalid)
 {}
 
 //------------------------------------------------------------------------------
@@ -407,7 +487,7 @@ Tile<scalar_t>::Tile()
 template <typename scalar_t>
 Tile<scalar_t>::Tile(
     int64_t mb, int64_t nb,
-    scalar_t* A, int64_t lda, int device, TileKind kind, Layout layout)
+    scalar_t* A, int64_t lda, int device, TileKind kind, Layout layout, MOSI_State mosi_state)
     : mb_(mb),
       nb_(nb),
       stride_(lda),
@@ -420,7 +500,8 @@ Tile<scalar_t>::Tile(
       kind_(kind),
       layout_(layout),
       user_layout_(layout),
-      device_(device)
+      device_(device),
+      mosi_state_(mosi_state)
 {
     slate_assert(mb >= 0);
     slate_assert(nb >= 0);
@@ -449,7 +530,7 @@ Tile<scalar_t>::Tile(
 ///
 template <typename scalar_t>
 Tile<scalar_t>::Tile(
-    Tile<scalar_t> src_tile, scalar_t* A, int64_t lda, TileKind kind)
+    Tile<scalar_t> src_tile, scalar_t* A, int64_t lda, TileKind kind, MOSI_State mosi_state)
     : mb_(src_tile.mb_),
       nb_(src_tile.nb_),
       stride_(lda),
@@ -462,7 +543,8 @@ Tile<scalar_t>::Tile(
       kind_(kind),
       layout_(src_tile.layout_),
       user_layout_(src_tile.user_layout_),
-      device_(src_tile.device_)
+      device_(src_tile.device_),
+      mosi_state_(mosi_state)
 {
     slate_assert(A != nullptr);
     slate_assert( (src_tile.layout_ == Layout::ColMajor && lda >= src_tile.mb_)

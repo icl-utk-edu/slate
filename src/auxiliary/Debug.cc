@@ -74,7 +74,7 @@ void Debug::checkTilesLives( BaseMatrix<scalar_t> const& A )
 
         if (! A.tileIsLocal(i, j)) {
             if (iter->second->lives() != 0 ||
-                iter->second->numInstances() != 0) {
+                ! iter->second->empty()) {
 
                 std::cout << "RANK "  << std::setw(3) << A.mpi_rank_
                           << " TILE " << std::setw(3) << std::get<0>(iter->first)
@@ -84,7 +84,7 @@ void Debug::checkTilesLives( BaseMatrix<scalar_t> const& A )
                 for (int d = HostNum; d < A.num_devices(); ++d) {
                     if (iter->second->existsOn(d)) {
                         std::cout << " DEV "  << d
-                                  << " data " << iter->second->at(d).tile()->data() << "\n";
+                                  << " data " << iter->second->at(d)->data() << "\n";
                     }
                 }
             }
@@ -113,8 +113,8 @@ bool Debug::checkTilesLayout( BaseMatrix<scalar_t> const& A )
                 index = A.globalIndex(i, j);
                 tmp_tile = A.storage_->tiles_.find(index);
                 if (tmp_tile != tile_end
-                    && tmp_tile->second->at( HostNum ).valid()
-                    && tmp_tile->second->at( HostNum ).tile()->layout() != A.layout()) {
+                    && tmp_tile->second->at( HostNum ) != nullptr
+                    && tmp_tile->second->at( HostNum )->layout() != A.layout()) {
                     return false;
                 }
             }
@@ -202,15 +202,15 @@ void Debug::printTiles_(
                 LockGuard guard(A.storage_->getTilesMapLock());
                 auto iter = A.storage_->find( A.globalIndex( i, j, device ) );
                 if (iter != A.storage_->end()) {
-                    auto tile = iter->second->at( device ).tile();
+                    auto tile = iter->second->at( device );
                     if (do_kind) {
                         msg += tile->origin()
                                 ? (tile->allocated() ? 'o' : 'u')
                                 : 'w';
                     }
                     if (do_mosi) {
-                        char ch = to_char( iter->second->at( device ).getState() );
-                        if (iter->second->at( device ).stateOn( MOSI::OnHold ))
+                        char ch = to_char( iter->second->at( device )->state() );
+                        if (iter->second->at( device )->stateOn( MOSI::OnHold ))
                             ch = toupper( ch );
                         msg += ch;
                     }

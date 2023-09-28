@@ -164,13 +164,13 @@ void test_BandMatrix_tileInsert_new()
                 int ib = std::min( nb, m - ii );
                 int jb = std::min( nb, n - jj );
 
-                auto T_ptr = A.tileInsert( i, j, HostNum );
-                test_assert( T_ptr->mb() == ib );
-                test_assert( T_ptr->nb() == jb );
-                test_assert( T_ptr->op() == slate::Op::NoTrans );
-                test_assert( T_ptr->uplo() == slate::Uplo::General );
+                auto tile = A.tileInsert( i, j, HostNum );
+                test_assert( tile.mb() == ib );
+                test_assert( tile.nb() == jb );
+                test_assert( tile.op() == slate::Op::NoTrans );
+                test_assert( tile.uplo() == slate::Uplo::General );
 
-                T_ptr->at(0, 0) = i + j / 10000.;
+                tile.at(0, 0) = i + j / 10000.;
             }
             ii += A.tileMb(i);
         }
@@ -238,16 +238,16 @@ void test_BandMatrix_tileInsert_data()
                 int ib = std::min( nb, m - ii );
                 int jb = std::min( nb, n - jj );
 
-                auto T_ptr = A.tileInsert( i, j, &Ad[ index * nb * nb ], nb );
+                auto tile = A.tileInsert( i, j, &Ad[ index * nb * nb ], nb );
                 index += 1;
 
-                test_assert( T_ptr->mb() == ib );
-                test_assert( T_ptr->nb() == jb );
-                test_assert( T_ptr->stride() == nb );
-                test_assert( T_ptr->op() == slate::Op::NoTrans );
-                test_assert( T_ptr->uplo() == slate::Uplo::General );
+                test_assert( tile.mb() == ib );
+                test_assert( tile.nb() == jb );
+                test_assert( tile.stride() == nb );
+                test_assert( tile.op() == slate::Op::NoTrans );
+                test_assert( tile.uplo() == slate::Uplo::General );
 
-                T_ptr->at(0, 0) = i + j / 10000.;
+                tile.at(0, 0) = i + j / 10000.;
             }
             ii += A.tileMb(i);
         }
@@ -366,21 +366,21 @@ void test_TriangularBandMatrix_gatherAll(slate::Uplo uplo)
                 int ib = std::min( nb, m - ii );
                 int jb = std::min( nb, m - jj );
 
-                auto T_ptr = A.tileInsert( i, j, &Ad[ index * nb * nb ], nb );
+                auto tile = A.tileInsert( i, j, &Ad[ index * nb * nb ], nb );
                 if (i == j)
-                    T_ptr->uplo(uplo);
+                    tile.uplo(uplo);
                 index += 1;
 
-                test_assert( T_ptr->mb() == ib );
-                test_assert( T_ptr->nb() == jb );
-                test_assert( T_ptr->stride() == nb );
-                test_assert( T_ptr->op() == slate::Op::NoTrans );
+                test_assert( tile.mb() == ib );
+                test_assert( tile.nb() == jb );
+                test_assert( tile.stride() == nb );
+                test_assert( tile.op() == slate::Op::NoTrans );
                 if (i == j)
-                    test_assert( T_ptr->uplo() == uplo );
+                    test_assert( tile.uplo() == uplo );
                 else
-                    test_assert( T_ptr->uplo() == slate::Uplo::General );
+                    test_assert( tile.uplo() == slate::Uplo::General );
 
-                T_ptr->set(i + j / 10.);
+                tile.set(i + j / 10.);
             }
             ii += A.tileMb(i);
         }

@@ -908,13 +908,13 @@ void test_Matrix_tileInsert_new()
             int ib = std::min( mb, m - i*mb );
             int jb = std::min( nb, n - j*nb );
 
-            auto T_ptr = A.tileInsert( i, j, HostNum );
-            test_assert( T_ptr->mb() == ib );
-            test_assert( T_ptr->nb() == jb );
-            test_assert( T_ptr->op() == slate::Op::NoTrans );
-            test_assert( T_ptr->uplo() == slate::Uplo::General );
+            auto tile = A.tileInsert( i, j, HostNum );
+            test_assert( tile.mb() == ib );
+            test_assert( tile.nb() == jb );
+            test_assert( tile.op() == slate::Op::NoTrans );
+            test_assert( tile.uplo() == slate::Uplo::General );
 
-            T_ptr->at(0, 0) = i + j / 10000.;
+            tile.at(0, 0) = i + j / 10000.;
         }
     }
 
@@ -985,14 +985,14 @@ void test_Matrix_tileInsert_data()
                 else
                     Td = A22;
             }
-            auto T_ptr = A.tileInsert( i, j, HostNum, Td, ib );
-            test_assert( T_ptr->data() == Td );
-            test_assert( T_ptr->mb() == ib );
-            test_assert( T_ptr->nb() == jb );
-            test_assert( T_ptr->op() == slate::Op::NoTrans );
-            test_assert( T_ptr->uplo() == slate::Uplo::General );
+            auto tile = A.tileInsert( i, j, HostNum, Td, ib );
+            test_assert( tile.data() == Td );
+            test_assert( tile.mb() == ib );
+            test_assert( tile.nb() == jb );
+            test_assert( tile.op() == slate::Op::NoTrans );
+            test_assert( tile.uplo() == slate::Uplo::General );
 
-            T_ptr->at(0, 0) = i + j / 10000.;
+            tile.at(0, 0) = i + j / 10000.;
         }
     }
 

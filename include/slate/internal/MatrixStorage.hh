@@ -278,7 +278,8 @@ public:
         int device = std::get<2>(ijdev);
         auto& tile_node = at( {i, j} );
 
-        LockGuard guard(tile_node.getLock());
+        // TODO ideally, this would be accessed with a lock on the tile node,
+        // but that breaks BaseMatrix::tileLayoutConvert(set<ij>, ...)
         return tile_node.at(device);
     }
 

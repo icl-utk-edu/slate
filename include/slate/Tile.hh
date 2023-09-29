@@ -248,12 +248,11 @@ public:
     int device() const { return device_; }
 
     Layout layout() const { return layout_; }
-    // todo: set front buffer inside layout(...)
-    void   layout(Layout in_layout) { layout_ = in_layout; }
     Layout userLayout() const { return user_layout_; }
 
-    void set(scalar_t alpha);
-    void set(scalar_t alpha, scalar_t beta);
+    void setLayout(Layout in_layout);
+    [[deprecated( "Use setLayout instead. Will be removed 2024-09." )]]
+    void   layout(Layout in_layout) { layout_ = in_layout; }
 
     /// @return Whether the front memory buffer is contiguous
     bool isContiguous() const
@@ -315,6 +314,9 @@ public:
         assert(mb() == nb() || extended());
         layoutConvert(nullptr, queue, async);
     }
+
+    void set(scalar_t alpha);
+    void set(scalar_t alpha, scalar_t beta);
 
     /// Returns the MOSI status of the tile.
     ///
@@ -702,6 +704,41 @@ void Tile<scalar_t>::offset(int64_t i, int64_t j)
 }
 
 //------------------------------------------------------------------------------
+/// Set's the tile's layout, updating the stride and front buffer as need be
+///
+/// @param[in] i
+///     Row offset. 0 <= i < mb.
+///
+/// @param[in] j
+///     Col offset. 0 <= j < nb.
+///
+template <typename scalar_t>
+void Tile<scalar_t>::setLayout(Layout new_layout)
+{
+    assert(isTransposable() || new_layout == user_layout_);
+
+    if (mb_ != nb_) {
+        // Update stride and maybe data
+        if (isContiguous()) {
+            stride_ = new_layout == Layout::ColMajor ? mb_ : nb_;
+        }
+        else {
+            // Manage front and back buffer
+            if (new_layout == user_layout_) {
+                data_ = user_data_;
+                stride_ = user_stride_;
+            }
+            else {
+                data_ = ext_data_;
+                stride_ = new_layout == Layout::ColMajor ? mb_ : nb_;
+            }
+        }
+    }
+
+    layout_ = new_layout;
+}
+
+//------------------------------------------------------------------------------
 /// Attaches the new_data buffer to this tile as an extended buffer
 /// extended buffer to be used to hold the transposed data of rectangular tiles
 /// Marks the tile as extended
@@ -772,6 +809,9 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
 
     trace::Block trace_block("slate::convertLayout");
 
+    auto old_layout = layout();
+    setLayout( old_layout == Layout::RowMajor ? Layout::ColMajor : Layout::RowMajor );
+
     if (mb() == nb()) {
         // square tile, in-place conversion
         tile::transpose( nb(), data_, stride_ );
@@ -780,28 +820,12 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
         // rectangular tile, out-of-place conversion
         if (extended()) {
             // if tile made Convertible
-            scalar_t* src_data;
-            int64_t src_stride = 0;
-
-            if (user_data_ == data_) {
-                // need to convert into ext_data_
-                data_      = ext_data_;
-                src_data   = user_data_;
-                src_stride = user_stride_;
-                stride_    = user_layout_ == Layout::RowMajor ? mb_ : nb_;
-            }
-            else {
-                // need to convert into user_data_
-                assert(ext_data_ == data_);
-                data_      = user_data_;
-                src_data   = ext_data_;
-                src_stride = stride_;
-                stride_    = user_stride_;
-            }
+            scalar_t* src_data = layoutBackData();
+            int64_t src_stride = layoutBackStride();
 
             tile::transpose(
-                layout() == Layout::ColMajor ? mb_ : nb_,
-                layout() == Layout::ColMajor ? nb_ : mb_,
+                old_layout == Layout::ColMajor ? mb_ : nb_,
+                old_layout == Layout::ColMajor ? nb_ : mb_,
                 src_data, src_stride,
                 data_, stride_ );
         }
@@ -811,19 +835,17 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
             // need a workspace buffer
             slate_assert(work_data != nullptr);
 
-            int64_t work_stride = layout() == Layout::ColMajor ? nb() : mb();
+            int64_t work_stride = old_layout == Layout::ColMajor ? nb() : mb();
+            int64_t src_stride = old_layout == Layout::ColMajor ? mb() : nb();
 
             tile::transpose(
-                layout() == Layout::ColMajor ? mb_ : nb_,
-                layout() == Layout::ColMajor ? nb_ : mb_,
-                data_, stride_,
+                old_layout == Layout::ColMajor ? mb_ : nb_,
+                old_layout == Layout::ColMajor ? nb_ : mb_,
+                data_, src_stride,
                 work_data, work_stride );
             std::memcpy(data_, work_data, bytes());
-
-            stride_ = work_stride;
         }
     }
-    layout(layout() == Layout::RowMajor ? Layout::ColMajor : Layout::RowMajor);
 }
 
 
@@ -863,6 +885,9 @@ void Tile<scalar_t>::layoutConvert(
 
     trace::Block trace_block("slate::convertLayout");
 
+    auto old_layout = layout();
+    setLayout( old_layout == Layout::RowMajor ? Layout::ColMajor : Layout::RowMajor );
+
     if (mb() == nb()) { // square tile (in-place conversion)
         device::transpose(false, mb(), data(), stride(), queue);
         if (! async)
@@ -870,26 +895,13 @@ void Tile<scalar_t>::layoutConvert(
     }
     else { // rectangular tile (out-of-place conversion)
         if (extended()) { // if tile made is convertible
-            scalar_t* src_data;
-            int64_t src_stride = 0;
-            if (user_data_ == data_) { // need to convert into ext_data_
-                data_      = ext_data_;
-                src_data   = user_data_;
-                src_stride = user_stride_;
-                stride_    = user_layout_ == Layout::RowMajor ? mb_ : nb_;
-            }
-            else { // need to convert into user_data_
-                assert(ext_data_ == data_);
-                data_      = user_data_;
-                src_data   = ext_data_;
-                src_stride = stride_;
-                stride_    = user_stride_;
-            }
+            scalar_t* src_data = layoutBackData();
+            int64_t src_stride = layoutBackStride();
 
             device::transpose(
                 false,
-                layout() == Layout::ColMajor ? mb_ : nb_,
-                layout() == Layout::ColMajor ? nb_ : mb_,
+                old_layout == Layout::ColMajor ? mb_ : nb_,
+                old_layout == Layout::ColMajor ? nb_ : mb_,
                 src_data, src_stride, data_, stride_, queue);
             if (! async)
                 queue.sync();
@@ -898,23 +910,21 @@ void Tile<scalar_t>::layoutConvert(
             slate_assert(isContiguous());
             slate_assert(work_data != nullptr); // need a workspace buffer
 
-            int64_t work_stride = layout() == Layout::ColMajor ? nb() : mb();
+            int64_t work_stride = old_layout == Layout::ColMajor ? nb() : mb();
+            int64_t src_stride = old_layout == Layout::ColMajor ? mb() : nb();
 
             device::transpose(
                 false,
-                layout() == Layout::ColMajor ? mb_ : nb_,
-                layout() == Layout::ColMajor ? nb_ : mb_,
-                data_, stride_, work_data, work_stride, queue);
+                old_layout == Layout::ColMajor ? mb_ : nb_,
+                old_layout == Layout::ColMajor ? nb_ : mb_,
+                data_, src_stride, work_data, work_stride, queue);
             blas::device_memcpy<scalar_t>(
                 data_, work_data, size(),
                 blas::MemcpyKind::DeviceToDevice, queue);
             if (! async)
                 queue.sync();
-
-            stride_ = work_stride;
         }
     }
-    layout(layout() == Layout::RowMajor ? Layout::ColMajor : Layout::RowMajor);
 }
 
 //------------------------------------------------------------------------------
@@ -935,14 +945,9 @@ void Tile<scalar_t>::copyData(Tile<scalar_t>* dst_tile) const
     slate_assert(this->device_      == HostNum);
     slate_assert(dst_tile->device() == HostNum);
 
-    // adjust stride if not UserOwned
-    if (dst_tile->kind_ != TileKind::UserOwned) {
-        dst_tile->stride_ = this->layout() == Layout::ColMajor ? mb_ : nb_;
-    }
+    dst_tile->setLayout( this->layout() );
 
     tile::gecopy( *this, *dst_tile );
-
-    dst_tile->layout(this->layout());
 }
 
 //------------------------------------------------------------------------------
@@ -1003,10 +1008,7 @@ void Tile<scalar_t>::copyData(
         slate_error("illegal combination of source and destination devices");
     }
 
-    // adjust stride if not UserOwned
-    if (dst_tile->kind_ != TileKind::UserOwned) {
-        dst_tile->stride_ = this->layout() == Layout::ColMajor ? mb_ : nb_;
-    }
+    dst_tile->setLayout( this->layout() );
 
     slate_assert(device >= 0);
 
@@ -1037,7 +1039,6 @@ void Tile<scalar_t>::copyData(
         if (! async)
             queue.sync();
     }
-    dst_tile->layout(this->layout());
 }
 
 //------------------------------------------------------------------------------
@@ -1137,14 +1138,14 @@ void Tile<scalar_t>::isend(int dst, MPI_Comm mpi_comm, int tag, MPI_Request *req
 ///
 /// @param[in] layout
 ///     Indicates the Layout (ColMajor/RowMajor) of the received data.
-///     WARNING: need to call tileLayout(...) to properly set the layout of the
-///              origin matrix tile afterwards.
 ///
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
 void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, Layout layout, int tag)
 {
     trace::Block trace_block("MPI_Recv");
+
+    this->setLayout( layout );
 
     // If no stride.
     if (this->isContiguous()) {
@@ -1175,8 +1176,6 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, Layout layout, int tag)
 
         slate_mpi_call(MPI_Type_free(&newtype));
     }
-    // set this tile layout to match the received data layout
-    this->layout(layout);
     // todo: would specializing to Triangular / Band tiles improve performance
     // by receiving less / compacted data
 }

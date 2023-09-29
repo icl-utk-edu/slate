@@ -1833,16 +1833,21 @@ void BaseMatrix<scalar_t>::tileRecv(
     int64_t i, int64_t j, int src_rank, Layout layout, int tag)
 {
     if (src_rank != mpiRank()) {
-        storage_->tilePrepareToReceive( globalIndex( i, j ), layout );
-        tileAcquire(i, j, layout);
+        int recv_dev = HostNum;
+        if (target == Target::Devices && gpu_aware_mpi()) {
+            recv_dev = tileDevice( i, j );
+        }
+
+        storage_->tilePrepareToReceive( globalIndex( i, j ), recv_dev, layout );
+        tileAcquire(i, j, recv_dev, layout);
 
         // Receive data.
-        at(i, j).recv(src_rank, mpiComm(), layout, tag);
+        at(i, j, recv_dev).recv(src_rank, mpiComm(), layout, tag);
 
-        tileModified( i, j, HostNum, true );
+        tileModified( i, j, recv_dev, true );
 
         // Copy to devices.
-        if (target == Target::Devices) {
+        if (target == Target::Devices && recv_dev == HostNum) {
             #pragma omp task slate_omp_default_none \
                 firstprivate( i, j )
             {
@@ -1997,9 +2002,12 @@ void BaseMatrix<scalar_t>::listBcast(
 
         // If this rank is in the set.
         if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
-
             // If receiving the tile.
-            storage_->tilePrepareToReceive( globalIndex( i, j ), layout_ );
+            int device = HostNum;
+            if (target == Target::Devices && gpu_aware_mpi()) {
+                device = tileDevice( i, j );
+            }
+            storage_->tilePrepareToReceive( globalIndex( i, j ), device, layout_ );
 
             // Send across MPI ranks.
             // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);
@@ -2139,7 +2147,11 @@ void BaseMatrix<scalar_t>::listBcastMT(
             // If this rank is in the set.
             if (bcast_set.find(mpi_rank_) != bcast_set.end()) {
                 // If receiving the tile.
-                storage_->tilePrepareToReceive( globalIndex( i, j ), layout_ );
+                int device = HostNum;
+                if (target == Target::Devices && gpu_aware_mpi()) {
+                    device = tileDevice( i, j );
+                }
+                storage_->tilePrepareToReceive( globalIndex( i, j ), device, layout_ );
 
                 // Send across MPI ranks.
                 // Previous used MPI bcast: tileBcastToSet(i, j, bcast_set);

@@ -369,7 +369,8 @@ public:
     }
 
     /// Ensures the tile node exists and increments the recieve count
-    void tilePrepareToReceive(ij_tuple ij, Layout layout)
+    /// recieve count
+    void tilePrepareToReceive(ij_tuple ij, int device, Layout layout)
     {
         if (! tileIsLocal(ij)) {
             // Create tile to receive data.
@@ -380,7 +381,7 @@ public:
             auto iter = find( ij );
 
             if (iter == end())
-                tileInsert( {i, j, HostNum}, TileKind::Workspace, layout );
+                tileInsert( {i, j, device}, TileKind::Workspace, layout );
             tileIncrementReceiveCount( ij );
         }
     }

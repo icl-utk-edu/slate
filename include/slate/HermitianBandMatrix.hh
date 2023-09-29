@@ -291,6 +291,7 @@ void HermitianBandMatrix<scalar_t>::gatherAll(std::set<int>& rank_set, int tag)
 
             // If receiving the tile.
             this->storage_->tilePrepareToReceive( this->globalIndex( i, j ),
+                                                  Target::HostTask,
                                                   this->layout_ );
 
             // Send across MPI ranks.

@@ -299,7 +299,7 @@ public:
     int64_t layoutBackStride() const
     {
         if (data_ == user_data_)
-            return stride_; // todo: validate
+            return user_layout_ != Layout::ColMajor ? mb_ : nb_;
         else
             return user_stride_;
     }
@@ -364,21 +364,6 @@ protected:
     void kind(TileKind kind)
     {
         kind_ = kind;
-    }
-
-    void data(scalar_t* data)
-    {
-        data_ = data;
-    }
-
-    void userData(scalar_t* data)
-    {
-        user_data_ = data;
-    }
-
-    void extData(scalar_t* data)
-    {
-        ext_data_ = data;
     }
 
     void state(MOSI_State stateIn)
@@ -495,7 +480,7 @@ Tile<scalar_t>::Tile(
       op_(Op::NoTrans),
       uplo_(Uplo::General),
       data_(A),
-      user_data_(nullptr),
+      user_data_(A),
       ext_data_(nullptr),
       kind_(kind),
       layout_(layout),
@@ -538,7 +523,7 @@ Tile<scalar_t>::Tile(
       op_(src_tile.op_),
       uplo_(src_tile.uplo_),
       data_(A),
-      user_data_(nullptr),
+      user_data_(A),
       ext_data_(nullptr),
       kind_(kind),
       layout_(src_tile.layout_),
@@ -727,11 +712,6 @@ template <typename scalar_t>
 void Tile<scalar_t>::makeTransposable(scalar_t* new_data)
 {
     slate_assert(! isTransposable());
-
-    // preserve currrent data pointer and stride
-    user_data_ = data_;
-    user_stride_ = stride_;
-    user_layout_ = layout_;
     ext_data_ = new_data;
 }
 
@@ -767,7 +747,6 @@ template <typename scalar_t>
 void Tile<scalar_t>::layoutReset()
 {
     slate_assert(data_ == user_data_);
-    user_data_ = nullptr;
     ext_data_ = nullptr;
 }
 

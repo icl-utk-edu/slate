@@ -26,6 +26,7 @@ void transpose_sqr_batch_func(
     scalar_t** Aarray, int64_t lda,
     int batch_count, blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     using blas::conj;
     static const int ib = 16;
     queue.sync(); // sync queue before switching to openmp device execution
@@ -86,6 +87,9 @@ void transpose_sqr_batch_func(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -102,6 +106,7 @@ void transpose_sqr_func(
     scalar_t* A, int64_t lda,
     blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     using blas::conj;
     // printf("%s:%d sqr queue.device() %d\n", __FILE__, __LINE__, queue.device());
 
@@ -161,6 +166,9 @@ void transpose_sqr_func(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -178,6 +186,7 @@ void transpose_rect_batch_func(
     scalar_t** dATarray, int64_t ldat,
     int batch_count, blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     using blas::conj;
     static const int NB = 32;
     queue.sync(); // sync queue before switching to openmp device execution
@@ -212,6 +221,9 @@ void transpose_rect_batch_func(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -229,6 +241,7 @@ void transpose_rect_func(
     scalar_t* dAT, int64_t ldat,
     blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     using blas::conj;
     static const int NB = 32;
     queue.sync(); // sync queue before switching to openmp device execution
@@ -259,6 +272,9 @@ void transpose_rect_func(
                         (is_conj) ? conj(sA[ii][jj]) : sA[ii][jj];
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -284,11 +300,15 @@ void transpose(
     scalar_t* A, int64_t lda,
     blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     if (n <= 1)
         return;
     assert(lda >= n);
 
     transpose_sqr_func(is_conj, n, A, lda, queue);
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -320,12 +340,16 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     if (batch_count < 0 || n <= 1)
         return;
     assert(lda >= n);
 
     transpose_sqr_batch_func(
         is_conj, n, Aarray, lda, batch_count, queue);
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -364,6 +388,7 @@ void transpose(
     scalar_t* dAT, int64_t ldat,
     blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     if ((m <= 0) || (n <= 0))
         return;
     assert(lda >= m);
@@ -371,6 +396,9 @@ void transpose(
 
     transpose_rect_func<scalar_t, NX>(
         is_conj, m, n, dA, lda, dAT, ldat, queue );
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -414,6 +442,7 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     if ((m <= 0) || (n <= 0))
         return;
     assert(lda >= m);
@@ -421,6 +450,9 @@ void transpose_batch(
 
     transpose_rect_batch_func<scalar_t, NX>(
         is_conj, m, n, dA_array, lda, dAT_array, ldat, batch_count, queue );
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -504,12 +536,16 @@ void transpose(
     float* dAT, int64_t ldat,
     blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     transpose<float,32>(
         is_conj,
         m, n,
         dA,  lda,
         dAT, ldat,
         queue);
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 template<>
@@ -520,12 +556,16 @@ void transpose(
     double* dAT, int64_t ldat,
     blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     transpose<double,32>(
         is_conj,
         m, n,
         dA,  lda,
         dAT, ldat,
         queue);
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 template<>
@@ -536,12 +576,16 @@ void transpose(
     std::complex<float>* dAT, int64_t ldat,
     blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     transpose<std::complex<float>,32>(
         is_conj,
         m, n,
         dA,  lda,
         dAT, ldat,
         queue);
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 template<>
@@ -552,12 +596,16 @@ void transpose(
     std::complex<double>* dAT, int64_t ldat,
     blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     transpose<std::complex<double>,16>(
         is_conj,
         m, n,
         dA,  lda,
         dAT, ldat,
         queue);
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 // ----------------------------------------
@@ -573,6 +621,7 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     transpose_batch<float,32>(
         is_conj,
         m, n,
@@ -580,6 +629,9 @@ void transpose_batch(
         dAT_array, ldat,
         batch_count,
         queue);
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 template<>
@@ -591,6 +643,7 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     transpose_batch<double,32>(
         is_conj,
         m, n,
@@ -598,6 +651,9 @@ void transpose_batch(
         dAT_array, ldat,
         batch_count,
         queue);
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 template<>
@@ -609,6 +665,7 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     transpose_batch<std::complex<float>,32>(
         is_conj,
         m, n,
@@ -616,6 +673,9 @@ void transpose_batch(
         dAT_array, ldat,
         batch_count,
         queue);
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 template<>
@@ -627,6 +687,7 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     transpose_batch<std::complex<double>,16>(
         is_conj,
         m, n,
@@ -634,6 +695,9 @@ void transpose_batch(
         dAT_array, ldat,
         batch_count,
         queue);
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 } // namespace device

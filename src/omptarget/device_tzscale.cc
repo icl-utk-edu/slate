@@ -57,6 +57,7 @@ void tzscale(
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     // quick return
     if (batch_count == 0)
         return;
@@ -85,6 +86,9 @@ void tzscale(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------

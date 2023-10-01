@@ -13,10 +13,11 @@
 #include "slate/types.hh"
 
 namespace slate {
+
 namespace device {
 
 //------------------------------------------------------------------------------
-// In copy.cc, provide overload for non-matching types, which throws an error.
+// Overload for non-matching types, which throws an error.
 //
 template <typename x_scalar_t, typename y_scalar_t>
 void transpose_batch(
@@ -31,183 +32,7 @@ void transpose_batch(
     throw std::exception();  // not implemented
 }
 
-// CUBLAS/ROCBLAS need complex translation, others do not
-#if ! defined( SLATE_HAVE_OMPTARGET )
-
-// complex-float => complex-float
-template <>
-void gecopy(
-    int64_t m, int64_t n,
-    std::complex<float> const* const* Aarray, int64_t lda,
-    std::complex<float>** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue)
-{
-#if defined( BLAS_HAVE_CUBLAS )
-    gecopy(m, n,
-           (cuFloatComplex**) Aarray, lda,
-           (cuFloatComplex**) Barray, ldb,
-           batch_count, queue);
-
-#elif defined( BLAS_HAVE_ROCBLAS )
-    gecopy(m, n,
-           (hipFloatComplex**) Aarray, lda,
-           (hipFloatComplex**) Barray, ldb,
-           batch_count, queue);
-#endif
-}
-
-// complex-float => complex-double
-template <>
-void gecopy(
-    int64_t m, int64_t n,
-    std::complex<float> const* const* Aarray, int64_t lda,
-    std::complex<double>** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue)
-{
-#if defined( BLAS_HAVE_CUBLAS )
-    gecopy(m, n,
-           (cuFloatComplex**) Aarray, lda,
-           (cuDoubleComplex**) Barray, ldb,
-           batch_count, queue);
-
-#elif defined( BLAS_HAVE_ROCBLAS )
-    gecopy(m, n,
-           (hipFloatComplex**) Aarray, lda,
-           (hipDoubleComplex**) Barray, ldb,
-           batch_count, queue);
-#endif
-}
-
-// complex-double => complex-double
-template <>
-void gecopy(
-    int64_t m, int64_t n,
-    std::complex<double> const* const* Aarray, int64_t lda,
-    std::complex<double>** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue)
-{
-#if defined( BLAS_HAVE_CUBLAS )
-    gecopy(m, n,
-           (cuDoubleComplex**) Aarray, lda,
-           (cuDoubleComplex**) Barray, ldb,
-           batch_count, queue);
-
-#elif defined( BLAS_HAVE_ROCBLAS )
-    gecopy(m, n,
-           (hipDoubleComplex**) Aarray, lda,
-           (hipDoubleComplex**) Barray, ldb,
-           batch_count, queue);
-#endif
-}
-
-// complex-double => complex-float
-template <>
-void gecopy(
-    int64_t m, int64_t n,
-    std::complex<double> const* const* Aarray, int64_t lda,
-    std::complex<float>** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue)
-{
-#if defined( BLAS_HAVE_CUBLAS )
-    gecopy(m, n,
-           (cuDoubleComplex**) Aarray, lda,
-           (cuFloatComplex**) Barray, ldb,
-           batch_count, queue);
-
-#elif defined( BLAS_HAVE_ROCBLAS )
-    gecopy(m, n,
-           (hipDoubleComplex**) Aarray, lda,
-           (hipFloatComplex**) Barray, ldb,
-           batch_count, queue);
-#endif
-}
-
-// float => complex-float
-template <>
-void gecopy(
-    int64_t m, int64_t n,
-    float const* const* Aarray, int64_t lda,
-    std::complex<float>** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue)
-{
-#if defined( BLAS_HAVE_CUBLAS )
-    gecopy( m, n,
-            (float**) Aarray, lda,
-            (cuFloatComplex**) Barray, ldb,
-            batch_count, queue );
-
-#elif defined( BLAS_HAVE_ROCBLAS )
-    gecopy( m, n,
-            (float**) Aarray, lda,
-            (hipFloatComplex**) Barray, ldb,
-            batch_count, queue );
-#endif
-}
-
-// double => complex-double
-template <>
-void gecopy(
-    int64_t m, int64_t n,
-    double const* const* Aarray, int64_t lda,
-    std::complex<double>** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue)
-{
-#if defined( BLAS_HAVE_CUBLAS )
-    gecopy( m, n,
-            (double**) Aarray, lda,
-            (cuDoubleComplex**) Barray, ldb,
-            batch_count, queue );
-
-#elif defined( BLAS_HAVE_ROCBLAS )
-    gecopy( m, n,
-            (double**) Aarray, lda,
-            (hipDoubleComplex**) Barray, ldb,
-            batch_count, queue );
-#endif
-}
-
-#endif // ! defined( SLATE_HAVE_OMPTARGET )
-
-//---------------------------------------------------
-#if ! defined( SLATE_HAVE_DEVICE )
-// Specializations to allow compilation without CUDA or HIP.
-template <>
-void gecopy(
-    int64_t m, int64_t n,
-    double const* const* Aarray, int64_t lda,
-    double** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue)
-{
-}
-
-template <>
-void gecopy(
-    int64_t m, int64_t n,
-    double const* const* Aarray, int64_t lda,
-    float** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue)
-{
-}
-
-template <>
-void gecopy(
-    int64_t m, int64_t n,
-    float const* const* Aarray, int64_t lda,
-    float** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue)
-{
-}
-template <>
-void gecopy(
-    int64_t m, int64_t n,
-    float const* const* Aarray, int64_t lda,
-    double** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue)
-{
-}
-#endif // not SLATE_HAVE_DEVICE
-
-} // namespace device
+}  // namespace device
 
 namespace internal {
 

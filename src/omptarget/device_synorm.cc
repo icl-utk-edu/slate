@@ -69,6 +69,7 @@ void synorm(
     blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
     blas::Queue &queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     using real_t = blas::real_type<scalar_t>;
     // quick return
     if (batch_count == 0)
@@ -198,6 +199,9 @@ void synorm(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -257,6 +261,7 @@ void synormOffdiag(
     int64_t batch_count,
     blas::Queue &queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     using real_t = blas::real_type<scalar_t>;
 
     // quick return
@@ -294,6 +299,9 @@ void synormOffdiag(
     else {
         slate_not_implemented("Only Norm::One and Norm::Inf is supported.");
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------

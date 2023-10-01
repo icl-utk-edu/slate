@@ -48,10 +48,12 @@ template <typename scalar_t>
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t const& offdiag_value, scalar_t const& diag_value,
+    scalar_t const& offdiag_value,
+    scalar_t const& diag_value,
     scalar_t* A, int64_t lda,
     blas::Queue& queue )
 {
+#ifdef SLATE_HAVE_OMPTARGET
     queue.sync(); // sync queue before switching to openmp device execution
     // Use omp target offload
     #pragma omp target is_device_ptr(A) device(queue.device())
@@ -71,6 +73,9 @@ void tzset(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -79,7 +84,8 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    float const& offdiag_value, float const& diag_value,
+    float const& offdiag_value,
+    float const& diag_value,
     float* A, int64_t lda,
     blas::Queue& queue );
 
@@ -87,7 +93,8 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    double const& offdiag_value, double const& diag_value,
+    double const& offdiag_value,
+    double const& diag_value,
     double* A, int64_t lda,
     blas::Queue& queue );
 
@@ -95,7 +102,8 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    std::complex<float> const& offdiag_value, std::complex<float> const& diag_value,
+    std::complex<float> const& offdiag_value,
+    std::complex<float> const& diag_value,
     std::complex<float>* A, int64_t lda,
     blas::Queue& queue );
 
@@ -103,7 +111,8 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    std::complex<double> const& offdiag_value, std::complex<double> const& diag_value,
+    std::complex<double> const& offdiag_value,
+    std::complex<double> const& diag_value,
     std::complex<double>* A, int64_t lda,
     blas::Queue& queue );
 
@@ -145,10 +154,12 @@ template <typename scalar_t>
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    scalar_t const& offdiag_value, scalar_t const& diag_value,
+    scalar_t const& offdiag_value,
+    scalar_t const& diag_value,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue )
 {
+#ifdef SLATE_HAVE_OMPTARGET
     // quick return
     if (batch_count == 0)
         return;
@@ -176,6 +187,9 @@ void tzset(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -184,7 +198,8 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    float const& offdiag_value, float const& diag_value,
+    float const& offdiag_value,
+    float const& diag_value,
     float** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue );
 
@@ -192,7 +207,8 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    double const& offdiag_value, double const& diag_value,
+    double const& offdiag_value,
+    double const& diag_value,
     double** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue );
 
@@ -200,7 +216,8 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    std::complex<float> const& offdiag_value, std::complex<float> const& diag_value,
+    std::complex<float> const& offdiag_value,
+    std::complex<float> const& diag_value,
     std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue );
 
@@ -208,7 +225,8 @@ template
 void tzset(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    std::complex<double> const& offdiag_value, std::complex<double> const& diag_value,
+    std::complex<double> const& offdiag_value,
+    std::complex<double> const& diag_value,
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue );
 

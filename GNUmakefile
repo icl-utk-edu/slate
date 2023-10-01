@@ -443,14 +443,12 @@ libslate_src += \
 # internal
 libslate_src += \
         src/internal/internal_comm.cc \
-        src/internal/internal_transpose.cc \
         src/internal/internal_util.cc \
         # End. Add alphabetically.
 
 # Most unit testers don't need the whole library, only the above subset.
 ifneq ($(only_unit),1)
     libslate_src += \
-        src/device/dev_gescale_row_col.cc \
         src/internal/internal_copyhb2st.cc \
         src/internal/internal_copytb2bd.cc \
         src/internal/internal_gbnorm.cc \
@@ -507,6 +505,7 @@ ifneq ($(only_unit),1)
         # End. Add alphabetically.
 endif
 
+#-------------------------------------------------------------------------------
 # device
 cuda_src := \
         src/cuda/device_geadd.cu \
@@ -549,21 +548,17 @@ omptarget_src := \
         src/omptarget/device_tzset.cc \
         # End. Add alphabetically.
 
-omptarget_hdr := \
-        src/omptarget/device_util.hh
-
-ifeq ($(cuda),1)
-    libslate_src += $(cuda_src)
-endif
-
-ifeq ($(hip),1)
+ifeq (${cuda},1)
+    libslate_src += ${cuda_src}
+else ifeq (${hip},1)
     libslate_src += ${hip_src}
+else
+    # Used for both OpenMP offload (${omptarget} == 1) and as stubs for
+    # CPU-only build.
+    libslate_src += ${omptarget_src}
 endif
 
-ifeq ($(omptarget),1)
-    libslate_src += $(omptarget_src)
-endif
-
+#-------------------------------------------------------------------------------
 # driver
 ifneq ($(only_unit),1)
     libslate_src += \
@@ -1450,7 +1445,6 @@ echo:
 	@echo "---------- OMP target-offload kernel options"
 	@echo "omptarget     = '${omptarget}'"
 	@echo "omptarget_src = ${omptarget_src}"
-	@echo "omptarget_hdr = ${omptarget_hdr}"
 	@echo
 	@echo "---------- Fortran compiler"
 	@echo "FC            = $(FC)"

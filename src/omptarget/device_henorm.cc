@@ -70,6 +70,7 @@ void henorm(
     blas::real_type<scalar_t>* values, int64_t ldv, int64_t batch_count,
     blas::Queue &queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     using real_t = blas::real_type<scalar_t>;
     ////int64_t nb = 512;
 
@@ -216,6 +217,9 @@ void henorm(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------

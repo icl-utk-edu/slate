@@ -66,6 +66,7 @@ void tzadd(
     scalar_t const& beta, scalar_t** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     // quick return
     if (batch_count == 0)
         return;
@@ -94,6 +95,9 @@ void tzadd(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------

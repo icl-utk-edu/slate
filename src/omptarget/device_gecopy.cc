@@ -54,6 +54,7 @@ void gecopy(
     dst_scalar_t** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     // quick return
     if (batch_count == 0)
         return;
@@ -76,6 +77,9 @@ void gecopy(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------

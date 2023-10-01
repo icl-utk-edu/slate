@@ -52,6 +52,7 @@ void geadd(
     scalar_t const& beta, scalar_t* B, int64_t ldb,
     blas::Queue &queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     // quick return
     if (m == 0 || n == 0)
         return;
@@ -67,6 +68,9 @@ void geadd(
             rowB[j*ldb] = alpha * rowA[j*lda] + beta * rowB[j*ldb];
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------
@@ -148,6 +152,7 @@ void geadd(
     scalar_t const& beta, scalar_t** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue)
 {
+#ifdef SLATE_HAVE_OMPTARGET
     // quick return
     if (m == 0 || n == 0)
         return;
@@ -172,6 +177,9 @@ void geadd(
             }
         }
     }
+#else
+    throw slate::Exception( "device routines not available" );
+#endif
 }
 
 //------------------------------------------------------------------------------

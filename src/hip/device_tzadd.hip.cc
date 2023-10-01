@@ -57,12 +57,12 @@ __global__ void tzadd_kernel(
 
         if (uplo == lapack::Uplo::Lower) {
             for (int64_t j = 0; j <= i && j < n; ++j) { // lower
-                rowB[j*ldb] = axpby(alpha, rowA[j*lda], beta, rowB[j*ldb]);
+                rowB[j*ldb] = alpha * rowA[j*lda] + beta * rowB[ j*ldb ];
             }
         }
         else {
             for (int64_t j = n-1; j >= i; --j) { // upper
-                 rowB[j*ldb] = axpby(alpha, rowA[j*lda], beta, rowB[j*ldb]);
+                 rowB[j*ldb] = alpha * rowA[ j*lda ] + beta * rowB[ j*ldb ];
             }
         }
     }

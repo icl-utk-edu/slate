@@ -784,15 +784,6 @@ operator != (const float s, const cuFloatComplex a)
 
 #endif // BLAS_WITH_CUBLAS
 
-//------------------------------------------------------------------------------
-/// Overloaded versions of Ax+By on device.
-template <typename T>
-__host__ __device__
-inline T axpby( T alpha, T x, T beta, T y )
-{
-    return alpha*x + beta*y;
-}
-
 } // namespace device
 } // namespace slate
 

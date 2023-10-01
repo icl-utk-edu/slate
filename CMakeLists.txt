@@ -385,16 +385,7 @@ if (gpu_backend MATCHES "^(sycl|auto)$")
         target_compile_options( slate PRIVATE "-fopenmp-targets=spir64" )
         target_link_options(    slate PRIVATE "-fopenmp-targets=spir64" )
 
-        file(
-            GLOB libslate_omptarget_src
-            CONFIGURE_DEPENDS  # glob at build time
-            src/omptarget/*.cc
-        )
-        target_sources(
-            slate
-            PRIVATE
-            ${libslate_omptarget_src}
-        )
+        # Source files are set below after CUDA and HIP.
 
         target_link_libraries( slate PUBLIC -lmkl_sycl -lsycl -lOpenCL )
         message( STATUS "Building SYCL support" )
@@ -674,6 +665,21 @@ if (HIP_FOUND)
     endforeach()
 else()
     message( STATUS "${red}No HIP/ROCm support: gpu_backend = ${gpu_backend}${plain}" )
+endif()
+
+#-------------------------------------------------------------------------------
+# Files for OpenMP offload or CPU-only builds.
+if (NOT "${gpu_backend}" MATCHES "^(cuda|hip)$")
+    file(
+        GLOB libslate_omptarget_src
+        CONFIGURE_DEPENDS  # glob at build time
+        src/omptarget/*.cc
+    )
+    target_sources(
+        slate
+        PRIVATE
+        ${libslate_omptarget_src}
+    )
 endif()
 
 #-------------------------------------------------------------------------------

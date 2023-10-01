@@ -48,6 +48,16 @@
     namespace blas {
 
     template<>
+    struct real_type_traits<rocblas_float_complex> {
+        using real_t = float;
+    };
+
+    template<>
+    struct real_type_traits<rocblas_double_complex> {
+        using real_t = double;
+    };
+
+    template<>
     struct real_type_traits<hipFloatComplex> {
         using real_t = float;
     };

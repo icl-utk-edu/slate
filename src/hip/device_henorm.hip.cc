@@ -50,7 +50,7 @@ __global__ void henorm_max_kernel(
     int chunk;
 
     // Save partial results in shared memory.
-    HIP_DYNAMIC_SHARED( char, dynamic_data)
+    extern __shared__ char dynamic_data[];
     real_t* row_max = (real_t*) dynamic_data;
     if (threadIdx.x < blockDim.x) {
         row_max[threadIdx.x] = 0;
@@ -193,7 +193,7 @@ __global__ void henorm_fro_kernel(
     int chunk;
 
     // Save partial results in shared memory.
-    HIP_DYNAMIC_SHARED( char, dynamic_data)
+    extern __shared__ char dynamic_data[];
     real_t* row_scale = (real_t*) &dynamic_data[0];
     real_t* row_sumsq = &row_scale[blockDim.x];
 
@@ -318,7 +318,8 @@ void henorm(
         else {
             assert(ldv == 1);
             size_t shared_mem = sizeof(real_t) * nb;
-            hipLaunchKernelGGL(henorm_max_kernel, dim3(batch_count), dim3(nb), shared_mem, queue.stream(), uplo, n, Aarray, lda, values);
+            henorm_max_kernel<<<batch_count, nb, shared_mem, queue.stream()>>>
+                (uplo, n, Aarray, lda, values);
         }
     }
     //---------
@@ -329,7 +330,8 @@ void henorm(
         }
         else {
             assert(ldv >= n);
-            hipLaunchKernelGGL(henorm_one_kernel, dim3(batch_count), dim3(nb), 0, queue.stream(), uplo, n, Aarray, lda, values, ldv);
+            henorm_one_kernel<<<batch_count, nb, 0, queue.stream()>>>
+                (uplo, n, Aarray, lda, values, ldv);
         }
     }
     //---------
@@ -341,7 +343,8 @@ void henorm(
         else {
             assert(ldv == 2);
             size_t shared_mem = sizeof(real_t) * nb * 2;
-            hipLaunchKernelGGL(henorm_fro_kernel, dim3(batch_count), dim3(nb), shared_mem, queue.stream(), uplo, n, Aarray, lda, values);
+            henorm_fro_kernel<<<batch_count, nb, shared_mem, queue.stream()>>>
+                (uplo, n, Aarray, lda, values);
         }
     }
 
@@ -367,21 +370,33 @@ void henorm(
     double* values, int64_t ldv, int64_t batch_count,
     blas::Queue& queue);
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => hipComplex.
+template <>
 void henorm(
     lapack::Norm norm, lapack::Uplo uplo,
     int64_t n,
-    hipFloatComplex const* const* Aarray, int64_t lda,
+    std::complex<float> const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    blas::Queue& queue);
+    blas::Queue& queue)
+{
+    henorm( norm, uplo, n,
+            (rocblas_float_complex**) Aarray, lda,
+            values, ldv, batch_count, queue );
+}
 
-template
+template <>
 void henorm(
     lapack::Norm norm, lapack::Uplo uplo,
     int64_t n,
-    hipDoubleComplex const* const* Aarray, int64_t lda,
+    std::complex<double> const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    blas::Queue& queue);
+    blas::Queue& queue)
+{
+    henorm( norm, uplo, n,
+            (rocblas_double_complex**) Aarray, lda,
+            values, ldv, batch_count, queue );
+}
 
 } // namespace device
 } // namespace slate

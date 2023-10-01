@@ -95,7 +95,7 @@ export CXX blas blas_int blas_threaded openmp static gpu_backend
 
 CXXFLAGS   += -O3 -std=c++17 -Wall -Wshadow -pedantic -MMD
 NVCCFLAGS  += -O3 -std=c++11 --compiler-options '-Wall -Wno-unused-function'
-HIPCCFLAGS += -std=c++11 -DTCE_HIP -fno-gpu-rdc
+HIPCCFLAGS += -std=c++14 -DTCE_HIP -fno-gpu-rdc
 
 force: ;
 
@@ -1234,14 +1234,12 @@ comma := ,
 # so they are _always_ generated and never removed.
 # Perl updates includes and removes excess spaces that fail style hook.
 ${hip_src}: src/hip/%.hip.cc: src/cuda/%.cu.md5 | src/hip
-	@${call if_md5_outdated, \
-	        ${hipify} ${basename $<} > $@; \
-	        perl -pi -e 's/\.cuh/.hip.hh/g; s/ +(${comma}|;|$$)/$$1/g;' $@}
-
 ${hip_hdr}: src/hip/%.hip.hh: src/cuda/%.cuh.md5 | src/hip
+
+${hip_src} ${hip_hdr}:
 	@${call if_md5_outdated, \
 	        ${hipify} ${basename $<} > $@; \
-	        perl -pi -e 's/\.cuh/.hip.hh/g; s/ +(${comma}|;|$$)/$$1/g;' $@}
+	        ./tools/slate-hipify.pl $@ }
 
 hipify: ${hip_src} ${hip_hdr}
 

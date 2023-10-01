@@ -87,6 +87,52 @@ void sum_reduce(int n, int tid, real_t* x)
     if (n >    1) { if (tid <    1 && tid +    1 < n) { x[tid] += x[tid+   1]; }  __syncthreads(); }
 }
 
+//==============================================================================
+// real, imag, conj.
+
+#ifdef __NVCC__
+
+// CUDA doesn't provide real, imag, conj.
+__host__ __device__ inline double real( rocblas_double_complex x ) { return x.x; }
+__host__ __device__ inline float  real( rocblas_float_complex  x ) { return x.x; }
+
+__host__ __device__ inline double imag( rocblas_double_complex x ) { return x.y; }
+__host__ __device__ inline float  imag( rocblas_float_complex  x ) { return x.y; }
+
+__host__ __device__ inline rocblas_double_complex conj( rocblas_double_complex x ) { return hipConj(x); }
+__host__ __device__ inline rocblas_float_complex  conj( rocblas_float_complex  x ) { return hipConjf(x); }
+
+#else
+
+__host__ __device__ inline double real( rocblas_double_complex x ) { return x.real(); }
+__host__ __device__ inline float  real( rocblas_float_complex  x ) { return x.real(); }
+
+__host__ __device__ inline double imag( rocblas_double_complex x ) { return x.imag(); }
+__host__ __device__ inline float  imag( rocblas_float_complex  x ) { return x.imag(); }
+
+__host__ __device__ inline rocblas_double_complex conj( rocblas_double_complex x ) { return { x.real(), -x.imag() }; }
+__host__ __device__ inline rocblas_float_complex  conj( rocblas_float_complex  x ) { return { x.real(), -x.imag() }; }
+
+#endif
+
+//----------------------------------------
+// Overloads for real numbers.
+
+/// @return real component of complex number x; x for real number.
+/// @ingroup complex
+__host__ __device__  inline double real( double x ) { return x; }
+__host__ __device__  inline float  real( float  x ) { return x; }
+
+/// @return imaginary component of complex number x; 0 for real number.
+/// @ingroup complex
+__host__ __device__  inline double imag( double x ) { return 0; }
+__host__ __device__  inline float  imag( float  x ) { return 0; }
+
+/// @return conjugate of complex number x; x for real number.
+/// @ingroup complex
+__host__ __device__  inline double conj( double x ) { return x; }
+__host__ __device__  inline float  conj( float  x ) { return x; }
+
 //------------------------------------------------------------------------------
 /// Overloaded versions of absolute value on device.
 __host__ __device__
@@ -95,22 +141,24 @@ inline float abs(float x)
     return fabsf(x);
 }
 
+//----------------------------------------
 __host__ __device__
 inline double abs(double x)
 {
     return fabs(x);
 }
 
+//----------------------------------------
 __host__ __device__
-inline float abs(hipFloatComplex x)
+inline float abs(rocblas_float_complex x)
 {
-    // CUDA has good implementation,
-    // otherwise use our implementation that scales per LAPACK.
 #ifdef __NVCC__
+    // CUDA has a good implementation.
     return hipCabsf(x);
 #else
-    float a = hipCrealf(x);
-    float b = hipCimagf(x);
+    // For HIP, use our implementation that scales per LAPACK.
+    float a = real( x );
+    float b = imag( x );
     float z, w, t;
     if (isnan( a )) {
         return a;
@@ -136,16 +184,17 @@ inline float abs(hipFloatComplex x)
 #endif
 }
 
+//----------------------------------------
 __host__ __device__
-inline double abs(hipDoubleComplex x)
+inline double abs(rocblas_double_complex x)
 {
-    // CUDA has good implementation,
-    // otherwise use our implementation that scales per LAPACK.
 #ifdef __NVCC__
+    // CUDA has a good implementation.
     return hipCabs(x);
 #else
-    double a = hipCreal(x);
-    double b = hipCimag(x);
+    // For HIP, use our implementation that scales per LAPACK.
+    double a = real( x );
+    double b = imag( x );
     double z, w, t;
     if (isnan( a )) {
         return a;
@@ -169,71 +218,6 @@ inline double abs(hipDoubleComplex x)
         return t;
     }
 #endif
-}
-
-//------------------------------------------------------------------------------
-/// Overloaded versions of Ax+By on device.
-template <typename T>
-__host__ __device__
-inline T axpby(T alpha, T x, T beta, T y)
-{
-    return alpha*x + beta*y;
-}
-
-__host__ __device__
-inline hipFloatComplex axpby(hipFloatComplex alpha, hipFloatComplex x,
-                            hipFloatComplex beta, hipFloatComplex y)
-{
-    return hipCaddf(hipCmulf(alpha, x), hipCmulf(beta, y));
-}
-
-__host__ __device__
-inline hipDoubleComplex axpby(hipDoubleComplex alpha, hipDoubleComplex x,
-                             hipDoubleComplex beta, hipDoubleComplex y)
-{
-    return hipCadd(hipCmul(alpha, x), hipCmul(beta, y));
-}
-
-//------------------------------------------------------------------------------
-/// Overloaded copy and precision conversion.
-/// Sets b = a, converting from type TA to type TB.
-template <typename TA, typename TB>
-__host__ __device__
-inline void copy(TA a, TB& b)
-{
-    b = a;
-}
-
-/// Sets b = a, converting from complex-float to complex-double.
-__host__ __device__
-inline void copy(hipFloatComplex a, hipDoubleComplex& b)
-{
-    b.x = a.x;
-    b.y = a.y;
-}
-
-/// Sets b = a, converting from complex-double to complex-float.
-__host__ __device__
-inline void copy(hipDoubleComplex a, hipFloatComplex& b)
-{
-    b.x = a.x;
-    b.y = a.y;
-}
-
-/// Sets b = a, converting from float to complex-float.
-__host__ __device__
-inline void copy( float a, hipFloatComplex& b )
-{
-    b.x = a;
-    b.y = 0;
-}
-
-/// Sets b = a, converting from double to complex-double.
-__host__ __device__
-inline void copy( double a, hipDoubleComplex& b )
-{
-    b.x = a;
-    b.y = 0;
 }
 
 //------------------------------------------------------------------------------
@@ -294,6 +278,7 @@ inline constexpr T ceildiv(T x, T y)
     return T((x + y - 1) / y);
 }
 
+//------------------------------------------------------------------------------
 /// @return ceil( x / y )*y, i.e., x rounded up to next multiple of y.
 template <typename T>
 __host__ __device__
@@ -301,158 +286,180 @@ inline constexpr T roundup(T x, T y)
 {
     return T((x + y - 1) / y) * y;
 }
-__host__ __device__  inline double real(hipDoubleComplex x) { return x.x; }
-__host__ __device__  inline float  real(hipFloatComplex  x) { return  x.x; }
 
-__host__ __device__  inline double imag(hipDoubleComplex x) { return  x.y; }
-__host__ __device__  inline float  imag(hipFloatComplex  x) { return x.y;  }
+//------------------------------------------------------------------------------
+/// Overloaded copy and precision conversion.
+/// Sets b = a, converting from type TA to type TB.
+template <typename TA, typename TB>
+__host__ __device__
+inline void copy(TA a, TB& b)
+{
+    b = a;
+}
 
-__host__ __device__  inline hipDoubleComplex conj(hipDoubleComplex x) { return hipConj(x); }
-__host__ __device__  inline hipFloatComplex  conj(hipFloatComplex  x) { return hipConjf(x); }
-//#endif
+/// Sets b = a, converting from complex-float to complex-double.
+__host__ __device__
+inline void copy(rocblas_float_complex a, rocblas_double_complex& b)
+{
+    b = rocblas_double_complex( real( a ), imag( a ) );
+}
 
-__host__ __device__  inline double real(double             x) { return x; }
-__host__ __device__  inline float  real(float              x) { return x; }
+/// Sets b = a, converting from complex-double to complex-float.
+__host__ __device__
+inline void copy(rocblas_double_complex a, rocblas_float_complex& b)
+{
+    b = rocblas_float_complex( real( a ), imag( a ) );
+}
 
-/// @return imaginary component of complex number x; 0 for real number.
-/// @ingroup complex
-__host__ __device__  inline double imag(double             x) { return 0.; }
-__host__ __device__  inline float  imag(float              x) { return 0.f; }
+/// Sets b = a, converting from float to complex-float.
+__host__ __device__
+inline void copy( float a, rocblas_float_complex& b )
+{
+    b = rocblas_float_complex( a, 0 );
+}
 
-/// @return conjugate of complex number x; x for real number.
-/// @ingroup complex
-__host__ __device__  inline double conj(double             x) { return x; }
-__host__ __device__  inline float  conj(float              x) { return x; }
+/// Sets b = a, converting from double to complex-double.
+__host__ __device__
+inline void copy( double a, rocblas_double_complex& b )
+{
+    b = rocblas_double_complex( a, 0 );
+}
+
+//==============================================================================
+// CUDA doesn't provide operators, so define our own.
+// rocBLAS provides operators.
+//
+// complex-double
 
 #if defined( BLAS_HAVE_CUBLAS )
 
 // ---------- negate
-__host__ __device__  inline hipDoubleComplex
-operator - (const hipDoubleComplex& a)
+__host__ __device__  inline rocblas_double_complex
+operator - (const rocblas_double_complex& a)
 {
-    return make_hipDoubleComplex( -real(a),
+    return rocblas_double_complex( -real(a),
                                  -imag(a) );
 }
 
 
-__host__ __device__  inline hipDoubleComplex
-operator + (const hipDoubleComplex a, const hipDoubleComplex b)
+__host__ __device__  inline rocblas_double_complex
+operator + (const rocblas_double_complex a, const rocblas_double_complex b)
 {
-    return make_hipDoubleComplex( real(a) + real(b),
+    return rocblas_double_complex( real(a) + real(b),
                                  imag(a) + imag(b) );
 }
 
-__host__ __device__  inline hipDoubleComplex
-operator + (const hipDoubleComplex a, const double s)
+__host__ __device__  inline rocblas_double_complex
+operator + (const rocblas_double_complex a, const double s)
 {
-    return make_hipDoubleComplex( real(a) + s,
+    return rocblas_double_complex( real(a) + s,
                                  imag(a) );
 }
 
-__host__ __device__  inline hipDoubleComplex
-operator + (const double s, const hipDoubleComplex b)
+__host__ __device__  inline rocblas_double_complex
+operator + (const double s, const rocblas_double_complex b)
 {
-    return make_hipDoubleComplex( s + real(b),
+    return rocblas_double_complex( s + real(b),
                                  imag(b) );
 }
 
-__host__ __device__  inline hipDoubleComplex&
-operator += (hipDoubleComplex& a, const hipDoubleComplex b)
+__host__ __device__  inline rocblas_double_complex&
+operator += (rocblas_double_complex& a, const rocblas_double_complex b)
 {
-    a = make_hipDoubleComplex( real(a) + real(b),
+    a = rocblas_double_complex( real(a) + real(b),
                               imag(a) + imag(b) );
     return a;
 }
 
-__host__ __device__  inline hipDoubleComplex&
-operator += (hipDoubleComplex& a, const double s)
+__host__ __device__  inline rocblas_double_complex&
+operator += (rocblas_double_complex& a, const double s)
 {
-    a = make_hipDoubleComplex( real(a) + s,
+    a = rocblas_double_complex( real(a) + s,
                               imag(a) );
     return a;
 }
 
 // ---------- subtract
-__host__ __device__  inline hipDoubleComplex
-operator - (const hipDoubleComplex a, const hipDoubleComplex b)
+__host__ __device__  inline rocblas_double_complex
+operator - (const rocblas_double_complex a, const rocblas_double_complex b)
 {
-    return make_hipDoubleComplex( real(a) - real(b),
+    return rocblas_double_complex( real(a) - real(b),
                                  imag(a) - imag(b) );
 }
 
-__host__ __device__  inline hipDoubleComplex
-operator - (const hipDoubleComplex a, const double s)
+__host__ __device__  inline rocblas_double_complex
+operator - (const rocblas_double_complex a, const double s)
 {
-    return make_hipDoubleComplex( real(a) - s,
+    return rocblas_double_complex( real(a) - s,
                                  imag(a) );
 }
 
-__host__ __device__  inline hipDoubleComplex
-operator - (const double s, const hipDoubleComplex b)
+__host__ __device__  inline rocblas_double_complex
+operator - (const double s, const rocblas_double_complex b)
 {
-    return make_hipDoubleComplex( s - real(b),
+    return rocblas_double_complex( s - real(b),
                                  - imag(b) );
 }
 
-__host__ __device__  inline hipDoubleComplex&
-operator -= (hipDoubleComplex& a, const hipDoubleComplex b)
+__host__ __device__  inline rocblas_double_complex&
+operator -= (rocblas_double_complex& a, const rocblas_double_complex b)
 {
-    a = make_hipDoubleComplex( real(a) - real(b),
+    a = rocblas_double_complex( real(a) - real(b),
                               imag(a) - imag(b) );
     return a;
 }
 
-__host__ __device__  inline hipDoubleComplex&
-operator -= (hipDoubleComplex& a, const double s)
+__host__ __device__  inline rocblas_double_complex&
+operator -= (rocblas_double_complex& a, const double s)
 {
-    a = make_hipDoubleComplex( real(a) - s,
+    a = rocblas_double_complex( real(a) - s,
                               imag(a) );
     return a;
 }
 
 // ---------- multiply
-__host__ __device__  inline hipDoubleComplex
-operator * (const hipDoubleComplex a, const hipDoubleComplex b)
+__host__ __device__  inline rocblas_double_complex
+operator * (const rocblas_double_complex a, const rocblas_double_complex b)
 {
-    return make_hipDoubleComplex( real(a)*real(b) - imag(a)*imag(b),
+    return rocblas_double_complex( real(a)*real(b) - imag(a)*imag(b),
                                  imag(a)*real(b) + real(a)*imag(b) );
 }
 
-__host__ __device__  inline hipDoubleComplex
-operator * (const hipDoubleComplex a, const double s)
+__host__ __device__  inline rocblas_double_complex
+operator * (const rocblas_double_complex a, const double s)
 {
-    return make_hipDoubleComplex( real(a)*s,
+    return rocblas_double_complex( real(a)*s,
                                  imag(a)*s );
 }
 
-__host__ __device__  inline hipDoubleComplex
-operator * (const hipDoubleComplex a, const float s)
+__host__ __device__  inline rocblas_double_complex
+operator * (const rocblas_double_complex a, const float s)
 {
-    return make_hipDoubleComplex( real(a)*s,
+    return rocblas_double_complex( real(a)*s,
                                  imag(a)*s );
 }
 
 
 
-__host__ __device__  inline hipDoubleComplex
-operator * (const double s, const hipDoubleComplex a)
+__host__ __device__  inline rocblas_double_complex
+operator * (const double s, const rocblas_double_complex a)
 {
-    return make_hipDoubleComplex( real(a)*s,
+    return rocblas_double_complex( real(a)*s,
                                  imag(a)*s );
 }
 
-__host__ __device__  inline hipDoubleComplex&
-operator *= (hipDoubleComplex& a, const hipDoubleComplex b)
+__host__ __device__  inline rocblas_double_complex&
+operator *= (rocblas_double_complex& a, const rocblas_double_complex b)
 {
-    a = make_hipDoubleComplex( real(a)*real(b) - imag(a)*imag(b),
+    a = rocblas_double_complex( real(a)*real(b) - imag(a)*imag(b),
                               imag(a)*real(b) + real(a)*imag(b) );
     return a;
 }
 
-__host__ __device__  inline hipDoubleComplex&
-operator *= (hipDoubleComplex& a, const double s)
+__host__ __device__  inline rocblas_double_complex&
+operator *= (rocblas_double_complex& a, const double s)
 {
-    a = make_hipDoubleComplex( real(a)*s,
+    a = rocblas_double_complex( real(a)*s,
                               imag(a)*s );
     return a;
 }
@@ -465,8 +472,8 @@ operator *= (hipDoubleComplex& a, const double s)
  *  p + i*q = ---------
  *             c + i*d
  */
-__host__ __device__  inline hipDoubleComplex
-operator / (const hipDoubleComplex x, const hipDoubleComplex y)
+__host__ __device__  inline rocblas_double_complex
+operator / (const rocblas_double_complex x, const rocblas_double_complex y)
 {
     double a = real(x);
     double b = imag(x);
@@ -485,18 +492,18 @@ operator / (const hipDoubleComplex x, const hipDoubleComplex y)
         p = (  b + a*e ) / f;
         q = ( -a + b*e ) / f;
     }
-    return make_hipDoubleComplex( p, q );
+    return rocblas_double_complex( p, q );
 }
 
-__host__ __device__  inline hipDoubleComplex
-operator / (const hipDoubleComplex a, const double s)
+__host__ __device__  inline rocblas_double_complex
+operator / (const rocblas_double_complex a, const double s)
 {
-    return make_hipDoubleComplex( real(a)/s,
+    return rocblas_double_complex( real(a)/s,
                                  imag(a)/s );
 }
 
-__host__ __device__  inline hipDoubleComplex
-operator / (const double a, const hipDoubleComplex y)
+__host__ __device__  inline rocblas_double_complex
+operator / (const double a, const rocblas_double_complex y)
 {
     double c = real(y);
     double d = imag(y);
@@ -513,146 +520,146 @@ operator / (const double a, const hipDoubleComplex y)
         p =  a*e / f;
         q = -a   / f;
     }
-    return make_hipDoubleComplex( p, q );
+    return rocblas_double_complex( p, q );
 }
 
-__host__ __device__  inline hipDoubleComplex&
-operator /= (hipDoubleComplex& a, const hipDoubleComplex b)
+__host__ __device__  inline rocblas_double_complex&
+operator /= (rocblas_double_complex& a, const rocblas_double_complex b)
 {
     a = a/b;
     return a;
 }
 
-__host__ __device__  inline hipDoubleComplex&
-operator /= (hipDoubleComplex& a, const double s)
+__host__ __device__  inline rocblas_double_complex&
+operator /= (rocblas_double_complex& a, const double s)
 {
-    a = make_hipDoubleComplex( real(a)/s,
+    a = rocblas_double_complex( real(a)/s,
                               imag(a)/s );
     return a;
 }
 
-// =============================================================================
-// hipFloatComplex
+//==============================================================================
+// complex-float
 
 // ---------- negate
-__host__ __device__  inline hipFloatComplex
-operator - (const hipFloatComplex& a)
+__host__ __device__  inline rocblas_float_complex
+operator - (const rocblas_float_complex& a)
 {
-    return make_hipFloatComplex( -real(a), -imag(a) );
+    return rocblas_float_complex( -real(a), -imag(a) );
 }
 
 // ---------- add
-__host__ __device__  inline hipFloatComplex
-operator + (const hipFloatComplex a, const hipFloatComplex b)
+__host__ __device__  inline rocblas_float_complex
+operator + (const rocblas_float_complex a, const rocblas_float_complex b)
 {
-    return make_hipFloatComplex( real(a) + real(b),
+    return rocblas_float_complex( real(a) + real(b),
                                 imag(a) + imag(b) );
 }
 
-__host__ __device__  inline hipFloatComplex
-operator + (const hipFloatComplex a, const float s)
+__host__ __device__  inline rocblas_float_complex
+operator + (const rocblas_float_complex a, const float s)
 {
-    return make_hipFloatComplex( real(a) + s,
+    return rocblas_float_complex( real(a) + s,
                                 imag(a) );
 }
 
-__host__ __device__  inline hipFloatComplex
-operator + (const float s, const hipFloatComplex b)
+__host__ __device__  inline rocblas_float_complex
+operator + (const float s, const rocblas_float_complex b)
 {
-    return make_hipFloatComplex( s + real(b),
+    return rocblas_float_complex( s + real(b),
                                 imag(b) );
 }
 
-__host__ __device__  inline hipFloatComplex&
-operator += (hipFloatComplex& a, const hipFloatComplex b)
+__host__ __device__  inline rocblas_float_complex&
+operator += (rocblas_float_complex& a, const rocblas_float_complex b)
 {
-    a = make_hipFloatComplex( real(a) + real(b),
+    a = rocblas_float_complex( real(a) + real(b),
                              imag(a) + imag(b) );
     return a;
 }
 
-__host__ __device__  inline hipFloatComplex&
-operator += (hipFloatComplex& a, const float s)
+__host__ __device__  inline rocblas_float_complex&
+operator += (rocblas_float_complex& a, const float s)
 {
-    a = make_hipFloatComplex( real(a) + s,
+    a = rocblas_float_complex( real(a) + s,
                              imag(a) );
     return a;
 }
 
 
 // ---------- subtract
-__host__ __device__  inline hipFloatComplex
-operator - (const hipFloatComplex a, const hipFloatComplex b)
+__host__ __device__  inline rocblas_float_complex
+operator - (const rocblas_float_complex a, const rocblas_float_complex b)
 {
-    return make_hipFloatComplex( real(a) - real(b),
+    return rocblas_float_complex( real(a) - real(b),
                                 imag(a) - imag(b) );
 }
 
-__host__ __device__  inline hipFloatComplex
-operator - (const hipFloatComplex a, const float s)
+__host__ __device__  inline rocblas_float_complex
+operator - (const rocblas_float_complex a, const float s)
 {
-    return make_hipFloatComplex( real(a) - s,
+    return rocblas_float_complex( real(a) - s,
                                 imag(a) );
 }
 
-__host__ __device__  inline hipFloatComplex
-operator - (const float s, const hipFloatComplex b)
+__host__ __device__  inline rocblas_float_complex
+operator - (const float s, const rocblas_float_complex b)
 {
-    return make_hipFloatComplex( s - real(b),
+    return rocblas_float_complex( s - real(b),
                                 - imag(b) );
 }
 
-__host__ __device__  inline hipFloatComplex&
-operator -= (hipFloatComplex& a, const hipFloatComplex b)
+__host__ __device__  inline rocblas_float_complex&
+operator -= (rocblas_float_complex& a, const rocblas_float_complex b)
 {
-    a = make_hipFloatComplex( real(a) - real(b),
+    a = rocblas_float_complex( real(a) - real(b),
                              imag(a) - imag(b) );
     return a;
 }
 
-__host__ __device__  inline hipFloatComplex&
-operator -= (hipFloatComplex& a, const float s)
+__host__ __device__  inline rocblas_float_complex&
+operator -= (rocblas_float_complex& a, const float s)
 {
-    a = make_hipFloatComplex( real(a) - s,
+    a = rocblas_float_complex( real(a) - s,
                              imag(a) );
     return a;
 }
 
 
 // ---------- multiply
-__host__ __device__  inline hipFloatComplex
-operator * (const hipFloatComplex a, const hipFloatComplex b)
+__host__ __device__  inline rocblas_float_complex
+operator * (const rocblas_float_complex a, const rocblas_float_complex b)
 {
-    return make_hipFloatComplex( real(a)*real(b) - imag(a)*imag(b),
+    return rocblas_float_complex( real(a)*real(b) - imag(a)*imag(b),
                                 imag(a)*real(b) + real(a)*imag(b) );
 }
 
-__host__ __device__  inline hipFloatComplex
-operator * (const hipFloatComplex a, const float s)
+__host__ __device__  inline rocblas_float_complex
+operator * (const rocblas_float_complex a, const float s)
 {
-    return make_hipFloatComplex( real(a)*s,
+    return rocblas_float_complex( real(a)*s,
                                 imag(a)*s );
 }
 
-__host__ __device__  inline hipFloatComplex
-operator * (const float s, const hipFloatComplex a)
+__host__ __device__  inline rocblas_float_complex
+operator * (const float s, const rocblas_float_complex a)
 {
-    return make_hipFloatComplex( real(a)*s,
+    return rocblas_float_complex( real(a)*s,
                                 imag(a)*s );
 }
 
-__host__ __device__  inline hipFloatComplex&
-operator *= (hipFloatComplex& a, const hipFloatComplex b)
+__host__ __device__  inline rocblas_float_complex&
+operator *= (rocblas_float_complex& a, const rocblas_float_complex b)
 {
-    a = make_hipFloatComplex( real(a)*real(b) - imag(a)*imag(b),
+    a = rocblas_float_complex( real(a)*real(b) - imag(a)*imag(b),
                              imag(a)*real(b) + real(a)*imag(b) );
     return a;
 }
 
-__host__ __device__  inline hipFloatComplex&
-operator *= (hipFloatComplex& a, const float s)
+__host__ __device__  inline rocblas_float_complex&
+operator *= (rocblas_float_complex& a, const float s)
 {
-    a = make_hipFloatComplex( real(a)*s,
+    a = rocblas_float_complex( real(a)*s,
                              imag(a)*s );
     return a;
 }
@@ -666,8 +673,8 @@ operator *= (hipFloatComplex& a, const float s)
  *  p + i*q = ---------
  *             c + i*d
  */
-__host__ __device__  inline hipFloatComplex
-operator / (const hipFloatComplex x, const hipFloatComplex y)
+__host__ __device__  inline rocblas_float_complex
+operator / (const rocblas_float_complex x, const rocblas_float_complex y)
 {
     float a = real(x);
     float b = imag(x);
@@ -686,18 +693,18 @@ operator / (const hipFloatComplex x, const hipFloatComplex y)
         p = (  b + a*e ) / f;
         q = ( -a + b*e ) / f;
     }
-    return make_hipFloatComplex( p, q );
+    return rocblas_float_complex( p, q );
 }
 
-__host__ __device__  inline hipFloatComplex
-operator / (const hipFloatComplex a, const float s)
+__host__ __device__  inline rocblas_float_complex
+operator / (const rocblas_float_complex a, const float s)
 {
-    return make_hipFloatComplex( real(a)/s,
+    return rocblas_float_complex( real(a)/s,
                                 imag(a)/s );
 }
 
-__host__ __device__  inline hipFloatComplex
-operator / (const float a, const hipFloatComplex y)
+__host__ __device__  inline rocblas_float_complex
+operator / (const float a, const rocblas_float_complex y)
 {
     float c = real(y);
     float d = imag(y);
@@ -714,20 +721,20 @@ operator / (const float a, const hipFloatComplex y)
         p =  a*e / f;
         q = -a   / f;
     }
-    return make_hipFloatComplex( p, q );
+    return rocblas_float_complex( p, q );
 }
 
-__host__ __device__  inline hipFloatComplex&
-operator /= (hipFloatComplex& a, const hipFloatComplex b)
+__host__ __device__  inline rocblas_float_complex&
+operator /= (rocblas_float_complex& a, const rocblas_float_complex b)
 {
     a = a/b;
     return a;
 }
 
-__host__ __device__  inline hipFloatComplex&
-operator /= (hipFloatComplex& a, const float s)
+__host__ __device__  inline rocblas_float_complex&
+operator /= (rocblas_float_complex& a, const float s)
 {
-    a = make_hipFloatComplex( real(a)/s,
+    a = rocblas_float_complex( real(a)/s,
                              imag(a)/s );
     return a;
 }
@@ -735,21 +742,21 @@ operator /= (hipFloatComplex& a, const float s)
 
 // ---------- equality
 __host__ __device__  inline bool
-operator == (const hipFloatComplex a, const hipFloatComplex b)
+operator == (const rocblas_float_complex a, const rocblas_float_complex b)
 {
     return ( real(a) == real(b) &&
              imag(a) == imag(b) );
 }
 
 __host__ __device__  inline bool
-operator == (const hipFloatComplex a, const float s)
+operator == (const rocblas_float_complex a, const float s)
 {
     return ( real(a) == s &&
              imag(a) == 0. );
 }
 
 __host__ __device__  inline bool
-operator == (const float s, const hipFloatComplex a)
+operator == (const float s, const rocblas_float_complex a)
 {
     return ( real(a) == s &&
              imag(a) == 0. );
@@ -758,24 +765,33 @@ operator == (const float s, const hipFloatComplex a)
 
 // ---------- not equality
 __host__ __device__  inline bool
-operator != (const hipFloatComplex a, const hipFloatComplex b)
+operator != (const rocblas_float_complex a, const rocblas_float_complex b)
 {
     return ! (a == b);
 }
 
 __host__ __device__  inline bool
-operator != (const hipFloatComplex a, const float s)
+operator != (const rocblas_float_complex a, const float s)
 {
     return ! (a == s);
 }
 
 __host__ __device__  inline bool
-operator != (const float s, const hipFloatComplex a)
+operator != (const float s, const rocblas_float_complex a)
 {
     return ! (a == s);
 }
 
 #endif // BLAS_WITH_CUBLAS
+
+//------------------------------------------------------------------------------
+/// Overloaded versions of Ax+By on device.
+template <typename T>
+__host__ __device__
+inline T axpby( T alpha, T x, T beta, T y )
+{
+    return alpha*x + beta*y;
+}
 
 } // namespace device
 } // namespace slate

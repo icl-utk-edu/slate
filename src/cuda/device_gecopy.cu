@@ -149,53 +149,92 @@ void gecopy(
     float** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => cuComplex.
+
 // complex-float => complex-float
-template
+template <>
 void gecopy(
     int64_t m, int64_t n,
-    cuFloatComplex const* const* Aarray, int64_t lda,
-    cuFloatComplex** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue);
+    std::complex<float> const* const* Aarray, int64_t lda,
+    std::complex<float>** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue)
+{
+    gecopy( m, n,
+            (cuFloatComplex**) Aarray, lda,
+            (cuFloatComplex**) Barray, ldb,
+            batch_count, queue );
+}
 
 // complex-float => complex-double
-template
+template <>
 void gecopy(
     int64_t m, int64_t n,
-    cuFloatComplex const* const* Aarray, int64_t lda,
-    cuDoubleComplex** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue);
+    std::complex<float> const* const* Aarray, int64_t lda,
+    std::complex<double>** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue)
+{
+    gecopy( m, n,
+            (cuFloatComplex**) Aarray, lda,
+            (cuDoubleComplex**) Barray, ldb,
+            batch_count, queue );
+}
 
 // complex-double => complex-double
-template
+template <>
 void gecopy(
     int64_t m, int64_t n,
-    cuDoubleComplex const* const* Aarray, int64_t lda,
-    cuDoubleComplex** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue);
+    std::complex<double> const* const* Aarray, int64_t lda,
+    std::complex<double>** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue)
+{
+    gecopy( m, n,
+            (cuDoubleComplex**) Aarray, lda,
+            (cuDoubleComplex**) Barray, ldb,
+            batch_count, queue );
+}
 
 // complex-double => complex-float
-template
+template <>
 void gecopy(
     int64_t m, int64_t n,
-    cuDoubleComplex const* const* Aarray, int64_t lda,
-    cuFloatComplex** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue);
+    std::complex<double> const* const* Aarray, int64_t lda,
+    std::complex<float>** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue)
+{
+    gecopy( m, n,
+            (cuDoubleComplex**) Aarray, lda,
+            (cuFloatComplex**) Barray, ldb,
+            batch_count, queue );
+}
 
 // float => complex-float
-template
+template <>
 void gecopy(
     int64_t m, int64_t n,
     float const* const* Aarray, int64_t lda,
-    cuFloatComplex** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue);
+    std::complex<float>** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue)
+{
+    gecopy( m, n,
+            (float**) Aarray, lda,
+            (cuFloatComplex**) Barray, ldb,
+            batch_count, queue );
+}
 
 // double => complex-double
-template
+template <>
 void gecopy(
     int64_t m, int64_t n,
     double const* const* Aarray, int64_t lda,
-    cuDoubleComplex** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue);
+    std::complex<double>** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue)
+{
+    gecopy( m, n,
+            (double**) Aarray, lda,
+            (cuDoubleComplex**) Barray, ldb,
+            batch_count, queue );
+}
 
 } // namespace device
 } // namespace slate

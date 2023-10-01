@@ -25,7 +25,8 @@ namespace device {
 template <typename scalar_t>
 __device__ void geset_func(
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t offdiag_value,
+    scalar_t diag_value,
     scalar_t* A, int64_t lda)
 {
     // thread per row, if more rows than threads, loop by blockDim.x
@@ -43,7 +44,8 @@ __device__ void geset_func(
 template <typename scalar_t>
 __global__ void geset_kernel(
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t offdiag_value,
+    scalar_t diag_value,
     scalar_t* A, int64_t lda)
 {
     geset_func( m, n, offdiag_value, diag_value, A, lda );
@@ -55,7 +57,8 @@ __global__ void geset_kernel(
 template <typename scalar_t>
 __global__ void geset_batch_kernel(
     int64_t m, int64_t n,
-    scalar_t offdiag_value, scalar_t diag_value,
+    scalar_t offdiag_value,
+    scalar_t diag_value,
     scalar_t** Aarray, int64_t lda)
 {
     geset_func( m, n, offdiag_value, diag_value,
@@ -90,7 +93,8 @@ __global__ void geset_batch_kernel(
 template <typename scalar_t>
 void geset(
     int64_t m, int64_t n,
-    scalar_t const& offdiag_value, scalar_t const& diag_value,
+    scalar_t const& offdiag_value,
+    scalar_t const& diag_value,
     scalar_t* A, int64_t lda,
     blas::Queue &queue)
 {
@@ -127,19 +131,35 @@ void geset(
     double* A, int64_t lda,
     blas::Queue &queue);
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => hipComplex.
+template <>
 void geset(
     int64_t m, int64_t n,
-    hipFloatComplex const& offdiag_value, hipFloatComplex const& diag_value,
-    hipFloatComplex* A, int64_t lda,
-    blas::Queue &queue);
+    std::complex<float> const& offdiag_value,
+    std::complex<float> const& diag_value,
+    std::complex<float>* A, int64_t lda,
+    blas::Queue &queue)
+{
+    geset( m, n,
+           rocblas_float_complex( real( offdiag_value ), imag( offdiag_value ) ),
+           rocblas_float_complex( real( diag_value    ), imag( diag_value    ) ),
+           (rocblas_float_complex*) A, lda, queue );
+}
 
-template
+template <>
 void geset(
     int64_t m, int64_t n,
-    hipDoubleComplex const& offdiag_value, hipDoubleComplex const& diag_value,
-    hipDoubleComplex* A, int64_t lda,
-    blas::Queue &queue);
+    std::complex<double> const& offdiag_value,
+    std::complex<double> const& diag_value,
+    std::complex<double>* A, int64_t lda,
+    blas::Queue &queue)
+{
+    geset( m, n,
+           rocblas_double_complex( real( offdiag_value ), imag( offdiag_value ) ),
+           rocblas_double_complex( real( diag_value    ), imag( diag_value    ) ),
+           (rocblas_double_complex*) A, lda, queue );
+}
 
 //==============================================================================
 namespace batch {
@@ -176,7 +196,8 @@ namespace batch {
 template <typename scalar_t>
 void geset(
     int64_t m, int64_t n,
-    scalar_t const& offdiag_value, scalar_t const& diag_value,
+    scalar_t const& offdiag_value,
+    scalar_t const& diag_value,
     scalar_t** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue)
 {
@@ -205,30 +226,50 @@ void geset(
 template
 void geset(
     int64_t m, int64_t n,
-    float const& offdiag_value, float const& diag_value,
+    float const& offdiag_value,
+    float const& diag_value,
     float** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 
 template
 void geset(
     int64_t m, int64_t n,
-    double const& offdiag_value, double const& diag_value,
+    double const& offdiag_value,
+    double const& diag_value,
     double** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue &queue);
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => hipComplex.
+template <>
 void geset(
     int64_t m, int64_t n,
-    hipFloatComplex const& offdiag_value, hipFloatComplex const& diag_value,
-    hipFloatComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue &queue);
+    std::complex<float> const& offdiag_value,
+    std::complex<float> const& diag_value,
+    std::complex<float>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue &queue)
+{
+    geset( m, n,
+           rocblas_float_complex( real( offdiag_value ), imag( offdiag_value ) ),
+           rocblas_float_complex( real( diag_value    ), imag( diag_value    ) ),
+           (rocblas_float_complex**) Aarray, lda,
+           batch_count, queue );
+}
 
-template
+template <>
 void geset(
     int64_t m, int64_t n,
-    hipDoubleComplex const& offdiag_value, hipDoubleComplex const& diag_value,
-    hipDoubleComplex** Aarray, int64_t lda,
-    int64_t batch_count, blas::Queue &queue);
+    std::complex<double> const& offdiag_value,
+    std::complex<double> const& diag_value,
+    std::complex<double>** Aarray, int64_t lda,
+    int64_t batch_count, blas::Queue &queue)
+{
+    geset( m, n,
+           rocblas_double_complex( real( offdiag_value ), imag( offdiag_value ) ),
+           rocblas_double_complex( real( diag_value    ), imag( diag_value    ) ),
+           (rocblas_double_complex**) Aarray, lda,
+           batch_count, queue );
+}
 
 } // namespace batch
 } // namespace device

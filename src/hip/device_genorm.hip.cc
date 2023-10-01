@@ -51,7 +51,7 @@ __global__ void genorm_max_kernel(
     scalar_t const* tile = Aarray[ blockIdx.x ];
 
     // Save partial results in shared memory.
-    HIP_DYNAMIC_SHARED( char, dynamic_data)
+    extern __shared__ char dynamic_data[];
     real_t* row_max = (real_t*) dynamic_data;
     int chunk;
     if (threadIdx.x < blockDim.x) {
@@ -120,7 +120,7 @@ __global__ void genorm_one_kernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = Aarray[ blockIdx.x ];
-    HIP_DYNAMIC_SHARED( char, dynamic_data)
+    extern __shared__ char dynamic_data[];
     real_t* shmem_tile = (real_t*)dynamic_data;
     const int k = threadIdx.x;
 
@@ -237,7 +237,7 @@ __global__ void genorm_fro_kernel(
     int chunk;
 
     // Save partial results in shared memory.
-    HIP_DYNAMIC_SHARED( char, dynamic_data)
+    extern __shared__ char dynamic_data[];
     real_t* row_scale = (real_t*) &dynamic_data[0];
     real_t* row_sumsq = &row_scale[blockDim.x];
 
@@ -290,7 +290,7 @@ __global__ void ge_col_norms_max_kernel(
 {
     using real_t = blas::real_type<scalar_t>;
     scalar_t const* tile = Aarray[ blockIdx.x ];
-    HIP_DYNAMIC_SHARED( char, dynamic_data)
+    extern __shared__ char dynamic_data[];
     real_t* shmem_tile = (real_t*)dynamic_data;
     const int k = threadIdx.x;
 
@@ -398,7 +398,9 @@ void genorm(
             else {
                 assert(ldv == 1);
                 size_t shared_mem = sizeof(real_t) * nb;
-                hipLaunchKernelGGL(genorm_max_kernel, dim3(batch_count), dim3(nb), shared_mem, queue.stream(), m, n, Aarray, lda, values);
+                genorm_max_kernel
+                    <<<batch_count, nb, shared_mem, queue.stream()>>>
+                    (m, n, Aarray, lda, values);
             }
         }
         //---------
@@ -410,7 +412,9 @@ void genorm(
             else {
                 assert(ldv >= n);
                 size_t shared_mem = sizeof(real_t) * ib * ib1;
-                hipLaunchKernelGGL(genorm_one_kernel, dim3(batch_count), dim3(ib), shared_mem, queue.stream(), m, n, Aarray, lda, values, ldv);
+                genorm_one_kernel
+                    <<<batch_count, ib, shared_mem, queue.stream()>>>
+                    (m, n, Aarray, lda, values, ldv);
             }
         }
         //---------
@@ -421,7 +425,8 @@ void genorm(
             }
             else {
                 assert(ldv >= m);
-                hipLaunchKernelGGL(genorm_inf_kernel, dim3(batch_count), dim3(nb), 0, queue.stream(), m, n, Aarray, lda, values, ldv);
+                genorm_inf_kernel<<<batch_count, nb, 0, queue.stream()>>>
+                    (m, n, Aarray, lda, values, ldv);
             }
         }
         //---------
@@ -433,7 +438,9 @@ void genorm(
             else {
                 assert(ldv == 2);
                 size_t shared_mem = sizeof(real_t) * nb * 2;
-                hipLaunchKernelGGL(genorm_fro_kernel, dim3(batch_count), dim3(nb), shared_mem, queue.stream(), m, n, Aarray, lda, values);
+                genorm_fro_kernel
+                    <<<batch_count, nb, shared_mem, queue.stream()>>>
+                    (m, n, Aarray, lda, values);
             }
         }
     }
@@ -447,7 +454,9 @@ void genorm(
             else {
                 assert(ldv >= n);
                 size_t shared_mem = sizeof(real_t) * ib * ib1;
-                hipLaunchKernelGGL(ge_col_norms_max_kernel, dim3(batch_count), dim3(ib), shared_mem, queue.stream(), m, n, Aarray, lda, values, ldv);
+                ge_col_norms_max_kernel
+                    <<<batch_count, ib, shared_mem, queue.stream()>>>
+                    (m, n, Aarray, lda, values, ldv);
             }
         }
         else {
@@ -480,21 +489,33 @@ void genorm(
     double* values, int64_t ldv, int64_t batch_count,
     blas::Queue &queue);
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => hipComplex.
+template <>
 void genorm(
     lapack::Norm norm, NormScope scope,
     int64_t m, int64_t n,
-    hipFloatComplex const* const* Aarray, int64_t lda,
+    std::complex<float> const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue &queue)
+{
+    genorm( norm, scope, m, n,
+            (rocblas_float_complex**) Aarray, lda,
+            values, ldv, batch_count, queue );
+}
 
-template
+template <>
 void genorm(
     lapack::Norm norm, NormScope scope,
     int64_t m, int64_t n,
-    hipDoubleComplex const* const* Aarray, int64_t lda,
+    std::complex<double> const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue &queue)
+{
+    genorm( norm, scope, m, n,
+            (rocblas_double_complex**) Aarray, lda,
+            values, ldv, batch_count, queue );
+}
 
 } // namespace device
 } // namespace slate

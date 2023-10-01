@@ -154,21 +154,39 @@ void tzadd(
     double const& beta, double** Barray, int64_t ldb,
     int64_t batch_count, blas::Queue &queue);
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => cuComplex.
+template <>
 void tzadd(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    cuFloatComplex const& alpha, cuFloatComplex** Aarray, int64_t lda,
-    cuFloatComplex const& beta, cuFloatComplex** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue);
+    std::complex<float> const& alpha, std::complex<float>** Aarray, int64_t lda,
+    std::complex<float> const& beta,  std::complex<float>** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue)
+{
+    tzadd( uplo, m, n,
+           make_cuFloatComplex( real( alpha ), imag( alpha ) ),
+           (cuFloatComplex**) Aarray, lda,
+           make_cuFloatComplex( real( beta ), imag( beta ) ),
+           (cuFloatComplex**) Barray, ldb,
+           batch_count, queue );
+}
 
-template
+template <>
 void tzadd(
     lapack::Uplo uplo,
     int64_t m, int64_t n,
-    cuDoubleComplex const& alpha, cuDoubleComplex** Aarray, int64_t lda,
-    cuDoubleComplex const& beta, cuDoubleComplex** Barray, int64_t ldb,
-    int64_t batch_count, blas::Queue &queue);
+    std::complex<double> const& alpha, std::complex<double>** Aarray, int64_t lda,
+    std::complex<double> const& beta,  std::complex<double>** Barray, int64_t ldb,
+    int64_t batch_count, blas::Queue &queue)
+{
+    tzadd( uplo, m, n,
+           make_cuDoubleComplex( real( alpha ), imag( alpha ) ),
+           (cuDoubleComplex**) Aarray, lda,
+           make_cuDoubleComplex( real( beta ), imag( beta ) ),
+           (cuDoubleComplex**) Barray, ldb,
+           batch_count, queue );
+}
 
 } // namespace device
 } // namespace slate

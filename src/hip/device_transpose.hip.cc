@@ -376,6 +376,21 @@ void transpose_batch(
 }
 
 //------------------------------------------------------------------------------
+/// Look up NX based on data type.
+/// float, double, complex-float use NX = 32.
+template <typename scalar_t>
+struct nx_traits
+{
+    static const int NX = 32;
+};
+
+template <>
+struct nx_traits< rocblas_double_complex >
+{
+    static const int NX = 16;
+};
+
+//------------------------------------------------------------------------------
 /// Physically transpose a rectangular matrix out-of-place.
 ///
 /// @param[in] m
@@ -400,7 +415,7 @@ void transpose_batch(
 /// @param[in] queue
 ///     BLAS++ queue to execute in.
 ///
-template <typename scalar_t, int NX>
+template <typename scalar_t>
 void transpose(
     bool is_conj,
     int64_t m, int64_t n,
@@ -408,6 +423,8 @@ void transpose(
     scalar_t* dAT, int64_t ldat,
     blas::Queue& queue)
 {
+    const int NX = nx_traits<scalar_t>::NX;
+
     if ((m <= 0) || (n <= 0))
         return;
     assert(lda >= m);
@@ -461,7 +478,7 @@ void transpose(
 /// @param[in] queue
 ///     BLAS++ queue to execute in.
 ///
-template <typename scalar_t, int NX>
+template <typename scalar_t>
 void transpose_batch(
     bool is_conj,
     int64_t m, int64_t n,
@@ -470,6 +487,8 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue)
 {
+    const int NX = nx_traits<scalar_t>::NX;
+
     if ((m <= 0) || (n <= 0))
         return;
     assert(lda >= m);
@@ -508,21 +527,77 @@ void transpose(
     double* A, int64_t lda,
     blas::Queue& queue);
 
+//----- rectangular, out-of-place
 template
 void transpose(
     bool is_conj,
-    int64_t n,
-    hipFloatComplex* A, int64_t lda,
+    int64_t m, int64_t n,
+    float* A, int64_t lda,
+    float* B, int64_t ldb,
     blas::Queue& queue);
 
 template
 void transpose(
     bool is_conj,
-    int64_t n,
-    hipDoubleComplex* A, int64_t lda,
+    int64_t m, int64_t n,
+    double* A, int64_t lda,
+    double* B, int64_t ldb,
     blas::Queue& queue);
 
-// ----------------------------------------
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => hipComplex.
+template <>
+void transpose(
+    bool is_conj,
+    int64_t n,
+    std::complex<float>* A, int64_t lda,
+    blas::Queue& queue)
+{
+    transpose( is_conj, n,
+               (rocblas_float_complex*) A, lda, queue );
+}
+
+template <>
+void transpose(
+    bool is_conj,
+    int64_t n,
+    std::complex<double>* A, int64_t lda,
+    blas::Queue& queue)
+{
+    transpose( is_conj, n,
+               (rocblas_double_complex*) A, lda, queue );
+}
+
+template <>
+void transpose(
+    bool is_conj,
+    int64_t m, int64_t n,
+    std::complex<float>* A, int64_t lda,
+    std::complex<float>* B, int64_t ldb,
+    blas::Queue& queue)
+{
+    transpose( is_conj, m, n,
+               (rocblas_float_complex*) A, lda,
+               (rocblas_float_complex*) B, ldb,
+               queue );
+}
+
+template <>
+void transpose(
+    bool is_conj,
+    int64_t m, int64_t n,
+    std::complex<double>* A, int64_t lda,
+    std::complex<double>* B, int64_t ldb,
+    blas::Queue& queue)
+{
+    transpose( is_conj, m, n,
+               (rocblas_double_complex*) A, lda,
+               (rocblas_double_complex*) B, ldb,
+               queue );
+}
+
+//------------------------------------------------------------------------------
+// Explicit instantiations.
 template
 void transpose_batch(
     bool is_conj,
@@ -539,159 +614,86 @@ void transpose_batch(
     int64_t batch_count,
     blas::Queue& queue);
 
+//----- rectangular, out-of-place
 template
 void transpose_batch(
     bool is_conj,
-    int64_t n,
-    hipFloatComplex** Aarray, int64_t lda,
+    int64_t m, int64_t n,
+    float** Aarray, int64_t lda,
+    float** Barray, int64_t ldb,
     int64_t batch_count,
     blas::Queue& queue);
 
 template
 void transpose_batch(
     bool is_conj,
-    int64_t n,
-    hipDoubleComplex** Aarray, int64_t lda,
+    int64_t m, int64_t n,
+    double** Aarray, int64_t lda,
+    double** Barray, int64_t ldb,
     int64_t batch_count,
     blas::Queue& queue);
 
-
-// ----------------------------------------
-template<>
-void transpose(
-    bool is_conj,
-    int64_t m, int64_t n,
-    float* dA,  int64_t lda,
-    float* dAT, int64_t ldat,
-    blas::Queue& queue)
-{
-    transpose<float,32>(
-        is_conj,
-        m, n,
-        dA,  lda,
-        dAT, ldat,
-        queue);
-}
-
-template<>
-void transpose(
-    bool is_conj,
-    int64_t m, int64_t n,
-    double* dA,  int64_t lda,
-    double* dAT, int64_t ldat,
-    blas::Queue& queue)
-{
-    transpose<double,32>(
-        is_conj,
-        m, n,
-        dA,  lda,
-        dAT, ldat,
-        queue);
-}
-
-template<>
-void transpose(
-    bool is_conj,
-    int64_t m, int64_t n,
-    hipFloatComplex* dA,  int64_t lda,
-    hipFloatComplex* dAT, int64_t ldat,
-    blas::Queue& queue)
-{
-    transpose<hipFloatComplex,32>(
-        is_conj,
-        m, n,
-        dA,  lda,
-        dAT, ldat,
-        queue);
-}
-
-template<>
-void transpose(
-    bool is_conj,
-    int64_t m, int64_t n,
-    hipDoubleComplex* dA,  int64_t lda,
-    hipDoubleComplex* dAT, int64_t ldat,
-    blas::Queue& queue)
-{
-    transpose<hipDoubleComplex,16>(
-        is_conj,
-        m, n,
-        dA,  lda,
-        dAT, ldat,
-        queue);
-}
-
-// ----------------------------------------
-template<>
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => hipComplex.
+template <>
 void transpose_batch(
     bool is_conj,
-    int64_t m, int64_t n,
-    float **dA_array,  int64_t lda,
-    float **dAT_array, int64_t ldat,
+    int64_t n,
+    std::complex<float>** Aarray, int64_t lda,
     int64_t batch_count,
     blas::Queue& queue)
 {
-    transpose_batch<float,32>(
-        is_conj,
-        m, n,
-        dA_array,  lda,
-        dAT_array, ldat,
-        batch_count,
-        queue);
+    transpose_batch(
+        is_conj, n,
+        (rocblas_float_complex**) Aarray, lda,
+        batch_count, queue );
 }
 
-template<>
+template <>
 void transpose_batch(
     bool is_conj,
-    int64_t m, int64_t n,
-    double **dA_array,  int64_t lda,
-    double **dAT_array, int64_t ldat,
+    int64_t n,
+    std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count,
     blas::Queue& queue)
 {
-    transpose_batch<double,32>(
-        is_conj,
-        m, n,
-        dA_array,  lda,
-        dAT_array, ldat,
-        batch_count,
-        queue);
+    transpose_batch(
+        is_conj, n,
+        (rocblas_double_complex**) Aarray, lda,
+        batch_count, queue );
 }
 
-template<>
+//----- rectangular, out-of-place
+template <>
 void transpose_batch(
     bool is_conj,
     int64_t m, int64_t n,
-    hipFloatComplex **dA_array,  int64_t lda,
-    hipFloatComplex **dAT_array, int64_t ldat,
+    std::complex<float>** Aarray, int64_t lda,
+    std::complex<float>** Barray, int64_t ldb,
     int64_t batch_count,
     blas::Queue& queue)
 {
-    transpose_batch<hipFloatComplex,32>(
-        is_conj,
-        m, n,
-        dA_array,  lda,
-        dAT_array, ldat,
-        batch_count,
-        queue);
+    transpose_batch(
+        is_conj, m, n,
+        (rocblas_float_complex**) Aarray, lda,
+        (rocblas_float_complex**) Barray, ldb,
+        batch_count, queue );
 }
 
-template<>
+template <>
 void transpose_batch(
     bool is_conj,
     int64_t m, int64_t n,
-    hipDoubleComplex **dA_array,  int64_t lda,
-    hipDoubleComplex **dAT_array, int64_t ldat,
+    std::complex<double>** Aarray, int64_t lda,
+    std::complex<double>** Barray, int64_t ldb,
     int64_t batch_count,
     blas::Queue& queue)
 {
-    transpose_batch<hipDoubleComplex,16>(
-        is_conj,
-        m, n,
-        dA_array,  lda,
-        dAT_array, ldat,
-        batch_count,
-        queue);
+    transpose_batch(
+        is_conj, m, n,
+        (rocblas_double_complex**) Aarray, lda,
+        (rocblas_double_complex**) Barray, ldb,
+        batch_count, queue );
 }
 
 } // namespace device

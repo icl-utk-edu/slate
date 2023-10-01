@@ -488,21 +488,33 @@ void genorm(
     double* values, int64_t ldv, int64_t batch_count,
     blas::Queue &queue);
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => cuComplex.
+template <>
 void genorm(
     lapack::Norm norm, NormScope scope,
     int64_t m, int64_t n,
-    cuFloatComplex const* const* Aarray, int64_t lda,
+    std::complex<float> const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue &queue)
+{
+    genorm( norm, scope, m, n,
+            (cuFloatComplex**) Aarray, lda,
+            values, ldv, batch_count, queue );
+}
 
-template
+template <>
 void genorm(
     lapack::Norm norm, NormScope scope,
     int64_t m, int64_t n,
-    cuDoubleComplex const* const* Aarray, int64_t lda,
+    std::complex<double> const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue &queue)
+{
+    genorm( norm, scope, m, n,
+            (cuDoubleComplex**) Aarray, lda,
+            values, ldv, batch_count, queue );
+}
 
 } // namespace device
 } // namespace slate

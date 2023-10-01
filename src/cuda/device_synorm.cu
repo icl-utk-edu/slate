@@ -534,23 +534,36 @@ void synorm(
     double* values, int64_t ldv, int64_t batch_count,
     blas::Queue &queue);
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => cuComplex.
+template <>
 void synorm(
     lapack::Norm norm, lapack::Uplo uplo,
     int64_t n,
-    cuFloatComplex const* const* Aarray, int64_t lda,
+    std::complex<float> const* const* Aarray, int64_t lda,
     float* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue &queue)
+{
+    synorm( norm, uplo, n,
+            (cuFloatComplex**) Aarray, lda,
+            values, ldv, batch_count, queue );
+}
 
-template
+template <>
 void synorm(
     lapack::Norm norm, lapack::Uplo uplo,
     int64_t n,
-    cuDoubleComplex const* const* Aarray, int64_t lda,
+    std::complex<double> const* const* Aarray, int64_t lda,
     double* values, int64_t ldv, int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue &queue)
+{
+    synorm( norm, uplo, n,
+            (cuDoubleComplex**) Aarray, lda,
+            values, ldv, batch_count, queue );
+}
 
-//----------------------------------------
+//------------------------------------------------------------------------------
+// Explicit instantiations.
 template
 void synormOffdiag(
     lapack::Norm norm,
@@ -569,23 +582,38 @@ void synormOffdiag(
     int64_t batch_count,
     blas::Queue &queue);
 
-template
+//------------------------------------------------------------------------------
+// Specializations to cast std::complex => cuComplex.
+template <>
 void synormOffdiag(
     lapack::Norm norm,
     int64_t m, int64_t n,
-    cuFloatComplex const* const* Aarray, int64_t lda,
+    std::complex<float> const* const* Aarray, int64_t lda,
     float* values, int64_t ldv,
     int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue &queue)
+{
+    synormOffdiag(
+        norm, m, n,
+        (cuFloatComplex**) Aarray, lda,
+        values, ldv, batch_count, queue );
+}
 
-template
+template <>
 void synormOffdiag(
     lapack::Norm norm,
     int64_t m, int64_t n,
-    cuDoubleComplex const* const* Aarray, int64_t lda,
+    std::complex<double> const* const* Aarray, int64_t lda,
     double* values, int64_t ldv,
     int64_t batch_count,
-    blas::Queue &queue);
+    blas::Queue &queue)
+
+{
+    synormOffdiag(
+        norm, m, n,
+        (cuDoubleComplex**) Aarray, lda,
+        values, ldv, batch_count, queue );
+}
 
 } // namespace device
 } // namespace slate

@@ -3281,6 +3281,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
 {
     auto& tile_node = storage_->at( globalIndex(i, j) );
     LockGuard guard( tile_node.getLock() );
+    // TODO shouldn't this be tile_node[ device ]; ?
     auto tile = tile_node[ HostNum ];
     if (tile->layout() != layout) {
         if (! tile->isTransposable()) {
@@ -3383,19 +3384,18 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
                 }
                 tile->setLayout( layout );
 
-                int64_t target_stride = layout == Layout::ColMajor ?
-                                        tile->mb() :
-                                        tile->nb();
+                int64_t work_stride = layout == Layout::ColMajor
+                                      ? tile->nb()
+                                      : tile->mb();
 
                 // bucket index
                 mnss_tuple mns = {tile->mb(), tile->nb(),
                                   tile->extended(),
                                   tile->stride(),
-                                  tile->mb() != tile->nb() ?
-                                    (tile->extended() ?
-                                        tile->layoutBackStride() :
-                                        target_stride) :
-                                    0};
+                                  tile->mb() != tile->nb()
+                                    ? (tile->extended() ?
+                                        tile->layoutBackStride() : work_stride)
+                                    : 0};
 
                 // add this tile's data to the corrsponding bucket of batch array
                 tilesBuckets[mns].first.push_back(tile->data());
@@ -3435,6 +3435,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
             assert(array_dev      != nullptr);
             assert(work_array_dev != nullptr);
 
+            // mb and nb are the new dimensions
             int64_t mb          = std::get<0>(bucket->first);
             int64_t nb          = std::get<1>(bucket->first);
             int64_t extended    = std::get<2>(bucket->first);
@@ -3465,21 +3466,21 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
                     work_array_dev, bucket->second.second.data(),
                     batch_count, blas::MemcpyKind::HostToDevice, *queue);
 
+                if (! extended) {
+                    // copy back to data buffer
+                    device::gecopy(layout == Layout::ColMajor ? nb : mb,
+                                   layout == Layout::ColMajor ? mb : nb,
+                                   array_dev, work_stride,
+                                   work_array_dev, work_stride,
+                                   batch_count, *queue);
+                }
+
                 device::transpose_batch(false,
                                         layout == Layout::ColMajor ? nb : mb,
                                         layout == Layout::ColMajor ? mb : nb,
-                                        array_dev, stride,
                                         work_array_dev, work_stride,
+                                        array_dev, stride,
                                         batch_count, *queue);
-
-                if (! extended) {
-                    // copy back to data buffer
-                    device::gecopy(layout == Layout::ColMajor ? mb : nb,
-                                   layout == Layout::ColMajor ? nb : mb,
-                                   work_array_dev, work_stride,
-                                   array_dev, work_stride,
-                                   batch_count, *queue);
-                }
             }
 
             // release workspace buffer if allocated

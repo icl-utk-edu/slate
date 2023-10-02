@@ -251,7 +251,7 @@ public:
     Layout userLayout() const { return user_layout_; }
 
     void setLayout(Layout in_layout);
-    [[deprecated( "Use setLayout instead. Will be removed 2024-09." )]]
+    [[deprecated( "Use setLayout instead. Will be removed 2024-10." )]]
     void   layout(Layout in_layout) { layout_ = in_layout; }
 
     /// @return Whether the front memory buffer is contiguous
@@ -259,6 +259,13 @@ public:
     {
         return (layout_ == Layout::ColMajor && stride_ == mb_)
             || (layout_ == Layout::RowMajor && stride_ == nb_);
+    }
+
+    /// @return Whether the user's memory buffer is contiguous
+    bool isUserContiguous() const
+    {
+        return (user_layout_ == Layout::ColMajor && user_stride_ == mb_)
+            || (user_layout_ == Layout::RowMajor && user_stride_ == nb_);
     }
 
     /// Returns whether this tile can safely store its data in transposed form
@@ -719,7 +726,7 @@ void Tile<scalar_t>::setLayout(Layout new_layout)
 
     if (mb_ != nb_) {
         // Update stride and maybe data
-        if (isContiguous()) {
+        if (isUserContiguous()) {
             stride_ = new_layout == Layout::ColMajor ? mb_ : nb_;
         }
         else {
@@ -758,6 +765,7 @@ void Tile<scalar_t>::makeTransposable(scalar_t* new_data)
 /// NOTE: tile should be already extended, throws error otherwise.
 ///
 template <typename scalar_t>
+[[deprecated( "Use setLayout instead. Will be removed 2024-10." )]]
 void Tile<scalar_t>::layoutSetFrontDataExt(bool front)
 {
     slate_assert(extended());
@@ -817,17 +825,16 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
         tile::transpose( nb(), data_, stride_ );
     }
     else {
+        int64_t old_mb = old_layout == Layout::ColMajor ? mb_ : nb_;
+        int64_t old_nb = old_layout == Layout::ColMajor ? nb_ : mb_;
+
+        scalar_t* src_data;
+        int64_t src_stride;
         // rectangular tile, out-of-place conversion
         if (extended()) {
             // if tile made Convertible
-            scalar_t* src_data = layoutBackData();
-            int64_t src_stride = layoutBackStride();
-
-            tile::transpose(
-                old_layout == Layout::ColMajor ? mb_ : nb_,
-                old_layout == Layout::ColMajor ? nb_ : mb_,
-                src_data, src_stride,
-                data_, stride_ );
+            src_data = layoutBackData();
+            src_stride = layoutBackStride();
         }
         else {
             // tile already Convertible
@@ -835,16 +842,15 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
             // need a workspace buffer
             slate_assert(work_data != nullptr);
 
-            int64_t work_stride = old_layout == Layout::ColMajor ? nb() : mb();
-            int64_t src_stride = old_layout == Layout::ColMajor ? mb() : nb();
+            src_data = work_data;
+            src_stride = old_mb;
 
-            tile::transpose(
-                old_layout == Layout::ColMajor ? mb_ : nb_,
-                old_layout == Layout::ColMajor ? nb_ : mb_,
-                data_, src_stride,
-                work_data, work_stride );
             std::memcpy(data_, work_data, bytes());
         }
+        tile::transpose(
+            old_mb, old_nb,
+            src_data, src_stride,
+            data_, stride_ );
     }
 }
 
@@ -890,41 +896,35 @@ void Tile<scalar_t>::layoutConvert(
 
     if (mb() == nb()) { // square tile (in-place conversion)
         device::transpose(false, mb(), data(), stride(), queue);
-        if (! async)
-            queue.sync();
     }
     else { // rectangular tile (out-of-place conversion)
-        if (extended()) { // if tile made is convertible
-            scalar_t* src_data = layoutBackData();
-            int64_t src_stride = layoutBackStride();
+        int64_t old_mb = old_layout == Layout::ColMajor ? mb_ : nb_;
+        int64_t old_nb = old_layout == Layout::ColMajor ? nb_ : mb_;
 
-            device::transpose(
-                false,
-                old_layout == Layout::ColMajor ? mb_ : nb_,
-                old_layout == Layout::ColMajor ? nb_ : mb_,
-                src_data, src_stride, data_, stride_, queue);
-            if (! async)
-                queue.sync();
+        scalar_t* src_data;
+        int64_t src_stride;
+        if (extended()) { // if tile made is convertible
+            src_data = layoutBackData();
+            src_stride = layoutBackStride();
         }
         else { // tile already convertible
             slate_assert(isContiguous());
             slate_assert(work_data != nullptr); // need a workspace buffer
 
-            int64_t work_stride = old_layout == Layout::ColMajor ? nb() : mb();
-            int64_t src_stride = old_layout == Layout::ColMajor ? mb() : nb();
+            src_data = work_data;
+            src_stride = old_layout == Layout::ColMajor ? mb() : nb();
 
-            device::transpose(
-                false,
-                old_layout == Layout::ColMajor ? mb_ : nb_,
-                old_layout == Layout::ColMajor ? nb_ : mb_,
-                data_, src_stride, work_data, work_stride, queue);
             blas::device_memcpy<scalar_t>(
-                data_, work_data, size(),
+                work_data, data_, size(),
                 blas::MemcpyKind::DeviceToDevice, queue);
-            if (! async)
-                queue.sync();
         }
+        device::transpose(
+            false,
+            old_mb, old_nb,
+            src_data, src_stride, data_, stride_, queue);
     }
+    if (! async)
+        queue.sync();
 }
 
 //------------------------------------------------------------------------------

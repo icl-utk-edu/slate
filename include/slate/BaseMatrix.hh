@@ -3280,8 +3280,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
 {
     auto& tile_node = storage_->at( globalIndex(i, j) );
     LockGuard guard( tile_node.getLock() );
-    // TODO shouldn't this be tile_node[ device ]; ?
-    auto tile = tile_node[ HostNum ];
+    auto tile = tile_node[ device ];
     if (tile->layout() != layout) {
         if (! tile->isTransposable()) {
             assert(! reset); // Can't change to ext buffer then reset

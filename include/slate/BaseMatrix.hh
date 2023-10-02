@@ -523,12 +523,14 @@ public:
     }
 
     /// Sets Layout of tile(i, j, device)
+    [[deprecated( "Use tileGetFor* instead. Will be removed 2024-10." )]]
     void tileLayout(int64_t i, int64_t j, int device, Layout layout)
     {
         storage_->at( globalIndex(i, j, device) )->setLayout(layout);
     }
 
     /// Sets Layout of tile(i, j, host)
+    [[deprecated( "Use tileGetFor* instead. Will be removed 2024-10." )]]
     void tileLayout(int64_t i, int64_t j, Layout layout)
     {
         tileLayout( i, j, HostNum, layout );
@@ -3246,6 +3248,7 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
 ///
 // todo: validate working for sub- and sliced- matrix
 template <typename scalar_t>
+[[deprecated( "SLATE now managed convertibility internally. Will be removed 2024-10." )]]
 bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int device)
 {
     return storage_->at( globalIndex(i, j, device) )->isTransposable();

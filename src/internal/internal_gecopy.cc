@@ -334,8 +334,9 @@ void copy(internal::TargetType<Target::Devices>,
                     }
                 }
             }
-            // no need to convert layout.
-            A.tileGetForReading(A_tiles_set, device, LayoutConvert::None);
+            // no need to convert layout
+            // TODO kernel assumes column major
+            A.tileGetForReading(A_tiles_set, device, LayoutConvert::ColMajor);
 
             // Usually the output matrix (B) provides all the batch arrays.
             // Here we are using A, because of the possibly different types.
@@ -413,10 +414,6 @@ void copy(internal::TargetType<Target::Devices>,
             for (int64_t i = 0; i < B.mt(); ++i) {
                 for (int64_t j = 0; j < B.nt(); ++j) {
                     if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
-                        B.tileModified(i, j, device);
-                        // update output tile layout
-                        // todo: what if extended?
-                        B.tileLayout(i, j, device, A.tileLayout(i, j, device));
                         // erase tmp local and remote device tiles;
                         A.tileRelease(i, j, device);
                         // decrement life for remote tiles

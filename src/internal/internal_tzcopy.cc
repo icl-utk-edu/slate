@@ -199,9 +199,8 @@ void copy(internal::TargetType<Target::HostTask>,
     for (int64_t j = 0; j < B.nt(); ++j) {
         if (j < B.mt() && B.tileIsLocal(j, j)) {
             A.tileGetForReading(j, j, LayoutConvert::None);
-            B.tileGetForWriting(j, j, LayoutConvert::None);
+            B.tileGetForWriting(j, j, LayoutConvert( A.tileLayout(j, j) ));
             tile::tzcopy( A(j, j), B(j, j) );
-            B.tileLayout(j, j, A.tileLayout(j, j));
             A.tileTick(j, j);
         }
         if (lower) {
@@ -212,9 +211,9 @@ void copy(internal::TargetType<Target::HostTask>,
                         firstprivate(i, j)
                     {
                         A.tileGetForReading(i, j, LayoutConvert::None);
-                        B.tileGetForWriting(i, j, LayoutConvert::None);
+                        B.tileAcquire(i, j, A.tileLayout(i, j));
+                        B.tileModified(i, j, HostNum, true);
                         tile::gecopy( A(i, j), B(i, j) );
-                        B.tileLayout(i, j, A.tileLayout(i, j));
                         A.tileTick(i, j);
                     }
                 }
@@ -228,9 +227,9 @@ void copy(internal::TargetType<Target::HostTask>,
                         firstprivate(i, j)
                     {
                         A.tileGetForReading(i, j, LayoutConvert::None);
-                        B.tileGetForWriting(i, j, LayoutConvert::None);
+                        B.tileAcquire(i, j, A.tileLayout(i, j));
+                        B.tileModified(i, j, HostNum, true);
                         tile::gecopy( A(i, j), B(i, j) );
-                        B.tileLayout(i, j, A.tileLayout(i, j));
                         A.tileTick(i, j);
                     }
                 }
@@ -298,12 +297,8 @@ void copy(internal::TargetType<Target::Devices>,
                             B_diag_tiles.insert( { i, j } );
                         }
                         else {
-                            int tile_device =
-                              (A.tileExists( i, j, device ) ? device : HostNum );
-
                             // no need to convert layout
-                            B.tileAcquire(
-                                i, j, device, A( i, j, tile_device ).layout() );
+                            B.tileAcquire( i, j, device, Layout::ColMajor );
                             B.tileModified( i, j, device, true );
                         }
                     }
@@ -312,8 +307,9 @@ void copy(internal::TargetType<Target::Devices>,
             // For B, diagonal tiles must be fetched for writing;
             // off-diagonal tiles can be fetched for over-writing
             // (tileAcquire above).
-            A.tileGetForReading( A_tiles, device, LayoutConvert::None );
-            B.tileGetForWriting( B_diag_tiles, device, LayoutConvert::None );
+            // TODO no need to conver layout of A but kernel assumes column major
+            A.tileGetForReading( A_tiles, device, LayoutConvert::ColMajor );
+            B.tileGetForWriting( B_diag_tiles, device, LayoutConvert::ColMajor );
 
             // Usually the output matrix (B) provides all the batch arrays.
             // Here we are using A, because of the different types.
@@ -415,7 +411,6 @@ void copy(internal::TargetType<Target::Devices>,
                         ( (  lower && i >= j) ||
                           (! lower && i <= j) ) )
                     {
-                        B.tileLayout(i, j, device, A.tileLayout(i, j, device));
                         // erase tmp local and remote device tiles;
                         A.tileRelease(i, j, device);
                         // decrement life for remote tiles

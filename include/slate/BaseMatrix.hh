@@ -2660,8 +2660,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
     }
 
     // Change ColMajor <=> RowMajor if needed.
-    if (layout != LayoutConvert::None &&
-        dst_tile->layout() != Layout(layout)) {
+    if (layout != LayoutConvert::None && dst_tile->layout() != Layout(layout)) {
         tileLayoutConvert(i, j, dst_device, Layout(layout), false, async);
     }
 }
@@ -3285,7 +3284,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
     auto tile = tile_node[ HostNum ];
     if (tile->layout() != layout) {
         if (! tile->isTransposable()) {
-            assert(! reset); // cannot reset if not transposable
+            assert(! reset); // Can't change to ext buffer then reset
             storage_->tileMakeTransposable(tile);
         }
 

@@ -845,7 +845,7 @@ void Tile<scalar_t>::layoutConvert(scalar_t* work_data)
             src_data = work_data;
             src_stride = old_mb;
 
-            std::memcpy(data_, work_data, bytes());
+            std::memcpy(work_data, data_, bytes());
         }
         tile::transpose(
             old_mb, old_nb,

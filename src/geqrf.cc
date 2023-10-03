@@ -318,7 +318,7 @@ void geqrf(
 
                 for (int64_t i : first_indices) {
                     if (Tlocal.tileIsLocal( i, k )) {
-                        // Tlocal and Treduce have the have process distribution
+                        // Tlocal and Treduce have the same process distribution
                         Tlocal.tileUpdateOrigin( i, k );
                         Tlocal.releaseLocalWorkspaceTile( i, k );
                         if (i != k) {

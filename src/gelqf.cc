@@ -365,7 +365,7 @@ void gelqf(
 
                 for (int64_t j : first_indices) {
                     if (Tlocal.tileIsLocal( k, j )) {
-                        // Tlocal and Treduce have the have process distribution
+                        // Tlocal and Treduce have the same process distribution
                         Tlocal.tileUpdateOrigin( k, j );
                         Tlocal.releaseLocalWorkspaceTile( k, j );
                         if (j != k) {

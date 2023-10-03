@@ -216,10 +216,10 @@ void hemm(Side side,
 // hemmA()
 template <Target target=Target::HostTask, typename scalar_t>
 void hemmA(Side side,
-          scalar_t alpha, HermitianMatrix<scalar_t>&& A,
-                          Matrix<scalar_t>&& B,
-          scalar_t beta,  Matrix<scalar_t>&& C,
-          int priority=0);
+           scalar_t alpha, HermitianMatrix<scalar_t>&& A,
+                           Matrix<scalar_t>&& B,
+           scalar_t beta,  Matrix<scalar_t>&& C,
+           int priority=0, Options const& opts = Options());
 
 //-----------------------------------------
 // herk()

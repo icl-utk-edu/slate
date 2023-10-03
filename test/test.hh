@@ -62,6 +62,7 @@ public:
     testsweeper::ParamInt    print_edgeitems;
     testsweeper::ParamInt    print_width;
     testsweeper::ParamInt    print_precision;
+    testsweeper::ParamInt    timers;
     testsweeper::ParamInt    extended;
     testsweeper::ParamInt    cache;
 

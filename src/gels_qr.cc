@@ -12,11 +12,6 @@
 
 namespace slate {
 
-double time_gels;
-double time_gels_geqrf;
-double time_gels_unmqr;
-double time_gels_trsm;
-
 //------------------------------------------------------------------------------
 /// Distributed parallel least squares solve via QR or LQ factorization.
 ///
@@ -132,7 +127,7 @@ void gels_qr(
         // A0 itself is tall: QR factorization
         Timer t_geqrf;
         geqrf( A0, T, opts );
-        time_gels_geqrf = t_geqrf.stop();
+        timers[ "gels::geqrf" ] = t_geqrf.stop();
 
         int64_t min_mn = std::min( m, n );
         auto R_ = A0.slice( 0, min_mn-1, 0, min_mn-1 );
@@ -146,7 +141,7 @@ void gels_qr(
             // B is all m rows of BX.
             Timer t_unmqr;
             unmqr( Side::Left, Op::ConjTrans, A0, T, BX, opts );
-            time_gels_unmqr = t_unmqr.stop();
+            timers[ "gels::unmqr" ] = t_unmqr.stop();
 
             // X is first n rows of BX.
             auto X = BX.slice( 0, n-1, 0, nrhs-1 );
@@ -154,7 +149,7 @@ void gels_qr(
             // X = R^{-1} Y
             Timer t_trsm;
             trsm( Side::Left, one, R, X, opts );
-            time_gels_trsm = t_trsm.stop();
+            timers[ "gels::trsm" ] = t_trsm.stop();
         }
         else {
             // Solve A X = A0^H X = (QR)^H X = B.
@@ -167,7 +162,7 @@ void gels_qr(
             auto RH = conj_transpose( R );
             Timer t_trsm;
             trsm( Side::Left, one, RH, B, opts );
-            time_gels_trsm = t_trsm.stop();
+            timers[ "gels::trsm" ] = t_trsm.stop();
 
             // X is all n rows of BX.
             // Zero out rows m:n-1 of BX.
@@ -179,7 +174,7 @@ void gels_qr(
             // X = Q Y
             Timer t_unmqr;
             unmqr( Side::Left, Op::NoTrans, A0, T, BX, opts );
-            time_gels_unmqr = t_unmqr.stop();
+            timers[ "gels::unmqr" ] = t_unmqr.stop();
         }
     }
     else {
@@ -189,7 +184,7 @@ void gels_qr(
     // todo: return value for errors?
     // R or L is singular => A is not full rank
 
-    time_gels = t_gels.stop();
+    timers[ "gels" ] = t_gels.stop();
 }
 
 //------------------------------------------------------------------------------

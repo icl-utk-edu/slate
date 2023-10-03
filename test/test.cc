@@ -331,6 +331,11 @@ Params::Params():
     print_precision("print-precision", 0, ParamType::Value, 4,    1, 17,
                     "number of digits to print after the decimal point"),
 
+    timers    ("timers", 0,      ParamType::Value,   1,   1,   2,
+               "timer level of detail:\n"
+               "                     1: driver routine (e.g., gels; default)\n"
+               "                     2: computational routines (e.g., geqrf, unmqr, trsm inside gels)" ),
+
     extended  ("extended",0,    ParamType::Value,   0,   0,   10, "extended tests"),
     cache     ("cache",   0,    ParamType::Value,  20,   1, 1024, "total cache size, in MiB"),
 
@@ -681,6 +686,10 @@ int run(int argc, char** argv)
                 params.help(routine);
             throw;
         }
+
+        // After parsing parameters, call test routine again (with run=false)
+        // to mark any new fields as used (e.g., timers).
+        test_routine( params, false );
 
         slate_assert(params.grid.m() * params.grid.n() == mpi_size);
 

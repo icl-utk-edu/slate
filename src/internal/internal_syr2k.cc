@@ -164,6 +164,12 @@ void syr2k(internal::TargetType<Target::HostNest>,
     //       by watching 'layout' and 'C(i, j).layout()'
     assert(layout == Layout::ColMajor);
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     int err = 0;
     #pragma omp taskgroup
     for (int64_t j = 0; j < C.nt(); ++j) {
@@ -179,9 +185,11 @@ void syr2k(internal::TargetType<Target::HostNest>,
                     tile::syr2k(
                         alpha, A(j, 0), B(j, 0),
                         beta,  C(j, j) );
-                    // todo: should tileRelease()?
-                    A.tileTick(j, 0);
-                    B.tileTick(j, 0);
+                    if (call_tile_tick) {
+                        // todo: should tileRelease()?
+                        A.tileTick(j, 0);
+                        B.tileTick(j, 0);
+                    }
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -214,11 +222,13 @@ void syr2k(internal::TargetType<Target::HostNest>,
                         tile::gemm(
                             alpha, B(i, 0), transpose( Aj0 ),
                             one,   C(i, j) );
-                        // todo: should tileRelease()?
-                        A.tileTick(i, 0);
-                        A.tileTick(j, 0);
-                        B.tileTick(i, 0);
-                        B.tileTick(j, 0);
+                        if (call_tile_tick) {
+                            // todo: should tileRelease()?
+                            A.tileTick(i, 0);
+                            A.tileTick(j, 0);
+                            B.tileTick(i, 0);
+                            B.tileTick(j, 0);
+                        }
                     }
                     catch (std::exception& e) {
                         err = __LINE__;
@@ -254,6 +264,12 @@ void syr2k(internal::TargetType<Target::HostBatch>,
     //       by watching 'layout' and 'C(i, j).layout()'
     assert(layout == Layout::ColMajor);
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     // diagonal tiles by syr2k on host
     int err = 0;
     #pragma omp taskgroup
@@ -270,9 +286,11 @@ void syr2k(internal::TargetType<Target::HostBatch>,
                     tile::syr2k(
                         alpha, A(j, 0), B(j, 0),
                         beta,  C(j, j) );
-                    // todo: should tileRelease()?
-                    A.tileTick(j, 0);
-                    B.tileTick(j, 0);
+                    if (call_tile_tick) {
+                        // todo: should tileRelease()?
+                        A.tileTick(j, 0);
+                        B.tileTick(j, 0);
+                    }
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -403,14 +421,16 @@ void syr2k(internal::TargetType<Target::HostBatch>,
             // mkl_set_num_threads_local(1);
         }
 
-        for (int64_t j = 0; j < C.nt(); ++j) {
-            for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
-                if (C.tileIsLocal(i, j)) {
-                    // todo: should tileRelease()?
-                    A.tileTick(i, 0);
-                    A.tileTick(j, 0);
-                    B.tileTick(i, 0);
-                    B.tileTick(j, 0);
+        if (call_tile_tick) {
+            for (int64_t j = 0; j < C.nt(); ++j) {
+                for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
+                    if (C.tileIsLocal(i, j)) {
+                        // todo: should tileRelease()?
+                        A.tileTick(i, 0);
+                        A.tileTick(j, 0);
+                        B.tileTick(i, 0);
+                        B.tileTick(j, 0);
+                    }
                 }
             }
         }

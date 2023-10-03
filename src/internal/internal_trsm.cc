@@ -53,6 +53,12 @@ void trsm(internal::TargetType<Target::HostTask>,
     assert(layout == Layout::ColMajor);
     assert(A.mt() == 1);
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     if (B.numLocalTiles() > 0) {
         A.tileGetForReading(0, 0, LayoutConvert(layout));
     }
@@ -71,8 +77,10 @@ void trsm(internal::TargetType<Target::HostTask>,
                     tile::trsm(
                         side, A.diag(),
                         alpha, A(0, 0), B(i, 0) );
-                    // todo: should tileRelease()?
-                    A.tileTick(0, 0);
+                    if (call_tile_tick) {
+                        // todo: should tileRelease()?
+                        A.tileTick(0, 0);
+                    }
                 }
             }
         }
@@ -89,8 +97,10 @@ void trsm(internal::TargetType<Target::HostTask>,
                     tile::trsm(
                         side, A.diag(),
                         alpha, A(0, 0), B(0, j) );
-                    // todo: should tileRelease()?
-                    A.tileTick(0, 0);
+                    if (call_tile_tick) {
+                        // todo: should tileRelease()?
+                        A.tileTick(0, 0);
+                    }
                 }
             }
         }

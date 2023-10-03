@@ -162,6 +162,12 @@ void symm(internal::TargetType<Target::HostNest>,
     //       by watching 'layout' and 'C(i, j).layout()'
     const Layout layout = Layout::ColMajor;
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     int err = 0;
     if (side == Side::Left) {
         #pragma omp parallel for schedule(dynamic, 1) slate_omp_default_none \
@@ -176,9 +182,11 @@ void symm(internal::TargetType<Target::HostNest>,
                         side,
                         alpha, A(0, 0), B(0, j),
                         beta,  C(0, j) );
-                    // todo: should tileRelease()?
-                    A.tileTick(0, 0);
-                    B.tileTick(0, j);
+                    if (call_tile_tick) {
+                        // todo: should tileRelease()?
+                        A.tileTick(0, 0);
+                        B.tileTick(0, j);
+                    }
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -200,9 +208,11 @@ void symm(internal::TargetType<Target::HostNest>,
                         side,
                         alpha, A(0, 0), B(i, 0),
                         beta,  C(i, 0) );
-                    // todo: should tileRelease()?
-                    A.tileTick(0, 0);
-                    B.tileTick(i, 0);
+                    if (call_tile_tick) {
+                        // todo: should tileRelease()?
+                        A.tileTick(0, 0);
+                        B.tileTick(i, 0);
+                    }
                 }
                 catch (std::exception& e) {
                     err = __LINE__;

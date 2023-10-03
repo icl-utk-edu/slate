@@ -154,6 +154,12 @@ void herk(internal::TargetType<Target::HostNest>,
     //       by watching 'layout' and 'C(i, j).layout()'
     assert(layout == Layout::ColMajor);
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     // Lower, NoTrans
     int err = 0;
     #pragma omp taskgroup
@@ -169,9 +175,11 @@ void herk(internal::TargetType<Target::HostNest>,
                     tile::herk(
                         alpha, A(j, 0),
                         beta,  C(j, j) );
-                    // todo: should tileRelease()?
-                    A.tileTick(j, 0);
-                    A.tileTick(j, 0);
+                    if (call_tile_tick) {
+                        // todo: should tileRelease()?
+                        A.tileTick(j, 0);
+                        A.tileTick(j, 0);
+                    }
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -198,9 +206,11 @@ void herk(internal::TargetType<Target::HostNest>,
                         tile::gemm(
                             alpha_, A(i, 0), conj_transpose( Aj0 ),
                             beta_,  C(i, j) );
-                        // todo: should tileRelease()?
-                        A.tileTick(i, 0);
-                        A.tileTick(j, 0);
+                        if (call_tile_tick) {
+                            // todo: should tileRelease()?
+                            A.tileTick(i, 0);
+                            A.tileTick(j, 0);
+                        }
                     }
                     catch (std::exception& e) {
                         err = __LINE__;
@@ -235,6 +245,12 @@ void herk(internal::TargetType<Target::HostBatch>,
     //       by watching 'layout' and 'C(i, j).layout()'
     assert(layout == Layout::ColMajor);
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     // diagonal tiles by herk on host
     int err = 0;
     #pragma omp taskgroup
@@ -250,9 +266,11 @@ void herk(internal::TargetType<Target::HostBatch>,
                     tile::herk(
                         alpha, A(j, 0),
                         beta,  C(j, j) );
-                    // todo: should tileRelease()?
-                    A.tileTick(j, 0);
-                    A.tileTick(j, 0);
+                    if (call_tile_tick) {
+                        // todo: should tileRelease()?
+                        A.tileTick(j, 0);
+                        A.tileTick(j, 0);
+                    }
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -361,12 +379,14 @@ void herk(internal::TargetType<Target::HostBatch>,
             // mkl_set_num_threads_local(1);
         }
 
-        for (int64_t j = 0; j < C.nt(); ++j) {
-            for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
-                if (C.tileIsLocal(i, j)) {
-                    // todo: should tileRelease()?
-                    A.tileTick(i, 0);
-                    A.tileTick(j, 0);
+        if (call_tile_tick) {
+            for (int64_t j = 0; j < C.nt(); ++j) {
+                for (int64_t i = j+1; i < C.mt(); ++i) {  // strictly lower
+                    if (C.tileIsLocal(i, j)) {
+                        // todo: should tileRelease()?
+                        A.tileTick(i, 0);
+                        A.tileTick(j, 0);
+                    }
                 }
             }
         }

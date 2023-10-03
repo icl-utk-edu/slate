@@ -119,7 +119,8 @@ template <Target target=Target::HostTask,
           typename src_scalar_t, typename dst_scalar_t>
 void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           BaseTrapezoidMatrix<dst_scalar_t>&& B,
-          int priority=0, int queue_index=0);
+          int priority=0, int queue_index=0,
+          Options const& opts = Options());
 
 //-----------------------------------------
 // scale()

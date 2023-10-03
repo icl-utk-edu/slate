@@ -23,11 +23,12 @@ namespace internal {
 template <Target target, typename src_scalar_t, typename dst_scalar_t>
 void copy(BaseTrapezoidMatrix<src_scalar_t>&& A,
           BaseTrapezoidMatrix<dst_scalar_t>&& B,
-          int priority, int queue_index)
+          int priority, int queue_index,
+          Options const& opts)
 {
     copy(internal::TargetType<target>(),
          A, B,
-         priority, queue_index);
+         priority, queue_index, opts);
 }
 
 //------------------------------------------------------------------------------
@@ -41,7 +42,8 @@ template <typename src_scalar_t, typename dst_scalar_t>
 void copy(internal::TargetType<Target::HostTask>,
           BaseTrapezoidMatrix<src_scalar_t>& A,
           BaseTrapezoidMatrix<dst_scalar_t>& B,
-          int priority, int queue_index)
+          int priority, int queue_index,
+          Options const& opts)
 {
     // trace::Block trace_block("copy");
 
@@ -51,13 +53,21 @@ void copy(internal::TargetType<Target::HostTask>,
     assert(A.mt() == B.mt());
     assert(A.nt() == B.nt());
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     #pragma omp taskgroup
     for (int64_t j = 0; j < B.nt(); ++j) {
         if (j < B.mt() && B.tileIsLocal(j, j)) {
             A.tileGetForReading(j, j, LayoutConvert::None);
             B.tileGetForWriting(j, j, LayoutConvert( A.tileLayout(j, j) ));
             tile::tzcopy( A(j, j), B(j, j) );
-            A.tileTick(j, j);
+            if (call_tile_tick) {
+                A.tileTick(j, j);
+            }
         }
         if (lower) {
             for (int64_t i = j+1; i < B.mt(); ++i) {
@@ -70,7 +80,9 @@ void copy(internal::TargetType<Target::HostTask>,
                         B.tileAcquire(i, j, A.tileLayout(i, j));
                         B.tileModified(i, j, HostNum, true);
                         tile::gecopy( A(i, j), B(i, j) );
-                        A.tileTick(i, j);
+                        if (call_tile_tick) {
+                            A.tileTick(i, j);
+                        }
                     }
                 }
             }
@@ -86,7 +98,9 @@ void copy(internal::TargetType<Target::HostTask>,
                         B.tileAcquire(i, j, A.tileLayout(i, j));
                         B.tileModified(i, j, HostNum, true);
                         tile::gecopy( A(i, j), B(i, j) );
-                        A.tileTick(i, j);
+                        if (call_tile_tick) {
+                            A.tileTick(i, j);
+                        }
                     }
                 }
             }
@@ -106,11 +120,18 @@ template <typename src_scalar_t, typename dst_scalar_t>
 void copy(internal::TargetType<Target::Devices>,
           BaseTrapezoidMatrix<src_scalar_t>& A,
           BaseTrapezoidMatrix<dst_scalar_t>& B,
-          int priority, int queue_index)
+          int priority, int queue_index,
+          Options const& opts)
 {
     using ij_tuple = typename BaseMatrix<src_scalar_t>::ij_tuple;
     slate_error_if(A.uplo() != B.uplo());
     bool lower = (B.uplo() == Uplo::Lower);
+
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
 
     // Define index ranges for regions of matrix.
     // Tiles in each region are all the same size.
@@ -153,7 +174,6 @@ void copy(internal::TargetType<Target::Devices>,
                             B_diag_tiles.insert( { i, j } );
                         }
                         else {
-                            // no need to convert layout
                             B.tileAcquire( i, j, device, Layout::ColMajor );
                             B.tileModified( i, j, device, true );
                         }
@@ -260,17 +280,19 @@ void copy(internal::TargetType<Target::Devices>,
 
             queue->sync();
 
-            for (int64_t i = 0; i < B.mt(); ++i) {
-                for (int64_t j = 0; j < B.nt(); ++j) {
-                    if (B.tileIsLocal(i, j) &&
-                        device == B.tileDevice(i, j) &&
-                        ( (  lower && i >= j) ||
-                          (! lower && i <= j) ) )
-                    {
-                        // erase tmp local and remote device tiles;
-                        A.tileRelease(i, j, device);
-                        // decrement life for remote tiles
-                        A.tileTick(i, j);
+            if (call_tile_tick) {
+                for (int64_t i = 0; i < B.mt(); ++i) {
+                    for (int64_t j = 0; j < B.nt(); ++j) {
+                        if (B.tileIsLocal(i, j) &&
+                            device == B.tileDevice(i, j) &&
+                            ( (  lower && i >= j) ||
+                              (! lower && i <= j) ) )
+                        {
+                            // erase tmp local and remote device tiles;
+                            A.tileRelease(i, j, device);
+                            // decrement life for remote tiles
+                            A.tileTick(i, j);
+                        }
                     }
                 }
             }
@@ -285,100 +307,116 @@ template
 void copy<Target::HostTask, float, float>(
     BaseTrapezoidMatrix<float>&& A,
     BaseTrapezoidMatrix<float>&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 template
 void copy<Target::HostTask, float, double>(
     BaseTrapezoidMatrix<float>&& A,
     BaseTrapezoidMatrix<double>&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 template
 void copy<Target::Devices, float, float>(
     BaseTrapezoidMatrix<float>&& A,
     BaseTrapezoidMatrix<float>&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 template
 void copy<Target::Devices, float, double>(
     BaseTrapezoidMatrix<float>&& A,
     BaseTrapezoidMatrix<double>&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
 void copy<Target::HostTask, double, double>(
     BaseTrapezoidMatrix<double>&& A,
     BaseTrapezoidMatrix<double>&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 template
 void copy<Target::HostTask, double, float>(
     BaseTrapezoidMatrix<double>&& A,
     BaseTrapezoidMatrix<float>&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 template
 void copy<Target::Devices, double, double>(
     BaseTrapezoidMatrix<double>&& A,
     BaseTrapezoidMatrix<double>&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 template
 void copy<Target::Devices, double, float>(
     BaseTrapezoidMatrix<double>&& A,
     BaseTrapezoidMatrix<float>&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
 void copy< Target::HostTask, std::complex<float>, std::complex<float> >(
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     BaseTrapezoidMatrix< std::complex<float> >&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 template
 void copy< Target::HostTask, std::complex<float>, std::complex<double> >(
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     BaseTrapezoidMatrix< std::complex<double> >&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 template
 void copy< Target::Devices, std::complex<float>, std::complex<float>  >(
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     BaseTrapezoidMatrix< std::complex<float> >&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 template
 void copy< Target::Devices, std::complex<float>, std::complex<double>  >(
     BaseTrapezoidMatrix< std::complex<float> >&& A,
     BaseTrapezoidMatrix< std::complex<double> >&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
 void copy< Target::HostTask, std::complex<double>, std::complex<double> >(
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     BaseTrapezoidMatrix< std::complex<double> >&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 template
 void copy< Target::HostTask, std::complex<double>, std::complex<float> >(
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     BaseTrapezoidMatrix< std::complex<float> >&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 template
 void copy< Target::Devices, std::complex<double>, std::complex<double> >(
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     BaseTrapezoidMatrix< std::complex<double> >&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 template
 void copy< Target::Devices, std::complex<double>, std::complex<float> >(
     BaseTrapezoidMatrix< std::complex<double> >&& A,
     BaseTrapezoidMatrix< std::complex<float> >&& B,
-    int priority, int queue_index);
+    int priority, int queue_index,
+    Options const& opts);
 
 } // namespace internal
 } // namespace slate

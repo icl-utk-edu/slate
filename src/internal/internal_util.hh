@@ -70,6 +70,86 @@ inline bool compareSecond(
     return a.second < b.second;
 }
 
+//------------------------------------------------------------------------------
+/// An helper function to find each rank's first (top-most) row in panel k for
+/// the QR-family of routines.
+///
+/// @param[in] A_panel
+///     Current panel, which is a sub of the input matrix $A$.
+///
+/// @param[in] k
+///     Index of the current panel in the input matrix $A$.
+///
+/// @param[out] first_indices
+///     The array of computed indices.
+///
+/// @ingroup geqrf_impl
+///
+template <typename scalar_t>
+std::vector< int64_t > geqrf_compute_first_indices(
+    Matrix<scalar_t>& A_panel, int64_t k)
+{
+    // Find ranks in this column.
+    std::set<int> ranks_set;
+    A_panel.getRanks(&ranks_set);
+    assert(ranks_set.size() > 0);
+
+    // Find each rank's first (top-most) row in this panel,
+    // where the triangular tile resulting from local geqrf panel
+    // will reside.
+    std::vector< int64_t > first_indices;
+    first_indices.reserve(ranks_set.size());
+    for (int r: ranks_set) {
+        for (int64_t i = 0; i < A_panel.mt(); ++i) {
+            if (A_panel.tileRank(i, 0) == r) {
+                first_indices.push_back(i+k);
+                break;
+            }
+        }
+    }
+    return first_indices;
+}
+
+//------------------------------------------------------------------------------
+/// An helper function to find each rank's first (left-most) row in panel k for
+/// the LQ-family of routines.
+///
+/// @param[in] A_panel
+///     Current panel, which is a sub of the input matrix $A$.
+///
+/// @param[in] k
+///     Index of the current panel in the input matrix $A$.
+///
+/// @param[out] first_indices
+///     The array of computed indices.
+///
+/// @ingroup gelqf_impl
+///
+template <typename scalar_t>
+std::vector< int64_t > gelqf_compute_first_indices(
+    Matrix<scalar_t> A_panel, int64_t k)
+{
+    // Find ranks in this column.
+    std::set<int> ranks_set;
+    A_panel.getRanks(&ranks_set);
+    assert(ranks_set.size() > 0);
+
+    // Find each rank's first (top-most) row in this panel,
+    // where the triangular tile resulting from local geqrf panel
+    // will reside.
+    std::vector< int64_t > first_indices;
+    first_indices.reserve(ranks_set.size());
+    for (int r: ranks_set) {
+        for (int64_t j = 0; j < A_panel.nt(); ++j) {
+            if (A_panel.tileRank(0, j) == r) {
+                first_indices.push_back(j+k);
+                break;
+            }
+        }
+    }
+    return first_indices;
+}
+
 
 //------------------------------------------------------------------------------
 /// Helper function to check convergence in iterative methods

@@ -6,6 +6,7 @@
 #include "slate/slate.hh"
 #include "slate/HermitianMatrix.hh"
 #include "internal/internal.hh"
+#include "internal/internal_util.hh"
 
 namespace slate {
 
@@ -184,16 +185,8 @@ void he2hb(
             // Find each rank's first (top-most) row in this panel,
             // where the triangular tile resulting from local geqrf panel
             // will reside.
-            std::vector< int64_t > first_indices;
-            first_indices.reserve( panel_ranks.size() );
-            for (int r : panel_ranks) {
-                for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                    if (A_panel.tileRank( i, 0 ) == r) {
-                        first_indices.push_back( i+k+1 );
-                        break;
-                    }
-                }
-            }
+            std::vector< int64_t > first_indices
+                          = internal::geqrf_compute_first_indices(A_panel, k+1);
 
             //--------------------
             // QR of panel

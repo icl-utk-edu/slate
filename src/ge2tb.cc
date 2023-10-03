@@ -7,6 +7,7 @@
 #include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "internal/internal.hh"
+#include "internal/internal_util.hh"
 
 namespace slate {
 
@@ -194,24 +195,11 @@ void ge2tb(
             auto TUl_panel =  TUlocal.sub(k, A_mt-1, k, k);
             auto TUr_panel = TUreduce.sub(k, A_mt-1, k, k);
 
-            // Find ranks in this column.
-            std::set<int> ranks_set;
-            U_panel.getRanks(&ranks_set);
-            assert(ranks_set.size() > 0);
-
             // Find each rank's first (top-most) row in this panel,
             // where the triangular tile resulting from local geqrf panel
             // will reside.
-            std::vector< int64_t > first_indices;
-            first_indices.reserve(ranks_set.size());
-            for (int r: ranks_set) {
-                for (int64_t i = 0; i < U_panel.mt(); ++i) {
-                    if (U_panel.tileRank(i, 0) == r) {
-                        first_indices.push_back(i+k);
-                        break;
-                    }
-                }
-            }
+            std::vector< int64_t > first_indices
+                            = internal::geqrf_compute_first_indices(U_panel, k);
 
             //--------------------
             // QR of U panel
@@ -330,24 +318,7 @@ void ge2tb(
                 auto   VT_panel =       AT.sub(k+1, A_nt-1, k, k);
                 auto TVlT_panel = TVlocalT.sub(k+1, A_nt-1, k, k);
 
-                // Find ranks in this row.
-                ranks_set.clear();
-                V_panel.getRanks(&ranks_set);
-                assert(ranks_set.size() > 0);
-
-                // Find each rank's first (left-most) col in this panel,
-                // where the triangular tile resulting from local gelqf panel
-                // will reside.
-                first_indices.clear();
-                first_indices.reserve(ranks_set.size());
-                for (int r: ranks_set) {
-                    for (int64_t j = 0; j < V_panel.nt(); ++j) {
-                        if (V_panel.tileRank(0, j) == r) {
-                            first_indices.push_back(k+1+j);
-                            break;
-                        }
-                    }
-                }
+                first_indices = internal::gelqf_compute_first_indices(V_panel, k+1);
 
                 //--------------------
                 // LQ of V panel

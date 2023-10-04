@@ -13,7 +13,7 @@ namespace internal {
 
 //------------------------------------------------------------------------------
 /// Apply local reflectors on a Hermitian trailing submatrix. Compute Wi = sum_j Aij Vj.
-/// Wher, A is the Hermitian trailing submatrix.
+/// Where, A is the Hermitian trailing submatrix.
 /// B contains the local reflectors Vj from local QR factorization
 /// of a panel of A
 /// C is the output matrix contains the Wi = sum_j Aij Vj

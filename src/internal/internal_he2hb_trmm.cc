@@ -13,7 +13,7 @@ namespace internal {
 
 //------------------------------------------------------------------------------
 /// Triangular matrix multiply. Compute B = B A
-/// AH is a Hermitian matrix. It needed here just to check if the rank is an
+/// AH is a Hermitian matrix. It's needed here just to check if the rank is an
 /// upper or lower rank that contribute to compute Bi, i = 0:mt-1.
 /// B is a block cloumn.
 /// A contains upper triangular or trapezoid T.

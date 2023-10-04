@@ -40,10 +40,12 @@ void he2hb(
     const scalar_t one  = 1.0;
     const scalar_t half = 0.5;
     const real_t r_one  = 1.0;
+    const int priority_0 = 0;
     const int priority_1 = 1;
     const int batch_size_default = 0;
     const int num_queues = 10;
     const int queue_0 = 0;
+    const int tag_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layoutc = LayoutConvert( layout );
@@ -54,6 +56,12 @@ void he2hb(
     int64_t max_panel_threads = std::max( omp_get_max_threads()/2, 1 );
     max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
                                              max_panel_threads );
+
+    // Use only TileReleaseStrategy::Slate for gemm.
+    // Internal gemm routine called here won't release
+    // any tiles. This routine will clean up tiles.
+    Options opts2 = opts;
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     int64_t nt = A.nt();
     int mpi_rank = A.mpiRank();
@@ -70,7 +78,6 @@ void he2hb(
     // workspace
     auto Wtmp = A.emptyLike();
     auto Asave = A.emptyLike();
-    const bool set_hold =  1;  // Do tileGetAndHold in the bcast
 
     int64_t n = A.n();
     int64_t nb_A = A.tileNb( 0 );
@@ -207,7 +214,8 @@ void he2hb(
                 // ttqrt handles tile transfers internally
                 internal::ttqrt<Target::HostTask>(
                     std::move( A_panel ),
-                    std::move( Treduce_panel ) );
+                    std::move( Treduce_panel ),
+                    opts2 );
             }
 
             // if trailing matrix exists.
@@ -218,32 +226,17 @@ void he2hb(
                     depend( inout:block[ k ] ) \
                     shared( A, Treduce, Tlocal ) \
                     firstprivate( A_panel, k, nt, panel_ranks, first_indices, \
-                                  set_hold, layout )
+                                  layout )
                 {
                     // Send V across row i & col i for trailing matrix update.
-                    BcastListTag bcast_list_V_first;
                     BcastListTag bcast_list_V;
                     for (int64_t i = k; i < nt; ++i) {
-                        // Vs need 6 lives.
-                        // Vs in first_indices (except top-most one, i == k+1)
-                        // need 3 lives: for her2k, gemm_outer, and for hettmqr.
-                        if (i > k+1 && std::find( first_indices.begin(), first_indices.end(), i ) != first_indices.end()) {
-                            bcast_list_V_first.push_back(
-                                { i, k, { A.sub( i, i, k+1, i ),
-                                          A.sub( i+1, nt-1, i, i ) }, i } );
-                        }
-                        else {
-                            bcast_list_V.push_back(
-                                { i, k, { A.sub( i, i, k+1, i ),
-                                          A.sub( i+1, nt-1, i, i ) }, i } );
-                        }
+                        bcast_list_V.push_back(
+                            { i, k, { A.sub( i, i, k+1, i ),
+                                      A.sub( i+1, nt-1, i, i ) }, i } );
                     }
-                    const int life_5 = 5;
-                    const int life_6 = 6;
                     A.template listBcastMT<target>(
-                        bcast_list_V_first, layout, life_5, set_hold );
-                    A.template listBcastMT<target>(
-                        bcast_list_V, layout, life_6, set_hold );
+                        bcast_list_V, layout );
 
                     if (first_indices.size() > 1) {
                         //BcastList bcast_list_T;
@@ -274,18 +267,15 @@ void he2hb(
                         int64_t i0 = panel_rank_rows[ 0 ];
 
                         // Send Tlocal across row i & col i for trailing matrix update
-                        // todo: I think this sets Tlocal with too many lives
-                        // -- needs only 1 life per rank, not # tiles.
-                        //BcastList bcast_list_T;
+                        // TODO review that this is the right set of processes to send to
                         BcastListTag bcast_list_T;
                         for (int64_t i : panel_rank_rows) {
                             bcast_list_T.push_back(
                                 { i0, k, { Tlocal.sub( i, i, k+1, i ),
                                            Tlocal.sub( i+1, nt-1, i, i ) }, i } );
                         }
-                        const int life_1 = 1;
                         Tlocal.template listBcastMT<target>(
-                            bcast_list_T, layout, life_1, set_hold );
+                            bcast_list_T, layout );
                     }
                 } // task
 
@@ -424,7 +414,8 @@ void he2hb(
                             A.sub( k+1, nt-1 ),
                             A.sub( k+1, nt-1, k, k ),
                             W.sub( k+1, nt-1, k, k ),
-                            panel_rank_rows_sub );
+                            panel_rank_rows_sub,
+                            priority_0, queue_0, opts2 );
 
                         // 1b. Wi = Wi_part1 + Wi_part2.
                         // At most 2 ranks contribute to each Wi; if I am one,
@@ -481,7 +472,7 @@ void he2hb(
                             A.sub( k+1, nt-1 ), // Needed to get the rank
                             Tlocal.sub( i0, i0, k, k ),
                             W.sub( k+1, nt-1, k, k ),
-                            panel_rank_rows_sub );
+                            panel_rank_rows_sub, priority_0, queue_0, opts2 );
 
                         if (A.tileIsLocal( i0, i0 )) {
                             //--------------------
@@ -505,7 +496,7 @@ void he2hb(
                                 one,  conj_transpose( A.sub( k+1, nt-1, k, k ) ),
                                       W.sub( k+1, nt-1, k, k ),
                                 zero, std::move( TVAVT ),
-                                panel_rank );
+                                panel_rank, priority_0, queue_0, opts2 );
 
                             // 1e. TVAVT = T^H (V^H A V T).
                             auto T0     = Tlocal.sub( i0, i0, k, k );
@@ -535,14 +526,15 @@ void he2hb(
                                 -half, A.sub( k+1, nt-1, k, k ),
                                        std::move( TVAVT ),
                                 one,   W.sub( k+1, nt-1, k, k ),
-                                panel_rank );
+                                panel_rank, priority_0, queue_0, opts2 );
 
                             // 2. Update trailing matrix.
                             // A = A - V Y^H - Y V^H, with Y in W.
                             internal::her2k<target>(
                                 -one,  A.sub( k+1, nt-1, k, k ),
                                        W.sub( k+1, nt-1, k, k ),
-                                r_one, A.sub( k+1, nt-1 ));
+                                r_one, A.sub( k+1, nt-1 ),
+                                priority_0, queue_0, layout, opts2 );
                         }
                         else { // off-diag
                             //--------------------
@@ -564,7 +556,7 @@ void he2hb(
                                 -one, A.sub( k+1, nt-1, k, k ),
                                       W.sub( k+1, nt-1, k, k ),
                                 one,  A.sub( k+1, nt-1 ),
-                                panel_rank_rows_sub );
+                                panel_rank_rows_sub, priority_0, queue_0, opts2 );
                         }
                     }
 
@@ -598,69 +590,45 @@ void he2hb(
                         Op::ConjTrans,
                         std::move( A_panel ),
                         std::move( Treduce_panel ),
-                        A.sub( k+1, nt-1 ) );
+                        A.sub( k+1, nt-1 ),
+                        tag_0, opts2 );
+                }
+            }
+
+            // Release workspace tiles
+            #pragma omp task slate_omp_default_none \
+                depend( inout:block[ k ] ) \
+                shared( A, Tlocal ) \
+                firstprivate( A_panel, k, nt )
+            {
+                for (int64_t i = k+1; i < nt; ++i) {
+                    if (A.tileIsLocal( i, k )) {
+                        A.tileUpdateOrigin( i, k );
+                        A.releaseLocalWorkspaceTile( i, k );
+                    }
+                    else {
+                        A.releaseRemoteWorkspaceTile( i, k );
+                    }
                 }
 
-                // Unhold and release tiles in A_panel and Tlocal.
-                if (target == Target::Devices) {
-                    // todo: inout, right? what prevents this from executing during previous update?
-                    #pragma omp task slate_omp_default_none \
-                        depend( inout:block[ k ] ) \
-                        shared( A, Tlocal ) \
-                        firstprivate( A_panel, k, nt, \
-                                      panel_ranks, panel_rank_rows )
-                    {
-                        for (int64_t i = k; i < nt; ++i) {
-                            if (A.tileIsLocal( i, k )) {
-                                A.tileUpdateOrigin( i, k );
-
-                                std::set<int> dev_set;
-                                A.sub( k+1, nt-1 ).getLocalDevices( &dev_set );
-
-                                for (auto device : dev_set) {
-                                    A.tileUnsetHold( i, k, device );
-                                    A.tileRelease( i, k, device );
-                                }
-                            }
+                for (int64_t i : first_indices) {
+                    if (Tlocal.tileIsLocal( i, k )) {
+                        // Tlocal and Treduce have the same process distribution
+                        Tlocal.tileUpdateOrigin( i, k );
+                        Tlocal.releaseLocalWorkspaceTile( i, k );
+                        if (i != k+1) {
+                            // i == k is the root of the reduction tree
+                            // Treduce( k, k ) isn't allocated
+                            Treduce.tileUpdateOrigin( i, k );
+                            Treduce.releaseLocalWorkspaceTile( i, k );
                         }
-
-                        for (int panel_rank : panel_ranks) {
-                            // Find local row indices for panel_rank.
-                            panel_rank_rows.clear();
-                            for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                                if (A_panel.tileRank( i, 0 ) == panel_rank) {
-                                    // global index
-                                    panel_rank_rows.push_back( i+k+1 );
-                                }
-                            }
-                            if (panel_rank_rows.size() > 0) {
-                                int64_t i0 = panel_rank_rows[ 0 ];
-                                for (int64_t i : panel_rank_rows) {
-                                    if (Tlocal.tileIsLocal( i, k )) {
-                                        //Tlocal.tileUpdateOrigin( i, k );
-
-                                        std::set<int> dev_set;
-                                        Tlocal.sub( i, i, k+1, nt-1 ).getLocalDevices( &dev_set );
-
-                                        for (auto device : dev_set) {
-                                            Tlocal.tileUnsetHold( i0, k, device );
-                                            Tlocal.tileRelease( i0, k, device );
-                                        }
-
-                                        std::set<int> dev_set2;
-                                        Tlocal.sub( k+1, nt-1, i, i ).getLocalDevices( &dev_set );
-
-                                        for (auto device : dev_set2) {
-                                            Tlocal.tileUnsetHold( i0, k, device );
-                                            Tlocal.tileRelease( i0, k, device );
-                                        }
-                                    }
-                                }
-                            }
-                        } // for panel_rank
-                    } // task
-                } // if devices
-            } // if (k < nt-1)
+                    }
+                    else {
+                        Tlocal.releaseRemoteWorkspaceTile( i, k );
+                        Treduce.releaseRemoteWorkspaceTile( i, k );
+                    }
+                }
+            }
         } // for k
 
         #pragma omp taskwait

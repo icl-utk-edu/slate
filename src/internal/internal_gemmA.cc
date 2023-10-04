@@ -161,7 +161,7 @@ void gemmA(internal::TargetType<Target::HostTask>,
     for (int64_t i = 0; i < A.mt(); ++i) {
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, err ) \
-            firstprivate(i, alpha, beta, zero, one, c_tile_acquired) \
+            firstprivate(i, alpha, beta, zero, one, c_tile_acquired, call_tile_tick) \
             priority(priority)
         {
             try {

@@ -167,7 +167,7 @@ void herk(internal::TargetType<Target::HostNest>,
         if (C.tileIsLocal(j, j)) {
             #pragma omp task slate_omp_default_none \
                 shared( A, C, err ) \
-                firstprivate(j, layout, alpha, beta)
+                firstprivate(j, layout, alpha, beta, call_tile_tick)
             {
                 try {
                     A.tileGetForReading(j, 0, LayoutConvert(layout));
@@ -193,7 +193,7 @@ void herk(internal::TargetType<Target::HostNest>,
 
     // #pragma omp parallel for collapse(2) schedule(dynamic, 1) num_threads(...) default(none)
     #pragma omp parallel for collapse(2) schedule(dynamic, 1) slate_omp_default_none \
-        shared(A, C, err) firstprivate(C_nt, C_mt, layout, beta_, alpha_)
+        shared(A, C, err) firstprivate(C_nt, C_mt, layout, beta_, alpha_, call_tile_tick)
     for (int64_t j = 0; j < C_nt; ++j) {
         for (int64_t i = 0; i < C_mt; ++i) {  // full
             if (i >= j+1) {                    // strictly lower
@@ -258,7 +258,7 @@ void herk(internal::TargetType<Target::HostBatch>,
         if (C.tileIsLocal(j, j)) {
             #pragma omp task slate_omp_default_none \
                 shared( A, C, err ) \
-                firstprivate(j, layout, alpha, beta)
+                firstprivate(j, layout, alpha, beta, call_tile_tick)
             {
                 try {
                     A.tileGetForReading(j, 0, LayoutConvert(layout));

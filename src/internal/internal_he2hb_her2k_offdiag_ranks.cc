@@ -66,7 +66,7 @@ void he2hb_her2k_offdiag_ranks(
     for (int64_t j = 0; j < nt; ++j) {
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, panel_rank_rows ) \
-            firstprivate( alpha, beta, j, layoutc )
+            firstprivate( alpha, beta, j, layoutc, call_tile_tick )
         {
             for (int64_t i : panel_rank_rows) {
                 // todo: if HermitianMatrix returned conjTrans
@@ -154,6 +154,7 @@ void he2hb_her2k_offdiag_ranks(
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, err, panel_rank_rows ) \
             firstprivate( alpha, beta, device, nt, layout, layoutc, queue_index ) \
+            firstprivate( call_tile_tick ) \
             priority( priority )
         {
             Op opA = A.op();

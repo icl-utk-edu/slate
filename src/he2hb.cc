@@ -201,8 +201,8 @@ void he2hb(
             #pragma omp task slate_omp_default_none \
                 depend( inout:block[ k ] ) \
                 shared( dwork_array ) \
-                firstprivate(  A_panel, Tlocal_panel, Treduce_panel, \
-                               ib, max_panel_threads, work_size, priority_1 )
+                firstprivate(  A_panel, Tlocal_panel, Treduce_panel, ib, \
+                               max_panel_threads, work_size, priority_1, opts2 )
             {
                 internal::geqrf<target>(
                     std::move( A_panel ),
@@ -405,7 +405,7 @@ void he2hb(
                         firstprivate( zero, half, one, r_one, i0, k, nt, \
                                       panel_rank, panel_rank_rows, \
                                       panel_rank_rows_sub, mpi_rank, \
-                                      layout, layoutc )
+                                      layout, layoutc, priority_0, queue_0, opts2 )
                     {
                         // Compute W = A V T.
                         // 1a. Wi_part = sum_j Aij Vj, local partial sum,
@@ -582,7 +582,7 @@ void he2hb(
                     depend( inout:block[ nt-1 ] ) \
                     depend( inout:fetch_trailing[ 0 ] ) \
                     shared( A ) \
-                    firstprivate( A_panel, Treduce_panel, k, nt )
+                    firstprivate( A_panel, Treduce_panel, k, nt, tag_0, opts2 )
                 {
                     // Do 2-sided Hermitian update:
                     // 3. A = Q^H A Q
@@ -598,8 +598,8 @@ void he2hb(
             // Release workspace tiles
             #pragma omp task slate_omp_default_none \
                 depend( inout:block[ k ] ) \
-                shared( A, Tlocal ) \
-                firstprivate( A_panel, k, nt )
+                shared( A, Tlocal, Treduce ) \
+                firstprivate( k, nt, first_indices )
             {
                 for (int64_t i = k+1; i < nt; ++i) {
                     if (A.tileIsLocal( i, k )) {

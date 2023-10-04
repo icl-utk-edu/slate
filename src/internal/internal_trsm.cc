@@ -71,7 +71,7 @@ void trsm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, 0)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B ) \
-                    firstprivate(i, layout, side, alpha) priority(priority)
+                    firstprivate(i, layout, side, alpha, call_tile_tick) priority(priority)
                 {
                     B.tileGetForWriting(i, 0, LayoutConvert(layout));
                     tile::trsm(
@@ -91,7 +91,7 @@ void trsm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(0, j)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B ) \
-                    firstprivate(j, layout, side, alpha) priority(priority)
+                    firstprivate(j, layout, side, alpha, call_tile_tick) priority(priority)
                 {
                     B.tileGetForWriting(0, j, LayoutConvert(layout));
                     tile::trsm(

@@ -66,7 +66,7 @@ void he2hb_gemm(
     for (int64_t i = 0; i < A.mt(); ++i) {
         #pragma omp task slate_omp_default_none \
             shared( A, B, C ) \
-            firstprivate( alpha, beta, panel_rank, i, layoutc ) \
+            firstprivate( alpha, beta, panel_rank, i, layoutc, call_tile_tick ) \
             priority( priority )
         {
             scalar_t beta_ = beta;
@@ -131,7 +131,7 @@ void he2hb_gemm(
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, err ) \
             firstprivate( alpha, beta, panel_rank, queue_index, device, \
-                          layout, layoutc ) \
+                          layout, layoutc, call_tile_tick ) \
             priority( priority )
         {
             Op opA = A.op();

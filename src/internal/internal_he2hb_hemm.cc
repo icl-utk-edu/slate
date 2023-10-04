@@ -66,7 +66,7 @@ void he2hb_hemm(
     #pragma omp taskgroup
     for (int64_t i = 0; i < mt; ++i) {
         #pragma omp task slate_omp_default_none \
-            shared( A, B, C, panel_rank_rows ) \
+            shared( A, B, C, panel_rank_rows, call_tile_tick ) \
             firstprivate( one, i, layoutc )
         {
             for (int64_t j : panel_rank_rows) {
@@ -202,7 +202,7 @@ void he2hb_hemm(
     for (int device = 0; device < C.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, panel_rank_rows ) \
-            firstprivate( one, device, mt, num_queues, layout ) \
+            firstprivate( one, device, mt, num_queues, layout, call_tile_tick ) \
             priority( priority )
         {
             trace::Block trace_block( "blas::batch::he2hb_hemm" );

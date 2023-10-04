@@ -241,7 +241,7 @@ void hettmqr(
 
                 if (C.tileIsLocal(i2, j)) {
                     // Applies Q, then sends updated tile back.
-                    #pragma omp task shared(V, T, C)
+                    #pragma omp task shared(V, T, C) firstprivate(call_tile_tick)
                     {
                         V.tileGetForReading(i2, 0, LayoutConvert(layout));
                         T.tileGetForReading(i2, 0, LayoutConvert(layout));
@@ -319,7 +319,7 @@ void hettmqr(
             for (int64_t i = j2+1; i < C.mt(); ++i) {
                 if (C.tileIsLocal(i, j2)) {
                     // Applies Q, then sends updated tile back.
-                    #pragma omp task shared(V, T, C)
+                    #pragma omp task shared(V, T, C) firstprivate(call_tile_tick)
                     {
                         V.tileGetForReading(j2, 0, LayoutConvert(layout));
                         T.tileGetForReading(j2, 0, LayoutConvert(layout));

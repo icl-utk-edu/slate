@@ -171,7 +171,7 @@ void hemm(internal::TargetType<Target::HostNest>,
     int err = 0;
     if (side == Side::Left) {
         #pragma omp parallel for schedule(dynamic, 1) slate_omp_default_none \
-            shared(A, B, C, err) firstprivate(layout, side, alpha, beta)
+            shared(A, B, C, err) firstprivate(layout, side, alpha, beta, call_tile_tick)
         for (int64_t j = 0; j < C.nt(); ++j) {
             if (C.tileIsLocal(0, j)) {
                 try {
@@ -197,7 +197,7 @@ void hemm(internal::TargetType<Target::HostNest>,
     else {
         // side == Right
         #pragma omp parallel for schedule(dynamic, 1) slate_omp_default_none \
-            shared(A, B, C, err) firstprivate(layout, side, alpha, beta)
+            shared(A, B, C, err) firstprivate(layout, side, alpha, beta, call_tile_tick)
         for (int64_t i = 0; i < C.mt(); ++i) {
             if (C.tileIsLocal(i, 0)) {
                 try {

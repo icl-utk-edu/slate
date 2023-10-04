@@ -163,7 +163,8 @@ void gemm(internal::TargetType<Target::HostNest>,
     int64_t C_nt = C.nt();
 
     #pragma omp parallel for collapse(2) schedule(dynamic, 1) slate_omp_default_none \
-        shared(A, B, C, err, err_msg) firstprivate(C_nt, C_mt, layout, alpha, beta)
+        shared(A, B, C, err, err_msg) firstprivate(C_nt, C_mt, layout, alpha, beta) \
+        firstprivate(call_tile_tick)
     for (int64_t i = 0; i < C_mt; ++i) {
         for (int64_t j = 0; j < C_nt; ++j) {
             if (C.tileIsLocal(i, j)) {

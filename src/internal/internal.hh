@@ -560,7 +560,8 @@ void he2hb_hemm(HermitianMatrix<scalar_t>&& A,
             Matrix<scalar_t>&& B,
             Matrix<scalar_t>&& C,
             std::vector<int64_t>& panel_rank_rows,
-            int priority=0, int64_t queue_index=0);
+            int priority=0, int64_t queue_index=0,
+            Options const& opts = Options());
 
 //-----------------------------------------
 // he2hb_trmm()
@@ -569,7 +570,8 @@ void he2hb_trmm(HermitianMatrix<scalar_t>&& AH,
             Matrix<scalar_t>&& A,
             Matrix<scalar_t>&& B,
             std::vector<int64_t>& panel_rank_rows,
-            int priority=0, int64_t queue_index=0);
+            int priority=0, int64_t queue_index=0,
+            Options const& opts = Options());
 
 
 //-----------------------------------------
@@ -579,7 +581,8 @@ void he2hb_gemm(scalar_t alpha, Matrix<scalar_t>&& A,
                                 Matrix<scalar_t>&& B,
                 scalar_t beta,  Matrix<scalar_t>&& T,
                 int panel_rank,
-                int priority=0, int64_t queue_index=0);
+                int priority=0, int64_t queue_index=0,
+                Options const& opts = Options());
 
 //-----------------------------------------
 // he2hb_her2k_offdiag_ranks()
@@ -589,7 +592,8 @@ void he2hb_her2k_offdiag_ranks(
                         Matrix<scalar_t>&& B,
         scalar_t beta,  HermitianMatrix<scalar_t>&& C,
         std::vector<int64_t>& panel_rank_rows,
-        int priority=0, int64_t queue_index=0);
+        int priority=0, int64_t queue_index=0,
+        Options const& opts = Options());
 
 //-----------------------------------------
 // ttqrt()
@@ -629,7 +633,7 @@ void hettmqr(Op op,
              Matrix<scalar_t>&& A,
              Matrix<scalar_t>&& T,
              HermitianMatrix<scalar_t>&& C,
-             int tag=0);
+             int tag=0, Options const& opts = Options());
 
 //-----------------------------------------
 // unmqr()

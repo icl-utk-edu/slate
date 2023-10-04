@@ -30,11 +30,12 @@ void he2hb_trmm(
     HermitianMatrix<scalar_t>&& AH, Matrix<scalar_t>&& A,
     Matrix<scalar_t>&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index)
+    int priority, int64_t queue_index,
+    Options const& opts )
 {
     he2hb_trmm( internal::TargetType<target>(),
                 AH, A, B,
-                panel_rank_rows, priority, queue_index );
+                panel_rank_rows, priority, queue_index, opts );
 }
 
 //------------------------------------------------------------------------------
@@ -49,7 +50,8 @@ void he2hb_trmm(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index)
+    int priority, int64_t queue_index,
+    Options const& opts )
 {
     const scalar_t one  = 1;
     int mpi_rank = AH.mpiRank();
@@ -57,6 +59,12 @@ void he2hb_trmm(
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layoutc = LayoutConvert( layout );
+
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
 
     auto A0 = A.sub( 0, 0, 0, 0 );
 
@@ -98,7 +106,9 @@ void he2hb_trmm(
                 tile::trmm( Side::Right, Diag::NonUnit,
                             one, std::move( T( 0, 0 ) ), Bi( 0, 0 ) );
 
-                B.tileTick( i, 0 );
+                if (call_tile_tick) {
+                    B.tileTick( i, 0 );
+                }
             }
         }
     }
@@ -116,7 +126,8 @@ void he2hb_trmm(
     Matrix<scalar_t>& A,
     Matrix<scalar_t>& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index )
+    int priority, int64_t queue_index,
+    Options const& opts )
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
@@ -125,6 +136,12 @@ void he2hb_trmm(
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layoutc = LayoutConvert( layout );
+
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
 
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
@@ -313,26 +330,28 @@ void he2hb_trmm(
                     queue->sync();
                 }
 
-                // todo: release tiles in top-level routine.
-                // rank_lower = -1;
-                // rank_upper = -1;
-                // for (int64_t i = 0; i < B.mt(); ++i) {
-                //     for (int64_t j : panel_rank_rows) {
-                //         if (i >= j) { // lower
-                //             rank_lower = AH.tileRank( i, j );
-                //         }
-                //         else { // upper
-                //             rank_upper = AH.tileRank( j, i );
-                //         }
-                //     }
-                //
-                //     if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
-                //         if (device == B.tileDevice( i, 0 )) {
-                //             B.tileRelease( i, 0, device );
-                //             B.tileTick( i, 0 );
-                //         }
-                //     }
-                // }
+                if (call_tile_tick) {
+                    // todo: release tiles in top-level routine.
+                    // rank_lower = -1;
+                    // rank_upper = -1;
+                    // for (int64_t i = 0; i < B.mt(); ++i) {
+                    //     for (int64_t j : panel_rank_rows) {
+                    //         if (i >= j) { // lower
+                    //             rank_lower = AH.tileRank( i, j );
+                    //         }
+                    //         else { // upper
+                    //             rank_upper = AH.tileRank( j, i );
+                    //         }
+                    //     }
+                    //
+                    //     if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
+                    //         if (device == B.tileDevice( i, 0 )) {
+                    //             B.tileRelease( i, 0, device );
+                    //             B.tileTick( i, 0 );
+                    //         }
+                    //     }
+                    // }
+                }
             }
         }
     }
@@ -347,7 +366,8 @@ void he2hb_trmm<Target::HostTask, float>(
     Matrix<float>&& A,
     Matrix<float>&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -356,7 +376,8 @@ void he2hb_trmm<Target::HostTask, double>(
     Matrix<double>&& A,
     Matrix<double>&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -365,7 +386,8 @@ void he2hb_trmm< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -374,7 +396,8 @@ void he2hb_trmm< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -383,7 +406,8 @@ void he2hb_trmm<Target::Devices, float>(
     Matrix<float>&& A,
     Matrix<float>&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -392,7 +416,8 @@ void he2hb_trmm<Target::Devices, double>(
     Matrix<double>&& A,
     Matrix<double>&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -401,7 +426,8 @@ void he2hb_trmm< Target::Devices, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -410,7 +436,8 @@ void he2hb_trmm< Target::Devices, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& B,
     std::vector<int64_t>& panel_rank_rows,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts);
 
 } // namespace internal
 } // namespace slate

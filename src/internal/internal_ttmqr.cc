@@ -211,7 +211,7 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                             firstprivate( call_tile_tick, recv_index )
                         {
                             // Don't start compute until the tile's been recieved
-                            MPI_Wait( &requests[recv_index], MPI_STATUS_IGNORE ) );
+                            MPI_Wait( &requests[recv_index], MPI_STATUS_IGNORE );
 
                             A.tileGetForReading(rank_ind, 0, LayoutConvert(layout));
                             T.tileGetForReading(rank_ind, 0, LayoutConvert(layout));
@@ -245,7 +245,6 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                     i = k;
                     j = rank_ind;
                 }
-                MPI_Request req;
                 if (C.tileIsLocal(i, j)) {
                     if (index % (2*step) == 0) {
                         if (index + step < nranks) {
@@ -260,8 +259,9 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                                 j_dst = k_dst;
                             }
                             int dst = C.tileRank(i_dst, j_dst);
-                            assert( (C.tileState( i, j, HostNum ) & MOSI::Modified) != 0 );
+                            MPI_Request req;
                             C.tileIrecv(i, j, dst, layout, tag, &req);
+                            requests.push_back( req );
                         }
                     }
                     else {
@@ -276,13 +276,14 @@ void ttmqr(internal::TargetType<Target::HostTask>,
                         }
                         int src = C.tileRank( i1, j1 );
                         // Send updated tile back.
+                        MPI_Request req;
                         C.tileIsend( i1, j1, src, tag, &req );
+                        requests.push_back( req );
                         //if (call_tile_tick) {
                         //    C.tileTick(i1, j1);
                         //}
                     }
                 }
-                requests.push_back( req );
             }
             slate_mpi_call(
                 MPI_Waitall( requests.size(), requests.data(), MPI_STATUSES_IGNORE ) );

@@ -135,9 +135,10 @@ void test_TriangularBandMatrix_lambda()
     {
         return (j % 2 == 0 ? 2*nb_ : nb_);
     };
-    auto tileRank = slate::func::grid_1d_cyclic( slate::Layout::ColMajor, p );
-    auto tileDevice = slate::func::grid_1d_cyclic( slate::Layout::RowMajor,
-                                                   num_devices );
+    auto tileRank = slate::func::process_1d_grid( slate::Layout::ColMajor, p );
+    // NB. this is process_1d_grid because we want a true cyclic device distribution
+    auto tileDevice = slate::func::process_1d_grid( slate::Layout::RowMajor,
+                                                    num_devices );
 
     // ----------
     // lower

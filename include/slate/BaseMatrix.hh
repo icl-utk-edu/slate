@@ -1181,7 +1181,7 @@ BaseMatrix<out_scalar_t> BaseMatrix<scalar_t>::baseEmptyLike(
     else {
         // todo: just swap and redefine newRank? then use above B constructor.
         auto oldRank = this->storage_->tileRank;
-        auto newRank = slate::func::grid_transpose( oldRank );
+        auto newRank = slate::func::transpose_grid( oldRank );
         // todo: what about tileDevice?
         B = BaseMatrix<out_scalar_t>(
             parent_n, parent_m, newNb, newMb,  // transposed

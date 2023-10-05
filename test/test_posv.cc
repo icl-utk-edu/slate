@@ -132,10 +132,10 @@ void test_posv_work(Params& params, bool run)
             // slate_assert(lookahead < 3);
 
             auto tileNb = slate::func::uniform_blocksize( n, nb );
-            auto tileRank = slate::func::grid_2d_cyclic( slate::Layout::ColMajor,
+            auto tileRank = slate::func::process_2d_grid( slate::Layout::ColMajor,
                                                          p, q );
             int num_devices = blas::get_device_count();
-            auto tileDevice = slate::func::grid_1d_block_cyclic(
+            auto tileDevice = slate::func::device_1d_grid(
                                     slate::Layout::ColMajor, p, num_devices );
 
             A = slate::HermitianMatrix<scalar_t>(

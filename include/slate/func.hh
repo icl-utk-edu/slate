@@ -46,16 +46,17 @@ inline std::function<int64_t(int64_t)> uniform_blocksize(int64_t n, int64_t nb)
 // Process & device distribution functions
 
 //------------------------------------------------------------------------------
-/// Distributes tiles to processes (or devices) in a 2d block-cyclic fashion
+/// Distributes tiles to devices in a 2d block-cyclic fashion.
+///
+/// When the tiles are distributed across processes with process_2d_grid,
+/// this results in the local tiles being distributed cyclicly across devices.
+///
+/// This function can also be used to distribute tiles to processes, resulting
+/// in blocks of tiles belonging to the same process.  However, the device grid
+/// should then be adjusted.
 ///
 /// @param[in] layout
 ///     Whether to use a column major or a row major grid
-///
-/// @param[in] m
-///     The number of rows in each block
-///
-/// @param[in] n
-///     The number of columns in each block
 ///
 /// @param[in] p
 ///     The number of rows in the process grid
@@ -63,12 +64,18 @@ inline std::function<int64_t(int64_t)> uniform_blocksize(int64_t n, int64_t nb)
 /// @param[in] q
 ///     The number of columns in the process grid
 ///
+/// @param[in] p
+///     The number of rows in the device grid
+///
+/// @param[in] q
+///     The number of columns in the device grid
+///
 /// @retval The distribution function
 ///
 /// @ingroup func
 ///
 inline std::function<int(ij_tuple)>
-grid_2d_block_cyclic(Layout layout, int64_t m, int64_t n, int64_t p, int64_t q)
+device_2d_grid(Layout layout, int64_t m, int64_t n, int64_t p, int64_t q)
 {
     if (layout == Layout::ColMajor) {
         return [m, n, p, q]( ij_tuple ij ) {
@@ -87,7 +94,48 @@ grid_2d_block_cyclic(Layout layout, int64_t m, int64_t n, int64_t p, int64_t q)
 }
 
 //------------------------------------------------------------------------------
-/// Distributes tiles to processes (or devices) in a 2d cyclic fashion
+/// Distributes tiles to devices in a 1d block-cyclic fashion.
+///
+/// When the tiles are distributed across processes with process_2d_grid or
+/// process_1d_grid, this results in the local tiles being distributed cyclicly
+/// across devices.
+///
+/// This function can also be used to distribute tiles to processes, resulting
+/// in blocks of tiles belonging to the same process.  However, the device grid
+/// should then be adjusted.
+///
+/// @param[in] layout
+///     ColMajor distributes a single column across multiple processes
+///     RowMajor distributes a single row across multiple processes.
+///
+/// @param[in] block_size
+///     The number of rows or columns in the process grid
+///
+/// @param[in] size
+///     The number of rows or column in the device grid
+///
+/// @retval The distribution function
+///
+/// @ingroup func
+///
+inline std::function<int(ij_tuple)>
+device_1d_grid(Layout layout, int64_t block_size, int size)
+{
+    if (layout == Layout::ColMajor) {
+        return device_2d_grid(layout, block_size, 1, size, 1);
+    }
+    else {
+        return device_2d_grid(layout, 1, block_size, 1, size);
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Distributes tiles to processes in a 2d cyclic fashion, resulting in the
+/// elements being distributed in a 2d block-cyclic fashion.
+///
+/// This function can also be used to distribute tiles to devices in a 2d
+/// cyclic fashion, *regardless of process ownership*.  Thus, care must be taken
+/// to prevent all of a process's tiles from being stored on a single device.
 ///
 /// @param[in] layout
 ///     Whether to use a column major or a row major grid
@@ -103,17 +151,25 @@ grid_2d_block_cyclic(Layout layout, int64_t m, int64_t n, int64_t p, int64_t q)
 /// @ingroup func
 ///
 inline std::function<int(ij_tuple)>
-grid_2d_cyclic(Layout layout, int64_t p, int64_t q)
+process_2d_grid(Layout layout, int64_t p, int64_t q)
 {
-    return grid_2d_block_cyclic(layout, 1, 1, p, q);
+    // Device and process grids aren't any different, they're just named to be
+    // easier for ScaLAPACK users.
+    // Setting a block size of 1 gives a tile-cyclic layout.
+    return device_2d_grid(layout, 1, 1, p, q);
 }
 
 //------------------------------------------------------------------------------
-/// Distributes tiles to processes (or devices) in a 1d cyclic fashion
+/// Distributes tiles to processes in a 1d cyclic fashion, resulting in the
+/// elements being distributed in a 1d block-cyclic fashion.
+///
+/// This function can also be used to distribute tiles to devices in a 2d
+/// cyclic fashion, *regardless of process ownership*.  Thus, care must be taken
+/// to prevent all of a process's tiles from being stored on a single device.
 ///
 /// @param[in] layout
-///     ColMajor distributes a single column across multiple processes
-///     RowMajor distributes a single row across multiple processes
+///     ColMajor distributes a single column across multiple processes.
+///     RowMajor distributes a single row across multiple processes.
 ///
 /// @param[in] size
 ///     The number of processes
@@ -122,47 +178,19 @@ grid_2d_cyclic(Layout layout, int64_t p, int64_t q)
 ///
 /// @ingroup func
 ///
-inline std::function<int(ij_tuple)> grid_1d_cyclic(Layout layout, int size)
+inline std::function<int(ij_tuple)> process_1d_grid(Layout layout, int size)
 {
     if (layout == Layout::ColMajor) {
-        return grid_2d_cyclic(layout, size, 1);
+        return process_2d_grid(layout, size, 1);
     }
     else {
-        return grid_2d_cyclic(layout, 1, size);
+        return process_2d_grid(layout, 1, size);
     }
 }
 
 
 //------------------------------------------------------------------------------
-/// Distributes tiles to processes (or devices) in a 1d block-cyclic fashion
-///
-/// @param[in] layout
-///     ColMajor distributes a single column across multiple processes
-///     RowMajor distributes a single row across multiple processes
-///
-/// @param[in] block_size
-///     The size of each block
-///
-/// @param[in] size
-///     The number processes
-///
-/// @retval The distribution function
-///
-/// @ingroup func
-///
-inline std::function<int(ij_tuple)>
-grid_1d_block_cyclic(Layout layout, int64_t block_size, int size)
-{
-    if (layout == Layout::ColMajor) {
-        return grid_2d_block_cyclic(layout, block_size, 1, size, 1);
-    }
-    else {
-        return grid_2d_block_cyclic(layout, 1, block_size, 1, size);
-    }
-}
-
-//------------------------------------------------------------------------------
-/// Transposes the given tile distribution function
+/// Transposes the given tile distribution function for processes or devices.
 ///
 /// @param[in] old_func
 ///     The original distribution function
@@ -172,7 +200,7 @@ grid_1d_block_cyclic(Layout layout, int64_t block_size, int size)
 /// @ingroup func
 ///
 inline std::function<int(ij_tuple)>
-grid_transpose(std::function<int(ij_tuple)> old_func)
+transpose_grid(std::function<int(ij_tuple)> old_func)
 {
     return [old_func]( ij_tuple ij ) {
         int64_t i = std::get<0>( ij );

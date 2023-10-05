@@ -28,9 +28,9 @@ void test_matrix_lambda()
         return (j % 2 != 0 ? nb_/2 : nb_);
     };
 
-    auto tileRank = slate::func::grid_2d_cyclic( slate::Layout::ColMajor, p_, q_ );
-    auto tileDevice = slate::func::grid_1d_block_cyclic( slate::Layout::ColMajor,
-                                                         p_, num_devices_ );
+    auto tileRank = slate::func::process_2d_grid( slate::Layout::ColMajor, p_, q_ );
+    auto tileDevice = slate::func::device_1d_grid( slate::Layout::ColMajor,
+                                                   p_, num_devices_ );
 
     slate::Matrix<scalar_type> A( n, n, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD );
     A.insertLocalTiles();

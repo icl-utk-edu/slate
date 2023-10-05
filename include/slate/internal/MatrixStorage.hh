@@ -551,18 +551,18 @@ MatrixStorage<scalar_t>::MatrixStorage(
 
     // function for computing the tile's rank, assuming 2D block cyclic
     if (order == GridOrder::Col) {
-        tileRank = slate::func::grid_2d_cyclic( slate::Layout::ColMajor, p, q );
+        tileRank = slate::func::process_2d_grid( slate::Layout::ColMajor, p, q );
     }
     else if (order == GridOrder::Row) {
-        tileRank = slate::func::grid_2d_cyclic( slate::Layout::RowMajor, p, q );
+        tileRank = slate::func::process_2d_grid( slate::Layout::RowMajor, p, q );
     }
     else {
         slate_error( "invalid GridOrder, must be Col or Row" );
     }
     // function for computing the tile's device, assuming 1d block cyclic
     if (num_devices_ > 0) {
-        tileDevice = slate::func::grid_1d_block_cyclic( slate::Layout::RowMajor,
-                                                        q, num_devices_ );
+        tileDevice = slate::func::device_1d_grid( slate::Layout::RowMajor,
+                                                  q, num_devices_ );
     }
     else {
         tileDevice = []( ij_tuple ij ) {

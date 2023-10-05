@@ -152,10 +152,10 @@ void test_gesv_work(Params& params, bool run)
     };
 
     // rank and device functions for using the lambda constructor
-    auto tileRank = slate::func::grid_2d_cyclic( slate::Layout::ColMajor, p, q );
+    auto tileRank = slate::func::process_2d_grid( slate::Layout::ColMajor, p, q );
     int num_devices_ = blas::get_device_count();
-    auto tileDevice = slate::func::grid_1d_block_cyclic( slate::Layout::ColMajor,
-                                                         p, num_devices_ );
+    auto tileDevice = slate::func::device_1d_grid( slate::Layout::ColMajor,
+                                                    p, num_devices_ );
 
     std::vector<scalar_t> A_data, B_data, X_data;
     slate::Matrix<scalar_t> A, B, X;

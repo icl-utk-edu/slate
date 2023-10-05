@@ -32,11 +32,87 @@ void test_uniform_blocksize()
 }
 
 //------------------------------------------------------------------------------
-void test_grid_2d_block_cyclic()
+void test_process_2d_grid()
 {
+    auto grid_col = slate::func::process_2d_grid(slate::Layout::ColMajor, 4, 5);
 
-    auto grid_col = slate::func::grid_2d_block_cyclic(
-                            slate::Layout::ColMajor, 2, 3, 4, 5);
+    for (int i = 0; i < 20; ++i) {
+        for (int j = 0; j < 20; ++j) {
+
+            int ref_proc = 0;
+            // Column major loop
+            for (int jj = 0; jj < 5; ++jj) {
+                for (int ii = 0; ii < 4; ++ii) {
+
+                    int global_i = ii + 4*i;
+                    int global_j = jj + 5*j;
+                    test_assert(grid_col({global_i, global_j}) == ref_proc);
+
+                    ref_proc++;
+                }
+            }
+        }
+    }
+
+    auto grid_row = slate::func::process_2d_grid(slate::Layout::RowMajor, 4, 5);
+
+    for (int i = 0; i < 20; ++i) {
+        for (int j = 0; j < 20; ++j) {
+
+            int ref_proc = 0;
+            // Row major loop
+            for (int ii = 0; ii < 4; ++ii) {
+                for (int jj = 0; jj < 5; ++jj) {
+
+                    int global_i = ii + 4*i;
+                    int global_j = jj + 5*j;
+                    test_assert(grid_row({global_i, global_j}) == ref_proc);
+
+                    ref_proc++;
+                }
+            }
+        }
+    }
+}
+
+//------------------------------------------------------------------------------
+void test_process_1d_grid()
+{
+    auto grid_col = slate::func::process_1d_grid(slate::Layout::ColMajor, 4);
+
+    for (int i = 0; i < 20; ++i) {
+        int ref_proc = 0;
+        for (int ii = 0; ii < 4; ++ii) {
+            int global_i = ii + 4*i;
+
+            for (int j = 0; j < 200; ++j) {
+
+                test_assert(grid_col({global_i, j}) == ref_proc);
+
+            }
+            ref_proc++;
+        } // ii loop
+    }
+
+    auto grid_row = slate::func::process_1d_grid(slate::Layout::RowMajor, 5);
+
+    for (int j = 0; j < 20; ++j) {
+        int ref_proc = 0;
+        for (int jj = 0; jj < 5; ++jj) {
+            int global_j = jj + 5*j;
+
+            for (int i = 0; i < 200; ++i) {
+                test_assert(grid_row({i, global_j}) == ref_proc);
+            }
+            ref_proc++;
+        } // jj loop
+    }
+}
+
+//------------------------------------------------------------------------------
+void test_device_2d_grid()
+{
+    auto grid_col = slate::func::device_2d_grid(slate::Layout::ColMajor, 2, 3, 4, 5);
 
     for (int i = 0; i < 10; ++i) {
         for (int j = 0; j < 10; ++j) {
@@ -61,8 +137,7 @@ void test_grid_2d_block_cyclic()
         }
     }
 
-    auto grid_row = slate::func::grid_2d_block_cyclic(
-                            slate::Layout::RowMajor, 2, 3, 4, 5);
+    auto grid_row = slate::func::device_2d_grid(slate::Layout::RowMajor, 2, 3, 4, 5);
 
     for (int i = 0; i < 10; ++i) {
         for (int j = 0; j < 10; ++j) {
@@ -89,56 +164,9 @@ void test_grid_2d_block_cyclic()
 }
 
 //------------------------------------------------------------------------------
-void test_grid_2d_cyclic()
+void test_device_1d_grid()
 {
-    auto grid_col = slate::func::grid_2d_cyclic(
-                            slate::Layout::ColMajor, 4, 5);
-
-    for (int i = 0; i < 20; ++i) {
-        for (int j = 0; j < 20; ++j) {
-
-            int ref_proc = 0;
-            // Column major loop
-            for (int jj = 0; jj < 5; ++jj) {
-                for (int ii = 0; ii < 4; ++ii) {
-
-                    int global_i = ii + 4*i;
-                    int global_j = jj + 5*j;
-                    test_assert(grid_col({global_i, global_j}) == ref_proc);
-
-                    ref_proc++;
-                }
-            }
-        }
-    }
-
-    auto grid_row = slate::func::grid_2d_cyclic(
-                            slate::Layout::RowMajor, 4, 5);
-
-    for (int i = 0; i < 20; ++i) {
-        for (int j = 0; j < 20; ++j) {
-
-            int ref_proc = 0;
-            // Row major loop
-            for (int ii = 0; ii < 4; ++ii) {
-                for (int jj = 0; jj < 5; ++jj) {
-
-                    int global_i = ii + 4*i;
-                    int global_j = jj + 5*j;
-                    test_assert(grid_row({global_i, global_j}) == ref_proc);
-
-                    ref_proc++;
-                }
-            }
-        }
-    }
-}
-
-//------------------------------------------------------------------------------
-void test_grid_1d_block_cyclic()
-{
-    auto grid_col = slate::func::grid_1d_block_cyclic(
-                            slate::Layout::ColMajor, 2, 4);
+    auto grid_col = slate::func::device_1d_grid(slate::Layout::ColMajor, 2, 4);
 
     for (int i = 0; i < 10; ++i) {
         int ref_proc = 0;
@@ -156,8 +184,7 @@ void test_grid_1d_block_cyclic()
         } // ii loop
     }
 
-    auto grid_row = slate::func::grid_1d_block_cyclic(
-                            slate::Layout::RowMajor, 3, 5);
+    auto grid_row = slate::func::device_1d_grid(slate::Layout::RowMajor, 3, 5);
 
     for (int j = 0; j < 10; ++j) {
         int ref_proc = 0;
@@ -175,42 +202,6 @@ void test_grid_1d_block_cyclic()
 }
 
 //------------------------------------------------------------------------------
-void test_grid_1d_cyclic()
-{
-    auto grid_col = slate::func::grid_1d_cyclic(
-                            slate::Layout::ColMajor, 4);
-
-    for (int i = 0; i < 20; ++i) {
-        int ref_proc = 0;
-        for (int ii = 0; ii < 4; ++ii) {
-            int global_i = ii + 4*i;
-
-            for (int j = 0; j < 200; ++j) {
-
-                test_assert(grid_col({global_i, j}) == ref_proc);
-
-            }
-            ref_proc++;
-        } // ii loop
-    }
-
-    auto grid_row = slate::func::grid_1d_cyclic(
-                            slate::Layout::RowMajor, 5);
-
-    for (int j = 0; j < 20; ++j) {
-        int ref_proc = 0;
-        for (int jj = 0; jj < 5; ++jj) {
-            int global_j = jj + 5*j;
-
-            for (int i = 0; i < 200; ++i) {
-                test_assert(grid_row({i, global_j}) == ref_proc);
-            }
-            ref_proc++;
-        } // jj loop
-    }
-}
-
-//------------------------------------------------------------------------------
 void test_grid_transpose()
 {
     std::function<int( std::tuple<int64_t, int64_t> )>
@@ -219,7 +210,7 @@ void test_grid_transpose()
         int64_t j = std::get<1>( ij );
         return int(i + j*1000);
     };
-    auto transposed = slate::func::grid_transpose(base);
+    auto transposed = slate::func::transpose_grid(base);
 
     for (int i = 0; i < 500; ++i) {
         for (int j = 0; j < 500; ++j) {
@@ -232,12 +223,12 @@ void test_grid_transpose()
 /// Runs all tests. Called by unit test main().
 void run_tests()
 {
-    run_test(test_uniform_blocksize,    "test_uniform_blocksize");
-    run_test(test_grid_2d_block_cyclic, "test_grid_2d_block_cyclic");
-    run_test(test_grid_2d_cyclic,       "test_grid_2d_cyclic");
-    run_test(test_grid_1d_block_cyclic, "test_grid_1d_block_cyclic");
-    run_test(test_grid_1d_cyclic,       "test_grid_1d_cyclic");
-    run_test(test_grid_transpose,       "test_grid_transpose");
+    run_test(test_uniform_blocksize, "test_uniform_blocksize");
+    run_test(test_process_2d_grid,   "test_process_2d_grid");
+    run_test(test_process_1d_grid,   "test_process_1d_grid");
+    run_test(test_device_2d_grid,    "test_device_2d_grid");
+    run_test(test_device_1d_grid,    "test_device_1d_grid");
+    run_test(test_grid_transpose,    "test_transpose_grid");
 }
 
 }  // namespace test

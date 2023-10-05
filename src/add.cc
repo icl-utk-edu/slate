@@ -25,21 +25,33 @@ void add(
     scalar_t beta,  Matrix<scalar_t>& B,
     Options const& opts )
 {
+    // Constants
+    const int priority_0 = 0;
+    const int queue_0 = 0;
+
     if (target == Target::Devices) {
         B.allocateBatchArrays();
         B.reserveDeviceWorkspace();
     }
 
+    Options opts2 = Options( opts );
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
+
+    bool hold_local_workspace = get_option<bool>(
+            opts2, Option::HoldLocalWorkspace, 0 );
+
     #pragma omp parallel
     #pragma omp master
     {
         internal::add<target>(alpha, std::move(A),
-                                beta, std::move(B));
+                                beta, std::move(B), priority_0, queue_0, opts2);
         #pragma omp taskwait
         B.tileUpdateAllOrigin();
     }
 
-    B.releaseWorkspace();
+    if (hold_local_workspace == false) {
+        B.releaseWorkspace();
+    }
 }
 
 } // namespace impl
@@ -155,21 +167,32 @@ void add(
     scalar_t beta,  BaseTrapezoidMatrix<scalar_t>& B,
     Options const& opts )
 {
+    // Constants
+    const int priority_0 = 0;
+    const int queue_0 = 0;
     if (target == Target::Devices) {
         B.allocateBatchArrays();
         B.reserveDeviceWorkspace();
     }
 
+    Options opts2 = Options( opts );
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
+
+    bool hold_local_workspace = get_option<bool>(
+            opts2, Option::HoldLocalWorkspace, 0 );
+
     #pragma omp parallel
     #pragma omp master
     {
         internal::add<target>(alpha, std::move(A),
-                              beta, std::move(B));
+                              beta, std::move(B), priority_0, queue_0, opts2);
         #pragma omp taskwait
         B.tileUpdateAllOrigin();
     }
 
-    B.releaseWorkspace();
+    if (hold_local_workspace == false) {
+        B.releaseWorkspace();
+    }
 }
 
 } // namespace impl

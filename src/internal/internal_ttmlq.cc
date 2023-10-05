@@ -63,6 +63,8 @@ void ttmlq(internal::TargetType<Target::HostTask>,
 
     bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
                           || tile_release_strategy == TileReleaseStrategy::All;
+    // This routine assumes that tiles are never ticked for optimization's sake
+    assert( !call_tile_tick );
 
     // Find ranks in this row of A.
     std::set<int> ranks_set;
@@ -120,9 +122,11 @@ void ttmlq(internal::TargetType<Target::HostTask>,
         k_end = C.mt();
     }
 
+    std::vector<MPI_Request> requests;
     for (int level = 0; level < nlevels; ++level) {
         for (int index = 0; index < nranks; index += step) {
             int64_t rank_ind = rank_indices[ index ].second;
+            requests.clear();
             // if (side == left), scan rows of C for local tiles;
             // if (side == right), scan cols of C for local tiles
             // Three for-loops: 1) send, receive 2) update 3) receive, send
@@ -149,9 +153,11 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                                 j_dst = k_dst;
                             }
                             int dst = C.tileRank(i_dst, j_dst);
-                            // GetForWriting because it will be received in the later loop
-                            C.tileGetForWriting(i, j, LayoutConvert(layout));
-                            C.tileSend(i, j, dst, tag);
+                            // Don't need to wait since the tile isn't modified
+                            // until recieving it back
+                            MPI_Request req;
+                            C.tileIsend( i, j, dst, tag, &req );
+                            MPI_Request_free( & req );
                         }
                     }
                     else {
@@ -166,12 +172,17 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                             j1 = k_src;
                         }
 
-                        int     src   = C.tileRank(i1, j1);
-                        C.tileRecv(i1, j1, src, layout, tag);
+                        int src = C.tileRank( i1, j1 );
+                        MPI_Request req;
+                        C.tileIrecv( i1, j1, src, layout, tag, &req );
+                        requests.push_back( req );
                     }
                 }
             }
 
+            // The above and below loops iterate in the same order, so incrementing
+            // this counter gives the right request object
+            int64_t recv_index = 0;
             #pragma omp taskgroup
             for (int64_t k = 0; k < k_end; ++k) {
                 if (side == Side::Left) {
@@ -195,10 +206,13 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                         }
 
                         #pragma omp task slate_omp_default_none \
-                            shared( A, T, C ) \
+                            shared( A, T, C, requests ) \
                             firstprivate( i, j, layout, rank_ind, i1, j1, side, op ) \
-                            firstprivate( call_tile_tick )
+                            firstprivate( call_tile_tick, recv_index )
                         {
+                            // Don't start compute until the tile's been recieved
+                            MPI_Wait( &requests[recv_index], MPI_STATUS_IGNORE ) );
+
                             A.tileGetForReading(0, rank_ind, LayoutConvert(layout));
                             T.tileGetForReading(0, rank_ind, LayoutConvert(layout));
                             C.tileGetForWriting(i, j, LayoutConvert(layout));
@@ -214,9 +228,13 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                                 T.tileTick(0, rank_ind);
                             }
                         }
+                        recv_index++;
                     }
                 }
             }
+
+            // All requests were completed above
+            requests.clear();
 
             for (int64_t k = 0; k < k_end; ++k) {
                 if (side == Side::Left) {
@@ -227,6 +245,7 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                     i = k;
                     j = rank_ind;
                 }
+                MPI_Request req;
                 if (C.tileIsLocal(i, j)) {
                     if (index % (2*step) == 0) {
                         if (index + step < nranks) {
@@ -242,7 +261,7 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                             }
                             int dst = C.tileRank(i_dst, j_dst);
                             assert( (C.tileState( i, j, HostNum ) & MOSI::Modified) != 0 );
-                            C.tileRecv(i, j, dst, layout, tag);
+                            C.tileIrecv( i, j, dst, layout, tag, &req );
                         }
                     }
                     else {
@@ -257,12 +276,14 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                         }
                         int     src   = C.tileRank(i1, j1);
                         // Send updated tile back.
-                        C.tileSend(i1, j1, src, tag);
-                        if (call_tile_tick) {
-                            C.tileTick(i1, j1);
-                        }
+                        C.tileIsend( i1, j1, src, tag, &req );
+                        //if (call_tile_tick) {
+                        //    C.tileTick(i1, j1);
+                        //}
                     }
                 }
+                slate_mpi_call(
+                    MPI_Waitall( requests.size(), requests.data(), MPI_STATUSES_IGNORE ) );
             }
         }
         if (descend)

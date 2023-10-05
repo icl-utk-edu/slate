@@ -292,11 +292,6 @@ void hettmqr(
             } // for j
         } // for index
 
-        //--------------------
-        // Finish updating all rows before updating columns.
-        slate_mpi_call(
-            MPI_Barrier(C.mpiComm()));
-
         for (int index = 0; index + step < nranks; index += 2*step) {
             int64_t j1 = rank_indices[ index ].second;
             int64_t j2 = rank_indices[ index + step ].second;

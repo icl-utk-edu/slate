@@ -445,18 +445,17 @@ void he2hb(
                                     Wtmp.tileInsert( i, k );
                                     int tag_i = i;
                                     int tag_i1 = i+1;
+                                    W.tileGetForWriting( i, k, HostNum, layoutc );
+                                    MPI_Request req;
                                     if (neighbor < mpi_rank) {
-                                        W.tileGetForWriting( i, k, HostNum,
-                                                             layoutc );
-                                        W   .tileSend( i, k, neighbor, tag_i );
+                                        W   .tileIsend( i, k, neighbor, tag_i, &req );
                                         Wtmp.tileRecv( i, k, neighbor, layout, tag_i1 );
                                     }
                                     else {
-                                        W.tileGetForWriting( i, k, HostNum,
-                                                             layoutc );
+                                        W   .tileIsend( i, k, neighbor, tag_i1, &req );
                                         Wtmp.tileRecv( i, k, neighbor, layout, tag_i );
-                                        W   .tileSend( i, k, neighbor, tag_i1 );
                                     }
+                                    MPI_Wait( &req, MPI_STATUS_IGNORE );
                                     auto Wtmp_ik = Wtmp( i, k );
                                     auto W_ik = W( i, k );
                                     blas::axpy( W_ik.nb()*W_ik.nb(),

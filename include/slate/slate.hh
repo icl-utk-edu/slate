@@ -33,6 +33,11 @@ namespace slate {
 int version();
 const char* id();
 
+/// Map of timers, in seconds, for top-level routines. For example:
+/// `timers[ "gels" ]` is time for gels,
+/// `timers[ "gels::geqrf" ]` is time for geqrf inside gels.
+extern std::map< std::string, double > timers;
+
 //------------------------------------------------------------------------------
 // Level 2 Auxiliary
 

@@ -45,6 +45,7 @@ void test_gels_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    int timer_level = params.timer_level();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::Method methodGels = params.method_gels();
@@ -64,6 +65,14 @@ void test_gels_work(Params& params, bool run)
     params.gflops();
     params.ref_time();
     params.ref_gflops();
+    if (timer_level >= 2) {
+        params.time2();
+        params.time3();
+        params.time4();
+        params.time2.name( "geqrf (s)" );
+        params.time3.name( "unmqr (s)" );
+        params.time4.name( "trsm (s)" );
+    }
 
     if (! run)
         return;
@@ -232,6 +241,12 @@ void test_gels_work(Params& params, bool run)
         // compute and save timing/performance
         params.time() = time;
         params.gflops() = gflop / time;
+
+        if (timer_level >= 2) {
+            params.time2() = slate::timers[ "gels::geqrf" ];
+            params.time3() = slate::timers[ "gels::unmqr" ];
+            params.time4() = slate::timers[ "gels::trsm"  ];
+        }
 
         print_matrix( "A2", A, params );
         print_matrix( "BX2", BX, params );

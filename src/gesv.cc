@@ -75,9 +75,9 @@ namespace slate {
 ///       - NoPiv: no pivoting.
 ///         Note pivots vector is currently ignored for NoPiv.
 ///
-/// @retval 0 successful exit
-/// @retval i > 0, $U(i,i)$ is exactly zero, where i is a 1-based index.
-///         The factorization has been completed, but the factor U is exactly
+/// @return 0: successful exit
+/// @return i > 0: $U(i,i)$ is exactly zero, where $i$ is a 1-based index.
+///         The factorization has been completed, but the factor $U$ is exactly
 ///         singular, so the solution could not be computed.
 ///
 /// @ingroup gesv

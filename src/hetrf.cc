@@ -566,6 +566,9 @@ int64_t hetrf(
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
+/// @return 0: successful exit
+/// @return i > 0: the band LU factorization failed on the $i$-th column.
+///
 /// @ingroup hesv_computational
 ///
 template <typename scalar_t>
@@ -576,27 +579,23 @@ int64_t hetrf(
     Options const& opts)
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
-    int64_t info = 0;
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            info = impl::hetrf<Target::HostTask>( A, pivots, T, pivots2, H, opts );
-            break;
+            return impl::hetrf<Target::HostTask>( A, pivots, T, pivots2, H, opts );
 
         case Target::HostNest:
-            info = impl::hetrf<Target::HostNest>( A, pivots, T, pivots2, H, opts );
-            break;
+            return impl::hetrf<Target::HostNest>( A, pivots, T, pivots2, H, opts );
 
         case Target::HostBatch:
-            info = impl::hetrf<Target::HostBatch>( A, pivots, T, pivots2, H, opts );
-            break;
+            return impl::hetrf<Target::HostBatch>( A, pivots, T, pivots2, H, opts );
 
         case Target::Devices:
             slate_not_implemented( "hetrf not yet implemented for GPU devices" );
             break;
     }
-    return info;
+    return -6;  // shouldn't happen
 }
 
 //------------------------------------------------------------------------------

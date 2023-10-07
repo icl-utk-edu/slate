@@ -72,9 +72,13 @@ namespace slate {
 ///     On exit, if return value = 0, the n-by-nrhs solution matrix $X$.
 ///
 /// @param[out] iter
-///     The number of the iterations in the iterative refinement
-///     process, needed for the convergence. If failed, it is set
-///     to be -(1+itermax), where itermax = 30.
+///     > 0: The number of the iterations the iterative refinement
+///          process needed for convergence.
+///     < 0: Iterative refinement failed; it falls back to a double
+///          precision factorization and solve.
+///          -3: single precision matrix was exactly singular in getrf.
+///          -(itermax+1): iterative refinement failed to converge in
+///          itermax iterations.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -88,10 +92,9 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// TODO: return value
-/// @retval 0 successful exit
-/// @retval >0 for return value = $i$, the computed $U(i,i)$ is exactly zero.
-///         The factorization has been completed, but the factor U is exactly
+/// @return 0: successful exit
+/// @return i > 0: $U(i,i)$ is exactly zero, where $i$ is a 1-based index.
+///         The factorization has been completed, but the factor $U$ is exactly
 ///         singular, so the solution could not be computed.
 ///
 /// @ingroup gesv

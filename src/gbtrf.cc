@@ -271,8 +271,8 @@ int64_t gbtrf(
 ///      Strictness of the pivot selection.  Between 0 and 1 with 1 giving
 ///      partial pivoting and 0 giving no pivoting.  Default 1.
 ///
-/// @retval 0 successful exit
-/// @retval i > 0, $U(i,i)$ is exactly zero, where i is a 1-based index.
+/// @return 0: successful exit
+/// @return i > 0: $U(i,i)$ is exactly zero, where $i$ is a 1-based index.
 ///         The factorization has been completed, but the factor $U$ is exactly
 ///         singular, and division by zero will occur if it is used
 ///         to solve a system of equations.
@@ -285,27 +285,22 @@ int64_t gbtrf(
     Options const& opts )
 {
     Target target = get_option( opts, Option::Target, Target::HostTask );
-    int64_t info = 0;
 
     switch (target) {
         case Target::Host:
         case Target::HostTask:
-            info = impl::gbtrf<Target::HostTask>( A, pivots, opts );
-            break;
+            return impl::gbtrf<Target::HostTask>( A, pivots, opts );
 
         case Target::HostNest:
-            info = impl::gbtrf<Target::HostNest>( A, pivots, opts );
-            break;
+            return impl::gbtrf<Target::HostNest>( A, pivots, opts );
 
         case Target::HostBatch:
-            info = impl::gbtrf<Target::HostBatch>( A, pivots, opts );
-            break;
+            return impl::gbtrf<Target::HostBatch>( A, pivots, opts );
 
         case Target::Devices:
-            info = impl::gbtrf<Target::Devices>( A, pivots, opts );
-            break;
+            return impl::gbtrf<Target::Devices>( A, pivots, opts );
     }
-    return info;
+    return -3;  // shouldn't happen
 }
 
 //------------------------------------------------------------------------------

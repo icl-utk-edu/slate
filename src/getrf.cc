@@ -314,8 +314,8 @@ int64_t getrf(
 ///       - MethodLU::NoPiv: no pivoting.
 ///         Note pivots vector is currently ignored for NoPiv.
 ///
-/// @retval 0 successful exit
-/// @retval i > 0: $U(i,i)$ is exactly zero, where i is a 1-based index.
+/// @return 0: successful exit
+/// @return i > 0: $U(i,i)$ is exactly zero, where $i$ is a 1-based index.
 ///         The factorization has been completed, but the factor $U$ is exactly
 ///         singular, and division by zero will occur if it is used
 ///         to solve a system of equations.
@@ -344,25 +344,21 @@ int64_t getrf(
             case Target::Host:
             case Target::HostTask:
                 return impl::getrf<Target::HostTask>( A, pivots, opts );
-                break;
 
             case Target::HostNest:
                 return impl::getrf<Target::HostNest>( A, pivots, opts );
-                break;
 
             case Target::HostBatch:
                 return impl::getrf<Target::HostBatch>( A, pivots, opts );
-                break;
 
             case Target::Devices:
                 return impl::getrf<Target::Devices>( A, pivots, opts );
-                break;
         }
     }
     else {
         throw Exception( "unknown value for MethodLU" );
     }
-    return -2;  // shouldn't happen
+    return -3;  // shouldn't happen
 }
 
 //------------------------------------------------------------------------------

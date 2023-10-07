@@ -411,10 +411,8 @@ int64_t getrf_tntpiv(
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// TODO: return value
-/// @retval 0 successful exit
-/// @retval i < 0: the i-th argument had an illegal value.
-/// @retval i > 0: $U(i,i)$ is exactly zero, where i is a 1-based index.
+/// @return 0: successful exit
+/// @return i > 0: $U(i,i)$ is exactly zero, where $i$ is a 1-based index.
 ///         The factorization has been completed, but the factor $U$ is exactly
 ///         singular, and division by zero will occur if it is used
 ///         to solve a system of equations.
@@ -432,19 +430,15 @@ int64_t getrf_tntpiv(
         case Target::Host:
         case Target::HostTask:
             return impl::getrf_tntpiv<Target::HostTask>( A, pivots, opts );
-            break;
 
         case Target::HostNest:
             return impl::getrf_tntpiv<Target::HostNest>( A, pivots, opts );
-            break;
 
         case Target::HostBatch:
             return impl::getrf_tntpiv<Target::HostBatch>( A, pivots, opts );
-            break;
 
         case Target::Devices:
             return impl::getrf_tntpiv<Target::Devices>( A, pivots, opts );
-            break;
     }
     return -2;  // shouldn't happen
 }

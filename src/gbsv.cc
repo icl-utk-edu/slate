@@ -66,10 +66,9 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// TODO: return value
-/// @retval 0 successful exit
-/// @retval >0 for return value = $i$, the computed $U(i,i)$ is exactly zero.
-///         The factorization has been completed, but the factor U is exactly
+/// @return 0: successful exit
+/// @return i > 0: $U(i,i)$ is exactly zero, where $i$ is a 1-based index.
+///         The factorization has been completed, but the factor $U$ is exactly
 ///         singular, so the solution could not be computed.
 ///
 /// @ingroup gbsv

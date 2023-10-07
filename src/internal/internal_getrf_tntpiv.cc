@@ -6,7 +6,6 @@
 #include "slate/Matrix.hh"
 #include "slate/HermitianMatrix.hh"
 #include "slate/types.hh"
-//#include "internal/Tile_getrf.hh"
 #include "internal/Tile_getrf_tntpiv.hh"
 #include "internal/internal.hh"
 #include "internal/internal_util.hh"
@@ -329,6 +328,9 @@ void getrf_tntpiv_local(
     blas::device_memcpy<device_pivot_int>( &hipiv[0], dipiv, diag_len,
                                    blas::MemcpyKind::Default, *queue);
 
+    // todo: could merge with above memcpy if host_info and dinfo are
+    // made the last entry of hipiv and dipiv; slightly complicated if
+    // device_pivot_int != device_info_int.
     device_info_int host_info;
     blas::device_memcpy<device_info_int>( &host_info, dinfo, 1, *queue );
     *info = host_info;

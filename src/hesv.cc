@@ -86,9 +86,8 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @retval 0 successful exit
-/// @retval >0 for return value = $i$, the band LU factorization failed on the
-///         $i$-th column.
+/// @return 0: successful exit
+/// @return i > 0: the band LU factorization failed on the $i$-th column.
 ///
 /// @ingroup hesv
 ///

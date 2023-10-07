@@ -285,10 +285,9 @@ int64_t getrf_nopiv(
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @retval 0 successful exit
-/// @retval i < 0: the i-th argument had an illegal value.
-/// @retval i > 0: U(i,i) is exactly zero (1-based index). The factorization
-///         will have NaN due to division by zero.
+/// @return 0: successful exit
+/// @return i > 0: $U(i,i)$ is exactly zero, where $i$ is a 1-based index.
+///         The factorization will have NaN due to division by zero.
 ///
 /// @ingroup gesv_computational
 ///
@@ -303,19 +302,15 @@ int64_t getrf_nopiv(
         case Target::Host:
         case Target::HostTask:
             return impl::getrf_nopiv<Target::HostTask>( A, opts );
-            break;
 
         case Target::HostNest:
             return impl::getrf_nopiv<Target::HostNest>( A, opts );
-            break;
 
         case Target::HostBatch:
             return impl::getrf_nopiv<Target::HostBatch>( A, opts );
-            break;
 
         case Target::Devices:
             return impl::getrf_nopiv<Target::Devices>( A, opts );
-            break;
     }
     return -2;  // shouldn't happen
 }

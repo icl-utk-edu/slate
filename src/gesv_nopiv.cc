@@ -58,9 +58,9 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// @retval 0 successful exit
-/// @retval i > 0: U(i,i) is exactly zero (1-based index). The factorization
-///         will have NaN due to division by zero.
+/// @return 0: successful exit
+/// @return i > 0: $U(i,i)$ is exactly zero, where $i$ is a 1-based index.
+///         The factorization will have NaN due to division by zero.
 ///
 /// @ingroup gesv
 ///

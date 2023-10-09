@@ -374,16 +374,13 @@ void he2hb(
                         }
                     }
                     int64_t i0 = panel_rank_rows[ 0 ];
-                    int dev_i0k = -1;
-                    if (target == Target::Devices)
-                        dev_i0k = A.tileDevice(i0, k);
 
                     #pragma omp task slate_omp_default_none \
                         depend( inout:block[ k ] ) \
                         shared( A, Asave ) \
-                        firstprivate( zero, one, i0, k, dev_i0k, layoutc )
+                        firstprivate( zero, one, i0, k, layoutc )
                     {
-                        if (A.tileExists( i0, k, dev_i0k)) {
+                        if (A.tileExists( i0, k, AnyDevice )) {
                             A.tileGetForWriting( i0, k, HostNum, layoutc );
                             // Save V0 and set upper(V0) to identity, to avoid trmm's.
                             Asave.tileInsert( i0, k );
@@ -559,9 +556,9 @@ void he2hb(
                     #pragma omp task slate_omp_default_none \
                         depend( inout:block[ k ] ) \
                         shared( A, Asave ) \
-                        firstprivate( i0, k, dev_i0k, layoutc )
+                        firstprivate( i0, k, layoutc )
                     {
-                        if (A.tileExists( i0, k, dev_i0k )) {
+                        if (A.tileExists( i0, k, AnyDevice )) {
                             A.tileGetForWriting( i0, k, layoutc );
                             tile::gecopy( Asave( i0, k ), A( i0, k ) );
                             Asave.tileErase( i0, k );

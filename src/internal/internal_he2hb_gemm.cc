@@ -53,6 +53,8 @@ void he2hb_gemm(
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layoutc = LayoutConvert( layout );
+    const scalar_t one = 1.0;
+    const scalar_t zero = 0.0;
 
     assert( A.nt() == B.mt() );
 
@@ -70,6 +72,7 @@ void he2hb_gemm(
             priority( priority )
         {
             scalar_t beta_ = beta;
+
             for (int64_t k = 0; k < A.nt(); ++k) {
                 if (A.tileRank( i, k ) == panel_rank) {
                     A.tileGetForReading( i, k, layoutc );
@@ -81,8 +84,18 @@ void he2hb_gemm(
                         A.tileTick( i, k );
                         B.tileTick( k, 0 );
                     }
+                    beta_ = one;
                 }
-                beta_ = 1.0;
+            }
+
+            if (beta_ != one) {
+                // C wasn't scaled
+                if (beta_ == zero) {
+                    C( i, 0 ).set( zero );
+                }
+                else {
+                    tile::scale( beta_, C( i, 0 ) );
+                }
             }
         }
     }
@@ -307,7 +320,10 @@ void he2hb_gemm(
                     //     }
                     // }
                 }
-                beta = 1.0;
+                // Don't discard beta until C has been updated
+                if (C_tiles_set.size() > 0) {
+                    beta = 1.0;
+                }
             } // for loop (k)
         } // pragma
     } // device

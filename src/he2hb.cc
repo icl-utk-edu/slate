@@ -487,10 +487,6 @@ void he2hb(
 
                             // 1d. TVAVT = V^H (A V T) = V^H W.
                             // todo: potentially do gemm+reduce here (block inner-product)
-                            // todo: shouldn't need to set TVAVT = 0 since beta = 0.
-                            // todo: on GPU
-                            TVAVT.tileGetForWriting( 0, 0, HostNum, layoutc );
-                            TVAVT( 0, 0 ).set( zero );
                             internal::he2hb_gemm<target>(
                                 one,  conj_transpose( A.sub( k+1, nt-1, k, k ) ),
                                       W.sub( k+1, nt-1, k, k ),

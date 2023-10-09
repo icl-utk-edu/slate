@@ -574,8 +574,9 @@ void he2hb(
                     depend( inout:block[ nt-1 ] ) \
                     depend( inout:fetch_trailing[ 0 ] ) \
                     shared( A ) \
-                    firstprivate( A_panel, Treduce_panel, k, nt, tag_0, opts2 )
+                    firstprivate( A_panel, Treduce_panel, k, nt, opts2 )
                 {
+                    int tag_base = A.mt()*A.mt();
                     // Do 2-sided Hermitian update:
                     // 3. A = Q^H A Q
                     internal::hettmqr<Target::HostTask>(
@@ -583,7 +584,7 @@ void he2hb(
                         std::move( A_panel ),
                         std::move( Treduce_panel ),
                         A.sub( k+1, nt-1 ),
-                        tag_0, opts2 );
+                        tag_base, opts2 );
                 }
             }
 

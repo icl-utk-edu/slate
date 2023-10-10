@@ -32,9 +32,6 @@ void test_uniform_blocksize()
 }
 
 //------------------------------------------------------------------------------
-<<<<<<< HEAD
-void test_process_2d_grid()
-=======
 void test_max_blocksize()
 {
     auto error = []( int64_t i ) {
@@ -59,8 +56,7 @@ void test_max_blocksize()
 }
 
 //------------------------------------------------------------------------------
-void test_grid_2d_block_cyclic()
->>>>>>> efcf1925 (Improve Memory allocations when tile size is nonuniform)
+void test_process_2d_grid()
 {
     auto grid_col = slate::func::process_2d_grid(slate::Layout::ColMajor, 4, 5);
 
@@ -261,13 +257,13 @@ void test_is_same_map()
     test_assert( slate::func::is_same_map(0, 1000, error, error) );
 
 
-    auto col_2d = slate::func::grid_2d_block_cyclic(
+    auto col_2d = slate::func::device_2d_grid(
                             slate::Layout::ColMajor, 2, 3, 4, 5 );
-    auto row_2d = slate::func::grid_2d_block_cyclic(
+    auto row_2d = slate::func::device_2d_grid(
                             slate::Layout::RowMajor, 2, 3, 4, 5 );
-    auto col_1d = slate::func::grid_2d_block_cyclic(
+    auto col_1d = slate::func::device_2d_grid(
                             slate::Layout::ColMajor, 2, 1, 4, 1 );
-    auto row_1d = slate::func::grid_2d_block_cyclic(
+    auto row_1d = slate::func::device_2d_grid(
                             slate::Layout::ColMajor, 1, 3, 1, 5 );
     // equality
     test_assert( slate::func::is_same_map(100, 100, col_2d, col_2d) );
@@ -286,7 +282,7 @@ void test_is_same_map()
 }
 
 //------------------------------------------------------------------------------
-void test_is_grid_2d_cyclic()
+void test_is_2d_cyclic_grid()
 {
     slate::GridOrder out_o;
     int64_t out_p, out_q;
@@ -310,20 +306,20 @@ void test_is_grid_2d_cyclic()
             } \
         } while(0)
 
-    // Check that is_grid_2d_cyclic doesn't access an empty map
+    // Check that is_2d_cyclic_grid doesn't access an empty map
     std::function<int( std::tuple<int64_t, int64_t> )>
     error = []( std::tuple<int64_t, int64_t> ij ) {
         test_assert( false );
         return -1;
     };
-    test_assert( slate::func::is_grid_2d_cyclic(0, 0, error) );
-    test_assert( slate::func::is_grid_2d_cyclic(0, 0, error, out_o, out_p, out_q) );
+    test_assert( slate::func::is_2d_cyclic_grid(0, 0, error) );
+    test_assert( slate::func::is_2d_cyclic_grid(0, 0, error, out_o, out_p, out_q) );
     test_pq( 1, 1 );
-    test_assert( slate::func::is_grid_2d_cyclic(1000, 0, error) );
-    test_assert( slate::func::is_grid_2d_cyclic(1000, 0, error, out_o, out_p, out_q) );
+    test_assert( slate::func::is_2d_cyclic_grid(1000, 0, error) );
+    test_assert( slate::func::is_2d_cyclic_grid(1000, 0, error, out_o, out_p, out_q) );
     test_pq( 1, 1 );
-    test_assert( slate::func::is_grid_2d_cyclic(0, 1000, error) );
-    test_assert( slate::func::is_grid_2d_cyclic(1000, 0, error, out_o, out_p, out_q) );
+    test_assert( slate::func::is_2d_cyclic_grid(0, 1000, error) );
+    test_assert( slate::func::is_2d_cyclic_grid(1000, 0, error, out_o, out_p, out_q) );
     test_pq( 1, 1 );
 
     // Loop over arguments to grid_2d_block_cyclic
@@ -352,7 +348,7 @@ void test_is_grid_2d_cyclic()
             {slate::Layout::RowMajor, 1, 1, 1, 1},
     };
     for (auto config : configs) {
-        auto func = std::apply(slate::func::grid_2d_block_cyclic, config );
+        auto func = std::apply(slate::func::device_2d_grid, config );
 
         bool is_col_layout = std::get<0>(config) == slate::Layout::ColMajor;
         bool is_row_layout = ! is_col_layout;
@@ -371,13 +367,13 @@ void test_is_grid_2d_cyclic()
         //          << is_2d_cyclic << std::endl;
 
 
-        test_assert( slate::func::is_grid_2d_cyclic( 1,  1, func) );
-        test_assert( slate::func::is_grid_2d_cyclic( 1,  1, func, out_o, out_p, out_q) );
+        test_assert( slate::func::is_2d_cyclic_grid( 1,  1, func) );
+        test_assert( slate::func::is_2d_cyclic_grid( 1,  1, func, out_o, out_p, out_q) );
         test_pq( 1, 1 );
 
-        test_assert( slate::func::is_grid_2d_cyclic( 40,  1, func )
+        test_assert( slate::func::is_2d_cyclic_grid( 40,  1, func )
                      == is_col_cyclic );
-        test_assert( slate::func::is_grid_2d_cyclic( 40,  1, func, out_o, out_p, out_q )
+        test_assert( slate::func::is_2d_cyclic_grid( 40,  1, func, out_o, out_p, out_q )
                      == is_col_cyclic );
         if (is_col_cyclic) {
             test_pq( p, 1 );
@@ -386,9 +382,9 @@ void test_is_grid_2d_cyclic()
             test_opq( slate::GridOrder::Unknown, -1, -1 );
         }
 
-        test_assert( slate::func::is_grid_2d_cyclic(  1, 40, func )
+        test_assert( slate::func::is_2d_cyclic_grid(  1, 40, func )
                      == is_row_cyclic );
-        test_assert( slate::func::is_grid_2d_cyclic(  1, 40, func, out_o, out_p, out_q )
+        test_assert( slate::func::is_2d_cyclic_grid(  1, 40, func, out_o, out_p, out_q )
                      == is_row_cyclic );
         if (is_row_cyclic) {
             test_pq( 1, q );
@@ -397,13 +393,13 @@ void test_is_grid_2d_cyclic()
             test_opq( slate::GridOrder::Unknown, -1, -1 );
         }
 
-        test_assert( slate::func::is_grid_2d_cyclic( 40, 40, func )
+        test_assert( slate::func::is_2d_cyclic_grid( 40, 40, func )
                      == is_2d_cyclic );
-        test_assert( slate::func::is_grid_2d_cyclic( 40, 40, func, out_o, out_p, out_q )
+        test_assert( slate::func::is_2d_cyclic_grid( 40, 40, func, out_o, out_p, out_q )
                      == is_2d_cyclic );
         if (is_2d_cyclic) {
             if (p != 1 && q != 1) {
-                // GridOrder only garunteed for non-1d grids
+                // GridOrder only guaranteed for non-1d grids
                 test_opq( is_col_layout ? slate::GridOrder::Col : slate::GridOrder::Row,
                           p, q );
             }
@@ -417,7 +413,7 @@ void test_is_grid_2d_cyclic()
     }
 
     // Test a map that's almost cyclic
-    auto cyclic = slate::func::grid_2d_cyclic( slate::Layout::ColMajor, 4, 5 );
+    auto cyclic = slate::func::process_2d_grid( slate::Layout::ColMajor, 4, 5 );
     std::function<int( std::tuple<int64_t, int64_t> )>
     tricky_func = [cyclic]( std::tuple<int64_t, int64_t> ij ) {
         int64_t i = std::get<0>( ij );
@@ -429,27 +425,27 @@ void test_is_grid_2d_cyclic()
             return cyclic( ij );
         }
     };
-    test_assert( ! slate::func::is_grid_2d_cyclic(99, 99, tricky_func) );
-    test_assert( ! slate::func::is_grid_2d_cyclic(99, 99, tricky_func, out_o, out_p, out_q) );
+    test_assert( ! slate::func::is_2d_cyclic_grid(99, 99, tricky_func) );
+    test_assert( ! slate::func::is_2d_cyclic_grid(99, 99, tricky_func, out_o, out_p, out_q) );
     test_opq( slate::GridOrder::Unknown, -1, -1 );
-    test_assert( ! slate::func::is_grid_2d_cyclic(50, 99, tricky_func) );
-    test_assert( ! slate::func::is_grid_2d_cyclic(50, 99, tricky_func, out_o, out_p, out_q) );
+    test_assert( ! slate::func::is_2d_cyclic_grid(50, 99, tricky_func) );
+    test_assert( ! slate::func::is_2d_cyclic_grid(50, 99, tricky_func, out_o, out_p, out_q) );
     test_opq( slate::GridOrder::Unknown, -1, -1 );
-    test_assert( ! slate::func::is_grid_2d_cyclic(99, 50, tricky_func) );
-    test_assert( ! slate::func::is_grid_2d_cyclic(99, 50, tricky_func, out_o, out_p, out_q) );
+    test_assert( ! slate::func::is_2d_cyclic_grid(99, 50, tricky_func) );
+    test_assert( ! slate::func::is_2d_cyclic_grid(99, 50, tricky_func, out_o, out_p, out_q) );
     test_opq( slate::GridOrder::Unknown, -1, -1 );
-    test_assert( ! slate::func::is_grid_2d_cyclic(50, 50, tricky_func) );
-    test_assert( ! slate::func::is_grid_2d_cyclic(50, 50, tricky_func, out_o, out_p, out_q) );
+    test_assert( ! slate::func::is_2d_cyclic_grid(50, 50, tricky_func) );
+    test_assert( ! slate::func::is_2d_cyclic_grid(50, 50, tricky_func, out_o, out_p, out_q) );
     test_opq( slate::GridOrder::Unknown, -1, -1 );
 
-    test_assert( slate::func::is_grid_2d_cyclic(50, 49, tricky_func) );
-    test_assert( slate::func::is_grid_2d_cyclic(50, 49, tricky_func, out_o, out_p, out_q) );
+    test_assert( slate::func::is_2d_cyclic_grid(50, 49, tricky_func) );
+    test_assert( slate::func::is_2d_cyclic_grid(50, 49, tricky_func, out_o, out_p, out_q) );
     test_opq( slate::GridOrder::Col, 4, 5 );
-    test_assert( slate::func::is_grid_2d_cyclic(49, 50, tricky_func) );
-    test_assert( slate::func::is_grid_2d_cyclic(49, 50, tricky_func, out_o, out_p, out_q) );
+    test_assert( slate::func::is_2d_cyclic_grid(49, 50, tricky_func) );
+    test_assert( slate::func::is_2d_cyclic_grid(49, 50, tricky_func, out_o, out_p, out_q) );
     test_opq( slate::GridOrder::Col, 4, 5 );
-    test_assert( slate::func::is_grid_2d_cyclic(49, 49, tricky_func) );
-    test_assert( slate::func::is_grid_2d_cyclic(49, 49, tricky_func, out_o, out_p, out_q) );
+    test_assert( slate::func::is_2d_cyclic_grid(49, 49, tricky_func) );
+    test_assert( slate::func::is_2d_cyclic_grid(49, 49, tricky_func, out_o, out_p, out_q) );
     test_opq( slate::GridOrder::Col, 4, 5 );
 
     #undef test_opq
@@ -467,7 +463,7 @@ void run_tests()
     run_test( test_device_1d_grid,    "test_device_1d_grid" );
     run_test( test_grid_transpose,    "test_transpose_grid" );
     run_test( test_is_same_map,       "test_is_same_map" );
-    run_test( test_is_grid_2d_cyclic, "test_is_grid_2d_cyclic" );
+    run_test( test_is_2d_cyclic_grid, "test_is_2d_cyclic_grid" );
 }
 
 }  // namespace test

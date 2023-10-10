@@ -1295,7 +1295,7 @@ void BaseMatrix<scalar_t>::gridinfo(
         // When matrix is empty, storage_ may be null
         if (mt_ != 0 && nt_ != 0) {
             int64_t nprow_i64, npcol_i64;
-            func::is_grid_2d_cyclic(mt(), nt(), tileRankFunc(), order_, nprow_i64, npcol_i64);
+            func::is_2d_cyclic_grid(mt(), nt(), tileRankFunc(), order_, nprow_i64, npcol_i64);
             nprow_ = nprow_i64;
             npcol_ = npcol_i64;
 

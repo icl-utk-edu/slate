@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -6,6 +6,7 @@
 #ifndef SLATE_STORAGE_HH
 #define SLATE_STORAGE_HH
 
+#include "slate/func.hh"
 #include "slate/internal/Memory.hh"
 #include "slate/Tile.hh"
 #include "slate/types.hh"
@@ -487,40 +488,24 @@ MatrixStorage<scalar_t>::MatrixStorage(
     // todo: similar code in BaseMatrix(...) and MatrixStorage(...)
     num_devices_ = memory_.num_devices_;
 
-    // TODO: these all assume 2D block cyclic with fixed size tiles (mb x nb)
-    // lambdas that capture m, n, mb, nb for
-    // computing tile's mb (rows) and nb (cols)
-    tileMb = [m, mb](int64_t i) { return (i + 1)*mb > m ? m%mb : mb; };
-    tileNb = [n, nb](int64_t j) { return (j + 1)*nb > n ? n%nb : nb; };
+    // functions for computing the tile's size
+    tileMb = slate::func::uniform_blocksize(m, mb);
+    tileNb = slate::func::uniform_blocksize(n, nb);
 
-    // lambda that captures p, q for computing tile's rank,
-    // assuming 2D block cyclic
+    // function for computing the tile's rank, assuming 2D block cyclic
     if (order == GridOrder::Col) {
-        tileRank = [p, q]( ij_tuple ij ) {
-            int64_t i = std::get<0>( ij );
-            int64_t j = std::get<1>( ij );
-            return int((i%p) + (j%q)*p);
-        };
+        tileRank = slate::func::process_2d_grid( slate::Layout::ColMajor, p, q );
     }
     else if (order == GridOrder::Row) {
-        tileRank = [p, q]( ij_tuple ij ) {
-            int64_t i = std::get<0>( ij );
-            int64_t j = std::get<1>( ij );
-            return int((i%p)*q + (j%q));
-        };
+        tileRank = slate::func::process_2d_grid( slate::Layout::RowMajor, p, q );
     }
     else {
         slate_error( "invalid GridOrder, must be Col or Row" );
     }
-
-    // lambda that captures q, num_devices to distribute local matrix
-    // in 1D column block cyclic fashion among devices
+    // function for computing the tile's device, assuming 1d block cyclic
     if (num_devices_ > 0) {
-        int num_devices = num_devices_;  // local copy to capture
-        tileDevice = [q, num_devices](ij_tuple ij) {
-            int64_t j = std::get<1>(ij);
-            return int(j/q)%num_devices;
-        };
+        tileDevice = slate::func::device_1d_grid( slate::Layout::RowMajor,
+                                                  q, num_devices_ );
     }
     else {
         tileDevice = []( ij_tuple ij ) {
@@ -1154,8 +1139,8 @@ void MatrixStorage<scalar_t>::tileMakeTransposable(Tile<scalar_t>* tile)
         return;
 
     int device = tile->device();
-    int64_t mb = tileMb(0);
-    int64_t nb = tileNb(0);
+    int64_t mb = tile->mb();
+    int64_t nb = tile->nb();
     // if device==HostNum (-1) use nullptr as queue (not comm_queues_[-1])
     blas::Queue* queue = ( device == HostNum ? nullptr : comm_queues_[device]);
     scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);

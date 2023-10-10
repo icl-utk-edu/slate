@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -144,28 +144,18 @@ void test_gesv_work(Params& params, bool run)
     int64_t nlocB = num_local_rows_cols(nrhs, nb, mycol, q);
     int64_t lldB  = blas::max(1, mlocB); // local leading dimension of B
 
-    // To generate matrix with non-uniform tile size using the Lambda constructor
+    // To generate matrix with non-uniform tile size using the lambda constructor
     std::function< int64_t (int64_t j) >
     tileNb = [nb](int64_t j) {
         // for non-uniform tile size
         return (j % 2 != 0 ? nb/2 : nb);
     };
 
-    // 2D block column cyclic
-    std::function< int (std::tuple<int64_t, int64_t> ij) >
-    tileRank = [p, q](std::tuple<int64_t, int64_t> ij) {
-        int64_t i = std::get<0>(ij);
-        int64_t j = std::get<1>(ij);
-        return int(i%p + (j%q)*p);
-    };
-
-    // 1D block row cyclic
-    int num_devices_ = 0; // num_devices;
-    std::function< int (std::tuple<int64_t, int64_t> ij) >
-    tileDevice = [num_devices_](std::tuple<int64_t, int64_t> ij) {
-        int64_t i = std::get<0>(ij);
-        return int(i)%num_devices_;
-    };
+    // rank and device functions for using the lambda constructor
+    auto tileRank = slate::func::process_2d_grid( slate::Layout::ColMajor, p, q );
+    int num_devices_ = blas::get_device_count();
+    auto tileDevice = slate::func::device_1d_grid( slate::Layout::ColMajor,
+                                                    p, num_devices_ );
 
     std::vector<scalar_t> A_data, B_data, X_data;
     slate::Matrix<scalar_t> A, B, X;

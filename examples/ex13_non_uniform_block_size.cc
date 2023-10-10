@@ -28,20 +28,9 @@ void test_matrix_lambda()
         return (j % 2 != 0 ? nb_/2 : nb_);
     };
 
-    std::function< int (std::tuple<int64_t, int64_t> ij) >
-    tileRank = [p_, q_](std::tuple<int64_t, int64_t> ij)
-    {
-        int64_t i = std::get<0>(ij);
-        int64_t j = std::get<1>(ij);
-        return int( i%p_ + (j%q_)*p_ );
-    };
-
-    std::function< int (std::tuple<int64_t, int64_t> ij) >
-    tileDevice = [num_devices_](std::tuple<int64_t, int64_t> ij)
-    {
-        int64_t i = std::get<0>(ij);
-        return int(i)%num_devices_;
-    };
+    auto tileRank = slate::func::process_2d_grid( slate::Layout::ColMajor, p_, q_ );
+    auto tileDevice = slate::func::device_1d_grid( slate::Layout::ColMajor,
+                                                   p_, num_devices_ );
 
     slate::Matrix<scalar_type> A( n, n, tileNb, tileNb, tileRank, tileDevice, MPI_COMM_WORLD );
     A.insertLocalTiles();

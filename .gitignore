@@ -22,6 +22,7 @@ slate-*
 test/tester
 unit_test/run_tests.py
 unit_test/test_norm
+unit_test/test_func
 unit_test/test_geadd
 unit_test/test_gecopy
 unit_test/test_gescale

@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -1217,11 +1217,7 @@ BaseMatrix<out_scalar_t> BaseMatrix<scalar_t>::baseEmptyLike(
     else {
         // todo: just swap and redefine newRank? then use above B constructor.
         auto oldRank = this->storage_->tileRank;
-        std::function<int (ij_tuple ij)> newRank = [oldRank](ij_tuple ij) {
-            int64_t i = std::get<0>(ij);
-            int64_t j = std::get<1>(ij);
-            return oldRank( ij_tuple({ j, i }) );
-        };
+        auto newRank = slate::func::transpose_grid( oldRank );
         // todo: what about tileDevice?
         B = BaseMatrix<out_scalar_t>(
             parent_n, parent_m, newNb, newMb,  // transposed

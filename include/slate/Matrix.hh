@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -174,6 +174,8 @@ Matrix<scalar_t>::Matrix():
 /// Constructor creates an m-by-n matrix, with no tiles allocated,
 /// where tileMb, tileNb, tileRank, tileDevice are given as functions.
 /// Tiles can be added with tileInsert().
+///
+/// @see slate::func for common functions.
 ///
 /// @param[in] m
 ///     Number of rows of the matrix. m >= 0.

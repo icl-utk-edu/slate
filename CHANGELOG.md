@@ -18,7 +18,7 @@
   - Added Hermitian eigenvectors using divide and conquer algorithm
   - Added CALU variant of LU factorization
   - Added mixed-precision GMRES solver
-  - Added GPU-aware MPI support using `${SLATE_GPU_AWARE_MPI}` environment variable
+  - Added GPU-aware MPI support using `SLATE_GPU_AWARE_MPI` environment variable
   - Improved CALU and QR performance by moving panel operations to the GPU
   - Update to use BLAS++ queues for all operations, to support oneAPI
   - Update test matrix generator so random matrices are the same

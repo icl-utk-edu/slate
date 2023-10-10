@@ -325,7 +325,7 @@
     ------------------------------------------------------------
     @defgroup util  Utilities
     @{
-        @defgroup func Contructor functions
+        @defgroup func Constructor functions
         @brief Useful functions for SLATE's "lambda" constructors
     @}
 **/

@@ -32,7 +32,7 @@ using ij_tuple = std::tuple<int64_t, int64_t>;
 /// @param[in] nb
 ///     Block size
 ///
-/// @retval The requested blocksize function
+/// @return The requested blocksize function
 ///
 /// @ingroup func
 ///
@@ -70,7 +70,7 @@ inline std::function<int64_t(int64_t)> uniform_blocksize(int64_t n, int64_t nb)
 /// @param[in] q
 ///     The number of columns in the device grid
 ///
-/// @retval The distribution function
+/// @return The distribution function
 ///
 /// @ingroup func
 ///
@@ -114,7 +114,7 @@ device_2d_grid(Layout layout, int64_t m, int64_t n, int64_t p, int64_t q)
 /// @param[in] size
 ///     The number of rows or column in the device grid
 ///
-/// @retval The distribution function
+/// @return The distribution function
 ///
 /// @ingroup func
 ///
@@ -146,7 +146,7 @@ device_1d_grid(Layout layout, int64_t block_size, int size)
 /// @param[in] q
 ///     The number of columns in the process grid
 ///
-/// @retval The distribution function
+/// @return The distribution function
 ///
 /// @ingroup func
 ///
@@ -174,7 +174,7 @@ process_2d_grid(Layout layout, int64_t p, int64_t q)
 /// @param[in] size
 ///     The number of processes
 ///
-/// @retval The distribution function
+/// @return The distribution function
 ///
 /// @ingroup func
 ///
@@ -195,7 +195,7 @@ inline std::function<int(ij_tuple)> process_1d_grid(Layout layout, int size)
 /// @param[in] old_func
 ///     The original distribution function
 ///
-/// @retval The transposed distribution function
+/// @return The transposed distribution function
 ///
 /// @ingroup func
 ///

@@ -274,9 +274,9 @@ void test_posv_work(Params& params, bool run)
         params.time() = time;
         params.gflops() = gflop / time;
 
-	if (timer_level >= 2) {
+        if (timer_level >= 2) {
             params.time2() = slate::timers[ "posv::potrf" ];
-	    params.time3() = slate::timers[ "posv::potrs" ];
+            params.time3() = slate::timers[ "posv::potrs" ];
         }
 
         //==================================================

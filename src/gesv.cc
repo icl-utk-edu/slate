@@ -87,7 +87,7 @@ template <typename scalar_t>
 void gesv(Matrix<scalar_t>& A, Pivots& pivots,
           Matrix<scalar_t>& B,
           Options const& opts)
-{   
+{
     Timer t_gesv;
 
     slate_assert(A.mt() == A.nt());  // square
@@ -104,7 +104,7 @@ void gesv(Matrix<scalar_t>& A, Pivots& pivots,
     timers[ "gesv::getrs" ] = t_getrs.stop();
 
     // todo: return value for errors?
-    
+
     timers[ "gesv" ] = t_gesv.stop();
 }
 

@@ -62,15 +62,15 @@ void test_heev_work(Params& params, bool run)
     params.ortho.name( "Z orth." );
     if (timer_level >= 2) {
         params.time2();
-	params.time3();
-	params.time4();
-	params.time5();
-	params.time6();
-	params.time2.name( "he2hb (s)" );
-	params.time3.name( "hb2st (s)" );
+        params.time3();
+        params.time4();
+        params.time5();
+        params.time6();
+        params.time2.name( "he2hb (s)" );
+        params.time3.name( "hb2st (s)" );
         params.time4.name( "stedc (s)" );
-	params.time5.name( "unmtr_hb2st (s)" );
-	params.time6.name( "unmtr_he2hb (s)" );
+        params.time5.name( "unmtr_hb2st (s)" );
+        params.time6.name( "unmtr_he2hb (s)" );
     }
 
     if (! run)
@@ -188,7 +188,7 @@ void test_heev_work(Params& params, bool run)
 
         // compute and save timing/performance
         params.time() = time;
-	if (timer_level >= 2) {
+        if (timer_level >= 2) {
             params.time2() = slate::timers[ "heev::he2hb" ];
             params.time3() = slate::timers[ "heev::hb2st" ];
             params.time4() = slate::timers[ "heev::stedc" ];

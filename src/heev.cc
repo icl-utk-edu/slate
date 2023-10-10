@@ -129,9 +129,9 @@ void heev(
         V.insertLocalTiles();
 
         // 2. Reduce band to real symmetric tri-diagonal.
-	Timer t_hb2st;
+        Timer t_hb2st;
         hb2st(Aband, V, opts);
-	timers[ "heev::hb2st" ] = t_hb2st.stop();
+        timers[ "heev::hb2st" ] = t_hb2st.stop();
 
         // Copy diagonal and super-diagonal to vectors.
         internal::copyhb2st( Aband, Lambda, E );
@@ -144,9 +144,9 @@ void heev(
         MPI_Bcast( &E[0],      n-1, mpi_real_type, 0, A.mpiComm() );
         if (method == MethodEig::QR) {
             // QR iteration to get eigenvalues and eigenvectors of tridiagonal.
-	    Timer t_steqr2;
+            Timer t_steqr2;
             steqr2( Job::Vec, Lambda, E, Z );
-	    timers[ "heev::steqr2" ] = t_steqr2.stop();
+            timers[ "heev::steqr2" ] = t_steqr2.stop();
         }
         else {
             // Divide and conquer to get eigvals and eigvecs of tridiagonal.
@@ -154,15 +154,15 @@ void heev(
                 // real
                 Timer t_stedc;
                 stedc( Lambda, E, Z );
-		timers[ "heev::stedc" ] = t_stedc.stop();
+                timers[ "heev::stedc" ] = t_stedc.stop();
             }
             else {
                 // D&C computes real Z, then copy to complex Z to back-transform.
                 auto Zreal = Z.template emptyLike<real_t>();
                 Zreal.insertLocalTiles();
-		Timer t_stedc;
+                Timer t_stedc;
                 stedc( Lambda, E, Zreal );
-		timers[ "heev::stedc" ] = t_stedc.stop();
+                timers[ "heev::stedc" ] = t_stedc.stop();
                 copy( Zreal, Z );
             }
         }
@@ -177,14 +177,14 @@ void heev(
         redistribute(Z, Z1d, opts);
 
         // Back-transform: Z = Q1 * Q2 * Z.
-	Timer t_unmtr_hb2st;
+        Timer t_unmtr_hb2st;
         unmtr_hb2st( Side::Left, Op::NoTrans, V, Z1d, opts );
-	timers[ "heev::unmtr_hb2st" ] = t_unmtr_hb2st.stop();
+        timers[ "heev::unmtr_hb2st" ] = t_unmtr_hb2st.stop();
 
         redistribute(Z1d, Z, opts);
-	Timer t_unmtr_he2hb;
+        Timer t_unmtr_he2hb;
         unmtr_he2hb( Side::Left, Op::NoTrans, A, T, Z, opts );
-	timers[ "heev::unmtr_he2hb" ] = t_unmtr_he2hb.stop();
+        timers[ "heev::unmtr_he2hb" ] = t_unmtr_he2hb.stop();
     }
     else {
         if (A.mpiRank() == 0) {

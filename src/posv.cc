@@ -74,7 +74,7 @@ void posv(HermitianMatrix<scalar_t>& A,
           Matrix<scalar_t>& B,
           Options const& opts)
 {
-    Timer t_posv;    
+    Timer t_posv;
 
     slate_assert(B.mt() == A.mt());
 
@@ -89,7 +89,7 @@ void posv(HermitianMatrix<scalar_t>& A,
     timers[ "posv::potrs" ] = t_potrs.stop();
 
     // todo: return value for errors?
-    
+
     timers[ "posv" ] = t_posv.stop();
 }
 

@@ -144,9 +144,9 @@ void svd(
     Matrix<scalar_t> Ahat, Uhat, VThat;
     TriangularFactors<scalar_t> TQ;
     if (qr_path) {
-	Timer t_geqrf;
+        Timer t_geqrf;
         geqrf( A, TQ, opts );
-	timers[ "svd::geqrf" ] = t_geqrf.stop();
+        timers[ "svd::geqrf" ] = t_geqrf.stop();
 
         // Upper triangular part of A (R).
         auto R_ = A.slice(0, n-1, 0, n-1);
@@ -170,9 +170,9 @@ void svd(
         }
     }
     else if (lq_path) {
-	Timer t_gelqf;
+        Timer t_gelqf;
         gelqf( A, TQ, opts );
-	timers[ "svd::gelqf" ] = t_gelqf.stop();
+        timers[ "svd::gelqf" ] = t_gelqf.stop();
         swap(m, n);
 
         // Lower triangular part of A (R).
@@ -244,9 +244,9 @@ void svd(
         U2.insertLocalTiles();
 
         // Reduce band to bi-diagonal.
-	Timer t_tb2db;
+        Timer t_tb2db;
         tb2bd( Aband, U2, VT2, opts );
-	timers[ "svd::tb2bd" ] = t_tb2db.stop();
+        timers[ "svd::tb2bd" ] = t_tb2db.stop();
 
         // Copy diagonal and super-diagonal to vectors.
         internal::copytb2bd(Aband, Sigma, E);
@@ -293,13 +293,13 @@ void svd(
         // QR iteration
         //bdsqr<scalar_t>(jobu, jobvt, Sigma, E, Uhat, VThat, opts);
         // Call the SVD
-	Timer t_bdsqr;
+        Timer t_bdsqr;
         lapack::bdsqr(Uplo::Upper, min_mn, ncvt, nru, 0,
                       &Sigma[0], &E[0],
                       &VT1D_row_cyclic_data[0], ldvt,
                       &U1D_row_cyclic_data[0], ldu,
                       dummy, 1);
-	timers[ "svd::bdsqr" ] = t_bdsqr.stop();
+        timers[ "svd::bdsqr" ] = t_bdsqr.stop();
 
         // If matrix was scaled, then rescale singular values appropriately.
         if (is_scale) {
@@ -328,23 +328,23 @@ void svd(
             redistribute(U1d_row_cyclic, U1d, opts);
 
             // First, U = U2 * U ===> U1d = U2 * U1d
-	    Timer t_unmtr_hb2st;
+            Timer t_unmtr_hb2st;
             unmtr_hb2st( Side::Left, Op::NoTrans, U2, U1d, opts );
-	    timers[ "svd::unmtr_hb2st" ] = t_unmtr_hb2st.stop();
+            timers[ "svd::unmtr_hb2st" ] = t_unmtr_hb2st.stop();
 
             // Redistribute U1d into U
             redistribute(U1d, Uhat, opts);
 
             // Second, U = U1 * U ===> U = Ahat * U
-	    Timer t_unmbr_ge2tb;
+            Timer t_unmbr_ge2tb;
             unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, Uhat, opts );
-	    timers [ "svd::unmbr_ge2tb" ] = t_unmbr_ge2tb.stop();
+            timers [ "svd::unmbr_ge2tb" ] = t_unmbr_ge2tb.stop();
             if (qr_path) {
                 // When initial QR was used.
                 // U = Q*U;
-		Timer t_unmqr;
+                Timer t_unmqr;
                 unmqr( Side::Left, slate::Op::NoTrans, A, TQ, U, opts );
-		timers [ "svd::unmqr" ] = t_unmqr.stop();
+                timers [ "svd::unmqr" ] = t_unmqr.stop();
             }
         }
 
@@ -369,9 +369,9 @@ void svd(
             redistribute(V, V1d, opts);
 
             // First: V  = VT2 * V ===> V1d = VT2 * V1d
-	    Timer t_unmtr_hb2st;
+            Timer t_unmtr_hb2st;
             unmtr_hb2st( Side::Left, Op::NoTrans, VT2, V1d, opts );
-	    timers [ "svd::unmtr_hb2st" ] = t_unmtr_hb2st.stop();
+            timers [ "svd::unmtr_hb2st" ] = t_unmtr_hb2st.stop();
 
             // Redistribute V1d into V
             auto V1dT = conj_transpose(V1d);
@@ -381,9 +381,9 @@ void svd(
             unmbr_ge2tb( Side::Right, Op::NoTrans, Ahat, TV, VThat, opts );
             if (lq_path) {
                 // VT = VT*Q;
-		Timer t_unmlq;
+                Timer t_unmlq;
                 unmlq( Side::Right, slate::Op::NoTrans, A, TQ, VT, opts );
-		timers [ "svd::unmlq" ] = t_unmlq.stop();
+                timers [ "svd::unmlq" ] = t_unmlq.stop();
             }
         }
     }
@@ -391,14 +391,13 @@ void svd(
         if (A.mpiRank() == 0) {
             // QR iteration
             //bdsqr<scalar_t>(jobu, jobvt, Sigma, E, U, VT, opts);
-	    Timer t_bdsqr;
+            Timer t_bdsqr;
             lapack::bdsqr(Uplo::Upper, min_mn, ncvt, nru, 0,
                           &Sigma[0], &E[0],
                           &VT1D_row_cyclic_data[0], ldvt,
                           &U1D_row_cyclic_data[0], ldu,
                           dummy, 1);
-	    timers [ "svd::bdsqr" ] = t_bdsqr.stop();
-	   
+            timers [ "svd::bdsqr" ] = t_bdsqr.stop();
         }
 
         // If matrix was scaled, then rescale singular values appropriately.

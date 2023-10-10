@@ -244,44 +244,6 @@ void test_grid_transpose()
 }
 
 //------------------------------------------------------------------------------
-void test_is_same_map()
-{
-    // Check that is_same_map doesn't access an empty map
-    std::function<int( std::tuple<int64_t, int64_t> )>
-    error = []( std::tuple<int64_t, int64_t> ij ) {
-        test_assert( false );
-        return -1;
-    };
-    test_assert( slate::func::is_same_map(0, 0, error, error) );
-    test_assert( slate::func::is_same_map(1000, 0, error, error) );
-    test_assert( slate::func::is_same_map(0, 1000, error, error) );
-
-
-    auto col_2d = slate::func::device_2d_grid(
-                            slate::Layout::ColMajor, 2, 3, 4, 5 );
-    auto row_2d = slate::func::device_2d_grid(
-                            slate::Layout::RowMajor, 2, 3, 4, 5 );
-    auto col_1d = slate::func::device_2d_grid(
-                            slate::Layout::ColMajor, 2, 1, 4, 1 );
-    auto row_1d = slate::func::device_2d_grid(
-                            slate::Layout::ColMajor, 1, 3, 1, 5 );
-    // equality
-    test_assert( slate::func::is_same_map(100, 100, col_2d, col_2d) );
-    test_assert( slate::func::is_same_map(100, 150, row_2d, row_2d) );
-    test_assert( slate::func::is_same_map(100, 1, col_2d, col_1d) );
-    test_assert( slate::func::is_same_map(100, 2, col_2d, col_1d) );
-    test_assert( slate::func::is_same_map(100, 3, col_2d, col_1d) );
-    test_assert( slate::func::is_same_map(1, 100, row_2d, row_1d) );
-    test_assert( slate::func::is_same_map(2, 100, row_2d, row_1d) );
-
-    //inequality
-    test_assert( ! slate::func::is_same_map(150, 100, row_2d, col_2d) );
-    test_assert( ! slate::func::is_same_map(34, 33, col_2d, row_2d) );
-    test_assert( ! slate::func::is_same_map(100, 4, col_2d, col_1d) );
-    test_assert( ! slate::func::is_same_map(3, 100, row_2d, row_1d) );
-}
-
-//------------------------------------------------------------------------------
 void test_is_2d_cyclic_grid()
 {
     slate::GridOrder out_o;
@@ -462,7 +424,6 @@ void run_tests()
     run_test( test_device_2d_grid,    "test_device_2d_grid" );
     run_test( test_device_1d_grid,    "test_device_1d_grid" );
     run_test( test_grid_transpose,    "test_transpose_grid" );
-    run_test( test_is_same_map,       "test_is_same_map" );
     run_test( test_is_2d_cyclic_grid, "test_is_2d_cyclic_grid" );
 }
 

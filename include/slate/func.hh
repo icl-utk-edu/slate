@@ -233,25 +233,6 @@ transpose_grid(std::function<int(ij_tuple)> old_func)
 }
 
 //------------------------------------------------------------------------------
-/// Checks whether two tile maps are identical
-///
-/// @ingroup func
-///
-inline bool is_same_map(int64_t mt, int64_t nt, std::function<int(ij_tuple)> func1,
-                                                std::function<int(ij_tuple)> func2)
-{
-    for (int64_t i = 0; i < mt; ++i) {
-        for (int64_t j = 0; j < nt; ++j) {
-            if (func1( {i, j} ) != func2( {i, j} )) {
-                return false;
-            }
-        }
-    }
-    return true;
-}
-
-
-//------------------------------------------------------------------------------
 /// Checks whether the given tile map is a 2d cyclic grid (i.e., equivalent
 /// to 'process_2d_grid(layout, p, q)' for some 'layout', 'p', and 'q').
 ///
@@ -330,13 +311,18 @@ inline bool is_2d_cyclic_grid(int64_t mt, int64_t nt, std::function<int(ij_tuple
     }
 
     auto ref = process_2d_grid( Layout(pred_order), pred_p, pred_q );
-    auto is_same = is_same_map( mt, nt, ref, func );
-    if (is_same) {
-        order = pred_order;
-        p = pred_p;
-        q = pred_q;
+    for (int64_t i = 0; i < mt; ++i) {
+        for (int64_t j = 0; j < nt; ++j) {
+            if (func( {i, j} ) != ref( {i, j} )) {
+                return false;
+            }
+        }
     }
-    return is_same;
+    // Grid is 2d cyclic
+    order = pred_order;
+    p = pred_p;
+    q = pred_q;
+    return true;
 }
 
 //------------------------------------------------------------------------------

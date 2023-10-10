@@ -70,6 +70,7 @@ void test_gesv_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     bool nonuniform_nb = params.nonuniform_nb() == 'y';
     int verbose = params.verbose();
+    int timer_level = params.timer_level();
     SLATE_UNUSED(verbose);
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
@@ -90,6 +91,13 @@ void test_gesv_work(Params& params, bool run)
     params.time2.width( 12 );
     params.gflops2();
     params.gflops2.name( "trs gflop/s" );
+
+    if (timer_level >= 2) {
+        params.time2();
+        params.time3();
+        params.time2.name( "getrf (s)" );
+        params.time3.name( "getrs (s)" );
+    }
 
     bool do_getrs = params.routine == "getrs"
                     || (check && params.routine == "getrf");
@@ -301,6 +309,11 @@ void test_gesv_work(Params& params, bool run)
         // compute and save timing/performance
         params.time() = time;
         params.gflops() = gflop / time;
+
+	if (timer_level >= 2) {
+            params.time2() = slate::timers[ "gesv::getrf" ];
+            params.time3() = slate::timers[ "gesv::getrs" ];
+        }
 
         //==================================================
         // Run SLATE test: getrs

@@ -46,6 +46,7 @@ void test_svd_work( Params& params, bool run )
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    int timer_level = params.timer_level();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -57,6 +58,26 @@ void test_svd_work( Params& params, bool run )
     params.ortho_V();
     params.error.name( "S - Sref" );
     params.error2.name( "Backward" );
+     if (timer_level >= 2) {
+        params.time2();
+        params.time3();
+        params.time4();
+	params.time5();
+	params.time6();
+	params.time7();
+	params.time8();
+	params.time9();
+	params.time10();
+        params.time2.name( "geqrf (s)" );
+        params.time3.name( "gelqf (s)" );
+        params.time4.name( "ge2tb (s)" );
+	params.time5.name( "tb2db (s)" );
+	params.time6.name( "bdsqr (s)" );
+	params.time7.name( "unmtr_hb2st (s)" );
+	params.time8.name( "unmbr_ge2tb (s)" );
+	params.time9.name( "unmqr (s) " );
+	params.time10.name( "unmlq (s)" );
+    }
 
     if (! run)
         return;
@@ -198,6 +219,18 @@ void test_svd_work( Params& params, bool run )
 
         // compute and save timing/performance
         params.time() = time;
+        
+        if (timer_level >= 2) {
+            params.time2() = slate::timers[ "svd::geqrf" ];
+            params.time3() = slate::timers[ "svd::gelqf" ];
+            params.time4() = slate::timers[ "svd::ge2tb" ];
+	    params.time5() = slate::timers[ "svd::tb2db" ];
+	    params.time6() = slate::timers[ "svd::bdsqr" ];
+	    params.time7() = slate::timers[ "svd::unmtr_hb2st" ];
+	    params.time8() = slate::timers[ "svd::unmbr_ge2tb" ];
+	    params.time9() = slate::timers[ "svd::unmqr" ];
+	    params.time10() = slate::timers[ "svd::unmlq" ];
+        }
 
         print_matrix("D", 1, min_mn,   &Sigma[0], 1, params);
         if (wantu) {

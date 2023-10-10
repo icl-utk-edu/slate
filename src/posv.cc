@@ -74,15 +74,23 @@ void posv(HermitianMatrix<scalar_t>& A,
           Matrix<scalar_t>& B,
           Options const& opts)
 {
+    Timer t_posv;    
+
     slate_assert(B.mt() == A.mt());
 
     // factorization
+    Timer t_potrf;
     potrf(A, opts);
+    timers[ "posv::potrf" ] = t_potrf.stop();
 
     // solve
+    Timer t_potrs;
     potrs(A, B, opts);
+    timers[ "posv::potrs" ] = t_potrs.stop();
 
     // todo: return value for errors?
+    
+    timers[ "posv" ] = t_posv.stop();
 }
 
 //------------------------------------------------------------------------------

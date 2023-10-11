@@ -1023,7 +1023,7 @@ void test_device_convert_layout(int m, int n)
 
     scalar_t* dev_work = blas::device_malloc<scalar_t>(lda*n, queue);
 
-    // Setup Atiles_dev[] on CPU with points to Adata_dev[]
+    // Setup Atiles_dev[] on CPU with pointers to Adata_dev[]
     std::vector< slate::Tile<scalar_t> > Atiles_dev( batch_count );
     for (int k = 0; k < batch_count; ++k) {
         Atiles_dev[k] = slate::Tile<scalar_t>( m, n, &Adata_dev[ k*lda*n ], lda,

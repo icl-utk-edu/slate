@@ -3248,7 +3248,7 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
 ///
 // todo: validate working for sub- and sliced- matrix
 template <typename scalar_t>
-[[deprecated( "SLATE now managed convertibility internally. Will be removed 2024-10." )]]
+[[deprecated( "SLATE now manages convertibility internally. Will be removed 2024-10." )]]
 bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int device)
 {
     return storage_->at( globalIndex(i, j, device) )->isTransposable();

@@ -1869,22 +1869,8 @@ void BaseMatrix<scalar_t>::tileIrecv(
     int64_t i, int64_t j, int src_rank, Layout layout, int tag, MPI_Request* request)
 {
     if (src_rank != mpiRank()) {
-        if (! tileIsLocal(i, j)) {
-            // Create tile to receive data, with life span.
-            // If tile already exists, add to its life span.
-            LockGuard guard(storage_->getTilesMapLock());
-            auto iter = storage_->find(globalIndex(i, j, HostNum));
-
-            int64_t life = 1;
-            if (iter == storage_->end())
-                tileInsertWorkspace(i, j, HostNum, layout);
-            else
-                life += tileLife(i, j);
-            tileLife(i, j, life);
-        }
-        else {
-            tileAcquire(i, j, layout);
-        }
+        storage_->tilePrepareToReceive( globalIndex( i, j ), 1, layout );
+        tileAcquire(i, j, layout);
 
         // Receive data.
         at(i, j).irecv(src_rank, mpiComm(), layout, tag, request);

@@ -380,11 +380,14 @@ void test_ttqrt_work( int m, int n, int nb, int ib, int p, int q )
         T_panel.tileBcast( i, 0, T.sub( i, i, 0, T.nt()-1 ), slate::Layout::ColMajor );
     }
     if (debug) printf( "rank %2d, ttmqr\n", mpi_rank );
+    slate::Options const opts = {{slate::Option::TileReleaseStrategy,
+                                            slate::TileReleaseStrategy::Slate}};
     slate::internal::ttmqr(
         slate::Side::Left, slate::Op::NoTrans,
         std::move( A_panel ),
         std::move( T ),
-        std::move( R ));
+        std::move( R ),
+        0, opts);
     if (verbose > 1) {
         slate::print( "QR", R );
     }

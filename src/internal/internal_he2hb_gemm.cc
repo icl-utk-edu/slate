@@ -69,6 +69,7 @@ void he2hb_gemm(
         #pragma omp task slate_omp_default_none \
             shared( A, B, C ) \
             firstprivate( alpha, beta, panel_rank, i, layoutc, call_tile_tick ) \
+            firstprivate( one, zero ) \
             priority( priority )
         {
             scalar_t beta_ = beta;

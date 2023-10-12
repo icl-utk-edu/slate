@@ -266,8 +266,8 @@ void ttmqr(internal::TargetType<Target::HostTask>,
 
                         #pragma omp task slate_omp_default_none \
                             shared( A, T, C, requests ) \
-                            firstprivate( i, j, layout, rank_ind, i1, j1, side, op ) \
-                            firstprivate( recv_index )
+                            firstprivate( i, j, k, rank_ind, layout, i1, j1 ) \
+                            firstprivate( side, op, tag, recv_index )
                         {
                             // Don't start compute until the tile's been recieved
                             MPI_Wait( &requests[ recv_index ], MPI_STATUS_IGNORE );

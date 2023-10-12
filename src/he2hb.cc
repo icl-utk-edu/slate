@@ -45,7 +45,6 @@ void he2hb(
     const int batch_size_default = 0;
     const int num_queues = 10;
     const int queue_0 = 0;
-    const int tag_0 = 0;
     // Assumes column major
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layoutc = LayoutConvert( layout );

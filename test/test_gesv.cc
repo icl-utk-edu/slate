@@ -78,6 +78,10 @@ void test_gesv_work(Params& params, bool run)
     params.matrix.mark();
     params.matrixB.mark();
 
+    // Currently only gesv* supports timer_level >= 2.
+    if (params.routine != "gesv")
+        timer_level = 1;
+
     // NoPiv and CALU ignore threshold.
     double pivot_threshold = params.pivot_threshold();
 
@@ -86,21 +90,23 @@ void test_gesv_work(Params& params, bool run)
     params.gflops();
     params.ref_time();
     params.ref_gflops();
-    params.time2();
-    params.time2.name( "trs time (s)" );
-    params.time2.width( 12 );
-    params.gflops2();
-    params.gflops2.name( "trs gflop/s" );
 
+    bool do_getrs = params.routine == "getrs"
+                    || (check && params.routine == "getrf");
+
+    if (do_getrs) {
+        params.time2();
+        params.time2.name( "trs time (s)" );
+        params.time2.width( 12 );
+        params.gflops2();
+        params.gflops2.name( "trs gflop/s" );
+    }
     if (timer_level >= 2) {
         params.time2();
         params.time3();
         params.time2.name( "getrf (s)" );
         params.time3.name( "getrs (s)" );
     }
-
-    bool do_getrs = params.routine == "getrs"
-                    || (check && params.routine == "getrf");
 
     if (params.routine == "gesv_mixed" || params.routine == "gesv_mixed_gmres") {
         params.iters();

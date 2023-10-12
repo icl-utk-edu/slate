@@ -53,26 +53,32 @@ void test_posv_work(Params& params, bool run)
     slate::Method methodTrsm = params.method_trsm();
     slate::Method methodHemm = params.method_hemm();
 
+    // Currently only posv* supports timer_level >= 2.
+    if (params.routine != "posv")
+        timer_level = 1;
+
     // mark non-standard output values
     params.time();
     params.gflops();
     params.ref_time();
     params.ref_gflops();
-    params.time2();
-    params.time2.name( "trs time (s)" );
-    params.time2.width( 12 );
-    params.gflops2();
-    params.gflops2.name( "trs gflop/s" );
+
+    bool do_potrs = params.routine == "potrs"
+                    || (check && params.routine == "potrf");
+
+    if (do_potrs) {
+        params.time2();
+        params.time2.name( "trs time (s)" );
+        params.time2.width( 12 );
+        params.gflops2();
+        params.gflops2.name( "trs gflop/s" );
+    }
     if (timer_level >= 2) {
         params.time2();
         params.time3();
         params.time2.name( "potrf (s)" );
         params.time3.name( "potrs (s)" );
     }
-
-
-    bool do_potrs = (
-        (check && params.routine == "potrf") || params.routine == "potrs");
 
     if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres") {
         params.iters();

@@ -293,13 +293,13 @@ void svd(
         // QR iteration
         //bdsqr<scalar_t>(jobu, jobvt, Sigma, E, Uhat, VThat, opts);
         // Call the SVD
-        Timer t_bdsqr;
+        Timer t_bdsvd;
         lapack::bdsqr(Uplo::Upper, min_mn, ncvt, nru, 0,
                       &Sigma[0], &E[0],
                       &VT1D_row_cyclic_data[0], ldvt,
                       &U1D_row_cyclic_data[0], ldu,
                       dummy, 1);
-        timers[ "svd::bdsqr" ] = t_bdsqr.stop();
+        timers[ "svd::bdsvd" ] = t_bdsvd.stop();
 
         // If matrix was scaled, then rescale singular values appropriately.
         if (is_scale) {
@@ -328,23 +328,23 @@ void svd(
             redistribute(U1d_row_cyclic, U1d, opts);
 
             // First, U = U2 * U ===> U1d = U2 * U1d
-            Timer t_unmtr_hb2st;
+            Timer t_unmbr_tb2bd_U;
             unmtr_hb2st( Side::Left, Op::NoTrans, U2, U1d, opts );
-            timers[ "svd::unmtr_hb2st" ] = t_unmtr_hb2st.stop();
+            timers[ "svd::unmbr_tb2bd_U" ] = t_unmbr_tb2bd_U.stop();
 
             // Redistribute U1d into U
             redistribute(U1d, Uhat, opts);
 
             // Second, U = U1 * U ===> U = Ahat * U
-            Timer t_unmbr_ge2tb;
+            Timer t_unmbr_ge2tb_U;
             unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, Uhat, opts );
-            timers [ "svd::unmbr_ge2tb" ] = t_unmbr_ge2tb.stop();
+            timers[ "svd::unmbr_ge2tb_U" ] = t_unmbr_ge2tb_U.stop();
             if (qr_path) {
                 // When initial QR was used.
                 // U = Q*U;
                 Timer t_unmqr;
                 unmqr( Side::Left, slate::Op::NoTrans, A, TQ, U, opts );
-                timers [ "svd::unmqr" ] = t_unmqr.stop();
+                timers[ "svd::unmqr" ] = t_unmqr.stop();
             }
         }
 
@@ -369,35 +369,36 @@ void svd(
             redistribute(V, V1d, opts);
 
             // First: V  = VT2 * V ===> V1d = VT2 * V1d
-            Timer t_unmtr_hb2st;
+            Timer t_unmbr_tb2bd_V;
             unmtr_hb2st( Side::Left, Op::NoTrans, VT2, V1d, opts );
-            timers [ "svd::unmtr_hb2st" ] = t_unmtr_hb2st.stop();
+            timers[ "svd::unm_tb2bd_V" ] = t_unmbr_tb2bd_V.stop();
 
             // Redistribute V1d into V
             auto V1dT = conj_transpose(V1d);
             redistribute(V1dT, VThat, opts);
 
             // Second: VT = VT1 * VT ===> VT = Ahat * VT
+            Timer t_unmbr_ge2tb_V;
             unmbr_ge2tb( Side::Right, Op::NoTrans, Ahat, TV, VThat, opts );
+            timers[ "svd::unmbr_ge2tb_V" ] = t_unmbr_ge2tb_V.stop();
             if (lq_path) {
                 // VT = VT*Q;
                 Timer t_unmlq;
                 unmlq( Side::Right, slate::Op::NoTrans, A, TQ, VT, opts );
-                timers [ "svd::unmlq" ] = t_unmlq.stop();
+                timers[ "svd::unmlq" ] = t_unmlq.stop();
             }
         }
     }
     else {
+        Timer t_bdsvd;
         if (A.mpiRank() == 0) {
             // QR iteration
             //bdsqr<scalar_t>(jobu, jobvt, Sigma, E, U, VT, opts);
-            Timer t_bdsqr;
             lapack::bdsqr(Uplo::Upper, min_mn, ncvt, nru, 0,
                           &Sigma[0], &E[0],
                           &VT1D_row_cyclic_data[0], ldvt,
                           &U1D_row_cyclic_data[0], ldu,
                           dummy, 1);
-            timers [ "svd::bdsqr" ] = t_bdsqr.stop();
         }
 
         // If matrix was scaled, then rescale singular values appropriately.
@@ -410,6 +411,7 @@ void svd(
 
         // Bcast singular values.
         MPI_Bcast( &Sigma[0], min_mn, mpi_real_type, 0, A.mpiComm() );
+        timers[ "svd::bdsvd" ] = t_bdsvd.stop();
     }
 
     timers[ "svd" ] = t_svd.stop();

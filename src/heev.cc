@@ -142,30 +142,26 @@ void heev(
         // Bcast the Lambda and E vectors (diagonal and sup/super-diagonal).
         MPI_Bcast( &Lambda[0], n,   mpi_real_type, 0, A.mpiComm() );
         MPI_Bcast( &E[0],      n-1, mpi_real_type, 0, A.mpiComm() );
+        Timer t_stev;
         if (method == MethodEig::QR) {
             // QR iteration to get eigenvalues and eigenvectors of tridiagonal.
-            Timer t_steqr2;
             steqr2( Job::Vec, Lambda, E, Z );
-            timers[ "heev::steqr2" ] = t_steqr2.stop();
         }
         else {
             // Divide and conquer to get eigvals and eigvecs of tridiagonal.
             if constexpr (! is_complex<scalar_t>::value) {
                 // real
-                Timer t_stedc;
                 stedc( Lambda, E, Z );
-                timers[ "heev::stedc" ] = t_stedc.stop();
             }
             else {
                 // D&C computes real Z, then copy to complex Z to back-transform.
                 auto Zreal = Z.template emptyLike<real_t>();
                 Zreal.insertLocalTiles();
-                Timer t_stedc;
                 stedc( Lambda, E, Zreal );
-                timers[ "heev::stedc" ] = t_stedc.stop();
                 copy( Zreal, Z );
             }
         }
+        timers[ "heev::stev" ] = t_stev.stop();
 
         // Find the total number of processors.
         int mpi_size;
@@ -187,12 +183,14 @@ void heev(
         timers[ "heev::unmtr_he2hb" ] = t_unmtr_he2hb.stop();
     }
     else {
+        Timer t_stev;
         if (A.mpiRank() == 0) {
             // QR iteration to get eigenvalues.
             sterf<real_t>( Lambda, E, opts );
         }
         // Bcast eigenvalues.
         MPI_Bcast( &Lambda[0], n, mpi_real_type, 0, A.mpiComm() );
+        timers[ "heev::stev" ] = t_stev.stop();
     }
 
     // If matrix was scaled, then rescale eigenvalues appropriately.

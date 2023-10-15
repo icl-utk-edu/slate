@@ -31,7 +31,7 @@
 inline blas_int to_blas_int_( int64_t x, const char* x_str )
 {
     if (sizeof(int64_t) > sizeof(blas_int)) {
-        blas_error_if_msg( x > std::numeric_limits<blas_int>::max(), x_str );
+        blas_error_if_msg( x > std::numeric_limits<blas_int>::max(), "%s", x_str );
     }
     return blas_int( x );
 }

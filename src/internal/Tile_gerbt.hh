@@ -9,6 +9,11 @@ namespace slate {
 
 namespace internal {
 
+//------------------------------------------------------------------------------
+/// Applies a single butterfly matrix to each side of A.
+///
+/// @ingroup gesv_Tile
+///
 template<typename scalar_t>
 void gerbt(Tile<scalar_t> A11,
            Tile<scalar_t> A12,
@@ -97,6 +102,11 @@ void gerbt(Tile<scalar_t> A11,
     }
 }
 
+//------------------------------------------------------------------------------
+/// Applies a single butterfly matrix to the left side of B.
+///
+/// @ingroup gesv_Tile
+///
 template<typename scalar_t>
 void gerbt_left_notrans(Tile<scalar_t> B1,
                         Tile<scalar_t> B2,
@@ -133,6 +143,11 @@ void gerbt_left_notrans(Tile<scalar_t> B1,
     }
 }
 
+//------------------------------------------------------------------------------
+/// Applies a single butterfly matrix to the right side of B.
+///
+/// @ingroup gesv_Tile
+///
 template<typename scalar_t>
 void gerbt_right_notrans(Tile<scalar_t> B1,
                          Tile<scalar_t> B2,
@@ -169,6 +184,11 @@ void gerbt_right_notrans(Tile<scalar_t> B1,
     }
 }
 
+//------------------------------------------------------------------------------
+/// Applies a single, transposed butterfly matrix to the left side of B.
+///
+/// @ingroup gesv_Tile
+///
 template<typename scalar_t>
 void gerbt_left_trans(Tile<scalar_t> B1,
                       Tile<scalar_t> B2,
@@ -205,6 +225,11 @@ void gerbt_left_trans(Tile<scalar_t> B1,
     }
 }
 
+//------------------------------------------------------------------------------
+/// Applies a single, transposed butterfly matrix to the right side of B.
+///
+/// @ingroup gesv_Tile
+///
 template<typename scalar_t>
 void gerbt_right_trans(Tile<scalar_t> B1,
                         Tile<scalar_t> B2,

@@ -20,6 +20,8 @@ namespace internal {
 /// Allocates and fills a random butterfly transform in packed storage.
 /// The depth is computed based on the number of column in U.
 ///
+/// @ingroup gesv_internal
+///
 template<typename scalar_t>
 void rbt_fill(Matrix<scalar_t>& U, const int64_t seed)
 {
@@ -69,6 +71,8 @@ void rbt_fill(Matrix<scalar_t>& U, const int64_t seed)
 ///     A seed for controlling the random number generation
 ///
 /// @return a tuple containing the left and right transforms
+///
+/// @ingroup gesv_internal
 ///
 template<typename scalar_t>
 std::pair<Matrix<scalar_t>, Matrix<scalar_t>> rbt_generate(

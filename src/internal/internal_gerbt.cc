@@ -16,6 +16,8 @@ namespace internal {
 /// Applies a single butterfly matrix to each side of A.  The matrices are
 /// divided into the submatrices along the halfs of the butterfly matrices.
 ///
+/// @ingroup gesv_internal
+///
 template<typename scalar_t>
 void gerbt(Matrix<scalar_t> A11,
            Matrix<scalar_t> A12,
@@ -261,6 +263,8 @@ void gerbt(Matrix<std::complex<double>>,
 //------------------------------------------------------------------------------
 /// Applies a single butterfly matrix to one side of B.  The matrices are
 /// divided into the submatrices along the half of the butterfly matrix.
+///
+/// @ingroup gesv_internal
 ///
 template<typename scalar_t>
 void gerbt(Side side,

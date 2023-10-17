@@ -119,6 +119,8 @@ void gerbt_iterate_1d(Op trans, int64_t d, int64_t inner_len, int64_t mt,
 /// @param[in] V
 ///     The right tranform in packed storage.  Should not be transposed
 ///
+/// @ingroup gesv_computational
+///
 template<typename scalar_t>
 void gerbt(Matrix<scalar_t>& U_in,
            Matrix<scalar_t>& A,
@@ -243,6 +245,8 @@ void gerbt(Matrix<std::complex<double>>&,
 ///
 /// @param[in, out] A
 ///     The matrix to transform
+///
+/// @ingroup gesv_computational
 ///
 template<typename scalar_t>
 void gerbt(Matrix<scalar_t>& Uin,

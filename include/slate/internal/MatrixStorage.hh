@@ -490,23 +490,22 @@ MatrixStorage<scalar_t>::MatrixStorage(
     num_devices_ = memory_.num_devices_;
 
     // functions for computing the tile's size
-    tileMb = slate::func::uniform_blocksize(m, mb);
-    tileNb = slate::func::uniform_blocksize(n, nb);
+    tileMb = func::uniform_blocksize(m, mb);
+    tileNb = func::uniform_blocksize(n, nb);
 
     // function for computing the tile's rank, assuming 2D block cyclic
     if (order == GridOrder::Col) {
-        tileRank = slate::func::process_2d_grid( slate::Layout::ColMajor, p, q );
+        tileRank = func::process_2d_grid( GridOrder::Col, p, q );
     }
     else if (order == GridOrder::Row) {
-        tileRank = slate::func::process_2d_grid( slate::Layout::RowMajor, p, q );
+        tileRank = func::process_2d_grid( GridOrder::Row, p, q );
     }
     else {
         slate_error( "invalid GridOrder, must be Col or Row" );
     }
     // function for computing the tile's device, assuming 1d block cyclic
     if (num_devices_ > 0) {
-        tileDevice = slate::func::device_1d_grid( slate::Layout::RowMajor,
-                                                  q, num_devices_ );
+        tileDevice = func::device_1d_grid( GridOrder::Row, q, num_devices_ );
     }
     else {
         tileDevice = []( ij_tuple ij ) {

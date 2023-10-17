@@ -58,7 +58,7 @@ void test_max_blocksize()
 //------------------------------------------------------------------------------
 void test_process_2d_grid()
 {
-    auto grid_col = slate::func::process_2d_grid(slate::Layout::ColMajor, 4, 5);
+    auto grid_col = slate::func::process_2d_grid(slate::GridOrder::Col, 4, 5);
 
     for (int i = 0; i < 20; ++i) {
         for (int j = 0; j < 20; ++j) {
@@ -78,7 +78,7 @@ void test_process_2d_grid()
         }
     }
 
-    auto grid_row = slate::func::process_2d_grid(slate::Layout::RowMajor, 4, 5);
+    auto grid_row = slate::func::process_2d_grid(slate::GridOrder::Row, 4, 5);
 
     for (int i = 0; i < 20; ++i) {
         for (int j = 0; j < 20; ++j) {
@@ -102,7 +102,7 @@ void test_process_2d_grid()
 //------------------------------------------------------------------------------
 void test_process_1d_grid()
 {
-    auto grid_col = slate::func::process_1d_grid(slate::Layout::ColMajor, 4);
+    auto grid_col = slate::func::process_1d_grid(slate::GridOrder::Col, 4);
 
     for (int i = 0; i < 20; ++i) {
         int ref_proc = 0;
@@ -118,7 +118,7 @@ void test_process_1d_grid()
         } // ii loop
     }
 
-    auto grid_row = slate::func::process_1d_grid(slate::Layout::RowMajor, 5);
+    auto grid_row = slate::func::process_1d_grid(slate::GridOrder::Row, 5);
 
     for (int j = 0; j < 20; ++j) {
         int ref_proc = 0;
@@ -136,7 +136,7 @@ void test_process_1d_grid()
 //------------------------------------------------------------------------------
 void test_device_2d_grid()
 {
-    auto grid_col = slate::func::device_2d_grid(slate::Layout::ColMajor, 2, 3, 4, 5);
+    auto grid_col = slate::func::device_2d_grid(slate::GridOrder::Col, 2, 3, 4, 5);
 
     for (int i = 0; i < 10; ++i) {
         for (int j = 0; j < 10; ++j) {
@@ -161,7 +161,7 @@ void test_device_2d_grid()
         }
     }
 
-    auto grid_row = slate::func::device_2d_grid(slate::Layout::RowMajor, 2, 3, 4, 5);
+    auto grid_row = slate::func::device_2d_grid(slate::GridOrder::Row, 2, 3, 4, 5);
 
     for (int i = 0; i < 10; ++i) {
         for (int j = 0; j < 10; ++j) {
@@ -190,7 +190,7 @@ void test_device_2d_grid()
 //------------------------------------------------------------------------------
 void test_device_1d_grid()
 {
-    auto grid_col = slate::func::device_1d_grid(slate::Layout::ColMajor, 2, 4);
+    auto grid_col = slate::func::device_1d_grid(slate::GridOrder::Col, 2, 4);
 
     for (int i = 0; i < 10; ++i) {
         int ref_proc = 0;
@@ -208,7 +208,7 @@ void test_device_1d_grid()
         } // ii loop
     }
 
-    auto grid_row = slate::func::device_1d_grid(slate::Layout::RowMajor, 3, 5);
+    auto grid_row = slate::func::device_1d_grid(slate::GridOrder::Row, 3, 5);
 
     for (int j = 0; j < 10; ++j) {
         int ref_proc = 0;
@@ -286,34 +286,34 @@ void test_is_2d_cyclic_grid()
     test_pq( 1, 1 );
 
     // Loop over arguments to grid_2d_block_cyclic
-    std::vector<std::tuple<slate::Layout, int64_t, int64_t, int64_t, int64_t>>
+    std::vector<std::tuple<slate::GridOrder, int64_t, int64_t, int64_t, int64_t>>
         configs = {
-            {slate::Layout::ColMajor, 2, 3, 4, 5},
-            {slate::Layout::RowMajor, 2, 3, 4, 5},
-            {slate::Layout::ColMajor, 2, 1, 4, 5},
-            {slate::Layout::RowMajor, 2, 1, 4, 5},
-            {slate::Layout::ColMajor, 1, 3, 4, 5},
-            {slate::Layout::RowMajor, 1, 3, 4, 5},
-            {slate::Layout::ColMajor, 2, 3, 4, 1},
-            {slate::Layout::RowMajor, 2, 3, 4, 1},
-            {slate::Layout::ColMajor, 2, 3, 1, 5},
-            {slate::Layout::RowMajor, 2, 3, 1, 5},
-            {slate::Layout::ColMajor, 2, 3, 1, 1},
-            {slate::Layout::RowMajor, 2, 3, 1, 1},
+            {slate::GridOrder::Col, 2, 3, 4, 5},
+            {slate::GridOrder::Row, 2, 3, 4, 5},
+            {slate::GridOrder::Col, 2, 1, 4, 5},
+            {slate::GridOrder::Row, 2, 1, 4, 5},
+            {slate::GridOrder::Col, 1, 3, 4, 5},
+            {slate::GridOrder::Row, 1, 3, 4, 5},
+            {slate::GridOrder::Col, 2, 3, 4, 1},
+            {slate::GridOrder::Row, 2, 3, 4, 1},
+            {slate::GridOrder::Col, 2, 3, 1, 5},
+            {slate::GridOrder::Row, 2, 3, 1, 5},
+            {slate::GridOrder::Col, 2, 3, 1, 1},
+            {slate::GridOrder::Row, 2, 3, 1, 1},
 
-            {slate::Layout::ColMajor, 1, 1, 4, 5},
-            {slate::Layout::RowMajor, 1, 1, 4, 5},
-            {slate::Layout::ColMajor, 1, 1, 1, 3},
-            {slate::Layout::RowMajor, 1, 1, 1, 3},
-            {slate::Layout::ColMajor, 1, 1, 10, 1},
-            {slate::Layout::RowMajor, 1, 1, 10, 1},
-            {slate::Layout::ColMajor, 1, 1, 1, 1},
-            {slate::Layout::RowMajor, 1, 1, 1, 1},
+            {slate::GridOrder::Col, 1, 1, 4, 5},
+            {slate::GridOrder::Row, 1, 1, 4, 5},
+            {slate::GridOrder::Col, 1, 1, 1, 3},
+            {slate::GridOrder::Row, 1, 1, 1, 3},
+            {slate::GridOrder::Col, 1, 1, 10, 1},
+            {slate::GridOrder::Row, 1, 1, 10, 1},
+            {slate::GridOrder::Col, 1, 1, 1, 1},
+            {slate::GridOrder::Row, 1, 1, 1, 1},
     };
     for (auto config : configs) {
         auto func = std::apply(slate::func::device_2d_grid, config );
 
-        bool is_col_layout = std::get<0>(config) == slate::Layout::ColMajor;
+        bool is_col_layout = std::get<0>(config) == slate::GridOrder::Col;
         bool is_row_layout = ! is_col_layout;
         int64_t m = std::get<1>(config);
         int64_t n = std::get<2>(config);
@@ -369,7 +369,7 @@ void test_is_2d_cyclic_grid()
     }
 
     // Test a map that's almost cyclic
-    auto cyclic = slate::func::process_2d_grid( slate::Layout::ColMajor, 4, 5 );
+    auto cyclic = slate::func::process_2d_grid( slate::GridOrder::Col, 4, 5 );
     std::function<int( std::tuple<int64_t, int64_t> )>
     tricky_func = [cyclic]( std::tuple<int64_t, int64_t> ij ) {
         int64_t i = std::get<0>( ij );

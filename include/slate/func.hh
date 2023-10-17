@@ -78,7 +78,7 @@ inline int64_t max_blocksize(int64_t nt, std::function<int64_t(int64_t)> size)
 /// in blocks of tiles belonging to the same process.  However, the device grid
 /// should then be adjusted.
 ///
-/// @param[in] layout
+/// @param[in] order
 ///     Whether to use a column major or a row major grid
 ///
 /// @param[in] p
@@ -98,9 +98,10 @@ inline int64_t max_blocksize(int64_t nt, std::function<int64_t(int64_t)> size)
 /// @ingroup func
 ///
 inline std::function<int(ij_tuple)>
-device_2d_grid(Layout layout, int64_t m, int64_t n, int64_t p, int64_t q)
+device_2d_grid(GridOrder order, int64_t m, int64_t n, int64_t p, int64_t q)
 {
-    if (layout == Layout::ColMajor) {
+    slate_assert( order != GridOrder::Unknown );
+    if (order == GridOrder::Col) {
         return [m, n, p, q]( ij_tuple ij ) {
             int64_t i = std::get<0>( ij ) / m;
             int64_t j = std::get<1>( ij ) / n;
@@ -127,9 +128,9 @@ device_2d_grid(Layout layout, int64_t m, int64_t n, int64_t p, int64_t q)
 /// in blocks of tiles belonging to the same process.  However, the device grid
 /// should then be adjusted.
 ///
-/// @param[in] layout
-///     ColMajor distributes a single column across multiple processes
-///     RowMajor distributes a single row across multiple processes.
+/// @param[in] order
+///     Col distributes a single column across multiple processes
+///     Row distributes a single row across multiple processes.
 ///
 /// @param[in] block_size
 ///     The number of rows or columns in the process grid
@@ -142,13 +143,14 @@ device_2d_grid(Layout layout, int64_t m, int64_t n, int64_t p, int64_t q)
 /// @ingroup func
 ///
 inline std::function<int(ij_tuple)>
-device_1d_grid(Layout layout, int64_t block_size, int size)
+device_1d_grid(GridOrder order, int64_t block_size, int size)
 {
-    if (layout == Layout::ColMajor) {
-        return device_2d_grid(layout, block_size, 1, size, 1);
+    slate_assert( order != GridOrder::Unknown );
+    if (order == GridOrder::Col) {
+        return device_2d_grid(order, block_size, 1, size, 1);
     }
     else {
-        return device_2d_grid(layout, 1, block_size, 1, size);
+        return device_2d_grid(order, 1, block_size, 1, size);
     }
 }
 
@@ -160,7 +162,7 @@ device_1d_grid(Layout layout, int64_t block_size, int size)
 /// cyclic fashion, *regardless of process ownership*.  Thus, care must be taken
 /// to prevent all of a process's tiles from being stored on a single device.
 ///
-/// @param[in] layout
+/// @param[in] order
 ///     Whether to use a column major or a row major grid
 ///
 /// @param[in] p
@@ -174,12 +176,13 @@ device_1d_grid(Layout layout, int64_t block_size, int size)
 /// @ingroup func
 ///
 inline std::function<int(ij_tuple)>
-process_2d_grid(Layout layout, int64_t p, int64_t q)
+process_2d_grid(GridOrder order, int64_t p, int64_t q)
 {
+    slate_assert( order != GridOrder::Unknown );
     // Device and process grids aren't any different, they're just named to be
     // easier for ScaLAPACK users.
-    // Setting a block size of 1 gives a tile-cyclic layout.
-    return device_2d_grid(layout, 1, 1, p, q);
+    // Setting a block size of 1 gives a tile-cyclic order.
+    return device_2d_grid(order, 1, 1, p, q);
 }
 
 //------------------------------------------------------------------------------
@@ -190,9 +193,9 @@ process_2d_grid(Layout layout, int64_t p, int64_t q)
 /// cyclic fashion, *regardless of process ownership*.  Thus, care must be taken
 /// to prevent all of a process's tiles from being stored on a single device.
 ///
-/// @param[in] layout
-///     ColMajor distributes a single column across multiple processes.
-///     RowMajor distributes a single row across multiple processes.
+/// @param[in] order
+///     Col distributes a single column across multiple processes.
+///     Row distributes a single row across multiple processes.
 ///
 /// @param[in] size
 ///     The number of processes
@@ -201,13 +204,14 @@ process_2d_grid(Layout layout, int64_t p, int64_t q)
 ///
 /// @ingroup func
 ///
-inline std::function<int(ij_tuple)> process_1d_grid(Layout layout, int size)
+inline std::function<int(ij_tuple)> process_1d_grid(GridOrder order, int size)
 {
-    if (layout == Layout::ColMajor) {
-        return process_2d_grid(layout, size, 1);
+    slate_assert( order != GridOrder::Unknown );
+    if (order == GridOrder::Col) {
+        return process_2d_grid(order, size, 1);
     }
     else {
-        return process_2d_grid(layout, 1, size);
+        return process_2d_grid(order, 1, size);
     }
 }
 
@@ -234,7 +238,7 @@ transpose_grid(std::function<int(ij_tuple)> old_func)
 
 //------------------------------------------------------------------------------
 /// Checks whether the given tile map is a 2d cyclic grid (i.e., equivalent
-/// to 'process_2d_grid(layout, p, q)' for some 'layout', 'p', and 'q').
+/// to 'process_2d_grid(order, p, q)' for some 'order', 'p', and 'q').
 ///
 /// @param[in] mt
 ///     The number of tile rows to consider
@@ -277,7 +281,7 @@ inline bool is_2d_cyclic_grid(int64_t mt, int64_t nt, std::function<int(ij_tuple
     GridOrder pred_order = GridOrder::Unknown;
     if (mt == 1 || nt == 1) {
         // 1d distribution
-        // Ambiguous layout, so just choose col major
+        // Ambiguous order, so just choose col major
         pred_order = GridOrder::Col;
     }
     else if (func( {1, 0} ) == 1) {
@@ -314,7 +318,7 @@ inline bool is_2d_cyclic_grid(int64_t mt, int64_t nt, std::function<int(ij_tuple
     }
 
     // Verify the detected grid across the entire matrix
-    auto ref = process_2d_grid( Layout(pred_order), pred_p, pred_q );
+    auto ref = process_2d_grid( pred_order, pred_p, pred_q );
     for (int64_t i = 0; i < mt; ++i) {
         for (int64_t j = 0; j < nt; ++j) {
             if (func( {i, j} ) != ref( {i, j} )) {

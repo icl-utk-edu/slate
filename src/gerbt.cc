@@ -13,6 +13,7 @@ namespace slate {
 
 namespace internal {
 
+// Helper function to build a bcast list for U and V
 template<typename scalar_t>
 void gerbt_setup_bcast(Side side, Matrix<scalar_t> A, int64_t i1, int64_t i2,
                        typename Matrix<scalar_t>::BcastListTag& bcast_list)
@@ -32,15 +33,19 @@ void gerbt_setup_bcast(Side side, Matrix<scalar_t> A, int64_t i1, int64_t i2,
     }
 }
 
-// Combine entries for the same tile
+// Combine entries for the same source tile
 template<typename scalar_t>
 void gerbt_bcast_filter_duplicates(typename Matrix<scalar_t>::BcastListTag& bcast_list)
 {
     for (auto outer = bcast_list.begin(); outer < bcast_list.end(); ++outer) {
+        // For each entry in the bcast list, check if there are any subsequent
+        // entries that have the same source tile
         for (auto inner = outer+1; inner < bcast_list.end(); ) {
             if (std::get<0>(*outer) == std::get<0>(*inner)
                 && std::get<1>(*outer) == std::get<1>(*inner)) {
 
+                // If so, add the destination tiles to the first entry
+                // and remove the subsequent entry
                 std::get<2>(*outer).splice(std::get<2>(*outer).begin(), std::get<2>(*inner));
                 inner = bcast_list.erase(inner);
             }
@@ -102,6 +107,18 @@ void gerbt_iterate_1d(Op trans, int64_t d, int64_t inner_len, int64_t mt,
 
 } // namespace internal
 
+//------------------------------------------------------------------------------
+/// Applies a 2-sided RBT to the given matrix.
+///
+/// @param[in] U_in
+///     The left transform in packed storage.  Should be transposed
+///
+/// @param[in, out] A
+///     The matrix to transform
+///
+/// @param[in] V
+///     The right tranform in packed storage.  Should not be transposed
+///
 template<typename scalar_t>
 void gerbt(Matrix<scalar_t>& U_in,
            Matrix<scalar_t>& A,
@@ -218,6 +235,15 @@ void gerbt(Matrix<std::complex<double>>&,
            Matrix<std::complex<double>>&);
 
 
+//------------------------------------------------------------------------------
+/// Applies a 1-sided RBT to the given matrix on the left.
+///
+/// @param[in] U_in
+///     The transform in packed storage
+///
+/// @param[in, out] A
+///     The matrix to transform
+///
 template<typename scalar_t>
 void gerbt(Matrix<scalar_t>& Uin,
            Matrix<scalar_t>& B)

@@ -12,6 +12,10 @@ namespace slate {
 
 namespace internal {
 
+//------------------------------------------------------------------------------
+/// Applies a single butterfly matrix to each side of A.  The matrices are
+/// divided into the submatrices along the halfs of the butterfly matrices.
+///
 template<typename scalar_t>
 void gerbt(Matrix<scalar_t> A11,
            Matrix<scalar_t> A12,
@@ -38,7 +42,7 @@ void gerbt(Matrix<scalar_t> A11,
     const int64_t nt_full = A11.nt();
 
     // Used to manage OpenMP task dependencies
-    std::vector<uint8_t> task_vect (mt_full*nt_full);
+    std::vector<uint8_t> task_vect(mt_full*nt_full);
     uint8_t* task = task_vect.data();
     SLATE_UNUSED( task ); // Used only by OpenMP
 
@@ -73,7 +77,7 @@ void gerbt(Matrix<scalar_t> A11,
             else {
                 const int64_t compute_rank = A11.tileRank(ii, jj);
                 // Don't need to keep the requests since we don't touch the tile
-                // until recieving the finished data
+                // until receiving the finished data
                 if (jj < nt && A12.tileIsLocal(ii, jj)) {
                     A12.tileIsend( ii, jj, compute_rank, tag+1, &r );
                     MPI_Request_free(&r);
@@ -254,6 +258,10 @@ void gerbt(Matrix<std::complex<double>>,
            Matrix<std::complex<double>>,
            Matrix<std::complex<double>>);
 
+//------------------------------------------------------------------------------
+/// Applies a single butterfly matrix to one side of B.  The matrices are
+/// divided into the submatrices along the half of the butterfly matrix.
+///
 template<typename scalar_t>
 void gerbt(Side side,
            Op trans,
@@ -282,8 +290,6 @@ void gerbt(Side side,
             const int64_t tag = ii*nt + jj;
             MPI_Request r;
             if (B1.tileIsLocal(ii, jj)) {
-                //B2.tileRecv( ii, jj, B2.tileRank(ii, jj),
-                //              Layout::ColMajor, tag );
                 B2.tileIrecv( ii, jj, B2.tileRank(ii, jj),
                               Layout::ColMajor, tag, &r );
                 if (r != MPI_REQUEST_NULL) {

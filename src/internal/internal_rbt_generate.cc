@@ -15,6 +15,11 @@ namespace slate {
 
 namespace internal {
 
+
+//------------------------------------------------------------------------------
+/// Allocates and fills a random butterfly transform in packed storage.
+/// The depth is computed based on the number of column in U.
+///
 template<typename scalar_t>
 void rbt_fill(Matrix<scalar_t>& U, const int64_t seed)
 {
@@ -50,6 +55,21 @@ void rbt_fill(Matrix<scalar_t>& U, const int64_t seed)
 
 }
 
+//------------------------------------------------------------------------------
+/// Constructs two random bufferfly matrice in packed storage to transform the
+/// given matrix.
+///
+/// @param[in] A
+///     The matrix to be transformed
+///
+/// @param[in] d
+///     The depth of the transform
+///
+/// @param[in] seed
+///     A seed for controlling the random number generation
+///
+/// @return a tuple containing the left and right transforms
+///
 template<typename scalar_t>
 std::pair<Matrix<scalar_t>, Matrix<scalar_t>> rbt_generate(
     const Matrix<scalar_t>& A,

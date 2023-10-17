@@ -105,6 +105,7 @@ void gesv_rbt(Matrix<scalar_t>& A,
 
     const scalar_t one = 1.0;
     const real_t eps = std::numeric_limits<real_t>::epsilon();
+    const int64_t rbt_seed = 42;
 
     int64_t depth = get_option<int64_t>( opts, Option::Depth, 2 );
     int64_t itermax = get_option<int64_t>( opts, Option::MaxIterations, 30 );
@@ -114,7 +115,7 @@ void gesv_rbt(Matrix<scalar_t>& A,
     slate_assert(A.mt() == A.nt());  // square
     slate_assert(B.mt() == A.mt());
 
-    auto transforms = internal::rbt_generate( A, depth, 42 );
+    auto transforms = internal::rbt_generate( A, depth, rbt_seed );
     Matrix<scalar_t> U = transforms.first;
     Matrix<scalar_t> V = transforms.second;
 
@@ -129,7 +130,6 @@ void gesv_rbt(Matrix<scalar_t>& A,
         slate::copy( A, A_copy, host_opts );
         Anorm = norm( Norm::Inf, A, opts );
     }
-
 
     slate::copy( B, X, host_opts );
 

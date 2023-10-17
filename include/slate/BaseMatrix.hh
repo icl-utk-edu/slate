@@ -523,15 +523,17 @@ public:
     }
 
     /// Sets Layout of tile(i, j, device)
+    [[deprecated( "Use tileGetFor* instead. Will be removed 2024-10." )]]
     void tileLayout(int64_t i, int64_t j, int device, Layout layout)
     {
-        storage_->at( globalIndex(i, j, device) )->layout(layout);
+        storage_->at( globalIndex(i, j, device) )->setLayout(layout);
     }
 
     /// Sets Layout of tile(i, j, host)
+    [[deprecated( "Use tileGetFor* instead. Will be removed 2024-10." )]]
     void tileLayout(int64_t i, int64_t j, Layout layout)
     {
-        storage_->at( globalIndex(i, j, HostNum) )->layout( layout );
+        tileLayout( i, j, HostNum, layout );
     }
 
     bool tileLayoutIsConvertible( int64_t i, int64_t j, int device=HostNum );
@@ -1778,7 +1780,6 @@ void BaseMatrix<scalar_t>::tileRecv(
         // Receive data.
         at(i, j).recv(src_rank, mpiComm(), layout, tag);
 
-        tileLayout(i, j, layout);
         tileModified( i, j, HostNum, true );
 
         // Copy to devices.
@@ -2326,7 +2327,6 @@ void BaseMatrix<scalar_t>::tileIbcastToSet(
         tileAcquire(i, j, device, layout);
 
         at(i, j, device).recv(new_vec[recv_from.front()], mpi_comm_, layout, tag);
-        tileLayout(i, j, device, layout);
         tileModified(i, j, device, true);
     }
 
@@ -2440,17 +2440,6 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
     // TODO Consider inter-Queue dependencies instead of disabling async
     async &= !(dst_device != HostNum && src_device != HostNum);
 
-    bool src_extended = src_tile->extended();
-    bool dst_extended = dst_tile->extended();
-
-    // make sure dst_tile can fit the data in its target_layout
-    if (dst_tile->layout() != target_layout && ! dst_tile->isTransposable()) {
-        storage_->tileMakeTransposable( dst_tile );
-        dst_extended = true;
-    }
-    if (dst_extended) {
-        dst_tile->layoutSetFrontDataExt( target_layout != dst_tile->userLayout() );
-    }
 
     if (is_square || ! need_convert) {
         lapack::Queue* queue = comm_queue( work_device );
@@ -2462,14 +2451,19 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
         }
     }
     else {
+        if (dst_tile->layout() != target_layout && ! dst_tile->isTransposable()) {
+            storage_->tileMakeTransposable( dst_tile );
+        }
+        dst_tile->setLayout( target_layout );
+
         scalar_t* work_data = nullptr;
         int64_t work_stride = -1;
         // Look for a spare buffer that can be borrowed
-        if (dst_extended && dst_device != HostNum) {
+        if (dst_tile->extended() && dst_device != HostNum) {
             work_data = dst_tile->layoutBackData();
             work_stride = dst_tile->layoutBackStride();
         }
-        else if (src_extended && src_device != HostNum) {
+        else if (src_tile->extended() && src_device != HostNum) {
             // This is the one device->device case that uses src_device
             work_device = src_device;
             work_data = src_tile->layoutBackData();
@@ -2491,10 +2485,6 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
         Tile<scalar_t> work_tile( mb, nb, work_data, work_stride, work_device,
                                   TileKind::Workspace, work_layout);
 
-        dst_tile->layout( target_layout );
-        if (dst_tile->isContiguous()) {
-            dst_tile->stride( dst_stride );
-        }
         if (copy_first) {
             src_tile->copyData( &work_tile, *queue, true );
 
@@ -2552,9 +2542,7 @@ void BaseMatrix<scalar_t>::tileAcquire(int64_t i, int64_t j, int device,
         if (! tile->isTransposable()) {
             storage_->tileMakeTransposable(tile);
         }
-        if (tile->extended())
-            tile->layoutSetFrontDataExt(tile->layout() == tile->userLayout());
-        tile->layout(layout);
+        tile->setLayout( layout );
         // tileLayoutConvert(i, j, device, Layout(layout), false);
     }
 }
@@ -2670,8 +2658,7 @@ void BaseMatrix<scalar_t>::tileGet(int64_t i, int64_t j, int dst_device,
     }
 
     // Change ColMajor <=> RowMajor if needed.
-    if (layout != LayoutConvert::None &&
-        dst_tile->layout() != Layout(layout)) {
+    if (layout != LayoutConvert::None && dst_tile->layout() != Layout(layout)) {
         tileLayoutConvert(i, j, dst_device, Layout(layout), false, async);
     }
 }
@@ -3257,6 +3244,7 @@ void BaseMatrix<scalar_t>::tileUpdateAllOrigin()
 ///
 // todo: validate working for sub- and sliced- matrix
 template <typename scalar_t>
+[[deprecated( "SLATE now manages convertibility internally. Will be removed 2024-10." )]]
 bool BaseMatrix<scalar_t>::tileLayoutIsConvertible(int64_t i, int64_t j, int device)
 {
     return storage_->at( globalIndex(i, j, device) )->isTransposable();
@@ -3291,10 +3279,10 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
 {
     auto& tile_node = storage_->at( globalIndex(i, j) );
     LockGuard guard( tile_node.getLock() );
-    auto tile = tile_node[ HostNum ];
+    auto tile = tile_node[ device ];
     if (tile->layout() != layout) {
         if (! tile->isTransposable()) {
-            assert(! reset); // cannot reset if not transposable
+            assert(! reset); // Can't change to ext buffer then reset
             storage_->tileMakeTransposable(tile);
         }
 
@@ -3391,24 +3379,20 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
                 if (! tile->isTransposable()) {
                     storage_->tileMakeTransposable(tile);
                 }
+                tile->setLayout( layout );
 
-                // prepare tile for batch conversion
-                if (tile->extended()) {
-                    tile->layoutSetFrontDataExt(layout != tile->userLayout());
-                }
-                int64_t target_stride = layout == Layout::ColMajor ?
-                                        tile->mb() :
-                                        tile->nb();
+                int64_t work_stride = layout == Layout::ColMajor
+                                      ? tile->nb()
+                                      : tile->mb();
 
                 // bucket index
                 mnss_tuple mns = {tile->mb(), tile->nb(),
                                   tile->extended(),
                                   tile->stride(),
-                                  tile->mb() != tile->nb() ?
-                                    (tile->extended() ?
-                                        tile->layoutBackStride() :
-                                        target_stride) :
-                                    0};
+                                  tile->mb() != tile->nb()
+                                    ? (tile->extended() ?
+                                        tile->layoutBackStride() : work_stride)
+                                    : 0};
 
                 // add this tile's data to the corrsponding bucket of batch array
                 tilesBuckets[mns].first.push_back(tile->data());
@@ -3422,14 +3406,6 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
                         tilesBuckets[mns].second.push_back(
                             storage_->allocWorkspaceBuffer(device));
                 }
-
-                // adjust stride if need be
-                if (! tile->extended()) {
-                    tile->stride(target_stride);
-                }
-
-                // adjust layout
-                tile->layout(layout);
             }
         }
 
@@ -3456,6 +3432,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
             assert(array_dev      != nullptr);
             assert(work_array_dev != nullptr);
 
+            // mb and nb are the new dimensions
             int64_t mb          = std::get<0>(bucket->first);
             int64_t nb          = std::get<1>(bucket->first);
             int64_t extended    = std::get<2>(bucket->first);
@@ -3486,21 +3463,21 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
                     work_array_dev, bucket->second.second.data(),
                     batch_count, blas::MemcpyKind::HostToDevice, *queue);
 
+                if (! extended) {
+                    // copy back to data buffer
+                    device::gecopy(layout == Layout::ColMajor ? nb : mb,
+                                   layout == Layout::ColMajor ? mb : nb,
+                                   array_dev, work_stride,
+                                   work_array_dev, work_stride,
+                                   batch_count, *queue);
+                }
+
                 device::transpose_batch(false,
                                         layout == Layout::ColMajor ? nb : mb,
                                         layout == Layout::ColMajor ? mb : nb,
-                                        array_dev, stride,
                                         work_array_dev, work_stride,
+                                        array_dev, stride,
                                         batch_count, *queue);
-
-                if (! extended) {
-                    // copy back to data buffer
-                    device::gecopy(layout == Layout::ColMajor ? mb : nb,
-                                   layout == Layout::ColMajor ? nb : mb,
-                                   work_array_dev, work_stride,
-                                   array_dev, work_stride,
-                                   batch_count, *queue);
-                }
             }
 
             // release workspace buffer if allocated

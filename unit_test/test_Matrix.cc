@@ -1891,10 +1891,10 @@ void test_Matrix_tileLayoutConvert()
             if (A.tileIsLocal(i, j)) {
                 test_assert(A.tileLayout(i, j) == A.layout());
                 if (A.tileMb(i) == A.tileNb(j)) {
-                    test_assert( A.tileLayoutIsConvertible(i, j) );
+                    test_assert( A(i, j).isTransposable() );
                 }
                 else {
-                    test_assert(! A.tileLayoutIsConvertible(i, j) );
+                    test_assert(! A(i, j).isTransposable() );
                 }
                 A.tileLayoutConvert(i, j, newLayout);
                 test_assert(A.tileLayout(i, j) == newLayout);

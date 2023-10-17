@@ -780,7 +780,6 @@ void Matrix<scalar_t>::gather(scalar_t* A, int64_t lda)
                                       &A[(size_t)lda*jj + ii], lda );
                     auto Aij = this->at(i, j);
                     Aij.recv(this->tileRank(i, j), this->mpi_comm_, this->layout());
-                    this->tileLayout(i, j, this->layout_);
                 }
                 else {
                     this->tileGetForReading(i, j, LayoutConvert(this->layout()));

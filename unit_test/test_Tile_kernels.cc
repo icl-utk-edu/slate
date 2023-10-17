@@ -1021,33 +1021,14 @@ void test_device_convert_layout(int m, int n)
                         blas::MemcpyKind::HostToDevice,
                         queue);
 
-    scalar_t* Adata_dev_ext;
-    Adata_dev_ext = blas::device_malloc<scalar_t>(Adata.size(), queue);
+    scalar_t* dev_work = blas::device_malloc<scalar_t>(lda*n, queue);
 
-    // Setup Atiles_dev[], Aarray[], Aarray_ext[] on CPU with pointers to Adata_dev[]
+    // Setup Atiles_dev[] on CPU with pointers to Adata_dev[]
     std::vector< slate::Tile<scalar_t> > Atiles_dev( batch_count );
-    std::vector< scalar_t* > Aarray( batch_count );
-    std::vector< scalar_t* > Aarray_ext( batch_count );
     for (int k = 0; k < batch_count; ++k) {
-        Atiles_dev[k] = slate::Tile<scalar_t>( m, n, &Adata_dev[ k*lda*n ], lda, device, slate::TileKind::UserOwned );
-        Aarray[k] = &Adata_dev[ k*lda*n ];
-        Aarray_ext[k] = &Adata_dev_ext[ k*lda*n ];
+        Atiles_dev[k] = slate::Tile<scalar_t>( m, n, &Adata_dev[ k*lda*n ], lda,
+                                               device, slate::TileKind::UserOwned );
     }
-    // Allocate Aarray_dev[] on device and copy Aarray to it
-    scalar_t** Aarray_dev;
-    Aarray_dev = blas::device_malloc<scalar_t*>(Aarray.size(), queue);
-    blas::device_memcpy<scalar_t*>(Aarray_dev, Aarray.data(),
-                        Aarray.size(),
-                        blas::MemcpyKind::HostToDevice,
-                        queue);
-
-    // Allocate Aarray_dev_ext[] on device and copy Aarray[] to it
-    scalar_t** Aarray_dev_ext;
-    Aarray_dev_ext = blas::device_malloc<scalar_t*>(Aarray_ext.size(), queue);
-    blas::device_memcpy<scalar_t*>(Aarray_dev_ext, Aarray_ext.data(),
-                        Aarray_ext.size(),
-                        blas::MemcpyKind::HostToDevice,
-                        queue);
 
     if (verbose > 1) {
         printf("A = [\n");
@@ -1064,60 +1045,7 @@ void test_device_convert_layout(int m, int n)
     }
 
     //-----------------------------------------
-    // Run kernel.
-    for (int i = 0; i < repeat; ++i) {
-        queue.sync();
-        double time = omp_get_wtime();
-
-        if (m == n)
-            slate::device::transpose_batch(false, n, Aarray_dev, lda, batch_count, queue);
-        else
-            slate::device::transpose_batch(false, m, n, Aarray_dev, lda, Aarray_dev_ext, ldat, batch_count, queue);
-
-        queue.sync();
-        time = omp_get_wtime() - time;
-        if (verbose) {
-            printf( "batch_count %d, m %d, n %d, time %.6f, GB/s (read & write) %.4f batch\n",
-                    batch_count, m, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
-        }
-    }
-    if (verbose)
-        printf( "\n" );
-
-    // copy transposed data Adata_dev/Adata_dev_ext from device to Adata (cpu)
-    blas::device_memcpy<scalar_t>(
-        Adata.data(), (m == n ? Adata_dev : Adata_dev_ext), Adata.size(), queue);
-
-    //-----------------------------------------
-    // Run kernel.
-    for (int i = 0; i < repeat; ++i) {
-        queue.sync();
-        double time = omp_get_wtime();
-
-        if (m == n) {
-            for (int k = 0; k < batch_count; ++k) {
-                slate::device::transpose(false, n, Aarray[k], lda, queue);
-            }
-        }
-        else {
-            for (int k = 0; k < batch_count; ++k) {
-                slate::device::transpose(false, m, n, Aarray[k], lda, Aarray_ext[k], ldat, queue);
-                // Atiles[k].stride(ldat);
-            }
-        }
-
-        queue.sync();
-        time = omp_get_wtime() - time;
-        if (verbose) {
-            printf( "batch_count %d, m %d, n %d, time %.6f, GB/s (read & write) %.4f 1-by-1\n",
-                    batch_count, m, n, time, 2 * Adata.size() * sizeof(scalar_t) * 1e-9 / time);
-        }
-    }
-    if (verbose)
-        printf( "\n" );
-
-    //-----------------------------------------
-    // Run kernel.
+    // Transpose the tiles
     for (int i = 0; i < repeat; ++i) {
         queue.sync();
         double time = omp_get_wtime();
@@ -1126,7 +1054,7 @@ void test_device_convert_layout(int m, int n)
             if (m == n)
                 Atiles_dev[k].layoutConvert(queue);
             else
-                Atiles_dev[k].layoutConvert(Aarray_ext[k], queue);
+                Atiles_dev[k].layoutConvert(dev_work, queue);
         }
 
         queue.sync();
@@ -1139,12 +1067,9 @@ void test_device_convert_layout(int m, int n)
     if (verbose)
         printf( "\n" );
 
-    // fetch Adata_dev/Adata_dev_ext from device to Adata (cpu)
-    blas::device_memcpy<scalar_t>(Adata.data(),
-                        (m == n ? Adata_dev : Adata_dev_ext),
-                        Adata.size(),
-                        blas::MemcpyKind::DeviceToHost,
-                        queue);
+    for (int k = 0; k < batch_count; ++k) {
+        Atiles_dev[k].copyData( &(Atiles[k]), queue, true );
+    }
     queue.sync(); // sync before looking at data
 
     if (verbose > 1) {
@@ -1164,8 +1089,6 @@ void test_device_convert_layout(int m, int n)
     // Verify layout of A changed.
     for (int k = 0; k < batch_count; ++k) {
         test_assert(Atiles_dev[k].layout() == slate::Layout::RowMajor);
-        Atiles[k].layout(slate::Layout::RowMajor);
-        Atiles[k].stride(ldat);
         for (int j = 0; j < n; ++j) {
             for (int i = 0; i < m; ++i) {
                 // A(i, j) takes col/row-major into account.
@@ -1177,6 +1100,9 @@ void test_device_convert_layout(int m, int n)
                             j, i, k, real(Adata[ j + i*Adata_lda + k*lda*n ]),
                             i, j, k, real(Bdata[ i + j*lda + k*lda*n ]) );
                 }
+                // Check that the tile didn't get extended
+                test_assert( !Atiles[k].extended() );
+                // Check values
                 test_assert(Adata[ j + i*Adata_lda + k*lda*n ] == Bdata[ i + j*lda + k*lda*n ]);
                 test_assert(Atiles[k](i, j) == Btiles[k](i, j));
             }
@@ -1184,8 +1110,7 @@ void test_device_convert_layout(int m, int n)
     }
 
     blas::device_free(Adata_dev, queue);
-    blas::device_free(Adata_dev_ext, queue);
-    blas::device_free(Aarray_dev, queue);
+    blas::device_free(dev_work, queue);
 }
 
 void test_device_convert_layout()

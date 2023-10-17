@@ -246,9 +246,9 @@ void svd(
         U2.insertLocalTiles();
 
         // Reduce band to bi-diagonal.
-        Timer t_tb2db;
+        Timer t_tb2bd;
         tb2bd( Aband, U2, VT2, opts );
-        timers[ "svd::tb2bd" ] = t_tb2db.stop();
+        timers[ "svd::tb2bd" ] = t_tb2bd.stop();
 
         // Copy diagonal and super-diagonal to vectors.
         internal::copytb2bd(Aband, Sigma, E);

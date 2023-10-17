@@ -73,12 +73,12 @@ void test_svd_work( Params& params, bool run )
         params.time2.name( "geqrf (s)" );
         params.time3.name( "gelqf (s)" );
         params.time4.name( "ge2tb (s)" );
-        params.time5.name( "tb2db (s)" );
+        params.time5.name( "tb2bd (s)" );
         params.time6.name( "bdsvd (s)" );
-        params.time7.name( "unmbr_tb2st_U (s)" );
+        params.time7.name( "unmbr_tb2bd_U (s)" );
         params.time8.name( "unmbr_ge2tb_U (s)" );
         params.time9.name( "unmqr (s) " );
-        params.time10.name( "unmbr_tb2st_V (s)" );
+        params.time10.name( "unmbr_tb2bd_V (s)" );
         params.time11.name( "unmbr_ge2tb_V (s)" );
         params.time12.name( "unmlq (s)" );
     }
@@ -229,12 +229,12 @@ void test_svd_work( Params& params, bool run )
             params.time2() = slate::timers[ "svd::geqrf" ];
             params.time3() = slate::timers[ "svd::gelqf" ];
             params.time4() = slate::timers[ "svd::ge2tb" ];
-            params.time5() = slate::timers[ "svd::tb2db" ];
+            params.time5() = slate::timers[ "svd::tb2bd" ];
             params.time6() = slate::timers[ "svd::bdsvd" ];
-            params.time7() = slate::timers[ "svd::unmtr_tb2st_U" ];
+            params.time7() = slate::timers[ "svd::unmtr_tb2bd_U" ];
             params.time8() = slate::timers[ "svd::unmbr_ge2tb_U" ];
             params.time9() = slate::timers[ "svd::unmqr" ];
-            params.time10() = slate::timers[ "svd::unmbr_tb2st_V" ];
+            params.time10() = slate::timers[ "svd::unmbr_tb2bd_V" ];
             params.time11() = slate::timers[ "svd::unmbr_ge2tb_V" ];
             params.time12() = slate::timers[ "svd::unmlq" ];
         }

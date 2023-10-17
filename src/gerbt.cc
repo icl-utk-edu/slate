@@ -151,11 +151,12 @@ void gerbt(Matrix<scalar_t>& U_in,
 
     int64_t inner_len = int64_t(std::ceil(nt / double(1 << d)));
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
-
         // Loop over the butterflies twice to reduce transfer of random factors
 
         // Plan which random factors are needed where
@@ -274,11 +275,12 @@ void gerbt(Matrix<scalar_t>& Uin,
 
     int64_t inner_len = int64_t(std::ceil(mt / double(1 << d)));
 
+    // set min number for omp nested active parallel regions
+    slate::OmpSetMaxActiveLevels set_active_levels( MinOmpActiveLevels );
+
     #pragma omp parallel
     #pragma omp master
     {
-        omp_set_nested(1);
-
         // Loop over the butterflies twice to reduce transfer of random factors
 
         // Plan which random factors are needed where

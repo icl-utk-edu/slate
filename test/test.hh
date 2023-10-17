@@ -168,6 +168,8 @@ public:
     testsweeper::ParamDouble     time8;
     testsweeper::ParamDouble     time9;
     testsweeper::ParamDouble     time10;
+    testsweeper::ParamDouble     time11;
+    testsweeper::ParamDouble     time12;
     testsweeper::ParamInt        iters;
 
     testsweeper::ParamDouble     ref_time;

@@ -59,6 +59,8 @@ void heev(
     Matrix<scalar_t>& Z,
     Options const& opts)
 {
+    Timer t_heev;
+
     using real_t = blas::real_type<scalar_t>;
     using std::real;
 
@@ -101,7 +103,9 @@ void heev(
 
     // 1. Reduce to band form.
     TriangularFactors<scalar_t> T;
+    Timer t_he2hb;
     he2hb(A, T, opts);
+    timers[ "heev::he2hb" ] = t_he2hb.stop();
 
     // Copy band.
     // Currently, gathers band matrix to rank 0.
@@ -125,7 +129,9 @@ void heev(
         V.insertLocalTiles();
 
         // 2. Reduce band to real symmetric tri-diagonal.
+        Timer t_hb2st;
         hb2st(Aband, V, opts);
+        timers[ "heev::hb2st" ] = t_hb2st.stop();
 
         // Copy diagonal and super-diagonal to vectors.
         internal::copyhb2st( Aband, Lambda, E );
@@ -136,6 +142,7 @@ void heev(
         // Bcast the Lambda and E vectors (diagonal and sup/super-diagonal).
         MPI_Bcast( &Lambda[0], n,   mpi_real_type, 0, A.mpiComm() );
         MPI_Bcast( &E[0],      n-1, mpi_real_type, 0, A.mpiComm() );
+        Timer t_stev;
         if (method == MethodEig::QR) {
             // QR iteration to get eigenvalues and eigenvectors of tridiagonal.
             steqr2( Job::Vec, Lambda, E, Z );
@@ -154,6 +161,7 @@ void heev(
                 copy( Zreal, Z );
             }
         }
+        timers[ "heev::stev" ] = t_stev.stop();
 
         // Find the total number of processors.
         int mpi_size;
@@ -165,18 +173,24 @@ void heev(
         redistribute(Z, Z1d, opts);
 
         // Back-transform: Z = Q1 * Q2 * Z.
+        Timer t_unmtr_hb2st;
         unmtr_hb2st( Side::Left, Op::NoTrans, V, Z1d, opts );
+        timers[ "heev::unmtr_hb2st" ] = t_unmtr_hb2st.stop();
 
         redistribute(Z1d, Z, opts);
+        Timer t_unmtr_he2hb;
         unmtr_he2hb( Side::Left, Op::NoTrans, A, T, Z, opts );
+        timers[ "heev::unmtr_he2hb" ] = t_unmtr_he2hb.stop();
     }
     else {
+        Timer t_stev;
         if (A.mpiRank() == 0) {
             // QR iteration to get eigenvalues.
             sterf<real_t>( Lambda, E, opts );
         }
         // Bcast eigenvalues.
         MPI_Bcast( &Lambda[0], n, mpi_real_type, 0, A.mpiComm() );
+        timers[ "heev::stev" ] = t_stev.stop();
     }
 
     // If matrix was scaled, then rescale eigenvalues appropriately.
@@ -185,6 +199,7 @@ void heev(
         // todo: deal with not all eigenvalues converging, cf. LAPACK.
         blas::scal( n, Anorm/alpha, &Lambda[0], 1 );
     }
+    timers[ "heev" ] = t_heev.stop();
 }
 
 //------------------------------------------------------------------------------

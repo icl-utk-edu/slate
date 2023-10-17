@@ -43,6 +43,7 @@ void test_posv_work(Params& params, bool run)
     bool trace = params.trace() == 'y';
     bool hold_local_workspace = params.hold_local_workspace() == 'y';
     int verbose = params.verbose();
+    int timer_level = params.timer_level();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     slate::Dist dev_dist = params.dev_dist();
@@ -52,19 +53,32 @@ void test_posv_work(Params& params, bool run)
     slate::Method methodTrsm = params.method_trsm();
     slate::Method methodHemm = params.method_hemm();
 
+    // Currently only posv* supports timer_level >= 2.
+    if (params.routine != "posv")
+        timer_level = 1;
+
     // mark non-standard output values
     params.time();
     params.gflops();
     params.ref_time();
     params.ref_gflops();
-    params.time2();
-    params.time2.name( "trs time (s)" );
-    params.time2.width( 12 );
-    params.gflops2();
-    params.gflops2.name( "trs gflop/s" );
 
-    bool do_potrs = (
-        (check && params.routine == "potrf") || params.routine == "potrs");
+    bool do_potrs = params.routine == "potrs"
+                    || (check && params.routine == "potrf");
+
+    if (do_potrs) {
+        params.time2();
+        params.time2.name( "trs time (s)" );
+        params.time2.width( 12 );
+        params.gflops2();
+        params.gflops2.name( "trs gflop/s" );
+    }
+    if (timer_level >= 2) {
+        params.time2();
+        params.time3();
+        params.time2.name( "potrf (s)" );
+        params.time3.name( "potrs (s)" );
+    }
 
     if (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres") {
         params.iters();
@@ -251,6 +265,11 @@ void test_posv_work(Params& params, bool run)
         // compute and save timing/performance
         params.time() = time;
         params.gflops() = gflop / time;
+
+        if (timer_level >= 2) {
+            params.time2() = slate::timers[ "posv::potrf" ];
+            params.time3() = slate::timers[ "posv::potrs" ];
+        }
 
         //==================================================
         // Run SLATE test: potrs

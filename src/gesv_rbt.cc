@@ -99,10 +99,10 @@ void gesv_rbt(Matrix<scalar_t>& A,
 {
     using real_t = blas::real_type<scalar_t>;
 
-    // gemmA and rbt are currently only implemented on the host
-    Options host_opts = opts;
-    host_opts.insert_or_assign( Option::Target, Target::Host );
+    Target target = get_option( opts, Option::Target, Target::HostTask );
 
+    // Most routines prefer column major
+    const Layout layout = Layout::ColMajor;
     const scalar_t one = 1.0;
     const real_t eps = std::numeric_limits<real_t>::epsilon();
     const int64_t rbt_seed = 42;
@@ -125,13 +125,36 @@ void gesv_rbt(Matrix<scalar_t>& A,
 
     real_t Anorm = 0;
     if (itermax > 0) {
-        A_copy.insertLocalTiles( Target::Host );
-        R.insertLocalTiles( Target::Host );
-        slate::copy( A, A_copy, host_opts );
+        A_copy.insertLocalTiles( target );
+        R.insertLocalTiles( target );
+        slate::copy( A, A_copy, opts );
         Anorm = norm( Norm::Inf, A, opts );
     }
 
-    slate::copy( B, X, host_opts );
+    if (target == Target::Devices && itermax != 0) {
+        #pragma omp parallel
+        #pragma omp master
+        #pragma omp taskgroup
+        {
+            #pragma omp task slate_omp_default_none \
+                shared( A ) firstprivate( layout )
+            {
+                A.tileGetAndHoldAllOnDevices( LayoutConvert( layout ) );
+            }
+            #pragma omp task slate_omp_default_none \
+                shared( B ) firstprivate( layout )
+            {
+                B.tileGetAndHoldAllOnDevices( LayoutConvert( layout ) );
+            }
+            #pragma omp task slate_omp_default_none \
+                shared( X ) firstprivate( layout )
+            {
+                X.tileGetAndHoldAllOnDevices( LayoutConvert( layout ) );
+            }
+        }
+    }
+
+    slate::copy( B, X, opts );
 
     std::vector<real_t> colnorms_X( X.n() );
     std::vector<real_t> colnorms_R( R.n() );
@@ -153,14 +176,14 @@ void gesv_rbt(Matrix<scalar_t>& A,
     }
 
     // refine
-    slate::copy( B, R, host_opts );
-    gemmA( -one, A_copy, X,
-            one, R, host_opts );
+    slate::copy( B, R, opts );
+    gemm( -one, A_copy, X,
+           one, R, opts );
 
     // Check whether the nrhs normwise backward error satisfies the
     // stopping criterion. If yes, set iter=0 and return.
-    colNorms( Norm::Max, X, colnorms_X.data(), host_opts );
-    colNorms( Norm::Max, R, colnorms_R.data(), host_opts );
+    colNorms( Norm::Max, X, colnorms_X.data(), opts );
+    colNorms( Norm::Max, R, colnorms_R.data(), opts );
 
     if (internal::iterRefConverged<real_t>( colnorms_R, colnorms_X, cte )) {
         iter = 0;
@@ -171,15 +194,15 @@ void gesv_rbt(Matrix<scalar_t>& A,
         gerbt( U, R );
         getrs_nopiv( A, R, opts );
         gerbt( V, R );
-        add( one, R, one, X, host_opts );
-        slate::copy( B, R, host_opts );
-        gemmA( -one, A_copy, X,
-                one, R, host_opts );
+        add( one, R, one, X, opts );
+        slate::copy( B, R, opts );
+        gemm( -one, A_copy, X,
+               one, R, opts );
 
         // Check whether nrhs normwise backward error satisfies the
         // stopping criterion. If yes, set iter = iiter > 0 and return.
-        colNorms( Norm::Max, X, colnorms_X.data(), host_opts );
-        colNorms( Norm::Max, R, colnorms_R.data(), host_opts );
+        colNorms( Norm::Max, X, colnorms_X.data(), opts );
+        colNorms( Norm::Max, R, colnorms_R.data(), opts );
 
         if (internal::iterRefConverged<real_t>( colnorms_R, colnorms_X, cte )) {
             iter = iiter+1;
@@ -196,10 +219,17 @@ void gesv_rbt(Matrix<scalar_t>& A,
 
         if (use_fallback) {
             slate::copy( B, X, opts );
-            slate::copy( A_copy, A, host_opts );
+            slate::copy( A_copy, A, opts );
             Pivots pivots;
             gesv( A_copy, pivots, X, opts );
         }
+    }
+
+    if (target == Target::Devices) {
+        // clear instead of release due to previous hold
+        A.clearWorkspace();
+        B.clearWorkspace();
+        X.clearWorkspace();
     }
 
     // todo: return value for errors?

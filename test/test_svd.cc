@@ -231,7 +231,7 @@ void test_svd_work( Params& params, bool run )
             params.time4() = slate::timers[ "svd::ge2tb" ];
             params.time5() = slate::timers[ "svd::tb2bd" ];
             params.time6() = slate::timers[ "svd::bdsvd" ];
-            params.time7() = slate::timers[ "svd::unmtr_tb2bd_U" ];
+            params.time7() = slate::timers[ "svd::unmbr_tb2bd_U" ];
             params.time8() = slate::timers[ "svd::unmbr_ge2tb_U" ];
             params.time9() = slate::timers[ "svd::unmqr" ];
             params.time10() = slate::timers[ "svd::unmbr_tb2bd_V" ];

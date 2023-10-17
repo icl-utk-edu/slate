@@ -373,7 +373,7 @@ void svd(
             // First: V  = VT2 * V ===> V1d = VT2 * V1d
             Timer t_unmbr_tb2bd_V;
             unmtr_hb2st( Side::Left, Op::NoTrans, VT2, V1d, opts );
-            timers[ "svd::unm_tb2bd_V" ] = t_unmbr_tb2bd_V.stop();
+            timers[ "svd::unmbr_tb2bd_V" ] = t_unmbr_tb2bd_V.stop();
 
             // Redistribute V1d into V
             auto V1dT = conj_transpose(V1d);

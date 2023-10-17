@@ -250,6 +250,8 @@ void test_is_2d_cyclic_grid()
     int64_t out_p, out_q;
 
     // Private helpers to check order, p, and q
+    // Verifies that the output order (out_o), out_p, out_q matches
+    // the expected order (exp_o), exp_p, exp_q.
     #define test_opq( exp_o, exp_p, exp_q ) \
         do { \
             if ((exp_o) != out_o || (exp_p) != out_p || (exp_q) != out_q) { \
@@ -258,6 +260,8 @@ void test_is_2d_cyclic_grid()
                 exit(1); \
             } \
         } while(0)
+    // Verifies that the out_p, out_q matches exp_p, exp_q and that
+    // the output order (out_o) is not unknown.
     #define test_pq( exp_p, exp_q ) \
         do { \
             if (slate::GridOrder::Unknown == out_o \

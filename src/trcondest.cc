@@ -81,11 +81,7 @@ void trcondest(
     scalar_t alpha = 1.;
     real_t Ainvnorm = 0.0;
 
-    std::vector<int64_t> isave(4);
-    isave[0] = 0;
-    isave[1] = 0;
-    isave[2] = 0;
-    isave[3] = 0;
+    std::vector<int64_t> isave = {0, 0, 0, 0};
 
     auto tileMb = A.tileMbFunc();
     auto tileNb = func::uniform_blocksize(1, 1);

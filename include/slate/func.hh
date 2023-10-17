@@ -24,7 +24,7 @@ using ij_tuple = std::tuple<int64_t, int64_t>;
 // Block size functions
 
 //------------------------------------------------------------------------------
-/// Creates a uniform blocksize
+/// Creates a uniform blocksize.
 ///
 /// @param[in] n
 ///     Global matrix size.  Needed to correctly handle the last block size
@@ -42,7 +42,7 @@ inline std::function<int64_t(int64_t)> uniform_blocksize(int64_t n, int64_t nb)
 }
 
 //------------------------------------------------------------------------------
-/// Computes the largest block given a blocksize function
+/// Computes the largest block given a blocksize function.
 ///
 /// @param[in] nt
 ///     Number of tiles
@@ -50,7 +50,7 @@ inline std::function<int64_t(int64_t)> uniform_blocksize(int64_t n, int64_t nb)
 /// @param[in] size
 ///     Block size function
 ///
-/// @retval The maximum blocksize
+/// @return The maximum blocksize
 ///
 /// @ingroup func
 ///
@@ -249,10 +249,10 @@ transpose_grid(std::function<int(ij_tuple)> old_func)
 ///     The GridOrder detected.
 ///
 /// @param[out] p
-///     The number of rows in the grid, or -1 of the GridOrder is unknown.
+///     The number of rows in the grid, or -1 if the GridOrder is unknown.
 ///
 /// @param[out] q
-///     The number of columns in the grid, or -1 of the GridOrder is unknown.
+///     The number of columns in the grid, or -1 if the GridOrder is unknown.
 ///
 /// @return Whether the map is a 2d cyclic grid
 ///
@@ -261,6 +261,7 @@ transpose_grid(std::function<int(ij_tuple)> old_func)
 inline bool is_2d_cyclic_grid(int64_t mt, int64_t nt, std::function<int(ij_tuple)> func,
                               GridOrder& order, int64_t& p, int64_t& q)
 {
+    // Hard code trivial corner cases
     if (mt == 0 || nt == 0 || (mt == 1 && nt == 1)) {
         order = GridOrder::Col;
         p = 1;
@@ -272,6 +273,7 @@ inline bool is_2d_cyclic_grid(int64_t mt, int64_t nt, std::function<int(ij_tuple
     p = -1;
     q = -1;
 
+    // Determine possible grid order by checking f(0, 1) and f(1, 0)
     GridOrder pred_order = GridOrder::Unknown;
     if (mt == 1 || nt == 1) {
         // 1d distribution
@@ -291,6 +293,7 @@ inline bool is_2d_cyclic_grid(int64_t mt, int64_t nt, std::function<int(ij_tuple
         return false;
     }
 
+    // Scan first row and column to determine p and q
     int64_t pred_p = 0;
     int64_t pred_q = 0;
     if (pred_order == GridOrder::Col) {
@@ -310,6 +313,7 @@ inline bool is_2d_cyclic_grid(int64_t mt, int64_t nt, std::function<int(ij_tuple
         }
     }
 
+    // Verify the detected grid across the entire matrix
     auto ref = process_2d_grid( Layout(pred_order), pred_p, pred_q );
     for (int64_t i = 0; i < mt; ++i) {
         for (int64_t j = 0; j < nt; ++j) {
@@ -338,7 +342,7 @@ inline bool is_2d_cyclic_grid(int64_t mt, int64_t nt, std::function<int(ij_tuple
 /// @param[in] func
 ///     The tile map to inspect
 ///
-/// @retval Whether the map is a 2d cyclic grid
+/// @return Whether the map is a 2d cyclic grid
 ///
 /// @ingroup func
 ///

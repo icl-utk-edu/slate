@@ -329,30 +329,6 @@ inline bool is_2d_cyclic_grid(int64_t mt, int64_t nt, std::function<int(ij_tuple
     return true;
 }
 
-//------------------------------------------------------------------------------
-/// Checks whether the given tile map is a 2d cyclic grid (i.e., equivalent
-/// to 'process_2d_grid(layout, p, q)' for some 'layout', 'p', and 'q').
-///
-/// @param[in] mt
-///     The number of tile rows to consider
-///
-/// @param[in] nt
-///     The number of tile columns to consider
-///
-/// @param[in] func
-///     The tile map to inspect
-///
-/// @return Whether the map is a 2d cyclic grid
-///
-/// @ingroup func
-///
-inline bool is_2d_cyclic_grid(int64_t mt, int64_t nt, std::function<int(ij_tuple)> func)
-{
-    GridOrder order;
-    int64_t p, q;
-    return is_2d_cyclic_grid(mt, nt, func, order, p, q);
-}
-
 } // namespace func
 } // namespace slate
 

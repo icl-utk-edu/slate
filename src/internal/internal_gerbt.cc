@@ -130,9 +130,9 @@ void gerbt(Matrix<scalar_t> A11,
                     }
                     else {
                         a21 = Tile<scalar_t>(0, a11.nb(), &dummy, 0, HostNum,
-                                             TileKind::UserOwned, Layout::ColMajor);
+                                             TileKind::SlateOwned, Layout::ColMajor);
                         u2  = Tile<scalar_t>(0, u1.nb(), &dummy, 0, HostNum,
-                                             TileKind::UserOwned, Layout::ColMajor);
+                                             TileKind::SlateOwned, Layout::ColMajor);
                     }
 
                     if (jj < nt) {
@@ -143,9 +143,9 @@ void gerbt(Matrix<scalar_t> A11,
                     }
                     else {
                         a12 = Tile<scalar_t>(a11.mb(), 0, &dummy, a11.mb(), HostNum,
-                                             TileKind::UserOwned, Layout::ColMajor);
+                                             TileKind::SlateOwned, Layout::ColMajor);
                         v2  = Tile<scalar_t>(0, v1.nb(), &dummy, 0, HostNum,
-                                             TileKind::UserOwned, Layout::ColMajor);
+                                             TileKind::SlateOwned, Layout::ColMajor);
                     }
 
                     if (ii < mt && jj < nt) {
@@ -154,7 +154,7 @@ void gerbt(Matrix<scalar_t> A11,
                     }
                     else {
                         a22 = Tile<scalar_t>(a21.mb(), a12.nb(), &dummy, a21.mb(), HostNum,
-                                             TileKind::UserOwned, Layout::ColMajor);
+                                             TileKind::SlateOwned, Layout::ColMajor);
                     }
                     gerbt( a11, a12, a21, a22, u1, u2, v1, v2 );
                 }
@@ -368,10 +368,10 @@ void gerbt(Side side,
 
                         Tile<scalar_t> b1 = B1(ii, jj);
                         Tile<scalar_t> b2 (0, b1.nb(), &dummy, 0, 0,
-                                           TileKind::UserOwned, Layout::ColMajor);
+                                           TileKind::SlateOwned, Layout::ColMajor);
                         Tile<scalar_t> u1 = U1(ii, 0);
                         Tile<scalar_t> u2 (0, u1.nb(), &dummy, 0, 0,
-                                            TileKind::UserOwned, Layout::ColMajor);
+                                            TileKind::SlateOwned, Layout::ColMajor);
 
                         if (transp) {
                             gerbt_left_trans( b1, b2, u1, u2 );
@@ -398,10 +398,10 @@ void gerbt(Side side,
 
                         Tile<scalar_t> b1 = B1(ii, jj);
                         Tile<scalar_t> b2 (b1.mb(), 0, &dummy, b1.mb(), 0,
-                                           TileKind::UserOwned, Layout::ColMajor);
+                                           TileKind::SlateOwned, Layout::ColMajor);
                         Tile<scalar_t> u1 = U1(jj, 0);
                         Tile<scalar_t> u2 (0, u1.nb(), &dummy, 0, 0,
-                                            TileKind::UserOwned, Layout::ColMajor);
+                                            TileKind::SlateOwned, Layout::ColMajor);
 
                         if (transp) {
                             gerbt_right_trans( b1, b2, u1, u2 );

@@ -143,6 +143,8 @@ void svd(
     bool lq_path = n > m;
     Matrix<scalar_t> Ahat, Uhat, VThat;
     TriangularFactors<scalar_t> TQ;
+    timers[ "svd::geqrf" ] = 0;
+    timers[ "svd::gelqf" ] = 0;
     if (qr_path) {
         Timer t_geqrf;
         geqrf( A, TQ, opts );
@@ -339,13 +341,13 @@ void svd(
             Timer t_unmbr_ge2tb_U;
             unmbr_ge2tb( Side::Left, Op::NoTrans, Ahat, TU, Uhat, opts );
             timers[ "svd::unmbr_ge2tb_U" ] = t_unmbr_ge2tb_U.stop();
+            Timer t_unmqr;
             if (qr_path) {
                 // When initial QR was used.
                 // U = Q*U;
-                Timer t_unmqr;
                 unmqr( Side::Left, slate::Op::NoTrans, A, TQ, U, opts );
-                timers[ "svd::unmqr" ] = t_unmqr.stop();
             }
+            timers[ "svd::unmqr" ] = t_unmqr.stop();
         }
 
         // Back-transform: VT = VT * VT2 * VT1.
@@ -381,12 +383,12 @@ void svd(
             Timer t_unmbr_ge2tb_V;
             unmbr_ge2tb( Side::Right, Op::NoTrans, Ahat, TV, VThat, opts );
             timers[ "svd::unmbr_ge2tb_V" ] = t_unmbr_ge2tb_V.stop();
+            Timer t_unmlq;
             if (lq_path) {
                 // VT = VT*Q;
-                Timer t_unmlq;
                 unmlq( Side::Right, slate::Op::NoTrans, A, TQ, VT, opts );
-                timers[ "svd::unmlq" ] = t_unmlq.stop();
             }
+            timers[ "svd::unmlq" ] = t_unmlq.stop();
         }
     }
     else {

@@ -121,7 +121,7 @@ void set(internal::TargetType<Target::Devices>,
 
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task priority( priority ) slate_omp_default_none \
+        #pragma omp task priority( priority ) \
             shared( A, irange, jrange ) \
             firstprivate( device, queue_index, offdiag_value, diag_value )
         {
@@ -154,12 +154,13 @@ void set(internal::TargetType<Target::Devices>,
             int64_t batch_count = 0;
             struct Params {
                 int64_t start, mb, nb, lda;
+                scalar_t diag_value;
             };
             std::vector<Params> group_params;
             for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
             for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
                 bool first = true;
-                group_params.push_back( { batch_count, -1, -1, -1 } );
+                group_params.push_back( { batch_count, -1, -1, -1, offdiag_value } );
                 for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
                 for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
                     if ((diag_same || i != j)
@@ -191,7 +192,7 @@ void set(internal::TargetType<Target::Devices>,
                 for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
                 for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
                     bool first = true;
-                    group_params.push_back( { batch_count, -1, -1, -1 } );
+                    group_params.push_back( { batch_count, -1, -1, -1, diag_value } );
                     for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
                     for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
                         if (i == j
@@ -226,15 +227,15 @@ void set(internal::TargetType<Target::Devices>,
                 a_array_dev, a_array_host, batch_count,
                 blas::MemcpyKind::HostToDevice, *queue);
 
-            for (size_t g = 0; g < group_params.size(); ++g) {
+            for (size_t g = 0; g < group_params.size() - 1; ++g) {
                 int64_t group_count
                     = group_params[ g+1 ].start - group_params[ g ].start;
                 if (group_count > 0) {
                     device::batch::geset(
                         group_params[ g ].mb,
                         group_params[ g ].nb,
-                        offdiag_value, offdiag_value, a_array_dev,
-                        group_params[ g ].lda,
+                        offdiag_value, group_params[ g ].diag_value,
+                        a_array_dev, group_params[ g ].lda,
                         group_count, *queue );
                     a_array_dev += group_count;
                 }

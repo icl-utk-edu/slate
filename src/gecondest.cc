@@ -134,19 +134,19 @@ void gecondest(
     {
         if (kase == kase1) {
             // Multiply by inv(L).
-            slate::trsmB(Side::Left, alpha, L, X, opts);
+            slate::trsm( Side::Left, alpha, L, X, opts );
 
             // Multiply by inv(U).
-            slate::trsmB(Side::Left, alpha, U, X, opts);
+            slate::trsm( Side::Left, alpha, U, X, opts );
         }
         else {
             // Multiply by inv(U^H).
             auto UH = conj_transpose( U );
-            slate::trsmB(Side::Left, alpha, UH, X, opts);
+            slate::trsm( Side::Left, alpha, UH, X, opts );
 
             // Multiply by inv(L^H).
             auto LH = conj_transpose( L );
-            slate::trsmB(Side::Left, alpha, LH, X, opts);
+            slate::trsm( Side::Left, alpha, LH, X, opts );
         }
 
         internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);

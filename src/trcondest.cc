@@ -118,12 +118,12 @@ void trcondest(
     while (kase != 0) {
         if (kase == kase1) {
             // Multiply by inv(A).
-            slate::trsmB(Side::Left, alpha, A, X, opts);
+            slate::trsm( Side::Left, alpha, A, X, opts );
         }
         else {
             // Multiply by inv(A^H).
             auto AH = conj_transpose( A );
-            slate::trsmB(Side::Left, alpha, AH, X, opts);
+            slate::trsm( Side::Left, alpha, AH, X, opts );
         }
 
         internal::norm1est( X, V, isgn, &Ainvnorm, &kase, isave, opts);

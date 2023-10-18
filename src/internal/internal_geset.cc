@@ -126,9 +126,8 @@ void set(internal::TargetType<Target::Devices>,
             firstprivate( device, queue_index, offdiag_value, diag_value )
         {
             // Get local tiles for writing.
-            // temporarily, convert both into same layout
-            // todo: this is in-efficient, because both matrices may have same layout already
-            //       and possibly wrong, because an input matrix is being altered
+            // convert to column major layout to simplify lda's
+            // todo: this is in-efficient because the diagonal is independant of layout
             // todo: best, handle directly through the CUDA kernels
             auto layout = LayoutConvert( Layout::ColMajor );
             std::set<ij_tuple> A_tiles_set;
@@ -149,18 +148,15 @@ void set(internal::TargetType<Target::Devices>,
             bool diag_same = offdiag_value == diag_value;
 
             // Build batch groups.
-            // group_index points to the start of each group.
-            int group = 0;
             int64_t batch_count = 0;
             struct Params {
-                int64_t start, mb, nb, lda;
+                int64_t count, mb, nb, lda;
                 scalar_t diag_value;
             };
             std::vector<Params> group_params;
             for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
             for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
-                bool first = true;
-                group_params.push_back( { batch_count, -1, -1, -1, offdiag_value } );
+                Params group = { 0, -1, -1, -1, offdiag_value };
                 for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
                 for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
                     if ((diag_same || i != j)
@@ -169,21 +165,23 @@ void set(internal::TargetType<Target::Devices>,
                     {
                         auto Aij = A( i, j, device );
                         a_array_host[ batch_count ] = Aij.data();
-                        if (first) {
-                            group_params[ group ].mb  = Aij.mb();
-                            group_params[ group ].nb  = Aij.nb();
-                            group_params[ group ].lda = Aij.stride();
-                            first = false;
+                        if (group.count == 0) {
+                            group.mb  = Aij.mb();
+                            group.nb  = Aij.nb();
+                            group.lda = Aij.stride();
                         }
                         else {
-                            assert( group_params[ group ].mb  == Aij.mb() );
-                            assert( group_params[ group ].nb  == Aij.nb() );
-                            assert( group_params[ group ].lda == Aij.stride() );
+                            assert( group.mb  == Aij.mb() );
+                            assert( group.nb  == Aij.nb() );
+                            assert( group.lda == Aij.stride() );
                         }
+                        ++group.count;
                         ++batch_count;
                     }
                 }} // for j, i
-                ++group;
+                if (group.count > 0) {
+                    group_params.push_back( group );
+                }
             }} // for jj, ii
 
             // Build batch groups for diagonal tiles,
@@ -191,34 +189,35 @@ void set(internal::TargetType<Target::Devices>,
             if (! diag_same) {
                 for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
                 for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
-                    bool first = true;
-                    group_params.push_back( { batch_count, -1, -1, -1, diag_value } );
-                    for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
-                    for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
-                        if (i == j
-                            && A.tileIsLocal( i, j )
-                            && device == A.tileDevice( i, j ))
+                    Params group = { 0, -1, -1, -1, diag_value };
+                    // Diagonal tiles only in the intersection of irange and jrange
+                    int64_t ijstart = std::max(irange[ ii   ], jrange[ jj   ]);
+                    int64_t ijend   = std::min(irange[ ii+1 ], jrange[ jj+1 ]);
+                    for (int64_t ij = ijstart; ij < ijend; ++ij) {
+                        if (A.tileIsLocal( ij, ij )
+                            && device == A.tileDevice( ij, ij ))
                         {
-                            auto Aij = A( i, j, device );
+                            auto Aij = A( ij, ij, device );
                             a_array_host[ batch_count ] = Aij.data();
-                            if (first) {
-                                group_params[ group ].mb  = Aij.mb();
-                                group_params[ group ].nb  = Aij.nb();
-                                group_params[ group ].lda = Aij.stride();
-                                first = false;
+                            if (group.count == 0) {
+                                group.mb  = Aij.mb();
+                                group.nb  = Aij.nb();
+                                group.lda = Aij.stride();
                             }
                             else {
-                                assert( group_params[ group ].mb  == Aij.mb() );
-                                assert( group_params[ group ].nb  == Aij.nb() );
-                                assert( group_params[ group ].lda == Aij.stride() );
+                                assert( group.mb  == Aij.mb() );
+                                assert( group.nb  == Aij.nb() );
+                                assert( group.lda == Aij.stride() );
                             }
+                            ++group.count;
                             ++batch_count;
                         }
-                    }} // for j, i
-                    ++group;
+                    } // for ij
+                    if (group.count > 0) {
+                        group_params.push_back( group );
+                    }
                 }} // for jj, ii
             }
-            group_params.push_back( { batch_count, -1, -1, -1 } );
 
             blas::Queue* queue = A.compute_queue( device, queue_index );
 
@@ -227,18 +226,15 @@ void set(internal::TargetType<Target::Devices>,
                 a_array_dev, a_array_host, batch_count,
                 blas::MemcpyKind::HostToDevice, *queue);
 
-            for (size_t g = 0; g < group_params.size() - 1; ++g) {
-                int64_t group_count
-                    = group_params[ g+1 ].start - group_params[ g ].start;
-                if (group_count > 0) {
-                    device::batch::geset(
-                        group_params[ g ].mb,
-                        group_params[ g ].nb,
-                        offdiag_value, group_params[ g ].diag_value,
-                        a_array_dev, group_params[ g ].lda,
-                        group_count, *queue );
-                    a_array_dev += group_count;
-                }
+            for (size_t g = 0; g < group_params.size(); ++g) {
+                int64_t group_count = group_params[ g ].count;
+                device::batch::geset(
+                    group_params[ g ].mb,
+                    group_params[ g ].nb,
+                    offdiag_value, group_params[ g ].diag_value,
+                    a_array_dev, group_params[ g ].lda,
+                    group_count, *queue );
+                a_array_dev += group_count;
             }
             queue->sync();
         } // end task

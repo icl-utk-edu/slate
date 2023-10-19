@@ -145,27 +145,37 @@ void copy(internal::TargetType<Target::Devices>,
     bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
                           || tile_release_strategy == TileReleaseStrategy::All;
 
-    // Define index ranges for regions of matrix.
-    // Tiles in each region are all the same size.
-    int64_t irange[4][2] = {
-        { 0,        B.mt()-1 },
-        { B.mt()-1, B.mt()   },
-        { 0,        B.mt()-1 },
-        { B.mt()-1, B.mt()   }
-    };
-    int64_t jrange[4][2] = {
-        { 0,        B.nt()-1 },
-        { 0,        B.nt()-1 },
-        { B.nt()-1, B.nt()   },
-        { B.nt()-1, B.nt()   }
-    };
+    int64_t mt = A.mt();
+    int64_t nt = A.nt();
+
+    // Find ranges of matching mb's.
+    std::vector< int64_t > irange;
+    int64_t last_mb = -1;
+    for (int64_t i = 0; i < mt; ++i) {
+        int64_t mb = A.tileMb( i );
+        if (mb != last_mb) {
+            last_mb = mb;
+            irange.push_back( i );
+        }
+    }
+    irange.push_back( mt );
+
+    // Find ranges of matching nb's.
+    std::vector< int64_t > jrange;
+    int last_nb = -1;
+    for (int64_t j = 0; j < nt; ++j) {
+        int64_t nb = A.tileNb( j );
+        if (nb != last_nb) {
+            last_nb = nb;
+            jrange.push_back( j );
+        }
+    }
+    jrange.push_back( nt );
 
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task slate_omp_default_none \
-            shared( A, B ) \
-            firstprivate( device, irange, jrange, queue_index, call_tile_tick ) \
-            priority(priority)
+        #pragma omp task priority( priority ) shared( A, B, irange, jrange ) \
+            firstprivate( device, queue_index, call_tile_tick )
         {
             std::set<ij_tuple> A_tiles_set;
             for (int64_t i = 0; i < B.mt(); ++i) {
@@ -195,26 +205,40 @@ void copy(internal::TargetType<Target::Devices>,
             dst_scalar_t** b_array_host = B.array_host(device, queue_index);
 
             int64_t batch_count = 0;
-            int64_t mb[4], nb[4], lda[4], ldb[4], group_count[4];
-            for (int q = 0; q < 4; ++q) {
-                group_count[q] = 0;
-                lda[q] = 0;
-                ldb[q] = 0;
-                mb[q] = B.tileMb(irange[q][0]);
-                nb[q] = B.tileNb(jrange[q][0]);
-                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                        if (B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
-                            a_array_host[batch_count] = A(i, j, device).data();
-                            b_array_host[batch_count] = B(i, j, device).data();
-                            lda[q] = A(i, j, device).stride();
-                            ldb[q] = B(i, j, device).stride();
-                            ++group_count[q];
-                            ++batch_count;
+            struct Params {
+                int64_t count, mb, nb, lda, ldb;
+            };
+            std::vector<Params> group_params;
+            for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
+            for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
+                Params group = { 0, -1, -1, -1, -1 };
+                for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
+                for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
+                    if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
+                        auto Aij = A( i, j, device );
+                        a_array_host[ batch_count ] = Aij.data();
+                        auto Bij = B( i, j, device );
+                        b_array_host[ batch_count ] = Bij.data();
+                        if (group.count == 0) {
+                            group.mb  = Aij.mb();
+                            group.nb  = Aij.nb();
+                            group.lda = Aij.stride();
+                            group.ldb = Bij.stride();
                         }
+                        else {
+                            assert( group.mb  == Aij.mb() );
+                            assert( group.nb  == Aij.nb() );
+                            assert( group.lda == Aij.stride() );
+                            assert( group.ldb == Bij.stride() );
+                        }
+                        ++group.count;
+                        ++batch_count;
                     }
+                }} // for j, i
+                if (group.count > 0) {
+                    group_params.push_back( group );
                 }
-            }
+            }} // for jj, ii
 
             // Usually the output matrix (B) provides all the batch arrays.
             // Here we are using A, because of the different types.
@@ -239,25 +263,25 @@ void copy(internal::TargetType<Target::Devices>,
                 is_conj = (A.op() == Op::ConjTrans || B.op() == Op::ConjTrans);
             }
 
-            for (int q = 0; q < 4; ++q) {
-                if (group_count[q] > 0) {
-                    if (is_trans) {
-                        device::transpose_batch(
-                                is_conj,
-                                nb[q], mb[q],
-                                a_array_dev, lda[q],
-                                b_array_dev, ldb[q],
-                                group_count[q], *queue);
-                    }
-                    else {
-                        device::gecopy(mb[q], nb[q],
-                                a_array_dev, lda[q],
-                                b_array_dev, ldb[q],
-                                group_count[q], *queue);
-                    }
-                    a_array_dev += group_count[q];
-                    b_array_dev += group_count[q];
+            for (size_t g = 0; g < group_params.size(); ++g) {
+                int64_t group_count = group_params[ g ].count;
+                if (is_trans) {
+                    device::transpose_batch(
+                            is_conj,
+                            group_params[ g ].mb, group_params[ g ].nb,
+                            a_array_dev, group_params[ g ].lda,
+                            b_array_dev, group_params[ g ].ldb,
+                            group_count, *queue);
                 }
+                else {
+                    device::gecopy(
+                            group_params[ g ].mb, group_params[ g ].nb,
+                            a_array_dev, group_params[ g ].lda,
+                            b_array_dev, group_params[ g ].ldb,
+                            group_count, *queue);
+                }
+                a_array_dev += group_count;
+                b_array_dev += group_count;
             }
 
             queue->sync();

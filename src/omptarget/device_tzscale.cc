@@ -12,6 +12,7 @@
 
 namespace slate {
 namespace device {
+namespace batch {
 
 //------------------------------------------------------------------------------
 /// Batched routine for element-wise trapezoidal tile scale.
@@ -123,5 +124,6 @@ void tzscale(
     std::complex<double>** Aarray, int64_t lda,
     int64_t batch_count, blas::Queue& queue);
 
+} // namespace batch
 } // namespace device
 } // namespace slate

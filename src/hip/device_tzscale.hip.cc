@@ -65,6 +65,9 @@ __global__ void tzscale_kernel(
     }
 }
 
+//==============================================================================
+namespace batch {
+
 //------------------------------------------------------------------------------
 /// Batched routine for element-wise trapezoidal tile scale.
 /// Sets upper or lower part of
@@ -170,5 +173,6 @@ void tzscale(
              batch_count, queue );
 }
 
+} // namespace batch
 } // namespace device
 } // namespace slate

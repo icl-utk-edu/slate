@@ -141,25 +141,37 @@ void add(internal::TargetType<Target::Devices>,
     bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
                           || tile_release_strategy == TileReleaseStrategy::All;
 
-    // Define index ranges for regions of matrix.
-    // Tiles in each region are all the same size.
-    int64_t irange[4][2] = {
-        { 0,        B.mt()-1 },
-        { B.mt()-1, B.mt()   },
-        { 0,        B.mt()-1 },
-        { B.mt()-1, B.mt()   }
-    };
-    int64_t jrange[4][2] = {
-        { 0,        B.nt()-1 },
-        { 0,        B.nt()-1 },
-        { B.nt()-1, B.nt()   },
-        { B.nt()-1, B.nt()   }
-    };
+    int64_t mt = A.mt();
+    int64_t nt = A.nt();
+
+    // Find ranges of matching mb's.
+    std::vector< int64_t > irange;
+    int64_t last_mb = -1;
+    for (int64_t i = 0; i < mt; ++i) {
+        int64_t mb = A.tileMb( i );
+        if (mb != last_mb) {
+            last_mb = mb;
+            irange.push_back( i );
+        }
+    }
+    irange.push_back( mt );
+
+    // Find ranges of matching nb's.
+    std::vector< int64_t > jrange;
+    int last_nb = -1;
+    for (int64_t j = 0; j < nt; ++j) {
+        int64_t nb = A.tileNb( j );
+        if (nb != last_nb) {
+            last_nb = nb;
+            jrange.push_back( j );
+        }
+    }
+    jrange.push_back( nt );
 
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task shared(A, B) priority(priority) \
-            firstprivate(device, irange, jrange, queue_index, alpha, beta)
+        #pragma omp task priority( priority ) shared( A, B, irange, jrange ) \
+            firstprivate(device, queue_index, alpha, beta)
         {
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already
@@ -204,85 +216,110 @@ void add(internal::TargetType<Target::Devices>,
             }
 
             int64_t batch_size = A_tiles_set.size();
-            scalar_t** a_array_host = B.array_host(device);
+            scalar_t** a_array_host = B.array_host( device, queue_index );
             scalar_t** b_array_host = a_array_host + batch_size;
 
+            // Build batch groups
             int64_t batch_count = 0;
-            int64_t mb[8], nb[8], lda[8], ldb[8], group_count[8];
-            for (int q = 0; q < 4; ++q) {
-                group_count[q] = 0;
-                lda[q] = 0;
-                ldb[q] = 0;
-                mb[q] = B.tileMb(irange[q][0]);
-                nb[q] = B.tileNb(jrange[q][0]);
-                if (B.uplo() == Uplo::Lower) {
-                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                        for (int64_t i = std::max(j, irange[q][0]); i < irange[q][1]; ++i) {
-                            if (i != j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
-                                a_array_host[batch_count] = A(i, j, device).data();
-                                b_array_host[batch_count] = B(i, j, device).data();
-                                lda[q] = A(i, j, device).stride();
-                                ldb[q] = B(i, j, device).stride();
-                                ++group_count[q];
-                                ++batch_count;
+            struct Params {
+                int64_t count, mb, nb, lda, ldb;
+                bool is_diagonal;
+            };
+            std::vector<Params> group_params;
+            // Build batch groups for off-diagonal tiles,
+            for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
+            for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
+                Params group = { 0, -1, -1, -1, -1, false };
+                if (A.uplo() == Uplo::Lower) {
+                    for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
+                    for (int64_t i = std::max(irange[ ii ], j+1); i < irange[ ii+1 ]; ++i) {
+                        if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
+                            auto Aij = A( i, j, device );
+                            a_array_host[ batch_count ] = Aij.data();
+                            auto Bij = B( i, j, device );
+                            b_array_host[ batch_count ] = Bij.data();
+                            if (group.count == 0) {
+                                group.mb  = Aij.mb();
+                                group.nb  = Aij.nb();
+                                group.lda = Aij.stride();
+                                group.ldb = Bij.stride();
                             }
-                        }
-                    }
-                }
-                else { // upper
-                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                        for (int64_t i = irange[q][0]; i < irange[q][1] && i <= j; ++i) {
-                            if (i != j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
-                                a_array_host[batch_count] = A(i, j, device).data();
-                                b_array_host[batch_count] = B(i, j, device).data();
-                                lda[q] = A(i, j, device).stride();
-                                ldb[q] = B(i, j, device).stride();
-                                ++group_count[q];
-                                ++batch_count;
+                            else {
+                                assert( group.mb  == Aij.mb() );
+                                assert( group.nb  == Aij.nb() );
+                                assert( group.lda == Aij.stride() );
+                                assert( group.ldb == Bij.stride() );
                             }
+                            ++group.count;
+                            ++batch_count;
                         }
-                    }
+                    }} // for j,i
                 }
-            }
-            for (int q = 4; q < 8; ++q) {
-                group_count[q] = 0;
-                lda[q] = 0;
-                ldb[q] = 0;
-                mb[q] = B.tileMb(irange[q-4][0]);
-                nb[q] = B.tileNb(jrange[q-4][0]);
-                if (B.uplo() == Uplo::Lower) {
-                    for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
-                        for (int64_t i = std::max(j, irange[q-4][0]); i < irange[q-4][1]; ++i) {
-                            if (i == j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
-                               a_array_host[batch_count] = A(i, j, device).data();
-                               b_array_host[batch_count] = B(i, j, device).data();
-                               lda[q] = A(i, j, device).stride();
-                               ldb[q] = B(i, j, device).stride();
-                               ++group_count[q];
-                               ++batch_count;
+                else { // A.uplo() == Uplo::Upper
+                    for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
+                    for (int64_t i = irange[ ii ]; i < irange[ ii+1 ] && i < j; ++i) {
+                        if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
+                            auto Aij = A( i, j, device );
+                            a_array_host[ batch_count ] = Aij.data();
+                            auto Bij = B( i, j, device );
+                            b_array_host[ batch_count ] = Bij.data();
+                            if (group.count == 0) {
+                                group.mb  = Aij.mb();
+                                group.nb  = Aij.nb();
+                                group.lda = Aij.stride();
+                                group.ldb = Bij.stride();
                             }
-                        }
-                    }
-                }
-                else { //upper
-                    for (int64_t j = jrange[q-4][0]; j < jrange[q-4][1]; ++j) {
-                        for (int64_t i = irange[q-4][0]; i < irange[q-4][1] && i <= j; ++i) {
-                            if (i == j && B.tileIsLocal(i, j) && device == B.tileDevice(i, j)) {
-                               a_array_host[batch_count] = A(i, j, device).data();
-                               b_array_host[batch_count] = B(i, j, device).data();
-                               lda[q] = A(i, j, device).stride();
-                               ldb[q] = B(i, j, device).stride();
-                               ++group_count[q];
-                               ++batch_count;
+                            else {
+                                assert( group.mb  == Aij.mb() );
+                                assert( group.nb  == Aij.nb() );
+                                assert( group.lda == Aij.stride() );
+                                assert( group.ldb == Bij.stride() );
                             }
+                            ++group.count;
+                            ++batch_count;
                         }
-                    }
+                    }} // for j,i
                 }
-            }
+                if (group.count > 0) {
+                    group_params.push_back( group );
+                }
+            }} // for jj,ii
 
+            // Build batch groups for diagonal tiles,
+            for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
+            for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
+                Params group = { 0, -1, -1, -1, -1, true };
+                int64_t ijstart = std::max(irange[ ii   ], jrange[ jj   ]);
+                int64_t ijend   = std::min(irange[ ii+1 ], jrange[ jj+1 ]);
+                for (int64_t ij = ijstart; ij < ijend; ++ij) {
+                    if (A.tileIsLocal( ij, ij ) && device == A.tileDevice( ij, ij )) {
+                        auto Aij = A( ij, ij, device );
+                        a_array_host[ batch_count ] = Aij.data();
+                        auto Bij = B( ij, ij, device );
+                        b_array_host[ batch_count ] = Bij.data();
+                        if (group.count == 0) {
+                            group.mb  = Aij.mb();
+                            group.nb  = Aij.nb();
+                            group.lda = Aij.stride();
+                            group.ldb = Bij.stride();
+                        }
+                        else {
+                            assert( group.mb  == Aij.mb() );
+                            assert( group.nb  == Aij.nb() );
+                            assert( group.lda == Aij.stride() );
+                            assert( group.ldb == Bij.stride() );
+                        }
+                        ++group.count;
+                        ++batch_count;
+                    }
+                } // for ij
+                if (group.count > 0) {
+                    group_params.push_back( group );
+                }
+            }} // for jj,ii
             slate_assert(batch_count == batch_size);
 
-            scalar_t** a_array_dev = B.array_device(device);
+            scalar_t** a_array_dev = B.array_device( device, queue_index );
             scalar_t** b_array_dev = a_array_dev + batch_size;
 
             blas::Queue* queue = A.compute_queue(device, queue_index);
@@ -292,25 +329,25 @@ void add(internal::TargetType<Target::Devices>,
                                 blas::MemcpyKind::HostToDevice,
                                 *queue);
 
-            for (int q = 0; q < 4; ++q) {
-                if (group_count[q] > 0) {
-                    device::batch::geadd(mb[q], nb[q],
-                                  alpha, a_array_dev, lda[q],
-                                  beta,  b_array_dev, ldb[q],
-                                  group_count[q], *queue);
-                    a_array_dev += group_count[q];
-                    b_array_dev += group_count[q];
+            for (size_t g = 0; g < group_params.size(); ++g) {
+                int64_t group_count = group_params[ g ].count;
+                if (group_params[ g ].is_diagonal) {
+                    device::tzadd(
+                            B.uplo(),
+                            group_params[ g ].mb, group_params[ g ].nb,
+                            alpha, a_array_dev, group_params[ g ].lda,
+                            beta, b_array_dev, group_params[ g ].ldb,
+                            group_count, *queue);
                 }
-            }
-            for (int q = 4; q < 8; ++q) {
-                if (group_count[q] > 0) {
-                    device::tzadd(B.uplo(), mb[q], nb[q],
-                                  alpha, a_array_dev, lda[q],
-                                  beta,  b_array_dev, ldb[q],
-                                  group_count[q], *queue);
-                    a_array_dev += group_count[q];
-                    b_array_dev += group_count[q];
+                else {
+                    device::batch::geadd(
+                            group_params[ g ].mb, group_params[ g ].nb,
+                            alpha, a_array_dev, group_params[ g ].lda,
+                            beta, b_array_dev, group_params[ g ].ldb,
+                            group_count, *queue);
                 }
+                a_array_dev += group_count;
+                b_array_dev += group_count;
             }
 
             queue->sync();

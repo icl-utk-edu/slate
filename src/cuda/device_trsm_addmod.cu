@@ -23,17 +23,11 @@ static scalar_t to_cutype(scalar_t z) {
 static cuFloatComplex to_cutype(std::complex<float> z) {
     return make_cuFloatComplex(z.real(), z.imag());
 }
-static cuFloatComplex* to_cutype(std::complex<float>* z) {
-    return (cuFloatComplex*)z;
-}
 static cuFloatComplex** to_cutype(std::complex<float>** z) {
     return (cuFloatComplex**)z;
 }
 static cuDoubleComplex to_cutype(std::complex<double> z) {
     return make_cuDoubleComplex(z.real(), z.imag());
-}
-static cuDoubleComplex* to_cutype(std::complex<double>* z) {
-    return (cuDoubleComplex*)z;
 }
 static cuDoubleComplex** to_cutype(std::complex<double>** z) {
     return (cuDoubleComplex**)z;
@@ -65,8 +59,6 @@ template<>
 __device__ cuFloatComplex as_scalar<cuFloatComplex>(double r) {
     return make_cuFloatComplex(r, 0.0);
 }
-
-#include "magma_gemm_template_device.cuh"
 
 
 template <typename scalar_t>
@@ -172,66 +164,6 @@ void batch_trsm(
         batch, info, queue);
 }
 
-template <typename scalar_t>
-__device__ void tb_gemm_magma(bool transA, bool transB,
-                              int mb, int nb, int kb,
-                              scalar_t alpha, scalar_t* __restrict__ dA, int ldda,
-                                              scalar_t* __restrict__ dB, int lddb,
-                                              scalar_t* __restrict__ dC, int lddc) {
-
-    if (mb == 0 || nb == 0) {
-        return;
-    }
-
-    if (transA && !transB) {
-        // based on config 207
-        constexpr int DIM_X = 16;
-        constexpr int DIM_Y = 16;
-        constexpr int BLK_M = 32; //48;
-        constexpr int BLK_N = 32;
-        constexpr int BLK_K = 16;
-        constexpr int DIM_XA = 16;
-        constexpr int DIM_YA = 16;
-        constexpr int DIM_XB = 16;
-        constexpr int DIM_YB = 16;
-
-        for (int ii = 0; ii < mb; ii += BLK_M) {
-            for (int jj = 0; jj < nb; jj += BLK_N) {
-                __syncthreads();
-                gemm_template_device_tn<scalar_t, DIM_X, DIM_Y, BLK_M, BLK_N, BLK_K, DIM_XA, DIM_YA, DIM_XB, DIM_YB, (BLK_M/DIM_X), (BLK_N/DIM_Y), 0, 0>(
-                    min(BLK_M, mb-ii), min(BLK_N, nb-jj), kb,
-                    dA +      ii*ldda, ldda,
-                    dB +      jj*lddb, lddb,
-                    dC + ii + jj*lddc, lddc,
-                    alpha, as_scalar<scalar_t>(0.0));
-            }
-        }
-    } else if (!transA && transB) {
-        // based on config 160
-        constexpr int DIM_X = 16;
-        constexpr int DIM_Y = 16; //8;
-        constexpr int BLK_M = 32;
-        constexpr int BLK_N = 32;
-        constexpr int BLK_K = 16; //8;
-        constexpr int DIM_XA = 16;
-        constexpr int DIM_YA = 16; //8;
-        constexpr int DIM_XB = 16;
-        constexpr int DIM_YB = 16; //8;
-
-        for (int ii = 0; ii < mb; ii += BLK_M) {
-            for (int jj = 0; jj < nb; jj += BLK_N) {
-                gemm_template_device_nt<scalar_t, DIM_X, DIM_Y, BLK_M, BLK_N, BLK_K, DIM_XA, DIM_YA, DIM_XB, DIM_YB, (BLK_M/DIM_X), (BLK_N/DIM_Y), 0, 0>(
-                    min(BLK_M, mb-ii), min(BLK_N, nb-jj), kb,
-                    dA + ii,           ldda,
-                    dB + jj,           lddb,
-                    dC + ii + jj*lddc, lddc,
-                    alpha, as_scalar<scalar_t>(0.0));
-                __syncthreads();
-            }
-        }
-    }
-}
-
 // Compute a gemm within the threadblock
 // beta=0
 template <typename scalar_t>
@@ -301,24 +233,9 @@ __device__ void tb_gemm(bool transA, bool transB,
                     if (i < iib) {
                         for (int j = offsetj; j < nb; j += stridej) {
                             scalar_t sum = zero;
-                            //scalar_t* sAki = sA + i*ldsa;
-                            //scalar_t* dBkj = dB + kk + j*lddb;
                             #pragma unroll 16
                             for (int k = 0; k < 32; k += 1) {
-                                //scalar_t rBkj = k < kkb ? dBkj[0] : zero;
-                                //sum += nl_conj(sAki[0]) * rBkj;
-                                //sum += nl_conj(sAki[0]) * dBkj[0];
-                                //sAki++;
-                                //dBkj++;
-
-                                //scalar_t rBkj = k < kkb ? dB[(kk+k) + j*lddb] : zero;
-                                //scalar_t rBkj = k < kkb ? dBkj[k] : zero;
-                                //sum += nl_conj(sA[    k  +     i *ldsa]) * rBkj;
-
                                 sum += nl_conj(sA[k + i*ldsa]) * sB[k + j*ldsb];
-
-                              //sum += nl_conj(sA[    k  +     i *ldsa]) * dB[(kk+k) + j*lddb];
-                              //sum += nl_conj(dA[(kk+k) + (ii+i)*ldda]) * dB[(kk+k) + j*lddb];
                             }
                             dC[ii+i + j*lddc] += alpha*sum;
                         }
@@ -326,45 +243,6 @@ __device__ void tb_gemm(bool transA, bool transB,
                     __syncthreads();
                 }
             }
-
-            // copy into shared memory to get coalessed access
-            // N.B. Loop index names mismatch offseti, offsetj, stridei, stridej
-            /*for (int k = offseti; k < kb; k += stridei) {
-                for (int i = offsetj; i < mb; i += stridej) {
-                    sA[k + i*ldsa] = dA[k + i*ldda];
-                }
-            }
-            __syncthreads();
-            for (int i = offseti; i < mb; i += stridei) {
-                for (int j = offsetj; j < nb; j += stridej) {
-                    scalar_t sum = zero;
-                    scalar_t* sAki = sA + i*ldsa;
-                    scalar_t* dBkj = dB + j*lddb;
-                    for (int k = 0; k < kb; k += 1) {
-                        sum += nl_conj(sAki[0]) * dBkj[0];
-                        sAki++;
-                        dBkj++;
-                        //sum += nl_conj(sA[k + i*ldsa]) * dB[k + j*lddb];
-                        //sum += nl_conj(dA[k + i*ldda]) * dB[k + j*lddb];
-                    }
-                    dC[i + j*lddc] = alpha*sum;
-                }
-            }*/
-
-            /*for (int i = offseti; i < mb; i += stridei) {
-                for (int j = offsetj; j < nb; j += stridej) {
-                    scalar_t sum = zero;
-                    scalar_t* dAki = dA + i*ldda;
-                    scalar_t* dBkj = dB + j*lddb;
-                    for (int k = 0; k < kb; k += 1) {
-                        sum += nl_conj(dAki[0]) * dBkj[0];
-                        dAki++;
-                        dBkj++;
-                        //sum += nl_conj(dA[k + i*ldda]) * dB[k + j*lddb];
-                    }
-                    dC[i + j*lddc] = alpha*sum;
-                }
-            }*/
         }
     } else {
         if (transB) {
@@ -374,7 +252,6 @@ __device__ void tb_gemm(bool transA, bool transB,
                     scalar_t* dAik = dA + i;
                     scalar_t* dBjk = dB + j;
                     for (int k = 0; k < kb; k += 1) {
-                        //sum += dA[i + k*ldda] * nl_conj(dB[j + k*lddb]);
                         sum += dAik[0] * nl_conj(dBjk[0]);
                         dAik += ldda;
                         dBjk += lddb;
@@ -435,7 +312,6 @@ __device__ void tb_scale_copy(
             blas::real_type<scalar_t> inv_S_i = 1/S_i;
             for (int j = offsetj; j < nb; j += stridej) {
                 dB[i + j*lddb] = dA[i + j*ldda] * inv_S_i;
-                //dB[i + j*lddb] = dA[i + j*ldda] / S_i;
             }
         }
     } else {
@@ -444,7 +320,6 @@ __device__ void tb_scale_copy(
             blas::real_type<scalar_t> inv_S_j = 1/S_j;
             for (int i = offseti; i < mb; i += stridei) {
                 dB[i + j*lddb] = dA[i + j*ldda] * inv_S_j;
-                //dB[i + j*lddb] = dA[i + j*ldda] / S_j;
             }
         }
     }
@@ -475,11 +350,11 @@ __global__ void __launch_bounds__(256,3) batch_diag_kernel(
         int mb_local = min(step, mb - step*blockIdx.y);
 
         scalar_t* U_local = dUarray[batch] + Ui + Ui*lddu;
-        tb_gemm_magma(false, true, mb_local, nb, nb,
+        tb_gemm(false, true, mb_local, nb, nb,
                 alpha, B_local, lddb,
                        U_local, lddu,
                        W_local, lddw);
-        //__syncthreads();
+        __syncthreads();
         tb_copy(mb_local, nb, W_local, lddw, B_local, lddb);
 
     } else if (!isUpper && isLeft) { // lower left
@@ -492,8 +367,8 @@ __global__ void __launch_bounds__(256,3) batch_diag_kernel(
 
         scalar_t* U_local = dUarray[batch] + Ui + Ui*lddu;
         tb_copy(mb, nb_local, B_local, lddb, W_local, lddw);
-        //__syncthreads();
-        tb_gemm_magma(true, false, mb, nb_local, mb,
+        __syncthreads();
+        tb_gemm(true, false, mb, nb_local, mb,
                 alpha, U_local, lddu,
                        W_local, lddw,
                        B_local, lddb);
@@ -507,11 +382,11 @@ __global__ void __launch_bounds__(256,3) batch_diag_kernel(
 
         scalar_t* VT_local = dVTarray[batch] + VTi + VTi*lddvt;
         real_t* S_local = dSarray[batch] + VTi;
-        tb_gemm_magma(false, true, mb_local, nb, nb,
+        tb_gemm(false, true, mb_local, nb, nb,
                 alpha,  B_local, lddb,
                        VT_local, lddvt,
                         W_local, lddw);
-        //__syncthreads();
+        __syncthreads();
         tb_scale_copy(false, mb_local, nb,
                     S_local,
                     W_local, lddw,
@@ -530,8 +405,8 @@ __global__ void __launch_bounds__(256,3) batch_diag_kernel(
                     S_local,
                     B_local, lddb,
                     W_local, lddw);
-        //__syncthreads();
-        tb_gemm_magma(true, false, mb, nb_local, mb,
+        __syncthreads();
+        tb_gemm(true, false, mb, nb_local, mb,
                 alpha, VT_local, lddvt,
                         W_local, lddw,
                         B_local, lddb);
@@ -604,19 +479,6 @@ void batch_trsm_addmod_diag(
                     dSarray,
                     to_cutype(dBarray), Bi, Bj, lddb,
                     to_cutype(dWarray),         lddw);
-
-
-    //printf("Kernel launch args:\n    grid size=(%d, %d, %d)\n    tb size=(%d, %d, %d)\n    shmem_size=%db\n", grid_dim.x, grid_dim.y, grid_dim.z, block_dim.x, block_dim.y, block_dim.z, shmem_size);
-
-    //cudaError_t err = cudaGetLastError();
-    //if (err != cudaSuccess)
-    //    printf("Error in kernel launch: %s\n", cudaGetErrorString(err));
-
-    //cudaStreamSynchronize(queue.stream());
-    //err = cudaGetLastError();
-    //if (err != cudaSuccess)
-    //    printf("Error in kernel execut: %s\n", cudaGetErrorString(err));
-
 }
 
 template <bool isLeft, typename scalar_t>

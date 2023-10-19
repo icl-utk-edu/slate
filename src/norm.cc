@@ -43,10 +43,10 @@ norm(
     else if (A.op() == Op::Trans)
         A = transpose(A);
 
-    // TODO update internal to use these batch arrays
-    // They're currently just used when transposing tiles
     if (target == Target::Devices) {
-        A.allocateBatchArrays();
+        const int64_t batch_size_default = 0;
+        const int64_t num_queues = 1;
+        A.allocateBatchArrays( batch_size_default, num_queues );
         A.reserveDeviceWorkspace();
     }
 

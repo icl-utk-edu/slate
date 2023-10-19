@@ -149,8 +149,7 @@ void set(
 
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task priority( priority ) \
-            shared( A, irange, jrange ) \
+        #pragma omp task priority( priority ) shared( A, irange, jrange ) \
             firstprivate( device, queue_index, offdiag_value, diag_value )
         {
             // temporarily, convert both into same layout
@@ -290,16 +289,14 @@ void set(
                 if (group_params[ g ].is_diagonal) {
                     device::batch::tzset(
                         A.uplo(),
-                        group_params[ g ].mb,
-                        group_params[ g ].nb,
+                        group_params[ g ].mb, group_params[ g ].nb,
                         offdiag_value, diag_value,
                         a_array_dev, group_params[ g ].lda,
                         group_count, *queue);
                 }
                 else {
                     device::batch::geset(
-                        group_params[ g ].mb,
-                        group_params[ g ].nb,
+                        group_params[ g ].mb, group_params[ g ].nb,
                         offdiag_value, offdiag_value,
                         a_array_dev, group_params[ g ].lda,
                         group_count, *queue );

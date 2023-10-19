@@ -121,15 +121,14 @@ void set(internal::TargetType<Target::Devices>,
 
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task priority( priority ) \
-            shared( A, irange, jrange ) \
+        #pragma omp task priority( priority ) shared( A, irange, jrange ) \
             firstprivate( device, queue_index, offdiag_value, diag_value )
         {
             // Get local tiles for writing.
             // convert to column major layout to simplify lda's
             // todo: this is in-efficient because the diagonal is independant of layout
             // todo: best, handle directly through the CUDA kernels
-            auto layout = LayoutConvert( Layout::ColMajor );
+            auto layout = LayoutConvert::ColMajor;
             std::set<ij_tuple> A_tiles_set;
 
             for (int64_t i = 0; i < A.mt(); ++i) {
@@ -229,8 +228,7 @@ void set(internal::TargetType<Target::Devices>,
             for (size_t g = 0; g < group_params.size(); ++g) {
                 int64_t group_count = group_params[ g ].count;
                 device::batch::geset(
-                    group_params[ g ].mb,
-                    group_params[ g ].nb,
+                    group_params[ g ].mb, group_params[ g ].nb,
                     offdiag_value, group_params[ g ].diag_value,
                     a_array_dev, group_params[ g ].lda,
                     group_count, *queue );

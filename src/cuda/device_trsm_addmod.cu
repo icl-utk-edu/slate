@@ -572,13 +572,13 @@ void batch_trsm_addmod_diag(
     scalar_t** dVTarray = dUarray;
     real_t**   dSarray = (real_t**)(dUarray + batch);
 
-    blas::device_setvector<scalar_t*>(batch, Barray.data(), 1, dBarray, 1, queue);
-    blas::device_setvector<scalar_t*>(batch, Warray.data(), 1, dWarray, 1, queue);
+    blas::device_copy_vector( batch, Barray.data(), 1, dBarray, 1, queue );
+    blas::device_copy_vector( batch, Warray.data(), 1, dWarray, 1, queue );
     if (isUpper) {
-        blas::device_setvector<scalar_t*>(batch, VTarray.data(), 1, dVTarray, 1, queue);
-        blas::device_setvector<real_t*>  (batch, Sarray.data(), 1, dSarray, 1, queue);
+        blas::device_copy_vector( batch, VTarray.data(), 1, dVTarray, 1, queue );
+        blas::device_copy_vector( batch, Sarray.data(), 1, dSarray, 1, queue );
     } else {
-        blas::device_setvector<scalar_t*>(batch, Uarray.data(), 1, dUarray, 1, queue);
+        blas::device_copy_vector( batch, Uarray.data(), 1, dUarray, 1, queue );
     }
 
     //int dimA = isLeft ? mb : nb;
@@ -673,9 +673,9 @@ void batch_scale_copy(
     scalar_t** dBarray = dAarray + batch;
     real_t**   dSarray = (real_t**)(dBarray + batch);
 
-    blas::device_setvector<real_t*  >(batch, Sarray.data(), 1, dSarray, 1, queue);
-    blas::device_setvector<scalar_t*>(batch, Aarray.data(), 1, dAarray, 1, queue);
-    blas::device_setvector<scalar_t*>(batch, Barray.data(), 1, dBarray, 1, queue);
+    blas::device_copy_vector( batch, Sarray.data(), 1, dSarray, 1, queue );
+    blas::device_copy_vector( batch, Aarray.data(), 1, dAarray, 1, queue );
+    blas::device_copy_vector( batch, Barray.data(), 1, dBarray, 1, queue );
 
     dim3 grid_dim;
     grid_dim.x = batch;
@@ -748,8 +748,8 @@ void batch_copy(
     scalar_t** dAarray = (scalar_t**)queue.work();
     scalar_t** dBarray = dAarray + batch;
 
-    blas::device_setvector<scalar_t*>(batch, Aarray.data(), 1, dAarray, 1, queue);
-    blas::device_setvector<scalar_t*>(batch, Barray.data(), 1, dBarray, 1, queue);
+    blas::device_copy_vector( batch, Aarray.data(), 1, dAarray, 1, queue );
+    blas::device_copy_vector( batch, Barray.data(), 1, dBarray, 1, queue );
 
     dim3 grid_dim;
     grid_dim.x = batch;

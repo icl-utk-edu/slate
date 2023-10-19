@@ -67,26 +67,47 @@ void scale_row_col(
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    // Define index ranges for regions of matrix.
-    // Tiles in each region are all the same size.
-    int64_t irange[4][2] = {
-        { 0,        A.mt()-1 },
-        { A.mt()-1, A.mt()   },
-        { 0,        A.mt()-1 },
-        { A.mt()-1, A.mt()   }
-    };
-    int64_t jrange[4][2] = {
-        { 0,        A.nt()-1 },
-        { 0,        A.nt()-1 },
-        { A.nt()-1, A.nt()   },
-        { A.nt()-1, A.nt()   }
-    };
+    int64_t mt = A.mt();
+    int64_t nt = A.nt();
+
+    // Find ranges of matching mb's.
+    std::vector< int64_t > irange, range_ioffset;
+    {
+        int64_t last_mb = -1;
+        int64_t ioffset = 0;
+        for (int64_t i = 0; i < mt; ++i) {
+            int64_t mb = A.tileMb( i );
+            if (mb != last_mb) {
+                last_mb = mb;
+                irange.push_back( i );
+                range_ioffset.push_back( ioffset );
+                ioffset += mb;
+            }
+        }
+        irange.push_back( mt );
+    }
+
+    // Find ranges of matching nb's.
+    std::vector< int64_t > jrange, range_joffset;
+    {
+        int last_nb = -1;
+        int64_t joffset = 0;
+        for (int64_t j = 0; j < nt; ++j) {
+            int64_t nb = A.tileNb( j );
+            if (nb != last_nb) {
+                last_nb = nb;
+                jrange.push_back( j );
+                range_joffset.push_back( joffset );
+                joffset += nb;
+            }
+        }
+        jrange.push_back( nt );
+    }
 
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task slate_omp_default_none \
-            shared( R, C, A ) \
-            firstprivate( equed, device, irange, jrange )
+        #pragma omp task shared( R, C, A, irange, jrange, range_ioffset, range_joffset ) \
+            firstprivate( equed, device )
         {
             bool want_row = equed == Equed::Both || equed == Equed::Row;
             bool want_col = equed == Equed::Both || equed == Equed::Col;
@@ -126,37 +147,50 @@ void scale_row_col(
             }
             A.tileGetForWriting( A_tiles_set, device, layout );
 
-            scalar_t** a_array_host = A.array_host( device );
+            scalar_t** a_array_host = A.array_host( device, queue_index );
 
             int64_t batch_count = 0;
-            int64_t mb[4], nb[4], lda[4], group_count[4];
-            for (int q = 0; q < 4; ++q) {
-                group_count[q] = 0;
-                lda[q] = 0;
-                mb[q] = A.tileMb( irange[q][0] );
-                nb[q] = A.tileNb( jrange[q][0] );
-                int ii = A.tileMb( 0 ) * irange[q][0];
-                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                    int jj = A.tileNb( 0 ) * jrange[q][0];
-                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                        if (A.tileIsLocal(i, j) && device == A.tileDevice(i, j)) {
+            struct Params {
+                int64_t count, mb, nb, lda;
+            };
+            std::vector<Params> group_params;
+            for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
+            for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
+                Params group = { 0, -1, -1, -1 };
+                int64_t joffset = range_joffset[ jj ];
+                for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
+                    int64_t ioffset = range_ioffset[ ii ];
+                    for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
+                        if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
                             auto Aij = A( i, j, device );
                             if (want_row)
-                                r_array_host[ batch_count ] = &dR[ ii ];
+                                r_array_host[ batch_count ] = &dR[ ioffset ];
                             if (want_col)
-                                c_array_host[ batch_count ] = &dC[ jj ];
+                                c_array_host[ batch_count ] = &dC[ joffset ];
                             a_array_host[ batch_count ] = Aij.data();
-                            lda[q] = Aij.stride();
-                            ++group_count[q];
+                            if (group.count == 0) {
+                                group.mb  = Aij.mb();
+                                group.nb  = Aij.nb();
+                                group.lda = Aij.stride();
+                            }
+                            else {
+                                assert( group.mb  == Aij.mb() );
+                                assert( group.nb  == Aij.nb() );
+                                assert( group.lda == Aij.stride() );
+                            }
+                            ++group.count;
                             ++batch_count;
                         }
-                        jj += A.tileNb( j );
-                    }
-                    ii += A.tileMb( i );
+                        ioffset += A.tileMb( i );
+                    } // for i
+                    joffset += A.tileNb( j );
+                } // for j
+                if (group.count > 0) {
+                    group_params.push_back( group );
                 }
-            }
+            }} // for jj, ii
 
-            scalar_t** a_array_dev = A.array_device( device );
+            scalar_t** a_array_dev = A.array_device( device, queue_index );
 
             blas::device_memcpy< scalar_t* >(
                 &a_array_dev[ 0 ], &a_array_host[ 0 ], batch_count, *queue);
@@ -177,16 +211,17 @@ void scale_row_col(
             scalar_t2** r_array_data = r_array_dev.data();
             scalar_t2** c_array_data = c_array_dev.data();
 
-            for (int q = 0; q < 4; ++q) {
-                if (group_count[q] > 0) {
-                    device::gescale_row_col_batch(
-                        equed, mb[q], nb[q],
-                        r_array_data, c_array_data, a_array_dev, lda[q],
-                        group_count[q], *queue);
-                    r_array_data += group_count[q];
-                    c_array_data += group_count[q];
-                    a_array_dev += group_count[q];
-                }
+            for (size_t g = 0; g < group_params.size(); ++g) {
+                int64_t group_count = group_params[ g ].count;
+                device::gescale_row_col_batch(
+                        equed,
+                        group_params[ g ].mb, group_params[ g ].nb,
+                        r_array_data, c_array_data,
+                        a_array_dev, group_params[ g ].lda,
+                        group_count, *queue);
+                r_array_data += group_count;
+                c_array_data += group_count;
+                a_array_dev  += group_count;
             }
 
             // Clear the DevVectors, freeing device memory

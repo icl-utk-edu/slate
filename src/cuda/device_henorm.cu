@@ -227,11 +227,11 @@ __global__ void henorm_fro_kernel(
             row_sumsq[chunk] = 1;
         }
         combine_sumsq(row_scale[chunk], row_sumsq[chunk], scale, sumsq);
-        __syncthreads();
     }
 
     // Reduction to find sum-of-squares of tile.
     // todo: parallel reduction.
+    __syncthreads();
     if (threadIdx.x == 0) {
         real_t tile_scale = row_scale[0];
         real_t tile_sumsq = row_sumsq[0];

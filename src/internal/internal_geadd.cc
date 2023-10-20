@@ -126,13 +126,10 @@ void add(internal::TargetType<Target::Devices>,
     bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
                           || tile_release_strategy == TileReleaseStrategy::All;
 
-    // Find ranges of matching mb's and ranges of matching nb's.
-    std::vector< int64_t > irange = device_regions_range( true, A );
-    std::vector< int64_t > jrange = device_regions_range( false, A );
-
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task priority( priority ) shared( A, B, irange, jrange ) \
+        #pragma omp task slate_omp_default_none priority( priority ) \
+            shared( A, B ) \
             firstprivate( device, queue_index, beta, alpha, call_tile_tick )
         {
             // temporarily, convert both into same layout
@@ -170,42 +167,10 @@ void add(internal::TargetType<Target::Devices>,
             scalar_t** a_array_host = B.array_host(device, queue_index);
             scalar_t** b_array_host = a_array_host + batch_size;
 
-            int64_t batch_count = 0;
-            struct Params {
-                int64_t count, mb, nb, lda, ldb;
-            };
-            std::vector<Params> group_params;
-            for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
-            for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
-                Params group = { 0, -1, -1, -1, -1 };
-                for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
-                for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
-                    if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
-                        auto Aij = A( i, j, device );
-                        a_array_host[ batch_count ] = Aij.data();
-                        auto Bij = B( i, j, device );
-                        b_array_host[ batch_count ] = Bij.data();
-                        if (group.count == 0) {
-                            group.mb  = Aij.mb();
-                            group.nb  = Aij.nb();
-                            group.lda = Aij.stride();
-                            group.ldb = Bij.stride();
-                        }
-                        else {
-                            assert( group.mb  == Aij.mb() );
-                            assert( group.nb  == Aij.nb() );
-                            assert( group.lda == Aij.stride() );
-                            assert( group.ldb == Bij.stride() );
-                        }
-                        ++group.count;
-                        ++batch_count;
-                    }
-                }} // for j, i
-                if (group.count > 0) {
-                    group_params.push_back( group );
-                }
-            }} // for jj, ii
-            slate_assert(batch_count == batch_size);
+            auto group_params = device_regions_build<false, 2, scalar_t>(
+                                                    {A, B},
+                                                    {a_array_host, b_array_host},
+                                                    device );
 
             scalar_t** a_array_dev = B.array_device(device, queue_index);
             scalar_t** b_array_dev = a_array_dev + batch_size;
@@ -213,7 +178,7 @@ void add(internal::TargetType<Target::Devices>,
             blas::Queue* queue = B.compute_queue(device, queue_index);
 
             blas::device_memcpy<scalar_t*>(a_array_dev, a_array_host,
-                                batch_count*2,
+                                batch_size*2,
                                 blas::MemcpyKind::HostToDevice,
                                 *queue);
 
@@ -221,8 +186,8 @@ void add(internal::TargetType<Target::Devices>,
                 int64_t group_count = group_params[ g ].count;
                 device::batch::geadd(
                         group_params[ g ].mb, group_params[ g ].nb,
-                        alpha, a_array_dev, group_params[ g ].lda,
-                        beta, b_array_dev, group_params[ g ].ldb,
+                        alpha, a_array_dev, group_params[ g ].ld[0],
+                        beta, b_array_dev, group_params[ g ].ld[1],
                         group_count, *queue);
                 a_array_dev += group_count;
                 b_array_dev += group_count;

@@ -89,14 +89,10 @@ void scale(internal::TargetType<Target::Devices>,
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    // Find ranges of matching mb's and ranges of matching nb's.
-    std::vector< int64_t > irange = device_regions_range( true, A );
-    std::vector< int64_t > jrange = device_regions_range( false, A );
-
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task priority( priority ) shared( A, irange, jrange ) \
-            firstprivate( device, queue_index, denom, numer )
+        #pragma omp task slate_omp_default_none priority( priority ) \
+            shared( A ) firstprivate( device, queue_index, denom, numer )
         {
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already
@@ -114,52 +110,26 @@ void scale(internal::TargetType<Target::Devices>,
             }
             A.tileGetForWriting( A_tiles_set, device, layout );
 
+            int64_t batch_size = A_tiles_set.size();
             scalar_t** a_array_host = A.array_host( device, queue_index );
 
-            int64_t batch_count = 0;
-            struct Params {
-                int64_t count, mb, nb, lda;
-            };
-            std::vector<Params> group_params;
-            for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
-            for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
-                Params group = { 0, -1, -1, -1 };
-                for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
-                for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
-                    if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
-                        auto Aij = A( i, j, device );
-                        a_array_host[ batch_count ] = Aij.data();
-                        if (group.count == 0) {
-                            group.mb  = Aij.mb();
-                            group.nb  = Aij.nb();
-                            group.lda = Aij.stride();
-                        }
-                        else {
-                            assert( group.mb  == Aij.mb() );
-                            assert( group.nb  == Aij.nb() );
-                            assert( group.lda == Aij.stride() );
-                        }
-                        ++group.count;
-                        ++batch_count;
-                    }
-                }} // for j, i
-                if (group.count > 0) {
-                    group_params.push_back( group );
-                }
-            }} // for jj, ii
+            auto group_params = device_regions_build<false, 1, scalar_t>(
+                                                    {A},
+                                                    {a_array_host},
+                                                    device );
 
             blas::Queue* queue = A.compute_queue( device, queue_index );
 
             scalar_t** a_array_dev = A.array_device( device, queue_index );
             blas::device_memcpy<scalar_t*>(
-                a_array_dev, a_array_host, batch_count,
+                a_array_dev, a_array_host, batch_size,
                 blas::MemcpyKind::HostToDevice, *queue);
 
             for (size_t g = 0; g < group_params.size(); ++g) {
                 int64_t group_count = group_params[ g ].count;
                 device::batch::gescale(
                         group_params[ g ].mb, group_params[ g ].nb,
-                        numer, denom, a_array_dev, group_params[ g ].lda,
+                        numer, denom, a_array_dev, group_params[ g ].ld[0],
                         group_count, *queue);
                 a_array_dev += group_count;
             }

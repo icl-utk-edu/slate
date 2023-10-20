@@ -110,6 +110,36 @@ slate::Matrix<scalar_t> alloc_basis(slate::BaseMatrix<scalar_t>& A, int64_t n,
 }
 
 
+// Utilities for device batch regions
+
+//------------------------------------------------------------------------------
+/// Computes the range of tiles with either the same mb or the same nb
+///
+/// @param[in] want_rows
+///     If true, compute the row-ranges.  Else, compute the column-ranges.
+///
+/// @param[in] A
+///     The matrix to get tile sizes from
+///
+/// @return The ranges of uniform tile sizes
+///
+template<typename scalar_t>
+std::vector<int64_t> device_regions_range( bool want_rows, BaseMatrix<scalar_t>& A )
+{
+    int64_t kt = want_rows ? A.mt() : A.nt();
+
+    std::vector< int64_t > range;
+    int64_t last = -1;
+    for (int64_t k = 0; k < kt; ++k) {
+        int64_t kb = want_rows ? A.tileMb( k ) : A.tileNb( k );
+        if (kb != last) {
+            last = kb;
+            range.push_back( k );
+        }
+    }
+    range.push_back( kt );
+    return range;
+}
 
 } // namespace internal
 } // namespace slate

@@ -10,6 +10,7 @@
 #include "slate/Matrix.hh"
 #include "internal/Tile_lapack.hh"
 #include "slate/types.hh"
+#include "internal/internal_util.hh"
 
 namespace slate {
 namespace internal {
@@ -141,32 +142,9 @@ void add(internal::TargetType<Target::Devices>,
     bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
                           || tile_release_strategy == TileReleaseStrategy::All;
 
-    int64_t mt = A.mt();
-    int64_t nt = A.nt();
-
-    // Find ranges of matching mb's.
-    std::vector< int64_t > irange;
-    int64_t last_mb = -1;
-    for (int64_t i = 0; i < mt; ++i) {
-        int64_t mb = A.tileMb( i );
-        if (mb != last_mb) {
-            last_mb = mb;
-            irange.push_back( i );
-        }
-    }
-    irange.push_back( mt );
-
-    // Find ranges of matching nb's.
-    std::vector< int64_t > jrange;
-    int last_nb = -1;
-    for (int64_t j = 0; j < nt; ++j) {
-        int64_t nb = A.tileNb( j );
-        if (nb != last_nb) {
-            last_nb = nb;
-            jrange.push_back( j );
-        }
-    }
-    jrange.push_back( nt );
+    // Find ranges of matching mb's and ranges of matching nb's.
+    std::vector< int64_t > irange = device_regions_range( true, A );
+    std::vector< int64_t > jrange = device_regions_range( false, A );
 
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {

@@ -11,6 +11,7 @@
 #include "slate/Matrix.hh"
 #include "slate/types.hh"
 #include "tile/scale_row_col.hh"
+#include "internal/internal_util.hh"
 
 namespace slate {
 
@@ -67,41 +68,24 @@ void scale_row_col(
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    int64_t mt = A.mt();
-    int64_t nt = A.nt();
+    // Find ranges of matching mb's and ranges of matching nb's.
+    std::vector< int64_t > irange = device_regions_range( true, A );
+    std::vector< int64_t > jrange = device_regions_range( false, A );
 
-    // Find ranges of matching mb's.
-    std::vector< int64_t > irange, range_ioffset;
+    // Compute global offsets of each block
+    std::vector< int64_t > range_ioffset (irange.size()-1);
+    std::vector< int64_t > range_joffset (jrange.size()-1);
     {
-        int64_t last_mb = -1;
         int64_t ioffset = 0;
-        for (int64_t i = 0; i < mt; ++i) {
-            int64_t mb = A.tileMb( i );
-            if (mb != last_mb) {
-                last_mb = mb;
-                irange.push_back( i );
-                range_ioffset.push_back( ioffset );
-                ioffset += mb;
-            }
+        for (size_t i = 0; i < range_ioffset.size(); ++i) {
+            range_ioffset[ i ] = ioffset;
+            ioffset += A.tileMb( irange[ i ] ) * (irange[ i+1 ] - irange[ i ]);
         }
-        irange.push_back( mt );
-    }
-
-    // Find ranges of matching nb's.
-    std::vector< int64_t > jrange, range_joffset;
-    {
-        int last_nb = -1;
         int64_t joffset = 0;
-        for (int64_t j = 0; j < nt; ++j) {
-            int64_t nb = A.tileNb( j );
-            if (nb != last_nb) {
-                last_nb = nb;
-                jrange.push_back( j );
-                range_joffset.push_back( joffset );
-                joffset += nb;
-            }
+        for (size_t j = 0; j < range_joffset.size(); ++j) {
+            range_joffset[ j ] = joffset;
+            joffset += A.tileNb( jrange[ j ] ) * (jrange[ j+1 ] - jrange[ j ]);
         }
-        jrange.push_back( nt );
     }
 
     #pragma omp taskgroup

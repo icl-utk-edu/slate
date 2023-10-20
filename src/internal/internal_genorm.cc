@@ -386,12 +386,14 @@ void norm(
             devices_values.resize(A.num_devices());
         }
         else if (in_norm == Norm::One) {
-            // todo: this assumes all tiles with uniform nb
-            ldv = A.tileNb(0);
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                ldv = std::max( ldv, A.tileNb(j) );
+            }
         }
         else if (in_norm == Norm::Inf) {
-            // todo: this assumes all tiles with uniform mb
-            ldv = A.tileMb(0);
+            for (int64_t i = 0; i < A.mt(); ++i) {
+                ldv = std::max( ldv, A.tileMb(i) );
+            }
         }
         else if (in_norm == Norm::Fro) {
             ldv = 2;
@@ -400,8 +402,9 @@ void norm(
     }
     else if (scope == NormScope::Columns) {
         if (in_norm == Norm::Max) {
-            // todo: this assumes all tiles with uniform nb
-            ldv = A.tileNb(0);
+            for (int64_t j = 0; j < A.nt(); ++j) {
+                ldv = std::max( ldv, A.tileNb(j) );
+            }
         }
         else {
             slate_not_implemented("The NormScope isn't yet supported.");

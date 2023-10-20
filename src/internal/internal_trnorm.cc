@@ -356,6 +356,10 @@ void norm(
     const Layout layout = Layout::ColMajor;
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
+    if (scope != NormScope::Matrix) {
+        slate_not_implemented("The NormScope isn't yet supported.");
+    }
+
     assert(A.num_devices() > 0);
 
     std::vector<std::vector<scalar_t*> > a_host_arrays(A.num_devices());
@@ -373,10 +377,14 @@ void norm(
         devices_values.resize(A.num_devices());
     }
     else if (in_norm == Norm::One) {
-        ldv = A.tileNb(0);
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            ldv = std::max( ldv, A.tileNb(j) );
+        }
     }
     else if (in_norm == Norm::Inf) {
-        ldv = A.tileMb(0);
+        for (int64_t i = 0; i < A.mt(); ++i) {
+            ldv = std::max( ldv, A.tileMb(i) );
+        }
     }
     else if (in_norm == Norm::Fro) {
         ldv = 2;

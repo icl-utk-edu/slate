@@ -386,7 +386,10 @@ void norm(
         devices_values.resize(A.num_devices());
     }
     else if (in_norm == Norm::One || in_norm == Norm::Inf) {
-        ldv = 2*A.tileNb(0);
+        for (int64_t j = 0; j < A.nt(); ++j) {
+            ldv = std::max( ldv, A.tileNb(j) );
+        }
+        ldv *= 2;
     }
     else if (in_norm == Norm::Fro) {
         ldv = 2;

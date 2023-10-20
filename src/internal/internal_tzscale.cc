@@ -146,7 +146,7 @@ void scale(internal::TargetType<Target::Devices>,
             int64_t batch_size = A_tiles_set.size();
             scalar_t** a_array_host = A.array_host( device, queue_index );
 
-            auto group_params = device_regions_build<1, scalar_t>(
+            auto group_params = device_regions_build<true, 1, scalar_t>(
                                                     {A},
                                                     {a_array_host},
                                                     device );

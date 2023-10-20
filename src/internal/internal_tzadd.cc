@@ -193,7 +193,7 @@ void add(internal::TargetType<Target::Devices>,
             scalar_t** a_array_host = B.array_host( device, queue_index );
             scalar_t** b_array_host = a_array_host + batch_size;
 
-            auto group_params = device_regions_build<2, scalar_t>(
+            auto group_params = device_regions_build<true, 2, scalar_t>(
                                                     {A, B},
                                                     {a_array_host, b_array_host},
                                                     device );

@@ -146,7 +146,7 @@ std::vector<int64_t> device_regions_range( bool want_rows, BaseMatrix<scalar_t>&
 /// Helper class to store the information on a device region
 ///
 /// @tparam has_diag
-///     Wheather the diagonal tiles need to be special cased
+///     Wheather the diagonal tiles may need to be special cased
 ///
 /// @tparam mat_count
 ///     The number of matrices used by the kernel
@@ -189,12 +189,13 @@ public:
 /// @params[in] diag_same
 ///     Whether to treat the diagonal tiles as normal tiles in spite of has_diag
 ///     Ignored when has_diag is false.
+///
 template< bool has_diag, int mat_count, typename scalar_t>
 std::vector< device_regions_params<has_diag, mat_count> > device_regions_build(
-        std::array< std::reference_wrapper<Matrix<scalar_t>>, mat_count > mats,
-        std::array< scalar_t**, mat_count> mats_array_host,
+        std::array< std::reference_wrapper<BaseMatrix<scalar_t>>, mat_count > mats,
+        std::array< scalar_t**, mat_count > mats_array_host,
         int64_t device,
-        bool diag_same = has_diag)
+        bool diag_same = true)
 {
     // The first two arguments should be valid targets for brace-initialization
     // reference_wrapper works around fact that C++ doesn't allow array of references
@@ -207,148 +208,33 @@ std::vector< device_regions_params<has_diag, mat_count> > device_regions_build(
     std::vector< int64_t > irange = device_regions_range( true, A );
     std::vector< int64_t > jrange = device_regions_range( false, A );
 
+    // Trapezoidal matrices always need special treatment for diagonal tiles
+    diag_same &= A.uplo() == Uplo::General;
+
+    // Can't treat diagonals special when we can't store the diagonal status
+    assert( diag_same || has_diag );
+    diag_same |= !has_diag; // Ensure the compiler can propagate this assertion
+
     int64_t batch_count = 0;
+    int64_t mt = A.mt();
     std::vector<Params> group_params;
     for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
     for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
         Params group;
+        group.mb = A.tileMb( irange[ ii ] );
+        group.nb = A.tileNb( jrange[ jj ] );
         for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
-        for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
-            if ((!has_diag || diag_same || i != j)
-                && A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
+            // Lower matrices start at j+1
+            // Upper matrices end at j
+            // General matrices run the whole range
+            int istart = std::max(irange[ ii ], (A.uplo() == Uplo::Lower ? j+1 : 0));
+            int iend   = std::min(irange[ ii+1 ], (A.uplo() == Uplo::Upper ? j : mt));
+            for (int64_t i = istart; i < iend; ++i) {
+                if ((!has_diag || diag_same || i != j)
+                    && A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
 
-                auto Aij = A( i, j, device );
-                mats_array_host[ 0 ][ batch_count ] = Aij.data();
-                if (group.count == 0) {
-                    group.mb  = Aij.mb();
-                    group.nb  = Aij.nb();
-                    group.ld[0] = Aij.stride();
-                }
-                else {
-                    assert( group.mb  == Aij.mb() );
-                    assert( group.nb  == Aij.nb() );
-                    assert( group.ld[0] == Aij.stride() );
-                }
-                for (int m = 1; m < mat_count; ++m) {
-                    auto Mij = mats[ m ].get()( i, j, device );
-                    mats_array_host[ m ][ batch_count ] = Mij.data();
-                    if (group.count == 0) {
-                        group.ld[m] = Mij.stride();
-                    }
-                    else {
-                        assert( group.ld[m] == Mij.stride() );
-                    }
-                }
-                ++group.count;
-                ++batch_count;
-            }
-        }} // for j, i
-        if (group.count > 0) {
-            group_params.push_back( group );
-        }
-
-        // If the diagonal needs special treatment, build the diagonal regions
-        if constexpr (has_diag) {
-            if (!diag_same) {
-                group = Params();
-                group.is_diagonal = true;
-                // Diagonal tiles only in the intersection of irange and jrange
-                int64_t ijstart = std::max(irange[ ii   ], jrange[ jj   ]);
-                int64_t ijend   = std::min(irange[ ii+1 ], jrange[ jj+1 ]);
-                for (int64_t ij = ijstart; ij < ijend; ++ij) {
-                    if (A.tileIsLocal( ij, ij )
-                        && device == A.tileDevice( ij, ij ))
-                    {
-                        auto Aij = A( ij, ij, device );
-                        mats_array_host[ 0 ][ batch_count ] = Aij.data();
-                        if (group.count == 0) {
-                            group.mb  = Aij.mb();
-                            group.nb  = Aij.nb();
-                            group.ld[0] = Aij.stride();
-                        }
-                        else {
-                            assert( group.mb  == Aij.mb() );
-                            assert( group.nb  == Aij.nb() );
-                            assert( group.ld[0] == Aij.stride() );
-                        }
-                        for (int m = 1; m < mat_count; ++m) {
-                            auto Mij = mats[ m ].get()( ij, ij, device );
-                            mats_array_host[ m ][ batch_count ] = Mij.data();
-                            if (group.count == 0) {
-                                group.ld[m] = Mij.stride();
-                            }
-                            else {
-                                assert( group.ld[m] == Mij.stride() );
-                            }
-                        }
-                        ++group.count;
-                        ++batch_count;
-                    }
-                } // for ij
-                if (group.count > 0) {
-                    group_params.push_back( group );
-                }
-            }
-        }
-    }} // for jj, ii
-    return group_params;
-}
-
-//------------------------------------------------------------------------------
-/// Computes and populates the regions for the given matrices.
-///
-/// @params[in] mats
-///     An array of the matrices to build regions for
-///
-/// @params[in] mats_array_host
-///     An array of the arrays to fill with pointers to device data
-///
-/// @params[in] device
-///     The device to build regions for
-///
-/// @params[in] diag_same
-///     Whether to treat the diagonal tiles as normal tiles in spite of has_diag
-///     Ignored when has_diag is false.
-template< int mat_count, typename scalar_t>
-std::vector< device_regions_params<true, mat_count> > device_regions_build(
-        std::array< std::reference_wrapper<BaseTrapezoidMatrix<scalar_t>>, mat_count > mats,
-        std::array< scalar_t**, mat_count> mats_array_host,
-        int64_t device)
-{
-    // The first two arguments should be valid targets for brace-initialization
-    // reference_wrapper works around fact that C++ doesn't allow array of references
-
-    using Params = device_regions_params<true, mat_count>;
-
-    auto& A = mats[0].get();
-
-    // Find ranges of matching mb's and ranges of matching nb's.
-    std::vector< int64_t > irange = device_regions_range( true, A );
-    std::vector< int64_t > jrange = device_regions_range( false, A );
-
-    int64_t batch_count = 0;
-    std::vector<Params> group_params;
-    for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
-    for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
-        Params group;
-        if (A.uplo() == Uplo::Lower) {
-            for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
-            for (int64_t i = std::max(irange[ ii ], j+1); i < irange[ ii+1 ]; ++i) {
-                if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
-
-                    auto Aij = A( i, j, device );
-                    mats_array_host[ 0 ][ batch_count ] = Aij.data();
-                    if (group.count == 0) {
-                        group.mb  = Aij.mb();
-                        group.nb  = Aij.nb();
-                        group.ld[0] = Aij.stride();
-                    }
-                    else {
-                        assert( group.mb  == Aij.mb() );
-                        assert( group.nb  == Aij.nb() );
-                        assert( group.ld[0] == Aij.stride() );
-                    }
-                    for (int m = 1; m < mat_count; ++m) {
+                    // Add tiles to current group
+                    for (int m = 0; m < mat_count; ++m) {
                         auto Mij = mats[ m ].get()( i, j, device );
                         mats_array_host[ m ][ batch_count ] = Mij.data();
                         if (group.count == 0) {
@@ -361,27 +247,29 @@ std::vector< device_regions_params<true, mat_count> > device_regions_build(
                     ++group.count;
                     ++batch_count;
                 }
-            }} // for j,i
+            } // for i
+        } // for j
+        if (group.count > 0) {
+            group_params.push_back( group );
         }
-        else { // A.uplo() == Uplo::Upper
-            for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
-            for (int64_t i = irange[ ii ]; i < irange[ ii+1 ] && i < j; ++i) {
-                if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
 
-                    auto Aij = A( i, j, device );
-                    mats_array_host[ 0 ][ batch_count ] = Aij.data();
-                    if (group.count == 0) {
-                        group.mb  = Aij.mb();
-                        group.nb  = Aij.nb();
-                        group.ld[0] = Aij.stride();
-                    }
-                    else {
-                        assert( group.mb  == Aij.mb() );
-                        assert( group.nb  == Aij.nb() );
-                        assert( group.ld[0] == Aij.stride() );
-                    }
-                    for (int m = 1; m < mat_count; ++m) {
-                        auto Mij = mats[ m ].get()( i, j, device );
+        // If the diagonal tiles need special treatment, build those groups
+        if constexpr (has_diag) if (!diag_same) {
+            group = Params();
+            group.is_diagonal = true;
+            group.mb = A.tileMb( irange[ ii ] );
+            group.nb = A.tileNb( jrange[ jj ] );
+            // Diagonal tiles only in the intersection of irange and jrange
+            int64_t ijstart = std::max(irange[ ii   ], jrange[ jj   ]);
+            int64_t ijend   = std::min(irange[ ii+1 ], jrange[ jj+1 ]);
+            for (int64_t ij = ijstart; ij < ijend; ++ij) {
+                if (A.tileIsLocal( ij, ij )
+                    && device == A.tileDevice( ij, ij )) {
+
+                    // Add tiles to current group
+                    // This logic matches that of above
+                    for (int m = 0; m < mat_count; ++m) {
+                        auto Mij = mats[ m ].get()( ij, ij, device );
                         mats_array_host[ m ][ batch_count ] = Mij.data();
                         if (group.count == 0) {
                             group.ld[m] = Mij.stride();
@@ -393,51 +281,11 @@ std::vector< device_regions_params<true, mat_count> > device_regions_build(
                     ++group.count;
                     ++batch_count;
                 }
-            }} // for j, i
-        }
-        if (group.count > 0) {
-            group_params.push_back( group );
-        }
-
-        // Build the diagonal regions
-        group = Params();
-        group.is_diagonal = true;
-        // Diagonal tiles only in the intersection of irange and jrange
-        int64_t ijstart = std::max(irange[ ii   ], jrange[ jj   ]);
-        int64_t ijend   = std::min(irange[ ii+1 ], jrange[ jj+1 ]);
-        for (int64_t ij = ijstart; ij < ijend; ++ij) {
-            if (A.tileIsLocal( ij, ij )
-                && device == A.tileDevice( ij, ij ))
-            {
-                auto Aij = A( ij, ij, device );
-                mats_array_host[ 0 ][ batch_count ] = Aij.data();
-                if (group.count == 0) {
-                    group.mb  = Aij.mb();
-                    group.nb  = Aij.nb();
-                    group.ld[0] = Aij.stride();
-                }
-                else {
-                    assert( group.mb  == Aij.mb() );
-                    assert( group.nb  == Aij.nb() );
-                    assert( group.ld[0] == Aij.stride() );
-                }
-                for (int m = 1; m < mat_count; ++m) {
-                    auto Mij = mats[ m ].get()( ij, ij, device );
-                    mats_array_host[ m ][ batch_count ] = Mij.data();
-                    if (group.count == 0) {
-                        group.ld[m] = Mij.stride();
-                    }
-                    else {
-                        assert( group.ld[m] == Mij.stride() );
-                    }
-                }
-                ++group.count;
-                ++batch_count;
+            } // for ij
+            if (group.count > 0) {
+                group_params.push_back( group );
             }
-        } // for ij
-        if (group.count > 0) {
-            group_params.push_back( group );
-        }
+        } // if has_diag && !diag_same
     }} // for jj, ii
     return group_params;
 }

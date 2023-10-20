@@ -157,7 +157,7 @@ void set(
             scalar_t** a_array_host = A.array_host( device );
             scalar_t** a_array_dev  = A.array_device( device );
 
-            auto group_params = device_regions_build<1, scalar_t>(
+            auto group_params = device_regions_build<true, 1, scalar_t>(
                                                     {A},
                                                     {a_array_host},
                                                     device );

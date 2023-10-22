@@ -111,21 +111,23 @@ int64_t gesv_mixed(
     int& iter,
     Options const& opts)
 {
+    using real_hi = blas::real_type<scalar_hi>;
+
     Timer t_gesv_mixed;
 
-    Target target = get_option( opts, Option::Target, Target::HostTask );
-
+    // Constants
     // Assumes column major
     const Layout layout = Layout::ColMajor;
-
-    bool converged = false;
-    using real_hi = blas::real_type<scalar_hi>;
     const real_hi eps = std::numeric_limits<real_hi>::epsilon();
     const scalar_hi one_hi = 1.0;
 
+    // Options
+    Target target = get_option( opts, Option::Target, Target::HostTask );
     int64_t itermax = get_option<int64_t>( opts, Option::MaxIterations, 30 );
     double tol = get_option<double>( opts, Option::Tolerance, eps*std::sqrt(A.m()) );
     bool use_fallback = get_option<int64_t>( opts, Option::UseFallbackSolver, true );
+
+    bool converged = false;
     iter = 0;
 
     assert( B.mt() == A.mt() );
@@ -146,7 +148,6 @@ int64_t gesv_mixed(
     if (target == Target::Devices) {
         #pragma omp parallel
         #pragma omp master
-        #pragma omp taskgroup
         {
             #pragma omp task slate_omp_default_none \
                 shared( A ) firstprivate( layout )

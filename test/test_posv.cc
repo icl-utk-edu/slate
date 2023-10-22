@@ -158,6 +158,8 @@ void test_posv_work(Params& params, bool run)
         return;
     }
 
+    int64_t info = 0;
+
     // Matrix A: figure out local size.
     int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
@@ -276,26 +278,26 @@ void test_posv_work(Params& params, bool run)
 
         if (params.routine == "potrf" || params.routine == "potrs") {
             // Factor matrix A.
-            slate::chol_factor(A, opts);
+            info = slate::chol_factor( A, opts );
             // Using traditional BLAS/LAPACK name
             // slate::potrf(A, opts);
         }
         else if (params.routine == "posv") {
-            slate::chol_solve(A, B, opts);
+            info = slate::chol_solve( A, B, opts );
             // Using traditional BLAS/LAPACK name
             // slate::posv(A, B, opts);
         }
         else if (params.routine == "posv_mixed") {
             if constexpr (std::is_same<real_t, double>::value) {
                 int iters = 0;
-                slate::posv_mixed( A, B, X, iters, opts );
+                info = slate::posv_mixed( A, B, X, iters, opts );
                 params.iters() = iters;
             }
         }
         else if (params.routine == "posv_mixed_gmres") {
             if constexpr (std::is_same<real_t, double>::value) {
                 int iters = 0;
-                slate::posv_mixed_gmres(A, B, X, iters, opts);
+                info = slate::posv_mixed_gmres(A, B, X, iters, opts);
                 params.iters() = iters;
             }
         }
@@ -332,7 +334,7 @@ void test_posv_work(Params& params, bool run)
         // Run SLATE test: potrs
         // potrs: Solve AX = B, after factoring A above.
         //==================================================
-        if (do_potrs) {
+        if (do_potrs && info == 0) {
             double time2 = barrier_get_wtime(MPI_COMM_WORLD);
 
             if ((check && params.routine == "potrf")
@@ -352,9 +354,22 @@ void test_posv_work(Params& params, bool run)
         }
 
         if (trace) slate::trace::Trace::finish();
-    }
 
-    if (check) {
+        if (info != 0) {
+            char buf[ 80 ];
+            snprintf( buf, sizeof(buf), "info = %lld, cond = %.2e",
+                      llong( info ), params.matrix.cond_actual() );
+            params.msg() = buf;
+        }
+    }
+    print_matrix( "X_out", X, params );
+
+    if (info != 0 || std::isinf( params.matrix.cond_actual() )) {
+        // info != 0 if and only if cond == inf (singular matrix).
+        // Matrices with unknown cond (nan) that are singular are marked failed.
+        params.okay() = info != 0 && std::isinf( params.matrix.cond_actual() );
+    }
+    else if (check) {
         //==================================================
         // Test results by checking the residual
         //
@@ -418,7 +433,6 @@ void test_posv_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            int64_t info;
             scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 

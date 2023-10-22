@@ -59,50 +59,51 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
-/// TODO: return value
-/// @retval 0 successful exit
-/// @retval >0 for return value = $i$, the leading minor of order $i$ of $A$ is not
+/// @return 0: successful exit
+/// @return i > 0: the leading minor of order $i$ of $A$ is not
 ///         positive definite, so the factorization could not
 ///         be completed, and the solution has not been computed.
 ///
 /// @ingroup pbsv
 ///
 template <typename scalar_t>
-void pbsv(HermitianBandMatrix<scalar_t>& A,
-          Matrix<scalar_t>& B,
-          Options const& opts)
+int64_t pbsv(
+    HermitianBandMatrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Options const& opts )
 {
     // factorization
-    pbtrf(A, opts);
+    int64_t info = pbtrf(A, opts);
 
     // solve
-    pbtrs(A, B, opts);
-
-    // todo: return value for errors?
+    if (info == 0) {
+        pbtrs(A, B, opts);
+    }
+    return info;
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void pbsv<float>(
+int64_t pbsv<float>(
     HermitianBandMatrix<float>& A,
     Matrix<float>& B,
     Options const& opts);
 
 template
-void pbsv<double>(
+int64_t pbsv<double>(
     HermitianBandMatrix<double>& A,
     Matrix<double>& B,
     Options const& opts);
 
 template
-void pbsv< std::complex<float> >(
+int64_t pbsv< std::complex<float> >(
     HermitianBandMatrix< std::complex<float> >& A,
     Matrix< std::complex<float> >& B,
     Options const& opts);
 
 template
-void pbsv< std::complex<double> >(
+int64_t pbsv< std::complex<double> >(
     HermitianBandMatrix< std::complex<double> >& A,
     Matrix< std::complex<double> >& B,
     Options const& opts);

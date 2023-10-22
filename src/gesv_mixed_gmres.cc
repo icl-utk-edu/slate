@@ -128,22 +128,22 @@ int64_t gesv_mixed_gmres(
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
+    // Options
     Target target = get_option( opts, Option::Target, Target::HostTask );
-
-    bool converged = false;
     int64_t itermax = get_option<int64_t>( opts, Option::MaxIterations, 30 );
     double tol = get_option<double>( opts, Option::Tolerance, eps*std::sqrt(A.m()) );
     bool use_fallback = get_option<int64_t>( opts, Option::UseFallbackSolver, true );
-    const int64_t restart = std::min(
-            std::min( int64_t( 30 ), itermax ), A.tileMb( 0 )-1 );
+    int64_t restart = blas::min( 30, itermax, A.tileMb( 0 )-1 );
+
+    bool converged = false;
     iter = 0;
 
     assert( B.mt() == A.mt() );
-    slate_assert( A.tileMb( 0 ) >= restart );
+    assert( A.tileMb( 0 ) >= restart );
 
     // TODO: implement block gmres
     if (B.n() != 1) {
-        slate_not_implemented( "block-GMRES is not yet supported" );
+        slate_not_implemented( "block-GMRES for multiple RHS is not yet supported" );
     }
 
     // workspace
@@ -164,7 +164,7 @@ int64_t gesv_mixed_gmres(
 
     // workspace vector for the orthogonalization process
     auto z = X.template emptyLike<scalar_hi>();
-    z.insertLocalTiles(target);
+    z.insertLocalTiles( target );
 
     // Hessenberg Matrix. Allocate as a single tile
     slate::Matrix<scalar_hi> H(
@@ -236,8 +236,7 @@ int64_t gesv_mixed_gmres(
             timers[ "gesv_mixed_gmres::gemm_hi" ] += t_gemm_hi.stop();
             colNorms( Norm::Max, X, colnorms_X.data(), opts );
             colNorms( Norm::Max, R, colnorms_R.data(), opts );
-            if (internal::iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte ))
-            {
+            if (internal::iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte )) {
                 iter = iiter;
                 converged = true;
                 break;
@@ -272,7 +271,7 @@ int64_t gesv_mixed_gmres(
             // excessive restarting or delayed completion.
             int j = 0;
             for (; j < restart && iiter < itermax
-                       && !internal::iterRefConverged(
+                       && ! internal::iterRefConverged(
                                 arnoldi_residual, colnorms_X, cte );
                  ++j, ++iiter) {
                 auto Vj1 = V.slice( 0, V.m()-1, j+1, j+1 );
@@ -341,15 +340,15 @@ int64_t gesv_mixed_gmres(
                     auto H_00 = H( 0, 0 );
                     for (int64_t i = 0; i < j; ++i) {
                         blas::rot( 1, &H_00.at( i, j ), 1, &H_00.at( i+1, j ), 1,
-                                  givens_alpha[i], givens_beta[i] );
+                                   givens_alpha[i], givens_beta[i] );
                     }
                     scalar_hi H_jj = H_00.at( j, j ), H_j1j = H_00.at( j+1, j );
                     blas::rotg( &H_jj, & H_j1j, &givens_alpha[j], &givens_beta[j] );
                     blas::rot( 1, &H_00.at( j, j ), 1, &H_00.at( j+1, j ), 1,
-                              givens_alpha[j], givens_beta[j] );
+                               givens_alpha[j], givens_beta[j] );
                     auto S_00 = S( 0, 0 );
                     blas::rot( 1, &S_00.at( j, 0 ), 1, &S_00.at( j+1, 0 ), 1,
-                              givens_alpha[j], givens_beta[j] );
+                               givens_alpha[j], givens_beta[j] );
                     arnoldi_residual[0] = cabs1( S_00.at( j+1, 0 ) );
                 }
                 timers[ "gesv_mixed_gmres::rotations" ] += t_gesv_mixed_gmres_rotations.stop();
@@ -411,7 +410,6 @@ int64_t gesv_mixed_gmres(
     return info;
 }
 
-
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template <>
@@ -422,7 +420,8 @@ int64_t gesv_mixed_gmres<double>(
     int& iter,
     Options const& opts)
 {
-    return gesv_mixed_gmres<double, float>( A, pivots, B, X, iter, opts );
+    return gesv_mixed_gmres<double, float>(
+        A, pivots, B, X, iter, opts );
 }
 
 template <>
@@ -433,8 +432,8 @@ int64_t gesv_mixed_gmres< std::complex<double> >(
     int& iter,
     Options const& opts)
 {
-    return gesv_mixed_gmres<std::complex<double>, std::complex<float>>(
-            A, pivots, B, X, iter, opts );
+    return gesv_mixed_gmres< std::complex<double>, std::complex<float> >(
+        A, pivots, B, X, iter, opts );
 }
 
 } // namespace slate

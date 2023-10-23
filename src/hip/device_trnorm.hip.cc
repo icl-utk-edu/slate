@@ -336,11 +336,11 @@ __global__ void trnorm_fro_kernel(
         }
 
         combine_sumsq(row_scale[chunk], row_sumsq[chunk], scale, sumsq);
-        __syncthreads();
     }
 
     // Reduction to find sum-of-squares of tile.
     // todo: parallel reduction.
+    __syncthreads();
     if (threadIdx.x == 0) {
         real_t tile_scale = row_scale[0];
         real_t tile_sumsq = row_sumsq[0];

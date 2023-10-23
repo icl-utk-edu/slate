@@ -177,8 +177,8 @@ void test_trcondest_work(Params& params, bool run)
             // A comparison with a reference routine from ScaLAPACK for timing only
 
             // BLACS/MPI variables
-            int ictxt, myrow_, mycol_, info, p_, q_;
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, myrow_, mycol_, p_, q_;
+            blas_int mpi_rank_ = 0, nprocs = 1;
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
             slate_assert(p*q <= nprocs);
@@ -191,7 +191,8 @@ void test_trcondest_work(Params& params, bool run)
             slate_assert( mycol == mycol_ );
 
             // ScaLAPACK descriptor for the reference matrix
-            int Aref_desc[9];
+            int64_t info;
+            blas_int Aref_desc[9];
             scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
@@ -224,7 +225,7 @@ void test_trcondest_work(Params& params, bool run)
             // query for workspace size for ptrcon
             int64_t info_ref_trcon = 0;
             int64_t liwork = -1;
-            int  idummy;
+            blas_int idummy;
             int64_t lwork_trcon = -1;
             scalar_t dummy_trcon;
             slate::Uplo uplo = slate::Uplo::Upper;
@@ -238,7 +239,7 @@ void test_trcondest_work(Params& params, bool run)
 
             // Compute the condition number using scalapack
             std::vector<scalar_t> work_trcon(lwork_trcon);
-            std::vector<int> iwork(liwork);
+            std::vector<blas_int> iwork( liwork );
 
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             scalapack_ptrcon( norm2str(norm), uplo2str(uplo), diag2str(diag), n,

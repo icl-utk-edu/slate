@@ -142,11 +142,12 @@ void test_hegst_work(Params& params, bool run)
         #ifdef SLATE_HAVE_SCALAPACK
             A_norm = slate::norm(slate::Norm::One, Aref);
 
-            int ictxt;
+            blas_int ictxt;
             Cblacs_get(-1, 0, &ictxt);
             Cblacs_gridinit(&ictxt, "Col", p, q);
 
-            int A_desc[9], B_desc[9], info;
+            int64_t info;
+            blas_int A_desc[9], B_desc[9];
             scalapack_descinit(
                 A_desc, n, n, nb, nb, 0, 0, ictxt, mlocal, &info);
             slate_assert(info == 0);

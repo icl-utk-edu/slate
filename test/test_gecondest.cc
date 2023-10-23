@@ -208,8 +208,8 @@ void test_gecondest_work(Params& params, bool run)
             // A comparison with a reference routine from ScaLAPACK for timing only
 
             // BLACS/MPI variables
-            int ictxt, myrow_, mycol_, info, p_, q_;
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, myrow_, mycol_, p_, q_;
+            blas_int mpi_rank_ = 0, nprocs = 1;
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
             slate_assert(p*q <= nprocs);
@@ -221,38 +221,38 @@ void test_gecondest_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            int64_t info_ref = 0;
-
             // ScaLAPACK descriptor for the reference matrix
-            int Aref_desc[9];
+            int64_t info;
+            blas_int Aref_desc[9];
             scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
             // ScaLAPACK data for pivots.
-            std::vector<int> ipiv_ref(lldA + nb);
+            std::vector<blas_int> ipiv_ref(lldA + nb);
 
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
-            scalapack_pgetrf(n, n,
-                    &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info_ref);
+            scalapack_pgetrf(
+                n, n, &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info);
+            slate_assert( info == 0 );
 
             // query for workspace size for pgecon
-            int64_t info_ref_cond = 0;
             int64_t lwork = -1;
             int64_t liwork = -1;
             scalar_t dummy;
-            int  idummy;
+            blas_int idummy;
             scalapack_pgecon( norm2str(norm), n,
                               &Aref_data[0], 1, 1, Aref_desc,
                               &Anorm, &scl_rcond,
-                              &dummy, lwork, &idummy, liwork, info_ref_cond);
+                              &dummy, lwork, &idummy, liwork, &info );
+            slate_assert( info == 0 );
             lwork = (int64_t)( real( dummy ) );
             liwork = (int64_t)( real( idummy ) );
 
             // Compute the condition number using scalapack
             std::vector<scalar_t> work(lwork);
-            std::vector<int> iwork(liwork);
+            std::vector<blas_int> iwork(liwork);
 
             // todo: ScaLAPCK pzgecon has a seg fault
 
@@ -260,8 +260,8 @@ void test_gecondest_work(Params& params, bool run)
             scalapack_pgecon( norm2str(norm), n,
                               &Aref_data[0], 1, 1, Aref_desc,
                               &Anorm, &scl_rcond,
-                              &work[0], lwork, &iwork[0], liwork, info_ref_cond);
-            slate_assert(info_ref_cond == 0);
+                              &work[0], lwork, &iwork[0], liwork, &info );
+            slate_assert( info == 0 );
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             params.ref_time() = time;

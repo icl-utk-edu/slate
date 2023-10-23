@@ -289,20 +289,20 @@ void test_stedc_deflate_work( Params& params, bool run )
     if (trace)
         slate::trace::Trace::finish();
 
-    int nsecular_ref = -1, nU123_ref = -1,
+    blas_int nsecular_ref = -1, nU123_ref = -1,
         nQt12_ref = -1, Qt12_begin_ref = -1,
         nQt23_ref = -1, Qt23_begin_ref = -1,
         err_itype = 0;
     std::vector<scalar_t>
         Dsecular_ref( n, nan("") ),
         zsecular_ref( n, nan("") );
-    std::vector<int>
+    std::vector<blas_int>
         itype_ref( n, -1 );
 
     if (ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_get( -1, 0, &ictxt );
@@ -320,7 +320,7 @@ void test_stedc_deflate_work( Params& params, bool run )
             // q = npcol
             std::vector<scalar_t>
                 Qbuf( 3*n, nan("") );
-            std::vector<int>
+            std::vector<blas_int>
                 ct_count_ref( q*4, -1 ),
                 ct_idx_local( q*4, -1 ),
                 iglobal_ref ( n, -1 ),
@@ -349,15 +349,15 @@ void test_stedc_deflate_work( Params& params, bool run )
 
             // convert to 1-based
             for (int j = 0; j < n; ++j) {
-                itype_ref[j]     -= 1;
+                itype_ref[j]    -= 1;
                 iglobal_ref[j]  -= 1;
                 ideflate_ref[j] -= 1;
             }
             // check errors in int arrays.
-            int err_iglobal  = 0;
-            int err_ideflate = 0;
-            int err_pcols    = 0;
-            int err_coltype  = 0;
+            blas_int err_iglobal  = 0;
+            blas_int err_ideflate = 0;
+            blas_int err_pcols    = 0;
+            blas_int err_coltype  = 0;
             for (int j = 0; j < n; ++j) {
                 err_itype     = std::abs( itype[j]     - itype_ref[j]     );
                 //err_iglobal = std::abs( iglobal[j]  - iglobal_ref[j]  );

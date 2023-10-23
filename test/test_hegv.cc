@@ -319,8 +319,8 @@ void test_hegv_work(Params& params, bool run)
             // Run reference routine from ScaLAPACK
 
             // initialize BLACS
-            int mpi_rank_ = 0, nprocs = 1, ictxt;
-            int p_, q_, myrow_, mycol_, info;
+            blas_int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
             Cblacs_pinfo(&mpi_rank_, &nprocs);
             slate_assert( mpi_rank == mpi_rank_ );
             slate_assert(p*q <= nprocs);
@@ -332,15 +332,16 @@ void test_hegv_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            int A_desc[9];
+            int64_t info;
+            blas_int A_desc[9];
             scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            int B_desc[9];
+            blas_int B_desc[9];
             scalapack_descinit(B_desc, n, n, nb, nb, 0, 0, ictxt, mlocB, &info);
             slate_assert(info == 0);
 
-            int Z_desc[9];
+            blas_int Z_desc[9];
             scalapack_descinit(Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
             slate_assert(info == 0);
 
@@ -359,9 +360,9 @@ void test_hegv_work(Params& params, bool run)
             // http://www.netlib.org/scalapack/explore-html/d7/dff/pzhegvx_8f_source.html
             std::vector<scalar_t> work(3);
             std::vector<real_t> rwork(3);
-            std::vector<int> iwork(1);
-            std::vector<int> ifail(n);
-            std::vector<int> iclustr(2*p*q);
+            std::vector<blas_int> iwork(1);
+            std::vector<blas_int> ifail(n);
+            std::vector<blas_int> iclustr(2*p*q);
             std::vector<real_t> gap(p*q);
             scalapack_phegvx(itype, job2str(jobz), range, uplo2str(uplo), n,
                              &Aref_data[0], 1, 1, A_desc,

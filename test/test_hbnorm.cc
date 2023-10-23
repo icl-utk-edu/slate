@@ -105,9 +105,9 @@ void test_hbnorm_work(Params& params, bool run)
             // comparison with reference routine from ScaLAPACK
 
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int A_desc[9];
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
+            blas_int A_desc[9];
+            blas_int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
@@ -121,14 +121,15 @@ void test_hbnorm_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
+            int64_t info;
             scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, lldA, &info);
             slate_assert(info == 0);
 
             // allocate work space
-            int lcm = scalapack_ilcm(&p, &q);
-            int ldw = nb*slate::ceildiv(int(slate::ceildiv(nlocA, nb)), (lcm / p));
-            int lwork = 2*mlocA + nlocA + ldw;
-            std::vector<real_t> worklanhe(lwork);
+            int64_t ldw = nb*ceildiv( ceildiv( nlocA, nb ),
+                                      scalapack_ilcm( p, q ) / p );
+            int64_t lwork = 2*mlocA + nlocA + ldw;
+            std::vector<real_t> worklanhe( lwork );
 
             //==================================================
             // Run ScaLAPACK reference routine.

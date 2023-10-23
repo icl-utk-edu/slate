@@ -402,8 +402,8 @@ void test_gels_work(Params& params, bool run)
             // A comparison with a reference routine from ScaLAPACK for timing only
 
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
+            blas_int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
@@ -421,7 +421,8 @@ void test_gels_work(Params& params, bool run)
             int64_t lwork;
             std::vector<scalar_t> work;
 
-            int Aref_desc[9], BXref_desc[9];
+            int64_t info;
+            blas_int Aref_desc[9], BXref_desc[9];
             scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 

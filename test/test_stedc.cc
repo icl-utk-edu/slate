@@ -217,9 +217,9 @@ void test_stedc_work( Params& params, bool run )
             }
 
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int Zref_desc[9];
-            int mpi_rank_, nprocs;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
+            blas_int Zref_desc[9];
+            blas_int mpi_rank_, nprocs;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo( &mpi_rank_, &nprocs );
@@ -233,6 +233,7 @@ void test_stedc_work( Params& params, bool run )
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
+            int64_t info;
             scalapack_descinit( Zref_desc, n, n, nb, nb, 0, 0, ictxt, lldZ, &info );
             slate_assert( info == 0 );
 

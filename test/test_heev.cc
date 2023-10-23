@@ -271,8 +271,8 @@ void test_heev_work(Params& params, bool run)
             // Run reference routine from ScaLAPACK
 
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
+            blas_int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
@@ -286,11 +286,12 @@ void test_heev_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            int A_desc[9];
+            int64_t info;
+            blas_int A_desc[9];
             scalapack_descinit(A_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
-            int Z_desc[9];
+            blas_int Z_desc[9];
             scalapack_descinit(Z_desc, n, n, nb, nb, 0, 0, ictxt, mlocZ, &info);
             slate_assert(info == 0);
 
@@ -299,7 +300,7 @@ void test_heev_work(Params& params, bool run)
             int64_t lwork = -1, lrwork = -1, liwork = -1;
             std::vector<scalar_t> work(1);
             std::vector<real_t> rwork(1);
-            std::vector<int> iwork(1);
+            std::vector<blas_int> iwork(1);
             if (method_eig == slate::MethodEig::DC && jobz == slate::Job::Vec) {
                 scalapack_pheevd(job2str(jobz), uplo2str(uplo), n,
                                 &Aref_data[0], 1, 1, A_desc,

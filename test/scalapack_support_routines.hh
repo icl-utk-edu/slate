@@ -124,21 +124,20 @@ template<typename scalar_t>
 static void scalapack_pplrnt(scalar_t* A,
                              int64_t m, int64_t n,
                              int64_t mb, int64_t nb,
-                             int myrow, int mycol,
-                             int nprow, int npcol,
+                             blas_int myrow, blas_int mycol,
+                             blas_int nprow, blas_int npcol,
                              int64_t lldA,
                              int64_t seed)
 {
-    int i, j;
-    int idum1, idum2, iloc, jloc, i0 = 0;
-    int tempm, tempn;
+    blas_int idum1, idum2, iloc, jloc, i0 = 0;
+    blas_int tempm, tempn;
     scalar_t* Ab;
-    int mb_ = (int)mb;
-    int nb_ = (int)nb;
+    blas_int mb_ = blas_int( mb );
+    blas_int nb_ = blas_int( nb );
 
     // #pragma omp parallel for
-    for (i = 1; i <= m; i += mb) {
-        for (j = 1; j <= n; j += nb) {
+    for (blas_int i = 1; i <= m; i += mb) {
+        for (blas_int j = 1; j <= n; j += nb) {
             if ((myrow == scalapack_indxg2p(&i, &mb_, &idum1, &i0, &nprow)) &&
                 (mycol == scalapack_indxg2p(&j, &nb_, &idum1, &i0, &npcol))) {
                 iloc = scalapack_indxg2l(&i, &mb_, &idum1, &idum2, &nprow);
@@ -159,22 +158,21 @@ template<typename scalar_t>
 static void scalapack_pplghe(scalar_t* A,
                              int64_t m, int64_t n,
                              int64_t mb, int64_t nb,
-                             int myrow, int mycol,
-                             int nprow, int npcol,
+                             blas_int myrow, blas_int mycol,
+                             blas_int nprow, blas_int npcol,
                              int64_t lldA,
                              int64_t seed)
 {
-    int i, j;
-    int idum1, idum2, iloc, jloc, i0 = 0;
+    blas_int idum1, idum2, iloc, jloc, i0 = 0;
     int64_t tempm, tempn;
     scalar_t* Ab;
     scalar_t bump = (scalar_t)m;
-    int mb_ = (int)mb;
-    int nb_ = (int)nb;
+    blas_int mb_ = blas_int( mb );
+    blas_int nb_ = blas_int( nb );
 
     // #pragma omp parallel for
-    for (i = 1; i <= m; i += mb) {
-        for (j = 1; j <= n; j += nb) {
+    for (blas_int i = 1; i <= m; i += mb) {
+        for (blas_int j = 1; j <= n; j += nb) {
             if ((myrow == scalapack_indxg2p(&i, &mb_, &idum1, &i0, &nprow)) &&
                 (mycol == scalapack_indxg2p(&j, &nb_, &idum1, &i0, &npcol))) {
                 iloc = scalapack_indxg2l(&i, &mb_, &idum1, &idum2, &nprow);

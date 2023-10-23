@@ -413,8 +413,8 @@ void test_gesv_work(Params& params, bool run)
             }
 
             // BLACS/MPI variables
-            int ictxt, myrow_, mycol_, p_, q_, iinfo;
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, myrow_, mycol_, p_, q_;
+            blas_int mpi_rank_ = 0, nprocs = 1;
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
             slate_assert(p*q <= nprocs);
@@ -426,25 +426,23 @@ void test_gesv_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            int64_t info_ref = 0;
-
             // ScaLAPACK descriptor for the reference matrix
-            int Aref_desc[9];
-            scalapack_descinit( Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &iinfo );
-            slate_assert( iinfo == 0 );
+            blas_int Aref_desc[9];
+            scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            slate_assert(info == 0);
 
-            int Bref_desc[9];
-            scalapack_descinit( Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &iinfo );
-            slate_assert( iinfo == 0 );
+            blas_int Bref_desc[9];
+            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, mlocB, &info);
+            slate_assert(info == 0);
 
             // ScaLAPACK data for pivots.
-            std::vector<int> ipiv_ref(lldA + nb);
+            std::vector<blas_int> ipiv_ref(lldA + nb);
 
             if (params.routine == "getrs") {
                 // Factor matrix A.
                 scalapack_pgetrf(m, n,
-                                 &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info_ref);
-                slate_assert(info_ref == 0);
+                                 &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info);
+                slate_assert( info == 0 );
             }
 
             //==================================================
@@ -453,19 +451,19 @@ void test_gesv_work(Params& params, bool run)
             double time = barrier_get_wtime(MPI_COMM_WORLD);
             if (params.routine == "getrf") {
                 scalapack_pgetrf(m, n,
-                                 &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info_ref);
+                                 &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0], &info);
             }
             else if (params.routine == "getrs") {
                 scalapack_pgetrs(op2str(trans), n, nrhs,
                                  &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0],
-                                 &Bref_data[0], 1, 1, Bref_desc, &info_ref);
+                                 &Bref_data[0], 1, 1, Bref_desc, &info);
             }
             else {
                 scalapack_pgesv(n, nrhs,
                                 &Aref_data[0], 1, 1, Aref_desc, &ipiv_ref[0],
-                                &Bref_data[0], 1, 1, Bref_desc, &info_ref);
+                                &Bref_data[0], 1, 1, Bref_desc, &info);
             }
-            slate_assert(info_ref == 0);
+            slate_assert( info == 0 );
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             params.ref_time() = time;

@@ -172,9 +172,9 @@ void test_copy_work(Params& params, bool run)
             // comparison with reference routine from ScaLAPACK
 
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int A_desc[9], B_desc[9];
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
+            blas_int A_desc[9], B_desc[9];
+            blas_int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
@@ -188,6 +188,7 @@ void test_copy_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
+            int64_t info;
             scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, lldA, &info);
             scalapack_descinit(B_desc, m, n, nb, nb, 0, 0, ictxt, lldB, &info);
             slate_assert(info == 0);
@@ -206,7 +207,6 @@ void test_copy_work(Params& params, bool run)
             scalapack_placpy( uplo2str(uplo), m, n,
                               &Aref_data[0], 1, 1, A_desc,
                               &Bref_data[0], 1, 1, B_desc );
-            slate_assert(info == 0);
 
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
             params.ref_time() = time;

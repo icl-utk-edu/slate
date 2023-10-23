@@ -144,9 +144,9 @@ void test_stedc_sort_work( Params& params, bool run )
     if (ref && m == n) {
         #ifdef SLATE_HAVE_SCALAPACK
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int Zref_desc[9];
-            int mpi_rank_, nprocs;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
+            blas_int Zref_desc[9];
+            blas_int mpi_rank_, nprocs;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo( &mpi_rank_, &nprocs );
@@ -154,6 +154,7 @@ void test_stedc_sort_work( Params& params, bool run )
             Cblacs_gridinit( &ictxt, "Col", p, q );
             Cblacs_gridinfo( ictxt, &p_, &q_, &myrow_, &mycol_ );
 
+            int64_t info;
             scalapack_descinit( Zref_desc, n, n, nb, nb, 0, 0, ictxt, lldZ, &info );
             slate_assert( info == 0 );
 

@@ -23,6 +23,7 @@ void test_syrk_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using slate::Norm;
+    using slate::ceildiv;
 
     // Constants
     const scalar_t zero = 0.0, one = 1.0;
@@ -205,9 +206,9 @@ void test_syrk_work(Params& params, bool run)
             // comparison with reference routine from ScaLAPACK
 
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int A_desc[9], C_desc[9], Cref_desc[9];
-            int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
+            blas_int A_desc[9], C_desc[9], Cref_desc[9];
+            blas_int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
             Cblacs_pinfo(&mpi_rank_, &nprocs);
@@ -221,6 +222,7 @@ void test_syrk_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
+            int64_t info;
             scalapack_descinit(A_desc, Am, An, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
 
@@ -237,7 +239,8 @@ void test_syrk_work(Params& params, bool run)
             }
 
             // allocate workspace for norms
-            size_t ldw = nb*ceil(ceil(mlocC / (double) nb) / (scalapack_ilcm(&p, &q) / p));
+            int64_t ldw = nb*ceildiv( ceildiv( mlocC, nb ),
+                                      scalapack_ilcm( p, q ) / p );
             std::vector<real_t> worklansy(2*nlocC + mlocC + ldw);
             std::vector<real_t> worklange(std::max(mlocA, nlocA));
 

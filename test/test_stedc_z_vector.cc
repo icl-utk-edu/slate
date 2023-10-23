@@ -124,9 +124,9 @@ void test_stedc_z_vector_work( Params& params, bool run )
     if (check || ref) {
         #ifdef SLATE_HAVE_SCALAPACK
             // BLACS/MPI variables
-            int ictxt, p_, q_, myrow_, mycol_, info;
-            int Q_desc[9];
-            //int mpi_rank_ = 0, nprocs = 1;
+            blas_int ictxt, p_, q_, myrow_, mycol_;
+            blas_int Q_desc[9];
+            //blas_int mpi_rank_ = 0, nprocs = 1;
 
             // initialize BLACS and ScaLAPACK
             //Cblacs_pinfo( &mpi_rank_, &nprocs );
@@ -141,6 +141,7 @@ void test_stedc_z_vector_work( Params& params, bool run )
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
+            int64_t info;
             scalapack_descinit( Q_desc, n, n, nb, nb, 0, 0, ictxt, lldQ, &info );
             slate_assert( info == 0 );
 

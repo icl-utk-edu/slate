@@ -469,7 +469,10 @@ if (opts.hesv):
 if (opts.least_squares):
     cmds += [
     # todo: mn (i.e., add wide)
-    [ 'gels',   gen + dtype + la + n + tall + trans_nc + ' --method-gels qr,cholqr' ],
+    [ 'gels',   gen + dtype + la + n + tall + trans_nc + ' --method-gels qr' ],
+    # Cholesky QR needs well-conditioned problem.
+    [ 'gels',   gen + la + n + tall + trans_nc + ' --method-gels cholqr --matrix svd --cond 1e3 --type s,c' ],
+    [ 'gels',   gen + la + n + tall + trans_nc + ' --method-gels cholqr --matrix svd --cond 1e7 --type d,z' ],
 
     # Generalized
     #[ 'gglse', gen + dtype + la + mnk ],

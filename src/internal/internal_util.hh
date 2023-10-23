@@ -215,6 +215,17 @@ std::vector< device_regions_params<has_diag, mat_count> > device_regions_build(
     assert( diag_same || has_diag );
     diag_same |= !has_diag; // Ensure the compiler can propagate this assertion
 
+    // Single dimensions are always indexed as 0. This allows setting up GEMM et al.
+    // The first matrix is always indexed normally since it determines the loops
+    int64_t i_step[mat_count];
+    int64_t j_step[mat_count];
+    i_step[0] = 1;
+    j_step[0] = 1;
+    for (int m = 1; m < mat_count; ++m) {
+        i_step[m] = (mats[ m ].get().mt() > 1);
+        j_step[m] = (mats[ m ].get().nt() > 1);
+    }
+
     int64_t batch_count = 0;
     int64_t mt = A.mt();
     std::vector<Params> group_params;
@@ -235,7 +246,7 @@ std::vector< device_regions_params<has_diag, mat_count> > device_regions_build(
 
                     // Add tiles to current group
                     for (int m = 0; m < mat_count; ++m) {
-                        auto Mij = mats[ m ].get()( i, j, device );
+                        auto Mij = mats[ m ].get()( i*i_step[m], j*j_step[m], device );
                         mats_array_host[ m ][ batch_count ] = Mij.data();
                         if (group.count == 0) {
                             group.ld[m] = Mij.stride();

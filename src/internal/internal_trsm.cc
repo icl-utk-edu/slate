@@ -9,6 +9,7 @@
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
 #include "internal/internal_batch.hh"
+#include "internal/internal_util.hh"
 
 namespace slate {
 namespace internal {
@@ -214,78 +215,14 @@ void trsm(internal::TargetType<Target::Devices>,
                 A.tileGetForReading(0, 0, device, LayoutConvert(layout));
                 B.tileGetForWriting(B_tiles_set, device, LayoutConvert(layout));
 
-                // interior col or row
-                std::vector<scalar_t*> a_array0;
-                std::vector<scalar_t*> b_array0;
-                a_array0.reserve( batch_size );
-                b_array0.reserve( batch_size );
+                scalar_t** a_array_host = B.array_host(device, queue_index);
+                scalar_t** b_array_host = a_array_host + batch_size;
 
-                // bottom-right tile
-                // todo: replace batch trsm with plain trsm
-                std::vector<scalar_t*> a_array1;
-                std::vector<scalar_t*> b_array1;
-
-                int64_t lda0 = 0;
-                int64_t ldb0 = 0;
-                int64_t lda1 = 0;
-                int64_t ldb1 = 0;
-
-                int64_t mb0 = B.tileMb(0);
-                int64_t nb0 = B.tileNb(0);
-                int64_t mb1 = B.tileMb(B.mt()-1);
-                int64_t nb1 = B.tileNb(B.nt()-1);
-
-                if (side == Side::Right) {
-                    for (int64_t i = 0; i < B.mt()-1; ++i) {
-                        if (B.tileIsLocal(i, 0)
-                            && device == B.tileDevice(i, 0))
-                        {
-                            a_array0.push_back( A(0, 0, device).data() );
-                            b_array0.push_back( B(i, 0, device).data() );
-                            lda0 = A(0, 0, device).stride();
-                            ldb0 = B(i, 0, device).stride();
-                        }
-                    }
-                    {
-                        int64_t i = B.mt()-1;
-                        if (B.tileIsLocal(i, 0)
-                            && device == B.tileDevice(i, 0))
-                        {
-                            a_array1.push_back( A(0, 0, device).data() );
-                            b_array1.push_back( B(i, 0, device).data() );
-                            lda1 = A(0, 0, device).stride();
-                            ldb1 = B(i, 0, device).stride();
-                        }
-                    }
-                }
-                else {
-                    for (int64_t j = 0; j < B.nt()-1; ++j) {
-                        if (B.tileIsLocal(0, j)
-                            && device == B.tileDevice(0, j))
-                        {
-                            a_array0.push_back( A(0, 0, device).data() );
-                            b_array0.push_back( B(0, j, device).data() );
-                            lda0 = A(0, 0, device).stride();
-                            ldb0 = B(0, j, device).stride();
-                        }
-                    }
-                    {
-                        int64_t j = B.nt()-1;
-                        if (B.tileIsLocal(0, j)
-                            && device == B.tileDevice(0, j))
-                        {
-                            a_array1.push_back( A(0, 0, device).data() );
-                            b_array1.push_back( B(0, j, device).data() );
-                            lda1 = A(0, 0, device).stride();
-                            ldb1 = B(0, j, device).stride();
-                        }
-                    }
-                }
-
-                if (B.op() != Op::NoTrans) {
-                    swap(mb0, nb0);
-                    swap(mb1, nb1);
-                }
+                // B comes first since we do computation for a local B
+                auto group_params = device_regions_build<false, 2, scalar_t>(
+                                                        {B, A},
+                                                        {b_array_host, a_array_host},
+                                                        device );
 
                 {
                     trace::Block trace_block("blas::batch::trsm");
@@ -295,35 +232,37 @@ void trsm(internal::TargetType<Target::Devices>,
                     std::vector<Op>         opA_(1, opA  );
                     std::vector<Diag>      diag_(1, diagA);
                     std::vector<scalar_t> alpha_(1, alpha);
+                    // info size 0 disables slow checks in batched BLAS++.
                     std::vector<int64_t> info;
 
                     blas::Queue* queue = B.compute_queue(device, queue_index);
                     assert(queue != nullptr);
 
-                    if (a_array0.size() > 0) {
-                        std::vector<int64_t>    m(1,  mb0);
-                        std::vector<int64_t>    n(1,  nb0);
-                        std::vector<int64_t>  lda(1, lda0);
-                        std::vector<int64_t>  ldb(1, ldb0);
-                        blas::batch::trsm(
-                            layout, side_, uplo_, opA_, diag_,
-                            m, n,
-                            alpha_, a_array0, lda,
-                                    b_array0, ldb,
-                            a_array0.size(), info, *queue);
-                    }
+                    for (size_t g = 0; g < group_params.size(); ++g) {
 
-                    if (a_array1.size() > 0) {
-                        std::vector<int64_t>   m(1,  mb1);
-                        std::vector<int64_t>   n(1,  nb1);
-                        std::vector<int64_t> lda(1, lda1);
-                        std::vector<int64_t> ldb(1, ldb1);
+                        int64_t group_count = group_params[ g ].count;
+
+                        std::vector<int64_t>    m(1, group_params[ g ].mb);
+                        std::vector<int64_t>    n(1, group_params[ g ].nb);
+                        std::vector<int64_t> ldda(1, group_params[ g ].ld[1]);
+                        std::vector<int64_t> lddb(1, group_params[ g ].ld[0]);
+
+                        std::vector<scalar_t*> a_array(a_array_host, a_array_host+group_count);
+                        std::vector<scalar_t*> b_array(b_array_host, b_array_host+group_count);
+
+                        if (B.op() != Op::NoTrans) {
+                            swap(m, n);
+                        }
+
                         blas::batch::trsm(
                             layout, side_, uplo_, opA_, diag_,
                             m, n,
-                            alpha_, a_array1, lda,
-                                    b_array1, ldb,
-                            a_array1.size(), info, *queue);
+                            alpha_, a_array, ldda,
+                                    b_array, lddb,
+                            group_count, info, *queue);
+
+                        a_array_host += group_count;
+                        b_array_host += group_count;
                     }
 
                     queue->sync();

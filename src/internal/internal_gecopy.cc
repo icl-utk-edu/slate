@@ -146,14 +146,10 @@ void copy(internal::TargetType<Target::Devices>,
     bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
                           || tile_release_strategy == TileReleaseStrategy::All;
 
-    // Find ranges of matching mb's and ranges of matching nb's.
-    std::vector< int64_t > irange = device_regions_range( true, A );
-    std::vector< int64_t > jrange = device_regions_range( false, A );
-
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
-        #pragma omp task priority( priority ) shared( A, B, irange, jrange ) \
-            firstprivate( device, queue_index, call_tile_tick )
+        #pragma omp task slate_omp_default_none priority( priority ) \
+            shared( A, B ) firstprivate( device, queue_index, call_tile_tick )
         {
             std::set<ij_tuple> A_tiles_set;
             for (int64_t i = 0; i < B.mt(); ++i) {
@@ -182,41 +178,29 @@ void copy(internal::TargetType<Target::Devices>,
             src_scalar_t** a_array_host = A.array_host(device, queue_index);
             dst_scalar_t** b_array_host = B.array_host(device, queue_index);
 
+            // Because A and B may be different types and C++ doesn't easily
+            // support iterating over tuples.  We manually handle A
+            std::vector<int64_t> lda;
             int64_t batch_count = 0;
-            struct Params {
-                int64_t count, mb, nb, lda, ldb;
-            };
-            std::vector<Params> group_params;
-            for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
-            for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
-                Params group = { 0, -1, -1, -1, -1 };
-                for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
-                for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
-                    if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
-                        auto Aij = A( i, j, device );
-                        a_array_host[ batch_count ] = Aij.data();
-                        auto Bij = B( i, j, device );
-                        b_array_host[ batch_count ] = Bij.data();
-                        if (group.count == 0) {
-                            group.mb  = Aij.mb();
-                            group.nb  = Aij.nb();
-                            group.lda = Aij.stride();
-                            group.ldb = Bij.stride();
-                        }
-                        else {
-                            assert( group.mb  == Aij.mb() );
-                            assert( group.nb  == Aij.nb() );
-                            assert( group.lda == Aij.stride() );
-                            assert( group.ldb == Bij.stride() );
-                        }
-                        ++group.count;
-                        ++batch_count;
-                    }
-                }} // for j, i
-                if (group.count > 0) {
-                    group_params.push_back( group );
+            std::function<void(int64_t, int64_t, int64_t)>
+            setup_A = [&] (int64_t group, int64_t i, int64_t j) {
+                auto Aij = A( i, j, device );
+                a_array_host[ batch_count ] = Aij.data();
+                if (lda.size() == size_t(group)) {
+                    lda.push_back( Aij.stride() );
                 }
-            }} // for jj, ii
+                else {
+                    assert(lda.size() > size_t(group));
+                    assert(lda[group] == Aij.stride());
+                }
+                ++batch_count;
+            };
+            auto group_params = device_regions_build<false, 1, dst_scalar_t>(
+                                                    {B},
+                                                    {b_array_host},
+                                                    device,
+                                                    true,
+                                                    setup_A );
 
             // Usually the output matrix (B) provides all the batch arrays.
             // Here we are using A, because of the different types.
@@ -247,15 +231,15 @@ void copy(internal::TargetType<Target::Devices>,
                     device::transpose_batch(
                             is_conj,
                             group_params[ g ].mb, group_params[ g ].nb,
-                            a_array_dev, group_params[ g ].lda,
-                            b_array_dev, group_params[ g ].ldb,
+                            a_array_dev, lda[ g ],
+                            b_array_dev, group_params[ g ].ld[0],
                             group_count, *queue);
                 }
                 else {
                     device::gecopy(
                             group_params[ g ].mb, group_params[ g ].nb,
-                            a_array_dev, group_params[ g ].lda,
-                            b_array_dev, group_params[ g ].ldb,
+                            a_array_dev, lda[ g ],
+                            b_array_dev, group_params[ g ].ld[0],
                             group_count, *queue);
                 }
                 a_array_dev += group_count;

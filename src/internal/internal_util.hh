@@ -143,7 +143,7 @@ std::vector<int64_t> device_regions_range( bool want_rows, BaseMatrix<scalar_t>&
 }
 
 //------------------------------------------------------------------------------
-/// Helper class to store the information on a device region
+/// Helper class to store the information on a device region.
 ///
 /// @tparam has_diag
 ///     Wheather the diagonal tiles may need to be special cased
@@ -177,25 +177,36 @@ public:
 //------------------------------------------------------------------------------
 /// Computes and populates the regions for the given matrices.
 ///
-/// @params[in] mats
+/// @tparam has_diag
+///     Wheather the diagonal tiles may need to be special cased
+///
+/// @tparam mat_count
+///     The number of matrices used by the kernel
+///
+/// @param[in] mats
 ///     An array of the matrices to build regions for
 ///
-/// @params[in] mats_array_host
+/// @param[in] mats_array_host
 ///     An array of the arrays to fill with pointers to device data
 ///
-/// @params[in] device
+/// @param[in] device
 ///     The device to build regions for
 ///
-/// @params[in] diag_same
+/// @param[in] diag_same
 ///     Whether to treat the diagonal tiles as normal tiles in spite of has_diag
 ///     Ignored when has_diag is false.
+///
+/// @param[in] extra_setup
+///     Callback that is called whenever a tile is added to a group.
+///     The group index and the tile indices are passed as arguments
 ///
 template< bool has_diag, int mat_count, typename scalar_t>
 std::vector< device_regions_params<has_diag, mat_count> > device_regions_build(
         std::array< std::reference_wrapper<BaseMatrix<scalar_t>>, mat_count > mats,
         std::array< scalar_t**, mat_count > mats_array_host,
         int64_t device,
-        bool diag_same = true)
+        bool diag_same = true,
+        std::function<void(int64_t, int64_t, int64_t)> extra_setup = {})
 {
     // The first two arguments should be valid targets for brace-initialization
     // reference_wrapper works around fact that C++ doesn't allow array of references
@@ -215,7 +226,8 @@ std::vector< device_regions_params<has_diag, mat_count> > device_regions_build(
     assert( diag_same || has_diag );
     diag_same |= !has_diag; // Ensure the compiler can propagate this assertion
 
-    // Single dimensions are always indexed as 0. This allows setting up GEMM et al.
+    // Size 1 dimensions get broadcast to allow setting up GEMM et al.
+    // i_step[m]=0 results in only accessing row 0 of matrix m (likewise for j)
     // The first matrix is always indexed normally since it determines the loops
     int64_t i_step[mat_count];
     int64_t j_step[mat_count];
@@ -231,13 +243,16 @@ std::vector< device_regions_params<has_diag, mat_count> > device_regions_build(
     std::vector<Params> group_params;
     for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
     for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
+        // Loop over the tiles in this region.  If any should be computed on this
+        // process & device, save them.
         Params group;
         group.mb = A.tileMb( irange[ ii ] );
         group.nb = A.tileNb( jrange[ jj ] );
         for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
-            // Lower matrices start at j+1
-            // Upper matrices end at j
-            // General matrices run the whole range
+            // This is a column major loop.  So,
+            // * Lower matrices start at j+1
+            // * Upper matrices end at j
+            // * General matrices run the whole range
             int istart = std::max(irange[ ii ], (A.uplo() == Uplo::Lower ? j+1 : 0));
             int iend   = std::min(irange[ ii+1 ], (A.uplo() == Uplo::Upper ? j : mt));
             for (int64_t i = istart; i < iend; ++i) {
@@ -255,17 +270,23 @@ std::vector< device_regions_params<has_diag, mat_count> > device_regions_build(
                             assert( group.ld[m] == Mij.stride() );
                         }
                     }
+                    if (extra_setup) {
+                        extra_setup( group_params.size(), i, j );
+                    }
                     ++group.count;
                     ++batch_count;
                 }
             } // for i
         } // for j
+        // If any tiles in the region should be computed here, save the group
         if (group.count > 0) {
             group_params.push_back( group );
         }
 
         // If the diagonal tiles need special treatment, build those groups
         if constexpr (has_diag) if (!diag_same) {
+            // Loop over the diagonal tiles in this region.  If any should be
+            // computed on this process & device, save them.
             group = Params();
             group.is_diagonal = true;
             group.mb = A.tileMb( irange[ ii ] );
@@ -289,10 +310,14 @@ std::vector< device_regions_params<has_diag, mat_count> > device_regions_build(
                             assert( group.ld[m] == Mij.stride() );
                         }
                     }
+                    if (extra_setup) {
+                        extra_setup( group_params.size(), ij, ij );
+                    }
                     ++group.count;
                     ++batch_count;
                 }
             } // for ij
+            // If any tiles in the region should be computed here, save the group
             if (group.count > 0) {
                 group_params.push_back( group );
             }

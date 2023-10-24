@@ -68,29 +68,9 @@ void scale_row_col(
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
-    // Find ranges of matching mb's and ranges of matching nb's.
-    std::vector< int64_t > irange = device_regions_range( true, A );
-    std::vector< int64_t > jrange = device_regions_range( false, A );
-
-    // Compute global offsets of each block
-    std::vector< int64_t > range_ioffset (irange.size()-1);
-    std::vector< int64_t > range_joffset (jrange.size()-1);
-    {
-        int64_t ioffset = 0;
-        for (size_t i = 0; i < range_ioffset.size(); ++i) {
-            range_ioffset[ i ] = ioffset;
-            ioffset += A.tileMb( irange[ i ] ) * (irange[ i+1 ] - irange[ i ]);
-        }
-        int64_t joffset = 0;
-        for (size_t j = 0; j < range_joffset.size(); ++j) {
-            range_joffset[ j ] = joffset;
-            joffset += A.tileNb( jrange[ j ] ) * (jrange[ j+1 ] - jrange[ j ]);
-        }
-    }
-
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
-        #pragma omp task shared( R, C, A, irange, jrange, range_ioffset, range_joffset ) \
+        #pragma omp task shared( R, C, A ) \
             firstprivate( equed, device )
         {
             bool want_row = equed == Equed::Both || equed == Equed::Row;
@@ -116,6 +96,24 @@ void scale_row_col(
                 c_array_dev .resize( A.batchArraySize(), device, *queue );
             }
 
+            std::vector< int64_t > ioffsets, joffsets;
+            if (want_row) {
+                ioffsets.reserve(A.mt());
+                int64_t offset = 0;
+                for (int64_t i = 0; i < A.mt(); ++i) {
+                    ioffsets.push_back( offset );
+                    offset += A.tileMb( i );
+                }
+            }
+            if (want_col) {
+                joffsets.reserve(A.nt());
+                int64_t offset = 0;
+                for (int64_t j = 0; j < A.nt(); ++j) {
+                    joffsets.push_back( offset );
+                    offset += A.tileNb( j );
+                }
+            }
+
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already
             //       and possibly wrong, because an input matrix is being altered
@@ -134,45 +132,21 @@ void scale_row_col(
             scalar_t** a_array_host = A.array_host( device, queue_index );
 
             int64_t batch_count = 0;
-            struct Params {
-                int64_t count, mb, nb, lda;
+            std::function<void(int64_t, int64_t, int64_t)>
+            store_rc = [&](int64_t group, int64_t i, int64_t j) {
+                    if (want_row)
+                        r_array_host[ batch_count ] = &dR[ ioffsets[ i ] ];
+                    if (want_col)
+                        c_array_host[ batch_count ] = &dC[ joffsets[ j ] ];
+                    ++batch_count;
             };
-            std::vector<Params> group_params;
-            for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
-            for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
-                Params group = { 0, -1, -1, -1 };
-                int64_t joffset = range_joffset[ jj ];
-                for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
-                    int64_t ioffset = range_ioffset[ ii ];
-                    for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
-                        if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
-                            auto Aij = A( i, j, device );
-                            if (want_row)
-                                r_array_host[ batch_count ] = &dR[ ioffset ];
-                            if (want_col)
-                                c_array_host[ batch_count ] = &dC[ joffset ];
-                            a_array_host[ batch_count ] = Aij.data();
-                            if (group.count == 0) {
-                                group.mb  = Aij.mb();
-                                group.nb  = Aij.nb();
-                                group.lda = Aij.stride();
-                            }
-                            else {
-                                assert( group.mb  == Aij.mb() );
-                                assert( group.nb  == Aij.nb() );
-                                assert( group.lda == Aij.stride() );
-                            }
-                            ++group.count;
-                            ++batch_count;
-                        }
-                        ioffset += A.tileMb( i );
-                    } // for i
-                    joffset += A.tileNb( j );
-                } // for j
-                if (group.count > 0) {
-                    group_params.push_back( group );
-                }
-            }} // for jj, ii
+            auto group_params = device_regions_build<false, 1, scalar_t>(
+                                                    {A},
+                                                    {a_array_host},
+                                                    device,
+                                                    true,
+                                                    store_rc );
+
 
             scalar_t** a_array_dev = A.array_device( device, queue_index );
 
@@ -201,7 +175,7 @@ void scale_row_col(
                         equed,
                         group_params[ g ].mb, group_params[ g ].nb,
                         r_array_data, c_array_data,
-                        a_array_dev, group_params[ g ].lda,
+                        a_array_dev, group_params[ g ].ld[0],
                         group_count, *queue);
                 r_array_data += group_count;
                 c_array_data += group_count;

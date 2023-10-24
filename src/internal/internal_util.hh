@@ -301,7 +301,7 @@ std::vector< device_regions_params<has_diag, mat_count> > device_regions_build(
                     // Add tiles to current group
                     // This logic matches that of above
                     for (int m = 0; m < mat_count; ++m) {
-                        auto Mij = mats[ m ].get()( ij, ij, device );
+                        auto Mij = mats[ m ].get()( ij*i_step[m], ij*j_step[m], device );
                         mats_array_host[ m ][ batch_count ] = Mij.data();
                         if (group.count == 0) {
                             group.ld[m] = Mij.stride();

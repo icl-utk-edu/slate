@@ -9,7 +9,6 @@
 #include "slate/Tile_blas.hh"
 #include "internal/internal.hh"
 #include "internal/internal_batch.hh"
-#include "internal/internal_util.hh"
 
 namespace slate {
 namespace internal {

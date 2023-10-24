@@ -11,7 +11,6 @@
 #include "slate/Matrix.hh"
 #include "slate/types.hh"
 #include "tile/scale_row_col.hh"
-#include "internal/internal_util.hh"
 
 namespace slate {
 

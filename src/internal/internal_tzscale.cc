@@ -10,7 +10,6 @@
 #include "slate/Matrix.hh"
 #include "internal/Tile_lapack.hh"
 #include "slate/types.hh"
-#include "internal/internal_util.hh"
 
 namespace slate {
 namespace internal {

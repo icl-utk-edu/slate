@@ -11,7 +11,6 @@
 #include "slate/Tile_blas.hh"
 #include "slate/Tile_aux.hh"
 #include "slate/types.hh"
-#include "internal/internal_util.hh"
 
 namespace slate {
 

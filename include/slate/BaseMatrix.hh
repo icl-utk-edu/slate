@@ -1875,7 +1875,6 @@ void BaseMatrix<scalar_t>::tileIrecv(
         // Receive data.
         at(i, j).irecv(src_rank, mpiComm(), layout, tag, request);
 
-        tileLayout(i, j, layout);
         tileModified(i, j, HostNum, true);
     }
     else {

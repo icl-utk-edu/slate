@@ -1192,7 +1192,6 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, Layout layout, int tag)
 ///
 /// @param[in] layout
 ///     Indicates the Layout (ColMajor/RowMajor) of the received data.
-///     WARNING: need to call tileLayout(...) to properly set the layout of the
 ///              origin matrix tile afterwards.
 /// @param[in] tag
 ///     MPI tag
@@ -1205,7 +1204,9 @@ template <typename scalar_t>
 void Tile<scalar_t>::irecv(int src, MPI_Comm mpi_comm, Layout layout,
                            int tag, MPI_Request* request)
 {
-    trace::Block trace_block("MPI_Recv");
+    trace::Block trace_block("MPI_Irecv");
+
+    this->setLayout( layout );
 
     // If no stride.
     if (this->isContiguous()) {
@@ -1236,8 +1237,6 @@ void Tile<scalar_t>::irecv(int src, MPI_Comm mpi_comm, Layout layout,
 
         slate_mpi_call(MPI_Type_free(&newtype));
     }
-    // set this tile layout to match the received data layout
-    this->layout(layout);
     // todo: would specializing to Triangular / Band tiles improve performance
     // by receiving less / compacted data
 }

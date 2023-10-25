@@ -11,8 +11,6 @@ source ${mydir}/setup_env.sh
 err=0
 
 export OMP_NUM_THREADS=8
-export CUDA_VISIBLE_DEVICES=0
-export ROCR_VISIBLE_DEVICES=0
 
 # Currently, OpenMP offload tests don't work on our Intel GPU.
 # CI checks only compilation.

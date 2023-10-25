@@ -494,6 +494,7 @@ public:
     void tileRecv(int64_t i, int64_t j, int dst_rank,
                   Layout layout, int tag = 0);
 
+    template <Target target = Target::Host>
     void tileIrecv(int64_t i, int64_t j, int dst_rank,
                   Layout layout, int tag, MPI_Request* request);
 
@@ -1884,17 +1885,32 @@ void BaseMatrix<scalar_t>::tileRecv(
 ///     MPI request object
 ///
 template <typename scalar_t>
+template <Target target>
 void BaseMatrix<scalar_t>::tileIrecv(
     int64_t i, int64_t j, int src_rank, Layout layout, int tag, MPI_Request* request)
 {
     if (src_rank != mpiRank()) {
-        storage_->tilePrepareToReceive( globalIndex( i, j ), layout );
-        tileAcquire(i, j, layout);
+        int recv_dev = HostNum;
+        if (target == Target::Devices && gpu_aware_mpi()) {
+            recv_dev = tileDevice( i, j );
+        }
+
+        storage_->tilePrepareToReceive( globalIndex( i, j ), recv_dev, layout );
+        tileAcquire(i, j, recv_dev, layout);
 
         // Receive data.
         at(i, j).irecv(src_rank, mpiComm(), layout, tag, request);
 
-        tileModified(i, j, HostNum, true);
+        tileModified( i, j, recv_dev, true );
+
+        // Copy to devices.
+        if (target == Target::Devices && recv_dev == HostNum) {
+            #pragma omp task slate_omp_default_none \
+                firstprivate( i, j )
+            {
+                tileGetForReading(i, j, tileDevice(i, j), LayoutConvert::None);
+            }
+        }
     }
     else {
         *request = MPI_REQUEST_NULL;

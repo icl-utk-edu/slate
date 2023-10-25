@@ -320,7 +320,7 @@ void test_stedc_secular( Params& params, bool run )
             break;
 
         default:
-            throw std::exception();
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

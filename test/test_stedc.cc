@@ -301,7 +301,7 @@ void test_stedc( Params& params, bool run )
             break;
 
         default:
-            throw std::exception();
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

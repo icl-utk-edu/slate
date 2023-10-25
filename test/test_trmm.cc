@@ -308,10 +308,6 @@ void test_trmm_work(Params& params, bool run)
 void test_trmm(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_trmm_work<float> (params, run);
             break;
@@ -326,6 +322,10 @@ void test_trmm(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_trmm_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

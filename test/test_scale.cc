@@ -244,10 +244,6 @@ void test_scale_dispatch( Params& params, bool run )
 void test_scale(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_scale_dispatch< float >( params, run );
             break;
@@ -262,6 +258,10 @@ void test_scale(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_scale_dispatch< std::complex<double> >( params, run );
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

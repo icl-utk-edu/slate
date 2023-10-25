@@ -324,10 +324,6 @@ void test_henorm_work(Params& params, bool run)
 void test_henorm(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_henorm_work<float> (params, run);
             break;
@@ -342,6 +338,10 @@ void test_henorm(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_henorm_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

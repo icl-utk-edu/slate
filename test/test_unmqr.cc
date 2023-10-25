@@ -201,10 +201,6 @@ void test_unmqr_work(Params& params, bool run)
 void test_unmqr(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_unmqr_work<float> (params, run);
             break;
@@ -219,6 +215,10 @@ void test_unmqr(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_unmqr_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

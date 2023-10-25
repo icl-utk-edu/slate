@@ -258,10 +258,6 @@ void test_unmtr_he2hb_work(Params& params, bool run)
 void test_unmtr_he2hb(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_unmtr_he2hb_work<float> (params, run);
             break;
@@ -276,6 +272,10 @@ void test_unmtr_he2hb(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_unmtr_he2hb_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

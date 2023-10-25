@@ -328,7 +328,7 @@ void test_scale_row_col( Params& params, bool run )
             break;
 
         default:
-            throw std::exception();
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

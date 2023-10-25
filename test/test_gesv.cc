@@ -504,10 +504,6 @@ void test_gesv_work(Params& params, bool run)
 void test_gesv(Params& params, bool run)
 {
     switch (params.datatype()) {
-        case testsweeper::DataType::Integer:
-            throw std::exception();
-            break;
-
         case testsweeper::DataType::Single:
             test_gesv_work<float> (params, run);
             break;
@@ -522,6 +518,10 @@ void test_gesv(Params& params, bool run)
 
         case testsweeper::DataType::DoubleComplex:
             test_gesv_work<std::complex<double>> (params, run);
+            break;
+
+        default:
+            throw std::runtime_error( "unknown datatype" );
             break;
     }
 }

@@ -753,8 +753,8 @@ private:
     int64_t joffset_;   ///< block col offset with respect to original matrix
     int64_t mt_;        ///< number of local block rows in this view
     int64_t nt_;        ///< number of local block cols in this view
-    int64_t nprow_;     ///< number of process rows if 2D block cyclic
-    int64_t npcol_;     ///< number of process cols if 2D block cyclic
+    int nprow_;         ///< number of process rows if 2D block cyclic
+    int npcol_;         ///< number of process cols if 2D block cyclic
     GridOrder order_;   ///< order to map MPI processes to tile grid
 
 protected:
@@ -1294,10 +1294,7 @@ void BaseMatrix<scalar_t>::gridinfo(
         slate_mpi_call(MPI_Comm_size(mpiComm(), &mpi_size));
         // When matrix is empty, storage_ may be null
         if (mt_ != 0 && nt_ != 0) {
-            int64_t nprow_i64, npcol_i64;
-            func::is_2d_cyclic_grid(mt(), nt(), tileRankFunc(), order_, nprow_i64, npcol_i64);
-            nprow_ = nprow_i64;
-            npcol_ = npcol_i64;
+            func::is_2d_cyclic_grid(mt(), nt(), tileRankFunc(), &order_, &nprow_, &npcol_);
 
             // Detected grid doesn't match process distribution
             // Label it as unknown since some processes won't have a row/column

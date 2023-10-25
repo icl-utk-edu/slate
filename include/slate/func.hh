@@ -263,19 +263,19 @@ transpose_grid(std::function<int(ij_tuple)> old_func)
 /// @ingroup func
 ///
 inline bool is_2d_cyclic_grid(int64_t mt, int64_t nt, std::function<int(ij_tuple)> func,
-                              GridOrder& order, int64_t& p, int64_t& q)
+                              GridOrder* order, int* p, int* q)
 {
     // Hard code trivial corner cases
     if (mt == 0 || nt == 0 || (mt == 1 && nt == 1)) {
-        order = GridOrder::Col;
-        p = 1;
-        q = 1;
+        *order = GridOrder::Col;
+        *p = 1;
+        *q = 1;
         return true;
     }
 
-    order = GridOrder::Unknown;
-    p = -1;
-    q = -1;
+    *order = GridOrder::Unknown;
+    *p = -1;
+    *q = -1;
 
     // Determine possible grid order by checking f(0, 1) and f(1, 0)
     GridOrder pred_order = GridOrder::Unknown;
@@ -327,9 +327,9 @@ inline bool is_2d_cyclic_grid(int64_t mt, int64_t nt, std::function<int(ij_tuple
         }
     }
     // Grid is 2d cyclic
-    order = pred_order;
-    p = pred_p;
-    q = pred_q;
+    *order = pred_order;
+    *p = pred_p;
+    *q = pred_q;
     return true;
 }
 

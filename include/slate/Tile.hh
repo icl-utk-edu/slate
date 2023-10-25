@@ -152,7 +152,7 @@ public:
     void copyData(Tile<scalar_t>* dst_tile) const;
 
     void send(int dst, MPI_Comm mpi_comm, int tag = 0) const;
-    void isend(int dst, MPI_Comm mpi_comm, int tag, MPI_Request *req);
+    void isend(int dst, MPI_Comm mpi_comm, int tag, MPI_Request *req) const;
     void recv(int src, MPI_Comm mpi_comm, Layout layout, int tag = 0);
     void irecv(int src, MPI_Comm mpi_comm, Layout layout, int tag, MPI_Request *req);
     void bcast(int bcast_root, MPI_Comm mpi_comm);
@@ -1069,38 +1069,18 @@ void Tile<scalar_t>::copyData(
 /// @param[in] mpi_comm
 ///     MPI communicator.
 ///
+/// @param[in] tag
+///     MPI tag
+///
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
 void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm, int tag) const
 {
     trace::Block trace_block("MPI_Send");
 
-    // If no stride.
-    if (this->isContiguous()) {
-        // Use simple send.
-        int count = mb_*nb_;
-
-        slate_mpi_call(
-            MPI_Send(data_, count, mpi_type<scalar_t>::value, dst, tag,
-                     mpi_comm));
-    }
-    else {
-        // Otherwise, use strided send.
-        int count = layout_ == Layout::ColMajor ? nb_ : mb_;
-        int blocklength = layout_ == Layout::ColMajor ? mb_ : nb_;
-        int stride = stride_;
-        MPI_Datatype newtype;
-
-        slate_mpi_call(
-            MPI_Type_vector(count, blocklength, stride,
-                            mpi_type<scalar_t>::value, &newtype));
-
-        slate_mpi_call(MPI_Type_commit(&newtype));
-        slate_mpi_call(MPI_Send(data_, 1, newtype, dst, tag, mpi_comm));
-        slate_mpi_call(MPI_Type_free(&newtype));
-    }
-    // todo: would specializing to Triangular / Band tiles improve performance
-    // by receiving less / compacted data
+    MPI_Request request;
+    isend( dst, mpi_comm, tag, &request );
+    slate_mpi_call( MPI_Wait( &request, MPI_STATUS_IGNORE ) );
 }
 
 //------------------------------------------------------------------------------
@@ -1112,9 +1092,15 @@ void Tile<scalar_t>::send(int dst, MPI_Comm mpi_comm, int tag) const
 /// @param[in] mpi_comm
 ///     MPI communicator.
 ///
+/// @param[in] tag
+///     MPI tag
+///
+/// @param[out] request
+///     MPI Request object
+///
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
-void Tile<scalar_t>::isend(int dst, MPI_Comm mpi_comm, int tag, MPI_Request *req) // const
+void Tile<scalar_t>::isend(int dst, MPI_Comm mpi_comm, int tag, MPI_Request *request) const
 {
     trace::Block trace_block("MPI_Isend");
 
@@ -1125,7 +1111,7 @@ void Tile<scalar_t>::isend(int dst, MPI_Comm mpi_comm, int tag, MPI_Request *req
 
         slate_mpi_call(
             MPI_Isend(data_, count, mpi_type<scalar_t>::value, dst, tag,
-                      mpi_comm, req));
+                      mpi_comm, request));
     }
     else {
         // Otherwise, use strided send.
@@ -1139,7 +1125,7 @@ void Tile<scalar_t>::isend(int dst, MPI_Comm mpi_comm, int tag, MPI_Request *req
                             mpi_type<scalar_t>::value, &newtype));
 
         slate_mpi_call(MPI_Type_commit(&newtype));
-        slate_mpi_call(MPI_Isend(data_, 1, newtype, dst, tag, mpi_comm, req));
+        slate_mpi_call(MPI_Isend(data_, 1, newtype, dst, tag, mpi_comm, request));
         slate_mpi_call(MPI_Type_free(&newtype));
     }
     // todo: would specializing to Triangular / Band tiles improve performance
@@ -1158,45 +1144,18 @@ void Tile<scalar_t>::isend(int dst, MPI_Comm mpi_comm, int tag, MPI_Request *req
 /// @param[in] layout
 ///     Indicates the Layout (ColMajor/RowMajor) of the received data.
 ///
+/// @param[in] tag
+///     MPI tag
+///
 // todo need to copy or verify metadata (sizes, op, uplo, ...)
 template <typename scalar_t>
 void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, Layout layout, int tag)
 {
     trace::Block trace_block("MPI_Recv");
 
-    this->setLayout( layout );
-
-    // If no stride.
-    if (this->isContiguous()) {
-        // Use simple recv.
-        int count = mb_*nb_;
-
-        slate_mpi_call(
-            MPI_Recv(data_, count, mpi_type<scalar_t>::value, src, tag,
-                     mpi_comm, MPI_STATUS_IGNORE));
-    }
-    else {
-        // Otherwise, use strided recv.
-        int count = layout_ == Layout::ColMajor ? nb_ : mb_;
-        int blocklength = layout_ == Layout::ColMajor ? mb_ : nb_;
-        int stride = stride_;
-        MPI_Datatype newtype;
-
-        slate_mpi_call(
-            MPI_Type_vector(
-                count, blocklength, stride, mpi_type<scalar_t>::value,
-                &newtype));
-
-        slate_mpi_call(MPI_Type_commit(&newtype));
-
-        slate_mpi_call(
-            MPI_Recv(data_, 1, newtype, src, tag, mpi_comm,
-                     MPI_STATUS_IGNORE));
-
-        slate_mpi_call(MPI_Type_free(&newtype));
-    }
-    // todo: would specializing to Triangular / Band tiles improve performance
-    // by receiving less / compacted data
+    MPI_Request request;
+    irecv( src, mpi_comm, layout, tag, &request );
+    slate_mpi_call( MPI_Wait( &request, MPI_STATUS_IGNORE ) );
 }
 
 //------------------------------------------------------------------------------

@@ -406,6 +406,7 @@ if (opts.lu):
     #[ 'geequ', gen + dtype + la + n ],
     [ 'gesv_mixed',   gen + dtype_double + la + n ],
     [ 'gesv_mixed_gmres',  gen + dtype_double + la + n + ' --nrhs 1' ],
+    [ 'gesv_rbt', gen + dtype + la + n ],
     ]
 
 # LU banded

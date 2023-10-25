@@ -152,8 +152,9 @@ public:
     void copyData(Tile<scalar_t>* dst_tile) const;
 
     void send(int dst, MPI_Comm mpi_comm, int tag = 0) const;
-    void isend(int dst, MPI_Comm mpi_comm, int tag, MPI_Request *req); // const;
+    void isend(int dst, MPI_Comm mpi_comm, int tag, MPI_Request *req);
     void recv(int src, MPI_Comm mpi_comm, Layout layout, int tag = 0);
+    void irecv(int src, MPI_Comm mpi_comm, Layout layout, int tag, MPI_Request *req);
     void bcast(int bcast_root, MPI_Comm mpi_comm);
 
     /// Returns shallow copy of tile that is transposed.
@@ -1173,6 +1174,66 @@ void Tile<scalar_t>::recv(int src, MPI_Comm mpi_comm, Layout layout, int tag)
         slate_mpi_call(
             MPI_Recv(data_, 1, newtype, src, tag, mpi_comm,
                      MPI_STATUS_IGNORE));
+
+        slate_mpi_call(MPI_Type_free(&newtype));
+    }
+    // todo: would specializing to Triangular / Band tiles improve performance
+    // by receiving less / compacted data
+}
+
+//------------------------------------------------------------------------------
+/// Receives tile from MPI rank src using immediate mode
+///
+/// @param[in] src
+///     Source MPI rank in mpi_comm.
+///
+/// @param[in] mpi_comm
+///     MPI communicator.
+///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the received data.
+///              origin matrix tile afterwards.
+/// @param[in] tag
+///     MPI tag
+///
+/// @param[out] request
+///     MPI request object
+///
+// todo need to copy or verify metadata (sizes, op, uplo, ...)
+template <typename scalar_t>
+void Tile<scalar_t>::irecv(int src, MPI_Comm mpi_comm, Layout layout,
+                           int tag, MPI_Request* request)
+{
+    trace::Block trace_block("MPI_Irecv");
+
+    this->setLayout( layout );
+
+    // If no stride.
+    if (this->isContiguous()) {
+        // Use simple recv.
+        int count = mb_*nb_;
+
+        slate_mpi_call(
+            MPI_Irecv(data_, count, mpi_type<scalar_t>::value, src, tag,
+                     mpi_comm, request));
+    }
+    else {
+        // Otherwise, use strided recv.
+        int count = layout_ == Layout::ColMajor ? nb_ : mb_;
+        int blocklength = layout_ == Layout::ColMajor ? mb_ : nb_;
+        int stride = stride_;
+        MPI_Datatype newtype;
+
+        slate_mpi_call(
+            MPI_Type_vector(
+                count, blocklength, stride, mpi_type<scalar_t>::value,
+                &newtype));
+
+        slate_mpi_call(MPI_Type_commit(&newtype));
+
+        slate_mpi_call(
+            MPI_Irecv(data_, 1, newtype, src, tag, mpi_comm,
+                      request));
 
         slate_mpi_call(MPI_Type_free(&newtype));
     }

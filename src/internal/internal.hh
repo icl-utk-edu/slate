@@ -403,6 +403,30 @@ void add(scalar_t alpha, BaseTrapezoidMatrix<scalar_t>&& A,
          int priority=0, int queue_index=0,
          Options const& opts = Options());
 
+template<typename scalar_t>
+void gerbt(Matrix<scalar_t> A11,
+           Matrix<scalar_t> A12,
+           Matrix<scalar_t> A21,
+           Matrix<scalar_t> A22,
+           Matrix<scalar_t> U1,
+           Matrix<scalar_t> U2,
+           Matrix<scalar_t> V1,
+           Matrix<scalar_t> V2);
+
+template<typename scalar_t>
+void gerbt(Side side,
+           Op trans,
+           Matrix<scalar_t> B1,
+           Matrix<scalar_t> B2,
+           Matrix<scalar_t> U1,
+           Matrix<scalar_t> U2);
+
+template<typename scalar_t>
+std::pair<Matrix<scalar_t>, Matrix<scalar_t>> rbt_generate(
+        const Matrix<scalar_t>& A,
+        const int64_t d,
+        const int64_t seed);
+
 //------------------------------------------------------------------------------
 // Bidiagonal band reduction
 template <Target target, typename scalar_t>

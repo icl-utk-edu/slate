@@ -464,6 +464,8 @@ ifneq ($(only_unit),1)
         src/internal/internal_geadd.cc \
         src/internal/internal_gebr.cc \
         src/internal/internal_gecopy.cc \
+        src/internal/internal_gerbt.cc \
+        src/internal/internal_rbt_generate.cc \
         src/internal/internal_gemm.cc \
         src/internal/internal_gemmA.cc \
         src/internal/internal_genorm.cc \
@@ -584,6 +586,7 @@ ifneq ($(only_unit),1)
         src/ge2tb.cc \
         src/gecondest.cc \
         src/gelqf.cc \
+        src/gerbt.cc \
         src/gels.cc \
         src/gels_cholqr.cc \
         src/gels_qr.cc \
@@ -595,6 +598,7 @@ ifneq ($(only_unit),1)
         src/gesv_mixed.cc \
         src/gesv_mixed_gmres.cc \
         src/gesv_nopiv.cc \
+        src/gesv_rbt.cc \
         src/getrf.cc \
         src/getrf_nopiv.cc \
         src/getrf_tntpiv.cc \

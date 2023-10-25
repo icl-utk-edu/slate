@@ -153,6 +153,17 @@ void set(
 // Level 3 BLAS and LAPACK auxiliary
 
 //-----------------------------------------
+// gerbt()
+template<typename scalar_t>
+void gerbt(Matrix<scalar_t>& U,
+           Matrix<scalar_t>& A,
+           Matrix<scalar_t>& V);
+
+template<typename scalar_t>
+void gerbt(Matrix<scalar_t>& U,
+           Matrix<scalar_t>& A);
+
+//-----------------------------------------
 // gbmm()
 template <typename scalar_t>
 void gbmm(
@@ -552,6 +563,16 @@ int64_t gesv_mixed_gmres(
     Matrix<scalar_hi>& A, Pivots& pivots,
     Matrix<scalar_hi>& B,
     Matrix<scalar_hi>& X,
+    int& iter,
+    Options const& opts = Options());
+
+//-----------------------------------------
+// gesv_rbt
+template<typename scalar_t>
+void gesv_rbt(
+    Matrix<scalar_t>& A,
+    Matrix<scalar_t>& B,
+    Matrix<scalar_t>& X,
     int& iter,
     Options const& opts = Options());
 

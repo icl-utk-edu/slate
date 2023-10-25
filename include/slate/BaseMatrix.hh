@@ -486,8 +486,15 @@ public:
     void tileSend(int64_t i, int64_t j, int dst_rank, int tag = 0);
 
     template <Target target = Target::Host>
+    void tileIsend(int64_t i, int64_t j, int dst_rank,
+                   int tag, MPI_Request* request);
+
+    template <Target target = Target::Host>
     void tileRecv(int64_t i, int64_t j, int dst_rank,
                   Layout layout, int tag = 0);
+
+    void tileIrecv(int64_t i, int64_t j, int dst_rank,
+                  Layout layout, int tag, MPI_Request* request);
 
     template <Target target = Target::Host>
     void tileBcast(int64_t i, int64_t j, BaseMatrix const& B,
@@ -1743,6 +1750,43 @@ void BaseMatrix<scalar_t>::tileSend(
 }
 
 //------------------------------------------------------------------------------
+/// Immediately send tile {i, j} of op(A) to the given MPI rank.
+/// Destination rank must call tileRecv().
+///
+/// @tparam target
+///     Destination to target; either Host (default) or Device.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] dst_rank
+///     Destination MPI rank. If dst_rank == mpiRank, this is a no-op.
+///
+/// @param[in] tag
+///     MPI tag, default 0.
+///
+/// @param[out] request
+///     Pointer to an MPI_Request struct
+///
+template <typename scalar_t>
+template <Target target>
+void BaseMatrix<scalar_t>::tileIsend(
+    int64_t i, int64_t j, int dst_rank, int tag, MPI_Request* request)
+{
+    if (dst_rank != mpiRank()) {
+        //todo: need to qcquire read access lock to TileNode(i, j)
+        tileGetForReading(i, j, LayoutConvert::None);
+        at(i, j).isend(dst_rank, mpiComm(), tag, request);
+    }
+    else {
+        *request = MPI_REQUEST_NULL;
+    }
+}
+
+//------------------------------------------------------------------------------
 /// Receive tile {i, j} of op(A) to the given MPI rank.
 /// Tile is allocated as workspace with life = 1 if it doesn't yet exist,
 /// or 1 is added to life if it does exist.
@@ -1790,6 +1834,51 @@ void BaseMatrix<scalar_t>::tileRecv(
                 tileGetForReading(i, j, tileDevice(i, j), LayoutConvert::None);
             }
         }
+    }
+}
+
+//------------------------------------------------------------------------------
+/// Receive tile {i, j} of op(A) to the given MPI rank using immediate mode..
+/// Tile is allocated as workspace with life = 1 if it doesn't yet exist,
+/// or 1 is added to life if it does exist.
+/// Source rank must call tileSend().
+/// Data received must be in 'layout' (ColMajor/RowMajor) major.
+///
+/// @param[in] i
+///     Tile's block row index. 0 <= i < mt.
+///
+/// @param[in] j
+///     Tile's block column index. 0 <= j < nt.
+///
+/// @param[in] src_rank
+///     Source MPI rank. If src_rank == mpiRank, this is a no-op.
+///
+/// @param[in] layout
+///     Indicates the Layout (ColMajor/RowMajor) of the received data.
+///     WARNING: must match the layout of the tile in the sender MPI rank.
+///
+/// @param[in] tag
+///     MPI tag
+///
+///
+/// @param[out] request
+///     MPI request object
+///
+template <typename scalar_t>
+void BaseMatrix<scalar_t>::tileIrecv(
+    int64_t i, int64_t j, int src_rank, Layout layout, int tag, MPI_Request* request)
+{
+    if (src_rank != mpiRank()) {
+        storage_->tilePrepareToReceive( globalIndex( i, j ), 1, layout );
+        tileAcquire(i, j, layout);
+
+        // Receive data.
+        at(i, j).irecv(src_rank, mpiComm(), layout, tag, request);
+
+        tileModified(i, j, HostNum, true);
+    }
+    else {
+        *request = MPI_REQUEST_NULL;
     }
 }
 

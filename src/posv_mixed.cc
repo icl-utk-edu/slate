@@ -37,16 +37,13 @@ namespace slate {
 ///
 /// The iterative refinement process is stopped if iter > itermax or
 /// for all the RHS, $1 \le j \le nrhs$, we have:
-///     $\norm{r_j}_{inf} < \sqrt{n} \norm{x_j}_{inf} \norm{A}_{inf} \epsilon_{\mathrm{hi}},$
+///     $\norm{r_j}_{inf} < tol \norm{x_j}_{inf} \norm{A}_{inf},$
 /// where:
 /// - iter is the number of the current iteration in the iterative refinement
 ///    process
 /// - $\norm{r_j}_{inf}$ is the infinity-norm of the residual, $r_j = Ax_j - b_j$
 /// - $\norm{x_j}_{inf}$ is the infinity-norm of the solution
 /// - $\norm{A}_{inf}$ is the infinity-operator-norm of the matrix $A$
-/// - $\epsilon_{\mathrm{hi}}$ is the machine epsilon of double precision.
-///
-/// The value itermax is fixed to 30.
 ///
 //------------------------------------------------------------------------------
 /// @tparam scalar_hi
@@ -87,6 +84,13 @@ namespace slate {
 ///       - HostNest:  nested OpenMP parallel for loop on CPU host.
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
+///     - Option::Tolerance:
+///       Iterative refinement tolerance. Default epsilon * sqrt(m)
+///     - Option::MaxIterations:
+///       Maximum number of refinement iterations. Default 30
+///     - Option::UseFallbackSolver:
+///       If true and iterative refinement fails to convergene, the problem is
+///       resolved with partial-pivoted LU. Default true
 ///
 /// TODO: return value
 /// @retval 0 successful exit
@@ -112,10 +116,13 @@ void posv_mixed(
     const Layout layout = Layout::ColMajor;
 
     bool converged = false;
-    const int itermax = 30;
     using real_hi = blas::real_type<scalar_hi>;
     const real_hi eps = std::numeric_limits<real_hi>::epsilon();
     const scalar_hi one_hi      = 1.0;
+
+    int64_t itermax = get_option<int64_t>( opts, Option::MaxIterations, 30 );
+    double tol = get_option<double>( opts, Option::Tolerance, eps*std::sqrt(A.m()) );
+    bool use_fallback = get_option<int64_t>( opts, Option::UseFallbackSolver, true );
     iter = 0;
 
     assert( B.mt() == A.mt() );
@@ -159,7 +166,7 @@ void posv_mixed(
     real_hi Anorm = norm( Norm::Inf, A, opts );
 
     // stopping criteria
-    real_hi cte = Anorm * eps * std::sqrt( A.n() );
+    real_hi cte = Anorm * tol;
 
     // Convert B from high to low precision, store result in X_lo.
     copy( B, X_lo, opts );
@@ -235,12 +242,14 @@ void posv_mixed(
         // routine.
         iter = -itermax - 1;
 
-        // Compute the Cholesky factorization of A.
-        potrf( A, opts );
+        if (use_fallback) {
+            // Compute the Cholesky factorization of A.
+            potrf( A, opts );
 
-        // Solve the system A * X = B.
-        slate::copy( B, X, opts );
-        potrs( A, X, opts );
+            // Solve the system A * X = B.
+            slate::copy( B, X, opts );
+            potrs( A, X, opts );
+        }
     }
 
     if (target == Target::Devices) {

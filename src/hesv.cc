@@ -99,6 +99,8 @@ int64_t hesv(
              Matrix<scalar_t>& B,
     Options const& opts )
 {
+    Timer t_hesv;
+
     assert(B.mt() == A.mt());
 
     auto A_ = A;  // local shallow copy to transpose
@@ -108,12 +110,19 @@ int64_t hesv(
         A_ = conj_transpose( A_ );
 
     // factorization
+    Timer t_hetrf;
     int64_t info = hetrf( A_, pivots, T, pivots2, H, opts );
+    timers[ "hesv::hetrf" ] = t_hetrf.stop();
 
     // solve
+    Timer t_hetrs;
     if (info == 0) {
         hetrs( A_, pivots, T, pivots2, B, opts );
     }
+    timers[ "hesv::hetrs" ] = t_hetrs.stop();
+
+    timers[ "hesv" ] = t_hesv.stop();
+
     return info;
 }
 

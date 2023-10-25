@@ -79,16 +79,24 @@ int64_t gbsv(
     Matrix<scalar_t>& B,
     Options const& opts)
 {
+    Timer t_gbsv;
+
     slate_assert( A.mt() == A.nt() );  // square
     slate_assert( B.mt() == A.mt() );
 
     // factorization
+    Timer t_gbtrf;
     int64_t info = gbtrf( A, pivots, opts );
+    timers[ "gbsv::gbtrf" ] = t_gbtrf.stop();
 
     // solve
+    Timer t_gbtrs;
     if (info == 0) {
         gbtrs( A, pivots, B, opts );
     }
+    timers[ "gbsv::gbtrs" ] = t_gbtrs.stop();
+
+    timers[ "gbsv" ] = t_gbsv.stop();
 
     return info;
 }

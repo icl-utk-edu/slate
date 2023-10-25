@@ -53,12 +53,19 @@ void test_gbsv_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    int timer_level = params.timer_level();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
 
     // mark non-standard output values
     params.time();
+    if (timer_level >=2) {
+        params.time2();
+        params.time3();
+        params.time2.name( "gbtrf (s)" );
+        params.time3.name( "gbtrs (s)" );
+    }
     //params.gflops();
     //params.ref_time();
     //params.ref_gflops();
@@ -202,6 +209,10 @@ void test_gbsv_work(Params& params, bool run)
 
         // compute and save timing/performance
         params.time() = time;
+        if (timer_level >= 2) {
+            params.time2() = slate::timers[ "gbsv::gbtrf" ];
+            params.time3() = slate::timers[ "gbsv::gbtrs" ];
+        }
         ///params.gflops() = gflop / time;
 
         if (verbose > 1) {

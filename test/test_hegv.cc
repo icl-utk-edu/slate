@@ -46,6 +46,7 @@ void test_hegv_work(Params& params, bool run)
     bool check = params.check() == 'y' && ! ref_only;
     bool trace = params.trace() == 'y';
     int verbose = params.verbose();
+    int timer_level = params.timer_level();
     slate::Origin origin = params.origin();
     slate::Target target = params.target();
     params.matrix.mark();
@@ -55,6 +56,18 @@ void test_hegv_work(Params& params, bool run)
     params.time();
     params.ref_time();
     params.error2();
+    if (timer_level >= 2) {
+        params.time2();
+        params.time3();
+        params.time4();
+        params.time5();
+        params.time6();
+        params.time2.name( "potrf (s)" );
+        params.time3.name( "hegst (s)" );
+        params.time4.name( "heev (s)" );
+        params.time5.name( "trsm (s)" );
+        params.time6.name( "trmm (s)" );
+    }
 
     if (! run) {
         // B matrix must be Symmetric Positive Definite (SPD) for scalapack_phegvx
@@ -208,6 +221,14 @@ void test_hegv_work(Params& params, bool run)
 
         // compute and save timing/performance
         params.time() = time;
+        if (timer_level >= 2) {
+            params.time2() = slate::timers[ "hegv::potrf" ];
+            params.time3() = slate::timers[ "hegv::hegst" ];
+            params.time4() = slate::timers[ "hegv::heev" ];
+            params.time5() = slate::timers[ "hegv::trsm" ];
+            params.time6() = slate::timers[ "hegv::trmm" ];
+        }
+
     }
 
     print_matrix("A", A, params);
@@ -407,6 +428,13 @@ void test_hegv_work(Params& params, bool run)
             time = barrier_get_wtime(mpi_comm) - time;
 
             params.ref_time() = time;
+            if (timer_level >= 2) {
+                params.time2() = slate::timers[ "hegv::potrf" ];
+                params.time3() = slate::timers[ "hegv::hegst" ];
+                params.time4() = slate::timers[ "hegv::heev" ];
+                params.time5() = slate::timers[ "hegv::trsm" ];
+                params.time6() = slate::timers[ "hegv::trmm" ];
+            }
 
             if (! ref_only) {
                 // Reference Scalapack was run, check reference eigenvalues

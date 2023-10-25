@@ -111,6 +111,8 @@ int64_t gesv_mixed(
     int& iter,
     Options const& opts)
 {
+    Timer t_gesv_mixed;
+
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     // Assumes column major
@@ -177,13 +179,17 @@ int64_t gesv_mixed(
     copy( A, A_lo, opts );
 
     // Compute the LU factorization of A_lo.
+    Timer t_getrf;
     int64_t info = getrf( A_lo, pivots, opts );
+    timers[ "gesv_mixed::getrf" ] = t_getrf.stop();
     if (info != 0) {
         iter = -3;
     }
     else {
         // Solve the system A_lo * X_lo = B_lo.
+        Timer t_bgetrs;
         getrs( A_lo, pivots, X_lo, opts );
+        timers[ "gesv_mixed::bgetrs" ] = t_bgetrs.stop();
 
         // Convert X_lo to high precision.
         copy( X_lo, X, opts );
@@ -211,7 +217,9 @@ int64_t gesv_mixed(
             copy( R, X_lo, opts );
 
             // Solve the system A_lo * X_lo = R_lo.
+            Timer t_rgetrs;
             getrs( A_lo, pivots, X_lo, opts );
+            timers[ "gesv_mixed::rgetrs" ] = t_rgetrs.stop();
 
             // Convert X_lo back to double precision and update the current iterate.
             copy( X_lo, R, opts );

@@ -85,30 +85,43 @@ void hegv(
 
     bool wantz = (Z.mt() > 0);
 
+    Timer t_hegv;
+
     // 1. Form a Cholesky factorization of B.
+    Timer t_potrf;
     potrf( B, opts );
+    timers[ "hegv::potrf" ] = t_potrf.stop();
 
     // 2. Transform problem to standard eigenvalue problem.
+    Timer t_hegst;
     hegst( itype, A, B, opts );
+    timers[ "hegv::hegst" ] = t_hegst.stop();
 
     // 3. Solve the standard eigenvalue problem and solve.
+    Timer t_heev;
     heev( A, Lambda, Z, opts );
+    timers[ "hegv::heev" ] = t_heev.stop();
 
     if (wantz) {
         // 4. Backtransform eigenvectors to the original problem.
         auto L = TriangularMatrix<scalar_t>( Diag::NonUnit, B );
+        Timer t_trsm;
         if (itype == 1 || itype == 2) {
             // For A x = lambda B x and A B x = lambda x,
             // backtransform eigenvectors: x = inv(L)^H y.
             auto LH = conj_transpose( L );
             trsm( Side::Left, one, LH, Z, opts );
         }
+        timers[ "hegv::trsm" ] = t_trsm.stop();
+        Timer t_trmm;
         else {
             // For B A x = lambda x,
             // backtransform eigenvectors: x = L y.
             trmm( Side::Left, one, L, Z, opts );
         }
+        timers[ "hegv::trmm" ] = t_trmm.stop();
     }
+    timers[ "hegv" ] = t_hegv.stop();
 }
 
 //------------------------------------------------------------------------------

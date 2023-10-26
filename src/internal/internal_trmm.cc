@@ -21,13 +21,14 @@ template <Target target, typename scalar_t>
 void trmm(Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>&& A,
                                     Matrix<scalar_t>&& B,
-          int priority, int64_t queue_index)
+          int priority, int64_t queue_index,
+          Options const& opts )
 {
     trmm(internal::TargetType<target>(),
          side,
          alpha, A,
                 B,
-         priority, queue_index);
+         priority, queue_index, opts);
 }
 
 //------------------------------------------------------------------------------
@@ -40,7 +41,8 @@ void trmm(internal::TargetType<Target::HostTask>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority, int64_t queue_index)
+          int priority, int64_t queue_index,
+          Options const& opts )
 {
     // CPU assumes column major
     // todo: relax this assumption, by allowing Tile_blas.hh::trmm() to take layout param
@@ -49,6 +51,12 @@ void trmm(internal::TargetType<Target::HostTask>,
     const Layout layout = Layout::ColMajor;
 
     assert(A.mt() == 1);
+
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
 
     // alternatively, if (side == right), (conj)-transpose both A and B,
     // then assume side == left; see slate::trmm
@@ -59,15 +67,17 @@ void trmm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, 0)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B ) \
-                    firstprivate(i, layout, side, alpha)
+                    firstprivate( i, layout, side, alpha, call_tile_tick )
                 {
                     A.tileGetForReading(0, 0, LayoutConvert(layout));
                     B.tileGetForWriting(i, 0, LayoutConvert(layout));
                     tile::trmm(
                         side, A.diag(),
                         alpha, A(0, 0), B(i, 0) );
-                    // todo: should tileRelease()?
-                    A.tileTick(0, 0);
+                    if (call_tile_tick) {
+                        // todo: should tileRelease()?
+                        A.tileTick(0, 0);
+                    }
                 }
             }
         }
@@ -78,15 +88,17 @@ void trmm(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(0, j)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B ) \
-                    firstprivate(j, layout, side, alpha)
+                    firstprivate( j, layout, side, alpha, call_tile_tick )
                 {
                     A.tileGetForReading(0, 0, LayoutConvert(layout));
                     B.tileGetForWriting(0, j, LayoutConvert(layout));
                     tile::trmm(
                         side, A.diag(),
                         alpha, A(0, 0), B(0, j) );
-                    // todo: should tileRelease()?
-                    A.tileTick(0, 0);
+                    if (call_tile_tick) {
+                        // todo: should tileRelease()?
+                        A.tileTick(0, 0);
+                    }
                 }
             }
         }
@@ -103,7 +115,8 @@ void trmm(internal::TargetType<Target::HostNest>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority, int64_t queue_index)
+          int priority, int64_t queue_index,
+          Options const& opts )
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
@@ -118,7 +131,8 @@ void trmm(internal::TargetType<Target::HostBatch>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority, int64_t queue_index)
+          int priority, int64_t queue_index,
+          Options const& opts )
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
@@ -132,7 +146,8 @@ void trmm(internal::TargetType<Target::Devices>,
           Side side,
           scalar_t alpha, TriangularMatrix<scalar_t>& A,
                                     Matrix<scalar_t>& B,
-          int priority, int64_t queue_index)
+          int priority, int64_t queue_index,
+          Options const& opts )
 {
     // CPU assumes column major
     const Layout layout = Layout::ColMajor;
@@ -146,6 +161,12 @@ void trmm(internal::TargetType<Target::Devices>,
     assert(B.uploPhysical() == Uplo::General);
     assert(A.mt() == A.nt());  // square
     assert(side == Side::Left ? A.mt() == B.mt() : A.mt() == B.nt());
+
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
 
     Uplo uploA = A.uploPhysical();
     Diag diagA = A.diag();
@@ -175,7 +196,8 @@ void trmm(internal::TargetType<Target::Devices>,
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared(A, B) priority(priority) \
-            firstprivate(device, side, sideA, uploA, opA, diagA, alpha, queue_index, layout)
+            firstprivate( device, side, sideA, uploA, opA, diagA, alpha ) \
+            firstprivate( queue_index, layout, call_tile_tick )
         {
             std::set<ij_tuple> B_tiles_set;
             if (side == Side::Right) {
@@ -318,9 +340,11 @@ void trmm(internal::TargetType<Target::Devices>,
                     queue->sync();
                 }
 
-                A.tileRelease(0, 0, device);
-                for (auto i = 0; i < batch_size; ++i) {
-                    A.tileTick(0, 0);
+                if (call_tile_tick) {
+                    A.tileRelease(0, 0, device);
+                    for (auto i = 0; i < batch_size; ++i) {
+                        A.tileTick(0, 0);
+                    }
                 }
             }
         }
@@ -336,7 +360,8 @@ void trmm<Target::HostTask, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -344,7 +369,8 @@ void trmm<Target::HostTask, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -352,7 +378,8 @@ void trmm< Target::HostTask, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -360,7 +387,8 @@ void trmm< Target::HostTask, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -368,7 +396,8 @@ void trmm<Target::HostNest, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -376,7 +405,8 @@ void trmm<Target::HostNest, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -384,7 +414,8 @@ void trmm< Target::HostNest, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -392,7 +423,8 @@ void trmm< Target::HostNest, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -400,7 +432,8 @@ void trmm<Target::HostBatch, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -408,7 +441,8 @@ void trmm<Target::HostBatch, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -416,7 +450,8 @@ void trmm< Target::HostBatch, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -424,7 +459,8 @@ void trmm< Target::HostBatch, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -432,7 +468,8 @@ void trmm<Target::Devices, float>(
     Side side,
     float alpha, TriangularMatrix<float>&& A,
                            Matrix<float>&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -440,7 +477,8 @@ void trmm<Target::Devices, double>(
     Side side,
     double alpha, TriangularMatrix<double>&& A,
                             Matrix<double>&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -448,7 +486,8 @@ void trmm< Target::Devices, std::complex<float> >(
     Side side,
     std::complex<float> alpha, TriangularMatrix< std::complex<float> >&& A,
                                          Matrix< std::complex<float> >&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 // ----------------------------------------
 template
@@ -456,7 +495,8 @@ void trmm< Target::Devices, std::complex<double> >(
     Side side,
     std::complex<double> alpha, TriangularMatrix< std::complex<double> >&& A,
                                           Matrix< std::complex<double> >&& B,
-    int priority, int64_t queue_index);
+    int priority, int64_t queue_index,
+    Options const& opts );
 
 
 } // namespace internal

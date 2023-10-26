@@ -93,7 +93,7 @@ void gels(
     Matrix<scalar_t>& BX,
     Options const& opts)
 {
-    Method method = get_option( opts, Option::MethodGels, MethodGels::Cholqr );
+    Method method = get_option( opts, Option::MethodGels, MethodGels::Auto );
 
     if (method == MethodGels::Auto)
         method = MethodGels::select_algo( A, BX, opts );

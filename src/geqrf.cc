@@ -70,8 +70,14 @@ void geqrf(
     using lapack::device_info_int;
     using blas::real;
 
+    // Use only TileReleaseStrategy::Slate for geqrf
+    // Internal routines called here won't release any
+    // tiles. This routine will clean up tiles.
+    Options opts2 = opts;
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
+
+
     // Constants
-    const int life_1 = 1;
     const int priority_0 = 0;
     const int priority_1 = 1;
     // Assumes column major
@@ -83,8 +89,6 @@ void geqrf(
     int64_t max_panel_threads  = std::max(omp_get_max_threads()/2, 1);
     max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
                                              max_panel_threads );
-
-    bool set_hold = lookahead > 0;  // Do tileGetAndHold in the bcast
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
@@ -134,8 +138,6 @@ void geqrf(
                             panel_device = A.tileDevice(i, j);
                         }
                         mlocal += A.tileMb(i);
-                        // Asserting 1-D distribution for device
-                        assert( panel_device == A.tileDevice(i, j) );
                     }
                 }
             }
@@ -203,30 +205,20 @@ void geqrf(
                 // ttqrt handles tile transfers internally
                 internal::ttqrt<Target::HostTask>(
                                 std::move(A_panel),
-                                std::move(Tr_panel));
+                                std::move(Tr_panel),
+                                opts2);
 
                 // if a trailing matrix exists
                 if (k < A_nt-1) {
 
                     // bcast V across row for trailing matrix update
                     if (k < A_mt) {
-                        BcastList bcast_list_V_first;
                         BcastList bcast_list_V;
                         for (int64_t i = k; i < A_mt; ++i) {
                             // send A(i, k) across row A(i, k+1:nt-1)
-                            // Vs in first_indices (except the main diagonal one) need three lives
-                            if ((std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end()) && (i > k))
-                                bcast_list_V_first.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
-                            else
-                                bcast_list_V.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
+                            bcast_list_V.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}});
                         }
-                        const int tag_0  = 0;
-                        const int life_3 = 3;
-                        const int life_2 = 2;
-                        A.template listBcast<target>(
-                            bcast_list_V_first, layout, tag_0, life_3, set_hold );
-                        A.template listBcast<target>(
-                            bcast_list_V, layout, tag_0, life_2, set_hold );
+                        A.template listBcast<target>( bcast_list_V, layout );
                     }
 
                     // bcast Tlocal across row for trailing matrix update
@@ -235,10 +227,7 @@ void geqrf(
                         for (int64_t row : first_indices) {
                             bcast_list_T.push_back({row, k, {Tlocal.sub(row, row, k+1, A_nt-1)}});
                         }
-                        int tag_k = k;
-                        Tlocal.template listBcast<target>(
-                            bcast_list_T, layout,
-                            tag_k, life_1, set_hold );
+                        Tlocal.template listBcast<target>( bcast_list_T, layout );
                     }
 
                     // bcast Treduce across row for trailing matrix update
@@ -269,7 +258,7 @@ void geqrf(
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, j),
-                                    priority_1, queue_jk1 );
+                                    priority_1, queue_jk1, opts2);
 
                     // Apply triangle-triangle reduction reflectors
                     // ttmqr handles the tile broadcasting internally
@@ -279,7 +268,7 @@ void geqrf(
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_j),
-                                    tag_j );
+                                    tag_j, opts2);
                 }
             }
 
@@ -300,7 +289,7 @@ void geqrf(
                                     std::move(Tl_panel),
                                     std::move(A_trail_j),
                                     W.sub(k, A_mt-1, j, A_nt-1),
-                                    priority_0, queue_jk1 );
+                                    priority_0, queue_jk1, opts2 );
 
                     // Apply triangle-triangle reduction reflectors.
                     // ttmqr handles the tile broadcasting internally.
@@ -310,53 +299,38 @@ void geqrf(
                                     std::move(A_panel),
                                     std::move(Tr_panel),
                                     std::move(A_trail_j),
-                                    tag_j );
+                                    tag_j, opts2 );
                 }
             }
-            if (target == Target::Devices) {
-                // Update the status of the on-hold tiles held by the invocation of
-                // the tileBcast routine, and then release them to free up memory.
-                // The origin must be updated with the latest modified copy
-                // for memory consistency.
-                // TODO: Find better solution to handle tile release, and
-                //       investigate the correctness of the task dependency
-                if (k >= lookahead && k < A_nt-1) {
-                    #pragma omp task depend(in:block[k]) \
-                                     depend(inout:block[k+1])
-                    {
-                        int64_t k_la = k-lookahead;
-                        for (int64_t i = k_la; i < A_mt; ++i) {
-                            if (A.tileIsLocal(i, k_la)) {
-                                A.tileUpdateOrigin(i, k_la);
 
-                                std::set<int> dev_set;
-                                A.sub(i, i, k_la+1, A_nt-1).getLocalDevices(&dev_set);
+            #pragma omp task depend(inout:block[k])
+            {
+                // Release the whole column, not just the panel
+                for (int64_t i = 0; i < A_mt; ++i) {
+                    if (A.tileIsLocal(i, k)) {
+                        A.tileUpdateOrigin(i, k);
+                        A.releaseLocalWorkspaceTile(i, k);
+                    }
+                    else {
+                        A.releaseRemoteWorkspaceTile(i, k);
+                    }
+                }
 
-                                for (auto device : dev_set) {
-                                    A.tileUnsetHold(i, k_la, device);
-                                    A.tileRelease(i, k_la, device);
-                                }
-                            }
+                for (int64_t i : first_indices) {
+                    if (Tlocal.tileIsLocal( i, k )) {
+                        // Tlocal and Treduce have the have process distribution
+                        Tlocal.tileUpdateOrigin( i, k );
+                        Tlocal.releaseLocalWorkspaceTile( i, k );
+                        if (i != k) {
+                            // i == k is the root of the reduction tree
+                            // Treduce( k, k ) isn't allocated
+                            Treduce.tileUpdateOrigin( i, k );
+                            Treduce.releaseLocalWorkspaceTile( i, k );
                         }
-
-                        auto A_panel_k_la = A.sub(k_la, A_mt-1, k_la, k_la);
-                        std::vector< int64_t > first_indices_k_la;
-                        geqrf_compute_first_indices(A_panel_k_la, k_la, first_indices_k_la);
-                        if (first_indices.size() > 0) {
-                            for (int64_t row : first_indices_k_la) {
-                                if (Tlocal.tileIsLocal(row, k_la)) {
-                                    Tlocal.tileUpdateOrigin(row, k_la);
-
-                                    std::set<int> dev_set;
-                                    Tlocal.sub(row, row, k_la+1, A_nt-1).getLocalDevices(&dev_set);
-
-                                    for (auto device : dev_set) {
-                                        Tlocal.tileUnsetHold(row, k_la, device);
-                                        Tlocal.tileRelease(row, k_la, device);
-                                    }
-                                }
-                            }
-                        }
+                    }
+                    else {
+                        Tlocal.releaseRemoteWorkspaceTile( i, k );
+                        Treduce.releaseRemoteWorkspaceTile( i, k );
                     }
                 }
             }

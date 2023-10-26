@@ -41,9 +41,9 @@ void add(scalar_t alpha, Matrix<scalar_t>&& A,
 /// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::HostTask>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-           scalar_t beta, Matrix<scalar_t>& B,
-           int priority, int queue_index, Options const& opts)
+         scalar_t alpha, Matrix<scalar_t>& A,
+         scalar_t beta, Matrix<scalar_t>& B,
+         int priority, int queue_index, Options const& opts)
 {
     // trace::Block trace_block("add");
 
@@ -64,7 +64,7 @@ void add(internal::TargetType<Target::HostTask>,
             if (B.tileIsLocal(i, j)) {
                 #pragma omp task slate_omp_default_none \
                     shared( A, B ) \
-                    firstprivate(i, j, alpha, beta, call_tile_tick)  priority(priority)
+                    firstprivate( i, j, alpha, beta, call_tile_tick )  priority(priority)
                 {
                     A.tileGetForReading(i, j, LayoutConvert::None);
                     B.tileGetForWriting(i, j, LayoutConvert::None);
@@ -85,9 +85,9 @@ void add(internal::TargetType<Target::HostTask>,
 /// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::HostNest>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-           scalar_t beta, Matrix<scalar_t>& B,
-           int priority, int queue_index, Options const& opts)
+         scalar_t alpha, Matrix<scalar_t>& A,
+         scalar_t beta, Matrix<scalar_t>& B,
+         int priority, int queue_index, Options const& opts)
 {
     slate_not_implemented("Target::HostNest isn't yet supported.");
 }
@@ -96,9 +96,9 @@ void add(internal::TargetType<Target::HostNest>,
 /// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::HostBatch>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-           scalar_t beta, Matrix<scalar_t>& B,
-           int priority, int queue_index, Options const& opts)
+         scalar_t alpha, Matrix<scalar_t>& A,
+         scalar_t beta, Matrix<scalar_t>& B,
+         int priority, int queue_index, Options const& opts)
 {
     slate_not_implemented("Target::HostBatch isn't yet supported.");
 }
@@ -113,9 +113,9 @@ void add(internal::TargetType<Target::HostBatch>,
 /// todo: this function should just be named "add".
 template <typename scalar_t>
 void add(internal::TargetType<Target::Devices>,
-           scalar_t alpha, Matrix<scalar_t>& A,
-           scalar_t beta, Matrix<scalar_t>& B,
-           int priority, int queue_index, Options const& opts)
+         scalar_t alpha, Matrix<scalar_t>& A,
+         scalar_t beta, Matrix<scalar_t>& B,
+         int priority, int queue_index, Options const& opts)
 {
     using ij_tuple = typename BaseMatrix<scalar_t>::ij_tuple;
 
@@ -143,7 +143,8 @@ void add(internal::TargetType<Target::Devices>,
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task shared(A, B) \
-            firstprivate(device, irange, jrange, queue_index, beta, alpha) priority(priority)
+            firstprivate( device, irange, jrange, queue_index, beta, alpha, call_tile_tick) \
+            priority(priority)
         {
             // temporarily, convert both into same layout
             // todo: this is in-efficient, because both matrices may have same layout already

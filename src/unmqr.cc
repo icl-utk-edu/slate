@@ -29,8 +29,17 @@ void unmqr(
     // trace::Block trace_block("unmqr");
     using BcastList = typename Matrix<scalar_t>::BcastList;
 
+    // Use only TileReleaseStrategy::Slate for unmqr
+    // Internal routines called here won't release any
+    // tiles. This routine will clean up tiles.
+    Options opts2 = opts;
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
+
     // Assumes column major
     const Layout layout = Layout::ColMajor;
+    const int64_t tag_0 = 0;
+    const int64_t priority_0 = 0;
+    const int64_t queue_0 = 0;
 
     int64_t A_mt = A.mt();
     int64_t A_nt = A.nt();
@@ -137,7 +146,6 @@ void unmqr(
 
                 // Send V(i) across row C(i, 0:nt-1) or col C(0:mt-1, i),
                 // for side = left or right, respectively.
-                BcastList bcast_list_V_top;
                 BcastList bcast_list_V;
                 for (int64_t i = k; i < A_mt; ++i) {
                     if (side == Side::Left) {
@@ -148,20 +156,10 @@ void unmqr(
                         j0 = i;
                         j1 = i;
                     }
-                    if (std::find(first_indices.begin(), first_indices.end(), i) != first_indices.end()) {
-                        bcast_list_V_top.push_back(
-                            {i, k, {C.sub(i0, i1, j0, j1)}});
-                    }
-                    else {
-                        bcast_list_V.push_back(
-                            {i, k, {C.sub(i0, i1, j0, j1)}});
-                    }
+                    bcast_list_V.push_back(
+                        {i, k, {C.sub(i0, i1, j0, j1)}});
                 }
-                // V tiles in first_indices need up to 5 lives: 1 for ttmqr,
-                // 2 + extra 2 if mb > nb (trapezoid) for Vs in unmqr I-VTV^T.
-                // This may leak a few tiles that A.clearWorkspace will cleanup.
-                A.template listBcast(bcast_list_V_top, layout, 0, 5);
-                A.template listBcast(bcast_list_V, layout, 0, 2);
+                A.template listBcast(bcast_list_V, layout, 0, 1);
 
                 // Send Tlocal(i) across row C(i, 0:nt-1) or col C(0:mt-1, i).
                 if (first_indices.size() > 0) {
@@ -222,7 +220,8 @@ void unmqr(
                                     side, op,
                                     std::move(A_panel),
                                     Treduce.sub(k, A_mt-1, k, k),
-                                    std::move(C_trail));
+                                    std::move(C_trail),
+                                    tag_0, opts2);
                 }
 
                 // Apply local reflectors.
@@ -231,7 +230,8 @@ void unmqr(
                                 std::move(A_panel),
                                 Tlocal.sub(k, A_mt-1, k, k),
                                 std::move(C_trail),
-                                std::move(W_trail));
+                                std::move(W_trail),
+                                priority_0, queue_0, opts2);
 
                 // Left,  (Conj)Trans: Qi^H C = Qi_reduce^H Qi_local^H C, or
                 // Right, NoTrans:     C Qi   = C Qi_local Qi_reduce,
@@ -242,7 +242,29 @@ void unmqr(
                                     side, op,
                                     std::move(A_panel),
                                     Treduce.sub(k, A_mt-1, k, k),
-                                    std::move(C_trail));
+                                    std::move(C_trail),
+                                    tag_0, opts2);
+                }
+            }
+            #pragma omp task depend(in:block[k])
+            {
+                A_panel.releaseRemoteWorkspace();
+                A_panel.releaseLocalWorkspace();
+
+                for (int64_t i : first_indices) {
+                    if (Tlocal.tileIsLocal( i, k )) {
+                        // Tlocal and Treduce have the have process distribution
+                        Tlocal.releaseLocalWorkspaceTile( i, k );
+                        if (i != k) {
+                            // i == k is the root of the reduction tree
+                            // Treduce( k, k ) isn't allocated
+                            Treduce.releaseLocalWorkspaceTile( i, k );
+                        }
+                    }
+                    else {
+                        Treduce.releaseRemoteWorkspaceTile( i, k );
+                        Tlocal.releaseRemoteWorkspaceTile( i, k );
+                    }
                 }
             }
 

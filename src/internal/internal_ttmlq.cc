@@ -27,10 +27,11 @@ void ttmlq(Side side, Op op,
            Matrix<scalar_t>&& A,
            Matrix<scalar_t>&& T,
            Matrix<scalar_t>&& C,
-           int tag)
+           int tag,
+           Options const& opts)
 {
     ttmlq(internal::TargetType<target>(),
-          side, op, A, T, C, tag);
+          side, op, A, T, C, tag, opts);
 }
 
 //------------------------------------------------------------------------------
@@ -44,7 +45,8 @@ void ttmlq(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A,
            Matrix<scalar_t>& T,
            Matrix<scalar_t>& C,
-           int tag)
+           int tag,
+           Options const& opts)
 {
     // Assumes column major
     const Layout layout = Layout::ColMajor;
@@ -55,6 +57,12 @@ void ttmlq(internal::TargetType<Target::HostTask>,
         assert(A_nt == C.mt());
     else
         assert(A_nt == C.nt());
+
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
 
     // Find ranks in this row of A.
     std::set<int> ranks_set;
@@ -80,9 +88,9 @@ void ttmlq(internal::TargetType<Target::HostTask>,
     int nlevels = int( ceil( log2( nranks ) ) );
 
     // Apply reduction tree.
-    // If Left, NoTrans or Right, Trans, apply descending from root to leaves,
+    // If Left, Trans or Right, NoTrans, apply descending from root to leaves,
     // i.e., in reverse order of how they were created.
-    // If Left, Trans or Right, NoTrans, apply ascending from leaves to root,
+    // If Left, NoTrans or Right, Trans, apply ascending from leaves to root,
     // i.e., in same order as they were created.
     // Example for A.mt == 8.
     // Leaves:
@@ -95,7 +103,7 @@ void ttmlq(internal::TargetType<Target::HostTask>,
     //     ttqrt( a4, a6 )
     // Root:
     //     ttqrt( a0, a4 )
-    bool descend = (side == Side::Left) == (op == Op::NoTrans);
+    bool descend = (side == Side::Left) != (op == Op::NoTrans);
     int step;
     if (descend)
         step = pow(2, nlevels - 1);
@@ -188,7 +196,8 @@ void ttmlq(internal::TargetType<Target::HostTask>,
 
                         #pragma omp task slate_omp_default_none \
                             shared( A, T, C ) \
-                            firstprivate(i, j, layout, rank_ind, i1, j1, side, op)
+                            firstprivate( i, j, layout, rank_ind, i1, j1, side, op ) \
+                            firstprivate( call_tile_tick )
                         {
                             A.tileGetForReading(0, rank_ind, LayoutConvert(layout));
                             T.tileGetForReading(0, rank_ind, LayoutConvert(layout));
@@ -199,9 +208,11 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                                    A(0, rank_ind), T(0, rank_ind),
                                    C(i1, j1), C(i, j));
 
-                            // todo: should tileRelease()?
-                            A.tileTick(0, rank_ind);
-                            T.tileTick(0, rank_ind);
+                            if (call_tile_tick) {
+                                // todo: should tileRelease()?
+                                A.tileTick(0, rank_ind);
+                                T.tileTick(0, rank_ind);
+                            }
                         }
                     }
                 }
@@ -247,7 +258,9 @@ void ttmlq(internal::TargetType<Target::HostTask>,
                         int     src   = C.tileRank(i1, j1);
                         // Send updated tile back.
                         C.tileSend(i1, j1, src, tag);
-                        C.tileTick(i1, j1);
+                        if (call_tile_tick) {
+                            C.tileTick(i1, j1);
+                        }
                     }
                 }
             }
@@ -268,7 +281,8 @@ void ttmlq<Target::HostTask, float>(
     Matrix<float>&& A,
     Matrix<float>&& T,
     Matrix<float>&& C,
-    int tag);
+    int tag,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -277,7 +291,8 @@ void ttmlq<Target::HostTask, double>(
     Matrix<double>&& A,
     Matrix<double>&& T,
     Matrix<double>&& C,
-    int tag);
+    int tag,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -286,7 +301,8 @@ void ttmlq< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
     Matrix< std::complex<float> >&& T,
     Matrix< std::complex<float> >&& C,
-    int tag);
+    int tag,
+    Options const& opts);
 
 // ----------------------------------------
 template
@@ -295,7 +311,8 @@ void ttmlq< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
     Matrix< std::complex<double> >&& T,
     Matrix< std::complex<double> >&& C,
-    int tag);
+    int tag,
+    Options const& opts);
 
 } // namespace internal
 } // namespace slate

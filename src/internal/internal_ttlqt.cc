@@ -20,10 +20,11 @@ namespace internal {
 ///
 template <Target target, typename scalar_t>
 void ttlqt(Matrix<scalar_t>&& A,
-           Matrix<scalar_t>&& T)
+           Matrix<scalar_t>&& T,
+           Options const& opts)
 {
     ttlqt(internal::TargetType<target>(),
-          A, T);
+          A, T, opts);
 }
 
 //------------------------------------------------------------------------------
@@ -34,8 +35,15 @@ void ttlqt(Matrix<scalar_t>&& A,
 template <typename scalar_t>
 void ttlqt(internal::TargetType<Target::HostTask>,
            Matrix<scalar_t>& A,
-           Matrix<scalar_t>& T)
+           Matrix<scalar_t>& T,
+           Options const& opts)
 {
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
@@ -73,7 +81,7 @@ void ttlqt(internal::TargetType<Target::HostTask>,
         int nranks = rank_cols.size();
         int nlevels = int( ceil( log2( nranks ) ) );
 
-        // Example: 2D cyclic, p = 7, q = 1, row k = 9
+        // Example: 2D cyclic, p = 1, q = 7, row k = 9
         //                                           Levels
         //               { rank, col }        index  L=0  L=1  L=2
         // rank_cols = [ {    2,   9 },    // 0      src  src  src
@@ -122,7 +130,9 @@ void ttlqt(internal::TargetType<Target::HostTask>,
 
                 // Send updated tile back. This rank is done!
                 A.tileSend(0, j_src, src);
-                A.tileTick(0, j_src);
+                if (call_tile_tick) {
+                    A.tileTick(0, j_src);
+                }
                 break;
             }
             step *= 2;
@@ -136,25 +146,29 @@ void ttlqt(internal::TargetType<Target::HostTask>,
 template
 void ttlqt<Target::HostTask, float>(
     Matrix<float>&& A,
-    Matrix<float>&& T);
+    Matrix<float>&& T,
+    Options const& opts);
 
 // ----------------------------------------
 template
 void ttlqt<Target::HostTask, double>(
     Matrix<double>&& A,
-    Matrix<double>&& T);
+    Matrix<double>&& T,
+    Options const& opts);
 
 // ----------------------------------------
 template
 void ttlqt< Target::HostTask, std::complex<float> >(
     Matrix< std::complex<float> >&& A,
-    Matrix< std::complex<float> >&& T);
+    Matrix< std::complex<float> >&& T,
+    Options const& opts);
 
 // ----------------------------------------
 template
 void ttlqt< Target::HostTask, std::complex<double> >(
     Matrix< std::complex<double> >&& A,
-    Matrix< std::complex<double> >&& T);
+    Matrix< std::complex<double> >&& T,
+    Options const& opts);
 
 } // namespace internal
 } // namespace slate

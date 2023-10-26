@@ -344,10 +344,8 @@ void norm(internal::TargetType<Target::Devices>,
 
     assert(A.num_devices() > 0);
 
-    std::vector<std::vector<scalar_t*> > a_host_arrays(A.num_devices());
     std::vector<std::vector<real_t> > vals_host_arrays(A.num_devices());
 
-    std::vector<scalar_t**> a_dev_arrays(A.num_devices());
     std::vector<real_t*> vals_dev_arrays(A.num_devices());
 
     // devices_values used for max and Frobenius norms.
@@ -372,43 +370,18 @@ void norm(internal::TargetType<Target::Devices>,
     for (int device = 0; device < A.num_devices(); ++device) {
         int64_t num_tiles = A.getMaxDeviceTiles(device);
 
-        a_host_arrays[device].resize(num_tiles);
         vals_host_arrays[device].resize(num_tiles*ldv);
 
         blas::Queue* queue = A.comm_queue(device);
-        a_dev_arrays[device] = blas::device_malloc<scalar_t*>(num_tiles, *queue);
         vals_dev_arrays[device] = blas::device_malloc<real_t>(num_tiles*ldv, *queue);
     }
-
-    // Define index ranges for regions of matrix.
-    // Tiles in each region are all the same size.
-    int64_t irange[6][2] = {
-        // off-diagonal
-        { 0,        A.mt()-1 },
-        { A.mt()-1, A.mt()   },
-        { 0,        A.mt()-1 },
-        { A.mt()-1, A.mt()   },
-        // diagonal
-        { 0,                          std::min(A.mt(), A.nt())-1 },
-        { std::min(A.mt(), A.nt())-1, std::min(A.mt(), A.nt())   }
-    };
-    int64_t jrange[6][2] = {
-        // off-diagonal
-        { 0,        A.nt()-1 },
-        { 0,        A.nt()-1 },
-        { A.nt()-1, A.nt()   },
-        { A.nt()-1, A.nt()   },
-        // diagonal
-        { 0,                          std::min(A.mt(), A.nt())-1 },
-        { std::min(A.mt(), A.nt())-1, std::min(A.mt(), A.nt())   }
-    };
 
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none \
             shared( A, devices_values ) \
-            shared(vals_host_arrays, vals_dev_arrays, a_host_arrays, a_dev_arrays) \
-            firstprivate(device, lower, irange, jrange, queue_index, in_norm, ldv, layout) \
+            shared(vals_host_arrays, vals_dev_arrays) \
+            firstprivate(device, lower, queue_index, in_norm, ldv, layout) \
             priority(priority)
         {
             std::set<ij_tuple> A_tiles_set;
@@ -428,49 +401,15 @@ void norm(internal::TargetType<Target::Devices>,
             A.tileGetForReading(A_tiles_set, device, LayoutConvert(layout));
 
             // Setup batched arguments.
-            scalar_t** a_host_array = a_host_arrays[device].data();
-            scalar_t** a_dev_array = a_dev_arrays[device];
+            int64_t batch_size = A_tiles_set.size();
+            scalar_t** a_array_host = A.array_host( device, queue_index );
 
-            int64_t batch_count = 0;
-            int64_t mb[6], nb[6], lda[6], group_count[6];
-            // off-diagonal blocks
-            for (int q = 0; q < 4; ++q) {
-                group_count[q] = 0;
-                lda[q] = 0;
-                mb[q] = A.tileMb(irange[q][0]);
-                nb[q] = A.tileNb(jrange[q][0]);
-                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                        if (A.tileIsLocal(i, j) &&
-                            device == A.tileDevice(i, j) &&
-                            ( (  lower && i > j) ||
-                              (! lower && i < j) ))
-                        {
-                            a_host_array[batch_count] = A(i, j, device).data();
-                            lda[q] = A(i, j, device).stride();
-                            ++group_count[q];
-                            ++batch_count;
-                        }
-                    }
-                }
-            }
-            // diagonal blocks
-            for (int q = 4; q < 6; ++q) {
-                group_count[q] = 0;
-                lda[q] = 0;
-                mb[q] = A.tileMb(jrange[q][0]);
-                nb[q] = A.tileNb(jrange[q][0]);
-                for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                    if (A.tileIsLocal(j, j) &&
-                        device == A.tileDevice(j, j))
-                    {
-                        a_host_array[batch_count] = A(j, j, device).data();
-                        lda[q] = A(j, j, device).stride();
-                        ++group_count[q];
-                        ++batch_count;
-                    }
-                }
-            }
+            auto group_params = device_regions_build<true, 1, scalar_t>(
+                                                    {A},
+                                                    {a_array_host},
+                                                    device );
+
+            scalar_t** a_array_dev = A.array_device(device, queue_index);
 
             real_t* vals_host_array = vals_host_arrays[device].data();
             real_t* vals_dev_array = vals_dev_arrays[device];
@@ -481,51 +420,50 @@ void norm(internal::TargetType<Target::Devices>,
 
                 blas::Queue* queue = A.compute_queue(device, queue_index);
 
-                blas::device_memcpy<scalar_t*>(a_dev_array, a_host_array,
-                                    batch_count,
+                blas::device_memcpy<scalar_t*>(a_array_dev, a_array_host,
+                                    batch_size,
                                     blas::MemcpyKind::HostToDevice,
                                     *queue);
 
-                // off-diagonal blocks
-                for (int q = 0; q < 4; ++q) {
-                    if (group_count[q] > 0) {
+                real_t* vals_dev_array_group = vals_dev_array;
+                for (size_t g = 0; g < group_params.size(); ++g) {
+                    int64_t group_count = group_params[ g ].count;
+
+                    if (group_params[ g ].is_diagonal) {
+                        device::synorm(
+                            in_norm, A.uploPhysical(), group_params[ g ].nb,
+                            a_array_dev, group_params[ g ].ld[0],
+                            vals_dev_array_group, ldv,
+                            group_count, *queue );
+                    }
+                    else {
                         if (in_norm == Norm::One || in_norm == Norm::Inf) {
-                            device::synormOffdiag(in_norm,
-                                                  mb[q], nb[q],
-                                                  a_dev_array, lda[q],
-                                                  vals_dev_array, ldv,
-                                                  group_count[q], *queue);
+                            device::synormOffdiag(
+                                in_norm,
+                                group_params[ g ].mb, group_params[ g ].nb,
+                                a_array_dev, group_params[ g ].ld[0],
+                                vals_dev_array_group, ldv,
+                                group_count, *queue );
                         }
                         else {
-                            device::genorm(in_norm, NormScope::Matrix,
-                                           mb[q], nb[q],
-                                           a_dev_array, lda[q],
-                                           vals_dev_array, ldv,
-                                           group_count[q], *queue);
+                            device::genorm(
+                                in_norm, NormScope::Matrix,
+                                group_params[ g ].mb, group_params[ g ].nb,
+                                a_array_dev, group_params[ g ].ld[0],
+                                vals_dev_array_group, ldv,
+                                group_count, *queue );
                         }
-                        a_dev_array += group_count[q];
-                        vals_dev_array += group_count[q] * ldv;
                     }
-                }
-                // diagonal blocks
-                for (int q = 4; q < 6; ++q) {
-                    if (group_count[q] > 0) {
-                        device::synorm(in_norm, A.uploPhysical(),
-                                       nb[q],
-                                       a_dev_array, lda[q],
-                                       vals_dev_array, ldv,
-                                       group_count[q], *queue);
-                        a_dev_array += group_count[q];
-                        vals_dev_array += group_count[q] * ldv;
-                    }
+                    a_array_dev += group_count;
+                    vals_dev_array_group += group_count * ldv;
+                    queue->sync();
                 }
 
-                vals_dev_array = vals_dev_arrays[device];
-
-                blas::device_memcpy<real_t>(vals_host_array, vals_dev_array,
-                                    batch_count*ldv,
-                                    blas::MemcpyKind::DeviceToHost,
-                                    *queue);
+                blas::device_memcpy<real_t>(
+                    vals_host_array, vals_dev_array,
+                    batch_size*ldv,
+                    blas::MemcpyKind::DeviceToHost,
+                    *queue);
 
                 queue->sync();
             }
@@ -533,14 +471,17 @@ void norm(internal::TargetType<Target::Devices>,
             // Reduction over tiles to device result.
             if (in_norm == Norm::Max) {
                 devices_values[device] =
-                    lapack::lange(in_norm, 1, batch_count, vals_host_array, 1);
+                    lapack::lange(in_norm, 1, batch_size, vals_host_array, 1);
             }
             else if (in_norm == Norm::Fro) {
                 int64_t cnt = 0;
-                for (int q = 0; q < 6; ++q) {
+                for (size_t g = 0; g < group_params.size(); ++g) {
+                    int64_t group_count = group_params[ g ].count;
+
                     // double for symmetric entries in off-diagonal blocks
-                    real_t mult = (q < 4 ? 2.0 : 1.0);
-                    for (int64_t k = 0; k < group_count[q]; ++k) {
+                    real_t mult = (group_params[ g ].is_diagonal) ? 1.0 : 2.0;
+
+                    for (int64_t k = 0; k < group_count; ++k) {
                         combine_sumsq(
                             devices_values[2*device + 0],
                             devices_values[2*device + 1],
@@ -556,8 +497,7 @@ void norm(internal::TargetType<Target::Devices>,
 
     for (int device = 0; device < A.num_devices(); ++device) {
         blas::Queue* queue = A.compute_queue(device, queue_index);
-        blas::device_free(a_dev_arrays[device], *queue);
-        blas::device_free((void*)vals_dev_arrays[device], *queue);
+        blas::device_free(vals_dev_arrays[device], *queue);
     }
 
     // Reduction over devices to local result.
@@ -567,52 +507,56 @@ void norm(internal::TargetType<Target::Devices>,
                                 devices_values.data(), 1);
     }
     else if (in_norm == Norm::One || in_norm == Norm::Inf) {
+        auto irange = device_regions_range( true, A );
+        auto jrange = device_regions_range( false, A );
+        int64_t nb0 = A.tileNb(0);
+        assert(A.tileNb(0) == A.tileMb(0));
+        assert(A.n() == A.m());
+
         for (int device = 0; device < A.num_devices(); ++device) {
+
             real_t* vals_host_array = vals_host_arrays[device].data();
 
             int64_t batch_count = 0;
-            // off-diagonal blocks
-            int64_t nb0 = A.tileNb(0);
-            for (int q = 0; q < 4; ++q) {
-                int64_t mb = A.tileMb(irange[q][0]);
-                int64_t nb = A.tileNb(jrange[q][0]);
-                for (int64_t i = irange[q][0]; i < irange[q][1]; ++i) {
-                    for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                        if (A.tileIsLocal(i, j) &&
-                            device == A.tileDevice(i, j) &&
-                            ( (  lower && i > j) ||
-                              (! lower && i < j) ))
-                        {
-                            // col sums
-                            blas::axpy(
-                                nb, 1.0,
-                                &vals_host_array[batch_count*ldv], 1,
-                                &values[j*nb0], 1);
-                            // row sums
-                            blas::axpy(
-                                mb, 1.0,
-                                &vals_host_array[batch_count*ldv + nb], 1,
-                                &values[i*nb0], 1);
-                            ++batch_count;
-                        }
-                    }
-                }
-            }
-            // diagonal blocks
-            for (int q = 4; q < 6; ++q) {
-                int64_t nb = A.tileNb(jrange[q][0]);
-                for (int64_t j = jrange[q][0]; j < jrange[q][1]; ++j) {
-                    if (A.tileIsLocal(j, j) &&
-                        device == A.tileDevice(j, j))
-                    {
+            for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
+            for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
+                int64_t mb = A.tileMb( irange[ ii ] );
+                int64_t nb = A.tileNb( jrange[ jj ] );
+                for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
+                for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
+                    if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )
+                        && ((A.uplo() == Uplo::Lower && i > j) ||
+                            (A.uplo() == Uplo::Upper && i < j))) {
+
+                        // TODO this is broken for nonuniform block sizes
+                        // col sums
                         blas::axpy(
                             nb, 1.0,
                             &vals_host_array[batch_count*ldv], 1,
                             &values[j*nb0], 1);
+                        // row sums
+                        blas::axpy(
+                            mb, 1.0,
+                            &vals_host_array[batch_count*ldv + nb], 1,
+                            &values[i*nb0], 1);
+                        ++batch_count;
+                    }
+                }} // for j,i
+
+                int64_t ijstart = std::max(irange[ ii   ], jrange[ jj   ]);
+                int64_t ijend   = std::min(irange[ ii+1 ], jrange[ jj+1 ]);
+                for (int64_t ij = ijstart; ij < ijend; ++ij) {
+                    if (A.tileIsLocal(ij, ij) &&
+                        device == A.tileDevice(ij, ij))
+                    {
+                        blas::axpy(
+                            nb, 1.0,
+                            &vals_host_array[batch_count*ldv], 1,
+                            &values[ij*nb0], 1);
                         ++batch_count;
                     }
                 }
-            }
+            }} // for jj,ii
         }
     }
     else if (in_norm == Norm::Fro) {

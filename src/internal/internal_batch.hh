@@ -186,22 +186,22 @@ std::vector<int64_t> device_regions_range( bool want_rows, BaseMatrix<scalar_t>&
 //------------------------------------------------------------------------------
 /// Helper class to store the information on a device region.
 ///
-/// @tparam has_diag
+/// @tparam store_diag
 ///     Wheather the diagonal tiles may need to be special cased
 ///
 /// @tparam mat_count
 ///     The number of matrices used by the kernel
 ///
-template< bool has_diag, int mat_count >
+template< bool store_diag, int mat_count >
 struct device_regions_params {
     int64_t count, mb, nb;
     int64_t ld[mat_count];
 
 private:
-    // When has_diag is false, we don't want to allocate any memory for is_diagonal
+    // When store_diag is false, we don't want to allocate any memory for is_diagonal
     struct Empty {};
 public:
-    std::conditional_t< has_diag, bool, Empty > is_diagonal;
+    std::conditional_t< store_diag, bool, Empty > is_diagonal;
 
     device_regions_params()
             : count(0), mb(0), nb(0)
@@ -209,7 +209,7 @@ public:
         for (int i = 0; i < mat_count; ++i) {
             ld[i] = 0;
         }
-        if constexpr (has_diag) {
+        if constexpr (store_diag) {
             is_diagonal = false;
         }
     }
@@ -218,11 +218,18 @@ public:
 //------------------------------------------------------------------------------
 /// Computes and populates the regions for the given matrices.
 ///
-/// @tparam has_diag
+/// @tparam store_diag
 ///     Wheather the diagonal tiles may need to be special cased
 ///
 /// @tparam mat_count
 ///     The number of matrices used by the kernel
+///
+/// @tparam scalar_t
+///     The type of the matrices
+///
+/// @param[in] diag_same
+///     Whether to treat the diagonal tiles as normal tiles.
+///     If false, store_diag must be true
 ///
 /// @param[in] mats
 ///     An array of the matrices to build regions for
@@ -233,26 +240,21 @@ public:
 /// @param[in] device
 ///     The device to build regions for
 ///
-/// @param[in] diag_same
-///     Whether to treat the diagonal tiles as normal tiles in spite of has_diag
-///     Ignored when has_diag is false.
-///
 /// @param[in] extra_setup
 ///     Callback that is called whenever a tile is added to a group.
 ///     The group index and the tile indices are passed as arguments
 ///
-template< bool has_diag, int mat_count, typename scalar_t>
-std::vector< device_regions_params<has_diag, mat_count> > device_regions_build(
+template< bool store_diag, int mat_count, typename scalar_t, bool diag_same=!store_diag >
+std::vector< device_regions_params<store_diag, mat_count> > device_regions_build(
         std::array< std::reference_wrapper<BaseMatrix<scalar_t>>, mat_count > mats,
         std::array< scalar_t**, mat_count > mats_array_host,
         int64_t device,
-        bool diag_same = true,
         std::function<void(int64_t, int64_t, int64_t)> extra_setup = {})
 {
     // The first two arguments should be valid targets for brace-initialization
     // reference_wrapper works around fact that C++ doesn't allow array of references
 
-    using Params = device_regions_params<has_diag, mat_count>;
+    using Params = device_regions_params<store_diag, mat_count>;
 
     auto& A = mats[0].get();
 
@@ -261,11 +263,10 @@ std::vector< device_regions_params<has_diag, mat_count> > device_regions_build(
     std::vector< int64_t > jrange = device_regions_range( false, A );
 
     // Trapezoidal matrices always need special treatment for diagonal tiles
-    diag_same &= A.uplo() == Uplo::General;
+    assert( !diag_same || A.uplo() == Uplo::General );
 
-    // Can't treat diagonals special when we can't store the diagonal status
-    assert( diag_same || has_diag );
-    diag_same |= !has_diag; // Ensure the compiler can propagate this assertion
+    static_assert( diag_same || store_diag,
+                   "Can't special case the diagonal when is_diagonal is not allocated" );
 
     // Size 1 dimensions get broadcast to allow setting up GEMM et al.
     // i_step[m]=0 results in only accessing row 0 of matrix m (likewise for j)
@@ -297,7 +298,7 @@ std::vector< device_regions_params<has_diag, mat_count> > device_regions_build(
             int istart = std::max(irange[ ii ], (A.uplo() == Uplo::Lower ? j+1 : 0));
             int iend   = std::min(irange[ ii+1 ], (A.uplo() == Uplo::Upper ? j : mt));
             for (int64_t i = istart; i < iend; ++i) {
-                if ((!has_diag || diag_same || i != j)
+                if ((diag_same || i != j)
                     && A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
 
                     // Add tiles to current group
@@ -325,7 +326,7 @@ std::vector< device_regions_params<has_diag, mat_count> > device_regions_build(
         }
 
         // If the diagonal tiles need special treatment, build those groups
-        if constexpr (has_diag) if (!diag_same) {
+        if constexpr (store_diag && !diag_same) {
             // Loop over the diagonal tiles in this region.  If any should be
             // computed on this process & device, save them.
             group = Params();
@@ -362,7 +363,7 @@ std::vector< device_regions_params<has_diag, mat_count> > device_regions_build(
             if (group.count > 0) {
                 group_params.push_back( group );
             }
-        } // if has_diag && !diag_same
+        } // if store_diag && !diag_same
     }} // for jj, ii
     return group_params;
 }

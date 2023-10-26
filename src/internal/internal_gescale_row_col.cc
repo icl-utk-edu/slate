@@ -143,7 +143,6 @@ void scale_row_col(
                                                     {A},
                                                     {a_array_host},
                                                     device,
-                                                    true,
                                                     store_rc );
 
 

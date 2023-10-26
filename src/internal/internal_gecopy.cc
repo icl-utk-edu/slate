@@ -198,7 +198,6 @@ void copy(internal::TargetType<Target::Devices>,
                                                     {B},
                                                     {b_array_host},
                                                     device,
-                                                    true,
                                                     setup_A );
 
             // Usually the output matrix (B) provides all the batch arrays.

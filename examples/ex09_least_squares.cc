@@ -1,5 +1,10 @@
 // ex09_least_squares.cc
 // Solve over- and under-determined AX = B
+
+/// !!!   Lines between `//---------- begin label`          !!!
+/// !!!             and `//---------- end label`            !!!
+/// !!!   are included in the SLATE Users' Guide.           !!!
+
 #include <slate/slate.hh>
 
 #include "util.hh"
@@ -17,20 +22,29 @@ void test_gels_overdetermined()
 
     int64_t m=2000, n=1000, nrhs=100, nb=256;
 
+    //---------- begin over1
     int64_t max_mn = std::max( m, n );
     slate::Matrix<scalar_type> A( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     slate::Matrix<scalar_type> BX( max_mn, nrhs, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    // ...
+    //---------- end over1
+
     A.insertLocalTiles();
     BX.insertLocalTiles();
+    //---------- begin over2
     auto B = BX;  // == BX.slice( 0, m-1, 0, nrhs-1 );
     auto X = BX.slice( 0, n-1, 0, nrhs-1 );
+    //---------- end over2
     random_matrix( A );
     random_matrix( B );
+
+    //---------- begin over3
 
     // solve AX = B, solution in X
     slate::least_squares_solve( A, BX );  // simplified API
 
     slate::gels( A, BX );                 // traditional API
+    //---------- end over3
 }
 
 //------------------------------------------------------------------------------
@@ -41,21 +55,32 @@ void test_gels_underdetermined()
 
     int64_t m=2000, n=1000, nrhs=100, nb=256;
 
+    //---------- begin under1
     int64_t max_mn = std::max( m, n );
     slate::Matrix<scalar_type> A( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     slate::Matrix<scalar_type> BX( max_mn, nrhs, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    // ...
+    //---------- end under1
+
     A.insertLocalTiles();
     BX.insertLocalTiles();
+
+    //---------- begin under2
     auto B = BX.slice( 0, n-1, 0, nrhs-1 );
     auto X = BX;  // == BX.slice( 0, m-1, 0, nrhs-1 );
+    //---------- end under2
+
     random_matrix( A );
     random_matrix( B );
+
+    //---------- begin under3
 
     // solve A^H X = B, solution in X
     auto AH = conj_transpose( A );
     slate::least_squares_solve( AH, BX );  // simplified API
 
     slate::gels( AH, BX );                 // traditional API
+    //---------- end under3
 }
 
 //------------------------------------------------------------------------------

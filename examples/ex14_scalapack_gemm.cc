@@ -1,4 +1,10 @@
 // ex14_scalapack_gemm.cc
+// SLATE intercepts ScaLAPACK calls.
+
+/// !!!   Lines between `//---------- begin label`          !!!
+/// !!!             and `//---------- end label`            !!!
+/// !!!   are included in the SLATE Users' Guide.           !!!
+
 #include <mpi.h>
 
 #include "util.hh"

@@ -1,5 +1,10 @@
 // ex11_hermitian_eig.cc
 // Solve Hermitian eigenvalues A = Z Lambda Z^H
+
+/// !!!   Lines between `//---------- begin label`          !!!
+/// !!!             and `//---------- end label`            !!!
+/// !!!   are included in the SLATE Users' Guide.           !!!
+
 #include <slate/slate.hh>
 
 #include "util.hh"
@@ -10,40 +15,58 @@ int grid_p = 0;
 int grid_q = 0;
 
 //------------------------------------------------------------------------------
-template <typename T>
+template <typename scalar_type>
 void test_hermitian_eig()
 {
-    using real_t = blas::real_type<T>;
+    using real_t = blas::real_type<scalar_type>;
 
     print_func( mpi_rank );
 
     int64_t n=1000, nb=256;
 
-    slate::HermitianMatrix<T> A( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    A.insertLocalTiles();
+    //---------- begin eig1
+    slate::HermitianMatrix<scalar_type>
+        A( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    slate::Matrix<scalar_type>
+        Z( n, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     std::vector<real_t> Lambda( n );
+    // ...
+    //---------- end eig1
 
-    // A = Z Lambda Z^H, eigenvalues only
-    random_matrix( A );
-    slate::eig_vals( A, Lambda );  // simplified API
-
-    // Or
-    random_matrix( A );
-    slate::eig( A, Lambda );       // simplified API
-
-    random_matrix( A );
-    slate::heev( A, Lambda );      // traditional API
-
-    //--------------------
-    // Eigenvectors
-    slate::Matrix<T> Z( n, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    A.insertLocalTiles();
     Z.insertLocalTiles();
+    random_matrix( A );
+
+    //----------------------------------------
+    //---------- begin eig2
+    // A = Z Lambda Z^H, eigenvalues only
+    slate::eig_vals( A, Lambda );  // simplified API, or
+    //---------- end eig2
 
     random_matrix( A );
+
+    //---------- begin eig3
+    slate::eig( A, Lambda );       // simplified API
+    //---------- end eig3
+
+    random_matrix( A );
+
+    //---------- begin eig4
+    slate::heev( A, Lambda );      // traditional API
+    //---------- end eig4
+
+    random_matrix( A );
+
+    //----------------------------------------
+    //---------- begin eig5
+    // A = Z Lambda Z^H, eigenvalues and eigenvectors
     slate::eig( A, Lambda, Z );    // simplified API
-
+    //---------- end eig5
     random_matrix( A );
+
+    //---------- begin eig6
     slate::heev( A, Lambda, Z );   // traditional API
+    //---------- end eig6
 }
 
 //------------------------------------------------------------------------------

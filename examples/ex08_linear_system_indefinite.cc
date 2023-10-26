@@ -1,5 +1,10 @@
 // ex08_linear_system_indefinite.cc
 // Solve AX = B using Aasen's symmetric indefinite factorization
+
+/// !!!   Lines between `//---------- begin label`          !!!
+/// !!!             and `//---------- end label`            !!!
+/// !!!   are included in the SLATE Users' Guide.           !!!
+
 #include <slate/slate.hh>
 
 #include "util.hh"
@@ -18,13 +23,19 @@ void test_hesv()
     // note: currently requires n divisible by nb.
     int64_t n=1000, nrhs=100, nb=100;
 
+    //---------- begin solve1
     slate::HermitianMatrix<scalar_type>
         A( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
     slate::Matrix<scalar_type> B( n, nrhs, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    // ...
+    //---------- end solve1
+
     A.insertLocalTiles();
     B.insertLocalTiles();
     random_matrix( A );
     random_matrix( B );
+
+    //---------- begin solve2
 
     // simplified API
     slate::indefinite_solve( A, B );
@@ -37,6 +48,7 @@ void test_hesv()
     slate::Pivots pivots, pivots2;
 
     slate::hesv( A, pivots, T, pivots2, H, B );
+    //---------- end solve2
 }
 
 //------------------------------------------------------------------------------

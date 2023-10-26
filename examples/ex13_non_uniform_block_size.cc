@@ -1,5 +1,10 @@
 // ex13_non_uniform_block_size.cc
 // create 1000 x 1000 matrix on 2 x 2 MPI process grid, with non-uniform tile size
+
+/// !!!   Lines between `//---------- begin label`          !!!
+/// !!!             and `//---------- end label`            !!!
+/// !!!   are included in the SLATE Users' Guide.           !!!
+
 #include <slate/slate.hh>
 
 #include "util.hh"

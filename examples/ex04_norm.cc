@@ -1,5 +1,10 @@
 // ex04_norm.cc
-// BLAS routines
+// matrix norms
+
+/// !!!   Lines between `//---------- begin label`          !!!
+/// !!!             and `//---------- end label`            !!!
+/// !!!   are included in the SLATE Users' Guide.           !!!
+
 #include <slate/slate.hh>
 
 #include "util.hh"
@@ -19,14 +24,21 @@ void test_general_norm()
 
     int64_t m=2000, n=1000, nb=256;
 
+    //---------- begin genorm1
     slate::Matrix<scalar_type> A( m, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    // ...
+
+    //---------- end genorm1
+
     A.insertLocalTiles();
     random_matrix( A );
 
+    //---------- begin genorm2
     real_type A_norm_one = slate::norm( slate::Norm::One, A );
     real_type A_norm_inf = slate::norm( slate::Norm::Inf, A );
     real_type A_norm_max = slate::norm( slate::Norm::Max, A );
     real_type A_norm_fro = slate::norm( slate::Norm::Fro, A );
+    //---------- end genorm2
     printf( "rank %d: norms: one %12.6f, inf %12.6f, max %12.6f, fro %12.6f\n",
             mpi_rank, A_norm_one, A_norm_inf, A_norm_max, A_norm_fro );
 }
@@ -41,17 +53,26 @@ void test_symmetric_norm()
 
     int64_t n=1000, nb=256;
 
-    slate::SymmetricMatrix<scalar_type>
-        A( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    A.insertLocalTiles();
-    random_matrix( A );
+    //---------- begin synorm1
 
-    real_type A_norm_one = slate::norm( slate::Norm::One, A );
-    real_type A_norm_inf = slate::norm( slate::Norm::Inf, A );
-    real_type A_norm_max = slate::norm( slate::Norm::Max, A );
-    real_type A_norm_fro = slate::norm( slate::Norm::Fro, A );
+    // norm() is overloaded for all matrix types: Symmetric, Triangular, etc.
+    slate::SymmetricMatrix<scalar_type>
+        S( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    // ...
+
+    //---------- end synorm1
+
+    S.insertLocalTiles();
+    random_matrix( S );
+
+    //---------- begin synorm2
+    real_type S_norm_one = slate::norm( slate::Norm::One, S );
+    real_type S_norm_inf = slate::norm( slate::Norm::Inf, S );
+    real_type S_norm_max = slate::norm( slate::Norm::Max, S );
+    real_type S_norm_fro = slate::norm( slate::Norm::Fro, S );
+    //---------- end synorm2
     printf( "rank %d: norms: one %12.6f, inf %12.6f, max %12.6f, fro %12.6f\n",
-            mpi_rank, A_norm_one, A_norm_inf, A_norm_max, A_norm_fro );
+            mpi_rank, S_norm_one, S_norm_inf, S_norm_max, S_norm_fro );
 }
 
 //------------------------------------------------------------------------------
@@ -65,16 +86,16 @@ void test_hermitian_norm()
     int64_t n=1000, nb=256;
 
     slate::HermitianMatrix<scalar_type>
-        A( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    A.insertLocalTiles();
-    random_matrix( A );
+        H( slate::Uplo::Lower, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    H.insertLocalTiles();
+    random_matrix( H );
 
-    real_type A_norm_one = slate::norm( slate::Norm::One, A );
-    real_type A_norm_inf = slate::norm( slate::Norm::Inf, A );
-    real_type A_norm_max = slate::norm( slate::Norm::Max, A );
-    real_type A_norm_fro = slate::norm( slate::Norm::Fro, A );
+    real_type H_norm_one = slate::norm( slate::Norm::One, H );
+    real_type H_norm_inf = slate::norm( slate::Norm::Inf, H );
+    real_type H_norm_max = slate::norm( slate::Norm::Max, H );
+    real_type H_norm_fro = slate::norm( slate::Norm::Fro, H );
     printf( "rank %d: norms: one %12.6f, inf %12.6f, max %12.6f, fro %12.6f\n",
-            mpi_rank, A_norm_one, A_norm_inf, A_norm_max, A_norm_fro );
+            mpi_rank, H_norm_one, H_norm_inf, H_norm_max, H_norm_fro );
 }
 
 //------------------------------------------------------------------------------
@@ -88,16 +109,16 @@ void test_triangular_norm()
     int64_t n=1000, nb=256;
 
     slate::TriangularMatrix<scalar_type>
-        A( slate::Uplo::Lower, slate::Diag::NonUnit, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
-    A.insertLocalTiles();
-    random_matrix( A );
+        T( slate::Uplo::Lower, slate::Diag::NonUnit, n, nb, grid_p, grid_q, MPI_COMM_WORLD );
+    T.insertLocalTiles();
+    random_matrix( T );
 
-    real_type A_norm_one = slate::norm( slate::Norm::One, A );
-    real_type A_norm_inf = slate::norm( slate::Norm::Inf, A );
-    real_type A_norm_max = slate::norm( slate::Norm::Max, A );
-    real_type A_norm_fro = slate::norm( slate::Norm::Fro, A );
+    real_type T_norm_one = slate::norm( slate::Norm::One, T );
+    real_type T_norm_inf = slate::norm( slate::Norm::Inf, T );
+    real_type T_norm_max = slate::norm( slate::Norm::Max, T );
+    real_type T_norm_fro = slate::norm( slate::Norm::Fro, T );
     printf( "rank %d: norms: one %12.6f, inf %12.6f, max %12.6f, fro %12.6f\n",
-            mpi_rank, A_norm_one, A_norm_inf, A_norm_max, A_norm_fro );
+            mpi_rank, T_norm_one, T_norm_inf, T_norm_max, T_norm_fro );
 }
 
 //------------------------------------------------------------------------------
@@ -111,17 +132,17 @@ void test_trapezoid_norm()
     int64_t m=2000, n=1000, nb=256;
 
     slate::TrapezoidMatrix<scalar_type>
-        A( slate::Uplo::Lower, slate::Diag::NonUnit, m, n, nb,
-           grid_p, grid_q, MPI_COMM_WORLD );
-    A.insertLocalTiles();
-    random_matrix( A );
+        Tz( slate::Uplo::Lower, slate::Diag::NonUnit, m, n, nb,
+            grid_p, grid_q, MPI_COMM_WORLD );
+    Tz.insertLocalTiles();
+    random_matrix( Tz );
 
-    real_type A_norm_one = slate::norm( slate::Norm::One, A );
-    real_type A_norm_inf = slate::norm( slate::Norm::Inf, A );
-    real_type A_norm_max = slate::norm( slate::Norm::Max, A );
-    real_type A_norm_fro = slate::norm( slate::Norm::Fro, A );
+    real_type Tz_norm_one = slate::norm( slate::Norm::One, Tz );
+    real_type Tz_norm_inf = slate::norm( slate::Norm::Inf, Tz );
+    real_type Tz_norm_max = slate::norm( slate::Norm::Max, Tz );
+    real_type Tz_norm_fro = slate::norm( slate::Norm::Fro, Tz );
     printf( "rank %d: norms: one %12.6f, inf %12.6f, max %12.6f, fro %12.6f\n",
-            mpi_rank, A_norm_one, A_norm_inf, A_norm_max, A_norm_fro );
+            mpi_rank, Tz_norm_one, Tz_norm_inf, Tz_norm_max, Tz_norm_fro );
 }
 
 //------------------------------------------------------------------------------

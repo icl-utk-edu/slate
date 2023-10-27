@@ -109,6 +109,21 @@ slate::Matrix<scalar_t> alloc_basis(slate::BaseMatrix<scalar_t>& A, int64_t n,
     return V;
 }
 
+template <typename scalar_t>
+std::vector<int64_t> tile_offsets(bool want_rows, slate::BaseMatrix<scalar_t>& A)
+{
+    int64_t kt = want_rows ? A.mt() : A.nt();
+
+    std::vector< int64_t > offset_list;
+    offset_list.reserve( kt );
+
+    int64_t offset = 0;
+    for (int64_t k = 0; k < kt; ++k) {
+        offset_list.push_back( offset );
+        offset += want_rows ? A.tileMb( k ) : A.tileNb( k );
+    }
+    return offset_list;
+}
 
 
 } // namespace internal

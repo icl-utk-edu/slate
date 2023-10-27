@@ -5,6 +5,7 @@
 
 #include "slate/internal/device.hh"
 #include "internal/internal_batch.hh"
+#include "internal/internal_util.hh"
 #include "internal/internal.hh"
 #include "slate/internal/util.hh"
 #include "slate/TrapezoidMatrix.hh"
@@ -445,7 +446,6 @@ void norm(
                                     batch_size,
                                     blas::MemcpyKind::HostToDevice,
                                     *queue);
-                queue->sync();
 
                 real_t* vals_dev_array_group = vals_dev_array;
                 for (size_t g = 0; g < group_params.size(); ++g) {
@@ -511,6 +511,7 @@ void norm(
     else if (in_norm == Norm::One) {
         auto irange = device_regions_range( true, A );
         auto jrange = device_regions_range( false, A );
+        auto joffsets = tile_offsets( false, A );
 
         for (int device = 0; device < A.num_devices(); ++device) {
 
@@ -526,11 +527,10 @@ void norm(
                         && ((A.uplo() == Uplo::Lower && i > j) ||
                             (A.uplo() == Uplo::Upper && i < j))) {
 
-                        // TODO this is broken for nonuniform block sizes
                         blas::axpy(
                             nb, 1.0,
                             &vals_host_array[batch_count*ldv], 1,
-                            &values[j*ldv], 1);
+                            &values[ joffsets[j] ], 1);
                         ++batch_count;
                     }
                 }} // for j,i
@@ -540,11 +540,10 @@ void norm(
                 for (int64_t ij = ijstart; ij < ijend; ++ij) {
                     if (A.tileIsLocal(ij, ij) && device == A.tileDevice(ij, ij)) {
 
-                        // TODO this is broken for nonuniform block sizes
                         blas::axpy(
                             nb, 1.0,
                             &vals_host_array[batch_count*ldv], 1,
-                            &values[ij*ldv], 1);
+                            &values[ joffsets[ij] ], 1);
                         ++batch_count;
                     }
                 }
@@ -554,6 +553,7 @@ void norm(
     else if (in_norm == Norm::Inf) {
         auto irange = device_regions_range( true, A );
         auto jrange = device_regions_range( false, A );
+        auto ioffsets = tile_offsets( true, A );
 
         for (int device = 0; device < A.num_devices(); ++device) {
 
@@ -562,7 +562,7 @@ void norm(
             int64_t batch_count = 0;
             for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
             for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
-                int64_t nb = A.tileMb( jj );
+                int64_t mb = A.tileMb( ii );
                 for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
                 for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
                     if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )
@@ -570,9 +570,9 @@ void norm(
                             (A.uplo() == Uplo::Upper && i < j))) {
 
                         blas::axpy(
-                            nb, 1.0,
+                            mb, 1.0,
                             &vals_host_array[batch_count*ldv], 1,
-                            &values[i*ldv], 1);
+                            &values[ ioffsets[i] ], 1);
                         ++batch_count;
                     }
                 }} // for j,i
@@ -584,9 +584,9 @@ void norm(
                         device == A.tileDevice(ij, ij)) {
 
                         blas::axpy(
-                            nb, 1.0,
+                            mb, 1.0,
                             &vals_host_array[batch_count*ldv], 1,
-                            &values[ij*ldv], 1);
+                            &values[ ioffsets[ij] ], 1);
                         ++batch_count;
                     }
                 }

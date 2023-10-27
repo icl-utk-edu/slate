@@ -6,6 +6,7 @@
 #include "slate/internal/device.hh"
 #include "internal/internal.hh"
 #include "internal/internal_batch.hh"
+#include "internal/internal_util.hh"
 #include "slate/internal/util.hh"
 #include "slate/HermitianMatrix.hh"
 #include "internal/Tile_lapack.hh"
@@ -421,6 +422,7 @@ void norm(
                                     batch_size,
                                     blas::MemcpyKind::HostToDevice,
                                     *queue);
+
                 real_t* vals_dev_array_group = vals_dev_array;
                 for (size_t g = 0; g < group_params.size(); ++g) {
                     int64_t group_count = group_params[ g ].count;
@@ -505,7 +507,7 @@ void norm(
     else if (in_norm == Norm::One || in_norm == Norm::Inf) {
         auto irange = device_regions_range( true, A );
         auto jrange = device_regions_range( false, A );
-        int64_t nb0 = A.tileNb(0);
+        auto ioffsets = tile_offsets( true, A );
         assert(A.tileNb(0) == A.tileMb(0));
         assert(A.n() == A.m());
 
@@ -524,17 +526,16 @@ void norm(
                         && ((A.uplo() == Uplo::Lower && i > j) ||
                             (A.uplo() == Uplo::Upper && i < j))) {
 
-                        // TODO this is broken for nonuniform block sizes
                         // col sums
                         blas::axpy(
                             nb, 1.0,
                             &vals_host_array[batch_count*ldv], 1,
-                            &values[j*nb0], 1);
+                            &values[ ioffsets[j] ], 1);
                         // row sums
                         blas::axpy(
                             mb, 1.0,
                             &vals_host_array[batch_count*ldv + nb], 1,
-                            &values[i*nb0], 1);
+                            &values[ ioffsets[i] ], 1);
                         ++batch_count;
                     }
                 }} // for j,i
@@ -548,7 +549,7 @@ void norm(
                         blas::axpy(
                             nb, 1.0,
                             &vals_host_array[batch_count*ldv], 1,
-                            &values[ij*nb0], 1);
+                            &values[ ioffsets[ij] ], 1);
                         ++batch_count;
                     }
                 }

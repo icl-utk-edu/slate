@@ -5,6 +5,7 @@
 
 #include "slate/internal/device.hh"
 #include "internal/internal_batch.hh"
+#include "internal/internal_util.hh"
 #include "internal/internal.hh"
 #include "slate/internal/util.hh"
 #include "slate/Matrix.hh"
@@ -511,6 +512,7 @@ void norm(
         else if (in_norm == Norm::One) {
             auto irange = device_regions_range( true, A );
             auto jrange = device_regions_range( false, A );
+            auto joffsets = tile_offsets( false, A );
 
             for (int device = 0; device < A.num_devices(); ++device) {
 
@@ -523,11 +525,10 @@ void norm(
                     for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
                     for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
                         if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
-                            // TODO this is broken for nonuniform block sizes
                             blas::axpy(
                                 nb, 1.0,
                                 &vals_host_array[batch_count*ldv], 1,
-                                &values[j*ldv], 1);
+                                &values[ joffsets[j] ], 1);
                             ++batch_count;
                         }
                     }} // for j,i
@@ -537,6 +538,7 @@ void norm(
         else if (in_norm == Norm::Inf) {
             auto irange = device_regions_range( true, A );
             auto jrange = device_regions_range( false, A );
+            auto ioffsets = tile_offsets( true, A );
 
             for (int device = 0; device < A.num_devices(); ++device) {
 
@@ -549,11 +551,10 @@ void norm(
                     for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
                     for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
                         if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
-                            // TODO this is broken for nonuniform block sizes
                             blas::axpy(
                                 mb, 1.0,
                                 &vals_host_array[batch_count*ldv], 1,
-                                &values[i*ldv], 1);
+                                &values[ ioffsets[i] ], 1);
                             ++batch_count;
                         }
                     }} // for j,i
@@ -575,6 +576,7 @@ void norm(
         if (in_norm == Norm::Max) {
             auto irange = device_regions_range( true, A );
             auto jrange = device_regions_range( false, A );
+            auto joffsets = tile_offsets( false, A );
 
             // Reduction over devices to local result.
             // todo: re-arrange loops to be able to issue omp tasks
@@ -591,7 +593,7 @@ void norm(
                         for (int k = 0; k < nb; ++k) {
                             values[j*ldv + k] =
                                 max_nan(vals_host_array[batch_count*ldv + k],
-                                        values[j*ldv + k]);
+                                        values[ joffsets[j] + k]);
                         }
                         ++batch_count;
                     }} // for j,i

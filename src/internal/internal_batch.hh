@@ -228,7 +228,7 @@ public:
 ///     The type of the matrices
 ///
 /// @param[in] diag_same
-///     Whether to treat the diagonal tiles as normal tiles.
+///     Whether to include the diagonal tiles in the off-diagonal groups
 ///     If false, store_diag must be true
 ///
 /// @param[in] mats
@@ -283,10 +283,11 @@ std::vector< device_regions_params<store_diag, mat_count> > device_regions_build
     int64_t batch_count = 0;
     int64_t mt = A.mt();
     std::vector<Params> group_params;
+    // loop over regions
     for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
     for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
-        // Loop over the tiles in this region.  If any should be computed on this
-        // process & device, save them.
+        // Loop over the tiles in this region,
+        // save any that should be computed on this process & device
         Params group;
         group.mb = A.tileMb( irange[ ii ] );
         group.nb = A.tileNb( jrange[ jj ] );

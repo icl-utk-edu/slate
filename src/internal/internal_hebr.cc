@@ -4,7 +4,6 @@
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
 
 #include "slate/internal/device.hh"
-#include "internal/internal_batch.hh"
 #include "internal/internal.hh"
 #include "slate/internal/util.hh"
 #include "slate/HermitianMatrix.hh"

@@ -116,6 +116,8 @@ int64_t gesv_mixed_gmres(
     int& iter,
     Options const& opts)
 {
+    Timer t_gesv_mixed_gmres;
+
     using real_hi = blas::real_type<scalar_hi>;
 
     // Constants
@@ -203,27 +205,35 @@ int64_t gesv_mixed_gmres(
 
     // Compute the LU factorization of A in single-precision.
     slate::copy( A, A_lo, opts );
+    Timer t_getrf_lo;
     int64_t info = getrf( A_lo, pivots, opts );
+    timers[ "gesv_mixed_gmres::getrf_lo" ] = t_getrf_lo.stop();
     if (info != 0) {
         iter = -3;
     }
     else {
         // Solve the system A * X = B in low precision.
         slate::copy( B, X_lo, opts );
+        Timer t_getrs_lo_1;
         getrs( A_lo, pivots, X_lo, opts );
+        timers[ "gesv_mixed_gmres::getrs_lo" ] = t_getrs_lo_1.stop();
         slate::copy( X_lo, X, opts );
 
         // IR
+        timers[ "gesv_mixed_gmres::gemm_lo" ] = 0;
+        timers[ "gesv_mixed_gmres::add_lo" ] = 0;
         int iiter = 0;
         while (iiter < itermax) {
 
             // Check for convergence
             slate::copy( B, R, opts );
+            Timer t_gemm_lo_1;
             gemm<scalar_hi>(
                 -one, A,
                       X,
                 one,  R,
                 opts);
+            timers[ "gesv_mixed_gmres::gemm_lo" ] += t_gemm_lo_1.stop();
             colNorms( Norm::Max, X, colnorms_X.data(), opts );
             colNorms( Norm::Max, R, colnorms_R.data(), opts );
             if (internal::iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte ))
@@ -272,19 +282,24 @@ int64_t gesv_mixed_gmres(
 
                 // Wj1 = M^-1 A Vj
                 slate::copy( Vj, X_lo, opts );
+                Timer t_getrs_lo_2;
                 getrs( A_lo, pivots, X_lo, opts );
+                timers[ "gesv_mixed_gmres::getrs_lo" ] += t_getrs_lo_2.stop();
                 slate::copy( X_lo, Wj1, opts );
 
+                Timer t_gemm_lo_2;
                 gemm<scalar_hi>(
                     one,  A,
                           Wj1,
                     zero, Vj1,
                     opts );
+                timers[ "gesv_mixed_gmres::gemm_lo" ] += t_gemm_lo_2.stop();
 
                 // orthogonalize w/ CGS2
                 auto V0j = V.slice( 0, V.m()-1, 0, j );
                 auto V0jT = conj_transpose( V0j );
                 auto Hj = H.slice( 0, j, j, j );
+                Timer t_gemm_lo_3;
                 gemm<scalar_hi>(
                     one,  V0jT,
                           Vj1,
@@ -295,7 +310,9 @@ int64_t gesv_mixed_gmres(
                           Hj,
                     one,  Vj1,
                     opts );
+                timers[ "gesv_mixed_gmres::gemm_lo" ] += t_gemm_lo_3.stop();
                 auto zj = z.slice( 0, j, 0, 0 );
+                Timer t_gemm_lo_4;
                 gemm<scalar_hi>(
                     one,  V0jT,
                           Vj1,
@@ -306,7 +323,10 @@ int64_t gesv_mixed_gmres(
                           zj,
                     one,  Vj1,
                     opts );
+                timers[ "gesv_mixed_gmres::gemm_lo" ] += t_gemm_lo_4.stop();
+                Timer t_add_lo;
                 add( one, zj, one, Hj, opts );
+                timers[ "gesv_mixed_gmres::add_lo" ] += t_add_lo.stop();
                 auto Vj1_norm = norm( Norm::Fro, Vj1, opts );
                 scale( 1.0, Vj1_norm, Vj1, opts );
                 if (H.tileRank( 0, 0 ) == mpi_rank) {
@@ -316,6 +336,7 @@ int64_t gesv_mixed_gmres(
                 }
 
                 // apply givens rotations
+                Timer t_gesv_mixed_gmres_rotations;
                 if (H.tileRank( 0, 0 ) == mpi_rank) {
                     auto H_00 = H( 0, 0 );
                     for (int64_t i = 0; i < j; ++i) {
@@ -331,6 +352,7 @@ int64_t gesv_mixed_gmres(
                               givens_alpha[j], givens_beta[j] );
                     arnoldi_residual[0] = cabs1( S_00.at( j+1, 0 ) );
                 }
+                timers[ "gesv_mixed_gmres::rotations" ] += t_gesv_mixed_gmres_rotations.stop();
                 MPI_Bcast(
                         arnoldi_residual.data(), arnoldi_residual.size(),
                         mpi_type<scalar_hi>::value, S.tileRank( 0, 0 ),
@@ -341,13 +363,17 @@ int64_t gesv_mixed_gmres(
             auto S_j = S.slice( 0, j-1, 0, 0 );
             auto H_tri = TriangularMatrix<scalar_hi>(
                     Uplo::Upper, Diag::NonUnit, H_j );
+            Timer t_trsm_lo;
             trsm( Side::Left, one, H_tri, S_j, opts );
+            timers[ "gesv_mixed_gmres::trsm_lo" ] += t_trsm_lo.stop();
             auto W_0j = W.slice( 0, W.m()-1, 1, j ); // first column of W is unused
+            Timer t_gemm_lo_5;
             gemm<scalar_hi>(
                 one, W_0j,
                      S_j,
                 one, X,
                 opts );
+            timers[ "gesv_mixed_gmres::gemm_lo" ] += t_gemm_lo_5.stop();
         }
     }
 
@@ -361,13 +387,17 @@ int64_t gesv_mixed_gmres(
         if (use_fallback) {
             // Fall back to double precision factor and solve.
             // Compute the LU factorization of A.
+            Timer t_getrf_hi;
             info = getrf( A, pivots, opts );
+            timers[ "gesv_mixed_gmres::getrf_hi" ] = t_getrf_hi.stop();
 
             // Solve the system A * X = B.
+            Timer t_getrs_hi;
             if (info == 0) {
                 slate::copy( B, X, opts );
                 getrs( A, pivots, X, opts );
             }
+            timers[ "gesv_mixed_gmres::getrs_hi" ] = t_getrs_hi.stop();
         }
     }
 
@@ -377,6 +407,7 @@ int64_t gesv_mixed_gmres(
         B.clearWorkspace();
         X.clearWorkspace();
     }
+    timers[ "gesv_mixed_gmres" ] = t_gesv_mixed_gmres.stop();
     return info;
 }
 

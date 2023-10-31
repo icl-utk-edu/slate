@@ -350,14 +350,18 @@ void norm(
     // devices_values used for max and Frobenius norms.
     std::vector<real_t> devices_values;
 
+    // Find ranges of matching mb's and ranges of matching nb's to avoid
+    // repeatedly recomputing them
+    auto ijrange = device_regions_range( true, A );
+
     int64_t ldv = 0;
     if (in_norm == Norm::Max) {
         ldv = 1;
         devices_values.resize(A.num_devices());
     }
     else if (in_norm == Norm::One || in_norm == Norm::Inf) {
-        for (int64_t j = 0; j < A.nt(); ++j) {
-            ldv = std::max( ldv, A.tileNb(j) );
+        for (size_t j = 0; j < ijrange.size()-1; ++j) {
+            ldv = std::max( ldv, A.tileNb( ijrange[j] ) );
         }
         ldv *= 2;
     }
@@ -366,20 +370,11 @@ void norm(
         devices_values.resize(A.num_devices() * 2);
     }
 
-    for (int device = 0; device < A.num_devices(); ++device) {
-        int64_t num_tiles = A.getMaxDeviceTiles(device);
-
-        vals_host_arrays[device].resize(num_tiles*ldv);
-
-        blas::Queue* queue = A.comm_queue(device);
-        vals_dev_arrays[device] = blas::device_malloc<real_t>(num_tiles*ldv, *queue);
-    }
-
     #pragma omp taskgroup
     for (int device = 0; device < A.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none \
             shared( A, devices_values ) \
-            shared(vals_host_arrays, vals_dev_arrays) \
+            shared( vals_host_arrays, vals_dev_arrays, ijrange ) \
             firstprivate(device, layout, lower, queue_index, in_norm, ldv) \
             priority(priority)
         {
@@ -405,23 +400,25 @@ void norm(
             auto group_params = device_regions_build<true, 1, scalar_t>(
                                                     {A},
                                                     {a_array_host},
-                                                    device );
+                                                    device,
+                                                    {},
+                                                    ijrange, ijrange );
 
             scalar_t** a_array_dev = A.array_device(device, queue_index);
 
-            real_t* vals_host_array = vals_host_arrays[device].data();
-            real_t* vals_dev_array = vals_dev_arrays[device];
+            vals_host_arrays[ device ].resize( batch_size*ldv );
+            real_t* vals_host_array = vals_host_arrays[ device ].data();
+            blas::Queue* queue = A.compute_queue( device, queue_index );
+            real_t* vals_dev_array = blas::device_malloc<real_t>( batch_size*ldv, *queue );
 
             // Batched call to compute partial results for each tile.
             {
                 trace::Block trace_block("slate::device::henorm");
 
-                blas::Queue* queue = A.compute_queue(device, queue_index);
-
                 blas::device_memcpy<scalar_t*>(a_array_dev, a_array_host,
-                                    batch_size,
-                                    blas::MemcpyKind::HostToDevice,
-                                    *queue);
+                                               batch_size,
+                                               blas::MemcpyKind::HostToDevice,
+                                               *queue);
 
                 real_t* vals_dev_array_group = vals_dev_array;
                 for (size_t g = 0; g < group_params.size(); ++g) {
@@ -457,11 +454,10 @@ void norm(
                     queue->sync();
                 }
 
-                blas::device_memcpy<real_t>(
-                    vals_host_array, vals_dev_array,
-                    batch_size*ldv,
-                    blas::MemcpyKind::DeviceToHost,
-                    *queue);
+                blas::device_memcpy<real_t>(vals_host_array, vals_dev_array,
+                                            batch_size*ldv,
+                                            blas::MemcpyKind::DeviceToHost,
+                                            *queue);
 
                 queue->sync();
             }
@@ -489,14 +485,11 @@ void norm(
                     }
                 }
             }
+            // Free device workspace
+            blas::device_free(vals_dev_array, *queue);
         }
     }
     // end omp taskgroup
-
-    for (int device = 0; device < A.num_devices(); ++device) {
-        blas::Queue* queue = A.compute_queue(device, queue_index);
-        blas::device_free(vals_dev_arrays[device], *queue);
-    }
 
     // Reduction over devices to local result.
     if (in_norm == Norm::Max) {
@@ -505,10 +498,7 @@ void norm(
                                 devices_values.data(), 1);
     }
     else if (in_norm == Norm::One || in_norm == Norm::Inf) {
-        auto irange = device_regions_range( true, A );
-        auto jrange = device_regions_range( false, A );
         auto ioffsets = tile_offsets( true, A );
-        assert(A.tileNb(0) == A.tileMb(0));
         assert(A.n() == A.m());
 
         for (int device = 0; device < A.num_devices(); ++device) {
@@ -516,12 +506,12 @@ void norm(
             real_t* vals_host_array = vals_host_arrays[device].data();
 
             int64_t batch_count = 0;
-            for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
-            for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
-                int64_t mb = A.tileMb( irange[ ii ] );
-                int64_t nb = A.tileNb( jrange[ jj ] );
-                for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
-                for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
+            for (size_t jj = 0; jj < ijrange.size() - 1; ++jj) {
+            for (size_t ii = 0; ii < ijrange.size() - 1; ++ii) {
+                int64_t mb = A.tileMb( ijrange[ ii ] );
+                int64_t nb = A.tileNb( ijrange[ jj ] );
+                for (int64_t j = ijrange[ jj ]; j < ijrange[ jj+1 ]; ++j) {
+                for (int64_t i = ijrange[ ii ]; i < ijrange[ ii+1 ]; ++i) {
                     if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )
                         && ((A.uplo() == Uplo::Lower && i > j) ||
                             (A.uplo() == Uplo::Upper && i < j))) {
@@ -540,17 +530,17 @@ void norm(
                     }
                 }} // for j,i
 
-                int64_t ijstart = std::max(irange[ ii   ], jrange[ jj   ]);
-                int64_t ijend   = std::min(irange[ ii+1 ], jrange[ jj+1 ]);
-                for (int64_t ij = ijstart; ij < ijend; ++ij) {
-                    if (A.tileIsLocal(ij, ij) &&
-                        device == A.tileDevice(ij, ij))
-                    {
-                        blas::axpy(
-                            nb, 1.0,
-                            &vals_host_array[batch_count*ldv], 1,
-                            &values[ ioffsets[ij] ], 1);
-                        ++batch_count;
+                if (ii == jj) {
+                    for (int64_t ij = ijrange[ ii ]; ij < ijrange[ ii+1 ]; ++ij) {
+                        if (A.tileIsLocal(ij, ij) &&
+                            device == A.tileDevice(ij, ij))
+                        {
+                            blas::axpy(
+                                nb, 1.0,
+                                &vals_host_array[batch_count*ldv], 1,
+                                &values[ ioffsets[ij] ], 1);
+                            ++batch_count;
+                        }
                     }
                 }
             }} // for jj,ii

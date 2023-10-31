@@ -249,7 +249,9 @@ std::vector< device_regions_params<store_diag, mat_count> > device_regions_build
         std::array< std::reference_wrapper<BaseMatrix<scalar_t>>, mat_count > mats,
         std::array< scalar_t**, mat_count > mats_array_host,
         int64_t device,
-        std::function<void(int64_t, int64_t, int64_t)> extra_setup = {})
+        std::function<void(int64_t, int64_t, int64_t)> extra_setup,
+        std::vector<int64_t>& irange,
+        std::vector<int64_t>& jrange)
 {
     // The first two arguments should be valid targets for brace-initialization
     // reference_wrapper works around fact that C++ doesn't allow array of references
@@ -257,10 +259,6 @@ std::vector< device_regions_params<store_diag, mat_count> > device_regions_build
     using Params = device_regions_params<store_diag, mat_count>;
 
     auto& A = mats[0].get();
-
-    // Find ranges of matching mb's and ranges of matching nb's.
-    std::vector< int64_t > irange = device_regions_range( true, A );
-    std::vector< int64_t > jrange = device_regions_range( false, A );
 
     // Trapezoidal matrices always need special treatment for diagonal tiles
     assert( !diag_same || A.uplo() == Uplo::General );
@@ -368,6 +366,54 @@ std::vector< device_regions_params<store_diag, mat_count> > device_regions_build
     }} // for jj, ii
     return group_params;
 }
+
+//------------------------------------------------------------------------------
+/// Computes and populates the regions for the given matrices.
+///
+/// irange and jrange are computed internally
+///
+/// @tparam store_diag
+///     Wheather the diagonal tiles may need to be special cased
+///
+/// @tparam mat_count
+///     The number of matrices used by the kernel
+///
+/// @tparam scalar_t
+///     The type of the matrices
+///
+/// @param[in] diag_same
+///     Whether to include the diagonal tiles in the off-diagonal groups
+///     If false, store_diag must be true
+///
+/// @param[in] mats
+///     An array of the matrices to build regions for
+///
+/// @param[in] mats_array_host
+///     An array of the arrays to fill with pointers to device data
+///
+/// @param[in] device
+///     The device to build regions for
+///
+/// @param[in] extra_setup
+///     Callback that is called whenever a tile is added to a group.
+///     The group index and the tile indices are passed as arguments
+///
+template< bool store_diag, int mat_count, typename scalar_t, bool diag_same=!store_diag >
+std::vector< device_regions_params<store_diag, mat_count> > device_regions_build(
+        std::array< std::reference_wrapper<BaseMatrix<scalar_t>>, mat_count > mats,
+        std::array< scalar_t**, mat_count > mats_array_host,
+        int64_t device,
+        std::function<void(int64_t, int64_t, int64_t)> extra_setup = {})
+{
+    // Find ranges of matching mb's and ranges of matching nb's.
+    auto irange = device_regions_range( true, mats[0].get() );
+    auto jrange = device_regions_range( false, mats[0].get() );
+
+    return device_regions_build< store_diag, mat_count, scalar_t, diag_same >(
+                                 mats, mats_array_host, device, extra_setup,
+                                 irange, jrange );
+}
+
 
 } // namespace internal
 } // namespace slate

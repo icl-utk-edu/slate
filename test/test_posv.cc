@@ -54,7 +54,10 @@ void test_posv_work(Params& params, bool run)
     slate::Method methodHemm = params.method_hemm();
 
     // Currently only posv* supports timer_level >= 2.
-    if (params.routine != "posv")
+    std::vector<std::string> timer_lvl_support{ "posv", "posv_mixed" };
+    bool supported = std::find(timer_lvl_support.begin(), timer_lvl_support.end(), params.routine) != timer_lvl_support.end();
+
+    if (supported == false)
         timer_level = 1;
 
     // mark non-standard output values
@@ -73,11 +76,25 @@ void test_posv_work(Params& params, bool run)
         params.gflops2();
         params.gflops2.name( "trs gflop/s" );
     }
-    if (timer_level >= 2) {
+    if (timer_level >= 2 && params.routine == "posv") {
         params.time2();
         params.time3();
         params.time2.name( "potrf (s)" );
         params.time3.name( "potrs (s)" );
+    }
+    else if (timer_level >=2 && (params.routine == "posv_mixed")) {
+        params.time2();
+        params.time3();
+        params.time4();
+        params.time5();
+        params.time6();
+        params.time7();
+        params.time2.name( "potrf_lo (s)" );
+        params.time3.name( "potrs_lo (s)" );
+        params.time4.name( "hemm_lo (s)" );
+        params.time5.name( "add_lo (s)" );
+        params.time6.name( "potrf_hi (s)" );
+        params.time7.name( "potrs_hi (s)" );
     }
 
     bool is_iterative = params.routine == "posv_mixed"
@@ -275,9 +292,17 @@ void test_posv_work(Params& params, bool run)
         params.time() = time;
         params.gflops() = gflop / time;
 
-        if (timer_level >= 2) {
+        if (timer_level >= 2 && params.routine == "posv") {
             params.time2() = slate::timers[ "posv::potrf" ];
             params.time3() = slate::timers[ "posv::potrs" ];
+        }
+        else if (timer_level >=2 && params.routine == "posv_mixed") {
+            params.time2() = slate::timers[ "posv_mixed::potrf_lo" ];
+            params.time3() = slate::timers[ "posv_mixed::potrs_lo" ];
+            params.time4() = slate::timers[ "posv_mixed::hemm_lo" ];
+            params.time5() = slate::timers[ "posv_mixed::add_lo" ];
+            params.time6() = slate::timers[ "posv_mixed::potrf_hi" ];
+            params.time7() = slate::timers[ "posv_mixed::potrs_hi" ];
         }
 
         //==================================================

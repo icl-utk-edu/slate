@@ -108,6 +108,8 @@ void posv_mixed(
     int& iter,
     Options const& opts)
 {
+    Timer t_posv_mixed;
+
     // XXX This is only used for the memory management and may be inconsistent
     // with the routines called in this routine.
     Target target = get_option( opts, Option::Target, Target::HostTask );
@@ -175,22 +177,27 @@ void posv_mixed(
     copy( A, A_lo, opts );
 
     // Compute the Cholesky factorization of A_lo.
+    Timer t_potrf_lo;
     potrf(  A_lo, opts );
+    timers[ "posv_mixed::potrf_lo" ] = t_potrf_lo.stop();
 
     // Solve the system A_lo * X_lo = B_lo.
+    Timer t_potrs_lo;
     potrs( A_lo, X_lo, opts );
+    timers[ "posv_mixed::potrs_lo" ] = t_potrs_lo.stop();
 
     // Convert X_lo to high precision.
     copy( X_lo, X, opts );
 
     // Compute R = B - A * X.
     slate::copy( B, R, opts );
+    Timer t_hemm_lo;
     hemm<scalar_hi>(
         Side::Left,
         -one_hi, A,
                  X,
         one_hi,  R, opts );
-
+    timers[ "posv_mixed::hemm_lo" ] = t_hemm_lo.stop();
     // Check whether the nrhs normwise backward error satisfies the
     // stopping criterion. If yes, set iter=0 and return.
     colNorms( Norm::Max, X, colnorms_X.data(), opts );
@@ -202,26 +209,33 @@ void posv_mixed(
     }
 
     // iterative refinement
+    timers[ "posv_mixed::add_lo" ] = 0;
     for (int iiter = 0; iiter < itermax && ! converged; ++iiter) {
         // Convert R from high to low precision, store result in X_lo.
         copy( R, X_lo, opts );
 
         // Solve the system A_lo * X_lo = R_lo.
+        Timer t_for_potrs_lo;
         potrs( A_lo, X_lo, opts );
+        timers[ "posv_mixed::potrs_lo" ] += t_for_potrs_lo.stop();
 
         // Convert X_lo back to double precision and update the current iterate.
         copy( X_lo, R, opts );
+        Timer t_for_add_lo;
         add<scalar_hi>(
               one_hi, R,
               one_hi, X, opts );
+        timers[ "posv_mixed::add_lo" ] += t_for_add_lo.stop();
 
         // Compute R = B - A * X.
         slate::copy( B, R, opts );
+        Timer t_for_hemm_lo;
         hemm<scalar_hi>(
             Side::Left,
             -one_hi, A,
                      X,
             one_hi,  R, opts );
+        timers[ "posv_mixed::hemm_lo" ] += t_for_hemm_lo.stop();
 
 
         // Check whether nrhs normwise backward error satisfies the
@@ -244,11 +258,15 @@ void posv_mixed(
 
         if (use_fallback) {
             // Compute the Cholesky factorization of A.
+            Timer t_potrf_hi;
             potrf( A, opts );
+            timers[ "posv_mixed::potrf_hi" ] = t_potrf_hi.stop();
 
             // Solve the system A * X = B.
             slate::copy( B, X, opts );
+            Timer t_potrs_hi;
             potrs( A, X, opts );
+            timers[ "posv_mixed::potrs_hi" ] = t_potrs_hi.stop();
         }
     }
 
@@ -258,6 +276,7 @@ void posv_mixed(
         B.clearWorkspace();
         X.clearWorkspace();
     }
+    timers[ "posv_mixed" ] = t_posv_mixed.stop();
 
     // todo: return value for errors?
 }

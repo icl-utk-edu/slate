@@ -428,13 +428,6 @@ void test_hegv_work(Params& params, bool run)
             time = barrier_get_wtime(mpi_comm) - time;
 
             params.ref_time() = time;
-            if (timer_level >= 2) {
-                params.time2() = slate::timers[ "hegv::potrf" ];
-                params.time3() = slate::timers[ "hegv::hegst" ];
-                params.time4() = slate::timers[ "hegv::heev" ];
-                params.time5() = slate::timers[ "hegv::trsm" ];
-                params.time6() = slate::timers[ "hegv::trmm" ];
-            }
 
             if (! ref_only) {
                 // Reference Scalapack was run, check reference eigenvalues

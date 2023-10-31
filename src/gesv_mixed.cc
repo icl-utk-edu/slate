@@ -179,27 +179,29 @@ int64_t gesv_mixed(
     copy( A, A_lo, opts );
 
     // Compute the LU factorization of A_lo.
-    Timer t_getrf;
+    Timer t_getrf_lo;
     int64_t info = getrf( A_lo, pivots, opts );
-    timers[ "gesv_mixed::getrf" ] = t_getrf.stop();
+    timers[ "gesv_mixed::getrf_lo" ] = t_getrf_lo.stop();
     if (info != 0) {
         iter = -3;
     }
     else {
         // Solve the system A_lo * X_lo = B_lo.
-        Timer t_bgetrs;
+        Timer t_getrs_lo;
         getrs( A_lo, pivots, X_lo, opts );
-        timers[ "gesv_mixed::bgetrs" ] = t_bgetrs.stop();
+        timers[ "gesv_mixed::getrs_lo" ] = t_getrs_lo.stop();
 
         // Convert X_lo to high precision.
         copy( X_lo, X, opts );
 
         // Compute R = B - A * X.
         slate::copy( B, R, opts );
+        Timer t_gemm_lo;
         gemm<scalar_hi>(
             -one_hi, A,
                      X,
             one_hi,  R, opts );
+        timers[ "gesv_mixed::gemm_lo" ] = t_gemm_lo.stop();
 
         // Check whether the nrhs normwise backward error satisfies the
         // stopping criterion. If yes, set iter=0 and return.
@@ -211,28 +213,33 @@ int64_t gesv_mixed(
             converged = true;
         }
 
+        timers[ "gesv_mixed::add_lo" ] = 0;
         // iterative refinement
         for (int iiter = 0; iiter < itermax && ! converged; ++iiter) {
             // Convert R from high to low precision, store result in X_lo.
             copy( R, X_lo, opts );
 
             // Solve the system A_lo * X_lo = R_lo.
-            Timer t_rgetrs;
+            Timer t_loop_getrs_lo;
             getrs( A_lo, pivots, X_lo, opts );
-            timers[ "gesv_mixed::rgetrs" ] = t_rgetrs.stop();
+            timers[ "gesv_mixed::getrs_lo" ] += t_loop_getrs_lo.stop();
 
             // Convert X_lo back to double precision and update the current iterate.
             copy( X_lo, R, opts );
+            Timer t_loop_add_lo;
             add<scalar_hi>(
                   one_hi, R,
                   one_hi, X, opts );
+            timers[ "gesv_mixed::add_lo" ] += t_loop_add_lo.stop();
 
             // Compute R = B - A * X.
             slate::copy( B, R, opts );
+            Timer t_loop_gemm_lo;
             gemm<scalar_hi>(
                 -one_hi, A,
                          X,
                 one_hi,  R, opts );
+            timers[ "gesv_mixed::gemm_lo" ] += t_loop_gemm_lo.stop();
 
             // Check whether nrhs normwise backward error satisfies the
             // stopping criterion. If yes, set iter = iiter > 0 and return.
@@ -256,13 +263,17 @@ int64_t gesv_mixed(
         if (use_fallback) {
             // Fall back to double precision factor and solve.
             // Compute the LU factorization of A.
+            Timer t_getrf_hi;
             info = getrf( A, pivots, opts );
+            timers[ "gesv_mixed::getrf_hi" ] = t_getrf_hi.stop();
 
             // Solve the system A * X = B.
+            Timer t_getrs_hi;
             if (info == 0) {
                 slate::copy( B, X, opts );
                 getrs( A, pivots, X, opts );
             }
+            timers[ "gesv_mixed::getrs_hi" ] = t_getrs_hi.stop();
         }
     }
 
@@ -272,6 +283,8 @@ int64_t gesv_mixed(
         B.clearWorkspace();
         X.clearWorkspace();
     }
+    timers[ "gesv_mixed" ] = t_gesv_mixed.stop();
+
     return info;
 }
 

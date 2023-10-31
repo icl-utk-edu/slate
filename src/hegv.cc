@@ -102,24 +102,26 @@ void hegv(
     heev( A, Lambda, Z, opts );
     timers[ "hegv::heev" ] = t_heev.stop();
 
+    timers[ "hegv::trsm" ] = 0;
+    timers[ "hegv::trmm" ] = 0;
     if (wantz) {
         // 4. Backtransform eigenvectors to the original problem.
         auto L = TriangularMatrix<scalar_t>( Diag::NonUnit, B );
-        Timer t_trsm;
         if (itype == 1 || itype == 2) {
             // For A x = lambda B x and A B x = lambda x,
             // backtransform eigenvectors: x = inv(L)^H y.
             auto LH = conj_transpose( L );
+            Timer t_trsm;
             trsm( Side::Left, one, LH, Z, opts );
+            timers[ "hegv::trsm" ] += t_trsm.stop();
         }
-        timers[ "hegv::trsm" ] = t_trsm.stop();
-        Timer t_trmm;
         else {
             // For B A x = lambda x,
             // backtransform eigenvectors: x = L y.
+            Timer t_trmm;
             trmm( Side::Left, one, L, Z, opts );
+            timers[ "hegv::trmm" ] += t_trmm.stop();
         }
-        timers[ "hegv::trmm" ] = t_trmm.stop();
     }
     timers[ "hegv" ] = t_hegv.stop();
 }

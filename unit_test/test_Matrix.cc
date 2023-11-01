@@ -45,11 +45,11 @@ void test_Matrix_default()
     GridOrder order;
     int myp, myq, myrow, mycol;
     A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
-    test_assert( order == GridOrder::Col );
-    test_assert( myp == 1 );
-    test_assert( myq == 1 );
-    test_assert( myrow == 0 );
-    test_assert( mycol == 0 );
+    test_assert( order == GridOrder::Unknown );
+    test_assert( myp == -1 );
+    test_assert( myq == -1 );
+    test_assert( myrow == -1 );
+    test_assert( mycol == -1 );
 
     // todo: What is reasonable in this case? It segfaults right now.
     // auto tileMb_     = A.tileMbFunc();
@@ -191,10 +191,9 @@ void test_Matrix_lambda()
     {
         return (j % 2 == 0 ? 2*nb_ : nb_);
     };
-    auto tileRank = slate::func::process_1d_grid( slate::Layout::ColMajor, p );
+    auto tileRank = slate::func::process_1d_grid( slate::GridOrder::Col, p );
     // NB. this is process_1d_grid because we want a true cyclic device distribution
-    auto tileDevice = slate::func::process_1d_grid( slate::Layout::RowMajor,
-                                                    num_devices );
+    auto tileDevice = slate::func::process_1d_grid( slate::GridOrder::Row, num_devices );
 
     // ----------
     slate::Matrix<double> A(m, n, tileMb, tileNb, tileRank, tileDevice, mpi_comm);
@@ -222,24 +221,15 @@ void test_Matrix_lambda()
     test_assert(A.op() == blas::Op::NoTrans);
     test_assert(A.uplo() == slate::Uplo::General);
 
-    // SLATE doesn't know distribution.
+    // SLATE detects the distribution.
     GridOrder order;
     int myp, myq, myrow, mycol;
     A.gridinfo( &order, &myp, &myq, &myrow, &mycol );
-    if (mpi_size == 1) {
-        test_assert( order == GridOrder::Col );
-        test_assert( myp == 1 );
-        test_assert( myq == 1 );
-        test_assert( myrow == 0 );
-        test_assert( mycol == 0 );
-    }
-    else {
-        test_assert( order == GridOrder::Unknown );
-        test_assert( myp == -1 );
-        test_assert( myq == -1 );
-        test_assert( myrow == -1 );
-        test_assert( mycol == -1 );
-    }
+    test_assert( order != GridOrder::Unknown );
+    test_assert( myp == p );
+    test_assert( myq == 1 );
+    test_assert( myrow == (mpi_rank < p ? mpi_rank : -1) );
+    test_assert( mycol == (mpi_rank < p ? 0 : -1) );
 
     auto tileMb_     = A.tileMbFunc();
     auto tileNb_     = A.tileNbFunc();

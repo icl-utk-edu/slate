@@ -163,7 +163,7 @@ public:
     int num_devices() const { return num_devices_; }
 
     void gridinfo( GridOrder* order, int* nprow, int* npcol,
-                   int* myrow, int* mycol ) const;
+                   int* myrow, int* mycol );
 
     /// Returns tileMb function. Useful to construct matrices with the
     /// same block size. For submatrices, this is of the parent matrix.
@@ -760,8 +760,8 @@ private:
     int64_t joffset_;   ///< block col offset with respect to original matrix
     int64_t mt_;        ///< number of local block rows in this view
     int64_t nt_;        ///< number of local block cols in this view
-    int64_t nprow_;     ///< number of process rows if 2D block cyclic
-    int64_t npcol_;     ///< number of process cols if 2D block cyclic
+    int nprow_;         ///< number of process rows if 2D block cyclic
+    int npcol_;         ///< number of process cols if 2D block cyclic
     GridOrder order_;   ///< order to map MPI processes to tile grid
 
 protected:
@@ -799,7 +799,7 @@ BaseMatrix<scalar_t>::BaseMatrix()
       nt_(0),
       nprow_(-1),
       npcol_(-1),
-      order_( GridOrder::Col ),
+      order_( GridOrder::Unknown ),
       uplo_(Uplo::General),
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
@@ -838,7 +838,6 @@ BaseMatrix<scalar_t>::BaseMatrix()
 ///
 /// @param[in] mpi_comm
 ///     MPI communicator to distribute matrix across.
-///     nprow * npcol <= MPI_Comm_size( mpi_comm ).
 ///
 template <typename scalar_t>
 BaseMatrix<scalar_t>::BaseMatrix(
@@ -859,8 +858,6 @@ BaseMatrix<scalar_t>::BaseMatrix(
       op_(Op::NoTrans),
       layout_(Layout::ColMajor),
       origin_(Target::Host),
-      storage_(std::make_shared< MatrixStorage< scalar_t > >(
-          inTileMb, inTileNb, inTileRank, inTileDevice, mpi_comm)),
       mpi_comm_(mpi_comm)
 {
     // Count number of block rows.
@@ -882,6 +879,10 @@ BaseMatrix<scalar_t>::BaseMatrix(
         jj += last_nb_;
         ++nt_;
     }
+
+    storage_ = std::make_shared< MatrixStorage< scalar_t > >(
+                                           mt_, nt_, inTileMb, inTileNb,
+                                           inTileRank, inTileDevice, mpi_comm );
 
     slate_mpi_call(
         MPI_Comm_rank(mpi_comm_, &mpi_rank_));
@@ -1292,34 +1293,40 @@ void swap(BaseMatrix<scalar_t>& A, BaseMatrix<scalar_t>& B)
 ///
 template <typename scalar_t>
 void BaseMatrix<scalar_t>::gridinfo(
-    GridOrder* order, int* nprow, int* npcol, int* myrow, int* mycol ) const
+    GridOrder* order, int* nprow, int* npcol, int* myrow, int* mycol )
 {
-    if (nprow_ > 0) {
-        *order = order_;
-        *nprow = nprow_;
-        *npcol = npcol_;
-        if (order_ == GridOrder::Col) {
-            *myrow = mpi_rank_ % nprow_;
-            *mycol = mpi_rank_ / nprow_;
-        }
-        else {
-            *myrow = mpi_rank_ / npcol_;
-            *mycol = mpi_rank_ % npcol_;
-        }
-    }
-    else {
+    // If grid order is unknown, attempt to detect it
+    if (order_ == GridOrder::Unknown) {
         int mpi_size;
-        slate_mpi_call(
-            MPI_Comm_size(mpiComm(), &mpi_size));
-        if (mpi_size == 1) {
-            *order = GridOrder::Col;
-            *nprow = *npcol = 1;
-            *myrow = *mycol = 0;
+        slate_mpi_call(MPI_Comm_size(mpiComm(), &mpi_size));
+        // When matrix is empty, storage_ may be null
+        if (mt_ != 0 && nt_ != 0) {
+            func::is_2d_cyclic_grid(mt(), nt(), tileRankFunc(), &order_, &nprow_, &npcol_);
+
+            // Detected grid doesn't match process distribution
+            // Label it as unknown since some processes won't have a row/column
+            if (order_ != GridOrder::Unknown && mpi_size < nprow_*npcol_) {
+                order_ = GridOrder::Unknown;
+                nprow_ = npcol_ = -1;
+            }
         }
-        else {
-            *order = GridOrder::Unknown;
-            *nprow = *npcol = *myrow = *mycol = -1;
-        }
+
+    }
+
+    *order = order_;
+    *nprow = nprow_;
+    *npcol = npcol_;
+    if (order_ == GridOrder::Unknown || mpi_rank_ >= nprow_*npcol_) {
+        *myrow = -1;
+        *mycol = -1;
+    }
+    else if (order_ == GridOrder::Col) {
+        *myrow = mpi_rank_ % *nprow;
+        *mycol = mpi_rank_ / *nprow;
+    }
+    else { // order_ == GridOrder::Row
+        *myrow = mpi_rank_ / *npcol;
+        *mycol = mpi_rank_ % *npcol;
     }
 }
 
@@ -1545,8 +1552,7 @@ Tile<scalar_t> BaseMatrix<scalar_t>::tileInsertWorkspace(
 template<typename scalar_t>
 scalar_t* BaseMatrix<scalar_t>::allocWorkspaceBuffer(int device, int64_t size)
 {
-    assert(size <= storage_->tileMb(0)*storage_->tileNb(0));
-    return storage_->allocWorkspaceBuffer(device);
+    return storage_->allocWorkspaceBuffer(device, size);
 }
 
 //------------------------------------------------------------------------------
@@ -2567,7 +2573,7 @@ void BaseMatrix<scalar_t>::tileCopyDataLayout(Tile<scalar_t>* src_tile,
 
         bool need_workspace = work_data == nullptr;
         if (need_workspace) {
-            work_data = storage_->allocWorkspaceBuffer( work_device );
+            work_data = storage_->allocWorkspaceBuffer( work_device, mb*nb );
             work_stride = ( copy_first ? phys_mb : dst_stride );
         }
         Layout work_layout = ( copy_first ? src_layout : target_layout );
@@ -3379,7 +3385,8 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
         bool need_workspace = tile->mb() != tile->nb() && (! tile->extended());
 
         if (need_workspace)
-            work_data = storage_->allocWorkspaceBuffer(tile->device());
+            work_data = storage_->allocWorkspaceBuffer(tile->device(),
+                                                       tile->mb()*tile->nb());
 
         if (tile->device() == HostNum) {
             tile->layoutConvert(work_data);
@@ -3460,6 +3467,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
             int64_t j = std::get<1>(*iter);
 
             auto tile = storage_->at( globalIndex(i, j, device) );
+            auto mb = tile->mb(), nb = tile->nb();
 
             // if we need to convert layout
             if (tile->layout() != layout) {
@@ -3469,30 +3477,26 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
                 }
                 tile->setLayout( layout );
 
-                int64_t work_stride = layout == Layout::ColMajor
-                                      ? tile->nb()
-                                      : tile->mb();
+                int64_t work_stride = (layout == Layout::ColMajor) ? nb : mb;
 
                 // bucket index
-                mnss_tuple mns = {tile->mb(), tile->nb(),
-                                  tile->extended(),
-                                  tile->stride(),
-                                  tile->mb() != tile->nb()
-                                    ? (tile->extended() ?
-                                        tile->layoutBackStride() : work_stride)
+                mnss_tuple mns = {mb, nb, tile->extended(), tile->stride(),
+                                  mb != nb
+                                    ? (tile->extended()
+                                        ? tile->layoutBackStride() : work_stride)
                                     : 0};
 
                 // add this tile's data to the corrsponding bucket of batch array
                 tilesBuckets[mns].first.push_back(tile->data());
 
                 // if rectangular, prepare a workspace
-                if (tile->mb() != tile->nb()) {
+                if (mb != nb) {
                     if (tile->extended())
                         tilesBuckets[mns].second.push_back(
                             tile->layoutBackData());
                     else
                         tilesBuckets[mns].second.push_back(
-                            storage_->allocWorkspaceBuffer(device));
+                            storage_->allocWorkspaceBuffer(device, mb*nb) );
                 }
             }
         }

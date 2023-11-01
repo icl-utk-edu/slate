@@ -83,9 +83,9 @@ void he2hb(
     assert( grid_order == GridOrder::Col );  // todo: update for Row
 
     auto tileNb = slate::func::uniform_blocksize( n, nb_A );
-    auto tileRank = slate::func::process_2d_grid( Layout::ColMajor, nprow, npcol );
+    auto tileRank = slate::func::process_2d_grid( GridOrder::Col, nprow, npcol );
     int num_devices = blas::get_device_count();
-    auto tileDevice = slate::func::device_1d_grid( Layout::ColMajor,
+    auto tileDevice = slate::func::device_1d_grid( GridOrder::Col,
                                                            nprow, num_devices );
 
     // W is like A, but within node the GPU distribution is row-cyclic.

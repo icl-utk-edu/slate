@@ -128,6 +128,7 @@ void* Memory::alloc(int device, size_t size, blas::Queue* queue)
         block = new char[size];
     }
     else {
+        slate_assert( size <= block_size_ );
         // this block for device only
         #pragma omp critical(slate_memory)
         {

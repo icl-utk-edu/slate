@@ -114,11 +114,12 @@ void norm1est_set(Matrix<int64_t>& isgn, Matrix<scalar_t>& A)
 ///     On exit, kase will again be 0.
 ///
 /// @param[in,out] isave
-///     isave is an integer vector, of size (3).
+///     isave is an integer vector, of size 4.
 ///     isave is used to save variables between calls to norm1est.
 ///     isave[0]: the step to do in the next iteration
-///     isave[1]: index of maximum element in X
-///     isave[2]: number of iterations
+///     isave[1]: tile of maximum element in X
+///     isave[2]: index of maximum element in X
+///     isave[3]: number of iterations
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -156,14 +157,12 @@ void norm1est(
     int64_t n = X.m();
     scalar_t alpha = one /scalar_t( n );
 
-    int itmax = 5, jlast;
+    int itmax = 5;
 
     // isave[0] = jump
-    // isave[1] = j which is the index of the max element in X
-    // isave[2] = iter
-
-    real_t estold = 0., temp;
-    int64_t sign_x;
+    // isave[1] = j which is the tile of the max element in X
+    // isave[2] = jj which is the index of the max element in X
+    // isave[3] = iter
 
     int64_t mt = X.mt();
 
@@ -246,8 +245,9 @@ void norm1est(
         else if (isave[0] == 2) {
             // X has been overwritten by A^T*X
             // Find the index of the largest entry of X,
-            // The index of the largest element will be saved in isave[1]
+            // The location of the largest element will be saved in isave[1] and isave[2]
             isave[1] = 0;
+            isave[2] = 0;
             real_t X_max = 0.;
 
             struct { real_t max; int loc; } max_loc_in[1], max_loc[1];
@@ -261,7 +261,8 @@ void norm1est(
                     int64_t nb = X.tileMb(i);
                     for (int64_t ii = 0; ii < nb; ++ii) {
                         if (std::abs( Xi_data[ii] ) > X_max) {
-                            isave[1] = i*X.tileMb(0)+ii;
+                            isave[1] = i;
+                            isave[2] = ii;
                             X_max = std::abs( Xi_data[ ii ] );
                             max_loc_in[0].max = X_max;
                             max_loc_in[0].loc = X.tileRank(i, 0);
@@ -275,18 +276,18 @@ void norm1est(
                         MPI_MAXLOC, X.mpiComm()) );
 
             int root_rank = max_loc[0].loc;
-            MPI_Bcast( &isave[1], 1, MPI_INT64_T, root_rank, X.mpiComm() );
+            MPI_Bcast( &isave[1], 2, MPI_INT64_T, root_rank, X.mpiComm() );
 
-            isave[2] = 2;
+            isave[3] = 2;
 
             // main loop - iterations 2,3,..., itmax
             slate::set(zero, zero, X);
-            int64_t i_isave = std::floor(isave[1] / X.tileMb(0) );
+            int64_t i_isave = isave[1];
 
             if (X.tileIsLocal(i_isave, 0)) {
                 auto Xi = X(i_isave, 0);
                 auto Xi_data = Xi.data();
-                Xi_data[ isave[1] - i_isave*X.tileMb(0) ] = one;
+                Xi_data[ isave[2] ] = one;
             }
             *kase = 1;
             isave[0] = 3;
@@ -295,7 +296,7 @@ void norm1est(
         else if (isave[0] == 3) {
             // X has been overwritten by A*X
             copy(X, V);
-            estold = *est;
+            real_t estold = *est;
             *est = slate::norm(slate::Norm::One, V);
 
             if constexpr (blas::is_complex<scalar_t>::value) {
@@ -336,6 +337,7 @@ void norm1est(
                         auto isgn0 = isgn(i, 0);
                         auto isgn0_data = isgn0.data();
                         for (int64_t ii = 0; ii < X.tileMb(i); ++ii) {
+                            int64_t sign_x;
                             if (real( Xi_data[ii] ) >= 0.) {
                                 sign_x = 1;
                             }
@@ -377,8 +379,10 @@ void norm1est(
         }
         else if (isave[0] == 4) {
             // X has been overwritten by A^T*X
-            jlast = isave[1];
+            int64_t jlast  = isave[1];
+            int64_t jjlast = isave[2];
             isave[1] = 0;
+            isave[2] = 0;
             real_t X_max = 0.;
 
             struct { real_t max; int loc; } max_loc_in[1], max_loc[1];
@@ -393,7 +397,8 @@ void norm1est(
                     int64_t nb = X.tileMb(i);
                     for (int64_t ii = 0; ii < nb; ++ii) {
                         if (std::abs( Xi_data[ii] ) > X_max) {
-                            isave[1] = i*X.tileMb(0)+ii;
+                            isave[1] = i;
+                            isave[2] = ii;
                             X_max = std::abs( Xi_data[ ii ] );
                             max_loc_in[0].max = X_max;
                             max_loc_in[0].loc = X.tileRank(i, 0);
@@ -410,47 +415,45 @@ void norm1est(
 
             // Bcast the index of the max value to all mpi ranks
             int root_rank = max_loc[0].loc;
-            MPI_Bcast( &isave[1], 1, MPI_INT64_T, root_rank, X.mpiComm() );
+            MPI_Bcast( &isave[1], 2, MPI_INT64_T, root_rank, X.mpiComm() );
 
-            // Find the tile index which has the jlast entry
-            int64_t i_jlast = std::floor(jlast / X.tileMb(0) );
             // Find the tile which has the isave[1] entry (max value)
-            int64_t i_max = std::floor(isave[1] / X.tileMb(0) );
+            int64_t i_max = isave[1];
 
-            // Find the value at i_jlast
+            // Find the value at jlast
             real_t X_jlast = 0., X_i_max = 0.;
-            if (X.tileIsLocal(i_jlast, 0)) {
-                auto Xi = X(i_jlast, 0);
+            if (X.tileIsLocal(jlast, 0)) {
+                auto Xi = X(jlast, 0);
                 auto Xi_data = Xi.data();
-                X_jlast = std::abs( Xi_data[jlast - i_jlast*X.tileMb(0) ] );
+                X_jlast = std::abs( Xi_data[ jjlast ] );
             }
             // Find the value at i_max
-            else if (X.tileIsLocal(i_max, 0)) {
+            if (X.tileIsLocal(i_max, 0)) {
                 auto Xi = X(i_max, 0);
                 auto Xi_data = Xi.data();
-                X_i_max = std::abs( Xi_data[isave[1] - i_max*X.tileMb(0) ] );
+                X_i_max = std::abs( Xi_data[isave[2] ] );
             }
 
             // Bcast previous max value (X_jlast) and the current max
             // value (X_i_max)
-            MPI_Bcast( &X_jlast, 1, mpi_real_type, X.tileRank(i_jlast, 0), X.mpiComm() );
+            MPI_Bcast( &X_jlast, 1, mpi_real_type, X.tileRank(jlast, 0), X.mpiComm() );
             MPI_Bcast( &X_i_max, 1, mpi_real_type, X.tileRank(i_max, 0), X.mpiComm() );
 
             // If the currennt max value is not equal to the previous and
             // still the number of iterations is less than itmax,
             // then do one more iteration
-            if (X_jlast != X_i_max && isave[2] < itmax) {
-                isave[2] = isave[2] + 1;
+            if (X_jlast != X_i_max && isave[3] < itmax) {
+                isave[3] = isave[3] + 1;
                 slate::set(zero, zero, X);
 
                 // Find the tile index which has the max entry,
                 // then set X to a canonical form:
                 // X_i = 0, all i, except X_i_max = 1
-                int64_t i_isave = std::floor(isave[1] / X.tileMb(0) );
+                int64_t i_isave = isave[1];
                 if (X.tileIsLocal(i_isave, 0)) {
                     auto Xi = X(i_isave, 0);
                     auto Xi_data = Xi.data();
-                    Xi_data[isave[1] - i_isave*X.tileMb(0) ] = one;
+                    Xi_data[ isave[2] ] = one;
                 }
                 *kase = 1;
                 isave[0] = 3;
@@ -463,10 +466,10 @@ void norm1est(
         }
         else if (isave[0] == 5) {
             // X has been overwritten by A*X.
-            temp = slate::norm(slate::Norm::One, V);
+            real_t temp = slate::norm(slate::Norm::One, V);
             temp = real_t(2.0) * temp / ( real_t(3.0) * real_t(n) );
             if (temp > *est) {
-                copy( X, V);
+                copy( X, V );
                 *est = temp;
             }
             // Set kase to zero, norm1est converged

@@ -172,11 +172,12 @@ public:
     MatrixStorage( int64_t m, int64_t n, int64_t mb, int64_t nb,
                    GridOrder order, int p, int q, MPI_Comm mpi_comm );
 
-    MatrixStorage(std::function<int64_t (int64_t i)>& inTileMb,
-                  std::function<int64_t (int64_t j)>& inTileNb,
-                  std::function<int (ij_tuple ij)>& inTileRank,
-                  std::function<int (ij_tuple ij)>& inTileDevice,
-                  MPI_Comm mpi_comm);
+    MatrixStorage( int64_t mt, int64_t nt,
+                   std::function<int64_t (int64_t i)>& inTileMb,
+                   std::function<int64_t (int64_t j)>& inTileNb,
+                   std::function<int (ij_tuple ij)>& inTileRank,
+                   std::function<int (ij_tuple ij)>& inTileDevice,
+                   MPI_Comm mpi_comm);
 
 
     // 1. destructor
@@ -217,7 +218,7 @@ public:
     void clearWorkspace();
     void releaseWorkspace();
 
-    scalar_t* allocWorkspaceBuffer(int device);
+    scalar_t* allocWorkspaceBuffer(int device, int size);
     void      releaseWorkspaceBuffer(scalar_t* data, int device);
 
 private:
@@ -489,23 +490,22 @@ MatrixStorage<scalar_t>::MatrixStorage(
     num_devices_ = memory_.num_devices_;
 
     // functions for computing the tile's size
-    tileMb = slate::func::uniform_blocksize(m, mb);
-    tileNb = slate::func::uniform_blocksize(n, nb);
+    tileMb = func::uniform_blocksize(m, mb);
+    tileNb = func::uniform_blocksize(n, nb);
 
     // function for computing the tile's rank, assuming 2D block cyclic
     if (order == GridOrder::Col) {
-        tileRank = slate::func::process_2d_grid( slate::Layout::ColMajor, p, q );
+        tileRank = func::process_2d_grid( GridOrder::Col, p, q );
     }
     else if (order == GridOrder::Row) {
-        tileRank = slate::func::process_2d_grid( slate::Layout::RowMajor, p, q );
+        tileRank = func::process_2d_grid( GridOrder::Row, p, q );
     }
     else {
         slate_error( "invalid GridOrder, must be Col or Row" );
     }
     // function for computing the tile's device, assuming 1d block cyclic
     if (num_devices_ > 0) {
-        tileDevice = slate::func::device_1d_grid( slate::Layout::RowMajor,
-                                                  q, num_devices_ );
+        tileDevice = func::device_1d_grid( GridOrder::Row, q, num_devices_ );
     }
     else {
         tileDevice = []( ij_tuple ij ) {
@@ -518,9 +518,10 @@ MatrixStorage<scalar_t>::MatrixStorage(
 }
 
 //------------------------------------------------------------------------------
-/// For memory, assumes tiles of size mb = inTileMb(0) x nb = inTileNb(0).
 template <typename scalar_t>
 MatrixStorage<scalar_t>::MatrixStorage(
+    int64_t mt,
+    int64_t nt,
     std::function<int64_t (int64_t i)>& inTileMb,
     std::function<int64_t (int64_t j)>& inTileNb,
     std::function<int (ij_tuple ij)>& inTileRank,
@@ -531,7 +532,8 @@ MatrixStorage<scalar_t>::MatrixStorage(
       tileRank(inTileRank),
       tileDevice(inTileDevice),
       tiles_(),
-      memory_(sizeof(scalar_t) * inTileMb(0) * inTileNb(0)),  // block size in bytes
+      memory_(sizeof(scalar_t) * func::max_blocksize(mt, inTileMb) // block size in bytes
+                               * func::max_blocksize(nt, inTileNb)),
       batch_array_size_(0)
 {
     slate_mpi_call(
@@ -1017,15 +1019,15 @@ void MatrixStorage<scalar_t>::clear()
 /// @param[in] device
 ///     Device ID (GPU or Host) where the memory block is needed.
 ///
+/// @param[in] size
+///     Number of scalars needed in the memory block
+///
 template <typename scalar_t>
-scalar_t* MatrixStorage<scalar_t>::allocWorkspaceBuffer(int device)
+scalar_t* MatrixStorage<scalar_t>::allocWorkspaceBuffer(int device, int size)
 {
-    int64_t mb = tileMb(0);
-    int64_t nb = tileNb(0);
     // if device==HostNum (-1) use nullptr as queue (not comm_queues_[-1])
     blas::Queue* queue = ( device == HostNum ? nullptr : comm_queues_[device]);
-    scalar_t* data = (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * mb * nb, queue);
-    return data;
+    return (scalar_t*) memory_.alloc(device, sizeof(scalar_t) * size, queue);
 }
 
 //------------------------------------------------------------------------------

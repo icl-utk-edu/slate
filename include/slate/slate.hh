@@ -1353,6 +1353,16 @@ void gecondest(
         Options const& opts = Options());
 
 //-----------------------------------------
+// pocondest()
+template <typename scalar_t>
+void pocondest(
+        Norm in_norm,
+        HermitianMatrix<scalar_t>& A,
+        blas::real_type<scalar_t> *Anorm,
+        blas::real_type<scalar_t> *rcond,
+        Options const& opts = Options());
+
+//-----------------------------------------
 // trcondest()
 template <typename scalar_t>
 void trcondest(

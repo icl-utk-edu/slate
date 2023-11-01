@@ -4626,6 +4626,126 @@ void scalapack_pgecon(
 
 //==============================================================================
 // Fortran prototypes
+#define scalapack_pspocon BLAS_FORTRAN_NAME( pspocon, PSGECON )
+#define scalapack_pdpocon BLAS_FORTRAN_NAME( pdpocon, PDGECON )
+#define scalapack_pcpocon BLAS_FORTRAN_NAME( pcpocon, PCGECON )
+#define scalapack_pzpocon BLAS_FORTRAN_NAME( pzpocon, PZGECON )
+
+extern "C" {
+
+void scalapack_pspocon(
+    const char* uplo, const char* norm, blas_int* n,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* Anorm, float* rcond,
+    float* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    blas_int* info );
+
+void scalapack_pdpocon(
+    const char* uplo, const char* norm, blas_int* n,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* Anorm, double* rcond,
+    double* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    blas_int* info );
+
+void scalapack_pcpocon(
+    const char* uplo, const char* norm, blas_int* n,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* Anorm, float* rcond,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    blas_int* info );
+
+void scalapack_pzpocon(
+    const char* uplo, const char* norm, blas_int* n,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* Anorm, double* rcond,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    blas_int* info );
+
+} // extern C
+
+//------------------------------------------------------------------------------
+// Low-level overloaded wrappers
+inline void scalapack_ppocon(
+    const char* uplo, const char* norm, blas_int* n,
+    float* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* Anorm, float* rcond,
+    float* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    blas_int* info )
+{
+    scalapack_pspocon(
+        uplo, norm, n, A, ia, ja, descA,
+        Anorm, rcond, work, lwork, iwrok, liwork, info );
+}
+
+inline void scalapack_ppocon(
+    const char* uplo, const char* norm, blas_int* n,
+    double* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* Anorm, double* rcond,
+    double* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    blas_int* info )
+{
+    scalapack_pdpocon(
+        uplo, norm, n, A, ia, ja, descA,
+        Anorm, rcond, work, lwork, iwrok, liwork, info );
+}
+
+inline void scalapack_ppocon(
+    const char* uplo, const char* norm, blas_int* n,
+    std::complex<float>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    float* Anorm, float* rcond,
+    std::complex<float>* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    blas_int* info )
+{
+    scalapack_pcpocon(
+        uplo, norm, n, A, ia, ja, descA,
+        Anorm, rcond, work, lwork, iwrok, liwork, info );
+}
+
+inline void scalapack_ppocon(
+    const char* uplo, const char* norm, blas_int* n,
+    std::complex<double>* A, blas_int* ia, blas_int* ja, blas_int* descA,
+    double* Anorm, double* rcond,
+    std::complex<double>* work, blas_int* lwork,
+    blas_int* iwrok, blas_int* liwork,
+    blas_int* info )
+{
+    scalapack_pzpocon(
+        uplo, norm, n, A, ia, ja, descA,
+        Anorm, rcond, work, lwork, iwrok, liwork, info );
+}
+
+//------------------------------------------------------------------------------
+// Templated wrapper
+template <typename scalar_t>
+void scalapack_ppocon(
+    const char* uplo, const char* norm, int64_t n,
+    scalar_t* A, int64_t ia, int64_t ja, blas_int* descA,
+    blas::real_type<scalar_t>* Anorm, blas::real_type<scalar_t>* rcond,
+    scalar_t* work, int64_t lwork,
+    blas_int* iwork, int64_t liwork,
+    int64_t* info )
+{
+    blas_int n_      = to_blas_int( n );
+    blas_int ia_     = to_blas_int( ia );
+    blas_int ja_     = to_blas_int( ja );
+    blas_int lwork_  = to_blas_int( lwork );
+    blas_int liwork_ = to_blas_int( liwork );
+    blas_int info_   = 0;
+    scalapack_ppocon(
+        uplo, norm, &n_, A, &ia_, &ja_, descA,
+        Anorm, rcond, work, &lwork_, iwork, &liwork_, &info_ );
+}
+
+
+//==============================================================================
+// Fortran prototypes
 #define scalapack_pstrcon BLAS_FORTRAN_NAME( pstrcon, PSTRCON )
 #define scalapack_pdtrcon BLAS_FORTRAN_NAME( pdtrcon, PDTRCON )
 #define scalapack_pctrcon BLAS_FORTRAN_NAME( pctrcon, PCTRCON )

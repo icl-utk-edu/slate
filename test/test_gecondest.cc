@@ -179,8 +179,9 @@ void test_gecondest_work(Params& params, bool run)
 
 
         double time = barrier_get_wtime(MPI_COMM_WORLD);
-
-        slate::gecondest(norm, A, &Anorm, &slate_rcond, opts);
+        slate::lu_condest_using_factor(norm, A, Anorm, &slate_rcond, opts);
+        // Using traditional BLAS/LAPACK name
+        // slate::gecondest(norm, A, &Anorm, &slate_rcond, opts);
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance
         params.time() = time;

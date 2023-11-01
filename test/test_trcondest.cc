@@ -154,7 +154,9 @@ void test_trcondest_work(Params& params, bool run)
         double time = barrier_get_wtime(MPI_COMM_WORLD);
         auto R  = slate::TriangularMatrix<scalar_t>(
             slate::Uplo::Upper, slate::Diag::NonUnit, A );
-        slate::trcondest(norm, R, &slate_rcond, opts);
+        slate::triangular_condest(norm, R, &slate_rcond, opts);
+        // Using traditional BLAS/LAPACK name
+        // slate::trcondest(norm, R, &slate_rcond, opts);
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance
         params.time() = time;

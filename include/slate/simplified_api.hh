@@ -359,6 +359,21 @@ void lu_inverse_using_factor_out_of_place(
 }
 
 //-----------------------------------------
+// lu_condest_using_factor()
+
+// gecondest
+template <typename scalar_t>
+void lu_condest_using_factor(
+    Norm norm,
+    Matrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    blas::real_type<scalar_t> *rcond,
+    Options const& opts = Options())
+{
+    gecondest(norm, A, &Anorm, rcond, opts);
+}
+
+//-----------------------------------------
 // Cholesky
 
 //-----------------------------------------
@@ -473,6 +488,21 @@ void chol_inverse_using_factor(
     Options const& opts = Options())
 {
     potri(A, opts);
+}
+
+//-----------------------------------------
+// chol_condest_using_factor()
+
+// pocondest
+template <typename scalar_t>
+void chol_condest_using_factor(
+    Norm norm,
+    HermitianMatrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    blas::real_type<scalar_t> *rcond,
+    Options const& opts = Options())
+{
+    pocondest(norm, A, &Anorm, rcond, opts);
 }
 
 //-----------------------------------------
@@ -648,6 +678,21 @@ void lq_multiply_by_q(
 {
     unmlq(side, op, A, T, C, opts);
 }
+
+//-----------------------------------------
+// triangular_condest()
+
+// trcondest
+template <typename scalar_t>
+void triangular_condest(
+    Norm norm,
+    TriangularMatrix<scalar_t>& A,
+    blas::real_type<scalar_t> *rcond,
+    Options const& opts = Options())
+{
+    trcondest(norm, A, rcond, opts);
+}
+
 
 //------------------------------------------------------------------------------
 // Symmetric/Hermitian Eigenvalues

@@ -146,9 +146,7 @@ void scale(internal::TargetType<Target::Devices>,
             scalar_t** a_array_host = A.array_host( device, queue_index );
 
             auto group_params = device_regions_build<true, 1, scalar_t>(
-                                                    {A},
-                                                    {a_array_host},
-                                                    device );
+                    {A}, {a_array_host}, device );
 
             blas::Queue* queue = A.compute_queue( device, queue_index );
 

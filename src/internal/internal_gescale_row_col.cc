@@ -140,10 +140,7 @@ void scale_row_col(
                     ++batch_count;
             };
             auto group_params = device_regions_build<false, 1, scalar_t>(
-                                                    {A},
-                                                    {a_array_host},
-                                                    device,
-                                                    store_rc );
+                    {A}, {a_array_host}, device, store_rc );
 
 
             scalar_t** a_array_dev = A.array_device( device, queue_index );

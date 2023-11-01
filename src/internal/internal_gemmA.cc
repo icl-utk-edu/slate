@@ -437,9 +437,9 @@ void gemmA(internal::TargetType<Target::Devices>,
                     auto B_j = B.sub( j, j, 0, 0 );
                     // A comes first since we do computation for a local A
                     auto group_params = device_regions_build<false, 3, scalar_t>(
-                                                            {A_j, B_j, C},
-                                                            {a_array_host, b_array_host, c_array_host},
-                                                            device );
+                            {A_j, B_j, C},
+                            {a_array_host, b_array_host, c_array_host},
+                            device );
 
                     trace::Block trace_block("blas::batch::gemm");
 

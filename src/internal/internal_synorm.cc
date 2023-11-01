@@ -401,11 +401,11 @@ void norm(internal::TargetType<Target::Devices>,
             scalar_t** a_array_host = A.array_host( device, queue_index );
 
             auto group_params = device_regions_build<true, 1, scalar_t>(
-                                                    {A},
-                                                    {a_array_host},
-                                                    device,
-                                                    {},
-                                                    ijrange, ijrange );
+                    {A},
+                    {a_array_host},
+                    device,
+                    {},
+                    ijrange, ijrange );
 
             scalar_t** a_array_dev = A.array_device(device, queue_index);
 

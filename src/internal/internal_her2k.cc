@@ -596,9 +596,9 @@ void her2k(internal::TargetType<Target::Devices>,
 
                     // C comes first since we do computation for a local C
                     auto group_params = device_regions_build<true, 5, scalar_t>(
-                                                            {C, A, AT, BT, B},
-                                                            {c_array_host, a_array_host, at_array_host, b_array_host, bt_array_host},
-                                                            device );
+                            {C, A, AT, BT, B},
+                            {c_array_host, a_array_host, at_array_host, b_array_host, bt_array_host},
+                            device );
 
 
                     if (C.op() != Op::NoTrans) {

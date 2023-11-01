@@ -219,9 +219,9 @@ void trsm(internal::TargetType<Target::Devices>,
 
                 // B comes first since we do computation for a local B
                 auto group_params = device_regions_build<false, 2, scalar_t>(
-                                                        {B, A},
-                                                        {b_array_host, a_array_host},
-                                                        device );
+                        {B, A},
+                        {b_array_host, a_array_host},
+                        device );
 
                 {
                     trace::Block trace_block("blas::batch::trsm");

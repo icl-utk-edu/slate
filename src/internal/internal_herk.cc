@@ -502,9 +502,9 @@ void herk(internal::TargetType<Target::Devices>,
 
                     // C comes first since we do computation for a local C
                     auto group_params = device_regions_build<true, 3, scalar_t>(
-                                                            {C, A, AT},
-                                                            {c_array_host, a_array_host, b_array_host},
-                                                            device );
+                            {C, A, AT},
+                            {c_array_host, a_array_host, b_array_host},
+                            device );
 
                     if (C.op() != Op::NoTrans) {
                         swap(opA, opB);

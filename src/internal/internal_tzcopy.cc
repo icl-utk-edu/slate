@@ -166,10 +166,10 @@ void copy(internal::TargetType<Target::Devices>,
                 ++batch_count;
             };
             auto group_params = device_regions_build<true, 1, dst_scalar_t>(
-                                                    {B},
-                                                    {b_array_host},
-                                                    device,
-                                                    setup_A );
+                    {B},
+                    {b_array_host},
+                    device,
+                    setup_A );
 
             // Usually the output matrix (B) provides all the batch arrays.
             // Here we are using A, because of the differen types.

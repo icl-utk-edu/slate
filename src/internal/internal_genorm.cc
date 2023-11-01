@@ -525,7 +525,7 @@ void norm(
                 int64_t batch_count = 0;
                 for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
                 for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
-                    int64_t nb = A.tileNb( jj );
+                    int64_t nb = A.tileNb( jrange[jj] );
                     for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
                     for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
                         if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
@@ -549,7 +549,7 @@ void norm(
                 int64_t batch_count = 0;
                 for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
                 for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
-                    int64_t mb = A.tileMb( ii );
+                    int64_t mb = A.tileMb( irange[ii] );
                     for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
                     for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
                         if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {
@@ -587,7 +587,7 @@ void norm(
                 int64_t batch_count = 0;
                 for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
                 for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
-                    int64_t nb = A.tileNb( jj );
+                    int64_t nb = A.tileNb( jrange[jj] );
                     for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
                     for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
                         if (A.tileIsLocal( i, j ) && device == A.tileDevice( i, j )) {

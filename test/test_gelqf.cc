@@ -217,7 +217,7 @@ void test_gelqf_work(Params& params, bool run)
             slate_assert(info == 0);
 
             // tau vector for ScaLAPACK
-            int64_t ltau = num_local_rows_cols(std::min(m, n), nb, mycol, q);
+            int64_t ltau = num_local_rows_cols(std::min(m, n), nb, myrow, p);
             std::vector<scalar_t> tau(ltau);
 
             // workspace for ScaLAPACK

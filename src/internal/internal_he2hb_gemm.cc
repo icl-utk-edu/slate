@@ -120,6 +120,8 @@ void he2hb_gemm(
             Op opA = A.op();
             Op opB = B.op();
 
+            scalar_t** host_work = A.array_host(device, queue_index);
+
             for (int64_t k = 0; k < B.mt(); ++k) {
                 std::set<ij_tuple> A_tiles_set, B_tiles_set, C_tiles_set;
                 for (int64_t i = 0; i < A.mt(); ++i) {
@@ -154,124 +156,106 @@ void he2hb_gemm(
 
                 int64_t batch_size = C_tiles_set.size();
 
-                int64_t i_interior = A.mt();
-                int64_t i_last = 0;
-                int64_t mt = C.mt();
+                scalar_t** a_array_host = host_work;
+                scalar_t** b_array_host = a_array_host + batch_size;
+                scalar_t** c_array_host = b_array_host + batch_size;
 
-                // check if there are cleanup tiles
-                if (C.tileMb( mt-1 ) != C.tileMb( 0 )) {
-                    i_interior = A.mt() - 1;
-                    i_last = 1;
-                }
+                // Varient of device_regions_build to handle trsmA
+                using Params = device_regions_params<false, 3>;
 
-                // interior
-                std::vector<scalar_t*> a_array00;
-                std::vector<scalar_t*> b_array00;
-                std::vector<scalar_t*> c_array00;
-                a_array00.reserve( batch_size );
-                b_array00.reserve( batch_size );
-                c_array00.reserve( batch_size );
+                // Find ranges of matching mb's and ranges of matching nb's.
+                auto irange = device_regions_range( true, C );
 
-                int64_t lda00 = 0;
-                int64_t ldb00 = 0;
-                int64_t ldc00 = 0;
-                int64_t mb00 = C.tileMb( 0 );
-                int64_t nb00 = C.tileNb( 0 );
-                int64_t kb   = A.tileNb( 0 );
-                for (int64_t i = 0; i < i_interior; ++i) {
-                    if (A.tileRank( i, k ) == panel_rank
-                        && device == C.tileDevice( i, 0 )) {
-                        a_array00.push_back( A( i, k, device ).data() );
-                        b_array00.push_back( B( k, 0, device ).data() );
-                        c_array00.push_back( C( i, 0, device ).data() );
-                        lda00 = A( i, k, device ).stride();
-                        ldb00 = B( k, 0, device ).stride();
-                        ldc00 = C( i, 0, device ).stride();
-                    }
-                }
+                // loop over regions
+                int64_t batch_count = 0;
+                std::vector<Params> group_params;
+                for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
+                    // Loop over the tiles in this region,
+                    // save any that should be computed on this process & device
+                    Params group;
+                    group.mb = C.tileMb( irange[ ii ] );
+                    group.nb = C.tileNb( 0 );
+                    for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
+                        if (A.tileRank( i, k ) == panel_rank
+                            && device == C.tileDevice( i, 0 )) {
 
-                // if mod( n, nb ) != 0, this is for the last tile
-                std::vector<scalar_t*> a_array11;
-                std::vector<scalar_t*> b_array11;
-                std::vector<scalar_t*> c_array11;
-                a_array11.reserve( batch_size );
-                b_array11.reserve( batch_size );
-                c_array11.reserve( batch_size );
-
-                int64_t lda11 = 0;
-                int64_t ldb11 = 0;
-                int64_t ldc11 = 0;
-                int64_t mb11 = C.tileMb( C.mt()-1 );
-                int64_t nb11 = C.tileNb( C.nt()-1 );
-                // same kb as above
-                {
-                    int i = C.mt()-1;
-                    if ((A.tileRank( i, k ) == panel_rank) && (i_last == 1)) {
-                        if (device == C.tileDevice( i, 0 )) {
-                            a_array11.push_back( A( i, k, device ).data() );
-                            b_array11.push_back( B( k, 0, device ).data() );
-                            c_array11.push_back( C( i, 0, device ).data() );
-                            lda11 = A( i, k, device ).stride();
-                            ldb11 = B( k, 0, device ).stride();
-                            ldc11 = C( i, 0, device ).stride();
+                            // Add tiles to current group
+                            auto Aij = A( i, k, device );
+                            a_array_host[ batch_count ] = Aij.data();
+                            auto Bij = B( k, 0, device );
+                            b_array_host[ batch_count ] = Bij.data();
+                            auto Cij = C( i, 0, device );
+                            c_array_host[ batch_count ] = Cij.data();
+                            if (group.count == 0) {
+                                group.ld[0] = Aij.stride();
+                                group.ld[1] = Bij.stride();
+                                group.ld[2] = Cij.stride();
+                            }
+                            else {
+                                // default(none) doesn't allow asserts
+                                //assert( group.ld[0] == Aij.stride() );
+                                //assert( group.ld[1] == Bij.stride() );
+                                //assert( group.ld[2] == Bij.stride() );
+                            }
+                            ++group.count;
+                            ++batch_count;
                         }
+                    } // for i
+                    // If any tiles in the region should be computed here, save the group
+                    if (group.count > 0) {
+                        group_params.push_back( group );
                     }
-                }
+                } // for ii
 
                 if (C.op() != Op::NoTrans) {
                     // swap A <=> B; swap m <=> n
                     swap( opA, opB );
-                    swap( a_array00, b_array00 );
-                    swap( lda00, ldb00 );
-                    swap( mb00, nb00 );
                 }
 
                 {
                     trace::Block trace_block( "blas::batch::he2hb_gemm" );
 
-                    std::vector<Op> opA_( 1, opA );
-                    std::vector<Op> opB_( 1, opB );
-                    std::vector<scalar_t> alpha_( 1, alpha );
-                    std::vector<scalar_t> beta_( 1, beta );
-                    std::vector<int64_t> kb_( 1, kb );
+                    std::vector<Op> opA_(1, opA);
+                    std::vector<Op> opB_(1, opB);
+                    std::vector<scalar_t> alpha_(1, alpha);
+                    std::vector<scalar_t> beta_(1, beta);
+                    std::vector<int64_t> kb(1, A.tileNb(k));
                     // info size 0 disables slow checks in batched BLAS++.
                     std::vector<int64_t> info;
 
-                    blas::Queue* queue = C.compute_queue( device, queue_index );
-                    // assert conflicts with default(none) in old gcc.
-                    //assert( queue != nullptr );
+                    blas::Queue* queue = C.compute_queue(device, queue_index);
 
-                    if (c_array00.size() > 0) {
-                        std::vector<int64_t>    m( 1,  mb00 );
-                        std::vector<int64_t>    n( 1,  nb00 );
-                        std::vector<int64_t> ldda( 1, lda00 );
-                        std::vector<int64_t> lddb( 1, ldb00 );
-                        std::vector<int64_t> lddc( 1, ldc00 );
-                        blas::batch::gemm(
-                            layout, opA_, opB_,
-                            //m, n, kb_,
-                            m, n, lddb,
-                            alpha_, a_array00, ldda,
-                                    b_array00, lddb,
-                            beta_,  c_array00, lddc,
-                            c_array00.size(), info, *queue );
-                    }
+                    for (size_t g = 0; g < group_params.size(); ++g) {
 
-                    if (c_array11.size() > 0) {
-                        std::vector<int64_t>    m( 1,  mb11 );
-                        std::vector<int64_t>    n( 1,  nb11 );
-                        std::vector<int64_t> ldda( 1, lda11 );
-                        std::vector<int64_t> lddb( 1, ldb11 );
-                        std::vector<int64_t> lddc( 1, ldc11 );
+                        int64_t group_count = group_params[ g ].count;
+
+                        std::vector<int64_t>    m(1, group_params[ g ].mb);
+                        std::vector<int64_t>    n(1, group_params[ g ].nb);
+                        std::vector<int64_t> ldda(1, group_params[ g ].ld[0]);
+                        std::vector<int64_t> lddb(1, group_params[ g ].ld[1]);
+                        std::vector<int64_t> lddc(1, group_params[ g ].ld[2]);
+
+                        std::vector<scalar_t*> a_array(a_array_host, a_array_host+group_count);
+                        std::vector<scalar_t*> b_array(b_array_host, b_array_host+group_count);
+                        std::vector<scalar_t*> c_array(c_array_host, c_array_host+group_count);
+
+                        if (C.op() != Op::NoTrans) {
+                            swap(m, n);
+                            swap(a_array, b_array);
+                            swap(ldda, lddb);
+                        }
 
                         blas::batch::gemm(
                             layout, opA_, opB_,
-                            //m, n, kb_,
-                            m, n, lddb,
-                            alpha_, a_array11, ldda,
-                                    b_array11, lddb,
-                            beta_,  c_array11, lddc,
-                            c_array11.size(), info, *queue );
+                            m, n, kb,
+                            alpha_, a_array, ldda,
+                                    b_array, lddb,
+                            beta_,  c_array, lddc,
+                            group_count, info, *queue);
+
+                        a_array_host += group_count;
+                        b_array_host += group_count;
+                        c_array_host += group_count;
                     }
                     queue->sync();
                 }

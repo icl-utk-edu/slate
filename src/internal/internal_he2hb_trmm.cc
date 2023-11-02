@@ -7,6 +7,7 @@
 #include "slate/HermitianMatrix.hh"
 #include "slate/types.hh"
 #include "internal/internal.hh"
+#include "internal/internal_batch.hh"
 
 namespace slate {
 namespace internal {
@@ -165,14 +166,6 @@ void he2hb_trmm(
                 }
             }
 
-            int64_t i_interior = B.mt();
-            int64_t i_last = 0;
-            int64_t mt = B.mt();
-            if (B.tileMb( mt-1 ) != B.tileMb( 0 )) {
-                i_interior = B.mt() - 1;
-                i_last = 1;
-            }
-
             int64_t batch_size = B_tiles_set.size();
             if (batch_size > 0) {
 
@@ -190,16 +183,6 @@ void he2hb_trmm(
                 std::vector<scalar_t*> a_array1;
                 std::vector<scalar_t*> b_array1;
 
-                int64_t lda0 = 0;
-                int64_t ldb0 = 0;
-                int64_t lda1 = 0;
-                int64_t ldb1 = 0;
-
-                int64_t mb0 = B.tileMb( 0 );
-                int64_t nb0 = B.tileNb( 0 );
-                int64_t mb1 = B.tileMb( B.mt()-1 );
-                int64_t nb1 = B.tileNb( B.mt()-1 );
-
                 int64_t mb = A0.tileMb( 0 );
                 int64_t nb = A0.tileNb( 0 );
                 bool trapezoid = (mb < nb);
@@ -208,49 +191,57 @@ void he2hb_trmm(
                 }
                 auto T = TriangularMatrix<scalar_t>( Uplo::Upper, Diag::NonUnit, A0 );
 
-                for (int64_t i = 0; i < i_interior; ++i) {
-                    if (need_Bi0( AH, mpi_rank, i, panel_rank_rows )
-                        && device == B.tileDevice( i, 0 )) {
+                scalar_t** t_array_host = B.array_host(device, queue_index);
+                scalar_t** b_array_host = t_array_host + batch_size;
 
-                        auto Bi = B.sub( i, i, 0, 0 );
+                // Varient of device_regions_build to handle trsmA
+                using Params = device_regions_params<false, 2>;
 
-                        if (trapezoid) {
-                            auto B00 = Bi( 0, 0 );
-                            mb1 = B00.mb();
-                            Bi = Bi.slice( 0, mb1-1, 0, mb-1 ); // first mb1-by-mb part
+                // Find ranges of matching mb's and ranges of matching nb's.
+                auto irange = device_regions_range( true, B );
+
+                // loop over regions
+                int64_t batch_count = 0;
+                std::vector<Params> group_params;
+                for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
+                    // Loop over the tiles in this region,
+                    // save any that should be computed on this process & device
+                    Params group;
+                    group.mb = B.tileMb( irange[ ii ] );
+                    group.nb = T.tileMb( 0 );
+                    for (int64_t i = irange[ ii ]; i < irange[ ii+1 ]; ++i) {
+                        if (need_Bi0( AH, mpi_rank, i, panel_rank_rows )
+                            && device == B.tileDevice( i, 0 )) {
+
+                            // Add tiles to current group
+                            auto Bi = B.sub( i, i, 0, 0 );
+                            if (trapezoid) {
+                                auto B00 = Bi( 0, 0 );
+                                int64_t mb1 = B00.mb();
+                                Bi = Bi.slice( 0, mb1-1, 0, mb-1 ); // first mb1-by-mb part
+                            }
+
+                            auto Tij = T( 0, 0, device );
+                            t_array_host[ batch_count ] = Tij.data();
+                            auto Bij = Bi( 0, 0, device );
+                            b_array_host[ batch_count ] = Bij.data();
+                            if (group.count == 0) {
+                                group.ld[0] = Tij.stride();
+                                group.ld[1] = Bij.stride();
+                            }
+                            else {
+                                //assert( group.ld[0] == Tij.stride() );
+                                //assert( group.ld[1] == Bij.stride() );
+                            }
+                            ++group.count;
+                            ++batch_count;
                         }
-
-                        a_array0.push_back( T( 0, 0, device ).data() );
-                        b_array0.push_back( Bi( 0, 0, device ).data() );
-                        //b_array0.push_back( B( i, 0, device ).data() );
-                        lda0 = A0( 0, 0, device ).stride();
-                        ldb0 = Bi( 0, 0, device ).stride();
-                        mb0 = Bi.tileMb( 0 );
-                        nb0 = Bi.tileNb( 0 );
+                    } // for i
+                    // If any tiles in the region should be computed here, save the group
+                    if (group.count > 0) {
+                        group_params.push_back( group );
                     }
-                }
-
-                if (i_last == 1) {
-                    int64_t i = B.mt()-1;
-                    if (need_Bi0( AH, mpi_rank, i, panel_rank_rows )
-                        && device == B.tileDevice( i, 0 )) {
-
-                        auto Bi = B.sub( i, i, 0, 0 );
-
-                        if (trapezoid) {
-                            auto B00 = Bi( 0, 0 );
-                            mb1 = B00.mb();
-                            Bi = Bi.slice( 0, mb1-1, 0, mb-1 ); // first mb1-by-mb part
-                        }
-
-                        a_array1.push_back( T( 0, 0, device ).data() );
-                        b_array1.push_back( Bi( 0, 0, device ).data() );
-                        lda1 = T( 0, 0, device ).stride();
-                        ldb1 = Bi( 0, 0, device ).stride();
-                        mb1 = Bi.tileMb( 0 );
-                        nb1 = Bi.tileNb( 0 );
-                    }
-                }
+                } // for ii
 
                 {
                     trace::Block trace_block( "blas::batch::he2hb_trmm" );
@@ -270,31 +261,26 @@ void he2hb_trmm(
                     std::vector<scalar_t> alpha_( 1, alpha );
                     std::vector<int64_t>   info;
 
-                    if (b_array0.size() > 0) {
-                        std::vector<int64_t>    m( 1,  mb0 );
-                        std::vector<int64_t>    n( 1,  nb0 );
-                        std::vector<int64_t>  ldb( 1, ldb0 );
-                        std::vector<int64_t>  lda( 1, lda0 );
-                        blas::batch::trmm(
-                            layout, side_, uplo_, opA_, diag_,
-                            m, n,
-                            alpha_, a_array0, lda,
-                            b_array0, ldb,
-                            a_array0.size(), info, *queue );
-                    }
+                    for (size_t g = 0; g < group_params.size(); ++g) {
 
-                    if (b_array1.size() > 0) {
-                        std::vector<int64_t>    m( 1,  mb1 );
-                        std::vector<int64_t>    n( 1,  nb1 );
-                        std::vector<int64_t>  lda( 1, lda1 );
-                        std::vector<int64_t>  ldb( 1, ldb1 );
+                        int64_t group_count = group_params[ g ].count;
+                        std::vector<int64_t>    m( 1, group_params[g].mb );
+                        std::vector<int64_t>    n( 1, group_params[g].nb );
+                        std::vector<int64_t> ldda( 1, group_params[g].ld[0] );
+                        std::vector<int64_t> lddb( 1, group_params[g].ld[1] );
+
+                        std::vector<scalar_t*> t_array(t_array_host, t_array_host+group_count);
+                        std::vector<scalar_t*> b_array(b_array_host, b_array_host+group_count);
+
                         blas::batch::trmm(
                             layout, side_, uplo_, opA_, diag_,
                             m, n,
-                            //m, lda,
-                            alpha_, a_array1, lda,
-                            b_array1, ldb,
-                            a_array1.size(), info, *queue );
+                            alpha_, t_array, ldda,
+                                    b_array, lddb,
+                            group_count, info, *queue );
+
+                        t_array_host += group_count;
+                        b_array_host += group_count;
                     }
 
                     queue->sync();

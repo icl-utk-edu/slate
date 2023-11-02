@@ -11,6 +11,27 @@
 namespace slate {
 namespace internal {
 
+template <typename scalar_t>
+bool need_Bi0(HermitianMatrix<scalar_t> AH,
+              int mpi_rank,
+              int64_t i,
+              std::vector<int64_t>& panel_rank_rows)
+{
+    for (int64_t j : panel_rank_rows) {
+        if (i >= j) { // lower
+            if (AH.tileRank( i, j ) == mpi_rank) {
+                return true;
+            }
+        }
+        else {
+            if (AH.tileRank( j, i ) == mpi_rank) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 //------------------------------------------------------------------------------
 /// Triangular matrix multiply. Compute B = B A
 /// AH is a Hermitian matrix. It needed here just to check if the rank is an
@@ -23,6 +44,9 @@ namespace internal {
 /// T = A[ 0:A.mb(), 0:A.mb() ] is upper triangular,
 /// Bi = Bi[ 0:B.mb(), 0:A.mb() ]. Call trmm Bi = Bi T.
 /// Dispatches to target implementations.
+///
+/// panel_rank_rows contains the local row-indices of B
+///
 /// @ingroup heev_internal
 ///
 template <Target target, typename scalar_t>
@@ -58,39 +82,34 @@ void he2hb_trmm(
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layoutc = LayoutConvert( layout );
 
+    if (panel_rank_rows.size() == 0) {
+        return;
+    }
+
     auto A0 = A.sub( 0, 0, 0, 0 );
+    int64_t mb = A0.tileMb( 0 );
+    int64_t nb = A0.tileNb( 0 );
+    bool trapezoid = (mb < nb);
+    if (trapezoid) {
+        A0 = A0.slice( 0, mb-1,  0, mb-1 ); // first mb-by-mb part
+    }
 
     #pragma omp taskgroup
     for (int64_t i = 0; i < B.mt(); ++i) {
         #pragma omp task slate_omp_default_none \
             shared( A0, AH, B, panel_rank_rows ) \
-            firstprivate( one, i, mpi_rank, layoutc ) \
+            firstprivate( one, i, mpi_rank, layoutc, mb, trapezoid ) \
             priority( priority )
         {
-            int rank_lower = -1;
-            int rank_upper = -1;
-            for (int64_t j : panel_rank_rows) {
-                if (i >= j) { // lower
-                    rank_lower = AH.tileRank( i, j );
-                }
-                else { // upper
-                    rank_upper = AH.tileRank( j, i );
-                }
-            }
             // If I contributed to Bi, multiply by A.
-            if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
+            if (need_Bi0( AH, mpi_rank, i, panel_rank_rows )) {
                 // Bi = Bi * A
                 auto Bi = B.sub( i, i, 0, 0 );
-
-                int64_t mb = A0.tileMb( 0 );
-                int64_t nb = A0.tileNb( 0 );
-                bool trapezoid = (mb < nb);
 
                 B.tileGetForWriting( i, 0, layoutc );
                 if (trapezoid) {
                     auto B00 = Bi( 0, 0 );
                     int64_t mb1 = B00.mb();
-                    A0 = A0.slice( 0, mb-1,  0, mb-1 ); // first mb-by-mb part
                     Bi = Bi.slice( 0, mb1-1, 0, mb-1 ); // first mb1-by-mb part
                 }
 
@@ -126,6 +145,10 @@ void he2hb_trmm(
     const Layout layout = Layout::ColMajor;
     const LayoutConvert layoutc = LayoutConvert( layout );
 
+    if (panel_rank_rows.size() == 0) {
+        return;
+    }
+
     #pragma omp taskgroup
     for (int device = 0; device < B.num_devices(); ++device) {
         #pragma omp task slate_omp_default_none \
@@ -134,23 +157,11 @@ void he2hb_trmm(
             priority( priority )
         {
             std::set<ij_tuple> B_tiles_set, A0_tiles_set;
-            int rank_lower = -1;
-            int rank_upper = -1;
 
             for (int64_t i = 0; i < B.mt(); ++i) {
-                for (int64_t j : panel_rank_rows) {
-                    if (i >= j) { // lower
-                        rank_lower = AH.tileRank( i, j );
-                    }
-                    else { // upper
-                        rank_upper = AH.tileRank( j, i );
-                    }
-                }
-
-                if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
-                    if (device == B.tileDevice( i, 0 )) {
-                        B_tiles_set.insert( { i, 0 } );
-                    }
+                if (need_Bi0( AH, mpi_rank, i, panel_rank_rows )
+                    && device == B.tileDevice( i, 0 )) {
+                    B_tiles_set.insert( { i, 0 } );
                 }
             }
 
@@ -189,79 +200,55 @@ void he2hb_trmm(
                 int64_t mb1 = B.tileMb( B.mt()-1 );
                 int64_t nb1 = B.tileNb( B.mt()-1 );
 
-                rank_lower = -1;
-                rank_upper = -1;
+                int64_t mb = A0.tileMb( 0 );
+                int64_t nb = A0.tileNb( 0 );
+                bool trapezoid = (mb < nb);
+                if (trapezoid) {
+                    A0 = A0.slice( 0, mb-1,  0, mb-1 ); // first mb-by-mb part
+                }
+                auto T = TriangularMatrix<scalar_t>( Uplo::Upper, Diag::NonUnit, A0 );
 
                 for (int64_t i = 0; i < i_interior; ++i) {
-                    for (int64_t j : panel_rank_rows) {
-                        if (i >= j) { // lower
-                            rank_lower = AH.tileRank( i, j );
-                        }
-                        else { // upper
-                            rank_upper = AH.tileRank( j, i );
-                        }
-                    }
-                    A0 = A.sub( 0, 0, 0, 0 );
-                    int64_t mb = A0.tileMb( 0 );
-                    int64_t nb = A0.tileNb( 0 );
-                    auto Bi = B.sub( i, i, 0, 0 );
-                    bool trapezoid = (mb < nb);
+                    if (need_Bi0( AH, mpi_rank, i, panel_rank_rows )
+                        && device == B.tileDevice( i, 0 )) {
 
-                    if (trapezoid) {
-                        auto B00 = Bi( 0, 0 );
-                        mb1 = B00.mb();
-                        A0 = A0.slice( 0, mb-1,  0, mb-1 ); // first mb-by-mb part
-                        Bi = Bi.slice( 0, mb1-1, 0, mb-1 ); // first mb1-by-mb part
-                    }
-                    auto T = TriangularMatrix<scalar_t>( Uplo::Upper, Diag::NonUnit, A0 );
+                        auto Bi = B.sub( i, i, 0, 0 );
 
-                    if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
-                        if (device == B.tileDevice( i, 0 )) {
-                            a_array0.push_back( T( 0, 0, device ).data() );
-                            b_array0.push_back( Bi( 0, 0, device ).data() );
-                            //b_array0.push_back( B( i, 0, device ).data() );
-                            lda0 = A0( 0, 0, device ).stride();
-                            ldb0 = Bi( 0, 0, device ).stride();
-                            mb0 = Bi.tileMb( 0 );
-                            nb0 = Bi.tileNb( 0 );
+                        if (trapezoid) {
+                            auto B00 = Bi( 0, 0 );
+                            mb1 = B00.mb();
+                            Bi = Bi.slice( 0, mb1-1, 0, mb-1 ); // first mb1-by-mb part
                         }
+
+                        a_array0.push_back( T( 0, 0, device ).data() );
+                        b_array0.push_back( Bi( 0, 0, device ).data() );
+                        //b_array0.push_back( B( i, 0, device ).data() );
+                        lda0 = A0( 0, 0, device ).stride();
+                        ldb0 = Bi( 0, 0, device ).stride();
+                        mb0 = Bi.tileMb( 0 );
+                        nb0 = Bi.tileNb( 0 );
                     }
                 }
 
                 if (i_last == 1) {
                     int64_t i = B.mt()-1;
-                    rank_lower = -1;
-                    rank_upper = -1;
-                    for (int64_t j : panel_rank_rows) {
-                        if (i >= j) { // lower
-                            rank_lower = AH.tileRank( i, j );
-                        }
-                        else { // upper
-                            rank_upper = AH.tileRank( j, i );
-                        }
-                    }
-                    A0 = A.sub( 0, 0, 0, 0 );
-                    int64_t mb = A0.tileMb( 0 );
-                    int64_t nb = A0.tileNb( 0 );
-                    auto Bi = B.sub( i, i, 0, 0 );
-                    bool trapezoid = (mb < nb);
+                    if (need_Bi0( AH, mpi_rank, i, panel_rank_rows )
+                        && device == B.tileDevice( i, 0 )) {
 
-                    if (trapezoid) {
-                        auto B00 = Bi( 0, 0 );
-                        mb1 = B00.mb();
-                        A0 = A0.slice( 0, mb-1,  0, mb-1 ); // first mb-by-mb part
-                        Bi = Bi.slice( 0, mb1-1, 0, mb-1 ); // first mb1-by-mb part
-                    }
-                    auto T = TriangularMatrix<scalar_t>( Uplo::Upper, Diag::NonUnit, A0 );
-                    if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
-                        if (device == B.tileDevice( i, 0 )) {
-                            a_array1.push_back( T( 0, 0, device ).data() );
-                            b_array1.push_back( Bi( 0, 0, device ).data() );
-                            lda1 = T( 0, 0, device ).stride();
-                            ldb1 = Bi( 0, 0, device ).stride();
-                            mb1 = Bi.tileMb( 0 );
-                            nb1 = Bi.tileNb( 0 );
+                        auto Bi = B.sub( i, i, 0, 0 );
+
+                        if (trapezoid) {
+                            auto B00 = Bi( 0, 0 );
+                            mb1 = B00.mb();
+                            Bi = Bi.slice( 0, mb1-1, 0, mb-1 ); // first mb1-by-mb part
                         }
+
+                        a_array1.push_back( T( 0, 0, device ).data() );
+                        b_array1.push_back( Bi( 0, 0, device ).data() );
+                        lda1 = T( 0, 0, device ).stride();
+                        ldb1 = Bi( 0, 0, device ).stride();
+                        mb1 = Bi.tileMb( 0 );
+                        nb1 = Bi.tileNb( 0 );
                     }
                 }
 
@@ -314,23 +301,12 @@ void he2hb_trmm(
                 }
 
                 // todo: release tiles in top-level routine.
-                // rank_lower = -1;
-                // rank_upper = -1;
                 // for (int64_t i = 0; i < B.mt(); ++i) {
-                //     for (int64_t j : panel_rank_rows) {
-                //         if (i >= j) { // lower
-                //             rank_lower = AH.tileRank( i, j );
-                //         }
-                //         else { // upper
-                //             rank_upper = AH.tileRank( j, i );
-                //         }
-                //     }
+                //    if (need_Bi0( AH, mpi_rank, i, panel_rank_rows )
+                //        && device == B.tileDevice( i, 0 )) {
                 //
-                //     if (rank_upper == mpi_rank || rank_lower == mpi_rank) {
-                //         if (device == B.tileDevice( i, 0 )) {
-                //             B.tileRelease( i, 0, device );
-                //             B.tileTick( i, 0 );
-                //         }
+                //         B.tileRelease( i, 0, device );
+                //         B.tileTick( i, 0 );
                 //     }
                 // }
             }

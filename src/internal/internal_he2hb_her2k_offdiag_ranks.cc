@@ -161,30 +161,13 @@ void he2hb_her2k_offdiag_ranks(
                         }
                     }
                     else { // i == j
-                        // Diagonal tiles dealt with above.
+                        // Diagonal tiles dealt with elsewhere in he2hb.
                         // assert conflicts with default(none) in old gcc.
                         //assert( ! C.tileIsLocal( i, j ) );
                     }
                 }
             }
             int64_t batch_size = C_tiles_set.size();
-
-            int64_t j_interior = nt;
-            int64_t j_last = 0;
-            if (C.tileNb( nt-1 ) != C.tileNb( 0 )) {
-                j_interior = C.nt() - 1;
-                j_last = 1;
-            }
-
-            int64_t m_indices = panel_rank_rows.size();
-            int64_t i_interior = m_indices;
-            int64_t i_last = 0;
-            int64_t i0 = panel_rank_rows[ 0 ];
-            int64_t i1 = panel_rank_rows[ m_indices-1 ];
-            if (C.tileMb( i0 ) != C.tileMb( i1 )) {
-                i_interior = m_indices - 1;
-                i_last = 1;
-            }
 
             #pragma omp taskgroup
             {
@@ -206,6 +189,24 @@ void he2hb_her2k_offdiag_ranks(
                 {
                     C.tileGetForWriting( C_tiles_set, device, layoutc );
                 }
+            }
+
+
+            int64_t j_interior = nt;
+            int64_t j_last = 0;
+            if (C.tileNb( nt-1 ) != C.tileNb( 0 )) {
+                j_interior = C.nt() - 1;
+                j_last = 1;
+            }
+
+            int64_t m_indices = panel_rank_rows.size();
+            int64_t i_interior = m_indices;
+            int64_t i_last = 0;
+            int64_t i0 = panel_rank_rows[ 0 ];
+            int64_t i1 = panel_rank_rows[ m_indices-1 ];
+            if (C.tileMb( i0 ) != C.tileMb( i1 )) {
+                i_interior = m_indices - 1;
+                i_last = 1;
             }
 
             // interior
@@ -249,7 +250,7 @@ void he2hb_her2k_offdiag_ranks(
                         }
                     }
                     else { // i == j
-                        // Diagonal tiles dealt with above.
+                        // Diagonal tiles dealt with elsewhere in he2hb.
                         // assert conflicts with default(none) in old gcc.
                         //assert( ! C.tileIsLocal( i, j ) );
                     }

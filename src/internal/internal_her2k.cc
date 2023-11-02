@@ -672,7 +672,7 @@ void her2k(internal::TargetType<Target::Devices>,
                                     m, n, k,
                                     conj_alpha_s, bt_array, lddbt,
                                                   at_array, lddat,
-                                    one_,       c_array, lddc,
+                                    one_,         c_array, lddc,
                                     group_count, info, *queue);
                             }
                             a_array_host += group_count;

@@ -6,6 +6,7 @@
 #include "slate/Matrix.hh"
 #include "slate/types.hh"
 #include "internal/internal.hh"
+#include "internal/internal_batch.hh"
 
 namespace slate {
 namespace internal {
@@ -191,214 +192,123 @@ void he2hb_her2k_offdiag_ranks(
                 }
             }
 
+            scalar_t** a_array_host = C.array_host(device, queue_index);
+            scalar_t** b_array_host = a_array_host + batch_size;
+            scalar_t** c_array_host = b_array_host + batch_size;
 
-            int64_t j_interior = nt;
-            int64_t j_last = 0;
-            if (C.tileNb( nt-1 ) != C.tileNb( 0 )) {
-                j_interior = C.nt() - 1;
-                j_last = 1;
+            using Params = device_regions_params<false, 3>;
+
+            // Find ranges of matching mb's and ranges of matching nb's.
+            auto jrange = device_regions_range( false, C );
+
+            std::vector< int64_t > irange;
+            int64_t last_ij = -1;
+            for (int64_t k = 0; k < int64_t(panel_rank_rows.size()); ++k) {
+                int64_t kb = panel_rank_rows[ k ];
+                if (kb != last_ij) {
+                    last_ij = kb;
+                    irange.push_back( k );
+                }
             }
+            irange.push_back( panel_rank_rows.size() );
 
-            int64_t m_indices = panel_rank_rows.size();
-            int64_t i_interior = m_indices;
-            int64_t i_last = 0;
-            int64_t i0 = panel_rank_rows[ 0 ];
-            int64_t i1 = panel_rank_rows[ m_indices-1 ];
-            if (C.tileMb( i0 ) != C.tileMb( i1 )) {
-                i_interior = m_indices - 1;
-                i_last = 1;
-            }
+            int64_t batch_count = 0;
+            std::vector<Params> group_params;
+            // loop over regions
+            for (size_t jj = 0; jj < jrange.size() - 1; ++jj) {
+            for (size_t ii = 0; ii < irange.size() - 1; ++ii) {
+                // Loop over the tiles in this region,
+                // save any that should be computed on this process & device
+                // Two groups are needed to handle the different sizes
+                Params group;
+                group.mb = C.tileMb( panel_rank_rows[ irange[ ii ] ] );
+                group.nb = C.tileNb( jrange[ jj ] );
 
-            // interior
-            std::vector<scalar_t*> a_array00;
-            std::vector<scalar_t*> b_array00;
-            std::vector<scalar_t*> c_array00;
-            a_array00.reserve( batch_size );
-            b_array00.reserve( batch_size );
-            c_array00.reserve( batch_size );
-
-            int64_t lda00 = 0;
-            int64_t ldb00 = 0;
-            int64_t ldc00 = 0;
-            int64_t mb00 = C.tileMb( i0 );
-            int64_t nb00 = C.tileNb( 0 );
-            int64_t kb   = A.tileNb( 0 );
-
-            for (int64_t j = 0; j < j_interior; ++j) {
-                for (int64_t i_ = 0; i_ < i_interior; ++i_) {
+                for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
+                for (int64_t i_ = irange[ ii ]; i_ < irange[ ii+1 ]; ++i_) {
                     int64_t i = panel_rank_rows[ i_ ];
-                    if (i > j) {
-                        if (C.tileIsLocal( i, j )
-                            && device == C.tileDevice( i, j )) {
-                            a_array00.push_back( A( i, 0, device ).data() );
-                            b_array00.push_back( B( j, 0, device ).data() );
-                            c_array00.push_back( C( i, j, device ).data() );
-                            lda00 = A( i, 0, device ).stride();
-                            ldb00 = B( j, 0, device ).stride();
-                            ldc00 = C( i, j, device ).stride();
+
+                    if ((i > j)
+                        && C.tileIsLocal( i, j ) && device == C.tileDevice( i, j )) {
+
+                        // Add tiles to current group
+                        auto Aij = A( i, 0, device );
+                        auto Bij = B( j, 0, device );
+                        auto Cij = C( i, j, device );
+
+                        a_array_host[ batch_count ]  = Aij.data();
+                        b_array_host[ batch_count ]  = Bij.data();
+                        c_array_host[ batch_count ]  = Cij.data();
+
+                        if (group.count == 0) {
+                            group.ld[0] = Aij.stride();
+                            group.ld[1] = Bij.stride();
+                            group.ld[2] = Cij.stride();
                         }
-                    }
-                    else if (i < j) {
-                        if (C.tileIsLocal( j, i )
-                            && device == C.tileDevice( j, i )) {
-                            a_array00.push_back( B( j, 0, device ).data() );
-                            b_array00.push_back( A( i, 0, device ).data() );
-                            c_array00.push_back( C( j, i, device ).data() );
-                            lda00 = B( j, 0, device ).stride();
-                            ldb00 = A( i, 0, device ).stride();
-                            ldc00 = C( j, i, device ).stride();
+                        else {
+                            // assert( group.ld[0] == Aij.stride() );
+                            // assert( group.ld[1] == Bij.stride() );
+                            // assert( group.ld[2] == Cij.stride() );
                         }
+
+                        ++group.count;
+                        ++batch_count;
                     }
-                    else { // i == j
-                        // Diagonal tiles dealt with elsewhere in he2hb.
-                        // assert conflicts with default(none) in old gcc.
-                        //assert( ! C.tileIsLocal( i, j ) );
+                }} // for j, i
+
+                // If mb != nb, we need to start a new group for the upper
+                // triangular logic
+                // If the problem is square, we can use a single group for
+                // better parallelism
+                if (group.mb != group.nb) {
+                    // If any tiles in the region should be computed here, save the group
+                    if (group.count > 0) {
+                        group_params.push_back( group );
                     }
+
+                    std::swap( group.mb, group.nb );
+                    group.count = 0;
+                    group.ld[0] = 0;
+                    group.ld[1] = 0;
+                    group.ld[2] = 0;
                 }
-            }
 
-            // last column if there is a clean-up tile
-            std::vector<scalar_t*> a_array01;
-            std::vector<scalar_t*> b_array01;
-            std::vector<scalar_t*> c_array01;
-            a_array01.reserve( batch_size );
-            b_array01.reserve( batch_size );
-            c_array01.reserve( batch_size );
-
-            int64_t lda01 = 0;
-            int64_t ldb01 = 0;
-            int64_t ldc01 = 0;
-            int64_t mb01 = C.tileMb( i0 );
-            int64_t nb01 = C.tileNb( nt-1 );
-
-            if (j_last == 1) {
-                //for (int64_t j = 0; j < nt; ++j) {
-                int64_t j = C.nt()-1;
-                //for (int64_t i : panel_rank_rows) {
-                for (int64_t i_ = 0; i_ < i_interior; ++i_) {
+                for (int64_t j = jrange[ jj ]; j < jrange[ jj+1 ]; ++j) {
+                for (int64_t i_ = irange[ ii ]; i_ < irange[ ii+1 ]; ++i_) {
                     int64_t i = panel_rank_rows[ i_ ];
-                    if (i > j) {
-                        if (C.tileIsLocal( i, j )
-                            && device == C.tileDevice( i, j )) {
-                            a_array01.push_back( A( i, 0, device ).data() );
-                            b_array01.push_back( B( j, 0, device ).data() );
-                            c_array01.push_back( C( i, j, device ).data() );
-                            lda01 = A( i, 0, device ).stride();
-                            ldb01 = B( j, 0, device ).stride();
-                            ldc01 = C( i, j, device ).stride();
+
+                    if ((i < j)
+                        && C.tileIsLocal( j, i ) && device == C.tileDevice( j, i )) {
+
+                        // Add tiles to current group
+                        auto Aij = B( j, 0, device );
+                        auto Bij = A( i, 0, device );
+                        auto Cij = C( j, i, device );
+
+                        a_array_host[ batch_count ] = Aij.data();
+                        b_array_host[ batch_count ] = Bij.data();
+                        c_array_host[ batch_count ] = Cij.data();
+
+                        if (group.count == 0) {
+                            group.ld[0] = Aij.stride();
+                            group.ld[1] = Bij.stride();
+                            group.ld[2] = Cij.stride();
                         }
-                    }
-                    else if (i < j) {
-                        if (C.tileIsLocal( j, i )
-                            && device == C.tileDevice( j, i )) {
-                            a_array01.push_back( B( j, 0, device ).data() );
-                            b_array01.push_back( A( i, 0, device ).data() );
-                            c_array01.push_back( C( j, i, device ).data() );
-                            mb01 = C.tileNb( nt-1 );
-                            nb01 = C.tileMb( i0 );
-                            lda01 = B( j, 0, device ).stride();
-                            ldb01 = A( i, 0, device ).stride();
-                            ldc01 = C( j, i, device ).stride();
+                        else {
+                            // assert( group.ld[0] == Aij.stride() );
+                            // assert( group.ld[1] == Bij.stride() );
+                            // assert( group.ld[2] == Cij.stride() );
                         }
+
+                        ++group.count;
+                        ++batch_count;
                     }
-                    else { // i == j
-                        // assert conflicts with default(none) in old gcc.
-                        //assert( ! C.tileIsLocal( i, j ) );
-                    }
+                }} // for j, i
+                // If any tiles in the region should be computed here, save the group
+                if (group.count > 0) {
+                    group_params.push_back( group );
                 }
-            }
-
-            // last row if there is a clean-up tile
-            std::vector<scalar_t*> a_array10;
-            std::vector<scalar_t*> b_array10;
-            std::vector<scalar_t*> c_array10;
-            a_array10.reserve( batch_size );
-            b_array10.reserve( batch_size );
-            c_array10.reserve( batch_size );
-
-            int64_t lda10 = 0;
-            int64_t ldb10 = 0;
-            int64_t ldc10 = 0;
-            int64_t mb10 = C.tileMb( i1 );
-            int64_t nb10 = C.tileNb( 0 );
-
-            if (i_last == 1) {
-                int64_t i = i1;
-                for (int64_t j = 0; j < j_interior; ++j) {
-                    if (i > j) {
-                        if (C.tileIsLocal( i, j )
-                            && device == C.tileDevice( i, j )) {
-                            a_array10.push_back( A( i, 0, device ).data() );
-                            b_array10.push_back( B( j, 0, device ).data() );
-                            c_array10.push_back( C( i, j, device ).data() );
-                            lda10 = A( i, 0, device ).stride();
-                            ldb10 = B( j, 0, device ).stride();
-                            ldc10 = C( i, j, device ).stride();
-                        }
-                    }
-                    else if (i < j) {
-                        if (C.tileIsLocal( j, i )
-                            && device == C.tileDevice( j, i )) {
-                            a_array10.push_back( B( j, 0, device ).data() );
-                            b_array10.push_back( A( i, 0, device ).data() );
-                            c_array10.push_back( C( j, i, device ).data() );
-                            mb10 = C.tileNb( 0 );
-                            nb10 = C.tileMb( i1 );
-                            lda10 = A( i, 0, device ).stride();
-                            ldb10 = B( j, 0, device ).stride();
-                            ldc10 = C( j, i, device ).stride();
-                        }
-                    }
-                    else { // i == j
-                        // assert conflicts with default(none) in old gcc.
-                        //assert( ! C.tileIsLocal( i, j ) );
-                    }
-                }
-            }
-
-            // bottom-right corner
-            std::vector<scalar_t*> a_array11;
-            std::vector<scalar_t*> b_array11;
-            std::vector<scalar_t*> c_array11;
-
-            int64_t lda11 = 0;
-            int64_t ldb11 = 0;
-            int64_t ldc11 = 0;
-            int64_t mb11 = C.tileMb( i1 );
-            int64_t nb11 = C.tileNb( nt-1 );
-
-            if (i_last == 1 && j_last == 1) {
-                int64_t i = i1;
-                int64_t j = nt-1;
-                if (i > j) {
-                    if (C.tileIsLocal( i, j )
-                        && device == C.tileDevice( i, j)) {
-                        a_array11.push_back( A( i, 0, device ).data() );
-                        b_array11.push_back( B( j, 0, device ).data() );
-                        c_array11.push_back( C( i, j, device ).data() );
-                        lda11 = A( i, 0, device ).stride();
-                        ldb11 = B( j, 0, device ).stride();
-                        ldc11 = C( i, j, device ).stride();
-                    }
-                }
-                else if (i < j) {
-                    if (C.tileIsLocal( j, i )
-                        && device == C.tileDevice( j, i )) {
-                        a_array11.push_back( B( j, 0, device ).data() );
-                        b_array11.push_back( A( i, 0, device ).data() );
-                        c_array11.push_back( C( j, i, device ).data() );
-                        mb11 = C.tileNb( nt-1 );
-                        nb11 = C.tileMb( i1 );
-                        lda11 = A( i, 0, device ).stride();
-                        ldb11 = B( j, 0, device ).stride();
-                        ldc11 = C( j, i, device ).stride();
-                    }
-                }
-                else { // i == j
-                    // assert conflicts with default(none) in old gcc.
-                    //assert( ! C.tileIsLocal( i, j ) );
-                }
-            }
+            }} // for jj, ii
 
             {
                 trace::Block trace_block( "blas::batch::gemm" );
@@ -407,7 +317,7 @@ void he2hb_her2k_offdiag_ranks(
                 std::vector<Op> opB_( 1, opB );
                 std::vector<scalar_t> alpha_( 1, alpha );
                 std::vector<scalar_t> beta_( 1, beta );
-                std::vector<int64_t> kb_( 1, kb );
+                std::vector<int64_t> kb_( 1, A.tileNb(0) );
                 // info size 0 disables slow checks in batched BLAS++.
                 std::vector<int64_t> info;
 
@@ -415,64 +325,30 @@ void he2hb_her2k_offdiag_ranks(
                 // assert conflicts with default(none) in old gcc.
                 //assert( queue != nullptr );
 
-                if (c_array00.size() > 0) {
-                    std::vector<int64_t>    m( 1,  mb00 );
-                    std::vector<int64_t>    n( 1,  nb00 );
-                    std::vector<int64_t> ldda( 1, lda00 );
-                    std::vector<int64_t> lddb( 1, ldb00 );
-                    std::vector<int64_t> lddc( 1, ldc00 );
-                    blas::batch::gemm(
-                        layout, opA_, opB_,
-                        m, n, kb_,
-                        alpha_, a_array00, ldda,
-                                b_array00, lddb,
-                        beta_,  c_array00, lddc,
-                        c_array00.size(), info, *queue );
-                }
+                for (size_t g = 0; g < group_params.size(); ++g) {
 
-                if (c_array01.size() > 0) {
-                    std::vector<int64_t>    m( 1,  mb01 );
-                    std::vector<int64_t>    n( 1,  nb01 );
-                    std::vector<int64_t> ldda( 1, lda01 );
-                    std::vector<int64_t> lddb( 1, ldb01 );
-                    std::vector<int64_t> lddc( 1, ldc01 );
-                    blas::batch::gemm(
-                        layout, opA_, opB_,
-                        m, n, kb_,
-                        alpha_, a_array01, ldda,
-                                b_array01, lddb,
-                        beta_,  c_array01, lddc,
-                        c_array01.size(), info, *queue );
-                }
+                    int64_t group_count = group_params[ g ].count;
 
-                if (c_array10.size() > 0) {
-                    std::vector<int64_t>    m( 1,  mb10 );
-                    std::vector<int64_t>    n( 1,  nb10 );
-                    std::vector<int64_t> ldda( 1, lda10 );
-                    std::vector<int64_t> lddb( 1, ldb10 );
-                    std::vector<int64_t> lddc( 1, ldc10 );
-                    blas::batch::gemm(
-                        layout, opA_, opB_,
-                        m, n, kb_,
-                        alpha_, a_array10, ldda,
-                                b_array10, lddb,
-                        beta_,  c_array10, lddc,
-                        c_array10.size(), info, *queue );
-                }
+                    std::vector<int64_t>    m( 1, group_params[g].mb );
+                    std::vector<int64_t>    n( 1, group_params[g].nb );
+                    std::vector<int64_t> ldda( 1, group_params[g].ld[0] );
+                    std::vector<int64_t> lddb( 1, group_params[g].ld[1] );
+                    std::vector<int64_t> lddc( 1, group_params[g].ld[2] );
 
-                if (c_array11.size() > 0) {
-                    std::vector<int64_t>    m( 1,  mb11 );
-                    std::vector<int64_t>    n( 1,  nb11 );
-                    std::vector<int64_t> ldda( 1, lda11 );
-                    std::vector<int64_t> lddb( 1, ldb11 );
-                    std::vector<int64_t> lddc( 1, ldc11 );
+                    std::vector<scalar_t*> a_array(a_array_host, a_array_host+group_count);
+                    std::vector<scalar_t*> b_array(b_array_host, b_array_host+group_count);
+                    std::vector<scalar_t*> c_array(c_array_host, c_array_host+group_count);
+
                     blas::batch::gemm(
                         layout, opA_, opB_,
                         m, n, kb_,
-                        alpha_, a_array11, ldda,
-                                b_array11, lddb,
-                        beta_,  c_array11, lddc,
-                        c_array11.size(), info, *queue );
+                        alpha_, a_array, ldda,
+                                b_array, lddb,
+                        beta_,  c_array, lddc,
+                        group_count, info, *queue );
+                    a_array_host += group_count;
+                    b_array_host += group_count;
+                    c_array_host += group_count;
                 }
                 queue->sync();
             }

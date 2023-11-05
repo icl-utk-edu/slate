@@ -4626,10 +4626,10 @@ void scalapack_pgecon(
 
 //==============================================================================
 // Fortran prototypes
-#define scalapack_pspocon BLAS_FORTRAN_NAME( pspocon, PSGECON )
-#define scalapack_pdpocon BLAS_FORTRAN_NAME( pdpocon, PDGECON )
-#define scalapack_pcpocon BLAS_FORTRAN_NAME( pcpocon, PCGECON )
-#define scalapack_pzpocon BLAS_FORTRAN_NAME( pzpocon, PZGECON )
+#define scalapack_pspocon BLAS_FORTRAN_NAME( pspocon, PSPOCON )
+#define scalapack_pdpocon BLAS_FORTRAN_NAME( pdpocon, PDPOCON )
+#define scalapack_pcpocon BLAS_FORTRAN_NAME( pcpocon, PCPOCON )
+#define scalapack_pzpocon BLAS_FORTRAN_NAME( pzpocon, PZPOCON )
 
 extern "C" {
 

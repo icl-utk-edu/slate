@@ -57,7 +57,7 @@ template <typename scalar_t>
 void gecondest(
            Norm in_norm,
            Matrix<scalar_t>& A,
-           blas::real_type<scalar_t> *Anorm,
+           blas::real_type<scalar_t> Anorm,
            blas::real_type<scalar_t> *rcond,
            Options const& opts)
 {
@@ -83,7 +83,7 @@ void gecondest(
         *rcond = 1.;
         return;
     }
-    else if (*Anorm == 0.) {
+    else if (Anorm == 0.) {
         return;
     }
 
@@ -144,7 +144,7 @@ void gecondest(
 
     // Compute the estimate of the reciprocal condition number.
     if (Ainvnorm != 0.0) {
-        *rcond = (1.0 / Ainvnorm) / *Anorm;
+        *rcond = (1.0 / Ainvnorm) / Anorm;
     }
 }
 
@@ -154,7 +154,7 @@ template
 void gecondest<float>(
     Norm in_norm,
     Matrix<float>& A,
-    float *Anorm,
+    float Anorm,
     float *rcond,
     Options const& opts);
 
@@ -162,7 +162,7 @@ template
 void gecondest<double>(
     Norm in_norm,
     Matrix<double>& A,
-    double *Anorm,
+    double Anorm,
     double *rcond,
     Options const& opts);
 
@@ -170,7 +170,7 @@ template
 void gecondest< std::complex<float> >(
     Norm in_norm,
     Matrix< std::complex<float> >& A,
-    float *Anorm,
+    float Anorm,
     float *rcond,
     Options const& opts);
 
@@ -178,7 +178,7 @@ template
 void gecondest< std::complex<double> >(
     Norm in_norm,
     Matrix< std::complex<double> >& A,
-    double *Anorm,
+    double Anorm,
     double *rcond,
     Options const& opts);
 

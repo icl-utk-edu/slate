@@ -370,7 +370,7 @@ void lu_condest_using_factor(
     blas::real_type<scalar_t> *rcond,
     Options const& opts = Options())
 {
-    gecondest(norm, A, &Anorm, rcond, opts);
+    gecondest(norm, A, Anorm, rcond, opts);
 }
 
 //-----------------------------------------
@@ -502,7 +502,7 @@ void chol_condest_using_factor(
     blas::real_type<scalar_t> *rcond,
     Options const& opts = Options())
 {
-    pocondest(norm, A, &Anorm, rcond, opts);
+    pocondest(norm, A, Anorm, rcond, opts);
 }
 
 //-----------------------------------------

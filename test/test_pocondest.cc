@@ -175,7 +175,7 @@ void test_pocondest_work(Params& params, bool run)
         double time = barrier_get_wtime(MPI_COMM_WORLD);
         slate::chol_condest_using_factor(norm, A, Anorm, &slate_rcond, opts);
         // Using traditional BLAS/LAPACK name
-        // slate::pocondest(norm, A, &Anorm, &slate_rcond, opts);
+        // slate::pocondest(norm, A, Anorm, &slate_rcond, opts);
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance
         params.time() = time;

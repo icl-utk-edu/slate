@@ -1,4 +1,4 @@
-// Copyright (c) 2009-2022, University of Tennessee. All rights reserved.
+// Copyright (c) 2009-2023, University of Tennessee. All rights reserved.
 // Copyright (c) 2010,      University of Denver, Colorado.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under

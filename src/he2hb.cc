@@ -72,7 +72,6 @@ void he2hb(
     const bool set_hold =  1;  // Do tileGetAndHold in the bcast
 
     int64_t n = A.n();
-    int64_t nb_A = A.tileNb( 0 );
     GridOrder grid_order;
     int nprow, npcol, myrow, mycol;
     // For the workspace matrix (W) change the GPU distribution to row cyclic,
@@ -82,8 +81,8 @@ void he2hb(
     A.gridinfo( &grid_order, &nprow, &npcol, &myrow, &mycol );
     assert( grid_order == GridOrder::Col );  // todo: update for Row
 
-    auto tileNb = slate::func::uniform_blocksize( n, nb_A );
-    auto tileRank = slate::func::process_2d_grid( GridOrder::Col, nprow, npcol );
+    auto tileNb = A.tileNbFunc();
+    auto tileRank = A.tileRankFunc();
     int num_devices = blas::get_device_count();
     auto tileDevice = slate::func::device_1d_grid( GridOrder::Col,
                                                            nprow, num_devices );
@@ -135,7 +134,7 @@ void he2hb(
 
             lapack::Queue* queue = A.compute_queue( panel_device, queue_0 );
 
-            int64_t nb       = A.tileNb(0);
+            int64_t nb       = func::max_blocksize(A.nt(), A.tileNbFunc());
             size_t  size_tau = (size_t) std::min( mlocal, nb );
             size_t  size_A   = (size_t) blas::max( 1, mlocal ) * nb;
             size_t  hsize, dsize;

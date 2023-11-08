@@ -218,8 +218,9 @@ void test_trtri      (Params& params, bool run);
 void test_gbsv   (Params& params, bool run);
 
 // Cholesky
-void test_posv   (Params& params, bool run);
-void test_potri  (Params& params, bool run);
+void test_posv      (Params& params, bool run);
+void test_pocondest (Params& params, bool run);
+void test_potri     (Params& params, bool run);
 
 // Cholesky, band
 void test_pbsv   (Params& params, bool run);

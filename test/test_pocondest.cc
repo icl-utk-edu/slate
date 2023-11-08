@@ -1,4 +1,4 @@
-// Copyright (c) 2017-2023, University of Tennessee. All rights reserved.
+// Copyright (c) 2017-2022, University of Tennessee. All rights reserved.
 // SPDX-License-Identifier: BSD-3-Clause
 // This program is free software: you can redistribute it and/or modify it under
 // the terms of the BSD 3-Clause license. See the accompanying LICENSE file.
@@ -21,20 +21,21 @@
 
 //------------------------------------------------------------------------------
 template <typename scalar_t>
-void test_trcondest_work(Params& params, bool run)
+void test_pocondest_work(Params& params, bool run)
 {
     using real_t = blas::real_type<scalar_t>;
     using blas::real;
 
     // Constants
-    int64_t ione = 1;
+    const scalar_t zero = 0;
+    const scalar_t one = 1;
     real_t rone = 1.;
 
-    int64_t m;
-    m = params.dim.m();
+    auto method = params.method_lu();
 
     // get & mark input values
     slate::Norm norm = params.norm();
+    slate::Uplo uplo = params.uplo();
     int64_t n = params.dim.n();
     int64_t p = params.grid.m();
     int64_t q = params.grid.n();
@@ -59,6 +60,11 @@ void test_trcondest_work(Params& params, bool run)
     params.gflops();
     params.ref_time();
     params.ref_gflops();
+    params.time2();
+    params.time2.name( "chol time (s)" );
+    params.time2.width( 12 );
+    params.gflops2();
+    params.gflops2.name( "chol gflop/s" );
 
     params.error();
     params.error.name( "slate-exact" );
@@ -75,6 +81,7 @@ void test_trcondest_work(Params& params, bool run)
     params.value3.name( "scl" );
 
     if (! run) {
+        params.matrix.kind.set_default( "rand_dominant" );
         params.tol() = 0.75;
         return;
     }
@@ -89,51 +96,59 @@ void test_trcondest_work(Params& params, bool run)
         {slate::Option::Target, target},
         {slate::Option::MaxPanelThreads, panel_threads},
         {slate::Option::InnerBlocking, ib},
+        {slate::Option::MethodLU, method},
     };
 
     // Matrix A: figure out local size.
-    int64_t mlocA = num_local_rows_cols(m, nb, myrow, p);
+    int64_t mlocA = num_local_rows_cols(n, nb, myrow, p);
     int64_t nlocA = num_local_rows_cols(n, nb, mycol, q);
     int64_t lldA  = blas::max(1, mlocA); // local leading dimension of A
 
     std::vector<scalar_t> A_data;
-    slate::Matrix<scalar_t> A;
+    slate::HermitianMatrix<scalar_t> A;
     if (origin != slate::Origin::ScaLAPACK) {
         // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target(origin);
-        A = slate::Matrix<scalar_t>(
-                m, n,    nb, p, q, MPI_COMM_WORLD );
+        A = slate::HermitianMatrix<scalar_t>(
+                uplo, n, nb, p, q, MPI_COMM_WORLD );
         A.insertLocalTiles(origin_target);
     }
     else {
         // Create SLATE matrix from the ScaLAPACK layouts
         A_data.resize( lldA * nlocA );
-        A = slate::Matrix<scalar_t>::fromScaLAPACK(
-            m, n, &A_data[0], lldA, nb, nb, grid_order, p, q, MPI_COMM_WORLD );
+        A = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+            uplo, n, &A_data[0], lldA, nb, grid_order, p, q, MPI_COMM_WORLD );
+    }
+
+    slate::Matrix<scalar_t> Id;
+    if (check) {
+        slate::Target origin_target = origin2target(origin);
+        Id = slate::Matrix<scalar_t>(
+                n, n,    nb, p, q, MPI_COMM_WORLD );
+        Id.insertLocalTiles(origin_target);
     }
 
     slate::generate_matrix(params.matrix,  A);
     print_matrix("A", A, params);
 
-    slate::TriangularFactors<scalar_t> T;
-
     // If ref is required, copy test data.
-    slate::Matrix<scalar_t> Aref;
+    slate::HermitianMatrix<scalar_t> Aref;
     std::vector<scalar_t> Aref_data;
     if (ref) {
         Aref_data.resize( lldA* nlocA );
-        Aref = slate::Matrix<scalar_t>::fromScaLAPACK(
-                m, n, &Aref_data[0], lldA, nb, nb,
+        Aref = slate::HermitianMatrix<scalar_t>::fromScaLAPACK(
+                uplo, n, &Aref_data[0], lldA, nb,
                 grid_order, p, q, MPI_COMM_WORLD );
 
         slate::copy(A, Aref);
     }
 
-    double gflop = lapack::Gflop<scalar_t>::getrf(m, n);
+    double gflop = lapack::Gflop<scalar_t>::getrf(n, n);
 
     // Compute the matrix norm
     real_t Anorm = 0;
-    real_t slate_rcond = 1., scl_rcond = 1., exact_rcond = 1.;
+    Anorm = slate::norm(norm, A, opts);
+    real_t slate_rcond = 0., scl_rcond = 0., exact_rcond = 0.;
 
     if (! ref_only) {
 
@@ -141,22 +156,26 @@ void test_trcondest_work(Params& params, bool run)
         else slate::trace::Trace::off();
 
         //==================================================
-        // Run SLATE test: trcondest
-        // geqrf: Factor A = QR.
-        // trcondest:  Solve AX = B, including factoring A.
+        // Run SLATE test: potrf followed by pocondest
+        // potrf: Factor A = LL^T.
+        // pocondest:  Solve AX = B, including factoring A.
         //==================================================
 
-        slate::qr_factor( A, T, opts );
+        double time2 = barrier_get_wtime(MPI_COMM_WORLD);
+        slate::chol_factor(A, opts);
         // Using traditional BLAS/LAPACK name
-        // slate::geqrf(A, T, opts);
+        // slate::potrf(A, opts);
         // compute and save timing/performance
+        time2 = barrier_get_wtime(MPI_COMM_WORLD) - time2;
+        params.time2() = time2;
+        params.gflops2() = gflop / time2;
+
+
 
         double time = barrier_get_wtime(MPI_COMM_WORLD);
-        auto R  = slate::TriangularMatrix<scalar_t>(
-            slate::Uplo::Upper, slate::Diag::NonUnit, A );
-        slate::triangular_condest(norm, R, &slate_rcond, opts);
+        slate::chol_condest_using_factor(norm, A, Anorm, &slate_rcond, opts);
         // Using traditional BLAS/LAPACK name
-        // slate::trcondest(norm, R, &slate_rcond, opts);
+        // slate::pocondest(norm, A, Anorm, &slate_rcond, opts);
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance
         params.time() = time;
@@ -167,11 +186,16 @@ void test_trcondest_work(Params& params, bool run)
 
     if (check) {
         // Find the exact condition number:
-        auto R  = slate::TriangularMatrix<scalar_t>(
-            slate::Uplo::Upper, slate::Diag::NonUnit, A );
-        Anorm = slate::norm(norm, R, opts);
-        trtri(R, opts);
-        exact_rcond = (1. / slate::norm(norm, R, opts)) / Anorm;
+        // A * A^-1  = Id
+        // LU * A^-1 = Id
+        // U * A^-1 = trsm(L, Id), Id will be overwritten by the first solve
+        // A^-1     = trsm(U, Id), Id will be overwritten by the second solve
+        // Id is the inverse of the matrix A, norm(A^-1) = norm(Id)
+
+        // Set the Id matrix to identity
+        set(zero, one, Id);
+        chol_solve_using_factor( A, Id, opts );
+        exact_rcond = (1. / slate::norm(norm, Id, opts)) / Anorm;
     }
 
     if (ref) {
@@ -195,60 +219,41 @@ void test_trcondest_work(Params& params, bool run)
             // ScaLAPACK descriptor for the reference matrix
             int64_t info;
             blas_int Aref_desc[9];
-            scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, mlocA, &info);
+            scalapack_descinit(Aref_desc, n, n, nb, nb, 0, 0, ictxt, mlocA, &info);
             slate_assert(info == 0);
-
-            // tau vector for ScaLAPACK
-            int64_t ltau = num_local_rows_cols(std::min(m, n), nb, mycol, q);
-            std::vector<scalar_t> tau(ltau);
-
-            // workspace for ScaLAPACK
-            int64_t lwork;
-            std::vector<scalar_t> work(1);
-            //---------------
-
-            int64_t info_ref = 0;
 
             //==================================================
             // Run ScaLAPACK reference routine.
             //==================================================
+            scalapack_ppotrf(
+                uplo2str(uplo), n, &Aref_data[0], 1, 1, Aref_desc, &info);
+            slate_assert( info == 0 );
 
-            // query for workspace size for pgeqrf
-            scalar_t dummy;
-            scalapack_pgeqrf(m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                             &dummy, -1, &info_ref);
-            lwork = int64_t( real( dummy ) );
-            work.resize(lwork);
-
-            scalapack_pgeqrf(m, n, &Aref_data[0], 1, 1, Aref_desc, tau.data(),
-                             work.data(), lwork, &info_ref);
-            slate_assert(info_ref == 0);
-
-            // query for workspace size for ptrcon
-            int64_t info_ref_trcon = 0;
+            // query for workspace size for ppocon
+            int64_t lwork = -1;
             int64_t liwork = -1;
+            scalar_t dummy;
             blas_int idummy;
-            int64_t lwork_trcon = -1;
-            scalar_t dummy_trcon;
-            slate::Uplo uplo = slate::Uplo::Upper;
-            slate::Diag diag = slate::Diag::NonUnit;
-            scalapack_ptrcon( norm2str(norm), uplo2str(uplo), diag2str(diag), n,
-                              &Aref_data[0], ione, ione, Aref_desc,
-                              &scl_rcond, &dummy_trcon, lwork_trcon, &idummy, liwork,
-                              info_ref_trcon);
-            lwork_trcon = (int64_t)( real( dummy_trcon ) );
+            scalapack_ppocon( uplo2str(uplo), norm2str(norm), n,
+                              &Aref_data[0], 1, 1, Aref_desc,
+                              &Anorm, &scl_rcond,
+                              &dummy, lwork, &idummy, liwork, &info );
+            slate_assert( info == 0 );
+            lwork = (int64_t)( real( dummy ) );
             liwork = (int64_t)( real( idummy ) );
 
             // Compute the condition number using scalapack
-            std::vector<scalar_t> work_trcon(lwork_trcon);
-            std::vector<blas_int> iwork( liwork );
+            std::vector<scalar_t> work(lwork);
+            std::vector<blas_int> iwork(liwork);
+
+            // todo: ScaLAPCK pzpocon has a seg fault
 
             double time = barrier_get_wtime(MPI_COMM_WORLD);
-            scalapack_ptrcon( norm2str(norm), uplo2str(uplo), diag2str(diag), n,
+            scalapack_ppocon( uplo2str(uplo), norm2str(norm), n,
                               &Aref_data[0], 1, 1, Aref_desc,
-                              &scl_rcond, &work_trcon[0], lwork, &iwork[0], liwork,
-                              info_ref_trcon);
-            slate_assert(info_ref_trcon == 0);
+                              &Anorm, &scl_rcond,
+                              &work[0], lwork, &iwork[0], liwork, &info );
+            slate_assert( info == 0 );
             time = barrier_get_wtime(MPI_COMM_WORLD) - time;
 
             params.ref_time() = time;
@@ -263,15 +268,11 @@ void test_trcondest_work(Params& params, bool run)
     }
 
     // Compute the error
-    params.error()  = std::abs(slate_rcond - exact_rcond);
-    params.error2() = std::abs(scl_rcond - exact_rcond);
-    params.error3() = std::abs(slate_rcond - scl_rcond);
-
     params.error()  = std::abs( rone/slate_rcond - rone/exact_rcond ) / (rone/exact_rcond);
     params.error2() = std::abs( rone/scl_rcond - rone/exact_rcond ) / (rone/exact_rcond);
     params.error3() = std::abs(slate_rcond - scl_rcond);
 
-    // Printf out the rcondest
+    // Printf out the condest
     params.value()  = slate_rcond;
     params.value2() = exact_rcond;
     params.value3() = scl_rcond;
@@ -282,23 +283,23 @@ void test_trcondest_work(Params& params, bool run)
 }
 
 // -----------------------------------------------------------------------------
-void test_trcondest(Params& params, bool run)
+void test_pocondest(Params& params, bool run)
 {
     switch (params.datatype()) {
         case testsweeper::DataType::Single:
-            test_trcondest_work<float> (params, run);
+            test_pocondest_work<float> (params, run);
             break;
 
         case testsweeper::DataType::Double:
-            test_trcondest_work<double> (params, run);
+            test_pocondest_work<double> (params, run);
             break;
 
         case testsweeper::DataType::SingleComplex:
-            test_trcondest_work<std::complex<float>> (params, run);
+            test_pocondest_work<std::complex<float>> (params, run);
             break;
 
         case testsweeper::DataType::DoubleComplex:
-            test_trcondest_work<std::complex<double>> (params, run);
+            test_pocondest_work<std::complex<double>> (params, run);
             break;
 
         default:

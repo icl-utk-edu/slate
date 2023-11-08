@@ -1348,7 +1348,29 @@ template <typename scalar_t>
 void gecondest(
         Norm in_norm,
         Matrix<scalar_t>& A,
+        blas::real_type<scalar_t> Anorm,
+        blas::real_type<scalar_t> *rcond,
+        Options const& opts = Options());
+
+template <typename scalar_t>
+[[deprecated( "Pass Anorm by value instead. Will be removed 2024-11." )]]
+void gecondest(
+        Norm in_norm,
+        Matrix<scalar_t>& A,
         blas::real_type<scalar_t> *Anorm,
+        blas::real_type<scalar_t> *rcond,
+        Options const& opts = Options())
+{
+    gecondest( in_norm, A, *Anorm, rcond, opts );
+}
+
+//-----------------------------------------
+// pocondest()
+template <typename scalar_t>
+void pocondest(
+        Norm in_norm,
+        HermitianMatrix<scalar_t>& A,
+        blas::real_type<scalar_t> Anorm,
         blas::real_type<scalar_t> *rcond,
         Options const& opts = Options());
 

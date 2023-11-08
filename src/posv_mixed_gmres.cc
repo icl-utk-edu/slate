@@ -113,12 +113,15 @@ void posv_mixed_gmres(
 {
     using real_hi = blas::real_type<scalar_hi>;
 
+    Timer t_posv_mixed_gmres;
+
     // Constants
     const real_hi eps = std::numeric_limits<real_hi>::epsilon();
     const int64_t mpi_rank = A.mpiRank();
     // Assumes column major
     const Layout layout = Layout::ColMajor;
 
+    // Options
     Target target = get_option( opts, Option::Target, Target::HostTask );
 
     bool converged = false;
@@ -194,27 +197,34 @@ void posv_mixed_gmres(
 
     // Compute the Cholesky factorization of A in single-precision.
     slate::copy(A, A_lo, opts);
+    Timer t_potrf_lo_1;
     potrf(A_lo, opts);
+    timers[ "posv_mixed_gmres::potrf_lo" ] = t_potrf_lo_1.stop();
 
 
     // Solve the system A * X = B in low precision.
     slate::copy(B, X_lo, opts);
+    Timer t_potrs_lo_1;
     potrs(A_lo, X_lo, opts);
+    timers[ "posv_mixed_gmres::potrs_lo" ] = t_potrs_lo_1.stop();
     slate::copy(X_lo, X, opts);
 
 
     // IR
     int iiter = 0;
+    timers[ "posv_mixed_gmres::add_lo" ] = 0;
     while (iiter < itermax) {
 
         // Check for convergence
         slate::copy(B, R, opts);
+        Timer t_hemm_lo_1;
         hemm<scalar_hi>(
             Side::Left,
             scalar_hi(-1.0), A,
                              X,
             scalar_hi(1.0),  R,
             opts);
+        timers[ "posv_mixed_gmres::hemm_lo" ] = t_hemm_lo_1.stop();
         colNorms( Norm::Max, X, colnorms_X.data(), opts );
         colNorms( Norm::Max, R, colnorms_R.data(), opts );
         if (internal::iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
@@ -261,20 +271,25 @@ void posv_mixed_gmres(
 
             // Wj1 = M^-1 A Vj
             slate::copy(Vj, X_lo, opts);
+            Timer t_potrs_lo_2;
             potrs(A_lo, X_lo, opts);
+            timers[ "posv_mixed_gmres::potrs_lo" ] += t_potrs_lo_2.stop();
             slate::copy(X_lo, Wj1, opts);
 
+            Timer t_hemm_lo_2;
             hemm<scalar_hi>(
                 Side::Left,
                 scalar_hi(1.0), A,
                                 Wj1,
                 scalar_hi(0.0), Vj1,
                 opts);
+            timers[ "posv_mixed_gmres::hemm_lo" ] += t_hemm_lo_2.stop();
 
             // orthogonalize w/ CGS2
             auto V0j = V.slice(0, V.m()-1, 0, j);
             auto V0jT = conj_transpose(V0j);
             auto Hj = H.slice(0, j, j, j);
+            Timer t_gemm_lo_1;
             gemm<scalar_hi>(
                 scalar_hi(1.0), V0jT,
                                 Vj1,
@@ -285,7 +300,9 @@ void posv_mixed_gmres(
                                  Hj,
                 scalar_hi(1.0),  Vj1,
                 opts);
+            timers[ "posv_mixed_gmres::gemm_lo" ] = t_gemm_lo_1.stop();
             auto zj = z.slice(0, j, 0, 0);
+            Timer t_gemm_lo_2;
             gemm<scalar_hi>(
                 scalar_hi(1.0), V0jT,
                                 Vj1,
@@ -296,8 +313,11 @@ void posv_mixed_gmres(
                                  zj,
                 scalar_hi(1.0),  Vj1,
                 opts);
+            timers[ "posv_mixed_gmres::gemm_lo" ] += t_gemm_lo_2.stop();
+            Timer t_add_lo;
             add(scalar_hi(1.0), zj, scalar_hi(1.0), Hj,
                 opts);
+            timers[ "posv_mixed_gmres::add_lo" ] += t_add_lo.stop();
             auto Vj1_norm = norm(Norm::Fro, Vj1, opts);
             scale(1.0, Vj1_norm, Vj1, opts);
             if (H.tileRank(0, 0) == mpi_rank) {
@@ -307,6 +327,7 @@ void posv_mixed_gmres(
             }
 
             // apply givens rotations
+            Timer t_posv_mixed_gmres_rotations;
             if (H.tileRank(0, 0) == mpi_rank) {
                 auto H_00 = H(0, 0);
                 for (int64_t i = 0; i < j; ++i) {
@@ -322,6 +343,7 @@ void posv_mixed_gmres(
                           givens_alpha[j], givens_beta[j]);
                 arnoldi_residual[0] = cabs1(S_00.at(j+1, 0));
             }
+            timers[ "posv_mixed_gmres::rotations" ] = t_posv_mixed_gmres_rotations.stop();
             MPI_Bcast(arnoldi_residual.data(), arnoldi_residual.size(),
                       mpi_type<scalar_hi>::value, S.tileRank(0, 0), A.mpiComm());
         }
@@ -329,13 +351,17 @@ void posv_mixed_gmres(
         auto H_j = H.slice(0, j-1, 0, j-1);
         auto S_j = S.slice(0, j-1, 0, 0);
         auto H_tri = TriangularMatrix<scalar_hi>(Uplo::Upper, Diag::NonUnit, H_j);
+        Timer t_trsm_lo;
         trsm(Side::Left, scalar_hi(1.0), H_tri, S_j, opts);
+        timers[ "posv_mixed_gmres::trsm_lo" ] = t_trsm_lo.stop();
         auto W_0j = W.slice(0, W.m()-1, 1, j); // first column of W is unused
+        Timer t_gemm_lo_3;
         gemm<scalar_hi>(
             scalar_hi(1.0), W_0j,
                             S_j,
             scalar_hi(1.0), X,
             opts);
+        timers[ "posv_mixed_gmres::gemm_lo" ] += t_gemm_lo_3.stop();
     }
 
     if (! converged) {
@@ -347,11 +373,15 @@ void posv_mixed_gmres(
 
         if (use_fallback) {
             // Compute the Cholesky factorization of A.
+            Timer t_potrf_hi;
             potrf( A, opts );
+            timers[ "posv_mixed_gmres::potrf_hi" ] = t_potrf_hi.stop();
 
             // Solve the system A * X = B.
             slate::copy( B, X, opts );
+            Timer t_potrs_hi;
             potrs( A, X, opts );
+            timers[ "posv_mixed_gmres::potrs_hi" ] = t_potrs_hi.stop();
         }
     }
 
@@ -361,6 +391,7 @@ void posv_mixed_gmres(
         B.clearWorkspace();
         X.clearWorkspace();
     }
+    timers[ "posv_mixed_gmres" ] = t_posv_mixed_gmres.stop();
 }
 
 

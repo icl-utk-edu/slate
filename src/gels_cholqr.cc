@@ -98,6 +98,8 @@ void gels_cholqr(
     Matrix<scalar_t>& BX,
     Options const& opts)
 {
+    Timer t_gels_cholqr;
+
     // m, n of op(A) as in docs above.
     int64_t m = A.m();
     int64_t n = A.n();
@@ -127,7 +129,9 @@ void gels_cholqr(
         R = R.slice( 0, A0_N-1, 0, A0_N-1 );
         R.insertLocalTiles();
 
+        Timer t_cholqr;
         cholqr( A0, R, opts );
+        timers[ "gels_cholqr::cholqr" ] = t_cholqr.stop();
 
         auto R_U = TriangularMatrix( Uplo::Upper, Diag::NonUnit, R );
 
@@ -145,13 +149,17 @@ void gels_cholqr(
             Y.insertLocalTiles();
 
             // Y = Q^H B
+            Timer t_gemm;
             gemm( one, QH, BX, zero, Y );
+            timers[ "gels_cholqr::gemm" ] = t_gemm.stop();
 
             // Copy back the result
             copy( Y, X );
 
             // X = R^{-1} Y
+            Timer t_trsm;
             trsm( Side::Left, one, R_U, X, opts );
+            timers[ "gels_cholqr::trsm" ] = t_trsm.stop();
         }
         else {
             // Solve A X = A0^H X = (QR)^H X = B.
@@ -167,16 +175,21 @@ void gels_cholqr(
 
             // Y = R^{-H} B
             auto RH = conj_transpose( R_U );
+            Timer t_trsm;
             trsm( Side::Left, one, RH, Y, opts );
+            timers[ "gels_cholqr::trsm" ] = t_trsm.stop();
 
             // X = Q Y, with Q stored in A0.
+            Timer t_gemm;
             gemm( one, A0, Y, zero, BX );
+            timers[ "gels_cholqr::gemm" ] = t_gemm.stop();
         }
     }
     else {
         // todo: LQ factorization
         slate_not_implemented( "least squares using LQ" );
     }
+    timers[ "gels_cholqr" ] = t_gels_cholqr.stop();
     // todo: return value for errors?
     // R or L is singular => A is not full rank
 }

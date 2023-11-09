@@ -60,7 +60,7 @@ void test_gbsv_work(Params& params, bool run)
 
     // mark non-standard output values
     params.time();
-    if (timer_level >=2) {
+    if (timer_level >= 2) {
         params.time2();
         params.time3();
         params.time2.name( "gbtrf (s)" );

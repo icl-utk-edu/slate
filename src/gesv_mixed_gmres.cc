@@ -214,26 +214,26 @@ int64_t gesv_mixed_gmres(
     else {
         // Solve the system A * X = B in low precision.
         slate::copy( B, X_lo, opts );
-        Timer t_getrs_lo_1;
+        Timer t_getrs_lo;
         getrs( A_lo, pivots, X_lo, opts );
-        timers[ "gesv_mixed_gmres::getrs_lo" ] = t_getrs_lo_1.stop();
+        timers[ "gesv_mixed_gmres::getrs_lo" ] = t_getrs_lo.stop();
         slate::copy( X_lo, X, opts );
 
         // IR
-        timers[ "gesv_mixed_gmres::gemm_lo" ] = 0;
-        timers[ "gesv_mixed_gmres::add_lo" ] = 0;
+        timers[ "gesv_mixed_gmres::gemm_hi" ] = 0;
+        timers[ "gesv_mixed_gmres::add_hi" ] = 0;
         int iiter = 0;
         while (iiter < itermax) {
 
             // Check for convergence
             slate::copy( B, R, opts );
-            Timer t_gemm_lo_1;
+            Timer t_gemm_hi;
             gemm<scalar_hi>(
                 -one, A,
                       X,
                 one,  R,
                 opts);
-            timers[ "gesv_mixed_gmres::gemm_lo" ] += t_gemm_lo_1.stop();
+            timers[ "gesv_mixed_gmres::gemm_hi" ] += t_gemm_hi.stop();
             colNorms( Norm::Max, X, colnorms_X.data(), opts );
             colNorms( Norm::Max, R, colnorms_R.data(), opts );
             if (internal::iterRefConverged<real_hi>( colnorms_R, colnorms_X, cte ))
@@ -282,24 +282,24 @@ int64_t gesv_mixed_gmres(
 
                 // Wj1 = M^-1 A Vj
                 slate::copy( Vj, X_lo, opts );
-                Timer t_getrs_lo_2;
+                t_getrs_lo.start();
                 getrs( A_lo, pivots, X_lo, opts );
-                timers[ "gesv_mixed_gmres::getrs_lo" ] += t_getrs_lo_2.stop();
+                timers[ "gesv_mixed_gmres::getrs_lo" ] += t_getrs_lo.stop();
                 slate::copy( X_lo, Wj1, opts );
 
-                Timer t_gemm_lo_2;
+                t_gemm_hi.start();
                 gemm<scalar_hi>(
                     one,  A,
                           Wj1,
                     zero, Vj1,
                     opts );
-                timers[ "gesv_mixed_gmres::gemm_lo" ] += t_gemm_lo_2.stop();
+                timers[ "gesv_mixed_gmres::gemm_hi" ] += t_gemm_hi.stop();
 
                 // orthogonalize w/ CGS2
                 auto V0j = V.slice( 0, V.m()-1, 0, j );
                 auto V0jT = conj_transpose( V0j );
                 auto Hj = H.slice( 0, j, j, j );
-                Timer t_gemm_lo_3;
+                t_gemm_hi.start();
                 gemm<scalar_hi>(
                     one,  V0jT,
                           Vj1,
@@ -310,9 +310,9 @@ int64_t gesv_mixed_gmres(
                           Hj,
                     one,  Vj1,
                     opts );
-                timers[ "gesv_mixed_gmres::gemm_lo" ] += t_gemm_lo_3.stop();
+                timers[ "gesv_mixed_gmres::gemm_hi" ] += t_gemm_hi.stop();
                 auto zj = z.slice( 0, j, 0, 0 );
-                Timer t_gemm_lo_4;
+                t_gemm_hi.start();
                 gemm<scalar_hi>(
                     one,  V0jT,
                           Vj1,
@@ -323,10 +323,10 @@ int64_t gesv_mixed_gmres(
                           zj,
                     one,  Vj1,
                     opts );
-                timers[ "gesv_mixed_gmres::gemm_lo" ] += t_gemm_lo_4.stop();
-                Timer t_add_lo;
+                timers[ "gesv_mixed_gmres::gemm_hi" ] += t_gemm_hi.stop();
+                Timer t_add_hi;
                 add( one, zj, one, Hj, opts );
-                timers[ "gesv_mixed_gmres::add_lo" ] += t_add_lo.stop();
+                timers[ "gesv_mixed_gmres::add_hi" ] += t_add_hi.stop();
                 auto Vj1_norm = norm( Norm::Fro, Vj1, opts );
                 scale( 1.0, Vj1_norm, Vj1, opts );
                 if (H.tileRank( 0, 0 ) == mpi_rank) {
@@ -363,17 +363,17 @@ int64_t gesv_mixed_gmres(
             auto S_j = S.slice( 0, j-1, 0, 0 );
             auto H_tri = TriangularMatrix<scalar_hi>(
                     Uplo::Upper, Diag::NonUnit, H_j );
-            Timer t_trsm_lo;
+            Timer t_trsm_hi;
             trsm( Side::Left, one, H_tri, S_j, opts );
-            timers[ "gesv_mixed_gmres::trsm_lo" ] += t_trsm_lo.stop();
+            timers[ "gesv_mixed_gmres::trsm_hi" ] += t_trsm_hi.stop();
             auto W_0j = W.slice( 0, W.m()-1, 1, j ); // first column of W is unused
-            Timer t_gemm_lo_5;
+            t_gemm_hi.start();
             gemm<scalar_hi>(
                 one, W_0j,
                      S_j,
                 one, X,
                 opts );
-            timers[ "gesv_mixed_gmres::gemm_lo" ] += t_gemm_lo_5.stop();
+            timers[ "gesv_mixed_gmres::gemm_hi" ] += t_gemm_hi.stop();
         }
     }
 

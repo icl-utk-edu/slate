@@ -209,7 +209,7 @@ void test_hesv_work(Params& params, bool run)
         gflop = lapack::Gflop<scalar_t>::posv(n, nrhs);
     params.time() = time;
     params.gflops() = gflop / time;
-    if (timer_level >=2) {
+    if (timer_level >= 2) {
         params.time2() = slate::timers[ "hesv::hetrf" ];
         params.time3() = slate::timers[ "hesv::hetrs" ];
     }

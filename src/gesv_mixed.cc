@@ -196,12 +196,12 @@ int64_t gesv_mixed(
 
         // Compute R = B - A * X.
         slate::copy( B, R, opts );
-        Timer t_gemm_lo;
+        Timer t_gemm_hi;
         gemm<scalar_hi>(
             -one_hi, A,
                      X,
             one_hi,  R, opts );
-        timers[ "gesv_mixed::gemm_lo" ] = t_gemm_lo.stop();
+        timers[ "gesv_mixed::gemm_hi" ] = t_gemm_hi.stop();
 
         // Check whether the nrhs normwise backward error satisfies the
         // stopping criterion. If yes, set iter=0 and return.
@@ -213,33 +213,33 @@ int64_t gesv_mixed(
             converged = true;
         }
 
-        timers[ "gesv_mixed::add_lo" ] = 0;
+        timers[ "gesv_mixed::add_hi" ] = 0;
         // iterative refinement
         for (int iiter = 0; iiter < itermax && ! converged; ++iiter) {
             // Convert R from high to low precision, store result in X_lo.
             copy( R, X_lo, opts );
 
             // Solve the system A_lo * X_lo = R_lo.
-            Timer t_loop_getrs_lo;
+            t_getrs_lo.start();
             getrs( A_lo, pivots, X_lo, opts );
-            timers[ "gesv_mixed::getrs_lo" ] += t_loop_getrs_lo.stop();
+            timers[ "gesv_mixed::getrs_lo" ] += t_getrs_lo.stop();
 
             // Convert X_lo back to double precision and update the current iterate.
             copy( X_lo, R, opts );
-            Timer t_loop_add_lo;
+            Timer t_add_hi;
             add<scalar_hi>(
                   one_hi, R,
                   one_hi, X, opts );
-            timers[ "gesv_mixed::add_lo" ] += t_loop_add_lo.stop();
+            timers[ "gesv_mixed::add_hi" ] += t_add_hi.stop();
 
             // Compute R = B - A * X.
             slate::copy( B, R, opts );
-            Timer t_loop_gemm_lo;
+            t_gemm_hi.start();
             gemm<scalar_hi>(
                 -one_hi, A,
                          X,
                 one_hi,  R, opts );
-            timers[ "gesv_mixed::gemm_lo" ] += t_loop_gemm_lo.stop();
+            timers[ "gesv_mixed::gemm_hi" ] += t_gemm_hi.stop();
 
             // Check whether nrhs normwise backward error satisfies the
             // stopping criterion. If yes, set iter = iiter > 0 and return.

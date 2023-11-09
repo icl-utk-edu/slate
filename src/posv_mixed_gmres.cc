@@ -197,34 +197,34 @@ void posv_mixed_gmres(
 
     // Compute the Cholesky factorization of A in single-precision.
     slate::copy(A, A_lo, opts);
-    Timer t_potrf_lo_1;
+    Timer t_potrf_lo;
     potrf(A_lo, opts);
-    timers[ "posv_mixed_gmres::potrf_lo" ] = t_potrf_lo_1.stop();
+    timers[ "posv_mixed_gmres::potrf_lo" ] = t_potrf_lo.stop();
 
 
     // Solve the system A * X = B in low precision.
     slate::copy(B, X_lo, opts);
-    Timer t_potrs_lo_1;
+    Timer t_potrs_lo;
     potrs(A_lo, X_lo, opts);
-    timers[ "posv_mixed_gmres::potrs_lo" ] = t_potrs_lo_1.stop();
+    timers[ "posv_mixed_gmres::potrs_lo" ] = t_potrs_lo.stop();
     slate::copy(X_lo, X, opts);
 
 
     // IR
     int iiter = 0;
-    timers[ "posv_mixed_gmres::add_lo" ] = 0;
+    timers[ "posv_mixed_gmres::add_hi" ] = 0;
     while (iiter < itermax) {
 
         // Check for convergence
         slate::copy(B, R, opts);
-        Timer t_hemm_lo_1;
+        Timer t_hemm_hi;
         hemm<scalar_hi>(
             Side::Left,
             scalar_hi(-1.0), A,
                              X,
             scalar_hi(1.0),  R,
             opts);
-        timers[ "posv_mixed_gmres::hemm_lo" ] = t_hemm_lo_1.stop();
+        timers[ "posv_mixed_gmres::hemm_hi" ] = t_hemm_hi.stop();
         colNorms( Norm::Max, X, colnorms_X.data(), opts );
         colNorms( Norm::Max, R, colnorms_R.data(), opts );
         if (internal::iterRefConverged<real_hi>(colnorms_R, colnorms_X, cte)) {
@@ -271,25 +271,25 @@ void posv_mixed_gmres(
 
             // Wj1 = M^-1 A Vj
             slate::copy(Vj, X_lo, opts);
-            Timer t_potrs_lo_2;
+            t_potrs_lo.start();
             potrs(A_lo, X_lo, opts);
-            timers[ "posv_mixed_gmres::potrs_lo" ] += t_potrs_lo_2.stop();
+            timers[ "posv_mixed_gmres::potrs_lo" ] += t_potrs_lo.stop();
             slate::copy(X_lo, Wj1, opts);
 
-            Timer t_hemm_lo_2;
+            t_hemm_hi.start();
             hemm<scalar_hi>(
                 Side::Left,
                 scalar_hi(1.0), A,
                                 Wj1,
                 scalar_hi(0.0), Vj1,
                 opts);
-            timers[ "posv_mixed_gmres::hemm_lo" ] += t_hemm_lo_2.stop();
+            timers[ "posv_mixed_gmres::hemm_hi" ] += t_hemm_hi.stop();
 
             // orthogonalize w/ CGS2
             auto V0j = V.slice(0, V.m()-1, 0, j);
             auto V0jT = conj_transpose(V0j);
             auto Hj = H.slice(0, j, j, j);
-            Timer t_gemm_lo_1;
+            Timer t_gemm_hi;
             gemm<scalar_hi>(
                 scalar_hi(1.0), V0jT,
                                 Vj1,
@@ -300,9 +300,9 @@ void posv_mixed_gmres(
                                  Hj,
                 scalar_hi(1.0),  Vj1,
                 opts);
-            timers[ "posv_mixed_gmres::gemm_lo" ] = t_gemm_lo_1.stop();
+            timers[ "posv_mixed_gmres::gemm_hi" ] = t_gemm_hi.stop();
             auto zj = z.slice(0, j, 0, 0);
-            Timer t_gemm_lo_2;
+            t_gemm_hi.start();
             gemm<scalar_hi>(
                 scalar_hi(1.0), V0jT,
                                 Vj1,
@@ -313,11 +313,11 @@ void posv_mixed_gmres(
                                  zj,
                 scalar_hi(1.0),  Vj1,
                 opts);
-            timers[ "posv_mixed_gmres::gemm_lo" ] += t_gemm_lo_2.stop();
-            Timer t_add_lo;
+            timers[ "posv_mixed_gmres::gemm_hi" ] += t_gemm_hi.stop();
+            Timer t_add_hi;
             add(scalar_hi(1.0), zj, scalar_hi(1.0), Hj,
                 opts);
-            timers[ "posv_mixed_gmres::add_lo" ] += t_add_lo.stop();
+            timers[ "posv_mixed_gmres::add_hi" ] += t_add_hi.stop();
             auto Vj1_norm = norm(Norm::Fro, Vj1, opts);
             scale(1.0, Vj1_norm, Vj1, opts);
             if (H.tileRank(0, 0) == mpi_rank) {
@@ -351,17 +351,17 @@ void posv_mixed_gmres(
         auto H_j = H.slice(0, j-1, 0, j-1);
         auto S_j = S.slice(0, j-1, 0, 0);
         auto H_tri = TriangularMatrix<scalar_hi>(Uplo::Upper, Diag::NonUnit, H_j);
-        Timer t_trsm_lo;
+        Timer t_trsm_hi;
         trsm(Side::Left, scalar_hi(1.0), H_tri, S_j, opts);
-        timers[ "posv_mixed_gmres::trsm_lo" ] = t_trsm_lo.stop();
+        timers[ "posv_mixed_gmres::trsm_hi" ] = t_trsm_hi.stop();
         auto W_0j = W.slice(0, W.m()-1, 1, j); // first column of W is unused
-        Timer t_gemm_lo_3;
+        Timer t_gemm_hi;
         gemm<scalar_hi>(
             scalar_hi(1.0), W_0j,
                             S_j,
             scalar_hi(1.0), X,
             opts);
-        timers[ "posv_mixed_gmres::gemm_lo" ] += t_gemm_lo_3.stop();
+        timers[ "posv_mixed_gmres::gemm_hi" ] += t_gemm_hi.stop();
     }
 
     if (! converged) {

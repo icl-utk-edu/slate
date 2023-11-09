@@ -54,10 +54,13 @@ void test_posv_work(Params& params, bool run)
     slate::Method methodHemm = params.method_hemm();
 
     // Currently only posv* supports timer_level >= 2.
-    std::vector<std::string> timer_lvl_support{ "posv", "posv_mixed", "posv_mixed_gmres" };
-    bool supported = std::find(timer_lvl_support.begin(), timer_lvl_support.end(), params.routine) != timer_lvl_support.end();
+    std::vector<std::string> timer_lvl_support{ "posv", "posv_mixed",
+                                                "posv_mixed_gmres" };
+    bool supported = std::find( timer_lvl_support.begin(),
+                                timer_lvl_support.end(), params.routine )
+                     != timer_lvl_support.end();
 
-    if (supported == false)
+    if (! supported)
         timer_level = 1;
 
     // mark non-standard output values
@@ -82,7 +85,8 @@ void test_posv_work(Params& params, bool run)
         params.time2.name( "potrf (s)" );
         params.time3.name( "potrs (s)" );
     }
-    else if (timer_level >=2 && (params.routine == "posv_mixed" || params.routine == "posv_mixed_gmres")) {
+    else if (timer_level >=2 && (params.routine == "posv_mixed"
+                                 || params.routine == "posv_mixed_gmres")) {
         params.time2();
         params.time3();
         params.time4();
@@ -91,8 +95,8 @@ void test_posv_work(Params& params, bool run)
         params.time7();
         params.time2.name( "potrf_lo (s)" );
         params.time3.name( "potrs_lo (s)" );
-        params.time4.name( "hemm_lo (s)" );
-        params.time5.name( "add_lo (s)" );
+        params.time4.name( "hemm_hi (s)" );
+        params.time5.name( "add_hi (s)" );
         params.time6.name( "potrf_hi (s)" );
         params.time7.name( "potrs_hi (s)" );
         if (params.routine == "posv_mixed_gmres") {
@@ -100,8 +104,8 @@ void test_posv_work(Params& params, bool run)
             params.time9();
             params.time10();
             params.time8.name( "rotations (s)" );
-            params.time9.name( "trsm_lo (s)" );
-            params.time10.name( "gemm_lo (s)" );
+            params.time9.name( "trsm_hi (s)" );
+            params.time10.name( "gemm_hi (s)" );
         }
     }
 
@@ -304,24 +308,24 @@ void test_posv_work(Params& params, bool run)
             params.time2() = slate::timers[ "posv::potrf" ];
             params.time3() = slate::timers[ "posv::potrs" ];
         }
-        else if (timer_level >=2 && params.routine == "posv_mixed") {
+        else if (timer_level >= 2 && params.routine == "posv_mixed") {
             params.time2() = slate::timers[ "posv_mixed::potrf_lo" ];
             params.time3() = slate::timers[ "posv_mixed::potrs_lo" ];
-            params.time4() = slate::timers[ "posv_mixed::hemm_lo" ];
-            params.time5() = slate::timers[ "posv_mixed::add_lo" ];
+            params.time4() = slate::timers[ "posv_mixed::hemm_hi" ];
+            params.time5() = slate::timers[ "posv_mixed::add_hi" ];
             params.time6() = slate::timers[ "posv_mixed::potrf_hi" ];
             params.time7() = slate::timers[ "posv_mixed::potrs_hi" ];
         }
-        else if (timer_level >=2 && params.routine == "posv_mixed_gmres") {
+        else if (timer_level >= 2 && params.routine == "posv_mixed_gmres") {
             params.time2() = slate::timers[ "posv_mixed_gmres::potrf_lo" ];
             params.time3() = slate::timers[ "posv_mixed_gmres::potrs_lo" ];
-            params.time4() = slate::timers[ "posv_mixed_gmres::hemm_lo" ];
-            params.time5() = slate::timers[ "posv_mixed_gmres::add_lo" ];
+            params.time4() = slate::timers[ "posv_mixed_gmres::hemm_hi" ];
+            params.time5() = slate::timers[ "posv_mixed_gmres::add_hi" ];
             params.time6() = slate::timers[ "posv_mixed_gmres::potrf_hi" ];
             params.time7() = slate::timers[ "posv_mixed_gmres::potrs_hi" ];
             params.time8() = slate::timers[ "posv_mixed_gmres::rotations" ];
-            params.time9() = slate::timers[ "posv_mixed_gmres::trsm_lo" ];
-            params.time10() = slate::timers[ "posv_mixed_gmres::gemm_lo" ];
+            params.time9() = slate::timers[ "posv_mixed_gmres::trsm_hi" ];
+            params.time10() = slate::timers[ "posv_mixed_gmres::gemm_hi" ];
         }
 
         //==================================================

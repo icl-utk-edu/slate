@@ -191,13 +191,14 @@ void posv_mixed(
 
     // Compute R = B - A * X.
     slate::copy( B, R, opts );
-    Timer t_hemm_lo;
+    Timer t_hemm_hi;
     hemm<scalar_hi>(
         Side::Left,
         -one_hi, A,
                  X,
         one_hi,  R, opts );
-    timers[ "posv_mixed::hemm_lo" ] = t_hemm_lo.stop();
+    timers[ "posv_mixed::hemm_hi" ] = t_hemm_hi.stop();
+
     // Check whether the nrhs normwise backward error satisfies the
     // stopping criterion. If yes, set iter=0 and return.
     colNorms( Norm::Max, X, colnorms_X.data(), opts );
@@ -209,34 +210,33 @@ void posv_mixed(
     }
 
     // iterative refinement
-    timers[ "posv_mixed::add_lo" ] = 0;
+    timers[ "posv_mixed::add_hi" ] = 0;
     for (int iiter = 0; iiter < itermax && ! converged; ++iiter) {
         // Convert R from high to low precision, store result in X_lo.
         copy( R, X_lo, opts );
 
         // Solve the system A_lo * X_lo = R_lo.
-        Timer t_for_potrs_lo;
+        t_potrs_lo.start();
         potrs( A_lo, X_lo, opts );
-        timers[ "posv_mixed::potrs_lo" ] += t_for_potrs_lo.stop();
+        timers[ "posv_mixed::potrs_lo" ] += t_potrs_lo.stop();
 
         // Convert X_lo back to double precision and update the current iterate.
         copy( X_lo, R, opts );
-        Timer t_for_add_lo;
+        Timer t_add_hi;
         add<scalar_hi>(
               one_hi, R,
               one_hi, X, opts );
-        timers[ "posv_mixed::add_lo" ] += t_for_add_lo.stop();
+        timers[ "posv_mixed::add_hi" ] += t_add_hi.stop();
 
         // Compute R = B - A * X.
         slate::copy( B, R, opts );
-        Timer t_for_hemm_lo;
+        t_hemm_hi.start();
         hemm<scalar_hi>(
             Side::Left,
             -one_hi, A,
                      X,
             one_hi,  R, opts );
-        timers[ "posv_mixed::hemm_lo" ] += t_for_hemm_lo.stop();
-
+        timers[ "posv_mixed::hemm_hi" ] += t_hemm_hi.stop();
 
         // Check whether nrhs normwise backward error satisfies the
         // stopping criterion. If yes, set iter = iiter > 0 and return.

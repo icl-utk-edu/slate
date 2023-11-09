@@ -79,9 +79,12 @@ void test_gesv_work(Params& params, bool run)
     params.matrixB.mark();
 
     // Currently only gesv* supports timer_level >= 2.
-    std::vector<std::string> timer_lvl_support{ "gesv", "gesv_mixed", "gesv_mixed_gmres"};
-    bool supported = std::find(timer_lvl_support.begin(), timer_lvl_support.end(), params.routine) != timer_lvl_support.end();
-    if (supported == false)
+    std::vector<std::string> timer_lvl_support{ "gesv", "gesv_mixed",
+                                                "gesv_mixed_gmres"};
+    bool supported = std::find( timer_lvl_support.begin(),
+                                timer_lvl_support.end(), params.routine )
+                     != timer_lvl_support.end();
+    if (! supported)
         timer_level = 1;
 
     // NoPiv and CALU ignore threshold.
@@ -109,7 +112,8 @@ void test_gesv_work(Params& params, bool run)
         params.time2.name( "getrf (s)" );
         params.time3.name( "getrs (s)" );
     }
-    else if (timer_level >=2 && (params.routine == "gesv_mixed" || params.routine == "gesv_mixed_gmres")) {
+    else if (timer_level >=2 && (params.routine == "gesv_mixed"
+                                 || params.routine == "gesv_mixed_gmres")) {
         params.time2();
         params.time3();
         params.time4();
@@ -118,15 +122,15 @@ void test_gesv_work(Params& params, bool run)
         params.time7();
         params.time2.name( "getrf_lo (s)" );
         params.time3.name( "getrs_lo (s)" );
-        params.time4.name( "gemm_lo (s)" );
-        params.time5.name( "add_lo (s)" );
+        params.time4.name( "gemm_hi (s)" );
+        params.time5.name( "add_hi (s)" );
         params.time6.name( "getrf_hi (s)" );
         params.time7.name( "getrs_hi (s)" );
         if (params.routine == "gesv_mixed_gmres") {
             params.time8();
             params.time9();
             params.time8.name( "rotations (s)" );
-            params.time9.name( "trsm_lo (s)" );
+            params.time9.name( "trsm_hi (s)" );
         }
     }
 
@@ -359,20 +363,20 @@ void test_gesv_work(Params& params, bool run)
         else if (timer_level >= 2 && params.routine == "gesv_mixed") {
             params.time2() = slate::timers[ "gesv_mixed::getrf_lo" ];
             params.time3() = slate::timers[ "gesv_mixed::getrs_lo" ];
-            params.time4() = slate::timers[ "gesv_mixed::gemm_lo" ];
-            params.time5() = slate::timers[ "gesv_mixed::add_lo" ];
+            params.time4() = slate::timers[ "gesv_mixed::gemm_hi" ];
+            params.time5() = slate::timers[ "gesv_mixed::add_hi" ];
             params.time6() = slate::timers[ "gesv_mixed::getrf_hi" ];
             params.time7() = slate::timers[ "gesv_mixed::getrs_hi" ];
         }
         else if (timer_level >= 2 && params.routine == "gesv_mixed_gmres") {
             params.time2() = slate::timers[ "gesv_mixed_gmres::getrf_lo" ];
             params.time3() = slate::timers[ "gesv_mixed_gmres::getrs_lo" ];
-            params.time4() = slate::timers[ "gesv_mixed_gmres::gemm_lo" ];
-            params.time5() = slate::timers[ "gesv_mixed_gmres::add_lo" ];
+            params.time4() = slate::timers[ "gesv_mixed_gmres::gemm_hi" ];
+            params.time5() = slate::timers[ "gesv_mixed_gmres::add_hi" ];
             params.time6() = slate::timers[ "gesv_mixed_gmres::getrf_hi" ];
             params.time7() = slate::timers[ "gesv_mixed_gmres::getrs_hi" ];
             params.time8() = slate::timers[ "gesv_mixed_gmres::rotations" ];
-            params.time9() = slate::timers[ "gesv_mixed_gmres::trsm_lo" ];
+            params.time9() = slate::timers[ "gesv_mixed_gmres::trsm_hi" ];
         }
 
         //==================================================

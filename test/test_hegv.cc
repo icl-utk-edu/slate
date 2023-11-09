@@ -62,11 +62,21 @@ void test_hegv_work(Params& params, bool run)
         params.time4();
         params.time5();
         params.time6();
+        params.time7();
+        params.time8();
+        params.time9();
+        params.time10();
+        params.time11();
         params.time2.name( "potrf (s)" );
         params.time3.name( "hegst (s)" );
         params.time4.name( "heev (s)" );
         params.time5.name( "trsm (s)" );
         params.time6.name( "trmm (s)" );
+        params.time7.name( "he2hb (s)" );
+        params.time8.name( "hb2st (s)" );
+        params.time9.name( "stev (s)" );
+        params.time10.name( "unmtr_hb2st (s)" );
+        params.time11.name( "unmtr_he2hb (s)" );
     }
 
     if (! run) {
@@ -227,6 +237,11 @@ void test_hegv_work(Params& params, bool run)
             params.time4() = slate::timers[ "hegv::heev" ];
             params.time5() = slate::timers[ "hegv::trsm" ];
             params.time6() = slate::timers[ "hegv::trmm" ];
+            params.time7() = slate::timers[ "heev::he2hb" ];
+            params.time8() = slate::timers[ "heev::hb2st" ];
+            params.time9() = slate::timers[ "heev::stev" ];
+            params.time10() = slate::timers[ "heev::unmtr_hb2st" ];
+            params.time11() = slate::timers[ "heev::unmtr_he2hb" ];
         }
 
     }

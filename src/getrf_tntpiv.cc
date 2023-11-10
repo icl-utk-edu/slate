@@ -32,7 +32,6 @@ int64_t getrf_tntpiv(
 
     // Constants
     const scalar_t one = 1.0;
-    const int life_1 = 1;
     const int priority_0 = 0;
     const int priority_1 = 1;
     const int queue_0 = 0;
@@ -45,6 +44,12 @@ int64_t getrf_tntpiv(
     int64_t max_panel_threads  = std::max( omp_get_max_threads()/2, 1 );
     max_panel_threads = get_option<int64_t>( opts, Option::MaxPanelThreads,
                                              max_panel_threads );
+
+    // Use only TileReleaseStrategy::Slate for getrf_tntpiv.
+    // Internal routines won't release any tiles.
+    // getrf_tntpiv will clean up tiles.
+    Options opts2 = Options( opts );
+    opts2[ Option::TileReleaseStrategy ] = TileReleaseStrategy::Slate;
 
     // Host can use Col/RowMajor for row swapping,
     // RowMajor is slightly more efficient.
@@ -62,7 +67,6 @@ int64_t getrf_tntpiv(
     int64_t A_nt = A.nt();
     int64_t A_mt = A.mt();
     int64_t min_mt_nt = std::min(A.mt(), A.nt());
-    bool is_shared = target == Target::Devices && lookahead > 0;
     pivots.resize(min_mt_nt);
 
     // setting up dummy variables for case the when target == host
@@ -206,7 +210,7 @@ int64_t getrf_tntpiv(
                                                A.sub(k, k, k+1, A_nt-1)}});
 
                 A.template listBcast<target>(
-                    bcast_list_A, host_layout, tag_k, life_1, is_shared );
+                    bcast_list_A, host_layout, tag_k );
 
                 Apanel.clear();
             }
@@ -225,7 +229,7 @@ int64_t getrf_tntpiv(
                     Side::Right,
                     one, std::move(Tkk),
                          A.sub( k+1, A_mt-1, k, k ),
-                    priority_1, Layout::ColMajor, queue_0 );
+                    priority_1, Layout::ColMajor, queue_0, opts2 );
             }
 
             #pragma omp task depend(inout:column[k]) \
@@ -240,7 +244,7 @@ int64_t getrf_tntpiv(
                     bcast_list.push_back({i, k, {A.sub(i, i, k+1, A_nt-1)}, tag});
                 }
                 A.template listBcastMT<target>(
-                    bcast_list, Layout::ColMajor, life_1, is_shared );
+                    bcast_list, Layout::ColMajor );
             }
 
             // update lookahead column(s), high priority
@@ -264,7 +268,7 @@ int64_t getrf_tntpiv(
                     internal::trsm<target>(
                         Side::Left,
                         one, std::move( Tkk ), A.sub( k, k, j, j ),
-                        priority_1, Layout::ColMajor, queue_jk1 );
+                        priority_1, Layout::ColMajor, queue_jk1, opts2 );
 
                     // send A(k, j) across column A(k+1:mt-1, j)
                     // todo: trsm still operates in ColMajor
@@ -283,7 +287,7 @@ int64_t getrf_tntpiv(
                         -one, A.sub( k+1, A_mt-1, k, k ),
                               A.sub( k, k, j, j ),
                         one,  A.sub( k+1, A_mt-1, j, j ),
-                        host_layout, priority_1, queue_jk1 );
+                        host_layout, priority_1, queue_jk1, opts2 );
                 }
             }
 
@@ -308,7 +312,7 @@ int64_t getrf_tntpiv(
                         Side::Left,
                         one, std::move( Tkk ),
                              A.sub( k, k, k+1+lookahead, A_nt-1 ),
-                        priority_0, Layout::ColMajor, queue_1 );
+                        priority_0, Layout::ColMajor, queue_1, opts2 );
                 }
 
                 #pragma omp task depend(inout:column[k+1+lookahead]) \
@@ -337,7 +341,7 @@ int64_t getrf_tntpiv(
                         -one, A.sub( k+1, A_mt-1, k, k ),
                               A.sub( k, k, k+1+lookahead, A_nt-1 ),
                         one,  A.sub( k+1, A_mt-1, k+1+lookahead, A_nt-1 ),
-                        host_layout, priority_0, queue_1 );
+                        host_layout, priority_0, queue_1, opts2 );
                 }
             }
             // pivot to the left
@@ -361,23 +365,23 @@ int64_t getrf_tntpiv(
                 }
             }
 
-            if (is_shared) {
-                #pragma omp task depend(inout:column[k])
-                {
-                    for (int64_t i = k+1; i < A_mt; ++i) {
-                        if (A.tileIsLocal(i, k)) {
-                            A.tileUpdateOrigin(i, k);
+            #pragma omp task depend(inout:column[k])
+            {
+                auto left_panel = A.sub( k, A_mt-1, k, k );
+                auto top_panel = A.sub( k, k, k+1, A_nt-1 );
 
-                            std::set<int> dev_set;
-                            A.sub(i, i, k+1, A_nt-1).getLocalDevices(&dev_set);
+                // Erase remote tiles on all devices including host
+                left_panel.releaseRemoteWorkspace();
+                top_panel.releaseRemoteWorkspace();
 
-                            for (auto device : dev_set) {
-                                A.tileUnsetHold(i, k, device);
-                                A.tileRelease(i, k, device);
-                            }
-                        }
-                    }
-                }
+                // Update the origin tiles before their
+                // workspace copies on devices are erased.
+                left_panel.tileUpdateAllOrigin();
+                top_panel.tileUpdateAllOrigin();
+
+                // Erase local workspace on devices.
+                left_panel.releaseLocalWorkspace();
+                top_panel.releaseLocalWorkspace();
             }
             kk += A.tileNb( k );
         }

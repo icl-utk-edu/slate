@@ -71,7 +71,7 @@ inline bool compareSecond(
 }
 
 //------------------------------------------------------------------------------
-/// An helper function to find each rank's first (top-most) row in panel k for
+/// A helper function to find each rank's first (top-most) row in panel k for
 /// the QR-family of routines.
 ///
 /// @param[in] A_panel
@@ -80,8 +80,7 @@ inline bool compareSecond(
 /// @param[in] k
 ///     Index of the current panel in the input matrix $A$.
 ///
-/// @param[out] first_indices
-///     The array of computed indices.
+/// @return The array of computed indices.
 ///
 /// @ingroup geqrf_impl
 ///
@@ -111,7 +110,7 @@ std::vector< int64_t > geqrf_compute_first_indices(
 }
 
 //------------------------------------------------------------------------------
-/// An helper function to find each rank's first (left-most) row in panel k for
+/// A helper function to find each rank's first (left-most) row in panel k for
 /// the LQ-family of routines.
 ///
 /// @param[in] A_panel
@@ -120,8 +119,7 @@ std::vector< int64_t > geqrf_compute_first_indices(
 /// @param[in] k
 ///     Index of the current panel in the input matrix $A$.
 ///
-/// @param[out] first_indices
-///     The array of computed indices.
+/// @return The array of computed indices.
 ///
 /// @ingroup gelqf_impl
 ///

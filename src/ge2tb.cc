@@ -224,6 +224,7 @@ void ge2tb(
                 if (k < A_mt) {
                     BcastList bcast_list_V;
                     for (int64_t i = k; i < A_mt; ++i) {
+                        // send A(i, k) across row A(i, k+1:nt-1)
                         bcast_list_V.push_back(
                             {i, k, {A.sub(i, i, k+1, A_nt-1)}});
                     }
@@ -279,15 +280,10 @@ void ge2tb(
             // Can release tiles parallel to the main execution
             #pragma omp task
             {
-                for (int64_t i = k; i < A_mt; ++i) {
-                    if (A.tileIsLocal(i, k)) {
-                        A.tileUpdateOrigin(i, k);
-                        A.releaseLocalWorkspaceTile(i, k);
-                    }
-                    else {
-                        A.releaseRemoteWorkspaceTile(i, k);
-                    }
-                }
+                // Ensure the origin is up to date, then remove the panel's workspace
+                U_panel.tileUpdateAllOrigin();
+                U_panel.releaseLocalWorkspace();
+                U_panel.releaseRemoteWorkspace();
 
                 for (int64_t i : first_indices) {
                     if (TUlocal.tileIsLocal( i, k )) {
@@ -435,15 +431,10 @@ void ge2tb(
                 // Can release tiles parallel to the main execution
                 #pragma omp task
                 {
-                    for (int64_t j = k+1; j < A_nt; ++j) {
-                        if (A.tileIsLocal(k, j)) {
-                            A.tileUpdateOrigin(k, j);
-                            A.releaseLocalWorkspaceTile(k, j);
-                        }
-                        else {
-                            A.releaseRemoteWorkspaceTile(k, j);
-                        }
-                    }
+                    // Ensure the origin is up to date, then remove the panel's workspace
+                    V_panel.tileUpdateAllOrigin();
+                    V_panel.releaseLocalWorkspace();
+                    V_panel.releaseRemoteWorkspace();
 
                     for (int64_t j : first_indices) {
                         if (TVlocal.tileIsLocal( k, j )) {

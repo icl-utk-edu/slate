@@ -598,18 +598,13 @@ void he2hb(
             // Release workspace tiles
             #pragma omp task slate_omp_default_none \
                 depend( inout:block[ k ] ) \
-                shared( A, Tlocal, Treduce ) \
+                shared( A_panel, Tlocal, Treduce ) \
                 firstprivate( k, nt, first_indices )
             {
-                for (int64_t i = k+1; i < nt; ++i) {
-                    if (A.tileIsLocal( i, k )) {
-                        A.tileUpdateOrigin( i, k );
-                        A.releaseLocalWorkspaceTile( i, k );
-                    }
-                    else {
-                        A.releaseRemoteWorkspaceTile( i, k );
-                    }
-                }
+                // Ensure the origin is up to date, then remove the panel's workspace
+                A_panel.tileUpdateAllOrigin();
+                A_panel.releaseLocalWorkspace();
+                A_panel.releaseRemoteWorkspace();
 
                 for (int64_t i : first_indices) {
                     if (Tlocal.tileIsLocal( i, k )) {

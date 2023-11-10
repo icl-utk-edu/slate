@@ -404,7 +404,7 @@ Params::Params():
                                                           0, 1000000, "(pt) max number of threads used in panel; default omp_num_threads / 2"),
     align     ("align",   5,    ParamType::List,  32,     1,    1024, "column alignment (sets lda, ldb, etc. to multiple of align)"),
     nonuniform_nb("nonuniform_nb",
-                          0,    ParamType::Value, 'n', "ny", "generate matrix with nonuniform tile sizes"),
+                          0,    ParamType::List, 'n', "ny", "generate matrix with nonuniform tile sizes"),
     debug     ("debug",   0,    ParamType::Value, -1,     0, 1000000,
                "given rank waits for debugger (gdb/lldb) to attach"),
     pivot_threshold(

@@ -107,10 +107,11 @@ public:
     void eraseOn(int device)
     {
         slate_assert(device >= -1 && device+1 < int(tiles_.size()));
-        if (tiles_[device+1] != nullptr) {
-            tiles_[device+1]->state(MOSI::Invalid);
-            delete tiles_[device+1];
-            tiles_[device+1] = nullptr;
+        auto tile = tiles_[device+1];
+        tiles_[device+1] = nullptr;
+        if (tile != nullptr) {
+            assert(!tile->stateOn(MOSI::OnHold));
+            delete tile;
             --num_instances_;
         }
     }

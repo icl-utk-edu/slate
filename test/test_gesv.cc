@@ -183,23 +183,20 @@ void test_gesv_work(Params& params, bool run)
 
     int64_t info = 0;
 
-    auto A_allocation = allocate_test_Matrix<scalar_t>( check || ref,
-                                                        m, n, params );
-    auto B_allocation = allocate_test_Matrix<scalar_t>( check || ref,
-                                                        n, nrhs, params );
-    TestMatrix<slate::Matrix<scalar_t>> X_allocation;
+    auto A_alloc = allocate_test_Matrix<scalar_t>( check || ref, m, n, params );
+    auto B_alloc = allocate_test_Matrix<scalar_t>( check || ref, n, nrhs, params );
+    TestMatrix<slate::Matrix<scalar_t>> X_alloc;
     if (is_iterative) {
-        X_allocation = allocate_test_Matrix<scalar_t>( false,
-                                                       n, nrhs, params );
+        X_alloc = allocate_test_Matrix<scalar_t>( false, n, nrhs, params );
     }
 
-    auto& A         = A_allocation.A;
-    auto& Aref      = A_allocation.Aref;
-    auto& Aref_data = A_allocation.Aref_data;
-    auto& B         = B_allocation.A;
-    auto& Bref      = B_allocation.Aref;
-    auto& Bref_data = B_allocation.Aref_data;
-    auto& X         = X_allocation.A;
+    auto& A         = A_alloc.A;
+    auto& Aref      = A_alloc.Aref;
+    auto& Aref_data = A_alloc.Aref_data;
+    auto& B         = B_alloc.A;
+    auto& Bref      = B_alloc.Aref;
+    auto& Bref_data = B_alloc.Aref_data;
+    auto& X         = X_alloc.A;
 
     slate::Pivots pivots;
 
@@ -412,19 +409,16 @@ void test_gesv_work(Params& params, bool run)
             slate_assert( myrow == myrow_ );
             slate_assert( mycol == mycol_ );
 
-            int nb = A_allocation.nb;
+            int nb = A_alloc.nb;
 
             // ScaLAPACK descriptor for the reference matrix
-            blas_int Aref_desc[9];
-            scalapack_descinit(Aref_desc, m, n, nb, nb, 0, 0, ictxt, A_allocation.mloc, &info);
-            slate_assert(info == 0);
+            blas_int Aref_desc[9], Bref_desc[9];
 
-            blas_int Bref_desc[9];
-            scalapack_descinit(Bref_desc, n, nrhs, nb, nb, 0, 0, ictxt, B_allocation.mloc, &info);
-            slate_assert(info == 0);
+            A_alloc.ScaLAPACK_descriptor( ictxt, Aref_desc );
+            B_alloc.ScaLAPACK_descriptor( ictxt, Bref_desc );
 
             // ScaLAPACK data for pivots.
-            std::vector<blas_int> ipiv_ref(A_allocation.lld + nb);
+            std::vector<blas_int> ipiv_ref(A_alloc.lld + nb);
 
             if (params.routine == "getrs") {
                 // Factor matrix A.

@@ -8,6 +8,8 @@
 
 #include "slate/slate.hh"
 
+#include "scalapack_wrappers.hh"
+
 //------------------------------------------------------------------------------
 // Zero out B, then copy band matrix B from A.
 // B is stored as a non-symmetric matrix, so we can apply Q from left
@@ -221,7 +223,15 @@ public:
     std::vector<scalar_t> Aref_data;
 
     // ScaLAPACK configuration
-    int64_t mloc, nloc, lld, nb;
+    int64_t m, n, mloc, nloc, lld, nb;
+
+    #ifdef SLATE_HAVE_SCALAPACK
+    void ScaLAPACK_descriptor( blas_int ictxt, blas_int A_desc[9] ) {
+        int64_t info;
+        scalapack_descinit(A_desc, m, n, nb, nb, 0, 0, ictxt, mloc, &info);
+        slate_assert(info == 0);
+    }
+    #endif
 };
 
 // -----------------------------------------------------------------------------
@@ -272,6 +282,8 @@ TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
 
     // The object to be returned
     TestMatrix<slate::Matrix<scalar_t>> matrix;
+    matrix.m = m;
+    matrix.n = n;
 
     // ScaLAPACK variables
     int mpi_rank, myrow, mycol;

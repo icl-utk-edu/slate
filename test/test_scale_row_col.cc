@@ -150,8 +150,8 @@ void test_scale_row_col_work( Params& params, bool run )
 
             // Copy local part of R.
             int64_t ii = 0, iilocal = 0;
-            for (int64_t i = 0; i < A.mt(); ++i) {
-                int64_t mb_ = A.tileMb( i );
+            for (int64_t i = 0; i < Aref_full.mt(); ++i) {
+                int64_t mb_ = Aref_full.tileMb( i );
                 if (i % p == myrow) {
                     std::copy( &R[ ii ], &R[ ii + mb_ ], &Rlocal[ iilocal ] );
                     iilocal += mb_;
@@ -162,8 +162,8 @@ void test_scale_row_col_work( Params& params, bool run )
 
             // Copy local part of R.
             int64_t jj = 0, jjlocal = 0;
-            for (int64_t j = 0; j < A.nt(); ++j) {
-                int64_t nb_ = A.tileNb( j );
+            for (int64_t j = 0; j < Aref_full.nt(); ++j) {
+                int64_t nb_ = Aref_full.tileNb( j );
                 if (j % q == mycol) {
                     std::copy( &C[ jj ], &C[ jj + nb_ ], &Clocal[ jjlocal ] );
                     jjlocal += nb_;

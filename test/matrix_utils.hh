@@ -286,13 +286,13 @@ TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
     matrix.m = m;
     matrix.n = n;
 
-    // ScaLAPACK variables
+    // ScaLAPACK variables for reference matrix
     int mpi_rank, myrow, mycol;
     MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
     gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
     matrix.nb = nb;
     matrix.mloc = num_local_rows_cols( m, nb, myrow, p );
-    matrix.nloc = num_local_rows_cols (n, nb, mycol, q );
+    matrix.nloc = num_local_rows_cols( n, nb, mycol, q );
     matrix.lld  = blas::max( 1, matrix.mloc ); // local leading dimension of A
 
     // Functions for nonuniform tile sizes

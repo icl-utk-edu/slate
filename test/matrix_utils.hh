@@ -249,8 +249,8 @@ inline void mark_params_for_test_Matrix(Params& params)
 // -----------------------------------------------------------------------------
 /// Allocates a Matrix<scalar_t> and a reference version for testing.
 ///
-/// @param run[in]
-///     Whether to actaully allocate the matrix, instead of just marking params
+/// @param ref_matrix[in]
+///     Whether to allocate a reference matrix
 ///
 /// @param nonuniform_ref[in]
 ///     If params.nonuniform_nb(), whether to also allocate the reference matrix
@@ -268,6 +268,7 @@ inline void mark_params_for_test_Matrix(Params& params)
 template <typename scalar_t>
 TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
         bool ref_matrix,
+        bool nonuniform_ref,
         int64_t m,
         int64_t n,
         Params& params)
@@ -310,7 +311,6 @@ TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
         // SLATE allocates CPU or GPU tiles.
         slate::Target origin_target = origin2target( origin );
         if (nonuniform_nb) {
-
             matrix.A = slate::Matrix<scalar_t>( m, n, tileNb, tileNb, tileRank,
                                                 tileDevice, MPI_COMM_WORLD);
         }
@@ -331,7 +331,7 @@ TestMatrix<slate::Matrix<scalar_t>> allocate_test_Matrix(
 
     // Setup reference matrix
     if (ref_matrix) {
-        if (nonuniform_nb) {
+        if (nonuniform_nb && nonuniform_ref) {
             matrix.Aref = slate::Matrix<scalar_t>( m, n, tileNb, tileNb, tileRank,
                                                    tileDevice, MPI_COMM_WORLD );
             matrix.Aref.insertLocalTiles( slate::Target::Host );

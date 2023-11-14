@@ -183,11 +183,11 @@ void test_gesv_work(Params& params, bool run)
 
     int64_t info = 0;
 
-    auto A_alloc = allocate_test_Matrix<scalar_t>( check || ref, m, n, params );
-    auto B_alloc = allocate_test_Matrix<scalar_t>( check || ref, n, nrhs, params );
+    auto A_alloc = allocate_test_Matrix<scalar_t>( check || ref, true, m, n, params );
+    auto B_alloc = allocate_test_Matrix<scalar_t>( check || ref, true, n, nrhs, params );
     TestMatrix<slate::Matrix<scalar_t>> X_alloc;
     if (is_iterative) {
-        X_alloc = allocate_test_Matrix<scalar_t>( false, n, nrhs, params );
+        X_alloc = allocate_test_Matrix<scalar_t>( false, true, n, nrhs, params );
     }
 
     auto& A         = A_alloc.A;

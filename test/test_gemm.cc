@@ -103,9 +103,9 @@ void test_gemm_work(Params& params, bool run)
     int64_t Cm = m;
     int64_t Cn = n;
 
-    auto A_alloc = allocate_test_Matrix<scalar_t>( false, Am, An, params );
-    auto B_alloc = allocate_test_Matrix<scalar_t>( false, Bm, Bn, params );
-    auto C_alloc = allocate_test_Matrix<scalar_t>( ref, Cm, Cn, params );
+    auto A_alloc = allocate_test_Matrix<scalar_t>( false, true, Am, An, params );
+    auto B_alloc = allocate_test_Matrix<scalar_t>( false, true, Bm, Bn, params );
+    auto C_alloc = allocate_test_Matrix<scalar_t>( ref, true, Cm, Cn, params );
 
     auto& A         = A_alloc.A;
     auto& B         = B_alloc.A;
@@ -147,9 +147,9 @@ void test_gemm_work(Params& params, bool run)
     TestMatrix<slate::Matrix<scalar_t>> X_alloc, Y_alloc, Z_alloc;
     if (check && ! ref) {
         // Compute Y = alpha A * (B * X) + (beta C * X).
-        X_alloc = allocate_test_Matrix<scalar_t>( false, n, nrhs, params );
-        Y_alloc = allocate_test_Matrix<scalar_t>( false, m, nrhs, params );
-        Z_alloc = allocate_test_Matrix<scalar_t>( false, k, nrhs, params );
+        X_alloc = allocate_test_Matrix<scalar_t>( false, true, n, nrhs, params );
+        Y_alloc = allocate_test_Matrix<scalar_t>( false, true, m, nrhs, params );
+        Z_alloc = allocate_test_Matrix<scalar_t>( false, true, k, nrhs, params );
 
         auto& X = X_alloc.A;
         auto& Y = Y_alloc.A;

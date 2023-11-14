@@ -904,32 +904,36 @@ BaseMatrix<scalar_t>::BaseMatrix(
         ++nt_;
     }
 
-    // Pass variables into lambda w/out full this object
-    int64_t mt_1 = mt_-1;
-    int64_t last_mb = last_mb_;
-    int64_t nt_1 = nt_-1;
-    int64_t last_nb = last_nb_;
-    std::function<int64_t (int64_t i)>
-    realTileMb = [inTileMb, last_mb, mt_1](int64_t i) {
-        if (i == mt_1) {
-            return last_mb;
-        }
-        else {
-            return inTileMb( i );
-        }
-    };
-    std::function<int64_t (int64_t j)>
-    realTileNb = [inTileNb, last_nb, nt_1](int64_t j) {
-        if (j == nt_1) {
-            return last_nb;
-        }
-        else {
-            return inTileNb( j );
-        }
-    };
+    auto actTileMb = inTileMb;
+    if (last_mb_ != actTileMb( mt_-1 )) {
+        // Pass variables into lambda w/out full this object
+        int64_t mt_1 = mt_-1;
+        int64_t last_mb = last_mb_;
+        actTileMb = [inTileMb, last_mb, mt_1](int64_t i) {
+            if (i == mt_1) {
+                return last_mb;
+            }
+            else {
+                return inTileMb( i );
+            }
+        };
+    }
+    auto actTileNb = inTileNb;
+    if (last_nb_ != actTileNb( nt_-1 )) {
+        int64_t nt_1 = nt_-1;
+        int64_t last_nb = last_nb_;
+        actTileNb = [inTileNb, last_nb, nt_1](int64_t j) {
+            if (j == nt_1) {
+                return last_nb;
+            }
+            else {
+                return inTileNb( j );
+            }
+        };
+    }
 
     storage_ = std::make_shared< MatrixStorage< scalar_t > >(
-                                           mt_, nt_, realTileMb, realTileNb,
+                                           mt_, nt_, actTileMb, actTileNb,
                                            inTileRank, inTileDevice, mpi_comm );
 
     slate_mpi_call(

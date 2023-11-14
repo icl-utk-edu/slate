@@ -3487,6 +3487,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
             batch_count =
                 std::max(batch_count, int64_t(bucket->second.first.size()));
         }
+        allocateBatchArrays( batch_count, 1 );
 
         lapack::Queue* queue = comm_queue(device);
 
@@ -3497,7 +3498,7 @@ void BaseMatrix<scalar_t>::tileLayoutConvert(
             batch_count = bucket->second.first.size();
 
             scalar_t** array_dev = this->array_device(device);
-            scalar_t** work_array_dev = this->array_device(device) + batch_count;
+            scalar_t** work_array_dev = array_dev + batch_count;
 
             assert(array_dev      != nullptr);
             assert(work_array_dev != nullptr);

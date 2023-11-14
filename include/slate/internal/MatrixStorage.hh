@@ -645,11 +645,10 @@ void MatrixStorage<scalar_t>::allocateBatchArrays(
                 // Free device arrays.
                 blas::device_free(array_dev_[i][device], *queue);
 
-                // Free queues.
-                delete compute_queues_[i][device];
-
-                // Allocate queues.
-                compute_queues_[ i ][ device ] = new lapack::Queue( device );
+                if (compute_queues_[ i ][ device ] == nullptr) {
+                    // Allocate queues.
+                    compute_queues_[ i ][ device ] = new lapack::Queue( device );
+                }
 
                 // Allocate host arrays;
                 array_host_[i][device]

@@ -406,8 +406,8 @@ if (opts.lu):
     [ 'getriOOP', gen + dtype + la + n ],
     #[ 'gerfs', gen + dtype + la + n + trans ],
     #[ 'geequ', gen + dtype + la + n ],
-    [ 'gesv_mixed',   gen + dtype_double + la + n ],
-    [ 'gesv_mixed_gmres',  gen + dtype_double + la + n + ' --nrhs 1' ],
+    [ 'gesv_mixed',   gen + dtype_double + la + n + nonuniform_nb ],
+    [ 'gesv_mixed_gmres',  gen + dtype_double + la + n + ' --nrhs 1' + nonuniform_nb ],
     [ 'gesv_rbt', gen + dtype + la + n ],
     ]
 
@@ -628,25 +628,25 @@ if (opts.cond):
 # aux
 if (opts.aux):
     cmds += [
-    [ 'add',    gen + dtype + mn + ab        ],
-    [ 'tzadd',  gen + dtype + mn + ab + uplo ],
-    [ 'tradd',  gen + dtype + n  + ab + uplo ],
-    [ 'syadd',  gen + dtype + n  + ab + uplo ],
-    [ 'headd',  gen + dtype + n  + ab + uplo ],
+    [ 'add',    gen + dtype + mn + ab + nonuniform_nb        ],
+    [ 'tzadd',  gen + dtype + mn + ab + nonuniform_nb + uplo ],
+    [ 'tradd',  gen + dtype + n  + ab + nonuniform_nb + uplo ],
+    [ 'syadd',  gen + dtype + n  + ab + nonuniform_nb + uplo ],
+    [ 'headd',  gen + dtype + n  + ab + nonuniform_nb + uplo ],
 
-    [ 'copy',   gen + dtype + mn             ],
-    [ 'tzcopy', gen + dtype + mn      + uplo ],
-    [ 'trcopy', gen + dtype + n       + uplo ],
-    [ 'sycopy', gen + dtype + n       + uplo ],
-    [ 'hecopy', gen + dtype + n       + uplo ],
+    [ 'copy',   gen + dtype + mn      + nonuniform_nb        ],
+    [ 'tzcopy', gen + dtype + mn      + nonuniform_nb + uplo ],
+    [ 'trcopy', gen + dtype + n       + nonuniform_nb + uplo ],
+    [ 'sycopy', gen + dtype + n       + nonuniform_nb + uplo ],
+    [ 'hecopy', gen + dtype + n       + nonuniform_nb + uplo ],
 
-    [ 'scale',   gen + dtype + mn + ab        ],
-    [ 'tzscale', gen + dtype + mn + ab + uplo ],
-    [ 'trscale', gen + dtype + n  + ab + uplo ],
-    [ 'syscale', gen + dtype + n  + ab + uplo ],
-    [ 'hescale', gen + dtype + n  + ab + uplo ],
+    [ 'scale',   gen + dtype + mn + ab + nonuniform_nb        ],
+    [ 'tzscale', gen + dtype + mn + ab + nonuniform_nb + uplo ],
+    [ 'trscale', gen + dtype + n  + ab + nonuniform_nb + uplo ],
+    [ 'syscale', gen + dtype + n  + ab + nonuniform_nb + uplo ],
+    [ 'hescale', gen + dtype + n  + ab + nonuniform_nb + uplo ],
 
-    [ 'scale_row_col', gen + dtype + mn + equed ],
+    [ 'scale_row_col', gen + dtype + mn + equed + nonuniform_nb ],
 
     [ 'set',    gen + dtype + mn + ab + nonuniform_nb        ],
     [ 'tzset',  gen + dtype + mn + ab + nonuniform_nb + uplo ],

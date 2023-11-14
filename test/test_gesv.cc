@@ -390,35 +390,14 @@ void test_gesv_work(Params& params, bool run)
                 return;
             }
 
-            // MPI variables
-            int mpi_rank, myrow, mycol;
-            MPI_Comm_rank( MPI_COMM_WORLD, &mpi_rank );
-            gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
-
-            // BLACS/MPI variables
-            blas_int ictxt, myrow_, mycol_, p_, q_;
-            blas_int mpi_rank_ = 0, nprocs = 1;
             // initialize BLACS and ScaLAPACK
-            Cblacs_pinfo(&mpi_rank_, &nprocs);
-            slate_assert(p*q <= nprocs);
-            Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit( &ictxt, grid_order2str( grid_order ), p, q );
-            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            slate_assert( p == p_ );
-            slate_assert( q == q_ );
-            slate_assert( myrow == myrow_ );
-            slate_assert( mycol == mycol_ );
-
-            int nb = A_alloc.nb;
-
-            // ScaLAPACK descriptor for the reference matrix
-            blas_int Aref_desc[9], Bref_desc[9];
-
+            blas_int ictxt, Aref_desc[9], Bref_desc[9];
+            create_ScaLAPACK_context( grid_order, p, q, &ictxt );
             A_alloc.ScaLAPACK_descriptor( ictxt, Aref_desc );
             B_alloc.ScaLAPACK_descriptor( ictxt, Bref_desc );
 
             // ScaLAPACK data for pivots.
-            std::vector<blas_int> ipiv_ref(A_alloc.lld + nb);
+            std::vector<blas_int> ipiv_ref(A_alloc.lld + A_alloc.nb);
 
             if (params.routine == "getrs") {
                 // Factor matrix A.

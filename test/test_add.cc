@@ -131,26 +131,9 @@ void test_add_work(Params& params, bool run)
         #ifdef SLATE_HAVE_SCALAPACK
             // comparison with reference routine from ScaLAPACK
 
-            // BLACS/MPI variables
-            blas_int ictxt, p_, q_, myrow_, mycol_;
-            blas_int A_desc[9], B_desc[9];
-            blas_int mpi_rank_ = 0, nprocs = 1;
-            int mpi_rank, myrow, mycol;
-
             // initialize BLACS and ScaLAPACK
-            Cblacs_pinfo(&mpi_rank_, &nprocs);
-            MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-            slate_assert( mpi_rank_ == mpi_rank );
-            slate_assert(p*q <= nprocs);
-            Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit(&ictxt, "Col", p, q);
-            gridinfo(mpi_rank, p, q, &myrow, &mycol);
-            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            slate_assert( p == p_ );
-            slate_assert( q == q_ );
-            slate_assert( myrow == myrow_ );
-            slate_assert( mycol == mycol_ );
-
+            blas_int ictxt, A_desc[9], B_desc[9];
+            create_ScaLAPACK_context( slate::GridOrder::Col, p, q, &ictxt );
             A_alloc.ScaLAPACK_descriptor( ictxt, A_desc );
             B_alloc.ScaLAPACK_descriptor( ictxt, B_desc );
 

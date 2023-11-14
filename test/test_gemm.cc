@@ -229,25 +229,9 @@ void test_gemm_work(Params& params, bool run)
                 return;
             }
 
-            // BLACS/MPI variables
-            int mpi_rank, myrow, mycol;
-            blas_int ictxt, p_, q_, myrow_, mycol_;
-            blas_int A_desc[9], B_desc[9], C_desc[9], Cref_desc[9];
-            blas_int mpi_rank_ = 0, nprocs = 1;
-
             // initialize BLACS and ScaLAPACK
-            MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-            Cblacs_pinfo(&mpi_rank_, &nprocs);
-            slate_assert( mpi_rank == mpi_rank_ );
-            slate_assert(p*q <= nprocs);
-            Cblacs_get(-1, 0, &ictxt);
-            Cblacs_gridinit( &ictxt, grid_order2str( grid_order ), p, q );
-            gridinfo( mpi_rank, grid_order, p, q, &myrow, &mycol );
-            Cblacs_gridinfo(ictxt, &p_, &q_, &myrow_, &mycol_);
-            slate_assert( p == p_ );
-            slate_assert( q == q_ );
-            slate_assert( myrow == myrow_ );
-            slate_assert( mycol == mycol_ );
+            blas_int ictxt, A_desc[9], B_desc[9], C_desc[9], Cref_desc[9];
+            create_ScaLAPACK_context( grid_order, p, q, &ictxt );
 
             A_alloc.ScaLAPACK_descriptor( ictxt, A_desc );
             B_alloc.ScaLAPACK_descriptor( ictxt, B_desc );

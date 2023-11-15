@@ -68,7 +68,19 @@
     };
 
     } // namespace blas
-#endif // #elif defined( BLAS_HAVE_ROCBLAS )
+
+#elif defined( BLAS_HAVE_SYCL )
+    #include <sycl/sycl.hpp>
+    namespace blas {
+
+    template <typename T>
+    struct blas::real_type_traits< sycl::vec<T, 2> > {
+        using real_t = T;
+    };
+
+    } // namespace blas
+
+#endif // #defined( BLAS_HAVE_{CUBLAS,ROCBLAS,SYCL} )
 
 namespace slate {
 
@@ -76,9 +88,11 @@ namespace slate {
 /// GPU device implementations of kernels.
 namespace device {
 
-// Use omp-target-kernels when OneMKL-SYCL is used
+// Use when SYCL and oneMKL are used
 #if defined( BLAS_HAVE_SYCL )
-    #define SLATE_HAVE_OMPTARGET
+    // todo: make this build automatically
+    // Manually uncomment to compile OMP target-offload kernels
+    // #define SLATE_HAVE_OMPTARGET
 #endif
 
 // Simplify checking for GPU device support (CUDA / ROCm / SYCL).

@@ -131,8 +131,6 @@ void test_trcondest_work(Params& params, bool run)
 
     double gflop = lapack::Gflop<scalar_t>::getrf(m, n);
 
-    // Compute the matrix norm
-    real_t Anorm = 0;
     real_t slate_rcond = 1., scl_rcond = 1., exact_rcond = 1.;
 
     if (! ref_only) {
@@ -154,24 +152,24 @@ void test_trcondest_work(Params& params, bool run)
         double time = barrier_get_wtime(MPI_COMM_WORLD);
         auto R  = slate::TriangularMatrix<scalar_t>(
             slate::Uplo::Upper, slate::Diag::NonUnit, A );
-        slate::triangular_condest(norm, R, &slate_rcond, opts);
+
+        real_t Rnorm = slate::norm( norm, R, opts );
+        slate_rcond = slate::triangular_rcondest( norm, R, Rnorm, opts );
         // Using traditional BLAS/LAPACK name
-        // slate::trcondest(norm, R, &slate_rcond, opts);
+        // slate_rcond = slate::trcondest( norm, R, Rnorm, opts );
+        // slate::trcondest( norm, R, &slate_rcond, opts );  // deprecated
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance
         params.time() = time;
         params.gflops() = gflop / time;
 
         if (trace) slate::trace::Trace::finish();
-    }
 
-    if (check) {
-        // Find the exact condition number:
-        auto R  = slate::TriangularMatrix<scalar_t>(
-            slate::Uplo::Upper, slate::Diag::NonUnit, A );
-        Anorm = slate::norm(norm, R, opts);
-        trtri(R, opts);
-        exact_rcond = (1. / slate::norm(norm, R, opts)) / Anorm;
+        if (check) {
+            // Find the exact condition number:
+            trtri( R, opts );
+            exact_rcond = (1. / slate::norm( norm, R, opts )) / Rnorm;
+        }
     }
 
     if (ref) {

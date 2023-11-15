@@ -38,10 +38,6 @@ namespace slate {
 ///     If Norm::One, the 1-norm of the original matrix A.
 ///     If Norm::Inf, the infinity-norm of the original matrix A.
 ///
-/// @param[in,out] rcond
-///     The reciprocal of the condition number of the matrix A,
-///     computed as stated above.
-///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
 ///     - Option::Target:
@@ -51,15 +47,19 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
+/// @return rcond
+///     The reciprocal of the condition number of the matrix A,
+///     computed as stated above.
+///     rcond is used instead of cond to handle overflow better.
+///
 /// @ingroup cond_specialization
 ///
 template <typename scalar_t>
-void gecondest(
-           Norm in_norm,
-           Matrix<scalar_t>& A,
-           blas::real_type<scalar_t> Anorm,
-           blas::real_type<scalar_t> *rcond,
-           Options const& opts)
+blas::real_type<scalar_t> gecondest(
+    Norm in_norm,
+    Matrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts)
 {
     using blas::real;
     using real_t = blas::real_type<scalar_t>;
@@ -74,17 +74,18 @@ void gecondest(
     else {
         slate_error("invalid norm.");
     }
+    if (Anorm < 0 || std::isnan( Anorm )) {
+        slate_error( "invalid Anorm" );
+    }
 
     int64_t m = A.m();
 
     // Quick return
-    *rcond = 0.;
     if (m <= 1) {
-        *rcond = 1.;
-        return;
+        return 1.;
     }
     else if (Anorm == 0.) {
-        return;
+        return 0.;
     }
 
     scalar_t alpha = 1.;
@@ -118,8 +119,7 @@ void gecondest(
     MPI_Bcast( &isave[0], 4, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
     MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
 
-    while (kase != 0)
-    {
+    while (kase != 0) {
         if (kase == kase1) {
             // Multiply by inv(L).
             slate::trsm( Side::Left, alpha, L, X, opts );
@@ -144,42 +144,41 @@ void gecondest(
 
     // Compute the estimate of the reciprocal condition number.
     if (Ainvnorm != 0.0) {
-        *rcond = (1.0 / Ainvnorm) / Anorm;
+        return (1.0 / Ainvnorm) / Anorm;
+    }
+    else {
+        return 0.;
     }
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void gecondest<float>(
+float gecondest<float>(
     Norm in_norm,
     Matrix<float>& A,
     float Anorm,
-    float *rcond,
     Options const& opts);
 
 template
-void gecondest<double>(
+double gecondest<double>(
     Norm in_norm,
     Matrix<double>& A,
     double Anorm,
-    double *rcond,
     Options const& opts);
 
 template
-void gecondest< std::complex<float> >(
+float gecondest< std::complex<float> >(
     Norm in_norm,
     Matrix< std::complex<float> >& A,
     float Anorm,
-    float *rcond,
     Options const& opts);
 
 template
-void gecondest< std::complex<double> >(
+double gecondest< std::complex<double> >(
     Norm in_norm,
     Matrix< std::complex<double> >& A,
     double Anorm,
-    double *rcond,
     Options const& opts);
 
 } // namespace slate

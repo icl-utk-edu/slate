@@ -33,9 +33,9 @@ namespace slate {
 /// @param[in] A
 ///     On entry, the n-by-n triangular matrix $A$.
 ///
-/// @param[in,out] rcond
-///     The reciprocal of the condition number of the matrix A,
-///     computed as stated above.
+/// @param[in] Anorm
+///     If Norm::One, the 1-norm of the original matrix A.
+///     If Norm::Inf, the infinity-norm of the original matrix A.
 ///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
@@ -46,14 +46,19 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
+/// @return rcond
+///     The reciprocal of the condition number of the matrix A,
+///     computed as stated above.
+///     rcond is used instead of cond to handle overflow better.
+///
 /// @ingroup cond_specialization
 ///
 template <typename scalar_t>
-void trcondest(
-           Norm in_norm,
-           TriangularMatrix<scalar_t>& A,
-           blas::real_type<scalar_t> *rcond,
-           Options const& opts)
+blas::real_type<scalar_t> trcondest(
+    Norm in_norm,
+    TriangularMatrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts)
 {
     using blas::real;
     using real_t = blas::real_type<scalar_t>;
@@ -68,14 +73,18 @@ void trcondest(
     else {
         slate_error("invalid norm.");
     }
+    if (Anorm < 0 || std::isnan( Anorm )) {
+        slate_error( "invalid Anorm" );
+    }
 
     int64_t m = A.m();
 
     // Quick return
-    *rcond = 0.;
     if (m <= 0) {
-        *rcond = 1.;
-        return;
+        return 1.;
+    }
+    else if (Anorm == 0.) {
+        return 0.;
     }
 
     scalar_t alpha = 1.;
@@ -119,41 +128,43 @@ void trcondest(
         MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
     } // while (kase != 0)
 
-    real_t Anorm = norm(in_norm, A, opts);
     // Compute the estimate of the reciprocal condition number.
     if (Ainvnorm != 0.0) {
-        *rcond = (1.0 / Ainvnorm) / Anorm;
+        return (1.0 / Ainvnorm) / Anorm;
+    }
+    else {
+        return 0.;
     }
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void trcondest<float>(
+float trcondest<float>(
     Norm in_norm,
     TriangularMatrix<float>& A,
-    float *rcond,
+    float Anorm,
     Options const& opts);
 
 template
-void trcondest<double>(
+double trcondest<double>(
     Norm in_norm,
     TriangularMatrix<double>& A,
-    double *rcond,
+    double Anorm,
     Options const& opts);
 
 template
-void trcondest< std::complex<float> >(
+float trcondest< std::complex<float> >(
     Norm in_norm,
     TriangularMatrix< std::complex<float> >& A,
-    float *rcond,
+    float Anorm,
     Options const& opts);
 
 template
-void trcondest< std::complex<double> >(
+double trcondest< std::complex<double> >(
     Norm in_norm,
     TriangularMatrix< std::complex<double> >& A,
-    double *rcond,
+    double Anorm,
     Options const& opts);
 
 } // namespace slate

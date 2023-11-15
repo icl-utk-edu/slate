@@ -1345,15 +1345,14 @@ void steqr2(
 //-----------------------------------------
 // gecondest()
 template <typename scalar_t>
-void gecondest(
-        Norm in_norm,
-        Matrix<scalar_t>& A,
-        blas::real_type<scalar_t> Anorm,
-        blas::real_type<scalar_t> *rcond,
-        Options const& opts = Options());
+blas::real_type<scalar_t> gecondest(
+    Norm in_norm,
+    Matrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts = Options());
 
 template <typename scalar_t>
-[[deprecated( "Pass Anorm by value instead. Will be removed 2024-11." )]]
+[[deprecated( "Use rcond = gecondest(...) and pass Anorm by value instead. Will be removed 2024-11." )]]
 void gecondest(
         Norm in_norm,
         Matrix<scalar_t>& A,
@@ -1361,27 +1360,38 @@ void gecondest(
         blas::real_type<scalar_t> *rcond,
         Options const& opts = Options())
 {
-    gecondest( in_norm, A, *Anorm, rcond, opts );
+    *rcond = gecondest( in_norm, A, *Anorm, opts );
 }
 
 //-----------------------------------------
 // pocondest()
 template <typename scalar_t>
-void pocondest(
-        Norm in_norm,
-        HermitianMatrix<scalar_t>& A,
-        blas::real_type<scalar_t> Anorm,
-        blas::real_type<scalar_t> *rcond,
-        Options const& opts = Options());
+blas::real_type<scalar_t> pocondest(
+    Norm in_norm,
+    HermitianMatrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts = Options());
 
 //-----------------------------------------
 // trcondest()
 template <typename scalar_t>
+blas::real_type<scalar_t> trcondest(
+    Norm in_norm,
+    TriangularMatrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts = Options());
+
+template <typename scalar_t>
+[[deprecated( "Use rcond = trcondest(...) and pass Anorm. Will be removed 2024-11." )]]
 void trcondest(
         Norm in_norm,
         TriangularMatrix<scalar_t>& A,
         blas::real_type<scalar_t> *rcond,
-        Options const& opts = Options());
+        Options const& opts = Options())
+{
+    blas::real_type<scalar_t> Anorm = norm( in_norm, A, opts );
+    *rcond = trcondest( in_norm, A, Anorm, opts );
+}
 
 } // namespace slate
 

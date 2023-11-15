@@ -39,10 +39,6 @@ namespace slate {
 ///     If Norm::One, the 1-norm of the original matrix A.
 ///     If Norm::Inf, the infinity-norm of the original matrix A.
 ///
-/// @param[in,out] rcond
-///     The reciprocal of the condition number of the matrix A,
-///     computed as stated above.
-///
 /// @param[in] opts
 ///     Additional options, as map of name = value pairs. Possible options:
 ///     - Option::Target:
@@ -52,15 +48,19 @@ namespace slate {
 ///       - HostBatch: batched BLAS on CPU host.
 ///       - Devices:   batched BLAS on GPU device.
 ///
+/// @return rcond
+///     The reciprocal of the condition number of the matrix A,
+///     computed as stated above.
+///     rcond is used instead of cond to handle overflow better.
+///
 /// @ingroup cond_specialization
 ///
 template <typename scalar_t>
-void pocondest(
-           Norm in_norm,
-           HermitianMatrix<scalar_t>& A,
-           blas::real_type<scalar_t> Anorm,
-           blas::real_type<scalar_t> *rcond,
-           Options const& opts)
+blas::real_type<scalar_t> pocondest(
+    Norm in_norm,
+    HermitianMatrix<scalar_t>& A,
+    blas::real_type<scalar_t> Anorm,
+    Options const& opts)
 {
     using blas::real;
     using real_t = blas::real_type<scalar_t>;
@@ -69,17 +69,18 @@ void pocondest(
     if (in_norm != Norm::One && in_norm != Norm::Inf) {
         slate_error("invalid norm.");
     }
+    if (Anorm < 0 || std::isnan( Anorm )) {
+        slate_error( "invalid Anorm" );
+    }
 
     int64_t m = A.m();
 
     // Quick return
-    *rcond = 0.;
     if (m <= 1) {
-        *rcond = 1.;
-        return;
+        return 1.;
     }
     else if (Anorm == 0.) {
-        return;
+        return 0.;
     }
 
     real_t Ainvnorm = 0.0;
@@ -107,8 +108,7 @@ void pocondest(
     MPI_Bcast( &isave[0], 4, MPI_INT64_T, X.tileRank(0, 0), A.mpiComm() );
     MPI_Bcast( &kase, 1, MPI_INT, X.tileRank(0, 0), A.mpiComm() );
 
-    while (kase != 0)
-    {
+    while (kase != 0) {
         // A is symmetric, so both cases are equivalent
         potrs( A, X, opts );
 
@@ -119,42 +119,41 @@ void pocondest(
 
     // Compute the estimate of the reciprocal condition number.
     if (Ainvnorm != 0.0) {
-        *rcond = (1.0 / Ainvnorm) / Anorm;
+        return (1.0 / Ainvnorm) / Anorm;
+    }
+    else {
+        return 0.;
     }
 }
 
 //------------------------------------------------------------------------------
 // Explicit instantiations.
 template
-void pocondest<float>(
+float pocondest<float>(
     Norm in_norm,
     HermitianMatrix<float>& A,
     float Anorm,
-    float *rcond,
     Options const& opts);
 
 template
-void pocondest<double>(
+double pocondest<double>(
     Norm in_norm,
     HermitianMatrix<double>& A,
     double Anorm,
-    double *rcond,
     Options const& opts);
 
 template
-void pocondest< std::complex<float> >(
+float pocondest< std::complex<float> >(
     Norm in_norm,
     HermitianMatrix< std::complex<float> >& A,
     float Anorm,
-    float *rcond,
     Options const& opts);
 
 template
-void pocondest< std::complex<double> >(
+double pocondest< std::complex<double> >(
     Norm in_norm,
     HermitianMatrix< std::complex<double> >& A,
     double Anorm,
-    double *rcond,
     Options const& opts);
 
 } // namespace slate

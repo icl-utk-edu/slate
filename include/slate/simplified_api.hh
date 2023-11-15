@@ -363,14 +363,13 @@ void lu_inverse_using_factor_out_of_place(
 
 // gecondest
 template <typename scalar_t>
-void lu_condest_using_factor(
-    Norm norm,
+blas::real_type<scalar_t> lu_rcondest_using_factor(
+    Norm in_norm,
     Matrix<scalar_t>& A,
     blas::real_type<scalar_t> Anorm,
-    blas::real_type<scalar_t> *rcond,
     Options const& opts = Options())
 {
-    gecondest(norm, A, Anorm, rcond, opts);
+    return gecondest( in_norm, A, Anorm, opts );
 }
 
 //-----------------------------------------
@@ -495,14 +494,13 @@ void chol_inverse_using_factor(
 
 // pocondest
 template <typename scalar_t>
-void chol_condest_using_factor(
-    Norm norm,
+blas::real_type<scalar_t> chol_rcondest_using_factor(
+    Norm in_norm,
     HermitianMatrix<scalar_t>& A,
     blas::real_type<scalar_t> Anorm,
-    blas::real_type<scalar_t> *rcond,
     Options const& opts = Options())
 {
-    pocondest(norm, A, Anorm, rcond, opts);
+    return pocondest( in_norm, A, Anorm, opts );
 }
 
 //-----------------------------------------
@@ -684,15 +682,14 @@ void lq_multiply_by_q(
 
 // trcondest
 template <typename scalar_t>
-void triangular_condest(
-    Norm norm,
+blas::real_type<scalar_t> triangular_rcondest(
+    Norm in_norm,
     TriangularMatrix<scalar_t>& A,
-    blas::real_type<scalar_t> *rcond,
+    blas::real_type<scalar_t> Anorm,
     Options const& opts = Options())
 {
-    trcondest(norm, A, rcond, opts);
+    return trcondest( in_norm, A, Anorm, opts );
 }
-
 
 //------------------------------------------------------------------------------
 // Symmetric/Hermitian Eigenvalues

@@ -110,7 +110,6 @@ public:
         auto tile = tiles_[device+1];
         tiles_[device+1] = nullptr;
         if (tile != nullptr) {
-            assert(!tile->stateOn(MOSI::OnHold));
             delete tile;
             --num_instances_;
         }

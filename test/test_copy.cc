@@ -69,11 +69,6 @@ void test_copy_work(Params& params, bool run)
         {slate::Option::Target, target}
     };
 
-    // MPI variables
-    int mpi_rank, myrow, mycol;
-    MPI_Comm_rank(MPI_COMM_WORLD, &mpi_rank);
-    gridinfo(mpi_rank, p, q, &myrow, &mycol);
-
     auto A_alloc = allocate_test_Matrix<scalar_t>( check || ref, false, m, n, params );
     auto B_alloc = allocate_test_Matrix<scalar_t>( check || ref, false, m, n, params );
 

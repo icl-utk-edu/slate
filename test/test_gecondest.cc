@@ -180,7 +180,6 @@ void test_gecondest_work(Params& params, bool run)
         slate_rcond = slate::lu_rcondest_using_factor( norm, A, Anorm, opts );
         // Using traditional BLAS/LAPACK name
         // slate_rcond = slate::gecondest( norm, A, Anorm, opts );
-        // slate::gecondest( norm, A, &Anorm, &slate_rcond, opts );  // deprecated
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance
         params.time() = time;

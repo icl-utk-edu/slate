@@ -157,7 +157,6 @@ void test_trcondest_work(Params& params, bool run)
         slate_rcond = slate::triangular_rcondest( norm, R, Rnorm, opts );
         // Using traditional BLAS/LAPACK name
         // slate_rcond = slate::trcondest( norm, R, Rnorm, opts );
-        // slate::trcondest( norm, R, &slate_rcond, opts );  // deprecated
         time = barrier_get_wtime(MPI_COMM_WORLD) - time;
         // compute and save timing/performance
         params.time() = time;

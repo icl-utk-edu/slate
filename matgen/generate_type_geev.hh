@@ -28,7 +28,6 @@
 
 namespace slate {
 
-
 // -----------------------------------------------------------------------------
 /// Generates matrix using general eigenvalue decomposition, $A = V T V^H$,
 /// with orthogonal eigenvectors.
@@ -39,6 +38,28 @@ namespace slate {
 /// @ingroup generate_matrix
 template <typename scalar_t>
 void generate_geev(
+    MatrixParams& params,
+    TestMatrixDist dist,
+    blas::real_type<scalar_t> cond,
+    blas::real_type<scalar_t> sigma_max,
+    slate::Matrix<scalar_t>& A,
+    std::vector< blas::real_type<scalar_t> >& Sigma,
+    int64_t seed,
+    slate::Options const& opts )
+{
+    throw std::exception();  // not implemented
+}
+
+// -----------------------------------------------------------------------------
+/// Generates matrix using general eigenvalue decomposition, $A = X T X^{-1}$,
+/// with random eigenvectors.
+/// Not yet implemented.
+///
+/// Internal function, called from generate_matrix().
+///
+/// @ingroup generate_matrix
+template <typename scalar_t>
+void generate_geevx(
     MatrixParams& params,
     TestMatrixDist dist,
     blas::real_type<scalar_t> cond,

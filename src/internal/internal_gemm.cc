@@ -151,13 +151,20 @@ void gemm(internal::TargetType<Target::HostNest>,
     assert(A.mt() == C.mt());
     assert(B.nt() == C.nt());
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     int err = 0;
     std::string err_msg;
     int64_t C_mt = C.mt();
     int64_t C_nt = C.nt();
 
     #pragma omp parallel for collapse(2) schedule(dynamic, 1) slate_omp_default_none \
-        shared(A, B, C, err, err_msg) firstprivate(C_nt, C_mt, layout, alpha, beta)
+        shared(A, B, C, err, err_msg) firstprivate(C_nt, C_mt, layout, alpha, beta) \
+        firstprivate(call_tile_tick)
     for (int64_t i = 0; i < C_mt; ++i) {
         for (int64_t j = 0; j < C_nt; ++j) {
             if (C.tileIsLocal(i, j)) {
@@ -168,9 +175,11 @@ void gemm(internal::TargetType<Target::HostNest>,
                     tile::gemm(
                         alpha, A(i, 0), B(0, j),
                         beta,  C(i, j) );
-                    // todo: shouldn't tileRelease()?
-                    A.tileTick(i, 0);
-                    B.tileTick(0, j);
+                    if (call_tile_tick) {
+                        // todo: shouldn't tileRelease()?
+                        A.tileTick(i, 0);
+                        B.tileTick(0, j);
+                    }
                 }
                 catch (std::exception& e) {
                     err = __LINE__;
@@ -211,6 +220,12 @@ void gemm(internal::TargetType<Target::HostBatch>,
     assert(B.mt() == 1);
     assert(A.mt() == C.mt());
     assert(B.nt() == C.nt());
+
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
 
     // load off-diagonal tiles to host, if not there
     // also count tiles
@@ -357,12 +372,14 @@ void gemm(internal::TargetType<Target::HostBatch>,
             // mkl_set_num_threads_local(1);
         }
 
-        for (int64_t i = 0; i < C.mt(); ++i) {
-            for (int64_t j = 0; j < C.nt(); ++j) {
-                if (C.tileIsLocal(i, j)) {
-                    // todo: shouldn't tileRelease()?
-                    A.tileTick(i, 0);
-                    B.tileTick(0, j);
+        if (call_tile_tick) {
+            for (int64_t i = 0; i < C.mt(); ++i) {
+                for (int64_t j = 0; j < C.nt(); ++j) {
+                    if (C.tileIsLocal(i, j)) {
+                        // todo: shouldn't tileRelease()?
+                        A.tileTick(i, 0);
+                        B.tileTick(0, j);
+                    }
                 }
             }
         }

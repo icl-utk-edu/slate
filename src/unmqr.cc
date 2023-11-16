@@ -8,6 +8,7 @@
 #include "slate/Matrix.hh"
 #include "internal/Tile_tpmqrt.hh"
 #include "internal/internal.hh"
+#include "internal/internal_util.hh"
 
 namespace slate {
 
@@ -111,24 +112,11 @@ void unmqr(
 
             auto A_panel = A.sub(k, A_mt-1, k, k);
 
-            // Find ranks in this column.
-            std::set<int> ranks_set;
-            A_panel.getRanks(&ranks_set);
-            assert(ranks_set.size() > 0);
-
             // Find each rank's first (top-most) row in this panel,
             // where the triangular tile resulting from local geqrf
             // panel will reside.
-            std::vector< int64_t > first_indices;
-            first_indices.reserve(ranks_set.size());
-            for (int r: ranks_set) {
-                for (int64_t i = 0; i < A_panel.mt(); ++i) {
-                    if (A_panel.tileRank(i, 0) == r) {
-                        first_indices.push_back(i+k);
-                        break;
-                    }
-                }
-            }
+            std::vector< int64_t > first_indices
+                            = internal::geqrf_compute_first_indices(A_panel, k);
 
             #pragma omp task depend(inout:block[k]) \
                              depend(in:block[lastk])

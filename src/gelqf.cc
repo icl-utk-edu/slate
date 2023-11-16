@@ -7,50 +7,11 @@
 #include "auxiliary/Debug.hh"
 #include "slate/Matrix.hh"
 #include "internal/internal.hh"
+#include "internal/internal_util.hh"
 
 namespace slate {
 
 namespace impl {
-
-//------------------------------------------------------------------------------
-/// An auxiliary routine to find each rank's first (top-most) row
-/// in panel k.
-///
-/// @param[in] A_panel
-///     Current panel, which is a sub of the input matrix $A$.
-///
-/// @param[in] k
-///     Index of the current panel in the input matrix $A$.
-///
-/// @param[out] first_indices
-///     The array of computed indices.
-///
-/// @ingroup geqrf_impl
-///
-template <typename scalar_t>
-void gelqf_compute_first_indices(
-    Matrix<scalar_t>& A_panel, int64_t k,
-    std::vector< int64_t >& first_indices )
-{
-    // Find ranks in this row.
-    std::set<int> ranks_set;
-    A_panel.getRanks(&ranks_set);
-    assert(ranks_set.size() > 0);
-
-    // Find each rank's first (left-most) col in this panel,
-    // where the triangular tile resulting from local gelqf panel
-    // will reside.
-    first_indices.reserve(ranks_set.size());
-    for (int r: ranks_set) {
-        for (int64_t j = 0; j < A_panel.nt(); ++j) {
-            if (A_panel.tileRank(0, j) == r) {
-                first_indices.push_back(j+k);
-                break;
-            }
-        }
-    }
-    // TODO try to combine this w/ geqrf version
-}
 
 //------------------------------------------------------------------------------
 /// Distributed parallel LQ factorization.
@@ -197,8 +158,8 @@ void gelqf(
             auto  AT_panel =      AT.sub(k, A_nt-1, k, k);
             auto TlT_panel = TlocalT.sub(k, A_nt-1, k, k);
 
-            std::vector< int64_t > first_indices;
-            gelqf_compute_first_indices(A_panel, k, first_indices);
+            std::vector< int64_t > first_indices
+                            = internal::gelqf_compute_first_indices(A_panel, k);
 
             // panel, high priority
             #pragma omp task depend(inout:block[k]) priority(1)
@@ -365,7 +326,7 @@ void gelqf(
 
                 for (int64_t j : first_indices) {
                     if (Tlocal.tileIsLocal( k, j )) {
-                        // Tlocal and Treduce have the have process distribution
+                        // Tlocal and Treduce have the same process distribution
                         Tlocal.tileUpdateOrigin( k, j );
                         Tlocal.releaseLocalWorkspaceTile( k, j );
                         if (j != k) {

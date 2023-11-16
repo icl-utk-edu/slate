@@ -81,6 +81,12 @@ void gemmA(internal::TargetType<Target::HostTask>,
     assert( A.nt() == B.mt() );
     assert( A.mt() == C.mt() );
 
+    TileReleaseStrategy tile_release_strategy = get_option(
+            opts, Option::TileReleaseStrategy, TileReleaseStrategy::All );
+
+    bool call_tile_tick = tile_release_strategy == TileReleaseStrategy::Internal
+                          || tile_release_strategy == TileReleaseStrategy::All;
+
     const scalar_t zero = 0.0;
     const scalar_t one  = 1.0;
 
@@ -155,7 +161,7 @@ void gemmA(internal::TargetType<Target::HostTask>,
     for (int64_t i = 0; i < A.mt(); ++i) {
         #pragma omp task slate_omp_default_none \
             shared( A, B, C, err ) \
-            firstprivate(i, alpha, beta, zero, one, c_tile_acquired) \
+            firstprivate(i, alpha, beta, zero, one, c_tile_acquired, call_tile_tick) \
             priority(priority)
         {
             try {
@@ -176,8 +182,10 @@ void gemmA(internal::TargetType<Target::HostTask>,
 
                             beta_j = one;
 
-                            A.tileTick( i, j );
-                            B.tileTick( j, k );
+                            if (call_tile_tick) {
+                                A.tileTick( i, j );
+                                B.tileTick( j, k );
+                            }
                             Cik_modified = true;
                         }
                     }
